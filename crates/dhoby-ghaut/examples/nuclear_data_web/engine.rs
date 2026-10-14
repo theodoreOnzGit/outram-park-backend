@@ -60,18 +60,21 @@ pub enum Request {
     PutFile { slot: u8, name: String, bytes: Vec<u8> },
     /// Build a continuous-energy ACE table from the ENDF slot (gh:#864).
     MakeAce { job: u32, temp_k: f64, purr: bool, heatr: bool },
-    /// Build a thermal ACE table from the thermal slot (gh:#865).
-    MakeThermalAce { job: u32, n_outgoing: usize, n_cosines: usize, emax_ev: f64 },
+    /// Build a thermal ACE table from the thermal slot, on the incident slot's
+    /// tape when one is held (gh:#865).
+    MakeThermalAce { job: u32, tname: String, n_outgoing: usize, n_cosines: usize, emax_ev: f64, tol: f64, natom: f64, from_tape: bool, iwt: u8 },
     /// Compare the two ACE slots (gh:#863).
     CompareAce { job: u32 },
 }
 
 /// The file slots of the ACE rungs: what each holds.
-pub const SLOTS: [&str; 4] = ["ENDF tape", "thermal tape or LEAPR deck", "first ACE file", "second ACE file"];
+pub const SLOTS: [&str; 5] = ["ENDF tape", "thermal tape or LEAPR deck", "first ACE file", "second ACE file", "incident-neutron ENDF tape (optional)"];
 pub const SLOT_ENDF: u8 = 0;
 pub const SLOT_THERMAL: u8 = 1;
 pub const SLOT_ACE_FIRST: u8 = 2;
 pub const SLOT_ACE_SECOND: u8 = 3;
+/// The scatterer's incident-neutron tape for the thermal generator (gh:#865).
+pub const SLOT_INCIDENT: u8 = 4;
 
 /// One drawn series: `tag` says what it is (see each handler), `pts` are
 /// `(x, y)`, `w` an optional per-point weight (a probability, or a packed
@@ -102,7 +105,7 @@ pub struct NdEngine {
     tapes: Vec<(String, Tape, i32)>,
     base: Option<ReconrResult>,
     /// The ACE rungs' files, by slot ([`SLOTS`]).
-    files: [Option<(String, Vec<u8>)>; 4],
+    files: [Option<(String, Vec<u8>)>; 5],
 }
 
 fn clip(p: &[(f64, f64)], lo: f64, hi: f64) -> Vec<(f64, f64)> {
@@ -178,9 +181,10 @@ impl NdEngine {
                 post(made(job, r, now() - t0));
                 return;
             }
-            Request::MakeThermalAce { job, n_outgoing, n_cosines, emax_ev } => {
-                let g = crate::acetools::ThermalGen { n_outgoing, n_cosines, emax_ev };
-                let r = self.file(SLOT_THERMAL).and_then(|(n, b)| crate::acetools::build_thermal_ace(b, n, g));
+            Request::MakeThermalAce { job, tname, n_outgoing, n_cosines, emax_ev, tol, natom, from_tape, iwt } => {
+                let g = crate::acetools::ThermalGen { tname, n_outgoing, n_cosines, emax_ev, tol, natom, from_tape, iwt };
+                let incident = self.file(SLOT_INCIDENT).ok().map(|(_, b)| b);
+                let r = self.file(SLOT_THERMAL).and_then(|(n, b)| crate::acetools::build_thermal_ace(b, n, g, incident));
                 post(made(job, r, now() - t0));
                 return;
             }
@@ -523,7 +527,10 @@ mod web {
                     ("put", vec![*slot as f64])
                 }
                 Request::MakeAce { job, temp_k, purr, heatr } => ("makeace", vec![*job as f64, *temp_k, f64::from(u8::from(*purr)), f64::from(u8::from(*heatr))]),
-                Request::MakeThermalAce { job, n_outgoing, n_cosines, emax_ev } => ("makethermal", vec![*job as f64, *n_outgoing as f64, *n_cosines as f64, *emax_ev]),
+                Request::MakeThermalAce { job, tname, n_outgoing, n_cosines, emax_ev, tol, natom, from_tape, iwt } => {
+                    js::set(&o, "name", tname.as_str());
+                    ("makethermal", vec![*job as f64, *n_outgoing as f64, *n_cosines as f64, *emax_ev, *tol, *natom, if *from_tape { 1.0 } else { 0.0 }, *iwt as f64])
+                }
                 Request::CompareAce { job } => ("compare", vec![*job as f64]),
             };
             js::set(&o, "kind", kind);
@@ -543,7 +550,7 @@ mod web {
                 "groupr" => Request::Groupr { job: n(0) as u32, ngroups: n(1) as usize, sigma0: n(2) },
                 "put" => Request::PutFile { slot: n(0) as u8, name: js::get_str(v, "name"), bytes: js::get_u8s(v, "bytes") },
                 "makeace" => Request::MakeAce { job: n(0) as u32, temp_k: n(1), purr: n(2) != 0.0, heatr: n(3) != 0.0 },
-                "makethermal" => Request::MakeThermalAce { job: n(0) as u32, n_outgoing: n(1) as usize, n_cosines: n(2) as usize, emax_ev: n(3) },
+                "makethermal" => Request::MakeThermalAce { job: n(0) as u32, tname: js::get_str(v, "name"), n_outgoing: n(1) as usize, n_cosines: n(2) as usize, emax_ev: n(3), tol: n(4), natom: n(5), from_tape: n(6) != 0.0, iwt: n(7) as u8 },
                 "compare" => Request::CompareAce { job: n(0) as u32 },
                 other => return Err(format!("unknown request '{other}'")),
             })

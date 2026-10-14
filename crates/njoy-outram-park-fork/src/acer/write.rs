@@ -91,9 +91,11 @@ impl AceTable {
                 date: self.date.clone(),
                 comment: self.comment.clone(),
                 mat_id: self.mat_id.clone(),
-                // A table this crate builds carries no IZ/AW pairs; upstream
-                // fills them only from ACER's `nxtra` cards.
-                iz: [0; 16],
+                // ~~A table this crate builds carries no IZ/AW pairs; upstream
+                // fills them only from ACER's `nxtra` cards.~~ CORRECTED
+                // 2026-10-14 (gh:#865): a thermal table's IZ is ACER card 8a's
+                // moderator ZA list (`acer.f90:396-399`); AW stays 0.
+                iz: self.iz,
                 aw: [0.0; 16],
             },
             nxs: self.nxs,

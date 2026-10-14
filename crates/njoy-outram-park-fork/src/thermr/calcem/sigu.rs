@@ -135,7 +135,7 @@ pub fn sigu(ii: &IncoherentInelastic, e: f64, u: f64, natom: f64, tolin: f64) ->
     let lasym = ii.lasym;
     let beta = &ii.beta;
     let nbeta = beta.len() as i32;
-    let sig = |ep: f64| ii.double_differential(e, ep, u, temp_k, natom);
+    let sig = |ep: f64| super::sig(ii, e, ep, u, temp_k, natom);
     let sigfig = crate::mixr::mix::sigfig;
 
     let tol = tolin;

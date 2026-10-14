@@ -4076,24 +4076,24 @@ Everything `crates/njoy-outram-park-fork/src/thermr/scattering.rs::IncoherentIne
 
 <div class="cw-node" style="margin-left:0.9em">
 
-[`thermal.rs::thermr_terp`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/thermal.rs#L165) `pub(crate) fn thermr_terp(x: &[f64], y: &[f64], arg: f64, il: usize) -> f64` — Port of THERMR's `terp` (`thermr.f90`): Lagrangian interpolation (or extrapolation) of order `il` on an **increasing** table, returning the tabulated value when `arg` matches a node to `1e-10` relative. · called at [L323](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/thermr/scattering.rs#L323)
+[`thermal.rs::thermr_terp`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/thermal.rs#L264) `pub(crate) fn thermr_terp(x: &[f64], y: &[f64], arg: f64, il: usize) -> f64` — Port of THERMR's `terp` (`thermr.f90`): Lagrangian interpolation (or extrapolation) of order `il` on an **increasing** table, returning the tabulated value when `arg` matches a node to `1e-10` relative. · called at [L323](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/thermr/scattering.rs#L323)
 
 <details open><summary>code</summary>
 
-<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/thermal.rs:165 fn thermr_terp -->
-<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/thermal.rs:183 xx -->
-<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/thermal.rs:186 xx -->
-<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/thermal.rs:188 xx -->
-<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/thermal.rs:190 xx -->
-<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/thermal.rs:195 xx -->
-<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/thermal.rs:198 xx -->
+<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/thermal.rs:264 fn thermr_terp -->
+<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/thermal.rs:282 xx -->
+<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/thermal.rs:285 xx -->
+<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/thermal.rs:287 xx -->
+<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/thermal.rs:289 xx -->
+<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/thermal.rs:294 xx -->
+<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/thermal.rs:297 xx -->
 
 ```rust,ignore
-{{#include ../../../../../crates/njoy-outram-park-fork/src/acer/thermal.rs:165:165}}
+{{#include ../../../../../crates/njoy-outram-park-fork/src/acer/thermal.rs:264:264}}
     // …
-{{#include ../../../../../crates/njoy-outram-park-fork/src/acer/thermal.rs:181:191}}
+{{#include ../../../../../crates/njoy-outram-park-fork/src/acer/thermal.rs:280:290}}
     // …
-{{#include ../../../../../crates/njoy-outram-park-fork/src/acer/thermal.rs:193:199}}
+{{#include ../../../../../crates/njoy-outram-park-fork/src/acer/thermal.rs:292:298}}
     // … (the rest of the function: follow the link above)
 ```
 
@@ -4102,37 +4102,37 @@ Everything `crates/njoy-outram-park-fork/src/thermr/scattering.rs::IncoherentIne
 
 <div class="cw-node" style="margin-left:1.8em">
 
-UNRESOLVED(closure): `xx` at [L183](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/thermal.rs#L183) (→ [`crates/njoy-outram-park-fork/src/acer/thermal.rs:182`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/thermal.rs#L182)) — call through a closure or fn-typed binding `xx`
+UNRESOLVED(closure): `xx` at [L282](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/thermal.rs#L282) (→ [`crates/njoy-outram-park-fork/src/acer/thermal.rs:281`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/thermal.rs#L281)) — call through a closure or fn-typed binding `xx`
 
 </div>
 
 <div class="cw-node" style="margin-left:1.8em">
 
-UNRESOLVED(closure): `xx` at [L186](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/thermal.rs#L186) (→ [`crates/njoy-outram-park-fork/src/acer/thermal.rs:182`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/thermal.rs#L182)) — call through a closure or fn-typed binding `xx`
+UNRESOLVED(closure): `xx` at [L285](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/thermal.rs#L285) (→ [`crates/njoy-outram-park-fork/src/acer/thermal.rs:281`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/thermal.rs#L281)) — call through a closure or fn-typed binding `xx`
 
 </div>
 
 <div class="cw-node" style="margin-left:1.8em">
 
-UNRESOLVED(closure): `xx` at [L188](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/thermal.rs#L188) (→ [`crates/njoy-outram-park-fork/src/acer/thermal.rs:182`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/thermal.rs#L182)) — call through a closure or fn-typed binding `xx`
+UNRESOLVED(closure): `xx` at [L287](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/thermal.rs#L287) (→ [`crates/njoy-outram-park-fork/src/acer/thermal.rs:281`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/thermal.rs#L281)) — call through a closure or fn-typed binding `xx`
 
 </div>
 
 <div class="cw-node" style="margin-left:1.8em">
 
-UNRESOLVED(closure): `xx` at [L190](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/thermal.rs#L190) (→ [`crates/njoy-outram-park-fork/src/acer/thermal.rs:182`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/thermal.rs#L182)) — call through a closure or fn-typed binding `xx`
+UNRESOLVED(closure): `xx` at [L289](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/thermal.rs#L289) (→ [`crates/njoy-outram-park-fork/src/acer/thermal.rs:281`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/thermal.rs#L281)) — call through a closure or fn-typed binding `xx`
 
 </div>
 
 <div class="cw-node" style="margin-left:1.8em">
 
-UNRESOLVED(closure): `xx` at [L195](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/thermal.rs#L195) (→ [`crates/njoy-outram-park-fork/src/acer/thermal.rs:182`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/thermal.rs#L182)) — call through a closure or fn-typed binding `xx`
+UNRESOLVED(closure): `xx` at [L294](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/thermal.rs#L294) (→ [`crates/njoy-outram-park-fork/src/acer/thermal.rs:281`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/thermal.rs#L281)) — call through a closure or fn-typed binding `xx`
 
 </div>
 
 <div class="cw-node" style="margin-left:1.8em">
 
-UNRESOLVED(closure): `xx` at [L198](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/thermal.rs#L198) (→ [`crates/njoy-outram-park-fork/src/acer/thermal.rs:182`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/thermal.rs#L182)) — call through a closure or fn-typed binding `xx`
+UNRESOLVED(closure): `xx` at [L297](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/thermal.rs#L297) (→ [`crates/njoy-outram-park-fork/src/acer/thermal.rs:281`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/thermal.rs#L281)) — call through a closure or fn-typed binding `xx`
 
 </div>
 <!-- /code-walk -->
@@ -7276,15 +7276,15 @@ Everything `crates/njoy-outram-park-fork/src/acer/mod.rs::build_full_with_purr` 
 
 <div class="cw-node" style="margin-left:0.0em">
 
-[`mod.rs::build_full_with_purr`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L592) `pub fn build_full_with_purr(tape: &crate::endf::tape::Tape, mat: i32, recon: &crate::reconr::ReconrResult, kt_mev: f64, suffix: u32, nbin: usize, nladr: usize, nsamp: usize) -> Result<AceTable, crate::NjoyError>` — `build_full` **with PURR**: the same table plus the UNR probability-table block, i.e.
+[`mod.rs::build_full_with_purr`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L596) `pub fn build_full_with_purr(tape: &crate::endf::tape::Tape, mat: i32, recon: &crate::reconr::ReconrResult, kt_mev: f64, suffix: u32, nbin: usize, nladr: usize, nsamp: usize) -> Result<AceTable, crate::NjoyError>` — `build_full` **with PURR**: the same table plus the UNR probability-table block, i.e.
 
 <details><summary>code</summary>
 
-<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/mod.rs:592 fn build_full_with_purr -->
-<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/mod.rs:602 build_deck -->
+<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/mod.rs:596 fn build_full_with_purr -->
+<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/mod.rs:606 build_deck -->
 
 ```rust,ignore
-{{#include ../../../../../crates/njoy-outram-park-fork/src/acer/mod.rs:592:603}}
+{{#include ../../../../../crates/njoy-outram-park-fork/src/acer/mod.rs:596:607}}
 ```
 
 </details>
@@ -7292,39 +7292,39 @@ Everything `crates/njoy-outram-park-fork/src/acer/mod.rs::build_full_with_purr` 
 
 <div class="cw-node" style="margin-left:0.9em">
 
-[`mod.rs::build_deck`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L457) `pub fn build_deck(tape: &crate::endf::tape::Tape, mat: i32, recon: &crate::reconr::ReconrResult, kt_mev: f64, suffix: u32, deck: &AceDeck) -> Result<AceTable, crate::NjoyError>` — Assemble a continuous-energy `AceTable` for the given `AceDeck`. · called at [L602](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L602)
+[`mod.rs::build_deck`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L461) `pub fn build_deck(tape: &crate::endf::tape::Tape, mat: i32, recon: &crate::reconr::ReconrResult, kt_mev: f64, suffix: u32, deck: &AceDeck) -> Result<AceTable, crate::NjoyError>` — Assemble a continuous-energy `AceTable` for the given `AceDeck`. · called at [L606](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L606)
 
 <details><summary>code</summary>
 
-<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/mod.rs:457 fn build_deck -->
-<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/mod.rs:467 through_pendf_text -->
-<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/mod.rs:470 from_endf -->
-<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/mod.rs:480 section -->
-<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/mod.rs:481 parse_elastic_angular -->
-<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/mod.rs:487 from -->
-<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/mod.rs:489 build_emissions -->
-<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/mod.rs:496 heatr_kerma -->
-<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/mod.rs:500 build -->
+<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/mod.rs:461 fn build_deck -->
+<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/mod.rs:471 through_pendf_text -->
+<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/mod.rs:474 from_endf -->
+<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/mod.rs:484 section -->
+<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/mod.rs:485 parse_elastic_angular -->
+<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/mod.rs:491 from -->
+<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/mod.rs:493 build_emissions -->
+<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/mod.rs:500 heatr_kerma -->
 <!-- snippet-check: crates/njoy-outram-park-fork/src/acer/mod.rs:504 build -->
-<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/mod.rs:505 from_reconr_full_with_extras -->
-<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/mod.rs:513 has_mt19_distributions -->
-<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/mod.rs:514 build_with_pendf -->
-<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/mod.rs:518 gpd -->
-<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/mod.rs:519 insert_gpd -->
-<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/mod.rs:526 append -->
+<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/mod.rs:508 build -->
+<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/mod.rs:509 from_reconr_full_with_extras -->
+<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/mod.rs:517 has_mt19_distributions -->
+<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/mod.rs:518 build_with_pendf -->
+<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/mod.rs:522 gpd -->
+<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/mod.rs:523 insert_gpd -->
+<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/mod.rs:530 append -->
 
 ```rust,ignore
-{{#include ../../../../../crates/njoy-outram-park-fork/src/acer/mod.rs:457:471}}
+{{#include ../../../../../crates/njoy-outram-park-fork/src/acer/mod.rs:461:475}}
     // …
-{{#include ../../../../../crates/njoy-outram-park-fork/src/acer/mod.rs:478:482}}
+{{#include ../../../../../crates/njoy-outram-park-fork/src/acer/mod.rs:482:486}}
     // …
-{{#include ../../../../../crates/njoy-outram-park-fork/src/acer/mod.rs:485:490}}
+{{#include ../../../../../crates/njoy-outram-park-fork/src/acer/mod.rs:489:494}}
     // …
-{{#include ../../../../../crates/njoy-outram-park-fork/src/acer/mod.rs:494:506}}
+{{#include ../../../../../crates/njoy-outram-park-fork/src/acer/mod.rs:498:510}}
     // …
-{{#include ../../../../../crates/njoy-outram-park-fork/src/acer/mod.rs:511:520}}
+{{#include ../../../../../crates/njoy-outram-park-fork/src/acer/mod.rs:515:524}}
     // …
-{{#include ../../../../../crates/njoy-outram-park-fork/src/acer/mod.rs:524:527}}
+{{#include ../../../../../crates/njoy-outram-park-fork/src/acer/mod.rs:528:531}}
     // … (the rest of the function: follow the link above)
 ```
 
@@ -7333,7 +7333,7 @@ Everything `crates/njoy-outram-park-fork/src/acer/mod.rs::build_full_with_purr` 
 
 <div class="cw-node" style="margin-left:1.8em">
 
-[`mod.rs::ReconrResult::through_pendf_text`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/reconr/mod.rs#L179) `pub fn through_pendf_text(&self) -> ReconrResult` — This result as a module downstream of RECONR sees it: written to a PENDF tape and read back. · called at [L467](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L467) · *(calls below the depth limit not shown)*
+[`mod.rs::ReconrResult::through_pendf_text`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/reconr/mod.rs#L179) `pub fn through_pendf_text(&self) -> ReconrResult` — This result as a module downstream of RECONR sees it: written to a PENDF tape and read back. · called at [L471](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L471) · *(calls below the depth limit not shown)*
 
 <details><summary>code</summary>
 
@@ -7348,7 +7348,7 @@ Everything `crates/njoy-outram-park-fork/src/acer/mod.rs::build_full_with_purr` 
 
 <div class="cw-node" style="margin-left:1.8em">
 
-[`tables.rs::UrrProbabilityTables::from_endf`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/purr/tables.rs#L294) `pub fn from_endf(tape: &Tape, mat: i32, temperature_k: f64, nbin: usize, nladr: usize, nsamp: usize) -> Result<Option<Self>, NjoyError>` — Build probability tables for material `mat` from an ENDF `tape`, by running PURR across the evaluation's unresolved range. · called at [L470](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L470) · *(calls below the depth limit not shown)*
+[`tables.rs::UrrProbabilityTables::from_endf`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/purr/tables.rs#L294) `pub fn from_endf(tape: &Tape, mat: i32, temperature_k: f64, nbin: usize, nladr: usize, nsamp: usize) -> Result<Option<Self>, NjoyError>` — Build probability tables for material `mat` from an ENDF `tape`, by running PURR across the evaluation's unresolved range. · called at [L474](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L474) · *(calls below the depth limit not shown)*
 
 <details><summary>code</summary>
 
@@ -7364,7 +7364,7 @@ Everything `crates/njoy-outram-park-fork/src/acer/mod.rs::build_full_with_purr` 
 
 <div class="cw-node" style="margin-left:1.8em">
 
-[`tape.rs::Tape::section`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/endf/tape.rs#L213) `pub fn section(&self, mat: i32, mf: i32, mt: i32) -> Option<&Section>` — Look up a section by `(mat, mf, mt)`, returning `None` if absent. · called at [L480](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L480) · *(calls below the depth limit not shown)*
+[`tape.rs::Tape::section`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/endf/tape.rs#L213) `pub fn section(&self, mat: i32, mf: i32, mt: i32) -> Option<&Section>` — Look up a section by `(mat, mf, mt)`, returning `None` if absent. · called at [L484](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L484) · *(calls below the depth limit not shown)*
 
 <details><summary>code</summary>
 
@@ -7379,7 +7379,7 @@ Everything `crates/njoy-outram-park-fork/src/acer/mod.rs::build_full_with_purr` 
 
 <div class="cw-node" style="margin-left:1.8em">
 
-[`angular.rs::parse_elastic_angular`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/angular.rs#L235) `pub fn parse_elastic_angular(section: &Section) -> Result<ElasticAngular, NjoyError>` — Parse an MF=4 section (any MT, despite the name) into the **AND words NJOY's ACER writes** -- the ACE builder's entry point. · called at [L481](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L481) · *(calls below the depth limit not shown)*
+[`angular.rs::parse_elastic_angular`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/angular.rs#L235) `pub fn parse_elastic_angular(section: &Section) -> Result<ElasticAngular, NjoyError>` — Parse an MF=4 section (any MT, despite the name) into the **AND words NJOY's ACER writes** -- the ACE builder's entry point. · called at [L485](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L485) · *(calls below the depth limit not shown)*
 
 <details><summary>code</summary>
 
@@ -7394,7 +7394,7 @@ Everything `crates/njoy-outram-park-fork/src/acer/mod.rs::build_full_with_purr` 
 
 <div class="cw-node" style="margin-left:1.8em">
 
-[`mt.rs::i32::from`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/endf/mt.rs#L212) `fn from(mt: MtReaction) -> i32` · called at [L487](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L487) · *(calls below the depth limit not shown)*
+[`mt.rs::i32::from`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/endf/mt.rs#L212) `fn from(mt: MtReaction) -> i32` · called at [L491](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L491) · *(calls below the depth limit not shown)*
 
 <details><summary>code</summary>
 
@@ -7410,7 +7410,7 @@ Everything `crates/njoy-outram-park-fork/src/acer/mod.rs::build_full_with_purr` 
 
 <div class="cw-node" style="margin-left:1.8em">
 
-[`core.rs::build_emissions`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/energy/core.rs#L237) `pub fn build_emissions(tape: &Tape, mat: i32, awr: f64, partials: &[(i32, f64)]) -> Vec<Emission>` — Identify the neutron-producing reactions among `partials` and build their ACE emissions (TYR + energy law). · called at [L489](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L489) · *(calls below the depth limit not shown)*
+[`core.rs::build_emissions`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/energy/core.rs#L237) `pub fn build_emissions(tape: &Tape, mat: i32, awr: f64, partials: &[(i32, f64)]) -> Vec<Emission>` — Identify the neutron-producing reactions among `partials` and build their ACE emissions (TYR + energy law). · called at [L493](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L493) · *(calls below the depth limit not shown)*
 
 <details><summary>code</summary>
 
@@ -7426,7 +7426,7 @@ Everything `crates/njoy-outram-park-fork/src/acer/mod.rs::build_full_with_purr` 
 
 <div class="cw-node" style="margin-left:1.8em">
 
-[`mod.rs::heatr_kerma`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/heatr/driver/mod.rs#L407) `pub fn heatr_kerma(endf: &Tape, mat: i32, recon: &crate::reconr::ReconrResult) -> Result<crate::heatr::Kerma, NjoyError>` — MT=301 as an ACE build needs it: HEATR (this translation) run on `pendf_for_heatr``(endf, mat, recon)` with photons transported (`local = 0`), and the MT=301 TAB1 of its output returned as a `crate::heatr::Kerma` (energies and values exactly as HEATR wrote them). · called at [L496](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L496) · *(calls below the depth limit not shown)*
+[`mod.rs::heatr_kerma`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/heatr/driver/mod.rs#L407) `pub fn heatr_kerma(endf: &Tape, mat: i32, recon: &crate::reconr::ReconrResult) -> Result<crate::heatr::Kerma, NjoyError>` — MT=301 as an ACE build needs it: HEATR (this translation) run on `pendf_for_heatr``(endf, mat, recon)` with photons transported (`local = 0`), and the MT=301 TAB1 of its output returned as a `crate::heatr::Kerma` (energies and values exactly as HEATR wrote them). · called at [L500](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L500) · *(calls below the depth limit not shown)*
 
 <details><summary>code</summary>
 
@@ -7441,7 +7441,7 @@ Everything `crates/njoy-outram-park-fork/src/acer/mod.rs::build_full_with_purr` 
 
 <div class="cw-node" style="margin-left:1.8em">
 
-[`nu.rs::build`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/nu.rs#L185) `pub fn build(tape: &Tape, mat: i32) -> Result<Option<Vec<f64>>, NjoyError>` — The complete NU block for one material, ready to splice into XSS. · called at [L500](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L500) · *(calls below the depth limit not shown)*
+[`nu.rs::build`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/nu.rs#L185) `pub fn build(tape: &Tape, mat: i32) -> Result<Option<Vec<f64>>, NjoyError>` — The complete NU block for one material, ready to splice into XSS. · called at [L504](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L504) · *(calls below the depth limit not shown)*
 
 <details><summary>code</summary>
 
@@ -7456,7 +7456,7 @@ Everything `crates/njoy-outram-park-fork/src/acer/mod.rs::build_full_with_purr` 
 
 <div class="cw-node" style="margin-left:1.8em">
 
-[`delayed_blocks.rs::build`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/delayed_blocks.rs#L94) `pub fn build(tape: &Tape, mat: i32, ismooth: bool) -> Result<Option<DelayedBlocks>, NjoyError>` — Build the delayed-neutron blocks for `mat`, or `Ok(None)` when upstream would write none: no MF=1/MT=455, or no MF=5/MT=455 to go with it. · called at [L504](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L504) · *(calls below the depth limit not shown)*
+[`delayed_blocks.rs::build`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/delayed_blocks.rs#L94) `pub fn build(tape: &Tape, mat: i32, ismooth: bool) -> Result<Option<DelayedBlocks>, NjoyError>` — Build the delayed-neutron blocks for `mat`, or `Ok(None)` when upstream would write none: no MF=1/MT=455, or no MF=5/MT=455 to go with it. · called at [L508](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L508) · *(calls below the depth limit not shown)*
 
 <details><summary>code</summary>
 
@@ -7472,7 +7472,7 @@ Everything `crates/njoy-outram-park-fork/src/acer/mod.rs::build_full_with_purr` 
 
 <div class="cw-node" style="margin-left:1.8em">
 
-[`build.rs::AceTable::from_reconr_full_with_extras`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/build.rs#L385) `pub fn from_reconr_full_with_extras(result: &ReconrResult, kt_mev: f64, suffix: u32, angular: Option<&ElasticAngular>, emissions: &[Emission], heating: Option<&crate::heatr::Kerma>, nu: Option<&[f64]>, mt19: bool, photons: Option<&[super::photon_blocks::PhotonEntry]>, urr: Option<&crate::purr::UrrProbabilityTables>, delayed: Option<&super::delayed_blocks::DelayedBlocks>) -> Self` — [`from_reconr_full`][Self::from_reconr_full] plus the optional blocks a full NJOY deck writes: the UNR probability tables (PURR, GitHub #325) and the **delayed-neutron blocks** DNU/BDD/DNEDL/DNED (`super::delayed_blocks`). · called at [L505](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L505) · *(calls below the depth limit not shown)*
+[`build.rs::AceTable::from_reconr_full_with_extras`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/build.rs#L385) `pub fn from_reconr_full_with_extras(result: &ReconrResult, kt_mev: f64, suffix: u32, angular: Option<&ElasticAngular>, emissions: &[Emission], heating: Option<&crate::heatr::Kerma>, nu: Option<&[f64]>, mt19: bool, photons: Option<&[super::photon_blocks::PhotonEntry]>, urr: Option<&crate::purr::UrrProbabilityTables>, delayed: Option<&super::delayed_blocks::DelayedBlocks>) -> Self` — [`from_reconr_full`][Self::from_reconr_full] plus the optional blocks a full NJOY deck writes: the UNR probability tables (PURR, GitHub #325) and the **delayed-neutron blocks** DNU/BDD/DNEDL/DNED (`super::delayed_blocks`). · called at [L509](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L509) · *(calls below the depth limit not shown)*
 
 <details><summary>code</summary>
 
@@ -7487,7 +7487,7 @@ Everything `crates/njoy-outram-park-fork/src/acer/mod.rs::build_full_with_purr` 
 
 <div class="cw-node" style="margin-left:1.8em">
 
-[`mod.rs::has_mt19_distributions`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L160) `pub fn has_mt19_distributions(tape: &crate::endf::tape::Tape, mat: i32) -> bool` · called at [L513](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L513) · *(calls below the depth limit not shown)*
+[`mod.rs::has_mt19_distributions`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L160) `pub fn has_mt19_distributions(tape: &crate::endf::tape::Tape, mat: i32) -> bool` · called at [L517](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L517) · *(calls below the depth limit not shown)*
 
 <details><summary>code</summary>
 
@@ -7502,7 +7502,7 @@ Everything `crates/njoy-outram-park-fork/src/acer/mod.rs::build_full_with_purr` 
 
 <div class="cw-node" style="margin-left:1.8em">
 
-[`photon_blocks.rs::build_with_pendf`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/photon_blocks.rs#L150) `pub fn build_with_pendf(tape: &Tape, mat: i32, pendf: &crate::reconr::ReconrResult) -> Option<Vec<PhotonEntry>>` — `build` with the PENDF the ACE table is made from, which is what upstream converts MF=12 `LO = 2` sections against (`convr`, `acefc.f90:4173-4350`). · called at [L514](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L514) · *(calls below the depth limit not shown)*
+[`photon_blocks.rs::build_with_pendf`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/photon_blocks.rs#L150) `pub fn build_with_pendf(tape: &Tape, mat: i32, pendf: &crate::reconr::ReconrResult) -> Option<Vec<PhotonEntry>>` — `build` with the PENDF the ACE table is made from, which is what upstream converts MF=12 `LO = 2` sections against (`convr`, `acefc.f90:4173-4350`). · called at [L518](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L518) · *(calls below the depth limit not shown)*
 
 <details><summary>code</summary>
 
@@ -7517,7 +7517,7 @@ Everything `crates/njoy-outram-park-fork/src/acer/mod.rs::build_full_with_purr` 
 
 <div class="cw-node" style="margin-left:1.8em">
 
-[`photon_blocks.rs::gpd`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/photon_blocks.rs#L648) `pub fn gpd(tape: &Tape, mat: i32, pendf: &crate::reconr::ReconrResult) -> Option<Vec<f64>>` — GPD, the total photon-production cross section on the ACE grid: `gamsum` (`acefc.f90:3572-3866`) as `acelod` stores it (`acefc.f90:6255-6271`). · called at [L518](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L518) · *(calls below the depth limit not shown)*
+[`photon_blocks.rs::gpd`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/photon_blocks.rs#L648) `pub fn gpd(tape: &Tape, mat: i32, pendf: &crate::reconr::ReconrResult) -> Option<Vec<f64>>` — GPD, the total photon-production cross section on the ACE grid: `gamsum` (`acefc.f90:3572-3866`) as `acelod` stores it (`acefc.f90:6255-6271`). · called at [L522](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L522) · *(calls below the depth limit not shown)*
 
 <details><summary>code</summary>
 
@@ -7533,14 +7533,14 @@ Everything `crates/njoy-outram-park-fork/src/acer/mod.rs::build_full_with_purr` 
 
 <div class="cw-node" style="margin-left:1.8em">
 
-[`mod.rs::AceTable::insert_gpd`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L538) `pub fn insert_gpd(&mut self, gpd: &[f64])` — Insert the GPD block (`JXS(12)`) immediately before MTRP, where `acelod` stores it (`acefc.f90:6255-6271`), and shift every locator that follows. · called at [L519](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L519) · *(calls below the depth limit not shown)*
+[`mod.rs::AceTable::insert_gpd`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L542) `pub fn insert_gpd(&mut self, gpd: &[f64])` — Insert the GPD block (`JXS(12)`) immediately before MTRP, where `acelod` stores it (`acefc.f90:6255-6271`), and shift every locator that follows. · called at [L523](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L523) · *(calls below the depth limit not shown)*
 
 <details><summary>code</summary>
 
-<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/mod.rs:538 fn insert_gpd -->
+<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/mod.rs:542 fn insert_gpd -->
 
 ```rust,ignore
-{{#include ../../../../../crates/njoy-outram-park-fork/src/acer/mod.rs:538:564}}
+{{#include ../../../../../crates/njoy-outram-park-fork/src/acer/mod.rs:542:568}}
 ```
 
 </details>
@@ -7548,7 +7548,7 @@ Everything `crates/njoy-outram-park-fork/src/acer/mod.rs::build_full_with_purr` 
 
 <div class="cw-node" style="margin-left:1.8em">
 
-[`acelcp.rs::append`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/acelcp.rs#L327) `pub fn append(table: &mut AceTable, tape: &Tape, mat: i32, pendf: &ReconrResult)` — Append `acelcp`'s charged-particle blocks to a neutron table (`izai = 1`). · called at [L526](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L526) · *(calls below the depth limit not shown)*
+[`acelcp.rs::append`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/acelcp.rs#L327) `pub fn append(table: &mut AceTable, tape: &Tape, mat: i32, pendf: &ReconrResult)` — Append `acelcp`'s charged-particle blocks to a neutron table (`izai = 1`). · called at [L530](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L530) · *(calls below the depth limit not shown)*
 
 <details><summary>code</summary>
 
@@ -7564,14 +7564,14 @@ Everything `crates/njoy-outram-park-fork/src/acer/mod.rs::build_full_with_purr` 
 
 <div class="cw-node" style="margin-left:0.9em">
 
-[`mod.rs::AceDeck::default`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L420) `fn default() -> Self` · called at [L602](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L602)
+[`mod.rs::AceDeck::default`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L424) `fn default() -> Self` · called at [L606](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L606)
 
 <details><summary>code</summary>
 
-<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/mod.rs:420 fn default -->
+<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/mod.rs:424 fn default -->
 
 ```rust,ignore
-{{#include ../../../../../crates/njoy-outram-park-fork/src/acer/mod.rs:420:426}}
+{{#include ../../../../../crates/njoy-outram-park-fork/src/acer/mod.rs:424:430}}
 ```
 
 </details>
@@ -7579,14 +7579,14 @@ Everything `crates/njoy-outram-park-fork/src/acer/mod.rs::build_full_with_purr` 
 
 <div class="cw-node" style="margin-left:0.9em">
 
-[`mod.rs::AceDeck::with_purr`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L437) `pub fn with_purr(mut self, nbin: usize, nladr: usize, nsamp: usize) -> Self` — Add PURR with `nbin` bands, `nladr` ladders and `nsamp` samples. · called at [L602](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L602)
+[`mod.rs::AceDeck::with_purr`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L441) `pub fn with_purr(mut self, nbin: usize, nladr: usize, nsamp: usize) -> Self` — Add PURR with `nbin` bands, `nladr` ladders and `nsamp` samples. · called at [L606](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L606)
 
 <details><summary>code</summary>
 
-<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/mod.rs:437 fn with_purr -->
+<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/mod.rs:441 fn with_purr -->
 
 ```rust,ignore
-{{#include ../../../../../crates/njoy-outram-park-fork/src/acer/mod.rs:437:440}}
+{{#include ../../../../../crates/njoy-outram-park-fork/src/acer/mod.rs:441:444}}
 ```
 
 </details>
@@ -7601,39 +7601,39 @@ Everything `crates/njoy-outram-park-fork/src/acer/mod.rs::build_deck` reaches in
 
 <div class="cw-node" style="margin-left:0.0em">
 
-[`mod.rs::build_deck`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L457) `pub fn build_deck(tape: &crate::endf::tape::Tape, mat: i32, recon: &crate::reconr::ReconrResult, kt_mev: f64, suffix: u32, deck: &AceDeck) -> Result<AceTable, crate::NjoyError>` — Assemble a continuous-energy `AceTable` for the given `AceDeck`.
+[`mod.rs::build_deck`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L461) `pub fn build_deck(tape: &crate::endf::tape::Tape, mat: i32, recon: &crate::reconr::ReconrResult, kt_mev: f64, suffix: u32, deck: &AceDeck) -> Result<AceTable, crate::NjoyError>` — Assemble a continuous-energy `AceTable` for the given `AceDeck`.
 
 <details><summary>code</summary>
 
-<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/mod.rs:457 fn build_deck -->
-<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/mod.rs:467 through_pendf_text -->
-<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/mod.rs:470 from_endf -->
-<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/mod.rs:480 section -->
-<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/mod.rs:481 parse_elastic_angular -->
-<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/mod.rs:487 from -->
-<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/mod.rs:489 build_emissions -->
-<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/mod.rs:496 heatr_kerma -->
-<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/mod.rs:500 build -->
+<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/mod.rs:461 fn build_deck -->
+<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/mod.rs:471 through_pendf_text -->
+<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/mod.rs:474 from_endf -->
+<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/mod.rs:484 section -->
+<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/mod.rs:485 parse_elastic_angular -->
+<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/mod.rs:491 from -->
+<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/mod.rs:493 build_emissions -->
+<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/mod.rs:500 heatr_kerma -->
 <!-- snippet-check: crates/njoy-outram-park-fork/src/acer/mod.rs:504 build -->
-<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/mod.rs:505 from_reconr_full_with_extras -->
-<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/mod.rs:513 has_mt19_distributions -->
-<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/mod.rs:514 build_with_pendf -->
-<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/mod.rs:518 gpd -->
-<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/mod.rs:519 insert_gpd -->
-<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/mod.rs:526 append -->
+<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/mod.rs:508 build -->
+<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/mod.rs:509 from_reconr_full_with_extras -->
+<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/mod.rs:517 has_mt19_distributions -->
+<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/mod.rs:518 build_with_pendf -->
+<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/mod.rs:522 gpd -->
+<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/mod.rs:523 insert_gpd -->
+<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/mod.rs:530 append -->
 
 ```rust,ignore
-{{#include ../../../../../crates/njoy-outram-park-fork/src/acer/mod.rs:457:471}}
+{{#include ../../../../../crates/njoy-outram-park-fork/src/acer/mod.rs:461:475}}
     // …
-{{#include ../../../../../crates/njoy-outram-park-fork/src/acer/mod.rs:478:482}}
+{{#include ../../../../../crates/njoy-outram-park-fork/src/acer/mod.rs:482:486}}
     // …
-{{#include ../../../../../crates/njoy-outram-park-fork/src/acer/mod.rs:485:490}}
+{{#include ../../../../../crates/njoy-outram-park-fork/src/acer/mod.rs:489:494}}
     // …
-{{#include ../../../../../crates/njoy-outram-park-fork/src/acer/mod.rs:494:506}}
+{{#include ../../../../../crates/njoy-outram-park-fork/src/acer/mod.rs:498:510}}
     // …
-{{#include ../../../../../crates/njoy-outram-park-fork/src/acer/mod.rs:511:520}}
+{{#include ../../../../../crates/njoy-outram-park-fork/src/acer/mod.rs:515:524}}
     // …
-{{#include ../../../../../crates/njoy-outram-park-fork/src/acer/mod.rs:524:527}}
+{{#include ../../../../../crates/njoy-outram-park-fork/src/acer/mod.rs:528:531}}
     // … (the rest of the function: follow the link above)
 ```
 
@@ -7642,7 +7642,7 @@ Everything `crates/njoy-outram-park-fork/src/acer/mod.rs::build_deck` reaches in
 
 <div class="cw-node" style="margin-left:0.9em">
 
-[`mod.rs::ReconrResult::through_pendf_text`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/reconr/mod.rs#L179) `pub fn through_pendf_text(&self) -> ReconrResult` — This result as a module downstream of RECONR sees it: written to a PENDF tape and read back. · called at [L467](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L467)
+[`mod.rs::ReconrResult::through_pendf_text`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/reconr/mod.rs#L179) `pub fn through_pendf_text(&self) -> ReconrResult` — This result as a module downstream of RECONR sees it: written to a PENDF tape and read back. · called at [L471](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L471)
 
 <details><summary>code</summary>
 
@@ -7711,7 +7711,7 @@ UNRESOLVED(closure): `rt` at [L186](https://github.com/theodoreOnzGit/outram-par
 
 <div class="cw-node" style="margin-left:0.9em">
 
-[`tables.rs::UrrProbabilityTables::from_endf`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/purr/tables.rs#L294) `pub fn from_endf(tape: &Tape, mat: i32, temperature_k: f64, nbin: usize, nladr: usize, nsamp: usize) -> Result<Option<Self>, NjoyError>` — Build probability tables for material `mat` from an ENDF `tape`, by running PURR across the evaluation's unresolved range. · called at [L470](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L470)
+[`tables.rs::UrrProbabilityTables::from_endf`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/purr/tables.rs#L294) `pub fn from_endf(tape: &Tape, mat: i32, temperature_k: f64, nbin: usize, nladr: usize, nsamp: usize) -> Result<Option<Self>, NjoyError>` — Build probability tables for material `mat` from an ENDF `tape`, by running PURR across the evaluation's unresolved range. · called at [L474](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L474)
 
 <details><summary>code</summary>
 
@@ -8014,7 +8014,7 @@ UNRESOLVED(closure): `mt153` at [L399](https://github.com/theodoreOnzGit/outram-
 
 <div class="cw-node" style="margin-left:0.9em">
 
-[`tape.rs::Tape::section`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/endf/tape.rs#L213) `pub fn section(&self, mat: i32, mf: i32, mt: i32) -> Option<&Section>` — Look up a section by `(mat, mf, mt)`, returning `None` if absent. · called at [L480](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L480)
+[`tape.rs::Tape::section`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/endf/tape.rs#L213) `pub fn section(&self, mat: i32, mf: i32, mt: i32) -> Option<&Section>` — Look up a section by `(mat, mf, mt)`, returning `None` if absent. · called at [L484](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L484)
 
 <details><summary>code</summary>
 
@@ -8029,7 +8029,7 @@ UNRESOLVED(closure): `mt153` at [L399](https://github.com/theodoreOnzGit/outram-
 
 <div class="cw-node" style="margin-left:0.9em">
 
-[`angular.rs::parse_elastic_angular`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/angular.rs#L235) `pub fn parse_elastic_angular(section: &Section) -> Result<ElasticAngular, NjoyError>` — Parse an MF=4 section (any MT, despite the name) into the **AND words NJOY's ACER writes** -- the ACE builder's entry point. · called at [L481](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L481)
+[`angular.rs::parse_elastic_angular`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/angular.rs#L235) `pub fn parse_elastic_angular(section: &Section) -> Result<ElasticAngular, NjoyError>` — Parse an MF=4 section (any MT, despite the name) into the **AND words NJOY's ACER writes** -- the ACE builder's entry point. · called at [L485](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L485)
 
 <details><summary>code</summary>
 
@@ -8060,7 +8060,7 @@ UNRESOLVED(closure): `mt153` at [L399](https://github.com/theodoreOnzGit/outram-
 
 <div class="cw-node" style="margin-left:0.9em">
 
-[`mt.rs::i32::from`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/endf/mt.rs#L212) `fn from(mt: MtReaction) -> i32` · called at [L487](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L487)
+[`mt.rs::i32::from`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/endf/mt.rs#L212) `fn from(mt: MtReaction) -> i32` · called at [L491](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L491)
 
 <details><summary>code</summary>
 
@@ -8076,7 +8076,7 @@ UNRESOLVED(closure): `mt153` at [L399](https://github.com/theodoreOnzGit/outram-
 
 <div class="cw-node" style="margin-left:0.9em">
 
-[`core.rs::build_emissions`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/energy/core.rs#L237) `pub fn build_emissions(tape: &Tape, mat: i32, awr: f64, partials: &[(i32, f64)]) -> Vec<Emission>` — Identify the neutron-producing reactions among `partials` and build their ACE emissions (TYR + energy law). · called at [L489](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L489)
+[`core.rs::build_emissions`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/energy/core.rs#L237) `pub fn build_emissions(tape: &Tape, mat: i32, awr: f64, partials: &[(i32, f64)]) -> Vec<Emission>` — Identify the neutron-producing reactions among `partials` and build their ACE emissions (TYR + energy law). · called at [L493](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L493)
 
 <details><summary>code</summary>
 
@@ -8248,7 +8248,7 @@ UNRESOLVED(closure): `mt153` at [L399](https://github.com/theodoreOnzGit/outram-
 
 <div class="cw-node" style="margin-left:0.9em">
 
-[`mod.rs::heatr_kerma`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/heatr/driver/mod.rs#L407) `pub fn heatr_kerma(endf: &Tape, mat: i32, recon: &crate::reconr::ReconrResult) -> Result<crate::heatr::Kerma, NjoyError>` — MT=301 as an ACE build needs it: HEATR (this translation) run on `pendf_for_heatr``(endf, mat, recon)` with photons transported (`local = 0`), and the MT=301 TAB1 of its output returned as a `crate::heatr::Kerma` (energies and values exactly as HEATR wrote them). · called at [L496](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L496)
+[`mod.rs::heatr_kerma`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/heatr/driver/mod.rs#L407) `pub fn heatr_kerma(endf: &Tape, mat: i32, recon: &crate::reconr::ReconrResult) -> Result<crate::heatr::Kerma, NjoyError>` — MT=301 as an ACE build needs it: HEATR (this translation) run on `pendf_for_heatr``(endf, mat, recon)` with photons transported (`local = 0`), and the MT=301 TAB1 of its output returned as a `crate::heatr::Kerma` (energies and values exactly as HEATR wrote them). · called at [L500](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L500)
 
 <details><summary>code</summary>
 
@@ -8332,7 +8332,7 @@ UNRESOLVED(other): `default` at [L409](https://github.com/theodoreOnzGit/outram-
 
 <div class="cw-node" style="margin-left:0.9em">
 
-[`nu.rs::build`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/nu.rs#L185) `pub fn build(tape: &Tape, mat: i32) -> Result<Option<Vec<f64>>, NjoyError>` — The complete NU block for one material, ready to splice into XSS. · called at [L500](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L500)
+[`nu.rs::build`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/nu.rs#L185) `pub fn build(tape: &Tape, mat: i32) -> Result<Option<Vec<f64>>, NjoyError>` — The complete NU block for one material, ready to splice into XSS. · called at [L504](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L504)
 
 <details><summary>code</summary>
 
@@ -8381,7 +8381,7 @@ UNRESOLVED(other): `default` at [L409](https://github.com/theodoreOnzGit/outram-
 
 <div class="cw-node" style="margin-left:0.9em">
 
-[`delayed_blocks.rs::build`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/delayed_blocks.rs#L94) `pub fn build(tape: &Tape, mat: i32, ismooth: bool) -> Result<Option<DelayedBlocks>, NjoyError>` — Build the delayed-neutron blocks for `mat`, or `Ok(None)` when upstream would write none: no MF=1/MT=455, or no MF=5/MT=455 to go with it. · called at [L504](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L504)
+[`delayed_blocks.rs::build`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/delayed_blocks.rs#L94) `pub fn build(tape: &Tape, mat: i32, ismooth: bool) -> Result<Option<DelayedBlocks>, NjoyError>` — Build the delayed-neutron blocks for `mat`, or `Ok(None)` when upstream would write none: no MF=1/MT=455, or no MF=5/MT=455 to go with it. · called at [L508](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L508)
 
 <details><summary>code</summary>
 
@@ -8576,7 +8576,7 @@ UNRESOLVED(other): `default` at [L409](https://github.com/theodoreOnzGit/outram-
 
 <div class="cw-node" style="margin-left:0.9em">
 
-[`build.rs::AceTable::from_reconr_full_with_extras`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/build.rs#L385) `pub fn from_reconr_full_with_extras(result: &ReconrResult, kt_mev: f64, suffix: u32, angular: Option<&ElasticAngular>, emissions: &[Emission], heating: Option<&crate::heatr::Kerma>, nu: Option<&[f64]>, mt19: bool, photons: Option<&[super::photon_blocks::PhotonEntry]>, urr: Option<&crate::purr::UrrProbabilityTables>, delayed: Option<&super::delayed_blocks::DelayedBlocks>) -> Self` — [`from_reconr_full`][Self::from_reconr_full] plus the optional blocks a full NJOY deck writes: the UNR probability tables (PURR, GitHub #325) and the **delayed-neutron blocks** DNU/BDD/DNEDL/DNED (`super::delayed_blocks`). · called at [L505](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L505)
+[`build.rs::AceTable::from_reconr_full_with_extras`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/build.rs#L385) `pub fn from_reconr_full_with_extras(result: &ReconrResult, kt_mev: f64, suffix: u32, angular: Option<&ElasticAngular>, emissions: &[Emission], heating: Option<&crate::heatr::Kerma>, nu: Option<&[f64]>, mt19: bool, photons: Option<&[super::photon_blocks::PhotonEntry]>, urr: Option<&crate::purr::UrrProbabilityTables>, delayed: Option<&super::delayed_blocks::DelayedBlocks>) -> Self` — [`from_reconr_full`][Self::from_reconr_full] plus the optional blocks a full NJOY deck writes: the UNR probability tables (PURR, GitHub #325) and the **delayed-neutron blocks** DNU/BDD/DNEDL/DNED (`super::delayed_blocks`). · called at [L509](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L509)
 
 <details><summary>code</summary>
 
@@ -8609,7 +8609,7 @@ UNRESOLVED(other): `default` at [L409](https://github.com/theodoreOnzGit/outram-
 
 <div class="cw-node" style="margin-left:0.9em">
 
-[`mod.rs::has_mt19_distributions`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L160) `pub fn has_mt19_distributions(tape: &crate::endf::tape::Tape, mat: i32) -> bool` · called at [L513](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L513)
+[`mod.rs::has_mt19_distributions`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L160) `pub fn has_mt19_distributions(tape: &crate::endf::tape::Tape, mat: i32) -> bool` · called at [L517](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L517)
 
 <details><summary>code</summary>
 
@@ -8631,7 +8631,7 @@ UNRESOLVED(other): `default` at [L409](https://github.com/theodoreOnzGit/outram-
 
 <div class="cw-node" style="margin-left:0.9em">
 
-[`photon_blocks.rs::build_with_pendf`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/photon_blocks.rs#L150) `pub fn build_with_pendf(tape: &Tape, mat: i32, pendf: &crate::reconr::ReconrResult) -> Option<Vec<PhotonEntry>>` — `build` with the PENDF the ACE table is made from, which is what upstream converts MF=12 `LO = 2` sections against (`convr`, `acefc.f90:4173-4350`). · called at [L514](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L514)
+[`photon_blocks.rs::build_with_pendf`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/photon_blocks.rs#L150) `pub fn build_with_pendf(tape: &Tape, mat: i32, pendf: &crate::reconr::ReconrResult) -> Option<Vec<PhotonEntry>>` — `build` with the PENDF the ACE table is made from, which is what upstream converts MF=12 `LO = 2` sections against (`convr`, `acefc.f90:4173-4350`). · called at [L518](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L518)
 
 <details><summary>code</summary>
 
@@ -8663,7 +8663,7 @@ UNRESOLVED(other): `default` at [L409](https://github.com/theodoreOnzGit/outram-
 
 <div class="cw-node" style="margin-left:0.9em">
 
-[`photon_blocks.rs::gpd`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/photon_blocks.rs#L648) `pub fn gpd(tape: &Tape, mat: i32, pendf: &crate::reconr::ReconrResult) -> Option<Vec<f64>>` — GPD, the total photon-production cross section on the ACE grid: `gamsum` (`acefc.f90:3572-3866`) as `acelod` stores it (`acefc.f90:6255-6271`). · called at [L518](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L518)
+[`photon_blocks.rs::gpd`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/photon_blocks.rs#L648) `pub fn gpd(tape: &Tape, mat: i32, pendf: &crate::reconr::ReconrResult) -> Option<Vec<f64>>` — GPD, the total photon-production cross section on the ACE grid: `gamsum` (`acefc.f90:3572-3866`) as `acelod` stores it (`acefc.f90:6255-6271`). · called at [L522](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L522)
 
 <details><summary>code</summary>
 
@@ -8907,14 +8907,14 @@ UNRESOLVED(closure): `pass` at [L779](https://github.com/theodoreOnzGit/outram-p
 
 <div class="cw-node" style="margin-left:0.9em">
 
-[`mod.rs::AceTable::insert_gpd`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L538) `pub fn insert_gpd(&mut self, gpd: &[f64])` — Insert the GPD block (`JXS(12)`) immediately before MTRP, where `acelod` stores it (`acefc.f90:6255-6271`), and shift every locator that follows. · called at [L519](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L519)
+[`mod.rs::AceTable::insert_gpd`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L542) `pub fn insert_gpd(&mut self, gpd: &[f64])` — Insert the GPD block (`JXS(12)`) immediately before MTRP, where `acelod` stores it (`acefc.f90:6255-6271`), and shift every locator that follows. · called at [L523](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L523)
 
 <details><summary>code</summary>
 
-<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/mod.rs:538 fn insert_gpd -->
+<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/mod.rs:542 fn insert_gpd -->
 
 ```rust,ignore
-{{#include ../../../../../crates/njoy-outram-park-fork/src/acer/mod.rs:538:564}}
+{{#include ../../../../../crates/njoy-outram-park-fork/src/acer/mod.rs:542:568}}
 ```
 
 </details>
@@ -8922,7 +8922,7 @@ UNRESOLVED(closure): `pass` at [L779](https://github.com/theodoreOnzGit/outram-p
 
 <div class="cw-node" style="margin-left:0.9em">
 
-[`acelcp.rs::append`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/acelcp.rs#L327) `pub fn append(table: &mut AceTable, tape: &Tape, mat: i32, pendf: &ReconrResult)` — Append `acelcp`'s charged-particle blocks to a neutron table (`izai = 1`). · called at [L526](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L526)
+[`acelcp.rs::append`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/acelcp.rs#L327) `pub fn append(table: &mut AceTable, tape: &Tape, mat: i32, pendf: &ReconrResult)` — Append `acelcp`'s charged-particle blocks to a neutron table (`izai = 1`). · called at [L530](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L530)
 
 <details><summary>code</summary>
 

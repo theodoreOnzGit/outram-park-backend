@@ -11,12 +11,11 @@
 
 use njoy_outram_park_fork::acer::compare::{compare, Verdict};
 use njoy_outram_park_fork::acer::read::{self, AceClass, AceFileType, RawAceTable};
-use njoy_outram_park_fork::acer::thermal::ThermalAceOptions;
+use njoy_outram_park_fork::acer::thermal::{ace_incident_grid, IncidentPendf, InelasticForm, ThermalAceOptions};
 use njoy_outram_park_fork::acer::{build_deck, AceDeck, AceTable};
 use njoy_outram_park_fork::broadr::broaden_result;
 use njoy_outram_park_fork::endf::tape::Tape;
 use njoy_outram_park_fork::reconr::{reconr, ReconrConfig};
-use njoy_outram_park_fork::thermr::calcem::egrid::{egrid_count, EGRID};
 use njoy_outram_park_fork::thermr::mf7::parse_mf7;
 
 /// Boltzmann's constant \[MeV/K\], NJOY2016's current value.
@@ -100,20 +99,35 @@ pub fn build_ace(endf: &[u8], g: AceGen) -> Result<Made, String> {
 }
 
 /// What the thermal ACE generator runs.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct ThermalGen {
+    /// The table's name in its ZAID, NJOY's ACER card 8 `tname` (6
+    /// characters at most). Empty: taken from the file name.
+    pub tname: String,
     /// Outgoing energies per incident energy (NJOY's `nbin`).
     pub n_outgoing: usize,
     /// Equiprobable cosines per outgoing energy.
     pub n_cosines: usize,
     /// Highest incident energy \[eV\] (THERMR's `emax`).
     pub emax_ev: f64,
+    /// THERMR's card-4 tolerance, the one `calcem` and `coh` linearise to.
+    /// 0.001 by default, as OpenMC's `make_ace_thermal` deck.
+    pub tol: f64,
+    /// THERMR's `natom`, principal scattering atoms per molecule.
+    pub natom: f64,
+    /// Take `natom` and `emax` from the tape's MF=7/MT=4 `B(6)` and `B(4)`
+    /// instead, as OpenMC's `make_ace_thermal` does (`njoy.py:694-699`).
+    pub from_tape: bool,
+    /// ACER's `iwt`: 1 equiprobable bins (IFENG 0), 0 skewed `1 4 10 … 10 4 1`
+    /// bins (IFENG 1), 2 the continuous form (IFENG 2, OpenMC's default).
+    pub iwt: u8,
 }
 
 impl Default for ThermalGen {
     fn default() -> Self {
         let d = ThermalAceOptions::default();
-        Self { n_outgoing: d.n_outgoing, n_cosines: d.n_cosines, emax_ev: d.emax_ev }
+        // 16 cosines: THERMR's `nbin` in NJOY's and OpenMC's thermal decks.
+        Self { tname: String::new(), n_outgoing: d.n_outgoing, n_cosines: 16, emax_ev: d.emax_ev, tol: 0.001, natom: 1.0, from_tape: true, iwt: 1 }
     }
 }
 
@@ -126,9 +140,16 @@ fn as_tape(bytes: &[u8]) -> Option<Tape> {
 /// Build a thermal S(α,β) ACE table, as Type-1 text, from an ENDF thermal
 /// scattering tape or a LEAPR deck (`file_name` only names the result). A deck
 /// is run through the port's LEAPR first. The table is built at the
-/// evaluation's base temperature on THERMR's own incident-energy grid up to
+/// evaluation's base temperature on the incident energies ACER keeps up to
 /// `g.emax_ev`.
-pub fn build_thermal_ace(bytes: &[u8], file_name: &str, g: ThermalGen) -> Result<Made, String> {
+///
+/// With the incident nuclide's ENDF tape (`incident`), it is run through
+/// RECONR (0.001) and BROADR to that temperature first, as NJOY's deck does,
+/// and the table is NJOY2016's in every word (gh:#865, four cases in
+/// `acer_thermal_word_parity.rs`). Without it, the inelastic cross section
+/// is taken at each energy instead of interpolated on that grid, and the
+/// header has no MAT and the thermal tape's AWR.
+pub fn build_thermal_ace(bytes: &[u8], file_name: &str, g: ThermalGen, incident: Option<&[u8]>) -> Result<Made, String> {
     let mut lines = Vec::new();
     let tape = match as_tape(bytes) {
         Some(t) => {
@@ -149,20 +170,52 @@ pub fn build_thermal_ace(bytes: &[u8], file_name: &str, g: ThermalGen) -> Result
         .as_ref()
         .ok_or("no incoherent inelastic (MT=4) S(α,β) on this tape")?
         .temperature_k;
-    let grid: Vec<f64> = EGRID[..egrid_count(g.emax_ev)].to_vec();
+    // ~~`EGRID[..egrid_count(emax)]`~~ CORRECTED 2026-10-14: that is calcem's
+    // grid, one energy past emax; ACER drops it (gh:#865).
+    let ii = mf7.incoherent_inelastic.as_ref().ok_or("no incoherent inelastic (MT=4) S(α,β) on this tape")?;
+    let (natom, emax_ev) = match (g.from_tape, ii.b.get(5), ii.b.get(3)) {
+        (true, Some(&n), Some(&e)) if n >= 1.0 && e > 0.0 => (n, e),
+        _ => (g.natom, g.emax_ev),
+    };
+    let form = match g.iwt {
+        0 => InelasticForm::Skewed,
+        2 => InelasticForm::Continuous,
+        _ => InelasticForm::Equiprobable,
+    };
+    let grid = ace_incident_grid(emax_ev);
     // The name in the ZAID: the file's stem without the ENDF/B "tsl-" prefix,
     // letters and digits only, at most 6 (the ZAID field is 10 characters
     // with ".00t").
-    let base = file_name.split('.').next().unwrap_or("tsl");
+    let base = if g.tname.trim().is_empty() { file_name.split('.').next().unwrap_or("tsl") } else { g.tname.trim() };
     let base = base.strip_prefix("tsl-").or_else(|| base.strip_prefix("tsl_")).unwrap_or(base);
     let stem: String = base.chars().filter(|c| c.is_ascii_alphanumeric()).take(6).collect();
-    let name = if stem.is_empty() { "tsl".to_string() } else { stem.to_lowercase() };
-    let opts = ThermalAceOptions { n_outgoing: g.n_outgoing, n_cosines: g.n_cosines, emax_ev: g.emax_ev, ..Default::default() };
-    let ace = AceTable::thermal_from_mf7(&mf7, temp, &name, 0, &grid, opts).map_err(|e| format!("thermal ACER: {e}"))?;
+    // At least two characters: a one-character name gives a ZAID like `x.00t`,
+    // whose `.` in column 2 OpenMC's reader takes for an ACE 2.0 header
+    // (`openmc/data/ace.py:350`), and so does this crate's.
+    let name = if stem.len() < 2 { "tsl".to_string() } else { stem.to_lowercase() };
+    let opts = ThermalAceOptions { n_outgoing: g.n_outgoing, n_cosines: g.n_cosines, emax_ev, natom, form };
+    let ace = match incident {
+        Some(inc) => {
+            let t = Tape::read(std::io::Cursor::new(inc)).map_err(|e| format!("incident tape: not a readable ENDF tape: {e}"))?;
+            let imat = *t.materials().first().ok_or("the incident tape holds no material")?;
+            let r0 = reconr(&t, &ReconrConfig { mat: imat, tolerance: RECONR_TOL, temperature: 0.0 }).map_err(|e| format!("RECONR: {e}"))?;
+            let r = broaden_result(&r0, temp);
+            let elastic = r.sections.iter().find(|s| s.mt.number() == 2).ok_or("the incident tape has no elastic (MT=2)")?.pairs.clone();
+            lines.push(format!("incident: MAT {imat}, RECONR (0.001) -> BROADR ({temp} K), THERMR's MF=3 on its elastic grid"));
+            let pendf = IncidentPendf { mat: imat, awr: r.material.awr, moderator_za: vec![r.material.za as i32], elastic };
+            AceTable::thermal_from_mf7_on_pendf(&mf7, temp, &name, 0, &grid, opts, g.tol, &pendf)
+        }
+        None => {
+            lines.push("no incident tape: the inelastic cross section is not on NJOY's grid, and the header has no MAT".into());
+            AceTable::thermal_from_mf7_with_tolerance(&mf7, temp, &name, 0, &grid, opts, g.tol)
+        }
+    }
+    .map_err(|e| format!("thermal ACER: {e}"))?;
     let raw = ace.to_raw(AceFileType::Type1Ascii).map_err(|e| e.to_string())?;
     let text = raw.to_type1_string();
     lines.push(format!("{}: MAT {mat}, {temp} K (the evaluation's base temperature), {} XSS words", raw.header.zaid.trim(), raw.xss.len()));
-    lines.push(format!("{} incident energies up to {} eV, {} outgoing energies x {} cosines", grid.len(), g.emax_ev, g.n_outgoing, g.n_cosines));
+    let src = if g.from_tape { " (natom and emax from the tape's B(6), B(4))" } else { "" };
+    lines.push(format!("{} incident energies up to {emax_ev} eV, {} outgoing energies x {} cosines, iwt {}, tol {}, natom {natom}{src}", grid.len(), g.n_outgoing, g.n_cosines, g.iwt, g.tol));
     lines.push(format!("{:.2} MB of Type-1 text", text.len() as f64 / 1e6));
     Ok(Made { name: format!("{}.ace", raw.header.zaid.trim()), bytes: text.into_bytes(), lines })
 }
@@ -244,19 +297,34 @@ mod tests {
     }
 
     /// **Methodology.** The thermal generator on ENDF/B-VIII.0 Al-27's
-    /// thermal tape and on a text that is neither a tape nor a LEAPR deck.
-    /// **Result (2026-10-14):** a `t`-class table at 20 K (the evaluation's
-    /// base temperature) that compares identical with itself; the junk input
-    /// is refused with a message.
+    /// thermal tape, with and without the Al-27 incident tape, at the default
+    /// deck's settings (tol 0.001, natom 1, emax 4 eV, 16 x 16), compared with the
+    /// committed NJOY2016 table made by the deck in
+    /// `reference-data/acer/thermal_decks/al27_20k_tol0p001.njoy`; and on a
+    /// text that is neither a tape nor a LEAPR deck.
+    /// **Result (2026-10-14):** with the incident tape, identical to NJOY2016's
+    /// in every compared word; without it, ITIX and the material differ and
+    /// every other block is the same; the junk input is refused with a
+    /// message.
     #[test]
-    fn the_thermal_generator_makes_a_thermal_table_and_refuses_junk() {
+    fn the_thermal_generator_makes_njoys_table_and_refuses_junk() {
         let al = tape("tsl-013_Al_027-ENDF8.0.endf");
-        let m = build_thermal_ace(&al, "tsl-013_Al_027-ENDF8.0.endf", ThermalGen::default()).expect("build Al-27 thermal");
+        let inc = tape("n-013_Al_027-ENDF8.0.endf");
+        let njoy = std::fs::read(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../reference-data/acer/al27_20k_thermal_tol0p001_njoy2016.ace.gz")).expect("committed NJOY table");
+        // The committed deck's settings: emax 4 eV, natom 1, iwt 1.
+        let g = ThermalGen { tname: "al27".into(), from_tape: false, ..ThermalGen::default() };
+        let m = build_thermal_ace(&al, "tsl-013_Al_027-ENDF8.0.endf", g.clone(), Some(&inc)).expect("build Al-27 thermal");
         assert!(m.name.ends_with("t.ace"), "{}", m.name);
         assert!(m.lines.iter().any(|l| l.contains("20 K")), "{:?}", m.lines);
-        let same = compare_files(&m.bytes, "a", &m.bytes, "b").unwrap();
-        assert!(same.iter().any(|l| l.starts_with("ITXE") && l.contains("SAME")), "{same:?}");
-        let e = build_thermal_ace(b"hello, not data", "x.txt", ThermalGen::default()).err().expect("refused");
+        let same = compare_files(&m.bytes, "ours", &njoy, "njoy").unwrap();
+        assert!(same.iter().any(|l| l.contains("identical in every compared word")), "{same:?}");
+        let alone = build_thermal_ace(&al, "tsl-013_Al_027-ENDF8.0.endf", g, None).expect("build without incident");
+        let ours_tape = build_thermal_ace(&al, "tsl-013_Al_027-ENDF8.0.endf", ThermalGen::default(), None).expect("emax from the tape");
+        assert!(ours_tape.lines.iter().any(|l| l.contains("up to 2.277 eV") && l.contains("natom 1")), "B(4) = 2.277 eV on Al-27: {:?}", ours_tape.lines);
+        let diff = compare_files(&alone.bytes, "ours", &njoy, "njoy").unwrap();
+        assert!(diff.iter().any(|l| l.starts_with("ITIX") && l.contains("DIFFERENT")), "{diff:?}");
+        assert!(diff.iter().any(|l| l.starts_with("ITXE") && l.contains("SAME")), "{diff:?}");
+        let e = build_thermal_ace(b"hello, not data", "x.txt", ThermalGen::default(), None).err().expect("refused");
         assert!(e.contains("neither an ENDF tape nor a LEAPR deck"), "{e}");
     }
 
@@ -266,7 +334,7 @@ mod tests {
     #[test]
     fn a_leapr_deck_goes_through_leapr_into_a_thermal_table() {
         let deck = std::fs::read(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../njoy-outram-park-fork/src/leapr/decks/tsl-HinH2O.leapr")).expect("committed deck");
-        let m = build_thermal_ace(&deck, "tsl-HinH2O.leapr", ThermalGen { emax_ev: 1.0, ..ThermalGen::default() }).expect("deck to thermal ACE");
+        let m = build_thermal_ace(&deck, "tsl-HinH2O.leapr", ThermalGen { emax_ev: 1.0, from_tape: false, ..ThermalGen::default() }, None).expect("deck to thermal ACE");
         assert!(m.lines[0].contains("LEAPR deck"), "{:?}", m.lines);
         assert_eq!(m.name, "hinh2o.00t.ace", "named from the file, without its tsl- prefix");
     }

@@ -9,8 +9,9 @@
 //!
 //! # What is compared
 //!
-//! - **Header:** ZAID, atomic weight ratio, temperature (`kT`) and the
-//!   material tag (`hm`, NJOY's `   mat` + MAT). The date and comment are
+//! - **Header:** ZAID, atomic weight ratio, temperature (`kT`), the
+//!   material tag (`hm`, NJOY's `   mat` + MAT) and the 16 IZ/AW pairs (a
+//!   thermal table's moderator ZAs, ACER card 8a). The date and comment are
 //!   shown, not judged: they legitimately differ between two codes.
 //! - **NXS and JXS**, entry by entry.
 //! - **Each block, word for word**, from its JXS locator to the next block
@@ -294,6 +295,12 @@ fn compare_array(name: &'static str, a: &[i32], b: &[i32]) -> ArrayComparison {
 /// Compare two ACE tables. The block names follow the first table's class;
 /// when the classes differ, the header row for the ZAID says so and only the
 /// whole XSS is compared.
+/// The non-zero IZ/AW pairs as `ZA:AW` words, or `none`.
+fn izaw(iz: &[i32; 16], aw: &[f64; 16]) -> String {
+    let v: Vec<String> = iz.iter().zip(aw).filter(|(z, a)| **z != 0 || **a != 0.0).map(|(z, a)| format!("{z}:{a}")).collect();
+    if v.is_empty() { "none".into() } else { v.join(" ") }
+}
+
 pub fn compare(first: &RawAceTable, second: &RawAceTable) -> AceComparison {
     let (h1, h2) = (&first.header, &second.header);
     let same_class = h1.class == h2.class;
@@ -307,6 +314,12 @@ pub fn compare(first: &RawAceTable, second: &RawAceTable) -> AceComparison {
             same: Some(h1.kt_mev == h2.kt_mev),
         },
         HeaderField { name: "material", first: h1.mat_id.trim().to_string(), second: h2.mat_id.trim().to_string(), same: Some(h1.mat_id.trim() == h2.mat_id.trim()) },
+        HeaderField {
+            name: "IZ/AW",
+            first: izaw(&h1.iz, &h1.aw),
+            second: izaw(&h2.iz, &h2.aw),
+            same: Some(h1.iz == h2.iz && h1.aw == h2.aw),
+        },
         HeaderField { name: "date", first: h1.date.clone(), second: h2.date.clone(), same: None },
         HeaderField { name: "comment", first: h1.comment.trim().to_string(), second: h2.comment.trim().to_string(), same: None },
     ];

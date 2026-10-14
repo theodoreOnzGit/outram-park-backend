@@ -9,7 +9,7 @@
 #[cfg(not(target_arch = "wasm32"))]
 use crate::engine::NdEngine;
 use crate::acetools::{AceGen, ThermalGen};
-use crate::engine::{Curve, Event, Request, BROADR_SHOWN, RECONR_TOLS, SLOTS, SLOT_ACE_FIRST, SLOT_ACE_SECOND, SLOT_ENDF, SLOT_THERMAL};
+use crate::engine::{Curve, Event, Request, BROADR_SHOWN, RECONR_TOLS, SLOTS, SLOT_ACE_FIRST, SLOT_ACE_SECOND, SLOT_ENDF, SLOT_INCIDENT, SLOT_THERMAL};
 use dhoby_ghaut::web_demo::files::FileSlot;
 use crate::plot::{self, Frame};
 use crate::rungs::Rung;
@@ -80,8 +80,8 @@ pub struct NdApp {
     title: String,
     /// The ACE rungs (gh:#863-#865): a picker per file slot, what the engine
     /// holds in each (name, bytes), the file it made, and the settings.
-    picks: [FileSlot; 4],
-    held: [Option<(String, usize)>; 4],
+    picks: [FileSlot; 5],
+    held: [Option<(String, usize)>; 5],
     made: Option<(String, Vec<u8>)>,
     ace_gen: AceGen,
     thermal_gen: ThermalGen,
@@ -585,14 +585,33 @@ impl NdApp {
             Rung::ThermalAceMake => {
                 ui.label("Your ENDF thermal scattering (MF=7) tape, or a LEAPR deck (run through the port's LEAPR first), to a thermal S(α,β) ACE table at the evaluation's base temperature.");
                 self.slot_row(ui, SLOT_THERMAL as usize);
+                ui.label("Optional: the scatterer's own incident-neutron ENDF tape (H-1 for H in H2O, C-12 for graphite). NJOY's deck runs it through RECONR and BROADR first, and the inelastic cross section is read off that grid. With it the table is NJOY2016's word for word; without it, that block and the header's MAT differ.");
+                self.slot_row(ui, SLOT_INCIDENT as usize);
+                ui.horizontal(|ui| {
+                    ui.label("table name (ZAID, ACER's tname)");
+                    ui.add(egui::TextEdit::singleline(&mut self.thermal_gen.tname).char_limit(6).desired_width(80.0).hint_text("from file"));
+                });
                 ui.add(egui::Slider::new(&mut self.thermal_gen.n_outgoing, 4..=64).text("outgoing energies"));
                 ui.add(egui::Slider::new(&mut self.thermal_gen.n_cosines, 2..=32).text("cosines per outgoing energy"));
-                ui.add(egui::Slider::new(&mut self.thermal_gen.emax_ev, 0.5..=10.0).text("highest incident energy (eV)"));
+                egui::ComboBox::from_label("secondary-energy form (ACER iwt)")
+                    .selected_text(match self.thermal_gen.iwt { 0 => "skewed bins (iwt 0)", 2 => "continuous (iwt 2)", _ => "equiprobable bins (iwt 1)" })
+                    .show_ui(ui, |ui| {
+                        ui.selectable_value(&mut self.thermal_gen.iwt, 1, "equiprobable bins (iwt 1)");
+                        ui.selectable_value(&mut self.thermal_gen.iwt, 0, "skewed bins (iwt 0)");
+                        ui.selectable_value(&mut self.thermal_gen.iwt, 2, "continuous (iwt 2)");
+                    });
+                ui.add(egui::Slider::new(&mut self.thermal_gen.tol, 1.0e-4..=0.1).logarithmic(true).text("THERMR tolerance (tol)"));
+                ui.checkbox(&mut self.thermal_gen.from_tape, "natom and highest energy from the tape (B(6), B(4)), as OpenMC does");
+                ui.add_enabled_ui(!self.thermal_gen.from_tape, |ui| {
+                    ui.add(egui::Slider::new(&mut self.thermal_gen.emax_ev, 0.5..=10.0).text("highest incident energy (eV)"));
+                    ui.add(egui::Slider::new(&mut self.thermal_gen.natom, 1.0..=4.0).step_by(1.0).text("principal atoms (natom)"));
+                });
+                ui.weak("Match these to the NJOY deck you compare with. OpenMC's make_ace_thermal uses tol 0.001, 16 cosines, 64 outgoing energies, iwt 2, and natom and emax from the tape.");
                 let ready = self.held[SLOT_THERMAL as usize].is_some() && !self.in_flight;
                 if ui.add_enabled(ready, egui::Button::new("Build the thermal ACE table")).clicked() {
                     self.made = None;
-                    let g = self.thermal_gen;
-                    self.ask(Request::MakeThermalAce { job, n_outgoing: g.n_outgoing, n_cosines: g.n_cosines, emax_ev: g.emax_ev });
+                    let g = self.thermal_gen.clone();
+                    self.ask(Request::MakeThermalAce { job, tname: g.tname, n_outgoing: g.n_outgoing, n_cosines: g.n_cosines, emax_ev: g.emax_ev, tol: g.tol, natom: g.natom, from_tape: g.from_tape, iwt: g.iwt });
                 }
                 self.made_row(ui);
             }
@@ -631,7 +650,7 @@ impl NdApp {
             Rung::Groupr => "Liberties: the pointwise input is RECONR at tolerance 0.01 and 0 K; the weight is 1/E times the narrow-resonance (Bondarenko) factor with σ_pot set to 0, which cancels in each group average. The recorded GROUPR check (U-238, 29 groups) is in lesson rung 7.",
             Rung::Acer => "Provenance: crates/njoy-outram-park-fork/verification_and_validation/ace_block_parity/ace_block_parity_2026_09_26.md and outram-mc-libs' five_route_keff_2026_09_29.md (2026-09-30 table).",
             Rung::AceMake => "Your file stays in this tab: nothing is uploaded. The deck is RECONR at NJOY's default tolerance 0.001, BROADR, PURR and HEATR as chosen, then ACER, all in this workspace's NJOY port. With the same deck it reproduced NJOY2016's U-234, U-235 and U-238 tables word for word (2026-09-26, re-run 2026-10-14); other evaluations have not been checked, so compare your table with NJOY's in the comparator rung. A large actinide takes minutes in a browser.",
-            Rung::ThermalAceMake => "Your file stays in this tab. Unlike the fast tables, this port's thermal tables are NOT word for word NJOY2016's: on Al-27 the inelastic cross section agrees to 2.2 % and the Bragg edges to 3e-6 (2026-09-20, on NJOY's own energy grid). Only the evaluation's base temperature is built. Expect differences in the comparator.",
+            Rung::ThermalAceMake => "Your files stay in this tab. With the incident-neutron tape and the same name, tol, natom, bins, form and emax as the NJOY deck (text units), the table is NJOY2016's in every word: checked 2026-10-14 on Al-27 at 20 K (tol 0.05 and 0.001; iwt 0, 1 and 2), H in H2O at 283.6 K (iwt 0, 1, 2) and crystalline graphite at 296 K. Without the incident tape, the inelastic cross section (ITIX) and the header's MAT and AWR differ. Only the evaluation's base temperature is built.",
             Rung::AceCompare => "Both files stay in this tab. Blocks are named for continuous-energy (c) and thermal (t) tables; other classes are compared as a whole. Equal means the same parsed value: from Type-1 text, the same printed value to 12 figures, with no tolerance. The date and comment are shown, not judged.",
         };
         ui.label(RichText::new(text).size(12.0).color(Color32::from_rgb(170, 176, 190)));

@@ -23,6 +23,16 @@ AI-assisted draft.
 > numbers in the tables below were **not** re-measured and remain the pre-change
 > values. Record: `outram-mc-libs/verification_and_validation/icsbep/five_route_keff_2026_09_29.md`.
 
+> **UPDATE 2026-10-14 (GitHub #865): superseded by
+> [`acer_thermal_word_parity_2026_10_14.md`](acer_thermal_word_parity_2026_10_14.md).**
+> The port now reproduces NJOY2016's thermal tables in every word (Al-27 at two
+> tolerances and two bin forms, H in H₂O, crystalline graphite; IFENG = 2
+> measured too). Every difference recorded below had a cause in the port, found
+> with an instrumented NJOY2016 build: `sig` without its `sigmin` cut and with
+> its own arithmetic, `sigl`'s `third`, `tpend`'s normalisation and text
+> round trip, ITIX interpolated on THERMR's MF=3, and ACER's Bragg-edge
+> selection. The tables below are kept as they were measured.
+
 ## Why this record exists
 
 `acer_ce_vs_njoy2016_multi_nuclide.md` covers the incident-neutron
@@ -120,8 +130,11 @@ result is the failure this workspace's rules name explicitly. The endpoint
 concentration is reported as an observation, supported by the table, not used
 to replace the number.
 
-**No cause is established for either endpoint effect.** Both sit at a boundary
-of the `calcem` treatment, which is suggestive and is not evidence.
+~~**No cause is established for either endpoint effect.** Both sit at a boundary
+of the `calcem` treatment, which is suggestive and is not evidence.~~
+**CORRECTED 2026-10-14:** both were the port's. At the time ITIX was an
+analytic integral, not `calcem`'s `xsi` (changed 2026-09-29), and the `sig`
+kernel differed from upstream's; see the 2026-10-14 record.
 
 ## Exhaustive pass — every block, all nine tapes (2026-09-21)
 
@@ -178,7 +191,10 @@ equiprobable cosines to **4.998e-8** absolute.
 
 **H-in-H2O is the outlier**, at 4.3e-2 absolute on an emission cosine — two
 orders worse than any other tape, and the same evaluation that is the outlier
-on the inelastic cross section. No cause is established for it.
+on the inelastic cross section. ~~No cause is established for it.~~
+**CORRECTED 2026-10-14:** the port's (`tol = 0.05` against a 0.001 reference
+at the time, then the `sig`/`sigl`/`tpend` differences); H in H₂O is now
+identical in every word.
 
 ### Structural differences are fully attributed, not waved through
 
@@ -214,6 +230,8 @@ an excused one.
   cosines. It remains the only tape here carrying incoherent elastic, so
   `IDPNC = 5` (mixed) is still unexercised by any evaluation in this
   repository.
+- ~~The extra Bragg edges are a thinning difference.~~ **CORRECTED
+  2026-10-14:** ACER's own selection is ported; 309 of 309 on Al-27.
 - **One temperature per tape** — each evaluation's own `T₀`. The
   `IncoherentInelastic` structure carries `S(α,β)` at the base temperature
   only, so no other temperature can be produced from it for the inelastic half.

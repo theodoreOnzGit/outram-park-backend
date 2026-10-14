@@ -649,6 +649,40 @@ has already reached 1. An `assert!(pdf >= 0.0)` would have failed against a
 file NJOY wrote. Check what upstream actually produces before deciding what
 "obviously" must hold.
 
+## Thermal tables are NJOY2016's word for word (2026-10-14, GitHub #865)
+
+`AceTable::thermal_from_mf7_on_pendf` builds a thermal table on the incident
+nuclide's PENDF (`IncidentPendf`: MAT, AWR, card-8a ZAs, MT=2). The result is
+NJOY2016's in every word, and in every byte but the date and comment. Checked
+on Al-27 (tol 0.05 and 0.001, `iwt` 0/1/2), H in H₂O (`iwt` 0/1/2) and
+crystalline graphite. Gate: `tests/acer_thermal_word_parity.rs`. Record:
+[`verification_and_validation/acer_thermal_word_parity_2026_10_14.md`](verification_and_validation/acer_thermal_word_parity_2026_10_14.md).
+
+Three things worth carrying forward:
+
+- **ACER reads THERMR's output back from text, and that is part of the
+  algorithm.** `tpend` rounds every MF=3 point with `sigfig(·,7)`. It
+  normalises each MF=6 density by `xsi` and rounds that too. `calcem`'s rows
+  pass through a text scratch tape before any of this. With positive units
+  (OpenMC's decks) each round trip changes the table. `acesix::tpend_rows`
+  and `thermr::mf3_grid` reproduce them.
+- **Bit-level parity came from logging upstream, not from reasoning.** An
+  instrumented `thermr.f90` (`verification_and_validation/acer_thermal_word_parity/thermr_instrument.diff`)
+  logged `sig`, `sigl` and `tpend`. Each stage was then made exact before the
+  next was looked at. The defects were small and many:
+  - a missing `sigmin = 1e-10` cut;
+  - `third = .333333333`, not `1/3`;
+  - `gral=gral+A+B` evaluated as `(gral+A)+B`;
+  - `terp1`'s grouping;
+  - `tev` against `rtev`;
+  - the LAT = 1 back-scaling.
+
+  None of them shows in a 1e-3 comparison, and every one moves a printed word.
+- **ITIX depends on the incident evaluation.** ACER interpolates THERMR's
+  MF=3, which sits on the incident nuclide's elastic grid merged with `coh`'s
+  Bragg points. Without that grid, `thermal_from_mf7_with_tolerance` still
+  differs there, by up to 1.1e-3 on Al-27.
+
 ## mcnpx format, and why a read-then-write round trip is worth asserting (2026-09-22)
 
 The mcnpx variant (negative `iopt`, a 13-character ZAID) was "implemented and

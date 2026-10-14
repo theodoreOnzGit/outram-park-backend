@@ -115,12 +115,12 @@ Call chain from `scattering.rs::IncoherentInelasticScattering::calcem_inelastic_
     // … (the rest of the function: follow the link above)
 ```
 
-**4.** → [`sigl.rs::sigl`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/thermr/calcem/sigl.rs#L82) · called at [L146](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/thermr/calcem/iform0.rs#L146) — `sigl(e, ep, nlin, ii, natom, tolin)` — cross section and angular data for scattering `e → ep` \[eV\] at temperature `ii.temperature_k` \[K\].
+**4.** → [`sigl.rs::sigl`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/thermr/calcem/sigl.rs#L85) · called at [L146](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/thermr/calcem/iform0.rs#L146) — `sigl(e, ep, nlin, ii, natom, tolin)` — cross section and angular data for scattering `e → ep` \[eV\] at temperature `ii.temperature_k` \[K\].
 
-<!-- snippet-check: crates/njoy-outram-park-fork/src/thermr/calcem/sigl.rs:82 fn sigl -->
+<!-- snippet-check: crates/njoy-outram-park-fork/src/thermr/calcem/sigl.rs:85 fn sigl -->
 
 ```rust,ignore
-{{#include ../../../../../crates/njoy-outram-park-fork/src/thermr/calcem/sigl.rs:82:121}}
+{{#include ../../../../../crates/njoy-outram-park-fork/src/thermr/calcem/sigl.rs:85:124}}
     // … (the rest of the function: follow the link above)
 ```
 <!-- /code-walk -->

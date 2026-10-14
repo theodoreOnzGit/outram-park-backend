@@ -68,6 +68,7 @@ pub mod calcem;
 pub mod coherent;
 pub mod incoherent_elastic;
 pub mod inelastic;
+pub mod mf3_grid;
 pub mod mf7;
 pub mod scattering;
 pub mod temperature_thinning;

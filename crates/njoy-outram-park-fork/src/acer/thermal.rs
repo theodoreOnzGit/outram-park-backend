@@ -45,7 +45,7 @@
 //!   optional, since the ENDF/B thermal sublibrary ships MF=7.
 
 use crate::acer::acesix::{
-    acesix_equiprobable, acesix_tabulated, normalized_rows, AcesixPoint, BinWeights,
+    acesix_equiprobable, acesix_tabulated, pendf_text, tpend_rows, AcesixPoint, BinWeights,
 };
 use crate::thermr::calcem::iform0::compute_iform0;
 use crate::thermr::calcem::types::{Iform0Table, IncidentEnergyRecord};
@@ -122,6 +122,39 @@ pub struct ThermalAceOptions {
     pub form: InelasticForm,
 }
 
+/// The incident energies ACER keeps from THERMR's grid (GitHub #865):
+/// `calcem` runs on [`EGRID`](crate::thermr::calcem::egrid::EGRID) up to and
+/// including the first energy above `emax`, and `acesix` stops at the first
+/// incident energy above `emax` or within `eps = 1e-5` eV of it
+/// (`aceth.f90:329-330`). This is the `energy_grid` to pass for NJOY's table.
+pub fn ace_incident_grid(emax_ev: f64) -> Vec<f64> {
+    const EPS: f64 = 1.0e-5;
+    crate::thermr::calcem::egrid::EGRID
+        .iter()
+        .copied()
+        .take_while(|&e| !(e > emax_ev || (e - emax_ev).abs() < EPS))
+        .collect()
+}
+
+/// The incident nuclide's PENDF at the thermal temperature, as NJOY's thermal
+/// deck has it before THERMR: its MAT and its elastic (MT=2) cross section.
+/// Build it with RECONR + BROADR at the S(α,β) temperature.
+#[derive(Debug, Clone)]
+pub struct IncidentPendf {
+    /// The incident evaluation's MAT (NJOY writes it in the header).
+    pub mat: i32,
+    /// ACER card 8a: the moderator component ZA values (at most 16) NJOY
+    /// writes into the header's IZ entries, e.g. `[13027]` for Al-27 or
+    /// `[1001]` for H in H2O.
+    pub moderator_za: Vec<i32>,
+    /// The incident evaluation's AWR: ACER's header AWR is the PENDF's
+    /// (`aw0`, `aceth.f90:121`), not the thermal tape's (graphite: 11.89365
+    /// for C-12 against 11.898 on the MF=7 tape).
+    pub awr: f64,
+    /// MT=2 `(E [eV], σ [b])`, ascending.
+    pub elastic: Vec<(f64, f64)>,
+}
+
 /// THERMR card-4 `tol` used by [`AceTable::thermal_from_mf7`]: 0.05, the value
 /// the byte-parity comparisons in `verification_and_validation/` were taken at.
 ///
@@ -132,6 +165,72 @@ pub struct ThermalAceOptions {
 /// ICSBEP study's Rust H(H2O) table had been built at 0.05 against an NJOY2016
 /// reference at 0.001.
 pub const CALCEM_TOL: f64 = 0.05;
+
+/// The Bragg edges NJOY's ACER writes, and the cumulative `E·σ` at each
+/// \[eV, eV·b\], from the evaluation's cumulative `S(E)` table (GitHub #865).
+///
+/// THERMR's `coh`/`sigcoh` (`thermr.f90:748-922`, `1146-1195`) puts a PENDF
+/// point one 7th-figure unit either side of every edge, `sigfig(elim,7,∓1)`
+/// with `elim = (E·econ)·recon`, where `σ = (Σ f_i)·(1/E)` over the edges
+/// below the point, `f_i` being the tape's increments; `tpend` writes each
+/// point as `sigfig(E,7)`, `sigfig(σ,7)` (6 below 1e-9, `thermr.f90:3217-
+/// 3221`). ACER (`aceth.f90:188-214`) walks that MF=3 back from text and
+/// keeps a point only where `cnow = E·σ` rises above the last kept value by
+/// more than `(clast + 1)/10⁶`, stopping when the next point reaches `emax`.
+/// Edges under a millionth of the running total are folded into a later one,
+/// and where that happens the 7-figure rounding of both points decides which.
+///
+/// The PENDF's other points (the incident tape's grid and `coh`'s bisection
+/// points) are not rebuilt: between two edges they carry the same `S` and
+/// only rounding noise. Checked on Al-27 at 20 K: ACER's loop over NJOY2016's
+/// own PENDF and over these two points per edge keep the same 309 edges.
+///
+/// # Errors
+/// As [`pendf_text`].
+pub fn aceth_bragg_edges(s_of_e: &[(f64, f64)], emax_ev: f64) -> Result<Vec<(f64, f64)>, NjoyError> {
+    use crate::common::phys::{AMASSN_AMU, AMU_G, EV_ERG, HBAR_ERG_S};
+    use crate::mixr::mix::sigfig;
+    let amne = AMASSN_AMU * AMU_G;
+    let econ = EV_ERG * 8.0 * (amne / HBAR_ERG_S) / HBAR_ERG_S;
+    let recon = 1.0 / econ;
+    let point = |e: f64, sum: f64| -> Result<(f64, f64), NjoyError> {
+        let sigma = sum * (1.0 / e);
+        let sigma = if sigma >= 1.0e-9 { sigfig(sigma, 7, 0) } else { sigfig(sigma, 6, 0) };
+        Ok((pendf_text(sigfig(e, 7, 0))?, pendf_text(sigma)?))
+    };
+    // The PENDF points below emax: just under each edge (the sum without it)
+    // and just over it (the sum with it).
+    let mut pts: Vec<(f64, f64)> = Vec::with_capacity(2 * s_of_e.len());
+    let (mut sum, mut blast) = (0.0_f64, 0.0_f64);
+    for &(e_tape, s_cum) in s_of_e {
+        let elim = (e_tape * econ) * recon;
+        let (below, above) = (sigfig(elim, 7, -1), sigfig(elim, 7, 1));
+        if above >= emax_ev {
+            break;
+        }
+        pts.push(point(below, sum)?);
+        sum += s_cum - blast; // `fl(l+1) = S_i - S_(i-1)`, summed in order
+        blast = s_cum;
+        pts.push(point(above, sum)?);
+    }
+    let mut kept = Vec::new();
+    let mut clast = 0.0_f64;
+    for (k, &(e, x)) in pts.iter().enumerate() {
+        // `aceth.f90:200`. After the last edge `coh` still has points below
+        // emax, so only a following edge point can end the walk.
+        if let Some(&(enext, _)) = pts.get(k + 1) {
+            if enext > emax_ev || (enext - emax_ev).abs() <= 1.0e-5 {
+                break;
+            }
+        }
+        let cnow = e * x;
+        if cnow - clast > (clast + 1.0) / 1_000_000.0 {
+            kept.push((e, cnow));
+            clast = cnow;
+        }
+    }
+    Ok(kept)
+}
 
 /// The tabulated `calcem` record covering `ev` — the ACE block stores one
 /// emission entry per tabulated incident energy, so the grid is used directly.
@@ -339,6 +438,43 @@ impl AceTable {
         opts: ThermalAceOptions,
         tol: f64,
     ) -> Result<Self, NjoyError> {
+        Self::thermal_build(mf7, temp_k, name, suffix, energy_grid, opts, tol, None)
+    }
+
+    /// [`Self::thermal_from_mf7_with_tolerance`] on the incident nuclide's
+    /// PENDF, the way NJOY's `reconr -> broadr -> thermr -> acer` deck builds
+    /// it (GitHub #865): `ITIX` is then interpolated from THERMR's MF=3 on
+    /// that grid ([`crate::thermr::mf3_grid`]) and the header carries the
+    /// incident MAT. With this, the Al-27 table at 20 K is NJOY2016's in every
+    /// word (`tests/acer_thermal_word_parity.rs`).
+    ///
+    /// # Errors
+    /// As [`Self::thermal_from_mf7`].
+    #[allow(clippy::too_many_arguments)]
+    pub fn thermal_from_mf7_on_pendf(
+        mf7: &Mf7,
+        temp_k: f64,
+        name: &str,
+        suffix: u32,
+        energy_grid: &[f64],
+        opts: ThermalAceOptions,
+        tol: f64,
+        incident: &IncidentPendf,
+    ) -> Result<Self, NjoyError> {
+        Self::thermal_build(mf7, temp_k, name, suffix, energy_grid, opts, tol, Some(incident))
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn thermal_build(
+        mf7: &Mf7,
+        temp_k: f64,
+        name: &str,
+        suffix: u32,
+        energy_grid: &[f64],
+        opts: ThermalAceOptions,
+        tol: f64,
+        incident: Option<&IncidentPendf>,
+    ) -> Result<Self, NjoyError> {
         let ii = mf7
             .incoherent_inelastic
             .as_ref()
@@ -379,20 +515,44 @@ impl AceTable {
             .iter()
             .map(|r| (r.e_in_ev, r.cross_section_b))
             .unzip();
-        let xs: Vec<f64> = energy_grid
-            .iter()
-            .map(|&e| thermr_terp(&esi, &xsi, e, 5))
-            .collect();
+        // ACER reads ITIX back from THERMR's PENDF (`aceth.f90:355`, `gety1`
+        // on MF=3), GitHub #865. On the incident nuclide's grid that is
+        // THERMR's own MF=3; without it, `calcem`'s value at each energy
+        // through the same 7-figure text, which differs between grid points.
+        let xs: Vec<f64> = match incident {
+            Some(inc) => {
+                let coherent = match &mf7.coherent_elastic {
+                    Some(ce) => Some(ce.s_of_e_at(temp_k)?),
+                    None => None,
+                };
+                let mf3 = crate::thermr::mf3_grid::inelastic_mf3(
+                    &inc.elastic,
+                    opts.emax_ev,
+                    &esi,
+                    &xsi,
+                    coherent.as_deref(),
+                    tol,
+                )?;
+                energy_grid
+                    .iter()
+                    .map(|&e| Ok(crate::thermr::mf3_grid::itix_at(&mf3, pendf_text(e)?)))
+                    .collect::<Result<_, NjoyError>>()?
+            }
+            None => energy_grid
+                .iter()
+                .map(|&e| pendf_text(thermr_terp(&esi, &xsi, e, 5)))
+                .collect::<Result<_, _>>()?,
+        };
         let mut emission: Vec<Vec<OutgoingBin>> = Vec::new();
         let mut tabulated: Vec<Vec<AcesixPoint>> = Vec::new();
         if opts.form == InelasticForm::Continuous {
             tabulated = energy_grid
                 .iter()
                 .map(|&e| match nearest_calcem_record(&calcem, e) {
-                    Some(rec) => acesix_tabulated(&normalized_rows(&rec.rows), nang),
-                    None => Vec::new(),
+                    Some(rec) => Ok(acesix_tabulated(&tpend_rows(&rec.rows, rec.cross_section_b)?, nang)),
+                    None => Ok(Vec::new()),
                 })
-                .collect();
+                .collect::<Result<_, NjoyError>>()?;
         } else {
             let weights = match opts.form {
                 InelasticForm::Skewed => BinWeights::Variable,
@@ -402,17 +562,17 @@ impl AceTable {
                 .iter()
                 .map(|&e| {
                     let Some(rec) = nearest_calcem_record(&calcem, e) else {
-                        return Vec::new();
+                        return Ok(Vec::new());
                     };
-                    acesix_equiprobable(&normalized_rows(&rec.rows), nieb, weights)
+                    Ok(acesix_equiprobable(&tpend_rows(&rec.rows, rec.cross_section_b)?, nieb, weights)
                         .into_iter()
                         .map(|b| OutgoingBin {
                             e_out_ev: b.e_out_ev,
                             cosines: b.cosines,
                         })
-                        .collect()
+                        .collect())
                 })
-                .collect();
+                .collect::<Result<_, NjoyError>>()?;
         }
 
         let mut xss: Vec<f64> = Vec::new();
@@ -498,16 +658,19 @@ impl AceTable {
         // refused per the thermr::mf7 temperature policy), so a hot table gets
         // the Debye-Waller-suppressed structure factors, not the base-T ones.
         if let Some(ce) = &mf7.coherent_elastic {
-            let s_of_e = ce.s_of_e_at(temp_k)?;
-            let nee = s_of_e.len();
+            // ~~Every edge on the tape is written.~~ **CORRECTED 2026-10-14
+            // (GitHub #865):** the edges ACER keeps, as it finds them on
+            // THERMR's PENDF ([`aceth_bragg_edges`]).
+            let edges = aceth_bragg_edges(&ce.s_of_e_at(temp_k)?, opts.emax_ev)?;
+            let nee = edges.len();
             itce = xss.len() as i32 + 1;
             xss.push(nee as f64);
             is_int.push(true);
-            for &(e, _) in &s_of_e {
+            for &(e, _) in &edges {
                 real(e / EMEV, &mut xss, &mut is_int);
             }
             itcx = xss.len() as i32 + 1;
-            for &(_, s) in &s_of_e {
+            for &(_, s) in &edges {
                 real(s / EMEV / natom, &mut xss, &mut is_int); // cumulative S·E [MeV·b]
             }
             idpnc = 4; // coherent elastic
@@ -574,12 +737,25 @@ impl AceTable {
         jxs_arr[jxs::ITCAI] = itcai;
 
         let kt_mev = crate::common::phys::BK_EV_PER_K * temp_k / EMEV;
-        let zaid = format!("{name}.{suffix:02}t");
-        let mat_id = format!("{:>10}", "mat  ");
+        // ACER right-justifies `tname` in 6 columns (`acer.f90:386-387`) and
+        // writes `(a6,f3.2,'t')` (`aceth.f90:665`): `  al27.00t`.
+        let zaid = format!("{name:>6}.{suffix:02}t");
+        let mut iz = [0i32; 16];
+        if let Some(inc) = incident {
+            for (k, &za) in inc.moderator_za.iter().take(16).enumerate() {
+                iz[k] = za;
+            }
+        }
+        // `'   mat',i4` of the PENDF material (`aceth.f90`), when known.
+        let mat_id = match incident {
+            Some(inc) => format!("   mat{:4}", inc.mat),
+            None => format!("{:>10}", "mat  "),
+        };
 
         Ok(AceTable {
             zaid,
-            awr: mf7.awr,
+            awr: incident.map_or(mf7.awr, |inc| inc.awr),
+            iz,
             kt_mev,
             date: "  njoy-rust".to_string(),
             // Same provenance stamp as the continuous-energy path; see

@@ -169,7 +169,7 @@ pub fn acesix_equiprobable(
             if !closes {
                 // Whole panel is inside the current bin.
                 sum += add;
-                grall += moment(xl, yl, x, y, x);
+                grall = moment(grall, xl, yl, x, y, x);
                 break;
             }
             // `260` — the bin edge falls inside this panel (or the last bin
@@ -192,7 +192,7 @@ pub fn acesix_equiprobable(
             // `270` — close the bin on [xl, xn].
             let yn = yl + (y - yl) * (xn - xl) / (x - xl);
             sum += (yn + yl) * (xn - xl) / 2.0;
-            grall += moment(xl, yl, x, y, xn);
+            grall = moment(grall, xl, yl, x, y, xn);
             let xbar = if sum > 0.0 { grall / sum } else { xn };
 
             // Bracket `xbar` and interpolate the cosines there
@@ -202,13 +202,17 @@ pub fn acesix_equiprobable(
                 l += 1;
             }
             let (xlo, xhi) = (ep[l - 1], ep[l]);
-            let t = if xhi > xlo {
-                (xbar - xlo) / (xhi - xlo)
-            } else {
-                0.0
-            };
+            // `:452-453`, grouped as upstream writes it:
+            // `scr(isl) + (scr(isn)-scr(isl))*(xbar-xlo)/(xhi-xlo)`.
             let cosines = (0..nang)
-                .map(|k| (mu[l - 1][k] + (mu[l][k] - mu[l - 1][k]) * t).clamp(-1.0, 1.0))
+                .map(|k| {
+                    let m = if xhi > xlo {
+                        mu[l - 1][k] + (mu[l][k] - mu[l - 1][k]) * (xbar - xlo) / (xhi - xlo)
+                    } else {
+                        mu[l - 1][k]
+                    };
+                    m.clamp(-1.0, 1.0)
+                })
                 .collect();
             out.push(AcesixBin {
                 e_out_ev: xbar,
@@ -235,12 +239,16 @@ pub fn acesix_equiprobable(
     out
 }
 
-/// `∫ E' f(E') dE'` from `xl` to `upto`, with `f` linear through
-/// `(xl, yl)-(x, y)` (`aceth.f90:401-402, 435-436`).
-fn moment(xl: f64, yl: f64, x: f64, y: f64, upto: f64) -> f64 {
-    let slope = (y - yl) / (x - xl);
-    let intercept = yl - slope * xl;
-    intercept * (upto * upto - xl * xl) / 2.0 + slope * (upto.powi(3) - xl.powi(3)) / 3.0
+/// `grall` plus `∫ E' f(E') dE'` from `xl` to `upto`, with `f` linear through
+/// `(xl, yl)-(x, y)` (`aceth.f90:401-402, 435-436`), in upstream's own
+/// arithmetic: `grall=grall+(yl-(y-yl)*xl/(x-xl))*(xn*xn-xl*xl)/2+
+/// ((y-yl)/(x-xl))*(xn**3-xl**3)/3`, i.e. `(grall + A) + B`. ~~A slope and
+/// intercept precomputed, added as `grall + (A + B)`~~ **CORRECTED
+/// 2026-10-14 (GitHub #865)**: the last printed digit of ~200 ITXE words on
+/// Al-27 differed from NJOY2016's.
+fn moment(grall: f64, xl: f64, yl: f64, x: f64, y: f64, upto: f64) -> f64 {
+    grall + (yl - (y - yl) * xl / (x - xl)) * (upto * upto - xl * xl) / 2.0
+        + ((y - yl) / (x - xl)) * (upto.powi(3) - xl.powi(3)) / 3.0
 }
 
 /// Scale a law to unit integral, the way THERMR's MF=6 writer does before the
@@ -266,6 +274,60 @@ pub fn normalized_rows(rows: &[EqualProbableRow]) -> Vec<EqualProbableRow> {
             ep_ev: r.ep_ev,
             pdf: r.pdf / total,
             cosines: r.cosines.clone(),
+        })
+        .collect()
+}
+
+/// A number as ACER reads it back from THERMR's PENDF when the deck's units
+/// are text (positive, as in OpenMC's `make_ace_thermal`): written by `a11`
+/// (`endf.f90:882-981`, 7 significant figures, or 9 in the extended form for
+/// `0.1 < x < 1e7`) and read back by a Fortran formatted read.
+///
+/// # Errors
+/// Only if this crate's own `a11` port wrote text its ENDF reader cannot read.
+pub fn pendf_text(x: f64) -> Result<f64, crate::NjoyError> {
+    crate::endf::parse::parse_endf_float(&crate::endf::parse::format_endf_float(x))
+}
+
+/// One `calcem` record's rows as `acesix` reads them from THERMR's PENDF
+/// (GitHub #865): `tpend` (`thermr.f90:3302-3335`, `ltt = 5`) divides each
+/// density by the stored `xsi(ie)` and rounds it to 7 significant figures (6
+/// below `em9 = 1e-9`); the record then goes through the ENDF text
+/// ([`pendf_text`]) for `E'`, density and cosines alike.
+///
+/// The density has been through the text twice by then: `calcem` writes its
+/// rows to the scratch tape `nscr` (text when THERMR's output tape is,
+/// `thermr.f90:297-298`), and `tpend` reads them back before scaling. This
+/// reproduces a deck with **text (positive) units**, as OpenMC's
+/// `make_ace_thermal` writes; a deck with binary units skips both round trips
+/// and differs in the 7th figure.
+///
+/// [`normalized_rows`] divides by a recomputed trapezoid instead and keeps full
+/// precision; it agrees with this to about 1e-5 in `E'`, which is why the
+/// thermal ACE writer uses this one. An empty vector when `xsi(ie) = 0`, where
+/// upstream stops with `'cross section=0.'`.
+///
+/// # Errors
+/// As [`pendf_text`].
+pub fn tpend_rows(rows: &[EqualProbableRow], xsi: f64) -> Result<Vec<EqualProbableRow>, crate::NjoyError> {
+    use crate::mixr::mix::sigfig;
+    const EM9: f64 = 1.0e-9;
+    if xsi == 0.0 {
+        return Ok(Vec::new());
+    }
+    let rxsec = 1.0 / xsi;
+    rows.iter()
+        .map(|r| {
+            // `calcem` wrote the row to the scratch tape `nscr`, which is text
+            // when the output tape is (`thermr.f90:297-298`), so `tpend`
+            // reads the density back at `a11`'s precision before scaling it.
+            let yy = pendf_text(r.pdf)? * rxsec;
+            let pdf = if yy >= EM9 { sigfig(yy, 7, 0) } else { sigfig(yy, 6, 0) };
+            Ok(EqualProbableRow {
+                ep_ev: pendf_text(r.ep_ev)?,
+                pdf: pendf_text(pdf)?,
+                cosines: r.cosines.iter().map(|&c| pendf_text(c)).collect::<Result<_, _>>()?,
+            })
         })
         .collect()
 }

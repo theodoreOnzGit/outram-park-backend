@@ -897,6 +897,7 @@ impl AceTable {
             zaid,
             awr,
             kt_mev,
+            iz: [0; 16],
             date: "  njoy-rust".to_string(),
             // Provenance, written into the ACE `hk` field (70 chars) so it
             // travels with the table rather than beside it: which crate

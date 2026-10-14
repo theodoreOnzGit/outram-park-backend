@@ -58,28 +58,28 @@ broken file while a word-for-word comparison cannot.
 
 Call chain from `mod.rs::build_full_with_purr` to `unr.rs::unr_words`: 4 hops, 1 shortest chain. Each step shows its code; the name links to it on GitHub.
 
-**1.** [`mod.rs::build_full_with_purr`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L592) — `build_full` **with PURR**: the same table plus the UNR probability-table block, i.e.
+**1.** [`mod.rs::build_full_with_purr`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L596) — `build_full` **with PURR**: the same table plus the UNR probability-table block, i.e.
 
-<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/mod.rs:592 fn build_full_with_purr -->
-<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/mod.rs:602 build_deck -->
+<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/mod.rs:596 fn build_full_with_purr -->
+<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/mod.rs:606 build_deck -->
 
 ```rust,ignore
-{{#include ../../../../../crates/njoy-outram-park-fork/src/acer/mod.rs:592:603}}
+{{#include ../../../../../crates/njoy-outram-park-fork/src/acer/mod.rs:596:607}}
 ```
 
-**2.** → [`mod.rs::build_deck`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L457) · called at [L602](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L602) — Assemble a continuous-energy `AceTable` for the given `AceDeck`.
+**2.** → [`mod.rs::build_deck`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L461) · called at [L606](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L606) — Assemble a continuous-energy `AceTable` for the given `AceDeck`.
 
-<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/mod.rs:457 fn build_deck -->
-<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/mod.rs:505 from_reconr_full_with_extras -->
+<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/mod.rs:461 fn build_deck -->
+<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/mod.rs:509 from_reconr_full_with_extras -->
 
 ```rust,ignore
-{{#include ../../../../../crates/njoy-outram-park-fork/src/acer/mod.rs:457:464}}
+{{#include ../../../../../crates/njoy-outram-park-fork/src/acer/mod.rs:461:468}}
     // …
-{{#include ../../../../../crates/njoy-outram-park-fork/src/acer/mod.rs:503:506}}
+{{#include ../../../../../crates/njoy-outram-park-fork/src/acer/mod.rs:507:510}}
     // … (the rest of the function: follow the link above)
 ```
 
-**3.** → [`build.rs::AceTable::from_reconr_full_with_extras`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/build.rs#L385) · called at [L505](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L505) — [`from_reconr_full`][Self::from_reconr_full] plus the optional blocks a full NJOY deck writes: the UNR probability tables (PURR, GitHub #325) and the **delayed-neutron blocks** DNU/BDD/DNEDL/DNED (`super::delayed_blocks`).
+**3.** → [`build.rs::AceTable::from_reconr_full_with_extras`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/build.rs#L385) · called at [L509](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L509) — [`from_reconr_full`][Self::from_reconr_full] plus the optional blocks a full NJOY deck writes: the UNR probability tables (PURR, GitHub #325) and the **delayed-neutron blocks** DNU/BDD/DNEDL/DNED (`super::delayed_blocks`).
 
 <!-- snippet-check: crates/njoy-outram-park-fork/src/acer/build.rs:385 fn from_reconr_full_with_extras -->
 <!-- snippet-check: crates/njoy-outram-park-fork/src/acer/build.rs:398 build -->
@@ -150,6 +150,13 @@ photo-atomic (byte-identical Type 1 on a synthetic Z = 6 tape; 71 781 of
 H-1 and Mn-55), photo-nuclear (byte for byte on a synthetic tape, 556 781
 bytes), thermal in all three `IFENG` forms (point counts identical to NJOY's on
 Al-27 and graphite). Records: `verification_and_validation/acer_*_vs_njoy2016.md`.
+**Since 2026-10-14 the thermal class is word for word too** (GitHub #865):
+built on the incident nuclide's PENDF, the tables are NJOY2016's in every
+word on Al-27, H in H₂O and crystalline graphite, in all three forms
+(`acer_thermal_word_parity_2026_10_14.md`). It took an instrumented NJOY2016
+build to get there. The port's `sig` lacked its `1e-10` cut, `sigl` used
+`1/3` where upstream writes `.333333333`, and THERMR's own rounding and text
+round trips had been left out. ACER's choice of Bragg edges was missing too.
 
 **2. The same transport code on both libraries.** From
 [`five_route_keff_2026_09_29.md`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/verification_and_validation/icsbep/five_route_keff_2026_09_29.md)
@@ -160,7 +167,8 @@ HST-009 +41 ± 38; LCT-008 +4 ± 9. And `outram-mc` reading this crate's ACE
 (route 5) against reading NJOY2016's (route 3): identical on Godiva and Jemima,
 +50 ± 32 pcm on HST-009 and +16 ± 8 pcm on LCT-008 (differences of the
 recorded means, sems combined in quadrature by this page, unpaired; the
-thermal table is the only data difference).
+thermal table is the only data difference). Those runs predate the
+word-for-word thermal tables of 2026-10-14 and have not been repeated.
 The table and its caveats are on [rung 0](./where-sigma-comes-from.md).
 
 **What was wrong on the way** (the block-parity record's list, abridged): the

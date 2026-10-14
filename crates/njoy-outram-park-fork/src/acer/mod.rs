@@ -198,6 +198,10 @@ pub struct AceTable {
     pub comment: String,
     /// Material-id string (`hm`), e.g. `"   mat9228"`. 10 chars.
     pub mat_id: String,
+    /// The header's 16 IZ entries (their AW partners are written as 0). Zero
+    /// for a table built from an incident evaluation; a thermal table carries
+    /// ACER card 8a's moderator ZA values (`acer.f90:396-399`).
+    pub iz: [i32; 16],
     /// The 16-entry **NXS** array of table dimensions (1-based in ACE docs;
     /// stored 0-based here). See [`nxs`](self::nxs) for the index names.
     pub nxs: [i32; 16],
