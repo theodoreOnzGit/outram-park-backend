@@ -38,12 +38,28 @@
 //! Every number in the table (σ_inel, the emission bins) is computed by this
 //! port from the tape.
 //!
+//! # `--thermal-leapr`: the thermal table from a LEAPR deck (2026-10-14)
+//!
+//! Maintainer direction 2026-10-14: LEAPR always runs, and the published
+//! `tsl-*.endf` tapes are oracles only. `--thermal-leapr
+//! NAME:DECK:INCIDENT_TAPE:ZAID_STEM` (e.g.
+//! `HinH2O:HinH2O:n-001_H_001-ENDF8.0-Beta6.endf:lwtr`) runs
+//! `process::thermal_ace` on the ENDF/B-VIII.0 deck compiled into this crate
+//! (`DECK` is its `SabMaterial::registry_key`) with the incident tape: LEAPR
+//! at `--temp` on the deck's block for it, with the deck's own constants;
+//! RECONR + BROADR of the incident tape; THERMR (tol 0.001, 16 cosines,
+//! `natom` and `emax` from the law's `B(6)`/`B(4)`); ACER with 64 equally
+//! probable outgoing energies (`iwt = 1`), what OpenMC's `make_ace_thermal`
+//! asks NJOY2016 for. Its incident grid is ACER's own rule, so no NJOY table
+//! is read. `--thermal` (below) stays for the published-tape A/B.
+//!
 //! # Usage
 //!
 //! ```text
 //! cargo run --release -p njoy-outram-park-fork --example write_ace_library -- \
 //!     --out <dir> --temp 293.6 \
 //!     --nuclide U235:n-092_U_235-ENDF8.0.endf:9228 [--nuclide ...] \
+//!     [--thermal-leapr HinH2O:HinH2O:n-001_H_001-ENDF8.0-Beta6.endf:lwtr]
 //!     [--thermal HinH2O:tsl-HinH2O.endf:1:lwtr --thermal-grid-from <njoy HinH2O.ace>
 //!      [--thermal-incident n-001_H_001-ENDF8.0-Beta6.endf:125]]
 //! ```
@@ -134,6 +150,11 @@ fn main() {
             "  {name}: 0 K + {temp_k} K (PURR {PURR_NBIN}/{PURR_NLADR}/{PURR_NSAMP}) in {:.1} s",
             t0.elapsed().as_secs_f64()
         );
+    }
+
+    if let Some(spec) = flag(&args, "--thermal-leapr") {
+        thermal_from_leapr(&spec, &hot_dir, temp_k);
+        return;
     }
 
     if let Some(spec) = flag(&args, "--thermal") {
@@ -255,6 +276,43 @@ fn main() {
             t0.elapsed().as_secs_f64()
         );
     }
+}
+
+/// `--thermal-leapr NAME:DECK:INCIDENT_TAPE:ZAID_STEM`: the thermal table by
+/// `process::thermal_ace` from the LEAPR deck registered as `DECK` (see the
+/// module doc). CLI glue; `process::thermal_ace` itself is gated against
+/// NJOY2016 by `tests/process_api.rs`.
+fn thermal_from_leapr(spec: &str, hot_dir: &Path, temp_k: f64) {
+    use njoy_outram_park_fork::leapr::decks::{embedded_deck_text, SabMaterial};
+    use njoy_outram_park_fork::process::{thermal_ace, ThermalSettings};
+    use njoy_outram_park_fork::units::Temperature;
+    use uom::si::thermodynamic_temperature::kelvin;
+    let [name, deck_key, itape, stem] = spec.split(':').collect::<Vec<_>>()[..] else {
+        panic!("--thermal-leapr wants NAME:DECK:INCIDENT_TAPE:ZAID_STEM, got {spec}")
+    };
+    let path = hot_dir.join(format!("{name}.ace"));
+    if path.is_file() {
+        eprintln!("  {name}: present, skipped");
+        return;
+    }
+    let material = SabMaterial::all()
+        .into_iter()
+        .find(|m| m.registry_key() == deck_key)
+        .unwrap_or_else(|| panic!("no LEAPR deck registered as {deck_key}"));
+    let deck = embedded_deck_text(material).unwrap_or_else(|| panic!("{deck_key}: deck not embedded"));
+    let t0 = Instant::now();
+    let incident = Tape::read_file(&reference_endf_dir().join(itape)).unwrap_or_else(|e| panic!("read {itape}: {e}"));
+    let settings = ThermalSettings::default()
+        .with_outgoing_energies(64)
+        .with_form(InelasticForm::Equiprobable)
+        .with_table_name(stem);
+    let t = thermal_ace(&incident, deck, Temperature::new::<kelvin>(temp_k), &settings)
+        .unwrap_or_else(|e| panic!("LEAPR -> THERMR -> ACER {name}: {e:?}"));
+    write(&t, &path);
+    eprintln!(
+        "  {name}: thermal table from the {deck_key} LEAPR deck at {temp_k} K on {itape} (64 x 16, iwt = 1) in {:.1} s",
+        t0.elapsed().as_secs_f64()
+    );
 }
 
 /// Write to a temporary name and rename, so an interrupted write never leaves a
