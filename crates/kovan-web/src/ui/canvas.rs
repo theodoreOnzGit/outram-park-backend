@@ -706,7 +706,9 @@ impl CodeReview {
         let slice = snap.slice(krate)?;
         let (module, _, _) = model::find_module(&slice.krate, file)?;
         let facts = snap.facts();
-        let ring_ids: Vec<String> = model::reviewables(module, self.show_tests).map(|f| f.id.clone()).collect();
+        // A deep-linked test joins the ring even while test code is hidden (#867).
+        let ring_ids = model::ring_ids(module, self.show_tests, self.place.selected.as_deref());
+        let n_reviewables = model::reviewables(module, self.show_tests).count();
         let slice_for = |id: &str| -> Option<Arc<CrateSlice>> { snap.slice_of(id).cloned() };
         let hl = model::hierarchy_layout(
             &ring_ids,
@@ -753,14 +755,14 @@ impl CodeReview {
         let path = if module.path.is_empty() { format!("{krate} (target root)") } else { module.path.clone() };
         let n_items = module.items.iter().filter(|f| self.show_tests || !f.test).count();
         let sub = if n_items == 0 {
-            format!("{} functions", ring_ids.len())
+            format!("{n_reviewables} functions")
         } else {
-            format!("{} functions · {n_items} types and constants", ring_ids.len() - n_items)
+            format!("{} functions · {n_items} types and constants", n_reviewables - n_items)
         };
         let path_colour = if pal.dark { Color32::from_gray(190) } else { pal.weak };
         card_text(painter, mr, &[(name.as_str(), 16.0, pal.strong), (path.as_str(), 10.0, path_colour), (sub.as_str(), 11.0, pal.text)], z);
         hits.push((mr, Hit::ModuleCard));
-        let mut draw_fn = |id: &str, p: Point, toggles: (bool, bool)| {
+        let mut draw_fn = |id: &str, p: Point| {
             let r = screen(&cam, rect, centred(p, CARD_SIZE));
             let k = crate_of(map, id).unwrap_or("");
             let topic = topic_of(map, k);
@@ -770,14 +772,15 @@ impl CodeReview {
             let home_fill = if pal.dark { Color32::from_rgb(30, 34, 44) } else { pal.card };
             let fill = if k == krate { home_fill } else { pal.fill_of(tc) };
             painter.rect(r, 6.0 * z, fill, Stroke::new(if selected { 3.5 } else { 2.0 }, if selected { pal.strong } else { review_colour(&review) }), StrokeKind::Inside);
-            let found = snap.slice_of(id).and_then(|s| model::find_function(&s.krate, id).map(|(m, f, _)| (model::function_maturity(m, map, k), model::display_name(f), f.shape)));
+            let found = snap.slice_of(id).and_then(|s| model::find_function(&s.krate, id).map(|(m, f, _)| (model::function_maturity(m, map, k), model::display_name(f), model::card_kind(f), f.test_fn)));
             let title = match &found {
-                Some((_, n, _)) => n.clone(),
+                Some((_, n, _, _)) => n.clone(),
                 None => model::short_name(id).to_string(),
             };
             let mat = found.as_ref().and_then(|f| f.0).map(|m| format!("M{m} · ")).unwrap_or_default();
-            // A type or constant says what it is in plain words (#843).
-            let what = found.as_ref().and_then(|f| f.2).map(|s| format!("{} · ", s.plain_name())).unwrap_or_default();
+            // A type or constant says what it is in plain words (#843), a
+            // test that it is a test (#867).
+            let what = found.as_ref().map(|f| f.2.clone()).unwrap_or_default();
             let line2 = format!("{what}{mat}{}", review.label());
             let mut lines = vec![(title.as_str(), 12.5, pal.strong), (line2.as_str(), 10.0, pal.on_card(review_colour(&review)))];
             if k != krate {
@@ -786,7 +789,9 @@ impl CodeReview {
             card_text(painter, r, &lines, z);
             hits.push((r, Hit::Function(id.to_string())));
             let t = (16.0 * z).max(14.0);
-            for (on, dir, right) in [(toggles.1, Dir::Callees, true), (toggles.0, Dir::Callers, false)] {
+            // A test is an entry point: nothing calls it, so no callers toggle.
+            let entry = found.as_ref().is_some_and(|f| f.3);
+            for (on, dir, right) in [(true, Dir::Callees, true), (!entry, Dir::Callers, false)] {
                 if !on {
                     continue;
                 }
@@ -796,11 +801,10 @@ impl CodeReview {
                 hits.push((Rect::from_center_size(c, Vec2::splat(t * 1.3)), Hit::FnToggle(id.to_string(), dir)));
             }
         };
-        for (id, p) in &hl.ring {
-            draw_fn(id, *p, (true, true));
-        }
-        for (id, p, col) in &hl.unfolded {
-            draw_fn(id, *p, (*col < 0, *col > 0));
+        // Every card unfolds both ways (#867): a test among the callers
+        // unfolds what it exercises.
+        for (id, p) in hl.ring.iter().map(|r| (&r.0, r.1)).chain(hl.unfolded.iter().map(|u| (&u.0, u.1))) {
+            draw_fn(id, p);
         }
         for id in &hl.waiting {
             if let Some(p) = hl.position(id) {

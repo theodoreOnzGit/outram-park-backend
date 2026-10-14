@@ -33,7 +33,12 @@ reviewed first?**
   Module-to-module calls are drawn faintly and lit for the selected module.
 - **Module view:** the module's functions on a ring around it. ▸ unfolds a
   function's callees and ◂ its callers, level by level; a function already
-  on screen is drawn once. Cards show stamp state (unreviewed, valid,
+  on screen is drawn once. Since #867 (2026-10-14) every card unfolds both
+  ways, and the callers include the **tests** that call the function (unit
+  tests under `#[cfg(test)]` and integration tests under `tests/`), on cards
+  reading "test"; ▸ on a test shows what it exercises. A deep link to a
+  test (`code-review/#<test fn id>`) puts it on its module's ring even while
+  "Show test functions" is off. Cards show stamp state (unreviewed, valid,
   stale) and maturity. The side panel lists the functions as rustdoc does,
   with "API ↗" where the site has the rustdoc page.
 - **Review bar:** the selected function's stamp state, maturity and "blocked
