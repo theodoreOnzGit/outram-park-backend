@@ -448,7 +448,13 @@ impl NdApp {
             }
             Phase::Ready => self.controls(ui),
         }
-        if !self.note.is_empty() {
+        if !self.note.is_empty() && self.rung == Rung::AceCompare {
+            // The full report is the main view's; the panel keeps the verdict.
+            ui.separator();
+            let verdict = self.note.lines().find(|l| l.starts_with("VERDICT") || l.starts_with("Failed")).unwrap_or("");
+            ui.label(RichText::new(verdict).size(12.5).strong());
+            ui.weak("the block-by-block report is in the main view");
+        } else if !self.note.is_empty() {
             ui.separator();
             ui.label(RichText::new(&self.note).size(12.5));
             if self.secs > 0.0 {
