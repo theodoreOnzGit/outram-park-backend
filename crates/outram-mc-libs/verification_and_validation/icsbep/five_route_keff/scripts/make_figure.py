@@ -49,6 +49,11 @@ CASES = [
     ("hst009", "HEU-SOL-THERM-009 case 1", 0.9990, 0.0043, "±0.0043, van der Marck 2006"),
     ("lct008", "LEU-COMP-THERM-008 case 1 (lattice, 11-nuclide tier)", 1.0007, 0.0016,
      "±0.0016, Mosteller 2010"),
+    # The full nuclide list, the default since 2026-10-14 (rows labelled
+    # lct008-full, never pooled with the 11-nuclide rows above). A case with
+    # no rows yet is left out of the summary and drawn as "not run".
+    ("lct008-full", "LEU-COMP-THERM-008 case 1 (lattice, full 35 nuclides)", 1.0007, 0.0016,
+     "±0.0016, Mosteller 2010"),
 ]
 ROUTES = [
     ("route1", "1  OpenMC\nNJOY2016 ACE"),
@@ -131,7 +136,7 @@ def main():
 
     plt.rcParams.update({"font.size": 8.5, "axes.edgecolor": INK2, "axes.labelcolor": INK,
                          "xtick.color": INK2, "ytick.color": INK2, "text.color": INK})
-    fig, axes = plt.subplots(2, 4, figsize=(15, 7.4), sharex=True,
+    fig, axes = plt.subplots(2, len(CASES), figsize=(3.75 * len(CASES), 7.4), sharex=True,
                              gridspec_kw={"height_ratios": [3, 2]}, constrained_layout=True)
     x = np.arange(len(ROUTES))
     for j, (case, title, k_bench, band, band_note) in enumerate(CASES):

@@ -14,8 +14,12 @@
 #
 # Cases: godiva (HEU-MET-FAST-001), jemima (IEU-MET-FAST-002), hst009
 # (HEU-SOL-THERM-009 case 1), lct008 (LEU-COMP-THERM-008 case 1, the real
-# lattice with lct008_keff.rs's 11-nuclide tier; its own defaults are
-# 10000 x [250 + 400], pass PARTICLES/INACTIVE/ACTIVE for it). The homogenised
+# lattice; its own defaults are 10000 x [250 + 400], pass
+# PARTICLES/INACTIVE/ACTIVE for it). ~~lct008 ran lct008_keff.rs's 11-nuclide
+# tier~~ CHANGED 2026-10-14 (maintainer direction): it runs the FULL nuclide
+# list (35) on every route, and its rows are labelled case lct008-full, so
+# they never pool with the 11-nuclide rows recorded before as lct008. Both
+# libraries carry all 35 (nuclides.tsv). The homogenised
 # sphere `lct008s` was deleted 2026-09-29 at the maintainer's direction (wrong
 # model).
 #
@@ -91,11 +95,15 @@ for lib in njoy rust; do
   fi
 done
 
+# The case label the CSV rows carry: lct008 on its full nuclide list (the
+# default since 2026-10-14) is lct008-full (the driver's `case_label`).
+csv_case() { [ "$1" = lct008 ] && echo lct008-full || echo "$1"; }
+
 # Seeds of case $1 / label $2 not yet in $CSV, comma-separated.
 missing() {
-  s=1; out=""
+  s=1; out=""; c=$(csv_case "$1")
   while [ $s -le "$SEEDS" ]; do
-    if ! grep -q "^$1,$2,[a-z-]*,$s," "$CSV" 2>/dev/null; then out="$out$s,"; fi
+    if ! grep -q "^$c,$2,[a-z-]*,$s," "$CSV" 2>/dev/null; then out="$out$s,"; fi
     s=$((s + 1))
   done
   echo "${out%,}"

@@ -26,6 +26,13 @@
 # at this size is predicted ~190 pcm (scaled by the square root of active
 # histories), so it runs 16 seeds rather than the campaign's 6: at 6 seeds
 # three standard errors would be ~240 pcm and every run UNRESOLVED.
+#
+# LCT-008 runs on its 11-nuclide tier here (--cheap-nuclides), although the
+# full nuclide list is the default everywhere else since 2026-10-14: the check
+# is judged against the recorded route-1 k of the same model, and the full
+# model has no route-1 row yet (it needs OpenMC + NJOY2016, run on the
+# maintainer's desktop). Drop the flag once summary_keff.csv has an
+# lct008-full route-1 row (GitHub #874).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -39,6 +46,14 @@ commit="$(git rev-parse --short=10 HEAD 2>/dev/null || echo unknown)"
 summary=crates/outram-mc-libs/verification_and_validation/icsbep/five_route_keff/data/summary_keff.csv
 mkdir -p "$(dirname "$record")"
 rm -f "$record"
+
+# Extra flags per case (see the LCT-008 note at the top).
+extra_for() {
+  case "$1" in
+    lct008) echo --cheap-nuclides ;;
+    *) echo ;;
+  esac
+}
 
 seeds_for() {
   case "$1" in
@@ -58,7 +73,7 @@ for c in "${cases[@]}"; do
   rm -f "$per_seed"
   cargo run --release -q -p outram-mc-libs --features endf-pebble-cases --example icsbep_five_route_keff -- \
     --case "$c" --route endf --label route4 --seeds "$(seeds_for "$c")" --threads "$threads" \
-    --particles 5000 --inactive 40 --active 120 \
+    --particles 5000 --inactive 40 --active 120 $(extra_for "$c") \
     --csv "$per_seed" --commit "$commit" \
     --accept "$summary" --allowance-pcm 200 --accept-record "$record" || status=1
 done

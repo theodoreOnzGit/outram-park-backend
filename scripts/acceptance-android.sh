@@ -14,10 +14,12 @@ dir=/data/local/tmp/acceptance
 commit="$(cat stage/commit.txt 2>/dev/null || echo unknown)"
 status=0
 run() {
-  local c="$1" seeds="$2"
+  local c="$1" seeds="$2" extra=""
+  # LCT-008 on its 11-nuclide tier: see scripts/acceptance-keff.sh.
+  [ "$c" = lct008 ] && extra=--cheap-nuclides
   adb shell "cd $dir && OUTRAM_PARK_ENDF_DIR=$dir/endf ./icsbep_five_route_keff \
     --case $c --route endf --label route4 --seeds $seeds --threads 4 \
-    --particles 5000 --inactive 40 --active 120 \
+    --particles 5000 --inactive 40 --active 120 $extra \
     --csv per_seed_$c.csv --commit $commit \
     --accept summary_keff.csv --allowance-pcm 200 --accept-record keff_acceptance.csv" || status=1
 }

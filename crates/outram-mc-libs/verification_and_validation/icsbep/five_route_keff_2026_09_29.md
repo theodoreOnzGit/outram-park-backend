@@ -5,6 +5,23 @@ comparison with three critical experiments. **No human V&V sign-off.** This is
 an AI-assisted draft under `RESPONSIBLE_USE.md`, not for any operational,
 licensing or safety use.
 
+**Change of model, 2026-10-14 (maintainer direction). Not yet run.**
+- **LCT-008 runs its full nuclide list (35) by default** on every route:
+  `icsbep_five_route_keff.rs`, `openmc_inputs/icsbep_openmc.py` and both ACE
+  libraries (`five_route_keff/nuclides.tsv` now lists all 36 tapes of
+  `lct008_model::TAPES`; case 1 uses 35). Full-model rows are labelled case
+  **`lct008-full`** and never pool with the 11-nuclide rows below, which keep
+  the label `lct008`. `--cheap-nuclides` is the explicit ablation back to the
+  11. The 24 extra nuclides are worth −75 ± 14 pcm on route 4 (#533).
+- **H in H₂O comes from LEAPR on every route that uses the Rust NJOY port**
+  (2, 4 and 5): route 4 through `ThermalScattering::from_embedded_leapr_deck`,
+  routes 2 and 5 through `write_ace_library --thermal-leapr`. Routes 1 and 3
+  keep NJOY2016's table, the reference.
+- **Every LCT-008 number in this record is the 11-nuclide model.** The
+  full-model campaign (all five routes) has not been run: routes 1 and 2 need
+  OpenMC. Until it has a route-1 row, the acceptance check runs LCT-008 on
+  the 11-nuclide tier explicitly. Tracked in #874.
+
 **Status (2026-09-30).** All five routes are complete for all four cases.
 Routes 3–5 are at `0414bc8277`, after the OpenMC-parity audit (#407); see
 "Results — after the OpenMC-parity audit" below. The lattice is at 96 seeds on

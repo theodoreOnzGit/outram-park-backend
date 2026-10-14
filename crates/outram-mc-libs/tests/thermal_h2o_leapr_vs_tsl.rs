@@ -54,6 +54,11 @@ fn h_in_h2o_from_leapr_matches_the_published_tape_to_thermr_tol() {
     let run = run_deck_at_temperature(&deck, TEMP_K).unwrap();
     let tape = Tape::read(std::io::Cursor::new(run.write_text().unwrap())).unwrap();
     let leapr = ThermalScattering::from_tape(&tape, deck.mat, TEMP_K, "c_H_in_H2O").unwrap();
+    // The library function route 4 and the browser demos call is these three
+    // calls, word for word.
+    let lib = ThermalScattering::from_embedded_leapr_deck(SabMaterial::HInH2O, TEMP_K, "c_H_in_H2O").unwrap();
+    let bits = |t: &ThermalScattering| t.to_f64s().iter().map(|x| x.to_bits()).collect::<Vec<_>>();
+    assert_eq!(bits(&lib), bits(&leapr), "from_embedded_leapr_deck differs from the three calls");
     let published = ThermalScattering::from_endf_file(tsl.to_str().unwrap(), 1, TEMP_K, "c_H_in_H2O").unwrap();
 
     // The stored S(alpha, beta) itself, value by value: what the baked tables

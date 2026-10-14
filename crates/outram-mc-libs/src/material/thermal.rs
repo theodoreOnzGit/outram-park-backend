@@ -704,6 +704,47 @@ impl ThermalScattering {
         Self::from_tape(&tape, material.mat(), temperature_k, name)
     }
 
+    /// Build the tables from the **ENDF/B-VIII.0 LEAPR deck compiled into
+    /// njoy**, running the deck's own block for `temperature_k`
+    /// ([`run_deck_at_temperature`](njoy_outram_park_fork::leapr::run::run_deck_at_temperature)),
+    /// then reading LEAPR's tape back from its text, as THERMR reads it, and
+    /// baking it with [`from_tape`](Self::from_tape).
+    ///
+    /// This is the law the five-route study's ENDF route and the browser
+    /// benchmark demos use (maintainer direction 2026-10-14: LEAPR always
+    /// runs; the published `tsl-*.endf` tapes are oracles). Unlike
+    /// [`from_leapr`](Self::from_leapr) it touches no file and no disk cache,
+    /// so it runs on `wasm32-unknown-unknown`; and it runs the deck's own block
+    /// at a temperature the deck specifies (H in H₂O re-specifies its spectrum
+    /// at 293.6 K), with the physical constants its `EVAL` date picks.
+    ///
+    /// For H in H₂O at 293.6 K the stored S(α,β) is identical to the published
+    /// `tsl-HinH2O.endf` in all 70 374 values
+    /// (`tests/thermal_h2o_leapr_vs_tsl.rs`, 2026-10-14).
+    ///
+    /// # Errors
+    ///
+    /// The deck is not embedded, does not parse, has no block LEAPR can run at
+    /// `temperature_k`, or its tape does not bake.
+    pub fn from_embedded_leapr_deck(
+        material: njoy_outram_park_fork::leapr::decks::SabMaterial,
+        temperature_k: f64,
+        name: &str,
+    ) -> Result<Self, NjoyError> {
+        use njoy_outram_park_fork::endf::tape::Tape;
+        use njoy_outram_park_fork::leapr::deck::LeaprDeck;
+        use njoy_outram_park_fork::leapr::decks::embedded_deck_text;
+        use njoy_outram_park_fork::leapr::run::run_deck_at_temperature;
+
+        let text = embedded_deck_text(material).ok_or_else(|| {
+            NjoyError::InvalidInput(format!("no embedded LEAPR deck for {material:?}"))
+        })?;
+        let deck = LeaprDeck::parse(text)?;
+        let run = run_deck_at_temperature(&deck, temperature_k)?;
+        let tape = Tape::read(std::io::Cursor::new(run.write_text()?))?;
+        Self::from_tape(&tape, deck.mat, temperature_k, name)
+    }
+
     /// Bake the tables from an already-parsed ENDF tape — the shared body of
     /// [`from_endf_file`](Self::from_endf_file) and
     /// [`from_leapr`](Self::from_leapr).
