@@ -800,8 +800,9 @@ struct ResonanceOptions {
 
 /// Which tape set this run uses. **Full by default** — every nuclide the
 /// OpenMC material cards name, because correct physics is the default and not
-/// an opt-in. `--cheap-nuclides` drops to the 11-nuclide subset for iteration,
-/// at the cost of running an incomplete model.
+/// an opt-in. `--cheap-nuclides` drops to the 11-nuclide subset, which is
+/// retired as a model (maintainer direction 2026-10-14) and kept as a smoke
+/// test and for iteration: it runs an incomplete model.
 fn tapes() -> &'static [(&'static str, &'static str)] {
     static CHEAP: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
     let cheap = *CHEAP.get_or_init(|| std::env::args().any(|a| a == "--cheap-nuclides"));

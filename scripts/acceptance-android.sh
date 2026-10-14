@@ -15,7 +15,7 @@ commit="$(cat stage/commit.txt 2>/dev/null || echo unknown)"
 status=0
 run() {
   local c="$1" seeds="$2" extra=""
-  # LCT-008 on its 11-nuclide tier: see scripts/acceptance-keff.sh.
+  # LCT-008 is the 11-nuclide smoke test: see scripts/acceptance-keff.sh.
   [ "$c" = lct008 ] && extra=--cheap-nuclides
   adb shell "cd $dir && OUTRAM_PARK_ENDF_DIR=$dir/endf ./icsbep_five_route_keff \
     --case $c --route endf --label route4 --seeds $seeds --threads 4 \

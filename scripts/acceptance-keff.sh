@@ -27,12 +27,11 @@
 # histories), so it runs 16 seeds rather than the campaign's 6: at 6 seeds
 # three standard errors would be ~240 pcm and every run UNRESOLVED.
 #
-# LCT-008 runs on its 11-nuclide tier here (--cheap-nuclides), although the
-# full nuclide list is the default everywhere else since 2026-10-14: the check
-# is judged against the recorded route-1 k of the same model, and the full
-# model has no route-1 row yet (it needs OpenMC + NJOY2016, run on the
-# maintainer's desktop). Drop the flag once summary_keff.csv has an
-# lct008-full route-1 row (GitHub #874).
+# LCT-008 here is a SMOKE TEST on the retired 11-nuclide tier
+# (--cheap-nuclides; maintainer direction 2026-10-14). The lattice's model is
+# the full nuclide list everywhere else; the 11-nuclide tier is kept to check
+# that the code runs on each platform, judged against its own recorded
+# route-1 k. It is not the lattice's k.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -47,7 +46,7 @@ summary=crates/outram-mc-libs/verification_and_validation/icsbep/five_route_keff
 mkdir -p "$(dirname "$record")"
 rm -f "$record"
 
-# Extra flags per case (see the LCT-008 note at the top).
+# Extra flags per case (see the LCT-008 smoke-test note at the top).
 extra_for() {
   case "$1" in
     lct008) echo --cheap-nuclides ;;

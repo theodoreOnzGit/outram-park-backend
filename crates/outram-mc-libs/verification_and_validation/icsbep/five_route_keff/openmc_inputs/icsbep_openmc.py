@@ -107,8 +107,8 @@ def hst009():
 # read here with OpenMC's own XML readers, so geometry and densities are the
 # file's, not a transcription. Since 2026-10-14 (maintainer direction) every
 # nuclide of the file is kept, as outram-mc's default full tier keeps them
-# (35 nuclides; rows labelled case `lct008-full`). `--cheap-nuclides` is the
-# explicit ablation to the 11-nuclide tier every earlier row ran on
+# (35 nuclides; rows labelled case `lct008-full`). `--cheap-nuclides` runs the
+# RETIRED 11-nuclide tier (a smoke test only, 2026-10-14) every earlier row ran on
 # (lct008_keff.rs `TAPES_CHEAP`, rows labelled `lct008`): every other nuclide
 # is then dropped and NOT renormalised, matching `build_materials` (density
 # units="sum" then sums what is left, exactly as outram-mc's per-nuclide atom
@@ -170,7 +170,7 @@ def main():
                          "(resonance_scattering['nuclides']); pairs with outram-mc's "
                          "--ablate dbrc-only=<name>")
     ap.add_argument("--cheap-nuclides", action="store_true",
-                    help="ablation (lct008 only): the 11-nuclide tier every row before "
+                    help="smoke test (lct008 only): the retired 11-nuclide tier every row before "
                          "2026-10-14 ran on; rows are labelled lct008, the full tier lct008-full")
     ap.add_argument("--openmc", default=os.path.expanduser("~/Documents/research/openmcbin/bin/openmc"))
     a = ap.parse_args()

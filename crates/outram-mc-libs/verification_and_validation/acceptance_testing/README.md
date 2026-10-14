@@ -49,7 +49,7 @@ elastic scattering, the H in H₂O thermal law), transported by Outram MC.
 | `godiva` | HEU-MET-FAST-001 | `outram_mc_libs::vv::godiva`, bare sphere |
 | `jemima` | IEU-MET-FAST-002 | `outram_mc_libs::vv::jemima`, four-cell cylinder |
 | `hst009` | HEU-SOL-THERM-009 case 1 | `outram_mc_libs::vv::hst009`, three spheres |
-| `lct008` | LEU-COMP-THERM-008 case 1 | the committed benchmark cards, parsed at run time; 11-nuclide tier, passed explicitly (`--cheap-nuclides`) since 2026-10-14, when the full list became the driver's default: the check is judged against the route-1 k of the same model, and only the 11-nuclide model has one |
+| `lct008` | LEU-COMP-THERM-008 case 1 | the committed benchmark cards, parsed at run time; **a smoke test** on the retired 11-nuclide tier (`--cheap-nuclides`, maintainer direction 2026-10-14): the lattice's model is the full nuclide list, and this case only checks that the code runs, against the 11-nuclide tier's own route-1 k |
 
 The driver is `examples/icsbep_five_route_keff.rs` with `--accept`, the
 program the five-route campaign itself ran. The web demo builds the same

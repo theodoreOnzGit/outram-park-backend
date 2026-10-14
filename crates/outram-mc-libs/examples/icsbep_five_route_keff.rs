@@ -65,8 +65,9 @@
 //! libraries carry all 35, `five_route_keff/nuclides.tsv`). Its CSV rows are
 //! labelled case **`lct008-full`** (35 nuclides: case 1 uses 35 of
 //! `TAPES`' 36), so they never pool with the 11-nuclide
-//! rows recorded before, which keep the label `lct008`. `--cheap-nuclides` is
-//! the explicit ablation back to the 11-nuclide tier (label `lct008`);
+//! rows recorded before, which keep the label `lct008`. `--cheap-nuclides` runs
+//! the **retired** 11-nuclide tier (label `lct008`), kept as a smoke test only
+//! (maintainer direction 2026-10-14; the acceptance check's LCT-008 case);
 //! `--full-nuclides` is accepted and changes nothing.
 //!
 //! # Usage
@@ -241,7 +242,8 @@ fn case(name: &str) -> Case {
 ///
 /// `full = true`, **the default since 2026-10-14** (maintainer direction),
 /// keeps every nuclide of `lct008_keff.rs`'s default `TAPES` (35). `full =
-/// false` (`--cheap-nuclides`, an explicit ablation) restricts the model to
+/// false` (`--cheap-nuclides`, a smoke test only: the 11-nuclide model is
+/// retired, 2026-10-14) restricts the model to
 /// `TAPES_CHEAP` (11 nuclides), the tier every LCT-008 row before 2026-10-14
 /// was run on: model nuclides outside it are **dropped, not renormalised**,
 /// exactly as `lct008_keff.rs --cheap-nuclides` does. Either way the dropped
@@ -561,13 +563,13 @@ fn main() {
         .map(|s| s.parse().expect("seed"))
         .collect();
     // LCT-008's tier: the full list is the default (2026-10-14);
-    // `--cheap-nuclides` is the explicit ablation to the 11 recorded before.
+    // `--cheap-nuclides` is the retired 11-nuclide tier, a smoke test only.
     let cheap = args.iter().any(|a| a == "--cheap-nuclides");
     if cheap || args.iter().any(|a| a == "--full-nuclides") {
         assert_eq!(case_name, "lct008", "--cheap-nuclides / --full-nuclides are defined for lct008 only");
     }
     let mut c = if cheap {
-        eprintln!("  ABLATION: lct008 on the 11-nuclide tier (--cheap-nuclides)");
+        eprintln!("  SMOKE TEST: lct008 on the retired 11-nuclide tier (--cheap-nuclides); not the lattice's k");
         lct008_lattice_case(false)
     } else {
         case(&case_name)
@@ -962,7 +964,7 @@ mod draw_tests {
     }
 
     /// LCT-008 runs its full nuclide list by default (2026-10-14), under the
-    /// label `lct008-full`; `--cheap-nuclides` is the 11-nuclide ablation
+    /// label `lct008-full`; `--cheap-nuclides` is the retired 11-nuclide tier, a smoke test,
     /// under the label every earlier row carries. The full tier has no
     /// recorded route-1 reference yet, so an acceptance check on it refuses
     /// rather than borrowing the 11-nuclide one.

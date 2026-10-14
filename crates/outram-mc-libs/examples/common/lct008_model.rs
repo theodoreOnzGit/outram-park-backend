@@ -170,10 +170,14 @@ pub const TAPES: &[(&str, &str)] = &[
 /// The **cheap** subset — fuel, moderator, soluble-boron poison, and the three
 /// clad nuclides the clad cannot do without. Selected with `--cheap-nuclides`.
 ///
-/// It exercises the identical transport path at a fraction of the
-/// reconstruction cost, so it is the tier to use while iterating on geometry,
-/// tallies or statistics. It is **not** the default: the model it describes is
-/// incomplete, and correct physics is the default here.
+/// **A smoke test only, since 2026-10-14 (maintainer direction): the
+/// 11-nuclide model is retired.** It exercises the identical transport path
+/// at a fraction of the reconstruction cost, so it serves to check that the
+/// code runs (the acceptance check's LCT-008 case) and to iterate on
+/// geometry, tallies or statistics. No result on it is quoted as the
+/// lattice's `k`: the model it describes is incomplete (the 24 dropped
+/// nuclides are worth −75 ± 14 pcm, gh:#533), and correct physics is the
+/// default here.
 pub const TAPES_CHEAP: &[(&str, &str)] = &[
     ("H1", "n-001_H_001-ENDF8.0-Beta6.endf"),
     ("B10", "n-005_B_010-ENDF8.0.endf"),

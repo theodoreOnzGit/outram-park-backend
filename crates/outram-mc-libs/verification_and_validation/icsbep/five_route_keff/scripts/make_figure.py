@@ -47,12 +47,16 @@ CASES = [
     ("jemima", "Jemima  IEU-MET-FAST-002", 1.0000, 0.0030,
      "±0.0030, Mosteller 2010; van der Marck 2006"),
     ("hst009", "HEU-SOL-THERM-009 case 1", 0.9990, 0.0043, "±0.0043, van der Marck 2006"),
-    ("lct008", "LEU-COMP-THERM-008 case 1 (lattice, 11-nuclide tier)", 1.0007, 0.0016,
-     "±0.0016, Mosteller 2010"),
-    # The full nuclide list, the default since 2026-10-14 (rows labelled
-    # lct008-full, never pooled with the 11-nuclide rows above). A case with
-    # no rows yet is left out of the summary and drawn as "not run".
+    # LCT-008 on its full nuclide list, the model since 2026-10-14 (rows
+    # labelled lct008-full). A case with no rows yet is drawn as "not run".
     ("lct008-full", "LEU-COMP-THERM-008 case 1 (lattice, full 35 nuclides)", 1.0007, 0.0016,
+     "±0.0016, Mosteller 2010"),
+]
+# Summarised (summary_keff.csv/.md) but not drawn: the RETIRED 11-nuclide
+# LCT-008 tier (maintainer direction 2026-10-14), kept only as the reference
+# of the acceptance check's smoke test.
+SUMMARY_ONLY = [
+    ("lct008", "LEU-COMP-THERM-008 case 1 (lattice, retired 11-nuclide tier, smoke test)", 1.0007, 0.0016,
      "±0.0016, Mosteller 2010"),
 ]
 ROUTES = [
@@ -72,7 +76,7 @@ INK, INK2, GRID = "#0b0b0b", "#52514e", "#e4e3df"
 
 def summarise(rows):
     out = {}
-    for case, _, _, _, _ in CASES:
+    for case, _, _, _, _ in CASES + SUMMARY_ONLY:
         for route, _ in ROUTES:
             k = np.array([float(r["k"]) for r in rows if r["case"] == case and r["route"] == route])
             if k.size == 0:
@@ -110,7 +114,7 @@ def main():
         w.writerow(["case", "route", "n_seeds", "k_mean", "k_sem", "k_sd_seeds",
                     "mean_internal_sigma", "d_exp_pcm", "d_exp_sigma_pcm",
                     "d_route1_pcm", "d_route1_sigma_pcm", "d_route1_nsigma"])
-        for case, _, k_bench, _, _ in CASES:
+        for case, _, k_bench, _, _ in CASES + SUMMARY_ONLY:
             ref = s.get((case, "route1"))
             for route, _ in ROUTES:
                 v = s.get((case, route))
