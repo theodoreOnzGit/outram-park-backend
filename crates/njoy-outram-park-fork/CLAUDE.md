@@ -593,8 +593,8 @@ supplies photon heating to better than 1e-4, and that is the number to quote.
 both codes reading the same PENDF so the comparison isolates `acedos`. Record:
 [`verification_and_validation/acer_dosimetry_vs_njoy2016.md`](verification_and_validation/acer_dosimetry_vs_njoy2016.md).
 
-**All 40 cases in `upstream_source/NJOY2016/tests` were checked and none runs
-`iopt = 3`.** This gate covers a path with no regression cover upstream. Worth
+~~**All 40 cases in `upstream_source/NJOY2016/tests` were checked and none runs
+`iopt = 3`.**~~ **CORRECTED 2026-10-14** (counted in the vendored upstream at `ac5adf5`): there are 86 numbered cases, 46 of which run `acer`, with `iopt` 1, 2, 4, 5 and 7; none runs `iopt = 3`. This gate covers a path with no regression cover upstream. Worth
 remembering the next time a discrepancy in a little-used module looks
 surprising: "NJOY does it this way" is only evidence that the code says so,
 not that anyone has ever run it.
