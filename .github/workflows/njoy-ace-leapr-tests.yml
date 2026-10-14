@@ -1,0 +1,93 @@
+# The NJOY port's ACE and LEAPR comparison tests on Linux, Windows and macOS
+# (GitHub #862, maintainer 2026-10-14).
+#
+# WHAT RUNS. `scripts/njoy-ace-leapr-tests.sh`: every integration test file
+# `tests/acer*.rs`, `tests/ace_*.rs` and `tests/leapr*.rs` of
+# njoy-outram-park-fork, in release. Most compare this port's output with
+# NJOY2016's own (ACE tables, thermal ACE, LEAPR S(alpha,beta)), stored as
+# reference files in the repository and the `reference-data/ace` submodule.
+# Measured 2026-10-14 on the maintainer's machine: 94 tests, about two minutes
+# of running after the build.
+#
+# NOTHING THAT SKIPS IS RUN, AND NOTHING RUN MAY SKIP. Tests whose NJOY tables or
+# fixtures are not in the repository are left out by name (the script lists
+# them, #862 says why), and the job fails if a test it runs prints SKIP. A
+# skipped test reports "ok"; ten graphite tests passed that way for months
+# before 2026-10-14.
+#
+# PLATFORMS. The three desktop operating systems. Not Android or wasm: these
+# tests find their reference data by paths fixed at compile time inside the
+# repository, which an emulator or a browser does not have.
+#
+# The full word-for-word ACE comparison (examples/ace_blocks_vs_reference.rs,
+# tables up to 316 MB) is not run here; it is run by hand.
+
+name: njoy ACE and LEAPR tests
+
+on:
+  push:
+    branches: [develop]
+    paths:
+      - ".github/workflows/njoy-ace-leapr-tests.yml"
+      - "scripts/njoy-ace-leapr-tests.sh"
+      - "crates/njoy-outram-park-fork/**"
+      - "reference-data/**"
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_NET_RETRY: 2
+  RUST_BACKTRACE: short
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    name: ACE + LEAPR / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false # one platform's failure must not hide the others'
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch the reference-data/ace submodule
+        shell: bash
+        run: git submodule update --init --depth 1 reference-data/ace
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: njoy-ace-leapr-${{ matrix.os }}
+          cache-on-failure: true
+
+      - name: Hardware (every timing carries its hardware)
+        shell: bash
+        run: |
+          uname -a
+          getconf _NPROCESSORS_ONLN || true
+          if [ -r /proc/cpuinfo ]; then grep -m1 "model name" /proc/cpuinfo; fi
+          if command -v sysctl >/dev/null; then sysctl -n machdep.cpu.brand_string hw.memsize 2>/dev/null || true; fi
+
+      - name: ACE and LEAPR tests, none skipped
+        shell: bash
+        run: bash scripts/njoy-ace-leapr-tests.sh target/njoy-ace-leapr-tests.log
+
+      - name: Record in the job summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "### njoy ACE + LEAPR tests, ${{ matrix.os }}"
+            echo
+            echo '```'
+            grep -E '^(test result|     Running)' target/njoy-ace-leapr-tests.log 2>/dev/null || echo "no log written"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
