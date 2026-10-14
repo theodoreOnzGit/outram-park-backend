@@ -16,6 +16,8 @@
 //! `acer::compare`, which names the first differing word of each block. There
 //! is no tolerance anywhere.
 //!
+//! `OUTRAM_ACE_OUT=<file>` also writes our Type-1 table there.
+//!
 //! Exit code 0 when the tables are identical, 3 when they differ, 1 on an
 //! error. CLI glue; `acer::compare` and `process` are tested in the crate.
 
@@ -55,7 +57,12 @@ fn main() {
             std::process::exit(1);
         }
     };
-    let ours = read::parse_type1(&ace.to_type1_text().expect("type 1")).expect("re-read ours");
+    let text = ace.to_type1_text().expect("type 1");
+    // `OUTRAM_ACE_OUT=<file>` keeps our table for inspection.
+    if let Ok(out) = std::env::var("OUTRAM_ACE_OUT") {
+        std::fs::write(&out, &text).expect("write OUTRAM_ACE_OUT");
+    }
+    let ours = read::parse_type1(&text).expect("re-read ours");
     let bytes = std::fs::read(njoy_path).expect("read the NJOY table");
     let njoy = read::read_library_from_bytes(bytes, njoy_path).expect("read NJOY's").remove(0);
     let c = compare(&ours, &njoy);

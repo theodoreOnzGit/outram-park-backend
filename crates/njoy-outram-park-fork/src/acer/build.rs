@@ -1234,8 +1234,8 @@ fn append_photon_blocks(
 
     let sigp_len = |e: &super::photon_blocks::PhotonEntry| -> i32 {
         match &e.sigp {
-            // [12, MTMULT, NR=0, NE, E(NE), y(NE)]
-            SigP::Yield { e_mev, .. } => 4 + 2 * e_mev.len() as i32,
+            // [12, MTMULT, NR, NBT(NR), INT(NR), NE, E(NE), y(NE)]
+            SigP::Yield { e_mev, interp, .. } => 4 + 2 * e_mev.len() as i32 + 2 * yield_nr(interp) as i32,
             // [13, IE, NE, sigma(NE)]
             SigP::Xs { interp, pairs } => 3 + xs_window(interp, pairs).1.len() as i32,
         }
@@ -1260,10 +1260,22 @@ fn append_photon_blocks(
                 mtmult,
                 e_mev,
                 y,
+                interp,
             } => {
                 b.int(*mftype);
                 b.int(*mtmult);
-                b.int(0); // NR — single lin-lin range
+                // NR = 0 for one lin-lin region, else the regions as they are
+                // (`acefc.f90:8312-8322`).
+                let nr = yield_nr(interp);
+                b.int(nr as i32);
+                if nr > 0 {
+                    for &(nbt, _) in interp {
+                        b.int(nbt as i32);
+                    }
+                    for &(_, int) in interp {
+                        b.int(int as i32);
+                    }
+                }
                 b.int(e_mev.len() as i32);
                 for &v in e_mev {
                     b.real(v);
@@ -1492,5 +1504,15 @@ mod tests {
             "interpolated"
         );
         assert_eq!(eval_partial(&sec, 9.9e6), 3.0, "above range → clamp high");
+    }
+}
+
+/// The NR `acelpp` writes for a photon yield: 0 for one lin-lin region (or
+/// none recorded), else the number of regions (`acefc.f90:8312-8322`).
+fn yield_nr(interp: &[(u32, u32)]) -> usize {
+    if interp.is_empty() || (interp.len() == 1 && interp[0].1 == 2) {
+        0
+    } else {
+        interp.len()
     }
 }

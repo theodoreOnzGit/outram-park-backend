@@ -87,6 +87,10 @@ pub enum SigP {
         e_mev: Vec<f64>,
         /// Yield (photons per reaction) aligned with `e_mev`.
         y: Vec<f64>,
+        /// The yield's ENDF interpolation regions `(NBT, INT)`. `acelpp`
+        /// writes them unless there is one lin-lin region, when it writes
+        /// `NR = 0` (`acefc.f90:8312-8322`). Empty means one lin-lin region.
+        interp: Vec<(u32, u32)>,
     },
     /// `MFTYPE = 13` — a photon-production cross section \[barn\], kept as the
     /// evaluation's own tabulation.
@@ -245,7 +249,7 @@ fn build_impl(tape: &Tape, mat: i32, pendf: Option<&crate::reconr::ReconrResult>
                     let y = rt(yy);
                     out.push(PhotonEntry {
                         mtrp: mt * 1000 + k as i32 + 1,
-                        sigp: SigP::Yield { mftype: 12, mtmult: mt, e_mev: vec![lo, hi], y: vec![y, y] },
+                        sigp: SigP::Yield { mftype: 12, mtmult: mt, e_mev: vec![lo, hi], y: vec![y, y], interp: Vec::new() },
                         law: EnergyLaw::Law2 { lp: 0, eg_mev: sigfig(rt(eg) / EMEV, 7, 0) },
                         e_lo_mev: lo,
                         e_hi_mev: hi,
@@ -322,6 +326,7 @@ fn build_impl(tape: &Tape, mat: i32, pendf: Option<&crate::reconr::ReconrResult>
                             .map(|&(e, _)| crate::mixr::mix::sigfig(e / EMEV, 7, 0))
                             .collect(),
                         y: tab.pairs.iter().map(|&(_, y)| y).collect(),
+                        interp: tab.interp.clone(),
                     }
                 } else {
                     SigP::Xs {
@@ -393,8 +398,10 @@ fn build_impl(tape: &Tape, mat: i32, pendf: Option<&crate::reconr::ReconrResult>
                 sigp: SigP::Yield {
                     mftype: 16,
                     mtmult: mt,
-                    e_mev: y.pairs.iter().map(|&(e, _)| e / EMEV).collect(),
+                    // `sigfig(E/emev,7,0)` as for every yield (`acefc.f90:8326`)
+                    e_mev: y.pairs.iter().map(|&(e, _)| crate::mixr::mix::sigfig(e / EMEV, 7, 0)).collect(),
                     y: y.pairs.iter().map(|&(_, y)| y).collect(),
+                    interp: y.interp.clone(),
                 },
                 law: EnergyLaw::Law4(law4),
                 e_lo_mev: e_first / EMEV,
@@ -537,6 +544,7 @@ fn expand_cascade(levels: &[Level], mt: i32, awr: f64, e_max_ev: f64) -> Vec<Pho
                 mtmult: mt,
                 e_mev: vec![e_lo / EMEV, e_max_ev / EMEV],
                 y: vec![y, y],
+                interp: Vec::new(),
             },
             law: EnergyLaw::Law2 {
                 lp: 0,
@@ -736,11 +744,13 @@ pub fn gpd(tape: &Tape, mat: i32, pendf: &crate::reconr::ReconrResult) -> Option
             }
         } else {
             if head.n1 > 1 {
-                // `convr` rebuilds a multi-subsection LO=1 total as the sum of
-                // its subsections (`:4078-4105`); not ported here yet.
-                return None;
+                // `convr` rebuilds a multi-subsection LO=1 total as the sum
+                // of its subsections, and `gamsum` reads the rebuilt one
+                // (GitHub #872: F-19, Al-27 and Si had no GPD for want of it).
+                convr_corrected_total(sec, 12)?
+            } else {
+                cur.read_tab1().ok()?
             }
-            cur.read_tab1().ok()?
         };
         let mts: &[(i32, f64)] = if sec.key.mt == 3 { &[(1, 1.0), (2, -1.0)] } else { &[(0, 1.0)] };
         for &(mtd, sign) in mts {
@@ -791,6 +801,63 @@ pub fn gpd(tape: &Tape, mat: i32, pendf: &crate::reconr::ReconrResult) -> Option
         return None;
     }
     Some(c.into_iter().map(|v| sigfig(v, 7, 0)).collect())
+}
+
+/// `convr`'s corrected total of an MF=12 (`LO = 1`) or MF=13 section with
+/// `NK > 1` subsections (`acefc.f90:4044-4105`).
+///
+/// The tape's total is kept for its energy grid only, after splitting each
+/// repeated energy as upstream does (`sigfig(E, 7, -1)` below,
+/// `sigfig(E, 7, +1)` above; not the first point of an MF=13 total). The
+/// value at each grid energy is then the sum of the subsections, each read
+/// by `gety1` and only while its next tabulated energy is below
+/// `etop - etop/100`. `convr` writes the result to its output tape as text,
+/// so every value carries `a11`'s rounding, which is what `gamsum` reads back.
+fn convr_corrected_total(sec: &crate::endf::tape::Section, mf: i32) -> Option<crate::endf::records::Tab1> {
+    use crate::endf::gety1::Gety1;
+    use crate::endf::parse::{format_endf_float, parse_endf_float};
+    use crate::mixr::mix::sigfig;
+    const ETOP: f64 = 1.0e10;
+    let mut cur = SectionCursor::new(&sec.rows);
+    let head = cur.read_cont().ok()?;
+    let nk = head.n1.max(0) as usize;
+    let mut tot = cur.read_tab1().ok()?;
+    let mut parts = Vec::with_capacity(nk);
+    for _ in 0..nk {
+        parts.push(cur.read_tab1().ok()?);
+    }
+    let np = tot.pairs.len();
+    for i in 0..np {
+        if i == 0 && mf == 13 {
+            continue;
+        }
+        if i != 0 && tot.pairs[i].0 == tot.pairs[i - 1].0 {
+            tot.pairs[i - 1].0 = sigfig(tot.pairs[i - 1].0, 7, -1);
+            tot.pairs[i].0 = sigfig(tot.pairs[i].0, 7, 1);
+        }
+    }
+    for p in tot.pairs.iter_mut() {
+        p.1 = 0.0;
+    }
+    let test = ETOP - ETOP / 100.0;
+    for part in &parts {
+        let mut g = Gety1::new(part);
+        let e1 = g.get(0.0).xnext;
+        let mut enext = e1;
+        for p in tot.pairs.iter_mut() {
+            let e = p.0;
+            if e >= e1 && enext <= test {
+                let r = g.get(e);
+                p.1 += r.y;
+                enext = r.xnext;
+            }
+        }
+    }
+    let rt = |x: f64| parse_endf_float(&format_endf_float(x)).unwrap_or(x);
+    for p in tot.pairs.iter_mut() {
+        *p = (rt(p.0), rt(p.1));
+    }
+    Some(tot)
 }
 
 /// The yield TAB1 of every MF=6 photon product (`ZAP = 0`, `LAW != 0`), in
