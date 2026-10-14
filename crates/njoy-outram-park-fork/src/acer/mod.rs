@@ -87,6 +87,7 @@ pub mod acelf6;
 pub mod acensd;
 pub mod angular;
 pub mod build;
+pub mod compare;
 pub mod ce_decode;
 pub mod ce_laws;
 pub mod delayed;

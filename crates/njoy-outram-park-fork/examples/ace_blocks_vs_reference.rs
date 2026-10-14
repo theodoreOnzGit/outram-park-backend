@@ -24,8 +24,11 @@
 //! Grid-independent blocks are also compared **word for word** from their
 //! locator to the next block present (`... words` rows): both sides pass
 //! through Type-1 text, so equality there is equality of the printed value.
-//! `OUTRAM_DIFF_DUMP=1` prints the differing words; `OUTRAM_SPAN_DIR=<dir>`
-//! writes each compared span of both tables to files.
+//! Since 2026-10-14 those rows come from the library's `acer::compare` (GitHub
+//! #863), which names the first differing word of each block itself.
+//! ~~`OUTRAM_DIFF_DUMP=1` prints the differing words; `OUTRAM_SPAN_DIR=<dir>`
+//! writes each compared span of both tables to files.~~ `OUTRAM_DIFF_DUMP=1`
+//! now only prints the worst SIG points of the shared-grid comparison.
 //!
 //! Energy-grid-dependent blocks (ESZ, SIG) are compared at the grid points the
 //! two tables **share**, because the two RECONR runs choose different adaptive
@@ -294,49 +297,20 @@ fn report(name: &str, temp_dir: &str, ours: &RawAceTable, theirs: &RawAceTable, 
 
     // ── NU: grid-independent, compared word for word ───────────────────────
     verdicts.push(("NU".into(), raw_block_words(ours, theirs, jxs::NU, jxs::MTR)));
-    for (label, j) in [
-        ("ESZ words", jxs::ESZ),
-        ("MTR words", jxs::MTR),
-        ("LSIG words", jxs::LSIG),
-        ("SIG words", jxs::SIG),
-        ("LQR words", jxs::LQR),
-        ("TYR words", jxs::TYR),
-        ("LAND words", jxs::LAND),
-        ("AND words", jxs::AND),
-        ("LDLW words", jxs::LDLW),
-        ("DLW words", jxs::DLW),
-        ("DNU words", jxs::DNU),
-        ("BDD words", jxs::BDD),
-        ("DNEDL words", jxs::DNEDL),
-        ("DNED words", jxs::DNED),
-        ("GPD words", 11),
-        ("MTRP words", jxs::MTRP),
-        ("LSIGP words", jxs::LSIGP),
-        ("SIGP words", jxs::SIGP),
-        ("LANDP words", jxs::LANDP),
-        ("ANDP words", jxs::ANDP),
-        ("LDLWP words", jxs::LDLWP),
-        ("DLWP words", jxs::DLWP),
-        ("YP words", 19),
-        ("FIS words", 20),
-        ("LUNR words", jxs::LUNR),
-    ] {
-        verdicts.push((label.into(), raw_span_words(ours, theirs, j)));
+    // Every block word for word, the whole XSS and JXS: the library's
+    // comparator (`acer::compare`, GitHub #863), shared with the tests and the
+    // nuclear data demo, so the three cannot disagree about what "the same"
+    // means. ~~The example's own `raw_span_words` loop~~ moved there 2026-10-14.
+    let cmp = njoy_outram_park_fork::acer::compare::compare(ours, theirs);
+    for b in cmp.blocks.iter().chain(std::iter::once(&cmp.whole_xss)) {
+        let line = njoy_outram_park_fork::acer::compare::span_line(b);
+        let (label, rest) = line.split_at(16.min(line.len()));
+        let label = if b.name == "XSS" { "XSS, whole table".to_string() } else { format!("{} words", label.trim()) };
+        verdicts.push((label, rest.trim().to_string()));
     }
-
-    // The whole table: every XSS word and every JXS locator.
-    let whole = if ours.xss == theirs.xss {
-        format!("SAME ({} words, every word)", ours.xss.len())
-    } else {
-        let n = ours.xss.iter().zip(&theirs.xss).filter(|(a, b)| a != b).count()
-            + ours.xss.len().abs_diff(theirs.xss.len());
-        format!("DIFFERENT ({n} words; ours {}, NJOY {})", ours.xss.len(), theirs.xss.len())
-    };
-    verdicts.push(("XSS, whole table".into(), whole));
-    let jd = (0..32).filter(|&i| ours.jxs[i] != theirs.jxs[i]).count();
     verdicts.push((
         "JXS".into(),
-        if jd == 0 { "SAME".into() } else { format!("DIFFERENT ({jd} of 32)") },
+        if cmp.jxs.differences.is_empty() { "SAME".into() } else { format!("DIFFERENT ({} of 32)", cmp.jxs.differences.len()) },
     ));
 
     // ── AND / DLW per reaction ─────────────────────────────────────────────
@@ -449,75 +423,6 @@ fn raw_presence(p: &BTreeMap<&str, (bool, bool)>, b: &str) -> String {
         Some((false, true)) => "MISSING in ours".into(),
         Some((true, false)) => "MISSING in NJOY's".into(),
         _ => "absent in both".into(),
-    }
-}
-
-/// Compare the words from block `j`'s locator up to the next block present in
-/// that table (whatever it is), exactly -- both sides went through Type-1
-/// text, so equality is equality of the printed value.
-fn raw_span_words(ours: &RawAceTable, theirs: &RawAceTable, j: usize) -> String {
-    fn span(t: &RawAceTable, j: usize) -> Option<Vec<f64>> {
-        let a = t.jxs[j];
-        if a <= 0 {
-            return None;
-        }
-        // FIS (JXS 21) points INTO SIG, at MT=18's entry, so it is not a
-        // block boundary; treating it as one cut the SIG span off after the
-        // first reaction.
-        let end = BLOCKS
-            .iter()
-            .filter(|&&(name, _)| name != "FIS")
-            .map(|&(_, k)| t.jxs[k])
-            .filter(|&l| l > a)
-            .min()
-            .unwrap_or(t.xss.len() as i32 + 1);
-        Some(t.xss[(a - 1) as usize..(end - 1) as usize].to_vec())
-    }
-    if let Ok(dir) = std::env::var("OUTRAM_SPAN_DIR") {
-        for (who, t) in [("ours", ours), ("njoy", theirs)] {
-            if let Some(v) = span(t, j) {
-                let text: String = v.iter().map(|x| format!("{x:e}\n")).collect();
-                let _ = std::fs::write(format!("{dir}/span_{j}_{who}.txt"), text);
-            }
-        }
-    }
-    match (span(ours, j), span(theirs, j)) {
-        (None, None) => "absent in both".into(),
-        (None, Some(_)) => "MISSING in ours".into(),
-        (Some(_), None) => "MISSING in NJOY's".into(),
-        (Some(a), Some(b)) if a.len() != b.len() => {
-            let first = a.iter().zip(&b).position(|(x, y)| x != y).unwrap_or(a.len().min(b.len()));
-            if std::env::var("OUTRAM_DIFF_DUMP").is_ok() {
-                let lo = first.saturating_sub(4);
-                for i in lo..(first + 24).min(a.len()).min(b.len()) {
-                    println!("      word {i}: ours {:e} NJOY {:e}", a[i], b[i]);
-                }
-            }
-            format!(
-                "DIFFERENT (ours {} words, NJOY {}; first difference at word {first})",
-                a.len(),
-                b.len()
-            )
-        }
-        (Some(a), Some(b)) => {
-            let n = a.iter().zip(&b).filter(|(x, y)| x != y).count();
-            if n == 0 {
-                format!("SAME ({} words, every word)", a.len())
-            } else {
-                let first = a.iter().zip(&b).position(|(x, y)| x != y).unwrap();
-                if std::env::var("OUTRAM_DIFF_DUMP").is_ok() {
-                    for (i, (x, y)) in a.iter().zip(&b).enumerate().filter(|(_, (x, y))| x != y).take(40) {
-                        println!("      word {i}: ours {x:e} NJOY {y:e}");
-                    }
-                }
-                format!(
-                    "DIFFERENT ({n} of {} words; first at word {first}: ours {:e} NJOY {:e})",
-                    a.len(),
-                    a[first],
-                    b[first]
-                )
-            }
-        }
     }
 }
 
