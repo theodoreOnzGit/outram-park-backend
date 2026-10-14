@@ -17,7 +17,9 @@
 //! The page now draws the drill-in star itself: the current concept at the
 //! centre and its sub-concepts on a ring around it, placed by
 //! [`crate::mindmap_view::star_layout`] so no two cards overlap and nothing
-//! drifts. ~~Directly classified papers were ring cards too~~ — since #244
+//! drifts. (On the standard corpus's root, since 2026-10-14, the 19 IAEA
+//! issues sit in rows of six, seven and six beneath the centre instead, in
+//! the IAEA Milestones icon chart's positions: `auto_layout`.) ~~Directly classified papers were ring cards too~~ — since #244
 //! papers are not cards: each concept card shows a citation count, its
 //! citations drop down on hover, and its right-click menu opens them (#245).
 //! A ▸ on a ring card fans its own sub-concepts outward without moving the
@@ -1155,6 +1157,36 @@ fn star_key(current: &Option<crate::node_id::NodeId>) -> String {
         .unwrap_or_default()
 }
 
+/// Where the star's cards go when nothing is pinned, for the star centred on
+/// `current`, whose ring card `i` shows `fan_sizes[i]` sub-concepts.
+///
+/// On the standard corpus's root the 19 IAEA infrastructure issues are laid
+/// out in rows beneath the centre, six, seven and six, read left to right in
+/// their numbered order: the positions of the IAEA's Milestones icon chart
+/// (maintainer direction, 2026-10-14; positions only, none of its visuals).
+/// Any card past the nineteenth (a user subtopic or link at the root) goes
+/// on in rows of seven ([`crate::mindmap_view::milestones_rows`]). Every
+/// other star is the ring, turned half a step when the parent card is shown
+/// (#283).
+#[cfg(all(feature = "gui", not(target_os = "android")))]
+fn auto_layout(
+    current: Option<&crate::node_id::NodeId>,
+    fan_sizes: &[usize],
+    has_parent: bool,
+) -> crate::mindmap_view::StarLayout {
+    use crate::mindmap_view::{milestones_rows, rows_layout, star_layout_with_parent};
+    let at_corpus_root = current.is_some_and(|c| {
+        c.namespace == crate::node_id::Namespace::Corpus
+            && c.kind == crate::node_id::EntryKind::Concept
+            && c.path == crate::corpus::ROOT_TOPIC
+    });
+    if at_corpus_root {
+        rows_layout(fan_sizes, &milestones_rows(fan_sizes.len()))
+    } else {
+        star_layout_with_parent(fan_sizes, has_parent)
+    }
+}
+
 #[cfg(all(feature = "gui", not(target_os = "android")))]
 impl MindmapState {
     /// Ask for the code reviews to be collected again the next time the map
@@ -1296,8 +1328,8 @@ impl MindmapState {
     ) -> Option<MindmapAction> {
         use crate::mindmap_layout::Point;
         use crate::mindmap_view::{
-            fit_zoom, parent_position, star_bounds, star_layout_with_parent, up_button_centre,
-            CanvasLayout, CARD_SIZE, CENTRE_CARD_SIZE, UP_BUTTON_SIZE,
+            fit_zoom, parent_position, star_bounds, up_button_centre, CanvasLayout, CARD_SIZE,
+            CENTRE_CARD_SIZE, UP_BUTTON_SIZE,
         };
         use crate::node_id::{Namespace, NodeId};
 
@@ -1418,7 +1450,8 @@ impl MindmapState {
         fan_sizes.extend(std::iter::repeat_n(0, links.len()));
         // #283: the ring turns half a step when the parent card is shown, so
         // nothing sits in the corridor the dotted line and the Up button use.
-        let auto = star_layout_with_parent(&fan_sizes, up.is_some());
+        // 2026-10-14: the corpus root's 19 IAEA issues go in rows instead.
+        let auto = auto_layout(self.current.as_ref(), &fan_sizes, up.is_some());
         let parent_at = up.is_some().then(|| parent_position(&auto));
         let up_button_at = up.is_some().then(|| up_button_centre(&auto));
         let here_key = star_key(&self.current);
@@ -2910,6 +2943,82 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let root = KovanRoot::create(dir.path(), RootConfig::new("lib", "Lib"), false).unwrap();
         (dir, root)
+    }
+
+    /// The standard corpus's root lays its 19 IAEA issues out as the IAEA
+    /// Milestones icon chart does (maintainer direction, 2026-10-14): three
+    /// rows beneath the centre, six, seven and six, each read left to right.
+    /// The titles are the chart's labels in the chart's reading order, except
+    /// that the chart (2024) says "Stakeholder engagement" where the concept
+    /// tree, after NG-G-3.1 Rev. 1, says "Stakeholder involvement"; the tree's
+    /// title is kept. Every other star keeps the ring.
+    #[test]
+    #[cfg(all(feature = "gui", not(target_os = "android")))]
+    fn the_corpus_root_follows_the_iaea_chart_rows() {
+        use crate::node_id::{Namespace, NodeId};
+        let chart: [[&str; 7]; 3] = [
+            [
+                "National position",
+                "Nuclear safety",
+                "Management",
+                "Funding and financing",
+                "Legal framework",
+                "Safeguards",
+                "",
+            ],
+            [
+                "Regulatory framework",
+                "Radiation protection",
+                "Electrical grid",
+                "Human resource development",
+                "Stakeholder involvement",
+                "Site and supporting facilities",
+                "Environmental protection",
+            ],
+            [
+                "Emergency planning",
+                "Nuclear security",
+                "Nuclear fuel cycle",
+                "Radioactive waste management",
+                "Industrial involvement",
+                "Procurement",
+                "",
+            ],
+        ];
+        let root = NodeId::concept(Namespace::Corpus, crate::corpus::ROOT_TOPIC);
+        let ring = crate::runtime_graph::children(None, Some(&root));
+        assert_eq!(ring.len(), 19);
+        let layout = auto_layout(Some(&root), &[0; 19], true);
+        assert_eq!(layout.ring.len(), 19);
+        let mut k = 0;
+        let mut row_y = Vec::new();
+        for (r, labels) in chart.iter().enumerate() {
+            let labels: Vec<&str> = labels.iter().copied().filter(|l| !l.is_empty()).collect();
+            let row = &layout.ring[k..k + labels.len()];
+            for (j, label) in labels.iter().enumerate() {
+                // The map shows "N. Title"; the chart has no numbers.
+                let (_, title) = ring[k + j].title.split_once(". ").expect("numbered");
+                assert_eq!(title, *label, "row {r}, column {j}");
+                assert_eq!(row[j].y, row[0].y, "{label} is level with its row");
+                if j > 0 {
+                    assert!(row[j].x > row[j - 1].x, "{label} is right of its neighbour");
+                }
+            }
+            row_y.push(row[0].y);
+            k += labels.len();
+        }
+        assert!(0.0 < row_y[0] && row_y[0] < row_y[1] && row_y[1] < row_y[2]);
+
+        // Anywhere else, the ring as before.
+        let other = NodeId::concept(Namespace::Corpus, "02-nuclear-safety");
+        assert_eq!(
+            auto_layout(Some(&other), &[0; 5], true),
+            crate::mindmap_view::star_layout_with_parent(&[0; 5], true)
+        );
+        assert_eq!(
+            auto_layout(None, &[0; 3], false),
+            crate::mindmap_view::star_layout(&[0; 3])
+        );
     }
 
     /// #285: a hyperlink the user made shows as a removable link card, on

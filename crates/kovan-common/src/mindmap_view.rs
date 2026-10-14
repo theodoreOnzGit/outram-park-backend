@@ -3,7 +3,8 @@
 //! builds everywhere this crate does.
 //!
 //! What belongs here: where each card of the drill-in star goes
-//! ([`star_positions`]), the star's extent ([`star_bounds`]), and the
+//! ([`star_positions`]; or in rows beneath the centre, [`rows_layout`], for
+//! the standard corpus's 19 IAEA issues), the star's extent ([`star_bounds`]), and the
 //! arithmetic of the scrollable canvas it is drawn on ([`CanvasLayout`]):
 //! how big the canvas is at a zoom, where a world point lands on it, and the
 //! **pan limit**: 25 % of the map's own size past each edge (maintainer
@@ -220,9 +221,92 @@ pub fn star_layout_with_parent(fan_sizes: &[usize], has_parent: bool) -> StarLay
 }
 
 fn star_layout_offset(fan_sizes: &[usize], offset: f64) -> StarLayout {
-    let n = fan_sizes.len();
-    let base = star_positions_offset(n, offset);
-    let base_r = base.first().map(|p| p.x.hypot(p.y)).unwrap_or(0.0);
+    grow_until_clear(&star_positions_offset(fan_sizes.len(), offset), fan_sizes)
+}
+
+/// The rows of the 19 IAEA infrastructure issues, top to bottom, as the
+/// IAEA's own icon chart of the Milestones approach sets them out: six, then
+/// seven, then six, each row read left to right in the issues' numbered
+/// order (01 National position ... 06 Safeguards; 07 Regulatory framework ...
+/// 13 Environmental protection; 14 Emergency planning ... 19 Procurement).
+/// Maintainer direction, 2026-10-14: arrange the standard corpus's top level
+/// by the positions in that chart (positions only; none of its visuals).
+pub const MILESTONES_ROWS: [usize; 3] = [6, 7, 6];
+
+/// How `n` cards fill rows shaped like [`MILESTONES_ROWS`]: those rows in
+/// order while cards last (the last one possibly short), then rows of seven
+/// for any cards past the nineteenth (the user's own subtopics or links
+/// beside the corpus issues).
+pub fn milestones_rows(n: usize) -> Vec<usize> {
+    let mut rows = Vec::new();
+    let mut left = n;
+    for &len in MILESTONES_ROWS.iter().chain(std::iter::repeat(&7)) {
+        if left == 0 {
+            break;
+        }
+        let take = len.min(left);
+        rows.push(take);
+        left -= take;
+    }
+    rows
+}
+
+/// Distance between neighbouring cards' centres in a row, world units: a
+/// card plus two gaps, so connectors from the centre card have room to pass
+/// between them. A drawing choice.
+pub const ROW_PITCH_X: f64 = CARD_SIZE.0 + 2.0 * CARD_GAP;
+
+/// Distance between rows' centres, world units: a card plus three gaps. A
+/// drawing choice.
+pub const ROW_PITCH_Y: f64 = CARD_SIZE.1 + 3.0 * CARD_GAP;
+
+/// Where cards go when laid out in `rows` (cards per row, top to bottom)
+/// beneath the centre card instead of on a ring: card order runs left to
+/// right along each row, then on to the next row down. Every row is centred
+/// on the centre card's vertical axis, so a short row sits half a step in
+/// from a long one, as in the IAEA chart ([`MILESTONES_ROWS`]). The first row
+/// starts two gaps below the centre card, which leaves the space above the
+/// centre free for the parent card ([`parent_position`]).
+pub fn row_positions(rows: &[usize]) -> Vec<Point> {
+    let top = 0.5 * CENTRE_CARD_SIZE.1 + 2.0 * CARD_GAP + 0.5 * CARD_SIZE.1;
+    rows.iter()
+        .enumerate()
+        .flat_map(|(r, &len)| {
+            let y = top + ROW_PITCH_Y * r as f64;
+            let half = 0.5 * (len as f64 - 1.0);
+            (0..len).map(move |j| Point::new(ROW_PITCH_X * (j as f64 - half), y))
+        })
+        .collect()
+}
+
+/// [`star_layout`] with the cards in `rows` beneath the centre
+/// ([`row_positions`]) instead of on a ring. Expanded fans and the growth
+/// loop work exactly as on the ring: a fan opens away from the centre card,
+/// and while any two cards are too close every position is scaled out from
+/// the centre by 10 % and placed again.
+///
+/// # Panics
+///
+/// If `rows` does not hold exactly `fan_sizes.len()` cards: a card with no
+/// slot would silently vanish from the map.
+pub fn rows_layout(fan_sizes: &[usize], rows: &[usize]) -> StarLayout {
+    let base = row_positions(rows);
+    assert_eq!(
+        base.len(),
+        fan_sizes.len(),
+        "rows_layout: rows {rows:?} hold {} cards, but {} were given",
+        base.len(),
+        fan_sizes.len()
+    );
+    grow_until_clear(&base, fan_sizes)
+}
+
+/// Place the fans `fan_sizes` asks for around the cards at `base`, scaling
+/// the whole layout out from the centre by 10 % at a time until no two cards
+/// (centre, ring or fan) collide. Shared by [`star_layout`] and
+/// [`rows_layout`].
+fn grow_until_clear(base: &[Point], fan_sizes: &[usize]) -> StarLayout {
+    let base_r = base.iter().map(|p| p.x.hypot(p.y)).fold(0.0_f64, f64::max);
     let mut scale = 1.0;
     let mut layout = StarLayout {
         ring: Vec::new(),
@@ -259,44 +343,48 @@ fn star_layout_offset(fan_sizes: &[usize], offset: f64) -> StarLayout {
 pub const UP_BUTTON_SIZE: (f64, f64) = (30.0, 26.0);
 
 /// Where the "up one level" card goes: straight above the star, one card
-/// spacing clear of the furthest card in `layout` (#283).
+/// spacing above the highest card in `layout` (#283).
 ///
-/// Measuring from the **furthest** card, not the ring radius, is what keeps
-/// it clear of an expanded fan that reaches further out than the ring does.
-/// One spacing (a card diagonal plus [`CARD_GAP`]) is enough on its own: any
-/// card near enough on the x axis to matter lies at most `furthest` from the
-/// centre, so it is at least a spacing below this card on the y axis, and
-/// [`cards_collide`] needs both axes to be close.
+/// ~~One spacing clear of the **furthest** card.~~ **CHANGED 2026-10-14**:
+/// measured from the **highest** card (the least `y`, never below the
+/// centre), so that a star laid out in rows beneath the centre
+/// ([`rows_layout`]) keeps its parent card just above the centre rather than
+/// a whole grid's diagonal away. Measuring from a card, not the ring radius,
+/// is still what keeps it clear of an expanded fan that reaches further up
+/// than the ring does. One spacing (a card diagonal plus [`CARD_GAP`]) is
+/// enough on its own: every card lies at or below `highest`, so it is at
+/// least a spacing below this card on the y axis, and [`cards_collide`] needs
+/// both axes to be close.
 pub fn parent_position(layout: &StarLayout) -> Point {
-    let furthest = layout
-        .all_points()
-        .map(|p| p.x.hypot(p.y))
-        .fold(0.0_f64, f64::max);
-    Point::new(0.0, -(furthest + card_diagonal() + CARD_GAP))
+    Point::new(0.0, -(highest_reach(layout) + card_diagonal() + CARD_GAP))
+}
+
+/// How far above the centre the highest card of `layout` sits (`-y` of the
+/// card with the least `y`), and never less than zero: the centre card itself
+/// is always there.
+fn highest_reach(layout: &StarLayout) -> f64 {
+    layout.all_points().map(|p| -p.y).fold(0.0_f64, f64::max)
 }
 
 /// Where the Up button's box sits on the dotted run between the centre card's
 /// top edge and the parent card's bottom edge (#283).
 ///
-/// The middle of that run, **but never nearer the star than the furthest card
-/// reaches**. Half-way is the obvious place and is where it ends up when
-/// there is no ring at all, but an expanded fan can swing a card up to within
-/// a few points of the corridor — one was found sitting exactly on the button
-/// at `n = 3` — and a button drawn under a card cannot be pressed. Pushing it
-/// past the furthest card's radius clears *every* card whatever its angle:
-/// each one has `|y| <= furthest`, so the gap on the y axis alone is then
-/// more than half the two boxes' heights, and [`cards_collide`]-style overlap
-/// needs both axes to be close.
+/// The middle of that run, **but never lower than the highest card
+/// reaches** (~~the furthest card's radius~~, **CHANGED 2026-10-14** with
+/// [`parent_position`], for [`rows_layout`]). Half-way is the obvious place
+/// and is where it ends up when there is no ring at all, but an expanded fan
+/// can swing a card up to within a few points of the corridor — one was
+/// found sitting exactly on the button at `n = 3` — and a button drawn under
+/// a card cannot be pressed. Pushing it above the highest card clears
+/// *every* card whatever its angle: each one has `y >= -highest`, so the gap
+/// on the y axis alone is then more than half the two boxes' heights, and
+/// [`cards_collide`]-style overlap needs both axes to be close.
 pub fn up_button_centre(layout: &StarLayout) -> Point {
     let parent = parent_position(layout);
     let top_of_centre = -0.5 * CENTRE_CARD_SIZE.1;
     let bottom_of_parent = parent.y + 0.5 * CARD_SIZE.1;
     let middle = 0.5 * (top_of_centre + bottom_of_parent);
-    let furthest = layout
-        .all_points()
-        .map(|p| p.x.hypot(p.y))
-        .fold(0.0_f64, f64::max);
-    let clear = -(furthest + 0.5 * (CARD_SIZE.1 + UP_BUTTON_SIZE.1) + CARD_GAP);
+    let clear = -(highest_reach(layout) + 0.5 * (CARD_SIZE.1 + UP_BUTTON_SIZE.1) + CARD_GAP);
     // Both are negative (up the screen); the further one is the smaller.
     Point::new(0.0, middle.min(clear))
 }
@@ -759,6 +847,102 @@ mod tests {
                 }
             }
         }
+    }
+
+    /// The IAEA chart's rows (2026-10-14): 6, 7, 6 for the 19 issues; fewer
+    /// cards fill the same rows in order; extra cards go on in rows of seven.
+    #[test]
+    fn milestones_rows_follow_the_iaea_chart() {
+        assert_eq!(milestones_rows(19), vec![6, 7, 6]);
+        assert_eq!(milestones_rows(0), Vec::<usize>::new());
+        assert_eq!(milestones_rows(5), vec![5]);
+        assert_eq!(milestones_rows(10), vec![6, 4]);
+        assert_eq!(milestones_rows(22), vec![6, 7, 6, 3]);
+        assert_eq!(milestones_rows(34), vec![6, 7, 6, 7, 7, 1]);
+        for n in 0..60 {
+            assert_eq!(milestones_rows(n).iter().sum::<usize>(), n);
+        }
+    }
+
+    /// Row cards run left to right, then down a row; every row is centred
+    /// under the centre card, so the six-card rows sit half a step in from
+    /// the seven-card row, as on the chart; all of them are below the centre.
+    #[test]
+    fn row_positions_read_left_to_right_then_down() {
+        let p = row_positions(&MILESTONES_ROWS);
+        assert_eq!(p.len(), 19);
+        let rows = [&p[0..6], &p[6..13], &p[13..19]];
+        for (r, row) in rows.iter().enumerate() {
+            assert!(row.iter().all(|q| q.y == row[0].y), "row {r} is level");
+            assert!(row[0].y > 0.0, "row {r} is below the centre");
+            assert!(
+                row.windows(2).all(|w| w[1].x > w[0].x),
+                "row {r} runs left to right"
+            );
+            let mid: f64 = row.iter().map(|q| q.x).sum::<f64>() / row.len() as f64;
+            assert!(mid.abs() < 1e-9, "row {r} is centred");
+        }
+        assert!(rows[0][0].y < rows[1][0].y && rows[1][0].y < rows[2][0].y);
+        // The seven-card row reaches half a step further out each side.
+        assert!((rows[0][0].x - rows[1][0].x - 0.5 * ROW_PITCH_X).abs() < 1e-9);
+        assert_eq!(rows[2][0].x, rows[0][0].x);
+    }
+
+    /// Rows laid out with fans expanded never overlap, and the parent card
+    /// and the Up button clear every card, sitting just above the centre
+    /// rather than a whole grid's reach away.
+    #[test]
+    fn rows_layouts_keep_every_card_clear() {
+        let cases: Vec<Vec<usize>> = vec![
+            vec![0; 19],
+            {
+                let mut f = vec![0; 19];
+                f[0] = 4;
+                f[9] = 3;
+                f[18] = 6;
+                f
+            },
+            vec![2; 19],
+            vec![0; 22],
+            vec![0; 4],
+        ];
+        for fans in cases {
+            let l = rows_layout(&fans, &milestones_rows(fans.len()));
+            assert_eq!(l.ring.len(), fans.len());
+            let mut cards = vec![Point::new(0.0, 0.0)];
+            cards.extend(l.all_points());
+            for (i, a) in cards.iter().enumerate() {
+                for (j, b) in cards.iter().enumerate().skip(i + 1) {
+                    assert!(!overlap(*a, *b), "{fans:?}: cards {i} and {j} overlap");
+                }
+            }
+            let parent = parent_position(&l);
+            let button = up_button_centre(&l);
+            assert!(parent.y < 0.0);
+            assert!(!box_hits_card(button, UP_BUTTON_SIZE, Point::new(0.0, 0.0)));
+            for p in cards.iter().skip(1) {
+                assert!(!overlap(parent, *p), "{fans:?}: parent hits {p:?}");
+                assert!(
+                    !box_hits_card(button, UP_BUTTON_SIZE, *p),
+                    "{fans:?}: button hits {p:?}"
+                );
+            }
+        }
+        // With nothing above the centre, the parent card is one spacing up.
+        let flat = rows_layout(&[0; 19], &MILESTONES_ROWS);
+        assert_eq!(
+            flat.ring,
+            row_positions(&MILESTONES_ROWS),
+            "no growth needed"
+        );
+        assert_eq!(parent_position(&flat).y, -(card_diagonal() + CARD_GAP));
+    }
+
+    /// A card with no slot would vanish; the mismatch is refused loudly.
+    #[test]
+    #[should_panic(expected = "rows_layout")]
+    fn rows_layout_refuses_a_card_count_the_rows_do_not_hold() {
+        rows_layout(&[0; 20], &MILESTONES_ROWS);
     }
 
     /// With nothing expanded, the layout is exactly the plain ring.
