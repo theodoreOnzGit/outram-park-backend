@@ -362,9 +362,16 @@ fn build_impl(tape: &Tape, mat: i32, pendf: Option<&crate::reconr::ReconrResult>
                 continue;
             }
         }
-        let Ok(products) = super::energy::parse_mf6_law1_products(sec, 0) else {
+        // Every `ZAP = 0, LAW != 0` product, whatever its law: `convr` moves
+        // them all (`acefc.f90:4400-4430`). ~~Only the products the LAW = 1
+        // neutron parser accepted were taken~~ (CORRECTED 2026-10-14, GitHub
+        // #872): that parser refuses a LAW = 2 photon, and the refusal skipped
+        // the whole MT, so H-1's capture photon (MF=6/MT=102, LAW = 2) was
+        // never written and its table had no photon production at all.
+        let yields = mf6_photon_yields(sec);
+        if yields.is_empty() {
             continue;
-        };
+        }
         let lib = tape
             .section(mat, 1, 451)
             .map(|s| {
@@ -372,25 +379,24 @@ fn build_impl(tape: &Tape, mat: i32, pendf: Option<&crate::reconr::ReconrResult>
                 (r(0, 4), r(2, 5), r(2, 2))
             })
             .unwrap_or((0, 0, 0));
-        for (k, mut prod) in products.into_iter().enumerate() {
-            if prod.yield_pairs.is_empty() {
+        for (k, y) in yields.iter().enumerate() {
+            if y.pairs.is_empty() {
                 continue;
             }
-            // `acelpp`'s own MF=16 rounding (see `acelpp_mf16_law4`).
-            if let Some(l4) = acelpp_mf16_law4(sec, k, lib) {
-                prod.law4 = l4;
-            }
-            let e_first = crate::mixr::mix::sigfig(prod.yield_pairs.first().map(|&(e, _)| e).unwrap_or(0.0), 7, 0);
-            let e_last = crate::mixr::mix::sigfig(prod.yield_pairs.last().map(|&(e, _)| e).unwrap_or(0.0), 7, 0);
+            // `acelpp`'s MF=16 law-4 data. A law it cannot write refuses the
+            // whole photon build (NXS(6) = 0), never a table missing one photon.
+            let law4 = acelpp_mf16_law4(sec, k, lib)?;
+            let e_first = crate::mixr::mix::sigfig(y.pairs.first().map(|&(e, _)| e).unwrap_or(0.0), 7, 0);
+            let e_last = crate::mixr::mix::sigfig(y.pairs.last().map(|&(e, _)| e).unwrap_or(0.0), 7, 0);
             out.push(PhotonEntry {
                 mtrp: mt * 1000 + k as i32 + 1,
                 sigp: SigP::Yield {
                     mftype: 16,
                     mtmult: mt,
-                    e_mev: prod.yield_pairs.iter().map(|&(e, _)| e / EMEV).collect(),
-                    y: prod.yield_pairs.iter().map(|&(_, y)| y).collect(),
+                    e_mev: y.pairs.iter().map(|&(e, _)| e / EMEV).collect(),
+                    y: y.pairs.iter().map(|&(_, y)| y).collect(),
                 },
-                law: EnergyLaw::Law4(prod.law4),
+                law: EnergyLaw::Law4(law4),
                 e_lo_mev: e_first / EMEV,
                 e_hi_mev: e_last / EMEV,
             });
@@ -982,7 +988,10 @@ impl Lo2Cascade {
 }
 
 /// The law-4 DLWP data `acelpp` writes for an MF=16 photon (an MF=6
-/// `ZAP = 0`, `LAW = 1` product moved by `convr`): `acefc.f90:8631-8960`.
+/// `ZAP = 0`, `LAW = 1` or `LAW = 2` product moved by `convr`):
+/// `acefc.f90:8631-8960`. A `LAW = 2` photon is first rewritten as `convr`
+/// writes it, one discrete line per incident energy (`acefc.f90:4440-4447`);
+/// any other law gives `None`.
 ///
 /// Two passes over the incident energies, as upstream:
 ///
@@ -1023,17 +1032,41 @@ fn acelpp_mf16_law4(
             super::energy::mf6::skip_mf6_subsection(&mut cur, law).ok()?;
             continue;
         }
-        if seen != photon || law != 1 {
+        if seen != photon {
             seen += 1;
             super::energy::mf6::skip_mf6_subsection(&mut cur, law).ok()?;
             continue;
         }
+        if law != 1 && law != 2 {
+            return None;
+        }
+        // `acelpp` reads `egamma` off the yield TAB1's C2 for a LAW = 2
+        // photon (`acefc.f90:8648`).
+        let egamma = y.head.c2;
         let t2 = cur.read_tab2().ok()?;
         let lep = t2.head.l2;
         let ne = t2.head.n2.max(0) as usize;
         let mut lists = Vec::with_capacity(ne);
         for _ in 0..ne {
-            lists.push(cur.read_list().ok()?);
+            let mut l = cur.read_list().ok()?;
+            // `convr` writes a LAW = 2 ("discrete anisotropic") photon to MF=16
+            // as a simple primary: each LIST becomes ND = 1, NA = 0, NW = 2,
+            // NEP = 1 with one line at `egamma + awr*E/(awr+1)`, probability 1
+            // (`acefc.f90:4440-4447`). The angular data is dropped, as upstream
+            // drops it ("treated as simple primary photon").
+            if law == 2 && egamma > 0.0 {
+                let e = l.head.c2;
+                l.head.l1 = 1;
+                l.head.l2 = 0;
+                l.head.n1 = 2;
+                l.head.n2 = 1;
+                // Through `convr`'s formatted scratch tape: the value
+                // `acelpp` reads back is `a11`'s text of it.
+                let ep = egamma + awr * e / (awr + 1.0);
+                let ep = crate::endf::parse::parse_endf_float(&crate::endf::parse::format_endf_float(ep)).ok()?;
+                l.data = vec![ep, 1.0];
+            }
+            lists.push(l);
         }
         // pass 1: the union list of discrete photons
         let mut dise: Vec<f64> = Vec::new();

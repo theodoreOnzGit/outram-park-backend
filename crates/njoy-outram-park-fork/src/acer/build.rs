@@ -791,6 +791,13 @@ impl AceTable {
                 append_dlw(&mut b, &producers, &law3_lo, sigfig(egrid[nes - 1] / EMEV, 7));
             jxs[jxs::LDLW] = ldlw;
             jxs[jxs::DLW] = dlw;
+        } else {
+            // Upstream sets `ldlw = next` and `dlw = next` whatever NR is
+            // (`acefc.f90:5902-5904`), so a table with no secondary-neutron
+            // reaction (H-1) carries both locators at the next free word, an
+            // empty block, not 0 (GitHub #872).
+            jxs[jxs::LDLW] = b.next_locator();
+            jxs[jxs::DLW] = b.next_locator();
         }
 
         // ── UNR (unresolved-range probability tables) ───────────────────────
