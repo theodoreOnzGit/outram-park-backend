@@ -18,20 +18,33 @@
 //!   ENDF/B-VIII.0 tape, written as Type-1 text and read back, against itself
 //!   and with one ITXE word changed.
 //!
+//! - **This port against NJOY2016, whole table:** U-234 at 293.6 K built by
+//!   `build_deck` with NJOY's reference deck (RECONR 0.001, BROADR 293.6 K,
+//!   PURR 20 bands / 64 ladders / 10 000 samples, no HEATR), written as Type-1
+//!   text and read back, must be identical to NJOY2016's own table in the
+//!   header, NXS, JXS and every XSS word. Until this date the whole-table
+//!   result was checked only by running `examples/ace_blocks_vs_reference.rs`
+//!   by hand.
+//!
 //! Pass criterion: the verdicts, counts and positions asserted below. There is
 //! no tolerance: the comparator itself has none.
 //!
 //! # Results (2026-10-14)
 //!
 //! All pass. U-234 against itself: 25 CE block rows, each SAME or absent in
-//! both, XSS SAME over 449 695 words.
+//! both, XSS SAME over 449 695 words. U-234 built here against NJOY2016's:
+//! identical, material tag included, once `build_deck` wrote the MAT
+//! (`   mat9225`) where it had written the ZA (`mat92234`), the one header
+//! difference a browser build of the same deck exposed.
 
 use njoy_outram_park_fork::acer::compare::{compare, Verdict, CE_BLOCKS, THERMAL_BLOCKS};
 use njoy_outram_park_fork::acer::read::{self, AceFileType, RawAceTable};
 use njoy_outram_park_fork::acer::thermal::{jxs as tjxs, ThermalAceOptions};
-use njoy_outram_park_fork::acer::{jxs, AceTable};
+use njoy_outram_park_fork::acer::{build_deck, jxs, AceDeck, AceTable};
+use njoy_outram_park_fork::broadr::broaden_result;
+use njoy_outram_park_fork::reconr::{reconr, ReconrConfig};
 use njoy_outram_park_fork::endf::tape::Tape;
-use njoy_outram_park_fork::reference_data::{ace_reference_file_or_skip, reference_endf_dir};
+use njoy_outram_park_fork::reference_data::{ace_reference_file_or_skip, reference_endf, reference_endf_dir};
 use njoy_outram_park_fork::thermr::mf7::parse_mf7;
 
 fn njoy_u234() -> Option<RawAceTable> {
@@ -133,4 +146,20 @@ fn tables_of_different_classes_are_compared_as_a_whole_only() {
     assert!(c.blocks.is_empty());
     assert_eq!(c.whole_xss.verdict, Verdict::Different);
     assert!(!c.identical());
+}
+
+#[test]
+fn u234_built_here_is_njoy2016s_table_in_every_word() {
+    let Some(njoy) = njoy_u234() else { return };
+    let tape = Tape::read_file(&reference_endf("n-092_U_234-ENDF8.0.endf").expect("U-234 tape")).expect("parse U-234");
+    let mat = 9225;
+    let r0 = reconr(&tape, &ReconrConfig { mat, tolerance: 1.0e-3, temperature: 0.0 }).expect("RECONR");
+    let r = broaden_result(&r0, 293.6);
+    let deck = AceDeck::default().without_heatr().with_purr(20, 64, 10_000).with_temperature(293.6);
+    let ace = build_deck(&tape, mat, &r, njoy.header.kt_mev, 0, &deck).expect("ACER");
+    let text = ace.to_raw(AceFileType::Type1Ascii).unwrap().to_type1_string();
+    let ours = read::parse_type1(&text).unwrap();
+    let c = compare(&ours, &njoy);
+    assert!(c.identical(), "{:#?}", c.report_lines());
+    assert_eq!(ours.header.mat_id.trim(), "mat9225");
 }

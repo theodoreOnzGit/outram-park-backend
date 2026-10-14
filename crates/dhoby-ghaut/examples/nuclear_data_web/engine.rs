@@ -55,7 +55,23 @@ pub enum Request {
     Thermr { job: u32, material: u8, temp_k: f64, e_emit: f64 },
     /// GROUPR-style group averages, infinitely dilute and at `sigma0`.
     Groupr { job: u32, ngroups: usize, sigma0: f64 },
+    /// A file the user chose, into one of the [`SLOTS`] (the ACE rungs,
+    /// gh:#863-#865). Answered by [`Event::Stored`].
+    PutFile { slot: u8, name: String, bytes: Vec<u8> },
+    /// Build a continuous-energy ACE table from the ENDF slot (gh:#864).
+    MakeAce { job: u32, temp_k: f64, purr: bool, heatr: bool },
+    /// Build a thermal ACE table from the thermal slot (gh:#865).
+    MakeThermalAce { job: u32, n_outgoing: usize, n_cosines: usize, emax_ev: f64 },
+    /// Compare the two ACE slots (gh:#863).
+    CompareAce { job: u32 },
 }
+
+/// The file slots of the ACE rungs: what each holds.
+pub const SLOTS: [&str; 4] = ["ENDF tape", "thermal tape or LEAPR deck", "first ACE file", "second ACE file"];
+pub const SLOT_ENDF: u8 = 0;
+pub const SLOT_THERMAL: u8 = 1;
+pub const SLOT_ACE_FIRST: u8 = 2;
+pub const SLOT_ACE_SECOND: u8 = 3;
 
 /// One drawn series: `tag` says what it is (see each handler), `pts` are
 /// `(x, y)`, `w` an optional per-point weight (a probability, or a packed
@@ -73,6 +89,10 @@ pub enum Event {
     Ready { id: u32 },
     /// A finished step: its curves, how long it took, and a one-line result.
     Result { job: u32, param: f64, secs: f64, n_points: usize, curves: Vec<Curve>, note: String },
+    /// A file the user chose is held in `slot`.
+    Stored { slot: u8, name: String, len: usize },
+    /// A file the engine made, for the user to download, and what was done.
+    File { job: u32, name: String, bytes: Vec<u8>, note: String, secs: f64 },
     Error(String),
 }
 
@@ -81,6 +101,8 @@ pub enum Event {
 pub struct NdEngine {
     tapes: Vec<(String, Tape, i32)>,
     base: Option<ReconrResult>,
+    /// The ACE rungs' files, by slot ([`SLOTS`]).
+    files: [Option<(String, Vec<u8>)>; 4],
 }
 
 fn clip(p: &[(f64, f64)], lo: f64, hi: f64) -> Vec<(f64, f64)> {
@@ -91,7 +113,28 @@ fn curve(tag: u32, p: &[(f64, f64)]) -> Curve {
     Curve { tag, pts: p.iter().map(|&(x, y)| [x, y]).collect(), w: Vec::new() }
 }
 
+/// A generator's outcome as the event the UI gets.
+fn made(job: u32, r: Result<crate::acetools::Made, String>, secs: f64) -> Event {
+    match r {
+        Ok(m) => Event::File { job, name: m.name, bytes: m.bytes, note: m.lines.join("\n"), secs },
+        Err(e) => Event::Error(e),
+    }
+}
+
 impl NdEngine {
+    /// The file in `slot`, or why there is none.
+    fn file(&self, slot: u8) -> Result<(&str, &[u8]), String> {
+        match self.files.get(slot as usize) {
+            Some(Some((n, b))) => Ok((n.as_str(), b.as_slice())),
+            _ => Err(format!("choose the {} first", SLOTS.get(slot as usize).copied().unwrap_or("file"))),
+        }
+    }
+    fn compare_ace(&self, job: u32) -> Result<Event, String> {
+        let (an, a) = self.file(SLOT_ACE_FIRST)?;
+        let (bn, b) = self.file(SLOT_ACE_SECOND)?;
+        let lines = crate::acetools::compare_files(a, an, b, bn)?;
+        Ok(Event::Result { job, param: 0.0, secs: 0.0, n_points: 0, curves: Vec::new(), note: lines.join("\n") })
+    }
     pub fn has(&self, name: &str) -> bool {
         self.tapes.iter().any(|(n, _, _)| n == name)
     }
@@ -119,6 +162,29 @@ impl NdEngine {
         let t0 = now();
         let out = match r {
             Request::Load { .. } => return,
+            Request::PutFile { slot, name, bytes } => {
+                let len = bytes.len();
+                match self.files.get_mut(slot as usize) {
+                    Some(s) => {
+                        *s = Some((name.clone(), bytes));
+                        post(Event::Stored { slot, name, len });
+                    }
+                    None => post(Event::Error(format!("no file slot {slot}"))),
+                }
+                return;
+            }
+            Request::MakeAce { job, temp_k, purr, heatr } => {
+                let r = self.file(SLOT_ENDF).and_then(|(_, b)| crate::acetools::build_ace(b, crate::acetools::AceGen { temp_k, purr, heatr }));
+                post(made(job, r, now() - t0));
+                return;
+            }
+            Request::MakeThermalAce { job, n_outgoing, n_cosines, emax_ev } => {
+                let g = crate::acetools::ThermalGen { n_outgoing, n_cosines, emax_ev };
+                let r = self.file(SLOT_THERMAL).and_then(|(n, b)| crate::acetools::build_thermal_ace(b, n, g));
+                post(made(job, r, now() - t0));
+                return;
+            }
+            Request::CompareAce { job } => self.compare_ace(job),
             Request::Sections { job } => self.sections(job),
             Request::Reconr { job, tol } => self.reconr(job, tol),
             Request::Broadr { job, temp_k } => self.broadr(job, temp_k),
@@ -451,6 +517,14 @@ mod web {
                 Request::Purr { job, temp_k, nladr, nsamp } => ("purr", vec![*job as f64, *temp_k, *nladr as f64, *nsamp as f64]),
                 Request::Thermr { job, material, temp_k, e_emit } => ("thermr", vec![*job as f64, *material as f64, *temp_k, *e_emit]),
                 Request::Groupr { job, ngroups, sigma0 } => ("groupr", vec![*job as f64, *ngroups as f64, *sigma0]),
+                Request::PutFile { slot, name, bytes } => {
+                    js::set(&o, "name", name.as_str());
+                    js::set(&o, "bytes", js::u8s(bytes));
+                    ("put", vec![*slot as f64])
+                }
+                Request::MakeAce { job, temp_k, purr, heatr } => ("makeace", vec![*job as f64, *temp_k, f64::from(u8::from(*purr)), f64::from(u8::from(*heatr))]),
+                Request::MakeThermalAce { job, n_outgoing, n_cosines, emax_ev } => ("makethermal", vec![*job as f64, *n_outgoing as f64, *n_cosines as f64, *emax_ev]),
+                Request::CompareAce { job } => ("compare", vec![*job as f64]),
             };
             js::set(&o, "kind", kind);
             js::set(&o, "a", js::f64s(&a));
@@ -467,6 +541,10 @@ mod web {
                 "purr" => Request::Purr { job: n(0) as u32, temp_k: n(1), nladr: n(2) as usize, nsamp: n(3) as usize },
                 "thermr" => Request::Thermr { job: n(0) as u32, material: n(1) as u8, temp_k: n(2), e_emit: n(3) },
                 "groupr" => Request::Groupr { job: n(0) as u32, ngroups: n(1) as usize, sigma0: n(2) },
+                "put" => Request::PutFile { slot: n(0) as u8, name: js::get_str(v, "name"), bytes: js::get_u8s(v, "bytes") },
+                "makeace" => Request::MakeAce { job: n(0) as u32, temp_k: n(1), purr: n(2) != 0.0, heatr: n(3) != 0.0 },
+                "makethermal" => Request::MakeThermalAce { job: n(0) as u32, n_outgoing: n(1) as usize, n_cosines: n(2) as usize, emax_ev: n(3) },
+                "compare" => Request::CompareAce { job: n(0) as u32 },
                 other => return Err(format!("unknown request '{other}'")),
             })
         }
@@ -518,6 +596,12 @@ mod web {
                 Event::JobDone { id, index, secs } => ("done", vec![*id as f64, *index as f64, *secs], ""),
                 Event::Ready { id } => ("ready", vec![*id as f64], ""),
                 Event::Result { job, param, secs, n_points, curves, note } => ("result", encode(*job, *param, *secs, *n_points, curves), note.as_str()),
+                Event::Stored { slot, name, len } => ("stored", vec![*slot as f64, *len as f64], name.as_str()),
+                Event::File { job, name, bytes, note, secs } => {
+                    js::set(&o, "name", name.as_str());
+                    js::set(&o, "bytes", js::u8s(bytes));
+                    ("file", vec![*job as f64, *secs], note.as_str())
+                }
                 Event::Error(m) => ("error", Vec::new(), m.as_str()),
             };
             js::set(&o, "kind", kind);
@@ -533,6 +617,8 @@ mod web {
                 "done" => Event::JobDone { id: n(0) as u32, index: n(1) as usize, secs: n(2) },
                 "ready" => Event::Ready { id: n(0) as u32 },
                 "result" => decode(&a, js::get_str(v, "note"))?,
+                "stored" => Event::Stored { slot: n(0) as u8, name: js::get_str(v, "note"), len: n(1) as usize },
+                "file" => Event::File { job: n(0) as u32, name: js::get_str(v, "name"), bytes: js::get_u8s(v, "bytes"), note: js::get_str(v, "note"), secs: n(1) },
                 "error" => Event::Error(js::get_str(v, "note")),
                 other => return Err(format!("unknown event '{other}'")),
             })

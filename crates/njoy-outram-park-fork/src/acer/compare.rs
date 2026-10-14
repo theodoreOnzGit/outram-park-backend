@@ -9,9 +9,9 @@
 //!
 //! # What is compared
 //!
-//! - **Header:** ZAID, atomic weight ratio and temperature (`kT`). The date,
-//!   comment and material strings are shown, not judged: they legitimately
-//!   differ between two codes.
+//! - **Header:** ZAID, atomic weight ratio, temperature (`kT`) and the
+//!   material tag (`hm`, NJOY's `   mat` + MAT). The date and comment are
+//!   shown, not judged: they legitimately differ between two codes.
 //! - **NXS and JXS**, entry by entry.
 //! - **Each block, word for word**, from its JXS locator to the next block
 //!   present in the same table. The block names come from the table's class:
@@ -306,6 +306,7 @@ pub fn compare(first: &RawAceTable, second: &RawAceTable) -> AceComparison {
             second: format!("{:e}", h2.kt_mev),
             same: Some(h1.kt_mev == h2.kt_mev),
         },
+        HeaderField { name: "material", first: h1.mat_id.trim().to_string(), second: h2.mat_id.trim().to_string(), same: Some(h1.mat_id.trim() == h2.mat_id.trim()) },
         HeaderField { name: "date", first: h1.date.clone(), second: h2.date.clone(), same: None },
         HeaderField { name: "comment", first: h1.comment.trim().to_string(), second: h2.comment.trim().to_string(), same: None },
     ];

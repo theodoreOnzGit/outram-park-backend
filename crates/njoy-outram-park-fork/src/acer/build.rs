@@ -885,8 +885,12 @@ impl AceTable {
         // (continuous-energy neutron), e.g. "92235.00c".
         let zaid_num = za as f64 + suffix as f64 / 100.0;
         let zaid = format!("{:9.2}c", zaid_num);
-        // `hm` is a cosmetic 10-char material tag. We do not retain the ENDF MAT
-        // in `ReconrResult`, so tag with ZA (what a reader displays anyway).
+        // `hm` is a 10-char material tag. ~~We do not retain the ENDF MAT in
+        // `ReconrResult`, so tag with ZA (what a reader displays anyway).~~
+        // CORRECTED 2026-10-14 (gh:#864): upstream writes the MAT
+        // (`acefc.f90:4949`, `'   mat',i4`), and `build_deck`, which knows
+        // it, now overwrites this tag with it; only a table built here without
+        // a deck keeps the ZA.
         let mat_id = format!("{:>10}", format!("mat{za}"));
 
         AceTable {

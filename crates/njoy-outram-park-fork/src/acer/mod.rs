@@ -518,6 +518,10 @@ pub fn build_deck(
     if let Some(g) = crate::acer::photon_blocks::gpd(tape, mat, recon) {
         table.insert_gpd(&g);
     }
+    // NJOY's `hm`: the ENDF MAT, `'   mat',i4` (`acefc.f90:4949`). Found
+    // 2026-10-14 (gh:#864) by a browser-built U-234 table whose every other
+    // byte matched NJOY2016's: it read `mat92234` (the ZA) for `mat9225`.
+    table.mat_id = format!("   mat{mat:4}");
     // Charged-particle production, after END (`acelcp`, `acefc.f90:6323`).
     crate::acer::acelcp::append(&mut table, tape, mat, recon);
     Ok(table)

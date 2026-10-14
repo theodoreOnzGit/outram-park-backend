@@ -56,6 +56,7 @@
 //! Gated off Android with the rest of the windowing stack.
 
 pub mod data_cache;
+pub mod files;
 pub mod lesson;
 pub mod link;
 pub mod loading;
