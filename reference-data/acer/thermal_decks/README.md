@@ -9,7 +9,8 @@ Reference tables for `crates/njoy-outram-park-fork/tests/acer_thermal_word_parit
   is in that folder's README): `n-013_Al_027-ENDF8.0.endf` with
   `tsl-013_Al_027-ENDF8.0.endf`, `n-001_H_001-ENDF8.0-Beta6.endf` with
   `tsl-HinH2O.endf`, `n-006_C_012-ENDF8.0.endf` with
-  `tsl-crystalline-graphite.endf`.
+  `tsl-crystalline-graphite.endf`, and (since GitHub #866)
+  `n-001_H_001-ENDF8.0-Beta6.endf` with `tsl-HinZrH-ENDF8.0.endf`.
 - **Deck:** `reconr` (0.001) → `broadr` (0.001, the S(α,β) base temperature) →
   `thermr` (16 cosines, `iform = 0`, card-4 `tol`, `emax = 4 eV`) → `acer`
   (`iopt = 2`), every unit positive (text). Tape 20 is the incident tape,
@@ -23,6 +24,12 @@ Reference tables for `crates/njoy-outram-park-fork/tests/acer_thermal_word_parit
 | `al27_20k_thermal_tol0p001_iwt0_njoy2016.ace.gz` | `al27_20k_tol0p001_iwt0.njoy` | `2bb567894584e6788099e042abc8021e78d25375333a74c71a253a657df97aa4` |
 | `hh2o_283p6k_thermal_tol0p001_njoy2016.ace.gz` | `hh2o_283p6k_tol0p001.njoy` | `5040012bf051183320a0905135a129e3472fc963f39dc132104f613285559ec0` |
 | `graphite_296k_thermal_tol0p001_njoy2016.ace.gz` | `graphite_296k_tol0p001.njoy` | `76c9296f35f151533762551b88d1483a564612def453fc3e8a61ef4f83d96f70` |
+| `hzrh_296k_thermal_tol0p001_njoy2016.ace.gz` | `hzrh_296k_tol0p001.njoy` | `632e1e4fba40d19e79e78c89c727d6508892858cf6bdb8d6fa5e7b8b721c1495` |
+
+The H in ZrH deck (GitHub #866) reads `tsl-HinZrH-ENDF8.0.endf` (MAT 7,
+`LTHR = 2`) with `n-001_H_001-ENDF8.0-Beta6.endf` as tape 20; THERMR card 2
+has `icoh = 1` and `natom = 1`, ACER card 9 `mte = 223`, `ielas = 1`
+(incoherent elastic), `nmix = 1`. Run 2026-10-14 with the same NJOY2016 build.
 
 The `.gz` files are `gzip -9 -n` of NJOY's `tape30`.
 

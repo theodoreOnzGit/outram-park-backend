@@ -28,6 +28,8 @@
 //! - [`incoherent_elastic`] — **done**: incoherent-elastic cross section
 //!   σ(E,T) = (σ_b/2N)·(1−e^{−4EW'})/(2EW') and its equally-probable cosines
 //!   (closed-form CDF inversion of the exponential angular law).
+//!   `IncoherentElastic::iel_record` / `iel_dwa` are `iel`'s own arithmetic
+//!   and temperature rule, which the ACE writer uses (GitHub #866).
 //! - [`inelastic`] — **done**: incoherent-inelastic double-differential
 //!   `d²σ/dE'dμ` from S(α,β), including the **short-collision-time (SCT) tail**
 //!   beyond the tabulated `(α,β)` grid so `σ(E)` reaches the free-atom limit at

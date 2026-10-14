@@ -3,7 +3,9 @@
 **Class:** verification, code to code against upstream. Not validation: no
 experiment is compared against. AI-assisted draft, not yet reviewed by a human.
 **Issue:** GitHub #865. **Gate:** `tests/acer_thermal_word_parity.rs` (5 cases,
-13 s). **Reference:** NJOY2016 2016.79 (`ac5adf5`), built and run here.
+13 s; a sixth, H in ZrH with incoherent elastic, was added later the same day
+for GitHub #866, see
+[`acer_thermal_incoherent_elastic_2026_10_14.md`](acer_thermal_incoherent_elastic_2026_10_14.md)). **Reference:** NJOY2016 2016.79 (`ac5adf5`), built and run here.
 
 ## Result
 
@@ -136,8 +138,13 @@ defects below are known one by one, rather than as one residual.
 ## What is NOT covered
 
 - Only each evaluation's base temperature (as before).
-- Incoherent elastic (H in ZrH, `IDPNC = 3`) and mixed elastic (`IDPNC = 5`)
-  are not in the word-for-word gate.
+- ~~Incoherent elastic (H in ZrH, `IDPNC = 3`) and mixed elastic (`IDPNC = 5`)
+  are not in the word-for-word gate.~~ **CORRECTED 2026-10-14** (GitHub #866):
+  H in ZrH at 296 K (`IDPNC = 3`) is in the gate and identical in every word
+  and every byte but the date and comment; record
+  [`acer_thermal_incoherent_elastic_2026_10_14.md`](acer_thermal_incoherent_elastic_2026_10_14.md).
+  Mixed elastic (`IDPNC = 5`) is still not gated: no evaluation in
+  `reference-data/endf/` has `LTHR = 3`.
 - LASYM = 1 evaluations and `nmix > 1` are not exercised.
 - Decks with binary (negative) units: NJOY then skips the text round trips,
   and this port reproduces the text deck only.

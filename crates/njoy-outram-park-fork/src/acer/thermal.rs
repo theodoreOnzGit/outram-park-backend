@@ -32,6 +32,9 @@
 //!
 //! Incoherent-elastic is handled: ITCE/ITCX/ITCA when it is the only elastic
 //! mode (`IDPNC=3`), or ITCEI/ITCXI/ITCAI alongside coherent (`IDPNC=5`).
+//! On the incident PENDF (`thermal_from_mf7_on_pendf`) the `IDPNC=3` blocks
+//! are NJOY2016's word for word on H in ZrH (GitHub #866); `IDPNC=5` is
+//! written the same way but no evaluation here exercises it.
 //! ~~Not yet handled: the skewed/continuous `IFENG=1/2` inelastic forms, and~~
 //! ~~multi-atom mixing (`nmix`, taken as 1).~~ **CORRECTED 2026-10-04:** all
 //! three `IFENG` forms are written since 2026-09-22 (`InelasticForm`,
@@ -230,6 +233,46 @@ pub fn aceth_bragg_edges(s_of_e: &[(f64, f64)], emax_ev: f64) -> Result<Vec<(f64
         }
     }
     Ok(kept)
+}
+
+/// The incoherent-elastic rows ACER writes, `(E [eV], σ [b], cosines)`, as
+/// `acesix` reads them back from THERMR's PENDF (`aceth.f90:229-279`,
+/// GitHub #866).
+///
+/// THERMR's `iel` (`thermr.f90:1244-1425`) writes one MF=6 LIST per `calcem`
+/// energy `esi` holding `E` and its `nbin` equally probable cosines, and an
+/// MF=3 section on THERMR's grid (`iel_mf3`, from
+/// [`crate::thermr::mf3_grid::incoherent_elastic_mf3`]). ACER walks the MF=6
+/// energies as read from the text, stopping at the first above `emax` or
+/// within `eps = 1e-5` eV of it, takes the cross section by `gety1` on that
+/// MF=3 (linear between its 7-figure points, not `iel`'s own value), and the
+/// cosines as written: through the ENDF text, unrounded and unclamped.
+///
+/// # Errors
+/// As [`pendf_text`].
+fn incoherent_elastic_ace(
+    ie: &crate::thermr::mf7::IncoherentElastic,
+    iel_mf3: &[(f64, f64)],
+    esi: &[f64],
+    temp_k: f64,
+    natom: f64,
+    nbin: usize,
+    emax_ev: f64,
+) -> Result<Vec<(f64, f64, Vec<f64>)>, NjoyError> {
+    const EPS: f64 = 1.0e-5;
+    let dwa = ie.iel_dwa(temp_k)?;
+    let mut rows = Vec::new();
+    for &e_raw in esi {
+        let e = pendf_text(e_raw)?;
+        if e > emax_ev || (e - emax_ev).abs() < EPS {
+            break;
+        }
+        let x = crate::thermr::mf3_grid::itix_at(iel_mf3, e);
+        let mus = ie.iel_record(e_raw, dwa, natom, nbin).1;
+        let mus = mus.into_iter().map(pendf_text).collect::<Result<Vec<_>, _>>()?;
+        rows.push((e, x, mus));
+    }
+    Ok(rows)
 }
 
 /// The tabulated `calcem` record covering `ev` — the ACE block stores one
@@ -519,20 +562,23 @@ impl AceTable {
         // on MF=3), GitHub #865. On the incident nuclide's grid that is
         // THERMR's own MF=3; without it, `calcem`'s value at each energy
         // through the same 7-figure text, which differs between grid points.
+        // THERMR's MF=3 for `mtei` too, when there is incoherent elastic and
+        // the incident PENDF is known (`iel`, see `incoherent_elastic_ace`).
+        let mut iel_mf3: Option<Vec<(f64, f64)>> = None;
         let xs: Vec<f64> = match incident {
             Some(inc) => {
+                use crate::thermr::mf3_grid;
                 let coherent = match &mf7.coherent_elastic {
                     Some(ce) => Some(ce.s_of_e_at(temp_k)?),
                     None => None,
                 };
-                let mf3 = crate::thermr::mf3_grid::inelastic_mf3(
-                    &inc.elastic,
-                    opts.emax_ev,
-                    &esi,
-                    &xsi,
-                    coherent.as_deref(),
-                    tol,
-                )?;
+                let grid = mf3_grid::thermr_grid(&inc.elastic, opts.emax_ev, &esi, &xsi, coherent.as_deref(), tol)?;
+                let mf3 = mf3_grid::tpend_mf3(&grid)?;
+                if let Some(ie) = &mf7.incoherent_elastic {
+                    let dwa = ie.iel_dwa(temp_k)?;
+                    let xie: Vec<f64> = esi.iter().map(|&e| ie.iel_record(e, dwa, natom, nang).0).collect();
+                    iel_mf3 = Some(mf3_grid::incoherent_elastic_mf3(&grid, &esi, &xie)?);
+                }
                 energy_grid
                     .iter()
                     .map(|&e| Ok(crate::thermr::mf3_grid::itix_at(&mf3, pendf_text(e)?)))
@@ -680,20 +726,33 @@ impl AceTable {
         // Incoherent-elastic: NEE energies, σ, and NEA equally-probable cosines.
         if let Some(ie) = &mf7.incoherent_elastic {
             let nea = nang; // reuse the inelastic cosine count for the elastic bins
-            let nee = energy_grid.len();
+            // `(E [eV], σ [b], cosines)` per incident energy. On the incident
+            // PENDF, as ACER reads them back from THERMR's (GitHub #866):
+            // `incoherent_elastic_ace`. Without it, the analytic values on
+            // `energy_grid`, which are close to NJOY's but not its words.
+            let rows: Vec<(f64, f64, Vec<f64>)> = match &iel_mf3 {
+                Some(mf3) => incoherent_elastic_ace(ie, mf3, &esi, temp_k, natom, nea, opts.emax_ev)?,
+                None => energy_grid
+                    .iter()
+                    .map(|&e| (e, ie.cross_section(e, temp_k, natom), ie.equiprobable_cosines(e, temp_k, nea)))
+                    .collect(),
+            };
+            let nee = rows.len();
             let e_start = xss.len() as i32 + 1;
             xss.push(nee as f64);
             is_int.push(true);
-            for &e in energy_grid {
+            for (e, _, _) in &rows {
                 real(e / EMEV, &mut xss, &mut is_int);
             }
             let x_start = xss.len() as i32 + 1;
-            for &e in energy_grid {
-                real(ie.cross_section(e, temp_k, natom), &mut xss, &mut is_int);
+            for (_, x, _) in &rows {
+                // `aceth.f90:804`, `x/nmix`; `nmix = 1` here (see the TODO
+                // on `natom` above).
+                real(*x, &mut xss, &mut is_int);
             }
             let a_start = xss.len() as i32 + 1;
-            for &e in energy_grid {
-                for mu in ie.equiprobable_cosines(e, temp_k, nea) {
+            for (_, _, mus) in &rows {
+                for &mu in mus {
                     real(mu, &mut xss, &mut is_int);
                 }
             }

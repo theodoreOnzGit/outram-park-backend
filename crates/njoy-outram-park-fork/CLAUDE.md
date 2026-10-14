@@ -682,6 +682,13 @@ Three things worth carrying forward:
   MF=3, which sits on the incident nuclide's elastic grid merged with `coh`'s
   Bragg points. Without that grid, `thermal_from_mf7_with_tolerance` still
   differs there, by up to 1.1e-3 on Al-27.
+- **Incoherent elastic is word for word too (GitHub #866).** H in ZrH at
+  296 K (`IDPNC = 3`) joined the gate. ACER takes ITCX by `gety1` on the
+  MF=3 that THERMR's `iel` writes on the same PENDF grid (order-3 `terp` of
+  `xie`, rounded by `tpend`), not from `iel`'s own value. That alone was
+  2.2e-3 at 3.75 eV. Record:
+  [`verification_and_validation/acer_thermal_incoherent_elastic_2026_10_14.md`](verification_and_validation/acer_thermal_incoherent_elastic_2026_10_14.md).
+  Mixed elastic (`IDPNC = 5`) is not gated: no `LTHR = 3` tape is held.
 
 ## mcnpx format, and why a read-then-write round trip is worth asserting (2026-09-22)
 

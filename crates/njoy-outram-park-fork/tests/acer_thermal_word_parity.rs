@@ -23,8 +23,9 @@
 //! | H in H₂O (MAT 1) | H-1 (125) | 283.6 | 0.001 | 2 | no |
 //! | crystalline graphite (MAT 30) | C-12 (625) | 296 | 0.001 | 1 | yes |
 //! | Al-27, `iwt = 0` (skewed bins, IFENG = 1) | Al-27 | 20 | 0.001 | 1 | yes |
+//! | H in ZrH (MAT 7), incoherent elastic (`IDPNC = 3`) | H-1 (125) | 296 | 0.001 | 1 | no |
 //!
-//! All `iwt = 1` (IFENG = 0) except the last. `iwt = 2` (IFENG = 2, OpenMC's
+//! All `iwt = 1` (IFENG = 0) except the skewed Al-27 case. `iwt = 2` (IFENG = 2, OpenMC's
 //! default) was measured identical too, on Al-27 at 16 bins and on H in H₂O
 //! at 64, but its tables (2-7 MB gzipped) are not committed here; see the
 //! V&V record.
@@ -36,6 +37,13 @@
 //!
 //! All five identical in every compared word, in 13 s. Before this date the
 //! port differed from NJOY2016 in every block but ITIE.
+//!
+//! H in ZrH (added later 2026-10-14, GitHub #866; ACER card 9 `mte = 223`,
+//! `ielas = 1`) is identical too, ITCE/ITCX/ITCA included (31 s). Before
+//! THERMR's `iel` MF=3 and ACER's read-back were ported, ITCX differed in all
+//! 106 words (worst 2.24e-3) and ITCA in all 1 696 (worst 5.0e-8). Record:
+//! `verification_and_validation/acer_thermal_incoherent_elastic_2026_10_14.md`.
+//! Mixed elastic (`IDPNC = 5`) has no case: no `LTHR = 3` tape is held.
 //!
 //! The record of what was found on the way, and how (an instrumented NJOY2016
 //! build logging `sig`, `sigl` and `tpend`), is
@@ -186,5 +194,22 @@ fn al27_skewed_bins_iwt0_are_njoy2016s_table() {
         name: "al27",
         za: 13027,
         form: InelasticForm::Skewed,
+    });
+}
+
+#[test]
+fn h_in_zrh_incoherent_elastic_at_296k_is_njoy2016s_table() {
+    check(Case {
+        njoy: "hzrh_296k_thermal_tol0p001_njoy2016.ace.gz",
+        incident: "n-001_H_001-ENDF8.0-Beta6.endf",
+        mat: 125,
+        tsl: "tsl-HinZrH-ENDF8.0.endf",
+        tmat: 7,
+        temp_k: 296.0,
+        tol: 0.001,
+        natom: 1.0,
+        name: "hzrh",
+        za: 1001,
+        form: InelasticForm::Equiprobable,
     });
 }

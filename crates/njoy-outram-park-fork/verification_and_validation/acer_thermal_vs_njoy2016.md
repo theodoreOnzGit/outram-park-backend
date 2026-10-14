@@ -185,9 +185,15 @@ difference there is meaningless.
 | H in ZrH | 28 832 | 4.414e-6 | 2.910e-5 | **1.5e-16 / 5.0e-8** | ok |
 | **H in H2O** | 28 832 | **7.600e-3** | **4.263e-2** | — | ok |
 
-**Incoherent elastic is essentially exact.** H-in-ZrH is the only tape here
+~~**Incoherent elastic is essentially exact.**~~ H-in-ZrH is the only tape here
 carrying it (`IDPNC = 3`): its energies agree to **1.451e-16** and its
-equiprobable cosines to **4.998e-8** absolute.
+equiprobable cosines to **4.998e-8** absolute. **CORRECTED 2026-10-14**
+(GitHub #866): that compared the energies and cosines only. The cross section
+(`ITCX`) was not compared, and it differed in all 106 words, worst 2.24e-3 at
+3.75 eV, because ACER interpolates THERMR's 7-figure MF=3 on the incident
+PENDF grid rather than storing `iel`'s value. The 5e-8 on the cosines was the
+ENDF text's precision. Both are now NJOY2016's word for word:
+[`acer_thermal_incoherent_elastic_2026_10_14.md`](acer_thermal_incoherent_elastic_2026_10_14.md).
 
 **H-in-H2O is the outlier**, at 4.3e-2 absolute on an emission cosine — two
 orders worse than any other tape, and the same evaluation that is the outlier
