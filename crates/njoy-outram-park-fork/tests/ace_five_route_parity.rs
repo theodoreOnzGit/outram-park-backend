@@ -112,3 +112,12 @@ fn b10_is_njoy2016s_table_in_every_word() {
 fn o16_is_njoy2016s_table_in_every_word() {
     identical_to_njoy2016("O16", "n-008_O_016-ENDF8.0.endf");
 }
+
+/// Mg-24 gives MT=16, 22, 28 and 91 as MF=4 angles + MF=5 energies, with no
+/// MF=6 (2026-10-14). Before `build_emissions` took that path they were
+/// written with TYR = 0 (no neutron out) and an inconsistent DLW layout, and
+/// OpenMC segfaulted on the table in LCT-008's full model.
+#[test]
+fn mg24_mf4_mf5_continuum_is_njoy2016s_table_in_every_word() {
+    identical_to_njoy2016("Mg24", "n-012_Mg_024-ENDF8.0.endf");
+}

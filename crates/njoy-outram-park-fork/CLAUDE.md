@@ -744,6 +744,22 @@ HEATR, THERMR 0.001 with 16 cosines, `natom`/`emax` from the law's
 
 ## The five-route library is NJOY2016's in every word (2026-10-14, GitHub #872)
 
+**UPDATE, later 2026-10-14 (LCT-008's full nuclide list, 36 tapes + F-19):**
+Mg-24 was the first evaluation here to give continuum reactions (MT=16, 22,
+28, 91) as MF=4 + MF=5 with no MF=6. `build_emissions` skipped them, writing
+TYR = 0, and OpenMC segfaulted on the table. It now follows `acelod`
+(`acefc.f90:5859-5870`, `:5924`): TYR from the MT, signed by MF=4's LCT,
+energies by `acelf5`, angles from MF=4. The MT yield table was also brought
+back to upstream's. Mg-24 is now NJOY2016's in every word, and is in the
+gate. **50 of the 74 tables (37 nuclides × 293.6 K and 0 K) are NJOY2016's in
+every word; 24 still differ**, across Na-23, Ti-48, Cr-50/52/53/54,
+Fe-57/58, Cu-65 and Zn-64/66/67/68/70. Some differ only in the 7th or 8th
+figure; others are structural (Fe-58 lacks MT=4 and most of its UNR block;
+Na-23's and Cr-52's DLWP are a few words short). Tracked as GitHub #875.
+**The gate's reference tables had never been committed** (`.gitignore`); it
+skipped everywhere but on the machine that made them. They are committed
+now.
+
 All 12 nuclides of the five-route ICSBEP campaign (U-234/235/238, F-19,
 O-16, H-1, Al-27, Si-28/29/30, Mn-55, B-10), at 293.6 K
 (`RECONR -> BROADR -> PURR -> ACER`) and 0 K (`RECONR -> ACER`), are
