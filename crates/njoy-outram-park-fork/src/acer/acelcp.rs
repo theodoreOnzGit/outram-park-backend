@@ -22,18 +22,25 @@
 //! `NXS(7)` counts the particle types, and `JXS(30..32)` locate the IXS
 //! arrays that point to the blocks.
 //!
-//! **Ported branches:**
-//! - MF=4 two-body reactions with isotropic angles (`LTT = 0`), written as
-//!   law 33;
+//! **Ported branches** (for an incident neutron, `izai = 1`):
+//! - the neutron capture recoil on a light target (MT=102 from MF=3 or
+//!   MF=6): straight-ahead angles, law 33;
+//! - MF=4 two-body reactions with `LTT = 0` (isotropic), `1` (Legendre,
+//!   through `ptleg2`) or `2` (tabulated, through `pttab2`), law 33, with the
+//!   two-body heating from each energy's mean cosine;
 //! - MF=6 `LAW = 1` products with Legendre angles (`LANG = 1`, through
 //!   `ptleg2`, law 61), tabulated angles (`LANG >= 11`, law 61) or
-//!   Kalbach-Mann (`LANG = 2`, law 44).
+//!   Kalbach-Mann (`LANG = 2`, law 44);
+//! - MF=6 `LAW = 2` two-body products (`LANG = 0` or `12`), `LAW = 3`
+//!   (isotropic two-body), `LAW = 4` recoils (angles from the section's
+//!   first, `LAW = 2`, subsection with the odd Legendre terms negated), all
+//!   law 33, and `LAW = 0`, which upstream writes as an empty law-0 entry.
 //!
-//! That covers every entry in ENDF/B-VIII.0 U-235 and U-238: MT=5, MT=649
-//! and MT=800-835. **Not ported:**
-//! - MF=6 `LAW = 2/3/4/6/7`;
-//! - MF=4 with `LTT != 0`;
-//! - elastic and capture recoils (MT=2, and MT=102 for light targets);
+//! ~~That covers every entry in ENDF/B-VIII.0 U-235 and U-238~~ (extended
+//! 2026-10-14, GitHub #872): with the branches above, H-1, F-19, Al-27,
+//! Si-28/29/30 and Mn-55 are NJOY2016's tables in every word. **Not ported:**
+//! - MF=6 `LAW = 5/6/7`;
+//! - the elastic recoil (MT=2);
 //! - incident charged particles.
 //!
 //! [`append`] returns without writing anything, rather than a partial block,
@@ -345,8 +352,11 @@ pub fn append(table: &mut AceTable, tape: &Tape, mat: i32, pendf: &ReconrResult)
             continue;
         }
         let ok = match p.mf {
-            4 => p.mt != 2 && mf4_ltt(tape, mat, p.mt) == Some(0),
-            6 => mf6_supported(tape, mat, p),
+            // Neutron capture recoil on a light target (`:9372`).
+            3 => p.mt == 102,
+            // Two-body levels; the elastic recoil (MT=2) is not ported.
+            4 => p.mt != 2 && mf4_ltt(tape, mat, p.mt).is_some(),
+            6 => p.mt == 102 || mf6_supported(tape, mat, p),
             _ => false,
         };
         if !ok {
@@ -393,6 +403,9 @@ pub fn append(table: &mut AceTable, tape: &Tape, mat: i32, pendf: &ReconrResult)
         None
     };
 
+    // Upstream's `awp` is one variable for the whole routine; the capture
+    // recoil branch reads it without setting it. Zero until an item sets it.
+    let mut stale_awp = 0.0f64;
     for (itype, &(ip, _, thr)) in types.iter().enumerate() {
         let thresh = thr / EMEV;
         let ntrh = prods.iter().filter(|p| p.ip == ip && p.mf > 0).count();
@@ -427,8 +440,10 @@ pub fn append(table: &mut AceTable, tape: &Tape, mat: i32, pendf: &ReconrResult)
             x.n(mtrh + jp - 1, f64::from(p.mt));
             x.n(lsigh + jp - 1, (next - sigh + 1) as f64);
             let Some((k, iaa, _q)) = find_sig(&x, p.mt) else { return };
-            if p.mf == 4 {
-                x.n(tyrh + jp - 1, -1.0);
+            // Special branch for MF=4 and the neutron capture recoil, whatever
+            // file the MT=102 item came from (`:9370-9392`).
+            if p.mf == 4 || p.mt == 102 {
+                x.n(tyrh + jp - 1, if p.mt == 102 { 1.0 } else { -1.0 });
                 for ie in iaa..=nes {
                     let tt = x.get(hpd + 2 + ie - it) + x.get(2 + k + ie - iaa);
                     x.r(hpd + 2 + ie - it, sigfig(tt, 7, 0));
@@ -496,11 +511,87 @@ pub fn append(table: &mut AceTable, tape: &Tape, mat: i32, pendf: &ReconrResult)
         let mut jp = 0usize;
         for p in prods.iter().filter(|p| p.ip == ip && p.mf != 0) {
             jp += 1;
-            if p.mf == 6 {
-                // LAW=1: the angles live in DLWH (`xss(landh+jp-1)=-1`).
+            let Some((k, iaa, q)) = find_sig(&x, p.mt) else { return };
+            let amass = awr / awi;
+            if p.mt == 102 {
+                // Neutron capture recoil: a straight-ahead distribution
+                // (`:9618-9641`).
+                x.n(landh + jp - 1, (next - andh + 1) as f64);
+                x.n(next, 2.0);
+                x.r(next + 1, x.get(esz + iaa - 1));
+                x.r(next + 2, x.get(esz + nes - 1));
+                x.n(next + 3, -((next - andh + 6) as f64));
+                x.n(next + 4, -((next - andh + 17) as f64));
+                next += 5;
+                for _ in 0..2 {
+                    x.n(next, 2.0);
+                    x.n(next + 1, 3.0);
+                    x.r(next + 2, -1.0);
+                    x.r(next + 3, 1.0 - 1.0 / 100.0);
+                    x.r(next + 4, 1.0);
+                    x.r(next + 5, 0.0);
+                    x.r(next + 6, 0.0);
+                    x.r(next + 7, 200.0);
+                    x.r(next + 8, 0.0);
+                    x.r(next + 9, 0.0);
+                    x.r(next + 10, 1.0);
+                    next += 11;
+                }
+            } else if p.mf == 4 {
+                // Two-body levels from MF=4: LTT = 1 through `ptleg2`, LTT = 2
+                // through `pttab2`, with the two-body heating from each
+                // energy's mean cosine (`:9642-9850`). LTT = 0 and 3 write
+                // nothing: LANDH stays 0.
+                let Some((ltt, rows)) = mf4_rows(tape, mat, p.mt) else { return };
+                if ltt == 1 || ltt == 2 {
+                    let aprime = mf4_awp(p.mt) / awi;
+                    let heat = write_angular(&mut x, &mut next, landh + jp - 1, andh, &rows, ltt == 2, amass, aprime, q);
+                    add_two_body_heating(&mut x, &heat, hpd, naa, it, nes, esz, k, iaa);
+                }
+            } else {
+                // MF=6: LANDH = -1 for the item's subsection; LAW = 2 writes
+                // its angles here, and a LAW = 4 recoil takes them from the
+                // section's first subsection when that is LAW = 2, with the
+                // odd Legendre terms negated (`:9851-10070`).
                 x.n(landh + jp - 1, -1.0);
+                let sec = tape.section(mat, 6, p.mt).expect("checked");
+                let Some((_, law)) = nth_product(sec, p.l) else { return };
+                let (lists, aprime, recoil) = match law {
+                    2 => {
+                        let Some((_, awp, lists)) = nth_product_law2(sec, p.l) else { return };
+                        (Some(lists), awp / awi, false)
+                    }
+                    4 => {
+                        let awprec = nth_product(sec, p.l).map_or(0.0, |(y, _)| y.head.c2);
+                        (nth_product_law2(sec, 1).map(|(_, _, l)| l), awprec / awi, true)
+                    }
+                    _ => (None, 0.0, false),
+                };
+                if let Some(lists) = lists {
+                    let mut rows = Vec::with_capacity(lists.len());
+                    for l in &lists {
+                        let nl = l.head.n2.max(0) as usize;
+                        if l.head.l1 == 0 {
+                            let mut a: Vec<f64> = l.data[..nl.min(l.data.len())].to_vec();
+                            if recoil {
+                                for (i, v) in a.iter_mut().enumerate() {
+                                    if i % 2 == 0 {
+                                        *v = -*v; // a_1, a_3, ...
+                                    }
+                                }
+                            }
+                            let Ok((mu, pp)) = super::acensd::ptleg2(&a) else { return };
+                            rows.push((l.head.c2, mu, pp, 2));
+                        } else {
+                            let pairs: Vec<(f64, f64)> = l.data.chunks_exact(2).take(nl).map(|c| (c[0], c[1])).collect();
+                            let (mu, pp) = super::acensd::pttab2(&pairs);
+                            rows.push((l.head.c2, mu, pp, l.head.l1 - 10));
+                        }
+                    }
+                    let heat = write_angular(&mut x, &mut next, landh + jp - 1, andh, &rows, true, amass, aprime, q);
+                    add_two_body_heating(&mut x, &heat, hpd, naa, it, nes, esz, k, iaa);
+                }
             }
-            // MF=4 with LTT = 0: isotropic, LAND stays 0.
         }
 
         // ── LDLWH, DLWH ──
@@ -520,15 +611,33 @@ pub fn append(table: &mut AceTable, tape: &Tape, mat: i32, pendf: &ReconrResult)
             next += 3;
             let Some((k, iaa, q)) = find_sig(&x, p.mt) else { return };
             let amass = awr / awi;
-            if p.mf == 4 {
-                let awp = match p.mt {
-                    600..=649 => AWR_P,
-                    650..=699 => AWR_D,
-                    700..=749 => AWR_T,
-                    750..=799 => AWR_HE3,
-                    800..=849 => AWR_A,
-                    _ => 1.0,
-                };
+            if p.mt == 102 {
+                // Neutron capture recoil, law 33 (`:10153-10175`). `aprime`
+                // is upstream's `awp`, which this branch never sets: it holds
+                // whatever the previous item left (`stale_awp`).
+                x.n(last + 1, 33.0);
+                x.n(next, 0.0);
+                x.n(next + 1, 2.0);
+                let (e1, e2) = (sigfig(x.get(esz + it - 1), 7, 0), sigfig(x.get(esz + nes - 1), 7, 0));
+                x.r(next + 2, e1);
+                x.r(next + 3, e2);
+                x.r(next + 4, 1.0);
+                x.r(next + 5, 1.0);
+                next += 2 + 2 * 2;
+                x.n(last + 2, (next - dlwh + 1) as f64);
+                let aprime = stale_awp / awi;
+                x.r(next, sigfig((1.0 + amass) * (-q) / amass, 7, 0));
+                x.r(next + 1, sigfig(amass * (amass + 1.0 - aprime) / (1.0 + amass).powi(2), 7, 0));
+                next += 2;
+                for ie in it..=nes {
+                    let tt = x.get(esz + ie - 1) * x.get(hpd + 2 + ie - it) * awi / (awr + awi);
+                    let h0 = x.get(hpd + 2 + naa + ie - it);
+                    x.r(hpd + 2 + naa + ie - it, h0 + tt);
+                }
+            } else if p.mf == 4 {
+                let awp = mf4_awp(p.mt);
+                stale_awp = awp;
+                let ltt = mf4_ltt(tape, mat, p.mt).unwrap_or(0);
                 x.n(last + 1, 33.0);
                 x.n(next, 0.0);
                 x.n(next + 1, 2.0);
@@ -542,8 +651,9 @@ pub fn append(table: &mut AceTable, tape: &Tape, mat: i32, pendf: &ReconrResult)
                 let d2 = sigfig(amass * (amass + 1.0 - aprime) / (1.0 + amass).powi(2), 7, 0);
                 x.r(next, d1);
                 x.r(next + 1, d2);
-                // heating, LTT = 0
-                for ie in it..=nes {
+                // heating, LTT = 0 only: the others added theirs with the
+                // angles (`:10198-10207`)
+                for ie in (it..=nes).filter(|_| ltt == 0) {
                     let e = x.get(esz + ie - 1);
                     let ss = if ie >= iaa { x.get(2 + k + ie - iaa) } else { 0.0 };
                     let tt = d2 * (e - d1) * ss;
@@ -553,6 +663,77 @@ pub fn append(table: &mut AceTable, tape: &Tape, mat: i32, pendf: &ReconrResult)
                 next += 2;
             } else {
                 let sec = tape.section(mat, 6, p.mt).expect("checked");
+                let (yt_l, law) = nth_product(sec, p.l).expect("checked");
+                stale_awp = yt_l.head.c2;
+                if law != 1 {
+                    // LAW = 2 two-body, LAW = 3 isotropic two-body and LAW = 4
+                    // recoil: law 33 (`:10289-10330`, `:10506-10515`,
+                    // `:10567-10594`); LAW = 0: an empty entry, law 0.
+                    let aprime = yt_l.head.c2 / awi;
+                    let d = |x: &Xss| {
+                        let _ = x;
+                        (
+                            sigfig((1.0 + amass) * (-q) / amass, 7, 0),
+                            sigfig(amass * (amass + 1.0 - aprime) / (1.0 + amass).powi(2), 7, 0),
+                        )
+                    };
+                    match law {
+                        2 => {
+                            let (_, _, lists) = nth_product_law2(sec, p.l).expect("checked");
+                            let ne = lists.len();
+                            x.n(last + 1, 33.0);
+                            let lee = next;
+                            x.n(next, 0.0);
+                            x.n(next + 1, 2.0);
+                            for i in 2..6 {
+                                x.r(next + i, 0.0);
+                            }
+                            for (ie, l) in lists.iter().enumerate() {
+                                let ee = sigfig(l.head.c2 / EMEV, 7, 0);
+                                if ie == 0 {
+                                    x.r(lee + 2, ee);
+                                    x.r(lee + 4, 1.0);
+                                } else if ie + 1 == ne {
+                                    x.r(lee + 3, ee);
+                                    x.r(lee + 5, 1.0);
+                                }
+                            }
+                            next += 2 + 2 * 2;
+                            x.n(last + 2, (next - dlwh + 1) as f64);
+                            let (d1, d2) = d(&x);
+                            x.r(next, d1);
+                            x.r(next + 1, d2);
+                            next += 2;
+                        }
+                        3 | 4 => {
+                            x.n(last + 1, 33.0);
+                            if law == 3 {
+                                x.n(landh + jp - 1, 0.0);
+                            }
+                            x.n(next, 0.0);
+                            x.n(next + 1, 2.0);
+                            for i in 2..6 {
+                                x.r(next + i, 0.0);
+                            }
+                            next += 2 + 2 * 2;
+                            x.n(last + 2, (next - dlwh + 1) as f64);
+                            let (d1, d2) = d(&x);
+                            x.r(next, d1);
+                            x.r(next + 1, d2);
+                            if law == 3 {
+                                for ie in it..=nes {
+                                    let e = x.get(esz + ie - 1);
+                                    let ss = if ie >= iaa { x.get(2 + k + ie - iaa) } else { 0.0 };
+                                    let h0 = x.get(hpd + 2 + naa + ie - it);
+                                    x.r(hpd + 2 + naa + ie - it, h0 + d2 * (e - d1) * ss);
+                                }
+                            }
+                            next += 2;
+                        }
+                        _ => {} // LAW = 0
+                    }
+                    continue;
+                }
                 let (yt, awp, lists, lang, lep) = nth_product_law1(sec, p.l).expect("checked");
                 let isocp = !lists.iter().any(|l| l.head.l2 > 0);
                 let lawnow = if lang == 2 {
@@ -768,6 +949,111 @@ pub fn append(table: &mut AceTable, tape: &Tape, mat: i32, pendf: &ReconrResult)
     table.jxs[31] = ploct as i32;
 }
 
+/// AWP `acelcp` uses for a two-body charged-particle level given in MF=4
+/// (`awr1..awr5`, `:9645-9650`).
+fn mf4_awp(mt: i32) -> f64 {
+    match mt {
+        600..=649 => AWR_P,
+        650..=699 => AWR_D,
+        700..=749 => AWR_T,
+        750..=799 => AWR_HE3,
+        800..=849 => AWR_A,
+        _ => 1.0,
+    }
+}
+
+/// Write one reaction's tabulated angular distribution as `acelcp` does for
+/// MF=4 LTT = 1/2 and MF=6 LAW = 2 (`:9668-9748` and its copies), and return
+/// the two-body heating table `(E [MeV], h)` built from each energy's mean
+/// cosine. `small_cut` zeroes pdf values below 1e-30, as every copy but the
+/// MF=4 Legendre one does. The `int = 1` mean-cosine sum keeps upstream's
+/// `+ (mu_i + mu_{i-1})/2` term as written.
+#[allow(clippy::too_many_arguments)]
+fn write_angular(
+    x: &mut Xss,
+    next: &mut usize,
+    land_slot: usize,
+    andh: usize,
+    rows: &[(f64, Vec<f64>, Vec<f64>, i32)],
+    small_cut: bool,
+    amass: f64,
+    aprime: f64,
+    q: f64,
+) -> Vec<(f64, f64)> {
+    let ne = rows.len();
+    x.n(land_slot, (*next - andh + 1) as f64);
+    x.n(*next, ne as f64);
+    let ie0 = *next;
+    let il = ie0 + ne;
+    *next = il + ne + 1;
+    let mut heat = Vec::with_capacity(ne);
+    for (j, (e_ev, mu, pp, int)) in rows.iter().enumerate() {
+        let iie = j + 1;
+        x.r(ie0 + iie, sigfig(e_ev / EMEV, 7, 0));
+        x.n(il + iie, -((*next - andh + 1) as f64));
+        let n = mu.len();
+        let nx = *next;
+        x.n(nx, f64::from(*int));
+        x.n(nx + 1, n as f64);
+        let mut ubar = 0.0;
+        for i in 1..=n {
+            x.r(nx + 1 + i, sigfig(mu[i - 1], 7, 0));
+            let mut pv = sigfig(pp[i - 1], 7, 0);
+            if small_cut && pv < SMALL {
+                pv = 0.0;
+            }
+            x.r(nx + 1 + n + i, pv);
+            if i == 1 {
+                x.r(nx + 1 + 2 * n + i, 0.0);
+                ubar = 0.0;
+            } else {
+                let (m1, m0) = (x.get(nx + 1 + i), x.get(nx + i));
+                let (p1, p0) = (x.get(nx + 1 + n + i), x.get(nx + n + i));
+                let c0 = x.get(nx + 2 * n + i);
+                if *int == 1 {
+                    x.r(nx + 1 + 2 * n + i, sigfig(c0 + p0 * (m1 - m0), 7, 0));
+                    ubar += p0 * (m1 - m0) + (m1 + m0) / 2.0;
+                } else if *int == 2 {
+                    x.r(nx + 1 + 2 * n + i, sigfig(c0 + (p1 + p0) * (m1 - m0) / 2.0, 7, 0));
+                    ubar += (p1 + p0) * (m1 - m0) * (m1 + m0) / 4.0;
+                }
+            }
+        }
+        let renorm = 1.0 / x.get(nx + 1 + 3 * n);
+        for i in 1..=n {
+            let pv = x.get(nx + 1 + n + i);
+            x.r(nx + 1 + n + i, sigfig(renorm * pv, 7, 0));
+            let cv = x.get(nx + 1 + 2 * n + i);
+            x.r(nx + 1 + 2 * n + i, sigfig(renorm * cv, 9, 0));
+        }
+        *next = nx + 2 + 3 * n;
+        let e = x.get(ie0 + iie);
+        let th = (1.0 + amass) * q / amass;
+        let r1 = amass * (amass + 1.0 - aprime) / aprime;
+        let r2 = aprime / (1.0 + amass).powi(2);
+        let mut betasq = r1 * (1.0 + th / e);
+        if betasq < 0.0 {
+            betasq = 0.0;
+        }
+        heat.push((e, e * r2 * (betasq + 1.0 + 2.0 * ubar * betasq.sqrt())));
+    }
+    heat
+}
+
+/// Add `h(E) * sigma(E)` to the production heating, `h` lin-lin in the
+/// table `write_angular` returned (`:9750-9760`).
+#[allow(clippy::too_many_arguments)]
+fn add_two_body_heating(x: &mut Xss, heat: &[(f64, f64)], hpd: usize, naa: usize, it: usize, nes: usize, esz: usize, k: usize, iaa: usize) {
+    let hint = vec![(heat.len() as u32, 2)];
+    for ie in it..=nes {
+        let e = x.get(esz + ie - 1);
+        let (h, _, _) = terpa(&hint, heat, e);
+        let ss = if ie >= iaa { x.get(2 + k + ie - iaa) } else { 0.0 };
+        let h0 = x.get(hpd + 2 + naa + ie - it);
+        x.r(hpd + 2 + naa + ie - it, h0 + h * ss);
+    }
+}
+
 /// LTT of MF=4/`mt`.
 fn mf4_ltt(tape: &Tape, mat: i32, mt: i32) -> Option<i32> {
     let sec = tape.section(mat, 4, mt)?;
@@ -820,11 +1106,69 @@ fn nth_product_law1(sec: &crate::endf::tape::Section, l: i32) -> Option<(Tab1, f
 /// `LANG = 2` or `LANG >= 11`.
 fn mf6_supported(tape: &Tape, mat: i32, p: &Prod) -> bool {
     let Some(sec) = tape.section(mat, 6, p.mt) else { return false };
-    if p.mt == 102 || p.mt == 2 {
+    if p.mt == 2 {
         return false;
     }
-    match nth_product_law1(sec, p.l) {
-        Some((_, _, _, lang, _)) => lang == 1 || lang == 2 || lang >= 11,
-        None => false,
+    match nth_product(sec, p.l).map(|x| x.1) {
+        Some(1) => matches!(nth_product_law1(sec, p.l), Some((_, _, _, lang, _)) if lang == 1 || lang == 2 || lang >= 11),
+        // LAW = 2 two-body with Legendre or lin-lin tabulated angles; LAW = 3
+        // isotropic two-body; LAW = 4 recoil; LAW = 0 (unknown: upstream
+        // writes an empty law-0 entry, `:10289-10565`).
+        Some(2) => nth_product_law2(sec, p.l).is_some_and(|(_, _, lists)| lists.iter().all(|l| l.head.l1 == 0 || l.head.l1 == 12)),
+        Some(0 | 3 | 4) => true,
+        // LAW = 5, 6, 7 are not ported.
+        _ => false,
     }
+}
+
+/// Subsection `l` of an MF=6 section, `LAW = 2`: yield, AWP and the LISTs.
+fn nth_product_law2(sec: &crate::endf::tape::Section, l: i32) -> Option<(Tab1, f64, Vec<List>)> {
+    let mut cur = SectionCursor::new(&sec.rows);
+    let head = cur.read_cont().ok()?;
+    for ik in 1..=head.n1 {
+        let y = cur.read_tab1().ok()?;
+        let law = y.head.l2;
+        if ik == l {
+            if law != 2 {
+                return None;
+            }
+            let t2 = cur.read_tab2().ok()?;
+            let mut lists = Vec::new();
+            for _ in 0..t2.head.n2 {
+                lists.push(cur.read_list().ok()?);
+            }
+            let awp = y.head.c2;
+            return Some((y, awp, lists));
+        }
+        super::energy::mf6::skip_mf6_subsection(&mut cur, law).ok()?;
+    }
+    None
+}
+
+/// MF=4/`mt`'s angular data as ACER's `acelcp` reads it: `(LTT, rows)`,
+/// each row `(E [eV], mu, pdf, INT)` after `ptleg2` (LTT = 1) or `pttab2`
+/// (LTT = 2). LTT = 0 and 3 give no rows (upstream writes none for them).
+fn mf4_rows(tape: &Tape, mat: i32, mt: i32) -> Option<(i32, Vec<(f64, Vec<f64>, Vec<f64>, i32)>)> {
+    let sec = tape.section(mat, 4, mt)?;
+    let mut cur = SectionCursor::new(&sec.rows);
+    let head = cur.read_cont().ok()?;
+    let ltt = head.l2;
+    let mut rows = Vec::new();
+    if ltt == 1 || ltt == 2 {
+        let _ = cur.read_cont().ok()?; // 0, AWR, LI, LCT
+        let t2 = cur.read_tab2().ok()?;
+        for _ in 0..t2.head.n2 {
+            if ltt == 1 {
+                let l = cur.read_list().ok()?;
+                let (mu, p) = super::acensd::ptleg2(&l.data).ok()?;
+                rows.push((l.head.c2, mu, p, 2));
+            } else {
+                let t = cur.read_tab1().ok()?;
+                let (mu, p) = super::acensd::pttab2(&t.pairs);
+                let int = t.interp.first().map_or(2, |&(_, i)| i as i32);
+                rows.push((t.head.c2, mu, p, int));
+            }
+        }
+    }
+    Some((ltt, rows))
 }
