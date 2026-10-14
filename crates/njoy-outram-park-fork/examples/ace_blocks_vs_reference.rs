@@ -361,8 +361,11 @@ fn report(name: &str, temp_dir: &str, ours: &RawAceTable, theirs: &RawAceTable, 
                 let flags = (a.lssf, a.inelastic_competition, a.absorption_competition, a.n_bands())
                     == (b.lssf, b.inelastic_competition, b.absorption_competition, b.n_bands());
                 format!(
-                    "grid {} ({} pts), flags/bands {}; band values are PURR samples \
-                     (statistical, see tests/purr_u238_ptables_vs_njoy.rs)",
+                    // ~~"band values are PURR samples (statistical)"~~ CORRECTED
+                    // 2026-10-14: since 2026-09-26 PURR reproduces NJOY's bands
+                    // exactly; the band values are judged by the `LUNR words`
+                    // row, which compares every word of the block.
+                    "grid {} ({} pts), flags/bands {}; band values: see the LUNR words row",
                     if grid { "SAME" } else { "DIFFERENT" },
                     b.len(),
                     if flags { "SAME" } else { "DIFFERENT" }
