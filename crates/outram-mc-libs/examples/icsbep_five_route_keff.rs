@@ -965,9 +965,8 @@ mod draw_tests {
 
     /// LCT-008 runs its full nuclide list by default (2026-10-14), under the
     /// label `lct008-full`; `--cheap-nuclides` is the retired 11-nuclide tier, a smoke test,
-    /// under the label every earlier row carries. The full tier has no
-    /// recorded route-1 reference yet, so an acceptance check on it refuses
-    /// rather than borrowing the 11-nuclide one.
+    /// under the label every earlier row carries. Each tier is judged
+    /// against its own route-1 row, never the other's.
     #[test]
     fn lct008_runs_its_full_nuclide_list_under_its_own_label() {
         let nuclides = |c: &Case| {
@@ -983,7 +982,11 @@ mod draw_tests {
         assert_eq!(case_label("lct008", true), "lct008");
         assert_eq!(case_label("hst009", false), "hst009");
         let summary = include_str!("../verification_and_validation/icsbep/five_route_keff/data/summary_keff.csv");
-        assert!(route1_reference(summary, "lct008-full").is_err(), "no full-tier route-1 row is recorded yet");
+        // The full model's own route-1 row (2026-10-14, 8 seeds), never the
+        // 11-nuclide one.
+        let (k, sem) = route1_reference(summary, "lct008-full").expect("lct008-full route 1");
+        assert_eq!((k, sem), (1.001682, 0.000227));
+        assert_ne!(route1_reference(summary, "lct008").unwrap().0, k);
     }
 
     /// The `--draw` helpers: material colours are keyed on what a material

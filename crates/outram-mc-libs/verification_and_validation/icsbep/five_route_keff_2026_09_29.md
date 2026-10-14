@@ -19,12 +19,26 @@ licensing or safety use.
   (2, 4 and 5): route 4 through `ThermalScattering::from_embedded_leapr_deck`,
   routes 2 and 5 through `write_ace_library --thermal-leapr`. Routes 1 and 3
   keep NJOY2016's table, the reference.
-- **Every LCT-008 number in this record is the 11-nuclide model.** The
+- ~~**Every LCT-008 number in this record is the 11-nuclide model.** The
   full-model campaign (all five routes) has not been run: routes 1 and 2 need
-  OpenMC. **First full-model numbers, routes 4 and 5, 8 seeds each
+  OpenMC.~~ **CORRECTED later 2026-10-14:** the LCT-008 numbers in the body of
+  this record are the 11-nuclide model; the full model now has all five
+  routes (below). **First full-model numbers, routes 4 and 5, 8 seeds each
   (2026-10-14, `five_route_keff/data/lct008_full_routes45_2026_10_14.md`):**
-  route 4 1.00118 ± 0.00019, route 5 1.00175 ± 0.00031; route 5 − route 4
-  +58 ± 36 pcm (1.6σ, not resolved). Tracked in #874. The figure draws only the full-model panel; the
+  route 4 1.00118 ± 0.00019, ~~route 5 1.00175 ± 0.00031; route 5 − route 4
+  +58 ± 36 pcm (1.6σ, not resolved)~~ (route 5 superseded: it read a
+  defective Mg-24 table, fixed in `98cb2c850`). **All five routes on the full
+  model, 8 seeds each (later 2026-10-14,
+  `five_route_keff/data/lct008_full_five_routes_2026_10_14.md`, merged into
+  `per_seed_keff.csv` as `lct008-full`):**
+  - route 1 1.00168 ± 0.00023;
+  - route 2 1.00163 ± 0.00024;
+  - route 3 1.00134 ± 0.00019;
+  - route 4 1.00118 ± 0.00019;
+  - route 5 1.00137 ± 0.00025.
+
+  Every route is within 2σ of route 1. Routes 1 and 2 ran on OpenMC
+  `ec3bc73`, not on the earlier rows' `d7d3284a1`. Tracked in #874. The figure draws only the full-model panel; the
   11-nuclide rows stay in `summary_keff.csv` as the smoke test's reference.
 
 **Status (2026-09-30).** All five routes are complete for all four cases.

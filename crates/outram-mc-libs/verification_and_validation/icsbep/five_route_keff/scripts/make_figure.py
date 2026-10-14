@@ -195,9 +195,9 @@ def main():
                           label=lab.replace("\n", " + ")) for i, (_, lab) in enumerate(ROUTES)]
     fig.legend(handles=handles, loc="outside lower center", ncol=5, frameon=False, fontsize=8.5)
     fig.suptitle("Four ICSBEP cases by transport code and nuclear-data route — ENDF/B-VIII.0, 293.6 K\n"
-                 "2026-09-30, routes 3-5 at outram-mc 0414bc8277 (after the OpenMC-parity audit, #407); lattice at 96 seeds on routes 1 and 3-5; "
-                 "Godiva route 4 at 288 seeds (2026-10-05, #546). Every cell within 2σ of route 1 except the lattice on route 3 "
-                 "(−18 ± 8 pcm, 2.3σ). See the V&V record.",
+                 "Godiva, Jemima, HST-009: 2026-09-30, routes 3-5 at outram-mc 0414bc8277 (#407); Godiva route 4 at 288 seeds (2026-10-05, #546). "
+                 "LCT-008: the full 35-nuclide model, 8 seeds per route, 2026-10-14, H in H2O from LEAPR on routes 2, 4, 5.\n"
+                 "Every cell within 2σ of route 1. The retired 11-nuclide lattice (summary only) had route 3 at −18 ± 8 pcm (2.3σ). See the V&V record.",
                  fontsize=10, x=0.01, ha="left", linespacing=1.5)
     (OUT / "figures").mkdir(parents=True, exist_ok=True)
     fig.savefig(OUT / "figures" / "five_route_keff.png", dpi=200, metadata={"Software": None},
