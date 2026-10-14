@@ -690,6 +690,22 @@ Three things worth carrying forward:
   [`verification_and_validation/acer_thermal_incoherent_elastic_2026_10_14.md`](verification_and_validation/acer_thermal_incoherent_elastic_2026_10_14.md).
   Mixed elastic (`IDPNC = 5`) is not gated: no `LTHR = 3` tape is held.
 
+**Away from the base temperature too (GitHub #866).** Graphite at 600 K and
+600.5 K and H in H₂O at 293.6 K and 293.9 K are word for word NJOY2016's
+(`tests/acer_thermal_temperature_parity.rs`, record
+[`acer_thermal_temperatures_2026_10_14.md`](verification_and_validation/acer_thermal_temperatures_2026_10_14.md)).
+THERMR never interpolates in temperature: `calcem` accepts a request within
+`T/500` of a tabulated MF=7 temperature and stops otherwise. The NJOY-deck path
+(`thermal_from_mf7_on_pendf`) now refuses where it stops
+(`NjoyError::TemperatureNotTabulated`); the other two entry points keep this
+crate's `LI`-law interpolation, which NJOY2016 has no counterpart for. Two
+things to know: `calcem`'s window is `T/500`, not `rdelas`'s `T/1000 + 5` K
+(603 K graphite is inside the second and refused); and on a near match
+`calcem` reads `kT` at the *tabulated* temperature but `T_eff` at the
+*requested* one (`thermr.f90:1924` against `:1812-1834`). Reading
+`calcem(temp, ...)` as "everything at the request" moved ITIX by 3e-4 and the
+gate caught it.
+
 ## mcnpx format, and why a read-then-write round trip is worth asserting (2026-09-22)
 
 The mcnpx variant (negative `iopt`, a 13-character ZAID) was "implemented and

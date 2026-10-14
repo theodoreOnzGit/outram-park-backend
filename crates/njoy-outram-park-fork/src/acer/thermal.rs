@@ -53,7 +53,7 @@ use crate::acer::acesix::{
 use crate::thermr::calcem::iform0::compute_iform0;
 use crate::thermr::calcem::types::{Iform0Table, IncidentEnergyRecord};
 use crate::thermr::inelastic::OutgoingBin;
-use crate::thermr::mf7::Mf7;
+use crate::thermr::mf7::{IncoherentInelastic, Mf7};
 use crate::NjoyError;
 
 use super::AceTable;
@@ -491,8 +491,23 @@ impl AceTable {
     /// incident MAT. With this, the Al-27 table at 20 K is NJOY2016's in every
     /// word (`tests/acer_thermal_word_parity.rs`).
     ///
+    /// **Temperature, as THERMR resolves it** (GitHub #866). `mf7` must be
+    /// parsed at `temp_k` (`parse_mf7_at_temperature(.., Some(temp_k))`), and
+    /// `temp_k` must be one `calcem` accepts: within `T/500` of a tabulated
+    /// MF=7/MT=4 temperature ([`crate::thermr::mf7::calcem_temperature_k`]).
+    /// NJOY2016 never interpolates in temperature and stops otherwise; so does
+    /// this path, where [`Self::thermal_from_mf7`] would interpolate. As in
+    /// `calcem`, `S(α,β)` and `kT` are then the tabulated temperature's and
+    /// `T_eff` the requested temperature's, and the Bragg `S(E)` is `rdelas`'s
+    /// ([`crate::thermr::mf7::CoherentElastic::s_of_e_rdelas`]). Word for word
+    /// NJOY2016's at 600 K and 600.5 K on graphite and at 293.6 K on H in
+    /// H₂O (`tests/acer_thermal_temperature_parity.rs`).
+    ///
     /// # Errors
-    /// As [`Self::thermal_from_mf7`].
+    /// As [`Self::thermal_from_mf7`], plus
+    /// [`NjoyError::TemperatureNotTabulated`] where `calcem` stops, and
+    /// [`NjoyError::ThermalTemperatureMismatch`] when `mf7`'s S(α,β) is not
+    /// the table `calcem` reads for `temp_k`.
     #[allow(clippy::too_many_arguments)]
     pub fn thermal_from_mf7_on_pendf(
         mf7: &Mf7,
@@ -524,6 +539,33 @@ impl AceTable {
             .ok_or(NjoyError::NotPorted(
                 "thermal ACE without incoherent-inelastic (MT=4) data",
             ))?;
+        // On NJOY's deck the temperature is resolved as THERMR resolves it
+        // (GitHub #866): `calcem`'s T/500 walk; S(alpha,beta) and kT at the
+        // tabulated temperature it finds (`tev=t*bk`, `thermr.f90:1924`) but
+        // T_eff at the requested one (`tempt=temp`, `:1812-1834`); and
+        // `rdelas`'s Bragg table.
+        let ii_at_request;
+        let ii = match incident {
+            Some(_) => {
+                let calcem_k = crate::thermr::mf7::calcem_temperature_k(&ii.tabulated_temperatures_k, temp_k)?;
+                if ii.temperature_bracket.is_some() || ii.temperature_k != calcem_k {
+                    return Err(NjoyError::ThermalTemperatureMismatch {
+                        requested_k: temp_k,
+                        calcem_k,
+                        resolved_k: ii.temperature_k,
+                        interpolated: ii.temperature_bracket.is_some(),
+                    });
+                }
+                ii_at_request = IncoherentInelastic { teff_request_k: Some(temp_k), ..ii.clone() };
+                &ii_at_request
+            }
+            None => ii,
+        };
+        let bragg_s: Option<Vec<(f64, f64)>> = match (&mf7.coherent_elastic, incident) {
+            (Some(ce), Some(_)) => Some(ce.s_of_e_rdelas(temp_k)),
+            (Some(ce), None) => Some(ce.s_of_e_at(temp_k)?),
+            (None, _) => None,
+        };
 
         let nei = energy_grid.len();
         let nieb = opts.n_outgoing;
@@ -568,11 +610,7 @@ impl AceTable {
         let xs: Vec<f64> = match incident {
             Some(inc) => {
                 use crate::thermr::mf3_grid;
-                let coherent = match &mf7.coherent_elastic {
-                    Some(ce) => Some(ce.s_of_e_at(temp_k)?),
-                    None => None,
-                };
-                let grid = mf3_grid::thermr_grid(&inc.elastic, opts.emax_ev, &esi, &xsi, coherent.as_deref(), tol)?;
+                let grid = mf3_grid::thermr_grid(&inc.elastic, opts.emax_ev, &esi, &xsi, bragg_s.as_deref(), tol)?;
                 let mf3 = mf3_grid::tpend_mf3(&grid)?;
                 if let Some(ie) = &mf7.incoherent_elastic {
                     let dwa = ie.iel_dwa(temp_k)?;
@@ -703,11 +741,13 @@ impl AceTable {
         // The S(E) table is resolved at `temp_k` (tabulated / LI-interpolated /
         // refused per the thermr::mf7 temperature policy), so a hot table gets
         // the Debye-Waller-suppressed structure factors, not the base-T ones.
-        if let Some(ce) = &mf7.coherent_elastic {
+        // On NJOY's deck (`incident`) it is `rdelas`'s table instead, never
+        // interpolated (GitHub #866).
+        if let Some(bragg_s) = &bragg_s {
             // ~~Every edge on the tape is written.~~ **CORRECTED 2026-10-14
             // (GitHub #865):** the edges ACER keeps, as it finds them on
             // THERMR's PENDF ([`aceth_bragg_edges`]).
-            let edges = aceth_bragg_edges(&ce.s_of_e_at(temp_k)?, opts.emax_ev)?;
+            let edges = aceth_bragg_edges(bragg_s, opts.emax_ev)?;
             let nee = edges.len();
             itce = xss.len() as i32 + 1;
             xss.push(nee as f64);
