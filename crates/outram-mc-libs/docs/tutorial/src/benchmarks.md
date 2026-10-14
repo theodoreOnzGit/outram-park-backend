@@ -74,7 +74,7 @@ than the campaign's 10 000 × [250 + 400], chosen so that it runs in a browser.
 | Godiva | 5000 × [40 + 120] | 1.0000 ± 0.0010 | −10 ± 11 pcm (288 seeds) | +16 ± 21 pcm |
 | Jemima | 5000 × [40 + 120] | 1.0000 ± 0.0030 | −391 ± 27 pcm | −406 ± 17 pcm |
 | HEU-SOL-THERM-009 | 5000 × [40 + 120] | 0.9990 ± 0.0043 | +298 ± 32 pcm | +334 ± 22 pcm |
-| LEU-COMP-THERM-008 | 5000 × [40 + 120] (record: 10 000 × [250 + 400]) | 1.0007 ± 0.0016 | +166 ± 8 pcm | +174 ± 5 pcm |
+| LEU-COMP-THERM-008 | 5000 × [40 + 120] (record: 10 000 × [250 + 400]) | 1.0007 ± 0.0016 | +48 ± 19 pcm (35 nuclides, 8 seeds); ~~+166 ± 8~~ was the retired 11-nuclide model | +98 ± 23 pcm (35 nuclides); ~~+174 ± 5~~ was the 11-nuclide model |
 
 All figures are differences from the benchmark k of the case
 (**corrected 2026-10-14**: this table first measured every case from k = 1,
@@ -82,10 +82,17 @@ which gave +198 and +234 pcm for HEU-SOL-THERM-009 and +236 and +244 pcm for
 the lattice). They come from the
 [five-route record](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/verification_and_validation/icsbep/five_route_keff_2026_09_29.md).
 
-Read the table across, not down. **Three of the four cases do not sit on
-their benchmark k**, on either code. HEU-SOL-THERM-009 is inside its
+**Corrected 2026-10-14:** the lattice row first gave the 11-nuclide model's
+numbers. Since that day the demo and the record run all 35 nuclides of the
+case-1 cards, with hydrogen in water from the Rust LEAPR port, and the 11-nuclide
+model is a smoke test only.
+
+Read the table across, not down. ~~**Three of the four cases do not sit on
+their benchmark k**~~ **Two of the four cases do not sit on their benchmark
+k**, on either code. HEU-SOL-THERM-009 is inside its
 ± 430 pcm benchmark uncertainty, Jemima is outside its ± 300 pcm, and the
-lattice is just outside its ± 160 pcm. The two codes agree with each other to within their
+lattice ~~is just outside~~ is inside its ± 160 pcm on the full nuclide list
+(the 11-nuclide model was just outside). The two codes agree with each other to within their
 statistics, so those offsets come from the nuclear data or from how the
 benchmark model simplifies the experiment, not from the transport. This is
 why the acceptance check compares with the other code and not with the
@@ -97,7 +104,8 @@ One run of yours will scatter around the recorded value by about 150 to
 The lattice at the default size is not a converged calculation. Its 1.5 m core
 needs about 250 inactive generations for the fission source to settle; with
 40, k comes out about 80 pcm above the campaign's (16 seeds gave +70 ± 28 pcm
-against OpenMC + NJOY2016, where the campaign size gives −8 ± 9). One run
+against OpenMC + NJOY2016, where the campaign size gives −8 ± 9; measured on
+the 11-nuclide model and not re-measured on the full one). One run
 scatters by about 190 pcm, so you will not see that offset in a single run.
 For a k comparable with the record, set the campaign's numbers in the panel
 and wait.
