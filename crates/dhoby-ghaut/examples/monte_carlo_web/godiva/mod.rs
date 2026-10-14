@@ -38,7 +38,15 @@ pub const REFERENCE: Reference = Reference {
     sd_one_run: 0.00165,
     histories_one_run: 5000.0 * 120.0,
     experiment: Some(("ICSBEP HEU-MET-FAST-001", outram_mc_libs::vv::godiva::BENCHMARK_K, outram_mc_libs::vv::godiva::BENCHMARK_SIGMA)),
+    code: None,
 };
+
+/// [`REFERENCE`] with the reference code's k beside it: route 1 of the
+/// five-route study (OpenMC on NJOY2016's data), read from the committed
+/// campaign summary.
+pub fn reference_with_code() -> Reference {
+    Reference { code: crate::keff::route1_reference("godiva", crate::route1_label!("32 seeds x 5000 x [40+120]")), ..REFERENCE }
+}
 
 impl McRung for Godiva {
     const INFO: RungInfo = RungInfo {
@@ -120,7 +128,7 @@ impl McRung for Godiva {
         Some(KeffConfig { n_particles: 1000, n_inactive: 15, n_active: 15, seed: 1, point_source: true, want_sites: true })
     }
     fn reference() -> Option<Reference> {
-        Some(REFERENCE)
+        Some(reference_with_code())
     }
     fn loading_note(tier: Tier) -> Option<&'static str> {
         (tier == Tier::Exact).then_some(

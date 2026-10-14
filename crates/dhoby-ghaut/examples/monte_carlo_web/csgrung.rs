@@ -323,12 +323,18 @@ pub fn headless_keff<C: CsgCase>(phys: &Physics, cfg: KeffConfig, mut out: impl 
         }
     }
     out("");
-    out(&format!(" k-effective = {:.5} +/- {:.5}   ({:+.0} +/- {:.0} pcm from 1)", last.0, last.1, (last.0 - 1.0) * 1e5, last.1 * 1e5));
+    out(&format!(
+        " k-effective = {:.5} +/- {:.5}   ({:+.0} +/- {:.0} pcm from 1), {}",
+        last.0,
+        last.1,
+        (last.0 - 1.0) * 1e5,
+        last.1 * 1e5,
+        crate::keff::build_stamp()
+    ));
     if let Some(r) = C::reference() {
-        if let Some((name, kx, s)) = r.experiment {
-            out(&format!(" Experiment ({name}): {kx:.4} +/- {s:.4}"));
+        for l in crate::keff::reference_lines(&r) {
+            out(&l);
         }
-        out(&format!(" Recorded ({}): {:.5} +/- {:.5} ({:+.0} +/- {:.0} pcm)", r.label, r.k, r.sem, (r.k - 1.0) * 1e5, r.sem * 1e5));
     }
     last
 }

@@ -51,6 +51,58 @@ pub struct Reference {
     pub histories_one_run: f64,
     /// A measured experiment, `(k, sigma)`, if the benchmark is one.
     pub experiment: Option<(&'static str, f64, f64)>,
+    /// The same case on the reference code and data, if recorded.
+    pub code: Option<CodeReference>,
+}
+
+/// A reference code's recorded `k` for a case: here route 1 of the
+/// five-route study, OpenMC on NJOY2016's data.
+#[derive(Clone, Copy, Debug)]
+pub struct CodeReference {
+    /// The codes with their versions and commits, the run size and the date.
+    pub label: &'static str,
+    pub k: f64,
+    /// Standard error of `k`.
+    pub sem: f64,
+}
+
+/// The codes of route 1, with the versions and commits the five-route record
+/// states (`five_route_keff_2026_09_29.md`, "Routes").
+#[macro_export]
+macro_rules! route1_label {
+    ($size:literal) => {
+        concat!("OpenMC 0.16.1-dev25 at d7d3284a1 on NJOY2016 2016.79 at ac5adf5, five-route study route 1, ", $size, ", 2026-09-30")
+    };
+}
+
+/// Route 1's recorded `k` of `case`, read from the committed campaign summary.
+pub fn route1_reference(case: &str, label: &'static str) -> Option<CodeReference> {
+    let (k, sem, _) = five_route_row(case, "route1")?;
+    Some(CodeReference { label, k, sem })
+}
+
+/// The commit and date this page was built at, for the line beside a k the
+/// reader computed here. The site build sets both (`web/monte_carlo/build.sh`);
+/// a build without them says so and invents nothing.
+pub fn build_stamp() -> String {
+    match (option_env!("OUTRAM_PAGE_DATE"), option_env!("OUTRAM_PAGE_COMMIT")) {
+        (Some(d), Some(c)) if !d.is_empty() && !c.is_empty() => format!("computed now by the code built {d} at {c}"),
+        _ => "computed now by a local build, commit not recorded".to_string(),
+    }
+}
+
+/// The lines under a computed `k`: the experiment, the reference code and
+/// this code's own record, each with its date and commit where it has one.
+pub fn reference_lines(r: &Reference) -> Vec<String> {
+    let mut v = Vec::new();
+    if let Some((name, k, s)) = r.experiment {
+        v.push(format!(" Experiment ({name}): {k:.4} +/- {s:.4}"));
+    }
+    if let Some(c) = r.code {
+        v.push(format!(" Reference code ({}): {:.5} +/- {:.5} ({:+.0} +/- {:.0} pcm)", c.label, c.k, c.sem, (c.k - 1.0) * 1e5, c.sem * 1e5));
+    }
+    v.push(format!(" Recorded ({}): {:.5} +/- {:.5} ({:+.0} +/- {:.0} pcm)", r.label, r.k, r.sem, (r.k - 1.0) * 1e5, r.sem * 1e5));
+    v
 }
 
 /// The five-route study's campaign summary (four ICSBEP cases × five code and
@@ -78,9 +130,15 @@ pub fn five_route_row(case: &str, route: &str) -> Option<(f64, f64, f64)> {
 /// A rung's [`Reference`] from the five-route study's route 4, the route this
 /// demo itself runs. `histories_one_run` is the campaign's active histories
 /// per seed; `experiment` is `(name, k, sigma)`.
-pub fn five_route_reference(case: &str, label: &'static str, histories_one_run: f64, experiment: (&'static str, f64, f64)) -> Option<Reference> {
+pub fn five_route_reference(
+    case: &str,
+    label: &'static str,
+    route1_label: &'static str,
+    histories_one_run: f64,
+    experiment: (&'static str, f64, f64),
+) -> Option<Reference> {
     let (k, sem, sd_one_run) = five_route_row(case, "route4")?;
-    Some(Reference { label, k, sem, sd_one_run, histories_one_run, experiment: Some(experiment) })
+    Some(Reference { label, k, sem, sd_one_run, histories_one_run, experiment: Some(experiment), code: route1_reference(case, route1_label) })
 }
 
 /// The console header, as `openmc.run()` prints it for an eigenvalue run
@@ -138,12 +196,9 @@ pub fn summary_lines(c: &HistoryCounts, production: f64, cfg: KeffConfig, k_mean
         }
     }
     v.push(String::new());
-    v.push(format!(" k-effective = {k_mean:.5} +/- {k_std:.5}   ({:+.0} +/- {:.0} pcm from 1)", (k_mean - 1.0) * 1e5, k_std * 1e5));
+    v.push(format!(" k-effective = {k_mean:.5} +/- {k_std:.5}   ({:+.0} +/- {:.0} pcm from 1), {}", (k_mean - 1.0) * 1e5, k_std * 1e5, build_stamp()));
     if let Some(r) = reference {
-        if let Some((name, k, s)) = r.experiment {
-            v.push(format!(" Experiment ({name}): {k:.4} +/- {s:.4}"));
-        }
-        v.push(format!(" Recorded ({}): {:.5} +/- {:.5} ({:+.0} +/- {:.0} pcm)", r.label, r.k, r.sem, (r.k - 1.0) * 1e5, r.sem * 1e5));
+        v.extend(reference_lines(&r));
     }
     v
 }

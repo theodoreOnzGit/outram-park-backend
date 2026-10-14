@@ -50,7 +50,7 @@ pub struct RecordedK {
 pub const LATTICE_K: RecordedK = RecordedK {
     k: 0.995125,
     sigma: 0.001055,
-    record: "2026-10-07",
+    record: "2026-10-07, at dbb9e26eb1",
 };
 
 /// This random bed (the gh:#216 pour cut to the lattice's 16 681 balls),
@@ -59,7 +59,7 @@ pub const LATTICE_K: RecordedK = RecordedK {
 pub const RANDOM_K: RecordedK = RecordedK {
     k: 0.989293,
     sigma: 0.000962,
-    record: "2026-10-08",
+    record: "2026-10-08, at 713cd5bb60",
 };
 
 /// `(random − lattice)` in pcm and its σ.

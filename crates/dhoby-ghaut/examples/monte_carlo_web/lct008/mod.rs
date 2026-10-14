@@ -185,6 +185,7 @@ impl McRung for Lct008 {
         crate::keff::five_route_reference(
             "lct008",
             "five-route study route 4, 96 seeds x 10000 x [250+400], 2026-09-30, at 0414bc8277",
+            crate::route1_label!("96 seeds x 10000 x [250+400]"),
             10_000.0 * 400.0,
             ("ICSBEP LEU-COMP-THERM-008 case 1 benchmark k, as tabulated by Mosteller (LA-UR-10-06230)", model::BENCHMARK_K, model::BENCHMARK_SIGMA),
         )
@@ -207,12 +208,12 @@ impl McRung for Lct008 {
             cfg: KeffConfig { n_particles: 1000, n_inactive: 20, n_active: 30, seed: 1, point_source: false, want_sites: false },
             curves: vec![
                 RecordedCurve {
-                    label: "ours: outram-mc, recorded 2026-10-04".into(),
+                    label: "ours: outram-mc, recorded 2026-10-04 at 7e9b8bd637".into(),
                     style: LineStyle::Ours,
                     points: csv_points(SWEEP_OURS_CSV, "pitch_cm", "k_inf", "k_std"),
                 },
                 RecordedCurve {
-                    label: "reference code: OpenMC, recorded 2026-10-04".into(),
+                    label: "reference code: OpenMC 0.16.1-dev25 at d7d3284a1 on NJOY2016 2016.79 at ac5adf5, recorded 2026-10-04".into(),
                     style: LineStyle::Reference,
                     points: csv_points(SWEEP_OPENMC_CSV, "pitch_cm", "k_gen_mean", "k_gen_sem"),
                 },

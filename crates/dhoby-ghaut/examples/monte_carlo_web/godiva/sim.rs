@@ -202,7 +202,7 @@ pub fn headless_keff(phys: &Physics, cfg: KeffConfig, mut out: impl FnMut(&str))
         }
     }
     let r = k.result();
-    for l in summary_lines(&active, production, cfg, r.k_mean, r.k_std, Some(super::REFERENCE)) {
+    for l in summary_lines(&active, production, cfg, r.k_mean, r.k_std, Some(super::reference_with_code())) {
         out(&l);
     }
     r

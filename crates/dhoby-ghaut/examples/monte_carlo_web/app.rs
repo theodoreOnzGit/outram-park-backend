@@ -1189,6 +1189,7 @@ impl McApp {
                     ui.end_row();
                 }
             });
+            ui.weak(format!("{}.", crate::keff::build_stamp()));
         }
         egui::CollapsingHeader::new("What this run is — and is not").default_open(false).show(ui, |ui| {
             for n in &k.case.notes {
@@ -1518,9 +1519,13 @@ impl McApp {
             ui.separator();
             ui.strong("Your result");
             ui.label(RichText::new(format!("k = {m:.5} ± {e:.5}  ({:+.0} ± {:.0} pcm from 1)", (m - 1.0) * 1e5, e * 1e5)).monospace());
+            ui.weak(format!("{}.", crate::keff::build_stamp()));
             if let Some(r) = rung.reference() {
                 if let Some((name, k, s)) = r.experiment {
                     ui.label(format!("Experiment ({name}): {k:.4} ± {s:.4}."));
+                }
+                if let Some(c) = r.code {
+                    ui.label(format!("Reference code: {:.5} ± {:.5} ({:+.0} ± {:.0} pcm from 1), {}.", c.k, c.sem, (c.k - 1.0) * 1e5, c.sem * 1e5, c.label));
                 }
                 ui.label(format!("Recorded: {:.5} ± {:.5} ({:+.0} ± {:.0} pcm from 1), {}.", r.k, r.sem, (r.k - 1.0) * 1e5, r.sem * 1e5, r.label));
                 let hist = (it.cfg.n_particles * it.cfg.n_active) as f64;

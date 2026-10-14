@@ -205,8 +205,8 @@ impl McRung for Htr10 {
                 lit("RMC (Li, Yu & Wei 2014): the reference", Color32::from_rgb(235, 235, 235), RMC_KEFF_VS_HEIGHT),
                 lit("MCNP vacuum (Şeker & Çolak 2003; Li 2014 Table 3): a gauge", Color32::from_rgb(150, 150, 160), MCNP_TABLE3_KEFF_VS_HEIGHT),
                 lit("MCNP helium (Şeker & Çolak 2003; Li 2014 Table 4): a gauge", Color32::from_rgb(110, 160, 140), MCNP_TABLE4_KEFF_VS_HEIGHT),
-                ours(SEKER_CSV, "VIII.0", Color32::from_rgb(120, 170, 255), "ours, ENDF/B-VIII.0 (2026-10-07), ±1σ".into(), "(2026-10-07)"),
-                ours(SEKER_CSV, "VII.0", Color32::from_rgb(255, 170, 90), "ours, ENDF/B-VII.0 (2026-10-07), ±1σ".into(), "(2026-10-07)"),
+                ours(SEKER_CSV, "VIII.0", Color32::from_rgb(120, 170, 255), "ours, ENDF/B-VIII.0 (2026-10-07, at dbb9e26eb1), ±1σ".into(), "(2026-10-07, at dbb9e26eb1)"),
+                ours(SEKER_CSV, "VII.0", Color32::from_rgb(255, 170, 90), "ours, ENDF/B-VII.0 (2026-10-07, at dbb9e26eb1), ±1σ".into(), "(2026-10-07, at dbb9e26eb1)"),
                 ];
                 // A library absent from the table has no curve.
                 c.retain(|c| !c.points.is_empty());
@@ -240,7 +240,7 @@ impl McRung for Htr10 {
             marks: Vec::new(),
             cfg: KeffConfig { n_particles: 1000, n_inactive: 20, n_active: 60, seed: 1, point_source: false, want_sites: false },
             curves: vec![RecordedCurve {
-                label: "ours, recorded 2026-10-05 (10 000 × [50 + 200])".into(),
+                label: "ours, recorded 2026-10-05 at c5a6ca4ae (10 000 × [50 + 200])".into(),
                 style: LineStyle::Ours,
                 points: vec![(0.0, RECORD_HOM.0, RECORD_HOM.1), (1.0, RECORD_HET.0, RECORD_HET.1)],
             }],
@@ -384,7 +384,7 @@ mod tests {
             assert!(c.label.contains("2026-10-07"), "{}", c.label);
         }
         let d12 = s.details(12.0);
-        assert!(d12.iter().any(|d| d.contains("VII.0 (2026-10-07): k = 0.99647")), "{d12:?}");
+        assert!(d12.iter().any(|d| d.contains("VII.0 (2026-10-07, at dbb9e26eb1): k = 0.99647")), "{d12:?}");
         assert!(d12.iter().all(|d| !d.contains("superseded")), "{d12:?}");
     }
 

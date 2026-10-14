@@ -673,6 +673,19 @@ mod tests {
             assert_eq!(rec.histories_one_run, hist, "{name}");
             assert_eq!(rec.experiment.map(|(_, k, s)| (k, s)), Some(bench), "{name}");
             assert!(r.recorded_tracks().is_some(), "{name} ships no tracks");
+            // Every recorded k is printed with its date and commit, and the
+            // reference code with its versions (maintainer, 2026-10-14).
+            let code = rec.code.unwrap_or_else(|| panic!("{name} has no reference-code k"));
+            assert!(code.label.contains("OpenMC 0.16.1-dev25 at d7d3284a1 on NJOY2016 2016.79 at ac5adf5") && code.label.ends_with("2026-09-30"), "{name}: {}", code.label);
+            assert!(code.sem > 0.0 && (code.k - rec.k).abs() < 0.002, "{name}: {} against {}", code.k, rec.k);
+            assert!(rec.label.contains(" at ") && rec.label.contains("2026-"), "{name}: {}", rec.label);
+            let lines = keff::reference_lines(&rec);
+            assert_eq!(lines.len(), 3, "{name}: experiment, reference code, record");
+            assert!(lines[1].starts_with(" Reference code (OpenMC") && lines[2].starts_with(" Recorded ("), "{name}: {lines:?}");
+        }
+        assert!(keff::build_stamp().starts_with("computed now by"));
+        for r in [beds::LATTICE_K, beds::RANDOM_K] {
+            assert!(r.record.starts_with("2026-10-0") && r.record.contains(", at "), "{}", r.record);
         }
         // Route 1 is OpenMC on NJOY2016 data, the acceptance check's reference.
         assert_eq!(keff::five_route_row("jemima", "route1"), Some((0.995938, 0.000174, 0.000987)));
@@ -745,7 +758,10 @@ mod tests {
         let mut b = Vec::new();
         assert_eq!(csgrung::headless_keff::<jemima::Jemima>(&l.phys, cfg, |line| b.push(line.to_string())), (k, s));
         assert_eq!(a, b);
-        assert_eq!(a.len(), 2 + 40 + 4, "header, 40 generations, blank, result, experiment, record");
+        assert_eq!(a.len(), 2 + 40 + 5, "header, 40 generations, blank, result, experiment, reference code, record");
+        assert!(a[a.len() - 4].contains("computed now by"), "{}", a[a.len() - 4]);
+        assert!(a[a.len() - 2].contains("OpenMC 0.16.1-dev25 at d7d3284a1 on NJOY2016 2016.79 at ac5adf5"), "{}", a[a.len() - 2]);
+        assert!(a[a.len() - 1].contains("2026-09-30, at 0414bc8277"), "{}", a[a.len() - 1]);
         eprintln!("  Jemima 1000 x [10 + 30], Watch tier: k = {k:.5} +/- {s:.5}");
         let rec = jemima::Jemima::reference().expect("record");
         assert!((k - rec.k).abs() < 5.0 * s, "k {k} +/- {s} against the record {}", rec.k);
