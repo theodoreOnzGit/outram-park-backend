@@ -212,8 +212,12 @@ Open, stated as such:
 3. The U-238 tier-1 goldens that need NJOY's 40 MB PENDF are env-gated
    (`OUTRAM_PARK_NJOY_U238_PENDF`); the deck to regenerate it is committed
    with each GENDF golden.
-4. LEAPR `coldh` (Young–Koppel rotational convolution) is self-consistency
-   tested only; no NJOY run of a cold-hydrogen deck has been compared.
+4. ~~LEAPR `coldh` (Young–Koppel rotational convolution) is self-consistency
+   tested only; no NJOY run of a cold-hydrogen deck has been compared.~~ **CORRECTED 2026-10-14:** since 2026-09-14
+   `tests/leapr_cold_hydrogen_njoy_oracle.rs` compares `coldh` against
+   NJOY2016's test 22 (para-hydrogen at 20 K, `ncold = 2`) and its own
+   `referenceTape20`: all 9175 `S(α,β)` values on the signed β grid within
+   1.0e-13.
 5. The Phase-6 formatters (WIMSR, MATXSR, CCCCR, POWR) have no port yet.
    Scoping found that a WIMSR oracle needs a GENDF with a thermal
    inelastic matrix (`mti`, e.g. free-gas MT=221 through THERMR) — NJOY's
