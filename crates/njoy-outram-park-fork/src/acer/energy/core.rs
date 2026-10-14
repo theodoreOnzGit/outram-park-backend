@@ -278,10 +278,16 @@ pub fn build_emissions(tape: &Tape, mat: i32, awr: f64, partials: &[(i32, f64)])
         if (51..=90).contains(&mt) {
             // Two-body discrete level → Law 3 (CM frame ⇒ negative TYR). Its
             // angular distribution is given separately in MF=4 (→ AND block).
-            let angular = tape
-                .section(mat, 4, mt)
-                .and_then(|s| parse_elastic_angular(s).ok())
-                .filter(|a| !a.is_all_isotropic());
+            // With no MF=4, a level given in MF=6 as a two-body (`LAW = 2`)
+            // neutron carries its angles there; upstream reads them as a
+            // regular angular distribution (`acefc.f90:5851-5876`). GitHub
+            // #872: Al-27 and Si-28/29/30 give every level this way.
+            let angular = match tape.section(mat, 4, mt) {
+                Some(s) => parse_elastic_angular(s).ok().filter(|a| !a.is_all_isotropic()),
+                None => tape
+                    .section(mat, 6, mt)
+                    .and_then(|s| crate::acer::acensd::parse_mf6_law2_for_acer(s).ok().flatten()),
+            };
             out.push(Emission {
                 mt,
                 tyr: -(y as i32),

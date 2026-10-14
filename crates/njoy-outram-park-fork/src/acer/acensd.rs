@@ -285,6 +285,60 @@ pub fn parse_mf4_for_acer(section: &Section) -> Result<ElasticAngular, NjoyError
     Ok(ElasticAngular { energies, lct })
 }
 
+/// The neutron angular distribution of an MF=6 section whose neutron
+/// subsection (`ZAP = 1`) is two-body, `LAW = 2`, as ACER stores it
+/// (`acefc.f90:5838-5876` and `acensd`'s `mfh = 6` branch, `:6371-6391`).
+///
+/// - `LANG = 0`: the Legendre series through `ptleg2`;
+/// - `LANG = 12`: the tabulated `(mu, f)` pairs through `pttab2`, lin-lin.
+///
+/// Every incident energy is written, isotropic or not, as `newfor = 1` does.
+/// `Ok(None)` for `LAW = 3` (isotropic two-body: upstream sets `iso = 1`
+/// and writes LAND = 0) and when there is no `LAW = 2/3` neutron
+/// subsection. `LCT` comes from the section's HEAD.
+///
+/// # Errors
+/// `NotPorted` for `LANG = 11, 13-15` (histogram and log interpolations of
+/// a tabulated law), which no held evaluation uses; record-structure errors.
+pub fn parse_mf6_law2_for_acer(section: &Section) -> Result<Option<ElasticAngular>, NjoyError> {
+    let mut cur = SectionCursor::new(&section.rows);
+    let head = cur.read_cont()?; // ZA, AWR, JP, LCT, NK, 0
+    let lct = head.l2;
+    for _ in 0..head.n1 {
+        let y = cur.read_tab1()?;
+        let (zap, law) = (y.head.c1.round() as i32, y.head.l2);
+        if zap != 1 || !(law == 2 || law == 3) {
+            crate::acer::energy::mf6::skip_mf6_subsection(&mut cur, law)?;
+            continue;
+        }
+        if law == 3 {
+            return Ok(None);
+        }
+        let t2 = cur.read_tab2()?;
+        let mut energies = Vec::with_capacity(t2.head.n2.max(0) as usize);
+        for _ in 0..t2.head.n2 {
+            let l = cur.read_list()?; // 0, E, LANG, 0, NW, NL
+            let lang = l.head.l1;
+            let nl = l.head.n2.max(0) as usize;
+            let (mu, p) = match lang {
+                0 => ptleg2(&l.data[..nl.min(l.data.len())])?,
+                12 => {
+                    let pairs: Vec<(f64, f64)> = l.data.chunks_exact(2).take(nl).map(|c| (c[0], c[1])).collect();
+                    pttab2(&pairs)
+                }
+                _ => {
+                    return Err(NjoyError::NotPorted(
+                        "MF=6 LAW=2 neutron angular data with LANG other than 0 or 12",
+                    ))
+                }
+            };
+            energies.push(acensd_entry(l.head.c2, &mu, &p));
+        }
+        return Ok(Some(ElasticAngular { energies, lct }));
+    }
+    Ok(None)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
