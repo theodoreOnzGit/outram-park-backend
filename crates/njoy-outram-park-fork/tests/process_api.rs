@@ -106,13 +106,27 @@ fn ace_reproduces_njoy2016s_u234_table_in_every_word() {
     let again = process::ace(&u234, kelvins(293.6), &settings).expect("(b) in one call");
     assert_eq!(again.to_type1_text().unwrap(), ace.to_type1_text().unwrap());
     // The Type-2 bytes read back to the same table. Type 2 carries the
-    // unrounded doubles (`1.0000000000000998e-11` where Type 1 prints
-    // `1.00000000000E-11`), so the values agree to Type 1's 12 figures, not
-    // bit for bit.
+    // unrounded doubles (`sigfig`'s 1e-13 bias, where Type 1 prints 12
+    // figures), so real words agree to Type 1's 12 figures, not bit for bit.
+    // Integer words agree through `nint`, which is how Type 1 writes them:
+    // MTRP keeps `acelpp`'s flag digit as a fraction (`acefc.f90:8490`;
+    // U-234's fourth MT=3 photon, an MF=15 continuum, is 3004.1 in Type 2
+    // and `3004` in Type 1), as NJOY2016's own Type 2 does (2026-10-15).
     let t2 = read::read_library_from_bytes(ace.to_type2_bytes().unwrap(), "u234.type2").unwrap().pop().unwrap();
     assert_eq!((t2.nxs, t2.jxs, t2.xss.len()), (ours.nxs, ours.jxs, ours.xss.len()));
-    let worst = t2.xss.iter().zip(&ours.xss).map(|(a, b)| (a - b).abs() / b.abs().max(1e-300)).fold(0.0, f64::max);
-    assert!(worst < 1e-11, "Type 2 against Type 1: {worst:e}");
+    let mut worst = 0.0f64;
+    for ((&a, &b), &is_int) in t2.xss.iter().zip(&ours.xss).zip(&ace.xss_is_int) {
+        if is_int {
+            assert_eq!(a.round(), b, "an integer word reads back as its nint");
+        } else {
+            worst = worst.max((a - b).abs() / b.abs().max(1e-300));
+        }
+    }
+    assert!(worst < 1e-11, "Type 2 against Type 1, real words: {worst:e}");
+    assert!(
+        t2.xss.iter().zip(&ace.xss_is_int).any(|(&v, &i)| i && v.fract() != 0.0),
+        "U-234 has an MF=15 photon, so one MTRP word is fractional, as NJOY2016's"
+    );
 }
 
 #[test]
