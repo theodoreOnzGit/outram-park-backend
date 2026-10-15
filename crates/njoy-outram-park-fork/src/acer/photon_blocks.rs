@@ -425,8 +425,13 @@ fn build_impl(tape: &Tape, mat: i32, pendf: Option<&crate::reconr::ReconrResult>
             // `acelpp`'s MF=16 law-4 data. A law it cannot write refuses the
             // whole photon build (NXS(6) = 0), never a table missing one photon.
             let law4 = acelpp_mf16_law4(sec, k, lib)?;
-            let e_first = crate::mixr::mix::sigfig(y.pairs.first().map(|&(e, _)| e).unwrap_or(0.0), 7, 0);
-            let e_last = crate::mixr::mix::sigfig(y.pairs.last().map(|&(e, _)| e).unwrap_or(0.0), 7, 0);
+            // The law's applicability range: `sigfig(E/emev,7,0)` on the
+            // yield's raw first and last energies (`acefc.f90:8805-8806`).
+            // Rounding in eV first and then dividing left `bias/1e6` in the
+            // word: B-10's 1e-5 eV read 1.0000000000000998e-11 MeV against
+            // NJOY2016's 1.0000000000001e-11, visible only in Type 2.
+            let e_first = y.pairs.first().map(|&(e, _)| e).unwrap_or(0.0);
+            let e_last = y.pairs.last().map(|&(e, _)| e).unwrap_or(0.0);
             out.push(PhotonEntry {
                 mtrp: mt * 1000 + k as i32 + 1,
                 sigp: SigP::Yield {
@@ -438,8 +443,8 @@ fn build_impl(tape: &Tape, mat: i32, pendf: Option<&crate::reconr::ReconrResult>
                     interp: y.interp.clone(),
                 },
                 law: EnergyLaw::Law4(law4),
-                e_lo_mev: e_first / EMEV,
-                e_hi_mev: e_last / EMEV,
+                e_lo_mev: crate::mixr::mix::sigfig(e_first / EMEV, 7, 0),
+                e_hi_mev: crate::mixr::mix::sigfig(e_last / EMEV, 7, 0),
                 eg_ev: 0.0,
                 landp: None,
                 andp_tables: Vec::new(),
@@ -975,7 +980,12 @@ pub fn gpd(tape: &Tape, mat: i32, pendf: &crate::reconr::ReconrResult) -> Option
     if !any {
         return None;
     }
-    Some(c.into_iter().map(|v| sigfig(v, 7, 0)).collect())
+    // `gamsum` writes `sigfig(c,7,0)` to MF=13/MT=1 on its output tape as
+    // text (`tab1io`, `acefc.f90:3828-3843`), and `acelod` reads that back
+    // (`:6259-6270`), so the stored word carries `a11`'s rounding and not
+    // `sigfig`'s `bias`. Without the round trip every GPD word sat 1e-13
+    // high (B-10: 941 of 941), invisible at Type-1 print precision.
+    Some(c.into_iter().map(|v| parse_endf_float(&format_endf_float(sigfig(v, 7, 0))).unwrap_or(v)).collect())
 }
 
 /// `convr`'s corrected total of an MF=12 (`LO = 1`) or MF=13 section with

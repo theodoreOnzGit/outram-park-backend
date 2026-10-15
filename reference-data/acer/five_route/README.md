@@ -28,7 +28,13 @@ NJOY version and commit, date, and this workspace's revision.
 | `Na23_0K_njoy2016.ace.gz` | `n-011_Na_023-ENDF8.0.endf` (1125) | Type 1, **0 K**; added 2026-10-15 (#875) |
 | `Ti48_0K_njoy2016.ace.gz` | `n-022_Ti_048-ENDF8.0.endf` (2231) | Type 1, **0 K**; added 2026-10-15 (#875) |
 | `Zn64_0K_njoy2016.ace.gz` | `n-030_Zn_064-ENDF8.0.endf` (3025) | Type 1, **0 K**; added 2026-10-15 (#875) |
-| `Zn70_293.6K_njoy2016.ace.gz` | `n-030_Zn_070-ENDF8.0.endf` (3043) | Type 1; added 2026-10-15 (#875) |
+| `Zn70_293.6K_njoy2016.ace.gz` | `n-030_Zn_070-ENDF8.0.endf` (3043) | ~~Type 1; added 2026-10-15 (#875)~~ **Type 2 since 2026-10-15** (the same deck with `itype = 2`; comment `Zn70 E8.0 NJOY2016 2016.79 ac5adf5 2026-10-15 opb 093d859`; SHA-256 `5b4c1400…ffc601b807`). Its LUNR block holds the MT=153 values NJOY2016 read back as text, which a Type-1 file prints too coarsely to check bit for bit |
+
+**Type 2 is the stronger reference.** It holds the doubles NJOY2016 had in
+memory; a Type-1 file rounds them to 12 figures, which hides `sigfig`'s
+`1.0000000000001` bias and MTRP's fractional words (B-10's `801001.2`). The
+gate holds a Type-2 reference to every bit (2026-10-15). NJOY2016 cannot
+write an unrounded **thermal** table: `aceth.f90:541` fixes `itype = 1`.
 
 The **0 K** tables use the 0 K deck,
 `.../openmc_godiva_cross_code/make_ace_0k.sh`: `reconr .001 -> acer`, no

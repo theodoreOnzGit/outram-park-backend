@@ -179,3 +179,39 @@ against NJOY2016's).
 the full LCT-008 model were taken before these fixes. Routes 2 and 5 read the
 old Rust ACE, and routes 4 and 5 ran the old RECONR and PURR for Ti-48, Zn
 and Fe-58. Those rows have not been re-measured.
+
+## Unrounded: every table against NJOY2016's Type 2 (2026-10-15)
+
+### Question
+
+"Identical in every word" above is at Type-1 print precision: 12
+significant figures, and integer words through `nint`. B-10 was the one
+table compared against a Type-2 (binary) reference, and even there it was
+printed through Type 1 first, with our integer mask. Do our tables hold the
+**same doubles** NJOY2016 holds, bit for bit?
+
+### Methodology
+
+- **Reference:** NJOY2016 2016.79 (`ac5adf5`, `build2`), the five-route
+  decks of `make_ace.sh` / `make_ace_0k.sh` with ACER card 2's `itype` set
+  to **2**, run here, one table at a time, for all 38 nuclides of
+  `nuclides.tsv` (the 36 tapes of LCT-008's full model,
+  `lct008_model::TAPES`, plus HST-009's F-19 and U-236) at
+  293.6 K and 0 K: 76 tables.
+- **Ours:** as above (`process::ace`, no HEATR), compared **in memory**,
+  before any formatting: NXS, JXS, and every XSS word by `f64::to_bits`.
+  `examples/ace_word_parity.rs` prints this as `EXACT` lines, naming each
+  differing word's JXS block.
+- **Pass:** zero differing bits in every table.
+- **Thermal (H in H₂O, the LEAPR route):** NJOY2016 cannot write it
+  unrounded. `aceth.f90:541` sets `itype = 1` in the thermal writer whatever
+  card 2 says (checked: card 2 `2 0 2` still gives a text file), and a
+  Type-2 thermal table only comes from `iopt = 8` re-reading the text. So
+  the comparison is the whole Type-1 file: `write_ace_library
+  --thermal-leapr HinH2O:HinH2O:n-001_H_001-ENDF8.0-Beta6.endf:lwtr` (the
+  LCT-008 library's own call) against OpenMC's `make_ace_thermal(...,
+  iwt=1)` on NJOY2016 (route 1's table), byte for byte from line 3.
+
+### Results
+
+**In progress (2026-10-15).** Filled in when the 76-table run completes.

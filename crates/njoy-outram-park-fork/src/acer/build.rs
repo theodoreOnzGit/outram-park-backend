@@ -1189,10 +1189,21 @@ fn append_photon_blocks(
 ) -> (i32, i32, i32, i32, i32, i32, i32) {
     let n = entries.len();
 
-    // MTRP.
+    // MTRP. `acelpp` stores `mto = 10*(MT*1000 + k)` plus a flag digit
+    // (`lff`: 0 for a discrete line, 1 for an MF=15 law-4 photon, 2 for an
+    // MF=6 photon, `acefc.f90:8384-8386`) and later strips it in place with
+    // `xss(mtrp-1+i)=xss(mtrp-1+i)/10` (`:8490`). So the word NJOY2016 holds
+    // is fractional for lff > 0 (B-10's MT=801 photon is 801001.2). Its
+    // Type-1 writer prints it with `nint` and hides that; its Type-2 file
+    // keeps it, and so does this word (still flagged an integer for Type 1).
     let mtrp = b.next_locator();
     for e in entries {
-        b.int(e.mtrp);
+        let lff = match (&e.sigp, &e.law) {
+            (SigP::Yield { mftype: 16, .. }, _) => 2,
+            (_, EnergyLaw::Law4(_)) => 1,
+            _ => 0,
+        };
+        b.word(f64::from(e.mtrp * 10 + lff) / 10.0, true);
     }
 
     // LSIGP: SIGP-relative 1-based offsets, so size each SIGP entry first.

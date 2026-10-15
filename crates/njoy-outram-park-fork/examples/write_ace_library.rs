@@ -322,6 +322,12 @@ fn write(t: &AceTable, path: &Path) {
     t.write_type1(&tmp)
         .unwrap_or_else(|e| panic!("write {}: {e}", tmp.display()));
     std::fs::rename(&tmp, path).expect("rename");
+    // `OUTRAM_ACE_TYPE2_ALSO=1` also writes the table as Type 2 beside it
+    // (`<name>.ace2`): the unrounded doubles, for a bit-for-bit comparison
+    // against an NJOY2016 Type-2 run that Type-1 text cannot make.
+    if std::env::var_os("OUTRAM_ACE_TYPE2_ALSO").is_some() {
+        t.write_type2(path.with_extension("ace2")).expect("write Type 2");
+    }
     eprintln!(
         "    wrote {} ({:.1} MB)",
         path.display(),

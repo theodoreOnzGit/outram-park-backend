@@ -78,6 +78,23 @@ fn identical_at(name: &str, tape_file: &str, t_k: f64) {
         .expect("read NJOY2016's table")
         .remove(0);
     if njoy.file_type == AceFileType::Type2Binary {
+        // A Type-2 reference carries NJOY2016's unrounded doubles, so it is
+        // held to them bit for bit first: the print-precision comparison
+        // below cannot see `sigfig`'s 1e-13 bias, nor MTRP's 801001.2.
+        assert_eq!((&ace.nxs[..], &ace.jxs[..]), (&njoy.nxs[..], &njoy.jxs[..]), "{name}: NXS/JXS");
+        assert_eq!(njoy.xss.len(), ace.xss.len(), "{name}: XSS lengths differ");
+        let bits: Vec<usize> = (0..ace.xss.len()).filter(|&i| ace.xss[i].to_bits() != njoy.xss[i].to_bits()).collect();
+        if let Some(&i) = bits.first() {
+            panic!(
+                "{name}: {} of {} XSS words differ from NJOY2016's Type 2 in some bit; first word {} ours {:e}, NJOY2016 {:e}",
+                bits.len(),
+                ace.xss.len(),
+                i + 1,
+                ace.xss[i],
+                njoy.xss[i]
+            );
+        }
+        println!("  {name}: all {} XSS words bit-identical to NJOY2016's Type 2", ace.xss.len());
         assert_eq!(njoy.xss.len(), ace.xss_is_int.len(), "{name}: XSS lengths differ");
         njoy.xss_is_int = Some(ace.xss_is_int.clone());
         njoy = read::parse_type1(&njoy.to_type1_string()).expect("NJOY2016's Type 2 as Type 1");

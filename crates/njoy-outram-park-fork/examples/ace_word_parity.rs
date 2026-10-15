@@ -16,8 +16,12 @@
 //! `acer::compare`, which names the first differing word of each block. There
 //! is no tolerance anywhere.
 //!
-//! `OUTRAM_ACE_OUT=<file>` also writes our Type-1 table there. A Type-2
-//! NJOY table is compared at Type-1 print precision (see the code).
+//! `OUTRAM_ACE_OUT=<file>` also writes our Type-1 table there. A Type-2 NJOY
+//! table is compared twice: first **unrounded**, our doubles against
+//! NJOY2016's bit for bit, each differing word named by its JXS block (the
+//! `EXACT` lines; on 2026-10-15 they found `sigfig`'s bias in GPD and LUNR and
+//! B-10's fractional MTRP word, none visible in Type-1 text); then at Type-1
+//! print precision (see the code), which alone sets the exit code.
 //!
 //! Exit code 0 when the tables are identical, 3 when they differ, 1 on an
 //! error. CLI glue; `acer::compare` and `process` are tested in the crate.
@@ -74,6 +78,9 @@ fn main() {
     // this for B-10, whose Type-1 formatter aborts (`change`, "Undefined law
     // for dlwh block: 0").
     if njoy.file_type == read::AceFileType::Type2Binary {
+        // First, the strict test the print-precision one cannot make: our
+        // unrounded doubles against NJOY2016's, word for word, bit for bit.
+        exact_type2(&ace.nxs, &ace.jxs, &ace.xss, &njoy);
         if njoy.xss.len() == ace.xss_is_int.len() {
             njoy.xss_is_int = Some(ace.xss_is_int.clone());
         }
@@ -90,4 +97,53 @@ fn main() {
         println!("  {l}");
     }
     std::process::exit(if c.identical() { 0 } else { 3 });
+}
+
+/// A Type-2 NJOY table carries the doubles NJOY2016 held in memory. Compare
+/// ours against them exactly (no rounding, no mask) and name, for each
+/// differing word, the JXS block it falls in. Prints one summary line and up
+/// to 20 differing words; it does not change the exit code, which the
+/// print-precision comparison below decides.
+fn exact_type2(nxs: &[i32; 16], jxs: &[i32; 32], xss: &[f64], njoy: &read::RawAceTable) {
+    let same_header = nxs[..] == njoy.nxs[..] && jxs[..] == njoy.jxs[..];
+    let n = xss.len().min(njoy.xss.len());
+    let block = |i: usize| -> usize {
+        // 1-based JXS index of the nearest block start at or below word i+1.
+        let w = i as i32 + 1;
+        (0..32).filter(|&k| jxs[k] > 0 && jxs[k] <= w).max_by_key(|&k| jxs[k]).map_or(0, |k| k + 1)
+    };
+    let diffs: Vec<usize> = (0..n).filter(|&i| xss[i].to_bits() != njoy.xss[i].to_bits()).collect();
+    let worst = diffs
+        .iter()
+        .map(|&i| ((xss[i] - njoy.xss[i]) / njoy.xss[i].abs().max(f64::MIN_POSITIVE)).abs())
+        .fold(0.0_f64, f64::max);
+    println!(
+        "EXACT (Type 2, unrounded): NXS/JXS {}, XSS lengths {} / {}, {} of {} words differ in any bit, worst relative {:.3e}",
+        if same_header { "equal" } else { "DIFFER" },
+        xss.len(),
+        njoy.xss.len(),
+        diffs.len(),
+        n,
+        worst
+    );
+    // Per block: count, worst relative difference and the word it is at.
+    let mut per: std::collections::BTreeMap<usize, (usize, f64, usize)> = Default::default();
+    for &i in &diffs {
+        let r = ((xss[i] - njoy.xss[i]) / njoy.xss[i].abs().max(f64::MIN_POSITIVE)).abs();
+        let e = per.entry(block(i)).or_insert((0, 0.0, i));
+        e.0 += 1;
+        if r > e.1 {
+            e.1 = r;
+            e.2 = i;
+        }
+    }
+    for (b, (count, r, i)) in &per {
+        println!(
+            "  EXACT JXS({b}) block (starts at word {}): {count} words differ, worst {r:.3e} at word {} (ours {:e}, NJOY2016 {:e})",
+            if *b > 0 { jxs[b - 1] } else { 0 },
+            i + 1,
+            xss[*i],
+            njoy.xss[*i]
+        );
+    }
 }

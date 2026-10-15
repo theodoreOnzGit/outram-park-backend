@@ -779,6 +779,30 @@ Record: `verification_and_validation/ace_five_route_parity_2026_10_14.md`,
 skipped everywhere but on the machine that made them. They are committed
 now.
 
+**UPDATE 2026-10-15: unrounded too.** "Every word" above was at Type-1
+print precision (12 figures). Against NJOY2016's **Type-2** output, which
+holds its unrounded doubles, B-10 differed in 943 words. After the fixes,
+74 of the 76 five-route tables are measured NJOY2016's bit for bit; U-235
+and U-238 at 293.6 K are being re-run (2026-10-15). Four fixes, each a value upstream
+reads back from a text tape or never rounds:
+- GPD gets `gamsum`'s MF=13/MT=1 text round trip after `sigfig`
+  (`acefc.f90:3828-3843`, `:6259-6270`);
+- the LUNR cross sections are copied from MT=153 as read, not `sigfig`'d
+  again (`:5980-5983`; U-234/235/236/238, Mn-55, Fe-58, Zn);
+- MTRP keeps `acelpp`'s flag digit divided by 10 (`:8384-8386`, `:8490`),
+  so B-10's MT=801 photon is 801001.2, as NJOY2016's own Type 2;
+- an MF=6 photon's applicability range is `sigfig(E/emev,7,0)`
+  (`:8805-8806`), not `sigfig(E)/emev`.
+
+`sigfig`'s `bias = 1.0000000000001` is the trap: Type-1 text cannot show
+it, so a Type-1 reference cannot catch it. `ace_word_parity` reports
+unrounded `EXACT` lines for a Type-2 reference, and the gate holds B-10 and
+Zn-70 (now Type 2) to every bit. NJOY2016 cannot write an unrounded thermal
+table (`aceth.f90:541` fixes `itype = 1`); LCT-008's LEAPR-built H in H₂O
+matches route 1's NJOY2016 table in every byte of its 32 166 data lines.
+Record: `verification_and_validation/ace_five_route_parity_2026_10_14.md`,
+"Unrounded".
+
 All 12 nuclides of the five-route ICSBEP campaign (U-234/235/238, F-19,
 O-16, H-1, Al-27, Si-28/29/30, Mn-55, B-10), at 293.6 K
 (`RECONR -> BROADR -> PURR -> ACER`) and 0 K (`RECONR -> ACER`), are
