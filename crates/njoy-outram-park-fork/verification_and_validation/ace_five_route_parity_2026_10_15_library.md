@@ -56,11 +56,12 @@ And one cross-platform fix found by CI, not by this survey:
 
 ## Results (2026-10-15)
 
-*U-235 and U-238 at 0 K: re-run pending (the first attempt's NJOY2016 run
-died for lack of disk); filled in below when measured.*
-
-- **74 of 76 library tables: bit-identical** to NJOY2016 with HEATR, NXS and
-  JXS equal, 0 differing words.
+- **All 76 library tables are bit-identical** to NJOY2016 with HEATR:
+  101 197 626 XSS words, 0 differing, NXS and JXS equal on every table
+  (38 nuclides × 293.6 K and 0 K). U-235 and U-238 at 0 K were re-run on
+  their own after the first NJOY2016 runs died for lack of disk; the
+  re-runs took ours 248 s and 194 s (both temperatures) and NJOY2016 360 s
+  and 202 s (both decks in parallel).
 - **Thermal (H in H₂O, LEAPR):** identical in every byte of its 32 166 data
   lines.
 - **Gate:** `tests/ace_five_route_parity.rs` gains
