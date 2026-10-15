@@ -154,10 +154,10 @@ impl McRung for Hst009 {
     fn notes() -> &'static [&'static str] {
         &[
             "Model: ICSBEP HEU-SOL-THERM-009 case 1: a sphere of highly enriched uranium oxyfluoride (UO₂F₂) solution, r = 11.5177 cm, in a 1100-aluminium tank 0.1587 cm thick, reflected by water to r = 35 cm, 293.6 K. The numbers are outram-mc-libs' `vv::hst009`, the model the recorded result was measured on.",
-            "Two stated approximations, as in the record: O-17 is folded into O-16, and the tank's copper and zinc are omitted. U-236 (0.5 % of the uranium) has been in the model since 2026-10-15; the recorded results quoted below were measured without it.",
+            "Two stated approximations, as in the record: O-17 is folded into O-16, and the tank's copper and zinc are omitted. U-236 (0.5 % of the uranium) has been in the model since 2026-10-15, and the recorded results quoted below include it (it is worth −167 ± 38 pcm).",
             "Data: ENDF/B-VIII.0, twelve nuclides, processed in this browser by OUTRAM PARK's NJOY port. Hydrogen uses the H in H₂O S(α,β) thermal-scattering law, in the solution and in the reflector. Run k_eff: NJOY's tolerance 0.001 (as the record). Watch: the loosened 0.01, whose measured effect on this case is −57 ± 35 pcm.",
             "Run k_eff is true Monte Carlo: outram-mc-libs' single-thread CSG power iteration (`CsgPowerIteration`, what `run_keff_csg` runs), one generation at a time.",
-            "The benchmark k is 0.9990 ± 0.0043 (430 pcm), not 1. On this data the case sits inside that band: OpenMC on NJOY2016 data gives +334 ± 22 pcm from the benchmark k and outram-mc +298 ± 32 pcm (32 seeds each).",
+            "The benchmark k is 0.9990 ± 0.0043 (430 pcm), not 1. On this data the case sits inside that band: OpenMC on NJOY2016 data gives +224 ± 29 pcm from the benchmark k and outram-mc +172 ± 21 pcm (32 seeds each, 2026-10-15).",
             "Watch, one neutron at a time, is an illustration: each track is one real history (a one-particle fixed-source run), chained by hand. Tracks are 3D, drawn projected onto the plane of the picture.",
             "Watch, whole generations, is the real power iteration started from the centre of the solution, to show the source spreading.",
             "The Shannon entropy of the fission source is on a 5 × 5 × 5 mesh over the solution's bounding box, so at most 6.97 bits. A CSG run reports no leaked / captured / fissioned counts (the sphere-only iteration of the Godiva rung does).",
@@ -178,7 +178,7 @@ impl McRung for Hst009 {
     fn reference() -> Option<Reference> {
         crate::keff::five_route_reference(
             "hst009",
-            "five-route study route 4, 32 seeds x 5000 x [40+120], 2026-09-30, at 0414bc8277",
+            "five-route study route 4, 32 seeds x 5000 x [40+120], 2026-10-15, at 50911476b7, with U-236",
             crate::route1_label!("32 seeds x 5000 x [40+120]"),
             5000.0 * 120.0,
             ("ICSBEP HEU-SOL-THERM-009 case 1 benchmark k, as tabulated by van der Marck (2006)", model::BENCHMARK_K, model::BENCHMARK_SIGMA),

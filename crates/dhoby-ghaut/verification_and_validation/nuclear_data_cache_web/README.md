@@ -18,7 +18,8 @@ posted on gh:#818 before any of this was measured: [`PREDICTION.md`](PREDICTION.
   The key is the SHA-256 of the covariance-stripped tape, the material, the
   temperature and tolerances to the bit, PURR's table settings, the law's
   label, and the processing-code version `CODE`
-  (`examples/common/processed_cache.rs`, `nd-2026-10-09.1`). Each record
+  (`examples/common/processed_cache.rs`, ~~`nd-2026-10-09.1`~~ `nd-2026-10-15.1` since
+  2026-10-15, after `50911476b` changed U-234's processed output). Each record
   carries a SHA-256 of its words; a record with another key or code, a bad
   checksum or words that do not decode is a visible miss and is processed
   again.

@@ -71,7 +71,7 @@ pub struct CodeReference {
 #[macro_export]
 macro_rules! route1_label {
     ($size:literal) => {
-        concat!("OpenMC 0.16.1-dev25 at d7d3284a1 on NJOY2016 2016.79 at ac5adf5, five-route study route 1, ", $size, ", 2026-09-30")
+        concat!("OpenMC 0.16.1-dev25 at d7d3284a1 on NJOY2016 2016.79 at ac5adf5, five-route study route 1, ", $size, ", 2026-10-15")
     };
 }
 

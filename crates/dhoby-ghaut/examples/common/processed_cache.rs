@@ -44,7 +44,7 @@ use std::collections::HashMap;
 /// (and the fingerprint in the test below) whenever RECONR, BROADR, PURR,
 /// THERMR, LEAPR or an encoding changes what a product holds; a product made
 /// under another version is not used, and the page says so.
-pub const CODE: &str = "nd-2026-10-09.1";
+pub const CODE: &str = "nd-2026-10-15.1";
 
 /// Version of the key layout itself.
 const KEYS: &str = "nd1";
@@ -636,7 +636,7 @@ mod tests {
     fn the_code_version_pins_the_processing_output() {
         let pinned = [
             ("n-002_He_004-ENDF8.0.endf", "7fa436eca26cf2f0bf2aff4f71f640c531b2fe8f8df08cb0f97d1386a8ebd699"),
-            ("n-092_U_234-ENDF8.0.endf", "0198a48acff9ccc2bb05f37290cbe0c51dc0f69b610d62911cd2cd6d1f1e1902"),
+            ("n-092_U_234-ENDF8.0.endf", "41caa7d704c68cc4608d518ed10390d3b7a8dc7bb68ba73934e87f5f48305d32"), // 2026-10-15: changed by 50911476b (RECONR/PURR)
         ];
         let mut got = Vec::new();
         for (file, want) in pinned {

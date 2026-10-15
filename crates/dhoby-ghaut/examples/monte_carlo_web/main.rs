@@ -656,10 +656,12 @@ mod tests {
         let expect = [
             (Rung::Godiva, (5000, 40, 120), 0.99994),
             (Rung::Jemima, (5000, 40, 120), 0.996092),
-            (Rung::Hst009, (5000, 40, 120), 1.001975),
+            // HST-009 carries U-236 since 2026-10-15 (was 1.001975 without it).
+            (Rung::Hst009, (5000, 40, 120), 1.000717),
             // The lattice's record is the full 35-nuclide model since
-            // 2026-10-15 (`lct008-full`); it was the 11-nuclide 1.002360.
-            (Rung::Lct008, (5000, 40, 120), 1.001178),
+            // 2026-10-15 (`lct008-full`); it was the 11-nuclide 1.002360,
+            // then 1.001178 (8 seeds at [250 + 400]).
+            (Rung::Lct008, (5000, 40, 120), 1.001594),
         ];
         // Benchmark k and its uncertainty, as tabulated by Mosteller
         // (LA-UR-10-06230) and van der Marck (Nucl. Data Sheets 107, 2006);
@@ -667,7 +669,7 @@ mod tests {
         let bench = [(1.0000, 0.0010), (1.0000, 0.0030), (0.9990, 0.0043), (1.0007, 0.0016)];
         // Active histories of one seed of each record (the lattice's is the
         // campaign's 10 000 x 400, not the demo's default).
-        let recorded = [600_000.0, 600_000.0, 600_000.0, 4_000_000.0];
+        let recorded = [600_000.0, 600_000.0, 600_000.0, 1_200_000.0];
         for (((r, size, k), hist), bench) in expect.into_iter().zip(recorded).zip(bench) {
             let name = r.info().name;
             let d = r.run_default().unwrap_or_else(|| panic!("{name} has no Run k_eff"));
@@ -681,12 +683,8 @@ mod tests {
             // Every recorded k is printed with its date and commit, and the
             // reference code with its versions (maintainer, 2026-10-14).
             let code = rec.code.unwrap_or_else(|| panic!("{name} has no reference-code k"));
-            // The lattice's full-model route 1 ran on OpenMC ec3bc73, 2026-10-14.
-            let (openmc, date) = if r == Rung::Lct008 {
-                ("OpenMC ec3bc73 on NJOY2016 2016.79 at ac5adf5", "2026-10-14")
-            } else {
-                ("OpenMC 0.16.1-dev25 at d7d3284a1 on NJOY2016 2016.79 at ac5adf5", "2026-09-30")
-            };
+            // Every route 1 was re-run on 2026-10-15 on OpenMC d7d3284a1.
+            let (openmc, date) = ("OpenMC 0.16.1-dev25 at d7d3284a1 on NJOY2016 2016.79 at ac5adf5", "2026-10-15");
             assert!(code.label.contains(openmc) && code.label.ends_with(date), "{name}: {}", code.label);
             assert!(code.sem > 0.0 && (code.k - rec.k).abs() < 0.002, "{name}: {} against {}", code.k, rec.k);
             assert!(rec.label.contains(" at ") && rec.label.contains("2026-"), "{name}: {}", rec.label);
@@ -772,7 +770,7 @@ mod tests {
         assert_eq!(a.len(), 2 + 40 + 5, "header, 40 generations, blank, result, experiment, reference code, record");
         assert!(a[a.len() - 4].contains("computed now by"), "{}", a[a.len() - 4]);
         assert!(a[a.len() - 2].contains("OpenMC 0.16.1-dev25 at d7d3284a1 on NJOY2016 2016.79 at ac5adf5"), "{}", a[a.len() - 2]);
-        assert!(a[a.len() - 1].contains("2026-09-30, at 0414bc8277"), "{}", a[a.len() - 1]);
+        assert!(a[a.len() - 1].contains("2026-10-15, at 093d8590cf"), "{}", a[a.len() - 1]);
         eprintln!("  Jemima 1000 x [10 + 30], Watch tier: k = {k:.5} +/- {s:.5}");
         let rec = jemima::Jemima::reference().expect("record");
         assert!((k - rec.k).abs() < 5.0 * s, "k {k} +/- {s} against the record {}", rec.k);

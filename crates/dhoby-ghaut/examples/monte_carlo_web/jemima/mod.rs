@@ -145,7 +145,7 @@ impl McRung for Jemima {
     fn reference() -> Option<Reference> {
         crate::keff::five_route_reference(
             "jemima",
-            "five-route study route 4, 32 seeds x 5000 x [40+120], 2026-09-30, at 0414bc8277",
+            "five-route study route 4, 32 seeds x 5000 x [40+120], 2026-10-15, at 093d8590cf",
             crate::route1_label!("32 seeds x 5000 x [40+120]"),
             5000.0 * 120.0,
             ("ICSBEP IEU-MET-FAST-002 benchmark k, as tabulated by Mosteller (LA-UR-10-06230) and van der Marck (2006)", model::BENCHMARK_K, model::BENCHMARK_SIGMA),
