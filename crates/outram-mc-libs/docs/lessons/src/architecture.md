@@ -31,7 +31,7 @@ short version:
 
 | Area | Rust | Ported from | Notes |
 |---|---|---|---|
-| RNG | `rng` | `random_lcg.cpp` | The LCG now lives in `petir` and is re-exported ([`rng/mod.rs`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/rng/mod.rs#L19)) |
+| RNG | `rng` | `random_lcg.cpp` | The LCG now lives in `petir` and is re-exported ([`rng/mod.rs`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/rng/mod.rs#L19)). The generator is identical; **the seeding and stream layout is a port deviation** (below) |
 | Geometry (CSG, lattices, `locate`, `distance_to_boundary`) | `geometry::*` | `geometry.cpp`, `cell.cpp`, `surface.cpp`, `lattice.cpp` | **Moved to `outram-blender` on 2026-10-02** (#486), re-exported under the old paths |
 | Surface crossing, boundary conditions | [`geometry::crossing`](../../api/outram_mc_libs/geometry/crossing/index.html) | `particle.cpp`, `boundary_condition.cpp` | Stayed here: it needs the RNG and the transport state |
 | Collision physics | [`physics::scatter`](../../api/outram_mc_libs/physics/scatter/index.html), [`physics::fission`](../../api/outram_mc_libs/physics/fission/index.html) | `physics.cpp`, `physics_common.cpp` | |
@@ -40,6 +40,45 @@ short version:
 | Multigroup | [`physics::physics_mg`](../../api/outram_mc_libs/physics/physics_mg/index.html) | `physics_mg.cpp`, `mgxs.cpp` | Chapter 7 |
 | Delta tracking | [`physics::delta_tracking`](../../api/outram_mc_libs/physics/delta_tracking/index.html) (~~`pebble_beds::delta_tracking`~~ moved 2026-10-06, #718; the old path re-exports it) | — | **NEW WORK**, chapter 3 |
 | Depletion | `depletion` | `openmc/deplete` (Python) | New orchestration over ported pieces |
+
+## Port deviations: where the port does not follow upstream
+
+"Ported from OpenMC" has exceptions, and each is listed so that it is not read
+into them. The full table is in the crate
+[README](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/README.md#port-deviations-from-openmc).
+
+**RNG seeding and streams.**
+- **The generator is identical to OpenMC's.** It is the same 64-bit LCG with
+  the same PCG-RXS-M-XS output permutation and the same jump ahead
+  ([`petir::rng::lcg`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/petir/src/rng/lcg.rs#L145)).
+- **How histories get their seeds is not.**
+  - OpenMC numbers every particle with one run-wide counter and gives each
+    particle **four streams** (tracking, source, URR tables, volume), each
+    from its own master seed (`random_lcg.cpp`, `init_particle_seeds`).
+  - This crate jumps `gen × 2⁴⁰`, then `hist × 152 917`, and gives each
+    history **one stream**
+    ([`transport_csg.rs`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L186-L197)).
+    The delayed-group, URR-table and split-child streams are jumps of 3, 5
+    and 1 × 152 917 draws **inside it**
+    ([`transport_csg.rs`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L1439-L1452)).
+- **Why.** The RNG only has to be statistically right and repeatable, not
+  draw-for-draw identical (the exception above). The histories run in a
+  different order anyway, so parity was never reachable. A run repeats
+  exactly for a given seed at any thread count.
+- **Known consequence: [gh:#700](https://github.com/theodoreOnzGit/outram-park-backend/issues/700)
+  (open).** Those jumps land where other histories' streams start: history
+  *i*'s URR draws are history *i+5*'s tracking draws, its delayed-group
+  draws are *i+3*'s, and a split child's are *i+1*'s.
+  - Each history still sees uniform draws, so the mean `k` is unbiased.
+  - Neighbouring histories are not fully independent, and that is what the
+    quoted σ assumes.
+  - The size of the effect has not been measured.
+
+**Multigroup (n,xn) multiplicity.** Weighted by the row multiplicity rather
+than upstream's per-transfer `mult[g][g′]` (`scattdata.cpp:367`), because
+upstream's rule is exact only for a row-uniform multiplicity. On a two-group
+set this gives 1.516 ± 0.003 against the analytic 1.517, where upstream's rule
+gives 1.578 (`physics_mg::tests::multiplicity_weights_by_the_row_and_matches_analytic_kinf`).
 
 The geometry move is worth noticing: the description of space (surfaces, cells,
 lattices) now belongs to the mesh-authoring crate, while everything that needs
