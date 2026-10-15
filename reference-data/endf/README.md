@@ -62,6 +62,19 @@ coolant). Copied from a local ENDF/B-VIII.0 neutron sublibrary mirror
 | `n-014_Si_029-ENDF8.0.endf` | Si-29 | ENDF/B-VIII.0 (neutron) | 1428 | 1.7 MB | NNDC/IAEA NDS | 2026-09-10 |
 | `n-014_Si_030-ENDF8.0.endf` | Si-30 | ENDF/B-VIII.0 (neutron) | 1431 | 1.5 MB | NNDC/IAEA NDS | 2026-09-10 |
 
+#### U-236 (added 2026-10-15)
+
+Added for the NJOY2016 reference ACE table in the `reference-data/ace`
+submodule (`reference-njoy/endf-b-viii.0/293.6K/U236.ace.gz`). Extracted from
+the NNDC ENDF/B-VIII.0 archive `ENDF-B-VIII.0.zip`
+(`neutrons/n-092_U_236.endf`). The same archive's `n-092_U_234.endf` is
+byte-identical to the U-234 tape above, so both come from the same release.
+Evaluation: LANL, EVAL-FEB05 (Young, Chadwick, MacFarlane et al.).
+
+| File | Nuclide | Library | MAT | Size | Source | Date accessed |
+|---|---|---|---|---|---|---|
+| `n-092_U_236-ENDF8.0.endf` | U-236 | ENDF/B-VIII.0 (neutron) | 9231 | 1.4 MB | [NNDC ENDF/B-VIII.0](https://www.nndc.bnl.gov/endf-b8.0/download.html) | 2026-10-15 |
+
 Graphite and SiC S(α,β): `tsl-crystalline-graphite.endf` /
 `tsl-reactor-graphite-10P.endf` / `-30P.endf` and `tsl-CinSiC.endf` /
 `tsl-SiinSiC.endf` are already present (rows above).
