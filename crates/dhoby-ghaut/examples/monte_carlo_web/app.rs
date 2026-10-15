@@ -10,7 +10,10 @@
 use crate::anim::{self, animated_speed, draw_track, energy_colour, fmt_energy, fmt_speed, fmt_time, Anim};
 use crate::engine::{Event, Request, Tier};
 use crate::history::{outcome_name, History, Stats};
-use crate::keff::{console_line, summary_lines, Generation, KeffConfig, KinfCase, KinfGeneration, LineStyle, CONSOLE_HEADER};
+use crate::keff::{
+    clamp_to_caps, console_line, summary_lines, Generation, KeffConfig, KinfCase, KinfGeneration, LineStyle, CONSOLE_HEADER, MAX_GENERATIONS,
+    MAX_PARTICLES, MIN_ACTIVE,
+};
 use crate::raster::Slicer;
 use crate::sweep::RecordedSweep;
 use crate::walkdemo::{Outgoing, WalkDemo};
@@ -200,6 +203,8 @@ enum RunAction {
     Start,
     Pause,
     Resume,
+    /// End the run where it is (the generation in flight is dropped).
+    Stop,
 }
 
 /// One power iteration as the UI follows it, for both the Watch-generations
@@ -221,6 +226,13 @@ struct Iteration {
     last_step_at: f64,
     /// Watch only: seconds between generations, so the spreading is visible.
     pace_s: f64,
+    /// Started, and the engine has not yet said `KeffStarted`: whatever
+    /// arrives before that is the tail of a run this one replaced (a
+    /// generation in flight when it was stopped), and is dropped.
+    awaiting_start: bool,
+    /// Neutrons per second the last run measured on this device, for the
+    /// next run's estimate.
+    rate: Option<f64>,
 }
 
 impl Iteration {
@@ -238,11 +250,15 @@ impl Iteration {
             elapsed: 0.0,
             last_step_at: 0.0,
             pace_s,
+            awaiting_start: false,
+            rate: None,
         }
     }
     fn start(&mut self, link: &McLink) {
-        let (cfg, pace) = (self.cfg, self.pace_s);
+        let (cfg, pace, rate) = (self.cfg, self.pace_s, self.measured_rate().or(self.rate));
         *self = Self::new(cfg, pace);
+        self.rate = rate;
+        self.awaiting_start = true;
         self.state = RunState::Running;
         self.started_at = now_s();
         self.lines.extend(CONSOLE_HEADER.iter().map(|s| s.to_string()));
@@ -259,7 +275,30 @@ impl Iteration {
             }
         }
     }
+    /// The engine has started this run (`KeffStarted`).
+    fn started(&mut self, sites: Vec<[f32; 2]>) {
+        self.awaiting_start = false;
+        self.sites = sites;
+    }
+    /// The engine says the run is over (`KeffDone`); ignored while it may
+    /// still be about a replaced run.
+    fn engine_done(&mut self, rung: Rung) {
+        if !self.awaiting_start {
+            self.done(rung);
+        }
+    }
+    /// Neutrons per second over the generations this run has done, on this
+    /// device (pauses excluded; in Watch it includes the pace between
+    /// generations).
+    fn measured_rate(&self) -> Option<f64> {
+        (!self.gens.is_empty() && self.elapsed > 0.0).then(|| (self.cfg.n_particles * self.gens.len()) as f64 / self.elapsed)
+    }
     fn receive(&mut self, g: Generation) {
+        // A generation of a run already replaced or stopped is dropped: one
+        // generation is one worker request, so Stop cannot cut one short.
+        if self.awaiting_start || !matches!(self.state, RunState::Running | RunState::Paused) {
+            return;
+        }
         self.waiting = false;
         self.last_step_at = now_s();
         self.lines.push(console_line(&g.report));
@@ -277,8 +316,11 @@ impl Iteration {
             return;
         }
         self.waiting = false;
+        // Stopped while paused: the pause is not run time.
+        if self.state == RunState::Running {
+            self.elapsed = now_s() - self.started_at;
+        }
         self.state = RunState::Done;
-        self.elapsed = now_s() - self.started_at;
         let (m, e) = self.result();
         let lines = summary_lines(&self.active_counts, self.active_production, self.cfg, m, e, rung.reference());
         self.lines.extend(lines);
@@ -320,6 +362,8 @@ struct KinfRun {
     waiting: bool,
     started_at: f64,
     elapsed: f64,
+    /// Neutrons per second the last run measured on this device.
+    rate: Option<f64>,
 }
 
 impl KinfRun {
@@ -334,6 +378,7 @@ impl KinfRun {
             waiting: false,
             started_at: 0.0,
             elapsed: 0.0,
+            rate: None,
         }
     }
     fn start(&mut self, link: &McLink) {
@@ -356,10 +401,21 @@ impl KinfRun {
         }
     }
     fn receive(&mut self, g: KinfGeneration) {
-        // A late generation of a run already replaced is ignored.
-        if self.state == RunState::Running && g.param == self.running_param {
+        // A late generation of a run already replaced is ignored (one
+        // generation is one worker request, so a stopped run's last one
+        // still arrives).
+        if self.state == RunState::Running && g.param == self.running_param && g.index == self.gens.len() {
             self.waiting = false;
             self.gens.push(g);
+        }
+    }
+    /// The engine says a run is over (`KinfDone`): this one ends only if its
+    /// last generation is in, so the tail of a replaced run cannot end it.
+    fn engine_done(&mut self) -> Option<KinfPoint> {
+        if self.gens.last().is_some_and(|g| g.index + 1 >= g.total) {
+            self.finish(true)
+        } else {
+            None
         }
     }
     /// End the run (finished, or stopped by the reader); the point it reached.
@@ -370,6 +426,9 @@ impl KinfRun {
         self.state = RunState::Done;
         self.waiting = false;
         self.elapsed = now_s() - self.started_at;
+        if !self.gens.is_empty() && self.elapsed > 0.0 {
+            self.rate = Some((self.cfg.n_particles * self.gens.len()) as f64 / self.elapsed);
+        }
         let g = self.gens.last()?;
         (g.sem.is_finite() && g.sem > 0.0).then_some(KinfPoint { param: g.param, mean: g.mean, sem: g.sem, complete, secs: self.elapsed })
     }
@@ -784,7 +843,7 @@ impl McApp {
                 }
                 (Phase::Ready(Screen::Kinf(k)), Event::KinfGeneration(g)) => k.receive(g),
                 (Phase::Ready(Screen::Kinf(k)), Event::KinfDone) => {
-                    if let Some(p) = k.finish(true) {
+                    if let Some(p) = k.engine_done() {
                         self.kinf_points.push(p);
                     }
                 }
@@ -794,9 +853,9 @@ impl McApp {
                         t.receive(h, animate);
                     }
                 }
-                (Phase::Ready(Screen::Generations(it) | Screen::Run(it)), Event::KeffStarted { sites }) => it.sites = sites,
+                (Phase::Ready(Screen::Generations(it) | Screen::Run(it)), Event::KeffStarted { sites }) => it.started(sites),
                 (Phase::Ready(Screen::Generations(it) | Screen::Run(it)), Event::Generation(g)) => it.receive(g),
-                (Phase::Ready(Screen::Generations(it) | Screen::Run(it)), Event::KeffDone) => it.done(rung),
+                (Phase::Ready(Screen::Generations(it) | Screen::Run(it)), Event::KeffDone) => it.engine_done(rung),
                 _ => {}
             }
         }
@@ -1133,24 +1192,21 @@ impl McApp {
         ui.strong(k.case.title);
         Self::kinf_slider(ui, k, 0.0);
         ui.add_enabled_ui(k.state != RunState::Running, |ui| {
-            egui::Grid::new("kinf_cfg").num_columns(2).show(ui, |ui| {
-                ui.label("neutrons / generation");
-                ui.add(egui::DragValue::new(&mut k.cfg.n_particles).range(100..=20_000).speed(50));
-                ui.end_row();
-                ui.label("inactive generations");
-                ui.add(egui::DragValue::new(&mut k.cfg.n_inactive).range(1..=200));
-                ui.end_row();
-                ui.label("active generations");
-                ui.add(egui::DragValue::new(&mut k.cfg.n_active).range(2..=1000));
-                ui.end_row();
-                ui.label("seed");
-                ui.add(egui::DragValue::new(&mut k.cfg.seed).range(1..=1_000_000));
-                ui.end_row();
-            });
+            settings_grid(ui, "kinf_cfg", &mut k.cfg);
             if ui.button("Defaults").clicked() {
                 k.cfg = k.case.cfg;
             }
         });
+        match (k.state, k.gens.last()) {
+            (RunState::Running, Some(g)) => {
+                if let Some(l) = crate::keff::eta_line(k.cfg.n_particles, g.total, k.gens.len(), k.elapsed) {
+                    ui.label(l);
+                }
+            }
+            _ => {
+                ui.weak(crate::keff::plan_line(&k.cfg, k.rate));
+            }
+        }
         ui.horizontal(|ui| {
             if k.state == RunState::Running {
                 if ui.button("■ Stop").clicked() {
@@ -1459,20 +1515,7 @@ impl McApp {
     fn run_panel(ui: &mut egui::Ui, it: &mut Iteration, link: Option<&McLink>, cfg: &mut KeffConfig, rung: Rung) {
         let editable = matches!(it.state, RunState::Idle | RunState::Done);
         ui.add_enabled_ui(editable, |ui| {
-            egui::Grid::new("cfg").num_columns(2).show(ui, |ui| {
-                ui.label("neutrons / generation");
-                ui.add(egui::DragValue::new(&mut cfg.n_particles).range(100..=20_000).speed(50));
-                ui.end_row();
-                ui.label("inactive generations");
-                ui.add(egui::DragValue::new(&mut cfg.n_inactive).range(1..=1000));
-                ui.end_row();
-                ui.label("active generations");
-                ui.add(egui::DragValue::new(&mut cfg.n_active).range(2..=1000));
-                ui.end_row();
-                ui.label("seed");
-                ui.add(egui::DragValue::new(&mut cfg.seed).range(1..=1_000_000));
-                ui.end_row();
-            });
+            settings_grid(ui, "cfg", cfg);
             if ui.button("Defaults").clicked() {
                 if let Some(d) = rung.run_default() {
                     *cfg = d;
@@ -1492,18 +1535,31 @@ impl McApp {
                 if ui.button("⏸ Pause").clicked() {
                     it.state = RunState::Paused;
                 }
+                if ui.button("■ Stop").clicked() {
+                    it.done(rung);
+                }
             }
             RunState::Paused => {
                 if ui.button("▶ Resume").clicked() {
                     it.state = RunState::Running;
                     it.started_at = now_s() - it.elapsed;
                 }
-                if ui.button("Stop").clicked() {
+                if ui.button("■ Stop").clicked() {
                     it.done(rung);
                 }
             }
         });
         ui.label(format!("{} of {} generations · {:.0} s", it.gens.len(), it.total_gens(), it.elapsed));
+        match it.state {
+            RunState::Running | RunState::Paused => {
+                if let Some(l) = crate::keff::eta_line(it.cfg.n_particles, it.total_gens(), it.gens.len(), it.elapsed) {
+                    ui.label(l);
+                }
+            }
+            _ => {
+                ui.weak(crate::keff::plan_line(cfg, it.measured_rate().or(it.rate)));
+            }
+        }
         ui.weak(
             "Single-threaded, in this tab's background worker: outram-mc-libs' reference power iteration, one \
              generation at a time, on ENDF/B-VIII.0 processed at NJOY's tolerance (which iteration: \
@@ -1553,13 +1609,41 @@ fn run_cfg_from_query(default: KeffConfig, query: &[(String, String)]) -> KeffCo
     let get = |name: &str, lo: u64, hi: u64, d: u64| {
         dhoby_ghaut::web_demo::platform::query_value(query, name).and_then(|v| v.parse::<u64>().ok()).map_or(d, |v| v.clamp(lo, hi))
     };
-    KeffConfig {
-        n_particles: get("particles", 100, 20_000, default.n_particles as u64) as usize,
-        n_inactive: get("inactive", 1, 1000, default.n_inactive as u64) as usize,
-        n_active: get("active", 2, 1000, default.n_active as u64) as usize,
+    let (gens, n) = (MAX_GENERATIONS as u64, MAX_PARTICLES as u64);
+    let cfg = KeffConfig {
+        n_particles: get("particles", 100, n, default.n_particles as u64) as usize,
+        n_inactive: get("inactive", 1, gens, default.n_inactive as u64) as usize,
+        n_active: get("active", MIN_ACTIVE as u64, gens, default.n_active as u64) as usize,
         seed: get("seed", 1, 1_000_000, default.seed),
         ..default
-    }
+    };
+    // Inactive + active held to MAX_GENERATIONS (the active ones give way).
+    clamp_to_caps(cfg, 1)
+}
+
+/// The run settings' controls (neutrons per generation, inactive and active
+/// generations, seed), held to [`MAX_PARTICLES`] and to
+/// [`MAX_GENERATIONS`] in all: each generation count may go up to what the
+/// other leaves. GUI drawing code: no test (the caps it applies are
+/// `keff::clamp_to_caps`, tested).
+fn settings_grid(ui: &mut egui::Ui, id: &str, cfg: &mut KeffConfig) {
+    egui::Grid::new(id).num_columns(2).show(ui, |ui| {
+        ui.label("neutrons / generation");
+        ui.add(egui::DragValue::new(&mut cfg.n_particles).range(100..=MAX_PARTICLES).speed(100));
+        ui.end_row();
+        ui.label("inactive generations");
+        let hi = MAX_GENERATIONS - cfg.n_active.max(MIN_ACTIVE);
+        ui.add(egui::DragValue::new(&mut cfg.n_inactive).range(1..=hi));
+        ui.end_row();
+        ui.label("active generations");
+        let hi = MAX_GENERATIONS - cfg.n_inactive.min(MAX_GENERATIONS - MIN_ACTIVE);
+        ui.add(egui::DragValue::new(&mut cfg.n_active).range(MIN_ACTIVE..=hi));
+        ui.end_row();
+        ui.label("seed");
+        ui.add(egui::DragValue::new(&mut cfg.seed).range(1..=1_000_000));
+        ui.end_row();
+    });
+    *cfg = clamp_to_caps(*cfg, 1);
 }
 
 /// Advance and draw one neutron-at-a-time view: the faded past tracks and
@@ -1810,7 +1894,7 @@ impl McApp {
                 // they leave room for the buttons over the main view.
                 let run_rect = xs_rect.unwrap_or(rect);
                 let top_pad = if run_rect.top() > full.top() + 1.0 { 6.0 } else { 52.0 };
-                match Self::run_view(ui, run_rect, &full_painter.with_clip_rect(run_rect), it, self.run_text, experiment, top_pad) {
+                match Self::run_view(ui, run_rect, &full_painter.with_clip_rect(run_rect), it, &self.run_cfg, self.run_text, experiment, top_pad) {
                     RunAction::Start => {
                         if let Some(link) = &self.link {
                             it.cfg = self.run_cfg;
@@ -1825,6 +1909,7 @@ impl McApp {
                         it.state = RunState::Running;
                         it.started_at = now_s() - it.elapsed;
                     }
+                    RunAction::Stop => it.done(rung),
                     RunAction::None => {}
                 }
             }
@@ -1983,14 +2068,32 @@ impl McApp {
                 k.start(link);
             }
         }
-        let plot = Rect::from_min_max(Pos2::new(rect.left() + 10.0, brow.bottom() + 10.0), Pos2::new(rect.right() - 10.0, rect.bottom() - 10.0));
+        // The run's size and, measured on this device, how long it takes.
+        let note = match (k.state, k.gens.last()) {
+            (RunState::Running, Some(g)) => crate::keff::eta_line(k.cfg.n_particles, g.total, k.gens.len(), k.elapsed),
+            (RunState::Running, None) => None,
+            _ => Some(crate::keff::plan_line(&k.cfg, k.rate)),
+        };
+        let mut top = brow.bottom() + 10.0;
+        if let Some(note) = note {
+            let colour = if note.starts_with('⚠') { Color32::from_rgb(250, 200, 80) } else { Color32::from_rgb(170, 176, 190) };
+            let galley = painter.layout(note, egui::FontId::proportional(12.0), colour, row.width());
+            let h = galley.size().y;
+            painter.galley(Pos2::new(row.left(), brow.bottom() + 4.0), galley, colour);
+            top = brow.bottom() + 4.0 + h + 6.0;
+        }
+        let plot = Rect::from_min_max(Pos2::new(rect.left() + 10.0, top), Pos2::new(rect.right() - 10.0, rect.bottom() - 10.0));
         draw_kinf(painter, plot, k, done, text);
         stopped
     }
 
     /// Run k_eff's main view: the two plots, then the console, scrolling,
-    /// with Run / Pause / Resume on it (the panel is folded on a phone).
-    fn run_view(ui: &mut egui::Ui, rect: Rect, painter: &egui::Painter, it: &Iteration, text: f32, experiment: Option<(f64, f64)>, top_pad: f32) -> RunAction {
+    /// with Run / Pause / Resume / Stop on it (the panel is folded on a
+    /// phone), and under them the run's estimated time on this device.
+    /// `next` is the settings the next Run will use. GUI drawing code: no
+    /// test (the estimate's text is `keff::eta_line` / `plan_line`, tested).
+    #[allow(clippy::too_many_arguments)]
+    fn run_view(ui: &mut egui::Ui, rect: Rect, painter: &egui::Painter, it: &Iteration, next: &KeffConfig, text: f32, experiment: Option<(f64, f64)>, top_pad: f32) -> RunAction {
         let top = rect.top() + top_pad;
         let narrow = rect.width() < 700.0;
         // Narrow: k above the entropy, so both are always on screen.
@@ -2009,28 +2112,51 @@ impl McApp {
         let mut action = RunAction::None;
         let brow = Rect::from_min_size(Pos2::new(rect.left() + 10.0, plots.bottom() + 8.0), Vec2::new(rect.width() - 20.0, 36.0));
         let (label, act) = match it.state {
-            RunState::Idle => (format!("▶ Run k_eff  ({} × [{} + {}])", it.cfg.n_particles, it.cfg.n_inactive, it.cfg.n_active), RunAction::Start),
+            RunState::Idle => (format!("▶ Run k_eff  ({} × [{} + {}])", next.n_particles, next.n_inactive, next.n_active), RunAction::Start),
             RunState::Done => ("▶ Run again (settings in Controls »)".to_string(), RunAction::Start),
-            RunState::Running => (format!("⏸ Pause · generation {} of {} · {:.0} s", it.gens.len(), it.total_gens(), it.elapsed), RunAction::Pause),
+            RunState::Running => (format!("⏸ Pause · gen {}/{} · {:.0} s", it.gens.len(), it.total_gens(), it.elapsed), RunAction::Pause),
             RunState::Paused => ("▶ Resume".to_string(), RunAction::Resume),
         };
-        let bw = brow.width().min(360.0);
+        let going = matches!(it.state, RunState::Running | RunState::Paused);
+        // While a run is going, Stop sits beside Pause / Resume (a phone's
+        // panel is folded, so the main view must be able to end a long run).
+        let stop_w = if going { 76.0 } else { 0.0 };
+        let bw = (brow.width() - stop_w).min(360.0);
         if ui.put(Rect::from_min_size(brow.min, Vec2::new(bw, 36.0)), egui::Button::new(RichText::new(label).size(15.0))).clicked() {
             action = act;
         }
-        let console = Rect::from_min_max(Pos2::new(rect.left() + 10.0, brow.bottom() + 8.0), Pos2::new(rect.right() - 10.0, rect.bottom() - 10.0));
+        if going && ui.put(Rect::from_min_size(brow.min + Vec2::new(bw + 6.0, 0.0), Vec2::new(stop_w - 6.0, 36.0)), egui::Button::new(RichText::new("■ Stop").size(15.0))).clicked() {
+            action = RunAction::Stop;
+        }
+        // The run's size and, measured on this device, how long it takes.
+        let note = if going {
+            crate::keff::eta_line(it.cfg.n_particles, it.total_gens(), it.gens.len(), it.elapsed).unwrap_or_else(|| "Timing the first generation…".to_string())
+        } else {
+            crate::keff::plan_line(next, it.measured_rate().or(it.rate))
+        };
+        let colour = if note.starts_with('⚠') { Color32::from_rgb(250, 200, 80) } else { Color32::from_rgb(170, 176, 190) };
+        let galley = painter.layout(note, egui::FontId::proportional(12.0), colour, brow.width());
+        let note_top = brow.bottom() + 4.0;
+        let note_h = galley.size().y;
+        painter.galley(Pos2::new(brow.left(), note_top), galley, colour);
+        let console = Rect::from_min_max(Pos2::new(rect.left() + 10.0, note_top + note_h + 6.0), Pos2::new(rect.right() - 10.0, rect.bottom() - 10.0));
         painter.rect_filled(console, 4.0, Color32::from_rgb(8, 9, 12));
         if it.lines.is_empty() {
             painter.text(console.center(), egui::Align2::CENTER_CENTER, "openmc.run()-style output appears here", egui::FontId::proportional(text), Color32::from_rgb(140, 146, 160));
             return action;
         }
+        // Only the visible rows are laid out: a run of up to 5000
+        // generations has a console line per generation, and laying out
+        // every one each frame would lag a phone.
+        let row_h = painter.layout_no_wrap("0".into(), egui::FontId::monospace(text), Color32::WHITE).size().y;
+        let rows = it.lines.len() + usize::from(it.state == RunState::Running);
         ui.scope_builder(egui::UiBuilder::new().max_rect(console.shrink(6.0)), |ui| {
-            egui::ScrollArea::both().stick_to_bottom(true).auto_shrink([false, false]).show(ui, |ui| {
-                for l in &it.lines {
-                    ui.add(egui::Label::new(RichText::new(l).monospace().size(text).color(Color32::from_rgb(210, 216, 226))).extend());
-                }
-                if it.state == RunState::Running {
-                    ui.label(RichText::new(" …").monospace().size(text));
+            egui::ScrollArea::both().stick_to_bottom(true).auto_shrink([false, false]).show_rows(ui, row_h, rows, |ui, range| {
+                for i in range {
+                    match it.lines.get(i) {
+                        Some(l) => ui.add(egui::Label::new(RichText::new(l).monospace().size(text).color(Color32::from_rgb(210, 216, 226))).extend()),
+                        None => ui.label(RichText::new(" …").monospace().size(text)),
+                    };
                 }
             });
         });
@@ -2225,7 +2351,71 @@ mod tests {
         let c = run_cfg_from_query(d, &q(&[("particles", "2000"), ("inactive", "30"), ("active", "60"), ("seed", "7")]));
         assert_eq!((c.n_particles, c.n_inactive, c.n_active, c.seed), (2000, 30, 60, 7));
         let c = run_cfg_from_query(d, &q(&[("particles", "9999999"), ("inactive", "0"), ("active", "x")]));
-        assert_eq!((c.n_particles, c.n_inactive, c.n_active, c.seed), (20_000, 1, 120, 1));
+        assert_eq!((c.n_particles, c.n_inactive, c.n_active, c.seed), (100_000, 1, 120, 1));
+        // The 2026-10-15 caps: 100 000 neutrons, 5000 generations in all.
+        let c = run_cfg_from_query(d, &q(&[("particles", "100000"), ("inactive", "1000"), ("active", "4000")]));
+        assert_eq!((c.n_particles, c.n_inactive, c.n_active), (100_000, 1000, 4000));
+        let c = run_cfg_from_query(d, &q(&[("inactive", "4000"), ("active", "4000")]));
+        assert_eq!((c.n_inactive, c.n_active), (4000, 1000), "the active generations give way");
+    }
+
+    /// A run followed by the page: what arrives before the engine says the
+    /// run started (the generation in flight when the last run was stopped)
+    /// is dropped, Stop ends a running run at once and a generation arriving
+    /// after it is dropped too, and the rate the run measured carries over
+    /// to the next run's estimate.
+    #[test]
+    fn a_stopped_run_drops_its_late_generation() {
+        let link = McLink::default();
+        let cfg = KeffConfig { n_particles: 1000, n_inactive: 1, n_active: 3, seed: 1, point_source: false, want_sites: false };
+        let gen = |index: usize| Generation {
+            report: GenerationReport { index, active: index >= 1, k: 1.0, entropy: None, k_mean: None, bank_size: 1000, production: 1000.0, counts: HistoryCounts::default() },
+            sites: Vec::new(),
+        };
+        let mut it = Iteration::new(cfg, 0.0);
+        it.start(&link);
+        it.receive(gen(7));
+        it.engine_done(Rung::Godiva);
+        assert!(it.gens.is_empty() && it.state == RunState::Running, "the replaced run's tail is dropped");
+        it.started(Vec::new());
+        it.receive(gen(0));
+        it.receive(gen(1));
+        assert_eq!(it.gens.len(), 2);
+        it.elapsed = 4.0;
+        assert_eq!(it.measured_rate(), Some(500.0));
+        it.state = RunState::Running;
+        it.started_at = now_s() - 4.0;
+        it.done(Rung::Godiva);
+        assert_eq!(it.state, RunState::Done);
+        it.receive(gen(2));
+        assert_eq!(it.gens.len(), 2, "a generation arriving after Stop is dropped");
+        it.start(&link);
+        assert!(it.gens.is_empty() && it.rate.is_some_and(|r| r > 0.0), "the measured rate is kept for the estimate");
+    }
+
+    /// The `k_inf` case ignores a generation out of order and a `KinfDone`
+    /// that is not about its own last generation.
+    #[test]
+    fn the_kinf_run_ignores_a_replaced_runs_tail() {
+        let case = Rung::Lct008.kinf_case().expect("lct008 has a k_inf case");
+        let link = McLink::default();
+        let mut k = KinfRun::new(case);
+        k.cfg.n_inactive = 1;
+        k.cfg.n_active = 2;
+        k.start(&link);
+        let p = k.running_param;
+        let g = |index: usize, total: usize| KinfGeneration { param: p, index, total, active: index >= 1, k: 1.0, mean: 1.0, sem: 0.01 };
+        let (stale, first) = (g(5, 50), g(0, 3));
+        k.receive(stale);
+        assert!(k.gens.is_empty());
+        assert!(k.engine_done().is_none() && k.state == RunState::Running, "a KinfDone of another run does not end this one");
+        k.receive(first);
+        assert_eq!(k.gens.len(), 1);
+        let (second, third) = (g(1, 3), g(2, 3));
+        k.receive(second);
+        k.receive(third);
+        assert!(k.engine_done().is_some() && k.state == RunState::Done);
+        assert!(k.rate.is_some());
     }
 
     /// The recorded tracks a benchmark rung ships (gh:#859) play only in the

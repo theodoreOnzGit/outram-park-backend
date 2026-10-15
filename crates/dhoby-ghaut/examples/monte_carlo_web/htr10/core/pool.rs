@@ -77,6 +77,29 @@ pub struct GenSummary {
     pub busy_s: f64,
 }
 
+impl GenSummary {
+    /// The same generation with no traced tracks: what a run keeps per
+    /// generation (a few hundred bytes, against the tracks' tens to
+    /// hundreds of kB).
+    pub fn without_tracks(&self) -> Self {
+        let g = &self.gen;
+        Self {
+            gen: DistributedGeneration {
+                index: g.index,
+                active: g.active,
+                k: g.k,
+                k_mean: g.k_mean,
+                entropy: g.entropy,
+                bank_size: g.bank_size,
+                counts: g.counts,
+                tracks: Vec::new(),
+            },
+            wall_s: self.wall_s,
+            busy_s: self.busy_s,
+        }
+    }
+}
+
 /// How a failed run is started again (gh:#817). Both give the same `k` in
 /// every generation, bit for bit: the reduction does not depend on how the
 /// histories were dealt out.
@@ -125,6 +148,8 @@ pub struct RunState {
     pub origin: RunOrigin,
     /// The one worker every request goes to, for a serial run.
     pub serial: Option<usize>,
+    /// Stopped by the reader: not going, not failed.
+    pub stopped: bool,
 }
 
 impl RunState {
@@ -146,6 +171,7 @@ impl RunState {
             failed: None,
             origin,
             serial,
+            stopped: false,
         }
     }
 
@@ -155,10 +181,10 @@ impl RunState {
             .is_some_and(DistributedPowerIteration::finished)
     }
 
-    /// Going: started, neither finished nor failed (including while the
-    /// initial source is sampled, a8b9ad7833).
+    /// Going: started, neither finished, failed nor stopped (including while
+    /// the initial source is sampled, a8b9ad7833).
     pub fn going(&self) -> bool {
-        !self.finished() && self.failed.is_none()
+        !self.finished() && self.failed.is_none() && !self.stopped
     }
 
     /// What kind of run this is, for its summary and the console.
@@ -454,7 +480,12 @@ impl PoolState {
                                 wall_s: now_s - run.gen_started_s,
                                 busy_s: run.gen_busy_s,
                             };
-                            run.gens.push(s.clone());
+                            // Kept for the plot and the console WITHOUT its
+                            // traced tracks: those go to the view once, in
+                            // the note. Kept, they grew the page's memory by
+                            // every generation's tracks (up to 5000 of them
+                            // since 2026-10-15).
+                            run.gens.push(s.without_tracks());
                             // Full precision in the console, so runs on
                             // different pool sizes can be compared bit for bit.
                             log::info!(
@@ -643,6 +674,18 @@ impl PoolState {
         self.note(line);
         self.run = Some(run);
         Ok(())
+    }
+
+    /// **Stop the run** the reader started: no more chunks are cut, replies
+    /// still in flight are discarded as they arrive (it is no longer going),
+    /// and a new run may start. Its generations so far stay on screen.
+    pub fn stop_run(&mut self) {
+        if let Some(run) = self.run.as_mut().filter(|r| r.going()) {
+            run.stopped = true;
+            run.queue.clear();
+            run.results.clear();
+            run.expected = 0;
+        }
     }
 
     /// Pause or resume: a paused run finishes the generation in flight and
@@ -1418,6 +1461,116 @@ mod tests {
             other => panic!("{other:?}"),
         }
         assert!(p.restart_run(RestartKind::Serial, 3.0).is_err());
+    }
+
+    /// **Stop, and what a run keeps** (2026-10-15, for runs of up to 5000
+    /// generations): every generation's note carries its traced tracks for
+    /// the view, but the run keeps its generations WITHOUT them, so its
+    /// memory does not grow by tracks per generation; the time-left line is
+    /// there from the first generation; Stop ends the run at once without
+    /// failing it, the replies in flight are discarded, its generations stay,
+    /// and a new run may start.
+    #[test]
+    fn a_stopped_run_frees_the_pool_and_keeps_no_tracks() {
+        let b = Bench::new();
+        let mut p = b.ready_pool(2);
+        p.start_run(b.cfg, 0.0).expect("start");
+        let mut inflight = Inflight::new();
+        let (mut noted, mut clock) = (Vec::new(), 0.0);
+        for _ in 0..1000 {
+            b.send_due(&mut p, &mut inflight);
+            let Some((w, ev)) = inflight.pop_front() else {
+                break;
+            };
+            clock += 1.0;
+            for n in p.on_event(w, ev, clock) {
+                if let Note::Generation(g) = n {
+                    noted.push(g.gen.tracks.len());
+                }
+            }
+            if noted.len() >= 2 {
+                break;
+            }
+        }
+        assert_eq!(noted.len(), 2);
+        assert!(noted.iter().all(|&t| t > 0), "the view still gets the tracks: {noted:?}");
+        let run = p.run.as_ref().expect("run");
+        assert_eq!(run.gens.len(), 2);
+        assert!(run.gens.iter().all(|g| g.gen.tracks.is_empty()), "the run keeps no tracks");
+        assert!(super::super::screen::run_eta(run).is_some_and(|l| l.contains("left on this device")));
+        p.stop_run();
+        let run = p.run.as_ref().expect("run");
+        assert!(!run.going() && run.stopped && run.failed.is_none());
+        b.send_due(&mut p, &mut inflight);
+        while let Some((w, ev)) = inflight.pop_front() {
+            assert!(p.on_event(w, ev, 2.0).is_empty(), "a reply of the stopped run is discarded");
+        }
+        assert_eq!(p.run.as_ref().map(|r| r.gens.len()), Some(2));
+        assert!(p.restart_run(RestartKind::Parallel, 3.0).is_err(), "a stopped run is not a failed one");
+        assert!(p.start_run(b.cfg, 3.0).is_ok());
+    }
+
+    /// **Measurement, not a gate: the PAGE's share of a 100 000-neutron
+    /// generation.** The pool's coordinator runs on the page's thread: it
+    /// cuts and encodes each generation's chunks (`outbox`), decodes every
+    /// chunk result and reduces the generation (concatenate the banks,
+    /// Shannon entropy, resample the next source; `on_event`). Times those
+    /// calls (not the transport, which the scripted workers do) for 4
+    /// workers × 3 chunks on the bench sphere at 100 000 neutrons, two
+    /// generations, and prints the total and the longest single call: the
+    /// longest is what one frame can be held by.
+    ///
+    /// Result, 2026-10-15, Intel Xeon @ 2.80 GHz (Cascade Lake, KVM, 4
+    /// vCPUs, 15 GiB), native release, one thread: **78.6 ms for three
+    /// generations (26.2 ms per generation), longest single call 16.9 ms**.
+    /// Interpretation: about one frame per generation on this desktop; in
+    /// the browser (wasm 1.3-2.5× slower, per the htr10_full_core_web
+    /// record) and on a phone core (an assumed 2-4× slower, NOT measured)
+    /// that is an estimated 45-170 ms hitch on the page once per generation,
+    /// against minutes of transport per 100 000-neutron generation there.
+    /// Below 100 000 neutrons it shrinks in proportion. Moving the
+    /// coordinator into a worker would remove it; not done here.
+    #[test]
+    #[ignore = "timing measurement (prints); run with --ignored --nocapture"]
+    fn page_side_cost_of_a_100k_generation() {
+        let mut b = Bench::new();
+        b.cfg.n_particles = 100_000;
+        b.cfg.n_inactive = 1;
+        b.cfg.n_active = 2;
+        let mut p = b.ready_pool(4);
+        p.start_run(b.cfg, 0.0).expect("start");
+        let (mut page, mut longest, mut gens, mut clock) = (0.0_f64, 0.0_f64, 0, 0.0);
+        let mut inflight = Inflight::new();
+        for _ in 0..1000 {
+            let t = std::time::Instant::now();
+            let out = p.outbox(1 << 20);
+            let dt = t.elapsed().as_secs_f64();
+            (page, longest) = (page + dt, longest.max(dt));
+            for (w, req) in out {
+                if let Some(ev) = b.reply(req) {
+                    inflight.push_back((w, ev));
+                }
+            }
+            let Some((w, ev)) = inflight.pop_front() else {
+                break;
+            };
+            clock += 1.0;
+            let t = std::time::Instant::now();
+            let notes = p.on_event(w, ev, clock);
+            let dt = t.elapsed().as_secs_f64();
+            (page, longest) = (page + dt, longest.max(dt));
+            gens += notes.iter().filter(|n| matches!(n, Note::Generation(_))).count();
+            if notes.iter().any(|n| matches!(n, Note::RunDone)) {
+                break;
+            }
+        }
+        assert_eq!(gens, 3);
+        eprintln!(
+            "  page side, 100 000 neutrons x {gens} generations on 4 workers x {CHUNKS_PER_WORKER} chunks: {:.1} ms in all ({:.1} ms per generation), longest single call {:.1} ms",
+            1e3 * page,
+            1e3 * page / gens as f64,
+            1e3 * longest
+        );
     }
 
     /// The pool's links start and stop: a terminated pool takes no work and
