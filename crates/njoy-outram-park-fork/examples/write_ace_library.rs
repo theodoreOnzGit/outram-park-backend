@@ -25,8 +25,13 @@
 //!   (`purr / MAT 1 1 20 64 /`), with `10 000` samples: the count
 //!   `njoy-outram-park-fork`'s PURR-vs-NJOY verification uses (GitHub #325).
 //!   `build_full_with_purr`'s docs record the bit-exact UNR-block comparison.
-//! - **HEATR is on** (`AceDeck` default). It changes only the ESZ heating column,
-//!   which no eigenvalue calculation reads.
+//! - **HEATR is on** (`AceDeck` default). It changes ~~only the ESZ heating
+//!   column~~ the ESZ heating column and (CORRECTED 2026-10-15) PURR's
+//!   probability-table heating column, neither of which an eigenvalue
+//!   calculation reads. Bit for bit NJOY2016's on the same deck with HEATR
+//!   (`verification_and_validation/ace_five_route_parity_2026_10_15_library.md`).
+//! - `OUTRAM_ACE_TYPE2_ALSO=1` also writes each table as Type 2 (`.ace2`),
+//!   for a bit-for-bit comparison against an NJOY2016 Type-2 run.
 //!
 //! # The thermal table borrows NJOY2016's GRID and DIMENSIONS, not its data
 //!

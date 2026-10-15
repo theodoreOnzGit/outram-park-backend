@@ -58,6 +58,9 @@ const EMEV: f64 = 1.0e6;
 /// `acelod`'s `eps` (`acefc.f90`, `real(kr),parameter::eps=1.e-10_kr`), the
 /// relative slack in its threshold-index search.
 const SIG_EPS: f64 = 1.0e-10;
+/// `unionx`'s `eps` (`acefc.f90:1096`): its first grid point is read at
+/// `E*(1+eps)`.
+const UNIONX_EPS: f64 = 1.0e-10;
 
 /// How closely MT=19+20+21+38 must reproduce MT=18 before the partial fission
 /// channels may replace it as the stored representation.
@@ -618,8 +621,21 @@ impl AceTable {
 
         let mut total = elastic_xs.clone();
         let mut disappear = vec![0.0f64; nes];
+        // The total as `acelod` holds it when it reaches MT=301 in its MF=3
+        // walk (ascending MT): elastic plus the partials before 301, and not
+        // yet rounded by the final 9-figure pass. The heating number divides
+        // by this (`xss(ih+j)=sigfig(s/emev/xss(it+j),7,0)`,
+        // `acefc.f90:5641-5645`), not by the finished total; dividing by the
+        // finished one moved the 7th figure at 1 to 54 energies per table
+        // (B-10, Zn-70 against NJOY2016 with HEATR, found 2026-10-15 by
+        // printing NJOY's `xss(it+j)` there: 1438.40835365984390 against the
+        // stored 1438.40835).
+        let mut total_at_301: Option<Vec<f64>> = None;
         for (k, sec) in partials.iter().enumerate() {
             let mt = i32::from(sec.mt);
+            if mt > 301 && total_at_301.is_none() {
+                total_at_301 = Some(total.clone());
+            }
             let disap = is_disappearance(mt, &present);
             let in_total = contributes_to_total(mt, &present);
             for j in 0..nes {
@@ -631,6 +647,7 @@ impl AceTable {
                 }
             }
         }
+        let total_at_301 = total_at_301.unwrap_or_else(|| total.clone());
         // ~~Re-round the accumulated sums to 7 sig figs, as acelod does.~~
         // CORRECTED 2026-09-26: `acelod` does not. Its total and absorption
         // are plain sums of the 7-figure partials (`xss(it+j)=xss(it+j)+s`,
@@ -672,8 +689,24 @@ impl AceTable {
         for (j, &e) in egrid.iter().enumerate() {
             let h = match g301.as_mut() {
                 Some(g) => {
-                    let s = sigfig(g.get(e).y, 7);
-                    if total[j] != 0.0 { sigfig(s / EMEV / total[j], 7) } else { 0.0 }
+                    // `unionx` first carries MT=301 onto the union grid
+                    // (`thresh=elow`: every point, the first at
+                    // `E*(1+eps)`, `acefc.f90:1780-1800`) and writes it to
+                    // a scratch tape that is text when the PENDF is
+                    // (`if (nin.lt.0) nscr=-nscr`, `:1110`), so `acelod`'s
+                    // `gety1` (`:5636`) meets `a11` of that value at the
+                    // node. Ti-48's 311 keV value is 9005.658499863 there
+                    // and 9005.6585 after the text, which `sigfig` takes to
+                    // 9005.659 (2026-10-15, found with an instrumented
+                    // NJOY2016).
+                    let eu = if j == 0 { e * (1.0 + UNIONX_EPS) } else { e };
+                    let gy = g.get(eu).y;
+                    let s = sigfig(
+                        crate::endf::parse::parse_endf_float(&crate::endf::parse::format_endf_float(gy)).unwrap_or(gy),
+                        7,
+                    );
+                    let t = total_at_301[j];
+                    if t != 0.0 { sigfig(s / EMEV / t, 7) } else { 0.0 }
                 }
                 None => 0.0,
             };

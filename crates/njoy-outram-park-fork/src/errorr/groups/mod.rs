@@ -416,28 +416,8 @@ pub fn neutron_group_structure(ign: i32) -> Result<Vec<f64>, NjoyError> {
 /// the energies produced from lethargy grids exactly the way NJOY does, so the
 /// boundaries match the Fortran output bit-for-bit at 7 significant figures.
 fn sigfig(x: f64, ndig: i32, idig: i32) -> f64 {
-    const BIAS: f64 = 1.000_000_000_000_1_f64;
-    const TEN: f64 = 10.0;
-    let mut xx = 0.0f64;
-    if x != 0.0 {
-        let aa = x.abs().log10();
-        let mut ipwr = aa as i32; // Fortran int(): truncate toward zero
-        if aa < 0.0 {
-            ipwr -= 1;
-        }
-        ipwr = ndig - 1 - ipwr;
-        // nint(): round half away from zero, matching Fortran and f64::round.
-        let mut ii = (x * TEN.powi(ipwr) + TEN.powi(ndig - 11)).round() as i64;
-        let mut ipwr2 = ipwr;
-        if ii >= 10i64.pow(ndig as u32) {
-            ii /= 10;
-            ipwr2 -= 1;
-        }
-        ii += idig as i64;
-        xx = (ii as f64) * TEN.powi(-ipwr2);
-    }
-    xx *= BIAS;
-    xx
+    // The crate's one port; this module had grown an identical copy.
+    crate::mixr::mix::sigfig(x, ndig, idig)
 }
 
 /// Named handle for a built-in neutron group structure.

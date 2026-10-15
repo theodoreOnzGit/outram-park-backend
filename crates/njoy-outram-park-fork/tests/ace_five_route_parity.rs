@@ -57,10 +57,17 @@ fn identical_to_njoy2016(name: &str, tape_file: &str) {
 /// At 293.6 K the deck is `RECONR -> BROADR -> PURR -> ACER`; at 0 K it is
 /// `RECONR -> ACER` (`make_ace_0k.sh`), so PURR is off.
 fn identical_at(name: &str, tape_file: &str, t_k: f64) {
+    identical_deck(name, tape_file, t_k, false);
+}
+
+/// `heatr = true` is the deck with HEATR between BROADR and PURR (`heatr
+/// 20 22 26 / MAT 0 0 0 0 0 /`, all units positive, so its scratch tapes
+/// are text), as `AceDeck`'s default and the LCT-008 library writer run it;
+/// the reference is `{name}_{T}_heatr_njoy2016.ace.gz`.
+fn identical_deck(name: &str, tape_file: &str, t_k: f64, heatr: bool) {
     let label = if t_k == 0.0 { "0K".to_string() } else { format!("{t_k}K") };
-    let Some(reference) =
-        reference_file_or_skip("acer", &format!("five_route/{name}_{label}_njoy2016.ace.gz"), "ace-five-route-parity")
-    else {
+    let file = if heatr { format!("five_route/{name}_{label}_heatr_njoy2016.ace.gz") } else { format!("five_route/{name}_{label}_njoy2016.ace.gz") };
+    let Some(reference) = reference_file_or_skip("acer", &file, "ace-five-route-parity") else {
         return;
     };
     let Some(tape_path) = reference_endf(tape_file) else {
@@ -68,7 +75,7 @@ fn identical_at(name: &str, tape_file: &str, t_k: f64) {
         return;
     };
     let tape = Tape::read_file(&tape_path).expect("parse tape");
-    let mut settings = CrossSectionSettings::default().without_heatr();
+    let mut settings = if heatr { CrossSectionSettings::default() } else { CrossSectionSettings::default().without_heatr() };
     if t_k == 0.0 {
         settings = settings.without_purr();
     }
@@ -195,4 +202,25 @@ fn zn64_resonance_grid_ends_on_the_union_grid() {
 #[test]
 fn zn70_purr_parameters_use_the_stored_int() {
     identical_at("Zn70", "n-030_Zn_070-ENDF8.0.endf", 293.6);
+}
+
+/// The LCT-008 library (`write_ace_library`, routes 2 and 5) runs HEATR, so
+/// its tables are held against NJOY2016's deck with HEATR too (2026-10-15).
+/// Ti-48 at 0 K exercises the heating number's four upstream details:
+/// `acelod` divides by the running total at MT=301, unrounded; `unionx`
+/// carries MT=301 onto the grid through a text scratch tape; ACER reads
+/// HEATR's MT=301 as printed; and HEATR's `hconvr` hands its converted
+/// MF=12 LO=2 yields to `gheat` through text. Before them 217 heating words
+/// differed, by up to 25 %.
+#[test]
+fn ti48_heating_number_with_heatr_is_njoy2016s() {
+    identical_deck("Ti48", "n-022_Ti_048-ENDF8.0.endf", 0.0, true);
+}
+
+/// Zn-70 at 293.6 K with HEATR: PURR's `rdheat` finds MT=301 and fills the
+/// probability tables' heating column (`ihave = 1`; LSSF = 1, so `1`).
+/// Ours wrote zero there.
+#[test]
+fn zn70_purr_heating_column_with_heatr_is_njoy2016s() {
+    identical_deck("Zn70", "n-030_Zn_070-ENDF8.0.endf", 293.6, true);
 }

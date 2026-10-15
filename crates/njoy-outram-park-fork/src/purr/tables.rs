@@ -299,6 +299,25 @@ impl UrrProbabilityTables {
         nladr: usize,
         nsamp: usize,
     ) -> Result<Option<Self>, NjoyError> {
+        Self::from_endf_with_mt301(tape, mat, temperature_k, nbin, nladr, nsamp, None)
+    }
+
+    /// [`Self::from_endf`] on a PENDF that already carries HEATR's MT=301,
+    /// as a `... -> HEATR -> PURR -> ACER` deck has it: PURR's `rdheat`
+    /// finds MT=301 alone (`ihave = 1`, `purr.f90:1237-1289`) and fills
+    /// each band's heating with `1` for `LSSF = 1`, else MT=301 by `gety1`
+    /// at the unresolved energy over the infinite-dilution total
+    /// (`purr.f90:526-532`), stored through MT=153's text. `None` is the
+    /// deck without HEATR (`ihave = 0`, the column zero).
+    pub fn from_endf_with_mt301(
+        tape: &Tape,
+        mat: i32,
+        temperature_k: f64,
+        nbin: usize,
+        nladr: usize,
+        nsamp: usize,
+        mt301: Option<&crate::heatr::Kerma>,
+    ) -> Result<Option<Self>, NjoyError> {
         let Some(sec) = tape.section(mat, 2, 151) else {
             return Ok(None);
         };
@@ -413,13 +432,32 @@ impl UrrProbabilityTables {
 
             // Heating: upstream PURR fills this column from HEATR's MT=301
             // (and, for full fluctuations, MT=302/318/402) on the PENDF tape it
-            // reads (`rdheat`, `purr.f90:267-279`). This builds from an ENDF
-            // **evaluation**, which carries no MT=301, so it is upstream's
-            // `ihave = 0` case exactly: "no heating found on pendf / ur heating
-            // set to zero". The reference `RECONR+BROADR+PURR+ACER` deck has no
-            // HEATR either, and NJOY's own U-238 table's heating column is
-            // all zeros — measured, not assumed.
-            let heating = vec![0.0; value.len()];
+            // reads (`rdheat`, `purr.f90:267-279`). Without HEATR it is
+            // `ihave = 0`, "ur heating set to zero" (the five-route NJOY2016
+            // deck, measured: U-238's column is all zeros). With HEATR's
+            // MT=301 alone it is `ihave = 1` (`:526-532`): not `sigfig`'d,
+            // but written to MT=153 as text. ~~This builds from an ENDF
+            // evaluation, which carries no MT=301, so it is always
+            // `ihave = 0`~~ (CORRECTED 2026-10-15: `AceDeck`'s default runs
+            // HEATR first, as the deck order does; NJOY2016 with HEATR wrote
+            // Zn-70's column as 1 where ours wrote 0).
+            let heating = match mt301 {
+                None => vec![0.0; value.len()],
+                Some(_) if range.lssf == 1 => vec![1.0; value.len()],
+                Some(k) => {
+                    use crate::endf::gety1::Gety1;
+                    use crate::endf::parse::{format_endf_float, parse_endf_float};
+                    let tab = crate::endf::records::Tab1 {
+                        head: crate::endf::records::Cont { c1: 0.0, c2: 0.0, l1: 0, l2: 0, n1: 1, n2: k.energy.len() as i32 },
+                        interp: vec![(k.energy.len() as u32, 2)],
+                        pairs: k.energy.iter().copied().zip(k.h.iter().copied()).collect(),
+                    };
+                    let mut g = Gety1::new(&tab);
+                    let _ = g.get(0.0);
+                    let h = g.get(e.abs()).y / t.bondarenko[0][0];
+                    vec![parse_endf_float(&format_endf_float(h)).unwrap_or(h); value.len()]
+                }
+            };
             points.push(UrrPoint { cum, value, heating });
         }
 

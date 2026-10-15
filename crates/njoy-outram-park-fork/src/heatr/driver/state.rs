@@ -307,6 +307,10 @@ pub(super) struct Heatr {
     pub kchk: i32,
     pub iprint: i32,
     pub local: i32,
+    /// Card 1's `nendf > 0`: the ENDF input is text, so HEATR's scratch
+    /// copies of it (`nscr`, `nend4`, `heatr.f90:289-292`) are text too, and
+    /// what `hconvr` writes to them is read back through `a11`.
+    pub text_scratch: bool,
     /// `break`: the displacement energy (0 until defaulted).
     pub brk: f64,
 
@@ -410,6 +414,7 @@ impl Heatr {
             kchk: 0,
             iprint: 0,
             local: 0,
+            text_scratch: false,
             brk: 0.0,
             iverf: 6,
             mgam: 0,

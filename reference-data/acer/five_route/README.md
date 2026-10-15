@@ -29,6 +29,15 @@ NJOY version and commit, date, and this workspace's revision.
 | `Ti48_0K_njoy2016.ace.gz` | `n-022_Ti_048-ENDF8.0.endf` (2231) | Type 1, **0 K**; added 2026-10-15 (#875) |
 | `Zn64_0K_njoy2016.ace.gz` | `n-030_Zn_064-ENDF8.0.endf` (3025) | Type 1, **0 K**; added 2026-10-15 (#875) |
 | `Zn70_293.6K_njoy2016.ace.gz` | `n-030_Zn_070-ENDF8.0.endf` (3043) | ~~Type 1; added 2026-10-15 (#875)~~ **Type 2 since 2026-10-15** (the same deck with `itype = 2`; comment `Zn70 E8.0 NJOY2016 2016.79 ac5adf5 2026-10-15 opb 093d859`; SHA-256 `5b4c1400…ffc601b807`). Its LUNR block holds the MT=153 values NJOY2016 read back as text, which a Type-1 file prints too coarsely to check bit for bit |
+| `Ti48_0K_heatr_njoy2016.ace.gz` | `n-022_Ti_048-ENDF8.0.endf` (2231) | **Type 2, 0 K, with HEATR**: `reconr -> heatr (20 21 26 / 2231 0 0 0 0 0 /) -> acer`; added 2026-10-15 |
+| `Zn70_293.6K_heatr_njoy2016.ace.gz` | `n-030_Zn_070-ENDF8.0.endf` (3043) | **Type 2, 293.6 K, with HEATR**: `reconr -> broadr -> heatr -> purr -> acer`; added 2026-10-15 |
+
+The two `_heatr_` tables are the deck the LCT-008 Rust library actually runs
+(`write_ace_library`, HEATR on by default), with HEATR between BROADR and
+PURR and every unit positive (text), as an NJOY2016 deck would carry it. The
+five-route NJOY2016 library itself has no HEATR, so its heating column is
+zero; these references hold the heating number, PURR's heating column and
+HEATR's text hand-offs to NJOY2016's bits.
 
 **Type 2 is the stronger reference.** It holds the doubles NJOY2016 had in
 memory; a Type-1 file rounds them to 12 figures, which hides `sigfig`'s

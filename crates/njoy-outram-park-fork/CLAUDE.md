@@ -841,6 +841,34 @@ Three things worth carrying forward:
   did. When a builder refuses, compare against upstream before trusting the
   refusal's scope.
 
+## The LCT-008 library with HEATR is NJOY2016's bit for bit (2026-10-15)
+
+The five-route parity above runs **without HEATR**, as the NJOY2016 deck
+does. The library routes 2 and 5 read (`write_ace_library`) runs HEATR by
+default, so its heating numbers were never compared. Against NJOY2016 on the
+same decks **with HEATR** (text units, `itype 2`), every heating difference
+came from a value upstream hands on through a **text tape**, or computes at
+a point in its walk we had not reproduced:
+- PURR's `rdheat` reads HEATR's MT=301 for the bands' heating column
+  (`ihave = 1`); the deck now runs HEATR before PURR;
+- `acelod` divides MT=301 by the **running** total at MT=301, before the
+  9-figure pass;
+- ACER reads HEATR's MT=301 as printed, and `unionx` carries it onto the
+  grid through a text scratch tape (`a11`);
+- HEATR's `hconvr` hands its converted LO=2 yields to `gheat` through
+  text when card 1's ENDF unit is positive (`HeatrInput::units`); the
+  committed HEATR decks use `-21` and are unchanged.
+
+`sigfig` now takes `log10` and `**` from PETIR (`petir::real::powi`, libgcc's
+`__powidf2`): `f64::powi` gave a different last bit on Windows. Record:
+`verification_and_validation/ace_five_route_parity_2026_10_15_library.md`.
+Gates: `ti48_heating_number_with_heatr_is_njoy2016s`,
+`zn70_purr_heating_column_with_heatr_is_njoy2016s`.
+
+**The lesson, again:** a reference made with a different deck from the code
+under test checks only what the decks share. Compare the files the runs
+actually read.
+
 ## mcnpx format, and why a read-then-write round trip is worth asserting (2026-09-22)
 
 The mcnpx variant (negative `iopt`, a 13-character ZAID) was "implemented and

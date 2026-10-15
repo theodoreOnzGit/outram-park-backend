@@ -361,6 +361,17 @@ impl Heatr {
 
         // The working copy of the material.
         self.conv = self.hconvr(endf)?;
+        if self.text_scratch {
+            // `hconvr` writes the working copy to `nend4`/`nscr`, which are
+            // text when card 1's ENDF unit is (`heatr.f90:289-292`), so the
+            // converted MF=12 LO=2 yields come back through `a11`: Ti-48's
+            // MT=55 yield 1.7845837955e-3 is 1.784584e-3 there, which moved
+            // MT=301 by one unit in the 7th figure at 3.82 and 5.70 MeV
+            // against NJOY2016 (2026-10-15, found with an instrumented build).
+            let mut text = Vec::new();
+            self.conv.write(&mut text)?;
+            self.conv = Tape::read(&text[..])?;
+        }
 
         // The energy grid of the total cross section.
         let mt1 = pendf

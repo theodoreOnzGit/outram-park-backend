@@ -495,26 +495,29 @@ pub(crate) fn deck_modules(
     deck: &AceDeck,
 ) -> Result<DeckModules, crate::NjoyError> {
     const K_BOLTZMANN_MEV: f64 = 8.617_333_262e-11;
+    // HEATR, as the deck runs it: the full translation of `heatr.f90` on this
+    // PENDF, photons transported (`local = 0`); ACER takes MT=301 from its
+    // tape as upstream's ACER takes it from HEATR's (`acefc.f90:5641-5645`).
+    // Before 2026-10-05 this was `Kerma::from_endf(..).with_energy_balance`,
+    // an approximation of `nheat`/`gheat` on its own grid. It runs BEFORE
+    // PURR, as in the deck (`... broadr -> heatr -> purr -> acer`), because
+    // PURR's `rdheat` reads its MT=301 for the bands' heating column.
+    let kerma = if deck.heatr {
+        Some(crate::heatr::heatr_kerma(tape, mat, pendf)?)
+    } else {
+        None
+    };
     let urr = match deck.purr {
-        Some((nbin, nladr, nsamp)) => crate::purr::UrrProbabilityTables::from_endf(
+        Some((nbin, nladr, nsamp)) => crate::purr::UrrProbabilityTables::from_endf_with_mt301(
             tape,
             mat,
             deck.temperature_k.unwrap_or(kt_mev / K_BOLTZMANN_MEV),
             nbin,
             nladr,
             nsamp,
+            kerma.as_ref(),
         )?,
         None => None,
-    };
-    // HEATR, as the deck runs it: the full translation of `heatr.f90` on this
-    // PENDF, photons transported (`local = 0`); ACER takes MT=301 from its
-    // tape as upstream's ACER takes it from HEATR's (`acefc.f90:5641-5645`).
-    // Before 2026-10-05 this was `Kerma::from_endf(..).with_energy_balance`,
-    // an approximation of `nheat`/`gheat` on its own grid.
-    let kerma = if deck.heatr {
-        Some(crate::heatr::heatr_kerma(tape, mat, pendf)?)
-    } else {
-        None
     };
     Ok(DeckModules { urr, kerma })
 }
