@@ -514,10 +514,12 @@ pub mod jemima {
 /// outside.
 ///
 /// As `examples/hst009_keff.rs` transcribed it and as the five-route study
-/// runs it, with that example's three stated approximations: **U-236
-/// omitted** (8.8837e-6 /b·cm, 0.5 % of the uranium; no tape here), **O-17
-/// folded into O-16**, and **Cu and Zn omitted from the tank**. U-236 is
-/// deferred by the maintainer (2026-10-14) and tracked on gh:#875. Collected
+/// runs it, with that example's stated approximations: ~~**U-236
+/// omitted** (8.8837e-6 /b·cm, 0.5 % of the uranium; no tape here),~~
+/// **O-17 folded into O-16**, and **Cu and Zn omitted from the tank**.
+/// **CHANGED 2026-10-15 (maintainer direction, gh:#875):** U-236 is in the
+/// model at the benchmark's 8.8837e-6 /b·cm, appended last in [`NUCLIDES`]
+/// so the other indices are unchanged. Collected
 /// here on 2026-10-13 (GitHub #859) for the same reason as [`jemima`];
 /// `examples/hst009_keff.rs` still carries its own copy.
 ///
@@ -541,7 +543,7 @@ pub mod hst009 {
     pub const TEMPERATURE_K: f64 = 293.6;
     /// `(name, ENDF/B-VIII.0 tape in reference-data/endf/)`, in the order
     /// [`materials`] indexes them.
-    pub const NUCLIDES: [(&str, &str); 11] = [
+    pub const NUCLIDES: [(&str, &str); 12] = [
         ("U234", "n-092_U_234-ENDF8.0.endf"),
         ("U235", "n-092_U_235-ENDF8.0.endf"),
         ("U238", "n-092_U_238.endf"),
@@ -553,6 +555,7 @@ pub mod hst009 {
         ("Si29", "n-014_Si_029-ENDF8.0.endf"),
         ("Si30", "n-014_Si_030-ENDF8.0.endf"),
         ("Mn55", "n-025_Mn_055-ENDF8.0.endf"),
+        ("U236", "n-092_U_236-ENDF8.0.endf"),
     ];
     /// Index of H-1 in [`NUCLIDES`] (it takes the thermal scattering law).
     pub const N_H1: usize = 5;
@@ -570,6 +573,7 @@ pub mod hst009 {
             &[
                 ("U234", 1.7561e-05),
                 ("U235", 1.6626e-03),
+                ("U236", 8.8837e-06),
                 ("U238", 9.4079e-05),
                 ("F19", 3.5663e-03),
                 ("O16", 3.334735656e-02 + 1.264344e-05),
@@ -693,7 +697,9 @@ mod icsbep_model_tests {
     /// appears in the solution and the water, not the tank. **Result
     /// (2026-10-13):** no mismatch, and the solution takes its volume share
     /// of the points inside the model, to within 0.003
-    /// ((11.5177 / 35)³ = 0.0356).
+    /// ((11.5177 / 35)³ = 0.0356). Since 2026-10-15 (gh:#875) it also pins
+    /// U-236 in the solution, and only there, at the benchmark's
+    /// 8.8837e-6 /b·cm.
     #[test]
     fn hst009_is_three_concentric_spheres() {
         let g = hst009::geometry();
@@ -728,6 +734,10 @@ mod icsbep_model_tests {
         assert_eq!(hst009::NUCLIDES[hst009::N_H1].0, "H1");
         let has_h = |i: usize| m[i].components.iter().any(|c| c.nuclide_idx == hst009::N_H1);
         assert!(has_h(hst009::MAT_SOLUTION) && !has_h(hst009::MAT_TANK) && has_h(hst009::MAT_WATER));
+        let u236 = hst009::NUCLIDES.iter().position(|(n, _)| *n == "U236").expect("U236 in NUCLIDES");
+        let u236_in = |i: usize| m[i].components.iter().find(|c| c.nuclide_idx == u236).map(|c| c.atom_density);
+        assert_eq!(u236_in(hst009::MAT_SOLUTION), Some(8.8837e-06));
+        assert!(u236_in(hst009::MAT_TANK).is_none() && u236_in(hst009::MAT_WATER).is_none());
         assert_eq!(m.iter().map(|x| x.id).collect::<Vec<_>>(), vec![1, 2, 3]);
         let b = hst009::source_box();
         assert_eq!(material_at(&g, Position::new(0.5 * b.upper.x, 0.0, 0.0)), Some(hst009::MAT_SOLUTION));

@@ -657,7 +657,9 @@ mod tests {
             (Rung::Godiva, (5000, 40, 120), 0.99994),
             (Rung::Jemima, (5000, 40, 120), 0.996092),
             (Rung::Hst009, (5000, 40, 120), 1.001975),
-            (Rung::Lct008, (5000, 40, 120), 1.002360),
+            // The lattice's record is the full 35-nuclide model since
+            // 2026-10-15 (`lct008-full`); it was the 11-nuclide 1.002360.
+            (Rung::Lct008, (5000, 40, 120), 1.001178),
         ];
         // Benchmark k and its uncertainty, as tabulated by Mosteller
         // (LA-UR-10-06230) and van der Marck (Nucl. Data Sheets 107, 2006);
@@ -679,7 +681,13 @@ mod tests {
             // Every recorded k is printed with its date and commit, and the
             // reference code with its versions (maintainer, 2026-10-14).
             let code = rec.code.unwrap_or_else(|| panic!("{name} has no reference-code k"));
-            assert!(code.label.contains("OpenMC 0.16.1-dev25 at d7d3284a1 on NJOY2016 2016.79 at ac5adf5") && code.label.ends_with("2026-09-30"), "{name}: {}", code.label);
+            // The lattice's full-model route 1 ran on OpenMC ec3bc73, 2026-10-14.
+            let (openmc, date) = if r == Rung::Lct008 {
+                ("OpenMC ec3bc73 on NJOY2016 2016.79 at ac5adf5", "2026-10-14")
+            } else {
+                ("OpenMC 0.16.1-dev25 at d7d3284a1 on NJOY2016 2016.79 at ac5adf5", "2026-09-30")
+            };
+            assert!(code.label.contains(openmc) && code.label.ends_with(date), "{name}: {}", code.label);
             assert!(code.sem > 0.0 && (code.k - rec.k).abs() < 0.002, "{name}: {} against {}", code.k, rec.k);
             assert!(rec.label.contains(" at ") && rec.label.contains("2026-"), "{name}: {}", rec.label);
             let lines = keff::reference_lines(&rec);

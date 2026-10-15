@@ -165,7 +165,7 @@ jobs:
           cp target/x86_64-linux-android/release/examples/icsbep_five_route_keff stage/
           cp crates/outram-mc-libs/verification_and_validation/icsbep/five_route_keff/data/summary_keff.csv stage/
           # Only the tapes the four cases read.
-          for t in n-092_U_234-ENDF8.0.endf n-092_U_235-ENDF8.0.endf n-092_U_238.endf \
+          for t in n-092_U_234-ENDF8.0.endf n-092_U_235-ENDF8.0.endf n-092_U_236-ENDF8.0.endf n-092_U_238.endf \
                    n-009_F_019-ENDF8.0.endf n-008_O_016-ENDF8.0.endf n-001_H_001-ENDF8.0-Beta6.endf \
                    n-013_Al_027-ENDF8.0.endf n-014_Si_028-ENDF8.0.endf n-014_Si_029-ENDF8.0.endf \
                    n-014_Si_030-ENDF8.0.endf n-025_Mn_055-ENDF8.0.endf n-005_B_010-ENDF8.0.endf \

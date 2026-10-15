@@ -157,9 +157,9 @@ impl McRung for Lct008 {
     fn notes() -> &'static [&'static str] {
         &[
             "Model: ICSBEP LEU-COMP-THERM-008 case 1 (Babcock & Wilcox critical lattice): 4961 rods of 2.459 w/o UO₂ in Al-6061 clad, 1.63576 cm pitch, in water with 1511 ppm boron, arranged as a 7 × 7 core lattice of 15 × 15 pin lattices. Read at run time from the committed mit-crpg/benchmarks OpenMC cards by the same code the recorded result was measured with.",
-            "Data: ENDF/B-VIII.0, processed in this browser by OUTRAM PARK's NJOY port. Watch: tolerance 0.01 (NJOY uses 0.001; measured effect on this lattice −65 ± 40 pcm). Run k_eff and the pitch view: NJOY's 0.001, as the record. Hydrogen in the water uses the H in H₂O S(α,β) thermal-scattering law, generated in this browser by OUTRAM PARK's LEAPR port from the ENDF/B-VIII.0 deck (no tape is downloaded for it). All 35 nuclides of the benchmark cards, the clad's trace elements (Mg, Ti, Cr, Fe, Cu, Zn) and B-11 included. The recorded results quoted here were measured on 11 of them, leaving those out; the 24 extra are worth −75 ± 14 pcm (32 full-model runs, 2026-10-05).",
+            "Data: ENDF/B-VIII.0, processed in this browser by OUTRAM PARK's NJOY port. Watch: tolerance 0.01 (NJOY uses 0.001; measured effect on this lattice −65 ± 40 pcm). Run k_eff and the pitch view: NJOY's 0.001, as the record. Hydrogen in the water uses the H in H₂O S(α,β) thermal-scattering law, generated in this browser by OUTRAM PARK's LEAPR port from the ENDF/B-VIII.0 deck (no tape is downloaded for it). All 35 nuclides of the benchmark cards, the clad's trace elements (Mg, Ti, Cr, Fe, Cu, Zn) and B-11 included. The recorded results quoted here are on the same 35 (2026-10-14).",
             "Each track is one real history (a one-particle fixed-source run through the nested lattices), drawn projected from above. Chaining one neutron after the next is the illustration.",
-            "Run k_eff is true Monte Carlo on the whole core: outram-mc-libs' single-thread CSG power iteration (`CsgPowerIteration`, what `run_keff_csg` runs), one generation at a time. Its default, 5000 neutrons × [40 inactive + 120 active], is sized to run in a browser, like the other benchmark rungs. It is smaller than the recorded campaign's 10 000 × [250 + 400] (96 seeds: +166 ± 8 pcm from the benchmark k of 1.0007 ± 0.0016; OpenMC on NJOY2016 data +174 ± 5), and at the default the fission source of this 1.5 m core has not fully settled: 16 native seeds gave k about 80 pcm above the campaign's. One run scatters by about 190 pcm, so that offset is inside one run's noise. For a k comparable with the record, set the campaign's numbers and wait.",
+            "Run k_eff is true Monte Carlo on the whole core: outram-mc-libs' single-thread CSG power iteration (`CsgPowerIteration`, what `run_keff_csg` runs), one generation at a time. Its default, 5000 neutrons × [40 inactive + 120 active], is sized to run in a browser, like the other benchmark rungs. It is smaller than the recorded campaign's 10 000 × [250 + 400] (8 seeds on all 35 nuclides: +48 ± 19 pcm from the benchmark k of 1.0007 ± 0.0016; OpenMC on NJOY2016 data +98 ± 23), and at the default the fission source of this 1.5 m core has not fully settled: 16 native seeds on the 11-nuclide model gave k about 80 pcm above that model's campaign. One run scatters by about 190 pcm, so that offset is inside one run's noise. For a k comparable with the record, set the campaign's numbers and wait.",
             "\"pitch k∞\" runs a real, single-threaded power iteration of ONE rod in a reflective square cell (an infinite lattice, no leakage) at the pitch you choose, on the same data, and draws it against the recorded sweep. It is k∞ of the pin lattice, not the core's k_eff.",
             "The σ(E) panel shows the cross sections this tab processed for transport, decimated for drawing: U-238 capture (σ_a − σ_f), U-235 fission and H-1 scattering with the water's S(α,β) law below its cutoff.",
             "The Shannon entropy of the fission source is on a 5 × 5 × 5 mesh over the core's bounding box, so at most 6.97 bits. A CSG run reports no leaked / captured / fissioned counts (the sphere-only iteration of the Godiva rung does).",
@@ -179,15 +179,19 @@ impl McRung for Lct008 {
         Some(KeffConfig { n_particles: 5000, n_inactive: 40, n_active: 120, seed: 1, point_source: false, want_sites: false })
     }
     /// Route 4 of the five-route study (outram-mc on the Rust NJOY port,
-    /// ENDF read directly), read from the committed campaign summary. It
-    /// was measured on the 11-nuclide tier; this rung runs all 35 since
+    /// ENDF read directly), read from the committed campaign summary.
+    /// ~~It was measured on the 11-nuclide tier; this rung runs all 35 since
     /// 2026-10-14, about 75 pcm lower (gh:#533), which the labels say. No
-    /// full-model campaign row exists yet.
+    /// full-model campaign row exists yet.~~ **CHANGED 2026-10-15
+    /// (maintainer direction):** the summary's `lct008-full` rows, the
+    /// 35-nuclide model this rung runs (all five routes, 8 seeds each,
+    /// 2026-10-14). Eight seeds give ±19 pcm on route 4, wider than the
+    /// retired 11-nuclide row's ±8 at 96 seeds, but on the right model.
     fn reference() -> Option<Reference> {
         crate::keff::five_route_reference(
-            "lct008",
-            "five-route study route 4, 96 seeds x 10000 x [250+400], 2026-09-30, at 0414bc8277, on 11 of the 35 nuclides this demo runs (the 24 extra are worth -75 +/- 14 pcm, gh:#533)",
-            crate::route1_label!("96 seeds x 10000 x [250+400], on 11 of the 35 nuclides"),
+            "lct008-full",
+            "five-route study route 4, 8 seeds x 10000 x [250+400], 2026-10-14, at da354c70ba, all 35 nuclides (the model this demo runs)",
+            "OpenMC ec3bc73 on NJOY2016 2016.79 at ac5adf5, five-route study route 1, 8 seeds x 10000 x [250+400], all 35 nuclides, 2026-10-14",
             10_000.0 * 400.0,
             ("ICSBEP LEU-COMP-THERM-008 case 1 benchmark k, as tabulated by Mosteller (LA-UR-10-06230)", model::BENCHMARK_K, model::BENCHMARK_SIGMA),
         )

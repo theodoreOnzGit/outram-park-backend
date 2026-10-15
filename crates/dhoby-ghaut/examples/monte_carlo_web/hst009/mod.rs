@@ -7,9 +7,9 @@
 //! **Nothing is retyped here.** Geometry, materials and tapes are
 //! [`outram_mc_libs::vv::hst009`], the model the recorded result (route 4 of
 //! the five-route study) and the acceptance check were measured on, with
-//! that model's three stated approximations (U-236 and the tank's Cu and Zn
-//! omitted, O-17 folded into O-16). U-236 is deferred by the maintainer
-//! (2026-10-14) and tracked on gh:#875. The rung's machinery is
+//! that model's stated approximations (the tank's Cu and Zn omitted, O-17
+//! folded into O-16). ~~U-236 is deferred by the maintainer (2026-10-14)~~
+//! **CHANGED 2026-10-15 (gh:#875):** U-236 is in the model. The rung's machinery is
 //! [`crate::csgrung`].
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -32,7 +32,7 @@ use outram_mc_libs::vv::hst009 as model;
 pub struct Hst009;
 
 /// `(label shown, nuclide name, tape)` in [`model::NUCLIDES`] order.
-const NUCLIDES: [(&str, &str, &str); 11] = [
+const NUCLIDES: [(&str, &str, &str); 12] = [
     ("U-234", model::NUCLIDES[0].0, model::NUCLIDES[0].1),
     ("U-235", model::NUCLIDES[1].0, model::NUCLIDES[1].1),
     ("U-238", model::NUCLIDES[2].0, model::NUCLIDES[2].1),
@@ -44,10 +44,11 @@ const NUCLIDES: [(&str, &str, &str); 11] = [
     ("Si-29", model::NUCLIDES[8].0, model::NUCLIDES[8].1),
     ("Si-30", model::NUCLIDES[9].0, model::NUCLIDES[9].1),
     ("Mn-55", model::NUCLIDES[10].0, model::NUCLIDES[10].1),
+    ("U-236", model::NUCLIDES[11].0, model::NUCLIDES[11].1),
 ];
 const SAB_LABEL: &str = "H in H2O S(a,b)";
-/// Every tape, `(label, file)`: the eleven nuclides, then the S(α,β) law.
-pub const JOBS: [(&str, &str); 12] = [
+/// Every tape, `(label, file)`: the twelve nuclides, then the S(α,β) law.
+pub const JOBS: [(&str, &str); 13] = [
     (NUCLIDES[0].0, NUCLIDES[0].2),
     (NUCLIDES[1].0, NUCLIDES[1].2),
     (NUCLIDES[2].0, NUCLIDES[2].2),
@@ -59,6 +60,7 @@ pub const JOBS: [(&str, &str); 12] = [
     (NUCLIDES[8].0, NUCLIDES[8].2),
     (NUCLIDES[9].0, NUCLIDES[9].2),
     (NUCLIDES[10].0, NUCLIDES[10].2),
+    (NUCLIDES[11].0, NUCLIDES[11].2),
     (SAB_LABEL, crate::tapes::LEAPR_H_IN_H2O),
 ];
 const N_U235: usize = 1;
@@ -122,11 +124,12 @@ impl McRung for Hst009 {
     /// Native seconds per job, i9-13900K, one thread, shared machine: the
     /// uranium tapes as the Godiva rung measured them, the light nuclides and
     /// the thermal law as the LCT-008 rung did at tolerance 0.01; F-19 was
-    /// not measured and is a guess. Progress-bar weights only.
+    /// not measured and is a guess, and so is U-236 (2026-10-15: U-234's
+    /// weight, a uranium tape of similar size). Progress-bar weights only.
     fn job_weights(tier: Tier) -> Vec<f64> {
         match tier {
-            Tier::Exact => vec![1.6, 29.5, 31.1, 1.0, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 1.0, 16.2],
-            Tier::Loose => vec![1.0, 11.2, 11.6, 0.5, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.5, 16.2],
+            Tier::Exact => vec![1.6, 29.5, 31.1, 1.0, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 1.0, 1.6, 16.2],
+            Tier::Loose => vec![1.0, 11.2, 11.6, 0.5, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.5, 1.0, 16.2],
         }
     }
     fn half_extent() -> f64 {
@@ -151,8 +154,8 @@ impl McRung for Hst009 {
     fn notes() -> &'static [&'static str] {
         &[
             "Model: ICSBEP HEU-SOL-THERM-009 case 1: a sphere of highly enriched uranium oxyfluoride (UO₂F₂) solution, r = 11.5177 cm, in a 1100-aluminium tank 0.1587 cm thick, reflected by water to r = 35 cm, 293.6 K. The numbers are outram-mc-libs' `vv::hst009`, the model the recorded result was measured on.",
-            "Three stated approximations, as in the record: U-236 is omitted (0.5 % of the uranium, no tape here), O-17 is folded into O-16, and the tank's copper and zinc are omitted.",
-            "Data: ENDF/B-VIII.0, eleven nuclides, processed in this browser by OUTRAM PARK's NJOY port. Hydrogen uses the H in H₂O S(α,β) thermal-scattering law, in the solution and in the reflector. Run k_eff: NJOY's tolerance 0.001 (as the record). Watch: the loosened 0.01, whose measured effect on this case is −57 ± 35 pcm.",
+            "Two stated approximations, as in the record: O-17 is folded into O-16, and the tank's copper and zinc are omitted. U-236 (0.5 % of the uranium) has been in the model since 2026-10-15; the recorded results quoted below were measured without it.",
+            "Data: ENDF/B-VIII.0, twelve nuclides, processed in this browser by OUTRAM PARK's NJOY port. Hydrogen uses the H in H₂O S(α,β) thermal-scattering law, in the solution and in the reflector. Run k_eff: NJOY's tolerance 0.001 (as the record). Watch: the loosened 0.01, whose measured effect on this case is −57 ± 35 pcm.",
             "Run k_eff is true Monte Carlo: outram-mc-libs' single-thread CSG power iteration (`CsgPowerIteration`, what `run_keff_csg` runs), one generation at a time.",
             "The benchmark k is 0.9990 ± 0.0043 (430 pcm), not 1. On this data the case sits inside that band: OpenMC on NJOY2016 data gives +334 ± 22 pcm from the benchmark k and outram-mc +298 ± 32 pcm (32 seeds each).",
             "Watch, one neutron at a time, is an illustration: each track is one real history (a one-particle fixed-source run), chained by hand. Tracks are 3D, drawn projected onto the plane of the picture.",
@@ -182,7 +185,7 @@ impl McRung for Hst009 {
         )
     }
     fn loading_note(_tier: Tier) -> Option<&'static str> {
-        Some("Twelve tapes, including the water's thermal-scattering law: allow a few minutes in a browser, longer on a phone. Later visits read the processed data from this browser's cache.")
+        Some("Thirteen tapes, including the water's thermal-scattering law: allow a few minutes in a browser, longer on a phone. Later visits read the processed data from this browser's cache.")
     }
     fn legend(ui: &mut egui::Ui) {
         ui.strong("Materials");

@@ -582,7 +582,7 @@ pub struct BuildReport {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> BuildReport { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -597,7 +597,7 @@ pub struct BuildReport {
 
 - **Default**
   - ```rust
-    fn default() -> Self { /* ... */ }
+    fn default() -> BuildReport { /* ... */ }
     ```
 
 - **DistributionExt**
@@ -633,7 +633,7 @@ pub struct BuildReport {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &BuildReport) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -802,7 +802,7 @@ pub struct VirtualLattice {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> VirtualLattice { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -838,7 +838,7 @@ pub struct VirtualLattice {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &VirtualLattice) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -1021,7 +1021,7 @@ pub struct DistribcellOffsets {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> DistribcellOffsets { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -1057,7 +1057,7 @@ pub struct DistribcellOffsets {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &DistribcellOffsets) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -1232,7 +1232,7 @@ pub struct SurfaceCrossing {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> SurfaceCrossing { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -1540,7 +1540,7 @@ A material, counted at the leaf.
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> VolumeDomain { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -1587,7 +1587,7 @@ A material, counted at the leaf.
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &VolumeDomain) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -1702,7 +1702,7 @@ pub struct BoundingBox {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> BoundingBox { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -1851,7 +1851,7 @@ pub struct VolumeResult {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> VolumeResult { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -1888,7 +1888,7 @@ pub struct VolumeResult {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &VolumeResult) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -2007,7 +2007,7 @@ pub struct VolumeCalculation {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> VolumeCalculation { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -2175,7 +2175,7 @@ pub enum ParticleType {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> ParticleType { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -2222,7 +2222,7 @@ pub enum ParticleType {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &ParticleType) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -2341,7 +2341,7 @@ pub enum TallyEvent {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> TallyEvent { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -2388,7 +2388,7 @@ pub enum TallyEvent {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &TallyEvent) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -2649,7 +2649,7 @@ pub struct BankSite {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> BankSite { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -2960,7 +2960,7 @@ pub struct NuclideComponent {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> NuclideComponent { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -3109,7 +3109,7 @@ pub struct MacroXs {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> MacroXs { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -3125,7 +3125,7 @@ pub struct MacroXs {
 
 - **Default**
   - ```rust
-    fn default() -> Self { /* ... */ }
+    fn default() -> MacroXs { /* ... */ }
     ```
 
 - **DistributionExt**
@@ -3297,7 +3297,7 @@ pub struct Material {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> Material { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -3496,7 +3496,7 @@ pub struct MicroXS {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> MicroXS { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -3512,7 +3512,7 @@ pub struct MicroXS {
 
 - **Default**
   - ```rust
-    fn default() -> Self { /* ... */ }
+    fn default() -> MicroXS { /* ... */ }
     ```
 
 - **DistributionExt**
@@ -3667,7 +3667,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> Inelastic { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -4275,7 +4275,7 @@ pub struct Nuclide {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> Nuclide { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -4420,7 +4420,7 @@ pub struct OtherEmission {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> OtherEmission { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -4619,7 +4619,7 @@ pub struct DelayedData {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> DelayedData { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -4994,7 +4994,7 @@ pub struct ProcessedEvaluation {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> ProcessedEvaluation { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -5182,7 +5182,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> ReactionMT { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -5234,7 +5234,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &ReactionMT) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -5461,7 +5461,7 @@ thermal bias of that order.
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> SpeedTier { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -5477,7 +5477,7 @@ thermal bias of that order.
 
 - **Default**
   - ```rust
-    fn default() -> Self { /* ... */ }
+    fn default() -> SpeedTier { /* ... */ }
     ```
 
 - **Display**
@@ -5530,7 +5530,7 @@ thermal bias of that order.
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &SpeedTier) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -5770,7 +5770,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> ThermalElastic { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -5937,7 +5937,7 @@ pub struct CoherentElasticTable {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> CoherentElasticTable { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -6092,7 +6092,7 @@ pub struct IncoherentElasticTable {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> IncoherentElasticTable { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -6245,6 +6245,11 @@ pub struct ThermalScattering {
   Build the tables from an S(α,β) law **regenerated by LEAPR**, with no
 
 - ```rust
+  pub fn from_embedded_leapr_deck(material: njoy_outram_park_fork::leapr::decks::SabMaterial, temperature_k: f64, name: &str) -> Result<Self, NjoyError> { /* ... */ }
+  ```
+  Build the tables from the **ENDF/B-VIII.0 LEAPR deck compiled into
+
+- ```rust
   pub fn from_ace(table: &njoy_outram_park_fork::acer::read::RawAceTable, name: &str) -> Result<Self, NjoyError> { /* ... */ }
   ```
   Bake the tables from an already-parsed ENDF tape — the shared body of
@@ -6338,7 +6343,7 @@ pub struct ThermalScattering {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> ThermalScattering { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -6516,7 +6521,7 @@ pub struct SourceSite {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> SourceSite { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -6553,7 +6558,7 @@ pub struct SourceSite {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &SourceSite) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -8071,7 +8076,7 @@ pub struct MeshSource {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> MeshSource { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -8107,7 +8112,7 @@ pub struct MeshSource {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &MeshSource) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -8227,7 +8232,7 @@ pub struct SurfaceCrossing {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> SurfaceCrossing { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -8264,7 +8269,7 @@ pub struct SurfaceCrossing {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &SurfaceCrossing) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -8417,7 +8422,7 @@ pub struct SurfaceSource {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> SurfaceSource { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -8432,7 +8437,7 @@ pub struct SurfaceSource {
 
 - **Default**
   - ```rust
-    fn default() -> Self { /* ... */ }
+    fn default() -> SurfaceSource { /* ... */ }
     ```
 
 - **DistributionExt**
@@ -8458,7 +8463,7 @@ pub struct SurfaceSource {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &SurfaceSource) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -8578,7 +8583,7 @@ pub struct FileSource {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> FileSource { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -8593,7 +8598,7 @@ pub struct FileSource {
 
 - **Default**
   - ```rust
-    fn default() -> Self { /* ... */ }
+    fn default() -> FileSource { /* ... */ }
     ```
 
 - **DistributionExt**
@@ -8619,7 +8624,7 @@ pub struct FileSource {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &FileSource) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -8747,7 +8752,7 @@ pub struct SourceConstraints {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> SourceConstraints { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -8762,7 +8767,7 @@ pub struct SourceConstraints {
 
 - **Default**
   - ```rust
-    fn default() -> Self { /* ... */ }
+    fn default() -> SourceConstraints { /* ... */ }
     ```
 
 - **DistributionExt**
@@ -8788,7 +8793,7 @@ pub struct SourceConstraints {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &SourceConstraints) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -8903,7 +8908,7 @@ pub struct IndependentSpatial {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> IndependentSpatial { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -8939,7 +8944,7 @@ pub struct IndependentSpatial {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &IndependentSpatial) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -9092,7 +9097,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> ScalarSpatial { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -9128,7 +9133,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &ScalarSpatial) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -9638,7 +9643,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> ScalarDist { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -9675,7 +9680,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &ScalarDist) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -9823,7 +9828,7 @@ pub struct PolarAzimuthalAngle {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> PolarAzimuthalAngle { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -9860,7 +9865,7 @@ pub struct PolarAzimuthalAngle {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &PolarAzimuthalAngle) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -10099,7 +10104,7 @@ provenance.
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> ScoreType { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -10146,7 +10151,7 @@ provenance.
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &ScoreType) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -10282,7 +10287,7 @@ pub struct TallyBin {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> TallyBin { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -10297,7 +10302,7 @@ pub struct TallyBin {
 
 - **Default**
   - ```rust
-    fn default() -> Self { /* ... */ }
+    fn default() -> TallyBin { /* ... */ }
     ```
 
 - **DistributionExt**
@@ -10323,7 +10328,7 @@ pub struct TallyBin {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &TallyBin) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -10442,7 +10447,7 @@ pub struct Tally {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> Tally { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -10478,7 +10483,7 @@ pub struct Tally {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Tally) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -10643,7 +10648,7 @@ pub struct FilterEvent {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> FilterEvent { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -10685,7 +10690,7 @@ pub struct FilterEvent {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &FilterEvent) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -10795,7 +10800,7 @@ pub struct SecondarySite {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> SecondarySite { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -10832,7 +10837,7 @@ pub struct SecondarySite {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &SecondarySite) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -10949,7 +10954,7 @@ pub struct CellFilter {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> CellFilter { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -10994,7 +10999,7 @@ pub struct CellFilter {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &CellFilter) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -11102,7 +11107,7 @@ pub struct MaterialFilter {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> MaterialFilter { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -11147,7 +11152,7 @@ pub struct MaterialFilter {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &MaterialFilter) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -11266,7 +11271,7 @@ pub struct EnergyFilter {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> EnergyFilter { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -11311,7 +11316,7 @@ pub struct EnergyFilter {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &EnergyFilter) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -11434,7 +11439,7 @@ pub struct EnergyOutFilter {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> EnergyOutFilter { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -11479,7 +11484,7 @@ pub struct EnergyOutFilter {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &EnergyOutFilter) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -11583,7 +11588,7 @@ pub struct UniverseFilter {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> UniverseFilter { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -11628,7 +11633,7 @@ pub struct UniverseFilter {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &UniverseFilter) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -11755,7 +11760,7 @@ pub struct MeshFilter {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> MeshFilter { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -11805,7 +11810,7 @@ pub struct MeshFilter {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &MeshFilter) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -11922,7 +11927,7 @@ Expand along the z coordinate.
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> LegendreAxis { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -11969,7 +11974,7 @@ Expand along the z coordinate.
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &LegendreAxis) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -12107,7 +12112,7 @@ pub struct SpatialLegendreFilter {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> SpatialLegendreFilter { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -12158,7 +12163,7 @@ pub struct SpatialLegendreFilter {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &SpatialLegendreFilter) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -12272,7 +12277,7 @@ pub struct SurfaceFilter {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> SurfaceFilter { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -12317,7 +12322,7 @@ pub struct SurfaceFilter {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &SurfaceFilter) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -12430,7 +12435,7 @@ pub struct MuFilter {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> MuFilter { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -12475,7 +12480,7 @@ pub struct MuFilter {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &MuFilter) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -12591,7 +12596,7 @@ pub struct PolarAzimuthalFilter {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> PolarAzimuthalFilter { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -12636,7 +12641,7 @@ pub struct PolarAzimuthalFilter {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &PolarAzimuthalFilter) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -12747,7 +12752,7 @@ pub struct TimeFilter {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> TimeFilter { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -12792,7 +12797,7 @@ pub struct TimeFilter {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &TimeFilter) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -12904,7 +12909,7 @@ pub struct ParticleFilter {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> ParticleFilter { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -12949,7 +12954,7 @@ pub struct ParticleFilter {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &ParticleFilter) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -13070,7 +13075,7 @@ pub struct DelayedGroupFilter {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> DelayedGroupFilter { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -13116,7 +13121,7 @@ pub struct DelayedGroupFilter {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &DelayedGroupFilter) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -13245,7 +13250,7 @@ pub struct ZernikeFilter {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> ZernikeFilter { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -13294,7 +13299,7 @@ pub struct ZernikeFilter {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &ZernikeFilter) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -13409,7 +13414,7 @@ pub struct SphericalHarmonicsFilter {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> SphericalHarmonicsFilter { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -13458,7 +13463,7 @@ pub struct SphericalHarmonicsFilter {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &SphericalHarmonicsFilter) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -13945,7 +13950,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> FilterKind { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -13981,7 +13986,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &FilterKind) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -14242,7 +14247,7 @@ Temperature \[K\]. WMP tier only — see the module docs.
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> DerivativeVariable { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -14279,7 +14284,7 @@ Temperature \[K\]. WMP tier only — see the module docs.
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &DerivativeVariable) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -14398,7 +14403,7 @@ pub struct TallyDerivative {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> TallyDerivative { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -14435,7 +14440,7 @@ pub struct TallyDerivative {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &TallyDerivative) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -14545,7 +14550,7 @@ pub struct FluxDerivative {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> FluxDerivative { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -14561,7 +14566,7 @@ pub struct FluxDerivative {
 
 - **Default**
   - ```rust
-    fn default() -> Self { /* ... */ }
+    fn default() -> FluxDerivative { /* ... */ }
     ```
 
 - **DistributionExt**
@@ -14587,7 +14592,7 @@ pub struct FluxDerivative {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &FluxDerivative) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -14733,7 +14738,7 @@ pub struct ReactionFilter {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> ReactionFilter { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -14779,7 +14784,7 @@ pub struct ReactionFilter {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &ReactionFilter) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -14887,7 +14892,7 @@ pub struct CollisionFilter {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> CollisionFilter { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -14932,7 +14937,7 @@ pub struct CollisionFilter {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &CollisionFilter) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -15036,7 +15041,7 @@ pub struct CellFromFilter {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> CellFromFilter { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -15081,7 +15086,7 @@ pub struct CellFromFilter {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &CellFromFilter) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -15185,7 +15190,7 @@ pub struct CellBornFilter {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> CellBornFilter { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -15230,7 +15235,7 @@ pub struct CellBornFilter {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &CellBornFilter) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -15335,7 +15340,7 @@ pub struct MaterialFromFilter {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> MaterialFromFilter { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -15380,7 +15385,7 @@ pub struct MaterialFromFilter {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &MaterialFromFilter) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -15490,7 +15495,7 @@ pub struct WeightFilter {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> WeightFilter { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -15535,7 +15540,7 @@ pub struct WeightFilter {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &WeightFilter) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -15652,7 +15657,7 @@ pub struct MuSurfaceFilter {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> MuSurfaceFilter { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -15697,7 +15702,7 @@ pub struct MuSurfaceFilter {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &MuSurfaceFilter) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -15826,7 +15831,7 @@ pub struct EnergyFunctionFilter {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> EnergyFunctionFilter { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -15876,7 +15881,7 @@ pub struct EnergyFunctionFilter {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &EnergyFunctionFilter) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -16004,7 +16009,7 @@ pub struct LegendreFilter {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> LegendreFilter { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -16063,7 +16068,7 @@ pub struct LegendreFilter {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &LegendreFilter) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -16173,7 +16178,7 @@ pub struct MeshBornFilter {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> MeshBornFilter { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -16218,7 +16223,7 @@ pub struct MeshBornFilter {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &MeshBornFilter) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -16328,7 +16333,7 @@ pub struct ParentNuclideFilter {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> ParentNuclideFilter { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -16383,7 +16388,7 @@ pub struct ParentNuclideFilter {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &ParentNuclideFilter) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -16502,7 +16507,7 @@ pub struct CellInstanceFilter {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> CellInstanceFilter { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -16557,7 +16562,7 @@ pub struct CellInstanceFilter {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &CellInstanceFilter) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -16667,7 +16672,7 @@ pub struct MeshMaterialFilter {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> MeshMaterialFilter { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -16712,7 +16717,7 @@ pub struct MeshMaterialFilter {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &MeshMaterialFilter) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -16834,7 +16839,7 @@ pub struct ParticleProductionFilter {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> ParticleProductionFilter { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -16879,7 +16884,7 @@ pub struct ParticleProductionFilter {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &ParticleProductionFilter) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -17006,7 +17011,7 @@ pub struct MeshSurfaceFilter {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> MeshSurfaceFilter { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -17051,7 +17056,7 @@ pub struct MeshSurfaceFilter {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &MeshSurfaceFilter) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -17171,7 +17176,7 @@ pub struct DistribcellFilter {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> DistribcellFilter { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -17226,7 +17231,7 @@ pub struct DistribcellFilter {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &DistribcellFilter) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -17402,7 +17407,7 @@ Standard deviation of the mean.
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> TriggerMetric { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -17449,7 +17454,7 @@ Standard deviation of the mean.
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &TriggerMetric) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -17558,7 +17563,7 @@ pub struct Trigger {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> Trigger { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -17595,7 +17600,7 @@ pub struct Trigger {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Trigger) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -18127,7 +18132,7 @@ An extra neutron emitted by the same collision.
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> ScatterEmission { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -18174,7 +18179,7 @@ An extra neutron emitted by the same collision.
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &ScatterEmission) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -18726,7 +18731,7 @@ pub struct DerivedTally {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> DerivedTally { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -18762,7 +18767,7 @@ pub struct DerivedTally {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &DerivedTally) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -19037,7 +19042,7 @@ only and are held to a tolerance against the CPU reference.
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> ComputeType { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -19053,7 +19058,7 @@ only and are held to a tolerance against the CPU reference.
 
 - **Default**
   - ```rust
-    fn default() -> Self { /* ... */ }
+    fn default() -> ComputeType { /* ... */ }
     ```
 
 - **DistributionExt**
@@ -19079,7 +19084,7 @@ only and are held to a tolerance against the CPU reference.
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &ComputeType) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -19224,7 +19229,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> ThreadCount { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -19240,7 +19245,7 @@ Fields:
 
 - **Default**
   - ```rust
-    fn default() -> Self { /* ... */ }
+    fn default() -> ThreadCount { /* ... */ }
     ```
 
 - **DistributionExt**
@@ -19266,7 +19271,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &ThreadCount) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -19471,7 +19476,7 @@ A virtual (delta) collision — no physics; continue the flight.
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> DeltaEvent { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -19518,7 +19523,7 @@ A virtual (delta) collision — no physics; continue the flight.
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &DeltaEvent) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -19628,7 +19633,7 @@ pub struct DeltaFlight {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> DeltaFlight { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -19791,7 +19796,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> Advance { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -19828,7 +19833,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Advance) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -19951,7 +19956,7 @@ honestly, so the history is lost and reported as such.
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> SiteContent { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -20003,7 +20008,7 @@ honestly, so the history is lost and reported as such.
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &SiteContent) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -20122,7 +20127,7 @@ pub struct TentativeSite {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> TentativeSite { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -20159,7 +20164,7 @@ pub struct TentativeSite {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &TentativeSite) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -20399,7 +20404,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> SiteTotal { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -20446,7 +20451,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &SiteTotal) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -20596,7 +20601,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> FlightEnd { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -20637,7 +20642,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &FlightEnd) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -20799,7 +20804,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> DeltaStep { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -20840,7 +20845,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &DeltaStep) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -21348,7 +21353,7 @@ a finite run sees a void's flux as rare enormous scores or not at all.
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> DeltaTallyEstimator { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -21364,7 +21369,7 @@ a finite run sees a void's flux as rare enormous scores or not at all.
 
 - **Default**
   - ```rust
-    fn default() -> Self { /* ... */ }
+    fn default() -> DeltaTallyEstimator { /* ... */ }
     ```
 
 - **DistributionExt**
@@ -21400,7 +21405,7 @@ a finite run sees a void's flux as rare enormous scores or not at all.
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &DeltaTallyEstimator) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -21616,7 +21621,7 @@ pub struct Majorant {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> Majorant { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -21631,7 +21636,7 @@ pub struct Majorant {
 
 - **Default**
   - ```rust
-    fn default() -> Self { /* ... */ }
+    fn default() -> Majorant { /* ... */ }
     ```
 
 - **DistributionExt**
@@ -21761,7 +21766,7 @@ pub struct MajorantAudit {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> MajorantAudit { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -22205,7 +22210,7 @@ pub struct SourceSite {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> SourceSite { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -22242,7 +22247,7 @@ pub struct SourceSite {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &SourceSite) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -22369,7 +22374,7 @@ pub struct GenerationChunk {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> GenerationChunk { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -22405,7 +22410,7 @@ pub struct GenerationChunk {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &GenerationChunk) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -22527,7 +22532,7 @@ pub struct ChunkCounts {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> ChunkCounts { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -22543,7 +22548,7 @@ pub struct ChunkCounts {
 
 - **Default**
   - ```rust
-    fn default() -> Self { /* ... */ }
+    fn default() -> ChunkCounts { /* ... */ }
     ```
 
 - **DistributionExt**
@@ -22569,7 +22574,7 @@ pub struct ChunkCounts {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &ChunkCounts) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -22695,7 +22700,7 @@ pub struct ChunkResult {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> ChunkResult { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -22731,7 +22736,7 @@ pub struct ChunkResult {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &ChunkResult) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -22849,7 +22854,7 @@ pub struct DistributedGeneration {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> DistributedGeneration { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -22885,7 +22890,7 @@ pub struct DistributedGeneration {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &DistributedGeneration) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -23052,7 +23057,7 @@ pub struct DistributedPowerIteration {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> DistributedPowerIteration { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -23232,7 +23237,7 @@ pub struct SourceBox {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> SourceBox { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -23379,7 +23384,7 @@ pub struct GenerationProgress {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> GenerationProgress { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -23416,7 +23421,7 @@ pub struct GenerationProgress {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &GenerationProgress) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -23529,7 +23534,7 @@ pub struct CsgGenerationReport {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> CsgGenerationReport { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -23566,7 +23571,7 @@ pub struct CsgGenerationReport {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &CsgGenerationReport) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -23692,6 +23697,16 @@ pub struct CsgPowerIteration {
   ```
   The settings the run was started with.
 
+- ```rust
+  pub fn source_positions(self: &Self) -> Vec<Position> { /* ... */ }
+  ```
+  Where the next generation's neutrons start (the initial source before
+
+- ```rust
+  pub fn source_entropy(self: &Self, mesh: &crate::tally::mesh::RegularMesh) -> Option<f64> { /* ... */ }
+  ```
+  **Shannon entropy of the fission source on `mesh`, in bits**: the
+
 ###### Trait Implementations
 
 - **Any**
@@ -23717,7 +23732,7 @@ pub struct CsgPowerIteration {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> CsgPowerIteration { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -24187,7 +24202,7 @@ pub struct ParticleRestart {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> ParticleRestart { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -24224,7 +24239,7 @@ pub struct ParticleRestart {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &ParticleRestart) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -24442,7 +24457,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> ScatterRepresentation { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -24489,7 +24504,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &ScatterRepresentation) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -24648,7 +24663,7 @@ pub struct LegendreKernel {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> LegendreKernel { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -24684,7 +24699,7 @@ pub struct LegendreKernel {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &LegendreKernel) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -24828,7 +24843,7 @@ pub struct TabularKernel {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> TabularKernel { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -24864,7 +24879,7 @@ pub struct TabularKernel {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &TabularKernel) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -25012,7 +25027,7 @@ pub struct HistogramKernel {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> HistogramKernel { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -25048,7 +25063,7 @@ pub struct HistogramKernel {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &HistogramKernel) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -25242,7 +25257,7 @@ pub struct StatePoint {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> StatePoint { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -25278,7 +25293,7 @@ pub struct StatePoint {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &StatePoint) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -25412,7 +25427,7 @@ pub struct RunSummary {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> RunSummary { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -25448,7 +25463,7 @@ pub struct RunSummary {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &RunSummary) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -25560,7 +25575,7 @@ pub struct MaterialSummary {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> MaterialSummary { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -25596,7 +25611,7 @@ pub struct MaterialSummary {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &MaterialSummary) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -25781,7 +25796,7 @@ A track that ends here is a defect report, not a history.
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> TrackEvent { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -25828,7 +25843,7 @@ A track that ends here is a defect report, not a history.
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &TrackEvent) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -25948,7 +25963,7 @@ pub struct TrackState {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> TrackState { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -25985,7 +26000,7 @@ pub struct TrackState {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &TrackState) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -26104,7 +26119,7 @@ pub struct Track {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> Track { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -26119,7 +26134,7 @@ pub struct Track {
 
 - **Default**
   - ```rust
-    fn default() -> Self { /* ... */ }
+    fn default() -> Track { /* ... */ }
     ```
 
 - **DistributionExt**
@@ -26149,7 +26164,7 @@ pub struct Track {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Track) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -26299,7 +26314,7 @@ pub struct TrackRecorder {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> TrackRecorder { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -26335,7 +26350,7 @@ pub struct TrackRecorder {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &TrackRecorder) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -26622,7 +26637,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> TraceEvent { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -26659,7 +26674,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &TraceEvent) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -26804,7 +26819,7 @@ pub struct TraceCounts {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> TraceCounts { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -26820,7 +26835,7 @@ pub struct TraceCounts {
 
 - **Default**
   - ```rust
-    fn default() -> Self { /* ... */ }
+    fn default() -> TraceCounts { /* ... */ }
     ```
 
 - **DistributionExt**
@@ -26856,7 +26871,7 @@ pub struct TraceCounts {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &TraceCounts) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -27047,7 +27062,7 @@ pub struct UfsWeights {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> UfsWeights { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -27083,7 +27098,7 @@ pub struct UfsWeights {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &UfsWeights) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -27260,7 +27275,7 @@ pub struct VarianceReduction {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> VarianceReduction { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -27302,7 +27317,7 @@ pub struct VarianceReduction {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &VarianceReduction) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -27544,7 +27559,7 @@ pub struct WeightWindow {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> WeightWindow { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -27586,7 +27601,7 @@ pub struct WeightWindow {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &WeightWindow) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -27725,7 +27740,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> WindowOutcome { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -27761,7 +27776,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &WindowOutcome) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -27876,7 +27891,7 @@ pub struct WindowState {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> WindowState { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -27918,7 +27933,7 @@ pub struct WindowState {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &WindowState) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -28062,7 +28077,7 @@ pub struct WeightWindows {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> WeightWindows { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -28098,7 +28113,7 @@ pub struct WeightWindows {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &WeightWindows) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -28366,7 +28381,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> FixedSource { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -28512,7 +28527,7 @@ pub struct FixedSourceSettings {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> FixedSourceSettings { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -28656,7 +28671,7 @@ pub struct FixedSourceResult {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> FixedSourceResult { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -28987,7 +29002,7 @@ pub struct DbrcTable {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> DbrcTable { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -29135,7 +29150,7 @@ says. The ablation arm — this is how the law's reactivity worth gets
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> ContinuumAngularMode { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -29182,7 +29197,7 @@ says. The ablation arm — this is how the law's reactivity worth gets
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &ContinuumAngularMode) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -29854,7 +29869,7 @@ pub struct KeffSettings {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> KeffSettings { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -30032,7 +30047,7 @@ pub struct KeffResult {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> KeffResult { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -30209,7 +30224,7 @@ pub struct HistoryCounts {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> HistoryCounts { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -30225,7 +30240,7 @@ pub struct HistoryCounts {
 
 - **Default**
   - ```rust
-    fn default() -> Self { /* ... */ }
+    fn default() -> HistoryCounts { /* ... */ }
     ```
 
 - **DistributionExt**
@@ -30261,7 +30276,7 @@ pub struct HistoryCounts {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &HistoryCounts) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -30380,7 +30395,7 @@ pub struct GenerationReport {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> GenerationReport { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -30417,7 +30432,7 @@ pub struct GenerationReport {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &GenerationReport) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -30602,7 +30617,7 @@ pub struct PowerIteration {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> PowerIteration { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -31121,7 +31136,7 @@ pub struct IfpSettings {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> IfpSettings { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -31174,7 +31189,7 @@ pub struct IfpSettings {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &IfpSettings) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -31317,7 +31332,7 @@ pub struct IfpLineage {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> IfpLineage { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -31332,7 +31347,7 @@ pub struct IfpLineage {
 
 - **Default**
   - ```rust
-    fn default() -> Self { /* ... */ }
+    fn default() -> IfpLineage { /* ... */ }
     ```
 
 - **DistributionExt**
@@ -31368,7 +31383,7 @@ pub struct IfpLineage {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &IfpLineage) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -31501,7 +31516,7 @@ pub struct IfpTallies {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> IfpTallies { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -31516,7 +31531,7 @@ pub struct IfpTallies {
 
 - **Default**
   - ```rust
-    fn default() -> Self { /* ... */ }
+    fn default() -> IfpTallies { /* ... */ }
     ```
 
 - **DistributionExt**
@@ -31542,7 +31557,7 @@ pub struct IfpTallies {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &IfpTallies) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -31707,7 +31722,7 @@ pub struct KineticsParameters {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> KineticsParameters { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -31743,7 +31758,7 @@ pub struct KineticsParameters {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &KineticsParameters) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -31856,7 +31871,7 @@ than silently replacing it.
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> KineticsMethod { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -31903,7 +31918,7 @@ than silently replacing it.
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &KineticsMethod) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -32198,7 +32213,7 @@ straddling sub-interval is always retained. Usually converges in fewer
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> SearchMethod { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -32245,7 +32260,7 @@ straddling sub-interval is always retained. Usually converges in fewer
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &SearchMethod) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -32361,7 +32376,7 @@ pub struct SearchSettings {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> SearchSettings { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -32511,7 +32526,7 @@ pub struct SearchIteration {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> SearchIteration { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -32654,7 +32669,7 @@ pub struct SearchResult {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> SearchResult { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -32819,7 +32834,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> SearchError { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -32861,7 +32876,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &SearchError) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -33218,7 +33233,7 @@ pub struct Mgxs {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> Mgxs { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -33386,7 +33401,7 @@ pub struct ScatterMultiplicity {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> ScatterMultiplicity { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -33422,7 +33437,7 @@ pub struct ScatterMultiplicity {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &ScatterMultiplicity) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -33569,7 +33584,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> ScatterAngle { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -33605,7 +33620,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &ScatterAngle) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -33734,7 +33749,7 @@ pub struct MgxsLibrary {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> MgxsLibrary { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -33876,7 +33891,7 @@ pub struct MgSettings {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> MgSettings { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -34122,7 +34137,7 @@ pub struct Estimate {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> Estimate { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -34159,7 +34174,7 @@ pub struct Estimate {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Estimate) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -34275,7 +34290,7 @@ pub struct ReactorPhysicsConfig {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> ReactorPhysicsConfig { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -34437,7 +34452,7 @@ Discriminant value: `2`
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> Group { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -34484,7 +34499,7 @@ Discriminant value: `2`
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Group) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -34619,7 +34634,7 @@ pub struct SixFactors {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> SixFactors { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -34761,7 +34776,7 @@ pub struct LethargySpectrum {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> LethargySpectrum { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -34907,7 +34922,7 @@ pub struct ReactorPhysicsReport {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> ReactorPhysicsReport { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -35051,7 +35066,7 @@ is violated.
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> ReactorPhysicsError { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -35103,7 +35118,7 @@ is violated.
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &ReactorPhysicsError) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -35427,7 +35442,7 @@ pub struct MixComponent {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> MixComponent { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -35569,7 +35584,7 @@ pub struct SlowingDownBand {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> SlowingDownBand { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -35726,7 +35741,7 @@ pub struct SlowingDownResult {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> SlowingDownResult { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -35762,7 +35777,7 @@ pub struct SlowingDownResult {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &SlowingDownResult) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -35886,7 +35901,7 @@ target's own thermal motion sampled below `400·kT`.
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> ScatterKernel { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -35933,7 +35948,7 @@ target's own thermal motion sampled below `400·kT`.
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &ScatterKernel) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -36050,7 +36065,7 @@ pub struct SlowingDownGrid {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> SlowingDownGrid { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -36213,7 +36228,7 @@ pub struct InfiniteMediumMc {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> InfiniteMediumMc { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -36441,7 +36456,7 @@ pub struct LumpCellMc {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> LumpCellMc { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -36593,7 +36608,7 @@ Retained so the defect stays reproducible.
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> CellBoundary { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -36640,7 +36655,7 @@ Retained so the defect stays reproducible.
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &CellBoundary) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -36757,7 +36772,7 @@ pub struct LumpCellResult {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> LumpCellResult { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -36793,7 +36808,7 @@ pub struct LumpCellResult {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &LumpCellResult) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -36922,7 +36937,7 @@ pub struct ShellCell {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> ShellCell { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -36958,7 +36973,7 @@ pub struct ShellCell {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &ShellCell) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -37078,7 +37093,7 @@ pub struct MultiRegionResult {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> MultiRegionResult { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -37114,7 +37129,7 @@ pub struct MultiRegionResult {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &MultiRegionResult) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -37524,7 +37539,7 @@ pub struct CollisionProbabilities {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> CollisionProbabilities { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -37560,7 +37575,7 @@ pub struct CollisionProbabilities {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &CollisionProbabilities) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -38276,7 +38291,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> DhTreatment { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -38313,7 +38328,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &DhTreatment) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -38610,7 +38625,7 @@ pub struct PebbleParams {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> PebbleParams { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -38753,7 +38768,7 @@ pub struct DispersedParams {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> DispersedParams { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -39212,7 +39227,7 @@ pub struct RingRptFit {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> RingRptFit { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -39356,7 +39371,7 @@ pub struct BallPackingAttempt {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> BallPackingAttempt { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -39393,7 +39408,7 @@ pub struct BallPackingAttempt {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &BallPackingAttempt) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -39503,7 +39518,7 @@ pub struct BallPacking {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> BallPacking { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -39949,7 +39964,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> CrpError { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -39991,7 +40006,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &CrpError) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -40341,7 +40356,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> DemBedError { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -40383,7 +40398,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &DemBedError) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -40549,7 +40564,7 @@ pub struct DemBed {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> DemBed { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -40585,7 +40600,7 @@ pub struct DemBed {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &DemBed) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -40777,7 +40792,7 @@ pub struct TrisoSpec {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> TrisoSpec { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -40814,7 +40829,7 @@ pub struct TrisoSpec {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &TrisoSpec) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -40939,7 +40954,7 @@ Outer pyrolytic carbon.
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> TrisoLayer { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -40986,7 +41001,7 @@ Outer pyrolytic carbon.
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &TrisoLayer) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -41142,7 +41157,7 @@ pub struct ExplicitTrisoPebble {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> ExplicitTrisoPebble { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -41537,7 +41552,7 @@ The mistake: ppm read as **elemental B-10**, over-absorbing 5.43x.
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> BoronReading { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -41584,7 +41599,7 @@ The mistake: ppm read as **elemental B-10**, over-absorbing 5.43x.
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &BoronReading) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -41761,7 +41776,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> CarbonSlot { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -41808,7 +41823,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &CarbonSlot) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -41953,7 +41968,7 @@ pub struct Htr10Nuclides {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> Htr10Nuclides { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -42094,7 +42109,7 @@ pub struct BoronHost {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> BoronHost { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -42131,7 +42146,7 @@ pub struct BoronHost {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &BoronHost) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -42647,7 +42662,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> DeltaDomain { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -42684,7 +42699,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &DeltaDomain) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -42795,7 +42810,7 @@ pub struct DeltaGenerationReport {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> DeltaGenerationReport { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -42832,7 +42847,7 @@ pub struct DeltaGenerationReport {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &DeltaGenerationReport) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -42969,7 +42984,7 @@ pub struct DeltaPowerIteration {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> DeltaPowerIteration { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -43352,7 +43367,7 @@ pub struct Reference {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> Reference { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -43399,7 +43414,7 @@ pub struct Reference {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Reference) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -43615,7 +43630,7 @@ pub struct Sphere {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> Sphere { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -43652,7 +43667,7 @@ pub struct Sphere {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Sphere) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -43775,7 +43790,7 @@ Ref: [`super::references::TAN2026_ODR_DEM`].
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> PackingMethod { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -43822,7 +43837,7 @@ Ref: [`super::references::TAN2026_ODR_DEM`].
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &PackingMethod) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -43944,7 +43959,7 @@ pub struct PackingConfig {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> PackingConfig { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -44133,7 +44148,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> PackingError { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -44175,7 +44190,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &PackingError) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -44290,7 +44305,7 @@ pub struct RsaPlacement {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> RsaPlacement { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -44327,7 +44342,7 @@ pub struct RsaPlacement {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &RsaPlacement) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -44503,7 +44518,7 @@ pub struct PackedSpheres {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> PackedSpheres { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -44961,7 +44976,7 @@ pub struct BenchmarkResult {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> BenchmarkResult { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -44998,7 +45013,7 @@ pub struct BenchmarkResult {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &BenchmarkResult) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -45125,7 +45140,7 @@ pub struct AbsorptionBenchmark {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> AbsorptionBenchmark { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -45162,7 +45177,7 @@ pub struct AbsorptionBenchmark {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &AbsorptionBenchmark) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -45412,7 +45427,7 @@ pub struct ClsMedium {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> ClsMedium { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -45448,7 +45463,7 @@ pub struct ClsMedium {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &ClsMedium) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -45737,7 +45752,7 @@ pub struct MaterialId(pub usize);
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> MaterialId { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -45794,17 +45809,17 @@ pub struct MaterialId(pub usize);
 - **IntoEither**
 - **Ord**
   - ```rust
-    fn cmp(self: &Self, other: &Self) -> $crate::cmp::Ordering { /* ... */ }
+    fn cmp(self: &Self, other: &MaterialId) -> $crate::cmp::Ordering { /* ... */ }
     ```
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &MaterialId) -> bool { /* ... */ }
     ```
 
 - **PartialOrd**
   - ```rust
-    fn partial_cmp(self: &Self, other: &Self) -> $crate::option::Option<$crate::cmp::Ordering> { /* ... */ }
+    fn partial_cmp(self: &Self, other: &MaterialId) -> $crate::option::Option<$crate::cmp::Ordering> { /* ... */ }
     ```
 
 - **Pointable**
@@ -45917,7 +45932,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> MediumError { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -45959,7 +45974,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &MediumError) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -46099,7 +46114,7 @@ pub struct RsaMedium {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> RsaMedium { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -46286,7 +46301,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> StochasticMedium { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -46513,7 +46528,7 @@ pub struct ParticleHistory {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> ParticleHistory { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -46550,7 +46565,7 @@ pub struct ParticleHistory {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &ParticleHistory) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -46673,7 +46688,7 @@ pub struct FlightSegment {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> FlightSegment { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -46710,7 +46725,7 @@ pub struct FlightSegment {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &FlightSegment) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -46842,7 +46857,7 @@ pub struct InclusionSphere {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> InclusionSphere { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -46879,7 +46894,7 @@ pub struct InclusionSphere {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &InclusionSphere) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -47061,7 +47076,7 @@ pub struct SclsMedium {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> SclsMedium { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -47097,7 +47112,7 @@ pub struct SclsMedium {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &SclsMedium) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -47244,7 +47259,7 @@ pub struct AdaptiveRadius {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> AdaptiveRadius { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -47281,7 +47296,7 @@ pub struct AdaptiveRadius {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &AdaptiveRadius) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -47439,7 +47454,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> IndexError { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -47481,7 +47496,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &IndexError) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -47640,7 +47655,7 @@ pub struct BruteForceIndex {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> BruteForceIndex { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -47655,7 +47670,7 @@ pub struct BruteForceIndex {
 
 - **Default**
   - ```rust
-    fn default() -> Self { /* ... */ }
+    fn default() -> BruteForceIndex { /* ... */ }
     ```
 
 - **DistributionExt**
@@ -47681,7 +47696,7 @@ pub struct BruteForceIndex {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &BruteForceIndex) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -47822,7 +47837,7 @@ pub struct KdTreeIndex {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> KdTreeIndex { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -47837,7 +47852,7 @@ pub struct KdTreeIndex {
 
 - **Default**
   - ```rust
-    fn default() -> Self { /* ... */ }
+    fn default() -> KdTreeIndex { /* ... */ }
     ```
 
 - **DistributionExt**
@@ -47863,7 +47878,7 @@ pub struct KdTreeIndex {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &KdTreeIndex) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -48029,7 +48044,7 @@ workspace-level dependency + Termux-portability decision, kept as the honest
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> SpatialIndex { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -48065,7 +48080,7 @@ workspace-level dependency + Termux-portability decision, kept as the honest
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &SpatialIndex) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -48309,7 +48324,7 @@ where
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> Integrator { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -48356,7 +48371,7 @@ where
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Integrator) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -48490,7 +48505,7 @@ pub struct TransferRate {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> TransferRate { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -48526,7 +48541,7 @@ pub struct TransferRate {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &TransferRate) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -48658,7 +48673,7 @@ pub struct MicroXs {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> MicroXs { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -48694,7 +48709,7 @@ pub struct MicroXs {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &MicroXs) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -49001,7 +49016,7 @@ pub struct DepletionMatrix {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> DepletionMatrix { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -49037,7 +49052,7 @@ pub struct DepletionMatrix {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &DepletionMatrix) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -49374,7 +49389,7 @@ according to its [`NuclideData`] fission yields.
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> ReactionKind { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -49421,7 +49436,7 @@ according to its [`NuclideData`] fission yields.
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &ReactionKind) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -49527,7 +49542,7 @@ pub struct DecayBranch {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> DecayBranch { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -49563,7 +49578,7 @@ pub struct DecayBranch {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &DecayBranch) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -49670,7 +49685,7 @@ pub struct NeutronReaction {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> NeutronReaction { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -49706,7 +49721,7 @@ pub struct NeutronReaction {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &NeutronReaction) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -49824,7 +49839,7 @@ pub struct NuclideData {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> NuclideData { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -49860,7 +49875,7 @@ pub struct NuclideData {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &NuclideData) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -49985,7 +50000,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> UnmodelledReason { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -50022,7 +50037,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &UnmodelledReason) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -50130,7 +50145,7 @@ pub struct UnmodelledChannel {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> UnmodelledChannel { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -50166,7 +50181,7 @@ pub struct UnmodelledChannel {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &UnmodelledChannel) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -50308,7 +50323,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> ChainImportError { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -50350,7 +50365,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &ChainImportError) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -50543,7 +50558,7 @@ pub struct DepletionChain {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> DepletionChain { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -50579,7 +50594,7 @@ pub struct DepletionChain {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &DepletionChain) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -50753,7 +50768,7 @@ pub struct BurnupSettings {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> BurnupSettings { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -50985,7 +51000,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> OneGroupWeighting { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -51021,7 +51036,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &OneGroupWeighting) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -51132,7 +51147,7 @@ pub struct OneGroupXs {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> OneGroupXs { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -51148,7 +51163,7 @@ pub struct OneGroupXs {
 
 - **Default**
   - ```rust
-    fn default() -> Self { /* ... */ }
+    fn default() -> OneGroupXs { /* ... */ }
     ```
 
 - **DistributionExt**
@@ -51174,7 +51189,7 @@ pub struct OneGroupXs {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &OneGroupXs) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -51293,7 +51308,7 @@ pub struct BurnupStep {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> BurnupStep { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -51445,7 +51460,7 @@ pub struct BurnupResult {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> BurnupResult { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -51772,7 +51787,7 @@ pub struct MicroRate {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> MicroRate { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -51788,7 +51803,7 @@ pub struct MicroRate {
 
 - **Default**
   - ```rust
-    fn default() -> Self { /* ... */ }
+    fn default() -> MicroRate { /* ... */ }
     ```
 
 - **DistributionExt**
@@ -51814,7 +51829,7 @@ pub struct MicroRate {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &MicroRate) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -51944,7 +51959,7 @@ pub struct ReactionRates {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> ReactionRates { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -51959,7 +51974,7 @@ pub struct ReactionRates {
 
 - **Default**
   - ```rust
-    fn default() -> Self { /* ... */ }
+    fn default() -> ReactionRates { /* ... */ }
     ```
 
 - **DistributionExt**
@@ -52313,7 +52328,7 @@ pub struct Tabulated1D {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> Tabulated1D { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -52349,7 +52364,7 @@ pub struct Tabulated1D {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Tabulated1D) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -52460,7 +52475,7 @@ pub struct Polynomial {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> Polynomial { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -52496,7 +52511,7 @@ pub struct Polynomial {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Polynomial) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -52624,7 +52639,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> Function1D { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -52660,7 +52675,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Function1D) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -52824,7 +52839,7 @@ A photon.
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> Particle { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -52871,7 +52886,7 @@ A photon.
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Particle) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -52986,7 +53001,7 @@ pub enum EmissionMode {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> EmissionMode { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -53033,7 +53048,7 @@ pub enum EmissionMode {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &EmissionMode) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -53141,7 +53156,7 @@ pub struct Product {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> Product { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -53177,7 +53192,7 @@ pub struct Product {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Product) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -53291,7 +53306,7 @@ pub struct PlotReaction {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> PlotReaction { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -53327,7 +53342,7 @@ pub struct PlotReaction {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &PlotReaction) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -53462,7 +53477,7 @@ pub struct IncidentNeutronData {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> IncidentNeutronData { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -53498,7 +53513,7 @@ pub struct IncidentNeutronData {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &IncidentNeutronData) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -53630,7 +53645,7 @@ pub struct XsLibrary {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> XsLibrary { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -53645,7 +53660,7 @@ pub struct XsLibrary {
 
 - **Default**
   - ```rust
-    fn default() -> Self { /* ... */ }
+    fn default() -> XsLibrary { /* ... */ }
     ```
 
 - **DistributionExt**
@@ -53921,7 +53936,7 @@ pub struct FigureKwargs {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> FigureKwargs { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -53936,7 +53951,7 @@ pub struct FigureKwargs {
 
 - **Default**
   - ```rust
-    fn default() -> Self { /* ... */ }
+    fn default() -> FigureKwargs { /* ... */ }
     ```
 
 - **DistributionExt**
@@ -53962,7 +53977,7 @@ pub struct FigureKwargs {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &FigureKwargs) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -54089,7 +54104,7 @@ pub struct PyScript {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> PyScript { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -54306,7 +54321,7 @@ pub struct PlotTrack {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> PlotTrack { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -54321,7 +54336,7 @@ pub struct PlotTrack {
 
 - **Default**
   - ```rust
-    fn default() -> Self { /* ... */ }
+    fn default() -> PlotTrack { /* ... */ }
     ```
 
 - **DistributionExt**
@@ -54351,7 +54366,7 @@ pub struct PlotTrack {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &PlotTrack) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -54565,7 +54580,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> XsType { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -54625,7 +54640,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &XsType) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -54740,7 +54755,7 @@ Weight fraction (`'wo'`). Not supported by this port (needs atomic masses).
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> PercentType { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -54787,7 +54802,7 @@ Weight fraction (`'wo'`). Not supported by this port (needs atomic masses).
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &PercentType) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -54947,7 +54962,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> MaterialDensity { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -54984,7 +54999,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &MaterialDensity) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -55092,7 +55107,7 @@ pub struct MaterialNuclide {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> MaterialNuclide { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -55128,7 +55143,7 @@ pub struct MaterialNuclide {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &MaterialNuclide) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -55269,7 +55284,7 @@ pub struct PlotMaterial {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> PlotMaterial { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -55305,7 +55320,7 @@ pub struct PlotMaterial {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &PlotMaterial) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -55426,7 +55441,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> PlotTarget { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -55466,7 +55481,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &PlotTarget) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -55581,7 +55596,7 @@ pub enum EnergyAxisUnits {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> EnergyAxisUnits { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -55597,7 +55612,7 @@ pub enum EnergyAxisUnits {
 
 - **Default**
   - ```rust
-    fn default() -> Self { /* ... */ }
+    fn default() -> EnergyAxisUnits { /* ... */ }
     ```
 
 - **DistributionExt**
@@ -55633,7 +55648,7 @@ pub enum EnergyAxisUnits {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &EnergyAxisUnits) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -55747,7 +55762,7 @@ pub struct PlotXsOptions {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> PlotXsOptions { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -55788,7 +55803,7 @@ pub struct PlotXsOptions {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &PlotXsOptions) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -55896,7 +55911,7 @@ pub struct XsLine {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> XsLine { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -55932,7 +55947,7 @@ pub struct XsLine {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &XsLine) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -56055,7 +56070,7 @@ pub struct XsFigure {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> XsFigure { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -56091,7 +56106,7 @@ pub struct XsFigure {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &XsFigure) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -56319,7 +56334,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> PlotError { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -56361,7 +56376,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &PlotError) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -56690,7 +56705,7 @@ Anything the driver did not classify.
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> DeviceClass { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -56737,7 +56752,7 @@ Anything the driver did not classify.
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &DeviceClass) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -56886,7 +56901,7 @@ pub struct GpuLimits {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> GpuLimits { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -56932,7 +56947,7 @@ pub struct GpuLimits {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &GpuLimits) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -57050,7 +57065,7 @@ pub struct HardwareCapabilities {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> HardwareCapabilities { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -57096,7 +57111,7 @@ pub struct HardwareCapabilities {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &HardwareCapabilities) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -57235,7 +57250,7 @@ A capability-derived starting share — see [`SplitPolicy::auto_fraction`].
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> SplitPolicy { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -57272,7 +57287,7 @@ A capability-derived starting share — see [`SplitPolicy::auto_fraction`].
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &SplitPolicy) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -57394,7 +57409,7 @@ Work was divided between both devices.
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> SplitReason { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -57441,7 +57456,7 @@ Work was divided between both devices.
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &SplitReason) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -57566,7 +57581,7 @@ pub struct WorkSplit {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> WorkSplit { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -57613,7 +57628,7 @@ pub struct WorkSplit {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &WorkSplit) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -58049,7 +58064,7 @@ pub struct SurfaceQuery {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> SurfaceQuery { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -58755,7 +58770,7 @@ pub struct FlightSphere {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> FlightSphere { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -58792,7 +58807,7 @@ pub struct FlightSphere {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &FlightSphere) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -58909,7 +58924,7 @@ been advanced to the collision site; the caller does the collision physics.
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> FlightOutcome { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -58946,7 +58961,7 @@ been advanced to the collision site; the caller does the collision physics.
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &FlightOutcome) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -59595,7 +59610,7 @@ pub struct EventSphere {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> EventSphere { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -59632,7 +59647,7 @@ pub struct EventSphere {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &EventSphere) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -60053,7 +60068,7 @@ pub struct HardwareInfo {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> HardwareInfo { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -60207,7 +60222,7 @@ pub struct PerfRow {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> PerfRow { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -60376,7 +60391,7 @@ pub struct PerfReport {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> PerfReport { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -60608,7 +60623,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> DataSource { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -60654,7 +60669,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &DataSource) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -60766,7 +60781,7 @@ pub struct DataItem {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> DataItem { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -60902,7 +60917,7 @@ pub struct Phase {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> Phase { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -61113,7 +61128,7 @@ pub struct RunDiagnostics {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> RunDiagnostics { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -62166,7 +62181,7 @@ pub struct Mix {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> Mix { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -62203,7 +62218,7 @@ pub struct Mix {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Mix) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -62314,7 +62329,7 @@ pub struct PebbleInventory {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> PebbleInventory { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -62351,7 +62366,7 @@ pub struct PebbleInventory {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &PebbleInventory) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -62597,10 +62612,341 @@ pub const BENCHMARK_K: f64 = 1.0000;
 
 #### Constant `BENCHMARK_SIGMA`
 
-The evaluation's stated uncertainty on [`BENCHMARK_K`].
+The evaluation's stated uncertainty on [`BENCHMARK_K`], as tabulated
+in Mosteller, LA-UR-10-06230 (2010) and van der Marck, Nucl. Data
+Sheets 107 (2006) 3061 (rows checked by the maintainer, 2026-10-13).
 
 ```rust
 pub const BENCHMARK_SIGMA: f64 = 0.0010;
+```
+
+## Module `jemima`
+
+**ICSBEP IEU-MET-FAST-002 (Jemima)**: a cylinder of 16 % enriched uranium
+metal with natural-uranium reflectors below, around and above it, vacuum
+outside.
+
+Specification: the ICSBEP model in `mit-crpg/benchmarks`
+(`icsbep/ieu-met-fast-002/openmc`, Paul Romano, 2012-01-08), as
+`examples/jemima_keff.rs` transcribed it and as the five-route study runs
+it (`verification_and_validation/icsbep/five_route_keff_2026_09_29.md`).
+Collected here on 2026-10-13 (GitHub #859) so the acceptance check
+(`examples/icsbep_five_route_keff.rs`) and the Monte Carlo web demo build
+ONE model. `examples/jemima_keff.rs` still carries its own copy of these
+numbers, with its ablation knobs.
+
+| region | z \[cm\] | r \[cm\] | material |
+|---|---|---|---|
+| bottom reflector | 0 – 7.62 | < 26.6446 | natural U |
+| core | 7.62 – 39.571 | < 19.05 | 16 % enriched U |
+| radial reflector | 7.62 – 39.571 | 19.05 – 26.6446 | natural U |
+| top reflector | 39.571 – 47.0894 | < 26.6446 | natural U |
+
+```rust
+pub mod jemima { /* ... */ }
+```
+
+### Functions
+
+#### Function `materials`
+
+The two materials, indexing nuclides in [`NUCLIDES`] order.
+
+```rust
+pub fn materials() -> Vec<crate::material::material::Material> { /* ... */ }
+```
+
+#### Function `geometry`
+
+Six surfaces and four cells, as the ICSBEP model's XML lists them:
+cell 0 bottom reflector, 1 core, 2 radial reflector, 3 top reflector.
+
+```rust
+pub fn geometry() -> crate::geometry::geometry::Geometry { /* ... */ }
+```
+
+#### Function `source_box`
+
+Where the first generation starts: the core's bounding box.
+
+```rust
+pub fn source_box() -> crate::physics::transport_csg::SourceBox { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `Z_BOT`
+
+Bottom of the assembly \[cm\].
+
+```rust
+pub const Z_BOT: f64 = 0.0;
+```
+
+#### Constant `Z_CORE_LO`
+
+Bottom of the core \[cm\].
+
+```rust
+pub const Z_CORE_LO: f64 = 7.62;
+```
+
+#### Constant `Z_CORE_HI`
+
+Top of the core \[cm\].
+
+```rust
+pub const Z_CORE_HI: f64 = 39.571;
+```
+
+#### Constant `Z_TOP`
+
+Top of the assembly \[cm\].
+
+```rust
+pub const Z_TOP: f64 = 47.0894;
+```
+
+#### Constant `R_CORE`
+
+Core radius \[cm\].
+
+```rust
+pub const R_CORE: f64 = 19.05;
+```
+
+#### Constant `R_OUT`
+
+Outer radius of the reflector \[cm\].
+
+```rust
+pub const R_OUT: f64 = 26.6446;
+```
+
+#### Constant `TEMPERATURE_K`
+
+Material temperature \[K\].
+
+```rust
+pub const TEMPERATURE_K: f64 = 293.6;
+```
+
+#### Constant `NUCLIDES`
+
+`(name, ENDF/B-VIII.0 tape in reference-data/endf/)`, in the order
+[`materials`] indexes them.
+
+```rust
+pub const NUCLIDES: [(&str, &str); 3] = _;
+```
+
+#### Constant `MAT_CORE`
+
+Index of the core material in [`materials`].
+
+```rust
+pub const MAT_CORE: usize = 0;
+```
+
+#### Constant `MAT_REFLECTOR`
+
+Index of the reflector material in [`materials`].
+
+```rust
+pub const MAT_REFLECTOR: usize = 1;
+```
+
+#### Constant `MATERIALS`
+
+`(material, [(nuclide, atoms per barn-cm)])`. U-238 is 83 % of the
+core's heavy metal and 99.3 % of the reflector's.
+
+```rust
+pub const MATERIALS: [(&str, &[(&str, f64)]); 2] = _;
+```
+
+#### Constant `BENCHMARK_K`
+
+The benchmark `k_eff`, 1.0000 ± 0.0030. ~~No handbook uncertainty is
+cited.~~ **CORRECTED 2026-10-14:** the handbook value as tabulated in
+two open secondary sources (the handbook itself is licence
+restricted, `DATA_POLICY.md`): Mosteller, *An Expanded Criticality
+Validation Suite for MCNP*, LA-UR-10-06230 (2010), and van der Marck,
+*Benchmarking ENDF/B-VII.0*, Nucl. Data Sheets 107 (2006) 3061. The
+maintainer checked the rows against the source pages on 2026-10-13.
+
+```rust
+pub const BENCHMARK_K: f64 = 1.0000;
+```
+
+#### Constant `BENCHMARK_SIGMA`
+
+The benchmark's stated uncertainty on [`BENCHMARK_K`], same sources.
+
+```rust
+pub const BENCHMARK_SIGMA: f64 = 0.0030;
+```
+
+## Module `hst009`
+
+**ICSBEP HEU-SOL-THERM-009 case 1**: a sphere of highly enriched uranium
+oxyfluoride solution in a thin aluminium tank, reflected by water, vacuum
+outside.
+
+As `examples/hst009_keff.rs` transcribed it and as the five-route study
+runs it, with that example's stated approximations: ~~**U-236
+omitted** (8.8837e-6 /b·cm, 0.5 % of the uranium; no tape here),~~
+**O-17 folded into O-16**, and **Cu and Zn omitted from the tank**.
+**CHANGED 2026-10-15 (maintainer direction, gh:#875):** U-236 is in the
+model at the benchmark's 8.8837e-6 /b·cm, appended last in [`NUCLIDES`]
+so the other indices are unchanged. Collected
+here on 2026-10-13 (GitHub #859) for the same reason as [`jemima`];
+`examples/hst009_keff.rs` still carries its own copy.
+
+H-1 takes the H in H2O thermal scattering law ([`SAB_TAPE`]), in the
+solution and in the reflector.
+
+```rust
+pub mod hst009 { /* ... */ }
+```
+
+### Functions
+
+#### Function `materials`
+
+The three materials, indexing nuclides in [`NUCLIDES`] order.
+
+```rust
+pub fn materials() -> Vec<crate::material::material::Material> { /* ... */ }
+```
+
+#### Function `geometry`
+
+Three concentric spheres: solution, tank, water, vacuum outside.
+(`fhr_pebble_geometry` is named for the pebble but builds exactly
+this; with no inner ball its "fuel" is the solution, its "shell" the
+tank and its "coolant" the reflector.)
+
+```rust
+pub fn geometry() -> crate::geometry::geometry::Geometry { /* ... */ }
+```
+
+#### Function `source_box`
+
+Where the first generation starts: the solution's bounding box.
+
+```rust
+pub fn source_box() -> crate::physics::transport_csg::SourceBox { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `R_SOLUTION`
+
+Radius of the solution \[cm\].
+
+```rust
+pub const R_SOLUTION: f64 = 11.5177;
+```
+
+#### Constant `R_TANK`
+
+Outer radius of the aluminium tank \[cm\].
+
+```rust
+pub const R_TANK: f64 = 11.6764;
+```
+
+#### Constant `R_REFLECTOR`
+
+Outer radius of the water reflector \[cm\].
+
+```rust
+pub const R_REFLECTOR: f64 = 35.0;
+```
+
+#### Constant `TEMPERATURE_K`
+
+Material temperature \[K\].
+
+```rust
+pub const TEMPERATURE_K: f64 = 293.6;
+```
+
+#### Constant `NUCLIDES`
+
+`(name, ENDF/B-VIII.0 tape in reference-data/endf/)`, in the order
+[`materials`] indexes them.
+
+```rust
+pub const NUCLIDES: [(&str, &str); 12] = _;
+```
+
+#### Constant `N_H1`
+
+Index of H-1 in [`NUCLIDES`] (it takes the thermal scattering law).
+
+```rust
+pub const N_H1: usize = 5;
+```
+
+#### Constant `SAB_TAPE`
+
+The H in H2O thermal scattering law, ENDF/B-VIII.0.
+
+```rust
+pub const SAB_TAPE: &str = "tsl-HinH2O.endf";
+```
+
+#### Constant `MAT_SOLUTION`
+
+Indices of the three materials in [`materials`].
+
+```rust
+pub const MAT_SOLUTION: usize = 0;
+```
+
+#### Constant `MAT_TANK`
+
+```rust
+pub const MAT_TANK: usize = 1;
+```
+
+#### Constant `MAT_WATER`
+
+```rust
+pub const MAT_WATER: usize = 2;
+```
+
+#### Constant `MATERIALS`
+
+`(material, [(nuclide, atoms per barn-cm)])`. The O-16 entries are
+the model's O-16 plus its O-17.
+
+```rust
+pub const MATERIALS: [(&str, &[(&str, f64)]); 3] = _;
+```
+
+#### Constant `BENCHMARK_K`
+
+The benchmark `k_eff`, 0.9990 ± 0.0043. ~~Critical, so 1.0000 by
+construction.~~ **CORRECTED 2026-10-14:** the benchmark model's k is
+not 1. This is the handbook value as tabulated in an open secondary
+source (the handbook itself is licence restricted, `DATA_POLICY.md`):
+van der Marck, *Benchmarking ENDF/B-VII.0*, Nucl. Data Sheets 107
+(2006) 3061, HST-009 case 1. The maintainer checked the row against
+the source page on 2026-10-13.
+
+```rust
+pub const BENCHMARK_K: f64 = 0.9990;
+```
+
+#### Constant `BENCHMARK_SIGMA`
+
+The benchmark's stated uncertainty on [`BENCHMARK_K`], same source.
+
+```rust
+pub const BENCHMARK_SIGMA: f64 = 0.0043;
 ```
 
 ### Functions
@@ -63028,7 +63374,7 @@ pub struct TraceDiagnosis {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> TraceDiagnosis { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -63064,7 +63410,7 @@ pub struct TraceDiagnosis {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &TraceDiagnosis) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -63196,7 +63542,7 @@ pub struct SourceConvergence {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> SourceConvergence { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -63232,7 +63578,7 @@ pub struct SourceConvergence {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &SourceConvergence) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -63418,7 +63764,7 @@ pub struct KeffUncertainty {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> KeffUncertainty { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -63454,7 +63800,7 @@ pub struct KeffUncertainty {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &KeffUncertainty) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -63582,7 +63928,7 @@ pub struct TallyBatchRecorder {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> TallyBatchRecorder { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -63618,7 +63964,7 @@ pub struct TallyBatchRecorder {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &TallyBatchRecorder) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -63786,7 +64132,7 @@ pub struct SeedRun {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> SeedRun { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -63823,7 +64169,7 @@ pub struct SeedRun {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &SeedRun) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -63954,7 +64300,7 @@ pub struct EnsembleReport {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> EnsembleReport { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -63990,7 +64336,7 @@ pub struct EnsembleReport {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &EnsembleReport) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -64241,7 +64587,7 @@ pub struct LearnedImportanceSettings {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> LearnedImportanceSettings { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -64282,7 +64628,7 @@ pub struct LearnedImportanceSettings {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &LearnedImportanceSettings) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -64398,7 +64744,7 @@ pub struct GroupFill {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> GroupFill { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -64434,7 +64780,7 @@ pub struct GroupFill {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &GroupFill) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -64561,7 +64907,7 @@ pub struct VrArm {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> VrArm { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -64598,7 +64944,7 @@ pub struct VrArm {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &VrArm) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -64716,7 +65062,7 @@ pub struct FomComparison {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> FomComparison { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -64753,7 +65099,7 @@ pub struct FomComparison {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &FomComparison) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -64962,7 +65308,7 @@ pub struct SweepRun {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> SweepRun { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -64998,7 +65344,7 @@ pub struct SweepRun {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &SweepRun) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -65110,7 +65456,7 @@ pub struct SurrogatePrediction {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> SurrogatePrediction { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -65146,7 +65492,7 @@ pub struct SurrogatePrediction {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &SurrogatePrediction) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -65265,7 +65611,7 @@ pub struct LooGate {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> LooGate { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -65302,7 +65648,7 @@ pub struct LooGate {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &LooGate) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -65435,7 +65781,7 @@ pub struct SweepSurrogate {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> SweepSurrogate { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -65471,7 +65817,7 @@ pub struct SweepSurrogate {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &SweepSurrogate) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -65635,7 +65981,7 @@ pub struct UncertainInput {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> UncertainInput { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -65671,7 +66017,7 @@ pub struct UncertainInput {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &UncertainInput) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -65787,7 +66133,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> DesignKind { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -65824,7 +66170,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &DesignKind) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -65951,7 +66297,7 @@ where
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> UqDesign { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -65987,7 +66333,7 @@ where
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &UqDesign) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -66097,7 +66443,7 @@ pub struct InputSensitivity {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> InputSensitivity { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -66133,7 +66479,7 @@ pub struct InputSensitivity {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &InputSensitivity) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -66260,7 +66606,7 @@ pub struct UqReport {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> UqReport { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -66296,7 +66642,7 @@ pub struct UqReport {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &UqReport) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -66415,7 +66761,7 @@ pub struct DirectPerturbation {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> DirectPerturbation { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -66452,7 +66798,7 @@ pub struct DirectPerturbation {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &DirectPerturbation) -> bool { /* ... */ }
     ```
 
 - **Pointable**

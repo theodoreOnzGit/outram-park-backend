@@ -57,15 +57,22 @@
 //!
 //! Three approximations, each stated because each is a real departure:
 //!
-//! - **U-236 omitted** (8.8837e-6, 0.5 % of the uranium). A weak 1/v absorber at
+//! - ~~**U-236 omitted** (8.8837e-6, 0.5 % of the uranium). A weak 1/v absorber at
 //!   0.5 % of a strongly absorbing mix; worth tens of pcm. Not measured.
 //!   Deferred by the maintainer (2026-10-14): adding it needs the ENDF tape and
-//!   its NJOY2016 ACE, and is tracked on gh:#875.
+//!   its NJOY2016 ACE, and is tracked on gh:#875.~~ **CHANGED 2026-10-15
+//!   (maintainer direction, gh:#875): U-236 is in the model**, at the
+//!   benchmark's 8.8837e-6 /b·cm, from `n-092_U_236-ENDF8.0.endf`. It is a
+//!   resonance absorber (5.45 eV), not mainly 1/v, and the "tens of pcm" above
+//!   was never measured. Measured worth: **−167 ± 38 pcm** (route 4, 32 seeds
+//!   a side, 2026-10-15; `five_route_keff_2026_09_29.md`).
 //! - **O-17 folded into O-16** (0.038 % of the oxygen). Worth single pcm.
 //! - **Cu and Zn omitted from the 1100-aluminium tank** (7.6e-5 /b·cm in a
 //!   **1.6 mm** shell). `Σ_a ≈ 2.2e-4 cm⁻¹` over 0.16 cm is an absorption
 //!   probability of 3.5e-5 per traversal, against Al-27's own `0.0138 cm⁻¹`
 //!   which is 60× larger and itself small. Worth a few pcm.
+//!
+//! (Since 2026-10-15 only the last two remain.)
 //!
 //! ~~None of the three is in the fuel, and together~~ **CORRECTED
 //! 2026-10-14**: two of the three are in the fuel (U-236 and O-17 are in the
@@ -158,6 +165,9 @@ mod nx {
     pub const SI29: usize = 8;
     pub const SI30: usize = 9;
     pub const MN55: usize = 10;
+    /// Appended last (2026-10-15, gh:#875) so the earlier slots keep their
+    /// indices.
+    pub const U236: usize = 11;
 }
 
 fn main() {
@@ -192,6 +202,7 @@ fn main() {
         load("Si29", "n-014_Si_029-ENDF8.0.endf"),
         load("Si30", "n-014_Si_030-ENDF8.0.endf"),
         load("Mn55", "n-025_Mn_055-ENDF8.0.endf"),
+        load("U236", "n-092_U_236-ENDF8.0.endf"),
     ];
     eprintln!(
         "Nuclear data ready in {:.1} s.\n",
@@ -216,7 +227,7 @@ fn main() {
             components: comp(&[
                 (nx::U234, 1.7561e-05),
                 (nx::U235, 1.6626e-03),
-                // U-236 (8.8837e-06) omitted — no tape here; see the module docs.
+                (nx::U236, 8.8837e-06),
                 (nx::U238, 9.4079e-05),
                 (nx::F19, 3.5663e-03),
                 // O-17 (1.264344e-05) folded into O-16.

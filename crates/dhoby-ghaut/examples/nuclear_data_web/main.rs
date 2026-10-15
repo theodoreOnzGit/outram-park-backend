@@ -45,6 +45,13 @@ mod rungs;
 #[cfg(not(target_os = "android"))]
 #[path = "../monte_carlo_web/tapes.rs"]
 mod tapes;
+/// The processed-data cache `tapes.rs` names in `leapr_h_in_h2o` (gh:#818).
+/// This demo does not call that function, but `tapes.rs` does not compile
+/// without the module (the Pages build broke on it, 2026-10-14).
+#[cfg(not(target_os = "android"))]
+#[allow(dead_code)]
+#[path = "../common/processed_cache.rs"]
+mod processed_cache;
 
 /// Android stub: windowing GUIs are out of scope on Termux.
 #[cfg(target_os = "android")]

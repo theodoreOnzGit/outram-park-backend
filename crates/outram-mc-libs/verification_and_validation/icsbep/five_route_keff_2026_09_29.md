@@ -85,7 +85,7 @@ water inside r = 76.2 cm.
 |---|---|---|---|
 | `godiva` | HEU-MET-FAST-001 | bare sphere, r = 8.7407 cm, U-234/235/238 | `examples/godiva_keff_endf_local.rs` |
 | `jemima` | IEU-MET-FAST-002 | 4-cell cylinder, core plus natural-U reflector | `examples/jemima_keff.rs` |
-| `hst009` | HEU-SOL-THERM-009 case 1 | 3 spheres: solution, Al tank, water. U-236 and Cu/Zn dropped, O-17 folded into O-16 | `examples/hst009_keff.rs` |
+| `hst009` | HEU-SOL-THERM-009 case 1 | 3 spheres: solution, Al tank, water. ~~U-236 and~~ Cu/Zn dropped, O-17 folded into O-16; U-236 in the model since 2026-10-15 (worth −167 ± 38 pcm, below) | `examples/hst009_keff.rs` |
 | `lct008` | LEU-COMP-THERM-008 case 1 | **the real lattice**: 22 assembly lattices in a 7 × 7 core, parsed at run time from the committed `mit-crpg/benchmarks` OpenMC cards (`leu-comp-therm-008/`) | `examples/common/lct008_model.rs`, shared with `lct008_keff.rs` and `lct008_ace_roundtrip.rs` |
 
 **LCT-008 is "simplified" only in its nuclide list.** It uses `lct008_keff.rs`'s
@@ -511,6 +511,57 @@ same
   11-nuclide figure stays the one quoted for the code-to-code comparison,
   because OpenMC ran the same 11 nuclides.
 - **Still not done:** a per-nuclide split. #533 did not require one.
+
+### HST-009: U-236 added to the model, worth −167 ± 38 pcm (2026-10-15, gh:#875)
+
+**Change.** HEU-SOL-THERM-009 case 1 now carries U-236 at the benchmark's
+8.8837e-6 /b·cm. It was the first of the model's stated approximations. The
+change covers `vv::hst009`, `examples/hst009_keff.rs`, this driver,
+`openmc_inputs/icsbep_openmc.py`, `nuclides.tsv` and the browser demo.
+- **Tape:** `n-092_U_236-ENDF8.0.endf` (MAT 9231) in `reference-data/endf/`.
+- **Table:** its NJOY2016 293.6 K ACE table in the `reference-data/ace`
+  submodule.
+
+**Prediction, written before the run.** U-236 absorbs mainly in its 5.45 eV
+resonance (resonance integral ≈ 350 b), and hydrogen does nearly all the
+slowing down (ξΣ_s ≈ 1.2 cm⁻¹).
+- The dilute estimate N·RI/ξΣ_s ≈ 2.6e-3 of slowing-down neutrons gives
+  **Δk ≈ −100 to −250 pcm, negative**.
+- The "tens of pcm" in the earlier comments was never measured.
+
+**Methodology.**
+- **Instrument:** an A/B on route 4 (outram-mc reading ENDF directly). Two
+  binaries were built from the same tree, `0a4505ed1` with and without the
+  change, so U-236 is the only difference.
+- **Run:** HST-009 at 5,000 × [40 + 120], seeds 1–32 on each arm, 36 threads,
+  Intel Xeon W-2195.
+- **Data:** `five_route_keff/data/per_seed_keff_hst009_u236_ab_2026_10_15.csv`.
+- **Check on the baseline:** the without arm should reproduce the
+  2026-10-14 32-seed route-4 run at `6e35113e2`.
+
+**Results.**
+
+| arm | n | k ± sem | seed sd [pcm] | Δ vs benchmark [pcm] |
+|---|---|---|---|---|
+| without U-236 | 32 | 1.002385 ± 0.000323 | 183 | +339 ± 32 |
+| with U-236 | 32 | 1.000717 ± 0.000208 | 118 | +172 ± 21 |
+
+- **Worth:** −167 ± 38 pcm unpaired (4.4σ); −167 ± 34 paired by seed
+  (correlation 0.24).
+- **Prediction met:** inside the predicted range, with the predicted sign.
+- **Baseline check passed:** the without arm reproduces 1.00238 at
+  `6e35113e2`, so the code changes since then do not affect this case.
+
+**What this leaves stale.**
+- **Every HST-009 row in `per_seed_keff.csv` and `summary_keff.*` is the
+  U-236-omitted model,** including route 1, the reference for the acceptance
+  check (#859) and the browser demo.
+- Route 4 with U-236 sits −162 pcm from that route 1, inside the 200 pcm
+  allowance but not by a wide margin. An acceptance run at small size can
+  fail on this model mismatch, not on a defect.
+- **Fix:** re-run HST-009 on all five routes with U-236. Routes 1 and 2 need
+  OpenMC 0.15 or later; this host has 0.14.1-dev. Until then the demo says
+  its recorded numbers were measured without U-236.
 
 ## Lesson: 96 seeds diagnose, the parity audit fixes (maintainer judgement, 2026-10-15)
 

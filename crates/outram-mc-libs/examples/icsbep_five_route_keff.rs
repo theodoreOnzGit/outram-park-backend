@@ -162,7 +162,7 @@ mod lct008_model;
 const TEMP_K: f64 = 293.6;
 
 /// `(name, ENDF tape)` — the same tapes every source example reads.
-const TAPES: [(&str, &str); 12] = [
+const TAPES: [(&str, &str); 13] = [
     ("U234", "n-092_U_234-ENDF8.0.endf"),
     ("U235", "n-092_U_235-ENDF8.0.endf"),
     ("U238", "n-092_U_238.endf"),
@@ -175,6 +175,7 @@ const TAPES: [(&str, &str); 12] = [
     ("Si30", "n-014_Si_030-ENDF8.0.endf"),
     ("Mn55", "n-025_Mn_055-ENDF8.0.endf"),
     ("B10", "n-005_B_010-ENDF8.0.endf"),
+    ("U236", "n-092_U_236-ENDF8.0.endf"),
 ];
 
 /// One material: name and `(nuclide, atoms/b-cm)`.
@@ -222,8 +223,8 @@ fn case(name: &str) -> Case {
             defaults: (5000, 40, 120),
         },
         // HEU-SOL-THERM-009 case 1: `vv::hst009`, the model `hst009_keff.rs`
-        // transcribed, with its three stated approximations (U-236 and Cu/Zn
-        // omitted, O-17 folded into O-16).
+        // transcribed, with its stated approximations (Cu/Zn omitted, O-17
+        // folded into O-16). U-236 is in the model since 2026-10-15 (gh:#875).
         "hst009" => Case {
             materials: vv::hst009::MATERIALS.iter().map(|(n, c)| (*n, c.to_vec())).collect(),
             sab_on_h1: true,
