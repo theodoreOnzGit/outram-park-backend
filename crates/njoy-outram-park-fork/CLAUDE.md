@@ -781,9 +781,9 @@ now.
 
 **UPDATE 2026-10-15: unrounded too.** "Every word" above was at Type-1
 print precision (12 figures). Against NJOY2016's **Type-2** output, which
-holds its unrounded doubles, B-10 differed in 943 words. After the fixes,
-74 of the 76 five-route tables are measured NJOY2016's bit for bit; U-235
-and U-238 at 293.6 K are being re-run (2026-10-15). Four fixes, each a value upstream
+holds its unrounded doubles, B-10 differed in 943 words. **All 76
+five-route tables (every LCT-008 tape, plus F-19 and U-236) are now
+NJOY2016's bit for bit**: 101 197 626 words, 0 differing bits. Four fixes, each a value upstream
 reads back from a text tape or never rounds:
 - GPD gets `gamsum`'s MF=13/MT=1 text round trip after `sigfig`
   (`acefc.f90:3828-3843`, `:6259-6270`);

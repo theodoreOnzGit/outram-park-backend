@@ -89,7 +89,7 @@ it. "Ours" is the time to build our table.
 | Si-29 | identical | 0.5 s | identical | 0.3 s |
 | Si-30 | identical | 0.4 s | identical | 0.3 s |
 | Mn-55 | identical | 10.3 s | identical | 1.3 s |
-| B-10 | identical (Type 2 at Type-1 print precision) | — | identical (Type 2 at Type-1 print precision) | — |
+| B-10 | identical (Type 2 at Type-1 print precision; **CORRECTED 2026-10-15**: unrounded, 943 words differed in GPD, MTRP and DLWP, now 0, see "Unrounded" below) | — | identical (Type 2 at Type-1 print precision; 1 016 words differed unrounded, now 0) | — |
 
 An earlier full run the same day gave the same 24 verdicts with times
 within 10 % (U-235 293.6 K 123.0 s, U-238 0 K 29.8 s). B-10's time was not
@@ -212,6 +212,84 @@ printed through Type 1 first, with our integer mask. Do our tables hold the
   LCT-008 library's own call) against OpenMC's `make_ace_thermal(...,
   iwt=1)` on NJOY2016 (route 1's table), byte for byte from line 3.
 
-### Results
+### What differed, and the fixes
 
-**In progress (2026-10-15).** Filled in when the 76-table run completes.
+Before the fixes, 13 tables differed (B-10 at both temperatures and the
+eleven below), each word at about 1e-13 relative or in one word, and every one was identical at Type-1 print precision:
+
+| # | tables | block | cause (upstream) | fix |
+|---|---|---|---|---|
+| 18 | B-10 (941 of 941 words at 293.6 K, 1 014 at 0 K) | GPD | `gamsum` writes `sigfig(c,7,0)` to MF=13/MT=1 on its output tape as text (`acefc.f90:3828-3843`) and `acelod` reads it back (`:6259-6270`), so NJOY's word has no `sigfig` bias. Ours stopped at `sigfig` | the `a11` round trip after `sigfig` |
+| 19 | the eleven 293.6 K tables with probability tables (U-234/235/236/238, Mn-55, Fe-58, Zn-64/66/67/68/70; 880 to 6 640 words each) | LUNR | `acelod` copies the four cross-section columns from MT=153 as read (`:5980-5983`); only the energies and the cumulative probability get `sigfig` (`:5973`, `:5987`). Ours rounded the columns again | copied as read |
+| 20 | B-10 (1 word) | MTRP | `acelpp` stores `mto` with a flag digit (0 discrete, 1 MF=15, 2 MF=6 photon, `:8384-8386`) and divides by 10 in place (`:8490`): B-10's MT=801 photon is **801001.2**. Type-1 `change` prints it with `nint` | MTRP keeps the fraction (still an integer word for Type 1) |
+| 21 | B-10 (1 word) | DLWP | an MF=6 photon's law-4 applicability range is `sigfig(E/emev,7,0)` on the yield's raw energies (`:8805-8806`). Ours rounded in eV and then divided: 1.0000000000000998e-11 against 1.0000000000001e-11 | `sigfig` after the division |
+
+`sigfig`'s `bias = 1.0000000000001` (`util.f90:372`) is behind three of the
+four: NJOY2016 carries it wherever it calls `sigfig` and drops it wherever a
+value went through a text tape first, and a 12-figure print cannot tell the
+two apart.
+
+### Results (2026-10-15)
+
+**All 76 tables are NJOY2016's bit for bit: 101 197 626 XSS words, 0
+differing bits, NXS and JXS equal.** This is stronger than, and implies, the
+print-precision result above.
+
+| nuclide | 293.6 K words | 0 K words | differing bits |
+|---|---|---|---|
+| U234 | 449,695 | 611,215 | 0 / 0 |
+| U235 | 6,712,632 | 15,616,079 | 0 / 0 |
+| U238 | 6,247,445 | 12,389,577 | 0 / 0 |
+| U236 | 381,493 | 520,362 | 0 / 0 |
+| F19 | 175,194 | 176,811 | 0 / 0 |
+| O16 | 802,479 | 803,998 | 0 / 0 |
+| H1 | 8,983 | 9,559 | 0 / 0 |
+| Al27 | 254,732 | 268,746 | 0 / 0 |
+| Si28 | 323,472 | 335,813 | 0 / 0 |
+| Si29 | 301,735 | 311,395 | 0 / 0 |
+| Si30 | 234,171 | 244,020 | 0 / 0 |
+| Mn55 | 874,032 | 923,670 | 0 / 0 |
+| B10 | 82,851 | 84,238 | 0 / 0 |
+| B11 | 178,216 | 178,811 | 0 / 0 |
+| Na23 | 88,931 | 95,839 | 0 / 0 |
+| Mg24 | 54,923 | 67,019 | 0 / 0 |
+| Mg25 | 52,816 | 56,407 | 0 / 0 |
+| Mg26 | 46,477 | 49,690 | 0 / 0 |
+| Ti46 | 356,423 | 397,061 | 0 / 0 |
+| Ti47 | 313,561 | 322,988 | 0 / 0 |
+| Ti48 | 322,826 | 354,865 | 0 / 0 |
+| Ti49 | 284,231 | 299,204 | 0 / 0 |
+| Ti50 | 214,680 | 230,528 | 0 / 0 |
+| Cr50 | 437,871 | 507,878 | 0 / 0 |
+| Cr52 | 449,277 | 505,649 | 0 / 0 |
+| Cr53 | 379,810 | 450,223 | 0 / 0 |
+| Cr54 | 290,063 | 314,976 | 0 / 0 |
+| Fe54 | 4,675,030 | 4,895,778 | 0 / 0 |
+| Fe56 | 5,525,727 | 5,639,680 | 0 / 0 |
+| Fe57 | 3,609,823 | 3,685,892 | 0 / 0 |
+| Fe58 | 3,901,975 | 3,990,809 | 0 / 0 |
+| Cu63 | 1,149,289 | 1,265,537 | 0 / 0 |
+| Cu65 | 997,230 | 1,091,030 | 0 / 0 |
+| Zn64 | 531,650 | 634,727 | 0 / 0 |
+| Zn66 | 374,148 | 456,962 | 0 / 0 |
+| Zn67 | 490,436 | 622,371 | 0 / 0 |
+| Zn68 | 319,193 | 360,406 | 0 / 0 |
+| Zn70 | 243,304 | 290,989 | 0 / 0 |
+
+**Thermal (H in H₂O from LEAPR):** our table and route 1's NJOY2016 table
+are the same size (2 605 433 bytes) and identical in every byte of their
+32 166 data lines; only the label lines differ (ZAID stem `lwtr.00t` against
+OpenMC's `hh2o.01t`, date, comment). AWR (0.999167) and kT
+(2.5300E-08 MeV) match.
+
+**Gate:** `tests/ace_five_route_parity.rs` holds a Type-2 reference to every
+bit: B-10 (82 851 words) and Zn-70 at 293.6 K (243 304 words, its reference
+now NJOY2016's Type 2), 11 passed in 8 s.
+
+**Hardware:** Intel Xeon @ 2.80 GHz, 4 logical cores, 15 GiB RAM, Linux
+6.18, CPU only, cloud container; two tables at a time. Longest: U-235 at
+293.6 K, NJOY2016 299 s and ours plus the comparison 195 s.
+
+**Scope.** No HEATR on either side, as before. The five-route `k` values are
+not affected: the Type-1 files the routes read were already identical, and
+every change is below their 12-figure print.
