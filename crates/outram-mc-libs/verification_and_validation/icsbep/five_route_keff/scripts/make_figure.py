@@ -81,6 +81,12 @@ def summarise(rows):
             k = np.array([float(r["k"]) for r in rows if r["case"] == case and r["route"] == route])
             if k.size == 0:
                 continue
+            # Never pool two run sizes (lct008's default changed on 2026-10-15).
+            sizes = {(r["particles"], r["inactive"], r["active"]) for r in rows
+                     if r["case"] == case and r["route"] == route}
+            if len(sizes) > 1:
+                sys.exit(f"{case} {route}: rows of more than one run size {sorted(sizes)}; "
+                         "split them into separate CSVs before summarising")
             sd = float(k.std(ddof=1)) if k.size > 1 else float("nan")
             internal = [float(r["k_std_internal"]) for r in rows
                         if r["case"] == case and r["route"] == route]

@@ -315,7 +315,10 @@ fn lct008_lattice_case(full: bool) -> Case {
                 ),
             },
         ),
-        defaults: (10_000, 250, 400),
+        // 10 000 × [40 + 120] since 2026-10-15 (maintainer direction); the
+        // lct008-full record of 2026-10-14 ran 10 000 × [250 + 400]. 40
+        // inactive generations leave this core's source not fully settled.
+        defaults: (10_000, 40, 120),
     }
 }
 
@@ -988,6 +991,13 @@ mod draw_tests {
         let (k, sem) = route1_reference(summary, "lct008-full").expect("lct008-full route 1");
         assert_eq!((k, sem), (1.001682, 0.000227));
         assert_ne!(route1_reference(summary, "lct008").unwrap().0, k);
+        // Run size by default: 10 000 × [40 + 120] since 2026-10-15
+        // (maintainer direction), the other cases 5000 × [40 + 120].
+        assert_eq!(case("lct008").defaults, (10_000, 40, 120));
+        assert_eq!(lct008_lattice_case(false).defaults, (10_000, 40, 120));
+        for c in ["godiva", "jemima", "hst009"] {
+            assert_eq!(case(c).defaults, (5000, 40, 120), "{c}");
+        }
     }
 
     /// The `--draw` helpers: material colours are keyed on what a material

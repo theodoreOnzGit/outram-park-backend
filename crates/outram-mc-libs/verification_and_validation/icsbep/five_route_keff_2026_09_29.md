@@ -178,6 +178,13 @@ Data and decks:
 | setting | Godiva, Jemima, HST-009 | lattice LCT-008 |
 |---|---|---|
 | histories | 5000 × [40 + 120] | 10 000 × [250 + 400] |
+
+**Changed 2026-10-15 (maintainer direction):** `run_all.sh` and the driver now
+default the lattice to **10 000 × [40 + 120]**. Every lattice row recorded
+before that date, `lct008-full` included, is at 10 000 × [250 + 400]. 40
+inactive generations leave this core's fission source not fully converged:
+on the 11-nuclide tier at 5000 histories they read about +80 pcm high. Rows
+of the two sizes are not pooled; `make_figure.py` refuses them.
 | threads | 8 threads (first campaign) and 4 threads (later runs), one job at a time | 4 threads, one job at a time |
 
 - **Thread count does not change the answer.** Both codes' multi-thread results
