@@ -103,10 +103,22 @@ def summarise(rows):
 # 2026-10-15 campaign (new code) matches 0 of 32, so its own rows are used.
 GODIVA_R4_288 = PER_SEED.parent / "per_seed_keff_godiva_route4_288_2026_10_05.csv"
 
+# The retired 11-nuclide LCT-008 tier is not re-run with the campaign; its
+# seeds were archived here on 2026-10-15. A SUMMARY_ONLY case with no rows in
+# PER_SEED takes them from this file, so the acceptance check's reference row
+# survives a campaign re-run.
+RETIRED_TIER = PER_SEED.parent / "per_seed_keff_pre_2026_10_15.csv"
+
 
 def main():
     with PER_SEED.open(newline="") as fh:
         rows = list(csv.DictReader(fh))
+    if RETIRED_TIER.exists():
+        with RETIRED_TIER.open(newline="") as fh:
+            archived = list(csv.DictReader(fh))
+        for case, *_ in SUMMARY_ONLY:
+            if not any(r["case"] == case for r in rows):
+                rows += [r for r in archived if r["case"] == case]
     if GODIVA_R4_288.exists():
         with GODIVA_R4_288.open(newline="") as fh:
             ext = list(csv.DictReader(fh))
