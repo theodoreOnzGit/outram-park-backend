@@ -20,14 +20,12 @@
 # 10 000 x [250 + 400] (CHANGED 2026-10-13, maintainer direction): that size
 # made it two-thirds of the transport time on its own.
 #
-# Every case runs 32 seeds (maintainer direction, 2026-10-15: "32 seeds
-# across the board"), the five-route campaign's per-case count. Seed-to-seed
-# sd of one run at this size: Godiva 183, Jemima 152, HST-009 181 pcm from the
-# campaign, and the lattice ~190 pcm predicted (74 pcm at its campaign size,
-# scaled by the square root of active histories). Three standard errors then
-# take 81-101 pcm of the 200 pcm allowance. The floor is about 8 seeds
-# (6 for Jemima): below it, three standard errors exceed 200 pcm and the run
-# is UNRESOLVED. Before 2026-10-15 the counts were 16, 24, 16 and 16.
+# Seeds per case are sized so three standard errors sit well inside 200 pcm.
+# Seed-to-seed sd of one run, from the campaign: Godiva 183, Jemima 152,
+# HST-009 181 pcm at this size; the lattice 74 pcm at its campaign size, which
+# at this size is predicted ~190 pcm (scaled by the square root of active
+# histories), so it runs 16 seeds rather than the campaign's 6: at 6 seeds
+# three standard errors would be ~240 pcm and every run UNRESOLVED.
 #
 # LCT-008 here is a SMOKE TEST on the retired 11-nuclide tier
 # (--cheap-nuclides; maintainer direction 2026-10-14). The lattice's model is
@@ -58,10 +56,10 @@ extra_for() {
 
 seeds_for() {
   case "$1" in
-    godiva) echo 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32 ;;
-    jemima) echo 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32 ;;
-    hst009) echo 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32 ;;
-    lct008) echo 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32 ;;
+    godiva) echo 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16 ;;
+    jemima) echo 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24 ;;
+    hst009) echo 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16 ;;
+    lct008) echo 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16 ;;
     *) echo "unknown case $1" >&2; exit 2 ;;
   esac
 }

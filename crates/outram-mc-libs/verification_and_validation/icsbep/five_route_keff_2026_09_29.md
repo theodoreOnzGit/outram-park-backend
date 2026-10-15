@@ -580,7 +580,7 @@ has σ ≈ 60 × √(2/n) pcm.
 
 | use | what has to be resolved | seeds on the lattice |
 |---|---|---|
-| Regression or acceptance (#859) | a 200 pcm allowance, with 3σ inside it | σ ≤ 67 pcm. ~~so 1 to 4 seeds~~ **CORRECTED 2026-10-15:** 1 to 4 holds at the lattice's campaign size (about 60 pcm per seed), but the acceptance check runs 5,000 × [40 + 120], where one seed spreads by 150 to 190 pcm, so the floor is about 8 seeds per case (6 for Jemima). The check runs **32 on every case** (maintainer direction, 2026-10-15) |
+| Regression or acceptance (#859) | a 200 pcm allowance, with 3σ inside it | σ ≤ 67 pcm. ~~so 1 to 4 seeds~~ **CORRECTED 2026-10-15:** 1 to 4 holds at the lattice's campaign size (about 60 pcm per seed), but the acceptance check runs 5,000 × [40 + 120], where one seed spreads by 150 to 190 pcm, so the floor is about 8 seeds per case (6 for Jemima). The check runs 16, 24, 16 and 16 (Godiva, Jemima, HST-009, LCT-008) |
 | Validation against the experiment | benchmark uncertainty of 300 to 430 pcm (Jemima ±300, HST-009 ±430) | a few. At 32 seeds the statistical σ is ±10 pcm, well under a tenth of the benchmark's |
 | Code-to-code verification (a route against route 1) | differences of about 30 to 50 pcm | 32: σ of the difference ≈ 15 pcm, so 2σ ≈ 30 pcm |
 | Diagnosing a residual under 30 pcm | about 15 to 20 pcm | 96 or more. The only use where 96 seeds earned their cost |

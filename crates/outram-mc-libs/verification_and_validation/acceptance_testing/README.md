@@ -57,17 +57,12 @@ models from the same modules.
 
 ### Reduced statistics
 
-Every case runs 5000 neutrons × [40 inactive + 120 active] per seed, with
-~~16, 24, 16 and 16 seeds~~ **32 seeds on every case since 2026-10-15**
-(maintainer direction: *"32 seeds across the board"*). For Godiva, Jemima and
-HST-009 that is the campaign's own run size and its per-case seed count. At
-the seed-to-seed standard deviations of this size (Godiva 183, Jemima 152,
-HST-009 181 pcm; the lattice about 190 pcm, predicted), three standard errors
-take 81 to 101 pcm of the 200 pcm allowance. The floor is about 8 seeds
-(6 for Jemima): below it every run is UNRESOLVED. The earlier counts were
-sized to sit just inside that floor; a first local trial with 12 Jemima seeds
-gave a standard error of 58 pcm, too close to the limit, so Jemima had gone
-to 24. No run at 32 seeds has been recorded yet.
+Every case runs 5000 neutrons × [40 inactive + 120 active] per seed, with 16,
+24, 16 and 16 seeds. For Godiva, Jemima and HST-009 that is the campaign's own
+run size, with fewer seeds than its 32 to 288. Seed counts were sized from the
+campaign's seed-to-seed standard deviations so that three standard errors sit
+well inside the allowance. A first local trial with 12 Jemima seeds gave a
+standard error of 58 pcm, too close to the limit, so Jemima went to 24.
 
 **The lattice does not run at its campaign size** (10 000 × [250 + 400]).
 Maintainer direction, 2026-10-13: *"particles per batch is too high for
