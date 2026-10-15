@@ -322,8 +322,12 @@ k and seed sd, is `data/summary_keff.md`.
   - **B-10 is the one table that differs, and only LCT-008 contains it.**
     NJOY2016's Type-1 writer aborts on it, so that library holds a binary
     Type-2 table. About 7,100 words differ, by at most 2.5e-7 relative, and
-    the first MTR word is 0 against 4.548838. Not yet explained; handed to a
-    separate investigation and to be recorded on gh:#875.
+    the first MTR word is 0 against 4.548838. ~~Not yet explained; handed to a
+    separate investigation and to be recorded on gh:#875.~~ **UPDATED
+    2026-10-15 (later):** at `a83067e06c` those differences are gone. What
+    is left is the Type-2/Type-1 container itself, and it is the whole
+    reason LCT-008's routes 1 and 2 differ. See "Reproduction at
+    `a83067e06c`, and why LCT-008 differs: B-10" below.
   - Those differences change histories chaotically, so the k values differ
     by noise only, not resolved.
 - **The runs reproduce exactly.** Jemima matches the 2026-09-30 records to
@@ -336,6 +340,69 @@ k and seed sd, is `data/summary_keff.md`.
 - **Route 3 on the lattice:** −9 ± 23 pcm. The 11-nuclide model's −18 ± 8
   (2.3σ) is not seen. The model and the resolution both differ, so this is
   not seen at ±23, not shown to be gone.
+
+### Reproduction at `a83067e06c`, and why LCT-008 differs: B-10 (2026-10-15, later)
+
+**The campaign was run again on a second host, at a later commit, and every
+number reproduced.**
+- **Run:** `run_all.sh` at its defaults at `a83067e06c`, with both libraries
+  rebuilt fresh. 640 runs, 0 failures.
+- **Host:** Intel Core i9-13900K (32 logical CPUs, 16 available), 14
+  threads, 62 GB, Linux 7.2.9, CPU only, not otherwise loaded. 17:33–18:37
+  local, libraries included.
+- **Rows:** `data/per_seed_keff_repro_a83067e06c_2026_10_15.csv`.
+
+**All 640 per-seed k equal the rows above to the printed digit**, on every
+case and route. So these results do not depend on host or thread count (36
+threads there, 14 here). The NJOY changes between `093d8590c` and
+`a83067e06c` (HEATR with the library, B-10 and the PURR tables bit for bit
+against NJOY2016's Type 2) move no k. The seed-for-seed pattern reproduces
+too: on LCT-008, routes 1 and 2 match 0 of 32 seeds and routes 3 and 5
+match 25 of 32.
+
+#### Why LCT-008's routes 1 and 2 differ: B-10, and only B-10
+
+**On Godiva, Jemima and HST-009, route 1 equals route 2 seed for seed. On
+LCT-008 it does not, and B-10 is the reason.** B-10 is the only nuclide
+whose two tables are not the same numbers, and LCT-008 is the only case that
+contains it.
+
+The cause is NJOY2016, not the port. **NJOY2016's Type-1 writer aborts on
+B-10** (§2 of the preparation findings: `acefc.f90:13942`, "Undefined law for
+dlwh block: 0"). So route 1's B-10 is the **binary Type 2** table, which
+carries NJOY's unrounded doubles. Every other route-1 table, and every
+route-2 table including the port's B-10, is **Type-1 text**: 12 significant
+figures, and a header temperature printed to 4.
+
+Measured at `a83067e06c`, the HDF5 files OpenMC reads were compared dataset by
+dataset (`h5_njoy` against `h5_rust`):
+
+| what | differs? |
+|---|---|
+| 37 of the 38 nuclides, and H in H₂O | identical in every dataset except heating (MT=301 and the URR heating row), which transport does not read. The port's library runs HEATR; the NJOY2016 deck does not |
+| **B-10** | **every array differs**, by at most **1.0e-13** relative (Type 2 unrounded against Type 1 text). **kT differs by 1.9e-5** relative (`2.5300E-08` MeV as printed by Type 1, against the unrounded double) |
+
+The ACE files themselves, compared word by word at 12 figures with heating
+excluded, agree in every word but one. That word is B-10's MTRP, where
+NJOY2016's Type 2 stores `801001.2` and Type 1 prints `801001` (photon
+production, not read in neutron transport).
+
+**Why a 1e-13 difference gives 0 of 32.** Neither difference is a physics
+difference worth anything at this resolution. But a history that collides
+with B-10 draws from slightly different numbers, its path diverges, and from
+then on the run is an independent sample. So LCT-008's route 1 and route 2
+are **two independent estimates of the same k**. **−32 ± 21 pcm (−1.6σ) is
+scatter, not a data defect.**
+
+**A hypothesis, not tested: why routes 3 and 5 still match 25 of 32.**
+outram-mc reads the ACE files directly rather than through HDF5, and it may
+take the temperature from the run rather than from the table header. If so,
+only the 1e-13 rounding remains, and it diverges a history far less often
+than the 1.9e-5 in kT. This is untested.
+
+**The check that would settle it (not done):** write the port's B-10 as
+Type 2 as well. Then route 2 should equal route 1 seed for seed on LCT-008,
+as on the other three cases.
 
 ## Results — after the OpenMC-parity audit (2026-09-30, routes 3/4/5 at `0414bc8277`) — *superseded 2026-10-15, above*
 
