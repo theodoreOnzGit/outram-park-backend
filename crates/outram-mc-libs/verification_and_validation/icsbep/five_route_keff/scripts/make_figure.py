@@ -98,6 +98,9 @@ def summarise(rows):
 
 # Godiva route 4 was extended from 32 to 288 seeds on 2026-10-05 (#546);
 # seeds 1-32 reproduce the campaign rows bit for bit, so the 288 replace them.
+# CHANGED 2026-10-15: only while that premise holds. The swap is made only if
+# the file's seeds 1-32 equal the campaign's godiva route-4 rows exactly; the
+# 2026-10-15 campaign (new code) matches 0 of 32, so its own rows are used.
 GODIVA_R4_288 = PER_SEED.parent / "per_seed_keff_godiva_route4_288_2026_10_05.csv"
 
 
@@ -105,11 +108,18 @@ def main():
     with PER_SEED.open(newline="") as fh:
         rows = list(csv.DictReader(fh))
     if GODIVA_R4_288.exists():
-        rows = [r for r in rows if not (r["case"] == "godiva" and r["route"] == "route4")]
         with GODIVA_R4_288.open(newline="") as fh:
-            for r in csv.DictReader(fh):
+            ext = list(csv.DictReader(fh))
+        camp = {r["seed"]: r["k"] for r in rows if r["case"] == "godiva" and r["route"] == "route4"}
+        ext_k = {r["seed"]: r["k"] for r in ext}
+        if camp and all(ext_k.get(seed) == k for seed, k in camp.items()):
+            rows = [r for r in rows if not (r["case"] == "godiva" and r["route"] == "route4")]
+            for r in ext:
                 r["route"] = "route4"
                 rows.append(r)
+        else:
+            same = sum(ext_k.get(seed) == k for seed, k in camp.items())
+            print(f"Godiva route 4: the 288-seed file matches {same} of {len(camp)} campaign seeds; not used")
     s = summarise(rows)
 
     (OUT / "data").mkdir(parents=True, exist_ok=True)
@@ -201,9 +211,9 @@ def main():
                           label=lab.replace("\n", " + ")) for i, (_, lab) in enumerate(ROUTES)]
     fig.legend(handles=handles, loc="outside lower center", ncol=5, frameon=False, fontsize=8.5)
     fig.suptitle("Four ICSBEP cases by transport code and nuclear-data route — ENDF/B-VIII.0, 293.6 K\n"
-                 "Godiva, Jemima, HST-009: 2026-09-30, routes 3-5 at outram-mc 0414bc8277 (#407); Godiva route 4 at 288 seeds (2026-10-05, #546). "
-                 "LCT-008: the full 35-nuclide model, 8 seeds per route, 2026-10-14, H in H2O from LEAPR on routes 2, 4, 5.\n"
-                 "Every cell within 2σ of route 1. The retired 11-nuclide lattice (summary only) had route 3 at −18 ± 8 pcm (2.3σ). See the V&V record.",
+                 "Campaign 2026-10-15, all 20 cells re-run at 50911476b / 093d8590c: 32 seeds each; HST-009 with U-236; "
+                 "LCT-008 the full 35-nuclide model at 10 000 x [40 + 120]; H in H2O from LEAPR on routes 2, 4, 5.\n"
+                 "Every cell within 2σ of route 1. Routes 1 = 2 and 3 = 5 seed for seed except on LCT-008 (B-10 table). See the V&V record.",
                  fontsize=10, x=0.01, ha="left", linespacing=1.5)
     (OUT / "figures").mkdir(parents=True, exist_ok=True)
     fig.savefig(OUT / "figures" / "five_route_keff.png", dpi=200, metadata={"Software": None},

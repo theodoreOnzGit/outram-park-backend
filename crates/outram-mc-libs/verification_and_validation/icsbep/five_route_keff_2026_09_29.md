@@ -271,7 +271,73 @@ fixed; it runs since then.
 | P8 | #460 (combed fission source): +0 to +5 pcm on the lattice, below what 96 seeds resolve | not measured paired; the unpaired route-3 move from f78b5180d5 (96 seeds each) is +5 ± 10, consistent with it and with zero |
 | P9 | at the audited code, every case × route within 2σ of route 1 | **held on 11 of 12 outram-mc cells**; the lattice on route 3 is −18 ± 8 (2.3σ) at 96 seeds a side |
 
-## Results — after the OpenMC-parity audit (2026-09-30, routes 3/4/5 at `0414bc8277`)
+## Results — full re-run, all four cases on all five routes (2026-10-15, current)
+
+**Protocol.**
+- **Code:** `run_all.sh` unmodified. HST-009 ran at `50911476b`. Godiva,
+  Jemima and LCT-008 ran at `093d8590c`, which adds only documentation.
+- **Run size:** 32 seeds per case and route, 36 threads.
+  - Godiva, Jemima and HST-009: 5,000 × [40 + 120].
+  - LCT-008: the full 35-nuclide model at 10,000 × [40 + 120], the
+    launcher's default since `be19eeb5a`.
+- **Libraries:** both ACE libraries were built fresh. NJOY2016 is 2016.79
+  `ac5adf5`. Routes 1 and 2 ran on OpenMC 0.16.1-dev25 `d7d3284a1`, rebuilt
+  on this host with its Python API on Python 3.12.
+- **Model change:** HST-009 carries U-236 (above).
+- **Host:** Intel Xeon W-2195, 36 logical cores, 62 GiB, Linux Mint 21.3,
+  CPU only.
+- **Data:** the 640 rows replace `data/per_seed_keff.csv`. The rows they
+  replace are archived in `data/per_seed_keff_pre_2026_10_15.csv`.
+- **Summary:** `summary_keff.{csv,md}` and the figure are regenerated from
+  them.
+  - `make_figure.py` now uses the 2026-10-05 288-seed Godiva route-4 file
+    only while its seeds 1–32 still equal the campaign's. They match 0 of
+    32 at this code, so the campaign's own 32 seeds are used.
+
+**Prediction, written before the run.** LCT-008 at [40 + 120] agrees with
+the 2026-10-14 [250 + 400] rows on the same model (8 seeds) within 2σ on
+every route. A consistent shift of +50 pcm or more would mean the source is
+not converged.
+
+| case | route 1 k | Δ vs benchmark [pcm] | route 2 | route 3 | route 4 | route 5 |
+|---|---|---|---|---|---|---|
+| Godiva | 1.00016 ± 0.00021 | +16 ± 21 | +0 ± 29 | −7 ± 36 | −47 ± 35 (−1.3σ) | −7 ± 36 |
+| Jemima | 0.99594 ± 0.00017 | −406 ± 17 | +0 ± 25 | +0 ± 31 | +15 ± 32 | +0 ± 31 |
+| HST-009 (with U-236) | 1.00124 ± 0.00029 | +224 ± 29 | +0 ± 41 | −48 ± 41 | −52 ± 36 (−1.5σ) | −48 ± 41 |
+| LCT-008 (35 nuclides) | 1.00161 ± 0.00013 | +91 ± 13 | −32 ± 21 (−1.6σ) | −9 ± 23 | −1 ± 25 | −25 ± 25 |
+
+The route columns are Δ vs route 1 in pcm. The full table, with every route's
+k and seed sd, is `data/summary_keff.md`.
+
+**What it says.**
+- **Every case and route is within 2σ of route 1.**
+- **Same data gives the same answer.** On Godiva, Jemima and HST-009,
+  route 1 = route 2 and route 3 = route 5 seed for seed (32 of 32): the Rust
+  NJOY port's tables give bit-identical transport on both codes.
+  - On LCT-008 they do not: 0 of 32 for routes 1 and 2, and 25 of 32 for
+    routes 3 and 5.
+  - Comparing the two libraries word by word, every text table is
+    numerically identical except the heating array, which transport does not
+    read. HinH2O is identical in all 128,622 words.
+  - **B-10 is the one table that differs, and only LCT-008 contains it.**
+    NJOY2016's Type-1 writer aborts on it, so that library holds a binary
+    Type-2 table. About 7,100 words differ, by at most 2.5e-7 relative, and
+    the first MTR word is 0 against 4.548838. Not yet explained; handed to a
+    separate investigation and to be recorded on gh:#875.
+  - Those differences change histories chaotically, so the k values differ
+    by noise only, not resolved.
+- **The runs reproduce exactly.** Jemima matches the 2026-09-30 records to
+  every digit on all five routes, and so do Godiva routes 1 and 2. The
+  OpenMC and NJOY2016 rebuilt on this host reproduce them.
+- **The prediction held.** LCT-008 at [40 + 120] against [250 + 400], per
+  route: −8 ± 26, −34 ± 29, +18 ± 27, +42 ± 28 and −1 ± 33 pcm. All are
+  within 2σ, with no common sign. Forty inactive generations at 10,000
+  neutrons show no unconverged source at this resolution.
+- **Route 3 on the lattice:** −9 ± 23 pcm. The 11-nuclide model's −18 ± 8
+  (2.3σ) is not seen. The model and the resolution both differ, so this is
+  not seen at ±23, not shown to be gone.
+
+## Results — after the OpenMC-parity audit (2026-09-30, routes 3/4/5 at `0414bc8277`) — *superseded 2026-10-15, above*
 
 **These supersede the 2026-09-29 table below.** The audit (#407) compared
 outram-mc with OpenMC `d7d3284a1` routine by routine and fixed:
