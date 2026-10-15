@@ -512,6 +512,86 @@ same
   because OpenMC ran the same 11 nuclides.
 - **Still not done:** a per-nuclide split. #533 did not require one.
 
+## Lesson: 96 seeds diagnose, the parity audit fixes (maintainer judgement, 2026-10-15)
+
+**Maintainer's conclusion:** *"We spent 96 seeds trying to chase down a
+discrepancy by brute force. However, when doing differential testing, i.e.
+getting the physics correct, we could get within 2σ. Correct processes with
+human judgment beat brute-force tuning to correct answers by AI."*
+
+**Refined the same day:** ~~*"The 96 seeds were unnecessary."*~~ **96 seeds
+were a good diagnostic: they told us there was a problem. Without the
+OpenMC-parity audit, the underlying problems could not have been fixed.**
+- The gap was already visible at 32 seeds (3.8 to 4.9σ).
+- 96 seeds confirmed that route 3's remaining −18 ± 8 pcm (2.3σ) is a real
+  residual and not a 32-seed fluctuation.
+- They also gave the paired A/Bs enough resolution to measure fixes worth
+  tens of pcm.
+- Locating and fixing each defect took the differential audit against
+  upstream.
+
+**What happened (#407):**
+- **2026-09-29, first campaign:** outram-mc routes 3, 4 and 5 sat −50 to
+  −73 pcm below OpenMC on the lattice (3.8 to 4.9σ, 32 seeds).
+- **What moved the residual was physics.** Four fixes, each a paired A/B with
+  a prediction written first, changed it by tens of pcm:
+  - angular sampling as OpenMC (−13 ± 9);
+  - URR band per nuclide and energy (+32 ± 18);
+  - DBRC gate (+7 ± 18);
+  - S(α,β) sampling as OpenMC (+36 to +42).
+- **After the fixes, at 32 seeds:** route 3 was −36 ± 15 (2.5σ), and an
+  extension to 96 seeds on routes 1 and 3 to 5 was declared.
+- **At 96 seeds, after the OpenMC-parity audit:**
+  - route 3: −18 ± 8 (2.3σ);
+  - route 4: −8 ± 9;
+  - route 5: −3 ± 8.
+
+  The extra 64 seeds per route shrank the σ of the difference from route 1
+  from about 15 to 8 pcm. No route crossed 2σ either way: routes 4 and 5
+  were within 2σ at 32 seeds (+1.6σ and −1.5σ) and route 3 was outside
+  (2.5σ). The seeds explained nothing about route 3's residual. The 32 and
+  96-seed rows are also on different code (`f78b5180d5`, then
+  `0414bc8277`), so the shift between them is the audit's, not the seeds'.
+- **2026-10-14, 32 seeds:** routes 4 and 5, with H in H₂O from LEAPR, are
+  −23 ± 13 (−1.8σ) and −10 ± 11 (−0.9σ) against route 1. Both are within
+  2σ at a third of the seeds
+  (`five_route_keff/data/leapr_routes45_2026_10_14.md`).
+
+**What the extra seeds bought:**
+- More seeds narrow a confidence interval. That tells you whether a residual
+  is real. It cannot tell you where the defect is.
+- Each residual that closed was closed by finding a physics difference
+  against the reference implementation. Adding histories closed none.
+- Route 3 at 2.3σ is still open after 96 seeds. It is open for the same
+  reason it was at 32.
+
+**How to apply it here:**
+- When a code-to-code residual is resolved at 2 to 3σ, the next step is a
+  differential A/B against upstream, with its sign and size predicted first.
+  Extending the seed count is not that step.
+- Extend the seeds only when a decision depends on the narrower interval,
+  and say which decision.
+- 32 seeds per case and route stays the campaign size.
+
+**Sizing rule: choose the seed count before the run, from the effect size
+the run must resolve, and write the reason down.** On the lattice, one seed
+has a spread of about 60 pcm. An unpaired difference of two n-seed means
+has σ ≈ 60 × √(2/n) pcm.
+
+| use | what has to be resolved | seeds on the lattice |
+|---|---|---|
+| Regression or acceptance (#859) | a 200 pcm allowance, with 3σ inside it | σ ≤ 67 pcm, so 1 to 4 seeds. The acceptance check already runs 5,000 × [40 + 120] |
+| Validation against the experiment | benchmark uncertainty of 300 to 430 pcm (Jemima ±300, HST-009 ±430) | a few. At 32 seeds the statistical σ is ±10 pcm, well under a tenth of the benchmark's |
+| Code-to-code verification (a route against route 1) | differences of about 30 to 50 pcm | 32: σ of the difference ≈ 15 pcm, so 2σ ≈ 30 pcm |
+| Diagnosing a residual under 30 pcm | about 15 to 20 pcm | 96 or more. The only use where 96 seeds earned their cost |
+
+96 seeds answered one diagnostic question: is a 20 pcm code-to-code residual
+real? For regression testing that is about 20 times the compute the
+allowance needs. For validation, the benchmark's own uncertainty dominates
+long before 96 seeds. The extension was declared before the run, as the
+protocol requires, but no effect size was stated for it. Under this rule,
+stating one is part of declaring the run.
+
 ## Results — FINAL (2026-09-29, routes 3/4/5 at `f78b5180d5`) — *superseded 2026-09-30, above*
 
 - **Routes 1 and 2** are unchanged from the interim campaign.
