@@ -138,6 +138,26 @@ pub struct PhotonEntry {
     /// The ANDP tables `acelpp` writes when it reaches this entry's MT
     /// (attached to the MT's first entry), in the order it writes them.
     pub andp_tables: Vec<PhotonAngularTable>,
+    /// The law's applicability table when it is not the fixed two-point
+    /// form: an MF=15 continuum's own probability record, as `acelpp` copies
+    /// it (`acefc.f90:8540-8566`). `None` writes `NR = 0, NE = 2`,
+    /// `(e_lo, e_hi)`, `(1, 1)`, as the discrete and MF=16 branches do.
+    pub applicability: Option<PhotonApplicability>,
+}
+
+/// An MF=15 probability record as `acelpp` writes it into a DLWP header:
+/// its interpolation regions (empty for a single lin-lin region, written as
+/// `NR = 0`), its energies as `sigfig(E/1e6, 7)` and its probabilities as
+/// the tape gives them. Cr-50/52/53/54 and Na-23 carry histogram records
+/// (GitHub #875).
+#[derive(Clone, Debug, PartialEq)]
+pub struct PhotonApplicability {
+    /// `(NBT, INT)` pairs; empty when the record is one lin-lin region.
+    pub interp: Vec<(u32, u32)>,
+    /// Incident energies \[MeV\].
+    pub e_mev: Vec<f64>,
+    /// Probabilities.
+    pub p: Vec<f64>,
 }
 
 /// Build every photon-production entry for `mat`.
@@ -260,6 +280,7 @@ fn build_impl(tape: &Tape, mat: i32, pendf: Option<&crate::reconr::ReconrResult>
                         eg_ev: rt(eg),
                         landp: None,
                         andp_tables: Vec::new(),
+                        applicability: None,
                     });
                 }
                 continue;
@@ -302,6 +323,7 @@ fn build_impl(tape: &Tape, mat: i32, pendf: Option<&crate::reconr::ReconrResult>
                 let e_first = tab.pairs.first().map(|&(e, _)| e).unwrap_or(0.0);
                 let e_last = tab.pairs.last().map(|&(e, _)| e).unwrap_or(0.0);
 
+                let mut applicability = None;
                 let law = if lf == 2 || lf == 0 {
                     // `xss(nex+10)=sigfig(eg/emev,7,0)` (`acefc.f90:8509`)
                     EnergyLaw::Law2 {
@@ -318,7 +340,8 @@ fn build_impl(tape: &Tape, mat: i32, pendf: Option<&crate::reconr::ReconrResult>
                     }
                     mf15_used = true;
                     let sec15 = tape.section(mat, 15, mt)?;
-                    let l4 = acelpp_law4(sec15, k).ok()?;
+                    let (l4, prob) = acelpp_law4(sec15, k).ok()?;
+                    applicability = Some(prob);
                     EnergyLaw::Law4(l4)
                 };
 
@@ -352,6 +375,7 @@ fn build_impl(tape: &Tape, mat: i32, pendf: Option<&crate::reconr::ReconrResult>
                     eg_ev: if lf == 1 { 0.0 } else { eg_ev },
                     landp: None,
                     andp_tables: Vec::new(),
+                    applicability,
                 });
             }
         }
@@ -419,6 +443,7 @@ fn build_impl(tape: &Tape, mat: i32, pendf: Option<&crate::reconr::ReconrResult>
                 eg_ev: 0.0,
                 landp: None,
                 andp_tables: Vec::new(),
+                applicability: None,
             });
         }
     }
@@ -677,6 +702,7 @@ fn expand_cascade(levels: &[Level], mt: i32, awr: f64, e_max_ev: f64) -> Vec<Pho
             eg_ev,
             landp: None,
             andp_tables: Vec::new(),
+            applicability: None,
         })
         .collect()
 }
@@ -697,7 +723,13 @@ fn expand_cascade(levels: &[Level], mt: i32, awr: f64, e_max_ev: f64) -> Vec<Pho
 /// ~~`parse_mf5_law4`, the neutron MF=5 reader~~, **CHANGED 2026-09-26**
 /// (GitHub #340). It left pdf and cdf unrounded: 16 241 of U-234's 25 126
 /// DLWP words differed from NJOY's in the 10th figure.
-fn acelpp_law4(sec15: &crate::endf::tape::Section, mtdnc: i32) -> Result<super::energy::Law4, crate::NjoyError> {
+///
+/// Also returns the subsection's probability record, which `acelpp` writes
+/// as the law's applicability table (`acefc.f90:8540-8566`).
+fn acelpp_law4(
+    sec15: &crate::endf::tape::Section,
+    mtdnc: i32,
+) -> Result<(super::energy::Law4, PhotonApplicability), crate::NjoyError> {
     use crate::mixr::mix::sigfig;
     const RMIN: f64 = 1.0e-30;
     let mut cur = SectionCursor::new(&sec15.rows);
@@ -705,7 +737,7 @@ fn acelpp_law4(sec15: &crate::endf::tape::Section, mtdnc: i32) -> Result<super::
     let nc = head.n1;
     let want = if mtdnc > nc { 1 } else { mtdnc };
     for ic in 1..=nc {
-        let _prob = cur.read_tab1()?;
+        let prob = cur.read_tab1()?;
         let tab2 = cur.read_tab2()?;
         let ne = tab2.head.n2;
         if ic != want {
@@ -754,10 +786,21 @@ fn acelpp_law4(sec15: &crate::endf::tape::Section, mtdnc: i32) -> Result<super::
         // `if (m.ne.1.or.jnt.ne.2)`: a single lin-lin region is written as
         // NR = 0.
         let simple = tab2.interp.len() == 1 && tab2.interp[0].1 == 2;
-        return Ok(super::energy::Law4 {
-            e_in_interp: if simple { Vec::new() } else { tab2.interp.clone() },
-            incident,
-        });
+        // The probability record by the same rule (`:8549-8558`): E as
+        // `sigfig(E/emev,7,0)`, P as the tape has it (`:8562-8565`).
+        let prob_simple = prob.interp.len() == 1 && prob.interp[0].1 == 2;
+        let applicability = PhotonApplicability {
+            interp: if prob_simple { Vec::new() } else { prob.interp.clone() },
+            e_mev: prob.pairs.iter().map(|&(e, _)| sigfig(e / EMEV, 7, 0)).collect(),
+            p: prob.pairs.iter().map(|&(_, p)| p).collect(),
+        };
+        return Ok((
+            super::energy::Law4 {
+                e_in_interp: if simple { Vec::new() } else { tab2.interp.clone() },
+                incident,
+            },
+            applicability,
+        ));
     }
     Err(crate::NjoyError::EndfParse("MF=15 subsection not found".into()))
 }
@@ -786,6 +829,7 @@ fn acelpp_law4(sec15: &crate::endf::tape::Section, mtdnc: i32) -> Result<super::
 /// `convr` rebuilds from the subsections.
 pub fn gpd(tape: &Tape, mat: i32, pendf: &crate::reconr::ReconrResult) -> Option<Vec<f64>> {
     use crate::endf::gety1::Gety1;
+    use crate::endf::parse::{format_endf_float, parse_endf_float};
     use crate::endf::records::{Cont, Tab1};
     use crate::mixr::mix::sigfig;
     const EPS: f64 = 1.0e-10;
@@ -860,8 +904,14 @@ pub fn gpd(tape: &Tape, mat: i32, pendf: &crate::reconr::ReconrResult) -> Option
             let level = |m: i32| eeth(m).map(|e| e * awr / (awr + 1.0));
             let out = cascade.section(sec.key.mt, head.l2, &list, &level)?;
             let Some(out) = out else { continue };
-            let ysum = out.ysum;
-            let elow = eeth(sec.key.mt).unwrap_or(0.0);
+            // `convr` writes the converted record to its scratch tape as
+            // text (`tab1io`, `acefc.f90:4318-4331`), so `gamsum` reads back
+            // `a11`'s rounding: Cu-65's MT=52 yield 1.0000607248 is
+            // 1.00006072 there (GitHub #875).
+            let rt = |v: f64| parse_endf_float(&format_endf_float(v)).unwrap_or(v);
+            let ysum = rt(out.ysum);
+            let elow = rt(eeth(sec.key.mt).unwrap_or(0.0));
+            let elim = rt(elim);
             Tab1 {
                 head: Cont { c1: 0.0, c2: 0.0, l1: 0, l2: 0, n1: 1, n2: 2 },
                 interp: vec![(2, 2)],

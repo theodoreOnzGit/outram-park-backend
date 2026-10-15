@@ -1402,7 +1402,15 @@ pub(crate) fn rebuild_range_with(
             }
         })
         .collect();
-    egrid.push(eh_lo);
+    // ~~`egrid.push(eh_lo)`~~ REMOVED 2026-10-15 (GitHub #875):
+    // `resxs` walks the union grid's own nodes below `eresh` and ends on
+    // the last of them (label 190, `reconr.f90:2513-2521`). `rdfil2` puts
+    // `sigfig(eh,7,-1)` among the nodes, but `lunion` can replace it: Zn-64
+    // and Zn-67's MT=107 has a histogram step at `eh`, and its histogram
+    // rule writes `sigfig(sigfig(eh,7,-1),7,-1)` instead (`:2048-2060`). The
+    // background energies here are that union grid, so the shaded node is
+    // already in `egrid` exactly when upstream has it; adding it put one extra
+    // energy in the table (0.1299999 MeV on Zn-64). So nothing is pushed.
     if shade_el {
         egrid.push(el_hi);
     }

@@ -114,3 +114,68 @@ passes in 1.7 s, photon-block decode check included; U-234 at 293.6 K stays gate
   recoil (no five-route nuclide reaches them; they still refuse the whole
   block by name), and `unionx`'s second discontinuity pair (`edl`/`edh`,
   for a discontinuity in MT=1 itself).
+
+## LCT-008's full nuclide list (2026-10-15, GitHub #875)
+
+### Question
+
+LCT-008's full model (gh:#874) put 25 more ENDF/B-VIII.0 nuclides through
+the same comparison: 37 nuclides, 74 tables. On 2026-10-14, 24 of them
+differed from NJOY2016 (Na-23, Ti-48, Cr-50/52/53/54, Fe-57/58, Cu-65,
+Zn-64/66/67/68/70). Can every difference be traced to something upstream
+does and the port did not, and removed?
+
+### Methodology
+
+As above: the same decks, the same NJOY2016 2016.79 tables
+(`target/five_route_keff/njoy/{293.6K,0K}/`, made by
+`make_njoy_library.sh` on 2026-10-14), `examples/ace_word_parity.rs`, no
+tolerance. Where a difference was one unit in the 7th figure, the cause was
+found by **instrumenting a copy of NJOY2016** (`gamsum`, `emerge`, `rdfil2`,
+`resxs`, `lunion`) to print its intermediates at full precision at the
+differing energies, and printing ours at the same points. Each run of the
+instrumented build reproduced its reference table byte for byte apart from
+the comment line.
+
+### What was wrong, and the fixes
+
+| # | tables | symptom | cause (upstream) | fix |
+|---|---|---|---|---|
+| 12 | Cu-65, Fe-57 | GPD one unit off in the 7th figure at a few energies | `convr` writes an MF=12 LO=2 cascade's converted yield to its scratch tape as text (`tab1io`, `acefc.f90:4318-4346`), so `gamsum` sums `a11`'s rounding: Cu-65's MT=52 yield is 1.00006072 there, not 1.0000607248. NJOY's sum at 1.5 MeV is 0.6004242483, ours was 0.6004242500, either side of a rounding edge | the LO=2 record goes through the `a11` round trip |
+| 13 | Na-23, Cr-50/52/53/54 | DLWP 2 or 6 words short | `acelpp` copies an MF=15 continuum's probability record into the law header (NR, regions, NE, E, P), writing NR = 0 only for one lin-lin region (`:8540-8566`). Cr's records are histograms; Na-23's has two regions over three points. The port wrote the fixed two-point form | `PhotonApplicability` on `PhotonEntry`, written by the DLWP serialiser |
+| 14 | Ti-48 | ESZ total and elastic one unit off at 4 energies near 6.7 keV | RECONR's `facphi` sets an l >= 2 phase shift to 0 when `phi/rho < 1e-6` (`reconr.f90:4441-4471`); the port kept `phi ~ 5e-8` for Ti-48's d-wave, which moved the Reich-Moore elastic by 3.4e-8 relative (17.40361465 against NJOY's 17.40361523). Also `facts` adds `3*r2+r4+9` in that order | `slbw::facphi` for RECONR's SLBW, MLBW and RM; `unresr` keeps the unguarded form, as `unfac` |
+| 15 | Zn-64, Zn-67 | one extra energy, 0.1299999 MeV (0.06999999 MeV) | `resxs` walks the union grid's own nodes and ends on the last below `eresh` (`:2513-2521`). `rdfil2` adds `sigfig(eh,7,-1)` as a node, but MT=107's histogram step at `eh` makes `lunion` write `sigfig(sigfig(eh,7,-1),7,-1)` in its place (`:2048-2060`), so NJOY never has the node. The port added it to the resonance grid unconditionally | the resonance pass takes the range end from the union grid only |
+| 16 | Zn-64/66/67/68/70 | URR bands differ at 0.35 MeV, a node PURR inserts | PURR's `intr2` interpolates Case C parameters under the J-state's own INT (`purr.f90:1539-1570`); the port reused UNRESR's `intr`, which `unresl` calls with `int = 2`. Zn's INT is 5 | `unresr::range_sequences_purr`, `interp_case_c` taking the law |
+| 17 | Fe-58 | MT=4 missing from the reaction list; UNR 248 words against 1 579 | PURR's own `rdf2un` builds the grid with `etop = 5 MeV` as primer and refinement limit (`purr.f90:709-718`, `:997`); the port had UNRESR's `rdunf2` with 1 MeV, so Fe-58's 0.35-3 MeV table stopped at 1 MeV on 2 energies. With the grid's top at 3 MeV, PURR finds more than one competing level and sets the inelastic flag to 4, and ACER keeps MT=4 for it (`acefc.f90:1164-1179`, `:1728`) | PURR's grid ported from `rdf2un`: `etop`, `et+et/100`, the evaluation's nodes unrounded and inside `[el, eh]`, no `sigfig(.,7,2)` pass |
+
+Removing UNRESR's `sigfig(.,7,2)` pass in fix 17 exposed one more defect it
+had been hiding: the evaluation's Case B/C nodes were inserted through
+`sigfig(e,7,0)`, whose 1e-13 bias made U-235's 3.5 and 20 keV miss
+`egridu`'s exact values in `ilist2`'s exact-duplicate test (21 energies
+against 19). Upstream inserts the raw value.
+
+Four of the six fixes (14 to 17) are upstream of ACER, in RECONR and
+PURR. They change the ENDF route (route 4 of the five-route campaign, and the
+browser demo) on the nuclides concerned as well as the ACE route.
+
+### Results (2026-10-15)
+
+**All 76 tables identical in every word**: the 37 nuclides of
+`nuclides.tsv` plus U-236 (added to HEU-SOL-THERM-009's model the same day),
+each at 293.6 K and 0 K. That includes U-234, U-235, U-238 and the twelve
+nuclides of 2026-10-14, which the PURR grid change could have moved and did
+not. U-236's 293.6 K reference is the `reference-data/ace` submodule's
+`reference-njoy/endf-b-viii.0/293.6K/U236.ace.gz`; its 0 K reference was
+made here with `make_ace_0k.sh` and the same NJOY2016 build. Hardware:
+Intel Xeon, 4 logical cores, 15.7 GiB, Linux, CPU only, cloud container,
+shared with a test build during the sweep, so no timings are quoted.
+
+Standing gates: `tests/ace_five_route_parity.rs` (now 11 tables: the six of
+2026-10-14 plus Cu-65, Na-23, Ti-48 and Zn-64 at 0 K and Zn-70 at 293.6 K)
+and `purr::tables::urr_grid_tests` (Fe-58's 13 and U-235's 19 UNR energies
+against NJOY2016's).
+
+**What this does not cover.** The five-route `k` values of 2026-10-14 for
+the full LCT-008 model were taken before these fixes. Routes 2 and 5 read the
+old Rust ACE, and routes 4 and 5 ran the old RECONR and PURR for Ti-48, Zn
+and Fe-58. Those rows have not been re-measured.

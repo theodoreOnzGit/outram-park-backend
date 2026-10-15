@@ -125,14 +125,17 @@ pub const PIN_SHELLS: &[(i32, &[(f64, i32)], i32)] = &[
 /// neutron moves. [`TAPES_CHEAP`] exists for iterating on geometry, tallies or
 /// statistics, where the clad's trace elements change nothing being looked at.
 ///
-/// # Known ACE differences (gh:#875)
+/// # ~~Known ACE differences~~ Fixed (gh:#875)
 ///
-/// The Rust ACER's tables for 12 of the clad's trace nuclides (Na, Ti, Cr,
+/// ~~The Rust ACER's tables for 12 of the clad's trace nuclides (Na, Ti, Cr,
 /// Fe-57/58, Cu-65, Zn) differ from NJOY2016's: 24 of 74 tables at
-/// 293.6 K and 0 K. That reaches the five-route study's routes 2 and 5, which
-/// read Rust-written ACE. Route 4 and the browser demo do not go through ACER.
-/// Not yet checked: whether Fe-58's URR range bound starts before ACER. The
-/// effect on `k` is not measured. Deferred by the maintainer, 2026-10-14.
+/// 293.6 K and 0 K.~~ **CORRECTED 2026-10-15:** all 74 tables of
+/// `nuclides.tsv` (37 nuclides, 293.6 K and 0 K) are NJOY2016's in every
+/// word. Four of the six fixes were upstream of ACER (RECONR's `facphi` guard
+/// and resonance-grid end; PURR's grid and parameter law), so they reach
+/// route 4 and the browser demo too, on Ti-48, Zn and Fe-58. The
+/// `lct008-full` rows of 2026-10-14 were taken before the fixes and have not
+/// been re-measured.
 pub const TAPES: &[(&str, &str)] = &[
     // Everything in the cheap tier ...
     ("H1", "n-001_H_001-ENDF8.0-Beta6.endf"),

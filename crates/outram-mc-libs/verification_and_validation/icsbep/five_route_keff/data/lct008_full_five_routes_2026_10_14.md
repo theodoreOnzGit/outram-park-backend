@@ -62,10 +62,15 @@ them.
 - **Superseded:** route 5's first 8 seeds (1.00175 ± 0.00031) read the
   defective table. They are struck through in
   `lct008_full_routes45_2026_10_14.md`.
-- **Still open, #875:** 12 trace nuclides (Na-23, Ti-48, Cr-50/52/53/54,
+- ~~**Still open, #875:** 12 trace nuclides (Na-23, Ti-48, Cr-50/52/53/54,
   Fe-57/58, Cu-65, Zn-64/66/67/68/70) still differ from NJOY2016 in some
   words. OpenMC and outram-mc run on all of them. Their worth in k is
-  unmeasured.
+  unmeasured.~~ **CORRECTED 2026-10-15 (#875):** all 74 tables are now
+  NJOY2016's in every word. The rows below were taken **before** those fixes
+  (routes 2 and 5 on the old Rust ACE; routes 4 and 5 also on the old
+  RECONR/PURR for Ti-48, Zn and Fe-58) and have not been re-measured. The
+  fixes touch clad trace nuclides only, so a shift beyond the rows' ±20-25
+  pcm is not expected, but it has not been measured.
 
 ## Results
 

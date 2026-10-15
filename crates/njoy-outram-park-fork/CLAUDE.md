@@ -751,11 +751,30 @@ TYR = 0, and OpenMC segfaulted on the table. It now follows `acelod`
 (`acefc.f90:5859-5870`, `:5924`): TYR from the MT, signed by MF=4's LCT,
 energies by `acelf5`, angles from MF=4. The MT yield table was also brought
 back to upstream's. Mg-24 is now NJOY2016's in every word, and is in the
-gate. **50 of the 74 tables (37 nuclides × 293.6 K and 0 K) are NJOY2016's in
+gate. ~~**50 of the 74 tables (37 nuclides × 293.6 K and 0 K) are NJOY2016's in
 every word; 24 still differ**, across Na-23, Ti-48, Cr-50/52/53/54,
 Fe-57/58, Cu-65 and Zn-64/66/67/68/70. Some differ only in the 7th or 8th
 figure; others are structural (Fe-58 lacks MT=4 and most of its UNR block;
-Na-23's and Cr-52's DLWP are a few words short). Tracked as GitHub #875.
+Na-23's and Cr-52's DLWP are a few words short). Tracked as GitHub #875.~~
+**CORRECTED 2026-10-15 (GitHub #875): all 74 are NJOY2016's in every word.**
+Six fixes, each found by reading or instrumenting upstream:
+- `convr` writes an MF=12 LO=2 cascade's yield through text, so `gamsum`
+  sums `a11`'s rounding (GPD; Cu-65, Fe-57);
+- `acelpp` copies an MF=15 probability record into the DLWP law header as it
+  stands, regions included (Na-23, Cr-50/52/53/54);
+- RECONR's `facphi` zeroes an l >= 2 phase shift below `phi/rho = 1e-6`, and
+  `facts` adds `3*r2+r4+9` in that order (Ti-48);
+- `resxs` ends on the union grid's last node below `eresh`, which `lunion`'s
+  histogram rule can move (Zn-64/67);
+- PURR's `intr2` uses the J-state's own INT, not UNRESR's lin-lin (Zn);
+- PURR's `rdf2un` grid is not UNRESR's `rdunf2`: primer and limit
+  `etop = 5 MeV`, raw nodes inside `[el, eh]`, no `sigfig(.,7,2)` pass
+  (Fe-58: 13 energies to 3 MeV, not 2 to 1 MeV, and so MT=4 kept for
+  competition).
+Record: `verification_and_validation/ace_five_route_parity_2026_10_14.md`,
+"LCT-008's full nuclide list". Gates: `tests/ace_five_route_parity.rs`
+(Cu-65, Na-23, Ti-48, Zn-64 at 0 K, Zn-70 at 293.6 K) and
+`purr::tables::urr_grid_tests`.
 **The gate's reference tables had never been committed** (`.gitignore`); it
 skipped everywhere but on the machine that made them. They are committed
 now.

@@ -1,8 +1,8 @@
 # NJOY2016 ACE tables for the five-route parity gate (GitHub #872)
 
-Six continuous-energy ACE tables made by **NJOY2016 2016.79** (commit
+Continuous-energy ACE tables made by **NJOY2016 2016.79** (commit
 `ac5adf5`) from the ENDF/B-VIII.0 evaluations in `reference-data/endf/`, at
-293.6 K, with the five-route campaign's deck:
+293.6 K (and 0 K, below), with the five-route campaign's deck:
 
 ```
 reconr  .001
@@ -24,6 +24,16 @@ NJOY version and commit, date, and this workspace's revision.
 | `B10_293.6K_njoy2016.ace.gz` | `n-005_B_010-ENDF8.0.endf` (525) | **Type 2**: NJOY2016's Type-1 formatter stops in `change` on B-10's law-0 DLWH entry; the same deck with `itype = 2` completes |
 | `O16_293.6K_njoy2016.ace.gz` | `n-008_O_016-ENDF8.0.endf` (825) | Type 1 |
 | `Mg24_293.6K_njoy2016.ace.gz` | `n-012_Mg_024-ENDF8.0.endf` (1225) | Type 1; added 2026-10-14 (MT=16/22/28/91 as MF=4 + MF=5, no MF=6) |
+| `Cu65_0K_njoy2016.ace.gz` | `n-029_Cu_065-ENDF8.0.endf` (2931) | Type 1, **0 K**; added 2026-10-15 (GitHub #875) |
+| `Na23_0K_njoy2016.ace.gz` | `n-011_Na_023-ENDF8.0.endf` (1125) | Type 1, **0 K**; added 2026-10-15 (#875) |
+| `Ti48_0K_njoy2016.ace.gz` | `n-022_Ti_048-ENDF8.0.endf` (2231) | Type 1, **0 K**; added 2026-10-15 (#875) |
+| `Zn64_0K_njoy2016.ace.gz` | `n-030_Zn_064-ENDF8.0.endf` (3025) | Type 1, **0 K**; added 2026-10-15 (#875) |
+| `Zn70_293.6K_njoy2016.ace.gz` | `n-030_Zn_070-ENDF8.0.endf` (3043) | Type 1; added 2026-10-15 (#875) |
+
+The **0 K** tables use the 0 K deck,
+`.../openmc_godiva_cross_code/make_ace_0k.sh`: `reconr .001 -> acer`, no
+BROADR, no PURR. The #875 tables were made on 2026-10-14 by the same
+NJOY2016 build and script as the six above, for LCT-008's full nuclide list.
 
 ~~These tables are used by the gate below.~~ **CORRECTED 2026-10-14:** until
 then none of them was committed. `.gitignore`'s `*.ace.gz` excluded this

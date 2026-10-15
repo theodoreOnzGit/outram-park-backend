@@ -51,8 +51,15 @@ use uom::si::f64::ThermodynamicTemperature as Temperature;
 use uom::si::thermodynamic_temperature::kelvin;
 
 fn identical_to_njoy2016(name: &str, tape_file: &str) {
+    identical_at(name, tape_file, 293.6);
+}
+
+/// At 293.6 K the deck is `RECONR -> BROADR -> PURR -> ACER`; at 0 K it is
+/// `RECONR -> ACER` (`make_ace_0k.sh`), so PURR is off.
+fn identical_at(name: &str, tape_file: &str, t_k: f64) {
+    let label = if t_k == 0.0 { "0K".to_string() } else { format!("{t_k}K") };
     let Some(reference) =
-        reference_file_or_skip("acer", &format!("five_route/{name}_293.6K_njoy2016.ace.gz"), "ace-five-route-parity")
+        reference_file_or_skip("acer", &format!("five_route/{name}_{label}_njoy2016.ace.gz"), "ace-five-route-parity")
     else {
         return;
     };
@@ -61,8 +68,11 @@ fn identical_to_njoy2016(name: &str, tape_file: &str) {
         return;
     };
     let tape = Tape::read_file(&tape_path).expect("parse tape");
-    let settings = CrossSectionSettings::default().without_heatr();
-    let ace = process::ace(&tape, Temperature::new::<kelvin>(293.6), &settings).expect("ours");
+    let mut settings = CrossSectionSettings::default().without_heatr();
+    if t_k == 0.0 {
+        settings = settings.without_purr();
+    }
+    let ace = process::ace(&tape, Temperature::new::<kelvin>(t_k), &settings).expect("ours");
     let ours = read::parse_type1(&ace.to_type1_text().expect("type 1")).expect("re-read ours");
     let mut njoy = read::read_library_from_bytes(std::fs::read(&reference).expect("read reference"), name)
         .expect("read NJOY2016's table")
@@ -120,4 +130,52 @@ fn o16_is_njoy2016s_table_in_every_word() {
 #[test]
 fn mg24_mf4_mf5_continuum_is_njoy2016s_table_in_every_word() {
     identical_to_njoy2016("Mg24", "n-012_Mg_024-ENDF8.0.endf");
+}
+
+// ── GitHub #875: LCT-008's full nuclide list ────────────────────────────────
+//
+// One table per mechanism fixed, each the smallest that shows it. Fe-58's
+// PURR grid (`etop`) is gated by `purr::tables::urr_grid_tests` instead: its
+// table is 17 MB compressed.
+
+/// Cu-65 at 0 K: `convr` writes an MF=12 LO=2 cascade's yield to its scratch
+/// tape as text, so `gamsum` sums `a11`'s rounding (MT=52's 1.0000607248 is
+/// 1.00006072). GPD was one unit off in the 7th figure at four energies.
+#[test]
+fn cu65_lo2_yields_carry_a11_rounding_in_gpd() {
+    identical_at("Cu65", "n-029_Cu_065-ENDF8.0.endf", 0.0);
+}
+
+/// Na-23 at 0 K: an MF=15 continuum's probability record is copied into the
+/// DLWP law header as it stands (`acefc.f90:8540-8566`). Na-23's MT=3
+/// record has two regions (histogram, then lin-lin) over three points, where
+/// the fixed header writes none over two. DLWP was 6 words short.
+#[test]
+fn na23_mf15_probability_record_is_the_dlwp_applicability() {
+    identical_at("Na23", "n-011_Na_023-ENDF8.0.endf", 0.0);
+}
+
+/// Ti-48 at 0 K: RECONR's `facphi` zeroes an l >= 2 phase shift below
+/// `phi/rho = 1e-6`. Without it the Reich-Moore elastic moved by 3e-8 and
+/// four 7th figures near 6.7 keV flipped.
+#[test]
+fn ti48_reconr_phase_shift_guard() {
+    identical_at("Ti48", "n-022_Ti_048-ENDF8.0.endf", 0.0);
+}
+
+/// Zn-64 at 0 K: `resxs` ends on the union grid's last node below `eresh`.
+/// MT=107's histogram step at the resolved range's end replaced
+/// `sigfig(eh,7,-1)` there, and adding it back put 0.1299999 MeV in the
+/// table.
+#[test]
+fn zn64_resonance_grid_ends_on_the_union_grid() {
+    identical_at("Zn64", "n-030_Zn_064-ENDF8.0.endf", 0.0);
+}
+
+/// Zn-70 at 293.6 K: PURR's `intr2` interpolates Case C parameters under the
+/// J-state's own INT (here log-log), not UNRESR's forced lin-lin; the bands
+/// at the inserted node 0.35 MeV differed.
+#[test]
+fn zn70_purr_parameters_use_the_stored_int() {
+    identical_at("Zn70", "n-030_Zn_070-ENDF8.0.endf", 293.6);
 }

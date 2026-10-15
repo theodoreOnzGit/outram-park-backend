@@ -1385,12 +1385,19 @@ fn append_photon_blocks(
     }
 
     // LDLWP / DLWP, laid out exactly as the neutron LDLW/DLW.
-    const HEADER: i32 = 9;
+    // LNW, LAW, IDAT, then the applicability TAB1: NR, (NBT, INT) x NR, NE,
+    // E x NE, P x NE. The fixed form (NR = 0, NE = 2) is 9 words.
+    let header_len = |e: &super::photon_blocks::PhotonEntry| -> i32 {
+        match &e.applicability {
+            None => 9,
+            Some(a) => 3 + 1 + 2 * a.interp.len() as i32 + 1 + 2 * a.e_mev.len() as i32,
+        }
+    };
     let mut header_off = Vec::with_capacity(n);
     let mut off = 1i32;
     for e in entries {
         header_off.push(off);
-        off += HEADER + e.law.data_len();
+        off += header_len(e) + e.law.data_len();
     }
     let ldlwp = b.next_locator();
     for &o in &header_off {
@@ -1398,7 +1405,7 @@ fn append_photon_blocks(
     }
     let dlwp = b.next_locator();
     for (i, e) in entries.iter().enumerate() {
-        let idat_rel = header_off[i] + HEADER;
+        let idat_rel = header_off[i] + header_len(e);
         // For an MF=13 entry `acelpp` takes the law's energy range from the
         // ESZ grid at the entry's first and last SIGP index (`ef=xss(esz+ie)`,
         // `el=xss(esz+ie+n-1)`, `acefc.f90:8370-8371`), not from the
@@ -1420,12 +1427,34 @@ fn append_photon_blocks(
         b.int(0); // LNW
         b.int(e.law.law_number());
         b.int(idat_rel);
-        b.int(0); // NR
-        b.int(2); // NE
-        b.real(e_lo);
-        b.real(e_hi);
-        b.real(1.0);
-        b.real(1.0);
+        match &e.applicability {
+            None => {
+                b.int(0); // NR
+                b.int(2); // NE
+                b.real(e_lo);
+                b.real(e_hi);
+                b.real(1.0);
+                b.real(1.0);
+            }
+            // An MF=15 probability record, as `acelpp` copies it
+            // (`acefc.f90:8549-8566`, GitHub #875).
+            Some(a) => {
+                b.int(a.interp.len() as i32);
+                for &(nbt, _) in &a.interp {
+                    b.int(nbt as i32);
+                }
+                for &(_, int) in &a.interp {
+                    b.int(int as i32);
+                }
+                b.int(a.e_mev.len() as i32);
+                for &v in &a.e_mev {
+                    b.real(v);
+                }
+                for &v in &a.p {
+                    b.real(v);
+                }
+            }
+        }
         for (v, is_int) in e.law.serialize(idat_rel) {
             b.word(v, is_int);
         }

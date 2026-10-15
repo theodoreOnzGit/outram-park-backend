@@ -873,17 +873,23 @@ fn lssf_reduced_background(bkg: [f64; 4], e: f64, competes: bool, ecomp: Option<
 ///
 /// # The algorithm, in upstream's order
 ///
-/// 1. Prime the list with `1 MeV` (`ilist` requires one node above every other).
+/// PURR's own `rdf2un` (`purr.f90:681-1037`). ~~UNRESR's `rdunf2`~~
+/// (CORRECTED 2026-10-15, GitHub #875): the two differ in the primer, the
+/// refinement limit, the step test and the final de-duplication, and
+/// UNRESR's 1 MeV limit cut Fe-58's 0.35-3 MeV table at 1 MeV.
+///
+/// 1. Prime the list with `etop = 5 MeV` (`ilist2` requires one node above
+///    every other).
 /// 2. Add the four shaded range endpoints `sigfig(el|eh, 7, ∓1 / ±1)`.
-/// 3. Add the evaluation's own nodes: Case B's fission-width energies from the
-///    second on; Case C's first `(l, j)` state without its end points; Case A
-///    none, and mark it energy-independent.
-/// 4. Walk adjacent pairs below 1 MeV. Where `next >= 1.26 * last`, or always
-///    for Case A, insert every `egridu` energy above `1.01 * (previous inserted)`
-///    and below `next`.
+/// 3. Add the evaluation's own nodes, unrounded and inside `[el, eh]`: Case
+///    B's fission-width energies and Case C's first `(l, j)` state, each
+///    without its first and last; Case A none, and mark it
+///    energy-independent.
+/// 4. Walk adjacent pairs below `etop`. Where `next >= 1.26 * last`, or always
+///    for Case A, insert every `egridu` energy above `et + et/100` (`et` the
+///    previous inserted) and below `next`.
 /// 5. Drop the first node (the lower outer shade) and the last two (the upper
-///    outer shade and the 1 MeV primer), and drop any node within
-///    `sigfig(·, 7, 2)` of the one kept before it.
+///    outer shade and the primer).
 ///
 /// **Not ported:** upstream merges the nodes of *every* LRU=2 range of every
 /// isotope into one list, and marks nodes below the resolved range's upper
@@ -894,9 +900,14 @@ fn lssf_reduced_background(bkg: [f64; 4], e: f64, competes: bool, ecomp: Option<
 fn urr_energy_grid(range: &UnresolvedRange) -> Vec<f64> {
     use crate::mixr::mix::sigfig;
 
-    const ONEMEV: f64 = 1.0e6; // unresr.f90:420
-    const WIDE: f64 = 1.26; // :418
-    const STEP: f64 = 1.01; // :422
+    // ~~`ONEMEV = 1.0e6` (unresr.f90:420), the primer and the refinement
+    // limit~~ CORRECTED 2026-10-15 (GitHub #875): that is UNRESR's
+    // `rdunf2`. PURR's own `rdf2un` primes the list with `etop = 5 MeV` and
+    // refines up to it (`purr.f90:709`, `:718`, `:997`). Fe-58's range runs to
+    // 3 MeV; cut at 1 MeV its table had 2 energies where NJOY2016's has 13,
+    // and its competition flag came out 51 instead of 4.
+    const ETOP: f64 = 5.0e6; // purr.f90:709
+    const WIDE: f64 = 1.26; // purr.f90:711
     // `egridu`, unresr.f90:405-417 — ten-ish "round" energies per decade.
     const EGRIDU: [f64; 78] = [
         1.0e1, 1.25e1, 1.5e1, 1.7e1, 2.0e1, 2.5e1, 3.0e1, 3.5e1, 4.0e1, 5.0e1, 6.0e1, 7.2e1,
@@ -922,20 +933,31 @@ fn urr_energy_grid(range: &UnresolvedRange) -> Vec<f64> {
     }
 
     // 1-2. Primer, then the shaded endpoints.
-    let mut eunr = vec![ONEMEV];
+    let mut eunr = vec![ETOP];
     ilist(sigfig(range.el, 7, -1), &mut eunr);
     ilist(sigfig(range.el, 7, 1), &mut eunr);
     ilist(sigfig(range.eh, 7, -1), &mut eunr);
     ilist(sigfig(range.eh, 7, 1), &mut eunr);
 
-    // 3. The evaluation's own nodes.
+    // 3. The evaluation's own nodes, as the tape has them (`enow`, not
+    //    rounded) and only inside `[el, eh]` (`purr.f90:875-885`, `:963-971`).
+    //    ~~`sigfig(e, 7, 0)`, and Case B from its second energy to its
+    //    last~~ CORRECTED 2026-10-15 (GitHub #875): sigfig's 1e-13 bias
+    //    made U-235's 3.5 and 20 keV miss `egridu`'s exact values in
+    //    `ilist2`'s exact-duplicate test. A `sigfig(., 7, 2)` pass hid that
+    //    until it was removed as UNRESR's, not PURR's.
+    let (el, eh) = (sigfig(range.el, 7, 0), sigfig(range.eh, 7, 0)); // :724-725
+    let inside = |e: f64| e >= el && e <= eh;
     let indep = match &range.case_ {
         UnresolvedCase::CaseA { .. } => true,
         UnresolvedCase::CaseB {
             fission_energies, ..
         } => {
-            for &e in fission_energies.iter().skip(1) {
-                ilist(sigfig(e, 7, 0), &mut eunr);
+            let ne = fission_energies.len();
+            for (i, &e) in fission_energies.iter().enumerate() {
+                if i != 0 && i + 1 != ne && inside(e) {
+                    ilist(e, &mut eunr);
+                }
             }
             false
         }
@@ -943,8 +965,8 @@ fn urr_energy_grid(range: &UnresolvedRange) -> Vec<f64> {
             if let Some(j) = l_states.first().and_then(|l| l.j_states.first()) {
                 let ne = j.points.len();
                 for (n, pt) in j.points.iter().enumerate() {
-                    if n != 0 && n + 1 != ne {
-                        ilist(sigfig(pt.e, 7, 0), &mut eunr);
+                    if n != 0 && n + 1 != ne && inside(pt.e) {
+                        ilist(pt.e, &mut eunr);
                     }
                 }
             }
@@ -959,16 +981,17 @@ fn urr_energy_grid(range: &UnresolvedRange) -> Vec<f64> {
     loop {
         i += 1;
         let Some(&enext) = eunr.get(i) else { break }; // eunr(i+1)
-        if enext >= ONEMEV {
+        if enext >= ETOP {
             break;
         }
         if enext >= WIDE * elast || indep {
             let mut et = elast;
             loop {
+                // `if (enut.gt.et+et/100)` (`purr.f90:1009-1010`).
                 let enut = EGRIDU
                     .iter()
                     .copied()
-                    .find(|&g| g > STEP * et)
+                    .find(|&g| g > et + et / 100.0)
                     .unwrap_or(enext);
                 et = enut;
                 if et >= enext {
@@ -981,17 +1004,67 @@ fn urr_energy_grid(range: &UnresolvedRange) -> Vec<f64> {
         elast = eunr[i]; // eunr(i+1)
     }
 
-    // 5. Drop the lower outer shade and the primer, de-duplicate at
-    //    sigfig(., 7, 2), then drop the upper outer shade.
-    let lim = eunr.len().saturating_sub(1);
-    let mut out: Vec<f64> = Vec::with_capacity(lim);
-    let mut en = 0.0f64;
-    for &et in eunr.iter().take(lim).skip(1) {
-        if et >= en {
-            out.push(et);
-            en = sigfig(et.abs(), 7, 2);
-        }
+    // 5. Drop the lower outer shade, the upper outer shade and the primer
+    //    (`nunr=nunr-2`, the copy down, `nunr=nunr-1`, `purr.f90:1027-1035`).
+    //    ~~De-duplicate at `sigfig(., 7, 2)`~~ REMOVED 2026-10-15: that is
+    //    UNRESR's pass; PURR's `rdf2un` has none.
+    let n = eunr.len();
+    if n < 3 {
+        return Vec::new();
     }
-    out.pop();
-    out
+    eunr[1..n - 2].to_vec()
+}
+
+#[cfg(test)]
+mod urr_grid_tests {
+    use super::*;
+    use crate::reference_data::reference_endf;
+
+    fn grid_of(tape_file: &str) -> Option<Vec<f64>> {
+        let path = reference_endf(tape_file)?;
+        let tape = Tape::read_file(&path).expect("parse tape");
+        let mat = tape.sections().first().expect("a section").key.mat;
+        let sec = tape.section(mat, 2, 151).expect("MF=2/MT=151");
+        let range = mf2::parse_lru2_ranges(&sec.rows[1..]).expect("LRU=2 ranges").remove(0);
+        Some(urr_energy_grid(&range))
+    }
+
+    /// Printed as NJOY2016's ACER prints the UNR energies:
+    /// `sigfig(eunr, 7, 0)` in MeV (`purr.f90:500`), here to 7 figures.
+    fn printed(grid: &[f64]) -> Vec<String> {
+        grid.iter().map(|&e| format!("{:.6e}", crate::mixr::mix::sigfig(e, 7, 0) / 1.0e6)).collect()
+    }
+
+    fn mev(v: &[f64]) -> Vec<String> {
+        v.iter().map(|&e| format!("{e:.6e}")).collect()
+    }
+
+    /// PURR's own grid (`rdf2un`, `purr.f90:681-1037`), checked against the
+    /// UNR energies of NJOY2016 2016.79's five-route tables (GitHub #875).
+    ///
+    /// - Fe-58 (ENDF/B-VIII.0, URR 0.35-3 MeV, Case A): 13 energies to
+    ///   3 MeV. UNRESR's 1 MeV limit, which this function had borrowed, gave
+    ///   2 energies ending at 1 MeV.
+    /// - U-235 (Case C): 19 energies. Inserting the evaluation's nodes through
+    ///   `sigfig` put 3.5 keV and 20 keV in twice (21), because `ilist2`
+    ///   drops exact duplicates only.
+    #[test]
+    fn purr_grid_is_njoy2016s() {
+        let Some(fe58) = grid_of("n-026_Fe_058-ENDF8.0.endf") else {
+            eprintln!("SKIP: Fe-58 tape not in reference-data/endf");
+            return;
+        };
+        let njoy_fe58 = [0.3500001, 0.4, 0.5, 0.6, 0.72, 0.85, 1.0, 1.25, 1.5, 1.7, 2.0, 2.5, 2.999999];
+        assert_eq!(printed(&fe58), mev(&njoy_fe58));
+
+        let Some(u235) = grid_of("n-092_U_235-ENDF8.0.endf") else {
+            eprintln!("SKIP: U-235 tape not in reference-data/endf");
+            return;
+        };
+        let njoy_u235 = [
+            0.002250001, 0.0025, 0.003, 0.0035, 0.004, 0.0045, 0.0055, 0.0065, 0.0075, 0.0085, 0.0095, 0.01, 0.0125,
+            0.0131, 0.015, 0.017, 0.02, 0.024, 0.02499999,
+        ];
+        assert_eq!(printed(&u235), mev(&njoy_u235));
+    }
 }
