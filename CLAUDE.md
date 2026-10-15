@@ -591,7 +591,12 @@ Kovan corpus" below). Clone with `git clone --recurse-submodules`, or run
 **empty directory rather than an error**, so nothing complains until something
 looks for a file and does not find one. (Since 2026-09-30 the first workspace
 `kovan-cli` command fetches the literature submodule if it is empty; the ACE
-submodule is still yours to fetch.)
+submodule is still yours to fetch.) **Since 2026-10-15, `.githooks/` keeps
+initialised submodules in step:** after `git pull` (merge or rebase) or a
+branch switch, `submodule-sync.sh` checks each one out at the recorded commit,
+skipping any with uncommitted work and never initialising one. It needs
+`git config core.hooksPath .githooks` (which `scripts/install-token-hooks.sh`
+sets).
 
 ```bash
 cargo build --workspace --release                   # all libraries

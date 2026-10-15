@@ -115,7 +115,7 @@ and wait.
 On every operating system the check runs the four cases at reduced statistics
 and compares the mean k with the recorded OpenMC + NJOY2016 value. Since
 2026-10-13 every case, the lattice included, runs at 5000 × [40 + 120], with
-16 seeds on the lattice: the check asks whether the code runs and gives a sane
+~~16 seeds on the lattice~~ 32 seeds on every case (since 2026-10-15): the check asks whether the code runs and gives a sane
 k on that platform, not whether it is validated. The lattice's 40 inactive
 generations are fewer than the 250 this core's source wants, so its k carries
 a source-convergence bias, measured at about +80 pcm (above); the check would

@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# After a branch switch (third argument 1; file checkouts pass 0): sync
+# submodules to the new branch's pointers.
+[ "${3:-0}" = 1 ] || exit 0
+ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
+"$ROOT/.githooks/submodule-sync.sh" || true
+exit 0
