@@ -262,12 +262,28 @@ them.
 
 | | HemPipe, 24 cells | HemPipe, 96 cells (`EDW_HEM_CELLS=96`) | PIMPLE record (`tests/edwards_blowdown.rs`, Linear he, 24 cells, 30 µs) |
 |---|---|---|---|
-| completes 0.6 s | yes, 4014 steps, 20.6 s | yes, 12602 steps, 175 s | yes |
-| GS-1 plateau, mean 0.02–0.06 s | 364.9 psia | 372.1 psia | 359.0 psia |
-| GS-1 RMSE vs data, 16 points, 0–0.30 s | 44.1 psia | 45.2 psia | 42.8 psia |
-| mass conservation incl. break outflow, max rel. | 4.2e-15 | 3.4e-15 | — |
+| completes 0.6 s | ~~yes, 4014 steps, 20.6 s~~ | ~~yes, 12602 steps, 175 s~~ | yes |
+| GS-1 plateau, mean 0.02–0.06 s | ~~364.9 psia~~ | ~~372.1 psia~~ | ~~359.0 psia~~ |
+| GS-1 RMSE vs data, 16 points, 0–0.30 s | ~~44.1 psia~~ | ~~45.2 psia~~ | ~~42.8 psia~~ |
+| mass conservation incl. break outflow, max rel. | ~~4.2e-15~~ | ~~3.4e-15~~ | — |
 
-GS-1 pressure (psia), 24 cells:
+
+**CORRECTED 2026-10-16 (re-measured on the merged tree, release).** The table
+above was first recorded from an earlier state of the #902 code. Re-running the
+committed code (`3037f2036`, and again after the #900 and #903 S2/S3 merges,
+with identical output) gives:
+
+| | HemPipe, 24 cells | HemPipe, 96 cells | PIMPLE after #900 (Linear he, 24 cells, 30 µs) |
+|---|---|---|---|
+| completes 0.6 s | yes, 4025 steps, 16.3 s | yes, 12518 steps, 146 s | yes |
+| GS-1 plateau, mean 0.02–0.06 s | **368.0 psia** (was 364.9) | **372.4 psia** (was 372.1) | 360.5 psia (was 359.0, before #900) |
+| GS-1 RMSE vs data | **44.2 psia** (was 44.1) | **45.1 psia** (was 45.2) | 17.2 psia (was 42.8, before #900) |
+| mass conservation, max rel. | 5.2e-15 (was 4.2e-15) | 4.9e-15 (was 3.4e-15) | — |
+
+The struck values above are kept for the record. Since #900, the stabilised
+PIMPLE solver is **2.6× better** than HemPipe in GS-1 RMSE (gh:#918).
+
+GS-1 pressure (psia), 24 cells. **NOT RE-CHECKED 2026-10-16:** this series came from the same earlier code state as the struck table values, and the test does not print it, so it was not regenerated. Treat it as illustrative only:
 
 ```csv
 t_s,hem_pipe,data

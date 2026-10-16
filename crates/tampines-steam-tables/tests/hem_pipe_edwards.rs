@@ -39,6 +39,13 @@
 //! | GS-1 RMSE vs data, 16 pts 0–0.30 s | 44.1 psia | 45.2 psia | 42.8 psia |
 //! | mass conservation incl. break outflow | 4.2e-15 | 3.4e-15 | n/a |
 //!
+//! **CORRECTED 2026-10-16:** the four rows above were recorded from an
+//! earlier state of this code. Re-measured on the committed code (identical
+//! after the #900 and #903 merges): 24 cells gives 4025 steps, a 368.0 psia
+//! plateau, 44.2 psia RMSE and 5.2e-15 mass error. 96 cells gives 12518 steps,
+//! 372.4 psia, 45.1 psia and 4.9e-15. The PIMPLE record after #900 is 360.5 /
+//! 17.2 psia. Full table: `verification_and_validation/hem_pipe_vs_exact_riemann_and_edwards.md`.
+//!
 //! The experimental plateau is ~350–367 psia. Like the PIMPLE run, the HEM
 //! pipe holds a plateau near the saturation pressure of the break-end liquid
 //! and then depressurises too slowly: from 0.08 s on it is 20–70 psia above
@@ -66,14 +73,16 @@ use uom::si::thermodynamic_temperature::kelvin;
 use uom::si::time::second;
 use uom::si::velocity::meter_per_second;
 
-/// The historical PIMPLE Edwards numbers this run is reported beside
+/// The PIMPLE Edwards numbers this run is reported beside
 /// (`tests/edwards_blowdown.rs`, Linear scheme, 24 cells, 30 µs).
-const PIMPLE_PLATEAU_PSIA: f64 = 359.0;
-const PIMPLE_GS1_RMSE_PSIA: f64 = 42.8;
+/// ~~359.0 / 42.8 psia~~ **updated 2026-10-16** to the values recorded after
+/// gh:#900 changed that solver's defaults: 360.5 / 17.2 psia.
+const PIMPLE_PLATEAU_PSIA: f64 = 360.5;
+const PIMPLE_GS1_RMSE_PSIA: f64 = 17.2;
 
 /// The full 0.6 s Edwards transient on `HemPipe` (see the module doc).
 ///
-/// Wall clock measured 2026-10-16, release, 24 cells: 20.6 s (4014 steps), so
+/// Wall clock measured 2026-10-16, release, 24 cells: ~~20.6 s (4014 steps)~~ 16.3 s (4025 steps, re-measured), so
 /// it is not behind the `long-tests` feature (the 5-minute rule). The 96-cell
 /// mesh-sensitivity run (`EDW_HEM_CELLS=96`) took 175 s and is not part of the
 /// default run.
