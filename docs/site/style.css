@@ -208,3 +208,7 @@ main > .top { padding: 0; }
 }
 /* Full-text search result preview (gh:#876 item 8). */
 .search-preview { color: var(--muted); font-size: 0.85rem; line-height: 1.35; }
+/* A lesson widget's main control kept outside its folding panel, under the
+   picture, so it is there on a phone (gh:#906 review, 2026-10-16). */
+.energy-control { display: block; margin: 8px 0; font-weight: 600; }
+.energy-control input[type=range] { display: block; width: 100%; min-height: 44px; }

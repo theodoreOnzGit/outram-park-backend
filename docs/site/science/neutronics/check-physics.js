@@ -10,6 +10,8 @@ eval(fs.readFileSync(path.join(__dirname, "qscatter.js"), "utf8"));
 eval(fs.readFileSync(path.join(__dirname, "shapes.js"), "utf8"));
 eval(fs.readFileSync(path.join(__dirname, "angular-data.js"), "utf8"));
 eval(fs.readFileSync(path.join(__dirname, "angles.js"), "utf8"));
+eval(fs.readFileSync(path.join(__dirname, "xs-data.js"), "utf8"));
+eval(fs.readFileSync(path.join(__dirname, "energy.js"), "utf8"));
 const M = window.Lesson.qscatterMath, SH = window.Lesson.shapesMath, AN = window.Lesson.anglesMath;
 let failed = 0;
 function check(name, value, limit) {
@@ -135,6 +137,41 @@ for (const [label, A, ap, E] of [["C-12, 10 eV", 11.89365, 6.146927, 10], ["U-23
   check("ACER table vs Legendre density, relative", worstTab, 0.01);
   check("sampled mean cosine vs the table's (sd of a 400k mean ~ 1e-3)", worstMean, 4e-3);
   check("table mean cosine vs a_1", worstA1, 2e-3);
+}
+
+// Pages 8-9 (gh:#906 design, 2026-10-16).
+{
+  const EN = window.Lesson.energyMath;
+  // The toy response is 1 on each level and 1/2 at Γ/2 from it.
+  let w = 0;
+  for (const n of [1, 2, 3, 4, 5, 6]) {
+    w = Math.max(w, Math.abs(EN.response(n * n).r - 1), Math.abs(EN.response(n * n + EN.GAMMA / 2).r - 0.5));
+  }
+  check("toy resonance: 1 on a level, 1/2 at half width", w, 1e-12);
+  // Shell closures, computed from (N+1)(N+2) and from 2j + 1: the
+  // oscillator's 2, 8, 20, 40, 70, 112, 168 and the magic numbers
+  // 2, 8, 20, 28, 50, 82, 126 (Mayer 1949; Haxel, Jensen & Suess 1949).
+  const same = (a, b) => (a.length === b.length && a.every((x, i) => x === b[i]) ? 0 : 1);
+  check("oscillator shell closures", same(EN.oscillatorClosures(7), [2, 8, 20, 40, 70, 112, 168]), 0);
+  check("spin-orbit shell closures are the magic numbers", same(EN.shellModel(), [2, 8, 20, 28, 50, 82, 126]), 0);
+  // The cross sections: sorted energies, positive sigma, and the takeaway
+  // as numbers. Peaks (a point over 1.5 times both neighbours) at the plot's
+  // resolution on 2026-10-16: He-4 0, Mn-55 57, U-238 131; He-4's maximum
+  // between 0.3 and 3 MeV at 1.125 MeV.
+  const X = window.XS_DATA;
+  const peaks = (R) => { let p = 0; for (let i = 1; i + 1 < R.s.length; i++) if (R.s[i] > R.s[i - 1] && R.s[i] > R.s[i + 1] && R.s[i] > 1.5 * Math.min(R.s[i - 1], R.s[i + 1])) p++; return p; };
+  let bad = 0;
+  for (const k of ["He-4", "Mn-55", "U-238"]) {
+    const R = X[k];
+    if (!R || R.e.length !== R.s.length || R.e.length < 100) { bad++; continue; }
+    for (let i = 0; i < R.e.length; i++) if (!(R.s[i] > 0) || (i && !(R.e[i] > R.e[i - 1]))) bad++;
+  }
+  check("cross-section data well formed (bad points)", bad, 0);
+  const pk = ["He-4", "Mn-55", "U-238"].map((k) => peaks(X[k]));
+  check("more nucleons, more peaks (He-4 < Mn-55 < U-238)", pk[0] < pk[1] && pk[1] < pk[2] ? 0 : 1, 0);
+  let he = [0, 0]; X["He-4"].e.forEach((e, i) => { if (e > 3e5 && e < 3e6 && X["He-4"].s[i] > he[1]) he = [e, X["He-4"].s[i]]; });
+  check("He-4's broad maximum lies 0.8-1.5 MeV (MeV off)", he[0] > 8e5 && he[0] < 1.5e6 ? 0 : Math.abs(he[0] / 1e6 - 1.1), 0);
+  console.log(`     peaks He-4 ${pk[0]}, Mn-55 ${pk[1]}, U-238 ${pk[2]}; He-4 max ${he[1].toFixed(2)} b at ${(he[0] / 1e6).toFixed(3)} MeV`);
 }
 
 if (failed) { console.log(failed + " check(s) failed"); process.exit(1); }

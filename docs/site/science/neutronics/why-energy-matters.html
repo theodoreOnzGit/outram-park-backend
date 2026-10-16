@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Why does the neutron's energy matter?</title>
+<meta name="description" content="Neutronics, page 8: a quantum system answers strongly only when it is offered the energy of one of its allowed states. A box of standing waves offered an energy shows the idea of a resonance; a neutron joining a nucleus makes a compound nucleus, and resonances are its levels.">
+<link rel="stylesheet" href="../../style.css">
+<script src="lesson-kit.js" defer></script>
+<script src="energy.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Neutronics lessons (gh:#906): page 8 of the design comment of 2026-10-16 ("pages 8 and 9, why nuclear data depends on energy"), designed with the maintainer one question at a time. Chain: energy -> wavelength (page 4) -> some energies are special -> allowed levels -> resonance. The widget is page 4's box offered an energy (energy.js, #resonate); its response is an illustration, stated as such. Checked by check-physics.js. -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response. <strong>Review status:</strong> AI-assisted first draft (2026-10-16), not yet reviewed by a human.</p>
+
+<h1>Why does the neutron's energy matter?</h1>
+<p class="kicker lesson-progress">Neutronics</p>
+<p>On <a href="matter-waves.html">page 4</a>, the neutron's energy set its wavelength. On <a href="quantum-scattering.html">page 5</a>, the angular pattern changed smoothly as the energy changed. That covers the <b>smooth</b> part of how nuclear data depends on energy.</p>
+<p>But some energies are special.</p>
+
+<h2>Offer a quantum system an energy</h2>
+<p>Page 4 showed a wave in a box: only whole half-wavelengths fit, so only some energies are allowed, growing as n². Now offer the box an energy from outside and watch how it answers.</p>
+<p class="predict"><b>Predict first.</b> Slide the offered energy slowly upward. Does the box answer a little to every energy, or a lot to a few?</p>
+
+<section class="widget-card">
+  <h3>A box offered an energy</h3>
+  <div class="widget" id="resonate">
+    <canvas aria-label="A ladder of allowed energies with a marker at the offered energy, a box whose standing wave grows when the marker lands on a level, a response meter, and the response at every energy along the bottom"></canvas>
+  </div>
+  <label class="energy-control"><span>Offered energy <b data-energy-out></b></span>
+    <input type="range" data-energy min="0.2" max="40" step="0.01" value="2" aria-label="Offered energy, in units of the ground state's energy"></label>
+  <p class="note">An illustration: one particle in a box with hard walls, levels at n² × the lowest, each given the same width. Not a model of any nucleus.</p>
+</section>
+
+<p>Between levels, almost nothing happens. When the offered energy lands on an allowed level, the box takes it and the standing wave builds up. A system answers strongly when it is offered <b>exactly the energy of one of its allowed states</b>. That strong answer is a <b>resonance</b>, and the curve along the bottom is its shape: a peak at each level, with a width.</p>
+
+<h2>A real nucleus does the same</h2>
+<p>A slow neutron that meets a nucleus can join it. U-238 plus a neutron becomes U-239, for a moment: the <b>compound nucleus</b>. The neutron brings two kinds of energy with it: its kinetic energy, and the energy released when it becomes bound, which is several MeV <a href="#ref-krane1987introductory">(Krane, 1987)</a>.</p>
+<p>If that total lands on one of the compound nucleus's allowed levels, the interaction becomes far more likely. That is a nuclear resonance. Because the binding energy already lifts the compound nucleus several MeV above its ground state, a neutron of only a few eV probes levels <b>high up the ladder</b>, where the levels crowd close together.</p>
+<p class="chain">neutron energy &rarr; the compound nucleus's total energy &rarr; on an allowed level? &rarr; a resonance, or not</p>
+
+<h2>This box is really simplified</h2>
+<p>A real nucleus is not one particle in a box with hard walls. It is many protons and neutrons pulling on each other, with no walls at all, and the levels a slow neutron reaches are states of the whole compound nucleus, not of one particle. The box only shows why allowed levels give resonances.</p>
+<p><b>So what does a nucleus's ladder of levels actually look like, and why?</b></p>
+
+<nav class="lesson-nav" aria-label="Lessons"></nav>
+
+<!-- references:begin -->
+<h2>References</h2>
+
+<p class="csl-entry" id="ref-krane1987introductory" style="padding-left: 2em; text-indent: -2em;">Krane, K. S. (1987). <i>Introductory Nuclear Physics</i>. Wiley.</p>
+
+<!-- references:end -->
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. GPL-3.0. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>

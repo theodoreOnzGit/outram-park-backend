@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Why are nuclear energy levels so complicated?</title>
+<meta name="description" content="Neutronics, page 9: from a box to the harmonic oscillator to a Woods-Saxon potential; magic numbers, spin-orbit coupling, pairing and collective motion; and real ENDF/B-VIII.0 total cross sections of He-4, Mn-55 and U-238, reconstructed by OUTRAM PARK's RECONR port: more nucleons, more levels, more complex sigma(E).">
+<link rel="stylesheet" href="../../style.css">
+<script src="lesson-kit.js" defer></script>
+<script src="xs-data.js" defer></script>
+<script src="energy.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Neutronics lessons (gh:#906): page 9 of the design comment of 2026-10-16, with the amendment that drops H-1 (only a beta tape is held). Each model says what it fixes and what it still gets wrong. Data: xs-data.js (our RECONR port; provenance and every number quoted here in its header, written by crates/njoy-outram-park-fork/examples/lesson_total_xs.rs). Shell closures are computed in energy.js and checked by check-physics.js. Ends on the hook into page 10 (design comment of 2026-10-16, pages 10-11); the §24 cursor moved to the end of page 11. -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response. <strong>Review status:</strong> AI-assisted first draft (2026-10-16), not yet reviewed by a human.</p>
+
+<h1>Why are nuclear energy levels so complicated?</h1>
+<p class="kicker lesson-progress">Neutronics</p>
+<p>The box on the last page had hard walls and evenly growing levels. A nucleus is more interesting. Here is the picture built up one honest step at a time; each step says what it fixes and what it still gets wrong.</p>
+
+<h2>Softer walls: the harmonic oscillator</h2>
+<p>A nucleon near the centre of a nucleus feels little force; one near the edge is pulled back. A slightly better analogy than the box is the <b>harmonic oscillator</b>, whose walls are soft. Its levels are equally spaced, and they come in groups: shell N holds (N + 1)(N + 2) protons or neutrons. When a group is full, the shell <b>closes</b>, at 2, 8, 20, 40, 70, &hellip; nucleons <a href="#ref-krane1987introductory">(Krane, 1987)</a>.</p>
+<p><b>Better, but still not quite.</b> The oscillator's walls keep rising forever; a real nucleus has an edge.</p>
+
+<section class="widget-card">
+  <h3>Potentials, and their ladders of levels</h3>
+  <div class="widget short" id="shells">
+    <canvas aria-label="Three potential wells, box, oscillator and Woods-Saxon, and level ladders for the oscillator and for the shell model with spin-orbit coupling, with the shell closures"></canvas>
+  </div>
+  <p class="actions"><button type="button" class="btn" data-view="wells">Potentials</button> <button type="button" class="btn ghost" data-view="ho">Oscillator levels</button> <button type="button" class="btn ghost" data-view="so">With spin&ndash;orbit</button></p>
+  <p class="note">Potentials and level heights are schematic; the closures are counted from each level's capacity.</p>
+</section>
+
+<h2>The nuclear potential</h2>
+<p>A realistic shape is the <b>Woods&ndash;Saxon</b> potential: flat across the inside of the nucleus, with a soft edge about the size of the nucleus <a href="#ref-woods1954diffuse">(Woods &amp; Saxon, 1954)</a>. Neutrons and protons feel slightly different potentials; protons also repel each other through the Coulomb force.</p>
+
+<h2>Magic numbers</h2>
+<p>Nuclei with <b>2, 8, 20, 28, 50, 82 or 126</b> protons or neutrons are especially stable: the <b>magic numbers</b>. The oscillator gets the first three right and misses the rest (it predicts 40 and 70, which are not special).</p>
+
+<h2>Spin&ndash;orbit coupling</h2>
+<p>A nucleon spins, and it also orbits. Whether its spin lines up with its orbital motion or against it changes its energy, and in a nucleus that change is large: each level splits in two. The piece with the larger total angular momentum drops into the shell below. With that one addition the gaps fall exactly at the magic numbers <a href="#ref-mayer1949closed">(Mayer, 1949)</a> <a href="#ref-haxel1949magic">(Haxel et al., 1949)</a>. Press <b>With spin&ndash;orbit</b> above to see the closures move.</p>
+
+<h2>Pairing</h2>
+<p>Like nucleons pair up, two neutrons or two protons, and a pair is bound more tightly than two loners. So nuclei with even numbers of both protons and neutrons are extra tightly bound <a href="#ref-krane1987introductory">(Krane, 1987)</a>.</p>
+<p class="predict"><b>Predict.</b> A neutron joins U-235, making U-236 (92 protons, 144 neutrons: both even). Another joins U-238, making U-239 (147 neutrons: odd). Which gives off more energy as it binds? <i>The first: its new neutron completes a pair. That is part of why slow neutrons can split U-235 and not U-238.</i></p>
+
+<h2>Many nucleons moving together</h2>
+<p>In heavy nuclei, many nucleons can also move <b>together</b>: the whole nucleus can vibrate in fixed modes, or, if it is deformed, rotate <a href="#ref-bohr1998nuclear">(Bohr &amp; Mottelson, 1998)</a>. So an excited state can be one nucleon lifted to a higher orbit (single-particle), or many nucleons moving together (collective vibrations and rotations).</p>
+<p>At the energy a captured neutron brings, several MeV above the ground state, all of these combine. The number of levels per unit of energy, the <b>level density</b>, climbs steeply with the excitation energy and with the number of nucleons <a href="#ref-bohr1998nuclear">(Bohr &amp; Mottelson, 1998)</a>. It is very complex, and that is the point: these are states of the whole compound nucleus, not single-particle levels.</p>
+
+<h2>What the evaluations show</h2>
+<p class="predict"><b>Predict first.</b> Helium-4 (4 nucleons), manganese-55 (55), uranium-238 (238). Which total cross section has the most spikes?</p>
+
+<section class="widget-card">
+  <h3>Real total cross sections</h3>
+  <div class="widget" id="xs">
+    <canvas aria-label="The total cross section against neutron energy on log-log axes for He-4, Mn-55 or U-238, from their ENDF/B-VIII.0 evaluations"></canvas>
+  </div>
+  <p class="actions"><button type="button" class="btn" data-nuc="He-4">He-4</button> <button type="button" class="btn ghost" data-nuc="Mn-55">Mn-55</button> <button type="button" class="btn ghost" data-nuc="U-238">U-238</button></p>
+  <p class="note">ENDF/B-VIII.0 evaluations <a href="#ref-brown2018endf8">(Brown &amp; others, 2018)</a>, total cross section reconstructed at 0 K by OUTRAM PARK's own RECONR port <a href="#ref-njoy2016">(MacFarlane et al., 2017)</a>. Thinned for a phone: 900 steps of log E, keeping the highest and the lowest point of each step, so peaks and troughs survive; nothing is smoothed.</p>
+</section>
+
+<ul>
+  <li><b>He-4</b> is nearly smooth: no resonance parameters at all on its tape, and one broad bump, highest near 1.1 MeV (7.6 b at 1.125 MeV). He-4 is doubly magic, and He-5, which a neutron would make, is not even bound.</li>
+  <li><b>Mn-55</b> has a handful of large, well-separated resonances: its evaluation lists 187 resolved resonances up to 125 keV.</li>
+  <li><b>U-238</b> has thousands of narrow, crowded ones: 3 345 resolved resonances below 20 keV (926 with l = 0 and 2 419 with l = 1), and more, unresolved, up to 149 keV.</li>
+</ul>
+<p><b>More nucleons &rarr; more levels &rarr; a more complex &sigma;(E).</b></p>
+
+<p>Yes, it is complex. So let's simplify: <b>what can actually happen when a neutron meets a nucleus?</b></p>
+
+<nav class="lesson-nav" aria-label="Lessons" data-next-soon="Next: what can happen in a nucleus?"></nav>
+
+<!-- references:begin -->
+<h2>References</h2>
+
+<p class="csl-entry" id="ref-bohr1998nuclear" style="padding-left: 2em; text-indent: -2em;">Bohr, A., &#38; Mottelson, B. R. (1998). <i>Nuclear Structure</i>. World Scientific. https://doi.org/10.1142/3530</p>
+
+<p class="csl-entry" id="ref-brown2018endf8" style="padding-left: 2em; text-indent: -2em;">Brown, D. A. &#38; others. (2018). ENDF/B-VIII.0: The 8th Major Release of the Nuclear Reaction Data Library with CIELO-project Cross Sections, New Standards and Thermal Scattering Data. <i>Nuclear Data Sheets</i>, <i>148</i>, 1–142. https://doi.org/10.1016/j.nds.2018.02.001</p>
+
+<p class="csl-entry" id="ref-haxel1949magic" style="padding-left: 2em; text-indent: -2em;">Haxel, O., Jensen, J. H. D., &#38; Suess, H. E. (1949). On the “Magic Numbers” in Nuclear Structure. <i>Physical Review</i>, <i>75</i>(11), 1766. https://doi.org/10.1103/PhysRev.75.1766.2</p>
+
+<p class="csl-entry" id="ref-krane1987introductory" style="padding-left: 2em; text-indent: -2em;">Krane, K. S. (1987). <i>Introductory Nuclear Physics</i>. Wiley.</p>
+
+<p class="csl-entry" id="ref-njoy2016" style="padding-left: 2em; text-indent: -2em;">MacFarlane, R. E., Muir, D. W., Boicourt, R. M., Kahler, A. C., &#38; Conlin, J. L. (2017). <i>The NJOY Nuclear Data Processing System, Version 2016</i> (Technical Report LA-UR-17-20093). Los Alamos National Laboratory. https://www.osti.gov/biblio/1338791</p>
+
+<p class="csl-entry" id="ref-mayer1949closed" style="padding-left: 2em; text-indent: -2em;">Mayer, M. G. (1949). On Closed Shells in Nuclei. II. <i>Physical Review</i>, <i>75</i>(12), 1969–1970. https://doi.org/10.1103/PhysRev.75.1969</p>
+
+<p class="csl-entry" id="ref-woods1954diffuse" style="padding-left: 2em; text-indent: -2em;">Woods, R. D., &#38; Saxon, D. S. (1954). Diffuse Surface Optical Model for Nucleon-Nuclei Scattering. <i>Physical Review</i>, <i>95</i>(2), 577–578. https://doi.org/10.1103/PhysRev.95.577</p>
+
+<!-- references:end -->
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. GPL-3.0. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>
