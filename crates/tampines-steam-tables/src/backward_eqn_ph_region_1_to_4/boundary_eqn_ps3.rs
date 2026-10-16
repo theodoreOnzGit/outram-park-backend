@@ -1,3 +1,4 @@
+use petir::mathf::RealMath;
 use uom::si::{available_energy::kilojoule_per_kilogram, f64::*, pressure::megapascal};
 
 /// based on table 2.29
@@ -38,7 +39,7 @@ pub fn p_s3_h(h: AvailableEnergy) -> Pressure {
         let ji = coeffs[1];
         let ni = coeffs[2];
 
-        pi += ni * (eta - 1.02).powi(ii as i32) * (eta - 0.608).powi(ji as i32);
+        pi += ni * (eta - 1.02).r_powi(ii as i32) * (eta - 0.608).r_powi(ji as i32);
     }
 
     return pi * p_ref;

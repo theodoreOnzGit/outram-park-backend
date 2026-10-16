@@ -18,6 +18,7 @@
 //! Valid only for `T ≤ T_r`; above the reducing temperature the correlation
 //! returns `NaN` (as in CoolProp), so callers must guard supercritical `T`.
 
+use petir::mathf::RealMath;
 use crate::fluid::Fluid;
 
 /// One saturation ancillary correlation (see the module docs for the form).
@@ -49,11 +50,11 @@ impl SatAncillary {
         }
         let mut summer = 0.0;
         for i in 0..self.n.len() {
-            summer += self.n[i] * theta.powf(self.t[i]);
+            summer += self.n[i] * theta.r_powf(self.t[i]);
         }
         if self.exponential {
             let k = if self.using_tau_r { self.t_r / t } else { 1.0 };
-            self.reducing_value * (k * summer).exp()
+            self.reducing_value * (k * summer).r_exp()
         } else {
             self.reducing_value * (1.0 + summer)
         }

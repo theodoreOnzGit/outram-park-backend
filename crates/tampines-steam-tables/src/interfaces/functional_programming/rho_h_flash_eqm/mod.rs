@@ -139,6 +139,7 @@
 //! - [`rho_h_is_within_validity_range`] — a non-panicking domain predicate, for
 //!   callers that must check before committing to a flash.
 
+use petir::mathf::RealMath;
 use uom::si::available_energy::joule_per_kilogram;
 use uom::si::f64::*;
 use uom::si::mass_density::kilogram_per_cubic_meter;
@@ -306,8 +307,8 @@ fn region_boundaries(
 
     let region_at = |p_pascal: f64| ph_flash_region(Pressure::new::<pascal>(p_pascal), h);
 
-    let ln_lo = p_low.ln();
-    let ln_hi = p_high.ln();
+    let ln_lo = p_low.r_ln();
+    let ln_hi = p_high.r_ln();
     let d_ln = (ln_hi - ln_lo) / ((SCAN_POINTS - 1) as f64);
 
     let mut found = 0_usize;
@@ -318,7 +319,7 @@ fn region_boundaries(
         let p = if i == SCAN_POINTS - 1 {
             p_high
         } else {
-            (ln_lo + d_ln * (i as f64)).exp()
+            (ln_lo + d_ln * (i as f64)).r_exp()
         };
         let region = region_at(p);
 
@@ -380,7 +381,7 @@ fn region_boundaries(
 /// interval anchored at `p_min`, and its upper edge is located by bisection on
 /// the validity predicate.
 fn bracket_pressure(rho_si: f64, h: AvailableEnergy) -> Option<(f64, f64, f64, f64)> {
-    let ln_v_target = (1.0 / rho_si).ln();
+    let ln_v_target = (1.0 / rho_si).r_ln();
 
     let p_min = p_lower_limit_pascal();
     let h_pressure_min = Pressure::new::<pascal>(p_min);
@@ -452,8 +453,8 @@ fn bracket_pressure(rho_si: f64, h: AvailableEnergy) -> Option<(f64, f64, f64, f
             continue;
         }
 
-        let f_low = v_at_pressure(a, h).ln() - ln_v_target;
-        let f_high = v_at_pressure(b, h).ln() - ln_v_target;
+        let f_low = v_at_pressure(a, h).r_ln() - ln_v_target;
+        let f_high = v_at_pressure(b, h).r_ln() - ln_v_target;
 
         if !f_low.is_finite() || !f_high.is_finite() {
             continue;
@@ -743,7 +744,7 @@ pub fn p_rho_h_eqm_explicit(rho_si: f64, h_si: f64) -> f64 {
             let p_ratio = (p.get::<megapascal>() / P_C_MPA).clamp(0.0, 1.0);
             let exclusion = BUBBLE_POINT_EXCLUSION_QUALITY
                 + (NEAR_CRITICAL_EXCLUSION_QUALITY - BUBBLE_POINT_EXCLUSION_QUALITY)
-                    * p_ratio.powi(2);
+                    * p_ratio.r_powi(2);
             if x < exclusion {
                 return p_rho_h_eqm_si(rho_si, h_si);
             }
@@ -1173,7 +1174,7 @@ pub fn p_rho_h_eqm_si(rho_si: f64, h_si: f64) -> f64 {
     );
 
     let h = AvailableEnergy::new::<joule_per_kilogram>(h_si);
-    let ln_v_target = (1.0 / rho_si).ln();
+    let ln_v_target = (1.0 / rho_si).r_ln();
 
     let (mut a, mut b, mut fa, mut fb) = bracket_pressure(rho_si, h).unwrap_or_else(|| {
         panic!(
@@ -1214,12 +1215,12 @@ pub fn p_rho_h_eqm_si(rho_si: f64, h_si: f64) -> f64 {
             p = 0.5 * (a + b);
         }
 
-        let f = v_at_pressure(p, h).ln() - ln_v_target;
+        let f = v_at_pressure(p, h).r_ln() - ln_v_target;
         if !f.is_finite() {
             // Should be unreachable inside a validated bracket; bisect rather
             // than propagate a NaN.
             p = 0.5 * (a + b);
-            let f_mid = v_at_pressure(p, h).ln() - ln_v_target;
+            let f_mid = v_at_pressure(p, h).r_ln() - ln_v_target;
             if f_mid * fa < 0.0 {
                 b = p;
                 fb = f_mid;

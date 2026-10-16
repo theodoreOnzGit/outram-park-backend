@@ -37,10 +37,17 @@
 //!   `state_pt` failures as NaN; there are 2 for Water and 0 for Nitrogen on
 //!   this grid.
 //!
-//! # The goldens are PRE-MIGRATION and PLATFORM-SPECIFIC
+//! # The goldens are PLATFORM-SPECIFIC (and unchanged by stage S3)
 //!
 //! As for Parts A and B: `GOLDEN` holds **x86_64-unknown-linux-gnu, release,
-//! 2026-10-16** hashes, before any coolprop call site moves to petir. They are
+//! 2026-10-16** hashes, ~~before any coolprop call site moves to petir~~.
+//! **UPDATED 2026-10-16 (stage S3, gh:#903):** the HEM hot path (`eos.rs`,
+//! `transport.rs`, `flash.rs`, `vle.rs`, `ancillaries.rs`, `props.rs`) now
+//! calls petir `RealMath` (71 `r_exp`, 15 `r_ln`, 131 `r_powf`, 83 `r_powi`,
+//! 1 `r_sin`, 1 `r_atan`), gated by `tests/no_platform_libm_on_hot_path.rs`.
+//! **All 68 goldens were re-run after the migration and none moved**, so the
+//! table was not regenerated. The record, including why no bit moved, is
+//! `verification_and_validation/determinism_golden_moves.md`. They are
 //! asserted only on x86_64 Linux. Every other target prints its hashes and
 //! passes. Regenerate with `DETERMINISM_PRINT=1`, and record every legitimate
 //! move (old, new, cause) in a `verification_and_validation/` note.
@@ -67,6 +74,11 @@
 //! test**: it has no discriminating power here. Windows MSVC and macOS are the
 //! discriminating targets, and neither could be run in this container. The
 //! 1-ulp mutation test below shows that the hash itself does move.
+//!
+//! **Re-run after S3 (2026-10-16, same pair, same runner).** No native-vs-wasm
+//! prediction was written for this re-run. **Result: all 68 agree.** On this
+//! pair that adds no new evidence, for the reason above; the discriminating
+//! targets (Windows MSVC, macOS) are still not run.
 //!
 //! The wasm run was made from a nested git worktree, where Cargo concatenates
 //! the two `.cargo/config.toml` `runner` arrays and the runner fails. It was
@@ -115,7 +127,8 @@ impl Fnv {
 }
 
 /// Native golden hashes, `(sub-hash name, value count, hash)`.
-/// x86_64-unknown-linux-gnu, release, 2026-10-16, PRE-migration.
+/// x86_64-unknown-linux-gnu, release, 2026-10-16. Recorded pre-migration and
+/// re-measured unchanged after stage S3 (see the module docs).
 const GOLDEN: &[(&str, usize, u64)] = &[
     // GOLDEN-TABLE-START
     ("water_rho", 576, 0xd6e7bdd49b514bfa),

@@ -1,3 +1,4 @@
+use petir::mathf::RealMath;
 use uom::si::{available_energy::kilojoule_per_kilogram, f64::*, pressure::megapascal, ratio::ratio};
 /// based on eq 2.25
 #[inline]
@@ -12,7 +13,7 @@ pub fn h_3a3b_backwards_ph_boundary(p: Pressure) -> AvailableEnergy {
     let n3: f64 = -0.219_921_901_054_187_e-1;
     let n4: f64 = 0.875_131_686_009_950e-4;
 
-    let eta = n1 + n2 * pi + n3 * pi.powi(2) + n4 * pi.powi(3);
+    let eta = n1 + n2 * pi + n3 * pi.r_powi(2) + n4 * pi.r_powi(3);
 
     return eta * h_ref;
 }

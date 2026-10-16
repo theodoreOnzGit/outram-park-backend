@@ -27,6 +27,7 @@
 //! `(p, h)`: single-phase EOS speed outside the dome, a finite difference of
 //! the equilibrium isentrope through the Maxwell VLE ([`crate::vle`]) inside it.
 
+use petir::mathf::RealMath;
 use crate::fluid::Fluid;
 use crate::props::{state_trho, FluidState};
 use crate::vle::{phase_at_ph, saturation_at_temperature, saturation_temperature, PhaseAtPh};
@@ -112,7 +113,7 @@ pub fn density_pt(fluid: Fluid, t: f64, p: f64) -> Result<f64, FlashError> {
     let steps = 400;
     for i in 1..=steps {
         let frac = i as f64 / steps as f64;
-        let rho_cur = rho_prev.max(1e-8) * (rho_max / 1e-8).powf(1.0 / steps as f64);
+        let rho_cur = rho_prev.max(1e-8) * (rho_max / 1e-8).r_powf(1.0 / steps as f64);
         let _ = frac;
         let (p_cur, dpdrho) = pressure_and_dpdrho(fluid, t, rho_cur);
         let g_cur = p_cur - p;

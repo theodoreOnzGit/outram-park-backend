@@ -1,3 +1,4 @@
+use petir::mathf::RealMath;
 use uom::si::temperature_coefficient::per_kelvin;
 use uom::si::thermodynamic_temperature::kelvin;
 use uom::si::{f64::*, ratio::ratio};
@@ -48,7 +49,7 @@ pub fn s_tp_1(t: ThermodynamicTemperature, p: Pressure) -> SpecificHeatCapacity 
 /// Pressure is assumed to be in Pa
 pub fn cp_tp_1(t: ThermodynamicTemperature, p: Pressure) -> SpecificHeatCapacity {
     let tau = tau_1(t);
-    specific_gas_constant_of_water() * (-tau.powi(2) * gamma_tau_tau_1(t, p))
+    specific_gas_constant_of_water() * (-tau.r_powi(2) * gamma_tau_tau_1(t, p))
 }
 
 /// Returns the region-1 specific isochoric heat capacity
@@ -56,8 +57,8 @@ pub fn cp_tp_1(t: ThermodynamicTemperature, p: Pressure) -> SpecificHeatCapacity
 /// Pressure is assumed to be in Pa
 pub fn cv_tp_1(t: ThermodynamicTemperature, p: Pressure) -> SpecificHeatCapacity {
     let tau = tau_1(t);
-    let corr = (gamma_pi_1(t, p) - tau * gamma_pi_tau_1(t, p)).powi(2) / gamma_pi_pi_1(t, p);
-    specific_gas_constant_of_water() * (-tau.powi(2) * gamma_tau_tau_1(t, p) + corr)
+    let corr = (gamma_pi_1(t, p) - tau * gamma_pi_tau_1(t, p)).r_powi(2) / gamma_pi_pi_1(t, p);
+    specific_gas_constant_of_water() * (-tau.r_powi(2) * gamma_tau_tau_1(t, p) + corr)
 }
 
 /// Returns the region-1 speed of sound
@@ -69,12 +70,12 @@ pub fn w_tp_1(t: ThermodynamicTemperature, p: Pressure) -> Velocity {
     let gamma_pi_tau = gamma_pi_tau_1(t, p);
     let gamma_pi_pi = gamma_pi_pi_1(t, p);
     let gamma_tau_tau = gamma_tau_tau_1(t, p);
-    let term = (gamma_pi - tau * gamma_pi_tau).powi(2) / (tau.powi(2) * gamma_tau_tau);
+    let term = (gamma_pi - tau * gamma_pi_tau).r_powi(2) / (tau.r_powi(2) * gamma_tau_tau);
 
     // in rust_steam
     // The multiplication by 1000 is necessary to convert R from kJ/kg.K to J/kg.K
     // however, the units of measure crate takes care of it
-    let square = (specific_gas_constant_of_water()) * t * (gamma_pi.powi(2) / (term - gamma_pi_pi));
+    let square = (specific_gas_constant_of_water()) * t * (gamma_pi.r_powi(2) / (term - gamma_pi_pi));
     square.sqrt()
 }
 
@@ -86,7 +87,7 @@ pub fn kappa_tp_1(t: ThermodynamicTemperature, p: Pressure) -> Ratio {
     let gamma_pi_tau = gamma_pi_tau_1(t, p);
     let gamma_pi_pi = gamma_pi_pi_1(t, p);
     let gamma_tau_tau = gamma_tau_tau_1(t, p);
-    let denominator = (gamma_pi - tau * gamma_pi_tau).powi(2) / (tau.powi(2) * gamma_tau_tau) * pi
+    let denominator = (gamma_pi - tau * gamma_pi_tau).r_powi(2) / (tau.r_powi(2) * gamma_tau_tau) * pi
         - pi * gamma_pi_pi;
 
     let numerator = gamma_pi;

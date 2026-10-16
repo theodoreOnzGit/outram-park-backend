@@ -168,23 +168,23 @@ pub(crate) fn lambda_1(rho: MassDensity, t: ThermodynamicTemperature) -> f64 {
     // easier to visualise given the nested sum.. lol
     let i = 1;
     exponent += delta_f64
-        * (theta_f64.recip() - 1.0).powi(i - 1)
+        * (theta_f64.recip() - 1.0).r_powi(i - 1)
         * inner_sum_over_all_j(i as usize, delta_f64);
     let i = 2;
     exponent += delta_f64
-        * (theta_f64.recip() - 1.0).powi(i - 1)
+        * (theta_f64.recip() - 1.0).r_powi(i - 1)
         * inner_sum_over_all_j(i as usize, delta_f64);
     let i = 3;
     exponent += delta_f64
-        * (theta_f64.recip() - 1.0).powi(i - 1)
+        * (theta_f64.recip() - 1.0).r_powi(i - 1)
         * inner_sum_over_all_j(i as usize, delta_f64);
     let i = 4;
     exponent += delta_f64
-        * (theta_f64.recip() - 1.0).powi(i - 1)
+        * (theta_f64.recip() - 1.0).r_powi(i - 1)
         * inner_sum_over_all_j(i as usize, delta_f64);
     let i = 5;
     exponent += delta_f64
-        * (theta_f64.recip() - 1.0).powi(i - 1)
+        * (theta_f64.recip() - 1.0).r_powi(i - 1)
         * inner_sum_over_all_j(i as usize, delta_f64);
 
     exponent.r_exp()
@@ -436,9 +436,9 @@ fn captial_a(
     let n2_by_a = n2 / a;
 
     let mut bracket_term: f64 = 0.0;
-    bracket_term += (1.0 - b.recip()) * a.atan();
+    bracket_term += (1.0 - b.recip()) * a.r_atan();
     bracket_term += a / b - 1.0;
-    bracket_term += (-(a.recip() + 3.0_f64.recip() * a.powi(2) * delta.powi(-2)))
+    bracket_term += (-(a.recip() + 3.0_f64.recip() * a.r_powi(2) * delta.r_powi(-2)))
         .recip()
         .r_exp();
 

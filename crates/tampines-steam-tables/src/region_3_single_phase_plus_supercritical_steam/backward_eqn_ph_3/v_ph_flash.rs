@@ -1,3 +1,4 @@
+use petir::mathf::RealMath;
 use uom::si::{
     available_energy::kilojoule_per_kilogram, f64::*, pressure::megapascal,
     specific_volume::cubic_meter_per_kilogram,
@@ -73,7 +74,7 @@ pub fn v_ph_3a(p: Pressure, h: AvailableEnergy) -> SpecificVolume {
         let ji = coeffs[1];
         let ni = coeffs[2];
 
-        omega += ni * (pi + 0.128).powi(ii as i32) * (eta - 0.727).powi(ji as i32);
+        omega += ni * (pi + 0.128).r_powi(ii as i32) * (eta - 0.727).r_powi(ji as i32);
     }
 
     return omega * v_ref;
@@ -133,7 +134,7 @@ pub fn v_ph_3b(p: Pressure, h: AvailableEnergy) -> SpecificVolume {
         let ji = coeffs[1];
         let ni = coeffs[2];
 
-        omega += ni * (pi + 0.0661).powi(ii as i32) * (eta - 0.720).powi(ji as i32);
+        omega += ni * (pi + 0.0661).r_powi(ii as i32) * (eta - 0.720).r_powi(ji as i32);
     }
 
     return omega * v_ref;
