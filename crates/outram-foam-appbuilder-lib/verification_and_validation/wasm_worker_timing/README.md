@@ -73,8 +73,12 @@ dt_s,steps,native_best_s,wasm_worker_best_s,wasm_over_native,native_rho_sum,wasm
   - The `sod` rung of the `cfd_web` ladder can run live.
 - **The answers agree to round-off, not bit for bit.** The largest native–wasm
   difference in the ρ sum is 5e-14 absolute (9e-16 relative), a few ulps on a
-  100-term sum. This is consistent with different `libm` implementations of
-  `pow`/`sqrt` in the two targets, but it was **not** traced to a specific call.
+  100-term sum. ~~This is consistent with different `libm` implementations of
+  `pow`/`sqrt` in the two targets, but it was **not** traced to a specific call.~~
+  **CORRECTED 2026-10-16:** `sqrt` is IEEE correctly rounded on both targets
+  and cannot be the cause, and the petir audit for gh:#896 found the KNP flux
+  kernel calls nothing else from `libm`. The source of the difference is
+  **untraced**. Tracing it is stage S0 of gh:#896.
   A demo must not promise bitwise parity with the native V&V numbers.
 - **The ratio is not a constant.** 1.08–1.59× across four runs on a shared host
   is noise on top of a real overhead. Quote it as "about 1.3×, within 1.1–1.6×".

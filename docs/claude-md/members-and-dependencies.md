@@ -126,7 +126,10 @@ worth knowing: `teh-o-prke → {tuas (dev), chem-eng (real)}`; `tuas` dev-deps �
 (2026-10-03, GitHub #492: their `FvMesh`, `MeshError`, 1-D mesher and tensor
 primitives were code-identical copies and are now re-exports; the rest of
 their vendored `openfoam_source/` is unchanged); `tampines` dev-deps →
-`{tuas, teh-o-prke, chem-eng}` (the **library** itself is TUAS-free);
+`{tuas, teh-o-prke, chem-eng}` (~~the **library** itself is TUAS-free~~
+**CORRECTED 2026-10-16**: `tuas_boussinesq_solver` is a normal
+`[dependencies]` entry in `crates/tampines/Cargo.toml`, so the library is not
+TUAS-free);
 `outram-mc-libs → {njoy-outram-park-fork (cross sections), petir (maths and,
 since 2026-10-02, the RNG), outram-park-fork-liggghts (DEM pebble beds,
 2026-10-02, no default features), raffles (generic statistics, 2026-10-02),

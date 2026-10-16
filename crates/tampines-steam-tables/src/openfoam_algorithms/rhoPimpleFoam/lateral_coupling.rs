@@ -514,13 +514,20 @@ mod tests {
     /// even from a uniform equilibrium field. See the workspace beads
     /// tracker (`op-21g.12`) for the full debugging trail.
     ///
-    /// A remaining sharp edge (not exercised here): near the saturation
+    /// ~~A remaining sharp edge (not exercised here): near the saturation
     /// boundary, `correct_thermo`'s `(p,h)` region classification and
     /// `thermal_conductivity`'s internal `(T,p)` re-classification can
     /// disagree, hitting `pt_flash_eqm::cp_tp_eqm_single_phase`'s
     /// `FwdEqnRegion::Region4 => todo!(...)`. A real boiling steam-generator
     /// tube passes through that boundary, so it must be addressed before
-    /// this array can model one -- still tracked on `op-21g.12`.
+    /// this array can model one -- still tracked on `op-21g.12`.~~
+    /// **CORRECTED 2026-10-16** -- the boiling case is now exercised: the
+    /// steam-generator test further down this module heats feedwater into
+    /// the two-phase region and asserts it gets there ("the case that used
+    /// to `todo!()`-panic before the two-phase λ fix"). The `Region4` arm in
+    /// `pt_flash_eqm` is now a `panic!` with an explanatory message, not a
+    /// `todo!()`; a caller that hands `(T,p)` a saturated state still hits
+    /// it. The (p,h)/(T,p) 17.7 mK floor mismatch is gh:#342.
     #[test]
     fn inlet_outlet_bcs_drive_flow_and_outlet_pressure_settles_near_imposed_value() {
         let mut arr = TampinesSteamArray::new(

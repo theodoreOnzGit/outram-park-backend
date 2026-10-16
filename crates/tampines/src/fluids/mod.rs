@@ -49,9 +49,11 @@ use outram_park_fork_coolprop::Fluid as CoolPropFluid;
 ///
 /// Separately, the Edwards-O'Brien blowdown benchmark **is** genuinely gated
 /// -- 2 active, passing tests in `tampines-steam-tables`'s
-/// `tests/edwards_blowdown.rs` -- but that exercises the transient pipe
-/// solver in [`crate::multiphase_1d`], not the property backend selected
-/// here.
+/// `tests/edwards_blowdown.rs` -- but that exercises ~~the transient pipe
+/// solver in [`crate::multiphase_1d`]~~ **(CORRECTED 2026-10-16)** that
+/// crate's own `TampinesSteamArray` PIMPLE/KNP pipe array, not the property
+/// backend selected here. The [`crate::multiphase_1d`] solvers have their own
+/// Edwards case in `multiphase_1d/edwards_tests.rs`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum TampinesFluid {
     /// Evaluate via the CoolProp-derived backend (`outram-park-fork-coolprop`).
