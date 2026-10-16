@@ -160,7 +160,8 @@ fn helium_steam_generator_builds_and_advances_under_wasm() {
     for step in 0..10 {
         hot.advance_timestep(dt)
             .unwrap_or_else(|e| panic!("helium array step {step} failed under wasm: {e:?}"));
-        cold.step();
+        cold.step()
+            .unwrap_or_else(|e| panic!("steam array step {step} failed under wasm: {e:?}"));
 
         for c in 0..NODES {
             let ph = hot.p.internal[c];

@@ -114,9 +114,11 @@ steps, each doing real IAPWS-IF97 `(p, h)` two-phase flashes on every cell.
 **Measured 2026-08-11 in release mode: 384.75 s (≈ 6.5 min) for that test alone**
 (`cargo test --release -p tampines-steam-tables --test edwards_blowdown
 edwards_obrien_pipe_blowdown_600ms` → `1 passed; 0 failed; finished in 384.75s`).
-Its sibling `edwards_hybrid_damps_ringing_vs_pimple` runs a shorter 0.15 s window
-in two solver modes. Cargo runs the two in **parallel**, so the whole target
-costs about as much as its longest test rather than the sum — **measured
+~~Its sibling `edwards_hybrid_damps_ringing_vs_pimple` runs a shorter 0.15 s window
+in two solver modes.~~ **Deleted 2026-10-16** with the retired KNP hybrid
+(gh:#914); the target now holds the 600 ms test alone. When it had two, cargo
+ran them in **parallel**, so the whole target cost about as much as its
+longest test rather than the sum — **measured
 2026-08-11: `cargo test --release -p tampines-steam-tables --test
 edwards_blowdown` → `2 passed; 0 failed; finished in 393.58s`** (404 s of wall
 clock including the build). That integration target, not the library tests, is
@@ -190,6 +192,17 @@ triangle at each mean radius, and every stage part impulse and part reaction —
 see the module `//!` docs and the v0.2.9 README changelog entry). `openfoam_algorithms/` contains reference
 OpenFOAM solver ports (rhoPimpleFoam, driftFluxFoam, etc.) intended for future
 transient two-phase coupling.
+
+`hem/` (added 2026-10-16, gh #902, maintainer decision D2 of epic #896) is the
+density-based HEM pipe solver `HemPipe`: KNP central-upwind on `[ρ, ρu, ρE]`
+(the shared basic-lib kernel), `petir::ssprk` time stepping, adaptive Courant
+Δt from upstream `rhoCentralFoam`, closed by the compile-time trait
+`HemEquationOfState` (`Iapws97Hem`, `IdealGasHem` here; `tampines` re-exports
+it as `tampines::hem` and adds CoolProp). It is separate from, and does not
+replace, the pressure-based `TampinesSteamArray`. Its V&V record, including
+two recorded misses (Sod velocity L2 5.56 % against a 5 % bar, and loss of
+positivity on Toro test 2 with van Leer), is
+`verification_and_validation/hem_pipe_vs_exact_riemann_and_edwards.md`.
 
 ## Choked flow (current focus)
 

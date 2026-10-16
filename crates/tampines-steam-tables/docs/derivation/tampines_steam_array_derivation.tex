@@ -524,7 +524,9 @@ Per timestep, with $u^o,p^o,h^o,\rho^o$ the previous state:
           $\rho = \max(\rho^{o} - \dt\,\nabla\!\cdot\!\phi,\ 10^{-4})$.
     \item \textbf{Assemble momentum}: implicit Euler time term, first-order
           implicit upwind convection, orthogonal Laplacian diffusion; add the
-          lagged hybrid momentum source if in \texttt{HybridAllMach} mode.
+          lagged hybrid momentum source if in \texttt{HybridAllMach} mode
+          (that mode was retired on 2026-10-16, gh:\#914; the step no longer
+          exists).
     \item Cache $A = \mathrm{diag}$ and $r_{AU} = V_c/A$.
     \item \textbf{Momentum predictor}: add $-V_c\nabla p$ explicitly, solve for
           $\uvec$, then \emph{remove} it again so that $H(\uvec)$ is
@@ -569,7 +571,8 @@ describing textbook behaviour.
   \item \texttt{rhoEqn} is recomputed every outer corrector, not only on the
         first iteration.
   \item \textbf{Energy convection is explicit and central}, not implicit limited
-        upwind. This is the dispersion the KNP hybrid exists to control.
+        upwind. This is the dispersion the KNP hybrid existed to control
+        (the hybrid was retired on 2026-10-16, gh:\#914).
   \item No \texttt{ddtCorr} (Rhie--Chow transient flux correction) in
         $\phi_{\mathrm{HbyA}}$.
   \item No kinetic-energy or gravity-work terms in the energy equation, and no

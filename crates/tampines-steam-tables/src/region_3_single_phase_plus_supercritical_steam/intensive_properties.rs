@@ -1,3 +1,4 @@
+use petir::mathf::RealMath;
 use crate::constants::specific_gas_constant_of_water;
 
 use super::{
@@ -40,29 +41,29 @@ pub fn h_rho_t_3(rho: MassDensity, t: ThermodynamicTemperature) -> AvailableEner
 /// Temperature is assumed to be in K
 /// density is assumed to be in kg/m^3
 pub fn cv_rho_t_3(rho: MassDensity, t: ThermodynamicTemperature) -> SpecificHeatCapacity {
-    -tau_3(t).powi(2) * phi_tau_tau_3(rho, t) * specific_gas_constant_of_water()
+    -tau_3(t).r_powi(2) * phi_tau_tau_3(rho, t) * specific_gas_constant_of_water()
 }
 
 /// Returns the isobaric specific heat given t and rho
 /// Temperature is assumed to be in K
 /// density is assumed to be in kg/m^3
 pub fn cp_rho_t_3(rho: MassDensity, t: ThermodynamicTemperature) -> SpecificHeatCapacity {
-    (-tau_3(t).powi(2) * phi_tau_tau_3(rho, t)
+    (-tau_3(t).r_powi(2) * phi_tau_tau_3(rho, t)
         + ((delta_3(rho) * phi_delta_3(rho, t)
             - delta_3(rho) * tau_3(t) * phi_delta_tau_3(rho, t))
-        .powi(2)
+        .r_powi(2)
             / (2.0 * delta_3(rho) * phi_delta_3(rho, t)
-                + delta_3(rho).powi(2) * phi_delta_delta_3(rho, t))))
+                + delta_3(rho).r_powi(2) * phi_delta_delta_3(rho, t))))
         * specific_gas_constant_of_water()
 }
 
 /// speed of sound in region 3
 pub fn w_rho_t_3(rho: MassDensity, t: ThermodynamicTemperature) -> Velocity {
-    ((2.0 * delta_3(rho) * phi_delta_3(rho, t) + delta_3(rho).powi(2) * phi_delta_delta_3(rho, t)
+    ((2.0 * delta_3(rho) * phi_delta_3(rho, t) + delta_3(rho).r_powi(2) * phi_delta_delta_3(rho, t)
         - ((delta_3(rho) * phi_delta_3(rho, t)
             - delta_3(rho) * tau_3(t) * phi_delta_tau_3(rho, t))
-        .powi(2)
-            / (tau_3(t).powi(2) * phi_tau_tau_3(rho, t))))
+        .r_powi(2)
+            / (tau_3(t).r_powi(2) * phi_tau_tau_3(rho, t))))
         * specific_gas_constant_of_water()
         * t)
         .sqrt()
@@ -100,8 +101,8 @@ pub fn kappa_rho_t_3(rho: MassDensity, t: ThermodynamicTemperature) -> f64 {
 
     let first_term = 2.0 + delta * phi_delta_delta / phi_delta;
 
-    let second_term_num = (delta * phi_delta - delta * tau * phi_delta_tau).powi(2);
-    let second_term_den = delta * tau.powi(2) * phi_delta * phi_tau_tau;
+    let second_term_num = (delta * phi_delta - delta * tau * phi_delta_tau).r_powi(2);
+    let second_term_den = delta * tau.r_powi(2) * phi_delta * phi_tau_tau;
 
     return first_term - second_term_num / second_term_den;
 }
@@ -129,7 +130,7 @@ pub fn kappa_t_rho_t_3(rho: MassDensity, t: ThermodynamicTemperature) -> Inverse
     let phi_delta = phi_delta_3(rho, t);
     let phi_delta_delta = phi_delta_delta_3(rho, t);
 
-    let den = 2.0 * delta * phi_delta + delta.powi(2) * phi_delta_delta;
+    let den = 2.0 * delta * phi_delta + delta.r_powi(2) * phi_delta_delta;
 
     return rho_r_t.recip() * den.recip();
 }

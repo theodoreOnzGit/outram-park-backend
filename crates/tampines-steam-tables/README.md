@@ -211,12 +211,21 @@ cargo test --release -p tampines-steam-tables --test edwards_blowdown
 ```
 
 **KNOWN LIMITATION, not an endorsement (maintainer, 2026-09-29, gh:#406).**
-The Edwards numbers (plateau 359.0 psia, GS-1 RMSE 42.8 psia) are valid **only
+~~The Edwards numbers (plateau 359.0 psia, GS-1 RMSE 42.8 psia) are valid **only
 under the unbounded linear enthalpy scheme** (`EnergyConvectionScheme::Linear`,
 `Gauss linear`), which the array no longer uses by default. Under the bounded
 default (van Leer) the break cell over-drains to the IF97 273.15 K floor and the
 run panics; under upwind the hybrid-ringing check fails. The linear scheme
-likely **masks** the break-cell over-drain rather than resolving it. The pin is
+likely **masks** the break-cell over-drain rather than resolving it.~~
+**CORRECTED 2026-10-16 (gh:#900):** with the array's new defaults (implicit
+energy convection, kinetic-energy terms, `psi` once per outer corrector,
+guarded fixed Δt) the case runs the full 600 ms under **both** schemes:
+Linear plateau 360.5 psia / GS-1 RMSE 17.2 psia, van Leer 358.3 / 19.9 psia,
+0 pressure-bound events and 0 drained-cell holds in both. The old
+359.0 / 42.8 psia pins are reproduced only on the ablated pre-2026-10-16 path.
+The over-drain was caused mainly by rebuilding `psi` on every inner corrector,
+not by the scheme (`tests/edwards_blowdown.rs` header, rows 2–18). The test
+stays pinned to Linear until the maintainer decides otherwise. The pin is
 kept deliberately, as a save point. Future work: gh:#406.
 
 **Current status, measured 2026-08-11:** `--lib` gives **924 passed, 0 failed,
@@ -514,9 +523,10 @@ are untouched.
 
 ## Transient variant — `mean_flow_stages::transient`
 
-The same stage chain driven in time by the crate's **1-D HEM KNP hybrid
-solver** (`TampinesSteamArray` in `SolverMode::HybridAllMach`), meshed **one
-cell per stage**. What the steady model is told, the solver now owns:
+The same stage chain driven in time by the crate's **1-D HEM PIMPLE array**
+(`TampinesSteamArray`), meshed **one cell per stage**. ~~1-D HEM KNP hybrid
+solver (`TampinesSteamArray` in `SolverMode::HybridAllMach`)~~ — **corrected
+2026-10-16**: the KNP hybrid was retired (gh:#914). What the steady model is told, the solver now owns:
 
 - **Pressure is solved**, from the boundary conditions, rather than supplied
   per stage.
@@ -527,10 +537,16 @@ cell per stage**. What the steady model is told, the solver now owns:
   becomes a power from the local mass flux and is registered as a negative
   per-cell power source, so the shaft work is an energy sink the solver sees.
 
-The KNP hybrid is selected by the constructor rather than inherited: turbine
+~~The KNP hybrid is selected by the constructor rather than inherited: turbine
 passages run near-sonic at the nozzle throats and the last stages expand into
 the dome, which is the regime the plain pressure-based path rings in. The mode
-is public, so the historical bit-identical `Pimple` path is still reachable.
+is public, so the historical bit-identical `Pimple` path is still reachable.~~
+**Retired 2026-10-16.** The machine now runs plain PIMPLE. Before the hybrid
+was deleted, every transient-turbine test scenario was run in both modes and
+gave identical numbers: the HEM Mach number reached 0.70, but the 6–14 kg/m³
+superheated steam sat below the hybrid's 50 kg/m³ density taper, so the KNP
+dissipation never acted on this machine. The table is in the
+`mean_flow_stages::transient` module docs.
 
 Because pressure is solved, there is no interstage station to read a degree of
 reaction off, so the rotor's share of the local drop is a per-stage input

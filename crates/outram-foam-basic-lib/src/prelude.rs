@@ -104,6 +104,9 @@ pub use crate::ldu_matrix::{FvMatrix, FvVectorMatrix, LduMatrix, SolverPerforman
 // --- FV operators (Layer 3) ---
 pub use crate::fv_operators::{adjust_phi, fvc, fvm};
 
+// --- KNP central-upwind face flux (rhoCentralFoam kernel, Layer 3) ---
+pub use crate::fv_operators::fvc::central_upwind::{KnpFaceFlux, KnpFaceState, KnpWaveSpeeds};
+
 // --- Non-orthogonal (mesh-quality) correction for the Laplacian ---
 pub use crate::fv_operators::fvc::grad_least_squares;
 pub use crate::fv_operators::fvm::{

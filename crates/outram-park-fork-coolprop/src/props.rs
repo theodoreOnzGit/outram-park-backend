@@ -14,6 +14,7 @@
 //! Internally the EOS is raw `f64` SI; the `uom`-typed public wrapper matching
 //! the workspace's units convention is [`crate::single_cv::OPCPFluidSingleCV`].
 
+use petir::mathf::RealMath;
 use crate::eos::FluidEos;
 use crate::fluid::Fluid;
 
@@ -68,7 +69,7 @@ pub fn state_trho(fluid: Fluid, t: f64, rho: f64) -> FluidState {
     let s_molar = r * (tau * (ide.at + res.at) - (ide.a + res.a));
 
     let cv_molar = -r * tau * tau * (ide.att + res.att);
-    let num = (1.0 + delta * res.ad - delta * tau * res.adt).powi(2);
+    let num = (1.0 + delta * res.ad - delta * tau * res.adt).r_powi(2);
     let den = 1.0 + 2.0 * delta * res.ad + delta * delta * res.add;
     let cp_molar = cv_molar + r * num / den;
 

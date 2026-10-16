@@ -69,7 +69,16 @@ maturity gate in that file for what this means and how the bar is revised.
 - **2026-09-05 — mature.** Bar: the `rhoCentralFoam` port reproduces **Sod
   (1978) Table II** with the **exact Riemann solution (Toro, ch. 4) as the
   arbiter**, at discrete `L2` within **5% of field peak** per variable, and
-  `L∞` permitted to stay O(1) at the discontinuities. Evidence class:
+  `L∞` permitted to stay O(1) at the discontinuities. **CORRECTED 2026-10-16
+  (not re-run; read from
+  `verification_and_validation/sod_shock_tube_validation/RESULTS.md`, measured
+  2026-07-17):** the recorded whole-field `L2` is ρ 1.41 %, p 1.06 % and
+  **u 5.17 %**, so the velocity is *not* within 5 % of peak. What the Sod test
+  asserts is the Table II faithful-station point error < 5 % of peak (worst
+  0.43 / 0.96 / 0.43 %); it asserts no whole-field `L2`. The velocity `L2` is
+  dominated by the single cell on the shock (`L∞` 48 %, which alone
+  contributes ≈ 4.8 % to a 100-cell `L2`). Found while building the HEM pipe
+  solver's Sod case (gh #902). Evidence class:
   **analytical / manufactured solution** (the exact Riemann solver is the
   reference, not another code), supported by cross-code comparison against an
   OpenFOAM `rhoCentralFoam` reference run in the companion tutorial case.

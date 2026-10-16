@@ -1,22 +1,179 @@
 //! # V&V: Edwards–O'Brien pipe blowdown on `TampinesSteamArray`
 //!
 //! **KNOWN LIMITATION, not an endorsement (maintainer, 2026-09-29, gh:#406).**
-//! The Edwards numbers (plateau 359.0 psia, GS-1 RMSE 42.8 psia) are valid **only
+//! ~~The Edwards numbers (plateau 359.0 psia, GS-1 RMSE 42.8 psia) are valid **only
 //! under the unbounded linear enthalpy scheme** (`EnergyConvectionScheme::Linear`,
 //! `Gauss linear`), which the array no longer uses by default. Under the bounded
 //! default (van Leer) the break cell over-drains to the IF97 273.15 K floor and the
 //! run panics; under upwind the hybrid-ringing check fails. The linear scheme
-//! likely **masks** the break-cell over-drain rather than resolving it. The pin is
+//! likely **masks** the break-cell over-drain rather than resolving it.~~
+//! **CORRECTED 2026-10-16 (gh:#900):** with the array's new defaults (implicit
+//! energy convection, kinetic-energy terms, `psi` once per outer corrector,
+//! guarded fixed Δt) the case runs the full 600 ms under **both** schemes:
+//! Linear plateau 360.5 psia / GS-1 RMSE 17.2 psia, van Leer 358.3 / 19.9 psia,
+//! 0 pressure-bound events and 0 drained-cell holds in both. The old
+//! 359.0 / 42.8 psia pins are reproduced only on the ablated pre-2026-10-16 path.
+//! The over-drain was caused mainly by rebuilding `psi` on every inner corrector,
+//! not by the scheme (`tests/edwards_blowdown.rs` header, rows 2–18). The test
+//! stays pinned to Linear until the maintainer decides otherwise. The pin is
 //! kept deliberately, as a save point. Future work: gh:#406. See
 //! `apply_he_scheme_knob` for the measured table.
+//!
+//! ## 2026-10-16: the KNP hybrid and its test were RETIRED
+//!
+//! ~~This file held a second test, `edwards_hybrid_damps_ringing_vs_pimple`,
+//! comparing plain PIMPLE with `SolverMode::HybridAllMach` (PIMPLE plus a
+//! Mach-blended KNP central-upwind deferred-correction dissipation) on
+//! 0–0.15 s.~~ **Deleted 2026-10-16**, together with the hybrid itself
+//! (maintainer decision D7, "retire the KNP hybrid", gh:#914). The hybrid
+//! failed its own gate after gh:#900: with `psi` held across the inner
+//! correctors, as upstream holds it, plain PIMPLE rings 3.4× less than before
+//! and the hybrid **added** ringing. Final measured numbers (2026-10-16,
+//! 24 cells, 30 µs, 0–0.15 s, summed excess total variation over GS-1…GS-7,
+//! Pimple → Hybrid; a negative drop is more ringing):
+//!
+//! | configuration | Pimple [psia] | Hybrid [psia] | drop | GS-1 plateau P / H [psia] | gate |
+//! |---|---|---|---|---|---|
+//! | Linear, pre-#900 path | 5523.7 | 4240.8 | +23.2 % | 359.0 / 359.0 | passed |
+//! | **Linear, defaults** | **1648.3** | **2035.8** | **−23.5 %** | 360.5 / 368.8 | **failed** |
+//! | van Leer, defaults | 1951.5 | 2557.1 | −31.0 % | 358.3 / 363.5 | **failed** |
+//! | upwind, defaults | 2014.6 | 2754.4 | −36.7 % | 359.8 / 365.7 | **failed** |
+//!
+//! Its original 2026-07-16 result, on the pre-#900 path, was a 55.5 % ringing
+//! reduction (4669.6 → 2079.3 psia) with the GS-1 plateau 392.7 → 387.7 psia.
+//! The test, its `run_gauge_pressures` driver and the `excess_total_variation`
+//! metric are in git history before this change (e.g. commit `42a05c598`).
+//! The `EDW_HYBRID` and `EDW_KNP_EOS` knobs of the 600 ms test went with it.
+//! The density-based KNP path is now `tampines_steam_tables::hem::HemPipe`; its
+//! Edwards comparison is
+//! `verification_and_validation/hem_pipe_vs_exact_riemann_and_edwards.md`.
+//! Tables below that carry a "Hybrid-vs-PIMPLE run" column are kept as
+//! measured.
+//!
+//! ## gh:#900 (epic #896 phase A): defaults changed 2026-10-16 -- predictions, then results
+//!
+//! Maintainer decision D5 (2026-10-16) made four upstream behaviours the
+//! array's defaults: **A1** a Courant guard on the fixed step (and an opt-in
+//! upstream `setDeltaT.H` adaptive step), **A2** implicit upwind energy
+//! convection with a deferred correction, the **kinetic-energy terms**
+//! `fvc::ddt(ρ,K)+fvc::div(φ,K)`, and **A3** `PsiRefresh::OncePerOuterCorrector`.
+//! Every default moves the numbers below, so each is re-measured and ablated
+//! (knobs: `apply_stabilisation_knobs`).
+//!
+//! ### Predictions, written 2026-10-16 BEFORE any run of the changed code
+//!
+//! - **A1, adaptive Δt (`EDW_DT_CONTROL=adaptive`, maxCo = 1):** the
+//!   0.02–0.06 s plateau barely changes, because the convective Courant number
+//!   there is ≈ 0.003 (`16 m/s · 30 µs / 0.17 m`) and the controller never
+//!   shortens the step. Under van Leer the drained-cell holds and the 8.4 MPa
+//!   break-cell spike vanish. Untested beforehand: whether this alone removes
+//!   the 0.123 s `(p,h)` failure.
+//! - **A1, guarded fixed Δt (the default):** under van Leer the run now stops
+//!   with a named `CourantViolation` near t ≈ 0.07 s at the break end (cell
+//!   22/23), where it used to drain a cell and panic at 0.123 s. Under Linear,
+//!   which recorded 0 drained-cell holds, weakly predicted: no violation.
+//! - **A2, implicit convection:** under van Leer the `he` blow-up through a
+//!   collapsing diagonal disappears; under Linear the plateau moves by only a
+//!   few psia, since implicit upwind differs from explicit only as Co → 1.
+//! - **Kinetic-energy terms:** < 1 psia on the plateau (`½u² ≤ 5 kJ/kg`).
+//! - **A3, psi once per outer corrector:** plateau moves *down* (the
+//!   2026-09-14 measurement, made before `ddtCorr` was restored, moved it
+//!   392.4 → 360.7 psia); magnitude now uncertain, ≤ 30 psia; fewer
+//!   pressure-bound events (diagnosis H3).
+//!
+//! ### Results
+//!
+//! Measured 2026-10-16, this commit, 24 cells, `dt = 30 µs`, `t_end = 0.6 s`,
+//! one run per row, two runs at a time on a shared 4-core container
+//! (`target/release/deps/edwards_blowdown-*` invoked directly with the knobs
+//! below). Plateau = mean GS-1 pressure over 0.02–0.06 s; RMSE = GS-1 vs the
+//! 16 digitised points, 0–0.30 s. "Bound" = `pressure_bound_events()`,
+//! "holds" = `drained_hold_events()`. A failing row stops with a named
+//! error, so its counters were not printed; "≥ 1" means its stderr shows the
+//! one-shot warning.
+//!
+//! **Which numbers to quote:** the first row (the defaults, Linear pin) and
+//! the van Leer default row. The ablation rows exist only to say which change
+//! carries the movement.
+//!
+//! | # | configuration (scheme; knobs) | result | plateau [psia] | RMSE [psia] | bound | holds |
+//! |---|---|---|---|---|---|---|
+//! | 1 | **Linear, all defaults** | passes | **360.5** | **17.2** | 0 | 0 |
+//! | 2 | Linear, old path (`EDW_HE_BALANCE=explicit EDW_KE=off EDW_PSI=every EDW_DT_CONTROL=unguarded`) | passes | 359.0 | 42.8 | 150 | 0 |
+//! | 3 | Linear, old path but guarded (row 2 without `EDW_DT_CONTROL`) | passes | 359.0 | 42.8 | 150 | 0 |
+//! | 4 | Linear, only A3 over the old path (`EDW_HE_BALANCE=explicit EDW_KE=off EDW_DT_CONTROL=unguarded`) | passes | 361.1 | 17.3 | 0 | 0 |
+//! | 5 | Linear, ablate A2 (`EDW_HE_BALANCE=explicit`) | passes | 359.6 | 18.2 | 0 | 0 |
+//! | 6 | Linear, ablate K terms (`EDW_KE=off`) | passes | 361.5 | 17.3 | 0 | 0 |
+//! | 7 | Linear, ablate A3 (`EDW_PSI=every`) | **`CourantViolation`** at t = 0.0722 s, cell 21, `Co_out` = 1.31 | -- | -- | -- | -- |
+//! | 8 | Linear, ablate A3 and the guard (`EDW_PSI=every EDW_DT_CONTROL=unguarded`) | **`ThermoOutOfRange`** at t = 0.1655 s, cell 4 (h = 4.52 MJ/kg) | -- | -- | -- | ≥ 1 (cell 21) |
+//! | 9 | Linear, ablate the guard (`EDW_DT_CONTROL=unguarded`) | passes | 360.5 | 17.2 | 0 | 0 |
+//! | 10 | Linear, adaptive Δt (`EDW_DT_CONTROL=adaptive`, maxCo = 1) | passes, 20 000 steps, never below 30 µs | 360.2 | 17.2 | 0 | 0 |
+//! | 11 | **van Leer, all defaults** (`EDW_HE_SCHEME=vanleer`) | **passes** | **358.3** | **19.9** | 0 | 0 |
+//! | 12 | van Leer, old path (row 2's knobs) | **`ThermoOutOfRange`** at t = 0.1241 s, cell 18 (h = 4.30 MJ/kg) | -- | -- | ≥ 1 (cell 22, p = −18.8 kPa) | ≥ 1 (cell 22, ρ_old 1.36 → −5.47 kg/m³) |
+//! | 13 | van Leer, old path but guarded | **`CourantViolation`** at t = 0.0742 s, cell 22, `Co_out` = 5.01 | -- | -- | -- | -- |
+//! | 14 | van Leer, only A2 over the old path (`EDW_KE=off EDW_PSI=every EDW_DT_CONTROL=unguarded`) | passes, but not clean | 395.5 | 53.5 | 7508 | 1533 |
+//! | 15 | van Leer, ablate A2 | passes | 358.6 | 18.4 | 0 | 0 |
+//! | 16 | van Leer, ablate K terms | passes | 358.6 | 18.4 | 0 | 0 |
+//! | 17 | van Leer, ablate A3 and the guard (`EDW_PSI=every EDW_DT_CONTROL=unguarded`) | **`ThermoOutOfRange`** at t = 0.0854 s, cell 9 (h = −2.01 MJ/kg) | -- | -- | -- | ≥ 1 (cell 11) |
+//! | 18 | van Leer, adaptive Δt | passes, 20 000 steps, never below 30 µs | 358.1 | 19.9 | 0 | 0 |
+//!
+//! Rows 2 and 3 reproduce the 2026-09-14 pins (359.0 / 42.8 psia, 150 bound
+//! events) to the printed digit, so the ablation knobs restore the old path.
+//! Rows 10 and 18 differ from rows 1 and 11 only in where the 1 ms samples
+//! fall (the clock is a running sum of steps there); the steps are the same.
+//!
+//! **Moved numbers, old → new (Linear pin, defaults):** plateau
+//! **359.0 → 360.5 psia**; GS-1 RMSE **42.8 → 17.2 psia**; pressure-bound
+//! events **150 → 0** (worst undershoot 171.75 kPa → none); break-flow peak
+//! **125.3 → 98.2 lbm/s**; drained-cell holds 0 → 0. Under van Leer the case
+//! went from a failure at ≈ 0.12 s to a full 600 ms pass (358.3 / 19.9 psia).
+//!
+//! **The predictions, scored:**
+//!
+//! - *A1 adaptive Δt — plateau barely changes:* **right** (360.2 vs 360.5),
+//!   but for a duller reason than predicted: the start-of-step convective
+//!   Courant number never exceeded **0.017** in any run, so the controller
+//!   never shortened the step at all. *Holds and the 8.4 MPa spike vanish
+//!   under van Leer:* the holds vanish (0), but **not because of A1** -- the
+//!   adaptive run equals the fixed one. Upstream's convective Courant number
+//!   is evaluated from the start-of-step flux and cannot see an over-drain
+//!   that the pressure correctors create within the step (`Co_out` of 1.3
+//!   and 5.0 in rows 7 and 13, while the start-of-step Courant number stayed
+//!   below 0.17 in every run that completed). The 8.4 MPa break-cell spike
+//!   was **not re-measured**: the GS traces and break CSV were not inspected
+//!   for it.
+//! - *A1 guarded fixed Δt, van Leer: a named `CourantViolation` near
+//!   t ≈ 0.07 s at cell 22/23:* **right** on the old path (row 13: 0.0742 s,
+//!   cell 22). *Linear: no violation:* **right** (row 3).
+//! - *A2: van Leer `he` blow-up disappears:* **partly right**. Alone (row 14)
+//!   it turns the failure into a 600 ms run, but one that clamps the pressure
+//!   7508 times and holds 1533 cell-updates, with a 892 lbm/s break-flow peak
+//!   -- surviving, not fixed. *Under Linear it moves the plateau by only a few
+//!   psia:* **right** (row 5 vs 1: 0.9 psia).
+//! - *Kinetic-energy terms < 1 psia:* **right** under Linear (1.0 psia, row 6)
+//!   and van Leer (0.3 psia, row 16).
+//! - *A3: plateau moves down, ≤ 30 psia, fewer pressure-bound events:*
+//!   **wrong on the sign** -- the plateau moved **up** 2.1 psia (row 4 vs 2) --
+//!   and **badly under-predicted in effect**: A3 alone removes all 150 bound
+//!   events and takes the RMSE from 42.8 to 17.3 psia. It is the change that
+//!   carries the result; without it every other change either fails (rows 7,
+//!   8, 17) or survives unclean (row 14).
+//!
+//! **Not closed:** the drained-cell hold and the pressure clamp are inert
+//! (0 events) on the defaults, but stay in place as guards. The adaptive
+//! controller only sees the convective Courant number, as upstream does; a
+//! Courant number on the in-step flux would be the port's own invention and
+//! was not added. Register row 14 (full ρ re-flash per inner corrector vs
+//! upstream's linear `correctRho`) is still open.
 //!
 //! ## Methodology
 //!
 //! This is a verification & validation tutorial case that drives OUR current
 //! 1-D compressible PIMPLE pipe array ([`TampinesSteamArray`], the
 //! rhoPimpleFoam-derived array with a **real IAPWS-IF97 `(p,h)` two-phase
-//! flash**, OpenFOAM-style pressure bounding, and panic-over-stale-state in
-//! `correct_thermo`) through the classic Edwards–O'Brien horizontal-pipe
+//! flash**, OpenFOAM-style pressure bounding, and ~~panic-over-stale-state in
+//! `correct_thermo`~~ a named `ThermoOutOfRange` error from `correct_thermo`
+//! since 2026-10-16, gh:#900) through the classic Edwards–O'Brien horizontal-pipe
 //! depressurisation experiment.
 //!
 //! - **Geometry** (Tomlinson & Aumiller B-T-3271, Table 1 = the modified
@@ -37,16 +194,21 @@
 //! - **Break boundary**: a choked (critical) outlet. Each step the last cell's
 //!   `(p0,h0)` is fed to the crate's existing HEM critical-flow dispatcher
 //!   [`get_critical_pressure_and_mass_flux_multiphase_ph`] (the same machinery
-//!   validated against Moody / Zaloudek; Marviken data is digitised but its
-//!   test is `#[ignore]`d and not yet gated), giving the throat mass
+//!   validated against Moody / Zaloudek; ~~Marviken data is digitised but its
+//!   test is `#[ignore]`d and not yet gated~~ **CORRECTED 2026-10-16:**
+//!   Marviken is gated, with six live tests in `marviken_tests.rs`; test 23 is
+//!   validated and test 24 is not, per the crate `CLAUDE.md`), giving the throat mass
 //!   flux `G*` and throat pressure. The break mass flow is
 //!   `m_dot = G* * A_break(t)` and the equivalent full-face outlet velocity
 //!   `U = m_dot / (rho * A)` is imposed via `set_outlet_velocity`. The closed
 //!   end is `U = 0`; both ends keep a `ZeroGradient` pressure BC so the
 //!   pressure floats on the array's compressibility diagonal (a blowdown has no
 //!   Dirichlet pressure anywhere — the mass depletion sets `p`).
-//! - **Transient**: the full 600 ms is integrated with `dt = 1.0e-4 s`
-//!   (the benchmark's stipulated `dt_max`; acoustic CFL ~= 0.6 on this mesh).
+//! - **Transient**: the full 600 ms is integrated with ~~`dt = 1.0e-4 s`
+//!   (the benchmark's stipulated `dt_max`; acoustic CFL ~= 0.6 on this mesh)~~
+//!   **CORRECTED 2026-10-16:** `dt = 30 µs` (the code's `EDW_DT_US` default,
+//!   20 000 steps, as every result below states); `1.0e-4 s` is the
+//!   benchmark's stipulated `dt_max`, not what this test runs.
 //! - **Reference / tolerances**: gauge pressures are compared against the
 //!   digitised Edwards experimental "Data" curve at GS-1 (below), reported as an
 //!   RMSE in psia. Following the module V&V contract, assertions are
@@ -138,8 +300,8 @@
 //! acoustic-CFL overshoot at the initial rarefaction.
 
 use tampines_steam_tables::{
-    EnergyConvectionScheme, KnpFaceClosure, PsiRefresh, SolverMode, TampinesSteamArray,
-    ThermoClosure,
+    EnergyBalanceMode, EnergyConvectionScheme, KineticEnergyTerms, PsiRefresh,
+    TampinesSteamArray, ThermoClosure, TimeStepControl,
 };
 
 /// The energy-convection scheme this V&V case runs with: **pinned to
@@ -147,12 +309,21 @@ use tampines_steam_tables::{
 /// bit** -- an explicit, visible choice, not the array's default.
 ///
 /// **KNOWN LIMITATION, not an endorsement (maintainer, 2026-09-29, gh:#406).**
-/// The Edwards numbers (plateau 359.0 psia, GS-1 RMSE 42.8 psia) are valid **only
+/// ~~The Edwards numbers (plateau 359.0 psia, GS-1 RMSE 42.8 psia) are valid **only
 /// under the unbounded linear enthalpy scheme** (`EnergyConvectionScheme::Linear`,
 /// `Gauss linear`), which the array no longer uses by default. Under the bounded
 /// default (van Leer) the break cell over-drains to the IF97 273.15 K floor and the
 /// run panics; under upwind the hybrid-ringing check fails. The linear scheme
-/// likely **masks** the break-cell over-drain rather than resolving it. The pin is
+/// likely **masks** the break-cell over-drain rather than resolving it.~~
+/// **CORRECTED 2026-10-16 (gh:#900):** with the array's new defaults (implicit
+/// energy convection, kinetic-energy terms, `psi` once per outer corrector,
+/// guarded fixed Δt) the case runs the full 600 ms under **both** schemes:
+/// Linear plateau 360.5 psia / GS-1 RMSE 17.2 psia, van Leer 358.3 / 19.9 psia,
+/// 0 pressure-bound events and 0 drained-cell holds in both. The old
+/// 359.0 / 42.8 psia pins are reproduced only on the ablated pre-2026-10-16 path.
+/// The over-drain was caused mainly by rebuilding `psi` on every inner corrector,
+/// not by the scheme (`tests/edwards_blowdown.rs` header, rows 2–18). The test
+/// stays pinned to Linear until the maintainer decides otherwise. The pin is
 /// kept deliberately, as a save point. Future work: gh:#406.
 ///
 /// **Why it is pinned (2026-09-29, gh:#319).** `TampinesSteamArray`'s energy
@@ -167,6 +338,19 @@ use tampines_steam_tables::{
 /// | `linear` (pinned) | passes: plateau 359.0 psia, GS-1 RMSE 42.8 psia | passes |
 /// | `upwind` | passes: plateau 380.9 psia, GS-1 RMSE 37.7 psia | **fails** its ringing assertion |
 /// | `vanleer` | **panics**: `(p,h)` below 273.15 K after cell 22 (the break end) over-drains | **panics**, same |
+///
+/// **Re-measured 2026-10-16 (gh:#900) with the new array defaults** (the
+/// table above was measured on the pre-2026-10-16 path, kept for history):
+///
+/// | `EDW_HE_SCHEME` | 600 ms PIMPLE run | Hybrid-vs-PIMPLE run |
+/// |---|---|---|
+/// | `linear` (pinned) | passes: plateau 360.5 psia, GS-1 RMSE 17.2 psia | **fails** its ringing assertion (−23.5 %) |
+/// | `upwind` | passes: plateau 359.8 psia, GS-1 RMSE 18.2 psia | **fails** (−36.7 %) |
+/// | `vanleer` | passes: plateau 358.3 psia, GS-1 RMSE 19.9 psia | **fails** (−31.0 %) |
+///
+/// ~~See `edwards_hybrid_damps_ringing_vs_pimple` for why the hybrid now
+/// fails.~~ That test and the hybrid were retired 2026-10-16; see the module
+/// docs.
 ///
 /// So under a bounded scheme this case exposes a defect the linear scheme had
 /// been masking in the draining break cell. That is a finding about the break
@@ -186,6 +370,61 @@ fn apply_he_scheme_knob(array: &mut TampinesSteamArray) {
         Ok(other) => panic!("unknown EDW_HE_SCHEME {other:?}"),
     };
     array.set_he_convection_scheme(scheme);
+}
+
+/// The gh:#900 (epic #896 phase A) stabilisation knobs, for the ablation in
+/// the module header. **Unset, every knob leaves the array's own default in
+/// force** -- implicit energy convection, kinetic-energy terms included, psi
+/// held across the inner correctors, guarded fixed Δt -- so an unset
+/// environment measures the defaults.
+///
+/// - `EDW_HE_BALANCE=explicit` -- ablate A2 (explicit `fvc::div` convection).
+/// - `EDW_KE=off` -- ablate the kinetic-energy terms.
+/// - `EDW_PSI=every` -- ablate A3 (`PsiRefresh::EveryCorrector`). The older
+///   `EDW_PSI_OUTER=1` selects the new default explicitly and is kept so old
+///   commands still parse.
+/// - `EDW_DT_CONTROL=unguarded` -- ablate A1 (fixed Δt, drained-cell hold, the
+///   pre-2026-10-16 path); `EDW_DT_CONTROL=adaptive` -- upstream
+///   `adjustTimeStep yes` with `maxCo = EDW_MAXCO` (default 1.0, upstream's
+///   `readTimeControls.H` default) and `maxDeltaT` = the case's `dt`.
+///
+/// Returns `true` when the adaptive controller is selected.
+fn apply_stabilisation_knobs(array: &mut TampinesSteamArray, dt: Time) -> bool {
+    match std::env::var("EDW_HE_BALANCE").as_deref() {
+        Ok("explicit") => array.set_he_balance_mode(EnergyBalanceMode::Explicit),
+        Ok("implicit") => array.set_he_balance_mode(EnergyBalanceMode::Implicit),
+        Ok(other) => panic!("unknown EDW_HE_BALANCE {other:?}"),
+        Err(_) => {}
+    }
+    match std::env::var("EDW_KE").as_deref() {
+        Ok("off") => array.set_kinetic_energy_terms(KineticEnergyTerms::Excluded),
+        Ok("on") => array.set_kinetic_energy_terms(KineticEnergyTerms::Included),
+        Ok(other) => panic!("unknown EDW_KE {other:?}"),
+        Err(_) => {}
+    }
+    match std::env::var("EDW_PSI").as_deref() {
+        Ok("every") => array.psi_refresh = PsiRefresh::EveryCorrector,
+        Ok("outer") => array.psi_refresh = PsiRefresh::OncePerOuterCorrector,
+        Ok(other) => panic!("unknown EDW_PSI {other:?}"),
+        Err(_) => {}
+    }
+    match std::env::var("EDW_DT_CONTROL").as_deref() {
+        Ok("unguarded") => array.set_time_step_control(TimeStepControl::FixedUnguarded),
+        Ok("fixed") | Err(_) => array.set_time_step_control(TimeStepControl::Fixed),
+        Ok("adaptive") => {
+            let max_co: f64 = std::env::var("EDW_MAXCO")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(1.0);
+            array.set_time_step_control(TimeStepControl::AdaptiveCourant {
+                max_courant: uom::si::f64::Ratio::new::<uom::si::ratio::ratio>(max_co),
+                max_delta_t: dt,
+            });
+            return true;
+        }
+        Ok(other) => panic!("unknown EDW_DT_CONTROL {other:?}"),
+    }
+    false
 }
 
 use tampines_steam_tables::interfaces::functional_programming::ph_flash_eqm::{
@@ -435,25 +674,17 @@ fn edwards_obrien_pipe_blowdown_600ms() {
         uom::si::f64::Ratio::new::<uom::si::ratio::ratio>(alpha_u),
     );
 
-    // Opt-in all-Mach hybrid mode for figure regeneration (EDW_HYBRID=1). The
-    // default (unset) is pure PIMPLE, so this test's headline numbers above are
-    // the PIMPLE baseline; the Pimple-vs-Hybrid comparison lives in the
-    // dedicated `edwards_hybrid_damps_ringing_vs_pimple` test below.
-    if std::env::var("EDW_HYBRID").is_ok() {
-        array.set_solver_mode(SolverMode::HybridAllMach);
-    }
-
-    // See `run_gauge_pressures` for what this selects.
-    if std::env::var("EDW_KNP_EOS").is_ok() {
-        array.knp_face_closure = KnpFaceClosure::EosConsistentPressure;
-    }
+    // ~~`EDW_HYBRID=1` / `EDW_KNP_EOS=1`~~ removed 2026-10-16 with the KNP
+    // hybrid (module docs).
 
     // `EDW_PSI_OUTER=1` holds psi across the inner PISO correctors instead of
     // rebuilding it on each, saving two (p,h) flashes per cell per inner
-    // corrector. See `PsiRefresh`.
+    // corrector. See `PsiRefresh`. ~~Opt-in~~ the array's default since
+    // 2026-10-16 (gh:#900); `EDW_PSI=every` is now the ablation.
     if std::env::var("EDW_PSI_OUTER").is_ok() {
         array.psi_refresh = PsiRefresh::OncePerOuterCorrector;
     }
+    let adaptive = apply_stabilisation_knobs(&mut array, dt);
 
     // `EDW_RHOH=1` swaps the thermodynamic closure from the validated
     // pressure-based path to the density-based one, which recovers pressure by
@@ -543,7 +774,23 @@ fn edwards_obrien_pipe_blowdown_600ms() {
     }
 
     // ── Transient loop ──────────────────────────────────────────────────────
-    for step in 1..=n_steps {
+    // Fixed Δt: exactly `n_steps` steps, sampled every `sample_stride` steps
+    // (the historical sampling, so fixed-step numbers stay comparable).
+    // Adaptive Δt: march to `t_end`, sampling on the first step at or past
+    // each 1 ms mark.
+    let mut step = 0usize;
+    let mut next_sample_s = sample_every;
+    let mut max_courant = 0.0_f64;
+    let mut min_dt_s = f64::INFINITY;
+    loop {
+        if adaptive {
+            if time_s >= t_end - 1.0e-12 {
+                break;
+            }
+        } else if step >= n_steps {
+            break;
+        }
+        step += 1;
         // Break BC from the current break-cell stagnation state.
         let c = n - 1;
         let (bs, u_face) = choked_break(
@@ -570,10 +817,25 @@ fn edwards_obrien_pipe_blowdown_600ms() {
             );
         }
 
-        array.step();
-        time_s += dt_s;
+        // The Courant number the coming step starts from (upstream evaluates
+        // it from the start-of-step flux, compressibleCourantNo.H).
+        max_courant = max_courant.max(array.courant_number().1.get::<uom::si::ratio::ratio>());
+        let taken = array
+            .step()
+            .unwrap_or_else(|e| panic!("step {step} at t = {time_s:.6} s failed: {e}"));
+        let taken_s = taken.get::<second>();
+        min_dt_s = min_dt_s.min(taken_s);
+        time_s += if adaptive { taken_s } else { dt_s };
 
-        if step % sample_stride == 0 {
+        let sample_due = if adaptive {
+            time_s >= next_sample_s - 1.0e-12
+        } else {
+            step % sample_stride == 0
+        };
+        if sample_due {
+            while next_sample_s <= time_s + 1.0e-12 {
+                next_sample_s += sample_every;
+            }
             record(
                 &array, &gs_cells, time_s, &mut times, &mut p_gs, &mut a_gs, &mut t_gs,
             );
@@ -729,6 +991,19 @@ fn edwards_obrien_pipe_blowdown_600ms() {
         "drained-cell holds       : {} (energy-hold band-aid engagements)",
         array.drained_hold_events()
     );
+    println!(
+        "time stepping            : {:?}, {step} steps, min dt {:.3e} s, \
+         max start-of-step Courant {max_courant:.4}",
+        array.get_time_step_control(),
+        min_dt_s,
+    );
+    println!(
+        "energy equation          : {:?} convection, {:?} scheme, kinetic energy {:?}, psi {:?}",
+        array.get_he_balance_mode(),
+        array.get_he_convection_scheme(),
+        array.get_kinetic_energy_terms(),
+        array.psi_refresh,
+    );
     if bound_events > 0 {
         println!(
             "  ^^ NONZERO: the pressure solve left the EOS range and was clamped. \
@@ -819,296 +1094,6 @@ fn write_break_csv(dir: &str, hist: &[(f64, f64, f64, bool)]) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  Pimple-vs-Hybrid all-Mach comparison (bead op-21g.15.6)
+//  ~~Pimple-vs-Hybrid all-Mach comparison (bead op-21g.15.6)~~
+//  RETIRED 2026-10-16 with the KNP hybrid; final numbers in the module docs.
 // ─────────────────────────────────────────────────────────────────────────────
-
-/// Drive the Edwards pipe for `t_end_s` in the given [`SolverMode`], returning
-/// `(times [s], gauge pressures [psia])` sampled every 1 ms. Identical geometry,
-/// IC, break BC and PISO settings to `edwards_obrien_pipe_blowdown_600ms`; the
-/// *only* difference between the two calls in the comparison test is `mode`.
-fn run_gauge_pressures(mode: SolverMode, t_end_s: f64, dt_us: f64) -> (Vec<f64>, Vec<[f64; 7]>) {
-    let n_cells: i64 = 24;
-    let dt = Time::new::<second>(dt_us * 1.0e-6);
-
-    let mut array = TampinesSteamArray::new(
-        Length::new::<meter>(PIPE_LENGTH_M),
-        Area::new::<square_meter>(PIPE_AREA_M2),
-        n_cells,
-        dt,
-    )
-    .expect("valid Edwards pipe geometry");
-    apply_he_scheme_knob(&mut array);
-    array.set_pimple_algorithm(
-        4,
-        4,
-        uom::si::f64::Ratio::new::<uom::si::ratio::ratio>(1.0),
-        uom::si::f64::Ratio::new::<uom::si::ratio::ratio>(1.0),
-    );
-    array.set_solver_mode(mode);
-
-    // `EDW_KNP_EOS=1` closes the KNP face state through the equation of state
-    // -- pressure from the reconstructed (rho, he) rather than from its own
-    // MUSCL reconstruction. Only has any effect in HybridAllMach.
-    if std::env::var("EDW_KNP_EOS").is_ok() {
-        array.knp_face_closure = KnpFaceClosure::EosConsistentPressure;
-    }
-
-    let n = array.mesh.n_cells;
-    for c in 0..n {
-        array.p.internal[c] = P_INIT_PA;
-    }
-    let centres_m: Vec<f64> = NODE_CENTRE_FT.iter().map(|&ft| ft * FT_TO_M).collect();
-    let temps_k: Vec<f64> = NODE_T_DEGF.iter().map(|&f| degf_to_k(f)).collect();
-    let cell_temps: Vec<ThermodynamicTemperature> = (0..n)
-        .map(|c| {
-            let xc = array.mesh.cell_centres[c].x;
-            ThermodynamicTemperature::new::<kelvin>(lerp(&centres_m, &temps_k, xc))
-        })
-        .collect();
-    array.set_temperature_vector(cell_temps).unwrap();
-    array.set_inlet_velocity(Velocity::new::<meter_per_second>(0.0));
-
-    let gs_cells: Vec<usize> = GS_POS_FT
-        .iter()
-        .map(|&(_, ft)| {
-            let x = ft * FT_TO_M;
-            (0..n)
-                .min_by(|&a, &b| {
-                    let da = (array.mesh.cell_centres[a].x - x).abs();
-                    let db = (array.mesh.cell_centres[b].x - x).abs();
-                    da.partial_cmp(&db).unwrap()
-                })
-                .unwrap()
-        })
-        .collect();
-
-    let dt_s = dt.get::<second>();
-    let n_steps = (t_end_s / dt_s).round() as usize;
-    let sample_stride = (0.001_f64 / dt_s).round().max(1.0) as usize;
-
-    let mut times: Vec<f64> = Vec::new();
-    let mut p_gs: Vec<[f64; 7]> = Vec::new();
-    let mut time_s = 0.0_f64;
-
-    let record =
-        |array: &TampinesSteamArray, times: &mut Vec<f64>, p_gs: &mut Vec<[f64; 7]>, t: f64| {
-            times.push(t);
-            let mut pr = [0.0; 7];
-            for (i, &c) in gs_cells.iter().enumerate() {
-                pr[i] = array.p.internal[c] * PA_TO_PSI;
-            }
-            p_gs.push(pr);
-        };
-    record(&array, &mut times, &mut p_gs, time_s);
-
-    for step in 1..=n_steps {
-        let c = n - 1;
-        let (_bs, u_face) = choked_break(
-            array.p.internal[c],
-            array.he.internal[c],
-            array.rho.internal[c],
-            time_s,
-        );
-        array.set_outlet_velocity(Velocity::new::<meter_per_second>(u_face));
-        array.step();
-        time_s += dt_s;
-        if step % sample_stride == 0 {
-            record(&array, &mut times, &mut p_gs, time_s);
-        }
-    }
-    (times, p_gs)
-}
-
-/// Excess total variation of a series over the window `[t0, t1]` — the "wiggle"
-/// (ringing) amplitude on top of the monotone blowdown trend:
-/// `Σ|p[i+1]−p[i]|  −  |p_first − p_last|`. A perfectly monotone decay scores 0;
-/// oscillation adds twice each overshoot. Units follow the input (psia here).
-fn excess_total_variation(times: &[f64], series: &[f64], t0: f64, t1: f64) -> f64 {
-    let idx: Vec<usize> = (0..times.len())
-        .filter(|&i| times[i] >= t0 && times[i] <= t1)
-        .collect();
-    if idx.len() < 2 {
-        return 0.0;
-    }
-    let mut tv = 0.0;
-    for w in idx.windows(2) {
-        tv += (series[w[1]] - series[w[0]]).abs();
-    }
-    let net = (series[*idx.last().unwrap()] - series[idx[0]]).abs();
-    (tv - net).max(0.0)
-}
-
-/// # V&V: all-Mach hybrid KNP dissipation damps the near-sonic ringing
-///
-/// ## Methodology
-///
-/// The Edwards–O'Brien pipe blowdown ([`edwards_obrien_pipe_blowdown_600ms`]) is
-/// run twice on the identical 24-cell mesh, IC (7 MPa + Hendrie axial temperature
-/// profile), choked-break BC and 4-outer/4-inner PISO settings — the *only*
-/// difference is [`SolverMode`]: pure `Pimple` (`β = 0` everywhere) versus
-/// `HybridAllMach` (Mach-blended KNP central-upwind dissipation, blend window
-/// `lo = 0.3`, `hi = 1.0`, sound speed the **HEM equilibrium** speed). The window
-/// is `0–0.15 s` at `dt = 30 µs`, which spans the initial rarefaction ringing and
-/// the `0.02–0.06 s` flashing plateau.
-///
-/// - **Ringing metric**: excess total variation (wiggle on top of the monotone
-///   blowdown) of each gauge's pressure trace over `0–0.15 s`
-///   ([`excess_total_variation`]). Summed over GS-1…GS-7. Lower ⇒ less ringing.
-/// - **Plateau metric**: mean GS-1 pressure over `0.02–0.06 s` — must be retained
-///   (the flashing plateau / no-subcooling result the PIMPLE fix recovered).
-///
-/// ## Results (measured 2026-07-16, IAPWS-IF97 tables, 24 cells, dt = 30 µs,
-/// window 0–0.15 s; full trail in
-/// `collaboration/edwards_tampines_regen/hybrid_debug_log.md`)
-///
-/// The Mach-blended KNP dissipation **damps the near-sonic ringing** while
-/// **retaining the flashing plateau**. Excess total variation (ringing) per
-/// gauge, Pimple → Hybrid (drop %):
-///
-/// ```text
-/// gauge   excess-TV Pimple   excess-TV Hybrid   drop %
-/// GS-1              454.7             182.4      59.9
-/// GS-2             2169.2             714.9      67.0
-/// GS-3             1027.9             303.3      70.5
-/// GS-4              441.7             442.0      -0.1
-/// GS-5              267.6             262.1       2.1
-/// GS-6               22.6              23.1      -2.3
-/// GS-7              286.0             151.6      47.0
-/// SUM              4669.6            2079.3      55.5   ← 55.5 % less ringing
-/// ```
-///
-/// - **Ringing**: summed excess-TV drops **4670 → 2079 psia (−55.5 %)**; the
-///   largest drops are at the near-break/interior gauges GS-2 (−67 %) and GS-3
-///   (−70 %) where the near-sonic flashing front rings hardest, and GS-1 (−60 %)
-///   nearest the break. GS-4/5/6 (in less-oscillatory zones) are unchanged to
-///   ±2 %.
-/// - **Plateau**: GS-1 mean over 0.02–0.06 s is **392.7 psia (Pimple) → 387.7
-///   psia (Hybrid)**, a 1.3 % change — the flashing plateau / no-subcooling
-///   result is retained (the min-Ma-gated hybrid tracks the pure-PIMPLE
-///   trajectory in the subcooled bulk essentially exactly).
-///
-/// The design that achieves this: continuity + momentum KNP dissipation, the
-/// blend gated on `min(Ma)` of the two adjacent cells (low-Mach scaling; without
-/// it the liquid-side acoustic speed at a liquid/two-phase interface makes the
-/// viscosity ~35× the physical mass flux and over-drains enthalpy out of the
-/// `(p,h)` validity range). No separate energy source — the enthalpy
-/// shock-capturing rides on the continuity flux through the EEqn `∇·(φh)` so the
-/// plateau-fix cancellation is preserved. HEM equilibrium sound speed
-/// throughout (Kieffer eq. 28 in the dome, `w_tp_1/2/3/5` single-phase).
-///
-/// The assertions below (finiteness; ringing must not grow; plateau retained
-/// within 15 %) are sanity gates per the module V&V contract; the reported
-/// numbers are the deliverable.
-///
-/// ## Full-transient hybrid stability (bug op-21g.15.7 — FIXED)
-///
-/// `HybridAllMach` is stable over the **full 600 ms** transient. The earlier
-/// late-time instability past `t ≈ 0.18 s` — as the pipe empties, a rarefying
-/// near-sonic cell's continuity density `ρ_cont` collapses to its floor, the
-/// segregated EEqn diagonal `ρ_cont·V/dt` vanishes, and the explicit KNP deferred
-/// correction over-drives that nearly-empty cell across the IAPWS-IF97 273.15 K
-/// `(p,h)` validity edge (`correct_thermo` correctly panics) — is removed by the
-/// **rarefied-tail density taper** on the KNP blend (`assemble_hybrid_dissipation`):
-/// the dissipation is scaled to zero below `ρ = 50 kg/m³` and full above
-/// `ρ = 100 kg/m³`. The minimum dissipated-face density over the 0–0.15 s ringing
-/// window is ≈ 106.5 kg/m³, so the taper is inert there — the ~55 % ringing
-/// reduction and ≈ 388 psia plateau are unchanged — while the late-time emptying
-/// tail (ρ → few kg/m³, where the HEM closure degrades and there is no flashing
-/// shock to capture) reverts to pure PIMPLE, which is stable.
-///
-/// Measured (2026-07-16, 24 cells, dt = 30 µs, full 600 ms in `HybridAllMach`):
-/// plateau 387.7 psia, GS-1 RMSE vs Data 30.6 psia, no cold tail (min tail
-/// T ≈ 372 K). The `EDW_HYBRID=1` full-run figures are in
-/// `collaboration/edwards_tampines_regen/figures_hybrid_stable/`.
-#[test]
-#[cfg_attr(
-    not(feature = "long-tests"),
-    ignore = "long test (measured 299 s, 2026-09-16); runs by default, skipped under --no-default-features"
-)]
-fn edwards_hybrid_damps_ringing_vs_pimple() {
-    let t_end = std::env::var("EDW_CMP_TEND")
-        .ok()
-        .and_then(|s| s.parse().ok())
-        .unwrap_or(0.15_f64);
-    let dt_us = std::env::var("EDW_DT_US")
-        .ok()
-        .and_then(|s| s.parse().ok())
-        .unwrap_or(30.0_f64);
-
-    let (t_p, p_p) = run_gauge_pressures(SolverMode::Pimple, t_end, dt_us);
-    let (t_h, p_h) = run_gauge_pressures(SolverMode::HybridAllMach, t_end, dt_us);
-
-    // Per-gauge excess-TV (ringing) and the sum across all seven stations.
-    let mut tv_p = [0.0_f64; 7];
-    let mut tv_h = [0.0_f64; 7];
-    for g in 0..7 {
-        let sp: Vec<f64> = p_p.iter().map(|r| r[g]).collect();
-        let sh: Vec<f64> = p_h.iter().map(|r| r[g]).collect();
-        tv_p[g] = excess_total_variation(&t_p, &sp, 0.0, t_end);
-        tv_h[g] = excess_total_variation(&t_h, &sh, 0.0, t_end);
-    }
-    let sum_p: f64 = tv_p.iter().sum();
-    let sum_h: f64 = tv_h.iter().sum();
-
-    // Flashing plateau (mean GS-1 over 0.02–0.06 s) for each mode.
-    let plateau = |times: &[f64], p_gs: &[[f64; 7]]| -> f64 {
-        let vals: Vec<f64> = times
-            .iter()
-            .zip(p_gs.iter())
-            .filter(|(&t, _)| (0.02..=0.06).contains(&t))
-            .map(|(_, r)| r[0])
-            .collect();
-        if vals.is_empty() {
-            f64::NAN
-        } else {
-            vals.iter().sum::<f64>() / vals.len() as f64
-        }
-    };
-    let plat_p = plateau(&t_p, &p_p);
-    let plat_h = plateau(&t_h, &p_h);
-
-    println!("\n===== Edwards Pimple vs HybridAllMach ({t_end:.3} s, dt = {dt_us} us) =====");
-    println!("gauge |   excess-TV Pimple |   excess-TV Hybrid |   drop %");
-    for (g, name) in GS_POS_FT.iter().map(|(n, _)| n).enumerate() {
-        let drop = if tv_p[g] > 1e-9 {
-            100.0 * (tv_p[g] - tv_h[g]) / tv_p[g]
-        } else {
-            0.0
-        };
-        println!(
-            "{name:>5} | {:>18.2} | {:>18.2} | {:>8.1}",
-            tv_p[g], tv_h[g], drop
-        );
-    }
-    let sum_drop = if sum_p > 1e-9 {
-        100.0 * (sum_p - sum_h) / sum_p
-    } else {
-        0.0
-    };
-    println!("  SUM | {sum_p:>18.2} | {sum_h:>18.2} | {sum_drop:>8.1}");
-    println!(
-        "GS-1 flashing plateau (0.02-0.06 s): Pimple {plat_p:.1} psia, Hybrid {plat_h:.1} psia"
-    );
-    println!("==============================================================================\n");
-
-    // Sanity (finiteness) — per the module V&V contract.
-    for g in 0..7 {
-        assert!(
-            tv_p[g].is_finite() && tv_h[g].is_finite(),
-            "excess-TV non-finite"
-        );
-    }
-    assert!(
-        plat_p.is_finite() && plat_h.is_finite(),
-        "plateau non-finite"
-    );
-    // Ringing must not grow, and the flashing plateau must be retained.
-    assert!(
-        sum_h <= sum_p * 1.02 + 1.0,
-        "hybrid ringing grew: sum_h = {sum_h:.2} vs sum_p = {sum_p:.2}"
-    );
-    assert!(
-        (plat_h - plat_p).abs() <= 0.15 * plat_p,
-        "flashing plateau not retained: Pimple {plat_p:.1} vs Hybrid {plat_h:.1} psia"
-    );
-}

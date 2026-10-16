@@ -418,9 +418,11 @@ pub fn cv_ph_eqm(p: Pressure, h: AvailableEnergy) -> SpecificHeatCapacity {
     }
 }
 
-/// returns the speed of sound given temperature and pressure
+/// returns the speed of sound given ~~temperature and pressure~~ pressure and
+/// specific enthalpy (**CORRECTED 2026-10-16**: the arguments are `(p, h)`).
 /// Note: when in the equilibrium zone (Region 4) it WILL give the
-/// wood wallis speed of sound, the frozen speed of sound
+/// wood wallis speed of sound, the frozen speed of sound. For the
+/// homogeneous-equilibrium speed use [`w_ph_eqm_hem`].
 pub fn w_ph_wood_wallis(p: Pressure, h: AvailableEnergy) -> Velocity {
     let t = t_ph_eqm(p, h);
     let region = ph_flash_region(p, h);
@@ -467,7 +469,8 @@ pub fn w_ph_wood_wallis(p: Pressure, h: AvailableEnergy) -> Velocity {
             //let v = v_ps_eqm(p, s);
             //let _c_hem_finite_diff: Velocity = v * (dv_dp_s.recip() * -1.0).sqrt();
 
-            // Use homogeneous equilibrium model
+            // Wood (Wallis) FROZEN mixture speed -- not the homogeneous-
+            // equilibrium speed, which is `w_ph_eqm_hem` (corrected 2026-10-16).
             let c_wallis = w_two_phase_homogeneous_wood_wallis(
                 Ratio::new::<ratio>(steam_quality),
                 w_liq,
@@ -482,11 +485,72 @@ pub fn w_ph_wood_wallis(p: Pressure, h: AvailableEnergy) -> Velocity {
     }
 }
 
-/// Returns the speed of sound in a two-phase mixture using the
-/// homogeneous equilibrium model
+/// Homogeneous-**equilibrium** (HEM) speed of sound at `(p, h)`.
+///
+/// This is the speed at which a small pressure wave travels when the two
+/// phases stay in thermodynamic equilibrium while it passes, so liquid flashes
+/// and vapour condenses within the wave. Inside the vapour–liquid dome it is
+/// far below the frozen (Wood–Wallis) speed of [`w_ph_wood_wallis`], and it is
+/// the speed that places the characteristics of a homogeneous-equilibrium
+/// flow model (a KNP central-upwind flux, a Courant number, a choking
+/// criterion).
+///
+/// - **Two-phase dome (Region 4):** entropy `s = s_ph_eqm(p, h)` feeds Kieffer
+///   (1977) eq. 28, [`w_ps_eqm_region4_kieffer`], which differentiates the
+///   mixture volume along the saturation curve. That closure is
+///   AI-generated and not yet validated, so when it returns a non-finite or
+///   non-positive value this falls back to the finite difference of the
+///   equilibrium isentrope, [`w_ps_eqm_region4_finite_diff_vol`].
+/// - **Single phase (Regions 1, 2, 3, 5):** there is no phase change to lag,
+///   so the equilibrium and frozen speeds coincide. Returns the region forward
+///   speed `w_tp_{1,2,3,5}(T, p)` at `T = t_ph_eqm(p, h)`.
+///
+/// Valid where the `(p, h)` flash is valid. **Not clamped:** if both Region 4
+/// closures fail (e.g. very close to the critical point) the value can be
+/// non-finite, and the caller decides what to do with that.
+///
+/// Reference: Kieffer, S. W. (1977), "Sound speed in liquid-gas mixtures:
+/// water-air and water-steam", *J. Geophys. Res.* 82(20), 2895–2904.
+///
+/// Moved here from the private `hem_sound_speed_ph` of the `HybridAllMach`
+/// KNP path (gh #901), ~~which now calls this function~~. **Updated
+/// 2026-10-16:** that path was retired (gh:#914) and `hem_sound_speed_ph` is
+/// gone; the callers are now `crate::hem::Iapws97Hem` (the `HemPipe`
+/// equation of state) and `TampinesSteamTableCV`'s HEM sound-speed getter.
+pub fn w_ph_eqm_hem(p: Pressure, h: AvailableEnergy) -> Velocity {
+    match ph_flash_region(p, h) {
+        FwdEqnRegion::Region4 => {
+            let s = s_ph_eqm(p, h);
+            let c_kieffer = w_ps_eqm_region4_kieffer(p, s);
+            if c_kieffer.value.is_finite() && c_kieffer.value > 0.0 {
+                c_kieffer
+            } else {
+                w_ps_eqm_region4_finite_diff_vol(p, s)
+            }
+        }
+        FwdEqnRegion::Region1 => w_tp_1(t_ph_eqm(p, h), p),
+        FwdEqnRegion::Region2 => w_tp_2(t_ph_eqm(p, h), p),
+        FwdEqnRegion::Region3 => w_tp_3(t_ph_eqm(p, h), p),
+        FwdEqnRegion::Region5 => w_tp_5(t_ph_eqm(p, h), p),
+    }
+}
+
+/// ~~Returns the speed of sound in a two-phase mixture using the
+/// homogeneous equilibrium model~~
+///
+/// ~~This model assumes:~~
+/// ~~- Thermal and mechanical equilibrium between phases~~
+///
+/// **CORRECTED 2026-10-16 (gh #901):** the formula below is Wood's (Wallis)
+/// mixture speed, which is the **frozen** two-phase speed of sound: the
+/// mixture compressibility is the volume-weighted sum of the two phases' own
+/// compressibilities, with **no** mass exchange between them during the wave.
+/// It assumes mechanical equilibrium (one pressure) and no slip, but not
+/// thermal or phase equilibrium. The homogeneous-*equilibrium* speed, which
+/// includes flashing, is [`w_ph_eqm_hem`] and is much lower inside the dome.
 ///
 /// This model assumes:
-/// - Thermal and mechanical equilibrium between phases
+/// - Mechanical equilibrium (one pressure), no interphase mass or heat transfer
 /// - No slip between liquid and vapor phases
 /// - Isentropic process
 ///
@@ -997,4 +1061,46 @@ pub fn lambda_ph_eqm(p: Pressure, h: AvailableEnergy) -> ThermalConductivity {
     let dimensionless_lambda = lambda_0 * lambda_1 + lambda_2;
 
     return lambda_star * dimensionless_lambda;
+}
+
+/// HEM sound-speed checks moved here 2026-10-16 from the deleted
+/// `openfoam_algorithms::rhoPimpleFoam::central_upwind` tests, when the KNP
+/// hybrid that owned that module was retired (gh:#914). They test
+/// [`w_ph_eqm_hem`] directly instead of through the removed
+/// `hem_sound_speed_ph` wrapper, which only added a `c_min` floor.
+#[cfg(test)]
+mod hem_sound_speed_tests {
+    use super::w_ph_eqm_hem;
+    use uom::si::available_energy::joule_per_kilogram;
+    use uom::si::f64::{AvailableEnergy, Pressure};
+    use uom::si::pressure::pascal;
+    use uom::si::velocity::meter_per_second;
+
+    fn c(p_pa: f64, h_jkg: f64) -> f64 {
+        w_ph_eqm_hem(
+            Pressure::new::<pascal>(p_pa),
+            AvailableEnergy::new::<joule_per_kilogram>(h_jkg),
+        )
+        .get::<meter_per_second>()
+    }
+
+    /// Subcooled liquid water (7 MPa, h = 1.0 MJ/kg, Region 1; h_f(7 MPa) is
+    /// about 1.267 MJ/kg) gives a physical liquid speed, 800–2000 m/s.
+    #[test]
+    fn hem_c_subcooled_liquid_is_a_liquid_speed() {
+        let c = c(7.0e6, 1.0e6);
+        assert!(
+            c.is_finite() && (800.0..2000.0).contains(&c),
+            "liquid-water sound speed {c} m/s outside expected band"
+        );
+    }
+
+    /// In the dome (1 bar, 1.5 MJ/kg, x about 0.48) the equilibrium speed is
+    /// finite, positive and far below the liquid speed.
+    #[test]
+    fn hem_c_two_phase_is_finite_and_lower() {
+        let c = c(1.0e5, 1.5e6);
+        assert!(c.is_finite() && c > 0.0, "two-phase c = {c} not physical");
+        assert!(c < 800.0, "two-phase HEM speed {c} m/s should be well below liquid");
+    }
 }

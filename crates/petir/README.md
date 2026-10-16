@@ -71,6 +71,7 @@ that drifts from its origin fails the build rather than rotting quietly.
 | `fast_exp`, `fast_log`, `fast_pow` | ported | ARM optimized-routines `exp`, `log` and `pow` — bit-identical to upstream |
 | `real` | — | The `no_std` float-math shim |
 | `rng` | ported (OpenMC, not GSL) | OpenMC's 64-bit LCG with its PCG-RXS-M-XS output permutation, O(log n) `future_seed` jump-ahead and `init_seed` stream derivation (`random_lcg.cpp`, MIT). **Moved here from `outram-mc-libs` 2026-10-02**, bit-identical (pinned by a test); `outram_mc_libs::rng::lcg` re-exports it. Its WGSL state advance is `wgsl::LCG` (`lcg.wgsl`), the one copy that `outram-mc-libs`' batched GPU kernels compose |
+| `ssprk` | ported (PyClaw, not GSL) | Strong-stability-preserving Runge–Kutta steps for method-of-lines use: Shu–Osher **SSP22** and **SSP33**, Ketcheson's **SSP104** (`sharpclaw/solver.py`, BSD-3). Bit-identical to PyClaw's own `step()` on 96/96 values (`tests/ssprk_vs_pyclaw.rs`); observed orders 2.01 / 3.01 / 4.01; TVD to the SSP coefficient with a negative control just above it (`tests/ssprk_order_and_tvd.rs`). **Added 2026-10-16** at maintainer direction |
 | `scalar` | lifted + additions | OpenFOAM guard constants, extended here with GSL's epsilon constants (`bn:op-l87q`) |
 
 **Deliberate subsets rather than gaps**, each named where it matters and
@@ -257,6 +258,10 @@ both crates were early to this in Rust when the ecosystem was still thin.
 | `src/poly/companion.rs` | `roots` 0.0.8 — companion-matrix eigenvalue root finder | BSD-2-Clause |
 | `src/poly/dense.rs` | `peroxide` 0.41.2 — polynomial algebra, Legendre/Chebyshev/Hermite/Bessel | MIT (of MIT OR Apache-2.0) |
 | `src/integration/gauss_legendre*.rs` | `peroxide` 0.41.2 — Gauss-Legendre and Newton-Cotes quadrature, and the order-2-to-30 node/weight tables | MIT (of MIT OR Apache-2.0) |
+
+A further non-GSL port, `src/ssprk.rs` from **Clawpack / PyClaw** (BSD-3-Clause,
+Clawpack Developers), was added on 2026-10-16 at the maintainer's direction; see
+`NOTICE` and the crate `CLAUDE.md`.
 
 All were ported on 2026-09-15, with the full upstream notice and
 copyright kept in each file's header where source redistribution requires them.

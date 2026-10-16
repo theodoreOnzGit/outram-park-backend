@@ -1,3 +1,4 @@
+use petir::mathf::RealMath;
 use crate::constants::specific_gas_constant_of_water;
 use uom::si::f64::*;
 
@@ -52,7 +53,7 @@ pub fn s_tp_5(t: ThermodynamicTemperature, p: Pressure) -> SpecificHeatCapacity 
 /// Pressure is assumed to be in Pa
 pub fn cp_tp_5(t: ThermodynamicTemperature, p: Pressure) -> SpecificHeatCapacity {
     -specific_gas_constant_of_water()
-        * tau_5(t).powi(2)
+        * tau_5(t).r_powi(2)
         * (gamma_tau_tau_5_ideal(t, p) + gamma_tau_tau_5_res(t, p))
 }
 
@@ -64,8 +65,8 @@ pub fn cv_tp_5(t: ThermodynamicTemperature, p: Pressure) -> SpecificHeatCapacity
     cp_tp_5(t, p)
         - specific_gas_constant_of_water()
             * (((1.0 + pi * gamma_pi_5_res(t, p) - tau_5(t) * pi * gamma_pi_tau_5_res(t, p))
-                .powi(2))
-                / (1.0 - pi.powi(2) * gamma_pi_pi_5_res(t, p)))
+                .r_powi(2))
+                / (1.0 - pi.r_powi(2) * gamma_pi_pi_5_res(t, p)))
 }
 
 /// Returns the region-5 sound velocity
@@ -74,10 +75,10 @@ pub fn cv_tp_5(t: ThermodynamicTemperature, p: Pressure) -> SpecificHeatCapacity
 pub fn w_tp_5(t: ThermodynamicTemperature, p: Pressure) -> Velocity {
     let tau = tau_5(t);
     let pi = pi_5(p);
-    let num = 1.0 + 2.0 * pi * gamma_pi_5_res(t, p) + pi.powi(2) * gamma_pi_5_res(t, p).powi(2);
-    let subnum = (1.0 + pi * gamma_pi_5_res(t, p) - tau * pi * gamma_pi_tau_5_res(t, p)).powi(2);
-    let subden = tau.powi(2) * (gamma_tau_tau_5_ideal(t, p) + gamma_tau_tau_5_res(t, p));
-    let den = 1.0 - pi.powi(2) * gamma_pi_pi_5_res(t, p) + subnum / subden;
+    let num = 1.0 + 2.0 * pi * gamma_pi_5_res(t, p) + pi.r_powi(2) * gamma_pi_5_res(t, p).r_powi(2);
+    let subnum = (1.0 + pi * gamma_pi_5_res(t, p) - tau * pi * gamma_pi_tau_5_res(t, p)).r_powi(2);
+    let subden = tau.r_powi(2) * (gamma_tau_tau_5_ideal(t, p) + gamma_tau_tau_5_res(t, p));
+    let den = 1.0 - pi.r_powi(2) * gamma_pi_pi_5_res(t, p) + subnum / subden;
     ((specific_gas_constant_of_water() * t) * num / den).sqrt()
 }
 
@@ -85,10 +86,10 @@ pub fn w_tp_5(t: ThermodynamicTemperature, p: Pressure) -> Velocity {
 pub fn kappa_tp_5(t: ThermodynamicTemperature, p: Pressure) -> Ratio {
     let tau = tau_5(t);
     let pi = pi_5(p);
-    let num = 1.0 + 2.0 * pi * gamma_pi_5_res(t, p) + pi.powi(2) * gamma_pi_5_res(t, p).powi(2);
-    let subnum = (1.0 + pi * gamma_pi_5_res(t, p) - tau * pi * gamma_pi_tau_5_res(t, p)).powi(2);
-    let subden = tau.powi(2) * (gamma_tau_tau_5_ideal(t, p) + gamma_tau_tau_5_res(t, p));
-    let den = (1.0 - pi.powi(2) * gamma_pi_pi_5_res(t, p) + subnum / subden)
+    let num = 1.0 + 2.0 * pi * gamma_pi_5_res(t, p) + pi.r_powi(2) * gamma_pi_5_res(t, p).r_powi(2);
+    let subnum = (1.0 + pi * gamma_pi_5_res(t, p) - tau * pi * gamma_pi_tau_5_res(t, p)).r_powi(2);
+    let subden = tau.r_powi(2) * (gamma_tau_tau_5_ideal(t, p) + gamma_tau_tau_5_res(t, p));
+    let den = (1.0 - pi.r_powi(2) * gamma_pi_pi_5_res(t, p) + subnum / subden)
         * pi
         * (gamma_pi_5_ideal(t, p) + gamma_pi_5_res(t, p));
 
@@ -127,7 +128,7 @@ pub type InversePressure = Quantity<ISQ<P1, N1, P2, Z0, Z0, Z0, Z0>, SI<f64>, f6
 /// Returns the region-5 isobaric isothermal compressibility
 pub fn kappa_t_tp_5(t: ThermodynamicTemperature, p: Pressure) -> InversePressure {
     let pi = pi_5(p);
-    let num = 1.0 - pi.powi(2) * gamma_pi_pi_5_res(t, p);
+    let num = 1.0 - pi.r_powi(2) * gamma_pi_pi_5_res(t, p);
     let den = 1.0 + pi * gamma_pi_5_res(t, p);
 
     return (num / den) / p;

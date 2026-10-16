@@ -713,3 +713,71 @@ over-drain as the root cause — refuted by A7. The fix was found by the
 upstream-omission audit, not by either hypothesis, which is the strongest
 argument in this log for keeping
 [`rhopimplefoam-port-omissions.md`](./rhopimplefoam-port-omissions.md) current.
+
+---
+
+## A8 — Phase A of epic #896 (gh:#900, 2026-10-16): the `psi` rebuild was the defect
+
+The maintainer made four upstream behaviours the defaults (decision D5):
+
+- implicit upwind energy convection with a deferred correction;
+- the kinetic-energy terms of `EEqn.H`;
+- `PsiRefresh::OncePerOuterCorrector`;
+- a fixed Δt that returns `CourantViolation` when an outflow Courant number
+  exceeds 1, plus an opt-in `setDeltaT.H` controller.
+
+`correct_thermo` now returns `ThermoOutOfRange` instead of panicking.
+
+The predictions were written before any run. The table of 18 runs and the
+score for each prediction are in the module header of
+`tests/edwards_blowdown.rs`. The headline numbers:
+
+| 600 ms, 30 µs, Linear | A6/A7 (pinned) | A8 defaults |
+|---|---|---|
+| GS-1 RMSE vs data | 42.8 psia | **17.2 psia** |
+| flashing plateau | 359.0 psia | **360.5 psia** |
+| pressure-bound events | 150 (worst 171.75 kPa) | **0** |
+| drained-cell holds | 0 | 0 |
+| van Leer | fails at ≈ 0.12 s | **passes**: 358.3 / 19.9 psia, 0 / 0 |
+
+**Which change did it.** A3 alone, applied to the old path (explicit
+convection, no K terms, unguarded), gives 361.1 / 17.3 psia and 0 bound
+events. With A3 ablated, every other combination either stops with a named
+error or survives unclean:
+
+- Linear, guarded: `CourantViolation` at 0.072 s.
+- Linear, unguarded: `ThermoOutOfRange` at 0.166 s.
+- van Leer, unguarded: `ThermoOutOfRange` at 0.085 s.
+- van Leer, A2 only: survives 600 ms, but with 7508 bound events and
+  1533 holds.
+
+The "Still open" item above named the `psi` linearisation window as the
+leading candidate for the 150 bound events. **That candidate is now
+confirmed**: rebuilding `psi` on each inner corrector, which upstream does not
+do, caused the 150 events.
+
+**What I got wrong.** I predicted that A3 would move the plateau *down* by up
+to 30 psia. It moved *up* by 2.1 psia. I also expected A1 and A2 to carry the
+stabilisation, but A3 did. The adaptive controller never shortened the step,
+because the start-of-step convective Courant number stayed at or below 0.017.
+The over-drains happen *inside* a step: the in-step outflow Courant number
+reached 1.3–5.0 while the start-of-step value stayed small.
+
+> **Outcome, 2026-10-16:** the gate below and the hybrid it tested were
+> removed (maintainer decision D7, "retire the KNP hybrid", gh:#914); the
+> `EDW_HYBRID` knob cited above went with them. The numbers here stay as
+> measured.
+
+**A regression in a gate, reported and not relaxed.** `edwards_hybrid_damps_ringing_vs_pimple`
+now **fails** its "hybrid ringing must not grow" assertion under every scheme:
+
+| scheme | Pimple excess-TV | Hybrid excess-TV | change |
+|---|---|---|---|
+| Linear | 1648 | 2036 | −23.5 % |
+| van Leer | 1952 | 2557 | −31.0 % |
+| upwind | 2015 | 2754 | −36.7 % |
+
+On the ablated old path it still passes (5524 → 4241, +23.2 %). A3 alone is
+enough to make it fail. The KNP dissipation was damping ringing that the `psi`
+rebuild caused. Without that ringing, the dissipation adds ringing of its own.
+The full table is in that test's doc comment. The threshold was left as it was. Tracked as gh:#914.

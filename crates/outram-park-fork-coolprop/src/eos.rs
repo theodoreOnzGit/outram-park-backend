@@ -15,6 +15,8 @@
 //! mol/m³, `R` in J/(mol·K), `molar_mass` in kg/mol. The property layer
 //! ([`crate::props`]) converts to mass-based SI at the boundary.
 
+use petir::mathf::RealMath;
+
 /// One group of residual-Helmholtz terms, tagged by its functional form.
 /// Each variant stores the per-term coefficient arrays (all the same length),
 /// exactly as CoolProp's `alphar` blocks — but as `&'static [f64]` hardcoded
@@ -221,10 +223,10 @@ impl ResidualTerm {
                     let (e, dl) = if li == 0.0 {
                         (1.0, 0.0) // dl := l·δ^l  →  0
                     } else {
-                        let dpow_l = delta.powf(li);
-                        ((-dpow_l).exp(), li * dpow_l)
+                        let dpow_l = delta.r_powf(li);
+                        ((-dpow_l).r_exp(), li * dpow_l)
                     };
-                    let a = ni * delta.powf(di) * tau.powf(ti) * e;
+                    let a = ni * delta.r_powf(di) * tau.r_powf(ti) * e;
                     let fd = (di - dl) / delta; // (∂a/∂δ)/a
                     let ft = ti / tau; //           (∂a/∂τ)/a
                                        // (∂²a/∂δ²)/a = [ (d-dl)(d-1-dl) - l·dl ] / δ²
@@ -251,8 +253,8 @@ impl ResidualTerm {
                 for i in 0..n.len() {
                     let (di, ti, ni) = (d[i], t[i], n[i]);
                     let (etai, epsi, betai, gami) = (eta[i], epsilon[i], beta[i], gamma[i]);
-                    let g = (-etai * (delta - epsi).powi(2) - betai * (tau - gami).powi(2)).exp();
-                    let a = ni * delta.powf(di) * tau.powf(ti) * g;
+                    let g = (-etai * (delta - epsi).r_powi(2) - betai * (tau - gami).r_powi(2)).r_exp();
+                    let a = ni * delta.r_powf(di) * tau.r_powf(ti) * g;
                     let fd = di / delta - 2.0 * etai * (delta - epsi);
                     let ft = ti / tau - 2.0 * betai * (tau - gami);
                     acc.add_scaled(&HelmholtzDerivs {
@@ -274,10 +276,10 @@ impl ResidualTerm {
                     let (e, dl) = if li == 0.0 || gi == 0.0 {
                         (1.0, 0.0)
                     } else {
-                        let dpow_l = delta.powf(li);
-                        ((-gi * dpow_l).exp(), li * gi * dpow_l)
+                        let dpow_l = delta.r_powf(li);
+                        ((-gi * dpow_l).r_exp(), li * gi * dpow_l)
                     };
-                    let a = ni * delta.powf(di) * tau.powf(ti) * e;
+                    let a = ni * delta.r_powf(di) * tau.r_powf(ti) * e;
                     let fd = (di - dl) / delta;
                     let ft = ti / tau;
                     let fdd = ((di - dl) * (di - 1.0 - dl) - li * dl) / (delta * delta);
@@ -309,16 +311,16 @@ impl ResidualTerm {
                     let (edelta, dl) = if ldi == 0.0 || gdi == 0.0 {
                         (1.0, 0.0)
                     } else {
-                        let p = delta.powf(ldi);
-                        ((-gdi * p).exp(), ldi * gdi * p)
+                        let p = delta.r_powf(ldi);
+                        ((-gdi * p).r_exp(), ldi * gdi * p)
                     };
                     let (etau, mt) = if lti == 0.0 || gti == 0.0 {
                         (1.0, 0.0)
                     } else {
-                        let p = tau.powf(lti);
-                        ((-gti * p).exp(), lti * gti * p)
+                        let p = tau.r_powf(lti);
+                        ((-gti * p).r_exp(), lti * gti * p)
                     };
-                    let a = ni * delta.powf(di) * tau.powf(ti) * edelta * etau;
+                    let a = ni * delta.r_powf(di) * tau.r_powf(ti) * edelta * etau;
                     let bd = di - dl; //          δ·(∂ln a/∂δ)
                     let bt = ti - mt; //          τ·(∂ln a/∂τ)
                     let bd2 = (di - dl) * (di - 1.0 - dl) - ldi * dl;
@@ -352,36 +354,36 @@ impl ResidualTerm {
                         (eta[i], beta[i], gamma[i], epsilon[i], b[i]);
                     let gmt = gami - tau;
                     let p = bi + betai * gmt * gmt;
-                    let ftau = tau.powf(ti) * (1.0 / p).exp();
+                    let ftau = tau.r_powf(ti) * (1.0 / p).r_exp();
                     let de = delta - epsi;
-                    let fdelta = delta.powf(di) * (etai * de * de).exp();
+                    let fdelta = delta.r_powf(di) * (etai * de * de).r_exp();
                     let a = ni * ftau * fdelta;
 
                     // τ·dFtau/dτ and τ²·d²Ftau/dτ² (CoolProp `taudFtaudtau`, `tau2d2Ftaudtau2`)
-                    let taud_ftau = (2.0 * betai * tau.powf(ti + 1.0) * gmt
-                        + ti * tau.powf(ti) * p * p)
-                        * (1.0 / p).exp()
+                    let taud_ftau = (2.0 * betai * tau.r_powf(ti + 1.0) * gmt
+                        + ti * tau.r_powf(ti) * p * p)
+                        * (1.0 / p).r_exp()
                         / (p * p);
-                    let tau2d2_ftau = tau.powf(ti)
+                    let tau2d2_ftau = tau.r_powf(ti)
                         * (4.0 * betai * ti * tau * p * p * gmt
                             + 2.0
                                 * betai
                                 * tau
                                 * tau
                                 * (4.0 * betai * p * gmt * gmt + 2.0 * betai * gmt * gmt - p * p)
-                            + ti * p.powi(4) * (ti - 1.0))
-                        * (1.0 / p).exp()
-                        / p.powi(4);
+                            + ti * p.r_powi(4) * (ti - 1.0))
+                        * (1.0 / p).r_exp()
+                        / p.r_powi(4);
 
                     // δ·dFdelta/dδ and δ²·d²Fdelta/dδ² (CoolProp `deltadFdeltaddelta`, `delta2d2Fdeltaddelta2`)
-                    let deltad_fdelta = (di * delta.powf(di)
-                        + 2.0 * delta.powf(di + 1.0) * etai * de)
-                        * (etai * de * de).exp();
-                    let delta2d2_fdelta = delta.powf(di)
+                    let deltad_fdelta = (di * delta.r_powf(di)
+                        + 2.0 * delta.r_powf(di + 1.0) * etai * de)
+                        * (etai * de * de).r_exp();
+                    let delta2d2_fdelta = delta.r_powf(di)
                         * (4.0 * di * delta * etai * de
                             + di * (di - 1.0)
                             + 2.0 * delta * delta * etai * (2.0 * etai * de * de + 1.0))
-                        * (etai * de * de).exp();
+                        * (etai * de * de).r_exp();
 
                     acc.add_scaled(&HelmholtzDerivs {
                         a,
@@ -465,13 +467,13 @@ fn accumulate_non_analytic(
 
         // theta = (1-tau) + A*[(delta-1)^2]^(1/(2*beta)); only tau,delta
         // derivatives below are nonzero (theta is otherwise constant in i).
-        let theta = (1.0 - tau) + aai * dm1_sq.powf(1.0 / (2.0 * betai));
-        let dtheta_ddelta = aai / betai * dm1_sq.powf(1.0 / (2.0 * betai) - 1.0) * dm1;
+        let theta = (1.0 - tau) + aai * dm1_sq.r_powf(1.0 / (2.0 * betai));
+        let dtheta_ddelta = aai / betai * dm1_sq.r_powf(1.0 / (2.0 * betai) - 1.0) * dm1;
         let d2theta_ddelta2 =
-            aai / betai * (1.0 / betai - 1.0) * dm1_sq.powf(1.0 / (2.0 * betai) - 1.0);
+            aai / betai * (1.0 / betai - 1.0) * dm1_sq.r_powf(1.0 / (2.0 * betai) - 1.0);
 
         // PSI = exp(-C*(delta-1)^2 - D*(tau-1)^2).
-        let psi = (-cci * dm1_sq - ddi * (tau - 1.0) * (tau - 1.0)).exp();
+        let psi = (-cci * dm1_sq - ddi * (tau - 1.0) * (tau - 1.0)).r_exp();
         let dpsi_ddelta_over_psi = -2.0 * cci * dm1;
         let dpsi_ddelta = dpsi_ddelta_over_psi * psi;
         let dpsi_dtau_over_psi = -2.0 * ddi * (tau - 1.0);
@@ -481,28 +483,28 @@ fn accumulate_non_analytic(
         let d2psi_ddelta_dtau = dpsi_ddelta * dpsi_dtau_over_psi;
 
         // DELTA = theta^2 + B*[(delta-1)^2]^a.
-        let big_delta = theta * theta + bbi * dm1_sq.powf(ai);
+        let big_delta = theta * theta + bbi * dm1_sq.r_powf(ai);
         let d_big_delta_ddelta =
-            2.0 * theta * dtheta_ddelta + 2.0 * bbi * ai * dm1_sq.powf(ai - 1.0) * dm1;
+            2.0 * theta * dtheta_ddelta + 2.0 * bbi * ai * dm1_sq.r_powf(ai - 1.0) * dm1;
         let d2_big_delta_ddelta2 = 2.0
             * (theta * d2theta_ddelta2
                 + dtheta_ddelta * dtheta_ddelta
-                + bbi * (2.0 * ai * ai - ai) * dm1_sq.powf(ai - 1.0));
+                + bbi * (2.0 * ai * ai - ai) * dm1_sq.r_powf(ai - 1.0));
 
         // DELTA^b and its derivatives.
-        let delta_bi = big_delta.powf(bi);
-        let d_delta_bi_ddelta = bi * big_delta.powf(bi - 1.0) * d_big_delta_ddelta;
-        let d_delta_bi_dtau = -2.0 * theta * bi * big_delta.powf(bi - 1.0);
+        let delta_bi = big_delta.r_powf(bi);
+        let d_delta_bi_ddelta = bi * big_delta.r_powf(bi - 1.0) * d_big_delta_ddelta;
+        let d_delta_bi_dtau = -2.0 * theta * bi * big_delta.r_powf(bi - 1.0);
         let d2_delta_bi_ddelta2 = bi
-            * (big_delta.powf(bi - 1.0) * d2_big_delta_ddelta2
-                + (bi - 1.0) * big_delta.powf(bi - 2.0) * d_big_delta_ddelta * d_big_delta_ddelta);
+            * (big_delta.r_powf(bi - 1.0) * d2_big_delta_ddelta2
+                + (bi - 1.0) * big_delta.r_powf(bi - 2.0) * d_big_delta_ddelta * d_big_delta_ddelta);
         let d2_delta_bi_ddelta_dtau = -aai * bi * 2.0 / betai
-            * big_delta.powf(bi - 1.0)
+            * big_delta.r_powf(bi - 1.0)
             * dm1
-            * dm1_sq.powf(1.0 / (2.0 * betai) - 1.0)
-            - 2.0 * theta * bi * (bi - 1.0) * big_delta.powf(bi - 2.0) * d_big_delta_ddelta;
-        let d2_delta_bi_dtau2 = 2.0 * bi * big_delta.powf(bi - 1.0)
-            + 4.0 * theta * theta * bi * (bi - 1.0) * big_delta.powf(bi - 2.0);
+            * dm1_sq.r_powf(1.0 / (2.0 * betai) - 1.0)
+            - 2.0 * theta * bi * (bi - 1.0) * big_delta.r_powf(bi - 2.0) * d_big_delta_ddelta;
+        let d2_delta_bi_dtau2 = 2.0 * bi * big_delta.r_powf(bi - 1.0)
+            + 4.0 * theta * theta * bi * (bi - 1.0) * big_delta.r_powf(bi - 2.0);
 
         acc.add_scaled(&HelmholtzDerivs {
             a: delta * ni * delta_bi * psi,
@@ -532,7 +534,7 @@ impl IdealTerm {
         match self {
             IdealTerm::Lead { a1, a2 } => {
                 acc.add_scaled(&HelmholtzDerivs {
-                    a: delta.ln() + a1 + a2 * tau,
+                    a: delta.r_ln() + a1 + a2 * tau,
                     ad: 1.0 / delta,
                     at: *a2,
                     add: -1.0 / (delta * delta),
@@ -542,7 +544,7 @@ impl IdealTerm {
             }
             IdealTerm::LogTau { a } => {
                 acc.add_scaled(&HelmholtzDerivs {
-                    a: a * tau.ln(),
+                    a: a * tau.r_ln(),
                     ad: 0.0,
                     at: a / tau,
                     add: 0.0,
@@ -553,8 +555,8 @@ impl IdealTerm {
             IdealTerm::PlanckEinstein { n, t } => {
                 for i in 0..n.len() {
                     let (ni, tti) = (n[i], t[i]);
-                    let e = (tti * tau).exp(); // e^{t·τ}
-                    acc.a += ni * (1.0 - (-tti * tau).exp()).ln();
+                    let e = (tti * tau).r_exp(); // e^{t·τ}
+                    acc.a += ni * (1.0 - (-tti * tau).r_exp()).r_ln();
                     acc.at += ni * tti / (e - 1.0);
                     acc.att += -ni * tti * tti * e / ((e - 1.0) * (e - 1.0));
                     // no δ dependence
@@ -568,18 +570,18 @@ impl IdealTerm {
             IdealTerm::Power { n, t } => {
                 for i in 0..n.len() {
                     let (ni, ti) = (n[i], t[i]);
-                    acc.a += ni * tau.powf(ti);
-                    acc.at += ni * ti * tau.powf(ti - 1.0);
-                    acc.att += ni * ti * (ti - 1.0) * tau.powf(ti - 2.0);
+                    acc.a += ni * tau.r_powf(ti);
+                    acc.at += ni * ti * tau.r_powf(ti - 1.0);
+                    acc.att += ni * ti * (ti - 1.0) * tau.r_powf(ti - 2.0);
                     // no δ dependence
                 }
             }
             IdealTerm::PlanckEinsteinGeneralized { n, theta, c, d } => {
                 for i in 0..n.len() {
                     let (ni, thi, ci, di) = (n[i], theta[i], c[i], d[i]);
-                    let e = (thi * tau).exp();
+                    let e = (thi * tau).r_exp();
                     let para = ci + di * e;
-                    acc.a += ni * para.ln();
+                    acc.a += ni * para.r_ln();
                     acc.at += ni * thi * di * e / para;
                     acc.att += ni * thi * thi * ci * di * e / (para * para);
                     // no δ dependence
@@ -587,7 +589,7 @@ impl IdealTerm {
             }
             IdealTerm::CP0Constant { cp_over_r, tau0 } => {
                 let cr = *cp_over_r;
-                acc.a += cr - cr * tau / tau0 + cr * (tau / tau0).ln();
+                acc.a += cr - cr * tau / tau0 + cr * (tau / tau0).r_ln();
                 acc.at += cr / tau - cr / tau0;
                 acc.att += -cr / (tau * tau);
                 // no δ dependence
@@ -598,20 +600,20 @@ impl IdealTerm {
                 for i in 0..c.len() {
                     let (ci, ti) = (c[i], t[i]);
                     if ti.abs() < 10.0 * f64::EPSILON {
-                        acc.a += ci - ci * tau / tau0 + ci * (tau / tau0).ln();
+                        acc.a += ci - ci * tau / tau0 + ci * (tau / tau0).r_ln();
                         acc.at += ci / tau - ci / tau0;
                         acc.att += -ci / (tau * tau);
                     } else if (ti + 1.0).abs() < 10.0 * f64::EPSILON {
-                        acc.a += ci * tau / tc * (tau0 / tau).ln() + ci / tc * (tau - tau0);
-                        acc.at += ci / tc * (tau0 / tau).ln();
+                        acc.a += ci * tau / tc * (tau0 / tau).r_ln() + ci / tc * (tau - tau0);
+                        acc.at += ci / tc * (tau0 / tau).r_ln();
                         acc.att += -ci / (tau * tc);
                     } else {
-                        acc.a += -ci * tc.powf(ti) * tau.powf(-ti) / (ti * (ti + 1.0))
-                            - ci * t0.powf(ti + 1.0) * tau / (tc * (ti + 1.0))
-                            + ci * t0.powf(ti) / ti;
-                        acc.at += ci * tc.powf(ti) * tau.powf(-ti - 1.0) / (ti + 1.0)
-                            - ci * tc.powf(ti) / (tau0.powf(ti + 1.0) * (ti + 1.0));
-                        acc.att += -ci * (tc / tau).powf(ti) / (tau * tau);
+                        acc.a += -ci * tc.r_powf(ti) * tau.r_powf(-ti) / (ti * (ti + 1.0))
+                            - ci * t0.r_powf(ti + 1.0) * tau / (tc * (ti + 1.0))
+                            + ci * t0.r_powf(ti) / ti;
+                        acc.at += ci * tc.r_powf(ti) * tau.r_powf(-ti - 1.0) / (ti + 1.0)
+                            - ci * tc.r_powf(ti) / (tau0.r_powf(ti + 1.0) * (ti + 1.0));
+                        acc.att += -ci * (tc / tau).r_powf(ti) / (tau * tau);
                     }
                     // no δ dependence
                 }

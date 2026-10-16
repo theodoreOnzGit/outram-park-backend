@@ -1,3 +1,4 @@
+use petir::mathf::RealMath;
 use super::{pi_2, tau_2, REGION_2_COEFFS_RES};
 use uom::si::f64::*;
 
@@ -12,7 +13,7 @@ pub fn gamma_2_res(t: ThermodynamicTemperature, p: Pressure) -> f64 {
         let ii = coefficient[0] as i32;
         let ji = coefficient[1] as i32;
         let ni = coefficient[2];
-        sum += ni * pi.powi(ii) * (tau - 0.5).powi(ji);
+        sum += ni * pi.r_powi(ii) * (tau - 0.5).r_powi(ji);
     }
     sum
 }
@@ -28,7 +29,7 @@ pub fn gamma_tau_2_res(t: ThermodynamicTemperature, p: Pressure) -> f64 {
         let ii = coefficient[0] as i32;
         let ji = coefficient[1] as i32;
         let ni = coefficient[2];
-        sum += ni * pi.powi(ii) * f64::from(ji) * (tau - 0.5).powi(ji - 1);
+        sum += ni * pi.r_powi(ii) * f64::from(ji) * (tau - 0.5).r_powi(ji - 1);
     }
     sum
 }
@@ -44,7 +45,7 @@ pub fn gamma_tau_tau_2_res(t: ThermodynamicTemperature, p: Pressure) -> f64 {
         let ii = coefficient[0] as i32;
         let ji = coefficient[1] as i32;
         let ni = coefficient[2];
-        sum += ni * pi.powi(ii) * f64::from(ji * (ji - 1)) * (tau - 0.5).powi(ji - 2);
+        sum += ni * pi.r_powi(ii) * f64::from(ji * (ji - 1)) * (tau - 0.5).r_powi(ji - 2);
     }
     sum
 }
@@ -60,7 +61,7 @@ pub fn gamma_pi_2_res(t: ThermodynamicTemperature, p: Pressure) -> f64 {
         let ii = coefficient[0] as i32;
         let ji = coefficient[1] as i32;
         let ni = coefficient[2];
-        sum += ni * pi.powi(ii - 1) * f64::from(ii) * (tau - 0.5).powi(ji);
+        sum += ni * pi.r_powi(ii - 1) * f64::from(ii) * (tau - 0.5).r_powi(ji);
     }
     sum
 }
@@ -76,7 +77,7 @@ pub fn gamma_pi_pi_2_res(t: ThermodynamicTemperature, p: Pressure) -> f64 {
         let ii = coefficient[0] as i32;
         let ji = coefficient[1] as i32;
         let ni = coefficient[2];
-        sum += ni * pi.powi(ii - 2) * f64::from(ii * (ii - 1)) * (tau - 0.5).powi(ji);
+        sum += ni * pi.r_powi(ii - 2) * f64::from(ii * (ii - 1)) * (tau - 0.5).r_powi(ji);
     }
     sum
 }
@@ -92,7 +93,7 @@ pub fn gamma_pi_tau_2_res(t: ThermodynamicTemperature, p: Pressure) -> f64 {
         let ii = coefficient[0] as i32;
         let ji = coefficient[1] as i32;
         let ni = coefficient[2];
-        sum += ni * pi.powi(ii - 1) * f64::from(ii * ji) * (tau - 0.5).powi(ji - 1);
+        sum += ni * pi.r_powi(ii - 1) * f64::from(ii * ji) * (tau - 0.5).r_powi(ji - 1);
     }
     sum
 }

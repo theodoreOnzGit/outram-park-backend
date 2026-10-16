@@ -6,8 +6,11 @@
 //! equilibrium, carrying the intensive state (p, T, ρ, v, u, h, s, c_v, c_p,
 //! speed of sound) plus one extensive property — the fixed control-volume
 //! [`Volume`]. Unlike the steam-table CV it is **multi-fluid** (it stores which
-//! [`Fluid`] it holds) and, for now, **single-phase** (no two-phase quality —
-//! CoolProp has no saturation/VLE solver yet, bead op-kbc).
+//! [`Fluid`] it holds). ~~and, for now, **single-phase** (no two-phase quality —
+//! CoolProp has no saturation/VLE solver yet, bead op-kbc).~~ **CORRECTED
+//! 2026-10-16 (gh #901):** the `(p, h)` and `(p, s)` constructors do detect a
+//! two-phase state through the Maxwell VLE in [`crate::vle`] and store the
+//! mixture with its quality (see [`OPCPFluidSingleCV`]).
 //!
 //! Construction is either the EOS-native `(T, ρ)` or one of the single-phase
 //! flashes `(p, T)`, `(p, h)`, `(p, s)` (see [`crate::flash`]); the flash
@@ -49,7 +52,7 @@ use uom::si::specific_volume::cubic_meter_per_kilogram;
 use uom::si::thermodynamic_temperature::kelvin;
 use uom::si::velocity::meter_per_second;
 
-use crate::flash::{state_ph, state_ps, state_pt, FlashError};
+use crate::flash::{hem_sound_speed_ph, state_ph, state_ps, state_pt, FlashError};
 use crate::fluid::Fluid;
 use crate::props::{state_trho, FluidState};
 use crate::vle::{phase_at_ph, saturation_at_temperature, saturation_temperature, PhaseAtPh};
@@ -338,9 +341,33 @@ impl OPCPFluidSingleCV {
         Ratio::new::<ratio>(self.state.cp / self.state.cv)
     }
 
-    /// Speed of sound \[m/s\].
+    /// Speed of sound \[m/s\] of the stored state: the single-phase EOS value
+    /// `√((∂p/∂ρ)_s)`, and **`NaN` for a two-phase mixture** (no mixture speed
+    /// is stored). For the homogeneous-equilibrium speed, which is defined
+    /// inside the dome as well, use [`Self::get_equilibrium_speed_of_sound`].
     pub fn get_speed_of_sound(&self) -> Velocity {
         Velocity::new::<meter_per_second>(self.state.speed_of_sound)
+    }
+
+    /// Homogeneous-**equilibrium** (HEM) speed of sound \[m/s\] at this control
+    /// volume's `(p, h)`, from [`crate::flash::hem_sound_speed_ph`].
+    ///
+    /// Outside the dome it is the single-phase EOS speed (equilibrium and
+    /// frozen speeds coincide there). Inside the dome it is `√((∂p/∂ρ)_s)` along
+    /// the *equilibrium* isentrope, with the quality re-solved at each
+    /// perturbed pressure, so the flashing compliance is included. This is the
+    /// speed a homogeneous-equilibrium flow model must use for its
+    /// characteristics, Courant number and choking criterion.
+    ///
+    /// Returns `NaN` when the closure fails (e.g. a near-critical VLE solve),
+    /// matching this CV's convention for an undefined property, rather than the
+    /// solver-side floor `hem_sound_speed_ph` applies.
+    pub fn get_equilibrium_speed_of_sound(&self) -> Velocity {
+        // Floor 0: a real sound speed is > 0, so a returned 0 can only be the
+        // closure's failure path, which this getter reports as NaN.
+        let c = hem_sound_speed_ph(self.fluid, self.state.pressure, self.state.enthalpy, 0.0);
+        let c = if c > 0.0 { c } else { f64::NAN };
+        Velocity::new::<meter_per_second>(c)
     }
 
     /// The fixed control-volume [`Volume`] \[m³\].

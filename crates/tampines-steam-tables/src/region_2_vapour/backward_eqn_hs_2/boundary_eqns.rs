@@ -1,3 +1,4 @@
+use petir::mathf::RealMath;
 use uom::si::ratio::ratio;
 use uom::si::specific_heat_capacity::kilojoule_per_kilogram_kelvin;
 use uom::si::f64::*;
@@ -19,7 +20,7 @@ pub fn h_2a2b(s: SpecificHeatCapacity) -> AvailableEnergy {
     let n3: f64 = -0.421_073_558_227_969e3;
     let n4: f64 = 0.276_349_063_799_944e2;
 
-    let eta: f64 = n1 + n2 * sigma + n3 * sigma.powi(2) + n4 * sigma.powi(3);
+    let eta: f64 = n1 + n2 * sigma + n3 * sigma.r_powi(2) + n4 * sigma.r_powi(3);
 
     return eta * h_ref;
 }

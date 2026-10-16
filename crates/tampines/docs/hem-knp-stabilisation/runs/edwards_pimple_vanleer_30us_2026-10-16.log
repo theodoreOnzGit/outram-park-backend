@@ -1,0 +1,68 @@
+
+running 1 test
+step   100 t=0.0030 | break: p=2700kPa T=497.5K a=0.000 | GS-1: p=392psia T=497.5K a=0.000 | mdot=56.82 u=16.26
+step   200 t=0.0060 | break: p=2713kPa T=497.5K a=0.000 | GS-1: p=394psia T=497.5K a=0.000 | mdot=56.79 u=16.25
+step   300 t=0.0090 | break: p=2678kPa T=497.4K a=0.000 | GS-1: p=388psia T=497.4K a=0.000 | mdot=56.75 u=16.24
+step   400 t=0.0120 | break: p=2643kPa T=497.4K a=0.000 | GS-1: p=383psia T=497.4K a=0.000 | mdot=56.71 u=16.23
+step   500 t=0.0150 | break: p=2608kPa T=497.3K a=0.000 | GS-1: p=378psia T=497.3K a=0.000 | mdot=56.67 u=16.22
+step   600 t=0.0180 | break: p=2581kPa T=497.3K a=0.000 | GS-1: p=374psia T=497.3K a=0.000 | mdot=56.63 u=16.21
+step   700 t=0.0210 | break: p=2592kPa T=497.3K a=0.000 | GS-1: p=376psia T=497.3K a=0.000 | mdot=56.61 u=16.20
+step   800 t=0.0240 | break: p=2606kPa T=497.3K a=0.000 | GS-1: p=378psia T=497.3K a=0.000 | mdot=56.60 u=16.20
+step   900 t=0.0270 | break: p=2622kPa T=497.3K a=0.000 | GS-1: p=380psia T=497.3K a=0.000 | mdot=56.60 u=16.20
+step  1000 t=0.0300 | break: p=2639kPa T=497.3K a=0.000 | GS-1: p=383psia T=497.3K a=0.000 | mdot=56.62 u=16.20
+step  1100 t=0.0330 | break: p=2658kPa T=497.3K a=0.000 | GS-1: p=386psia T=497.3K a=0.000 | mdot=56.65 u=16.21
+step  1200 t=0.0360 | break: p=2671kPa T=497.4K a=0.000 | GS-1: p=387psia T=497.4K a=0.000 | mdot=56.71 u=16.23
+step  1300 t=0.0390 | break: p=2684kPa T=497.5K a=0.000 | GS-1: p=389psia T=497.5K a=0.000 | mdot=56.80 u=16.26
+step  1400 t=0.0420 | break: p=2705kPa T=497.6K a=0.000 | GS-1: p=392psia T=497.6K a=0.000 | mdot=56.91 u=16.29
+step  1500 t=0.0450 | break: p=2738kPa T=497.8K a=0.000 | GS-1: p=397psia T=497.8K a=0.000 | mdot=57.02 u=16.33
+step  1600 t=0.0480 | break: p=2787kPa T=497.9K a=0.000 | GS-1: p=404psia T=497.9K a=0.000 | mdot=57.15 u=16.37
+step  1700 t=0.0510 | break: p=2801kPa T=498.1K a=0.000 | GS-1: p=406psia T=498.1K a=0.000 | mdot=57.31 u=16.42
+step  1800 t=0.0540 | break: p=2761kPa T=498.2K a=0.000 | GS-1: p=400psia T=498.2K a=0.000 | mdot=57.41 u=16.45
+step  1900 t=0.0570 | break: p=2712kPa T=498.3K a=0.000 | GS-1: p=393psia T=498.3K a=0.000 | mdot=57.50 u=16.48
+step  2000 t=0.0600 | break: p=2656kPa T=498.4K a=0.000 | GS-1: p=385psia T=498.4K a=0.000 | mdot=57.58 u=16.51
+step  2100 t=0.0630 | break: p=2598kPa T=498.5K a=0.000 | GS-1: p=377psia T=498.5K a=0.000 | mdot=57.68 u=16.54
+step  2200 t=0.0660 | break: p=1674kPa T=476.7K a=0.849 | GS-1: p=243psia T=476.7K a=0.849 | mdot=24.84 u=43.16
+WARNING [TampinesSteamArray]: pressure bounding engaged -- the pressure solve left the EOS range and the value was CLAMPED. Results from here on are NOT trustworthy. First occurrence: cell 22, solved p = -1.878176e4 Pa, clamped into [6.118239e2, 1.000000e8] Pa (psi = 1.009358e-6, rho = 8.300392e2 kg/m3). This is a defect signal, not a safety net -- see pressure_bound_events() for the running count, and bn:op-bgg0.
+step  2300 t=0.0690 | break: p=1473kPa T=470.6K a=0.892 | GS-1: p=214psia T=470.6K a=0.892 | mdot=20.96 u=50.02
+step  2400 t=0.0720 | break: p=1724kPa T=478.1K a=0.850 | GS-1: p=250psia T=478.1K a=0.850 | mdot=25.28 u=44.25
+WARNING [TampinesSteamArray]: drained-cell enthalpy hold engaged -- cell 22's continuity density reached its floor, so its specific enthalpy was HELD rather than solved. MASS IS NOT CONSERVED in that cell: the flux asked to remove more mass than it contained (rho_old = 1.364551e0 kg/m3, unclamped rho_old - dt*div(phi) = -5.469606e0). The run continues and its results are NOT trustworthy. See drained_hold_events() for the running count, and bn:op-bgg0.
+step  2500 t=0.0750 | break: p=8448kPa T=502.4K a=0.000 | GS-1: p=1225psia T=502.4K a=0.000 | mdot=357.59 u=102.51
+step  2600 t=0.0780 | break: p=8392kPa T=502.4K a=0.000 | GS-1: p=1217psia T=502.4K a=0.000 | mdot=354.82 u=101.72
+step  2700 t=0.0810 | break: p=8519kPa T=502.5K a=0.000 | GS-1: p=1236psia T=502.5K a=0.000 | mdot=358.62 u=102.81
+step  2800 t=0.0840 | break: p=8166kPa T=502.4K a=0.000 | GS-1: p=1184psia T=502.4K a=0.000 | mdot=347.73 u=99.71
+step  2900 t=0.0870 | break: p=6549kPa T=502.0K a=0.000 | GS-1: p=950psia T=502.0K a=0.000 | mdot=60.04 u=17.24
+step  3000 t=0.0900 | break: p=2873kPa T=501.3K a=0.000 | GS-1: p=417psia T=501.3K a=0.000 | mdot=60.04 u=17.29
+step  3100 t=0.0930 | break: p=2167kPa T=489.6K a=0.692 | GS-1: p=314psia T=489.6K a=0.692 | mdot=34.64 u=30.94
+step  3200 t=0.0960 | break: p=1155kPa T=459.4K a=0.937 | GS-1: p=168psia T=459.4K a=0.937 | mdot=15.48 u=60.59
+step  3300 t=0.0990 | break: p=1752kPa T=478.9K a=0.849 | GS-1: p=254psia T=478.9K a=0.849 | mdot=25.59 u=44.51
+step  3400 t=0.1020 | break: p=2170kPa T=489.7K a=0.711 | GS-1: p=315psia T=489.7K a=0.711 | mdot=34.23 u=32.46
+step  3500 t=0.1050 | break: p=2295kPa T=492.6K a=0.640 | GS-1: p=333psia T=492.6K a=0.640 | mdot=37.20 u=28.62
+step  3600 t=0.1080 | break: p=2343kPa T=493.7K a=0.625 | GS-1: p=340psia T=493.7K a=0.625 | mdot=38.02 u=28.22
+step  3700 t=0.1110 | break: p=2438kPa T=495.8K a=0.580 | GS-1: p=354psia T=495.8K a=0.580 | mdot=39.94 u=26.62
+step  3800 t=0.1140 | break: p=2523kPa T=497.6K a=0.517 | GS-1: p=366psia T=497.6K a=0.517 | mdot=41.97 u=24.50
+step  3900 t=0.1170 | break: p=2547kPa T=498.1K a=0.493 | GS-1: p=369psia T=498.1K a=0.493 | mdot=42.62 u=23.74
+step  4000 t=0.1200 | break: p=2520kPa T=497.5K a=0.518 | GS-1: p=365psia T=497.5K a=0.518 | mdot=41.91 u=24.52
+step  4100 t=0.1230 | break: p=2464kPa T=496.3K a=0.568 | GS-1: p=357psia T=496.3K a=0.568 | mdot=40.45 u=26.23
+test edwards_obrien_pipe_blowdown_600ms has been running for over 60 seconds
+
+thread 'edwards_obrien_pipe_blowdown_600ms' (23399) panicked at crates/tampines-steam-tables/src/interfaces/functional_programming/ph_flash_eqm/mod.rs:901:9:
+p,h point below 273.15K
+stack backtrace:
+   0: __rustc::rust_begin_unwind
+   1: core::panicking::panic_fmt
+   2: tampines_steam_tables::interfaces::functional_programming::ph_flash_eqm::ph_flash_region
+   3: tampines_steam_tables::interfaces::functional_programming::ph_flash_eqm::t_ph_eqm
+   4: <tampines_steam_tables::openfoam_algorithms::rhoPimpleFoam::TampinesSteamArray>::correct_thermo
+   5: <tampines_steam_tables::openfoam_algorithms::rhoPimpleFoam::TampinesSteamArray>::step
+   6: edwards_blowdown::edwards_obrien_pipe_blowdown_600ms
+   7: <edwards_blowdown::edwards_obrien_pipe_blowdown_600ms::{closure#0} as core::ops::function::FnOnce<()>>::call_once
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+test edwards_obrien_pipe_blowdown_600ms ... FAILED
+
+failures:
+
+failures:
+    edwards_obrien_pipe_blowdown_600ms
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 1 filtered out; finished in 60.10s
+

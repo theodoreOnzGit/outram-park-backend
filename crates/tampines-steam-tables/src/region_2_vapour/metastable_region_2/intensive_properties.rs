@@ -1,3 +1,4 @@
+use petir::mathf::RealMath;
 use crate::constants::specific_gas_constant_of_water;
 use crate::region_2_vapour::{pi_2, tau_2};
 use uom::si::f64::*;
@@ -58,7 +59,7 @@ pub fn s_tp_2_metastable(t: ThermodynamicTemperature, p: Pressure) -> SpecificHe
 pub fn cp_tp_2_metastable(t: ThermodynamicTemperature, p: Pressure) -> SpecificHeatCapacity {
     let tau = tau_2(t);
     -specific_gas_constant_of_water()
-        * tau.powi(2)
+        * tau.r_powi(2)
         * (gamma_metastable_tau_tau_2_ideal(t, p) + gamma_metastable_tau_tau_2_res(t, p))
 }
 
@@ -70,8 +71,8 @@ pub fn cv_tp_2_metastable(t: ThermodynamicTemperature, p: Pressure) -> SpecificH
     let pi = pi_2(p);
     let num = (1.0 + pi * gamma_metastable_pi_2_res(t, p)
         - tau * pi * gamma_metastable_pi_tau_2_res(t, p))
-    .powi(2);
-    let den = 1.0 - pi.powi(2) * gamma_metastable_pi_pi_2_res(t, p);
+    .r_powi(2);
+    let den = 1.0 - pi.r_powi(2) * gamma_metastable_pi_pi_2_res(t, p);
     cp_tp_2_metastable(t, p) - specific_gas_constant_of_water() * num / den
 }
 
@@ -83,13 +84,13 @@ pub fn w_tp_2_metastable(t: ThermodynamicTemperature, p: Pressure) -> Velocity {
     let pi = pi_2(p);
     let num = 1.0
         + 2.0 * pi * gamma_metastable_pi_2_res(t, p)
-        + pi.powi(2) * gamma_metastable_pi_2_res(t, p).powi(2);
+        + pi.r_powi(2) * gamma_metastable_pi_2_res(t, p).r_powi(2);
     let subnum = (1.0 + pi * gamma_metastable_pi_2_res(t, p)
         - tau * pi * gamma_metastable_pi_tau_2_res(t, p))
-    .powi(2);
-    let subden = tau.powi(2)
+    .r_powi(2);
+    let subden = tau.r_powi(2)
         * (gamma_metastable_tau_tau_2_ideal(t, p) + gamma_metastable_tau_tau_2_res(t, p));
-    let den = 1.0 - pi.powi(2) * gamma_metastable_pi_pi_2_res(t, p) + subnum / subden;
+    let den = 1.0 - pi.r_powi(2) * gamma_metastable_pi_pi_2_res(t, p) + subnum / subden;
     ((specific_gas_constant_of_water() * t) * num / den).sqrt()
 }
 
@@ -99,13 +100,13 @@ pub fn kappa_tp_2_metastable(t: ThermodynamicTemperature, p: Pressure) -> Ratio 
     let pi = pi_2(p);
     let num = 1.0
         + 2.0 * pi * gamma_metastable_pi_2_res(t, p)
-        + pi.powi(2) * gamma_metastable_pi_2_res(t, p).powi(2);
+        + pi.r_powi(2) * gamma_metastable_pi_2_res(t, p).r_powi(2);
     let subnum = (1.0 + pi * gamma_metastable_pi_2_res(t, p)
         - tau * pi * gamma_metastable_pi_tau_2_res(t, p))
-    .powi(2);
-    let subden = tau.powi(2)
+    .r_powi(2);
+    let subden = tau.r_powi(2)
         * (gamma_metastable_tau_tau_2_ideal(t, p) + gamma_metastable_tau_tau_2_res(t, p));
-    let den = (1.0 - pi.powi(2) * gamma_metastable_pi_pi_2_res(t, p) + subnum / subden)
+    let den = (1.0 - pi.r_powi(2) * gamma_metastable_pi_pi_2_res(t, p) + subnum / subden)
         * pi
         * (gamma_metastable_pi_2_ideal(t, p) + gamma_metastable_pi_2_res(t, p));
 
@@ -148,7 +149,7 @@ pub type InversePressure = Quantity<ISQ<P1, N1, P2, Z0, Z0, Z0, Z0>, SI<f64>, f6
 /// Temperature in K, pressure in Pa.
 pub fn kappa_t_tp_2_metastable(t: ThermodynamicTemperature, p: Pressure) -> InversePressure {
     let pi = pi_2(p);
-    let num = 1.0 - pi.powi(2) * gamma_metastable_pi_pi_2_res(t, p);
+    let num = 1.0 - pi.r_powi(2) * gamma_metastable_pi_pi_2_res(t, p);
     let den = 1.0 + pi * gamma_metastable_pi_2_res(t, p);
 
     return (num / den) / p;

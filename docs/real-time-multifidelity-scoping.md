@@ -171,7 +171,10 @@ The three pieces exist separately and are never joined:
   `critical_boron.rs`.
 
 **But every call the driver makes into neutronics and TH goes through
-`crates/bedok/src/reference/coupling/seam.rs`, whose bodies are `todo!()`** —
+`crates/bedok/src/reference/coupling/seam.rs`, whose bodies are `todo!()`**
+(**NOT RE-CHECKED 2026-10-16:** that file no longer exists and bedok's own
+`CLAUDE.md` lists a D1 coupled-loop test that runs; this paragraph describes the
+code as it was audited and needs a fresh audit) —
 `:782`, `:804`, `:826`, `:849`, `:890`, `:925`, `:955`, `:984`, `:1011`, and
 `:471`. Call sites at `steady.rs:239,270,309,355` and
 `transient.rs:290-294,299,473-481,645`. **Nothing outside `reference::nodal`
@@ -979,9 +982,9 @@ Three rules that fall out of the measurements:
 |---|---|---|
 | 10 | **Snapshot / restore / backtrack** | Prerequisite for the instructor station *and* for fidelity switching (§4.3). Cheap now, invasive later |
 | 11 | **Reduced circulating-fuel PRKE in `teh-o-prke`**, with `beta_eff` and loop-transit reactivity loss cross-checked against `moltres` | Unblocks MSRE. Verification target already exists and passes its own tests. See §5.3 |
-| 12 | **Close the `bedok` seam** (10 `todo!()`s in `coupling/seam.rs`) and time one coupled step | Until this happens, the nodal-diffusion band is not merely unvalidated, it is unmeasurable. Blocks any credible BWR |
+| 12 | **Close the `bedok` seam** (10 `todo!()`s in `coupling/seam.rs`; **path gone as of 2026-10-16, not re-checked**) and time one coupled step | Until this happens, the nodal-diffusion band is not merely unvalidated, it is unmeasurable. Blocks any credible BWR |
 | 13 | **Void reactivity in the kinetics path** | The prompt-excursion timestepper carries exactly one feedback (fuel temperature) and its constructor *requires* it to be negative (`nordheim_fuchs.rs:145`). No moderator-density term exists in the layer both engine examples are built on. Blocks BWR and iPWR |
-| 14 | **A test that actually calls `DriftFlux1d::step()`** | 1,081 lines of the workspace's most BWR-relevant solver, never executed by any test |
+| 14 | ~~**A test that actually calls `DriftFlux1d::step()`**~~ **DONE — CORRECTED 2026-10-16** | ~~1,081 lines of the workspace's most BWR-relevant solver, never executed by any test~~ `edwards_drift_flux_gs1_pressure_history` and `marviken_test_23_drift_flux_critical_mass_flux` (`crates/tampines/src/multiphase_1d/`) both march it |
 | 15 | **Finish the `tampines` component layer** (15 `NotYetImplemented`) | The algebra exists in `outram-park-fork-dwsim-libs`; this is wiring. Unblocks the flat-rectangle widgets across every reactor |
 | 16 | **A `FidelityLevel` enum + conservative state handoff, with conservation asserted by test** | The actual subject of this document. Depends on 10 |
 
@@ -1077,7 +1080,7 @@ Found by checking the code, in the order the documents were read.
 | `docs/architecture.md:110-114` | `outram-mc-libs → njoy-outram-park-fork` wiring "deferred" | **Stale — the wiring is done.** `crates/outram-mc-libs/src/material/nuclide.rs:23-31,254` imports njoy's `WindowedMultipole`, `MgxsLibrary`, `ElasticAngular`, `Tab1` and `EndfLibrary`; S(a,b) at `src/material/thermal.rs:127-129` |
 | `docs/architecture.md:99-106,129` | GeN-Foam inside `outram-foam-appbuilder-lib` is "*planned*", "on hold" | **Stale.** `crates/outram-foam-appbuilder-lib/src/genfoam/` is **32,256 lines with 262 tests** across neutronics, thermal-hydraulics, thermo-mechanics and multi-region |
 | `docs/architecture.md` diagram | `nee-soon` "PRKE + surrogates; exposes CFD-coupling interfaces" | Only the PRKE pass-through is real (`crates/nee_soon/src/lib.rs:117-136`, 10 lines). `NeeSoon` is an empty struct at `:98`. The `xin_wang_sp3_workflow/` stages all return `NotYetImplemented` (`mgxs.rs:98`, `mesh_mc.rs:110`, `sp3_multiphysics.rs:136`, `validation.rs:97`) — one of its own tests is named `every_stage_run_is_a_beaded_placeholder` |
-| `docs/reactor-scoping/bwr.md:64` | Lists 3-D nodal diffusion coupled to channel TH under **HAVE** | **The coupling does not execute.** 10 `todo!()`s in `crates/bedok/src/reference/coupling/seam.rs`. See §1.3 |
+| `docs/reactor-scoping/bwr.md:64` | Lists 3-D nodal diffusion coupled to channel TH under **HAVE** | **The coupling does not execute.** 10 `todo!()`s in `crates/bedok/src/reference/coupling/seam.rs`. See §1.3 **— NOT RE-CHECKED 2026-10-16: that path no longer exists, and `crates/bedok/CLAUDE.md` lists a coupled-loop test on the D1 case that runs; re-audit before relying on this row** |
 | `docs/reactor-scoping/bwr.md:154` | "Run `crates/bedok`'s benchmark case end to end. There is currently zero evidence it executes." | Correct, and understated — there is **no NEACRP benchmark test at all**, only case *builders*. `tests/benchmark/main.rs` covers IAEA-3D only, and its gates skip-and-pass when un-ignored |
 | `docs/reactor-scoping/msre.md:126` | Coupled eigenvalue "roughly 1.2 s per solve on a 300-cell single-group ring" | **Confirmed independently** — 1.14 s/solve measured this audit [M]. Note the crate contains zero timing instrumentation, so the original figure was not re-checkable; it now is, via the command in §2 Band 4b |
 | `docs/reactor-scoping/msre.md:127-128` | "about three orders of magnitude too slow to sit in the GUI loop" against "the engine's 1 ms physics budget" | Right for the **kinetics** thread (1140x). The engine's **TH** thread runs at 0.1 s, against which it is 11x too slow. Both budgets exist; the doc cites only one |
@@ -1086,7 +1089,7 @@ Found by checking the code, in the order the documents were read.
 | `crates/outram-foam-turbulence-lib/src/les/mod.rs:24-25`, `src/prelude.rs:25` | Smagorinsky "is a **scaffold** (its trait methods `todo!()`-panic)" | **Stale** — `src/les/smagorinsky.rs` is 461 lines with no panic macros. `src/lib.rs:40-42` already says so; the two older notes contradict it |
 | `crates/tampines-steam-tables/Cargo.toml:33-34` | "`tuas_boussinesq_solver` pulls in system BLAS via `ndarray-linalg`" | **False today.** TUAS has no `ndarray-linalg` dependency; all its temperature solves go through a crate-local LU (`.../standalone_fluid_nodes/mod.rs:32-58`, which documents the removal). Matters because this claim is used to justify avoiding a dependency edge |
 | `crates/teh-o-prke/README.md:35` | "You'll need openblas to run this on linux." | **False today** for the library — `teh-o-prke` depends on `approx, ndarray, thiserror, uom, chem-eng` and uses its own inlined `SquareMatrix`. Only the GUI example's transitive graph could matter, and that is gated off Android |
-| `docs/reactor-scoping/bwr.md:63` | `crates/tampines/src/multiphase_1d/drift_flux.rs` is "the closest thing to a BWR channel solver in the repo" | True, and it is **never executed by any test** — `step()` has no caller in the crate's test suite |
+| `docs/reactor-scoping/bwr.md:63` | `crates/tampines/src/multiphase_1d/drift_flux.rs` is "the closest thing to a BWR channel solver in the repo" | True, ~~and it is **never executed by any test** — `step()` has no caller in the crate's test suite~~ **CORRECTED 2026-10-16**: the Edwards and Marviken test-23 V&V tests in `multiphase_1d/` call `step()` |
 | `docs/reactor-scoping/README.md` readiness table | Reads as though HTR-10 has a reusable app shell | True of the *prismatic* `htgr_sim_v1`; `htr10.md:19-25` is explicit that the pebble-bed core is a rewrite. The README does not carry that caveat forward |
 | `docs/outram-park-dt-plan.md:20-24` | "this repo holds reusable frameworks only" | Superseded by the 2026-07-29 maintainer decision recorded in `docs/type-i-digital-twin-scoping.md:42-46`. The dt-plan does not cross-reference it |
 

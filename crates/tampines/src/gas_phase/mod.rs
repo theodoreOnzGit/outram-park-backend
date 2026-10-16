@@ -28,11 +28,14 @@
 //! negligible at `Ma^2 ~ 1e-6`. This is stated rather than silently
 //! assumed, and each model repeats it where it bites.
 //!
-//! Consequently the `HybridAllMach` machinery in
+//! ~~Consequently the `HybridAllMach` machinery in
 //! `outram-park-fork-coolprop` is **not** needed for the primary circuit,
 //! and neither is coolprop's 50 kg/m^3 density-taper window — HTR-10
 //! helium runs at 1.23-2.74 kg/m^3, far below that floor, so the taper
-//! would zero the all-Mach dissipation everywhere anyway.
+//! would zero the all-Mach dissipation everywhere anyway.~~
+//! **Updated 2026-10-16:** that machinery no longer exists. The KNP hybrid
+//! of the coolprop and steam-tables PIMPLE arrays was retired (gh:#914). The
+//! conclusion stands: a low-Mach circuit needs no shock capturing.
 //!
 //! ## What belongs here
 //!

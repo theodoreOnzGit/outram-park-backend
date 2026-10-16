@@ -1,5 +1,6 @@
 // ================    Region 1 ===================
 
+use petir::mathf::RealMath;
 use uom::si::f64::*;
 
 use super::{pi_1, tau_1, REGION_1_COEFFS};
@@ -14,7 +15,7 @@ pub fn gamma_1(t: ThermodynamicTemperature, p: Pressure) -> f64 {
         let ii = coefficient[0] as i32;
         let ji = coefficient[1] as i32;
         let ni = coefficient[2];
-        sum += ni * (7.1 - pi).powi(ii) * (tau - 1.222).powi(ji);
+        sum += ni * (7.1 - pi).r_powi(ii) * (tau - 1.222).r_powi(ji);
     }
     sum
 }

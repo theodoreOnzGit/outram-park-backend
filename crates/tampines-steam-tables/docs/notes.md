@@ -40,6 +40,9 @@ the same day at **393.58 s** (`2 passed; 0 failed; finished in 393.58s`; 404 s
 of shell wall clock including the build). Everything else in the crate — all 938
 library tests — finishes in seconds.
 
+> **Note, 2026-10-16:** `edwards_hybrid_damps_ringing_vs_pimple` was deleted
+> with the retired KNP hybrid (gh:#914); the target now holds one test.
+
 **Two caveats on any timing, including the ones above.** They are hardware- and
 load-dependent: the `//!` header of `tests/edwards_blowdown.rs` still quotes
 "~180 s wall" from 2026-07-16, and a figure of ~897 s (≈ 15 min) has also been

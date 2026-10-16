@@ -11,6 +11,11 @@ in-line derivation comments are the source of truth (see
 
 The work described spans three sessions of debugging, captured tersely in
 `collaboration/edwards_tampines_regen/{debug_log,hybrid_debug_log,hybrid_stability_debug_log}.md`
+(**NOT IN THIS REPOSITORY, checked 2026-10-16:** no `collaboration/` folder
+exists and `git log --all` has never tracked one, so these logs predate the
+consolidation into this workspace or were never committed. The same paths are
+cited in `src/openfoam_algorithms/rhoPimpleFoam/mod.rs` and
+`tests/edwards_blowdown.rs`.)
 and released as README changelog entries **v0.2.3** and **v0.2.4**. The
 corresponding beads are `op-21g.14` (the plateau fix), `op-21g.15` (the all-Mach
 hybrid), and `op-21g.15.7` (the stability fix).
@@ -345,6 +350,15 @@ proving the problem was structural. Crucially, **no clamps, floors, or saturatio
 clips were added** — the plateau emerges purely from the corrected thermodynamics.
 
 ### Part B — the all-Mach hybrid to damp the ringing (bead `op-21g.15`, README v0.2.3)
+
+> **RETIRED 2026-10-16 — read this part as history.** The hybrid described
+> below (`SolverMode::HybridAllMach`, `assemble_hybrid_dissipation`, the
+> rarefied-tail taper) was removed from `TampinesSteamArray` and its CoolProp
+> twin (maintainer decision D7, "retire the KNP hybrid", gh:#914). After
+> gh:#900 made the array's defaults upstream-faithful, plain PIMPLE rang 3.4×
+> less and the hybrid **added** 23.5–36.7 % ringing over it, failing its own
+> gate. The final numbers are in the `tests/edwards_blowdown.rs` header. The
+> density-based KNP route is now `crate::hem::HemPipe`.
 
 With the plateau recovered, the traces rang at the near-sonic front. The design
 (§2.5–2.6): keep the pressure-based PIMPLE skeleton untouched and add the KNP
