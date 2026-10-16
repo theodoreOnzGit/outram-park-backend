@@ -28,6 +28,11 @@ cp docs/site/science/neutronics/*.html docs/site/science/neutronics/*.js "$OUT/s
 cp docs/site/demos/index.html "$OUT/demos/"
 bash scripts/build-search-index.sh "$OUT"
 
+# The lessons' physics (gh:#906): phase shifts against NJOY's facphi, the
+# cross-section routes, the boundary condition. A failed check fails the
+# build, before anything is deployed.
+node docs/site/science/neutronics/check-physics.js
+
 # The code map (gh:#734): every crate placed by its [package.metadata.kovan]
 # tag, drawn from `cargo metadata` of THIS checkout by kovan-cli (no
 # rust-analyzer). The SVG and the JSON the page reads are generated here and
@@ -260,8 +265,8 @@ done < <(find "$OUT" -mindepth 1 -type d -print0)
 # Every page must exist where the main menu points.
 for f in index.html site-nav.js code-map-bar.js code-map/index.html code-map/code_map.svg \
   search.js search.json code/index.html science/index.html demos/index.html \
-  science/neutronics/{meet-the-neutron,why-it-scatters,moving-nuclei,matter-waves}.html \
-  science/neutronics/{lesson-kit,kinematics,waves}.js \
+  science/neutronics/{meet-the-neutron,why-it-scatters,moving-nuclei,matter-waves,quantum-scattering}.html \
+  science/neutronics/{lesson-kit,kinematics,waves,qscatter}.js \
   kovan-schema/index.html \
   code-map/code_map.json code-map/site_links.json \
   api/outram_mc_libs/index.html api/changi/index.html \

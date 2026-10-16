@@ -1,0 +1,69 @@
+// The neutronics lessons' physics, checked under node (no browser):
+// `node docs/site/science/neutronics/check-physics.js`, run by
+// scripts/build-pages.sh so a regression fails the Pages build. Each check
+// states what it compares against; the results on 2026-10-16 are in the
+// comments.
+"use strict";
+const fs = require("fs"), path = require("path");
+global.window = {}; window.Lesson = { widget() {}, css() {}, el() {} };
+eval(fs.readFileSync(path.join(__dirname, "qscatter.js"), "utf8"));
+const M = window.Lesson.qscatterMath;
+let failed = 0;
+function check(name, value, limit) {
+  const ok = value <= limit;
+  if (!ok) failed++;
+  console.log(`${ok ? "ok  " : "FAIL"} ${name}: ${value.toExponential(2)} (limit ${limit})`);
+}
+
+// 1. The hard-sphere phase shift is minus NJOY's facphi (reconr.f90:4441,
+//    njoy-outram-park-fork reconr/slbw.rs::phase_shift), for every l NJOY
+//    tabulates. 2026-10-16: 3.7e-16.
+function facphi(l, r) {
+  const r2 = r * r;
+  return [r, r - Math.atan(r), r - Math.atan(3 * r / (3 - r2)),
+    r - Math.atan((15 * r - r * r2) / (15 - 6 * r2)),
+    r - Math.atan((105 * r - 10 * r2 * r) / (105 - 45 * r2 + r2 * r2))][l];
+}
+let worst = 0;
+for (const x of [0.05, 0.3, 1, 2.5, 7]) {
+  const j = new Float64Array(9), y = new Float64Array(9);
+  M.sphJY(8, x, j, y);
+  for (let l = 0; l <= 4; l++) worst = Math.max(worst, Math.abs(Math.sin(Math.atan(j[l] / y[l]) + facphi(l, x))));
+}
+check("phase shift vs -facphi, l <= 4", worst, 1e-12);
+
+// 2. Two routes to σ agree: the partial-wave sum (4π/k²) Σ (2l+1) sin² δ_l
+//    and ∫ dσ/dΩ dΩ over the plotted grid of |f(θ)|²; at low energy
+//    σ -> 4πa². 2026-10-16: C-12 at 10 eV 4.7481 b, 4πa² to 5e-6; U-238 at
+//    2 MeV 7.9485 b, grid integral off by 4.7e-5 (the trapezoid rule).
+for (const [label, A, ap, E] of [["C-12, 10 eV", 11.89365, 6.146927, 10], ["U-238, 2 MeV", 236.0058, 9.48, 2e6], ["C-12, 20 MeV", 11.89365, 6.146927, 2e7]]) {
+  const S = M.solve(A, ap, E);
+  let integral = 0;
+  for (let i = 0; i < S.NM - 1; i++) {
+    const m0 = Math.cos(Math.PI * i / (S.NM - 1)), m1 = Math.cos(Math.PI * (i + 1) / (S.NM - 1));
+    integral += 0.5 * (S.f[i] + S.f[i + 1]) * (m0 - m1);
+  }
+  integral *= 2 * Math.PI;
+  check(label + ": integral of dσ/dΩ vs the partial-wave sum", Math.abs(integral - S.sig) / S.sig, 1e-3);
+  if (E < 100) check(label + ": σ vs 4πa²", Math.abs(S.sig - 4 * Math.PI * ap * ap) / S.sig, 1e-4);
+}
+
+// 3. The drawn wave obeys the boundary condition of an impenetrable sphere:
+//    the total wave e^{ikz} + ψ_sc, through the same scattered() the page
+//    draws, vanishes on r = a. 2026-10-16: 6.4e-9 (U-238, 2 MeV), against an
+//    incident amplitude of 1. And field() masks the inside of the sphere.
+{
+  const S = M.solve(236.0058, 9.48, 2e6), cf = M.coefficients(S), n = S.n;
+  const j = new Float64Array(n + 1), y = new Float64Array(n + 1), p = new Float64Array(n + 1);
+  let mx = 0;
+  for (let t = 0; t <= 20; t++) {
+    const mu = Math.cos(Math.PI * t / 20), r = 9.48 * (1 + 1e-9), w = M.scattered(S, cf, r, mu, j, y, p);
+    mx = Math.max(mx, Math.hypot(Math.cos(S.k * r * mu) + w[0], Math.sin(S.k * r * mu) + w[1]));
+  }
+  check("U-238, 2 MeV: |total wave| on the sphere", mx, 1e-6);
+  const F = M.field(S, 9.48, 30, 8, 8);
+  if (!F.inside.some(Boolean)) { failed++; console.log("FAIL field(): no grid point masked inside the sphere"); }
+}
+
+if (failed) { console.log(failed + " check(s) failed"); process.exit(1); }
+console.log("all lesson physics checks passed");

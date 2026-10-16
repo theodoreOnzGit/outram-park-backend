@@ -205,7 +205,8 @@
     ["meet-the-neutron.html", "Meet the neutron"],
     ["why-it-scatters.html", "Why does a neutron bounce?"],
     ["moving-nuclei.html", "The nucleus is moving too"],
-    ["matter-waves.html", "Why not billiard balls?"]
+    ["matter-waves.html", "Why not billiard balls?"],
+    ["quantum-scattering.html", "A neutron wave at a nucleus"]
   ];
   function lessonNav() {
     var here = location.pathname.split("/").pop() || LESSONS[0][0], i = -1;
