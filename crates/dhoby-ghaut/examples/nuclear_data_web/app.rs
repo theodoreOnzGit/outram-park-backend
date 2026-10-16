@@ -122,7 +122,7 @@ impl NdApp {
             reconr_log: Vec::new(),
             broadr_t: 293.6,
             purr_t: 293.6,
-            purr_ladders: 8,
+            purr_ladders: crate::engine::PURR_LADDERS,
             thermr_mat: 0,
             thermr_t: 296.0,
             thermr_e: 0.0253,

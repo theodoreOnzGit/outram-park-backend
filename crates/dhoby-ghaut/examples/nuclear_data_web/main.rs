@@ -220,7 +220,13 @@ mod tests {
     ///    293.6 K with RECONR read from the cache. Pass: the product equals
     ///    the one made in step 1, word for word.
     ///
-    /// Results, 2026-10-16 (release): as stated.
+    /// 3. **Only 0.001 is saved** (maintainer, 2026-10-17). The RECONR
+    ///    rung's coarse step, 0.3, is processed and shown but leaves no
+    ///    record. The rung opens at [`engine::PURR_LADDERS`], the Monte Carlo
+    ///    setting, so step 1 is what a reader gets without touching the
+    ///    slider.
+    ///
+    /// Results, 2026-10-16 (release): as stated. Step 3 added 2026-10-17.
     #[test]
     fn the_nuclear_data_demo_and_the_monte_carlo_demos_share_their_products() {
         let Some(path) = njoy_outram_park_fork::reference_data::reference_endf(rungs::U238) else {
@@ -246,7 +252,8 @@ mod tests {
             out.expect("a result")
         };
         let load = |e: &mut NdEngine| e.handle(Request::Load { id: 1, rung: rungs::Rung::Reconr }, &mut |_| {});
-        let purr = || Request::Purr { job: 2, temp_k: 293.6, nladr: 16, nsamp: 2000 };
+        assert_eq!((engine::PURR_NBIN, engine::PURR_LADDERS, 2000), outram_mc_libs::material::nuclide::URR_TABLE_SETTINGS);
+        let purr = || Request::Purr { job: 2, temp_k: 293.6, nladr: engine::PURR_LADDERS, nsamp: 2000 };
         let bits = |c: &Vec<Vec<[f64; 2]>>| c.iter().flatten().flat_map(|p| [p[0].to_bits(), p[1].to_bits()]).collect::<Vec<_>>();
 
         // 1. Monte Carlo to this demo: PURR from the product.
@@ -276,6 +283,11 @@ mod tests {
         let st = mc2.take_stages();
         assert!(st.iter().any(|(l, s)| l.contains("RECONR") && matches!(s, dhoby_ghaut::web_demo::data_cache::Source::Cached { .. })), "{st:?}");
         assert_eq!(again.iter().map(|x| x.to_bits()).collect::<Vec<_>>(), product.iter().map(|x| x.to_bits()).collect::<Vec<_>>(), "the product from this demo's RECONR");
+
+        // 3. A coarse sweep step is processed, not saved.
+        let (_, coarse_note) = serve(&mut fresh, Request::Reconr { job: 1, tol: engine::RECONR_TOLS[0] });
+        assert!(coarse_note.contains("Processed now"), "{coarse_note}");
+        assert!(fresh.store.take_fresh().is_empty(), "RECONR at {} is not saved", engine::RECONR_TOLS[0]);
         eprintln!("U-238: PURR {} values identical from the Monte Carlo product; product of {} words identical from this demo's RECONR", bits(&pu_fresh).len(), product.len());
     }
 

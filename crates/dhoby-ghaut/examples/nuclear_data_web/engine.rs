@@ -45,6 +45,12 @@ pub const BROADR_SHOWN: (f64, f64) = (1.0, 300.0);
 /// so the rung at 16 ladders x 2000 samples reads their tables (gh:#923).
 pub const PURR_NBIN: usize = 20;
 
+/// The PURR rung's ladders when it opens: the Monte Carlo demos' 16
+/// (`URR_TABLE_SETTINGS`), so the rung opens on tables a Monte Carlo rung at
+/// the same temperature (Godiva, 293.6 K) may already have made (gh:#923,
+/// maintainer 2026-10-17; was 8). The slider still goes from 2 to 32.
+pub const PURR_LADDERS: usize = outram_mc_libs::material::nuclide::URR_TABLE_SETTINGS.1;
+
 /// GROUPR rung energy range, eV.
 pub const GROUPR_RANGE: (f64, f64) = (1.0, 1.0e4);
 
@@ -127,8 +133,10 @@ impl Default for NdEngine {
     fn default() -> Self {
         Self {
             tapes: Vec::new(),
-            // This demo shows the stages, so it saves them (gh:#923).
-            store: crate::processed_cache::DataStore::default().keeping_stages(),
+            // This demo shows the stages, so it saves them (gh:#923); RECONR's
+            // at the tolerance the other demos use only (maintainer,
+            // 2026-10-17).
+            store: crate::processed_cache::DataStore::default().keeping_stages(BASE_TOL),
             #[cfg(target_arch = "wasm32")]
             health: Default::default(),
             base: None,

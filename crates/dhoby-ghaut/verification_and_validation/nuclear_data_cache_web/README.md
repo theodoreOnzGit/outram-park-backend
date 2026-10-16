@@ -203,9 +203,17 @@ IndexedDB; times from the worker log lines `processed_cache` writes):
   nothing: only the 0.3 stage was kept. Fixed before commit, so the store
   never leaves the engine, and re-measured as above.
 - **Not checked in a browser:** the PURR rung reading a Monte Carlo
-  product's tables (natively tested above). The rung opens at 8 ladders and
+  product's tables (natively tested above). ~~The rung opens at 8 ladders and
   the Monte Carlo settings are 16, so it reads them only once a reader moves
-  the slider to 16.
+  the slider to 16.~~ **CHANGED 2026-10-17 (maintainer):** the rung opens at
+  16 ladders (`engine::PURR_LADDERS`, tied to `URR_TABLE_SETTINGS`), so after
+  Godiva (293.6 K) it opens on Godiva's U-238 tables.
+- **CHANGED 2026-10-17 (maintainer): only RECONR at 0.001 is saved.** The
+  coarser sweep steps are processed and shown but leave no record
+  (`DataStore::keeping_stages(BASE_TOL)`), so the rung's storage is the
+  50.3 MB of the 0.001 stage measured above, not 126 MB. Gated natively by
+  step 3 of `the_nuclear_data_demo_and_the_monte_carlo_demos_share_their_products`
+  (13/13 pass, release); the browser figure is not re-measured.
 
 ## Not checked
 

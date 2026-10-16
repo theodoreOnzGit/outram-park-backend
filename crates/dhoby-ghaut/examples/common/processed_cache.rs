@@ -139,6 +139,12 @@ pub struct DataStore {
     /// nuclear-data demo, whose rungs show the stages. Stages are read
     /// whichever way it is set.
     keep_stages: bool,
+    /// The one RECONR tolerance whose stage is saved when `keep_stages` is
+    /// set (gh:#923, maintainer 2026-10-17: keep only 0.001). The RECONR
+    /// rung's coarser sweep steps are processed and shown but not saved:
+    /// all six took 126 MB, 0.001 alone 50.3 MB (measured 2026-10-16), and
+    /// only 0.001 is the tolerance every other demo builds on.
+    kept_tolerance: f64,
     entries: HashMap<String, Record>,
     fresh: Vec<Record>,
     /// Per product used, in order: its label and where it came from.
@@ -199,6 +205,7 @@ impl DataStore {
             enabled,
             remember,
             keep_stages: false,
+            kept_tolerance: f64::NAN,
             entries: HashMap::new(),
             fresh: Vec::new(),
             sources: Vec::new(),
@@ -223,9 +230,11 @@ impl DataStore {
     }
 
     /// This store saves stages as records of their own (the nuclear-data
-    /// demo; see `keep_stages`).
-    pub fn keeping_stages(mut self) -> Self {
+    /// demo; see `keep_stages`), RECONR's only at `reconstruction_tolerance`
+    /// (see `kept_tolerance`).
+    pub fn keeping_stages(mut self, reconstruction_tolerance: f64) -> Self {
         self.keep_stages = true;
+        self.kept_tolerance = reconstruction_tolerance;
         self
     }
 
@@ -415,7 +424,7 @@ impl DataStore {
             }
         }
         let recon = Nuclide::reconstruct_0k(tape, mat, tolerance).map_err(|e| format!("{label}: {e}"))?;
-        if self.enabled && self.keep_stages {
+        if self.enabled && self.keep_stages && tolerance.to_bits() == self.kept_tolerance.to_bits() {
             let words = ProcessedEvaluation { recon, elastic_0k: Vec::new(), urr: None, temp_k: 0.0 }.to_f64s();
             self.made(key, &what, words.clone());
             self.stages.push((what, Source::Processed));
@@ -816,7 +825,7 @@ mod tests {
         };
         let (tape, mat) = read(&bytes);
         let speed = SpeedTier::Fast;
-        let mut first = DataStore::browser().keeping_stages();
+        let mut first = DataStore::browser().keeping_stages(speed.data_tolerance());
         first.begin_tape(&bytes);
         first.nuclide(&bytes, &tape, mat, "U234", 300.15, speed, "U-234").expect("made");
         let records = first.take_fresh();
