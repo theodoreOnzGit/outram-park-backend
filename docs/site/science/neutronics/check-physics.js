@@ -22,6 +22,8 @@ eval(fs.readFileSync(path.join(__dirname, "slowing-data.js"), "utf8"));
 eval(fs.readFileSync(path.join(__dirname, "slowing.js"), "utf8"));
 eval(fs.readFileSync(path.join(__dirname, "unresolved-data.js"), "utf8"));
 eval(fs.readFileSync(path.join(__dirname, "unresolved.js"), "utf8"));
+eval(fs.readFileSync(path.join(__dirname, "purr-data.js"), "utf8"));
+eval(fs.readFileSync(path.join(__dirname, "purr.js"), "utf8"));
 const M = window.Lesson.qscatterMath, SH = window.Lesson.shapesMath, AN = window.Lesson.anglesMath;
 let failed = 0;
 function check(name, value, limit) {
@@ -358,6 +360,38 @@ for (const [label, A, ap, E] of [["C-12, 10 eV", 11.89365, 6.146927, 10], ["U-23
   const lo = UM.avgAt(U, U.el / 1.06).s, hi = UM.avgAt(U, U.el * 1.08).s;
   check("U-238: smeared forest vs File 3 average across 20 keV (relative)", Math.abs(hi / lo - 1), 0.02);
   check("U-238 is LSSF = 1, U-234 LSSF = 0", Math.abs(U.lssf - 1) + Math.abs(UD["U-234"].lssf), 0);
+}
+
+// Page 19 (gh:#906 design and amendments, 2026-10-16): PURR, against
+// purr-data.js (examples/lesson_purr.rs, OUTRAM PARK's PURR port).
+{
+  const PM = window.Lesson.purrMath, PD = window.PURR_DATA;
+  const run = PM.running(PD.means.t), runc = PM.running(PD.means.c), n = PD.means.t.length;
+  // The ladders taken one at a time are probability_table's ladders: their
+  // running average is the table run's own mean. Bit for bit in Rust
+  // (purr::tests::sample_ladder_is_the_first_ladder_of_probability_table);
+  // here the limits are the rounding of purr-data.js, which prints each mean
+  // to 5 decimals (0.5e-5 b on 12.9 b and on 0.32 b) and each probability to
+  // 6 significant figures.
+  check("PURR: mean of the per-ladder means vs probability_table's mean total (relative)", Math.abs(run[n - 1] / PD.conv.total - 1), 0.5e-5 / 12.9);
+  check("PURR: mean capture likewise (relative)", Math.abs(runc[n - 1] / PD.conv.cap - 1), 0.5e-5 / 0.31);
+  // The made-up ladders converge on the dilute values the parameters give.
+  check("PURR: 64-ladder average total vs infd (relative)", Math.abs(run[n - 1] / PD.infd.total - 1), 0.005);
+  check("PURR: 64-ladder average capture vs infd (relative)", Math.abs(runc[n - 1] / PD.infd.cap - 1), 0.02);
+  const psum = PD.table.p.reduce((a, b) => a + b, 0);
+  check("PURR: table probabilities sum to 1", Math.abs(psum - 1), 1e-5);
+  const H = PM.histogram(PD.samples.t, PD.samples.c, Math.min(...PD.samples.t), Math.max(...PD.samples.t) * 1.0001, 24);
+  check("PURR: the histogram holds every sample", Math.abs(H.n.reduce((a, b) => a + b, 0) - PD.nsamp), 0);
+  const h = fs.readFileSync(path.join(__dirname, "purr.html"), "utf8");
+  const half = (t) => { const d = t.split(".")[1]; return 0.5 * Math.pow(10, -(d ? d.length : 0)) * (1 + 1e-9); };
+  let bad = 0, nq = 0;
+  const q = (re, f) => { for (const m of h.matchAll(re)) { nq++; const t = m[m.length - 1], want = f(m); if (Math.abs(+t - want) > half(t)) { bad++; console.log("     mismatch", m[0], "want", want); } } };
+  q(/data-nladr>([^<]+)</g, () => n);
+  q(/data-aver="total">([^<]+)</g, () => run[n - 1]);
+  q(/data-aver="cap">([^<]+)</g, () => runc[n - 1]);
+  q(/data-infd="(total|cap)">([^<]+)</g, (m) => PD.infd[m[1]]);
+  check("page 19: " + nq + " numbers in the prose vs the data", bad, 0);
+  console.log(`     PURR U-238 ${PD.e} eV: aver ${run[n - 1].toFixed(4)} b vs infd ${PD.infd.total.toFixed(4)} b; one ladder scatters ${PD.conv.pct.toFixed(2)} %`);
 }
 
 if (failed) { console.log(failed + " check(s) failed"); process.exit(1); }

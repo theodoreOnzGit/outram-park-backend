@@ -64,6 +64,13 @@ its `σ₀→∞` limit) is computed independently as a convergence check on the
 - **`line_shape`** + **`probability_table`** — `unrest`, the Monte Carlo
   probability-table binning core (see the module docs for the tier-equivalence
   argument, and the caveat below).
+- **`sample_ladder`** (2026-10-16) — one iteration of `probability_table`'s
+  ladder loop (the private `sample_one_ladder`, which `probability_table`
+  itself calls), returning the ladders and per-sample cross sections instead
+  of binning them; written for the neutronics lessons (page 19). Same random
+  stream: its mean total equals a one-ladder `probability_table`'s bit for bit
+  (`tests::sample_ladder_is_the_first_ladder_of_probability_table`), and the
+  NJOY2016 word-for-word gates were re-run after the extraction.
 
 ### The one deliberate structural deviation: per-point tier classification
 

@@ -291,3 +291,29 @@ fn line_shape_selects_the_same_tier_as_upstreams_index_ranges() {
         table.lookup_fine(-1.0, 0.1)
     );
 }
+
+/// `sample_ladder` is one iteration of `probability_table`'s ladder loop: with
+/// the same seed, its samples average to exactly the mean total cross
+/// section `probability_table` reports for a one-ladder run, and every
+/// sample lies at or above the potential scattering plus background.
+#[test]
+fn sample_ladder_is_the_first_ladder_of_probability_table() {
+    let seqs = [plain_sequence(20.0), plain_sequence(11.0)];
+    let inf = InfiniteDilutionResult {
+        potential_scattering: 10.0,
+        mean_inverse_spacing: 1.0 / 20.0 + 1.0 / 11.0,
+        sigma_elastic_inf: 0.0,
+        sigma_fission_inf: 0.0,
+        sigma_capture_inf: 0.0,
+        sequences: seqs.to_vec(),
+    };
+    let (bkg, nsamp, table) = ([1.0, 0.5, 0.0, 0.5], 3000, DopplerTable::new());
+    let full = probability_table(&seqs, &inf, bkg, &[1e10], &[300.0], 15, 1, nsamp, &mut Rng::new(PURR_SEED), &table).expect("table");
+    let one = sample_ladder(&seqs, &inf, bkg, 300.0, nsamp, &mut Rng::new(PURR_SEED), &table).expect("ladder");
+    assert_eq!(one.ladders.len(), seqs.len());
+    assert_eq!(one.energies.len(), nsamp);
+    assert!(one.energies.windows(2).all(|w| w[0] <= w[1]), "sorted");
+    let mean = one.xs.iter().map(|x| x[0]).sum::<f64>() / nsamp as f64;
+    assert_eq!(mean, full.convergence.mean_total, "one ladder's mean total");
+    assert!(one.xs.iter().all(|x| x[3] >= bkg[3]), "capture never below its background");
+}
