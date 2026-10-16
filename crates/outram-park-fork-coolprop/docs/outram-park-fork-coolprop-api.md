@@ -196,7 +196,7 @@ pub struct SatAncillary {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> SatAncillary { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -238,7 +238,7 @@ pub struct SatAncillary {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -292,7 +292,7 @@ pub struct FluidAncillaries {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> FluidAncillaries { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -334,7 +334,7 @@ pub struct FluidAncillaries {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -604,7 +604,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ResidualTerm { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -646,7 +646,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -837,7 +837,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> IdealTerm { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -879,7 +879,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -966,7 +966,7 @@ pub struct FluidEos {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> FluidEos { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -1008,7 +1008,7 @@ pub struct FluidEos {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1069,7 +1069,7 @@ pub struct HelmholtzDerivs {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> HelmholtzDerivs { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -1085,7 +1085,7 @@ pub struct HelmholtzDerivs {
 
 - **Default**
   - ```rust
-    fn default() -> HelmholtzDerivs { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
 - **Freeze**
@@ -1116,7 +1116,7 @@ pub struct HelmholtzDerivs {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1152,6 +1152,11 @@ two-phase dome `(∂p/∂ρ)_T` changes sign and these solves will return
 [`FlashError::NonConvergent`] rather than a wrong number. All quantities are
 raw SI `f64` (kelvin, pascal, kg/m³, J/kg, J/(kg·K)); the `uom`-typed wrapper
 is [`crate::single_cv::OPCPFluidSingleCV`].
+
+The one function here that does reach into the dome is
+[`hem_sound_speed_ph`], the homogeneous-equilibrium speed of sound at
+`(p, h)`: single-phase EOS speed outside the dome, a finite difference of
+the equilibrium isentrope through the Maxwell VLE ([`crate::vle`]) inside it.
 
 ```rust
 pub mod flash { /* ... */ }
@@ -1203,7 +1208,7 @@ A non-physical input (temperature, pressure or density ≤ 0).
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> FlashError { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -1233,7 +1238,7 @@ A non-physical input (temperature, pressure or density ≤ 0).
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &FlashError) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -1252,7 +1257,7 @@ A non-physical input (temperature, pressure or density ≤ 0).
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1385,6 +1390,52 @@ Full [`FluidState`] at mass density `rho` \[kg/m³\] and specific enthalpy
 pub fn state_hrho(fluid: crate::fluid::Fluid, rho: f64, h: f64) -> Result<crate::props::FluidState, FlashError> { /* ... */ }
 ```
 
+#### Function `hem_sound_speed_ph`
+
+Sound speed `c` \[m/s\] at a cell's `(p, h)` state, from the **CoolProp
+Helmholtz EOS** (single phase) or the **HEM equilibrium** finite-difference
+(two phase). This is the speed used for *both* the regime Mach number *and*
+the KNP characteristic wave speeds `u ± c`.
+
+- **Single phase** (the state `(p, h)` classifies outside the saturation
+  dome, or the fluid ships no VLE ancillaries): the thermodynamic sound speed
+  `√((∂p/∂ρ)_s)` from the EOS ([`crate::props::FluidState::speed_of_sound`],
+  reached by the single-phase `(p, h)` flash). In a single phase the
+  equilibrium and frozen sound speeds *coincide* — there is no phase change to
+  lag — so this EOS value **is** the equilibrium sound speed, not a frozen
+  approximation of one.
+- **Two-phase dome** (Region between the saturated-liquid and -vapour lines,
+  detected by [`crate::vle::phase_at_ph`]): the true
+  **homogeneous-equilibrium (HEM)** sound speed `a = √((∂p/∂ρ)_s)` evaluated
+  along the *equilibrium* isentrope by a central finite difference —
+  [`hem_c_two_phase_fd`]. This is the CoolProp analogue of how the
+  `tampines-steam-tables` twin uses IAPWS-IF97's `w_ps_eqm_region4_kieffer`:
+  the mixture density is re-equilibrated (re-flashed on the saturation curve)
+  at each perturbed pressure at fixed entropy, so the flashing compliance
+  `(v_g − v_f)·dx/dp` is included — never a frozen / Wood–Wallis / single-phase
+  speed. If that FD degenerates (perturbation leaves the dome, or a
+  near-critical VLE solve fails) it is clamped to `c_min`.
+
+The result is clamped to `c ≥ c_min` (m/s) so a pathological non-finite value
+cannot poison downstream arithmetic.
+
+Public since 2026-10-16 (gh #901, epic #896 step M2); it was a private helper
+of the `HybridAllMach` KNP path, ~~which now re-exports it from here~~.
+**Updated 2026-10-16:** that path was retired (gh:#914); the callers are now
+[`crate::single_cv`] and `tampines`' CoolProp HEM equation of state. A
+homogeneous-equilibrium flow model built on this crate must use this speed,
+not [`crate::props::FluidState::speed_of_sound`], inside the dome.
+
+## Parameters
+- `fluid` — working fluid (its EOS / VLE close the sound speed)
+- `p_pa`  — pressure \[Pa\]
+- `h_jkg` — static specific enthalpy \[J/kg\]
+- `c_min` — defensive lower bound on the returned speed \[m/s\]
+
+```rust
+pub fn hem_sound_speed_ph(fluid: crate::fluid::Fluid, p_pa: f64, h_jkg: f64, c_min: f64) -> f64 { /* ... */ }
+```
+
 ## Module `fluid`
 
 The fluid selector — an **enum**, matching each fluid to its hardcoded
@@ -1407,8 +1458,8 @@ pub mod fluid { /* ... */ }
 
 **Attributes:**
 
-- `Other("#[allow(non_camel_case_types)]")`
 - `NonExhaustive`
+- `Other("#[attr = LintCheck([LintCheck {lint_name: \"non_camel_case_types\",\nkind: Allow}])]")`
 
 A supported pure fluid (one per CoolProp pure-fluid EOS). Each variant maps
 to a hardcoded `const` [`FluidEos`] via [`Fluid::eos`].
@@ -2150,7 +2201,7 @@ CoolProp `Xenon`.
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Fluid { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -2185,7 +2236,7 @@ CoolProp `Xenon`.
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Fluid) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -2204,7 +2255,7 @@ CoolProp `Xenon`.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -2234,7 +2285,7 @@ pub mod fluids { /* ... */ }
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `Acetone` Helmholtz EOS, as hardcoded `const` data.
 
@@ -2265,7 +2316,7 @@ pub static ACETONE_ANCILLARIES: crate::ancillaries::FluidAncillaries = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `Air` Helmholtz EOS, as hardcoded `const` data.
 
@@ -2296,7 +2347,7 @@ pub static AIR_TRANSPORT: crate::transport::FluidTransport = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `Ammonia` Helmholtz EOS, as hardcoded `const` data.
 
@@ -2336,7 +2387,7 @@ pub static AMMONIA_TRANSPORT: crate::transport::FluidTransport = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `Argon` Helmholtz EOS, as hardcoded `const` data.
 
@@ -2376,7 +2427,7 @@ pub static ARGON_TRANSPORT: crate::transport::FluidTransport = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `Benzene` Helmholtz EOS, as hardcoded `const` data.
 
@@ -2416,7 +2467,7 @@ pub static BENZENE_TRANSPORT: crate::transport::FluidTransport = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `CarbonDioxide` Helmholtz EOS, as hardcoded `const` data.
 
@@ -2456,7 +2507,7 @@ pub static CARBONDIOXIDE_TRANSPORT: crate::transport::FluidTransport = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `CarbonMonoxide` Helmholtz EOS, as hardcoded `const` data.
 
@@ -2487,7 +2538,7 @@ pub static CARBONMONOXIDE_ANCILLARIES: crate::ancillaries::FluidAncillaries = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `CarbonylSulfide` Helmholtz EOS, as hardcoded `const` data.
 
@@ -2518,7 +2569,7 @@ pub static CARBONYLSULFIDE_ANCILLARIES: crate::ancillaries::FluidAncillaries = _
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `Chlorine` Helmholtz EOS, as hardcoded `const` data.
 
@@ -2549,7 +2600,7 @@ pub static CHLORINE_ANCILLARIES: crate::ancillaries::FluidAncillaries = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `cis-2-Butene` Helmholtz EOS, as hardcoded `const` data.
 
@@ -2580,7 +2631,7 @@ pub static CIS_2_BUTENE_ANCILLARIES: crate::ancillaries::FluidAncillaries = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `CycloHexane` Helmholtz EOS, as hardcoded `const` data.
 
@@ -2620,7 +2671,7 @@ pub static CYCLOHEXANE_TRANSPORT: crate::transport::FluidTransport = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `Cyclopentane` Helmholtz EOS, as hardcoded `const` data.
 
@@ -2660,7 +2711,7 @@ pub static CYCLOPENTANE_TRANSPORT: crate::transport::FluidTransport = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `CycloPropane` Helmholtz EOS, as hardcoded `const` data.
 
@@ -2691,7 +2742,7 @@ pub static CYCLOPROPANE_ANCILLARIES: crate::ancillaries::FluidAncillaries = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `D4` Helmholtz EOS, as hardcoded `const` data.
 
@@ -2722,7 +2773,7 @@ pub static D4_ANCILLARIES: crate::ancillaries::FluidAncillaries = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `D5` Helmholtz EOS, as hardcoded `const` data.
 
@@ -2753,7 +2804,7 @@ pub static D5_ANCILLARIES: crate::ancillaries::FluidAncillaries = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `D6` Helmholtz EOS, as hardcoded `const` data.
 
@@ -2784,7 +2835,7 @@ pub static D6_ANCILLARIES: crate::ancillaries::FluidAncillaries = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `Deuterium` Helmholtz EOS, as hardcoded `const` data.
 
@@ -2815,7 +2866,7 @@ pub static DEUTERIUM_ANCILLARIES: crate::ancillaries::FluidAncillaries = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `Dichloroethane` Helmholtz EOS, as hardcoded `const` data.
 
@@ -2846,7 +2897,7 @@ pub static DICHLOROETHANE_ANCILLARIES: crate::ancillaries::FluidAncillaries = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `DiethylEther` Helmholtz EOS, as hardcoded `const` data.
 
@@ -2877,7 +2928,7 @@ pub static DIETHYLETHER_ANCILLARIES: crate::ancillaries::FluidAncillaries = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `DimethylCarbonate` Helmholtz EOS, as hardcoded `const` data.
 
@@ -2908,7 +2959,7 @@ pub static DIMETHYLCARBONATE_ANCILLARIES: crate::ancillaries::FluidAncillaries =
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `DimethylEther` Helmholtz EOS, as hardcoded `const` data.
 
@@ -2948,7 +2999,7 @@ pub static DIMETHYLETHER_TRANSPORT: crate::transport::FluidTransport = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `Ethane` Helmholtz EOS, as hardcoded `const` data.
 
@@ -2988,7 +3039,7 @@ pub static ETHANE_TRANSPORT: crate::transport::FluidTransport = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `Ethanol` Helmholtz EOS, as hardcoded `const` data.
 
@@ -3028,7 +3079,7 @@ pub static ETHANOL_TRANSPORT: crate::transport::FluidTransport = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `EthylBenzene` Helmholtz EOS, as hardcoded `const` data.
 
@@ -3068,7 +3119,7 @@ pub static ETHYLBENZENE_TRANSPORT: crate::transport::FluidTransport = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `Ethylene` Helmholtz EOS, as hardcoded `const` data.
 
@@ -3099,7 +3150,7 @@ pub static ETHYLENE_ANCILLARIES: crate::ancillaries::FluidAncillaries = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `EthyleneOxide` Helmholtz EOS, as hardcoded `const` data.
 
@@ -3130,7 +3181,7 @@ pub static ETHYLENEOXIDE_ANCILLARIES: crate::ancillaries::FluidAncillaries = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `1-Butene` Helmholtz EOS, as hardcoded `const` data.
 
@@ -3161,7 +3212,7 @@ pub static F_1_BUTENE_ANCILLARIES: crate::ancillaries::FluidAncillaries = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `Fluorine` Helmholtz EOS, as hardcoded `const` data.
 
@@ -3192,7 +3243,7 @@ pub static FLUORINE_ANCILLARIES: crate::ancillaries::FluidAncillaries = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `HeavyWater` Helmholtz EOS, as hardcoded `const` data.
 
@@ -3232,7 +3283,7 @@ pub static HEAVYWATER_TRANSPORT: crate::transport::FluidTransport = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `Helium` Helmholtz EOS, as hardcoded `const` data.
 
@@ -3272,7 +3323,7 @@ pub static HELIUM_TRANSPORT: crate::transport::FluidTransport = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `HFE143m` Helmholtz EOS, as hardcoded `const` data.
 
@@ -3303,7 +3354,7 @@ pub static HFE143M_ANCILLARIES: crate::ancillaries::FluidAncillaries = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `Hydrogen` Helmholtz EOS, as hardcoded `const` data.
 
@@ -3343,7 +3394,7 @@ pub static HYDROGEN_TRANSPORT: crate::transport::FluidTransport = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `HydrogenChloride` Helmholtz EOS, as hardcoded `const` data.
 
@@ -3374,7 +3425,7 @@ pub static HYDROGENCHLORIDE_ANCILLARIES: crate::ancillaries::FluidAncillaries = 
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `HydrogenSulfide` Helmholtz EOS, as hardcoded `const` data.
 
@@ -3414,7 +3465,7 @@ pub static HYDROGENSULFIDE_TRANSPORT: crate::transport::FluidTransport = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `IsoButane` Helmholtz EOS, as hardcoded `const` data.
 
@@ -3454,7 +3505,7 @@ pub static ISOBUTANE_TRANSPORT: crate::transport::FluidTransport = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `IsoButene` Helmholtz EOS, as hardcoded `const` data.
 
@@ -3485,7 +3536,7 @@ pub static ISOBUTENE_ANCILLARIES: crate::ancillaries::FluidAncillaries = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `Isohexane` Helmholtz EOS, as hardcoded `const` data.
 
@@ -3516,7 +3567,7 @@ pub static ISOHEXANE_ANCILLARIES: crate::ancillaries::FluidAncillaries = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `Isopentane` Helmholtz EOS, as hardcoded `const` data.
 
@@ -3556,7 +3607,7 @@ pub static ISOPENTANE_TRANSPORT: crate::transport::FluidTransport = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `Krypton` Helmholtz EOS, as hardcoded `const` data.
 
@@ -3587,7 +3638,7 @@ pub static KRYPTON_ANCILLARIES: crate::ancillaries::FluidAncillaries = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `m-Xylene` Helmholtz EOS, as hardcoded `const` data.
 
@@ -3627,7 +3678,7 @@ pub static M_XYLENE_TRANSPORT: crate::transport::FluidTransport = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `MD2M` Helmholtz EOS, as hardcoded `const` data.
 
@@ -3658,7 +3709,7 @@ pub static MD2M_ANCILLARIES: crate::ancillaries::FluidAncillaries = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `MD3M` Helmholtz EOS, as hardcoded `const` data.
 
@@ -3689,7 +3740,7 @@ pub static MD3M_ANCILLARIES: crate::ancillaries::FluidAncillaries = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `MD4M` Helmholtz EOS, as hardcoded `const` data.
 
@@ -3720,7 +3771,7 @@ pub static MD4M_ANCILLARIES: crate::ancillaries::FluidAncillaries = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `MDM` Helmholtz EOS, as hardcoded `const` data.
 
@@ -3751,7 +3802,7 @@ pub static MDM_ANCILLARIES: crate::ancillaries::FluidAncillaries = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `Methane` Helmholtz EOS, as hardcoded `const` data.
 
@@ -3791,7 +3842,7 @@ pub static METHANE_TRANSPORT: crate::transport::FluidTransport = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `Methanol` Helmholtz EOS, as hardcoded `const` data.
 
@@ -3831,7 +3882,7 @@ pub static METHANOL_TRANSPORT: crate::transport::FluidTransport = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `MethylLinoleate` Helmholtz EOS, as hardcoded `const` data.
 
@@ -3862,7 +3913,7 @@ pub static METHYLLINOLEATE_ANCILLARIES: crate::ancillaries::FluidAncillaries = _
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `MethylLinolenate` Helmholtz EOS, as hardcoded `const` data.
 
@@ -3893,7 +3944,7 @@ pub static METHYLLINOLENATE_ANCILLARIES: crate::ancillaries::FluidAncillaries = 
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `MethylOleate` Helmholtz EOS, as hardcoded `const` data.
 
@@ -3924,7 +3975,7 @@ pub static METHYLOLEATE_ANCILLARIES: crate::ancillaries::FluidAncillaries = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `MethylPalmitate` Helmholtz EOS, as hardcoded `const` data.
 
@@ -3955,7 +4006,7 @@ pub static METHYLPALMITATE_ANCILLARIES: crate::ancillaries::FluidAncillaries = _
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `MethylStearate` Helmholtz EOS, as hardcoded `const` data.
 
@@ -3986,7 +4037,7 @@ pub static METHYLSTEARATE_ANCILLARIES: crate::ancillaries::FluidAncillaries = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `MM` Helmholtz EOS, as hardcoded `const` data.
 
@@ -4017,7 +4068,7 @@ pub static MM_ANCILLARIES: crate::ancillaries::FluidAncillaries = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `n-Butane` Helmholtz EOS, as hardcoded `const` data.
 
@@ -4057,7 +4108,7 @@ pub static N_BUTANE_TRANSPORT: crate::transport::FluidTransport = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `n-Decane` Helmholtz EOS, as hardcoded `const` data.
 
@@ -4097,7 +4148,7 @@ pub static N_DECANE_TRANSPORT: crate::transport::FluidTransport = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `n-Dodecane` Helmholtz EOS, as hardcoded `const` data.
 
@@ -4137,7 +4188,7 @@ pub static N_DODECANE_TRANSPORT: crate::transport::FluidTransport = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `n-Heptane` Helmholtz EOS, as hardcoded `const` data.
 
@@ -4177,7 +4228,7 @@ pub static N_HEPTANE_TRANSPORT: crate::transport::FluidTransport = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `n-Hexane` Helmholtz EOS, as hardcoded `const` data.
 
@@ -4217,7 +4268,7 @@ pub static N_HEXANE_TRANSPORT: crate::transport::FluidTransport = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `n-Nonane` Helmholtz EOS, as hardcoded `const` data.
 
@@ -4257,7 +4308,7 @@ pub static N_NONANE_TRANSPORT: crate::transport::FluidTransport = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `n-Octane` Helmholtz EOS, as hardcoded `const` data.
 
@@ -4297,7 +4348,7 @@ pub static N_OCTANE_TRANSPORT: crate::transport::FluidTransport = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `n-Pentane` Helmholtz EOS, as hardcoded `const` data.
 
@@ -4337,7 +4388,7 @@ pub static N_PENTANE_TRANSPORT: crate::transport::FluidTransport = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `n-Perfluorobutane` Helmholtz EOS, as hardcoded `const` data.
 
@@ -4368,7 +4419,7 @@ pub static N_PERFLUOROBUTANE_ANCILLARIES: crate::ancillaries::FluidAncillaries =
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `n-Perfluorohexane` Helmholtz EOS, as hardcoded `const` data.
 
@@ -4399,7 +4450,7 @@ pub static N_PERFLUOROHEXANE_ANCILLARIES: crate::ancillaries::FluidAncillaries =
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `n-Perfluoropentane` Helmholtz EOS, as hardcoded `const` data.
 
@@ -4430,7 +4481,7 @@ pub static N_PERFLUOROPENTANE_ANCILLARIES: crate::ancillaries::FluidAncillaries 
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `n-Propane` Helmholtz EOS, as hardcoded `const` data.
 
@@ -4470,7 +4521,7 @@ pub static N_PROPANE_TRANSPORT: crate::transport::FluidTransport = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `n-Undecane` Helmholtz EOS, as hardcoded `const` data.
 
@@ -4501,7 +4552,7 @@ pub static N_UNDECANE_ANCILLARIES: crate::ancillaries::FluidAncillaries = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `Neon` Helmholtz EOS, as hardcoded `const` data.
 
@@ -4532,7 +4583,7 @@ pub static NEON_ANCILLARIES: crate::ancillaries::FluidAncillaries = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `Neopentane` Helmholtz EOS, as hardcoded `const` data.
 
@@ -4563,7 +4614,7 @@ pub static NEOPENTANE_ANCILLARIES: crate::ancillaries::FluidAncillaries = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `Nitrogen` Helmholtz EOS, as hardcoded `const` data.
 
@@ -4603,7 +4654,7 @@ pub static NITROGEN_TRANSPORT: crate::transport::FluidTransport = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `NitrousOxide` Helmholtz EOS, as hardcoded `const` data.
 
@@ -4634,7 +4685,7 @@ pub static NITROUSOXIDE_ANCILLARIES: crate::ancillaries::FluidAncillaries = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `Novec649` Helmholtz EOS, as hardcoded `const` data.
 
@@ -4665,7 +4716,7 @@ pub static NOVEC649_ANCILLARIES: crate::ancillaries::FluidAncillaries = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `o-Xylene` Helmholtz EOS, as hardcoded `const` data.
 
@@ -4705,7 +4756,7 @@ pub static O_XYLENE_TRANSPORT: crate::transport::FluidTransport = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `OrthoDeuterium` Helmholtz EOS, as hardcoded `const` data.
 
@@ -4736,7 +4787,7 @@ pub static ORTHODEUTERIUM_ANCILLARIES: crate::ancillaries::FluidAncillaries = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `OrthoHydrogen` Helmholtz EOS, as hardcoded `const` data.
 
@@ -4767,7 +4818,7 @@ pub static ORTHOHYDROGEN_ANCILLARIES: crate::ancillaries::FluidAncillaries = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `Oxygen` Helmholtz EOS, as hardcoded `const` data.
 
@@ -4807,7 +4858,7 @@ pub static OXYGEN_TRANSPORT: crate::transport::FluidTransport = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `p-Xylene` Helmholtz EOS, as hardcoded `const` data.
 
@@ -4847,7 +4898,7 @@ pub static P_XYLENE_TRANSPORT: crate::transport::FluidTransport = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `ParaDeuterium` Helmholtz EOS, as hardcoded `const` data.
 
@@ -4878,7 +4929,7 @@ pub static PARADEUTERIUM_ANCILLARIES: crate::ancillaries::FluidAncillaries = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `ParaHydrogen` Helmholtz EOS, as hardcoded `const` data.
 
@@ -4918,7 +4969,7 @@ pub static PARAHYDROGEN_TRANSPORT: crate::transport::FluidTransport = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `Propylene` Helmholtz EOS, as hardcoded `const` data.
 
@@ -4949,7 +5000,7 @@ pub static PROPYLENE_ANCILLARIES: crate::ancillaries::FluidAncillaries = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `PropyleneGlycol` Helmholtz EOS, as hardcoded `const` data.
 
@@ -4980,7 +5031,7 @@ pub static PROPYLENEGLYCOL_ANCILLARIES: crate::ancillaries::FluidAncillaries = _
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `Propyne` Helmholtz EOS, as hardcoded `const` data.
 
@@ -5011,7 +5062,7 @@ pub static PROPYNE_ANCILLARIES: crate::ancillaries::FluidAncillaries = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `R11` Helmholtz EOS, as hardcoded `const` data.
 
@@ -5042,7 +5093,7 @@ pub static R11_ANCILLARIES: crate::ancillaries::FluidAncillaries = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `R1123` Helmholtz EOS, as hardcoded `const` data.
 
@@ -5073,7 +5124,7 @@ pub static R1123_ANCILLARIES: crate::ancillaries::FluidAncillaries = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `R113` Helmholtz EOS, as hardcoded `const` data.
 
@@ -5104,7 +5155,7 @@ pub static R113_ANCILLARIES: crate::ancillaries::FluidAncillaries = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `R1130(E)` Helmholtz EOS, as hardcoded `const` data.
 
@@ -5135,7 +5186,7 @@ pub static R1130_E__ANCILLARIES: crate::ancillaries::FluidAncillaries = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `R1132(E)` Helmholtz EOS, as hardcoded `const` data.
 
@@ -5166,7 +5217,7 @@ pub static R1132_E__ANCILLARIES: crate::ancillaries::FluidAncillaries = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `R1132a` Helmholtz EOS, as hardcoded `const` data.
 
@@ -5197,7 +5248,7 @@ pub static R1132A_ANCILLARIES: crate::ancillaries::FluidAncillaries = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `R114` Helmholtz EOS, as hardcoded `const` data.
 
@@ -5228,7 +5279,7 @@ pub static R114_ANCILLARIES: crate::ancillaries::FluidAncillaries = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `R115` Helmholtz EOS, as hardcoded `const` data.
 
@@ -5259,7 +5310,7 @@ pub static R115_ANCILLARIES: crate::ancillaries::FluidAncillaries = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `R116` Helmholtz EOS, as hardcoded `const` data.
 
@@ -5290,7 +5341,7 @@ pub static R116_ANCILLARIES: crate::ancillaries::FluidAncillaries = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `R12` Helmholtz EOS, as hardcoded `const` data.
 
@@ -5321,7 +5372,7 @@ pub static R12_ANCILLARIES: crate::ancillaries::FluidAncillaries = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `R1224yd(Z)` Helmholtz EOS, as hardcoded `const` data.
 
@@ -5352,7 +5403,7 @@ pub static R1224YD_Z__ANCILLARIES: crate::ancillaries::FluidAncillaries = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `R123` Helmholtz EOS, as hardcoded `const` data.
 
@@ -5392,7 +5443,7 @@ pub static R123_TRANSPORT: crate::transport::FluidTransport = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `R1233zd(E)` Helmholtz EOS, as hardcoded `const` data.
 
@@ -5423,7 +5474,7 @@ pub static R1233ZD_E__ANCILLARIES: crate::ancillaries::FluidAncillaries = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `R1234yf` Helmholtz EOS, as hardcoded `const` data.
 
@@ -5463,7 +5514,7 @@ pub static R1234YF_TRANSPORT: crate::transport::FluidTransport = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `R1234ze(E)` Helmholtz EOS, as hardcoded `const` data.
 
@@ -5503,7 +5554,7 @@ pub static R1234ZE_E__TRANSPORT: crate::transport::FluidTransport = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `R1234ze(Z)` Helmholtz EOS, as hardcoded `const` data.
 
@@ -5534,7 +5585,7 @@ pub static R1234ZE_Z__ANCILLARIES: crate::ancillaries::FluidAncillaries = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `R124` Helmholtz EOS, as hardcoded `const` data.
 
@@ -5565,7 +5616,7 @@ pub static R124_ANCILLARIES: crate::ancillaries::FluidAncillaries = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `R1243zf` Helmholtz EOS, as hardcoded `const` data.
 
@@ -5596,7 +5647,7 @@ pub static R1243ZF_ANCILLARIES: crate::ancillaries::FluidAncillaries = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `R125` Helmholtz EOS, as hardcoded `const` data.
 
@@ -5636,7 +5687,7 @@ pub static R125_TRANSPORT: crate::transport::FluidTransport = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `R13` Helmholtz EOS, as hardcoded `const` data.
 
@@ -5667,7 +5718,7 @@ pub static R13_ANCILLARIES: crate::ancillaries::FluidAncillaries = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `R1336mzz(E)` Helmholtz EOS, as hardcoded `const` data.
 
@@ -5698,7 +5749,7 @@ pub static R1336MZZ_E__ANCILLARIES: crate::ancillaries::FluidAncillaries = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `R1336mzz(Z)` Helmholtz EOS, as hardcoded `const` data.
 
@@ -5729,7 +5780,7 @@ pub static R1336MZZ_Z__ANCILLARIES: crate::ancillaries::FluidAncillaries = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `R134a` Helmholtz EOS, as hardcoded `const` data.
 
@@ -5769,7 +5820,7 @@ pub static R134A_TRANSPORT: crate::transport::FluidTransport = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `R13I1` Helmholtz EOS, as hardcoded `const` data.
 
@@ -5800,7 +5851,7 @@ pub static R13I1_ANCILLARIES: crate::ancillaries::FluidAncillaries = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `R14` Helmholtz EOS, as hardcoded `const` data.
 
@@ -5831,7 +5882,7 @@ pub static R14_ANCILLARIES: crate::ancillaries::FluidAncillaries = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `R141b` Helmholtz EOS, as hardcoded `const` data.
 
@@ -5862,7 +5913,7 @@ pub static R141B_ANCILLARIES: crate::ancillaries::FluidAncillaries = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `R142b` Helmholtz EOS, as hardcoded `const` data.
 
@@ -5893,7 +5944,7 @@ pub static R142B_ANCILLARIES: crate::ancillaries::FluidAncillaries = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `R143a` Helmholtz EOS, as hardcoded `const` data.
 
@@ -5924,7 +5975,7 @@ pub static R143A_ANCILLARIES: crate::ancillaries::FluidAncillaries = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `R152A` Helmholtz EOS, as hardcoded `const` data.
 
@@ -5964,7 +6015,7 @@ pub static R152A_TRANSPORT: crate::transport::FluidTransport = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `R161` Helmholtz EOS, as hardcoded `const` data.
 
@@ -5995,7 +6046,7 @@ pub static R161_ANCILLARIES: crate::ancillaries::FluidAncillaries = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `R21` Helmholtz EOS, as hardcoded `const` data.
 
@@ -6026,7 +6077,7 @@ pub static R21_ANCILLARIES: crate::ancillaries::FluidAncillaries = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `R218` Helmholtz EOS, as hardcoded `const` data.
 
@@ -6057,7 +6108,7 @@ pub static R218_ANCILLARIES: crate::ancillaries::FluidAncillaries = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `R22` Helmholtz EOS, as hardcoded `const` data.
 
@@ -6088,7 +6139,7 @@ pub static R22_ANCILLARIES: crate::ancillaries::FluidAncillaries = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `R227EA` Helmholtz EOS, as hardcoded `const` data.
 
@@ -6119,7 +6170,7 @@ pub static R227EA_ANCILLARIES: crate::ancillaries::FluidAncillaries = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `R23` Helmholtz EOS, as hardcoded `const` data.
 
@@ -6159,7 +6210,7 @@ pub static R23_TRANSPORT: crate::transport::FluidTransport = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `R236EA` Helmholtz EOS, as hardcoded `const` data.
 
@@ -6190,7 +6241,7 @@ pub static R236EA_ANCILLARIES: crate::ancillaries::FluidAncillaries = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `R236FA` Helmholtz EOS, as hardcoded `const` data.
 
@@ -6221,7 +6272,7 @@ pub static R236FA_ANCILLARIES: crate::ancillaries::FluidAncillaries = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `R245ca` Helmholtz EOS, as hardcoded `const` data.
 
@@ -6252,7 +6303,7 @@ pub static R245CA_ANCILLARIES: crate::ancillaries::FluidAncillaries = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `R245fa` Helmholtz EOS, as hardcoded `const` data.
 
@@ -6283,7 +6334,7 @@ pub static R245FA_ANCILLARIES: crate::ancillaries::FluidAncillaries = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `R32` Helmholtz EOS, as hardcoded `const` data.
 
@@ -6314,7 +6365,7 @@ pub static R32_ANCILLARIES: crate::ancillaries::FluidAncillaries = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `R365MFC` Helmholtz EOS, as hardcoded `const` data.
 
@@ -6345,7 +6396,7 @@ pub static R365MFC_ANCILLARIES: crate::ancillaries::FluidAncillaries = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `R40` Helmholtz EOS, as hardcoded `const` data.
 
@@ -6376,7 +6427,7 @@ pub static R40_ANCILLARIES: crate::ancillaries::FluidAncillaries = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `R404A` Helmholtz EOS, as hardcoded `const` data.
 
@@ -6407,7 +6458,7 @@ pub static R404A_TRANSPORT: crate::transport::FluidTransport = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `R407C` Helmholtz EOS, as hardcoded `const` data.
 
@@ -6438,7 +6489,7 @@ pub static R407C_TRANSPORT: crate::transport::FluidTransport = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `R41` Helmholtz EOS, as hardcoded `const` data.
 
@@ -6469,7 +6520,7 @@ pub static R41_ANCILLARIES: crate::ancillaries::FluidAncillaries = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `R410A` Helmholtz EOS, as hardcoded `const` data.
 
@@ -6500,7 +6551,7 @@ pub static R410A_TRANSPORT: crate::transport::FluidTransport = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `R507A` Helmholtz EOS, as hardcoded `const` data.
 
@@ -6531,7 +6582,7 @@ pub static R507A_TRANSPORT: crate::transport::FluidTransport = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `RC318` Helmholtz EOS, as hardcoded `const` data.
 
@@ -6562,7 +6613,7 @@ pub static RC318_ANCILLARIES: crate::ancillaries::FluidAncillaries = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `SES36` Helmholtz EOS, as hardcoded `const` data.
 
@@ -6584,7 +6635,7 @@ pub static SES36: crate::eos::FluidEos = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `SulfurDioxide` Helmholtz EOS, as hardcoded `const` data.
 
@@ -6615,7 +6666,7 @@ pub static SULFURDIOXIDE_ANCILLARIES: crate::ancillaries::FluidAncillaries = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `SulfurHexafluoride` Helmholtz EOS, as hardcoded `const` data.
 
@@ -6655,7 +6706,7 @@ pub static SULFURHEXAFLUORIDE_TRANSPORT: crate::transport::FluidTransport = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `Tetrahydrofuran` Helmholtz EOS, as hardcoded `const` data.
 
@@ -6686,7 +6737,7 @@ pub static TETRAHYDROFURAN_ANCILLARIES: crate::ancillaries::FluidAncillaries = _
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `Toluene` Helmholtz EOS, as hardcoded `const` data.
 
@@ -6726,7 +6777,7 @@ pub static TOLUENE_TRANSPORT: crate::transport::FluidTransport = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `trans-2-Butene` Helmholtz EOS, as hardcoded `const` data.
 
@@ -6757,7 +6808,7 @@ pub static TRANS_2_BUTENE_ANCILLARIES: crate::ancillaries::FluidAncillaries = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `VinylChloride` Helmholtz EOS, as hardcoded `const` data.
 
@@ -6788,7 +6839,7 @@ pub static VINYLCHLORIDE_ANCILLARIES: crate::ancillaries::FluidAncillaries = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `Water` Helmholtz EOS, as hardcoded `const` data.
 
@@ -6828,7 +6879,7 @@ pub static WATER_TRANSPORT: crate::transport::FluidTransport = _;
 
 **Attributes:**
 
-- `Other("#[allow(clippy::approx_constant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"approx_constant\",\nkind: Allow}])]")`
 
 CoolProp `Xenon` Helmholtz EOS, as hardcoded `const` data.
 
@@ -6932,7 +6983,7 @@ pub struct FluidState {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> FluidState { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -6961,7 +7012,7 @@ pub struct FluidState {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &FluidState) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -6980,7 +7031,7 @@ pub struct FluidState {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -7027,8 +7078,11 @@ This is the CoolProp-fork analogue of `tampines-steam-tables`'
 equilibrium, carrying the intensive state (p, T, ρ, v, u, h, s, c_v, c_p,
 speed of sound) plus one extensive property — the fixed control-volume
 [`Volume`]. Unlike the steam-table CV it is **multi-fluid** (it stores which
-[`Fluid`] it holds) and, for now, **single-phase** (no two-phase quality —
-CoolProp has no saturation/VLE solver yet, bead op-kbc).
+[`Fluid`] it holds). ~~and, for now, **single-phase** (no two-phase quality —
+CoolProp has no saturation/VLE solver yet, bead op-kbc).~~ **CORRECTED
+2026-10-16 (gh #901):** the `(p, h)` and `(p, s)` constructors do detect a
+two-phase state through the Maxwell VLE in [`crate::vle`] and store the
+mixture with its quality (see [`OPCPFluidSingleCV`]).
 
 Construction is either the EOS-native `(T, ρ)` or one of the single-phase
 flashes `(p, T)`, `(p, h)`, `(p, s)` (see [`crate::flash`]); the flash
@@ -7194,7 +7248,12 @@ pub struct OPCPFluidSingleCV {
 - ```rust
   pub fn get_speed_of_sound(self: &Self) -> Velocity { /* ... */ }
   ```
-  Speed of sound \[m/s\].
+  Speed of sound \[m/s\] of the stored state: the single-phase EOS value
+
+- ```rust
+  pub fn get_equilibrium_speed_of_sound(self: &Self) -> Velocity { /* ... */ }
+  ```
+  Homogeneous-**equilibrium** (HEM) speed of sound \[m/s\] at this control
 
 - ```rust
   pub fn get_volume(self: &Self) -> Volume { /* ... */ }
@@ -7245,7 +7304,7 @@ pub struct OPCPFluidSingleCV {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> OPCPFluidSingleCV { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -7274,7 +7333,7 @@ pub struct OPCPFluidSingleCV {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &OPCPFluidSingleCV) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -7293,7 +7352,7 @@ pub struct OPCPFluidSingleCV {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -7488,7 +7547,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ViscosityDilute { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -7530,7 +7589,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -7616,7 +7675,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ViscosityInitial { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -7658,7 +7717,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -7875,7 +7934,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ViscosityHigherOrder { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -7917,7 +7976,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -7932,7 +7991,7 @@ Fields:
 
 **Attributes:**
 
-- `Other("#[allow(clippy::large_enum_variant)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0,\nlint_name: \"large_enum_variant\", kind: Allow}])]")`
 
 A complete viscosity model (Pa·s): either the generic dilute + (optional)
 initial-density + higher-order composition, or a fluid-specific hardcoded
@@ -8019,7 +8078,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ViscosityModel { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -8061,7 +8120,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -8155,7 +8214,7 @@ and the ideal-gas `∂²α⁰/∂τ²`). CoolProp `conductivity_dilute_hardcoded
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ConductivityDilute { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -8197,7 +8256,7 @@ and the ideal-gas `∂²α⁰/∂τ²`). CoolProp `conductivity_dilute_hardcoded
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -8284,7 +8343,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ConductivityResidual { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -8326,7 +8385,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -8405,7 +8464,7 @@ Ammonia critical term (Tufeu et al. — CoolProp
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> CriticalConductivity { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -8447,7 +8506,7 @@ Ammonia critical term (Tufeu et al. — CoolProp
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -8519,7 +8578,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ConductivityModel { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -8561,7 +8620,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -8685,7 +8744,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> HardcodedViscosity { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -8727,7 +8786,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -8805,7 +8864,7 @@ the saturated-liquid density).
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> HardcodedConductivity { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -8847,7 +8906,7 @@ the saturated-liquid density).
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -8898,7 +8957,7 @@ pub struct FluidTransport {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> FluidTransport { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -8940,7 +8999,7 @@ pub struct FluidTransport {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -9048,7 +9107,7 @@ pub struct SaturationState {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> SaturationState { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -9077,7 +9136,7 @@ pub struct SaturationState {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &SaturationState) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -9096,7 +9155,7 @@ pub struct SaturationState {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -9163,7 +9222,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> PhaseAtPh { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -9192,7 +9251,7 @@ Fields:
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &PhaseAtPh) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -9211,7 +9270,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -9705,7 +9764,7 @@ J/(mol·K)`. Dimensionless; identical on either mass basis.
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> HumidAirParam { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -9735,7 +9794,7 @@ J/(mol·K)`. Dimensionless; identical on either mass basis.
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &HumidAirParam) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -9754,7 +9813,7 @@ J/(mol·K)`. Dimensionless; identical on either mass basis.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -9821,7 +9880,7 @@ pub struct HumidAirState {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> HumidAirState { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -9850,7 +9909,7 @@ pub struct HumidAirState {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &HumidAirState) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -9869,7 +9928,7 @@ pub struct HumidAirState {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -9928,7 +9987,7 @@ An input is out of the valid range (`T ≤ 273.16 K`, `p ≤ 0`, …).
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> HumidAirError { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -9958,7 +10017,7 @@ An input is out of the valid range (`T ≤ 273.16 K`, `p ≤ 0`, …).
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &HumidAirError) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -9977,7 +10036,7 @@ An input is out of the valid range (`T ≤ 273.16 K`, `p ≤ 0`, …).
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -12551,7 +12610,7 @@ Solution keyed by **volume** fraction `x` \[-\].
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> IncompressibleKind { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -12581,7 +12640,7 @@ Solution keyed by **volume** fraction `x` \[-\].
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &IncompressibleKind) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -12600,7 +12659,7 @@ Solution keyed by **volume** fraction `x` \[-\].
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -12668,7 +12727,7 @@ CoolProp's own data (composition-independent by construction).
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> PropertyForm { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -12698,7 +12757,7 @@ CoolProp's own data (composition-independent by construction).
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &PropertyForm) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -12717,7 +12776,7 @@ CoolProp's own data (composition-independent by construction).
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -12774,7 +12833,7 @@ pub struct PropertyFit {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> PropertyFit { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -12816,7 +12875,7 @@ pub struct PropertyFit {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -12891,7 +12950,7 @@ pub struct IncompressibleFluid {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> IncompressibleFluid { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -12933,7 +12992,7 @@ pub struct IncompressibleFluid {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -12994,7 +13053,7 @@ is `None`), or the property's [`PropertyForm`] is not implemented
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> IncompressibleError { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -13024,7 +13083,7 @@ is `None`), or the property's [`PropertyForm`] is not implemented
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &IncompressibleError) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -13043,7 +13102,7 @@ is `None`), or the property's [`PropertyForm`] is not implemented
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -13193,7 +13252,7 @@ pub struct BinaryPair {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> BinaryPair { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -13235,7 +13294,7 @@ pub struct BinaryPair {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -13408,7 +13467,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> DepartureTerm { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -13450,7 +13509,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -13611,7 +13670,7 @@ pub struct Mixture {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Mixture { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -13639,7 +13698,7 @@ pub struct Mixture {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Mixture) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -13658,7 +13717,7 @@ pub struct Mixture {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -13722,7 +13781,7 @@ pub struct MixtureState {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> MixtureState { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -13751,7 +13810,7 @@ pub struct MixtureState {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &MixtureState) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -13770,7 +13829,7 @@ pub struct MixtureState {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -13842,7 +13901,7 @@ A flash / VLE iteration did not converge.
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> MixtureError { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -13872,7 +13931,7 @@ A flash / VLE iteration did not converge.
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &MixtureError) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -13891,7 +13950,7 @@ A flash / VLE iteration did not converge.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -13906,7 +13965,7 @@ A flash / VLE iteration did not converge.
 
 **Attributes:**
 
-- `Other("#[allow(dead_code, unused_variables)]")`
+- `Other("#[attr = LintCheck([LintCheck {lint_name: \"dead_code\", kind: Allow},\nLintCheck {lint_name: \"unused_variables\", kind: Allow}])]")`
 
 General corresponding-states transport (Chung / ECS / rhosr-CS) — the
 viscosity fallback for fluids with no dedicated fit. **Scaffold only**
@@ -13988,7 +14047,7 @@ reference fluid's transport surface. CoolProp `viscosity_ECS`.
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> CorrStatesModel { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -14018,7 +14077,7 @@ reference fluid's transport surface. CoolProp `viscosity_ECS`.
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &CorrStatesModel) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -14037,7 +14096,7 @@ reference fluid's transport surface. CoolProp `viscosity_ECS`.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -14067,8 +14126,7 @@ pub fn corresponding_states_viscosity(fluid: crate::fluid::Fluid, t: f64, rho: f
 
 **Attributes:**
 
-- `Other("#[allow(dead_code)]")`
-- `Other("#[allow(unused_imports)]")`
+- `Other("#[attr = LintCheck([LintCheck {lint_name: \"dead_code\", kind: Allow},\nLintCheck {lint_name: \"unused_imports\", kind: Allow}])]")`
 
 Vendored pure-Rust OpenFOAM finite-volume layer + 1-D compressible solvers,
 copied from `tampines-steam-tables` (no `outram-foam-basic-lib` dependency).
@@ -14099,7 +14157,7 @@ pub mod openfoam_algorithms { /* ... */ }
 
 **Attributes:**
 
-- `Other("#[allow(non_snake_case)]")`
+- `Other("#[attr = LintCheck([LintCheck {lint_name: \"non_snake_case\", kind: Allow}])]")`
 
 ```rust
 pub mod rhoPimpleFoam { /* ... */ }
@@ -14107,132 +14165,6 @@ pub mod rhoPimpleFoam { /* ... */ }
 
 ### Types
 
-#### Enum `SolverMode`
-
-Selects the flux discretisation used by [`OPCPFluidArray::step`].
-
-This is an **opt-in** switch (enum dispatch — no trait objects, per the
-workspace design rules). The default [`SolverMode::Pimple`] runs the
-pressure-based compressible PIMPLE algorithm exactly as before, bit-for-bit
-(every existing test is preserved by construction).
-[`SolverMode::HybridAllMach`] additionally injects a **Mach-weighted KNP
-central-upwind dissipation** (see the `central_upwind` module) as a
-deferred-correction flux, active only on near-sonic faces (`β(Ma) > 0`), to
-damp ringing at a near-sonic front while leaving subsonic regions untouched.
-
-This mirrors the `tampines-steam-tables` `TampinesSteamArray` all-Mach hybrid
-(bead op-ek2). The CoolProp difference is entirely in the sound-speed closure
-(`central_upwind::hem_sound_speed_ph`): single-phase faces use the Helmholtz
-EOS `speed_of_sound`, two-phase faces use a homogeneous-equilibrium (HEM)
-finite-difference of the equilibrium isentrope through the Maxwell VLE — never
-a frozen speed.
-
-```rust
-pub enum SolverMode {
-    Pimple,
-    HybridAllMach,
-}
-```
-
-##### Variants
-
-###### `Pimple`
-
-Pressure-based compressible **PIMPLE** — the historical, validated,
-default path.
-
-###### `HybridAllMach`
-
-PIMPLE + Mach-blended KNP shock-capturing dissipation (all-Mach hybrid).
-Opt-in; the default [`SolverMode::Pimple`] is the bit-identical historical
-path.
-
-##### Implementations
-
-###### Trait Implementations
-
-- **Any**
-  - ```rust
-    fn type_id(self: &Self) -> TypeId { /* ... */ }
-    ```
-
-- **Borrow**
-  - ```rust
-    fn borrow(self: &Self) -> &T { /* ... */ }
-    ```
-
-- **BorrowMut**
-  - ```rust
-    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
-    ```
-
-- **Clone**
-  - ```rust
-    fn clone(self: &Self) -> SolverMode { /* ... */ }
-    ```
-
-- **CloneToUninit**
-  - ```rust
-    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
-    ```
-
-- **Copy**
-- **Debug**
-  - ```rust
-    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
-    ```
-
-- **Default**
-  - ```rust
-    fn default() -> SolverMode { /* ... */ }
-    ```
-
-- **Eq**
-- **Freeze**
-- **From**
-  - ```rust
-    fn from(t: T) -> T { /* ... */ }
-    ```
-    Returns the argument unchanged.
-
-- **Into**
-  - ```rust
-    fn into(self: Self) -> U { /* ... */ }
-    ```
-    Calls `U::from(self)`.
-
-- **PartialEq**
-  - ```rust
-    fn eq(self: &Self, other: &SolverMode) -> bool { /* ... */ }
-    ```
-
-- **RefUnwindSafe**
-- **Same**
-- **Send**
-- **StructuralPartialEq**
-- **Sync**
-- **ToOwned**
-  - ```rust
-    fn to_owned(self: &Self) -> T { /* ... */ }
-    ```
-
-  - ```rust
-    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
-    ```
-
-- **TryFrom**
-  - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
-    ```
-
-- **TryInto**
-  - ```rust
-    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
-    ```
-
-- **Unpin**
-- **UnsafeUnpin**
-- **UnwindSafe**
 #### Enum `EnergyConvectionScheme`
 
 Face-interpolation scheme for the **energy equation's** convection term
@@ -14244,11 +14176,12 @@ OpenFOAM's `div(phi,h)` scheme entry, in other words. `λ = 0` is first-order
 upwind, `λ = 1` is unlimited central differencing, and the TVD variants pick
 `λ(r)` from the local slope ratio so no new extremum is created.
 
-**This is distinct from, and independent of, [`SolverMode::HybridAllMach`].**
+~~**This is distinct from, and independent of, `SolverMode::HybridAllMach`.**
 That switch adds a *Mach-weighted* KNP dissipation to continuity and momentum
 which is identically zero on a subsonic face (`β(Ma) = 0`) — precisely the
 regime a heat exchanger operates in, so it does nothing for scalar
-boundedness. Enthalpy boundedness is this setting's job, at any Mach number.
+boundedness.~~ (That switch was retired 2026-10-16.) Enthalpy boundedness is
+this setting's job, at any Mach number.
 
 **It is also distinct from, and orthogonal to,
 [`EnergyBalanceMode`]**, which chooses whether that convection term is
@@ -14328,7 +14261,7 @@ range. **Do not select this for new work.**
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> EnergyConvectionScheme { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -14344,7 +14277,7 @@ range. **Do not select this for new work.**
 
 - **Default**
   - ```rust
-    fn default() -> EnergyConvectionScheme { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
 - **Eq**
@@ -14363,7 +14296,7 @@ range. **Do not select this for new work.**
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &EnergyConvectionScheme) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -14382,7 +14315,7 @@ range. **Do not select this for new work.**
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -14524,7 +14457,7 @@ deferred correction itself misbehaves at a very large step.
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> EnergyBalanceMode { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -14540,7 +14473,7 @@ deferred correction itself misbehaves at a very large step.
 
 - **Default**
   - ```rust
-    fn default() -> EnergyBalanceMode { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
 - **Eq**
@@ -14559,7 +14492,7 @@ deferred correction itself misbehaves at a very large step.
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &EnergyBalanceMode) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -14578,7 +14511,7 @@ deferred correction itself misbehaves at a very large step.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -14643,11 +14576,6 @@ pub struct OPCPFluidArray {
     pub h_clamp_events: usize,
     pub he_convection_scheme: EnergyConvectionScheme,
     pub he_balance_mode: EnergyBalanceMode,
-    pub mode: SolverMode,
-    pub ma_blend_lo: uom::si::f64::Ratio,
-    pub ma_blend_hi: uom::si::f64::Ratio,
-    pub hybrid_rho_taper_lo: uom::si::f64::MassDensity,
-    pub hybrid_rho_taper_hi: uom::si::f64::MassDensity,
     pub u: VolField<crate::openfoam_algorithms::openfoam_source::Vector3>,
     pub p: VolField<f64>,
     pub rho: VolField<f64>,
@@ -14689,11 +14617,6 @@ pub struct OPCPFluidArray {
 | `h_clamp_events` | `usize` | **Cumulative** count of cell-enthalpy clamp events (dimensionless): each<br>cell clamped to [`Self::h_min`]/[`Self::h_max`] after an energy-equation<br>solve adds 1, across all steps since construction (or since the caller<br>last reset it to 0 — it is plain `pub` state). `0` means the guard never<br>engaged. **Asymmetry note:** the pressure clamp ([`Self::p_min`]/<br>[`Self::p_max`], OpenFOAM `pressureControl::limit` semantics) is silent<br>(uncounted, matching upstream); the enthalpy clamp is deliberately<br>counted so an engaged guard is visible, not silent. A NaN enthalpy is<br>neither clamped nor counted — genuine divergence is not masked. |
 | `he_convection_scheme` | `EnergyConvectionScheme` | Face-interpolation scheme for the energy equation's convection term<br>`∇·(φh)` — see [`EnergyConvectionScheme`] and<br>[`Self::set_he_convection_scheme`].<br><br>Defaults to [`EnergyConvectionScheme::VanLeer`] (bounded/TVD). Before<br>2026-08-12 this term was hard-wired to unlimited central differencing,<br>which is now [`EnergyConvectionScheme::Linear`]. |
 | `he_balance_mode` | `EnergyBalanceMode` | Time/matrix treatment of the energy equation's convection term `∇·(φh)`<br>— see [`EnergyBalanceMode`] and [`Self::set_he_balance_mode`].<br><br>Defaults to [`EnergyBalanceMode::Explicit`], the historical path<br>(bit-for-bit unchanged). Switch to [`EnergyBalanceMode::Implicit`] to<br>run at cell Courant numbers above 1. **Orthogonal to**<br>[`Self::he_convection_scheme`]: the limiter is honoured in either mode,<br>via a deferred correction in the implicit one. |
-| `mode` | `SolverMode` | Flux-discretisation mode (default [`SolverMode::Pimple`], bit-identical<br>to the historical path). See [`Self::set_solver_mode`]. |
-| `ma_blend_lo` | `uom::si::f64::Ratio` | Lower Mach threshold `lo` of the hybrid blend window<br>`β(Ma) = clamp((Ma−lo)/(hi−lo), 0, 1)` (default `0.3`, dimensionless).<br>Below `lo` the KNP dissipation is identically zero. Only read when<br>`mode == HybridAllMach`. See [`Self::set_mach_blend_window`]. |
-| `ma_blend_hi` | `uom::si::f64::Ratio` | Upper Mach threshold `hi` of the hybrid blend window (default `1.0`,<br>dimensionless). At/above `hi` the KNP dissipation is applied at full<br>weight. See [`Self::set_mach_blend_window`]. |
-| `hybrid_rho_taper_lo` | `uom::si::f64::MassDensity` | Lower mixture-density threshold \[kg/m³\] of the rarefied-tail taper on<br>the hybrid KNP dissipation: below it the dissipation is scaled to zero<br>(pure PIMPLE), with a linear ramp up to [`Self::hybrid_rho_taper_hi`].<br>Default 50 kg/m³ — a **steam-calibrated placeholder** inherited from the<br>`TampinesSteamArray` Edwards–O'Brien blowdown (dense two-phase flashing<br>front depressurising to ~1 bar); a bare density window is only<br>meaningful relative to that calibration pressure, so retune it per<br>fluid/pressure with [`Self::set_rho_taper_window`]. Only read when<br>`mode == HybridAllMach`. See `HYBRID_RHO_TAPER_LO_DEFAULT` (this<br>module) for the full regime/provenance note. |
-| `hybrid_rho_taper_hi` | `uom::si::f64::MassDensity` | Upper mixture-density threshold \[kg/m³\] of the rarefied-tail taper:<br>at/above it the KNP dissipation is applied at full weight (default<br>100 kg/m³, same steam-calibrated provenance as<br>[`Self::hybrid_rho_taper_lo`]). See [`Self::set_rho_taper_window`]. |
 | `u` | `VolField<crate::openfoam_algorithms::openfoam_source::Vector3>` | Velocity field [m/s]. |
 | `p` | `VolField<f64>` | Pressure field [Pa]. |
 | `rho` | `VolField<f64>` | Density field [kg/m³]. |
@@ -14985,36 +14908,6 @@ pub struct OPCPFluidArray {
   Selects whether the energy equation's convection term `∇·(φh)` is
 
 - ```rust
-  pub fn get_solver_mode(self: &Self) -> SolverMode { /* ... */ }
-  ```
-  The current flux-discretisation mode (see [`SolverMode`]).
-
-- ```rust
-  pub fn set_solver_mode(self: &mut Self, mode: SolverMode) { /* ... */ }
-  ```
-  Selects the flux-discretisation mode. [`SolverMode::Pimple`] (the
-
-- ```rust
-  pub fn get_mach_blend_window(self: &Self) -> (Ratio, Ratio) { /* ... */ }
-  ```
-  The current hybrid Mach-blend window `(lo, hi)` (dimensionless Mach
-
-- ```rust
-  pub fn set_mach_blend_window(self: &mut Self, lo: Ratio, hi: Ratio) { /* ... */ }
-  ```
-  Sets the hybrid Mach-blend window `β(Ma) = clamp((Ma−lo)/(hi−lo), 0, 1)`.
-
-- ```rust
-  pub fn get_rho_taper_window(self: &Self) -> (MassDensity, MassDensity) { /* ... */ }
-  ```
-  The current rarefied-tail density-taper window `(lo, hi)` \[kg/m³\] of
-
-- ```rust
-  pub fn set_rho_taper_window(self: &mut Self, lo: MassDensity, hi: MassDensity) { /* ... */ }
-  ```
-  Sets the rarefied-tail density-taper window of the hybrid KNP
-
-- ```rust
   pub fn get_enthalpy_bounds(self: &Self) -> (AvailableEnergy, AvailableEnergy) { /* ... */ }
   ```
   The current enthalpy bounds `(h_min, h_max)` \[J/kg\] of the `(p, h)`
@@ -15043,7 +14936,7 @@ pub struct OPCPFluidArray {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> OPCPFluidArray { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -15084,7 +14977,7 @@ pub struct OPCPFluidArray {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -15141,6 +15034,18 @@ pub use eos::IdealTerm;
 pub use eos::ResidualTerm;
 ```
 
+### Re-export `density_pt`
+
+```rust
+pub use flash::density_pt;
+```
+
+### Re-export `hem_sound_speed_ph`
+
+```rust
+pub use flash::hem_sound_speed_ph;
+```
+
 ### Re-export `state_ph`
 
 ```rust
@@ -15157,12 +15062,6 @@ pub use flash::state_ps;
 
 ```rust
 pub use flash::state_pt;
-```
-
-### Re-export `density_pt`
-
-```rust
-pub use flash::density_pt;
 ```
 
 ### Re-export `FlashError`
