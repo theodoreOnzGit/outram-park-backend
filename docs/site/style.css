@@ -150,6 +150,9 @@ body.landing { min-height: 100vh; display: flex; flex-direction: column; }
 /* A misconception a reader held (gh:#906 reader tests): always visible, never folded. */
 .misconception { border-left: 4px solid var(--warn-line); background: var(--warn-bg); border-radius: 0 6px 6px 0; padding: 8px 12px; margin: 16px 0; }
 .misconception > b:first-child { display: block; margin-bottom: 4px; }
+/* The neutronics glossary (gh:#906 no-jargon rule). */
+.glossary dt { font-weight: 700; margin-top: 14px; scroll-margin-top: 16px; }
+.glossary dd { margin: 4px 0 0 0; }
 .widget-card { margin: 20px 0; padding: 4px 0; }
 .widget-card h3 { margin: 8px 0; }
 .legend-list { padding-left: 0; list-style: none; }

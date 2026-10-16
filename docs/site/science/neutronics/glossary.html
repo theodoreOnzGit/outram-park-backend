@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Neutronics glossary</title>
+<meta name="description" content="Plain-words definitions of the terms the neutronics lessons introduce, each linked to the page where it is first explained: from compound nucleus and resonance to the phonon expansion, the effective temperature and coherent scattering.">
+<link rel="stylesheet" href="../../style.css">
+<script src="lesson-kit.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Neutronics lessons (gh:#906): the site glossary of the maintainer's standing "no unexplained jargon" rule (rule 3). Each entry: the idea in plain words, then the page that introduces it; check-physics.js confirms each linked page exists and names the term. Not part of the lesson sequence. -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response. <strong>Review status:</strong> AI-assisted first draft (2026-10-16), not yet reviewed by a human.</p>
+
+<h1>Neutronics glossary</h1>
+<p class="kicker">Neutronics</p>
+<p>Every term below is explained, idea first, on the page it links to. Here each gets one line, in plain words.</p>
+
+<dl class="glossary">
+  <dt id="compound-nucleus">Compound nucleus</dt><dd>The short-lived nucleus formed when a neutron joins one: it later leaves by one of its exits (re-emitting a neutron, a gamma ray, splitting, …). <a href="why-energy-matters.html" data-term="compound nucleus">Page 8</a>.</dd>
+  <dt id="resonance">Resonance</dt><dd>A sharp rise in a cross section where the neutron's energy matches one of the compound nucleus's allowed levels. <a href="why-energy-matters.html" data-term="resonance">Page 8</a>.</dd>
+  <dt id="doppler-broadening">Doppler broadening</dt><dd>The smearing of a sharp feature, such as a resonance, because the target nuclei move: lower and wider peaks in a hotter material. <a href="moving-nuclei.html" data-term="Doppler broadening">Page 3</a>; <a href="doppler.html" data-term="Doppler broadening">page 22</a>.</dd>
+  <dt id="lethargy">Lethargy</dt><dd>How far a neutron has slowed, measured on a log-energy axis: u = ln(E<sub>0</sub>/E). <a href="log-scales.html" data-term="lethargy">Page 17</a>.</dd>
+  <dt id="infinitely-dilute">Infinitely dilute cross section</dt><dd>The plain average of a cross section over its resonances. <a href="unresolved.html" data-term="infinitely dilute">Page 18</a>.</dd>
+  <dt id="fluctuation-integral">Fluctuation integral</dt><dd>An average over the spread of resonance widths, used to get the average cross section right. <a href="unresolved.html" data-term="fluctuation integral">Page 18</a>.</dd>
+  <dt id="free-gas">Free gas</dt><dd>The picture of the target as lone atoms that each recoil on their own. <a href="moving-nuclei.html" data-term="free gas">Page 3</a>.</dd>
+  <dt id="coherent-elastic">Coherent elastic scattering</dt><dd>Diffraction off a crystal's planes of atoms, with no energy change: the source of Bragg edges. <a href="lattice-scattering.html" data-term="coherent elastic">Page 21</a>.</dd>
+  <dt id="scattering-law">Scattering law, S(&alpha;, &beta;)</dt><dd>A table of how likely each pair of kick and energy change is, holding all of a material's thermal physics. <a href="lattice-scattering.html" data-term="scattering law">Page 21</a>.</dd>
+  <dt id="detailed-balance">Detailed balance</dt><dd>The rule that gaining a given energy is less likely than losing it, by e<sup>&minus;&beta;</sup>. A rule S obeys, not what S is. <a href="lattice-scattering.html" data-term="detailed balance">Page 21</a>.</dd>
+  <dt id="debye-waller">Debye&ndash;Waller factor</dt><dd>How much the atoms' shaking weakens sharp, no-phonon scattering. <a href="lattice-scattering.html" data-term="Debye">Page 21</a>.</dd>
+  <dt id="normal-mode">Normal mode</dt><dd>A pattern in which every atom of a lattice or molecule moves in step, at one frequency. <a href="phonons.html" data-term="normal modes">Page 23</a>.</dd>
+  <dt id="phonon">Phonon</dt><dd>One packet of a lattice vibration's energy, &#8463;&omega;, counted like a particle. <a href="phonons.html" data-term="phonon">Page 23</a>.</dd>
+  <dt id="quasiparticle">Quasiparticle</dt><dd>Something that behaves like a particle but exists only inside a material, as a collective motion of many atoms. <a href="phonons.html" data-term="quasiparticle">Page 23</a>.</dd>
+  <dt id="polarisation">Polarisation</dt><dd>A phonon's "style": how its atoms move compared with the direction the wave travels (along: longitudinal; across: transverse). <a href="phonons.html" data-term="polarisation">Page 23</a>.</dd>
+  <dt id="density-of-states">Density of states, &rho;</dt><dd>How many vibration modes sit at each energy: a material's vibration fingerprint. <a href="many-phonons.html" data-term="density of states">Page 24</a>.</dd>
+  <dt id="recoil-line">Recoil line</dt><dd>&beta; = &minus;&alpha;: where every collision with a free nucleus at rest lands. <a href="alpha-beta.html" data-term="recoil line">Maths 1</a>.</dd>
+  <dt id="sum-rule">Sum rule</dt><dd>On average a collision costs the neutron exactly the free-atom recoil energy, however the atom is bound. <a href="free-gas.html" data-term="sum rule">Maths 2</a>.</dd>
+  <dt id="upscatter">Up-scatter and down-scatter</dt><dd>Gaining energy by absorbing a phonon already there; losing energy by making one. <a href="one-spring.html" data-term="up-scatter">Maths 3</a>.</dd>
+  <dt id="phonon-expansion">Phonon expansion</dt><dd>Writing what a collision can do as a sum: 0 phonons + 1 phonon + 2 phonons + &hellip;, each with its chance. <a href="one-spring.html" data-term="phonon expansion">Maths 3</a>.</dd>
+  <dt id="convolution">Convolution</dt><dd>Going through every way to make a total and adding up their chances: the distribution of a sum. <a href="convolution.html" data-term="convolution">Maths 3½</a>.</dd>
+  <dt id="sct">Short-collision-time approximation</dt><dd>Treating a very quick, hard collision as if the atom were free: a bell curve instead of the phonon sum. <a href="big-kicks.html" data-term="short-collision-time approximation">Maths 5</a>.</dd>
+  <dt id="zero-point">Zero-point motion</dt><dd>The jiggle a confined atom keeps even at absolute zero: &frac12;&#8463;&omega; per mode. <a href="zero-point.html" data-term="zero-point motion">Maths 5b</a>.</dd>
+  <dt id="effective-temperature">Effective temperature, T&#772;</dt><dd>The atoms' real average kinetic energy, thermal plus zero-point, written as a temperature; always at least the real one. <a href="zero-point.html" data-term="effective temperature">Maths 5b</a>.</dd>
+  <dt id="impulse-approximation">Impulse approximation</dt><dd>Treating a hard kick as a snapshot of the atom's momentum. <a href="one-spring-check.html" data-term="impulse approximation">Maths 5g</a>.</dd>
+  <dt id="coherent">Coherent and incoherent scattering</dt><dd>Whether the waves scattered by different atoms interfere (coherent) or just add up separately (incoherent). <a href="coherent.html" data-term="coherent">Maths 5h</a>.</dd>
+  <dt id="triplet-singlet">Triplet and singlet</dt><dd>The neutron and a proton with spins lined up (total spin 1) or opposed (total spin 0); they scatter very differently. <a href="spin.html" data-term="triplet">Maths 5i</a>.</dd>
+</dl>
+
+<nav class="lesson-nav" aria-label="Lessons"></nav>
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a>. Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. GPL-3.0. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>

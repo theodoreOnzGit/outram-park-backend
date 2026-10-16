@@ -269,6 +269,7 @@
       ol.append(li);
     });
     contents.append(ol);
+    var gl = el("p"); gl.append(el("a", { href: "glossary.html" }, "Glossary of terms")); contents.append(gl);
     bottom.append(row, contents);
   }
 

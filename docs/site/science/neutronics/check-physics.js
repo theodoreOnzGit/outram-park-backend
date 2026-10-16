@@ -604,5 +604,18 @@ for (const [label, A, ap, E] of [["C-12, 10 eV", 11.89365, 6.146927, 10], ["U-23
   console.log(`     H-1 from b+/b-: coherent ${sc.toFixed(3)} b (table ${H.sc}), incoherent ${si.toFixed(2)} b (table ${H.si})`);
 }
 
+// The glossary: every entry links to a page that exists and names the term.
+{
+  const g = fs.readFileSync(path.join(__dirname, "glossary.html"), "utf8");
+  const plain = (t) => t.replace(/<[^>]+>/g, " ").replace(/&ndash;/g, "-").replace(/&[a-z]+;/g, " ").replace(/\s+/g, " ").toLowerCase();
+  let bad = 0, n = 0;
+  for (const m of g.matchAll(/<a href="([a-z0-9-]+\.html)" data-term="([^"]+)"/g)) {
+    n++;
+    const f = path.join(__dirname, m[1]);
+    if (!fs.existsSync(f) || !plain(fs.readFileSync(f, "utf8")).includes(m[2].toLowerCase().replace(/-/g, "-"))) { bad++; console.log("     glossary: " + m[1] + " does not name '" + m[2] + "'"); }
+  }
+  check("glossary: " + n + " links reach a page that names the term", bad, 0);
+}
+
 if (failed) { console.log(failed + " check(s) failed"); process.exit(1); }
 console.log("all lesson physics checks passed");
