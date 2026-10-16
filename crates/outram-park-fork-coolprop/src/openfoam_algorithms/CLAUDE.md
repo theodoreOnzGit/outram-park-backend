@@ -12,9 +12,16 @@ IAPWS-IF97 steam tables. The other vendored solvers that shipped in the tampines
 copy (`driftFluxFoam/`, `simplefoam/`, `chtMultiRegionTwoPhaseEulerFoam/`) were
 **deleted** — only the EOS-wired `rhoPimpleFoam` path is kept here.
 
-**It depends only on `uom`** (no `ndarray` / BLAS / C, and — deliberately — no
+~~**It depends only on `uom`** (no `ndarray` / BLAS / C, and — deliberately — no
 `outram-foam-basic-lib`): the numerical primitives are copied in as source, so this
-crate carries them itself and stays Android-buildable.
+crate carries them itself and stays Android-buildable.~~ **CORRECTED 2026-10-16** —
+the crate's `Cargo.toml` lists `outram-foam-basic-lib` as a normal dependency
+(since GitHub #492, which made `mesh`, the 1-D mesher and the tensor
+primitives here re-exports of basic-lib), and since gh #901 the KNP face flux
+of `rhoPimpleFoam/central_upwind.rs` is basic-lib's
+`fv_operators::fvc::central_upwind` too. Still no `ndarray` / BLAS / C. The
+rest of `openfoam_source/` (fields, FV operators, matrices) is still a
+vendored copy.
 
 ## Differences from the tampines copy
 

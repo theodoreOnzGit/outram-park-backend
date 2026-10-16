@@ -191,6 +191,7 @@ reference implementation the other backends are verified against.
 | `fvc::reconstruct(phi)` | Least-squares VolVectorField from face flux → `VolVectorField` |
 | `fvc::ddt_corr(U_old, phi_old, dt)` | PISO flux consistency correction → `SurfaceScalarField` |
 | `fvc::buoyancy_flux(rho, g)` | ρ_f·(g·Sf) per face → `SurfaceScalarField` |
+| `fvc::central_upwind::{knp_face_flux, central_face_flux, physical_face_flux, knp_wave_speeds, local_wave_speed_max, central_flux_speed_max, mach_blend, velocity_component}`, `KnpFaceState`, `KnpFaceFlux`, `KnpWaveSpeeds` | The EOS-free Kurganov–Noelle–Petrova (2001) central-upwind face flux of `rhoCentralFoam.C`, per unit area, raw SI. The caller supplies `p`, `c` and an energy pair (`w_e`, `f_e`): `ρE`/`H` for a total-energy solver, `ρh`/`h` for a static-enthalpy one. The one copy used by `RhoCentralFoam` (appbuilder) and the `HybridAllMach` arrays (steam-tables, CoolProp), gh #901 |
 | `adjust_phi(phi, U)` | Global mass-balance correction |
 
 ### Layer 3 — Optional equation sources (`fvOptions` / `fvModels`)

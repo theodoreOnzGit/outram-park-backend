@@ -314,8 +314,11 @@
 //!   physics window (the front sits at `ρ ≳ 106 kg/m³`), so the ~55 % ringing
 //!   reduction and the ≈ 388 psia plateau are unchanged (bug op-21g.15.7).
 //!
-//! See the `central_upwind` module for the KNP flux math and the `FaceState`
-//! reconstruction.
+//! ~~See the `central_upwind` module for the KNP flux math and the `FaceState`
+//! reconstruction.~~ **CORRECTED 2026-10-16 (gh #901):** the KNP flux math and
+//! the face state (`KnpFaceState`) now live in
+//! `outram_foam_basic_lib::fv_operators::fvc::central_upwind`; the
+//! `central_upwind` module here keeps the IF97 HEM sound speed.
 //!
 //! ---
 //!
@@ -556,7 +559,7 @@ pub use lateral_coupling::TampinesSteamArrayError;
 mod central_upwind;
 use central_upwind::{
     central_face_flux, hem_sound_speed_ph, knp_face_flux, mach_blend, velocity_component,
-    FaceState, C_MIN_MPS,
+    KnpFaceState, C_MIN_MPS,
 };
 
 /// How often `psi = d(rho)/dp|_h` is rebuilt inside the PIMPLE loop.
@@ -2896,7 +2899,7 @@ impl TampinesSteamArray {
     /// liquid side is subsonic so `β = 0` there; dissipation activates only where
     /// *both* sides are near-sonic — see the `min` rationale at the call site).
     /// van-Leer MUSCL owner/neighbour reconstructions of `ρ, U, he, p, c` build
-    /// the left/right [`FaceState`]s, and the deferred-correction dissipation is
+    /// the left/right [`KnpFaceState`]s, and the deferred-correction dissipation is
     /// `β·(knp − central)·|Sf|` — the pure KNP jump term, identically zero on a
     /// subsonic face. Continuity dissipation is returned as a face mass flux to
     /// fold into `phi`; momentum dissipation as an owner-loses / neighbour-gains
@@ -3059,20 +3062,20 @@ impl TampinesSteamArray {
                 c_neg.internal[f],
             );
 
-            let l = FaceState {
-                rho: rho_l,
-                u: Vector3::new(ux_pos.internal[f], uy_pos.internal[f], uz_pos.internal[f]),
-                he: he_pos.internal[f],
-                p: p_l,
-                c: c_l,
-            };
-            let r = FaceState {
-                rho: rho_r,
-                u: Vector3::new(ux_neg.internal[f], uy_neg.internal[f], uz_neg.internal[f]),
-                he: he_neg.internal[f],
-                p: p_r,
-                c: c_r,
-            };
+            let l = KnpFaceState::static_enthalpy(
+                rho_l,
+                Vector3::new(ux_pos.internal[f], uy_pos.internal[f], uz_pos.internal[f]),
+                p_l,
+                c_l,
+                he_pos.internal[f],
+            );
+            let r = KnpFaceState::static_enthalpy(
+                rho_r,
+                Vector3::new(ux_neg.internal[f], uy_neg.internal[f], uz_neg.internal[f]),
+                p_r,
+                c_r,
+                he_neg.internal[f],
+            );
 
             let knp = knp_face_flux(&l, &r, n_f);
             let cen = central_face_flux(&l, &r, n_f);
@@ -3080,8 +3083,8 @@ impl TampinesSteamArray {
             // Continuity / momentum: deferred-correction dissipation
             // β·(KNP − central)·|Sf| (the pure KNP jump term). Energy is carried
             // implicitly by the continuity term (see `HybridDissipation`).
-            let d_cont = beta * (knp.cont - cen.cont) * area;
-            let d_mom = (knp.mom - cen.mom) * (beta * area);
+            let d_cont = beta * (knp.mass - cen.mass) * area;
+            let d_mom = (knp.momentum - cen.momentum) * (beta * area);
 
             // Continuity: add the dissipative mass flux to phi (owner→neighbour
             // positive, matching phi's sign convention).

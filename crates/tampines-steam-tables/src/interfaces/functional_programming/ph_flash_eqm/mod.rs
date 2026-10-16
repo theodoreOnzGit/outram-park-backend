@@ -418,9 +418,11 @@ pub fn cv_ph_eqm(p: Pressure, h: AvailableEnergy) -> SpecificHeatCapacity {
     }
 }
 
-/// returns the speed of sound given temperature and pressure
+/// returns the speed of sound given ~~temperature and pressure~~ pressure and
+/// specific enthalpy (**CORRECTED 2026-10-16**: the arguments are `(p, h)`).
 /// Note: when in the equilibrium zone (Region 4) it WILL give the
-/// wood wallis speed of sound, the frozen speed of sound
+/// wood wallis speed of sound, the frozen speed of sound. For the
+/// homogeneous-equilibrium speed use [`w_ph_eqm_hem`].
 pub fn w_ph_wood_wallis(p: Pressure, h: AvailableEnergy) -> Velocity {
     let t = t_ph_eqm(p, h);
     let region = ph_flash_region(p, h);
@@ -467,7 +469,8 @@ pub fn w_ph_wood_wallis(p: Pressure, h: AvailableEnergy) -> Velocity {
             //let v = v_ps_eqm(p, s);
             //let _c_hem_finite_diff: Velocity = v * (dv_dp_s.recip() * -1.0).sqrt();
 
-            // Use homogeneous equilibrium model
+            // Wood (Wallis) FROZEN mixture speed -- not the homogeneous-
+            // equilibrium speed, which is `w_ph_eqm_hem` (corrected 2026-10-16).
             let c_wallis = w_two_phase_homogeneous_wood_wallis(
                 Ratio::new::<ratio>(steam_quality),
                 w_liq,
@@ -482,11 +485,69 @@ pub fn w_ph_wood_wallis(p: Pressure, h: AvailableEnergy) -> Velocity {
     }
 }
 
-/// Returns the speed of sound in a two-phase mixture using the
-/// homogeneous equilibrium model
+/// Homogeneous-**equilibrium** (HEM) speed of sound at `(p, h)`.
+///
+/// This is the speed at which a small pressure wave travels when the two
+/// phases stay in thermodynamic equilibrium while it passes, so liquid flashes
+/// and vapour condenses within the wave. Inside the vapour–liquid dome it is
+/// far below the frozen (Wood–Wallis) speed of [`w_ph_wood_wallis`], and it is
+/// the speed that places the characteristics of a homogeneous-equilibrium
+/// flow model (a KNP central-upwind flux, a Courant number, a choking
+/// criterion).
+///
+/// - **Two-phase dome (Region 4):** entropy `s = s_ph_eqm(p, h)` feeds Kieffer
+///   (1977) eq. 28, [`w_ps_eqm_region4_kieffer`], which differentiates the
+///   mixture volume along the saturation curve. That closure is
+///   AI-generated and not yet validated, so when it returns a non-finite or
+///   non-positive value this falls back to the finite difference of the
+///   equilibrium isentrope, [`w_ps_eqm_region4_finite_diff_vol`].
+/// - **Single phase (Regions 1, 2, 3, 5):** there is no phase change to lag,
+///   so the equilibrium and frozen speeds coincide. Returns the region forward
+///   speed `w_tp_{1,2,3,5}(T, p)` at `T = t_ph_eqm(p, h)`.
+///
+/// Valid where the `(p, h)` flash is valid. **Not clamped:** if both Region 4
+/// closures fail (e.g. very close to the critical point) the value can be
+/// non-finite, and the caller decides what to do with that.
+///
+/// Reference: Kieffer, S. W. (1977), "Sound speed in liquid-gas mixtures:
+/// water-air and water-steam", *J. Geophys. Res.* 82(20), 2895–2904.
+///
+/// Moved here from the private `hem_sound_speed_ph` of the `HybridAllMach`
+/// KNP path (gh #901), which now calls this function.
+pub fn w_ph_eqm_hem(p: Pressure, h: AvailableEnergy) -> Velocity {
+    match ph_flash_region(p, h) {
+        FwdEqnRegion::Region4 => {
+            let s = s_ph_eqm(p, h);
+            let c_kieffer = w_ps_eqm_region4_kieffer(p, s);
+            if c_kieffer.value.is_finite() && c_kieffer.value > 0.0 {
+                c_kieffer
+            } else {
+                w_ps_eqm_region4_finite_diff_vol(p, s)
+            }
+        }
+        FwdEqnRegion::Region1 => w_tp_1(t_ph_eqm(p, h), p),
+        FwdEqnRegion::Region2 => w_tp_2(t_ph_eqm(p, h), p),
+        FwdEqnRegion::Region3 => w_tp_3(t_ph_eqm(p, h), p),
+        FwdEqnRegion::Region5 => w_tp_5(t_ph_eqm(p, h), p),
+    }
+}
+
+/// ~~Returns the speed of sound in a two-phase mixture using the
+/// homogeneous equilibrium model~~
+///
+/// ~~This model assumes:~~
+/// ~~- Thermal and mechanical equilibrium between phases~~
+///
+/// **CORRECTED 2026-10-16 (gh #901):** the formula below is Wood's (Wallis)
+/// mixture speed, which is the **frozen** two-phase speed of sound: the
+/// mixture compressibility is the volume-weighted sum of the two phases' own
+/// compressibilities, with **no** mass exchange between them during the wave.
+/// It assumes mechanical equilibrium (one pressure) and no slip, but not
+/// thermal or phase equilibrium. The homogeneous-*equilibrium* speed, which
+/// includes flashing, is [`w_ph_eqm_hem`] and is much lower inside the dome.
 ///
 /// This model assumes:
-/// - Thermal and mechanical equilibrium between phases
+/// - Mechanical equilibrium (one pressure), no interphase mass or heat transfer
 /// - No slip between liquid and vapor phases
 /// - Isentropic process
 ///

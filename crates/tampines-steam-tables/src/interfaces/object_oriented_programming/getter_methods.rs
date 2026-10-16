@@ -8,6 +8,7 @@ use crate::prelude::functional_programming::ph_flash_eqm::cp_ph_eqm;
 use crate::prelude::functional_programming::ph_flash_eqm::cv_ph_eqm;
 use crate::prelude::functional_programming::ph_flash_eqm::lambda_ph_eqm;
 use crate::prelude::functional_programming::ph_flash_eqm::ph_flash_region;
+use crate::prelude::functional_programming::ph_flash_eqm::w_ph_eqm_hem;
 use crate::prelude::functional_programming::ph_flash_eqm::w_ph_wood_wallis;
 use crate::prelude::functional_programming::ph_flash_eqm::x_ph_flash;
 use crate::prelude::functional_programming::pt_flash_eqm::FwdEqnRegion;
@@ -60,8 +61,16 @@ impl super::TampinesSteamTableCV {
         return mu_ph_eqm(p, h);
     }
 
-    /// returns speed of sound
-    /// important for compressible flow in turbine
+    /// Returns the **frozen** speed of sound of the control volume
+    /// (`w_ph_wood_wallis`).
+    ///
+    /// Outside the vapour–liquid dome this is the ordinary single-phase speed
+    /// of sound. **Inside the dome it is Wood's (Wallis) frozen mixture speed**,
+    /// which assumes no mass exchange between the phases while the wave
+    /// passes. It is not the homogeneous-equilibrium speed, which is lower,
+    /// often by an order of magnitude: for that, use
+    /// [`Self::get_equilibrium_speed_of_sound`]. An earlier version of this doc
+    /// said only "returns speed of sound" (corrected 2026-10-16, gh #901).
     pub fn get_speed_of_sound(&self) -> Velocity {
         let p = self.pressure;
         let h = self.specific_enthalpy;
@@ -69,7 +78,23 @@ impl super::TampinesSteamTableCV {
         return w_ph_wood_wallis(p, h);
     }
 
-    /// get mach number
+    /// Returns the **homogeneous-equilibrium (HEM)** speed of sound of the
+    /// control volume, [`w_ph_eqm_hem`].
+    ///
+    /// Inside the vapour–liquid dome the phases are assumed to stay in
+    /// equilibrium as the wave passes (liquid flashes, vapour condenses), and
+    /// the speed comes from Kieffer (1977) eq. 28, with a finite-difference
+    /// fallback. Outside the dome it equals [`Self::get_speed_of_sound`]. This
+    /// is the speed a homogeneous-equilibrium flow model must use for its
+    /// characteristics, Courant number and choking criterion. Valid where the
+    /// `(p, h)` flash is valid; not clamped.
+    pub fn get_equilibrium_speed_of_sound(&self) -> Velocity {
+        w_ph_eqm_hem(self.pressure, self.specific_enthalpy)
+    }
+
+    /// Mach number `v / c` of a flow speed `v`, using the **frozen** speed of
+    /// [`Self::get_speed_of_sound`] (so in the dome it is not the HEM Mach
+    /// number).
     pub fn get_mach_number(&self, v: Velocity) -> Ratio {
         v / self.get_speed_of_sound()
     }
@@ -439,5 +464,80 @@ impl super::TampinesSteamTableCV {
     pub fn get_stagnation_critical_mass_flux(&self) -> MassFlux {
         let (_critical_pressure, mass_flux) = self.get_crit_pressure_and_massflux();
         mass_flux
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::super::TampinesSteamTableCV;
+    use crate::interfaces::functional_programming::ph_flash_eqm::{ph_flash_region, s_ph_eqm};
+    use crate::interfaces::functional_programming::pt_flash_eqm::FwdEqnRegion;
+    use crate::region_1_subcooled_liquid::h_tp_1;
+    use crate::region_2_vapour::h_tp_2;
+    use crate::region_4_vap_liq_equilibrium::{sat_temp_4, w_ps_eqm_region4_kieffer};
+    use uom::si::f64::{Pressure, Volume};
+    use uom::si::pressure::bar;
+    use uom::si::velocity::meter_per_second;
+    use uom::si::volume::cubic_meter;
+
+    /// V&V: `get_equilibrium_speed_of_sound` at water-steam dome states against
+    /// Kieffer (1977) Fig. 9 (gh #901, epic #896 step M2).
+    ///
+    /// Methodology: water at 1 bar, `h = (1−x)h' + x h''` with the IF97
+    /// saturated enthalpies at `T_sat(1 bar)`, at `x = 0.1214` and `x = 0.3527`.
+    /// Reference: Kieffer, S. W. (1977), "Sound speed in liquid-gas mixtures:
+    /// water-air and water-steam", *J. Geophys. Res.* 82(20), 2895–2904,
+    /// Fig. 9, digitised as 128.59 m/s and 248.83 m/s (the same points
+    /// `region_4_vap_liq_equilibrium/tests.rs` uses). Pass criteria: the state
+    /// is Region 4; the getter equals the Kieffer eq. 28 closure
+    /// [`w_ps_eqm_region4_kieffer`] evaluated directly, bit for bit (routing);
+    /// `|log10(c/c_fig9)| < 0.1` (the existing closure test's tolerance for a
+    /// digitised log-scale figure); and `c` is strictly below the frozen
+    /// Wood–Wallis speed of `get_speed_of_sound`.
+    ///
+    /// Results (2026-10-16, `cargo test --release -p tampines-steam-tables
+    /// --lib equilibrium_speed_of_sound -- --nocapture`): x = 0.1214 →
+    /// **128.46 m/s** (−0.1 % vs Fig. 9's 128.59; frozen Wood–Wallis 473.01
+    /// m/s); x = 0.3527 → **247.75 m/s** (−0.4 % vs 248.83; frozen 472.30 m/s).
+    /// The equilibrium speed is a quarter to a half of the frozen speed here,
+    /// which is the gap a KNP flux or Courant number would get wrong if it used
+    /// `get_speed_of_sound`. The figure is digitised from a log-scale plot, so
+    /// this is agreement within that reading accuracy (a few percent). The
+    /// CoolProp twin (`single_cv_and_flash.rs`) gives 128.46 / 247.74 m/s at
+    /// the same states from an independent EOS and closure.
+    #[test]
+    fn equilibrium_speed_of_sound_is_kieffer_in_the_dome() {
+        let p = Pressure::new::<bar>(1.0);
+        let t_sat = sat_temp_4(p);
+        let h_liq = h_tp_1(t_sat, p);
+        let h_vap = h_tp_2(t_sat, p);
+        for &(x, c_fig9) in &[
+            (0.12139772_f64, 128.59231566_f64),
+            (0.35266992, 248.83097247),
+        ] {
+            let h = x * h_vap + (1.0 - x) * h_liq;
+            assert_eq!(ph_flash_region(p, h), FwdEqnRegion::Region4);
+            let cv = TampinesSteamTableCV::new_from_ph(p, h, Volume::new::<cubic_meter>(1.0));
+
+            let c_eq = cv.get_equilibrium_speed_of_sound();
+            let c_kieffer = w_ps_eqm_region4_kieffer(p, s_ph_eqm(p, h));
+            let c_frozen = cv.get_speed_of_sound();
+            let c = c_eq.get::<meter_per_second>();
+            println!(
+                "MEASURE IF97 HEM 1 bar x = {x:.4}: equilibrium {c:.2} m/s vs Kieffer Fig. 9 {c_fig9:.2} m/s ({:+.1} %), frozen {:.2} m/s",
+                100.0 * (c / c_fig9 - 1.0),
+                c_frozen.get::<meter_per_second>()
+            );
+            assert_eq!(c_eq, c_kieffer);
+            assert!(c > 0.0);
+            assert!(
+                (c / c_fig9).log10().abs() < 0.1,
+                "x = {x}: {c} m/s vs {c_fig9} m/s"
+            );
+            assert!(
+                c_eq < c_frozen,
+                "equilibrium speed must be below the frozen speed"
+            );
+        }
     }
 }
