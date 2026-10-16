@@ -1,6 +1,7 @@
 //! **The core view** of the `htr10` rung (gh:#786): neutrons flying through
-//! the whole HTR-10 model, over a live x-z slice of it, and the live
-//! low-statistics k_eff beside the record.
+//! the whole HTR-10 model, over a live x-z slice of it, and the live k_eff
+//! beside the record, at whatever statistics the reader sets (~~low-statistics~~:
+//! the recorded settings are one tap away, gh:#876 item 5).
 //!
 //! It opens on **recorded** tracks (baked natively by [`super::bake`] from the
 //! same model, code and seed, and labelled so), which play at once. "Run live
@@ -9,7 +10,7 @@
 //! [`super::TRACED_PER_GENERATION`] histories of every generation.
 
 use super::pool::{CorePool, GenSummary, Note, PoolPhase, PoolState, RestartKind, RunOrigin, RunState};
-use super::{DEFAULT_RUN, RECORD_SEED};
+use super::{DEFAULT_RUN, RECORD_RUN, RECORD_SEED};
 use crate::anim::{animated_speed, draw_track, energy_bar, fmt_speed, legend_markers, Anim};
 use crate::history::History;
 use crate::keff::{clamp_to_caps, eta_line, plan_line, KeffConfig, MAX_GENERATIONS, MAX_PARTICLES, MIN_ACTIVE};
@@ -53,7 +54,7 @@ pub const DEM_NATIVE_RECORD: Option<(f64, f64, &str)> = Some((
 ));
 
 /// What the page says about the random bed's live k, wherever it shows it.
-pub const DEM_CAVEAT: &str = "Random bed: a LOW-STATISTICS DEMO. At 1000 neutrons per generation σ is about 1000 pcm, so it cannot resolve a lattice-against-random difference (any likely one is a few hundred pcm). One pour, one cut; pour-to-pour scatter is not measured.";
+pub const DEM_CAVEAT: &str = "Random bed: at the default 1000 neutrons per generation σ is about 1000 pcm, so it cannot resolve a lattice-against-random difference (any likely one is a few hundred pcm). One pour, one cut; pour-to-pour scatter is not measured.";
 
 /// The native random-bed record as the page prints it.
 pub fn dem_record_line() -> String {
@@ -585,7 +586,7 @@ impl CoreScreen {
         match self.pool.as_mut() {
             None => {
                 ui.label(format!(
-                    "Processes all 38 nuclides of the recorded model (31 ENDF/B-VIII.0 tapes, 5 thermal laws, about 35 MB to download) in a pool of Web Workers, each nuclide once, then runs a low-statistics k_eff of the whole core. Pool: {}.",
+                    "Processes all 38 nuclides of the recorded model (31 ENDF/B-VIII.0 tapes, 5 thermal laws, about 35 MB to download) in a pool of Web Workers, each nuclide once, then runs k_eff of the whole core at the statistics you set (up to the recorded 10 000 × [5 + 135] and beyond). Pool: {}.",
                     self.plan.reason
                 ));
                 if self.forced.is_none() {
@@ -897,6 +898,19 @@ fn pool_panel(
     if cfg.seed != RECORD_SEED {
         ui.weak(format!("The record used seed {RECORD_SEED}."));
     }
+    // Repeat the record (gh:#876 item 5): same settings and seed.
+    ui.add_enabled_ui(!running, |ui| {
+        ui.horizontal_wrapped(|ui| {
+            if ui.button("Defaults").clicked() {
+                *cfg = DEFAULT_RUN;
+            }
+            if ui.button(format!("Recorded settings ({})", crate::keff::settings_line(&RECORD_RUN))).clicked() {
+                *cfg = RECORD_RUN;
+            }
+        });
+    });
+    let page = dhoby_ghaut::web_demo::platform::page_url();
+    crate::keff::settings_link_row(ui, &crate::keff::settings_link(&page, "htr10", "watch", Some("core"), cfg));
     ui.horizontal(|ui| {
         if !running && ui.button("▶ Start").clicked() {
             let _ = s.start_run(*cfg, now_s());
@@ -926,7 +940,7 @@ fn pool_panel(
     }
     if let Some(run) = &s.run {
         // What kind of run this is (a restart says how, gh:#817).
-        let mut what = run.describe();
+        let mut what = format!("{} ({})", run.describe(), crate::keff::settings_line(&run.cfg));
         if let RunOrigin::Restart { after, .. } = &run.origin {
             what.push_str(&format!(", after: {after}"));
         }

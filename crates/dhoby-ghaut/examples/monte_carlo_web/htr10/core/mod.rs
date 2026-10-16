@@ -79,6 +79,18 @@ pub const DEFAULT_RUN: KeffConfig = KeffConfig {
     want_sites: false,
 };
 
+/// The recorded runs' settings, the "Recorded settings" preset (gh:#876
+/// item 5): 10 000 × [5 + 135] on [`RECORD_SEED`]
+/// (`htr10_seker_2026_10_07_10k/RUN_PARAMETERS.md`).
+pub const RECORD_RUN: KeffConfig = KeffConfig {
+    n_particles: 10_000,
+    n_inactive: 5,
+    n_active: 135,
+    seed: RECORD_SEED,
+    point_source: false,
+    want_sites: false,
+};
+
 /// The nuclide plan of the recorded runs.
 pub fn layout() -> Result<Htr10NuclideLayout, String> {
     Htr10NuclideLayout::plan(&Htr10DataConfig::default()).map_err(|e| e.to_string())

@@ -60,6 +60,10 @@ impl Tier {
 pub enum Request {
     /// Process the rung's tapes (replacing whatever was loaded).
     Load { id: u32, rung: Rung, tier: Tier },
+    /// Process only jobs `jobs` of the rung's load into the shared cache,
+    /// building nothing (a processing-pool worker, [`crate::prime_pool`]):
+    /// `JobStarted` / `JobDone` per job under load `id`, then `Ready`.
+    Prime { id: u32, rung: Rung, tier: Tier, jobs: Vec<usize> },
     /// Transport `n` more traced neutrons of the loaded rung; `animate: false`
     /// ones go straight to the statistics ("Run 100 unanimated").
     Run { n: usize, animate: bool },
@@ -121,7 +125,7 @@ pub enum Event {
 /// Serve one non-load request on loaded data.
 pub fn serve(l: &mut Loaded, r: Request, post: &mut impl FnMut(Event)) {
     match r {
-        Request::Load { .. } | Request::Core(_) | Request::ClearCache | Request::CacheInfo => {} // the platform's jobs
+        Request::Load { .. } | Request::Prime { .. } | Request::Core(_) | Request::ClearCache | Request::CacheInfo => {} // the platform's jobs
         Request::Run { n, animate } => {
             for _ in 0..n {
                 post(Event::History { h: l.run_next(), animate });
@@ -264,6 +268,10 @@ impl dhoby_ghaut::web_demo::link::NativeEngine for McEngine {
                     Err(e) => post(Event::Error(e)),
                 }
             }
+            Request::Prime { id, rung, tier, jobs } => match native_prime(id, rung, tier, &jobs, &mut self.store, post) {
+                Ok(()) => post(Event::Ready { id }),
+                Err(e) => post(Event::Error(e)),
+            },
             Request::Core(r) => {
                 // A benchmark rung's pooled run (gh:#907), else the HTR-10 core.
                 let r = match self.loaded.as_mut() {
@@ -318,6 +326,33 @@ pub fn native_load(id: u32, rung: Rung, tier: Tier, store: &mut DataStore, post:
         post(Event::JobDone { id, index, secs: t.elapsed().as_secs_f64(), source });
     }
     b.finish()
+}
+
+/// [`Request::Prime`] natively: each of `jobs` made into `store` (this
+/// engine's memory, natively the cache) through [`Rung::prime`], with
+/// the same events a load posts for it.
+#[cfg(not(target_arch = "wasm32"))]
+pub fn native_prime(id: u32, rung: Rung, tier: Tier, jobs: &[usize], store: &mut DataStore, post: &mut impl FnMut(Event)) -> Result<(), String> {
+    let all = rung.jobs_for(rung.tier(tier));
+    for &index in jobs {
+        let (label, tape) = *all.get(index).ok_or_else(|| format!("no job {index}"))?;
+        post(Event::JobStarted { id, index });
+        let t = std::time::Instant::now();
+        let bytes = if crate::tapes::is_generated(tape) {
+            Vec::new()
+        } else {
+            let b = crate::native_tape(tape).map_err(|e| format!("{label}: {e}"))?;
+            store.begin_tape(&b);
+            b
+        };
+        rung.prime(tier, index, &bytes, store).map_err(|e| format!("{label}: {e}"))?;
+        let (source, notes) = step_report(store);
+        for n in notes {
+            post(Event::DataNote(n));
+        }
+        post(Event::JobDone { id, index, secs: t.elapsed().as_secs_f64(), source });
+    }
+    Ok(())
 }
 
 // ─── Flattening for postMessage ──────────────────────────────────────────────
@@ -529,6 +564,13 @@ pub mod web {
                     js::set(&o, "rung", dhoby_ghaut::web_demo::lesson::Rung::name(*rung));
                     js::set(&o, "exact", *tier == Tier::Exact);
                 }
+                Request::Prime { id, rung, tier, jobs } => {
+                    js::set(&o, "kind", "prime");
+                    js::set(&o, "id", *id as f64);
+                    js::set(&o, "rung", dhoby_ghaut::web_demo::lesson::Rung::name(*rung));
+                    js::set(&o, "exact", *tier == Tier::Exact);
+                    js::set(&o, "jobs", js::f64s(&jobs.iter().map(|&j| j as f64).collect::<Vec<_>>()));
+                }
                 Request::Run { n, animate } => {
                     js::set(&o, "kind", "run");
                     js::set(&o, "n", *n as f64);
@@ -575,6 +617,12 @@ pub mod web {
                 return r.map(Request::Core);
             }
             Ok(match kind.as_str() {
+                "prime" => Request::Prime {
+                    id: js::get_f64(v, "id").unwrap_or(0.0) as u32,
+                    rung: dhoby_ghaut::web_demo::lesson::parse(&js::get_str(v, "rung")).ok_or("unknown rung")?,
+                    tier: if js::get_bool(v, "exact").unwrap_or(false) { Tier::Exact } else { Tier::NoData },
+                    jobs: js::get_f64s(v, "jobs").into_iter().map(|j| j as usize).collect(),
+                },
                 "load" => Request::Load {
                     id: js::get_f64(v, "id").unwrap_or(0.0) as u32,
                     rung: dhoby_ghaut::web_demo::lesson::parse(&js::get_str(v, "rung")).ok_or("unknown rung")?,
@@ -764,6 +812,14 @@ pub mod web {
                         }
                     });
                 }
+                Request::Prime { id, rung, tier, jobs } => {
+                    wasm_bindgen_futures::spawn_local(async move {
+                        match prime(id, rung, tier, &jobs, post).await {
+                            Ok(()) => post.post(Event::Ready { id }),
+                            Err(e) => post.post(Event::Error(e)),
+                        }
+                    });
+                }
                 Request::Core(r) => {
                     // A benchmark rung's pooled run (gh:#907), else the HTR-10 core.
                     let r = match state.write() {
@@ -807,6 +863,49 @@ pub mod web {
                 }
             }
         }
+    }
+
+    /// [`Request::Prime`] in a browser worker: download each of `jobs`'
+    /// tapes, read its product from the shared cache (IndexedDB) or make it
+    /// ([`Rung::prime`]) and save it there, posting what a load posts for
+    /// each job. Nothing is kept in the worker: the page's engine then loads
+    /// every product from the cache.
+    async fn prime(id: u32, rung: Rung, tier: Tier, jobs: &[usize], post: Poster<Event>) -> Result<(), String> {
+        let all = rung.jobs_for(rung.tier(tier));
+        let mut store = DataStore::browser();
+        let mut health = crate::processed_cache::web::Health::default();
+        for &index in jobs {
+            let (label, tape) = *all.get(index).ok_or_else(|| format!("no job {index}"))?;
+            let z = if crate::tapes::is_generated(tape) {
+                None
+            } else {
+                let url = format!("data/{}", crate::tapes::wire_name(tape));
+                Some(fetch_promise(fetch_start(&url), &url).await?)
+            };
+            post.post(Event::JobStarted { id, index });
+            let t = js_sys::Date::now();
+            let bytes = match &z {
+                Some(z) => {
+                    let b = crate::tapes::decompress(z)?;
+                    crate::processed_cache::web::before_step(&mut store, &b, &mut health).await;
+                    b
+                }
+                None => {
+                    let prefix = crate::processed_cache::tape_prefix(&crate::tapes::generated_source(tape));
+                    crate::processed_cache::web::before_prefix(&mut store, &prefix, &mut health).await;
+                    Vec::new()
+                }
+            };
+            rung.prime(tier, index, &bytes, &mut store).map_err(|e| format!("{label}: {e}"))?;
+            let secs = (js_sys::Date::now() - t) / 1000.0;
+            crate::processed_cache::web::after_step(&mut store, &mut health).await;
+            let (source, notes) = step_report(&mut store);
+            for n in notes {
+                post.post(Event::DataNote(n));
+            }
+            post.post(Event::JobDone { id, index, secs, source });
+        }
+        Ok(())
     }
 
     /// Download and process a rung's tapes. `Ok(None)` if a newer load was

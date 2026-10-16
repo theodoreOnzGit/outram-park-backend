@@ -306,6 +306,10 @@ pub fn summary_lines(c: &HistoryCounts, production: f64, cfg: KeffConfig, k_mean
 pub struct KinfCase {
     /// Heading of the view, e.g. "k∞ against pitch".
     pub title: &'static str,
+    /// The view's tab label, saying what it computes and how it differs
+    /// from the rung's other live run (gh:#876 item 4), e.g. "Fuel zone
+    /// only: k∞".
+    pub tab: &'static str,
     /// Name and unit of the parameter, e.g. ("pitch", "cm").
     pub param: (&'static str, &'static str),
     pub range: (f64, f64),
@@ -317,6 +321,9 @@ pub struct KinfCase {
     pub marks: Vec<(f64, &'static str)>,
     /// Neutrons and generations of one run (point_source / want_sites unused).
     pub cfg: KeffConfig,
+    /// The recorded curves' own settings, offered as a preset so a reader
+    /// can repeat the record (gh:#876 item 5).
+    pub record_cfg: KeffConfig,
     /// The recorded curves, quoted from their record.
     pub curves: Vec<RecordedCurve>,
     /// What the run is and is not, one bullet each.
@@ -410,4 +417,39 @@ mod tests {
         assert!(p.starts_with("⚠ 5.00e8 neutron histories: about 13.9 h"), "{p}");
         assert!(plan_line(&cfg(1000, 10, 20), None).contains("after the first generation"));
     }
+}
+
+/// The largest seed a reader can set or a link can carry: a `u32`, so the
+/// HTR-10 records' 20 260 917 fits (~~1 000 000~~ until 2026-10-16, which
+/// silently clamped that seed, gh:#876 item 5).
+pub const MAX_SEED: u64 = u32::MAX as u64;
+
+/// A run's settings in one line, printed beside its result so the reader
+/// knows what to repeat (gh:#876 item 5): "10000 × [50 + 200], seed 1".
+pub fn settings_line(cfg: &KeffConfig) -> String {
+    format!("{} × [{} + {}], seed {}", cfg.n_particles, cfg.n_inactive, cfg.n_active, cfg.seed)
+}
+
+/// A link that opens `rung` in `mode` (and Watch `view`, if any) with these
+/// run settings preset: `page` plus the query the demo reads at start-up
+/// (`?particles=&inactive=&active=&seed=`, gh:#859). The same settings and
+/// seed give the same k on the same device (gh:#876 item 5).
+pub fn settings_link(page: &str, rung: &str, mode: &str, view: Option<&str>, cfg: &KeffConfig) -> String {
+    let view = view.map_or(String::new(), |v| format!("&view={v}"));
+    format!(
+        "{page}?rung={rung}&mode={mode}{view}&particles={}&inactive={}&active={}&seed={}",
+        cfg.n_particles, cfg.n_inactive, cfg.n_active, cfg.seed
+    )
+}
+
+/// "Link to these settings": the [`settings_link`] and a button that copies
+/// it. GUI drawing (the test rule's exception); the link is
+/// [`settings_link`], tested.
+pub fn settings_link_row(ui: &mut egui::Ui, link: &str) {
+    ui.horizontal_wrapped(|ui| {
+        if ui.add(egui::Button::new("🔗 Copy a link to these settings").min_size(egui::vec2(0.0, 36.0))).clicked() {
+            ui.ctx().copy_text(link.to_string());
+        }
+        ui.weak("Same settings and seed, same k on the same device.");
+    });
 }

@@ -55,12 +55,16 @@ impl DataBuilder {
     /// [`TEMPERATURE_K`] at this builder's tier.
     /// The expensive half comes from `store` when it holds it (gh:#818).
     pub fn step(&mut self, bytes: &[u8], store: &mut crate::processed_cache::DataStore) -> Result<(), String> {
-        let i = self.nuclides.len();
-        let (name, _, _) = *godiva::NUCLIDES.get(i).ok_or("no job left")?;
-        let (tape, mat) = read_tape(bytes, name)?;
-        let n = store.nuclide(bytes, &tape, mat, name, TEMPERATURE_K, self.tier, name)?;
+        let n = Self::make(self.tier, self.nuclides.len(), bytes, store)?;
         self.nuclides.push(n);
         Ok(())
+    }
+    /// Job `i`'s nuclide (what [`Self::step`] keeps, and a processing-pool
+    /// worker only caches).
+    pub fn make(tier: SpeedTier, i: usize, bytes: &[u8], store: &mut crate::processed_cache::DataStore) -> Result<Nuclide, String> {
+        let (name, _, _) = *godiva::NUCLIDES.get(i).ok_or("no job left")?;
+        let (tape, mat) = read_tape(bytes, name)?;
+        store.nuclide(bytes, &tape, mat, name, TEMPERATURE_K, tier, name)
     }
     pub fn finish(self) -> Result<NuclearData, String> {
         if self.nuclides.len() != JOBS.len() {

@@ -76,15 +76,22 @@ impl DataBuilder {
     /// The expensive half comes from `store` when it holds it (gh:#818).
     pub fn step(&mut self, bytes: &[u8], store: &mut crate::processed_cache::DataStore) -> Result<(), String> {
         let i = self.nuclides.len() + usize::from(self.sab.is_some());
+        match Self::make(i, bytes, store)? {
+            crate::rungs::Product::Nuclide(n) => self.nuclides.push(n),
+            crate::rungs::Product::Law(l) => self.sab = Some(l),
+        }
+        Ok(())
+    }
+    /// Job `i`'s product (what [`Self::step`] keeps, and a processing-pool
+    /// worker only caches).
+    pub fn make(i: usize, bytes: &[u8], store: &mut crate::processed_cache::DataStore) -> Result<crate::rungs::Product, String> {
         let (label, _) = *JOBS.get(i).ok_or("no job left")?;
         let (tape, mat) = read_tape(bytes, label)?;
         if i < fz::ENDF_TAPES.len() {
-            let n = store.nuclide(bytes, &tape, mat, fz::ENDF_TAPES[i].0, TEMP_K, SpeedTier::Fast, label)?;
-            self.nuclides.push(n);
+            Ok(crate::rungs::Product::Nuclide(store.nuclide(bytes, &tape, mat, fz::ENDF_TAPES[i].0, TEMP_K, SpeedTier::Fast, label)?))
         } else {
-            self.sab = Some(store.thermal(bytes, &tape, mat, TEMP_K, "c_Graphite", label)?);
+            Ok(crate::rungs::Product::Law(store.thermal(bytes, &tape, mat, TEMP_K, "c_Graphite", label)?))
         }
-        Ok(())
     }
     /// The fuel zone, if this load processed the tapes (the full tier).
     pub fn finish(self) -> Result<Option<FuelZone>, String> {

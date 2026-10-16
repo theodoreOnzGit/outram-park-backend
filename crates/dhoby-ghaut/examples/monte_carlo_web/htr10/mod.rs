@@ -19,9 +19,11 @@
 //! layers view shows the recorded results instead.~~ **CORRECTED 2026-10-08
 //! (gh:#786):** the **whole core** view ([`core`]) loads every core
 //! material's data on a pool of Web Workers (67–128 s measured on 2–4
-//! workers of a desktop) and runs a low-statistics k_eff of the core
-//! (1000 × [5 + 20] in 75–150 s), with its neutrons drawn; the record's
-//! statistics are still hours, so the layers view keeps the recorded results.
+//! workers of a desktop) and runs k_eff of the core at the reader's
+//! statistics, by default 1000 × [5 + 20] (75–150 s), with its neutrons
+//! drawn. The record's statistics are a preset (gh:#876 item 5); at a
+//! desktop's rate they take hours, so the layers view keeps the recorded
+//! results.
 //! Measurements: `verification_and_validation/htr10_full_core_web/`.
 
 pub mod core;
@@ -120,7 +122,7 @@ impl McRung for Htr10 {
             "Geometry: the HTR-10 core exactly as nee_soon assembles it for the recorded runs (assemble_explicit_triso, 14 rings, N Şeker layers): every slice is the material Geometry::locate finds at each pixel, drawn in this tab's worker. Nothing is re-modelled for the picture.",
             "Layers: recorded results only (ENDF/B-VIII.0 and VII.0: 10 000 × [5 + 135] per point, all 22 points measured 2026-10-07 on the bounded delta-tracking majorant, #589) against RMC (Li, Yu & Wei 2014) and MCNP (Şeker & Çolak 2003). Nothing is computed in this tab. All 22 points are within ±1000 pcm of RMC, 19 of 22 within ±500; the 6 points at N = 10–12 sit 3 to 8σ low. The earlier record (2026-10-01), measured on a majorant under-bound 14× at 661 eV, read 233 ± 45 pcm (VIII.0) and 310 ± 44 pcm (VII.0) higher on average; it is superseded and not shown.",
             "Fuel-zone k∞: a real single-threaded power iteration in this tab's worker, on ENDF/B-VIII.0 processed here at NJOY's tolerance, with delta tracking. A fuel-zone cube, not the reactor.",
-            "Whole core (since 2026-10-08, gh:#786): every core material's data processed on a pool of Web Workers, then a low-statistics k_eff of the whole core (σ about 1000 pcm at 1000 neutrons per generation) with its neutrons drawn. The record's statistics (10 000 × [5 + 135]) would still take hours here.",
+            "Whole core (since 2026-10-08, gh:#786): every core material's data processed on a pool of Web Workers, then k_eff of the whole core at the statistics you set, with its neutrons drawn (σ about 1000 pcm at the default 1000 neutrons per generation). The recorded settings (10 000 × [5 + 135], seed 20260917) are one tap away; the time-left line says how long they take on your device.",
             "Education and research only. Not for reactor operation, licensing or safety decisions.",
         ]
     }
@@ -233,12 +235,16 @@ impl McRung for Htr10 {
     fn kinf_case() -> Option<KinfCase> {
         Some(KinfCase {
             title: "fuel-zone k∞: kernels resolved or smeared",
+            tab: "Fuel zone only: k∞",
             param: ("kernels", ""),
             range: (0.0, 1.0),
             default: 1.0,
             choices: vec![(0.0, "homogenised"), (1.0, "resolved")],
             marks: Vec::new(),
             cfg: KeffConfig { n_particles: 1000, n_inactive: 20, n_active: 60, seed: 1, point_source: false, want_sites: false },
+            // The record: 10 000 × [50 + 200], the library's default seed 1
+            // (`outram-mc-libs/examples/htr10_fuel_zone_kinf.rs`).
+            record_cfg: KeffConfig { n_particles: 10_000, n_inactive: 50, n_active: 200, seed: 1, point_source: false, want_sites: false },
             curves: vec![RecordedCurve {
                 label: "ours, recorded 2026-10-05 at c5a6ca4ae (10 000 × [50 + 200])".into(),
                 style: LineStyle::Ours,
@@ -261,6 +267,9 @@ impl RungBuilder for model::DataBuilder {
     }
     fn step(&mut self, bytes: &[u8], store: &mut crate::processed_cache::DataStore) -> Result<(), String> {
         model::DataBuilder::step(self, bytes, store)
+    }
+    fn prime(_tier: Tier, index: usize, bytes: &[u8], store: &mut crate::processed_cache::DataStore) -> Result<(), String> {
+        model::DataBuilder::make(index, bytes, store).map(|_| ())
     }
     fn finish(self) -> Result<Loaded, String> {
         Ok(Loaded { core: None, fuel: model::DataBuilder::finish(self)?, run: None })

@@ -86,6 +86,21 @@ pub fn set_query(pairs: &[(&str, &str)]) {
     let _ = pairs;
 }
 
+/// The page's address without its query (`https://…/demos/monte-carlo/`),
+/// to build a shareable link from a query; natively, empty (the query alone
+/// is the command line's twin). GUI glue (the test rule's exception: it
+/// reads the browser's location and nothing else).
+pub fn page_url() -> String {
+    #[cfg(target_arch = "wasm32")]
+    {
+        web_sys::window()
+            .and_then(|w| Some(format!("{}{}", w.location().origin().ok()?, w.location().pathname().ok()?)))
+            .unwrap_or_default()
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    String::new()
+}
+
 /// Keep every canvas's backing store at its CSS size times
 /// `devicePixelRatio`, the invariant eframe's web runner relies on (gh:#556).
 ///

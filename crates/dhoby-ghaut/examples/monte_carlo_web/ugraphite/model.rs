@@ -72,17 +72,22 @@ impl DataBuilder {
     /// The expensive half comes from `store` when it holds it (gh:#818).
     pub fn step(&mut self, bytes: &[u8], store: &mut crate::processed_cache::DataStore) -> Result<(), String> {
         let i = self.nuclides.len() + self.sab.is_some() as usize;
+        match Self::make(self.tier, i, bytes, store)? {
+            crate::rungs::Product::Nuclide(n) => self.nuclides.push(n),
+            crate::rungs::Product::Law(l) => self.sab = Some(l),
+        }
+        Ok(())
+    }
+    /// Job `i`'s product (what [`Self::step`] keeps, and a processing-pool
+    /// worker only caches).
+    pub fn make(tier: SpeedTier, i: usize, bytes: &[u8], store: &mut crate::processed_cache::DataStore) -> Result<crate::rungs::Product, String> {
         let (label, _) = *JOBS.get(i).ok_or("no job left")?;
         let (tape, mat) = read_tape(bytes, label)?;
         if i < vv::TAPES.len() {
-            let name = vv::TAPES[i].0;
-            let n = store.nuclide(bytes, &tape, mat, name, TEMPERATURE_K, self.tier, label)?;
-            self.nuclides.push(n);
+            Ok(crate::rungs::Product::Nuclide(store.nuclide(bytes, &tape, mat, vv::TAPES[i].0, TEMPERATURE_K, tier, label)?))
         } else {
-            let law = store.thermal(bytes, &tape, mat, TEMPERATURE_K, "c_Graphite", label)?;
-            self.sab = Some(law);
+            Ok(crate::rungs::Product::Law(store.thermal(bytes, &tape, mat, TEMPERATURE_K, "c_Graphite", label)?))
         }
-        Ok(())
     }
     /// The five nuclides in [`vv::TAPES`] order, graphite law on the carbons.
     pub fn finish(mut self) -> Result<Vec<Nuclide>, String> {

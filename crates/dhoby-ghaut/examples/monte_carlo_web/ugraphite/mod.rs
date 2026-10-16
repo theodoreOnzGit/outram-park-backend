@@ -117,6 +117,9 @@ impl RungBuilder for Builder {
     fn step(&mut self, bytes: &[u8], store: &mut crate::processed_cache::DataStore) -> Result<(), String> {
         self.0.step(bytes, store)
     }
+    fn prime(tier: Tier, index: usize, bytes: &[u8], store: &mut crate::processed_cache::DataStore) -> Result<(), String> {
+        model::DataBuilder::make(tier.speed(), index, bytes, store).map(|_| ())
+    }
     fn finish(self) -> Result<Loaded, String> {
         let phys = sim::Physics {
             geometry: model::build_geometry(),

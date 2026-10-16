@@ -374,11 +374,15 @@ struct KinfPoint {
     /// Every generation ran (false: stopped early, drawn hollow).
     complete: bool,
     secs: f64,
+    /// The settings and seed it ran with, printed beside it (gh:#876 item 5).
+    cfg: KeffConfig,
 }
 
 /// The `k_inf` case as the UI follows it: one generation per request, so
 /// stopping is not asking for the next.
 struct KinfRun {
+    /// When Pause was pressed (the clock stops while paused).
+    paused_at: Option<f64>,
     case: KinfCase,
     /// The slider: where the NEXT run goes.
     param: f64,
@@ -407,6 +411,24 @@ impl KinfRun {
             started_at: 0.0,
             elapsed: 0.0,
             rate: None,
+            paused_at: None,
+        }
+    }
+    /// Pause or resume (gh:#876 item 5): a paused run asks for no further
+    /// generation, and its clock stops.
+    fn set_paused(&mut self, pause: bool) {
+        match (self.state, pause) {
+            (RunState::Running, true) => {
+                self.state = RunState::Paused;
+                self.paused_at = Some(now_s());
+            }
+            (RunState::Paused, false) => {
+                self.state = RunState::Running;
+                if let Some(t) = self.paused_at.take() {
+                    self.started_at += now_s() - t;
+                }
+            }
+            _ => {}
         }
     }
     fn start(&mut self, link: &McLink) {
@@ -432,7 +454,8 @@ impl KinfRun {
         // A late generation of a run already replaced is ignored (one
         // generation is one worker request, so a stopped run's last one
         // still arrives).
-        if self.state == RunState::Running && g.param == self.running_param && g.index == self.gens.len() {
+        // One already asked for may land after Pause: it still counts.
+        if matches!(self.state, RunState::Running | RunState::Paused) && g.param == self.running_param && g.index == self.gens.len() {
             self.waiting = false;
             self.gens.push(g);
         }
@@ -458,7 +481,7 @@ impl KinfRun {
             self.rate = Some((self.cfg.n_particles * self.gens.len()) as f64 / self.elapsed);
         }
         let g = self.gens.last()?;
-        (g.sem.is_finite() && g.sem > 0.0).then_some(KinfPoint { param: g.param, mean: g.mean, sem: g.sem, complete, secs: self.elapsed })
+        (g.sem.is_finite() && g.sem > 0.0).then_some(KinfPoint { param: g.param, mean: g.mean, sem: g.sem, complete, secs: self.elapsed, cfg: self.cfg })
     }
 }
 
@@ -570,6 +593,42 @@ struct Layers {
     slicer: Slicer,
 }
 
+/// Whether load job `index` is already reported done.
+fn job_done(l: &LoadState, index: usize) -> bool {
+    l.loading.job_secs.get(index).is_some_and(Option::is_some)
+}
+
+/// The rung's Watch views, in tab order.
+fn watch_views(rung: Rung) -> Vec<WatchView> {
+    [WatchView::Neutrons, WatchView::Core, WatchView::Geometry, WatchView::Layers, WatchView::Beds, WatchView::Generations, WatchView::Kinf, WatchView::Demo]
+        .into_iter()
+        .filter(|&v| v.for_rung(rung) == v)
+        .collect()
+}
+
+/// Which tab the Watch row shows as current, or `None` for no row: in Watch
+/// mode on a rung with more than one view, in every phase, loading and
+/// failed included (gh:#876 item 4).
+fn picker_shows(mode: Mode, now: WatchView, views: &[WatchView]) -> Option<WatchView> {
+    (mode == Mode::Watch && views.len() > 1).then_some(now)
+}
+
+/// A Watch tab's label. The two live runs say what differs between them
+/// (gh:#876 item 4, maintainer 2026-10-16; no "low statistics", item 5):
+/// the whole core with its leakage, against the rung's k∞ case.
+fn view_label(w: WatchView, kinf_tab: &str) -> String {
+    match w {
+        WatchView::Neutrons => "One neutron at a time".into(),
+        WatchView::Generations => "Whole generations".into(),
+        WatchView::Kinf => kinf_tab.into(),
+        WatchView::Geometry => "Geometry (zoom ladder)".into(),
+        WatchView::Layers => "Layers (recorded k)".into(),
+        WatchView::Beds => "Liberties: lattice vs random bed".into(),
+        WatchView::Demo => "The demo".into(),
+        WatchView::Core => "Whole core: live k_eff".into(),
+    }
+}
+
 /// Where a tap on the rung row, the mode switch or the Watch views asks to
 /// go.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -623,6 +682,10 @@ fn run_in_progress(phase: &Phase) -> bool {
 pub struct McApp {
     /// A switch held for "Sure anot?" (gh:#876 item 2).
     guard: SwitchGuard,
+    /// The start-up link's query, kept for the k∞ and whole-core views,
+    /// which are built later: a link's `particles=&inactive=&active=&seed=`
+    /// presets their settings too (gh:#876 item 5).
+    startup_query: Vec<(String, String)>,
     link: Option<McLink>,
     rung: Rung,
     mode: Mode,
@@ -678,6 +741,9 @@ pub struct McApp {
     bench: Option<crate::benchpool::BenchPool>,
     /// To start the pool's workers (each repaints the page on an event).
     ctx: egui::Context,
+    /// The load being processed on a pool of workers before the engine
+    /// reads it from the cache ([`crate::prime_pool`]); browser only.
+    prime: Option<crate::prime_pool::PrimePool>,
 }
 
 impl McApp {
@@ -696,6 +762,7 @@ impl McApp {
         let _ = crate::htr10::core::screen::remember_query();
         let mut app = Self {
             guard: SwitchGuard::default(),
+            startup_query: dhoby_ghaut::web_demo::platform::query_pairs(),
             link: None,
             rung,
             mode,
@@ -727,6 +794,7 @@ impl McApp {
             kinf_points: Vec::new(),
             core: None,
             bench: None,
+            prime: None,
             ctx: cc.egui_ctx.clone(),
             data_sources: Vec::new(),
             data_notes: Vec::new(),
@@ -841,8 +909,59 @@ impl McApp {
             self.xs_shown.clear();
             self.phase = Phase::Loading(LoadState::new(rung, need));
             self.recorded = Self::recorded_player(rung, mode, self.watch_view);
-            if let Some(link) = &self.link {
-                link.send(Request::Load { id: self.load_id, rung, tier: need });
+            self.start_load(rung, need);
+        }
+    }
+
+    /// Start load `self.load_id`: in a browser, a load of two or more jobs
+    /// is first processed on a pool of workers into the shared cache
+    /// ([`crate::prime_pool`]), and the engine is sent its `Load` when they
+    /// finish; otherwise the engine processes it alone. A pool still working
+    /// for an earlier load is stopped (what it finished stays cached).
+    fn start_load(&mut self, rung: Rung, tier: Tier) {
+        if let Some(p) = self.prime.take() {
+            p.terminate();
+        }
+        #[cfg(target_arch = "wasm32")]
+        {
+            use dhoby_ghaut::web_demo::pool::{plan, Device};
+            let plan = plan(Device::probe(), crate::prime_pool::worker_mb(rung), crate::htr10::core::screen::forced_workers());
+            match crate::prime_pool::PrimePool::start(&self.ctx, plan, rung, tier, self.load_id) {
+                Some(Ok(p)) => {
+                    log::info!("{}: data on {} workers ({})", rung.info().name, p.workers(), p.plan.reason);
+                    self.prime = Some(p);
+                    return;
+                }
+                Some(Err(e)) => self.data_notes.push(format!("Data workers could not start ({e}); processing in one worker.")),
+                None => {}
+            }
+        }
+        if let Some(link) = &self.link {
+            link.send(Request::Load { id: self.load_id, rung, tier });
+        }
+    }
+
+    /// One frame of a load's processing pool: its progress into the load,
+    /// and, when it is done (or a worker failed), the engine's `Load`.
+    fn pump_prime(&mut self, ctx: &egui::Context) {
+        let Some(p) = self.prime.as_mut() else { return };
+        let (events, outcome) = p.pump();
+        let (id, rung, tier) = (p.id, p.rung, p.tier);
+        self.handle(ctx, events);
+        match outcome {
+            crate::prime_pool::Outcome::Working => ctx.request_repaint_after(std::time::Duration::from_millis(100)),
+            done => {
+                if let crate::prime_pool::Outcome::Failed(m) = done {
+                    self.data_notes.push(m);
+                }
+                if let Some(p) = self.prime.take() {
+                    p.terminate();
+                }
+                if id == self.load_id {
+                    if let Some(link) = &self.link {
+                        link.send(Request::Load { id, rung, tier });
+                    }
+                }
             }
         }
     }
@@ -993,12 +1112,15 @@ impl McApp {
                 // finds the pool, its data and any run as they were.
                 if self.core.is_none() {
                     let info = self.rung.raster_info().expect("checked");
-                    self.core = Some(crate::htr10::core::screen::CoreScreen::new(info, self.speed_at_1ev, self.autostart));
+                    let mut c = crate::htr10::core::screen::CoreScreen::new(info, self.speed_at_1ev, self.autostart);
+                    c.cfg = run_cfg_from_query(c.cfg, &self.startup_query);
+                    self.core = Some(c);
                 }
                 Screen::Core
             }
             (Mode::Watch, WatchView::Kinf, _) if self.rung.kinf_case().is_some() => {
                 let mut k = KinfRun::new(self.rung.kinf_case().expect("checked"));
+                k.cfg = run_cfg_from_query(k.cfg, &self.startup_query);
                 if self.autostart {
                     k.start(link);
                 }
@@ -1016,8 +1138,10 @@ impl McApp {
         for e in events {
             match (&mut self.phase, e) {
                 (_, Event::Error(m)) => self.phase = Phase::Failed(m),
-                (Phase::Loading(l), Event::JobStarted { id, index }) if id == self.load_id => l.loading.job_started(index),
-                (Phase::Loading(l), Event::JobDone { id, index, secs, source }) if id == self.load_id => {
+                // A job a processing worker already did keeps its time and
+                // source when the engine's load reads it back from the cache.
+                (Phase::Loading(l), Event::JobStarted { id, index }) if id == self.load_id && !job_done(l, index) => l.loading.job_started(index),
+                (Phase::Loading(l), Event::JobDone { id, index, secs, source }) if id == self.load_id && !job_done(l, index) => {
                     l.loading.job_done(index, secs);
                     if let Some(s) = l.sources.get_mut(index) {
                         *s = Some(source);
@@ -1136,6 +1260,7 @@ impl eframe::App for McApp {
             let events = link.drain();
             self.handle(&ctx, events);
         }
+        self.pump_prime(&ctx);
         if let (Phase::Ready(s), Some(link)) = (&mut self.phase, &self.link) {
             match s {
                 Screen::Tracks(t) => t.top_up(link),
@@ -1216,54 +1341,36 @@ impl McApp {
         let mut want_view: Option<WatchView> = None;
         let link = self.link.as_ref();
         let rung = self.rung;
-        let views = [WatchView::Neutrons, WatchView::Core, WatchView::Geometry, WatchView::Layers, WatchView::Beds, WatchView::Generations, WatchView::Kinf, WatchView::Demo]
-            .into_iter()
-            .filter(|&v| v.for_rung(rung) == v)
-            .collect::<Vec<_>>();
-        let many = views.len() > 1;
+        let views = watch_views(rung);
+        // One Watch tab row, in the same place on every screen and in every
+        // phase, loading and failed included, so no view strands the reader
+        // (gh:#876 item 4: k∞'s eight-tape load used to hide it).
+        if let Some(now) = picker_shows(self.mode, self.watch_view, &views) {
+            let kinf_tab = rung.kinf_case().map_or("k∞", |c| c.tab);
+            want_view = Self::watch_view_picker(ui, now, &views, kinf_tab);
+            ui.separator();
+        }
         match &mut self.phase {
             Phase::Loading(l) => Self::loading_panel(ui, l),
             Phase::Failed(e) => {
                 ui.colored_label(Color32::from_rgb(255, 90, 90), format!("Failed: {e}"));
             }
             Phase::Ready(Screen::Tracks(t)) => {
-                if many {
-                    want_view = Self::watch_view_picker(ui, WatchView::Neutrons, &views);
-                }
                 Self::tracks_panel(ui, t, link, rung, &mut self.speed_at_1ev);
                 Self::xs_controls(ui, &self.xs, &mut self.xs_shown, &mut self.xs_on);
             }
-            Phase::Ready(Screen::Generations(it)) => {
-                want_view = Self::watch_view_picker(ui, WatchView::Generations, &views);
-                Self::generations_panel(ui, it, link);
-            }
+            Phase::Ready(Screen::Generations(it)) => Self::generations_panel(ui, it, link),
             Phase::Ready(Screen::Kinf(k)) => {
-                want_view = Self::watch_view_picker(ui, WatchView::Kinf, &views);
-                if let Some(p) = Self::kinf_panel(ui, k, link, &self.kinf_points) {
+                if let Some(p) = Self::kinf_panel(ui, k, link, &self.kinf_points, rung) {
                     self.kinf_points.push(p);
                 }
             }
             Phase::Ready(Screen::Run(it)) => Self::run_panel(ui, it, link, &mut self.run_cfg, rung),
-            Phase::Ready(Screen::Geometry(sl)) => {
-                want_view = Self::watch_view_picker(ui, WatchView::Geometry, &views);
-                Self::geometry_panel(ui, sl);
-            }
-            Phase::Ready(Screen::Layers(ly)) => {
-                want_view = Self::watch_view_picker(ui, WatchView::Layers, &views);
-                Self::layers_panel(ui, ly);
-            }
-            Phase::Ready(Screen::Beds(b)) => {
-                want_view = Self::watch_view_picker(ui, WatchView::Beds, &views);
-                b.panel(ui);
-            }
-            Phase::Ready(Screen::Walk(w)) => {
-                if many {
-                    want_view = Self::watch_view_picker(ui, WatchView::Demo, &views);
-                }
-                send_walk(link, w.panel(ui));
-            }
+            Phase::Ready(Screen::Geometry(sl)) => Self::geometry_panel(ui, sl),
+            Phase::Ready(Screen::Layers(ly)) => Self::layers_panel(ui, ly),
+            Phase::Ready(Screen::Beds(b)) => b.panel(ui),
+            Phase::Ready(Screen::Walk(w)) => send_walk(link, w.panel(ui)),
             Phase::Ready(Screen::Core) => {
-                want_view = Self::watch_view_picker(ui, WatchView::Core, &views);
                 if let Some(c) = self.core.as_mut() {
                     c.panel(ui);
                 }
@@ -1329,22 +1436,19 @@ impl McApp {
     }
 
     /// The rung's views (`views`, from [`WatchView::for_rung`]).
-    fn watch_view_picker(ui: &mut egui::Ui, now: WatchView, views: &[WatchView]) -> Option<WatchView> {
+    /// The Watch tabs as thumb-sized buttons (gh:#876 item 4), the current
+    /// one highlighted; `kinf_tab` is the rung's own label for its k∞ view.
+    /// GUI drawing (the test rule's exception); which views it lists and
+    /// when it shows are [`picker_shows`] and [`view_label`], tested.
+    fn watch_view_picker(ui: &mut egui::Ui, now: WatchView, views: &[WatchView], kinf_tab: &str) -> Option<WatchView> {
         let mut v = now;
+        ui.label("Watch:");
         ui.horizontal_wrapped(|ui| {
-            ui.label("Watch:");
             for &w in views {
-                let label = match w {
-                    WatchView::Neutrons => "one neutron at a time",
-                    WatchView::Generations => "whole generations",
-                    WatchView::Kinf => "k∞ (true MC)",
-                    WatchView::Geometry => "geometry (zoom ladder)",
-                    WatchView::Layers => "layers (recorded k)",
-                    WatchView::Beds => "liberties: lattice vs random bed",
-                    WatchView::Demo => "the demo",
-                    WatchView::Core => "whole core (neutrons, live k)",
-                };
-                ui.selectable_value(&mut v, w, label);
+                let b = egui::Button::selectable(w == now, RichText::new(view_label(w, kinf_tab)).size(15.0)).min_size(Vec2::new(0.0, 40.0));
+                if ui.add(b).clicked() {
+                    v = w;
+                }
             }
         });
         (v != now).then_some(v)
@@ -1417,15 +1521,22 @@ impl McApp {
     }
 
     /// The `k_inf` case's controls. Returns a point if the reader stopped a run.
-    fn kinf_panel(ui: &mut egui::Ui, k: &mut KinfRun, link: Option<&McLink>, done: &[KinfPoint]) -> Option<KinfPoint> {
+    fn kinf_panel(ui: &mut egui::Ui, k: &mut KinfRun, link: Option<&McLink>, done: &[KinfPoint], rung: Rung) -> Option<KinfPoint> {
         let mut stopped = None;
         ui.strong(k.case.title);
         Self::kinf_slider(ui, k, 0.0);
-        ui.add_enabled_ui(k.state != RunState::Running, |ui| {
+        let going = matches!(k.state, RunState::Running | RunState::Paused);
+        ui.add_enabled_ui(!going, |ui| {
             settings_grid(ui, "kinf_cfg", &mut k.cfg);
-            if ui.button("Defaults").clicked() {
-                k.cfg = k.case.cfg;
-            }
+            ui.horizontal_wrapped(|ui| {
+                if ui.button("Defaults").clicked() {
+                    k.cfg = k.case.cfg;
+                }
+                // Repeat the record (gh:#876 item 5): same settings and seed.
+                if ui.button(format!("Recorded settings ({})", crate::keff::settings_line(&k.case.record_cfg))).clicked() {
+                    k.cfg = k.case.record_cfg;
+                }
+            });
         });
         match (k.state, k.gens.last()) {
             (RunState::Running, Some(g)) => {
@@ -1437,8 +1548,14 @@ impl McApp {
                 ui.weak(crate::keff::plan_line(&k.cfg, k.rate));
             }
         }
+        let page = dhoby_ghaut::web_demo::platform::page_url();
+        crate::keff::settings_link_row(ui, &crate::keff::settings_link(&page, rung.name(), Mode::Watch.name(), Some(WatchView::Kinf.name()), &k.cfg));
         ui.horizontal(|ui| {
-            if k.state == RunState::Running {
+            if going {
+                let paused = k.state == RunState::Paused;
+                if ui.button(if paused { "▶ Resume" } else { "⏸ Pause" }).clicked() {
+                    k.set_paused(!paused);
+                }
                 if ui.button("■ Stop").clicked() {
                     stopped = k.finish(false);
                 }
@@ -1467,10 +1584,11 @@ impl McApp {
         if !done.is_empty() {
             ui.separator();
             ui.strong("Your runs");
-            egui::Grid::new("kinf_done").num_columns(3).show(ui, |ui| {
+            egui::Grid::new("kinf_done").num_columns(4).show(ui, |ui| {
                 for p in done {
                     ui.label(at(p.param));
                     ui.label(format!("{:.4} ± {:.4}", p.mean, p.sem));
+                    ui.weak(crate::keff::settings_line(&p.cfg));
                     ui.label(if p.complete { format!("{:.0} s", p.secs) } else { "stopped".into() });
                     ui.end_row();
                 }
@@ -1847,7 +1965,7 @@ fn run_cfg_from_query(default: KeffConfig, query: &[(String, String)]) -> KeffCo
         n_particles: get("particles", 100, n, default.n_particles as u64) as usize,
         n_inactive: get("inactive", 1, gens, default.n_inactive as u64) as usize,
         n_active: get("active", MIN_ACTIVE as u64, gens, default.n_active as u64) as usize,
-        seed: get("seed", 1, 1_000_000, default.seed),
+        seed: get("seed", 1, crate::keff::MAX_SEED, default.seed),
         ..default
     };
     // Inactive + active held to MAX_GENERATIONS (the active ones give way).
@@ -1873,7 +1991,7 @@ fn settings_grid(ui: &mut egui::Ui, id: &str, cfg: &mut KeffConfig) {
         ui.add(egui::DragValue::new(&mut cfg.n_active).range(MIN_ACTIVE..=hi));
         ui.end_row();
         ui.label("seed");
-        ui.add(egui::DragValue::new(&mut cfg.seed).range(1..=1_000_000));
+        ui.add(egui::DragValue::new(&mut cfg.seed).range(1..=crate::keff::MAX_SEED));
         ui.end_row();
     });
     *cfg = clamp_to_caps(*cfg, 1);
@@ -2581,6 +2699,33 @@ fn draw_kinf(painter: &egui::Painter, rect: Rect, k: &KinfRun, done: &[KinfPoint
 mod tests {
     use super::*;
 
+    /// gh:#876 item 4: on every rung with several Watch views the tab row is
+    /// drawn whatever the phase (it no longer depends on it), so every view
+    /// is one tap from every other, the current one included in the row; the
+    /// whole-core and k∞ tabs say what differs; and no label claims "low
+    /// statistics" (item 5).
+    #[test]
+    fn every_watch_view_is_one_tap_from_every_other() {
+        let htr10 = watch_views(Rung::Htr10);
+        assert!(htr10.contains(&WatchView::Core) && htr10.contains(&WatchView::Kinf), "{htr10:?}");
+        for rung in crate::table::ALL {
+            let views = watch_views(*rung);
+            let kinf = rung.kinf_case().map_or("k∞", |c| c.tab);
+            let labels: Vec<String> = views.iter().map(|&v| view_label(v, kinf)).collect();
+            for (i, a) in labels.iter().enumerate() {
+                assert!(!a.to_lowercase().contains("low statistics"), "{a}");
+                assert!(labels[i + 1..].iter().all(|b| b != a), "{}: two tabs read {a}", rung.info().name);
+            }
+            for &now in &views {
+                let shown = picker_shows(Mode::Watch, now, &views);
+                assert_eq!(shown, (views.len() > 1).then_some(now), "{}", rung.info().name);
+            }
+            assert_eq!(picker_shows(Mode::Run, views[0], &views), None);
+        }
+        assert_eq!(view_label(WatchView::Core, "Fuel zone only: k∞"), "Whole core: live k_eff");
+        assert_eq!(Rung::Htr10.kinf_case().map(|c| c.tab), Some("Fuel zone only: k∞"));
+    }
+
     /// gh:#876 item 2: with a run going or paused, a tap elsewhere is held
     /// and "Keep running" leaves the run untouched; "Cancel run and switch"
     /// releases the tap; with nothing running there is no dialog.
@@ -2661,6 +2806,51 @@ mod tests {
         assert_eq!(it.gens.len(), 2, "a generation arriving after Stop is dropped");
         it.start(&link);
         assert!(it.gens.is_empty() && it.rate.is_some_and(|r| r > 0.0), "the measured rate is kept for the estimate");
+    }
+
+    /// gh:#876 item 5: Pause stops asking for generations, keeps one that
+    /// was already asked for, and Resume goes on; the finished point carries
+    /// its settings. A link to a run's settings presets them exactly, the
+    /// HTR-10 records' seed 20 260 917 included (it was clamped to 10⁶), and
+    /// every k∞ case offers its record's settings.
+    #[test]
+    fn a_kinf_run_pauses_and_its_settings_round_trip_through_a_link() {
+        let case = Rung::Lct008.kinf_case().expect("lct008 has a k_inf case");
+        let link = McLink::default();
+        let mut k = KinfRun::new(case);
+        k.cfg.n_inactive = 1;
+        k.cfg.n_active = 2;
+        k.start(&link);
+        let p = k.running_param;
+        let g = |index: usize| KinfGeneration { param: p, index, total: 3, active: index >= 1, k: 1.0, mean: 1.0, sem: 0.01 };
+        k.set_paused(true);
+        assert_eq!(k.state, RunState::Paused);
+        k.receive(g(0));
+        assert_eq!((k.gens.len(), k.waiting), (1, false), "the generation in flight still counts");
+        k.pump(&link);
+        assert!(!k.waiting, "a paused run asks for nothing");
+        k.set_paused(false);
+        assert_eq!(k.state, RunState::Running);
+        k.pump(&link);
+        assert!(k.waiting, "resumed: the next generation is asked for");
+        k.receive(g(1));
+        k.receive(g(2));
+        let point = k.engine_done().expect("finished");
+        assert_eq!(point.cfg, k.cfg);
+        assert_eq!(crate::keff::settings_line(&point.cfg), format!("{} × [1 + 2], seed {}", k.cfg.n_particles, k.cfg.seed));
+
+        let record = crate::htr10::core::RECORD_RUN;
+        let url = crate::keff::settings_link("https://x/demos/mc/", "htr10", "watch", Some("core"), &record);
+        assert_eq!(url, "https://x/demos/mc/?rung=htr10&mode=watch&view=core&particles=10000&inactive=5&active=135&seed=20260917");
+        let query: Vec<(String, String)> = url.split_once('?').unwrap().1.split('&').map(|kv| {
+            let (a, b) = kv.split_once('=').unwrap();
+            (a.to_string(), b.to_string())
+        }).collect();
+        assert_eq!(run_cfg_from_query(crate::htr10::core::DEFAULT_RUN, &query), record);
+        for rung in [Rung::Htr10, Rung::Lct008, Rung::DhShort] {
+            let c = rung.kinf_case().expect("a k_inf case");
+            assert!(c.record_cfg.n_particles >= c.cfg.n_particles, "{}: the record is the larger run", rung.info().name);
+        }
     }
 
     /// The `k_inf` case ignores a generation out of order and a `KinfDone`

@@ -359,6 +359,12 @@ pub fn nuclide_from_bytes(bytes: &[u8], name: &str) -> Result<Nuclide, String> {
 }
 
 
+/// What one TRISO job makes.
+pub enum Made {
+    Nuclide(Nuclide),
+    Sab(ThermalScattering),
+}
+
 /// Incremental processing, one [`Job`] per call, so a UI can redraw between
 /// the (long, blocking) jobs.
 #[derive(Default)]
@@ -376,18 +382,24 @@ impl DataBuilder {
     /// expensive half from `store` when it holds it (gh:#818): the same
     /// nuclide as [`nuclide_from_bytes`], bit for bit.
     pub fn step(&mut self, bytes: &[u8], store: &mut crate::processed_cache::DataStore) -> Result<(), String> {
-        let job = self.next_job().ok_or("no job left")?;
-        let (tape, mat) = read_tape(bytes, job.label)?;
-        match job.kind {
-            JobKind::Nuclide => {
-                self.nuclides.push(store.nuclide(bytes, &tape, mat, job.label, TEMPERATURE_K, SPEED, job.label)?)
-            }
-            JobKind::GraphiteSab => {
-                self.sab = Some(store.thermal(bytes, &tape, mat, TEMPERATURE_K, "c_Graphite", job.label)?)
-            }
+        match Self::make(self.done, bytes, store)? {
+            Made::Nuclide(n) => self.nuclides.push(n),
+            Made::Sab(l) => self.sab = Some(l),
         }
         self.done += 1;
         Ok(())
+    }
+    /// Job `i`'s product (what [`Self::step`] keeps, and a processing-pool
+    /// worker only caches).
+    /// (Its own [`Made`], not the Monte Carlo demo's `rungs::Product`:
+    /// `delta_tracking_web` compiles this file too.)
+    pub fn make(i: usize, bytes: &[u8], store: &mut crate::processed_cache::DataStore) -> Result<Made, String> {
+        let job = JOBS.get(i).copied().ok_or("no job left")?;
+        let (tape, mat) = read_tape(bytes, job.label)?;
+        Ok(match job.kind {
+            JobKind::Nuclide => Made::Nuclide(store.nuclide(bytes, &tape, mat, job.label, TEMPERATURE_K, SPEED, job.label)?),
+            JobKind::GraphiteSab => Made::Sab(store.thermal(bytes, &tape, mat, TEMPERATURE_K, "c_Graphite", job.label)?),
+        })
     }
     pub fn finish(self) -> Result<NuclearData, String> {
         if self.done != JOBS.len() {

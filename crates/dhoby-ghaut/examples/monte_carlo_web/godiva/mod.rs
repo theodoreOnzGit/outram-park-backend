@@ -150,6 +150,9 @@ impl RungBuilder for model::DataBuilder {
     fn step(&mut self, bytes: &[u8], store: &mut crate::processed_cache::DataStore) -> Result<(), String> {
         model::DataBuilder::step(self, bytes, store)
     }
+    fn prime(tier: Tier, index: usize, bytes: &[u8], store: &mut crate::processed_cache::DataStore) -> Result<(), String> {
+        model::DataBuilder::make(tier.speed(), index, bytes, store).map(|_| ())
+    }
     fn finish(self) -> Result<sim::Loaded, String> {
         let data = model::DataBuilder::finish(self)?;
         Ok(sim::Loaded { phys: sim::Physics::new(data), chain: sim::Chain::new(CHAIN_SEED), keff: None })

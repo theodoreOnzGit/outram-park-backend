@@ -115,6 +115,29 @@ pub struct Builder<C: CsgCase> {
     case: PhantomData<C>,
 }
 
+impl<C: CsgCase> Builder<C> {
+    /// Job `i`'s product: a nuclide (RECONR + BROADR at the case's
+    /// temperature, this tier), or the thermal law (THERMR, or LEAPR when it
+    /// is generated, with empty `bytes`).
+    fn make(tier: Tier, i: usize, bytes: &[u8], store: &mut crate::processed_cache::DataStore) -> Result<crate::rungs::Product, String> {
+        use crate::rungs::Product;
+        if let Some(&(label, name, _)) = C::nuclides().get(i) {
+            let (tape, mat) = read_tape(bytes, label)?;
+            return Ok(Product::Nuclide(store.nuclide(bytes, &tape, mat, name, C::TEMPERATURE_K, tier.speed(), label)?));
+        }
+        match C::thermal() {
+            Some(law) if i == C::nuclides().len() && law.tape == crate::tapes::LEAPR_H_IN_H2O => {
+                Ok(Product::Law(crate::tapes::leapr_h_in_h2o(store, C::TEMPERATURE_K, law.label)?))
+            }
+            Some(law) if i == C::nuclides().len() => {
+                let (tape, mat) = read_tape(bytes, law.label)?;
+                Ok(Product::Law(store.thermal(bytes, &tape, mat, C::TEMPERATURE_K, law.name, law.label)?))
+            }
+            _ => Err("no job left".into()),
+        }
+    }
+}
+
 impl<C: CsgCase> RungBuilder for Builder<C> {
     type Loaded = Loaded<C>;
     fn new(tier: Tier) -> Self {
@@ -126,25 +149,15 @@ impl<C: CsgCase> RungBuilder for Builder<C> {
     /// empty `bytes`). The expensive half comes from `store`
     /// when it holds it (gh:#818).
     fn step(&mut self, bytes: &[u8], store: &mut crate::processed_cache::DataStore) -> Result<(), String> {
-        let i = self.nuclides.len();
-        if let Some(&(label, name, _)) = C::nuclides().get(i) {
-            let (tape, mat) = read_tape(bytes, label)?;
-            let n = store.nuclide(bytes, &tape, mat, name, C::TEMPERATURE_K, self.tier.speed(), label)?;
-            self.nuclides.push(n);
-            return Ok(());
+        let i = self.nuclides.len() + usize::from(self.law.is_some());
+        match Self::make(self.tier, i, bytes, store)? {
+            crate::rungs::Product::Nuclide(n) => self.nuclides.push(n),
+            crate::rungs::Product::Law(l) => self.law = Some(l),
         }
-        match (C::thermal(), &self.law) {
-            (Some(law), None) if law.tape == crate::tapes::LEAPR_H_IN_H2O => {
-                self.law = Some(crate::tapes::leapr_h_in_h2o(store, C::TEMPERATURE_K, law.label)?);
-                Ok(())
-            }
-            (Some(law), None) => {
-                let (tape, mat) = read_tape(bytes, law.label)?;
-                self.law = Some(store.thermal(bytes, &tape, mat, C::TEMPERATURE_K, law.name, law.label)?);
-                Ok(())
-            }
-            _ => Err("no job left".into()),
-        }
+        Ok(())
+    }
+    fn prime(tier: Tier, index: usize, bytes: &[u8], store: &mut crate::processed_cache::DataStore) -> Result<(), String> {
+        Self::make(tier, index, bytes, store).map(|_| ())
     }
     fn finish(self) -> Result<Loaded<C>, String> {
         let want = C::nuclides().len();

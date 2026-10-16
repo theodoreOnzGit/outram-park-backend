@@ -159,16 +159,23 @@ impl DataBuilder {
     /// The expensive half comes from `store` when it holds it (gh:#818).
     pub fn step(&mut self, bytes: &[u8], store: &mut crate::processed_cache::DataStore) -> Result<(), String> {
         let i = self.nuclides.len() + usize::from(self.sab.is_some());
+        match Self::make(self.speed, i, bytes, store)? {
+            crate::rungs::Product::Nuclide(n) => self.nuclides.push(n),
+            crate::rungs::Product::Law(l) => self.sab = Some(l),
+        }
+        Ok(())
+    }
+    /// Job `i`'s product (what [`Self::step`] keeps, and a processing-pool
+    /// worker only caches): a nuclide, or the LEAPR H-in-H₂O law.
+    pub fn make(speed: SpeedTier, i: usize, bytes: &[u8], store: &mut crate::processed_cache::DataStore) -> Result<crate::rungs::Product, String> {
         let (label, _) = *JOBS.get(i).ok_or("no job left")?;
         if i < N_NUCLIDES {
             let (tape, mat) = read_tape(bytes, label)?;
             let name = NUCLIDES[i].1;
-            let n = store.nuclide(bytes, &tape, mat, name, TEMP_K, self.speed, label)?;
-            self.nuclides.push(n);
+            Ok(crate::rungs::Product::Nuclide(store.nuclide(bytes, &tape, mat, name, TEMP_K, speed, label)?))
         } else {
-            self.sab = Some(crate::tapes::leapr_h_in_h2o(store, TEMP_K, label)?);
+            Ok(crate::rungs::Product::Law(crate::tapes::leapr_h_in_h2o(store, TEMP_K, label)?))
         }
-        Ok(())
     }
 
     pub fn finish(self) -> Result<NuclearData, String> {

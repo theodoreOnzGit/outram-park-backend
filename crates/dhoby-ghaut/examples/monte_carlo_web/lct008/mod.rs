@@ -215,12 +215,15 @@ impl McRung for Lct008 {
     fn kinf_case() -> Option<KinfCase> {
         Some(KinfCase {
             title: "k∞ against pitch: one rod, infinite lattice",
+            tab: "One rod, infinite lattice: k∞ vs pitch",
             param: ("pitch", "cm"),
             range: (1.25, 3.30),
             default: PITCH_LCT008,
             choices: Vec::new(),
             marks: vec![(PITCH_LCT008, "LCT-008")],
             cfg: KeffConfig { n_particles: 1000, n_inactive: 20, n_active: 30, seed: 1, point_source: false, want_sites: false },
+            // pitch_sweep.md, 2026-10-04: 5000 × [50 + 200], seed 1.
+            record_cfg: KeffConfig { n_particles: 5000, n_inactive: 50, n_active: 200, seed: 1, point_source: false, want_sites: false },
             curves: vec![
                 RecordedCurve {
                     label: "ours: outram-mc, recorded 2026-10-04 at 7e9b8bd637".into(),
@@ -265,6 +268,9 @@ impl RungBuilder for model::DataBuilder {
     }
     fn step(&mut self, bytes: &[u8], store: &mut crate::processed_cache::DataStore) -> Result<(), String> {
         model::DataBuilder::step(self, bytes, store)
+    }
+    fn prime(tier: Tier, index: usize, bytes: &[u8], store: &mut crate::processed_cache::DataStore) -> Result<(), String> {
+        model::DataBuilder::make(tier.speed(), index, bytes, store).map(|_| ())
     }
     fn finish(self) -> Result<Loaded, String> {
         Ok(Loaded { phys: sim::Physics::new(model::DataBuilder::finish(self)?), chain: sim::Chain::new(CHAIN_SEED), kinf: None, keff: None })

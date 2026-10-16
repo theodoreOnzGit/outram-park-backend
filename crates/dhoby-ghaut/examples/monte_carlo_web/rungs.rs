@@ -85,6 +85,22 @@ pub struct RungInfo {
     pub spectrum: Spectrum,
 }
 
+/// What one processing job makes.
+pub enum Product {
+    Nuclide(outram_mc_libs::material::nuclide::Nuclide),
+    Law(outram_mc_libs::material::thermal::ThermalScattering),
+}
+
+impl Product {
+    /// The nuclide, or an error naming what came instead.
+    pub fn nuclide(self) -> Result<outram_mc_libs::material::nuclide::Nuclide, String> {
+        match self {
+            Product::Nuclide(n) => Ok(n),
+            Product::Law(_) => Err("expected a nuclide, made a thermal law".into()),
+        }
+    }
+}
+
 /// A rung's data processing, one tape at a time (so the UI can show
 /// progress between the long, blocking jobs).
 pub trait RungBuilder: Sized {
@@ -94,6 +110,12 @@ pub trait RungBuilder: Sized {
     /// `store` is the shared processed-data cache (gh:#818,
     /// `common/processed_cache.rs`): build every nuclide and law through it.
     fn step(&mut self, bytes: &[u8], store: &mut crate::processed_cache::DataStore) -> Result<(), String>;
+    /// Make job `index`'s product into `store` only (and so into the shared
+    /// cache), building no rung: what a processing-pool worker does
+    /// (maintainer 2026-10-16, "data processing should also use multiple
+    /// workers"). Every builder's `step` is this same `make` plus keeping
+    /// the product, so the two cannot drift.
+    fn prime(tier: Tier, index: usize, bytes: &[u8], store: &mut crate::processed_cache::DataStore) -> Result<(), String>;
     fn finish(self) -> Result<Self::Loaded, String>;
 }
 
@@ -350,6 +372,11 @@ macro_rules! rung_table {
                 }
                 pub fn has_run(self) -> bool {
                     self.run_default().is_some()
+                }
+                /// [`RungBuilder::prime`] for this rung's job `index`.
+                pub fn prime(self, requested: Tier, index: usize, bytes: &[u8], store: &mut $crate::processed_cache::DataStore) -> Result<(), String> {
+                    let tier = self.tier(requested);
+                    match self { $( Rung::$t => <<$crate::$m::$t as McRung>::Builder as RungBuilder>::prime(tier, index, bytes, store), )+ }
                 }
                 pub fn builder(self, requested: Tier) -> Builder {
                     let tier = self.tier(requested);

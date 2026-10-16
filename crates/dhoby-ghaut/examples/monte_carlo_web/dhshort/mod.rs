@@ -8,7 +8,7 @@
 //!   bias and speed-up of each, with dates and re-measurement status
 //!   ([`record`]). Needs no nuclear data, so that view loads none.
 //! - **k∞ (true MC)** (`view=pitch`, the shared `k_inf` view): a live
-//!   low-statistics run of one treatment at a time, `DhUniverse::power_iteration`
+//!   run of one treatment at a time, at the reader's statistics, `DhUniverse::power_iteration`
 //!   (which is `DhUniverse::keff` stepped one generation per worker message,
 //!   pinned bit for bit), on `dh_keff_vv`'s data processed in the tab
 //!   ([`data`]). SCLS is not offered: about 24 times delta tracking's cost.
@@ -106,12 +106,16 @@ impl McRung for DhShort {
         let first = &record::RECORDS[0];
         Some(KinfCase {
             title: "the FHR cell's k, one shortcut at a time",
+            tab: "FHR cell: k, one shortcut at a time",
             param: ("treatment", ""),
             range: (0.0, 5.0),
             default: 0.0,
             choices: LIVE.iter().zip(LIVE_LABELS).map(|(&t, l)| (t as f64, l)).collect(),
             marks: Vec::new(),
             cfg: KeffConfig { n_particles: 800, n_inactive: 15, n_active: 40, seed: 1, point_source: false, want_sites: false },
+            // The first record's statistics (`record::RECORDS[0]`, 7200 ×
+            // [15 + 40]) on `dh_keff_vv`'s seed 1.
+            record_cfg: KeffConfig { n_particles: 7200, n_inactive: 15, n_active: 40, seed: 1, point_source: false, want_sites: false },
             curves: vec![RecordedCurve {
                 label: format!("recorded {} ({}), before the URR/DBRC defaults; re-measurement pending #582", first.date, first.stats),
                 style: LineStyle::Ours,
@@ -136,6 +140,9 @@ impl RungBuilder for Builder {
     }
     fn step(&mut self, bytes: &[u8], store: &mut crate::processed_cache::DataStore) -> Result<(), String> {
         self.0.step(bytes, store)
+    }
+    fn prime(_tier: Tier, index: usize, bytes: &[u8], store: &mut crate::processed_cache::DataStore) -> Result<(), String> {
+        data::DataBuilder::make(index, bytes, store).map(|_| ())
     }
     fn finish(self) -> Result<Loaded, String> {
         Ok(Loaded {
@@ -320,7 +327,12 @@ mod tests {
 
     /// The live run on the record's data, natively, at a small size, for the
     /// arms the page offers: prints the timings quoted on gh:#785 and checks
-    /// each generation streams with a finite k. Opt-in (processes ten tapes).
+    /// each generation streams with a finite k. Then **repeatability**
+    /// (gh:#876 item 5): the first arm run again with the same settings and
+    /// seed gives every generation's k bit for bit. Opt-in (processes ten
+    /// tapes). **Result (2026-10-16, i9-13900K, at 200 × [5 + 10]):** every
+    /// arm streams; the repeat of "delta (exact)" gives all 15 generations
+    /// bit for bit; data 46.3 s natively at 0.001.
     #[test]
     #[ignore = "processes 10 ENDF tapes at tolerance 0.001 (minutes); run with --ignored"]
     fn the_live_run_streams_every_offered_arm() {
@@ -350,16 +362,20 @@ mod tests {
             point_source: false,
             want_sites: false,
         };
+        let mut first: Option<Vec<f64>> = None;
         for &arm in &LIVE {
             let t = std::time::Instant::now();
             l.kinf_start(arm as f64, cfg).unwrap();
             let t_start = t.elapsed().as_secs_f64();
             let t = std::time::Instant::now();
             let mut last = None;
+            let mut ks = Vec::new();
             while let Some(g) = l.kinf_step() {
                 assert!(g.k.is_finite() && g.k > 0.5);
+                ks.push(g.k);
                 last = Some(g);
             }
+            first.get_or_insert(ks);
             let g = last.unwrap();
             let secs = t.elapsed().as_secs_f64();
             eprintln!(
@@ -367,5 +383,9 @@ mod tests {
                 model::SHORT[arm], 1.0e3 * secs / (n * 15) as f64, n, cfg.n_inactive, cfg.n_active, g.mean, g.sem
             );
         }
+        l.kinf_start(LIVE[0] as f64, cfg).unwrap();
+        let again: Vec<f64> = std::iter::from_fn(|| l.kinf_step()).map(|g| g.k).collect();
+        assert_eq!(Some(&again), first.as_ref(), "the same settings and seed give the same k");
+        eprintln!("  repeat of {}: all {} generations bit for bit", model::SHORT[LIVE[0]], again.len());
     }
 }

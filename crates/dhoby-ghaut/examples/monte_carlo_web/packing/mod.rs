@@ -103,6 +103,9 @@ impl RungBuilder for Builder {
     fn step(&mut self, _bytes: &[u8], _store: &mut crate::processed_cache::DataStore) -> Result<(), String> {
         Err("the packing rung processes no tapes".into())
     }
+    fn prime(_tier: Tier, _index: usize, _bytes: &[u8], _store: &mut crate::processed_cache::DataStore) -> Result<(), String> {
+        Err("the packing rung processes no tapes".into())
+    }
     fn finish(self) -> Result<Loaded, String> {
         Ok(Loaded::default())
     }

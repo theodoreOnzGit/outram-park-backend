@@ -1,4 +1,4 @@
-//! The `dhshort` rung's nuclear data, for its live low-statistics run: the ten
+//! The `dhshort` rung's nuclear data, for its live run: the ten
 //! nuclides of `dh_keff_vv.rs`'s `nuclides()`, in its order (the material
 //! table's indices, `fhr::U235` … `fhr::F19`), from the same ENDF/B-VIII.0
 //! tapes at the same temperature (600 K) and NJOY tolerance (0.001), and the
@@ -64,20 +64,26 @@ impl DataBuilder {
         store: &mut crate::processed_cache::DataStore,
     ) -> Result<(), String> {
         let i = self.done.len() + usize::from(self.sab.is_some());
+        match Self::make(i, bytes, store)? {
+            crate::rungs::Product::Nuclide(n) => self.done.push(n),
+            crate::rungs::Product::Law(l) => self.sab = Some(l),
+        }
+        Ok(())
+    }
+
+    /// Job `i`'s product (what [`Self::step`] keeps, and a processing-pool
+    /// worker only caches).
+    pub fn make(i: usize, bytes: &[u8], store: &mut crate::processed_cache::DataStore) -> Result<crate::rungs::Product, String> {
         let (label, _) = *JOBS.get(i).ok_or("no job left")?;
         let (tape, mat) = read_tape(bytes, label)?;
         if i < NAMES.len() {
-            let n = store.nuclide(bytes, &tape, mat, NAMES[i], fhr::TEMP_K, SpeedTier::Fast, label)?;
-            self.done.push(n);
+            Ok(crate::rungs::Product::Nuclide(store.nuclide(bytes, &tape, mat, NAMES[i], fhr::TEMP_K, SpeedTier::Fast, label)?))
         } else {
-            let mat = if mat == GRAPHITE_MAT {
-                mat
-            } else {
+            if mat != GRAPHITE_MAT {
                 return Err(format!("{label}: MAT {mat}, expected {GRAPHITE_MAT}"));
-            };
-            self.sab = Some(store.thermal(bytes, &tape, mat, fhr::TEMP_K, "c_Graphite", label)?);
+            }
+            Ok(crate::rungs::Product::Law(store.thermal(bytes, &tape, mat, fhr::TEMP_K, "c_Graphite", label)?))
         }
-        Ok(())
     }
 
     /// The nuclide table in `fhr`'s index order, if this load processed the
