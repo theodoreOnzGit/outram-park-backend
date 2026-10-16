@@ -98,11 +98,15 @@ Observables:
 
 **Actual location: `tampines-steam-tables/tests/edwards_blowdown.rs`** — an
 integration-test target at the crate root, not an in-`src` unit-test module. It
-holds two tests, `edwards_obrien_pipe_blowdown_600ms` and
-`edwards_hybrid_damps_ringing_vs_pimple`, neither `#[ignore]`d.
+~~holds two tests, `edwards_obrien_pipe_blowdown_600ms` and
+`edwards_hybrid_damps_ringing_vs_pimple`, neither `#[ignore]`d.~~ **Since
+2026-10-16 it holds one, `edwards_obrien_pipe_blowdown_600ms`**: the hybrid
+test was deleted with the retired KNP hybrid (`SolverMode::HybridAllMach`,
+gh:#914), and its final numbers are recorded in that file's header.
+`TampinesSteamArray` has one flux discretisation, PIMPLE.
 
 **It is very slow.** Measured 2026-08-11: `edwards_obrien_pipe_blowdown_600ms`
-alone **384.75 s**, and the whole target (both tests, run in parallel by cargo)
+alone **384.75 s**, and the whole target (~~both tests~~ then two tests, run in parallel by cargo)
 **393.58 s**. Run it as its own generously-timed invocation:
 
 ```bash

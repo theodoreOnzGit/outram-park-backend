@@ -513,7 +513,10 @@ pub fn w_ph_wood_wallis(p: Pressure, h: AvailableEnergy) -> Velocity {
 /// water-air and water-steam", *J. Geophys. Res.* 82(20), 2895–2904.
 ///
 /// Moved here from the private `hem_sound_speed_ph` of the `HybridAllMach`
-/// KNP path (gh #901), which now calls this function.
+/// KNP path (gh #901), ~~which now calls this function~~. **Updated
+/// 2026-10-16:** that path was retired (gh:#914) and `hem_sound_speed_ph` is
+/// gone; the callers are now `crate::hem::Iapws97Hem` (the `HemPipe`
+/// equation of state) and `TampinesSteamTableCV`'s HEM sound-speed getter.
 pub fn w_ph_eqm_hem(p: Pressure, h: AvailableEnergy) -> Velocity {
     match ph_flash_region(p, h) {
         FwdEqnRegion::Region4 => {
@@ -1058,4 +1061,46 @@ pub fn lambda_ph_eqm(p: Pressure, h: AvailableEnergy) -> ThermalConductivity {
     let dimensionless_lambda = lambda_0 * lambda_1 + lambda_2;
 
     return lambda_star * dimensionless_lambda;
+}
+
+/// HEM sound-speed checks moved here 2026-10-16 from the deleted
+/// `openfoam_algorithms::rhoPimpleFoam::central_upwind` tests, when the KNP
+/// hybrid that owned that module was retired (gh:#914). They test
+/// [`w_ph_eqm_hem`] directly instead of through the removed
+/// `hem_sound_speed_ph` wrapper, which only added a `c_min` floor.
+#[cfg(test)]
+mod hem_sound_speed_tests {
+    use super::w_ph_eqm_hem;
+    use uom::si::available_energy::joule_per_kilogram;
+    use uom::si::f64::{AvailableEnergy, Pressure};
+    use uom::si::pressure::pascal;
+    use uom::si::velocity::meter_per_second;
+
+    fn c(p_pa: f64, h_jkg: f64) -> f64 {
+        w_ph_eqm_hem(
+            Pressure::new::<pascal>(p_pa),
+            AvailableEnergy::new::<joule_per_kilogram>(h_jkg),
+        )
+        .get::<meter_per_second>()
+    }
+
+    /// Subcooled liquid water (7 MPa, h = 1.0 MJ/kg, Region 1; h_f(7 MPa) is
+    /// about 1.267 MJ/kg) gives a physical liquid speed, 800–2000 m/s.
+    #[test]
+    fn hem_c_subcooled_liquid_is_a_liquid_speed() {
+        let c = c(7.0e6, 1.0e6);
+        assert!(
+            c.is_finite() && (800.0..2000.0).contains(&c),
+            "liquid-water sound speed {c} m/s outside expected band"
+        );
+    }
+
+    /// In the dome (1 bar, 1.5 MJ/kg, x about 0.48) the equilibrium speed is
+    /// finite, positive and far below the liquid speed.
+    #[test]
+    fn hem_c_two_phase_is_finite_and_lower() {
+        let c = c(1.0e5, 1.5e6);
+        assert!(c.is_finite() && c > 0.0, "two-phase c = {c} not physical");
+        assert!(c < 800.0, "two-phase HEM speed {c} m/s should be well below liquid");
+    }
 }

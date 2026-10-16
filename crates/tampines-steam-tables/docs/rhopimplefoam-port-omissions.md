@@ -60,6 +60,23 @@ Rows 2, 4 and 5 need a maintainer decision or an investigation, and row 5 in
 particular should not be waved through as "1-D has no turbulence" when the
 question is really "where is wall friction?".
 
+### Port additions removed (not upstream terms)
+
+This register lists upstream terms the port lacks. The reverse case, a
+non-upstream addition, is recorded here when one is taken out.
+
+- **`SolverMode::HybridAllMach`, the Mach-blended KNP deferred-correction
+  dissipation — REMOVED 2026-10-16** (maintainer decision D7, "retire the KNP
+  hybrid", gh:#914). It was the port's own invention: upstream
+  `rhoPimpleFoam` has no central-upwind term (its shock-capable relative is
+  the separate solver `rhoCentralFoam`). After rows 11–14 were resolved
+  (gh:#900), plain PIMPLE rang 3.4× less on Edwards and the hybrid added
+  23.5–36.7 % ringing over it, failing its own gate. Removed with it:
+  `KnpFaceClosure`, the Mach-blend window, the rarefied-tail density taper
+  and `rhoPimpleFoam/central_upwind.rs`. The density-based route is
+  `crate::hem::HemPipe`. Row 11's "under upwind the hybrid-ringing check
+  fails" refers to that removed gate.
+
 ---
 
 ## Band-aids currently in place

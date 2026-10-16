@@ -27,13 +27,17 @@
 //! - **A 200-step `OPCPFluidArray` (`rhoPimpleFoam`) run.** It reuses the setup
 //!   of the crate's `inlet_outlet_bcs_drive_gas_flow_and_outlet_pressure_settles`
 //!   test: Nitrogen, 10 cells, 1 m, `dt = 2e-4 s`, PISO-2, an inlet velocity
-//!   of 0.5 m/s and an outlet held at 1 bar. It runs once in
+//!   of 0.5 m/s and an outlet held at 1 bar. ~~It runs once in
 //!   `SolverMode::Pimple`, once in `SolverMode::HybridAllMach` at the default
 //!   Mach-blend window, and once with the Mach window and density taper forced
-//!   open (`n2arr_knp`).
-//!   Each run hashes `p`, `he`, `rho` and `U` after steps 1, 10, 50 and 200.
-//!   The default-window hybrid run is bit-identical to Pimple (Ma ≈ 1.4e-3),
-//!   so only `n2arr_knp` exercises the KNP flux. The sweeps hash
+//!   open (`n2arr_knp`).~~ **Since 2026-10-16 it runs once (`n2arr_pimple`)**:
+//!   the KNP hybrid was retired (gh:#914, decision D7), and the
+//!   `n2arr_hybrid_*` and `n2arr_knp_*` runs and their 32 goldens went with
+//!   it. The `n2arr_pimple` goldens did not move, which is the check that only
+//!   the hybrid was removed (`verification_and_validation/determinism_golden_moves.md`).
+//!   The run hashes `p`, `he`, `rho` and `U` after steps 1, 10, 50 and 200.
+//!   ~~The default-window hybrid run is bit-identical to Pimple (Ma ≈ 1.4e-3),
+//!   so only `n2arr_knp` exercises the KNP flux.~~ The sweeps hash
 //!   `state_pt` failures as NaN; there are 2 for Water and 0 for Nitrogen on
 //!   this grid.
 //!
@@ -45,7 +49,8 @@
 //! `transport.rs`, `flash.rs`, `vle.rs`, `ancillaries.rs`, `props.rs`) now
 //! calls petir `RealMath` (71 `r_exp`, 15 `r_ln`, 131 `r_powf`, 83 `r_powi`,
 //! 1 `r_sin`, 1 `r_atan`), gated by `tests/no_platform_libm_on_hot_path.rs`.
-//! **All 68 goldens were re-run after the migration and none moved**, so the
+//! **All 68 goldens (36 since the 2026-10-16 hybrid removal) were re-run after
+//! the migration and none moved**, so the
 //! table was not regenerated. The record, including why no bit moved, is
 //! `verification_and_validation/determinism_golden_moves.md`. They are
 //! asserted only on x86_64 Linux. Every other target prints its hashes and
@@ -86,16 +91,13 @@
 //! `node --no-warnings scripts/wasi-run.mjs <wasm> --nocapture` from the crate
 //! directory.
 
-use outram_park_fork_coolprop::openfoam_algorithms::rhoPimpleFoam::SolverMode;
 use outram_park_fork_coolprop::{conductivity, state_ph, state_pt, viscosity, Fluid, OPCPFluidArray};
 
 use uom::si::area::square_meter;
 use uom::si::available_energy::joule_per_kilogram;
 use uom::si::f64::{
-    Area, AvailableEnergy, Length, MassDensity, Pressure, Ratio, ThermodynamicTemperature, Time, Velocity,
+    Area, AvailableEnergy, Length, Pressure, ThermodynamicTemperature, Time, Velocity,
 };
-use uom::si::mass_density::kilogram_per_cubic_meter;
-use uom::si::ratio::ratio;
 use uom::si::length::meter;
 use uom::si::pressure::pascal;
 use uom::si::thermodynamic_temperature::kelvin;
@@ -167,38 +169,6 @@ const GOLDEN: &[(&str, usize, u64)] = &[
     ("n2arr_pimple_he_200", 10, 0x3fea5c7f55a1d2e8),
     ("n2arr_pimple_rho_200", 10, 0x526666a45dd9bc30),
     ("n2arr_pimple_U_200", 30, 0xa301458654117bb8),
-    ("n2arr_hybrid_p_1", 10, 0xc593ad5453fadb2d),
-    ("n2arr_hybrid_he_1", 10, 0xe02fbb6bcb14e9b9),
-    ("n2arr_hybrid_rho_1", 10, 0x1e7a398d49c67b58),
-    ("n2arr_hybrid_U_1", 30, 0xcbd400ad968b13d8),
-    ("n2arr_hybrid_p_10", 10, 0x60cac2e4deec8a3b),
-    ("n2arr_hybrid_he_10", 10, 0xc3825424b8e38e5d),
-    ("n2arr_hybrid_rho_10", 10, 0xb2842afa7d9c8ab2),
-    ("n2arr_hybrid_U_10", 30, 0x53e674be6debf8f2),
-    ("n2arr_hybrid_p_50", 10, 0xe9fee336758b806d),
-    ("n2arr_hybrid_he_50", 10, 0x7c9c31f29a443528),
-    ("n2arr_hybrid_rho_50", 10, 0x8758c468709d5cb5),
-    ("n2arr_hybrid_U_50", 30, 0x34895150d19f50b4),
-    ("n2arr_hybrid_p_200", 10, 0x07ef4d9edb494bfb),
-    ("n2arr_hybrid_he_200", 10, 0x3fea5c7f55a1d2e8),
-    ("n2arr_hybrid_rho_200", 10, 0x526666a45dd9bc30),
-    ("n2arr_hybrid_U_200", 30, 0xa301458654117bb8),
-    ("n2arr_knp_p_1", 10, 0xc593ad5453fadb2d),
-    ("n2arr_knp_he_1", 10, 0xedc6ffd9fe6f8041),
-    ("n2arr_knp_rho_1", 10, 0x1e7a398d49c67b58),
-    ("n2arr_knp_U_1", 30, 0xcbd400ad968b13d8),
-    ("n2arr_knp_p_10", 10, 0x727d3ca54a16c5a1),
-    ("n2arr_knp_he_10", 10, 0x40e9786afc99e94a),
-    ("n2arr_knp_rho_10", 10, 0xc177b4812941dfda),
-    ("n2arr_knp_U_10", 30, 0xbe4fd350682ea62f),
-    ("n2arr_knp_p_50", 10, 0x8dfaec51ec7e289a),
-    ("n2arr_knp_he_50", 10, 0x52ef9011b06545b7),
-    ("n2arr_knp_rho_50", 10, 0x3632048f2eda4bcb),
-    ("n2arr_knp_U_50", 30, 0xb2529da96d7527fe),
-    ("n2arr_knp_p_200", 10, 0x259b78cbd489c6f0),
-    ("n2arr_knp_he_200", 10, 0xf9ac1f94278ac285),
-    ("n2arr_knp_rho_200", 10, 0x1f4c58815bb8b015),
-    ("n2arr_knp_U_200", 30, 0xb3588abfa95d04f8),
     // GOLDEN-TABLE-END
 ];
 
@@ -299,7 +269,7 @@ fn part_c_water_and_nitrogen_property_sweeps() {
 //  200-step rhoPimpleFoam array
 // ─────────────────────────────────────────────────────────────────────────────
 
-fn array_slice(mode: SolverMode, blend: Option<(f64, f64)>, tag: &str) -> Vec<(String, usize, u64)> {
+fn array_slice(tag: &str) -> Vec<(String, usize, u64)> {
     let n = 10;
     let mut arr = OPCPFluidArray::new(
         Fluid::Nitrogen,
@@ -310,16 +280,6 @@ fn array_slice(mode: SolverMode, blend: Option<(f64, f64)>, tag: &str) -> Vec<(S
     )
     .expect("valid 1-D geometry");
     arr.set_piso_algorithm(2);
-    arr.set_solver_mode(mode);
-    if let Some((lo, hi)) = blend {
-        arr.set_mach_blend_window(Ratio::new::<ratio>(lo), Ratio::new::<ratio>(hi));
-        // The default density taper (50/100 kg/m^3, steam-calibrated) zeroes
-        // the hybrid in a ~1 kg/m^3 gas; open it too, or nothing changes.
-        arr.set_rho_taper_window(
-            MassDensity::new::<kilogram_per_cubic_meter>(0.0),
-            MassDensity::new::<kilogram_per_cubic_meter>(1.0e-3),
-        );
-    }
     let p_out = Pressure::new::<pascal>(1.0e5);
     for c in 0..n {
         arr.p.internal[c] = p_out.get::<pascal>();
@@ -357,26 +317,11 @@ fn array_slice(mode: SolverMode, blend: Option<(f64, f64)>, tag: &str) -> Vec<(S
 
 #[test]
 fn part_c_rho_pimple_200_steps_pimple() {
-    report(&array_slice(SolverMode::Pimple, None, "n2arr_pimple"));
+    report(&array_slice("n2arr_pimple"));
 }
 
-#[test]
-fn part_c_rho_pimple_200_steps_hybrid_knp() {
-    report(&array_slice(SolverMode::HybridAllMach, None, "n2arr_hybrid"));
-}
-
-/// At the default Mach-blend window `n2arr_hybrid` is **bit-identical to
-/// `n2arr_pimple`** in all 16 sub-hashes (measured 2026-10-16). At 0.5 m/s in
-/// nitrogen, Ma is about 1.4e-3, far below the window, so the KNP dissipation
-/// never acts. The default density taper (50/100 kg/m^3) would zero it even
-/// at sonic speed in a ~1 kg/m^3 gas. This run opens the Mach window to
-/// `(0, 1e-3)` and the taper to `(0, 1e-3)` kg/m^3, so that the KNP path is
-/// actually exercised. It is a code-path exerciser, not a physics
-/// configuration.
-#[test]
-fn part_c_rho_pimple_200_steps_knp_forced() {
-    report(&array_slice(SolverMode::HybridAllMach, Some((0.0, 1.0e-3)), "n2arr_knp"));
-}
+// ~~`part_c_rho_pimple_200_steps_hybrid_knp` and `part_c_rho_pimple_200_steps_knp_forced`~~
+// removed 2026-10-16 with the KNP hybrid (module docs).
 
 /// Mutation half of the negative control: a 1-ulp input change moves the hash.
 #[test]

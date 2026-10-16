@@ -30,7 +30,9 @@ uniform cells, `dt = 30 µs`, `t_end = 0.600 s` (20 000 timesteps), break area
 87 % of pipe cross-section at the end of volume 24, adiabatic interior, Hendrie
 (1973) axial enthalpy initial condition. `SolverMode::Pimple` — the test's
 default; the all-Mach hybrid is opt-in via `EDW_HYBRID=1` and is **not** used
-here.
+here. *(Note, 2026-10-16: `SolverMode` and the `EDW_HYBRID` knob were removed
+with the retired KNP hybrid, gh:#914. PIMPLE, the path measured here, is now
+the array's only mode, so this receipt is unaffected.)*
 
 **Command.**
 

@@ -223,40 +223,20 @@ use crate::flash;
 mod lateral_coupling;
 pub use lateral_coupling::OPCPFluidArrayError;
 
-mod central_upwind;
-use central_upwind::{
-    central_face_flux, hem_sound_speed_ph, knp_face_flux, mach_blend, velocity_component,
-    KnpFaceState, C_MIN_MPS,
-};
-
-/// Selects the flux discretisation used by [`OPCPFluidArray::step`].
-///
-/// This is an **opt-in** switch (enum dispatch — no trait objects, per the
-/// workspace design rules). The default [`SolverMode::Pimple`] runs the
-/// pressure-based compressible PIMPLE algorithm exactly as before, bit-for-bit
-/// (every existing test is preserved by construction).
-/// [`SolverMode::HybridAllMach`] additionally injects a **Mach-weighted KNP
-/// central-upwind dissipation** (see the `central_upwind` module) as a
-/// deferred-correction flux, active only on near-sonic faces (`β(Ma) > 0`), to
-/// damp ringing at a near-sonic front while leaving subsonic regions untouched.
-///
-/// This mirrors the `tampines-steam-tables` `TampinesSteamArray` all-Mach hybrid
-/// (bead op-ek2). The CoolProp difference is entirely in the sound-speed closure
-/// (`central_upwind::hem_sound_speed_ph`): single-phase faces use the Helmholtz
-/// EOS `speed_of_sound`, two-phase faces use a homogeneous-equilibrium (HEM)
-/// finite-difference of the equilibrium isentrope through the Maxwell VLE — never
-/// a frozen speed.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
-pub enum SolverMode {
-    /// Pressure-based compressible **PIMPLE** — the historical, validated,
-    /// default path.
-    #[default]
-    Pimple,
-    /// PIMPLE + Mach-blended KNP shock-capturing dissipation (all-Mach hybrid).
-    /// Opt-in; the default [`SolverMode::Pimple`] is the bit-identical historical
-    /// path.
-    HybridAllMach,
-}
+// ~~`mod central_upwind;` and `SolverMode`~~: the Mach-blended KNP hybrid
+// (`SolverMode::HybridAllMach`) was RETIRED 2026-10-16 (maintainer decision D7,
+// "retire the KNP hybrid", gh:#914), in step with its `tampines-steam-tables`
+// twin, where it failed its own Edwards ringing gate after gh:#900. This array
+// now has one flux discretisation, PIMPLE. The HEM sound speed it used is the
+// public `crate::flash::hem_sound_speed_ph`; the density-based KNP path is
+// `tampines::hem::HemPipe` with the CoolProp equation of state. Removed with
+// it: `assemble_hybrid_dissipation`, `HybridDissipation`, the Mach-blend window
+// (`ma_blend_lo`/`hi`) and the rarefied-tail density taper
+// (`hybrid_rho_taper_lo`/`hi`, `set_rho_taper_window`), plus three unit tests
+// (`hybrid_mode_is_noop_on_subsonic_gas_and_matches_pimple`,
+// `rho_taper_window_defaults_and_roundtrips`,
+// `helium_htr10_default_taper_zeroes_hybrid`). See git history before this
+// change (e.g. commit `42a05c598`).
 
 /// Face-interpolation scheme for the **energy equation's** convection term
 /// `∇·(φh)` (see [`OPCPFluidArray::he_convection_scheme`]).
@@ -267,11 +247,12 @@ pub enum SolverMode {
 /// upwind, `λ = 1` is unlimited central differencing, and the TVD variants pick
 /// `λ(r)` from the local slope ratio so no new extremum is created.
 ///
-/// **This is distinct from, and independent of, [`SolverMode::HybridAllMach`].**
+/// ~~**This is distinct from, and independent of, `SolverMode::HybridAllMach`.**
 /// That switch adds a *Mach-weighted* KNP dissipation to continuity and momentum
 /// which is identically zero on a subsonic face (`β(Ma) = 0`) — precisely the
 /// regime a heat exchanger operates in, so it does nothing for scalar
-/// boundedness. Enthalpy boundedness is this setting's job, at any Mach number.
+/// boundedness.~~ (That switch was retired 2026-10-16.) Enthalpy boundedness is
+/// this setting's job, at any Mach number.
 ///
 /// **It is also distinct from, and orthogonal to,
 /// [`EnergyBalanceMode`]**, which chooses whether that convection term is
@@ -426,60 +407,6 @@ pub enum EnergyBalanceMode {
     /// deferred correction itself misbehaves at a very large step.
     Implicit,
 }
-
-/// Per-`step` hybrid KNP dissipation for the continuity and momentum equations.
-/// Both fields are the deferred-correction contribution `β·(knp − central)·|Sf|`
-/// summed appropriately; every entry is identically zero on a subsonic
-/// (`β = 0`) face, so the default `Pimple` path never sees it.
-///
-/// There is no separate energy term: the continuity dissipation is folded into
-/// `phi` **before** the EEqn's `rho_cont`/`conv_he` recompute, so the enthalpy
-/// shock-capturing is carried *implicitly* by the EEqn's `∇·(φh)` convection —
-/// the conservative-ddt cancellation `(rho_cont − rho_old)/dt = −∇·φ` transports
-/// the dissipative enthalpy for free. Adding a separate explicit energy source on
-/// top double-counts that transport (mirrors the `TampinesSteamArray`
-/// `HybridDissipation` rationale, bead op-ek2).
-struct HybridDissipation {
-    /// Dissipative mass flux to add to `phi` \[kg/s\], one per internal face.
-    d_phi: Vec<f64>,
-    /// Per-cell momentum source \[N\] (owner-loses / neighbour-gains sum).
-    mom_src: Vec<Vector3>,
-}
-
-/// **Default** lower mixture-density threshold \[kg/m³\] of the rarefied-tail
-/// taper on the all-Mach hybrid KNP dissipation — the [`OPCPFluidArray::new`]
-/// value of the *configurable* field [`OPCPFluidArray::hybrid_rho_taper_lo`].
-/// **Below** the lower threshold the KNP dissipation is scaled to **zero**
-/// (rarefied emptying tail ⇒ pure PIMPLE, which is stable over the full
-/// transient). See [`OPCPFluidArray::assemble_hybrid_dissipation`] and
-/// [`OPCPFluidArray::set_rho_taper_window`].
-///
-/// **Regime / provenance note (CoolProp):** these default thresholds
-/// (50/100 kg/m³) are inherited verbatim from the `TampinesSteamArray` water
-/// transient, where the near-sonic ringing lives on a *dense* two-phase
-/// flashing front (ρ ≳ 100 kg/m³). A bare density window is only meaningful
-/// **relative to the pressure it was calibrated at** — here a steam blowdown
-/// depressurising to ~1 bar (Edwards–O'Brien), where ρ ≈ 50–100 kg/m³ marks
-/// the dense flashing mixture. At other pressures, or for a **low-density
-/// single-phase gas** (e.g. Nitrogen at ~1 bar, ρ ≈ 1 kg/m³; Helium at HTR-10
-/// conditions, ρ ≈ 1–3 kg/m³), the same numbers mean something entirely
-/// different: the whole flow sits below the lower threshold, so the taper
-/// zeroes the hybrid and `HybridAllMach` degenerates to `Pimple` — the honest,
-/// intended outcome for a deeply subsonic gas circuit. Retune the window with
-/// [`OPCPFluidArray::set_rho_taper_window`] (fluid- and pressure-aware) before
-/// relying on `HybridAllMach` for such a case, and pair it with the `(p, h)`
-/// admissibility guard ([`OPCPFluidArray::set_enthalpy_bounds`] +
-/// [`OPCPFluidArray::set_pressure_bounds`]) so the energy equation cannot
-/// overdrain enthalpy to unphysical temperatures.
-const HYBRID_RHO_TAPER_LO_DEFAULT: f64 = 50.0;
-
-/// **Default** upper mixture-density threshold \[kg/m³\] of the rarefied-tail
-/// taper — the [`OPCPFluidArray::new`] value of
-/// [`OPCPFluidArray::hybrid_rho_taper_hi`]. **At or above** the upper threshold
-/// the KNP dissipation is applied at full weight (the dense two-phase region
-/// where near-sonic ringing lives). Between the two thresholds the blend ramps
-/// linearly. See the regime/provenance note on [`HYBRID_RHO_TAPER_LO_DEFAULT`].
-const HYBRID_RHO_TAPER_HI_DEFAULT: f64 = 100.0;
 
 /// **Default** lower specific-enthalpy bound \[J/kg\] of the `(p, h)`
 /// admissibility guard — the [`OPCPFluidArray::new`] value of
@@ -659,36 +586,6 @@ pub struct OPCPFluidArray {
     /// [`Self::he_convection_scheme`]: the limiter is honoured in either mode,
     /// via a deferred correction in the implicit one.
     pub he_balance_mode: EnergyBalanceMode,
-
-    // ── All-Mach hybrid (opt-in) ─────────────────────────────────────────────
-    /// Flux-discretisation mode (default [`SolverMode::Pimple`], bit-identical
-    /// to the historical path). See [`Self::set_solver_mode`].
-    pub mode: SolverMode,
-    /// Lower Mach threshold `lo` of the hybrid blend window
-    /// `β(Ma) = clamp((Ma−lo)/(hi−lo), 0, 1)` (default `0.3`, dimensionless).
-    /// Below `lo` the KNP dissipation is identically zero. Only read when
-    /// `mode == HybridAllMach`. See [`Self::set_mach_blend_window`].
-    pub ma_blend_lo: Ratio,
-    /// Upper Mach threshold `hi` of the hybrid blend window (default `1.0`,
-    /// dimensionless). At/above `hi` the KNP dissipation is applied at full
-    /// weight. See [`Self::set_mach_blend_window`].
-    pub ma_blend_hi: Ratio,
-    /// Lower mixture-density threshold \[kg/m³\] of the rarefied-tail taper on
-    /// the hybrid KNP dissipation: below it the dissipation is scaled to zero
-    /// (pure PIMPLE), with a linear ramp up to [`Self::hybrid_rho_taper_hi`].
-    /// Default 50 kg/m³ — a **steam-calibrated placeholder** inherited from the
-    /// `TampinesSteamArray` Edwards–O'Brien blowdown (dense two-phase flashing
-    /// front depressurising to ~1 bar); a bare density window is only
-    /// meaningful relative to that calibration pressure, so retune it per
-    /// fluid/pressure with [`Self::set_rho_taper_window`]. Only read when
-    /// `mode == HybridAllMach`. See `HYBRID_RHO_TAPER_LO_DEFAULT` (this
-    /// module) for the full regime/provenance note.
-    pub hybrid_rho_taper_lo: MassDensity,
-    /// Upper mixture-density threshold \[kg/m³\] of the rarefied-tail taper:
-    /// at/above it the KNP dissipation is applied at full weight (default
-    /// 100 kg/m³, same steam-calibrated provenance as
-    /// [`Self::hybrid_rho_taper_lo`]). See [`Self::set_rho_taper_window`].
-    pub hybrid_rho_taper_hi: MassDensity,
 
     // ── Fields ──────────────────────────────────────────────────────────────
     /// Velocity field [m/s].
@@ -874,19 +771,6 @@ impl OPCPFluidArray {
             // the more accurate one at the deeply sub-CFL steps this array is
             // normally driven at. See `EnergyBalanceMode`.
             he_balance_mode: EnergyBalanceMode::default(),
-            // Default: pure PIMPLE ⇒ the hybrid dissipation is never assembled,
-            // so every existing constructor/test runs the unchanged code path.
-            mode: SolverMode::Pimple,
-            ma_blend_lo: Ratio::new::<ratio>(0.3),
-            ma_blend_hi: Ratio::new::<ratio>(1.0),
-            // Steam-calibrated placeholder taper window (Edwards–O'Brien
-            // provenance) — see `hybrid_rho_taper_lo` / `set_rho_taper_window`.
-            hybrid_rho_taper_lo: MassDensity::new::<kilogram_per_cubic_meter>(
-                HYBRID_RHO_TAPER_LO_DEFAULT,
-            ),
-            hybrid_rho_taper_hi: MassDensity::new::<kilogram_per_cubic_meter>(
-                HYBRID_RHO_TAPER_HI_DEFAULT,
-            ),
             u,
             p,
             rho,
@@ -1092,12 +976,6 @@ impl OPCPFluidArray {
         // `inlet_enthalpy_bc_*_without_reapplying_each_step`.
         let he_bcs = capture_bcs(&self.he.boundary);
 
-        // Hybrid-mode only: deferred KNP momentum dissipation, carried from one
-        // outer corrector into the next outer corrector's UEqn source (a
-        // one-corrector deferred-correction lag). Stays all-zero in `Pimple`
-        // mode, so the momentum predictor is untouched by construction.
-        let mut hybrid_mom_src = vec![Vector3::ZERO; n];
-
         for _ in 0..n_outer {
             // ── rhoEqn: explicit continuity ρ = ρ_old − dt·∇·φ ──────────────
             let div_phi = fvc::div_flux(&self.phi);
@@ -1112,15 +990,6 @@ impl OPCPFluidArray {
             let mut u_eqn = fvm::ddt_coeff_vec(&self.rho, &self.u, &u_old, dt, mesh.clone())
                 + fvm::div_vec(&self.phi, &self.u, mesh.clone())
                 + fvm::laplacian_vec(&self.mu, &self.u, mesh.clone());
-
-            // Hybrid: fold the deferred KNP momentum dissipation into the UEqn
-            // source so the momentum predictor and every H(U) re-evaluation in
-            // the pressure loop see it. Zero (no-op) in `Pimple` mode.
-            if self.mode == SolverMode::HybridAllMach {
-                for c in 0..n {
-                    u_eqn.source[c] = u_eqn.source[c] + hybrid_mom_src[c];
-                }
-            }
 
             // A [kg/s]; rAU = V/A [m³·s/kg]
             let a = u_eqn.a_field();
@@ -1396,24 +1265,6 @@ impl OPCPFluidArray {
                 // the refreshed (T, ρ).
                 self.correct_thermo();
                 self.correct_transport();
-            }
-
-            // ── Hybrid all-Mach KNP dissipation (deferred correction) ────────
-            // Assembled from the just-converged primitives. The continuity
-            // dissipation is folded into `self.phi` HERE, *before* the EEqn's
-            // `rho_cont`/`conv_he` recompute below both read `self.phi`, so the
-            // discrete continuity invariant `(rho_cont − rho_old)/dt = −∇·φ`
-            // still holds exactly, the conservative-ddt `h·∇·φ` cancellation
-            // survives, AND the enthalpy shock-capturing is carried implicitly by
-            // that convection (so no separate, destabilising energy source is
-            // added — see `HybridDissipation`). Momentum dissipation is deferred
-            // to the next outer corrector's UEqn. `Pimple` mode skips all of this.
-            if self.mode == SolverMode::HybridAllMach {
-                let diss = self.assemble_hybrid_dissipation();
-                for f in 0..mesh.n_internal_faces {
-                    self.phi.internal[f] += diss.d_phi[f];
-                }
-                hybrid_mom_src = diss.mom_src;
             }
 
             // ── Energy equation ─────────────────────────────────────────────
@@ -1766,9 +1617,6 @@ impl OPCPFluidArray {
     /// to reproduce this solver's pre-2026-08-12 (unbounded) numbers — see that
     /// variant's doc comment for the measured over/undershoot it produces.
     ///
-    /// This is independent of [`Self::set_solver_mode`], which governs a
-    /// *Mach-weighted* dissipation on continuity and momentum that vanishes in
-    /// subsonic flow and does nothing for scalar boundedness.
     pub fn set_he_convection_scheme(&mut self, scheme: EnergyConvectionScheme) {
         self.he_convection_scheme = scheme;
     }
@@ -1797,9 +1645,6 @@ impl OPCPFluidArray {
     /// the two modes discretise the *same* limited flux — they differ only in
     /// how much of it the matrix sees.
     ///
-    /// It is also independent of [`Self::set_solver_mode`] (a Mach-weighted
-    /// dissipation on continuity and momentum, inactive in subsonic flow).
-    ///
     /// # Measured behaviour
     ///
     /// [`EnergyBalanceMode`] carries the measured stability/accuracy trade
@@ -1812,74 +1657,6 @@ impl OPCPFluidArray {
     /// inputs, pass criterion and results.
     pub fn set_he_balance_mode(&mut self, mode: EnergyBalanceMode) {
         self.he_balance_mode = mode;
-    }
-
-    /// The current flux-discretisation mode (see [`SolverMode`]).
-    pub fn get_solver_mode(&self) -> SolverMode {
-        self.mode
-    }
-
-    /// Selects the flux-discretisation mode. [`SolverMode::Pimple`] (the
-    /// default) runs the historical pressure-based path bit-identically;
-    /// [`SolverMode::HybridAllMach`] additionally applies the Mach-blended KNP
-    /// central-upwind dissipation as a deferred correction on near-sonic faces.
-    pub fn set_solver_mode(&mut self, mode: SolverMode) {
-        self.mode = mode;
-    }
-
-    /// The current hybrid Mach-blend window `(lo, hi)` (dimensionless Mach
-    /// thresholds). See [`Self::set_mach_blend_window`].
-    pub fn get_mach_blend_window(&self) -> (Ratio, Ratio) {
-        (self.ma_blend_lo, self.ma_blend_hi)
-    }
-
-    /// Sets the hybrid Mach-blend window `β(Ma) = clamp((Ma−lo)/(hi−lo), 0, 1)`.
-    ///
-    /// `lo` and `hi` are dimensionless Mach thresholds: below `lo` **no** KNP
-    /// dissipation is added (subsonic ⇒ the PIMPLE result is preserved), at/above
-    /// `hi` it is applied at full weight, with a linear ramp between. Only affects
-    /// [`SolverMode::HybridAllMach`]. Panics if `hi <= lo`.
-    pub fn set_mach_blend_window(&mut self, lo: Ratio, hi: Ratio) {
-        assert!(
-            hi.get::<ratio>() > lo.get::<ratio>(),
-            "mach blend window requires hi > lo, got lo = {}, hi = {}",
-            lo.get::<ratio>(),
-            hi.get::<ratio>()
-        );
-        self.ma_blend_lo = lo;
-        self.ma_blend_hi = hi;
-    }
-
-    /// The current rarefied-tail density-taper window `(lo, hi)` \[kg/m³\] of
-    /// the hybrid KNP dissipation. See [`Self::set_rho_taper_window`].
-    pub fn get_rho_taper_window(&self) -> (MassDensity, MassDensity) {
-        (self.hybrid_rho_taper_lo, self.hybrid_rho_taper_hi)
-    }
-
-    /// Sets the rarefied-tail density-taper window of the hybrid KNP
-    /// dissipation: below `lo` the dissipation is scaled to zero (pure PIMPLE),
-    /// at/above `hi` it is applied at full weight, with a linear ramp between
-    /// (both in kg/m³, gated on the lighter side of each face). Only affects
-    /// [`SolverMode::HybridAllMach`]. Panics if `hi <= lo`.
-    ///
-    /// The defaults (50/100 kg/m³) are a **steam-calibrated placeholder** from
-    /// the `TampinesSteamArray` Edwards–O'Brien blowdown (dense two-phase
-    /// flashing front depressurising to ~1 bar). A bare density window is only
-    /// meaningful relative to the pressure it was calibrated at, so set a
-    /// fluid- and pressure-appropriate window here before relying on
-    /// `HybridAllMach` away from that regime — e.g. for a low-density gas
-    /// (Helium at HTR-10 conditions, ρ ≈ 1–3 kg/m³) the default window zeroes
-    /// the hybrid everywhere, degenerating it to plain PIMPLE. See
-    /// `HYBRID_RHO_TAPER_LO_DEFAULT` (this module) for the full provenance note.
-    pub fn set_rho_taper_window(&mut self, lo: MassDensity, hi: MassDensity) {
-        assert!(
-            hi.get::<kilogram_per_cubic_meter>() > lo.get::<kilogram_per_cubic_meter>(),
-            "rho taper window requires hi > lo, got lo = {} kg/m^3, hi = {} kg/m^3",
-            lo.get::<kilogram_per_cubic_meter>(),
-            hi.get::<kilogram_per_cubic_meter>()
-        );
-        self.hybrid_rho_taper_lo = lo;
-        self.hybrid_rho_taper_hi = hi;
     }
 
     /// The current enthalpy bounds `(h_min, h_max)` \[J/kg\] of the `(p, h)`
@@ -1912,164 +1689,6 @@ impl OPCPFluidArray {
         self.h_max = h_max;
     }
 
-    /// Assemble the Mach-weighted KNP central-upwind dissipation from the
-    /// **current** primitive state (`ρ, U, he, p` after the inner PISO loop's
-    /// `correct_thermo`).
-    ///
-    /// Per internal face: the per-cell sound speed
-    /// ([`hem_sound_speed_ph`] — CoolProp EOS single-phase / HEM-equilibrium
-    /// two-phase) gives the cell Mach numbers; the face blend weight is
-    /// `β(Ma_face)` with `Ma_face = min(Ma_owner, Ma_neighbour)` — the low-Mach
-    /// scaling that keeps a subsonic acoustic interface stable (dissipation
-    /// activates only where *both* sides are near-sonic). van-Leer MUSCL
-    /// owner/neighbour reconstructions of `ρ, U, he, p, c` build the left/right
-    /// [`KnpFaceState`]s, and the deferred-correction dissipation is
-    /// `β·(knp − central)·|Sf|` — the pure KNP jump term, identically zero on a
-    /// subsonic face. Continuity dissipation is returned as a face mass flux to
-    /// fold into `phi`; momentum dissipation as an owner-loses / neighbour-gains
-    /// per-cell source. There is no separate energy source — the enthalpy
-    /// shock-capturing rides on the continuity flux through the EEqn's `∇·(φh)`
-    /// (see [`HybridDissipation`]).
-    fn assemble_hybrid_dissipation(&self) -> HybridDissipation {
-        let mesh = self.mesh.clone();
-        let n = mesh.n_cells;
-        let nif = mesh.n_internal_faces;
-        let lo = self.ma_blend_lo.get::<ratio>();
-        let hi = self.ma_blend_hi.get::<ratio>();
-        let taper_lo = self.hybrid_rho_taper_lo.get::<kilogram_per_cubic_meter>();
-        let taper_hi = self.hybrid_rho_taper_hi.get::<kilogram_per_cubic_meter>();
-
-        // Per-cell sound speed, Mach number, and a validity-edge safety flag.
-        //
-        // The KNP shock-capturing is only meaningful where the CoolProp closure
-        // is well-defined. `safe[c]` marks cells whose `(p, h)` state yielded a
-        // finite temperature, a pressure above the floor, and a physical sound
-        // speed (`> C_MIN_MPS` — so a cell where neither the single-phase flash
-        // nor the two-phase equilibrium closure produced a usable speed is
-        // excluded). Faces touching an unsafe cell get no dissipation.
-        let p_floor = self.p_min.get::<pascal>();
-        let mut c_cell = vec![0.0_f64; n];
-        let mut ma_cell = vec![0.0_f64; n];
-        let mut safe = vec![false; n];
-        for i in 0..n {
-            let c = hem_sound_speed_ph(
-                self.fluid,
-                self.p.internal[i],
-                self.he.internal[i],
-                C_MIN_MPS,
-            );
-            c_cell[i] = c;
-            ma_cell[i] = self.u.internal[i].mag() / c;
-            let t_i = self.t.internal[i];
-            safe[i] = t_i.is_finite() && self.p.internal[i] > p_floor && c > C_MIN_MPS;
-        }
-
-        // Reconstruct the sound speed as a field so the face wave speeds use the
-        // MUSCL owner/neighbour states, consistent with the primitives.
-        let c_field = VolScalarField::new(
-            "cHEM",
-            mesh.clone(),
-            Field::new(c_cell),
-            mesh.patches
-                .iter()
-                .map(|p| PatchField::zero_gradient(p.size))
-                .collect(),
-        );
-
-        let lim = fvc::Limiter::VanLeer;
-        let (rho_pos, rho_neg) = fvc::reconstruct_pos_neg(&self.rho, lim);
-        let (he_pos, he_neg) = fvc::reconstruct_pos_neg(&self.he, lim);
-        let (p_pos, p_neg) = fvc::reconstruct_pos_neg(&self.p, lim);
-        let (c_pos, c_neg) = fvc::reconstruct_pos_neg(&c_field, lim);
-        let ux = velocity_component(&self.u, 0);
-        let uy = velocity_component(&self.u, 1);
-        let uz = velocity_component(&self.u, 2);
-        let (ux_pos, ux_neg) = fvc::reconstruct_pos_neg(&ux, lim);
-        let (uy_pos, uy_neg) = fvc::reconstruct_pos_neg(&uy, lim);
-        let (uz_pos, uz_neg) = fvc::reconstruct_pos_neg(&uz, lim);
-
-        let mut d_phi = vec![0.0_f64; nif];
-        let mut mom_src = vec![Vector3::ZERO; n];
-
-        for f in 0..nif {
-            let o = mesh.owner[f];
-            let nb = mesh.neighbour[f];
-            let area = mesh.face_areas[f];
-            if area < 1e-300 {
-                continue;
-            }
-
-            // Validity-edge guard: no shock-capturing where the closure is near
-            // its (p, h) validity boundary on either side (see `safe`).
-            if !safe[o] || !safe[nb] {
-                continue;
-            }
-
-            // Blend weight gated on the *lower* Mach of the two adjacent cells
-            // (subsonic ⇒ β = 0 ⇒ skip: exactly pure PIMPLE on this face).
-            // `min(Ma)` is the low-Mach scaling that keeps the scheme stable at a
-            // subsonic/near-sonic interface: a high-sound-speed (liquid) side is
-            // genuinely low-Mach and must NOT be dissipated, so gating on the
-            // subsonic side returns β = 0 there.
-            let ma_f = ma_cell[o].min(ma_cell[nb]);
-            let mut beta = mach_blend(ma_f, lo, hi);
-
-            // Rarefied-tail (low-density) taper. The all-Mach KNP shock-capturing
-            // targets a *dense* near-sonic region; as a cell rarefies toward
-            // vacuum an explicit deferred-correction dissipation over-drives it.
-            // The taper scales β to zero below `hybrid_rho_taper_lo` and to full
-            // above `hybrid_rho_taper_hi` (configurable via
-            // `set_rho_taper_window`; defaults are the steam-calibrated 50/100
-            // kg/m³ placeholders), using the lighter (at-risk) face side. See
-            // the regime note on `HYBRID_RHO_TAPER_LO_DEFAULT` for the CoolProp
-            // low-density caveat.
-            {
-                let rho_face_min = self.rho.internal[o].min(self.rho.internal[nb]);
-                let g = ((rho_face_min - taper_lo) / (taper_hi - taper_lo)).clamp(0.0, 1.0);
-                beta *= g;
-            }
-
-            if beta <= 0.0 {
-                continue;
-            }
-
-            let sf = mesh.face_area_vectors[f];
-            let n_f = Vector3::new(sf.x / area, sf.y / area, sf.z / area);
-
-            let l = KnpFaceState::static_enthalpy(
-                rho_pos.internal[f].max(1e-10),
-                Vector3::new(ux_pos.internal[f], uy_pos.internal[f], uz_pos.internal[f]),
-                p_pos.internal[f],
-                c_pos.internal[f].max(C_MIN_MPS),
-                he_pos.internal[f],
-            );
-            let r = KnpFaceState::static_enthalpy(
-                rho_neg.internal[f].max(1e-10),
-                Vector3::new(ux_neg.internal[f], uy_neg.internal[f], uz_neg.internal[f]),
-                p_neg.internal[f],
-                c_neg.internal[f].max(C_MIN_MPS),
-                he_neg.internal[f],
-            );
-
-            let knp = knp_face_flux(&l, &r, n_f);
-            let cen = central_face_flux(&l, &r, n_f);
-
-            // Continuity / momentum: deferred-correction dissipation
-            // β·(KNP − central)·|Sf| (the pure KNP jump term). Energy is carried
-            // implicitly by the continuity term (see `HybridDissipation`).
-            let d_cont = beta * (knp.mass - cen.mass) * area;
-            let d_mom = (knp.momentum - cen.momentum) * (beta * area);
-
-            // Continuity: add the dissipative mass flux to phi (owner→neighbour
-            // positive, matching phi's sign convention).
-            d_phi[f] += d_cont;
-            // Momentum: owner loses the outgoing flux, neighbour gains it.
-            mom_src[o] = mom_src[o] - d_mom;
-            mom_src[nb] = mom_src[nb] + d_mom;
-        }
-
-        HybridDissipation { d_phi, mom_src }
-    }
 }
 
 #[cfg(test)]
@@ -2288,79 +1907,6 @@ mod tests {
         ));
     }
 
-    /// The opt-in [`SolverMode::HybridAllMach`] is a **no-op on a subsonic, low-
-    /// density gas** (Nitrogen at ~1 bar): every internal face is deeply subsonic
-    /// (`β(Ma) = 0`) *and* below the rarefied-tail density taper, so the KNP
-    /// dissipation is identically zero and the run is bit-for-bit identical to the
-    /// default [`SolverMode::Pimple`] path. This exercises the hybrid assembly
-    /// path (`assemble_hybrid_dissipation`: the per-cell sound-speed/`safe`
-    /// scan, the MUSCL reconstructions, the face loop and its guards) end-to-end
-    /// without panicking, and pins the "hybrid is opt-in and does not perturb the
-    /// subsonic default" contract. (To actually engage the KNP dissipation needs a
-    /// near-sonic face with `ρ ≳ hybrid_rho_taper_hi` (default 100 kg/m³) — a high-pressure /
-    /// choked-flow case, not this smoke test.)
-    #[test]
-    fn hybrid_mode_is_noop_on_subsonic_gas_and_matches_pimple() {
-        let make = || {
-            OPCPFluidArray::new(
-                Fluid::Nitrogen,
-                Length::new::<meter>(1.0),
-                Area::new::<square_meter>(0.01),
-                20,
-                Time::new::<second>(1e-4),
-            )
-            .expect("valid 1-D geometry")
-        };
-
-        let mut pimple = make();
-        pimple.run(10);
-
-        let mut hybrid = make();
-        hybrid.set_solver_mode(SolverMode::HybridAllMach);
-        assert_eq!(hybrid.get_solver_mode(), SolverMode::HybridAllMach);
-        hybrid.run(10);
-
-        // Bit-for-bit identical to the default path (β = 0 on every face).
-        for c in 0..pimple.mesh.n_cells {
-            assert_eq!(
-                hybrid.p.internal[c], pimple.p.internal[c],
-                "hybrid pressure diverged from Pimple at cell {c} (should be a no-op)"
-            );
-            assert_eq!(hybrid.rho.internal[c], pimple.rho.internal[c]);
-            assert_eq!(hybrid.he.internal[c], pimple.he.internal[c]);
-            assert_eq!(hybrid.u.internal[c].x, pimple.u.internal[c].x);
-            assert!(hybrid.p.internal[c].is_finite() && hybrid.rho.internal[c] > 0.0);
-        }
-    }
-
-    /// The rho-taper window defaults to the steam-calibrated 50/100 kg/m³
-    /// placeholder and round-trips through
-    /// [`OPCPFluidArray::set_rho_taper_window`] /
-    /// [`OPCPFluidArray::get_rho_taper_window`].
-    #[test]
-    fn rho_taper_window_defaults_and_roundtrips() {
-        let mut array = OPCPFluidArray::new(
-            Fluid::Nitrogen,
-            Length::new::<meter>(1.0),
-            Area::new::<square_meter>(0.01),
-            5,
-            Time::new::<second>(1e-4),
-        )
-        .expect("valid 1-D geometry");
-
-        let (lo, hi) = array.get_rho_taper_window();
-        assert_eq!(lo.get::<kilogram_per_cubic_meter>(), 50.0);
-        assert_eq!(hi.get::<kilogram_per_cubic_meter>(), 100.0);
-
-        array.set_rho_taper_window(
-            MassDensity::new::<kilogram_per_cubic_meter>(0.5),
-            MassDensity::new::<kilogram_per_cubic_meter>(2.0),
-        );
-        let (lo, hi) = array.get_rho_taper_window();
-        assert_eq!(lo.get::<kilogram_per_cubic_meter>(), 0.5);
-        assert_eq!(hi.get::<kilogram_per_cubic_meter>(), 2.0);
-    }
-
     /// The `(p, h)` admissibility guard defaults wide open, and when tightened
     /// it clamps the post-EEqn cell enthalpy **and counts every clamp** in
     /// [`OPCPFluidArray::h_clamp_events`] (visible, never silent — unlike the
@@ -2412,77 +1958,12 @@ mod tests {
         }
     }
 
-    /// V&V: the **default steam-calibrated density taper zeroes the hybrid KNP
-    /// dissipation for helium across the whole HTR-10 envelope** — i.e.
-    /// [`SolverMode::HybridAllMach`] with the default taper degenerates to
-    /// [`SolverMode::Pimple`] for helium, the honest, intended outcome for a
-    /// deeply subsonic gas circuit (see the regime note on
-    /// `HYBRID_RHO_TAPER_LO_DEFAULT`).
-    ///
-    /// **Methodology.** Helium mass density is computed from this crate's own
-    /// Ortiz-Vega-et-al. Helmholtz EOS via `flash::state_pt(Fluid::Helium, T, p)`
-    /// at four states spanning the HTR-10 operating envelope — core inlet
-    /// (523.15 K, 3.0 MPa), design core outlet (973.15 K, 3.0 MPa),
-    /// high-temperature test operation (1173.15 K, 3.0 MPa), and a cold
-    /// depressurised state (300 K, 1 bar). Pass criterion: each density is
-    /// strictly below the default lower taper threshold
-    /// `hybrid_rho_taper_lo` = 50 kg/m³ (read from a freshly constructed
-    /// helium array, so the assertion tracks the actual default), at which the
-    /// rarefied-tail taper scales the KNP dissipation weight to exactly zero.
-    ///
-    /// **Results (2026-08-11, this crate's EOS, outram-park-fork-coolprop
-    /// v0.1.1).** Computed densities:
-    /// - 523.15 K, 3.0 MPa: **2.739989 kg/m³**
-    /// - 973.15 K, 3.0 MPa: **1.478781 kg/m³**
-    /// - 1173.15 K, 3.0 MPa: **1.227576 kg/m³**
-    /// - 300 K, 1 bar: **0.160391 kg/m³**
-    ///
-    /// All are 1–2 orders of magnitude below the 50 kg/m³ default threshold,
-    /// so the taper weight `g = clamp((ρ − 50)/(100 − 50), 0, 1)` is 0 on every
-    /// face at every HTR-10 state: the hybrid is a guaranteed no-op for helium
-    /// unless the window is retuned with
-    /// [`OPCPFluidArray::set_rho_taper_window`].
-    #[test]
-    fn helium_htr10_default_taper_zeroes_hybrid() {
-        let array = OPCPFluidArray::new(
-            Fluid::Helium,
-            Length::new::<meter>(1.0),
-            Area::new::<square_meter>(0.01),
-            5,
-            Time::new::<second>(1e-4),
-        )
-        .expect("valid 1-D geometry");
-        let taper_lo = array.hybrid_rho_taper_lo.get::<kilogram_per_cubic_meter>();
-
-        for (t_k, p_pa, label) in [
-            (523.15, 3.0e6, "HTR-10 core inlet (523.15 K, 3.0 MPa)"),
-            (
-                973.15,
-                3.0e6,
-                "HTR-10 core outlet, design (973.15 K, 3.0 MPa)",
-            ),
-            (
-                1173.15,
-                3.0e6,
-                "HTR-10 high-temperature test (1173.15 K, 3.0 MPa)",
-            ),
-            (300.0, 1.0e5, "cold depressurised (300 K, 1 bar)"),
-        ] {
-            let rho = flash::state_pt(Fluid::Helium, t_k, p_pa)
-                .expect("single-phase helium state")
-                .density;
-            println!("MEASURE rho {label}: {rho:.6} kg/m^3");
-            assert!(
-                rho < taper_lo,
-                "{label}: rho = {rho} kg/m^3 must sit below the default taper lo = {taper_lo}"
-            );
-        }
-    }
-
     /// V&V: **helium at the HTR-10 full-power operating point is deeply
-    /// subsonic** — so the Mach-blend gate (`β(Ma) = 0` below
-    /// `ma_blend_lo` = 0.3) *also* keeps the hybrid KNP dissipation off,
-    /// independently of the density taper.
+    /// subsonic**, so plain PIMPLE is the appropriate regime for it.
+    /// ~~— so the Mach-blend gate (`β(Ma) = 0` below `ma_blend_lo` = 0.3)
+    /// *also* keeps the hybrid KNP dissipation off, independently of the
+    /// density taper.~~ The hybrid was retired 2026-10-16; the Mach number
+    /// measured here stands on its own.
     ///
     /// **Methodology.** Speed of sound and density are computed from this
     /// crate's own Helmholtz EOS via `flash::state_pt(Fluid::Helium,
@@ -2502,8 +1983,8 @@ mod tests {
     /// A_free = **0.992429 m²**, u = **2.255569 m/s**, so
     /// **Ma = 1.395×10⁻³** — two orders of magnitude below the 0.3 Mach-blend
     /// threshold and well under the 0.01 pass criterion. Interpretation: an
-    /// HTR-10 helium circuit is a low-Mach flow for which `HybridAllMach`
-    /// (correctly) contributes nothing; plain PIMPLE is the appropriate
+    /// HTR-10 helium circuit is a low-Mach flow ~~for which `HybridAllMach`
+    /// (correctly) contributes nothing~~; plain PIMPLE is the appropriate
     /// regime.
     #[test]
     fn helium_htr10_full_power_is_deeply_subsonic() {

@@ -19,6 +19,37 @@
 //! kept deliberately, as a save point. Future work: gh:#406. See
 //! `apply_he_scheme_knob` for the measured table.
 //!
+//! ## 2026-10-16: the KNP hybrid and its test were RETIRED
+//!
+//! ~~This file held a second test, `edwards_hybrid_damps_ringing_vs_pimple`,
+//! comparing plain PIMPLE with `SolverMode::HybridAllMach` (PIMPLE plus a
+//! Mach-blended KNP central-upwind deferred-correction dissipation) on
+//! 0–0.15 s.~~ **Deleted 2026-10-16**, together with the hybrid itself
+//! (maintainer decision D7, "retire the KNP hybrid", gh:#914). The hybrid
+//! failed its own gate after gh:#900: with `psi` held across the inner
+//! correctors, as upstream holds it, plain PIMPLE rings 3.4× less than before
+//! and the hybrid **added** ringing. Final measured numbers (2026-10-16,
+//! 24 cells, 30 µs, 0–0.15 s, summed excess total variation over GS-1…GS-7,
+//! Pimple → Hybrid; a negative drop is more ringing):
+//!
+//! | configuration | Pimple [psia] | Hybrid [psia] | drop | GS-1 plateau P / H [psia] | gate |
+//! |---|---|---|---|---|---|
+//! | Linear, pre-#900 path | 5523.7 | 4240.8 | +23.2 % | 359.0 / 359.0 | passed |
+//! | **Linear, defaults** | **1648.3** | **2035.8** | **−23.5 %** | 360.5 / 368.8 | **failed** |
+//! | van Leer, defaults | 1951.5 | 2557.1 | −31.0 % | 358.3 / 363.5 | **failed** |
+//! | upwind, defaults | 2014.6 | 2754.4 | −36.7 % | 359.8 / 365.7 | **failed** |
+//!
+//! Its original 2026-07-16 result, on the pre-#900 path, was a 55.5 % ringing
+//! reduction (4669.6 → 2079.3 psia) with the GS-1 plateau 392.7 → 387.7 psia.
+//! The test, its `run_gauge_pressures` driver and the `excess_total_variation`
+//! metric are in git history before this change (e.g. commit `42a05c598`).
+//! The `EDW_HYBRID` and `EDW_KNP_EOS` knobs of the 600 ms test went with it.
+//! The density-based KNP path is now `tampines_steam_tables::hem::HemPipe`; its
+//! Edwards comparison is
+//! `verification_and_validation/hem_pipe_vs_exact_riemann_and_edwards.md`.
+//! Tables below that carry a "Hybrid-vs-PIMPLE run" column are kept as
+//! measured.
+//!
 //! ## gh:#900 (epic #896 phase A): defaults changed 2026-10-16 -- predictions, then results
 //!
 //! Maintainer decision D5 (2026-10-16) made four upstream behaviours the
@@ -269,8 +300,8 @@
 //! acoustic-CFL overshoot at the initial rarefaction.
 
 use tampines_steam_tables::{
-    EnergyBalanceMode, EnergyConvectionScheme, KineticEnergyTerms, KnpFaceClosure, PsiRefresh,
-    SolverMode, TampinesSteamArray, ThermoClosure, TimeStepControl,
+    EnergyBalanceMode, EnergyConvectionScheme, KineticEnergyTerms, PsiRefresh,
+    TampinesSteamArray, ThermoClosure, TimeStepControl,
 };
 
 /// The energy-convection scheme this V&V case runs with: **pinned to
@@ -317,7 +348,9 @@ use tampines_steam_tables::{
 /// | `upwind` | passes: plateau 359.8 psia, GS-1 RMSE 18.2 psia | **fails** (−36.7 %) |
 /// | `vanleer` | passes: plateau 358.3 psia, GS-1 RMSE 19.9 psia | **fails** (−31.0 %) |
 ///
-/// See [`edwards_hybrid_damps_ringing_vs_pimple`] for why the hybrid now fails.
+/// ~~See `edwards_hybrid_damps_ringing_vs_pimple` for why the hybrid now
+/// fails.~~ That test and the hybrid were retired 2026-10-16; see the module
+/// docs.
 ///
 /// So under a bounded scheme this case exposes a defect the linear scheme had
 /// been masking in the draining break cell. That is a finding about the break
@@ -641,18 +674,8 @@ fn edwards_obrien_pipe_blowdown_600ms() {
         uom::si::f64::Ratio::new::<uom::si::ratio::ratio>(alpha_u),
     );
 
-    // Opt-in all-Mach hybrid mode for figure regeneration (EDW_HYBRID=1). The
-    // default (unset) is pure PIMPLE, so this test's headline numbers above are
-    // the PIMPLE baseline; the Pimple-vs-Hybrid comparison lives in the
-    // dedicated `edwards_hybrid_damps_ringing_vs_pimple` test below.
-    if std::env::var("EDW_HYBRID").is_ok() {
-        array.set_solver_mode(SolverMode::HybridAllMach);
-    }
-
-    // See `run_gauge_pressures` for what this selects.
-    if std::env::var("EDW_KNP_EOS").is_ok() {
-        array.knp_face_closure = KnpFaceClosure::EosConsistentPressure;
-    }
+    // ~~`EDW_HYBRID=1` / `EDW_KNP_EOS=1`~~ removed 2026-10-16 with the KNP
+    // hybrid (module docs).
 
     // `EDW_PSI_OUTER=1` holds psi across the inner PISO correctors instead of
     // rebuilding it on each, saving two (p,h) flashes per cell per inner
@@ -1071,347 +1094,6 @@ fn write_break_csv(dir: &str, hist: &[(f64, f64, f64, bool)]) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  Pimple-vs-Hybrid all-Mach comparison (bead op-21g.15.6)
+//  ~~Pimple-vs-Hybrid all-Mach comparison (bead op-21g.15.6)~~
+//  RETIRED 2026-10-16 with the KNP hybrid; final numbers in the module docs.
 // ─────────────────────────────────────────────────────────────────────────────
-
-/// Drive the Edwards pipe for `t_end_s` in the given [`SolverMode`], returning
-/// `(times [s], gauge pressures [psia])` sampled every 1 ms. Identical geometry,
-/// IC, break BC and PISO settings to `edwards_obrien_pipe_blowdown_600ms`; the
-/// *only* difference between the two calls in the comparison test is `mode`.
-fn run_gauge_pressures(mode: SolverMode, t_end_s: f64, dt_us: f64) -> (Vec<f64>, Vec<[f64; 7]>) {
-    let n_cells: i64 = 24;
-    let dt = Time::new::<second>(dt_us * 1.0e-6);
-
-    let mut array = TampinesSteamArray::new(
-        Length::new::<meter>(PIPE_LENGTH_M),
-        Area::new::<square_meter>(PIPE_AREA_M2),
-        n_cells,
-        dt,
-    )
-    .expect("valid Edwards pipe geometry");
-    apply_he_scheme_knob(&mut array);
-    array.set_pimple_algorithm(
-        4,
-        4,
-        uom::si::f64::Ratio::new::<uom::si::ratio::ratio>(1.0),
-        uom::si::f64::Ratio::new::<uom::si::ratio::ratio>(1.0),
-    );
-    array.set_solver_mode(mode);
-    let adaptive = apply_stabilisation_knobs(&mut array, dt);
-
-    // `EDW_KNP_EOS=1` closes the KNP face state through the equation of state
-    // -- pressure from the reconstructed (rho, he) rather than from its own
-    // MUSCL reconstruction. Only has any effect in HybridAllMach.
-    if std::env::var("EDW_KNP_EOS").is_ok() {
-        array.knp_face_closure = KnpFaceClosure::EosConsistentPressure;
-    }
-
-    let n = array.mesh.n_cells;
-    for c in 0..n {
-        array.p.internal[c] = P_INIT_PA;
-    }
-    let centres_m: Vec<f64> = NODE_CENTRE_FT.iter().map(|&ft| ft * FT_TO_M).collect();
-    let temps_k: Vec<f64> = NODE_T_DEGF.iter().map(|&f| degf_to_k(f)).collect();
-    let cell_temps: Vec<ThermodynamicTemperature> = (0..n)
-        .map(|c| {
-            let xc = array.mesh.cell_centres[c].x;
-            ThermodynamicTemperature::new::<kelvin>(lerp(&centres_m, &temps_k, xc))
-        })
-        .collect();
-    array.set_temperature_vector(cell_temps).unwrap();
-    array.set_inlet_velocity(Velocity::new::<meter_per_second>(0.0));
-
-    let gs_cells: Vec<usize> = GS_POS_FT
-        .iter()
-        .map(|&(_, ft)| {
-            let x = ft * FT_TO_M;
-            (0..n)
-                .min_by(|&a, &b| {
-                    let da = (array.mesh.cell_centres[a].x - x).abs();
-                    let db = (array.mesh.cell_centres[b].x - x).abs();
-                    da.partial_cmp(&db).unwrap()
-                })
-                .unwrap()
-        })
-        .collect();
-
-    let dt_s = dt.get::<second>();
-    let n_steps = (t_end_s / dt_s).round() as usize;
-    let sample_stride = (0.001_f64 / dt_s).round().max(1.0) as usize;
-
-    let mut times: Vec<f64> = Vec::new();
-    let mut p_gs: Vec<[f64; 7]> = Vec::new();
-    let mut time_s = 0.0_f64;
-
-    let record =
-        |array: &TampinesSteamArray, times: &mut Vec<f64>, p_gs: &mut Vec<[f64; 7]>, t: f64| {
-            times.push(t);
-            let mut pr = [0.0; 7];
-            for (i, &c) in gs_cells.iter().enumerate() {
-                pr[i] = array.p.internal[c] * PA_TO_PSI;
-            }
-            p_gs.push(pr);
-        };
-    record(&array, &mut times, &mut p_gs, time_s);
-
-    // Same fixed / adaptive loop as `edwards_obrien_pipe_blowdown_600ms`.
-    let mut step = 0usize;
-    let mut next_sample_s = 0.001_f64;
-    loop {
-        if adaptive {
-            if time_s >= t_end_s - 1.0e-12 {
-                break;
-            }
-        } else if step >= n_steps {
-            break;
-        }
-        step += 1;
-        let c = n - 1;
-        let (_bs, u_face) = choked_break(
-            array.p.internal[c],
-            array.he.internal[c],
-            array.rho.internal[c],
-            time_s,
-        );
-        array.set_outlet_velocity(Velocity::new::<meter_per_second>(u_face));
-        let taken = array.step().unwrap_or_else(|e| {
-            panic!("{mode:?}: step {step} at t = {time_s:.6} s failed: {e}")
-        });
-        time_s += if adaptive { taken.get::<second>() } else { dt_s };
-        let sample_due = if adaptive {
-            time_s >= next_sample_s - 1.0e-12
-        } else {
-            step % sample_stride == 0
-        };
-        if sample_due {
-            while next_sample_s <= time_s + 1.0e-12 {
-                next_sample_s += 0.001;
-            }
-            record(&array, &mut times, &mut p_gs, time_s);
-        }
-    }
-    println!(
-        "{mode:?}: pressure-bound events {}, drained-cell holds {}",
-        array.pressure_bound_events(),
-        array.drained_hold_events()
-    );
-    (times, p_gs)
-}
-
-/// Excess total variation of a series over the window `[t0, t1]` — the "wiggle"
-/// (ringing) amplitude on top of the monotone blowdown trend:
-/// `Σ|p[i+1]−p[i]|  −  |p_first − p_last|`. A perfectly monotone decay scores 0;
-/// oscillation adds twice each overshoot. Units follow the input (psia here).
-fn excess_total_variation(times: &[f64], series: &[f64], t0: f64, t1: f64) -> f64 {
-    let idx: Vec<usize> = (0..times.len())
-        .filter(|&i| times[i] >= t0 && times[i] <= t1)
-        .collect();
-    if idx.len() < 2 {
-        return 0.0;
-    }
-    let mut tv = 0.0;
-    for w in idx.windows(2) {
-        tv += (series[w[1]] - series[w[0]]).abs();
-    }
-    let net = (series[*idx.last().unwrap()] - series[idx[0]]).abs();
-    (tv - net).max(0.0)
-}
-
-/// # V&V: all-Mach hybrid KNP dissipation damps the near-sonic ringing
-///
-/// ## Methodology
-///
-/// The Edwards–O'Brien pipe blowdown ([`edwards_obrien_pipe_blowdown_600ms`]) is
-/// run twice on the identical 24-cell mesh, IC (7 MPa + Hendrie axial temperature
-/// profile), choked-break BC and 4-outer/4-inner PISO settings — the *only*
-/// difference is [`SolverMode`]: pure `Pimple` (`β = 0` everywhere) versus
-/// `HybridAllMach` (Mach-blended KNP central-upwind dissipation, blend window
-/// `lo = 0.3`, `hi = 1.0`, sound speed the **HEM equilibrium** speed). The window
-/// is `0–0.15 s` at `dt = 30 µs`, which spans the initial rarefaction ringing and
-/// the `0.02–0.06 s` flashing plateau.
-///
-/// - **Ringing metric**: excess total variation (wiggle on top of the monotone
-///   blowdown) of each gauge's pressure trace over `0–0.15 s`
-///   ([`excess_total_variation`]). Summed over GS-1…GS-7. Lower ⇒ less ringing.
-/// - **Plateau metric**: mean GS-1 pressure over `0.02–0.06 s` — must be retained
-///   (the flashing plateau / no-subcooling result the PIMPLE fix recovered).
-///
-/// ## Results (measured 2026-07-16, IAPWS-IF97 tables, 24 cells, dt = 30 µs,
-/// window 0–0.15 s; full trail in
-/// `collaboration/edwards_tampines_regen/hybrid_debug_log.md`)
-///
-/// The Mach-blended KNP dissipation **damps the near-sonic ringing** while
-/// **retaining the flashing plateau**. Excess total variation (ringing) per
-/// gauge, Pimple → Hybrid (drop %):
-///
-/// ```text
-/// gauge   excess-TV Pimple   excess-TV Hybrid   drop %
-/// GS-1              454.7             182.4      59.9
-/// GS-2             2169.2             714.9      67.0
-/// GS-3             1027.9             303.3      70.5
-/// GS-4              441.7             442.0      -0.1
-/// GS-5              267.6             262.1       2.1
-/// GS-6               22.6              23.1      -2.3
-/// GS-7              286.0             151.6      47.0
-/// SUM              4669.6            2079.3      55.5   ← 55.5 % less ringing
-/// ```
-///
-/// - **Ringing**: summed excess-TV drops **4670 → 2079 psia (−55.5 %)**; the
-///   largest drops are at the near-break/interior gauges GS-2 (−67 %) and GS-3
-///   (−70 %) where the near-sonic flashing front rings hardest, and GS-1 (−60 %)
-///   nearest the break. GS-4/5/6 (in less-oscillatory zones) are unchanged to
-///   ±2 %.
-/// - **Plateau**: GS-1 mean over 0.02–0.06 s is **392.7 psia (Pimple) → 387.7
-///   psia (Hybrid)**, a 1.3 % change — the flashing plateau / no-subcooling
-///   result is retained (the min-Ma-gated hybrid tracks the pure-PIMPLE
-///   trajectory in the subcooled bulk essentially exactly).
-///
-/// The design that achieves this: continuity + momentum KNP dissipation, the
-/// blend gated on `min(Ma)` of the two adjacent cells (low-Mach scaling; without
-/// it the liquid-side acoustic speed at a liquid/two-phase interface makes the
-/// viscosity ~35× the physical mass flux and over-drains enthalpy out of the
-/// `(p,h)` validity range). No separate energy source — the enthalpy
-/// shock-capturing rides on the continuity flux through the EEqn `∇·(φh)` so the
-/// plateau-fix cancellation is preserved. HEM equilibrium sound speed
-/// throughout (Kieffer eq. 28 in the dome, `w_tp_1/2/3/5` single-phase).
-///
-/// The assertions below (finiteness; ringing must not grow; plateau retained
-/// within 15 %) are sanity gates per the module V&V contract; the reported
-/// numbers are the deliverable.
-///
-/// ## Full-transient hybrid stability (bug op-21g.15.7 — FIXED)
-///
-/// `HybridAllMach` is stable over the **full 600 ms** transient. The earlier
-/// late-time instability past `t ≈ 0.18 s` — as the pipe empties, a rarefying
-/// near-sonic cell's continuity density `ρ_cont` collapses to its floor, the
-/// segregated EEqn diagonal `ρ_cont·V/dt` vanishes, and the explicit KNP deferred
-/// correction over-drives that nearly-empty cell across the IAPWS-IF97 273.15 K
-/// `(p,h)` validity edge (`correct_thermo` correctly panics) — is removed by the
-/// **rarefied-tail density taper** on the KNP blend (`assemble_hybrid_dissipation`):
-/// the dissipation is scaled to zero below `ρ = 50 kg/m³` and full above
-/// `ρ = 100 kg/m³`. The minimum dissipated-face density over the 0–0.15 s ringing
-/// window is ≈ 106.5 kg/m³, so the taper is inert there — the ~55 % ringing
-/// reduction and ≈ 388 psia plateau are unchanged — while the late-time emptying
-/// tail (ρ → few kg/m³, where the HEM closure degrades and there is no flashing
-/// shock to capture) reverts to pure PIMPLE, which is stable.
-///
-/// Measured (2026-07-16, 24 cells, dt = 30 µs, full 600 ms in `HybridAllMach`):
-/// plateau 387.7 psia, GS-1 RMSE vs Data 30.6 psia, no cold tail (min tail
-/// T ≈ 372 K). The `EDW_HYBRID=1` full-run figures are in
-/// `collaboration/edwards_tampines_regen/figures_hybrid_stable/`.
-///
-/// ## 2026-10-16 (gh:#900): this gate now FAILS under the array's defaults
-///
-/// Measured on this commit (0–0.15 s, 30 µs, summed excess-TV in psia,
-/// Pimple → Hybrid, "bound" = pressure-bound events Pimple / Hybrid):
-///
-/// | configuration | Pimple | Hybrid | drop | bound | GS-1 plateau P / H [psia] | gate |
-/// |---|---|---|---|---|---|---|
-/// | Linear, old path (`EDW_HE_BALANCE=explicit EDW_KE=off EDW_PSI=every EDW_DT_CONTROL=unguarded`) | 5523.7 | 4240.8 | +23.2 % | 150 / 151 | 359.0 / 359.0 | passes |
-/// | Linear, only A3 on the old path | 2029.7 | 2172.5 | −7.0 % | 0 / 0 | 361.1 / 369.6 | **fails** |
-/// | Linear, defaults | 1648.3 | 2035.8 | −23.5 % | 0 / 0 | 360.5 / 368.8 | **fails** |
-/// | Linear, defaults but `EDW_HE_BALANCE=explicit` | 2649.1 | 3049.5 | −15.1 % | 0 / 0 | 359.6 / 367.8 | **fails** |
-/// | Linear, defaults but `EDW_PSI=every EDW_DT_CONTROL=unguarded` | 17306.1 | 22070.5 | −27.5 % | 3965 / 12304 | 399.9 / 400.1 | **fails** |
-/// | van Leer, defaults | 1951.5 | 2557.1 | −31.0 % | 0 / 0 | 358.3 / 363.5 | **fails** |
-/// | upwind, defaults | 2014.6 | 2754.4 | −36.7 % | 0 / 0 | 359.8 / 365.7 | **fails** |
-///
-/// Interpretation: the KNP dissipation damped ringing that the per-inner-
-/// corrector `psi` rebuild produced. With `psi` held across the inner
-/// correctors, as upstream holds it, plain PIMPLE rings 3.4× less than
-/// before (5524 → 1648), and the hybrid adds ringing, mostly at GS-2 and
-/// GS-3. The `sum_h <= sum_p` assertion is **left as it was**. The finding
-/// is that the hybrid no longer earns its place on this case. It is not a
-/// threshold to relax. Follow-up is the KNP rework of epic #896 phase B; the
-/// hybrid's kernel (`central_upwind.rs`) was not touched here. Tracked as gh:#914.
-#[test]
-#[cfg_attr(
-    not(feature = "long-tests"),
-    ignore = "long test (measured 299 s, 2026-09-16); runs by default, skipped under --no-default-features"
-)]
-fn edwards_hybrid_damps_ringing_vs_pimple() {
-    let t_end = std::env::var("EDW_CMP_TEND")
-        .ok()
-        .and_then(|s| s.parse().ok())
-        .unwrap_or(0.15_f64);
-    let dt_us = std::env::var("EDW_DT_US")
-        .ok()
-        .and_then(|s| s.parse().ok())
-        .unwrap_or(30.0_f64);
-
-    let (t_p, p_p) = run_gauge_pressures(SolverMode::Pimple, t_end, dt_us);
-    let (t_h, p_h) = run_gauge_pressures(SolverMode::HybridAllMach, t_end, dt_us);
-
-    // Per-gauge excess-TV (ringing) and the sum across all seven stations.
-    let mut tv_p = [0.0_f64; 7];
-    let mut tv_h = [0.0_f64; 7];
-    for g in 0..7 {
-        let sp: Vec<f64> = p_p.iter().map(|r| r[g]).collect();
-        let sh: Vec<f64> = p_h.iter().map(|r| r[g]).collect();
-        tv_p[g] = excess_total_variation(&t_p, &sp, 0.0, t_end);
-        tv_h[g] = excess_total_variation(&t_h, &sh, 0.0, t_end);
-    }
-    let sum_p: f64 = tv_p.iter().sum();
-    let sum_h: f64 = tv_h.iter().sum();
-
-    // Flashing plateau (mean GS-1 over 0.02–0.06 s) for each mode.
-    let plateau = |times: &[f64], p_gs: &[[f64; 7]]| -> f64 {
-        let vals: Vec<f64> = times
-            .iter()
-            .zip(p_gs.iter())
-            .filter(|(&t, _)| (0.02..=0.06).contains(&t))
-            .map(|(_, r)| r[0])
-            .collect();
-        if vals.is_empty() {
-            f64::NAN
-        } else {
-            vals.iter().sum::<f64>() / vals.len() as f64
-        }
-    };
-    let plat_p = plateau(&t_p, &p_p);
-    let plat_h = plateau(&t_h, &p_h);
-
-    println!("\n===== Edwards Pimple vs HybridAllMach ({t_end:.3} s, dt = {dt_us} us) =====");
-    println!("gauge |   excess-TV Pimple |   excess-TV Hybrid |   drop %");
-    for (g, name) in GS_POS_FT.iter().map(|(n, _)| n).enumerate() {
-        let drop = if tv_p[g] > 1e-9 {
-            100.0 * (tv_p[g] - tv_h[g]) / tv_p[g]
-        } else {
-            0.0
-        };
-        println!(
-            "{name:>5} | {:>18.2} | {:>18.2} | {:>8.1}",
-            tv_p[g], tv_h[g], drop
-        );
-    }
-    let sum_drop = if sum_p > 1e-9 {
-        100.0 * (sum_p - sum_h) / sum_p
-    } else {
-        0.0
-    };
-    println!("  SUM | {sum_p:>18.2} | {sum_h:>18.2} | {sum_drop:>8.1}");
-    println!(
-        "GS-1 flashing plateau (0.02-0.06 s): Pimple {plat_p:.1} psia, Hybrid {plat_h:.1} psia"
-    );
-    println!("==============================================================================\n");
-
-    // Sanity (finiteness) — per the module V&V contract.
-    for g in 0..7 {
-        assert!(
-            tv_p[g].is_finite() && tv_h[g].is_finite(),
-            "excess-TV non-finite"
-        );
-    }
-    assert!(
-        plat_p.is_finite() && plat_h.is_finite(),
-        "plateau non-finite"
-    );
-    // Ringing must not grow, and the flashing plateau must be retained.
-    assert!(
-        sum_h <= sum_p * 1.02 + 1.0,
-        "hybrid ringing grew: sum_h = {sum_h:.2} vs sum_p = {sum_p:.2}"
-    );
-    assert!(
-        (plat_h - plat_p).abs() <= 0.15 * plat_p,
-        "flashing plateau not retained: Pimple {plat_p:.1} vs Hybrid {plat_h:.1} psia"
-    );
-}

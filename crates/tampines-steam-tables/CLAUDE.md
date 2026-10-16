@@ -114,9 +114,11 @@ steps, each doing real IAPWS-IF97 `(p, h)` two-phase flashes on every cell.
 **Measured 2026-08-11 in release mode: 384.75 s (≈ 6.5 min) for that test alone**
 (`cargo test --release -p tampines-steam-tables --test edwards_blowdown
 edwards_obrien_pipe_blowdown_600ms` → `1 passed; 0 failed; finished in 384.75s`).
-Its sibling `edwards_hybrid_damps_ringing_vs_pimple` runs a shorter 0.15 s window
-in two solver modes. Cargo runs the two in **parallel**, so the whole target
-costs about as much as its longest test rather than the sum — **measured
+~~Its sibling `edwards_hybrid_damps_ringing_vs_pimple` runs a shorter 0.15 s window
+in two solver modes.~~ **Deleted 2026-10-16** with the retired KNP hybrid
+(gh:#914); the target now holds the 600 ms test alone. When it had two, cargo
+ran them in **parallel**, so the whole target cost about as much as its
+longest test rather than the sum — **measured
 2026-08-11: `cargo test --release -p tampines-steam-tables --test
 edwards_blowdown` → `2 passed; 0 failed; finished in 393.58s`** (404 s of wall
 clock including the build). That integration target, not the library tests, is
