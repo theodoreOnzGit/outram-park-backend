@@ -16,9 +16,15 @@
 //!   fission spectrum at the incident energy; after a leak or a capture, at
 //!   the case's [`CsgCase::fresh_birth`]. That chaining is the illustration;
 //!   each track is one real history;
-//! - **Watch, whole generations** and **Run k_eff** ([`Keff`]):
-//!   outram-mc-libs' [`CsgPowerIteration`], the single-thread CSG power
-//!   iteration `run_keff_csg` runs, stepped one generation per request.
+//! - **Watch, whole generations** ([`Keff`]): outram-mc-libs'
+//!   [`CsgPowerIteration`], the single-thread CSG power iteration
+//!   `run_keff_csg` runs, stepped one generation per request.
+//! - **Run k_eff**: ~~the same [`Keff`]~~ **CHANGED 2026-10-16 (gh:#907):**
+//!   on a pool of workers ([`crate::benchpool`]), each serving chunks of a
+//!   generation through [`pool_source`] and [`pool_chunk`]
+//!   (`transport_csg::distributed`, bit for bit `run_keff_csg_par`). The
+//!   serial [`Keff`] stays for the headless tools and for a rung without a
+//!   pool.
 //!
 //! **What a CSG run does not report** (and the page therefore does not show):
 //! ~~the Shannon entropy of the source and~~ the leaked / captured / fissioned
@@ -248,22 +254,8 @@ impl Keff {
     /// Sample the initial source as `run_keff_csg` does, in `source_box` (or,
     /// for `cfg.point_source`, in a 1 mm box at its centre).
     pub fn new(geometry: &Geometry, materials: &[Material], nuclides: &[Nuclide], source_box: SourceBox, temperature_k: f64, cfg: KeffConfig) -> Self {
-        let settings = KeffSettings {
-            n_particles: cfg.n_particles,
-            n_inactive: cfg.n_inactive,
-            n_active: cfg.n_active,
-            seed: cfg.seed,
-            temperature_k,
-            ..KeffSettings::default()
-        };
-        let source = if cfg.point_source {
-            let (lo, hi) = (source_box.lower, source_box.upper);
-            let c = Position::new(0.5 * (lo.x + hi.x), 0.5 * (lo.y + hi.y), 0.5 * (lo.z + hi.z));
-            let d = POINT_HALF_WIDTH_CM;
-            SourceBox { lower: Position::new(c.x - d, c.y - d, c.z - d), upper: Position::new(c.x + d, c.y + d, c.z + d) }
-        } else {
-            source_box
-        };
+        let settings = run_settings(cfg, temperature_k);
+        let source = start_box(source_box, cfg);
         Self { cfg, it: CsgPowerIteration::new(geometry, materials, nuclides, source, &settings), mesh: entropy_mesh(source_box) }
     }
 
@@ -295,6 +287,59 @@ impl Keff {
     pub fn finished(&self) -> bool {
         self.it.finished()
     }
+}
+
+/// A run's settings: the reader's numbers on the library defaults (URR and
+/// DBRC on, analog), at the case's temperature. One function for the serial
+/// [`Keff`] and the pooled run, so the two cannot drift apart.
+pub fn run_settings(cfg: KeffConfig, temperature_k: f64) -> KeffSettings {
+    KeffSettings {
+        n_particles: cfg.n_particles,
+        n_inactive: cfg.n_inactive,
+        n_active: cfg.n_active,
+        seed: cfg.seed,
+        temperature_k,
+        ..KeffSettings::default()
+    }
+}
+
+/// Where a run's first generation starts: `source_box`, or for
+/// `cfg.point_source` a 1 mm box at its centre.
+pub fn start_box(source_box: SourceBox, cfg: KeffConfig) -> SourceBox {
+    if !cfg.point_source {
+        return source_box;
+    }
+    let (lo, hi) = (source_box.lower, source_box.upper);
+    let c = Position::new(0.5 * (lo.x + hi.x), 0.5 * (lo.y + hi.y), 0.5 * (lo.z + hi.z));
+    let d = POINT_HALF_WIDTH_CM;
+    SourceBox { lower: Position::new(c.x - d, c.y - d, c.z - d), upper: Position::new(c.x + d, c.y + d, c.z + d) }
+}
+
+// ─── Run k_eff on a worker pool (gh:#905, #907) ──────────────────────────────
+//
+// The page holds `transport_csg::distributed`'s coordinator and deals each
+// generation's histories to a pool of workers that each hold the case
+// (`htr10/core/pool.rs`' protocol, which the HTR-10 whole core already runs).
+// The answer is `run_keff_csg_par`'s, bit for bit, whatever the number of
+// workers or chunks: the driver the five-route records were measured with.
+// It is NOT bit for bit the serial `CsgPowerIteration` ([`Keff`]), which uses
+// one sequential random stream; the two agree statistically.
+
+/// A pool member's answer to "sample the initial source".
+pub fn pool_source(phys: (&Geometry, &[Material], &[Nuclide]), source_box: SourceBox, entropy_box: SourceBox, temperature_k: f64, cfg: KeffConfig) -> crate::rungs::PoolSource {
+    use outram_mc_libs::physics::transport_csg::distributed::DistributedPowerIteration;
+    let (sites, seed) = DistributedPowerIteration::initial_source(phys.0, phys.1, phys.2, start_box(source_box, cfg), &run_settings(cfg, temperature_k));
+    crate::rungs::PoolSource { sites, seed, mesh: entropy_mesh(entropy_box) }
+}
+
+/// A pool member's answer to "transport this chunk": surface tracking (no
+/// majorants), its tracks thinned to what is drawn.
+pub fn pool_chunk(phys: (&Geometry, &[Material], &[Nuclide]), temperature_k: f64, cfg: KeffConfig, chunk: &[f64]) -> Result<Vec<f64>, String> {
+    use outram_mc_libs::physics::transport_csg::distributed::{transport_chunk, GenerationChunk};
+    let c = GenerationChunk::from_f64s(chunk)?;
+    let mut r = transport_chunk(phys.0, phys.1, phys.2, &[], &run_settings(cfg, temperature_k), &c);
+    crate::htr10::core::thin_tracks(&mut r);
+    Ok(r.to_f64s())
 }
 
 /// A CSG generation as the page's shared [`GenerationReport`]: `entropy` is
@@ -381,6 +426,15 @@ impl<C: CsgCase> LoadedRung for Loaded<C> {
     }
     fn keff_finished(&self) -> bool {
         self.keff.as_ref().is_none_or(|k| k.finished())
+    }
+    /// Run k_eff runs on the pool for every case with a Run mode.
+    fn pool_source(&mut self, cfg: KeffConfig) -> Option<Result<crate::rungs::PoolSource, String>> {
+        let p = &self.phys;
+        Some(Ok(pool_source((&p.geometry, &p.materials, &p.nuclides), p.source_box, C::entropy_box(), p.temperature_k, cfg)))
+    }
+    fn pool_chunk(&mut self, cfg: KeffConfig, chunk: &[f64]) -> Option<Result<Vec<f64>, String>> {
+        let p = &self.phys;
+        Some(pool_chunk((&p.geometry, &p.materials, &p.nuclides), p.temperature_k, cfg, chunk))
     }
 }
 

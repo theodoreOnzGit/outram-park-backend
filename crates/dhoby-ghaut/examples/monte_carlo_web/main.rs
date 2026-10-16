@@ -77,6 +77,9 @@ mod walkdemo;
 mod csgrung;
 #[cfg(not(target_os = "android"))]
 mod recorded;
+// Run k_eff of a benchmark rung on a pool of workers (gh:#905, #907).
+#[cfg(not(target_os = "android"))]
+mod benchpool;
 // The processed nuclear data every demo shares, cached in the browser
 // (gh:#818; shared with `delta_tracking_web`).
 #[cfg(not(target_os = "android"))]

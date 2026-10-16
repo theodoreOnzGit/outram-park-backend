@@ -133,6 +133,27 @@ pub trait LoadedRung {
     fn walk(&mut self, _msg: &[f64]) -> Result<Vec<f64>, String> {
         Err("this rung has no demo of its own".into())
     }
+    /// **As a member of a Run k_eff worker pool** (gh:#905, #907): sample a
+    /// run's initial source as `run_keff_csg_par` does, returning the sites,
+    /// the source stream's state after them and the entropy mesh. `None`:
+    /// this rung's Run k_eff does not run on a pool.
+    fn pool_source(&mut self, _cfg: KeffConfig) -> Option<Result<PoolSource, String>> {
+        None
+    }
+    /// Transport one chunk of a generation (`GenerationChunk::to_f64s`) and
+    /// return its result (`ChunkResult::to_f64s`). `None`: as
+    /// [`LoadedRung::pool_source`].
+    fn pool_chunk(&mut self, _cfg: KeffConfig, _chunk: &[f64]) -> Option<Result<Vec<f64>, String>> {
+        None
+    }
+}
+
+/// A pooled run's initial source ([`LoadedRung::pool_source`]).
+pub struct PoolSource {
+    pub sites: Vec<outram_mc_libs::physics::transport_csg::distributed::SourceSite>,
+    /// The sequential source stream's state after sampling them.
+    pub seed: u64,
+    pub mesh: outram_mc_libs::tally::mesh::RegularMesh,
 }
 
 /// Everything about one rung that the engine and the app need. Implemented
@@ -211,6 +232,13 @@ pub trait McRung {
     /// `htr10/core/`).
     fn core_pool() -> bool {
         false
+    }
+    /// **Run k_eff on a worker pool** (gh:#905, #907): `Some(mb)` runs it on
+    /// [`crate::benchpool`], `mb` being one worker's memory once its data
+    /// are loaded, which sizes the pool (`web_demo::pool::plan`). `None`
+    /// (the default) runs it on the one engine worker.
+    fn run_pool_mb() -> Option<f64> {
+        None
     }
     /// Neutron tracks recorded natively and shipped with the page
     /// ([`crate::recorded`], gh:#859), which Watch plays while the rung's
@@ -308,6 +336,9 @@ macro_rules! rung_table {
                 pub fn has_core_pool(self) -> bool {
                     match self { $( Rung::$t => <$crate::$m::$t as McRung>::core_pool(), )+ }
                 }
+                pub fn run_pool_mb(self) -> Option<f64> {
+                    match self { $( Rung::$t => <$crate::$m::$t as McRung>::run_pool_mb(), )+ }
+                }
                 pub fn kinf_case(self) -> Option<KinfCase> {
                     match self { $( Rung::$t => <$crate::$m::$t as McRung>::kinf_case(), )+ }
                 }
@@ -370,6 +401,12 @@ macro_rules! rung_table {
                 }
                 pub fn walk(&mut self, msg: &[f64]) -> Result<Vec<f64>, String> {
                     match self { $( Loaded::$t(l) => l.walk(msg), )+ }
+                }
+                pub fn pool_source(&mut self, cfg: KeffConfig) -> Option<Result<$crate::rungs::PoolSource, String>> {
+                    match self { $( Loaded::$t(l) => l.pool_source(cfg), )+ }
+                }
+                pub fn pool_chunk(&mut self, cfg: KeffConfig, chunk: &[f64]) -> Option<Result<Vec<f64>, String>> {
+                    match self { $( Loaded::$t(l) => l.pool_chunk(cfg, chunk), )+ }
                 }
             }
         }

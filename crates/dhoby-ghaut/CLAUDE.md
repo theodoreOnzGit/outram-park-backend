@@ -125,14 +125,24 @@ copy `monte_carlo_web`. It gives, ready-made and tested:
    Since 2026-10-13 (gh:#859): a rung whose model is a small CSG geometry
    implements `csgrung::CsgCase` instead (tapes, materials, geometry, source
    box, where a fresh neutron is born) and takes `csgrung::Builder<Self>` as
-   its `Builder`: data processing, the Watch chain and a Run k_eff on
-   `CsgPowerIteration` come with it (`jemima/` and `hst009/` are the worked
-   examples). Since 2026-10-14 the CSG run also reports the source entropy
+   its `Builder`: data processing, the Watch chain and a Run k_eff ~~on
+   `CsgPowerIteration`~~ come with it (`jemima/` and `hst009/` are the worked
+   examples). **CHANGED 2026-10-16 (gh:#905, #907):** Run k_eff runs on a
+   pool of workers when the rung returns `Some(mb)` from
+   `McRung::run_pool_mb` (one worker's memory, which sizes the pool):
+   `benchpool.rs` starts the workers, each loads the rung, and the run is
+   the HTR-10 core pool's protocol (`htr10/core/pool.rs`, `PoolState::ready`)
+   with each worker serving `LoadedRung::pool_source` / `pool_chunk`
+   (`csgrung::pool_source` / `pool_chunk`, i.e. `transport_csg::distributed`,
+   bit for bit `run_keff_csg_par` for any number of workers). Watch's
+   whole-generations view stays on the serial `CsgPowerIteration`. Since 2026-10-14 the CSG run also reports the source entropy
    (`CsgCase::entropy_box` sets the mesh's box: override it when the case
    fissions outside its source box), and Run mode draws the geometry with
    neutrons born at the run's fission sites: while a run is going, the
    rung's `LoadedRung::run_next` must start its history at a site of that
-   run's source (`csgrung::Keff::source_site`). Any rung can ship **recorded tracks** that play over the
+   run's source (`csgrung::Keff::source_site`). (On a pooled rung, since
+   2026-10-16, Run mode draws the run's OWN traced histories instead, the
+   first four of each generation, which are counted in `k`.) Any rung can ship **recorded tracks** that play over the
    geometry while its data load: `McRung::recorded_tracks` returning
    `include_bytes!("data/tracks.bin.z")`, written by `--bake-tracks <rung>`
    (`recorded.rs`); re-bake when the rung's geometry or Watch chain changes,

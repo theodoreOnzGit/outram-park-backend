@@ -159,7 +159,7 @@ impl McRung for Lct008 {
             "Model: ICSBEP LEU-COMP-THERM-008 case 1 (Babcock & Wilcox critical lattice): 4961 rods of 2.459 w/o UO₂ in Al-6061 clad, 1.63576 cm pitch, in water with 1511 ppm boron, arranged as a 7 × 7 core lattice of 15 × 15 pin lattices. Read at run time from the committed mit-crpg/benchmarks OpenMC cards by the same code the recorded result was measured with.",
             "Data: ENDF/B-VIII.0, processed in this browser by OUTRAM PARK's NJOY port. Watch: tolerance 0.01 (NJOY uses 0.001; measured effect on this lattice −65 ± 40 pcm). Run k_eff and the pitch view: NJOY's 0.001, as the record. Hydrogen in the water uses the H in H₂O S(α,β) thermal-scattering law, generated in this browser by OUTRAM PARK's LEAPR port from the ENDF/B-VIII.0 deck (no tape is downloaded for it). All 35 nuclides of the benchmark cards, the clad's trace elements (Mg, Ti, Cr, Fe, Cu, Zn) and B-11 included. The recorded results quoted here are on the same 35 (2026-10-14).",
             "Each track is one real history (a one-particle fixed-source run through the nested lattices), drawn projected from above. Chaining one neutron after the next is the illustration.",
-            "Run k_eff is true Monte Carlo on the whole core: outram-mc-libs' single-thread CSG power iteration (`CsgPowerIteration`, what `run_keff_csg` runs), one generation at a time. Its default, 5000 neutrons × [40 inactive + 120 active], is sized to run in a browser, like the other benchmark rungs. It is smaller than the recorded campaign's 10 000 × [250 + 400] (32 seeds on all 35 nuclides at 10 000 × [40 + 120], 2026-10-15: +89 ± 21 pcm from the benchmark k of 1.0007 ± 0.0016; OpenMC on NJOY2016 data +91 ± 13), and at the default the fission source of this 1.5 m core has not fully settled: 16 native seeds on the 11-nuclide model gave k about 80 pcm above that model's campaign. One run scatters by about 190 pcm, so that offset is inside one run's noise. For a k comparable with the record, set the campaign's numbers and wait.",
+            "Run k_eff is true Monte Carlo on the whole core, on a pool of workers (since 2026-10-16, gh:#907): outram-mc-libs' `run_keff_csg_par` power iteration taken apart by `transport_csg::distributed`. Each generation's histories are shared among the workers and added up in history order, so k is the same bit for bit whatever their number, and is what `run_keff_csg_par` (the driver of the recorded five-route results) gives for the same seed and data. Each worker holds its own copy of the processed data (read from this browser's cache). Before 2026-10-16 this ran the single-thread `CsgPowerIteration` in one worker. Its default, 5000 neutrons × [40 inactive + 120 active], is sized to run in a browser, like the other benchmark rungs. It is smaller than the recorded campaign's 10 000 × [250 + 400] (32 seeds on all 35 nuclides at 10 000 × [40 + 120], 2026-10-15: +89 ± 21 pcm from the benchmark k of 1.0007 ± 0.0016; OpenMC on NJOY2016 data +91 ± 13), and at the default the fission source of this 1.5 m core has not fully settled: 16 native seeds on the 11-nuclide model gave k about 80 pcm above that model's campaign. One run scatters by about 190 pcm, so that offset is inside one run's noise. For a k comparable with the record, set the campaign's numbers and wait.",
             "\"pitch k∞\" runs a real, single-threaded power iteration of ONE rod in a reflective square cell (an infinite lattice, no leakage) at the pitch you choose, on the same data, and draws it against the recorded sweep. It is k∞ of the pin lattice, not the core's k_eff.",
             "The σ(E) panel shows the cross sections this tab processed for transport, decimated for drawing: U-238 capture (σ_a − σ_f), U-235 fission and H-1 scattering with the water's S(α,β) law below its cutoff.",
             "The Shannon entropy of the fission source is on a 5 × 5 × 5 mesh over the core's bounding box, so at most 6.97 bits. A CSG run reports no leaked / captured / fissioned counts (the sphere-only iteration of the Godiva rung does).",
@@ -195,6 +195,12 @@ impl McRung for Lct008 {
             10_000.0 * 120.0,
             ("ICSBEP LEU-COMP-THERM-008 case 1 benchmark k, as tabulated by Mosteller (LA-UR-10-06230)", model::BENCHMARK_K, model::BENCHMARK_SIGMA),
         )
+    }
+    /// Run k_eff on a worker pool (gh:#907). **600 MB per worker is an
+    /// ESTIMATE** (35 nuclides and the H in H2O law), not yet measured in a browser; it only sizes
+    /// the pool. Replace it with the measured `wasm_memory_mb` (gh:#907).
+    fn run_pool_mb() -> Option<f64> {
+        Some(600.0)
     }
     fn recorded_tracks() -> Option<&'static [u8]> {
         Some(RECORDED_TRACKS)
@@ -354,6 +360,14 @@ impl LoadedRung for Loaded {
             self.chain.born_from(k);
         }
         self.chain.run_next(&self.phys)
+    }
+    fn pool_source(&mut self, cfg: KeffConfig) -> Option<Result<crate::rungs::PoolSource, String>> {
+        let p = &self.phys;
+        Some(Ok(crate::csgrung::pool_source((&p.geometry, &p.data.materials, &p.data.nuclides), source_box(), source_box(), model::TEMP_K, cfg)))
+    }
+    fn pool_chunk(&mut self, cfg: KeffConfig, chunk: &[f64]) -> Option<Result<Vec<f64>, String>> {
+        let p = &self.phys;
+        Some(crate::csgrung::pool_chunk((&p.geometry, &p.data.materials, &p.data.nuclides), model::TEMP_K, cfg, chunk))
     }
     fn keff_start(&mut self, cfg: KeffConfig) -> Result<Vec<[f32; 2]>, String> {
         let k = core_keff(&self.phys, cfg);

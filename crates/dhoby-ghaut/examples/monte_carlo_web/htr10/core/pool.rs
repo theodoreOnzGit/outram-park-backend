@@ -206,7 +206,7 @@ impl RunState {
     /// Stop the run: it cuts no more chunks; replies still in flight for it
     /// are discarded when they arrive (it is not going).
     fn fail(&mut self, why: String) {
-        log::error!("htr10 core: {} failed: {why}", self.describe());
+        log::error!("worker pool: {} failed: {why}", self.describe());
         self.failed = Some(why);
         self.queue.clear();
         self.results.clear();
@@ -257,6 +257,9 @@ pub struct PoolState {
     pub log: Vec<String>,
     /// Requests waiting to go out.
     out: Vec<(usize, CoreReq)>,
+    /// What each worker holds, for the message when one stops ("about 545
+    /// MB of nuclear data" for the HTR-10 core).
+    pub per_worker: String,
 }
 
 impl PoolState {
@@ -304,7 +307,23 @@ impl PoolState {
             stale_discarded: 0,
             log: Vec::new(),
             out: Vec::new(),
+            per_worker: "about 545 MB of nuclear data".into(),
         }
+    }
+
+    /// **A pool whose workers already hold their model** (gh:#905, #907):
+    /// each loaded a benchmark rung through the ordinary engine load, so
+    /// there is nothing to process, relay or assemble. Only the run
+    /// protocol is used: the same source and chunk requests, epochs,
+    /// restarts and reduction as the HTR-10 core. `per_worker` says what a
+    /// worker holds, for the message if one stops.
+    pub fn ready(workers: usize, per_worker: String, now_s: f64) -> Self {
+        let mut s = Self::new(workers, Vec::new(), Vec::new(), 0, now_s);
+        s.process_sent = true;
+        s.phase = PoolPhase::Ready;
+        s.data_ready_s = Some(now_s);
+        s.per_worker = per_worker;
+        s
     }
 
     /// Where the data came from, one line (gh:#818: Leak Before Break, the
@@ -336,7 +355,7 @@ impl PoolState {
 
     /// Record something the reader should see, in the panel and the console.
     fn note(&mut self, line: String) {
-        log::warn!("htr10 core: {line}");
+        log::warn!("worker pool: {line}");
         self.log.push(line);
         if self.log.len() > 40 {
             self.log.remove(0);
@@ -397,7 +416,7 @@ impl PoolState {
                 if job < self.secs.len() {
                     self.secs[job] = Some(secs);
                     log::info!(
-                        "htr10 core: {} {} ({secs:.1} s, worker {})",
+                        "worker pool: {} {} ({secs:.1} s, worker {})",
                         self.labels.get(job).map_or("?", String::as_str),
                         source.describe(),
                         w + 1
@@ -489,7 +508,7 @@ impl PoolState {
                             // Full precision in the console, so runs on
                             // different pool sizes can be compared bit for bit.
                             log::info!(
-                                "htr10 core: {label}: generation {} k = {:e} ({deal} workers)",
+                                "worker pool: {label}: generation {} k = {:e} ({deal} workers)",
                                 s.gen.index,
                                 s.gen.k,
                             );
@@ -499,7 +518,7 @@ impl PoolState {
                             run.gen_started_s = now_s;
                             if done {
                                 if let Some((m, e)) = mean {
-                                    log::info!("htr10 core: {label} done: k = {m:.6} ± {e:.6}");
+                                    log::info!("worker pool: {label} done: k = {m:.6} ± {e:.6}");
                                 }
                                 notes.push(Note::RunDone);
                             } else if !run.paused {
@@ -555,7 +574,8 @@ impl PoolState {
         self.busy[w] = false;
         let why = format!(
             "{msg}. On a phone this is usually the browser reclaiming memory (each worker \
-             holds about 545 MB of nuclear data)"
+             holds {})",
+            self.per_worker
         );
         self.died[w] = Some(why.clone());
         let left = self.live_workers();

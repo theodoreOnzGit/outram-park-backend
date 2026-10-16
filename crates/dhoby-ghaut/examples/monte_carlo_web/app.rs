@@ -233,6 +233,14 @@ struct Iteration {
     /// Neutrons per second the last run measured on this device, for the
     /// next run's estimate.
     rate: Option<f64>,
+    /// Run k_eff on the rung's worker pool ([`crate::benchpool`], gh:#907)
+    /// instead of the engine link: the app feeds it the pool's generations.
+    pooled: bool,
+    /// Pooled: started by the reader, not yet handed to the pool (it may
+    /// still be loading its data).
+    pool_start: bool,
+    /// Pooled: the pool's state in one line (workers, loading, failures).
+    pool_line: String,
 }
 
 impl Iteration {
@@ -252,21 +260,41 @@ impl Iteration {
             pace_s,
             awaiting_start: false,
             rate: None,
+            pooled: false,
+            pool_start: false,
+            pool_line: String::new(),
         }
     }
+    /// The same, run on the rung's worker pool.
+    fn pooled(cfg: KeffConfig) -> Self {
+        Self { pooled: true, ..Self::new(cfg, 0.0) }
+    }
     fn start(&mut self, link: &McLink) {
-        let (cfg, pace, rate) = (self.cfg, self.pace_s, self.measured_rate().or(self.rate));
+        let (cfg, pace, rate, pooled, line) = (self.cfg, self.pace_s, self.measured_rate().or(self.rate), self.pooled, std::mem::take(&mut self.pool_line));
         *self = Self::new(cfg, pace);
         self.rate = rate;
-        self.awaiting_start = true;
         self.state = RunState::Running;
         self.started_at = now_s();
         self.lines.extend(CONSOLE_HEADER.iter().map(|s| s.to_string()));
+        if pooled {
+            // The app hands the run to the pool (McApp::pump_pool).
+            self.pooled = true;
+            self.pool_start = true;
+            self.pool_line = line;
+            return;
+        }
+        self.awaiting_start = true;
         link.send(Request::KeffStart(cfg));
         link.send(Request::KeffStep);
         self.waiting = true;
     }
     fn pump(&mut self, link: &McLink) {
+        if self.pooled {
+            if self.state == RunState::Running {
+                self.elapsed = now_s() - self.started_at;
+            }
+            return;
+        }
         if self.state == RunState::Running {
             self.elapsed = now_s() - self.started_at;
             if !self.waiting && now_s() - self.last_step_at >= self.pace_s {
@@ -592,6 +620,12 @@ pub struct McApp {
     /// Run k_eff's neutrons, drawn on the geometry beside the plots
     /// (gh:#859); `None` outside Run mode and for a rung without tracks.
     run_tracks: Option<Tracks>,
+    /// The worker pool a benchmark rung's Run k_eff runs on (gh:#905,
+    /// #907), started when its Run view first opens and kept while the rung
+    /// stays loaded, so a second run reuses the workers' data.
+    bench: Option<crate::benchpool::BenchPool>,
+    /// To start the pool's workers (each repaints the page on an event).
+    ctx: egui::Context,
 }
 
 impl McApp {
@@ -639,6 +673,8 @@ impl McApp {
             xs_on: true,
             kinf_points: Vec::new(),
             core: None,
+            bench: None,
+            ctx: cc.egui_ctx.clone(),
             data_sources: Vec::new(),
             data_notes: Vec::new(),
             cache_info: None,
@@ -681,6 +717,10 @@ impl McApp {
             self.view = View::new(rung.half_extent());
             self.watch_view = WatchView::Neutrons;
             self.kinf_points.clear();
+            // Another rung's Run k_eff pool: its workers' memory goes back.
+            if let Some(b) = self.bench.take() {
+                b.terminate();
+            }
             if let Some(c) = rung.run_default() {
                 self.run_cfg = c;
             }
@@ -737,15 +777,97 @@ impl McApp {
         }
     }
 
+    /// Start the rung's Run k_eff pool if it is not running for this rung
+    /// (gh:#907); a pool for another rung is stopped first. `mb` is one
+    /// worker's memory ([`crate::rungs::McRung::run_pool_mb`]).
+    fn ensure_bench(&mut self, mb: f64) {
+        if self.bench.as_ref().is_some_and(|b| b.rung == self.rung) {
+            return;
+        }
+        if let Some(b) = self.bench.take() {
+            b.terminate();
+        }
+        let plan = dhoby_ghaut::web_demo::pool::plan(dhoby_ghaut::web_demo::pool::Device::probe(), mb, crate::htr10::core::screen::forced_workers());
+        log::info!("Run k_eff pool for {}: {} workers ({})", self.rung.info().name, plan.workers, plan.reason);
+        match crate::benchpool::BenchPool::start(&self.ctx, plan, self.rung, Tier::Exact) {
+            Ok(b) => self.bench = Some(b),
+            Err(e) => log::error!("Run k_eff pool: {e}"),
+        }
+    }
+
+    /// One frame of a pooled Run k_eff (gh:#907): the pool's events in, the
+    /// reader's Start / Pause / Stop out, its generations into the console
+    /// and plots, and the run's own traced neutrons onto the geometry.
+    fn pump_pool(bench: Option<&mut crate::benchpool::BenchPool>, it: &mut Iteration, tracks: Option<&mut Tracks>, rung: Rung) {
+        let Some(b) = bench else {
+            it.pool_line = "the worker pool could not be started".into();
+            return;
+        };
+        let notes = b.pump();
+        let n = b.workers();
+        it.pool_line = match (&b.state, b.failed()) {
+            (_, Some(e)) => format!("Worker pool: {e}"),
+            (None, _) => format!("Worker pool: {n} workers loading the data, {:.0} % ({:.0} s)", 100.0 * b.load_progress(), now_s() - b.started_s),
+            (Some(s), _) => format!("Worker pool: {} of {n} workers ready ({})", s.live_workers(), b.plan.reason),
+        };
+        if let Some(s) = b.state.as_mut() {
+            if it.pool_start {
+                match s.start_run(it.cfg, now_s()) {
+                    Ok(()) => {
+                        it.pool_start = false;
+                        it.lines.push(format!(" Running on {} workers.", s.live_workers()));
+                    }
+                    Err(e) => it.pool_line = format!("Worker pool: {e}"),
+                }
+            }
+            let going = s.run.as_ref().is_some_and(|r| r.going());
+            if going {
+                s.set_paused(it.state == RunState::Paused);
+                if it.state == RunState::Done {
+                    s.stop_run();
+                }
+                if let Some(why) = s.run.as_ref().and_then(|r| r.failed.clone()) {
+                    if it.state != RunState::Done {
+                        it.lines.push(format!(" {why}"));
+                        it.done(rung);
+                    }
+                }
+            }
+        }
+        let mut tracks = tracks;
+        for note in notes {
+            match note {
+                crate::htr10::core::pool::Note::Generation(g) => {
+                    if let Some(t) = tracks.as_deref_mut() {
+                        for (i, track) in &g.gen.tracks {
+                            if let Some(first) = track.states.first() {
+                                let h = History::from_track(*i as u64, first.r, first.energy, true, track.clone());
+                                t.receive(h, true);
+                            }
+                        }
+                    }
+                    it.receive(crate::benchpool::generation(&g, it.cfg));
+                }
+                crate::htr10::core::pool::Note::RunDone => it.done(rung),
+            }
+        }
+    }
+
     /// Build the screen for the current rung, mode and view, on loaded data.
     fn enter_screen(&mut self) {
         self.recorded = None;
         self.run_tracks = None;
+        if let (Mode::Run, Some(mb)) = (self.mode, self.rung.run_pool_mb()) {
+            self.ensure_bench(mb);
+        }
         let Some(link) = &self.link else { return };
         let fast = self.rung.info().spectrum == anim::Spectrum::Fast;
         self.phase = Phase::Ready(match (self.mode, self.watch_view, self.rung.watch_generations()) {
             (Mode::Run, _, _) => {
-                let mut it = Iteration::new(self.run_cfg, 0.0);
+                let mut it = match self.rung.run_pool_mb() {
+                    Some(_) => Iteration::pooled(self.run_cfg),
+                    None => Iteration::new(self.run_cfg, 0.0),
+                };
                 if self.autostart {
                     it.start(link);
                 }
@@ -920,6 +1042,17 @@ impl eframe::App for McApp {
         if let (Phase::Ready(s), Some(link)) = (&mut self.phase, &self.link) {
             match s {
                 Screen::Tracks(t) => t.top_up(link),
+                Screen::Run(it) if it.pooled => {
+                    // The run's own traced neutrons come with its generations.
+                    if let Some(t) = self.run_tracks.as_mut() {
+                        t.running = true;
+                    }
+                    Self::pump_pool(self.bench.as_mut(), it, self.run_tracks.as_mut(), self.rung);
+                    it.pump(link);
+                    if it.state == RunState::Running || self.bench.as_ref().is_some_and(|b| b.state.is_none()) {
+                        ctx.request_repaint_after(std::time::Duration::from_millis(100));
+                    }
+                }
                 Screen::Generations(it) | Screen::Run(it) => {
                     // Run mode's drawn neutrons: asked for only while the
                     // run is going, so each is born from its source.
@@ -1550,6 +1683,9 @@ impl McApp {
             }
         });
         ui.label(format!("{} of {} generations · {:.0} s", it.gens.len(), it.total_gens(), it.elapsed));
+        if it.pooled && !it.pool_line.is_empty() {
+            ui.weak(&it.pool_line);
+        }
         match it.state {
             RunState::Running | RunState::Paused => {
                 if let Some(l) = crate::keff::eta_line(it.cfg.n_particles, it.total_gens(), it.gens.len(), it.elapsed) {
@@ -1884,11 +2020,18 @@ impl McApp {
                 let experiment = rung.reference().and_then(|r| r.experiment).map(|(_, k, s)| (k, s));
                 if let Some(t) = self.run_tracks.as_mut() {
                     play_tracks(ui, &painter, t, speed, to_screen);
-                    let note = match it.state {
-                        RunState::Idle => "the run's neutrons are drawn here once it starts",
-                        _ => "real histories born at this run's fission sites\ndrawn extra, not counted in k",
+                    let note = match (it.state, it.pooled) {
+                        (RunState::Idle, _) => "the run's neutrons are drawn here once it starts",
+                        // The pool traces the first histories of every generation.
+                        (_, true) => "the run's own neutrons: the first 4 histories\nof each generation, counted in k",
+                        (_, false) => "real histories born at this run's fission sites\ndrawn extra, not counted in k",
                     };
                     painter.text(rect.left_bottom() + Vec2::new(16.0, -40.0), egui::Align2::LEFT_BOTTOM, note, egui::FontId::proportional(12.0), Color32::from_rgb(170, 176, 190));
+                }
+                // The pool's state on the main view, so it shows with the
+                // panel folded (mobile-first rule): loading, workers, errors.
+                if it.pooled && !it.pool_line.is_empty() {
+                    painter.text(rect.left_bottom() + Vec2::new(16.0, -76.0), egui::Align2::LEFT_BOTTOM, &it.pool_line, egui::FontId::proportional(12.0), Color32::from_rgb(200, 206, 120));
                 }
                 // Beside the geometry, the plots start at the pane's top; alone
                 // they leave room for the buttons over the main view.

@@ -450,13 +450,7 @@ impl CoreWorker {
             keff_vs_height::fissile_source_box(&m.core),
             &run_settings(cfg),
         );
-        let mesh = keff_vs_height::fissile_entropy_mesh(&m.core);
-        let mut w = [0.0; 9];
-        w[..3].copy_from_slice(&mesh.lower_left);
-        w[3..6].copy_from_slice(&mesh.upper_right);
-        for k in 0..3 {
-            w[6 + k] = mesh.dimension[k] as f64;
-        }
+        let w = mesh_words(&keff_vs_height::fissile_entropy_mesh(&m.core));
         Ok(CoreEv::Source {
             sites: Floats::from_vec(
                 outram_mc_libs::physics::transport_csg::distributed::SourceSite::encode(&sites),
@@ -482,6 +476,18 @@ impl CoreWorker {
         thin_tracks(&mut r);
         Ok(r.to_f64s())
     }
+}
+
+/// An entropy mesh as a [`CoreEv::Source`]'s words
+/// (`[lower×3, upper×3, dims×3]`); [`mesh_from_words`] reads them back.
+pub fn mesh_words(mesh: &RegularMesh) -> [f64; 9] {
+    let mut w = [0.0; 9];
+    w[..3].copy_from_slice(&mesh.lower_left);
+    w[3..6].copy_from_slice(&mesh.upper_right);
+    for k in 0..3 {
+        w[6 + k] = mesh.dimension[k] as f64;
+    }
+    w
 }
 
 /// The entropy mesh from a [`CoreEv::Source`]'s words.

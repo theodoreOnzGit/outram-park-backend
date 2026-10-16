@@ -123,7 +123,7 @@ impl McRung for Jemima {
         &[
             "Model: ICSBEP IEU-MET-FAST-002 (Jemima), from the mit-crpg/benchmarks OpenMC model: a cylinder of 16 % enriched uranium metal, r = 19.05 cm and 31.951 cm tall, inside natural-uranium reflectors (7.62 cm below, 7.5184 cm above, to r = 26.6446 cm), 293.6 K. The numbers are outram-mc-libs' `vv::jemima`, the model the recorded result was measured on.",
             "Data: ENDF/B-VIII.0 (U-234, U-235, U-238), processed in this browser by OUTRAM PARK's NJOY port. Run k_eff: NJOY's tolerance 0.001 (as the record). Watch: the loosened 0.01, whose measured effect on Jemima is −18 ± 42 pcm.",
-            "Run k_eff is true Monte Carlo: outram-mc-libs' single-thread CSG power iteration (`CsgPowerIteration`, what `run_keff_csg` runs), one generation at a time.",
+            "Run k_eff is true Monte Carlo on a pool of workers (since 2026-10-16, gh:#907): outram-mc-libs' `run_keff_csg_par` power iteration taken apart by `transport_csg::distributed`. Each generation's histories are shared among the workers and added up in history order, so k is the same bit for bit whatever their number, and is what `run_keff_csg_par` (the driver of the recorded five-route results) gives for the same seed and data. Each worker holds its own copy of the processed data (read from this browser's cache). Before 2026-10-16 this ran the single-thread `CsgPowerIteration` in one worker.",
             "The benchmark k is 1.0000 ± 0.0030 (300 pcm). On this data the case sits below that band: OpenMC on NJOY2016 data gives −406 ± 17 pcm and outram-mc −391 ± 27 pcm (32 seeds each). The two codes agree with each other; the difference from the benchmark is in the nuclear data or the benchmark model, not in the transport.",
             "Watch, one neutron at a time, is an illustration: each track is one real history (a one-particle fixed-source run), chained by hand. Tracks are 3D, drawn projected from above, so a neutron in the reflector above the core is drawn over the core.",
             "Watch, whole generations, is the real power iteration started from the middle of the core, to show the source spreading.",
@@ -166,6 +166,12 @@ impl McRung for Jemima {
                 ui.label(name);
             });
         }
+    }
+    /// Run k_eff on a worker pool (gh:#907). **150 MB per worker is an
+    /// ESTIMATE** (3 nuclides), not yet measured in a browser; it only sizes
+    /// the pool. Replace it with the measured `wasm_memory_mb` (gh:#907).
+    fn run_pool_mb() -> Option<f64> {
+        Some(150.0)
     }
     fn recorded_tracks() -> Option<&'static [u8]> {
         Some(RECORDED_TRACKS)

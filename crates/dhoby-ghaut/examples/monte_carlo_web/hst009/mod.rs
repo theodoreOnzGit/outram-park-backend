@@ -156,7 +156,7 @@ impl McRung for Hst009 {
             "Model: ICSBEP HEU-SOL-THERM-009 case 1: a sphere of highly enriched uranium oxyfluoride (UO₂F₂) solution, r = 11.5177 cm, in a 1100-aluminium tank 0.1587 cm thick, reflected by water to r = 35 cm, 293.6 K. The numbers are outram-mc-libs' `vv::hst009`, the model the recorded result was measured on.",
             "Two stated approximations, as in the record: O-17 is folded into O-16, and the tank's copper and zinc are omitted. U-236 (0.5 % of the uranium) has been in the model since 2026-10-15, and the recorded results quoted below include it (it is worth −167 ± 38 pcm).",
             "Data: ENDF/B-VIII.0, twelve nuclides, processed in this browser by OUTRAM PARK's NJOY port. Hydrogen uses the H in H₂O S(α,β) thermal-scattering law, in the solution and in the reflector. Run k_eff: NJOY's tolerance 0.001 (as the record). Watch: the loosened 0.01, whose measured effect on this case is −57 ± 35 pcm.",
-            "Run k_eff is true Monte Carlo: outram-mc-libs' single-thread CSG power iteration (`CsgPowerIteration`, what `run_keff_csg` runs), one generation at a time.",
+            "Run k_eff is true Monte Carlo on a pool of workers (since 2026-10-16, gh:#907): outram-mc-libs' `run_keff_csg_par` power iteration taken apart by `transport_csg::distributed`. Each generation's histories are shared among the workers and added up in history order, so k is the same bit for bit whatever their number, and is what `run_keff_csg_par` (the driver of the recorded five-route results) gives for the same seed and data. Each worker holds its own copy of the processed data (read from this browser's cache). Before 2026-10-16 this ran the single-thread `CsgPowerIteration` in one worker.",
             "The benchmark k is 0.9990 ± 0.0043 (430 pcm), not 1. On this data the case sits inside that band: OpenMC on NJOY2016 data gives +224 ± 29 pcm from the benchmark k and outram-mc +172 ± 21 pcm (32 seeds each, 2026-10-15).",
             "Watch, one neutron at a time, is an illustration: each track is one real history (a one-particle fixed-source run), chained by hand. Tracks are 3D, drawn projected onto the plane of the picture.",
             "Watch, whole generations, is the real power iteration started from the centre of the solution, to show the source spreading.",
@@ -196,6 +196,12 @@ impl McRung for Hst009 {
                 ui.label(name);
             });
         }
+    }
+    /// Run k_eff on a worker pool (gh:#907). **250 MB per worker is an
+    /// ESTIMATE** (the solution, tank and water nuclides and the H in H2O law), not yet measured in a browser; it only sizes
+    /// the pool. Replace it with the measured `wasm_memory_mb` (gh:#907).
+    fn run_pool_mb() -> Option<f64> {
+        Some(250.0)
     }
     fn recorded_tracks() -> Option<&'static [u8]> {
         Some(RECORDED_TRACKS)

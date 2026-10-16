@@ -164,6 +164,46 @@ pub fn serve(l: &mut Loaded, r: Request, post: &mut impl FnMut(Event)) {
     }
 }
 
+/// **Serve a Run k_eff pool request on the loaded rung** (gh:#905, #907):
+/// an initial source or a chunk, answered in the HTR-10 core pool's events
+/// so the page drives both pools with the same `PoolState`. Returns the
+/// request untouched when the loaded rung does not serve the pool (the
+/// HTR-10 core worker then takes it).
+pub fn serve_pool(l: &mut Loaded, r: crate::htr10::core::CoreReq, post: &mut impl FnMut(Event)) -> Option<crate::htr10::core::CoreReq> {
+    use crate::htr10::core::{mesh_words, CoreEv, CoreReq};
+    use dhoby_ghaut::web_demo::link::Floats;
+    use outram_mc_libs::physics::transport_csg::distributed::SourceSite;
+    match r {
+        CoreReq::Source { cfg, epoch } => match l.pool_source(cfg) {
+            None => Some(CoreReq::Source { cfg, epoch }),
+            Some(Ok(s)) => {
+                post(Event::Core(CoreEv::Source { sites: Floats::from_vec(SourceSite::encode(&s.sites)), seed: s.seed, mesh: mesh_words(&s.mesh), epoch }));
+                None
+            }
+            Some(Err(message)) => {
+                post(Event::Core(CoreEv::Failed { message, epoch }));
+                None
+            }
+        },
+        CoreReq::Chunk { cfg, data, epoch } => {
+            let t0 = dhoby_ghaut::web_demo::platform::now_s();
+            match l.pool_chunk(cfg, &data.to_vec()) {
+                None => Some(CoreReq::Chunk { cfg, data, epoch }),
+                Some(Ok(out)) => {
+                    let secs = dhoby_ghaut::web_demo::platform::now_s() - t0;
+                    post(Event::Core(CoreEv::ChunkDone { data: Floats::from_vec(out), secs, epoch }));
+                    None
+                }
+                Some(Err(message)) => {
+                    post(Event::Core(CoreEv::Failed { message, epoch }));
+                    None
+                }
+            }
+        }
+        other => Some(other),
+    }
+}
+
 /// A `k_inf` generation as `f64`s (NaN for "no mean yet").
 pub fn encode_kinf(g: &KinfGeneration) -> Vec<f64> {
     vec![g.param, g.index as f64, g.total as f64, g.active as u8 as f64, g.k, g.mean, g.sem]
@@ -219,10 +259,17 @@ impl dhoby_ghaut::web_demo::link::NativeEngine for McEngine {
                 }
             }
             Request::Core(r) => {
-                let core = self.core.clone();
-                let guard = core.write();
-                if let Ok(mut w) = guard {
-                    crate::htr10::core::serve_native(&mut w, r, post);
+                // A benchmark rung's pooled run (gh:#907), else the HTR-10 core.
+                let r = match self.loaded.as_mut() {
+                    Some(l) => serve_pool(l, r, post),
+                    None => Some(r),
+                };
+                if let Some(r) = r {
+                    let core = self.core.clone();
+                    let guard = core.write();
+                    if let Ok(mut w) = guard {
+                        crate::htr10::core::serve_native(&mut w, r, post);
+                    }
                 }
             }
             // Natively the cache is this engine's memory (gh:#818).
@@ -712,8 +759,18 @@ pub mod web {
                     });
                 }
                 Request::Core(r) => {
-                    if let Ok(core) = state.read().map(|g| g.core.clone()) {
-                        crate::htr10::core::web::handle(&core, r, post);
+                    // A benchmark rung's pooled run (gh:#907), else the HTR-10 core.
+                    let r = match state.write() {
+                        Ok(mut g) => match g.loaded.as_mut() {
+                            Some(l) => serve_pool(l, r, &mut |e| post.post(e)),
+                            None => Some(r),
+                        },
+                        Err(_) => Some(r),
+                    };
+                    if let Some(r) = r {
+                        if let Ok(core) = state.read().map(|g| g.core.clone()) {
+                            crate::htr10::core::web::handle(&core, r, post);
+                        }
                     }
                 }
                 // The browser's cache (gh:#818), read and cleared here so the
