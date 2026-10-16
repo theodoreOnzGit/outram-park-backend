@@ -23,12 +23,30 @@
 //!
 //! # What it covers, and what it does not
 //!
-//! **Exactly the three functions PETIR has a fast, deterministic port of** —
-//! [`RealMath::r_exp`], [`RealMath::r_ln`], [`RealMath::r_powf`] — which route
-//! to [`crate::fast_exp`], [`crate::fast_log`] and [`crate::fast_pow`], ports
-//! of ARM optimized-routines verified bit-identical to upstream's own compiled
-//! C. This *is* the default route, and it is at worst comparable to the
-//! platform and at best faster than it.
+//! ~~**Exactly the three functions PETIR has a fast, deterministic port of** —
+//! [`RealMath::r_exp`], [`RealMath::r_ln`], [`RealMath::r_powf`].~~
+//! **EXTENDED 2026-10-16** (maintainer decision D6, gh:#896 / gh:#903): the
+//! trait now also carries the `libm`-delegated functions and an integer power,
+//! because migrating a consumer by rename only works if every call site it has
+//! can be renamed. There are now **three routes behind one trait**, and a
+//! caller should know which one a method takes:
+//!
+//! | route | methods | implementation | speed vs the platform |
+//! |---|---|---|---|
+//! | **ARM** | [`r_exp`](RealMath::r_exp), [`r_ln`](RealMath::r_ln), [`r_powf`](RealMath::r_powf) | [`crate::fast_exp`], [`crate::fast_log`], [`crate::fast_pow`] — ports of ARM optimized-routines, verified bit-identical to upstream's own compiled C | `exp` faster, `ln` comparable, `powf` ~1.5x slower (measured, see [`crate::real`]) |
+//! | **integer power** | [`r_powi`](RealMath::r_powi) | [`crate::real::powi`] — libgcc's `__powidf2` algorithm, plain `*` and one `/` | not separately benchmarked |
+//! | **`libm`** | `r_log10`, `r_cbrt`, `r_exp_m1`, `r_ln_1p`, `r_sin`, `r_cos`, `r_tan`, `r_asin`, `r_acos`, `r_atan`, `r_atan2`, `r_hypot`, `r_sinh`, `r_cosh`, `r_tanh` | the [`libm`] crate (a pure-Rust port of musl), through [`crate::real`]'s free functions where one exists | **slower than the platform**; by how much is not measured here |
+//!
+//! **Only `exp`, `ln` and `powf` take the ARM route.** ARM optimized-routines
+//! publishes no scalar-double `log10`, `cbrt`, trig or hyperbolic functions,
+//! so the rest are `libm`: deterministic — one fixed implementation on every
+//! target — but not fast, and not glibc's bits. They are here so that a crate
+//! choosing determinism can get it by a rename; that is a trade a crate makes
+//! knowingly, which is why the `r_` prefix stays and nothing shadows `std`.
+//!
+//! Each new method is a pure re-spelling: a test pins every one bit-identical
+//! to the function it forwards to, so the method and the free function can
+//! never mean different things.
 //!
 //! # There is no escape hatch, and the one that existed never worked
 //!
@@ -81,14 +99,19 @@
 //! keep: it lets the pre-adoption trajectory be re-derived and diffed rather
 //! than merely remembered.
 //!
-//! It deliberately does **not** cover `log10`, `cbrt`, `cos`, `sin`, `tanh` or
+//! ~~It deliberately does **not** cover `log10`, `cbrt`, `cos`, `sin`, `tanh` or
 //! `atan2`. Those have no ARM scalar-double implementation, so PETIR can only
 //! offer the `libm` (musl-derived) versions, which are deterministic but
 //! measurably slower than the platform. That is a trade-off a crate should opt
 //! into knowingly, so reach for [`crate::real`]'s free functions and mean it,
-//! rather than getting it by importing a trait.
+//! rather than getting it by importing a trait.~~
+//! **SUPERSEDED 2026-10-16** by maintainer decision D6 — those are now methods
+//! (see the table above). The trade-off itself is unchanged: they are `libm`,
+//! deterministic and slower than the platform, and the "slower" has still not
+//! been quantified for them (`tests/fast_math_speed.rs` covers only the three
+//! ARM routes).
 //!
-//! Nor does it cover `sqrt`, `abs`, `floor`, `ceil`, `round` or `powi`.
+//! It still does **not** cover `sqrt`, `abs`, `floor`, `ceil` or `round`.
 //! IEEE-754 requires `sqrt` to be correctly rounded and ~~the others are exact,
 //! so they are **already** bit-identical on every platform~~ `abs`, `floor`,
 //! `ceil` and `round` are exact, so those are **already** bit-identical on every
@@ -98,8 +121,9 @@
 //! **CORRECTED 2026-10-16 — `powi` is NOT exact.** `f64::powi` is lowered by
 //! each target's backend and its last bit differs on `x86_64-pc-windows-msvc`
 //! (measured; see [`crate::real::powi`]). Use [`crate::real::powi`] where the
-//! bits must match across platforms. Whether `RealMath` should gain an `r_powi`
-//! is open (gh:#896).
+//! bits must match across platforms. ~~Whether `RealMath` should gain an
+//! `r_powi` is open (gh:#896).~~ **Settled the same day** (D6):
+//! [`RealMath::r_powi`] forwards to [`crate::real::powi`].
 //!
 //! # The bits move once
 //!
@@ -117,11 +141,13 @@
 //! assert!((x.r_ln().r_exp() - x).abs() < 1e-15);
 //! ```
 
-/// `f64` transcendentals routed through PETIR's ARM optimized-routines ports.
+/// `f64` maths as `r_`-prefixed methods, on PETIR's deterministic routes.
 ///
 /// Method names carry an `r_` prefix so adoption is a rename, not an
-/// expression rewrite, and so a converted call site reads as deliberate. See
-/// the module docs for what is deliberately *not* here.
+/// expression rewrite, and so a converted call site reads as deliberate.
+/// `r_exp`, `r_ln` and `r_powf` take the ARM optimized-routines ports;
+/// `r_powi` takes [`crate::real::powi`]; every other method is `libm`. See the
+/// module docs for the table and for what is deliberately *not* here.
 pub trait RealMath {
     /// Natural logarithm, `ln x`.
     ///
@@ -140,9 +166,62 @@ pub trait RealMath {
     /// Full IEEE-754 semantics, including the sign of a result from a negative
     /// base with an odd-integer exponent. Routed to [`crate::fast_pow`].
     fn r_powf(self, y: f64) -> f64;
+
+    /// `x^n` for an integer `n`.
+    ///
+    /// Routed to [`crate::real::powi`] (libgcc's `__powidf2` algorithm), **not**
+    /// to `f64::powi`, whose last bit is backend-dependent.
+    fn r_powi(self, n: i32) -> f64;
+
+    /// Base-10 logarithm. `libm`, via [`crate::real::log10`].
+    fn r_log10(self) -> f64;
+
+    /// Cube root, defined for negative arguments. `libm`, via [`crate::real::cbrt`].
+    fn r_cbrt(self) -> f64;
+
+    /// `e^x - 1`, accurate near zero. `libm::expm1`.
+    fn r_exp_m1(self) -> f64;
+
+    /// `ln(1 + x)`, accurate near zero. `libm::log1p`.
+    fn r_ln_1p(self) -> f64;
+
+    /// Sine, radians. `libm`, via [`crate::real::sin`].
+    fn r_sin(self) -> f64;
+
+    /// Cosine, radians. `libm`, via [`crate::real::cos`].
+    fn r_cos(self) -> f64;
+
+    /// Tangent, radians. `libm::tan`.
+    fn r_tan(self) -> f64;
+
+    /// Arcsine over `[-pi/2, pi/2]`. `libm::asin`.
+    fn r_asin(self) -> f64;
+
+    /// Arccosine over `[0, pi]`. `libm::acos`.
+    fn r_acos(self) -> f64;
+
+    /// Arctangent over `(-pi/2, pi/2)`. `libm::atan`.
+    fn r_atan(self) -> f64;
+
+    /// Four-quadrant arctangent of `self / x` (`self` is `y`, as in
+    /// `f64::atan2`). `libm`, via [`crate::real::atan2`].
+    fn r_atan2(self, x: f64) -> f64;
+
+    /// `sqrt(self^2 + other^2)` without spurious overflow. `libm::hypot`.
+    fn r_hypot(self, other: f64) -> f64;
+
+    /// Hyperbolic sine. `libm::sinh`.
+    fn r_sinh(self) -> f64;
+
+    /// Hyperbolic cosine. `libm::cosh`.
+    fn r_cosh(self) -> f64;
+
+    /// Hyperbolic tangent. `libm`, via [`crate::real::tanh`].
+    fn r_tanh(self) -> f64;
 }
 
-/// The default, deterministic route: PETIR's ARM optimized-routines ports.
+/// The default, deterministic route: ARM ports for `exp`/`ln`/`powf`,
+/// `__powidf2` for `powi`, `libm` for the rest.
 impl RealMath for f64 {
     #[inline]
     fn r_ln(self) -> f64 {
@@ -158,8 +237,87 @@ impl RealMath for f64 {
     fn r_powf(self, y: f64) -> f64 {
         crate::real::powf(self, y)
     }
-}
 
+    #[inline]
+    fn r_powi(self, n: i32) -> f64 {
+        crate::real::powi(self, n)
+    }
+
+    #[inline]
+    fn r_log10(self) -> f64 {
+        crate::real::log10(self)
+    }
+
+    #[inline]
+    fn r_cbrt(self) -> f64 {
+        crate::real::cbrt(self)
+    }
+
+    #[inline]
+    fn r_exp_m1(self) -> f64 {
+        libm::expm1(self)
+    }
+
+    #[inline]
+    fn r_ln_1p(self) -> f64 {
+        libm::log1p(self)
+    }
+
+    #[inline]
+    fn r_sin(self) -> f64 {
+        crate::real::sin(self)
+    }
+
+    #[inline]
+    fn r_cos(self) -> f64 {
+        crate::real::cos(self)
+    }
+
+    #[inline]
+    fn r_tan(self) -> f64 {
+        libm::tan(self)
+    }
+
+    #[inline]
+    fn r_asin(self) -> f64 {
+        libm::asin(self)
+    }
+
+    #[inline]
+    fn r_acos(self) -> f64 {
+        libm::acos(self)
+    }
+
+    #[inline]
+    fn r_atan(self) -> f64 {
+        libm::atan(self)
+    }
+
+    #[inline]
+    fn r_atan2(self, x: f64) -> f64 {
+        crate::real::atan2(self, x)
+    }
+
+    #[inline]
+    fn r_hypot(self, other: f64) -> f64 {
+        libm::hypot(self, other)
+    }
+
+    #[inline]
+    fn r_sinh(self) -> f64 {
+        libm::sinh(self)
+    }
+
+    #[inline]
+    fn r_cosh(self) -> f64 {
+        libm::cosh(self)
+    }
+
+    #[inline]
+    fn r_tanh(self) -> f64 {
+        crate::real::tanh(self)
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -199,6 +357,61 @@ mod tests {
     }
 
 
+
+    /// The 2026-10-16 additions (D6) are pure re-spellings too. Each is pinned
+    /// bit-identical to the function it is documented to forward to, over a
+    /// sweep wide enough to cross the argument-reduction branches of the trig
+    /// and hyperbolic families.
+    #[test]
+    fn the_libm_and_powi_methods_are_bit_identical_to_what_they_forward_to() {
+        let eq = |a: f64, b: f64, what: &str, x: f64| {
+            assert_eq!(a.to_bits(), b.to_bits(), "{what} at {x:e}");
+        };
+        for k in -2000..=2000 {
+            let x = f64::from(k) * 0.0137 + 1.0e-3;
+            eq(x.r_cbrt(), libm::cbrt(x), "cbrt", x);
+            eq(x.r_cbrt(), crate::real::cbrt(x), "cbrt/real", x);
+            eq(x.r_sin(), libm::sin(x), "sin", x);
+            eq(x.r_cos(), libm::cos(x), "cos", x);
+            eq(x.r_tan(), libm::tan(x), "tan", x);
+            eq(x.r_atan(), libm::atan(x), "atan", x);
+            eq(x.r_sinh(), libm::sinh(x), "sinh", x);
+            eq(x.r_cosh(), libm::cosh(x), "cosh", x);
+            eq(x.r_tanh(), libm::tanh(x), "tanh", x);
+            eq(x.r_exp_m1(), libm::expm1(x), "expm1", x);
+            eq(x.r_atan2(0.7 - x), libm::atan2(x, 0.7 - x), "atan2", x);
+            eq(x.r_hypot(3.0 * x - 2.0), libm::hypot(x, 3.0 * x - 2.0), "hypot", x);
+            let u = x / 30.0; // inside [-1, 1]
+            eq(u.r_asin(), libm::asin(u), "asin", u);
+            eq(u.r_acos(), libm::acos(u), "acos", u);
+            if x > -1.0 {
+                eq(x.r_ln_1p(), libm::log1p(x), "log1p", x);
+            }
+            if x > 0.0 {
+                eq(x.r_log10(), libm::log10(x), "log10", x);
+            }
+            for n in [-23, -7, -2, -1, 0, 1, 2, 3, 5, 12, 23] {
+                eq(x.r_powi(n), crate::real::powi(x, n), "powi", x);
+            }
+        }
+        // powi edge exponents, including the one whose negation overflows i32.
+        for n in [i32::MIN, i32::MIN + 1, i32::MAX] {
+            let x = 1.000_000_1_f64;
+            eq(x.r_powi(n), crate::real::powi(x, n), "powi edge", x);
+        }
+    }
+
+    /// The case that motivated `r_powi`: `10**(-23)` differed between Linux
+    /// and `x86_64-pc-windows-msvc` through `f64::powi`. `r_powi` must be the
+    /// `__powidf2` route, and its exact small cases must stay exact.
+    #[test]
+    fn r_powi_is_the_powidf2_route() {
+        assert_eq!(10.0_f64.r_powi(-23).to_bits(), crate::real::powi(10.0, -23).to_bits());
+        assert_eq!(2.0_f64.r_powi(10), 1024.0);
+        assert_eq!(2.0_f64.r_powi(-2), 0.25);
+        assert_eq!(0.0_f64.r_powi(-1), f64::INFINITY);
+        assert_eq!(3.0_f64.r_powi(0), 1.0);
+    }
 
     /// The IEEE special values must survive the extra hop.
     #[test]

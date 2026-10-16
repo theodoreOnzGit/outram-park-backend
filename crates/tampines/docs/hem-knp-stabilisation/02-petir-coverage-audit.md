@@ -35,7 +35,12 @@ quantity methods and any user method with the same name, so treat the counts as
    `p_rho_h_eqm`, `w_tp_{1,2,3,5}`, `w_ps_eqm_region4_kieffer` in tampines, and
    `state_ph`, `state_pt`, `drho_dp_t`, `state_trho`, `viscosity`,
    `conductivity` in coolprop.
-5. **petir's `RealMath` covers only `r_exp`, `r_ln` and `r_powf`.** The
+5. ~~**petir's `RealMath` covers only `r_exp`, `r_ln` and `r_powf`.**~~
+   **CORRECTED 2026-10-16 (S1 done under D6):** `RealMath` now also has
+   `r_powi` (→ `real::powi`) and the `libm`-delegated `r_log10`, `r_cbrt`,
+   `r_exp_m1`, `r_ln_1p`, `r_sin`, `r_cos`, `r_tan`, `r_asin`, `r_acos`,
+   `r_atan`, `r_atan2`, `r_hypot`, `r_sinh`, `r_cosh` and `r_tanh`, each
+   pinned bit-identical to its target. The original finding read: The
    migration also needs method forms for `powi` (a free function
    `petir::real::powi` exists), `log10`, `cbrt`, `exp_m1`, `ln_1p`, `sin`,
    `cos`, `tan`, `atan`, `atan2`, `hypot` and `acos`. All of them are
@@ -46,11 +51,19 @@ quantity methods and any user method with the same name, so treat the counts as
    have **no petir/GSL equivalent**: the Illinois false position
    (`rho_h_flash_eqm`) and the safeguarded Newton-with-bisection (coolprop
    `flash.rs`).
-7. **The existing wasm-vs-native Sod mismatch (about 9e-16 relative) has not
+7. ~~**The existing wasm-vs-native Sod mismatch (about 9e-16 relative) has not
    been traced, and the petir migration may not remove it.** The
    `RhoCentralFoam` flux kernel calls only `sqrt`, which is IEEE correctly
    rounded and so identical on both targets. Stage 0 below must find the
-   source first, or the premise "petir ⇒ bitwise" is untested.
+   source first, or the premise "petir ⇒ bitwise" is untested.~~
+   **TRACED 2026-10-16 (S0, gh:#903).** It was not a platform difference.
+   `outram_foam_mesh::block_mesh` ordered boundary faces by iterating a
+   randomly seeded `HashMap`, so cell centres moved by 1–2 ulp **between two
+   native runs of the same binary**. After the boundary faces were sorted,
+   native and `wasm32-wasip1` agree bit for bit at all four Δt, as does every
+   step of the Δt = 1e-6 trace. The `sqrt` reasoning above was right; the
+   difference was never in the arithmetic. See the `wasm_worker_timing`
+   README.
 
 ---
 
@@ -67,8 +80,8 @@ validated against any benchmark.
 | Need | petir module | Notes |
 |---|---|---|
 | exp, ln, powf | `real::{exp, ln, powf}` and `mathf::RealMath::{r_exp, r_ln, r_powf}` → `fast_exp`/`fast_log`/`fast_pow` (ARM optimized-routines ports, bit-identical to upstream ARM C) | **Default** deterministic route |
-| powi | `real::powi` (free function, libgcc `__powidf2` algorithm) | No `RealMath` method |
-| log10, cbrt, sin, cos, tanh, atan2 | `real::*` free functions → `libm` (musl port) | No `RealMath` method |
+| powi | `real::powi` (free function, libgcc `__powidf2` algorithm) | ~~No `RealMath` method~~ `RealMath::r_powi` since 2026-10-16 |
+| log10, cbrt, sin, cos, tanh, atan2 | `real::*` free functions → `libm` (musl port) | ~~No `RealMath` method~~ `r_`-methods since 2026-10-16 (D6) |
 | sqrt, exp2, exp_m1, ln_1p, log2, tan, asin/acos/atan, sinh/cosh/asinh/…, hypot, floor/ceil/round, mul_add | `real::Real` trait → `libm` | **Trap:** `Real::exp/ln/powf` go to **libm**, not ARM, so lifted code keeps its bits. In a `std` crate the inherent `f64` method shadows the trait, so `x.exp()` silently stays on the platform. You must write `Real::sinh(a)` (UFCS), see `docs/why-petir-last-ulp-evidence.md` |
 | erf, erfc, tgamma, lgamma | `real::*`, `specfunc` | Already used by all three crates' `inc_gamma`/`inv_inc_gamma` |
 | Root finding | `roots::BracketingSolver` (bisection, false position, Brent) and `roots::PolishingSolver` (Newton, secant, Steffenson), with GSL's three convergence tests | GSL 2.8 port, bit-identical every iterate. **No** safeguarded/bracketed Newton and **no** Illinois variant |
@@ -234,8 +247,10 @@ Platform calls by file:
 - `rayon` is off.
 
 So once every transcendental goes through petir, bitwise agreement across
-x86_64 / aarch64 / wasm32 is *expected*. It is still unproven, and the Sod
-mismatch shows that an untraced source exists.
+x86_64 / aarch64 / wasm32 is *expected*. It is still unproven. ~~The Sod
+mismatch shows that an untraced source exists.~~ **CORRECTED 2026-10-16:** the
+Sod mismatch was a run-to-run `HashMap` ordering defect in `block_mesh`, now
+fixed (item 7 of §0). It says nothing about the arithmetic.
 
 **Test design**, proposed files `tampines-steam-tables/tests/cross_platform_determinism.rs`
 and a twin in coolprop:

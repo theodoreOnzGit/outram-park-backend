@@ -77,9 +77,70 @@ dt_s,steps,native_best_s,wasm_worker_best_s,wasm_over_native,native_rho_sum,wasm
   `pow`/`sqrt` in the two targets, but it was **not** traced to a specific call.~~
   **CORRECTED 2026-10-16:** `sqrt` is IEEE correctly rounded on both targets
   and cannot be the cause, and the petir audit for gh:#896 found the KNP flux
-  kernel calls nothing else from `libm`. The source of the difference is
+  kernel calls nothing else from `libm`. ~~The source of the difference is
   **untraced**. Tracing it is stage S0 of gh:#896.
-  A demo must not promise bitwise parity with the native V&V numbers.
+  A demo must not promise bitwise parity with the native V&V numbers.~~
+  **TRACED 2026-10-16 (gh:#903): it was never a wasm-vs-native difference.**
+  The native run was not reproducible against *itself*. See "The
+  non-determinism, traced" below.
+
+### The non-determinism, traced (2026-10-16, gh:#903)
+
+**Finding.** `outram_foam_mesh::block_mesh` deduplicated faces through a
+`HashMap` and built each boundary patch by iterating `groups.values()`.
+`HashMap` is randomly seeded per instance, so **the face order within every
+patch changed on every run**. The face-summed cell centres then moved in the
+last bit. On this case, cells 11 and 70 changed `x` by 1–2 ulp between two
+executions of the **same native binary**. Every solve built on that mesh
+inherited the drift:
+
+- three native runs at Δt = 8e-6 gave three different cell-centre hashes;
+- the final ρ sum moved by up to 7 ulp, run to run.
+
+The CSV above compares one random draw against another.
+
+**Method.**
+
+- A scratch tracer replays `build`/`run` from `src/lib.rs`. It prints an
+  FNV-1a-64 hash of the mesh geometry and of ρ, e and U after every step,
+  natively and as `wasm32-wasip1` under Node's WASI.
+- The cell-centre hash differed **before the first step**. The geometry alone
+  differed.
+- Re-running native against native then showed it differing run to run, which
+  pointed at hash-map iteration.
+
+**Fix.** The boundary faces are now sorted by `(owner, sorted point ids)`
+before they are assigned to patches (`block_mesh.rs`). The pin is
+`outram-foam-mesh/tests/block_mesh.rs::block_mesh_is_reproducible_build_to_build`,
+which builds the cavity mesh nine times in one process. It **fails without the
+sort** (checked) and passes with it.
+
+**Prediction, written before the post-fix run.** Native becomes reproducible,
+and native equals wasm bit for bit at every Δt, because the solver performs
+only `+ − × ÷`, `sqrt` (correctly rounded) and `min`/`max`. The one possible
+residual is signed-zero `min`/`max`, which x86 and wasm resolve differently.
+
+**Result, post-fix (2026-10-16).** The prediction held.
+
+| Δt | final ρ sum (native ×3 and wasm32-wasip1 ×2, all identical) | bits |
+|---|---|---|
+| 8e-6 | 5.62300922778907832e1 | `404c1d73a9ec4d31` |
+| 4e-6 | 5.62300922778907974e1 | `404c1d73a9ec4d33` |
+| 2e-6 | 5.62300922778908330e1 | `404c1d73a9ec4d38` |
+| 1e-6 | 5.62300922778908543e1 | `404c1d73a9ec4d3b` |
+
+At Δt = 1e-6, the full per-step trace (mesh, then ρ, e and U after each of
+6325 steps) is byte-identical between native and wasm.
+
+**What this does not cover.**
+
+- Post-fix, the comparison was run as `wasm32-wasip1` under Node, **not**
+  re-run as `wasm32-unknown-unknown` in a Worker. Both compile the same Rust
+  to the same wasm float instructions, and this solve calls no `std` maths,
+  so no difference is expected. Re-running the Worker harness is not
+  re-checked here.
+- The CSV's timing columns are unaffected. Its ρ-sum columns are the
+  pre-fix, order-dependent values and are kept as run.
 - **The ratio is not a constant.** 1.08–1.59× across four runs on a shared host
   is noise on top of a real overhead. Quote it as "about 1.3×, within 1.1–1.6×".
 

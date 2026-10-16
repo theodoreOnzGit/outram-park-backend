@@ -41,6 +41,10 @@
 //! - [`solve_rkf45`] — the adaptive driver: take a step, judge it against your
 //!   tolerance, shrink and retry or accept and grow.
 //!
+//! For a **method-of-lines** semi-discretisation of a hyperbolic PDE, where the
+//! property you need is that the time step does not create new extrema, see
+//! [`crate::ssprk`] (strong-stability-preserving RK, ported from PyClaw).
+//!
 //! # Why the embedded pair matters
 //!
 //! Fehlberg's construction evaluates `f` six times and uses those same six

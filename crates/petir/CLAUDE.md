@@ -35,7 +35,7 @@ When you do port, the doc comment names the **upstream file and line**, and the
 NOTICE names the copyright holder for that module — GSL's holders differ per
 file, so re-read each header rather than copying one across.
 
-### Four non-GSL ports exist, and they were maintainer-directed
+### Four non-GSL ports exist, and they were maintainer-directed (two more follow below)
 
 Added 2026-09-15 at the maintainer's direction — "port select code from roots
 and peroxide to complement petir's capabilities, credit the author's
@@ -99,6 +99,28 @@ the transport crate. Bind future work as follows:
   helpers breaks that crate, and its device tests
   (`gpu_lcg_advance_directly.rs`) are the GPU gate for this shader.
 - **`rng::distributions` was deliberately NOT moved** — see `src/rng/mod.rs`.
+
+### A sixth non-GSL port: PyClaw's SSP Runge–Kutta (2026-10-16)
+
+`src/ssprk.rs` ports PyClaw's `SSP22`, `SSP33` and `SSP104`
+(`src/pyclaw/sharpclaw/solver.py`, commit `f522337e`, BSD-3-Clause, Clawpack
+Developers). **Maintainer direction 2026-10-16 (D3, gh:#896/#903): "port an
+SSP Runge–Kutta time integrator from OpenFOAM or wherever suitable."** That is
+the approval this section requires for a non-GSL source. OpenFOAM was checked
+first: OpenFOAM-10 and OpenFOAM-dev have no SSP/TVD RK, and OpenFOAM.com was
+unreachable from the container, so it is *not re-checked*. GSL has none. It
+binds future work as follows:
+
+- **It is additive.** GSL has no SSP method, so nothing verified is replaced.
+- **Bit-faithfulness is pinned against upstream's running code.**
+  `tests/ssprk_vs_pyclaw.rs` compares against
+  `reference-data/pyclaw/ssp-rk-pyclaw-reference.txt`, which PyClaw's own
+  unmodified `step()` produced under NumPy (96/96 bit-identical). Do not
+  "simplify" the arithmetic (`0.5*(q + r + dt*L)`, `q/25 + 0.36*s`, …). A
+  reassociation changes the rounding and fails that test.
+- **One documented deviation:** the first stage uses `L` directly, where
+  upstream uses `(dt*L)/dt`, its cached `dq_dt`. The two are identical at a
+  power-of-two `dt`, and were identical on every case measured.
 
 **`peroxide` as a DEPENDENCY remains ruled out** (it pulls
 `blas`/`lapack`/`netcdf`/`arrow`, which the "Dependencies" section below

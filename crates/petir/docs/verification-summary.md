@@ -54,6 +54,12 @@ entirely on `yerr`, and `yerr` is what a step controller acts on.
 | `cheb::eval_mode`, default order | 615 | 461 (75.0%) | 1.06e-15 results | `gsl_cheb_mode_code_to_code.rs` |
 | `cheb` pipeline (`init`/`eval`/`deriv`/`integ`) | 6114 | 4707 (77.0%) | — | `gsl_code_to_code.rs` |
 
+### Not GSL: `ssprk` against PyClaw (added 2026-10-16)
+
+| surface | values | bit-identical | worst relative difference | test |
+|---|---|---|---|---|
+| `ssprk` (SSP22, SSP33, SSP104; 40 steps, `dt = 2^-4` and `0.03`) vs PyClaw `f522337e` `SharpClawSolver.step` under NumPy 2.4.6 | 96 | 96 (100.0%) | 0 | `ssprk_vs_pyclaw.rs` |
+
 Where agreement is not exact it is at the last ulp. PETIR reaches its BLAS-1
 kernels through `petir::linalg::blas1` rather than GSL's CBLAS; the two were
 checked to be the same recurrences with the same association, but they are not
