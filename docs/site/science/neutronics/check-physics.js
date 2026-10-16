@@ -34,6 +34,7 @@ eval(fs.readFileSync(path.join(__dirname, "lattice.js"), "utf8"));
 eval(fs.readFileSync(path.join(__dirname, "manyphonons.js"), "utf8"));
 eval(fs.readFileSync(path.join(__dirname, "structure.js"), "utf8"));
 eval(fs.readFileSync(path.join(__dirname, "leapr-data.js"), "utf8"));
+eval(fs.readFileSync(path.join(__dirname, "spin-data.js"), "utf8"));
 eval(fs.readFileSync(path.join(__dirname, "mathtrack.js"), "utf8"));
 const M = window.Lesson.qscatterMath, SH = window.Lesson.shapesMath, AN = window.Lesson.anglesMath;
 let failed = 0;
@@ -584,6 +585,23 @@ for (const [label, A, ap, E] of [["C-12, 10 eV", 11.89365, 6.146927, 10], ["U-23
   check("rung 5c: quartz Tbar in kelvin in the prose", Math.abs(num("stiff-soft.html", /data-qtbark>([^<]+)</) - Q.tbar * Q.t), 0.5);
   check("rung 5g: quartz Tbar/T in the prose", Math.abs(num("one-spring-check.html", /data-qtbar2>([^<]+)</) - Q.tbar), 0.0005);
   console.log(`     rung 5 shortcut misfit: kick 20 ${(100 * diff(Q.cols[4])).toFixed(1)} %, kick 0.05 ${(100 * diff(Q.cols[0])).toFixed(0)} %; quartz Tbar/T ${Q.tbar.toFixed(4)}`);
+}
+
+// Rung 5i (gh:#906 design, 2026-10-16): the spin page's numbers against
+// spin-data.js (the NIST NCNR table), and the 3:1 spin-state weighting.
+{
+  const SD = window.SPIN_DATA, H = SD["H-1"], h = fs.readFileSync(path.join(__dirname, "spin.html"), "utf8");
+  const avg = 0.75 * H.bplus + 0.25 * H.bminus, msq = 0.75 * H.bplus * H.bplus + 0.25 * H.bminus * H.bminus;
+  check("rung 5i: 3/4 triplet + 1/4 singlet reproduces H-1's coherent length (fm)", Math.abs(avg - H.bc), 0.01);
+  const sc = 4 * Math.PI * avg * avg / 100, si = 4 * Math.PI * (msq - avg * avg) / 100;
+  check("rung 5i: coherent and incoherent cross sections from the two lengths vs the table (relative)", Math.max(Math.abs(sc / H.sc - 1), Math.abs(si / H.si - 1)), 0.01);
+  const half = (t) => { const d = t.split(".")[1]; return 0.5 * Math.pow(10, -(d ? d.length : 0)) * (1 + 1e-9); };
+  let bad = 0, n = 0;
+  const q = (re, want) => { const m = h.match(re); n++; const t = m[1].replace("&minus;", "-"); if (Math.abs(+t - want) > half(t)) { bad++; console.log("     mismatch", m[0], "want", want); } };
+  q(/data-bplus>([^<]+)</, H.bplus); q(/data-bminus>([^<]+)</, H.bminus); q(/data-bavg>([^<]+)</, avg); q(/data-bc>([^<]+)</, H.bc);
+  q(/data-sc>([^<]+)</, H.sc); q(/data-si>([^<]+)</, H.si); q(/data-csi>([^<]+)</, SD["C-12"].si); q(/data-scc>([^<]+)</, sc); q(/data-sic>([^<]+)</, si);
+  check("rung 5i: " + n + " numbers in the prose vs spin-data.js", bad, 0);
+  console.log(`     H-1 from b+/b-: coherent ${sc.toFixed(3)} b (table ${H.sc}), incoherent ${si.toFixed(2)} b (table ${H.si})`);
 }
 
 if (failed) { console.log(failed + " check(s) failed"); process.exit(1); }

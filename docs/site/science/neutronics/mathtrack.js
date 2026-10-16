@@ -432,9 +432,24 @@
   // A square patch of atoms, spacing d; incoming wave along +x. The outgoing
   // intensity at angle theta is |sum_j b_j exp(i (k_in - k_out) . r_j)|^2.
   function wavesWidget(root) {
-    var st = { coherent: true, lam: 1.8, r: rng(58), b: null };
+    // data-spin on the widget (rung 5i): atoms carry real scattering lengths
+    // (spin-data.js): carbon-like all b_c(C-12); hydrogen-like b+ with chance
+    // 3/4 (triplet) and b- with chance 1/4 (singlet), the spin-state count;
+    // "aligned", an illustration, all b+.
+    var spin = root.hasAttribute("data-spin"), SD = window.SPIN_DATA;
+    var st = { coherent: true, lam: 1.8, r: rng(58), b: null, smode: "carbon" };
     var N = 14, d = 3.35;
-    function strengths() { if (!st.b) { st.b = []; for (var i = 0; i < N * N; i++) st.b.push(st.coherent ? 1 : (st.r() < 0.5 ? -1 : 1) * (0.4 + 1.2 * st.r())); } return st.b; }
+    function strengths() {
+      if (st.b) return st.b;
+      st.b = [];
+      for (var i = 0; i < N * N; i++) {
+        if (!spin) st.b.push(st.coherent ? 1 : (st.r() < 0.5 ? -1 : 1) * (0.4 + 1.2 * st.r()));
+        else if (st.smode === "carbon") st.b.push(SD["C-12"].bc);
+        else if (st.smode === "aligned") st.b.push(SD["H-1"].bplus);
+        else st.b.push(st.r() < 0.75 ? SD["H-1"].bplus : SD["H-1"].bminus);
+      }
+      return st.b;
+    }
     function intensity(th) {
       var k = 2 * Math.PI / st.lam, qx = k * (1 - Math.cos(th)), qy = -k * Math.sin(th), re = 0, im = 0, b = strengths();
       for (var i = 0; i < N; i++) for (var j = 0; j < N; j++) { var ph = qx * i * d + qy * j * d, s = b[i * N + j]; re += s * Math.cos(ph); im += s * Math.sin(ph); }
@@ -445,24 +460,36 @@
       tick: function () { return false; },
       draw: function (ctx, w, h, zoom) {
         var c = palette(), cx = w / 2, cy = 84 + (h - 140) / 2, R = Math.min(w, h - 140) / 2 - 16;
-        var M = 360, vals = [], mx = 0;
-        for (var s = 0; s < M; s++) { var th = s / M * 2 * Math.PI; var v = s === 0 ? 0 : intensity(th); vals.push(v); if (s > 6 && s < M - 6) mx = Math.max(mx, v); }
-        mx = Math.max(mx, 1);
+        // Fixed log scale: 1 at the rim is a perfect Bragg beam (N^2 <b^2>); the
+        // incoherent level <b^2> sits a fixed fraction in.
+        var M = 360, vals = [], bs0 = strengths(), b2 = bs0.reduce(function (a, b) { return a + b * b; }, 0) / bs0.length, top = Math.log10(N * N) + 1;
+        var rad = function (v) { return Math.max(0, Math.log10(Math.max(v / b2, 1e-9)) + 1) / top; };
+        for (var s = 0; s < M; s++) { var th = s / M * 2 * Math.PI; vals.push(s === 0 ? 0 : intensity(th)); }
         ctx.strokeStyle = c.mut; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(cx, cy, R, 0, 2 * Math.PI); ctx.stroke();
-        ctx.strokeStyle = st.coherent ? c.acc : c.hot; ctx.lineWidth = 2; ctx.beginPath();
-        vals.forEach(function (v, s2) { var th = s2 / M * 2 * Math.PI, rr = (s2 < 6 || s2 > M - 6) ? 0 : Math.min(v / mx, 1) * R; var xx = cx + rr * Math.cos(th), yy = cy - rr * Math.sin(th); if (s2) ctx.lineTo(xx, yy); else ctx.moveTo(xx, yy); });
+        ctx.strokeStyle = (spin ? st.smode !== "hydrogen" : st.coherent) ? c.acc : c.hot; ctx.lineWidth = 2; ctx.beginPath();
+        vals.forEach(function (v, s2) { var th = s2 / M * 2 * Math.PI, rr = (s2 < 6 || s2 > M - 6) ? 0 : Math.min(rad(v), 1) * R; var xx = cx + rr * Math.cos(th), yy = cy - rr * Math.sin(th); if (s2) ctx.lineTo(xx, yy); else ctx.moveTo(xx, yy); });
         ctx.closePath(); ctx.stroke();
         L.arrow(ctx, cx - R - 6, cy, cx - R * 0.55, cy, c.blue);
         ctx.fillStyle = c.mut; ctx.font = "11px system-ui, sans-serif"; ctx.fillText("incoming", cx - R - 6, cy - 8);
         ctx.fillStyle = c.fg; ctx.font = "13px system-ui, sans-serif"; ctx.fillText("scattered intensity by direction", 12, 80);
-        var peaks = 0; for (s = 8; s < M - 8; s++) if (vals[s] > vals[s - 1] && vals[s] > vals[s + 1] && vals[s] > 0.5 * mx) peaks++;
+        // A beam: a local maximum above a tenth of a perfect Bragg beam.
+        var peaks = 0; for (s = 8; s < M - 8; s++) if (vals[s] > vals[s - 1] && vals[s] > vals[s + 1] && vals[s] > 0.1 * N * N * b2) peaks++;
+        ctx.strokeStyle = "rgba(128,128,128,0.4)"; ctx.setLineDash([3, 4]); ctx.beginPath(); ctx.arc(cx, cy, R / top, 0, 2 * Math.PI); ctx.stroke(); ctx.setLineDash([]);
+        if (spin) {
+          var bs = strengths(), mean = bs.reduce(function (a, b2) { return a + b2; }, 0) / bs.length, nb = bs.filter(function (v) { return v < 0; }).length;
+          return (st.smode === "carbon" ? "Spin-zero nuclei, carbon-12-like: every nucleus has the same strength (" + SD["C-12"].bc + " fm), so the waves keep in step and the Bragg beams appear."
+            : st.smode === "aligned" ? "Every hydrogen spin lined up with the neutron's (an illustration only): every pair is triplet, every strength the same (" + SD["H-1"].bplus + " fm), and the beams come back."
+              : "Spin-½ nuclei, hydrogen-1-like, spins at random: " + (bs.length - nb) + " atoms meet the neutron as a triplet (" + SD["H-1"].bplus + " fm) and " + nb + " as a singlet (" + SD["H-1"].bminus + " fm). The strengths differ wildly, average " + mean.toFixed(1) + " fm, so the beams wash out.") +
+            " λ = " + st.lam.toFixed(2) + " Å; " + peaks + " strong beams.";
+        }
         return (st.coherent ? "Identical atoms in a perfect pattern: the scattered waves keep in step, and add up into strong beams in a few directions (Bragg)." : "Each atom scatters a little differently (random strength and sign): the waves don't keep in step, and the beams wash out into an even spray.") +
           " λ = " + st.lam.toFixed(2) + " Å, plane spacing " + d + " Å" + (st.coherent ? (st.lam > 2 * d ? ": longer than twice the spacing, so no beam at all (page 21's cutoff)." : ": " + peaks + " strong beams.") : ".") + " The straight-through direction is left out.";
       },
-      panel: function (body) { body.append(el("p", { "class": "w-note" }, "A 14 × 14 patch of atoms, spacing 3.35 Å (graphite's layer spacing), incoming wave from the left; intensity |Σ b e^{i(k_in − k_out)·r}|² per direction, a toy.")); }
+      panel: function (body) { body.append(el("p", { "class": "w-note" }, "A 14 × 14 patch of atoms, spacing 3.35 Å (graphite's layer spacing), incoming wave from the left; intensity |Σ b e^{i(k_in − k_out)·r}|² per direction on a log scale: the rim is a perfect Bragg beam, the dashed circle the level of independent, non-interfering atoms. A toy.")); }
     });
     var card = root.parentNode;
     pick(card, "data-coh", function (v) { st.coherent = v === "1"; st.b = null; }, function () { frame.redraw(); });
+    pick(card, "data-smode", function (v) { st.smode = v; st.b = null; }, function () { frame.redraw(); });
     bindRange(card, "data-wlam", function (v) { st.lam = v; }, function (v) { return v.toFixed(2) + " Å"; }, function () { frame.redraw(); });
     return frame;
   }

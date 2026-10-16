@@ -241,7 +241,8 @@
     ["why-bell.html", "Maths 5e: why is it a bell curve?"],
     ["width.html", "Maths 5f: what sets the width?"],
     ["one-spring-check.html", "Maths 5g: checking it, one spring then a crystal"],
-    ["coherent.html", "Maths 5h: do the waves add up?"]
+    ["coherent.html", "Maths 5h: do the waves add up?"],
+    ["spin.html", "Maths 5i: why does each hydrogen scatter differently?"]
   ];
   function lessonNav() {
     var here = location.pathname.split("/").pop() || LESSONS[0][0], i = -1;

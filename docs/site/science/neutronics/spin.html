@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Maths 5i: why does each hydrogen scatter differently?</title>
+<meta name="description" content="Neutronics maths track, rung 5i: the neutron and the proton both spin, and the strength of their collision depends on whether the spins line up (triplet) or not (singlet). Hydrogen nuclei's spins are random, so each one scatters differently and the waves do not interfere: incoherent. Carbon-12 and oxygen-16 have spin zero, so they scatter coherently. Scattering lengths from the NIST table (Sears 1992).">
+<link rel="stylesheet" href="../../style.css">
+<script src="lesson-kit.js" defer></script>
+<script src="leapr-data.js" defer></script>
+<script src="bound-data.js" defer></script>
+<script src="mathtrack.js" defer></script>
+<script src="spin-data.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Neutronics maths track (gh:#906): rung 5i, the nuclear-spin page after 5h. Every number from spin-data.js (the NIST NCNR table, accessed 2026-10-16; standard compilation Sears 1992); the 3:1 weight from counting spin states, the same g_J as page 12. Misconception box (disorder). Widget: mathtrack.js #waves with data-spin. Not magnetic scattering. -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response. <strong>Review status:</strong> AI-assisted first draft (2026-10-16), not yet reviewed by a human.</p>
+
+<h1>Maths 5i: why does each hydrogen scatter differently?</h1>
+<p class="kicker lesson-progress">Neutronics</p>
+<p>Rung 5h: hydrogen scatters almost completely incoherently, carbon and oxygen coherently. <b>Why?</b></p>
+<p><b>Neutrons and nuclei spin.</b> A neutron behaves like a tiny spinning top: it has an intrinsic spin of &frac12;. Many nuclei spin too; the proton, hydrogen's nucleus, also has spin <b data-hspin>&frac12;</b>.</p>
+<p><b>The strength of the collision depends on how the spins line up.</b> When a neutron meets a proton their spins can point the same way or opposite ways, and the nuclear force acts very differently in the two cases. The total spin 1 arrangement is called the <b>triplet</b>, the total spin 0 one the <b>singlet</b>. Their scattering lengths, the "strength" of the scattered wave, are <b data-bplus>10.817</b> fm and <b data-bminus>&minus;47.420</b> fm: different in size and even in sign <a href="#ref-nist2026neutronlengths">(NIST Center for Neutron Research, 2026)</a>, <a href="#ref-sears1992neutron">(Sears, 1992)</a>. It is page 12's total angular momentum J again: the neutron's spin and the nucleus's combine into J, and different J behave differently.</p>
+<p><b>Counting the arrangements.</b> Total spin 1 has 3 states and total spin 0 has 1, so an unpolarised neutron meets a triplet 3 times in 4 and a singlet 1 time in 4: page 12's statistical factor g<sub>J</sub> = (2J + 1)/(2(2I + 1)) with I = &frac12;. Weighted that way, the average length is &frac34; &times; 10.817 + &frac14; &times; (&minus;47.420) = <b data-bavg>&minus;3.742</b> fm, the tabulated coherent length of hydrogen-1 (<b data-bc>&minus;3.7395</b> fm).</p>
+
+<section class="widget-card">
+  <h3>Spins and the waves they scatter</h3>
+  <div class="widget" id="waves" data-spin>
+    <canvas aria-label="The intensity scattered in each direction by a patch of atoms with spin-zero nuclei, random spin-half nuclei, or spins all lined up"></canvas>
+  </div>
+  <p class="actions"><button type="button" class="btn" data-smode="carbon">Spin 0 (carbon-like)</button> <button type="button" class="btn ghost" data-smode="hydrogen">Spin &frac12; (hydrogen-like)</button> <button type="button" class="btn ghost" data-smode="aligned">Line all spins up</button></p>
+  <label class="energy-control"><span>Neutron wavelength <b data-wlam-out></b></span><input type="range" data-wlam min="0.5" max="9" step="0.05" value="1.8" aria-label="Wavelength in angstroms"></label>
+  <p class="note">Rung 5h's patch of atoms, with each atom's scattering length from the NIST table. "Line all spins up" is an illustration: it shows that the randomness of the spins is what kills the beams.</p>
+</section>
+
+<p><b>In a sample the nuclear spins point every which way.</b> Each hydrogen nucleus presents the neutron with a triplet-like or a singlet-like strength, at random, so the scattered waves don't keep in step: rung 5h's incoherent case. <b>That is why hydrogen is incoherent.</b> Carbon-12 and oxygen-16 have <b>spin zero</b> <a href="#ref-nist2026neutronlengths">(NIST Center for Neutron Research, 2026)</a>: every nucleus looks the same to the neutron, the waves keep in step, and the scattering is coherent.</p>
+<p>A mixture of isotopes, each with its own strength, makes atoms look different too: a second source of incoherence.</p>
+<p><b>The split, in plain words.</b> The <b>average</b> strength over all the atoms gives the part that can interfere: coherent. The <b>spread</b> about that average gives the part that can't: incoherent. For hydrogen the average is small and the spread huge: its coherent cross section is <b data-sc>1.7583</b> b, its incoherent one <b data-si>80.27</b> b. Carbon-12's incoherent cross section is <b data-csi>0</b>.</p>
+<details class="optional"><summary>Deeper: the two cross sections from the two lengths</summary>
+  <p>With the 3:1 weights, the coherent cross section is 4&pi;&lang;b&rang;&sup2; and the incoherent one 4&pi;(&lang;b&sup2;&rang; &minus; &lang;b&rang;&sup2;): the average and the spread. From the triplet and singlet lengths above these give <b data-scc>1.76</b> b and <b data-sic>79.9</b> b, close to the tabulated values.</p></details>
+<details class="optional"><summary>A confirmation: liquid hydrogen</summary>
+  <p>In a hydrogen molecule the two protons' spins are correlated (ortho- and para-hydrogen), which "violate[s] the assumption of randomness, so liquid hydrogen does not fit into the model described here" (NJOY2016 manual, §24): LEAPR treats it separately. The randomness of the spins really is what makes hydrogen incoherent.</p></details>
+<div class="misconception" role="note"><b>Common misconception: "Incoherent scattering happens because the crystal is disordered."</b>
+  <p>Not for hydrogen. Even in a perfect crystal, each proton's spin is random relative to the neutron's, so each one scatters a little differently.</p></div>
+<p class="note">"Spin" here is the spin of the nucleus. The neutron also feels the magnetism of unpaired electrons, a different (magnetic) interaction that does not matter for these moderators.</p>
+<h2>Why is this so? Putting it all together</h2>
+<p>Every piece is now on the table. <b>Where does the neutron come out, and at what energy?</b> That page is the next to be designed, with the maintainer.</p>
+
+<nav class="lesson-nav" aria-label="Lessons" data-next-soon="Next: where does the neutron come out? (to be designed)"></nav>
+
+<!-- references:begin -->
+<h2>References</h2>
+
+<p class="csl-entry" id="ref-nist2026neutronlengths" style="padding-left: 2em; text-indent: -2em;">NIST Center for Neutron Research. (2026). <i>Neutron scattering lengths and cross sections</i>. https://www.ncnr.nist.gov/resources/activation/scattering_table.html</p>
+
+<p class="csl-entry" id="ref-sears1992neutron" style="padding-left: 2em; text-indent: -2em;">Sears, V. F. (1992). Neutron scattering lengths and cross sections. <i>Neutron News</i>, <i>3</i>(3), 26–37. https://doi.org/10.1080/10448639208218770</p>
+
+<!-- references:end -->
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. GPL-3.0. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>
