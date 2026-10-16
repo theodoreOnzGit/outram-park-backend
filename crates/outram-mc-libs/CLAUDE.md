@@ -621,7 +621,7 @@ a translation of it.
 - **XML configuration parsing** — `src/xml_interface.cpp`
 - **CMFD accelerator** — `src/cmfd_solver.cpp`
 - **Random ray extension** — `src/random_ray/`
-- **Photon/electron transport** — `src/photon.cpp`
+- ~~**Photon/electron transport** — `src/photon.cpp`~~ **CORRECTED 2026-10-16 (maintainer decision): photons are IN scope here, electrons are not.** "Charged particles go thru boon lay, uncharged thru OutramMC." Photon transport (`src/photon.cpp`, `src/bremsstrahlung.cpp`) may be ported into this crate; electrons and every other charged particle go to `boon-lay` (see "Particle split" below). Nothing is ported yet.
 - **Python/ctypes C API** — `openmc/lib/` Python package
 - **Geometry overlap checker** — `src/geometry_aux.cpp` (overlap detection only; the core intersection logic is in scope). *Note 2026-09-25:* the plotter's per-pixel overlap test (`check_cell_overlap`, `src/geometry.cpp:38-90`) IS ported, as `geometry::plot::slice::check_cell_overlap`, because `<show_overlaps>` needs it; transport still does no overlap checking.
 
@@ -771,8 +771,26 @@ convenience at the end of a plot, never inside transport. The DEFLATE codec is
 `miniz_oxide`, already in this crate's tree via `njoy-outram-park-fork`.
 
 ### Neutron-only initially
-Photon and electron physics (`src/photon.cpp`) are deferred.  The `ParticleType`
-enum reserves slots for them, but only `Neutron` transport is implemented.
+~~Photon and electron physics (`src/photon.cpp`) are deferred.~~ **CORRECTED
+2026-10-16:** photon physics is deferred but in scope; electron physics is not
+this crate's (next section). The `ParticleType` enum reserves slots for them,
+but only `Neutron` transport is implemented.
+
+### Particle split: uncharged here, charged in `boon-lay` (maintainer decision, 2026-10-16)
+
+> "Charged particles go thru boon lay, uncharged thru OutramMC."
+
+- **This crate:** neutral particles, which means neutrons now and photons when
+  OpenMC's photon transport is ported. Secondary photons from neutron
+  collisions are born in this crate's collision loop, as in OpenMC.
+- **`boon-lay`:** every charged particle. That covers fission fragments,
+  alphas, recoil knock-ons and electrons, starting with the RustBCA copy
+  (gh:#876, item 7).
+- **Electrons are the seam.** OpenMC handles the electrons and positrons that
+  photons produce with its thick-target bremsstrahlung approximation, in
+  `photon.cpp` and `bremsstrahlung.cpp`, without transporting them. Whether a
+  photon port here keeps that local approximation, or hands every electron to
+  `boon-lay`, is **not yet decided**. Ask the maintainer before porting it.
 
 ### Parallelism: per-particle RNG streams
 OpenMC's reproducibility guarantee relies on each particle having a completely
