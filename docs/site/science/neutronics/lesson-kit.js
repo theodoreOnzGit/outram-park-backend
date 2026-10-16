@@ -221,7 +221,8 @@
     ["log-scales.html", "Why are cross sections drawn on log scales?"],
     ["unresolved.html", "The double whammy: unresolved resonances"],
     ["purr.html", "PURR: make up the resonances"],
-    ["bound-atoms.html", "But the atoms are bound!"]
+    ["bound-atoms.html", "But the atoms are bound!"],
+    ["lattice-scattering.html", "What does lattice scattering depend on?"]
   ];
   function lessonNav() {
     var here = location.pathname.split("/").pop() || LESSONS[0][0], i = -1;

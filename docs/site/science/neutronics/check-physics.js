@@ -26,6 +26,8 @@ eval(fs.readFileSync(path.join(__dirname, "purr-data.js"), "utf8"));
 eval(fs.readFileSync(path.join(__dirname, "purr.js"), "utf8"));
 eval(fs.readFileSync(path.join(__dirname, "bound-data.js"), "utf8"));
 eval(fs.readFileSync(path.join(__dirname, "bound.js"), "utf8"));
+Object.assign(window.Lesson, { H: 6.62607015e-34, MN: 1.67492749804e-27, EV: 1.602176634e-19 });
+eval(fs.readFileSync(path.join(__dirname, "bragg.js"), "utf8"));
 const M = window.Lesson.qscatterMath, SH = window.Lesson.shapesMath, AN = window.Lesson.anglesMath;
 let failed = 0;
 function check(name, value, limit) {
@@ -412,6 +414,27 @@ for (const [label, A, ap, E] of [["C-12, 10 eV", 11.89365, 6.146927, 10], ["U-23
   const A = BD.decks["Si in alpha-quartz"].awr;
   check("Si: most a 2 MeV neutron gives, about 270 keV (relative)", Math.abs(BM.maxTransfer(2e6, A) / 2.7e5 - 1), 0.02);
   check("Si: most a 100 eV neutron gives, about 13 eV (relative)", Math.abs(BM.maxTransfer(100, A) / 13 - 1), 0.04);
+}
+
+// Page 21 (gh:#906 design, 2026-10-16): graphite's Bragg edges, the page's
+// sigma_coh = S/E against the THERMR port's own cross_section, and the prose.
+{
+  const GM = window.Lesson.braggMath, BD = window.BOUND_DATA;
+  let wr = 0;
+  for (const t of ["296", "1200"]) { const B = BD.bragg[t]; B.refE.forEach((e, i) => { wr = Math.max(wr, Math.abs(GM.sigmaCoh(B, e) - B.ref[i]) / Math.max(B.ref[i], 1e-9)); }); }
+  check("page 21: sigma_coh = S/E vs the THERMR port (relative)", wr, 1e-6);
+  const B = BD.bragg["296"], ec = GM.cutoff(B), lc = GM.lambdaA(ec);
+  check("graphite: energy <-> wavelength round trip (relative)", Math.abs(GM.energyOf(lc) / ec - 1), 1e-12);
+  const h = fs.readFileSync(path.join(__dirname, "lattice-scattering.html"), "utf8");
+  const half = (t) => { const d = t.split(".")[1]; return 0.5 * Math.pow(10, -(d ? d.length : 0)) * (1 + 1e-9); };
+  let bad = 0, n = 0;
+  const q = (re, f) => { for (const m of h.matchAll(re)) { n++; const t = m[m.length - 1], want = f(m); if (Math.abs(+t - want) > half(t)) { bad++; console.log("     mismatch", m[0], "want", want); } } };
+  q(/data-nedges>([^<]+)</g, () => B.e.length);
+  q(/data-ecut>([^<]+)</g, () => ec * 1e3);
+  q(/data-lcut>([^<]+)</g, () => lc);
+  q(/data-dmax>([^<]+)</g, () => lc / 2);
+  q(/data-s01="(\d+)">([^<]+)</g, (m) => GM.sigmaCoh(BD.bragg[m[1]], 0.1));
+  check("page 21: " + n + " numbers in the prose vs the data", bad, 0);
 }
 
 if (failed) { console.log(failed + " check(s) failed"); process.exit(1); }
