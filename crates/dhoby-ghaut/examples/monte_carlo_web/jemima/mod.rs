@@ -171,6 +171,20 @@ impl McRung for Jemima {
     /// Run k_eff on a worker pool (gh:#907). **150 MB per worker is an
     /// ESTIMATE** (3 nuclides), not yet measured in a browser; it only sizes
     /// the pool. Replace it with the measured `wasm_memory_mb` (gh:#907).
+    ///
+    /// **Measured in a browser, 2026-10-16** (headless Chromium 154,
+    /// `?workers=N`, data from the cache; host i9-13900K, 16 logical cores
+    /// visible, 62.5 GiB, Linux, CPU only): seed 1, k identical on every
+    /// worker count.
+    ///
+    /// | settings | 1 worker | 2 | 4 |
+    /// |---|---|---|---|
+    /// | 4000 × [2 + 18] | 12 523 n/s | 15 077 | 15 990 (1.28×) |
+    /// | 20 000 × [2 + 8] | 20 159 n/s | — | 41 815 (2.07×) |
+    ///
+    /// Small generations scale poorly: each generation's reduction and
+    /// resampling run on the page between rounds of chunks. Not measured: a
+    /// phone, per-worker memory.
     fn run_pool_mb() -> Option<f64> {
         Some(150.0)
     }
