@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Do neighbouring peaks interfere?</title>
+<meta name="description" content="Neutronics, page 13: resonances are amplitudes, and amplitudes add before they are squared, so neighbouring levels of the same spin interfere. R-matrix theory does this exactly, for every level and every channel, with a matrix inversion at every energy. Exact, and unaffordable by brute force.">
+<link rel="stylesheet" href="../../style.css">
+<script src="lesson-kit.js" defer></script>
+<script src="resonance-data.js" defer></script>
+<script src="resonance.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Neutronics lessons (gh:#906): page 13 of the reordering amendment of 2026-10-16 (full R-matrix: superposition, the same-J rule, the brute-force cost). The interfering curve is Reich-Moore (csrmat, through OUTRAM PARK's RECONR port), the closest formalism the port evaluates, and the page says so. Level counts from resonance-data.js, checked by check-physics.js. -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response. <strong>Review status:</strong> AI-assisted first draft (2026-10-16), not yet reviewed by a human.</p>
+
+<h1>Do neighbouring peaks interfere?</h1>
+<p class="kicker lesson-progress">Neutronics</p>
+<p><b>Yes.</b> And in the exact theory, everything interferes with everything.</p>
+<p>Page 5 showed a neutron as a wave. What quantum mechanics adds up is not probabilities but <b>amplitudes</b>, and the probability is the amplitude squared. Two levels give two amplitudes, A<sub>1</sub> and A<sub>2</sub>, and</p>
+<p class="chain">|A<sub>1</sub> + A<sub>2</sub>|&sup2; = |A<sub>1</sub>|&sup2; + |A<sub>2</sub>|&sup2; + 2 Re(A<sub>1</sub>* A<sub>2</sub>)</p>
+<p>The first two terms are the two peaks on their own: what page 12's SLBW adds up. The third is the <b>interference</b>. It can be positive or negative, so between two levels the cross section can be higher or lower than the two peaks summed.</p>
+<p><b>But only levels of the same spin group interfere.</b> Total angular momentum J (with its parity) is conserved, so a level of one J and a level of another J lead to different outgoing waves, which cannot add <a href="#ref-trkov2018endf6">(Trkov et al., 2018)</a>. For them the third term is zero.</p>
+
+<section class="widget-card">
+  <h3>Two levels, interfering or not</h3>
+  <div class="widget" id="rmatrix">
+    <canvas aria-label="The elastic cross section of two neighbouring levels, with interference and as the sum of two separate peaks"></canvas>
+  </div>
+  <p class="actions"><button type="button" class="btn" data-j="same">Same J</button> <button type="button" class="btn ghost" data-j="diff">Different J</button></p>
+  <label class="energy-control"><span>Spacing between the levels <b data-sep-out></b></span>
+    <input type="range" data-sep min="0.5" max="8" step="0.05" value="2" aria-label="Spacing between the two levels in electronvolts"></label>
+  <p class="note">Two made-up s-wave levels at 10 eV and above it, each &Gamma;<sub>n</sub> = 1 eV and &Gamma;<sub>&gamma;</sub> = 30 meV, on a target of mass 100 and spin &frac12;. The interfering curve is the Reich&ndash;Moore formula (page 14), NJOY2016's <code>csrmat</code> <a href="#ref-njoy2016">(MacFarlane et al., 2017)</a> through OUTRAM PARK's RECONR port: no code here evaluates the full R-matrix with explicit gamma channels. For these levels the two differ only in how gamma rays are treated, which is next page's question. 0 K.</p>
+</section>
+
+<p>Things to try:</p>
+<ul>
+  <li><b>Same J, close together.</b> Between and around the levels the two curves part: that gap is the interference term.</li>
+  <li><b>Different J.</b> The curves lie on top of each other. No interference, whatever the spacing.</li>
+  <li><b>Same J, far apart.</b> The curves come together again near each peak: interference matters most where the levels overlap.</li>
+</ul>
+
+<h2>The exact theory: R-matrix</h2>
+<p>R-matrix theory writes this down exactly <a href="#ref-wigner1947higher">(Wigner &amp; Eisenbud, 1947)</a>, <a href="#ref-lane1958rmatrix">(Lane &amp; Thomas, 1958)</a>. Every way in or out of the compound nucleus is a <b>channel</b>: the neutron, each fission path, each gamma-ray path. Then, for each spin group:</p>
+<ol>
+  <li>build a matrix with one row and one column per channel;</li>
+  <li>every element is a sum over <b>all</b> the levels of that spin group;</li>
+  <li><b>invert</b> the matrix, at every energy, to get the cross sections.</li>
+</ol>
+<p>ENDF-6 can even store it this way: its R-Matrix Limited format with KRM = 4 is "R-Matrix without approximations", with each gamma channel on an equal footing with the others <a href="#ref-trkov2018endf6">(Trkov et al., 2018)</a>.</p>
+
+<h2>OOOF: brute force</h2>
+<p>Let's count. U-238's evaluated resolved range lists <b data-levels="0">926</b> levels with l = 0 and <b data-levels="1">2 419</b> with l = 1, and every one of them goes into the matrix elements of its spin group.</p>
+<p>The channel count is the real problem. A heavy compound nucleus can shed its energy through a great many different gamma cascades. Suppose, as an illustration only, that there were 1 000 gamma channels. The matrix is then 1 001 &times; 1 001. Inverting an n &times; n matrix takes about n&sup3; operations, so that is about <b>10<sup>9</sup> operations, for one spin group, at one energy</b>. Reconstructing a cross section takes thousands to millions of energies.</p>
+<p>So brute force is the <b>exact reference</b>, and not something anyone runs for a heavy nucleus. None of the four R-Matrix Limited evaluations here (Fe-54, Fe-57, Cu-63, Cu-65) does it: all four use the simplification on the next page (KRM = 3; it is the only form OUTRAM PARK's port reads, and it reconstructs all four).</p>
+
+<details class="optional">
+  <summary>Deeper: the collision matrix</summary>
+  <p>Each partial cross section from the neutron channel n to a channel b comes from the collision matrix U (ENDF-102 App. D.1.3):</p>
+  <p class="eq-block">&sigma;<sub>nb</sub> = (&pi;/k&sup2;) g<sub>J</sub> |&delta;<sub>nb</sub> &minus; U<sub>nb</sub>|&sup2;</p>
+  <p>U is built from the level matrix, a matrix over channels whose elements sum over the levels r: &Sigma;<sub>r</sub> &Gamma;<sub>nr</sub><sup>&frac12;</sup> &Gamma;<sub>br</sub><sup>&frac12;</sup> / (E<sub>r</sub> &minus; E &minus; &hellip;), which is then inverted. The square root of a width is an amplitude, and the sum over r is where the levels interfere. Squaring |&delta; &minus; U| at the end is the |A<sub>1</sub> + A<sub>2</sub>|&sup2; above.</p>
+</details>
+
+<h2>Why is this so? Can we simplify?</h2>
+<p>The exact theory is clear, and unaffordable. Most of the cost is the gamma channels, and the gamma rays are not what a reactor physicist needs one by one: what matters is that the neutron was captured.</p>
+<p><b>Thousands of gamma paths: do we really need to track each one?</b></p>
+
+<nav class="lesson-nav" aria-label="Lessons"></nav>
+
+<!-- references:begin -->
+<h2>References</h2>
+
+<p class="csl-entry" id="ref-lane1958rmatrix" style="padding-left: 2em; text-indent: -2em;">Lane, A. M., &#38; Thomas, R. G. (1958). R-Matrix Theory of Nuclear Reactions. <i>Reviews of Modern Physics</i>, <i>30</i>(2), 257–353. https://doi.org/10.1103/RevModPhys.30.257</p>
+
+<p class="csl-entry" id="ref-njoy2016" style="padding-left: 2em; text-indent: -2em;">MacFarlane, R. E., Muir, D. W., Boicourt, R. M., Kahler, A. C., &#38; Conlin, J. L. (2017). <i>The NJOY Nuclear Data Processing System, Version 2016</i> (Technical Report LA-UR-17-20093). Los Alamos National Laboratory. https://www.osti.gov/biblio/1338791</p>
+
+<p class="csl-entry" id="ref-trkov2018endf6" style="padding-left: 2em; text-indent: -2em;">Trkov, A., Herman, M., &#38; Brown, D. A. (2018). <i>ENDF-6 Formats Manual: Data Formats and Procedures for the Evaluated Nuclear Data Files ENDF/B-VI, ENDF/B-VII and ENDF/B-VIII</i> (Technical Report BNL-203218-2018-INRE (CSEWG Document ENDF-102)). Brookhaven National Laboratory. https://www.nndc.bnl.gov/endfdocs/ENDF-102-2018.pdf</p>
+
+<p class="csl-entry" id="ref-wigner1947higher" style="padding-left: 2em; text-indent: -2em;">Wigner, E. P., &#38; Eisenbud, L. (1947). Higher Angular Momenta and Long Range Interaction in Resonance Reactions. <i>Physical Review</i>, <i>72</i>(1), 29–41. https://doi.org/10.1103/PhysRev.72.29</p>
+
+<!-- references:end -->
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. GPL-3.0. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>

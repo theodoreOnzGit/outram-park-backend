@@ -132,6 +132,21 @@ body.landing { min-height: 100vh; display: flex; flex-direction: column; }
 .eq { font-family: "Cambria Math", "STIX Two Math", serif; white-space: nowrap; }
 .eq-block { font-family: "Cambria Math", "STIX Two Math", serif; font-size: 1.15rem; text-align: center; margin: 12px 0;
   overflow-x: auto; }
+/* A lesson table (page 16's formalism ladder): scrolls inside its own box on a phone. */
+.table-wrap { overflow-x: auto; margin: 12px 0; }
+.table-wrap table { border-collapse: collapse; min-width: 520px; font-size: 0.92rem; }
+.table-wrap th, .table-wrap td { border-bottom: 1px solid var(--line); padding: 6px 8px; text-align: left; vertical-align: top; }
+.table-wrap th { color: var(--muted); font-weight: 600; }
+/* On a phone each row becomes a small card, its column names from data-label. */
+@media (max-width: 560px) {
+  .table-wrap table { min-width: 0; width: 100%; }
+  .table-wrap thead { display: none; }
+  .table-wrap tr, .table-wrap td { display: block; }
+  .table-wrap tr { border-bottom: 1px solid var(--line); padding: 6px 0; }
+  .table-wrap td { border: 0; padding: 2px 0; }
+  .table-wrap td[data-label]::before { content: attr(data-label) ": "; color: var(--muted); font-weight: 600; }
+  .table-wrap td:first-child::before { content: ""; }
+}
 .widget-card { margin: 20px 0; padding: 4px 0; }
 .widget-card h3 { margin: 8px 0; }
 .legend-list { padding-left: 0; list-style: none; }
@@ -147,7 +162,7 @@ body.landing { min-height: 100vh; display: flex; flex-direction: column; }
 .summary-pair { display: grid; grid-template-columns: 1fr; gap: 8px; }
 @media (min-width: 640px) { .summary-pair { grid-template-columns: 1fr 1fr; } }
 .summary-pair p { margin: 0; padding: 10px 14px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; }
-.btn.disabled { opacity: 0.55; cursor: not-allowed; }
+.btn.disabled, .btn:disabled { opacity: 0.55; cursor: not-allowed; }
 .next-row { justify-content: flex-end; margin-top: 24px; }
 details.optional { margin: 16px 0; padding: 4px 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); }
 details.optional summary { cursor: pointer; font-weight: 600; min-height: 40px; line-height: 40px; }

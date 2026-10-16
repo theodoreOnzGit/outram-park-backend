@@ -212,7 +212,12 @@
     ["why-energy-matters.html", "Why does the neutron's energy matter?"],
     ["nuclear-levels.html", "Why are nuclear levels so complicated?"],
     ["what-can-happen.html", "What can happen in a nucleus?"],
-    ["fission.html", "Fission: fissile and fissionable"]
+    ["fission.html", "Fission: fissile and fissionable"],
+    ["resonance-shape.html", "What shapes a resonance peak?"],
+    ["r-matrix.html", "Do neighbouring peaks interfere?"],
+    ["reich-moore.html", "Can we skip the gamma paths?"],
+    ["mlbw.html", "Can we drop the matrix?"],
+    ["adler-adler.html", "Cheaper still: fit the curves?"]
   ];
   function lessonNav() {
     var here = location.pathname.split("/").pop() || LESSONS[0][0], i = -1;

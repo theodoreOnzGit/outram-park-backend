@@ -15,6 +15,8 @@ eval(fs.readFileSync(path.join(__dirname, "energy.js"), "utf8"));
 eval(fs.readFileSync(path.join(__dirname, "reaction-data.js"), "utf8"));
 window.Lesson.fmtE = (e) => e + " eV";
 eval(fs.readFileSync(path.join(__dirname, "reactions.js"), "utf8"));
+eval(fs.readFileSync(path.join(__dirname, "resonance-data.js"), "utf8"));
+eval(fs.readFileSync(path.join(__dirname, "resonance.js"), "utf8"));
 const M = window.Lesson.qscatterMath, SH = window.Lesson.shapesMath, AN = window.Lesson.anglesMath;
 let failed = 0;
 function check(name, value, limit) {
@@ -197,6 +199,71 @@ for (const [label, A, ap, E] of [["C-12, 10 eV", 11.89365, 6.146927, 10], ["U-23
   let wp = 0;
   for (const m of html.matchAll(/data-q="(U-23[58])">([0-9.]+) MeV/g)) wp = Math.max(wp, Math.abs(+m[2] - Q(m[1], 102, "qm") / 1e6));
   check("page 11's capture Q in the prose vs the data (MeV)", wp, 0.006);
+}
+
+// Pages 12-13 (gh:#906 design, 2026-10-16): the page's SLBW and MLBW
+// against OUTRAM PARK's RECONR port (resonance-data.js, written by
+// examples/lesson_resonances.rs from reconr::slbw), and MLBW = SLBW for
+// levels of different spin.
+{
+  const RS = window.Lesson.resonanceMath, RD2 = window.RES_DATA, U = RD2.u238, P = RD2.ref.pair;
+  const lvl = [[U.er, U.aj, U.gn + U.gg, U.gn, U.gg, 0]];
+  let ws = 0;
+  RD2.ref.slbw.e.forEach((e, i) => {
+    const s = RS.slbw(e, lvl, 0, U.spi, U.ap, U.awri, U.ra);
+    ws = Math.max(ws, Math.abs(s.el / RD2.ref.slbw.el[i] - 1), Math.abs(s.cap / RD2.ref.slbw.cap[i] - 1));
+  });
+  check("page 12 SLBW vs the RECONR port (relative)", ws, 1e-12);
+  const pair = (j2) => [[10, 1, 1.03, 1.0, 0.03, 0], [12, j2, 1.03, 1.0, 0.03, 0]];
+  let wm = 0, wd = 0;
+  P.e.forEach((e, i) => {
+    const rel = (a, b) => Math.abs(a - b) / Math.max(Math.abs(b), 1e-9);
+    wm = Math.max(wm, rel(RS.mlbw(e, pair(1), 0, P.spi, P.ap, P.awri, P.ra).el, P.mlbwSame[i]), rel(RS.mlbw(e, pair(0), 0, P.spi, P.ap, P.awri, P.ra).el, P.mlbwDiff[i]),
+      rel(RS.slbw(e, pair(1), 0, P.spi, P.ap, P.awri, P.ra).el, P.slbwSame[i]));
+    wd = Math.max(wd, rel(P.mlbwDiff[i], P.slbwDiff[i]));
+  });
+  check("page 13 SLBW/MLBW vs the RECONR port (relative)", wm, 1e-11);
+  check("MLBW equals SLBW for levels of different spin (relative)", wd, 1e-9);
+  let same = 0; P.e.forEach((e, i) => { same = Math.max(same, Math.abs(P.mlbwSame[i] - P.slbwSame[i]) / P.slbwSame[i]); });
+  check("MLBW differs from SLBW for the same spin (relative difference over 1 %)", same > 0.01 ? 0 : 1, 0);
+  // Pages 13-15: Reich-Moore (reconr::rm, NJOY2016 csrmat) for the same pair,
+  // without and with a fission width, and MLBW/SLBW capture and fission.
+  const rpair = (j2, gf) => [[10, 1, 1.0, 0.03, gf, 0], [12, j2, 1.0, 0.03, gf, 0]];
+  const fpair = [[10, 1, 1.03 + P.gf, 1.0, 0.03, P.gf], [12, 1, 1.03 + P.gf, 1.0, 0.03, P.gf]];
+  let wr = 0, wf = 0, mcap = 0, rmcap = 0, rmfis = 0;
+  P.e.forEach((e, i) => {
+    const rel = (a, b) => Math.abs(a - b) / Math.max(Math.abs(b), 1e-6);
+    const a = RS.rm(e, rpair(1, 0), 0, P.spi, P.ap, P.awri, P.ra), b = RS.rm(e, rpair(0, 0), 0, P.spi, P.ap, P.awri, P.ra), c = RS.rm(e, rpair(1, P.gf), 0, P.spi, P.ap, P.awri, P.ra);
+    wr = Math.max(wr, rel(a.el, P.rmSame.el[i]), rel(a.cap, P.rmSame.cap[i]), rel(b.el, P.rmDiff.el[i]), rel(b.cap, P.rmDiff.cap[i]), rel(c.el, P.rmFis.el[i]), rel(c.cap, P.rmFis.cap[i]), rel(c.fis, P.rmFis.fis[i]));
+    const m = RS.mlbw(e, fpair, 0, P.spi, P.ap, P.awri, P.ra), s = RS.slbw(e, fpair, 0, P.spi, P.ap, P.awri, P.ra);
+    wf = Math.max(wf, rel(m.cap, P.mlbwFis.cap[i]), rel(m.fis, P.mlbwFis.fis[i]), rel(s.cap, P.slbwFis.cap[i]), rel(s.fis, P.slbwFis.fis[i]));
+    mcap = Math.max(mcap, rel(P.mlbwFis.cap[i], P.slbwFis.cap[i]), rel(P.mlbwFis.fis[i], P.slbwFis.fis[i]));
+    rmcap = Math.max(rmcap, rel(P.rmFis.cap[i], P.slbwFis.cap[i]));
+    rmfis = Math.max(rmfis, rel(P.rmFis.fis[i], P.slbwFis.fis[i]));
+  });
+  check("pages 13-15 Reich-Moore vs the RECONR port (relative)", wr, 1e-11);
+  check("page 15 MLBW/SLBW capture and fission vs the RECONR port (relative)", wf, 1e-11);
+  // ENDF-102 App. D / csmlbw: MLBW's capture and fission are the SLBW sums.
+  check("MLBW capture and fission equal the SLBW sums (relative)", mcap, 1e-12);
+  check("Reich-Moore fission differs from the SLBW sum for the same spin (over 1 %)", rmfis > 0.01 ? 0 : 1, 0);
+  console.log(`     same-spin pair with Γf ${P.gf} eV: Reich-Moore vs SLBW sum up to ${(100 * rmcap).toFixed(0)} % in capture, ${(100 * rmfis).toFixed(0)} % in fission`);
+  // One level per spin group: Reich-Moore, MLBW and SLBW coincide (s-wave, no shift).
+  let wj = 0;
+  P.e.forEach((e, i) => { wj = Math.max(wj, Math.abs(P.rmDiff.el[i] / P.slbwDiff[i] - 1)); });
+  check("different spins: Reich-Moore elastic equals the SLBW sum (relative)", wj, 1e-9);
+  // Pages 13-16: every census number and level count in the prose against the data.
+  const C = RD2.census, tot = Object.values(C).reduce((a, b) => a + b, 0);
+  let wc = 0;
+  for (const f of ["fission.html", "r-matrix.html", "reich-moore.html", "mlbw.html", "adler-adler.html"]) {
+    const h = fs.readFileSync(path.join(__dirname, f), "utf8");
+    for (const m of h.matchAll(/data-census="([^"]+)">([0-9]+)</g)) wc += Math.abs(+m[2] - (m[1] === "total" ? tot : C[m[1]]));
+    for (const m of h.matchAll(/data-levels="([01])">([0-9 ]+)</g)) wc += Math.abs(+m[2].replace(/ /g, "") - RD2.u238Levels[m[1]]);
+  }
+  check("pages 11 and 13-16: census and level counts in the prose vs the tapes", wc, 0);
+  // The lifetime readout: τ = ħ/Γ for U-238's 6.67 eV level (Γ ≈ 24 meV, τ ≈ 27 fs).
+  const tau = RS.HBAR_EV_S / (U.gn + U.gg);
+  check("U-238 6.67 eV level lifetime within 20-35 fs", tau > 2e-14 && tau < 3.5e-14 ? 0 : 1, 0);
+  console.log(`     U-238 level ${U.er} eV: Γn ${U.gn} eV, Γγ ${U.gg} eV, τ ${(tau * 1e15).toFixed(1)} fs; MLBW-SLBW same spin up to ${(100 * same).toFixed(0)} %`);
 }
 
 if (failed) { console.log(failed + " check(s) failed"); process.exit(1); }

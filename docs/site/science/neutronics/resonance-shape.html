@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>What shapes a resonance peak?</title>
+<meta name="description" content="Neutronics, page 12: a resonance is stored as a few numbers per level (its energy, spin and widths) and rebuilt with the single-level Breit–Wigner formula. Width is lifetime: Γ = ħ/τ. U-238's 6.67 eV level, drawn by OUTRAM PARK's RECONR port.">
+<link rel="stylesheet" href="../../style.css">
+<script src="lesson-kit.js" defer></script>
+<script src="resonance-data.js" defer></script>
+<script src="resonance.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Neutronics lessons (gh:#906): page 12 of the design comment of 2026-10-16 and the reordering amendment (SLBW first, then full R-matrix, Reich-Moore, MLBW, Adler-Adler). Formulas: ENDF-102 App. D.1.1 and NJOY2016 csslbw, through OUTRAM PARK's RECONR port; numbers in resonance-data.js, checked by check-physics.js. -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response. <strong>Review status:</strong> AI-assisted first draft (2026-10-16), not yet reviewed by a human.</p>
+
+<h1>What shapes a resonance peak?</h1>
+<p class="kicker lesson-progress">Neutronics</p>
+<p>Page 11 ended with a problem: U-238 alone has thousands of resonances. Storing every peak as a dense table of points would be enormous. Instead, an evaluation stores <b>a few numbers per level</b> and a formula that rebuilds the peak from them.</p>
+<p>For one level those numbers are:</p>
+<ul>
+  <li><b>E<sub>r</sub></b>, the energy where the peak sits;</li>
+  <li><b>J</b>, the level's spin, with the neutron's orbital angular momentum <b>l</b> (l = 0 is an s-wave, l = 1 a p-wave);</li>
+  <li>the <b>partial widths</b>: <b>&Gamma;<sub>n</sub></b> for leaving by re-emitting the neutron, <b>&Gamma;<sub>&gamma;</sub></b> for leaving by gamma rays, <b>&Gamma;<sub>f</sub></b> for splitting. They are the exits of page 10, one width each.</li>
+</ul>
+<p>The simplest formula treats each level as if it were alone. It is the <b>single-level Breit&ndash;Wigner</b> (SLBW) formula <a href="#ref-breit1936capture">(Breit &amp; Wigner, 1936)</a>, ENDF's LRF = 1 <a href="#ref-trkov2018endf6">(Trkov et al., 2018)</a>.</p>
+
+<section class="widget-card">
+  <h3>One level, rebuilt from its numbers</h3>
+  <div class="widget" id="slbw">
+    <canvas aria-label="A single resonance peak in capture or elastic scattering, on a logarithmic cross-section axis, with its full width at half maximum marked"></canvas>
+  </div>
+  <p class="actions"><button type="button" class="btn" data-ch="cap">Capture</button> <button type="button" class="btn ghost" data-ch="el">Elastic</button> <button type="button" class="btn ghost" data-u238>U-238's numbers</button></p>
+  <label class="energy-control"><span>Neutron width &Gamma;<sub>n</sub> <b data-gn-out></b></span>
+    <input type="range" data-gn min="0.1" max="30" step="0.01" value="1.4923" aria-label="Neutron width in milli-electronvolts"></label>
+  <label class="energy-control"><span>Gamma width &Gamma;<sub>&gamma;</sub> <b data-gg-out></b></span>
+    <input type="range" data-gg min="1" max="100" step="0.1" value="22.711" aria-label="Gamma width in milli-electronvolts"></label>
+  <p class="note">The level is U-238's lowest s-wave resonance in ENDF/B-VIII.0 <a href="#ref-brown2018endf8">(Brown &amp; others, 2018)</a>: E<sub>r</sub> = 6.674 eV, J = &frac12;, &Gamma;<sub>n</sub> = 1.49 meV, &Gamma;<sub>&gamma;</sub> = 22.7 meV. The curve is NJOY2016's <code>csslbw</code> <a href="#ref-njoy2016">(MacFarlane et al., 2017)</a> through OUTRAM PARK's RECONR port, at 0 K (no Doppler broadening). The evaluation gives these numbers for the Reich&ndash;Moore formula (page 14), so this SLBW drawing is an approximation of it.</p>
+</section>
+
+<p>Things to try:</p>
+<ul>
+  <li><b>Make &Gamma;<sub>&gamma;</sub> bigger.</b> The peak gets wider and lower. The full width at half maximum is &Gamma; = &Gamma;<sub>n</sub> + &Gamma;<sub>&gamma;</sub> (+ &Gamma;<sub>f</sub>).</li>
+  <li><b>Switch to elastic.</b> Just below the peak the cross section dips. That dip is the resonance <b>interfering</b> with the hard-sphere (potential) scattering of page 5: two waves, adding with a phase that flips as the energy passes E<sub>r</sub>.</li>
+</ul>
+
+<h2>A width is a lifetime</h2>
+<p>Why should a level have a width at all? Because it does not last. A compound nucleus that lives for a time &tau; has an energy that is uncertain by about &Gamma; = &#8463;/&tau;. A short-lived level is a wide peak; a long-lived level is a narrow one. For U-238's 6.67 eV level, &Gamma; &asymp; 24 meV gives &tau; &asymp; 27 femtoseconds: the lifetime of the compound nucleus of page 8, from its formation to one of the exits of page 10.</p>
+<p>Each partial width is a share of that decay rate. &Gamma;<sub>&gamma;</sub> / &Gamma; is the chance that the level ends in capture; &Gamma;<sub>n</sub> / &Gamma; the chance that it re-emits the neutron. For this level that is 94 % capture, which is why U-238 is a strong absorber at 6.67 eV.</p>
+
+<details class="optional">
+  <summary>Deeper: the SLBW formulas</summary>
+  <p>For one level r of spin J in the l-th partial wave, at neutron energy E, with wave number k and statistical factor g<sub>J</sub> = (2J + 1) / (2(2I + 1)) for a target of spin I (ENDF-102 App. D.1.1):</p>
+  <p class="eq-block">&sigma;<sub>&gamma;</sub>(E) = (&pi;/k&sup2;) g<sub>J</sub> &Gamma;<sub>n</sub>(E) &Gamma;<sub>&gamma;</sub> / [ (E &minus; E&prime;<sub>r</sub>)&sup2; + &Gamma;(E)&sup2;/4 ]</p>
+  <p>and the same with &Gamma;<sub>f</sub> for fission. Elastic adds the potential scattering and an interference term:</p>
+  <p class="eq-block">&sigma;<sub>n</sub>(E) = (4&pi;/k&sup2;)(2l + 1) sin&sup2;&phi;<sub>l</sub> + (&pi;/k&sup2;) g<sub>J</sub> &Gamma;<sub>n</sub> [ &Gamma;<sub>n</sub> cos 2&phi;<sub>l</sub> &minus; 2(&Gamma;<sub>&gamma;</sub> + &Gamma;<sub>f</sub>) sin&sup2;&phi;<sub>l</sub> + 2(E &minus; E&prime;<sub>r</sub>) sin 2&phi;<sub>l</sub> ] / [ (E &minus; E&prime;<sub>r</sub>)&sup2; + &Gamma;&sup2;/4 ]</p>
+  <p>&phi;<sub>l</sub> is the hard-sphere phase shift. The neutron width changes with energy through the penetrability P<sub>l</sub>(E): &Gamma;<sub>n</sub>(E) = &Gamma;<sub>n</sub>(E<sub>r</sub>) P<sub>l</sub>(E) / P<sub>l</sub>(E<sub>r</sub>). E&prime;<sub>r</sub> is E<sub>r</sub> moved slightly by the shift factor (zero for s-waves). The term with sin 2&phi;<sub>l</sub> changes sign at the resonance: that is the elastic dip.</p>
+</details>
+
+<h2>Why is this so? And what about the others?</h2>
+<p>SLBW treats each level as if the others did not exist, and adds the peaks. That is fine when the levels are far apart compared with their widths. But U-238 has thousands of them, some close together.</p>
+<p><b>What if there are several peaks? Do they affect each other?</b></p>
+
+<nav class="lesson-nav" aria-label="Lessons"></nav>
+
+<!-- references:begin -->
+<h2>References</h2>
+
+<p class="csl-entry" id="ref-breit1936capture" style="padding-left: 2em; text-indent: -2em;">Breit, G., &#38; Wigner, E. (1936). Capture of Slow Neutrons. <i>Physical Review</i>, <i>49</i>(7), 519–531. https://doi.org/10.1103/PhysRev.49.519</p>
+
+<p class="csl-entry" id="ref-brown2018endf8" style="padding-left: 2em; text-indent: -2em;">Brown, D. A. &#38; others. (2018). ENDF/B-VIII.0: The 8th Major Release of the Nuclear Reaction Data Library with CIELO-project Cross Sections, New Standards and Thermal Scattering Data. <i>Nuclear Data Sheets</i>, <i>148</i>, 1–142. https://doi.org/10.1016/j.nds.2018.02.001</p>
+
+<p class="csl-entry" id="ref-njoy2016" style="padding-left: 2em; text-indent: -2em;">MacFarlane, R. E., Muir, D. W., Boicourt, R. M., Kahler, A. C., &#38; Conlin, J. L. (2017). <i>The NJOY Nuclear Data Processing System, Version 2016</i> (Technical Report LA-UR-17-20093). Los Alamos National Laboratory. https://www.osti.gov/biblio/1338791</p>
+
+<p class="csl-entry" id="ref-trkov2018endf6" style="padding-left: 2em; text-indent: -2em;">Trkov, A., Herman, M., &#38; Brown, D. A. (2018). <i>ENDF-6 Formats Manual: Data Formats and Procedures for the Evaluated Nuclear Data Files ENDF/B-VI, ENDF/B-VII and ENDF/B-VIII</i> (Technical Report BNL-203218-2018-INRE (CSEWG Document ENDF-102)). Brookhaven National Laboratory. https://www.nndc.bnl.gov/endfdocs/ENDF-102-2018.pdf</p>
+
+<!-- references:end -->
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. GPL-3.0. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>
