@@ -30,32 +30,12 @@ use njoy_outram_park_fork::reconr::{reconr, ReconrConfig};
 use njoy_outram_park_fork::reference_data::reference_endf;
 use std::fmt::Write as _;
 
-const BINS: usize = 900;
-const E_LO: f64 = 1.0e-5;
-const E_HI: f64 = 2.0e7;
+#[path = "lesson_common/thin.rs"]
+mod thin;
+use thin::{thin, BINS};
 const MTS: [(i32, &str); 8] = [(2, "elastic"), (51, "first inelastic level"), (4, "inelastic, total"), (16, "(n,2n)"), (18, "fission"), (102, "(n,gamma)"), (103, "(n,p)"), (107, "(n,alpha)")];
 const NUCLIDES: [(&str, &str); 4] = [("C-12", "n-006_C_012.endf"), ("B-10", "n-005_B_010.endf"), ("U-235", "n-092_U_235.endf"), ("U-238", "n-092_U_238.endf")];
 
-/// The highest and lowest point of each log-E step, in energy order (as
-/// `lesson_total_xs`).
-fn thin(pairs: &[(f64, f64)]) -> Vec<(f64, f64)> {
-    let (l0, l1) = (E_LO.log10(), E_HI.log10());
-    let mut best: Vec<Option<(usize, usize)>> = vec![None; BINS];
-    for (i, &(e, s)) in pairs.iter().enumerate() {
-        if !(E_LO..=E_HI).contains(&e) || s <= 0.0 {
-            continue;
-        }
-        let b = (((e.log10() - l0) / (l1 - l0)) * BINS as f64).floor().clamp(0.0, (BINS - 1) as f64) as usize;
-        best[b] = Some(match best[b] {
-            None => (i, i),
-            Some((lo, hi)) => (if s < pairs[lo].1 { i } else { lo }, if s > pairs[hi].1 { i } else { hi }),
-        });
-    }
-    let mut keep: Vec<usize> = best.into_iter().flatten().flat_map(|(a, b)| [a, b]).collect();
-    keep.sort_unstable();
-    keep.dedup();
-    keep.into_iter().map(|i| pairs[i]).collect()
-}
 
 /// σ at `e` by lin-lin interpolation on a sorted grid.
 fn at(pairs: &[(f64, f64)], e: f64) -> f64 {

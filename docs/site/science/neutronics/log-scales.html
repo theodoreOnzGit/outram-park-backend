@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Why are cross sections drawn on log scales?</title>
+<meta name="description" content="Neutronics, page 17: a neutron loses a fraction of its energy in each collision, not a fixed amount, so on a log-energy axis it moves in evenly spaced steps on average (lethargy, xi). Cross sections span many decades, and 1/v is a straight line on log-log axes. U-238's resonances, evenly spaced in energy, bunch up on a log axis.">
+<link rel="stylesheet" href="../../style.css">
+<script src="lesson-kit.js" defer></script>
+<script src="kinematics.js" defer></script>
+<script src="slowing-data.js" defer></script>
+<script src="slowing.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Neutronics lessons (gh:#906): page 17 of the design comment of 2026-10-16 and its amendments (log sigma as well as log E; the takeaway; reuse of page 2's kinematics and the ugraphite demo with sigma overlays; resonance bunching). The walk calls L.kinematicsMath from kinematics.js, the code page 2 uses. Numbers: slowing-data.js (examples/lesson_slowing_down.rs), checked by check-physics.js. -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response. <strong>Review status:</strong> AI-assisted first draft (2026-10-16), not yet reviewed by a human.</p>
+
+<h1>Why are cross sections drawn on log scales?</h1>
+<p class="kicker lesson-progress">Neutronics</p>
+<p>Every cross-section plot that spans the full energy range in these lessons, on pages 9 and 11, used a logarithmic energy axis. Resonances sit at particular energies, so why not a plain one?</p>
+
+<h2>A neutron loses a fraction, not an amount</h2>
+<p>Go back to page 2's collision. A neutron scattering elastically off a nucleus of mass ratio A keeps between <b>&alpha;E</b> and all of its energy E, where &alpha; = ((A &minus; 1)/(A + 1))&sup2;. If the scattering is equally likely in every direction in the centre-of-mass frame, every energy in that range is equally likely.</p>
+<p>So what a collision takes is a <b>fraction</b> of the energy the neutron had, not a fixed amount. A 2 MeV neutron and a 2 eV neutron hitting carbon lose, on average, the same fraction: about <b data-meanloss="C-12">14</b> %.</p>
+<p class="note">This holds for <b>elastic</b> scattering off a <b>free nucleus at rest</b>, <b>isotropic</b> in the centre-of-mass frame. Anisotropic scattering (page 7) shifts the average. Inelastic scattering (page 10) also takes a fixed amount, the level energy. Near thermal energies the nucleus's own motion matters (page 3).</p>
+
+<h2>So the natural axis is log E</h2>
+<p>On a log axis, equal fractions are equal distances. So every collision moves the neutron about the same distance to the left, whatever its energy. That distance, averaged over collisions, is the mean step in ln E:</p>
+<p class="eq-block">&xi; = 1 + &alpha; ln &alpha; / (1 &minus; &alpha;)</p>
+<p>It depends only on the target, not on the energy. (Reactor physicists measure this distance as <b>lethargy</b>, u = ln(E<sub>0</sub>/E): it grows by &xi; per collision, on average.) With each evaluation's own mass ratio:</p>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Target</th><th>&alpha;</th><th>Most it can lose</th><th>&xi;</th><th>Collisions, 2 MeV &rarr; 1 eV</th></tr></thead>
+  <tbody>
+    <tr><td data-label="Target">H-1</td><td data-label="α" data-alpha="H-1">0</td><td data-label="Most it can lose">100 %</td><td data-label="ξ" data-xi="H-1">1.000</td><td data-label="Collisions, 2 MeV → 1 eV" data-n1="H-1">14.5</td></tr>
+    <tr><td data-label="Target">He-4</td><td data-label="α" data-alpha="He-4">0.357</td><td data-label="Most it can lose">64 %</td><td data-label="ξ" data-xi="He-4">0.428</td><td data-label="Collisions, 2 MeV → 1 eV" data-n1="He-4">33.9</td></tr>
+    <tr><td data-label="Target">C-12</td><td data-label="α" data-alpha="C-12">0.714</td><td data-label="Most it can lose">29 %</td><td data-label="ξ" data-xi="C-12">0.159</td><td data-label="Collisions, 2 MeV → 1 eV" data-n1="C-12">91.2</td></tr>
+    <tr><td data-label="Target">U-238</td><td data-label="α" data-alpha="U-238">0.983</td><td data-label="Most it can lose">1.7 %</td><td data-label="ξ" data-xi="U-238">0.0085</td><td data-label="Collisions, 2 MeV → 1 eV" data-n1="U-238">1717</td></tr>
+  </tbody>
+</table>
+</div>
+<p class="note">Mass ratios from MF=1 of each ENDF/B-VIII.0 evaluation <a href="#ref-brown2018endf8">(Brown &amp; others, 2018)</a>; H-1's from the local beta tape (<a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/922">#922</a>). The counts are averages, ln(2 MeV / 1 eV) / &xi;.</p>
+
+<p class="predict"><b>Predict first:</b> how many collisions does carbon need to slow a fission neutron to thermal energy, 0.0253 eV?</p>
+<details class="optional">
+  <summary>The estimate</summary>
+  <p>ln(2 MeV / 0.0253 eV) / &xi; &asymp; <b data-nth="C-12">114</b> for carbon (<b data-nth="H-1">18</b> for hydrogen, <b data-nth="U-238">2 152</b> for U-238). Treat the last stretch, below about 1 eV, as an estimate: the free-target picture no longer holds there.</p>
+</details>
+
+<section class="widget-card">
+  <h3>Slowing down on a log axis</h3>
+  <div class="widget" id="slowdown">
+    <canvas aria-label="A neutron's energy after each collision, as marks on a logarithmic energy axis, over evaluated cross sections of U-238 capture, C-12 elastic and B-10 (n,alpha)"></canvas>
+  </div>
+  <p class="actions"><button type="button" class="btn ghost" data-nuc="He-4">He-4</button> <button type="button" class="btn" data-nuc="C-12">C-12</button> <button type="button" class="btn ghost" data-nuc="U-238">U-238</button></p>
+  <p class="actions"><button type="button" class="btn" data-hop>One collision</button> <button type="button" class="btn" data-run>Run to 1 eV</button> <button type="button" class="btn ghost" data-new>New neutron</button></p>
+  <p class="actions"><button type="button" class="btn" data-axis="log">Log energy axis</button> <button type="button" class="btn ghost" data-axis="lin">Linear energy axis</button></p>
+  <p class="note">Each mark is one collision, sampled from page 2's kinematics. Behind the trail: ENDF/B-VIII.0 cross sections reconstructed by OUTRAM PARK's RECONR port <a href="#ref-njoy2016">(MacFarlane et al., 2017)</a> at 0 K. The side panel switches the σ axis to linear, turns each curve on or off, and adds U-238's resonance energies. H-1 joins the picker when a released tape is in hand (#922).</p>
+</section>
+
+<p>Things to try:</p>
+<ul>
+  <li><b>Run to 1 eV with carbon.</b> The marks are evenly spaced, <i>on average</i>; single steps are random.</li>
+  <li><b>Switch the energy axis to linear.</b> The same trail is squashed into the left edge: everything below a few keV fits in one pixel.</li>
+  <li><b>Try U-238.</b> Tiny steps, so the neutron crawls through the resonance region and cannot step over a peak.</li>
+</ul>
+
+<h2>The cross section needs a log axis too</h2>
+<p>Turn the σ axis to linear and the resonance peaks squash everything else to zero. Cross sections span many decades. In U-238's resolved range, its capture cross section runs from about <b data-u238cap="min">0.001</b> b between resonances to <b data-u238cap="max">27 000</b> b at the top of a peak. B-10 (n,&alpha;) runs from <b data-b10="max">190 000</b> b at 10<sup>&minus;5</sup> eV to <b data-b10="min">0.03</b> b at 20 MeV.</p>
+<p>And one rule becomes a straight line. At low energy, an absorption cross section with no threshold, such as capture or B-10's (n,&alpha;), falls roughly as <b>1/v</b>, the inverse of the neutron's speed, so as E<sup>&minus;1/2</sup>. On log&ndash;log axes that is a straight line of slope &minus;1/2. Fitting ln &sigma; against ln E on B-10's evaluated (n,&alpha;) between 1 meV and 1 eV gives a slope of <b data-b10slope>&minus;0.5001</b>. Take it as the observed low-energy law: page 4 already said the wavelength alone does not derive it. Elastic scattering does <b>not</b> follow it: carbon's is flat at <b data-c12el>4.748</b> b over the same range.</p>
+
+<p><b>On a log-energy axis, a slowing-down neutron moves in evenly spaced steps, the same average step &xi; per collision at any energy. That is why we draw neutron energies, and cross sections, on log scales.</b></p>
+
+<h2>What happens to the resonances on a log axis?</h2>
+<p>Turn on U-238's resonance ticks. On a log axis they <b>bunch up</b> towards high energy. On a linear axis they look evenly spaced, and they are, on average:</p>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>U-238, resolved range</th><th>0&ndash;1 keV</th><th>1&ndash;2 keV</th><th>2&ndash;5 keV</th><th>5&ndash;10 keV</th><th>10&ndash;20 keV</th></tr></thead>
+  <tbody>
+    <tr><td data-label="">s-wave (l = 0) per keV</td><td data-label="0–1 keV" data-perkev="0,0,1000">43</td><td data-label="1–2 keV" data-perkev="0,1000,2000">48</td><td data-label="2–5 keV" data-perkev="0,2000,5000">46</td><td data-label="5–10 keV" data-perkev="0,5000,10000">47</td><td data-label="10–20 keV" data-perkev="0,10000,20000">43</td></tr>
+    <tr><td data-label="">p-wave (l = 1) per keV</td><td data-label="0–1 keV" data-perkev="1,0,1000">124</td><td data-label="1–2 keV" data-perkev="1,1000,2000">117</td><td data-label="2–5 keV" data-perkev="1,2000,5000">111</td><td data-label="5–10 keV" data-perkev="1,5000,10000">113</td><td data-label="10–20 keV" data-perkev="1,10000,20000">128</td></tr>
+  </tbody>
+</table>
+</div>
+<p>The mean s-wave spacing is <b data-spacing="0,0,1000">23.5</b> eV below 1 keV and <b data-spacing="0,10000,20000">23.1</b> eV at 10&ndash;20 keV: constant in energy. Why? A resonance is a level of the compound nucleus at the excitation S<sub>n</sub> + E (page 8), with S<sub>n</sub> &asymp; 4.8 MeV for U-239 (page 11). Across the whole resolved range that excitation changes by only 20 keV, so the density of levels (page 9) hardly changes. On a log axis a constant spacing D becomes a gap of about D/E in ln E, which shrinks as 1/E: that is the bunching. Per decade of energy, the s-wave count is <b data-decade="1,10">1</b>, <b data-decade="10,100">4</b>, <b data-decade="100,1000">38</b> and <b data-decade="1000,10000">421</b>, and <b data-decade="10000,20000">431</b> more between 10 and 20 keV.</p>
+<ul>
+  <li><b>Low energy: isolated traps.</b> From 6.67 to 20.9 eV, U-238's first two s-wave resonances, is a gap of 1.14 in ln E: about <b data-gap="U-238">135</b> U-238 collisions, or <b data-gap="C-12">7</b> carbon ones. A neutron slowing down meets these resonances one at a time.</li>
+  <li><b>High energy: many resonances per step.</b> At 10&ndash;20 keV one carbon collision, on average, jumps across about <b data-jump="C-12">99</b> s-wave resonances; a U-238 collision about <b data-jump="U-238">5</b>.</li>
+</ul>
+<p>Whether a slowing-down neutron gets past the resonances without being captured has a name, <b>resonance escape</b>. It is a later lesson.</p>
+<p class="note">Two cautions. "Evenly spaced" is true <i>on average</i> and within each spin group: single spacings scatter randomly, and the p-wave levels have their own, closer spacing (<b data-spacing="1,10000,20000">7.8</b> eV at 10&ndash;20 keV) but are mostly weak at low energy. And the bunching is a property of the plot, not of the physics: at 20 keV, U-238's resonances are still far narrower than their spacing, and even the Doppler width at 300 K, about &radic;(4EkT/A) &asymp; <b data-doppler>3.0</b> eV, is well below 23 eV.</p>
+
+<h2>Try it in OutramMC</h2>
+<p>The same slowing down, in the real code: neutrons born in fission, a hundred-odd collisions with carbon, some caught in U-238's resonances on the way down.</p>
+<div class="iframe-slot" data-title="Uranium in graphite: watch neutrons slow down" data-src="../../demos/monte-carlo/?rung=ugraphite&amp;mode=watch">
+  <button type="button" class="btn">Load the demo</button>
+</div>
+
+<h2>Why is this so? And higher up?</h2>
+<p>U-238's resolved range stops at <b data-range="eh1">20</b> keV. Above it, up to <b data-range="eh2">149</b> keV, the evaluation lists no single resonances, only their averages <a href="#ref-trkov2018endf6">(Trkov et al., 2018)</a>. The resonances there still do not overlap; it is the <b>measurements</b> that can no longer separate them: "experimental resolution is inadequate to determine the parameters of individual resonances" (ENDF-102, §2.1).</p>
+<p><b>If we can't see the individual resonances any more, how do we represent them?</b></p>
+
+<nav class="lesson-nav" aria-label="Lessons" data-next-soon="Next: the unresolved resonance range"></nav>
+
+<!-- references:begin -->
+<h2>References</h2>
+
+<p class="csl-entry" id="ref-brown2018endf8" style="padding-left: 2em; text-indent: -2em;">Brown, D. A. &#38; others. (2018). ENDF/B-VIII.0: The 8th Major Release of the Nuclear Reaction Data Library with CIELO-project Cross Sections, New Standards and Thermal Scattering Data. <i>Nuclear Data Sheets</i>, <i>148</i>, 1–142. https://doi.org/10.1016/j.nds.2018.02.001</p>
+
+<p class="csl-entry" id="ref-njoy2016" style="padding-left: 2em; text-indent: -2em;">MacFarlane, R. E., Muir, D. W., Boicourt, R. M., Kahler, A. C., &#38; Conlin, J. L. (2017). <i>The NJOY Nuclear Data Processing System, Version 2016</i> (Technical Report LA-UR-17-20093). Los Alamos National Laboratory. https://www.osti.gov/biblio/1338791</p>
+
+<p class="csl-entry" id="ref-trkov2018endf6" style="padding-left: 2em; text-indent: -2em;">Trkov, A., Herman, M., &#38; Brown, D. A. (2018). <i>ENDF-6 Formats Manual: Data Formats and Procedures for the Evaluated Nuclear Data Files ENDF/B-VI, ENDF/B-VII and ENDF/B-VIII</i> (Technical Report BNL-203218-2018-INRE (CSEWG Document ENDF-102)). Brookhaven National Laboratory. https://www.nndc.bnl.gov/endfdocs/ENDF-102-2018.pdf</p>
+
+<!-- references:end -->
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. GPL-3.0. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>

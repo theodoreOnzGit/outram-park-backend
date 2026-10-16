@@ -217,7 +217,8 @@
     ["r-matrix.html", "Do neighbouring peaks interfere?"],
     ["reich-moore.html", "Can we skip the gamma paths?"],
     ["mlbw.html", "Can we drop the matrix?"],
-    ["adler-adler.html", "Cheaper still: fit the curves?"]
+    ["adler-adler.html", "Cheaper still: fit the curves?"],
+    ["log-scales.html", "Why are cross sections drawn on log scales?"]
   ];
   function lessonNav() {
     var here = location.pathname.split("/").pop() || LESSONS[0][0], i = -1;

@@ -17,6 +17,9 @@ window.Lesson.fmtE = (e) => e + " eV";
 eval(fs.readFileSync(path.join(__dirname, "reactions.js"), "utf8"));
 eval(fs.readFileSync(path.join(__dirname, "resonance-data.js"), "utf8"));
 eval(fs.readFileSync(path.join(__dirname, "resonance.js"), "utf8"));
+eval(fs.readFileSync(path.join(__dirname, "kinematics.js"), "utf8"));
+eval(fs.readFileSync(path.join(__dirname, "slowing-data.js"), "utf8"));
+eval(fs.readFileSync(path.join(__dirname, "slowing.js"), "utf8"));
 const M = window.Lesson.qscatterMath, SH = window.Lesson.shapesMath, AN = window.Lesson.anglesMath;
 let failed = 0;
 function check(name, value, limit) {
@@ -264,6 +267,71 @@ for (const [label, A, ap, E] of [["C-12, 10 eV", 11.89365, 6.146927, 10], ["U-23
   const tau = RS.HBAR_EV_S / (U.gn + U.gg);
   check("U-238 6.67 eV level lifetime within 20-35 fs", tau > 2e-14 && tau < 3.5e-14 ? 0 : 1, 0);
   console.log(`     U-238 level ${U.er} eV: Γn ${U.gn} eV, Γγ ${U.gg} eV, τ ${(tau * 1e15).toFixed(1)} fs; MLBW-SLBW same spin up to ${(100 * same).toFixed(0)} %`);
+}
+
+// Page 17 (gh:#906 design and amendments, 2026-10-16): slowing down on a
+// log axis, against closed forms and the tapes (slowing-data.js, written by
+// examples/lesson_slowing_down.rs).
+{
+  const KM = window.Lesson.kinematicsMath, SM = window.Lesson.slowingMath, SD = window.SLOWING_DATA;
+  // Page 2's shared kept(A, muCM) against its own vector reflection, over aims.
+  let wk = 0;
+  for (const A of [SD.awr["H-1"], SD.awr["C-12"], SD.awr["U-238"]]) for (let b = 0; b <= 0.98; b += 0.07) {
+    const nx = Math.sqrt(1 - b * b), ny = -b, vn = nx, f = 2 * A / (1 + A);
+    const v1 = [1 - f * vn * nx, -f * vn * ny];
+    wk = Math.max(wk, Math.abs(v1[0] * v1[0] + v1[1] * v1[1] - KM.kept(A, 1 - 2 * vn * vn)));
+  }
+  check("page 2's collision: kept(A, muCM) vs the vector reflection", wk, 1e-14);
+  // The sampled mean step in ln E converges to xi (C-12, 10^6 collisions, seeded).
+  const A = SD.awr["C-12"], r = SM.rng(7), N = 1e6;
+  let s1 = 0, s2 = 0;
+  for (let i = 0; i < N; i++) { const d = -Math.log(SM.collide(1, A, r())); s1 += d; s2 += d * d; }
+  const mean = s1 / N, sd = Math.sqrt(s2 / N - mean * mean) / Math.sqrt(N);
+  check("C-12: sampled mean ln(E/E') vs xi, in standard errors", Math.abs(mean - SM.xi(A)) / sd, 3);
+  // xi's closed form against a direct average over the uniform law.
+  let wx = 0;
+  for (const nuc of ["He-4", "C-12", "U-238"]) {
+    const a = KM.alpha(SD.awr[nuc]), M = 200000; let q = 0;
+    for (let i = 0; i < M; i++) q += -Math.log(a + (1 - a) * (i + 0.5) / M);
+    wx = Math.max(wx, Math.abs(q / M / SM.xi(SD.awr[nuc]) - 1));
+  }
+  check("xi closed form vs the average over [alpha E, E] (relative)", wx, 1e-6);
+  // B-10 (n,alpha) follows 1/v: the slope of ln sigma against ln E, 1 meV to 1 eV, from the tape.
+  const B = SD.curves["B-10 (n,alpha)"], fit = SM.slope(B.e, B.s, 1e-3, 1);
+  check("B-10 (n,alpha) log-log slope, 1 meV to 1 eV, vs -1/2", Math.abs(fit.slope + 0.5), 0.005);
+  // Every number in the page's prose against the data.
+  const h = fs.readFileSync(path.join(__dirname, "log-scales.html"), "utf8"), l0 = SD.u238.levels["0"], lv = SD.u238.levels;
+  const num = (t) => +t.replace(/&minus;/g, "-").replace(/ /g, "");
+  const rel = (got, want) => Math.abs(got - want) / Math.max(Math.abs(want), 1e-12);
+  let wp = 0, nq = 0;
+  // tol "print": agrees to the last digit printed (half a unit of it);
+  // a number: relative tolerance, for values the prose rounds loosely ("about").
+  const halfUnit = (t) => { const d = t.replace(/&minus;/g, "").replace(/ /g, "").split(".")[1]; return 0.5 * Math.pow(10, -(d ? d.length : 0)); };
+  const q = (re, f, tol) => { for (const m of h.matchAll(re)) {
+    nq++; const t = m[m.length - 1], want = f(m), got = num(t);
+    const bad = tol === "print" ? Math.abs(got - want) > halfUnit(t) * (1 + 1e-9) : rel(got, want) > tol;
+    if (bad) console.log("     mismatch", m[0], "want", want);
+    wp = Math.max(wp, bad ? 1 : 0);
+  } };
+  q(/data-alpha="([^"]+)">([^<]+)</g, (m) => KM.alpha(SD.awr[m[1]]), "print");
+  q(/data-xi="([^"]+)">([^<]+)</g, (m) => SM.xi(SD.awr[m[1]]), "print");
+  q(/data-n1="([^"]+)">([^<]+)</g, (m) => SM.collisions(2e6, 1, SD.awr[m[1]]), "print");
+  q(/data-nth="([^"]+)">([^<]+)</g, (m) => SM.collisions(2e6, 0.0253, SD.awr[m[1]]), "print");
+  q(/data-meanloss="([^"]+)">([^<]+)</g, (m) => 100 * (1 - KM.alpha(SD.awr[m[1]])) / 2, "print");
+  q(/data-perkev="(\d),(\d+),(\d+)">([^<]+)</g, (m) => SM.count(lv[m[1]], +m[2], +m[3]) / ((m[3] - m[2]) / 1e3), "print");
+  q(/data-spacing="(\d),(\d+),(\d+)">([^<]+)</g, (m) => { const v = lv[m[1]].filter((e) => e >= +m[2] && e < +m[3]); return (v[v.length - 1] - v[0]) / (v.length - 1); }, "print");
+  q(/data-decade="(\d+),(\d+)">([^<]+)</g, (m) => SM.count(l0, +m[1], +m[2]), "print");
+  q(/data-gap="([^"]+)">([^<]+)</g, (m) => Math.log(l0[1] / l0[0]) / SM.xi(SD.awr[m[1]]), "print");
+  q(/data-jump="([^"]+)">([^<]+)</g, (m) => SM.count(l0, 1e4, 2e4) / Math.log(2) * SM.xi(SD.awr[m[1]]), "print");
+  q(/data-doppler>([^<]+)</g, () => Math.sqrt(4 * 2e4 * 8.617333262e-5 * 300 / SD.awr["U-238"]), "print");
+  q(/data-b10slope>([^<]+)</g, () => fit.slope, "print");
+  q(/data-c12el>([^<]+)</g, () => SM.at(SD.curves["C-12 elastic"], 0.0253), "print");
+  const ext = (c, lo, hi, f) => { let v = f === "min" ? Infinity : 0; c.e.forEach((e, i) => { if (e >= lo && e <= hi) v = f === "min" ? Math.min(v, c.s[i]) : Math.max(v, c.s[i]); }); return v; };
+  q(/data-u238cap="(min|max)">([^<]+)</g, (m) => ext(SD.curves["U-238 capture"], 1e-5, 2e4, m[1]), 0.05);
+  q(/data-b10="(min|max)">([^<]+)</g, (m) => ext(B, 1e-5, 2e7, m[1]), 0.05);
+  q(/data-range="eh(1|2)">([^<]+)</g, (m) => SD.u238.ranges[+m[1] - 1].eh / 1e3, 0.005);
+  check("page 17: " + nq + " numbers in the prose vs the data", wp, 0);
+  console.log(`     B-10 (n,alpha) slope ${fit.slope.toFixed(5)} over ${fit.n} points; C-12 sampled <ln E/E'> ${mean.toFixed(5)} vs xi ${SM.xi(A).toFixed(5)}`);
 }
 
 if (failed) { console.log(failed + " check(s) failed"); process.exit(1); }

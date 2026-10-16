@@ -9,6 +9,15 @@
   var css = L.css, el = L.el, fmtE = L.fmtE, pct = L.pct, fmtLen = L.fmtLen, fmtSpeed = L.fmtSpeed;
   var Frame = L.Frame, buttons = L.buttons, slider = L.slider, toggle = L.toggle, arrow = L.arrow;
 
+  // Elastic scattering off a free nucleus at rest, mass ratio A: the fraction
+  // of its energy the neutron keeps, for centre-of-mass scattering cosine
+  // muCM, is (A² + 2A·muCM + 1)/(A + 1)² (head-on, muCM = −1: α =
+  // ((A−1)/(A+1))²). Shared by page 2's collision and page 17's slowing-down
+  // walk, so the two cannot disagree.
+  function kept(A, muCM) { return (A * A + 2 * A * muCM + 1) / ((A + 1) * (A + 1)); }
+  function alpha(A) { return kept(A, -1); }
+  L.kinematicsMath = { kept: kept, alpha: alpha };
+
   // ─── Collision: two-body elastic kinematics, target at rest ────────────
   // Neutron mass 1, nucleus mass A (its AWR). With n the unit contact normal
   // (neutron centre to nucleus centre): v' = v − 2A/(1+A) (v·n) n,
@@ -27,7 +36,9 @@
       return {
         A: A, rN: rN, D: D, b: b, nx: nx, ny: ny,
         v1: [vx - f * vn * nx, vy - f * vn * ny], V1: [g * vn * nx, g * vn * ny],
-        kept: ((vx - f * vn * nx) * (vx - f * vn * nx) + (vy - f * vn * ny) * (vy - f * vn * ny)) / (SPEED * SPEED)
+        // The contact normal at angle ψ to the incoming velocity turns the
+        // centre-of-mass velocity by π − 2ψ, so muCM = 1 − 2cos²ψ.
+        kept: kept(A, 1 - 2 * (vn / SPEED) * (vn / SPEED))
       };
     }
     return new Frame(root, {
