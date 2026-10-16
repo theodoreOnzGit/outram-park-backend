@@ -120,6 +120,93 @@ in the browser was taken as twice its native 10.6 s; the cached loads put
 the whole of assembly, majorant included, at about 10–15 s. The size miss:
 U-238's product is 24.7 MB, well under the U-235-sized guess.
 
+## Stage records and the nuclear-data demo (gh:#923, 2026-10-16)
+
+**Change.** The maintainer asked that every web demo share one nuclide cache,
+"whether keff or simple demo". The Monte Carlo rungs (Run k_eff, Watch, the
+pools) and `delta_tracking_web` already shared it. `nuclear_data_web`
+included the module but never called it. Now:
+
+- `Nuclide::process_evaluation` (outram-mc-libs) is three public calls in a
+  row: `reconstruct_0k` (RECONR at 0 K), `urr_tables` (PURR at
+  `URR_TABLE_SETTINGS` = 20 bins, 16 ladders, 2000 samples), and
+  `process_from_stages` (the 0 K elastic slice for DBRC, and BROADR).
+- The two slow stages have keys of their own (`reconstruction_key`,
+  `urr_key`), under the tape's prefix, so a Monte Carlo load's prefix query
+  reads them too. A product missing from the cache is made from whatever
+  stages are cached, so a held RECONR leaves only PURR and BROADR to run.
+- `nuclear_data_web`'s RECONR rung, its BROADR/GROUPR base (0.001) and its
+  PURR rung go through the same store. Its worker reads the keys a step may
+  use (`NdEngine::cache_keys`) from IndexedDB before the step and saves what
+  the step made. Each rung's note says where its product came from.
+- **Who saves what.** ~~Every nuclide leaves three records~~ **CORRECTED
+  before commit, on a measurement**: kept for every Monte Carlo nuclide, the
+  stages took the TRISO rung's cache from 88 MB (11 products) to 307 MB (31
+  records), 3.5x and not the 2x guessed, because RECONR at 0 K is far larger
+  than the thinned, broadened product. So:
+  - The **Monte Carlo demos save products only**, as before. They read
+    stages when present.
+  - The **nuclear-data demo saves the stages** its rungs show.
+  - Its **PURR rung also reads the tables inside a Monte Carlo product** at
+    the same temperature (they are PURR at the same settings), at no extra
+    storage.
+  - What is *not* shared as a result: the RECONR rung after only Monte Carlo
+    rungs have run (the 0 K reconstruction they made was not kept).
+
+**Native checks** (release, i9-13900K, 2026-10-16):
+
+- `processed_cache::tests::a_nuclide_made_from_cached_stages_is_the_processed_nuclide_bit_for_bit`:
+  U-234 at `Fast`, stages made by a store that keeps them.
+  - A Monte Carlo store offered both stages but not the product: identical
+    to `Nuclide::from_tape_with_speed` in all 106 322 compared values, both
+    stages read, only the product saved.
+  - Offered RECONR alone at 600 K: identical in all 106 503 values, RECONR
+    read, PURR processed and not saved.
+- `the_code_version_pins_the_processing_output` passes unchanged: the stage
+  split leaves the processed output of He-4 and U-234 bit for bit as
+  recorded under `nd-2026-10-15.1`, so `CODE` is not bumped.
+- `nuclear_data_web` `tests::the_nuclear_data_demo_and_the_monte_carlo_demos_share_their_products`,
+  U-238 at 293.6 K, 0.001:
+  - The Monte Carlo route saved its product only (one record).
+  - This demo's PURR rung (16 x 2000), offered it, read its tables from it:
+    3 276 curve values identical to an engine that ran PURR.
+  - This demo's RECONR rung saved its stage. A Monte Carlo store offered
+    only that stage made the product with RECONR read: 3 092 684 words
+    identical to the first product.
+- `a_cached_nuclide_is_the_processed_nuclide_bit_for_bit` and the engine
+  thread test are unchanged: one record per product for the Monte Carlo
+  demos, and 11 products for TRISO.
+
+**Browser** (2026-10-16, headless Chromium 154 over CDP, the i9-13900K
+unpinned, both demos built by their `build.sh` and served by
+`python3 -m http.server`; each case a fresh browser context, so an empty
+IndexedDB; times from the worker log lines `processed_cache` writes):
+
+| case | U-238 product made in | Godiva data ready | IndexedDB after |
+|---|---|---|---|
+| (a) Godiva alone | 41.3 s | 57.9 s | 3 products (U-234 3.0 MB, U-235 57.1 MB, U-238 24.7 MB) |
+| (b) nuclear-data RECONR rung, then Godiva | **15.9 s, RECONR read from this browser's cache** | 57.3 s | the same 3 products, and 6 RECONR stages |
+| (c) nuclear-data RECONR rung, twice | | | sweep to 0.001: 73.8 s, then **3.6 s** |
+
+- Godiva's wall time does not move in (b), because its three tapes are
+  processed on three workers at once and U-235 (53 s) sets it. The U-238
+  saving is real but hidden there. It would show on a rung where U-238 is the
+  slowest job.
+- **Cost, measured.** The RECONR rung saves a stage at each of its six
+  tolerances: 6.2, 7.9, 12.0, 18.7, 31.2 and 50.3 MB, 126 MB in all, saved
+  only by a browser that opens that rung. RECONR at 0.001 (50.3 MB) is twice
+  U-238's broadened product (24.7 MB). That is why the Monte Carlo demos do
+  not save stages.
+- **A defect this check caught.** The first build of the worker moved the
+  store out of the engine while saving. The sweep's next step, sent the
+  moment a result arrived, then ran on an empty stand-in store that saved
+  nothing: only the 0.3 stage was kept. Fixed before commit, so the store
+  never leaves the engine, and re-measured as above.
+- **Not checked in a browser:** the PURR rung reading a Monte Carlo
+  product's tables (natively tested above). The rung opens at 8 ladders and
+  the Monte Carlo settings are 16, so it reads them only once a reader moves
+  the slider to 16.
+
 ## Not checked
 
 - A real phone, and a background tab actually discarded by a mobile

@@ -21,7 +21,7 @@
 
 use crate::rungs::{Rung, GRAPHITE, H_IN_H2O, U238};
 use njoy_outram_park_fork::endf::tape::Tape;
-use njoy_outram_park_fork::reconr::{reconr, ReconrConfig, ReconrResult, ReconrSection};
+use njoy_outram_park_fork::reconr::{ReconrResult, ReconrSection};
 use std::sync::Arc;
 
 /// RECONR tolerance the BROADR and GROUPR rungs build on: NJOY's default,
@@ -39,6 +39,11 @@ pub const RECONR_TOLS: [f64; 6] = [0.3, 0.1, 0.03, 0.01, 0.003, 0.001];
 /// BROADR window: what is broadened (with margin) and what is shown, eV.
 pub const BROADR_IN: (f64, f64) = (0.5, 600.0);
 pub const BROADR_SHOWN: (f64, f64) = (1.0, 300.0);
+
+/// PURR's probability bins on the PURR rung: 20, as every nuclide in the
+/// Monte Carlo demos (`outram_mc_libs::material::nuclide::URR_TABLE_SETTINGS`),
+/// so the rung at 16 ladders x 2000 samples reads their tables (gh:#923).
+pub const PURR_NBIN: usize = 20;
 
 /// GROUPR rung energy range, eV.
 pub const GROUPR_RANGE: (f64, f64) = (1.0, 1.0e4);
@@ -102,13 +107,34 @@ pub enum Event {
     Error(String),
 }
 
-/// What the engine holds: parsed tapes, and the cached base reconstruction.
-#[derive(Default)]
+/// What the engine holds: parsed tapes (with the SHA-256 of their bytes, the
+/// shared cache's key), the processed-data store every Monte Carlo demo uses
+/// too (gh:#818, #923), and the cached base reconstruction.
 pub struct NdEngine {
-    tapes: Vec<(String, Tape, i32)>,
+    tapes: Vec<(String, Tape, i32, String)>,
+    /// The shared store: RECONR at 0 K and PURR tables are read from it when
+    /// any demo in this browser made them, and saved to it when made here.
+    pub store: crate::processed_cache::DataStore,
+    /// Whether this browser's store may still be read and written.
+    #[cfg(target_arch = "wasm32")]
+    health: crate::processed_cache::web::Health,
     base: Option<ReconrResult>,
     /// The ACE rungs' files, by slot ([`SLOTS`]).
     files: [Option<(String, Vec<u8>)>; 5],
+}
+
+impl Default for NdEngine {
+    fn default() -> Self {
+        Self {
+            tapes: Vec::new(),
+            // This demo shows the stages, so it saves them (gh:#923).
+            store: crate::processed_cache::DataStore::default().keeping_stages(),
+            #[cfg(target_arch = "wasm32")]
+            health: Default::default(),
+            base: None,
+            files: Default::default(),
+        }
+    }
 }
 
 fn clip(p: &[(f64, f64)], lo: f64, hi: f64) -> Vec<(f64, f64)> {
@@ -142,21 +168,69 @@ impl NdEngine {
         Ok(Event::Result { job, param: 0.0, secs: 0.0, n_points: 0, curves: Vec::new(), note: lines.join("\n") })
     }
     pub fn has(&self, name: &str) -> bool {
-        self.tapes.iter().any(|(n, _, _)| n == name)
+        self.tapes.iter().any(|(n, ..)| n == name)
     }
     fn tape(&self, name: &str) -> Result<(&Tape, i32), String> {
-        self.tapes.iter().find(|(n, _, _)| n == name).map(|(_, t, m)| (t, *m)).ok_or_else(|| format!("{name} is not loaded"))
+        self.tapes.iter().find(|(n, ..)| n == name).map(|(_, t, m, _)| (t, *m)).ok_or_else(|| format!("{name} is not loaded"))
+    }
+    /// The SHA-256 of a held tape's bytes.
+    fn tape_sha(&self, name: &str) -> Result<String, String> {
+        self.tapes.iter().find(|(n, ..)| n == name).map(|(.., h)| h.clone()).ok_or_else(|| format!("{name} is not loaded"))
+    }
+
+    /// The shared-cache keys a request may read (gh:#923): the worker reads
+    /// them from IndexedDB before [`Self::serve`]. Empty when the request
+    /// uses no cached product, or its tape is not held.
+    pub fn cache_keys(&self, r: &Request) -> Vec<String> {
+        use crate::processed_cache::{reconstruction_key, urr_key};
+        let Ok(sha) = self.tape_sha(U238) else { return Vec::new() };
+        let Ok((_, mat)) = self.tape(U238) else { return Vec::new() };
+        match *r {
+            Request::Reconr { tol, .. } => vec![reconstruction_key(&sha, mat, tol)],
+            Request::Broadr { .. } | Request::Groupr { .. } if self.base.is_none() => vec![reconstruction_key(&sha, mat, BASE_TOL)],
+            Request::Purr { temp_k, nladr, nsamp, .. } => {
+                let mut k = vec![urr_key(&sha, mat, temp_k, (PURR_NBIN, nladr, nsamp))];
+                if (PURR_NBIN, nladr, nsamp) == outram_mc_libs::material::nuclide::URR_TABLE_SETTINGS {
+                    // A Monte Carlo product at this temperature holds them.
+                    k.push(crate::processed_cache::evaluation_prefix(&sha, mat, temp_k));
+                }
+                k
+            }
+            _ => Vec::new(),
+        }
+    }
+
+    /// RECONR at 0 K of U-238 at `tol`, through the shared store, and where
+    /// it came from as the page says it.
+    fn reconstruction(&mut self, tol: f64) -> Result<(ReconrResult, String), String> {
+        let sha = self.tape_sha(U238)?;
+        let (tape, mat) = self.tapes.iter().find(|(n, ..)| n == U238).map(|(_, t, m, _)| (t, *m)).ok_or("U-238 is not loaded")?;
+        let r = self.store.reconstruction(&sha, tape, mat, tol, "U-238")?;
+        Ok((r, self.stage_source()))
+    }
+
+    /// Where the stages of the request just served came from, for its note.
+    fn stage_source(&mut self) -> String {
+        self.store
+            .take_stages()
+            .into_iter()
+            .map(|(_, src)| match src {
+                dhoby_ghaut::web_demo::data_cache::Source::Processed => "Processed now; kept in this browser for every demo.".to_string(),
+                cached => format!("Read {} (gh:#923: shared with the Monte Carlo demos).", cached.describe()),
+            })
+            .collect::<Vec<_>>()
+            .join(" ")
     }
     pub fn add_tape(&mut self, name: &str, bytes: &[u8]) -> Result<(), String> {
         let tape = Tape::read(std::io::Cursor::new(bytes)).map_err(|e| format!("{name}: {e}"))?;
         let mat = *tape.materials().first().ok_or_else(|| format!("{name}: no material on tape"))?;
-        self.tapes.push((name.to_string(), tape, mat));
+        let sha = dhoby_ghaut::web_demo::data_cache::sha256_hex(bytes);
+        self.tapes.push((name.to_string(), tape, mat, sha));
         Ok(())
     }
     fn base(&mut self) -> Result<ReconrResult, String> {
         if self.base.is_none() {
-            let (tape, mat) = self.tape(U238)?;
-            let r = reconr(tape, &ReconrConfig { mat, tolerance: BASE_TOL, temperature: 0.0 }).map_err(|e| e.to_string())?;
+            let (r, _) = self.reconstruction(BASE_TOL)?;
             self.base = Some(r);
         }
         Ok(self.base.clone().expect("just built"))
@@ -245,9 +319,8 @@ impl NdEngine {
     // ─── rung: reconr ────────────────────────────────────────────────────────
 
     /// Tags 1, 2, 102: MT=1, 2, 102 of a full RECONR at `tol`, 0 K.
-    fn reconr(&self, job: u32, tol: f64) -> Result<Event, String> {
-        let (tape, mat) = self.tape(U238)?;
-        let r = reconr(tape, &ReconrConfig { mat, tolerance: tol, temperature: 0.0 }).map_err(|e| e.to_string())?;
+    fn reconr(&mut self, job: u32, tol: f64) -> Result<Event, String> {
+        let (r, source) = self.reconstruction(tol)?;
         let mut curves = Vec::new();
         let mut n_points = 0;
         for mt in [1, 2, 102] {
@@ -258,7 +331,7 @@ impl NdEngine {
                 curves.push(curve(mt as u32, &s.pairs));
             }
         }
-        let note = format!("RECONR at tolerance {tol}: {n_points} points on the union grid (MT=1), 0 K.");
+        let note = format!("RECONR at tolerance {tol}: {n_points} points on the union grid (MT=1), 0 K. {source}");
         Ok(Event::Result { job, param: tol, secs: 0.0, n_points, curves, note })
     }
 
@@ -317,12 +390,15 @@ impl NdEngine {
 
     /// Tag 1: one point per band, `(E, total factor or barns)`, weight = the
     /// band's probability. The note gives the probability-weighted mean.
-    fn purr(&self, job: u32, temp_k: f64, nladr: usize, nsamp: usize) -> Result<Event, String> {
-        use njoy_outram_park_fork::purr::{UrrProbabilityTables, UrrSample};
-        let (tape, mat) = self.tape(U238)?;
-        let t = UrrProbabilityTables::from_endf(tape, mat, temp_k, 20, nladr, nsamp)
-            .map_err(|e| e.to_string())?
+    fn purr(&mut self, job: u32, temp_k: f64, nladr: usize, nsamp: usize) -> Result<Event, String> {
+        use njoy_outram_park_fork::purr::UrrSample;
+        let sha = self.tape_sha(U238)?;
+        let (tape, mat) = self.tapes.iter().find(|(n, ..)| n == U238).map(|(_, t, m, _)| (t, *m)).ok_or("U-238 is not loaded")?;
+        let t = self
+            .store
+            .urr_tables(&sha, tape, mat, temp_k, (PURR_NBIN, nladr, nsamp), "U-238")?
             .ok_or("this evaluation has no unresolved range")?;
+        let source = self.stage_source();
         let mut c = Curve { tag: 1, ..Default::default() };
         let mut worst_mean: f64 = 0.0;
         let mut factors = true;
@@ -372,6 +448,7 @@ impl NdEngine {
         } else {
             format!("LSSF={}: total cross sections in barns, {} energies x {} bands.", t.lssf, t.len(), t.n_bands())
         };
+        let note = format!("{note} {source}");
         Ok(Event::Result { job, param: temp_k, secs: 0.0, n_points: t.len(), curves: vec![c], note })
     }
 
@@ -668,9 +745,64 @@ mod web {
                     });
                 }
                 r => {
-                    if let Ok(mut g) = state.write() {
-                        g.serve(r, dhoby_ghaut::web_demo::platform::now_s, &mut |e| post.post(e));
+                    let keys = state.read().map(|g| g.cache_keys(&r)).unwrap_or_default();
+                    if keys.is_empty() {
+                        if let Ok(mut g) = state.write() {
+                            g.serve(r, dhoby_ghaut::web_demo::platform::now_s, &mut |e| post.post(e));
+                        }
+                        return;
                     }
+                    // The shared store (gh:#923): read the records this step
+                    // may use from IndexedDB, then (under the lock, with the
+                    // engine's own store) offer them, serve and take what was
+                    // made, then save that. The store never leaves the
+                    // engine, so a step sent while another is saving finds it.
+                    let st = state.clone();
+                    wasm_bindgen_futures::spawn_local(async move {
+                        use crate::processed_cache::web::Health;
+                        use dhoby_ghaut::web_demo::data_cache::{idb, PutError};
+                        let health = st.read().map(|g| g.health).unwrap_or(Health::Unavailable);
+                        let mut rows = Vec::new();
+                        let mut unavailable = health == Health::Unavailable;
+                        if !unavailable {
+                            for k in &keys {
+                                match idb::get_prefix(k).await {
+                                    Ok(rs) => rows.extend(rs.into_iter().filter_map(Result::ok)),
+                                    Err(e) => {
+                                        log::warn!("nuclear-data cache unavailable: {e}");
+                                        unavailable = true;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                        let fresh = {
+                            let Ok(mut g) = st.write() else { return };
+                            if unavailable {
+                                g.health = Health::Unavailable;
+                            }
+                            g.store.offer(rows);
+                            g.serve(r, dhoby_ghaut::web_demo::platform::now_s, &mut |e| post.post(e));
+                            g.store.forget_offered();
+                            g.store.take_fresh()
+                        };
+                        if unavailable || health != Health::Ok {
+                            return;
+                        }
+                        for rec in fresh {
+                            if let Err(e) = idb::put(&rec).await {
+                                log::warn!("nuclear-data cache: {}", e.note(&rec.label));
+                                if let Ok(mut g) = st.write() {
+                                    g.health = match e {
+                                        PutError::Quota(_) => Health::Full,
+                                        PutError::Other(_) => Health::Unavailable,
+                                    };
+                                }
+                                return;
+                            }
+                            log::info!("nuclear-data cache: saved {} ({:.1} MB)", rec.label, rec.bytes() as f64 / 1e6);
+                        }
+                    });
                 }
             }
         }

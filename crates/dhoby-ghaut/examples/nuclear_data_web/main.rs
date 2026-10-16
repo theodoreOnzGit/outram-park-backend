@@ -45,9 +45,11 @@ mod rungs;
 #[cfg(not(target_os = "android"))]
 #[path = "../monte_carlo_web/tapes.rs"]
 mod tapes;
-/// The processed-data cache `tapes.rs` names in `leapr_h_in_h2o` (gh:#818).
-/// This demo does not call that function, but `tapes.rs` does not compile
-/// without the module (the Pages build broke on it, 2026-10-14).
+/// The processed-data cache every demo shares (gh:#818). ~~This demo does
+/// not call that function, but `tapes.rs` does not compile without the
+/// module (the Pages build broke on it, 2026-10-14).~~ **CORRECTED
+/// 2026-10-16 (gh:#923):** the engine now reads and writes it, for the
+/// RECONR, BROADR/GROUPR base and PURR rungs.
 #[cfg(not(target_os = "android"))]
 #[allow(dead_code)]
 #[path = "../common/processed_cache.rs"]
@@ -197,6 +199,84 @@ mod tests {
         let note = &got[1].3;
         let pct: f64 = note.rsplit('(').next().and_then(|s| s.split(' ').next()).and_then(|s| s.parse().ok()).expect("area change in the note");
         assert!(pct.abs() < 0.5, "area under capture moved {pct} % on broadening: {note}");
+    }
+
+    /// **One nuclide cache for every demo** (gh:#923, maintainer 2026-10-16:
+    /// "all web demos shld share a common nuclide cache whether keff or
+    /// simple demo").
+    ///
+    /// Methodology, both directions, U-238 at 293.6 K and NJOY's 0.001:
+    /// 1. **Monte Carlo to this demo.** The Monte Carlo route
+    ///    (`DataStore::evaluation`, what every rung loader calls) makes
+    ///    U-238's product, handed back as a browser saves it to IndexedDB.
+    ///    This engine is offered it, as its worker reads the keys of
+    ///    [`NdEngine::cache_keys`], and serves the PURR rung at 293.6 K, 16
+    ///    ladders x 2000 samples (the Monte Carlo settings). Pass: the note
+    ///    says read from the cache; the curves equal, value for value, those
+    ///    of an engine with an empty store that runs PURR.
+    /// 2. **This demo to Monte Carlo.** The RECONR rung at 0.001 is
+    ///    processed here and saved as a stage record. A Monte Carlo store
+    ///    offered that record (and no product) makes U-238's product at
+    ///    293.6 K with RECONR read from the cache. Pass: the product equals
+    ///    the one made in step 1, word for word.
+    ///
+    /// Results, 2026-10-16 (release): as stated.
+    #[test]
+    fn the_nuclear_data_demo_and_the_monte_carlo_demos_share_their_products() {
+        let Some(path) = njoy_outram_park_fork::reference_data::reference_endf(rungs::U238) else {
+            eprintln!("SKIP: {} not present", rungs::U238);
+            return;
+        };
+        let bytes = tapes::strip_covariances(&std::fs::read(path).expect("read"));
+        let tape = njoy_outram_park_fork::endf::tape::Tape::read(std::io::Cursor::new(&bytes)).expect("tape");
+        let mat = *tape.materials().first().expect("material");
+        let mut mc = processed_cache::DataStore::browser();
+        mc.begin_tape(&bytes);
+        let product = mc.evaluation(&bytes, &tape, mat, 293.6, 1e-3, 1e-3, "U-238").expect("Monte Carlo route").to_f64s();
+        let records = mc.take_fresh();
+        assert_eq!(records.len(), 1, "the Monte Carlo route saves its product only");
+
+        let serve = |e: &mut NdEngine, r: Request| -> (Vec<Vec<[f64; 2]>>, String) {
+            let mut out = None;
+            e.handle(r, &mut |ev| match ev {
+                Event::Result { curves, note, .. } => out = Some((curves.into_iter().map(|c| c.pts).collect(), note)),
+                Event::Error(m) => panic!("engine error: {m}"),
+                _ => {}
+            });
+            out.expect("a result")
+        };
+        let load = |e: &mut NdEngine| e.handle(Request::Load { id: 1, rung: rungs::Rung::Reconr }, &mut |_| {});
+        let purr = || Request::Purr { job: 2, temp_k: 293.6, nladr: 16, nsamp: 2000 };
+        let bits = |c: &Vec<Vec<[f64; 2]>>| c.iter().flatten().flat_map(|p| [p[0].to_bits(), p[1].to_bits()]).collect::<Vec<_>>();
+
+        // 1. Monte Carlo to this demo: PURR from the product.
+        let mut shared = NdEngine::default();
+        load(&mut shared);
+        let keys = shared.cache_keys(&purr());
+        assert!(keys.iter().any(|k| records[0].key.starts_with(k.as_str())), "the worker's query {keys:?} finds {}", records[0].key);
+        shared.store.offer(records);
+        let (pu_shared, pu_note) = serve(&mut shared, purr());
+        assert!(pu_note.contains("from this browser's cache"), "{pu_note}");
+        let mut fresh = NdEngine::default();
+        load(&mut fresh);
+        let (pu_fresh, pu_fresh_note) = serve(&mut fresh, purr());
+        assert!(pu_fresh_note.contains("Processed now"), "{pu_fresh_note}");
+        assert_eq!(bits(&pu_shared), bits(&pu_fresh), "PURR curves");
+
+        // 2. This demo to Monte Carlo: RECONR saved here, read there.
+        let _ = fresh.store.take_fresh();
+        let (_, rc_note) = serve(&mut fresh, Request::Reconr { job: 1, tol: 1e-3 });
+        assert!(rc_note.contains("Processed now"), "{rc_note}");
+        let saved = fresh.store.take_fresh();
+        assert!(saved.iter().any(|r| r.key.contains("|rc0|")), "the RECONR rung saves its stage");
+        let mut mc2 = processed_cache::DataStore::browser();
+        mc2.begin_tape(&bytes);
+        mc2.offer(saved);
+        let again = mc2.evaluation(&bytes, &tape, mat, 293.6, 1e-3, 1e-3, "U-238").expect("from the stage").to_f64s();
+        let st = mc2.take_stages();
+        assert!(st.iter().any(|(l, s)| l.contains("RECONR") && matches!(s, dhoby_ghaut::web_demo::data_cache::Source::Cached { .. })), "{st:?}");
+        assert_eq!(again.iter().map(|x| x.to_bits()).collect::<Vec<_>>(), product.iter().map(|x| x.to_bits()).collect::<Vec<_>>(), "the product from this demo's RECONR");
+        eprintln!("U-238: PURR {} values identical from the Monte Carlo product; product of {} words identical from this demo's RECONR", bits(&pu_fresh).len(), product.len());
     }
 
     /// **Methodology.** The ACE rungs through the engine, in the order the UI

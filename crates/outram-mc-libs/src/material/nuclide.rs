@@ -380,6 +380,11 @@ pub struct Nuclide {
     speed: SpeedTier,
 }
 
+/// PURR's table settings for every nuclide, `(nbin, nladr, nsamp)`: 20
+/// probability bins from 16 ladders of 2000 samples
+/// ([`Nuclide::urr_tables`]). A web demo's cache key names them.
+pub const URR_TABLE_SETTINGS: (usize, usize, usize) = (20, 16, 2000);
+
 /// Upper energy \[eV\] of the 0 K elastic grid retained for DBRC.
 ///
 /// DBRC is a **resolved-resonance** correction, so it is pointless above the
@@ -2494,18 +2499,70 @@ impl Nuclide {
         tolerance: f64,
         broadr_errthn: f64,
     ) -> Result<crate::material::processed::ProcessedEvaluation, NjoyError> {
-        use njoy_outram_park_fork::broadr::broaden_result_with_tolerance;
-        use njoy_outram_park_fork::reconr::{reconr, ReconrConfig};
+        let recon0 = Self::reconstruct_0k(tape, mat, tolerance)?;
+        let urr = Self::urr_tables(tape, mat, temp_k)?;
+        Ok(Self::process_from_stages(&recon0, urr, temp_k, broadr_errthn))
+    }
 
+    /// **Stage 1 of [`Self::process_evaluation`]**: RECONR at 0 K, at
+    /// RECONR's `tolerance`. Split out (gh:#923) so the web demos can keep
+    /// it by itself: it does not depend on the temperature, so one
+    /// reconstruction serves every temperature a nuclide is broadened to,
+    /// and the nuclear-data demo's RECONR rung shows the same product.
+    ///
+    /// # Errors
+    ///
+    /// RECONR refusing the evaluation.
+    pub fn reconstruct_0k(
+        tape: &njoy_outram_park_fork::endf::tape::Tape,
+        mat: i32,
+        tolerance: f64,
+    ) -> Result<ReconrResult, NjoyError> {
+        use njoy_outram_park_fork::reconr::{reconr, ReconrConfig};
         // 2. RECONR at 0 K.
-        let recon0 = reconr(
+        reconr(
             tape,
             &ReconrConfig {
                 mat,
                 tolerance,
                 temperature: 0.0,
             },
-        )?;
+        )
+    }
+
+    /// **Stage 2 of [`Self::process_evaluation`]**: PURR's URR probability
+    /// tables at `temp_k`, with the settings every nuclide uses
+    /// ([`URR_TABLE_SETTINGS`]: 20 bins, 16 ladders, 2000 samples). `None`
+    /// for an evaluation with no unresolved range. They depend on the tape
+    /// alone, not on RECONR (see the note at the end of `from_processed` for
+    /// why they are on by default).
+    ///
+    /// # Errors
+    ///
+    /// PURR refusing the evaluation.
+    pub fn urr_tables(
+        tape: &njoy_outram_park_fork::endf::tape::Tape,
+        mat: i32,
+        temp_k: f64,
+    ) -> Result<Option<UrrProbabilityTables>, NjoyError> {
+        let (nbin, nladr, nsamp) = URR_TABLE_SETTINGS;
+        // 8. PURR's URR probability tables.
+        UrrProbabilityTables::from_endf(tape, mat, temp_k, nbin, nladr, nsamp)
+    }
+
+    /// **The rest of [`Self::process_evaluation`]**, from its two stages: the
+    /// 0 K elastic grid DBRC needs, and BROADR of `recon0` to `temp_k` at
+    /// thinning tolerance `broadr_errthn`. `urr` must be
+    /// [`Self::urr_tables`] at the same `temp_k`. Cheap next to the stages
+    /// (no RECONR, no PURR), so a web demo holding the stages makes the
+    /// product at a new temperature from them.
+    pub fn process_from_stages(
+        recon0: &ReconrResult,
+        urr: Option<UrrProbabilityTables>,
+        temp_k: f64,
+        broadr_errthn: f64,
+    ) -> crate::material::processed::ProcessedEvaluation {
+        use njoy_outram_park_fork::broadr::broaden_result_with_tolerance;
 
         // 3a. Keep the 0 K ELASTIC grid before broadening replaces it. DBRC
         //     needs the unbroadened cross section -- the target motion is
@@ -2530,14 +2587,8 @@ impl Nuclide {
         //    bounded at upstream's `thnmax` (top of the resolved region) so
         //    SIGMA1 never runs across the resolved/unresolved seam or over the
         //    energy-averaged data above it (njoy `op-sdbk`).
-        let recon = broaden_result_with_tolerance(&recon0, temp_k, broadr_errthn);
-
-        // 8. PURR's URR probability tables (see the note at the end of
-        //    `from_processed` for why they are on by default). They depend on
-        //    the tape alone, so building them here rather than after the rest
-        //    changes nothing.
-        let urr = UrrProbabilityTables::from_endf(tape, mat, temp_k, 20, 16, 2000)?;
-        Ok(crate::material::processed::ProcessedEvaluation { recon, elastic_0k, urr, temp_k })
+        let recon = broaden_result_with_tolerance(recon0, temp_k, broadr_errthn);
+        crate::material::processed::ProcessedEvaluation { recon, elastic_0k, urr, temp_k }
     }
 
     /// **The cheap half of [`Self::from_tape`]**: given the products of

@@ -2,7 +2,19 @@
 //! the cache keys, and the one place a demo builds a nuclide or a thermal
 //! law from a tape, reading the product back from the cache when it is
 //! there. Included by `monte_carlo_web` (every rung loader, the htr10
-//! whole-core pool) and `delta_tracking_web`.
+//! whole-core pool), `delta_tracking_web` and, since 2026-10-16 (gh:#923),
+//! `nuclear_data_web`: one store for every demo in a browser, Run k_eff or
+//! a single-stage rung.
+//!
+//! **Stages (gh:#923).** Besides each nuclide's product, the store keeps its
+//! two slow stages under their own keys: RECONR at 0 K
+//! ([`reconstruction_key`], which no temperature changes) and PURR's tables
+//! ([`urr_key`]). A product missing from the cache is made from them
+//! (`Nuclide::process_from_stages`), from whichever stages are cached. Only
+//! the nuclear-data demo saves stages (`DataStore::keeping_stages`); the
+//! Monte Carlo demos save products only, because RECONR at 0 K would
+//! triple their storage (TRISO: 88 MB to 307 MB, measured 2026-10-16). Its
+//! PURR rung also reads the tables inside a Monte Carlo product.
 //!
 //! **What is cached is the expensive half only**, in the exact `f64`
 //! encodings gh:#786 added for relaying products between workers:
@@ -34,7 +46,9 @@
 
 use dhoby_ghaut::web_demo::data_cache::{sha256_hex, Miss, Record, Source};
 use njoy_outram_park_fork::endf::tape::Tape;
-use outram_mc_libs::material::nuclide::Nuclide;
+use njoy_outram_park_fork::purr::UrrProbabilityTables;
+use njoy_outram_park_fork::reconr::ReconrResult;
+use outram_mc_libs::material::nuclide::{Nuclide, URR_TABLE_SETTINGS};
 use outram_mc_libs::material::processed::ProcessedEvaluation;
 use outram_mc_libs::material::speed::SpeedTier;
 use outram_mc_libs::material::thermal::ThermalScattering;
@@ -81,6 +95,27 @@ pub fn law_key(source: &str, mat: i32, temp_k: f64, label: &str) -> String {
     format!("{}tsl|mat={mat}|T={}|label={label}", tape_prefix(source), exact(temp_k))
 }
 
+/// The prefix of a tape's products at `temp_k`, any tolerance (gh:#923):
+/// each carries PURR's tables at `URR_TABLE_SETTINGS`, which the
+/// nuclear-data demo's PURR rung reads from it.
+pub fn evaluation_prefix(tape_sha: &str, mat: i32, temp_k: f64) -> String {
+    format!("{}pe|mat={mat}|T={}|", tape_prefix(tape_sha), exact(temp_k))
+}
+
+/// The key of a tape's RECONR product at 0 K (gh:#923): the stage every
+/// temperature of a nuclide starts from, and what the nuclear-data demo's
+/// RECONR rung shows. Ends in `|`, so a prefix query for it finds it alone.
+pub fn reconstruction_key(tape_sha: &str, mat: i32, tolerance: f64) -> String {
+    format!("{}rc0|mat={mat}|tol={}|", tape_prefix(tape_sha), exact(tolerance))
+}
+
+/// The key of a tape's PURR tables at `temp_k` with `(nbin, nladr, nsamp)`
+/// (gh:#923). Ends in `|`, as [`reconstruction_key`].
+pub fn urr_key(tape_sha: &str, mat: i32, temp_k: f64, settings: (usize, usize, usize)) -> String {
+    let (nbin, nladr, nsamp) = settings;
+    format!("{}urr|mat={mat}|T={}|purr={nbin},{nladr},{nsamp}|", tape_prefix(tape_sha), exact(temp_k))
+}
+
 /// The synchronous side of the cache that a data builder sees.
 ///
 /// - [`DataStore::off`]: no cache (tests, and the native tools that compare
@@ -96,10 +131,22 @@ pub struct DataStore {
     enabled: bool,
     /// Keep made records for later lookups (native memory).
     remember: bool,
+    /// Save the stages (RECONR at 0 K, PURR) as records of their own
+    /// (gh:#923). Off for the Monte Carlo demos, which save products only:
+    /// RECONR at 0 K is far larger than the broadened product (the TRISO
+    /// rung's cache: 88 MB of products, 307 MB with its stages, measured
+    /// 2026-10-16), so keeping it would triple their storage. On for the
+    /// nuclear-data demo, whose rungs show the stages. Stages are read
+    /// whichever way it is set.
+    keep_stages: bool,
     entries: HashMap<String, Record>,
     fresh: Vec<Record>,
     /// Per product used, in order: its label and where it came from.
     pub sources: Vec<(String, Source)>,
+    /// Per stage used (RECONR at 0 K, PURR; gh:#923), in order: its label
+    /// and where it came from. A product made from its stages lists them
+    /// here, and itself in `sources`.
+    pub stages: Vec<(String, Source)>,
     /// What the page must show (misses with a reason, storage notes).
     pub notes: Vec<String>,
     /// The tape the next products come from: its bytes' address and length,
@@ -138,16 +185,24 @@ impl DataStore {
     /// Where each product of the last load came from, and what to show,
     /// taken (the next load starts a fresh list).
     pub fn take_report(&mut self) -> (Vec<(String, Source)>, Vec<String>) {
+        self.stages.clear();
         (std::mem::take(&mut self.sources), std::mem::take(&mut self.notes))
+    }
+
+    /// Where each stage of the last request came from (gh:#923), taken.
+    pub fn take_stages(&mut self) -> Vec<(String, Source)> {
+        std::mem::take(&mut self.stages)
     }
 
     fn with(enabled: bool, remember: bool) -> Self {
         Self {
             enabled,
             remember,
+            keep_stages: false,
             entries: HashMap::new(),
             fresh: Vec::new(),
             sources: Vec::new(),
+            stages: Vec::new(),
             notes: Vec::new(),
             tape: None,
             now_ms: wall_ms,
@@ -165,6 +220,13 @@ impl DataStore {
     /// back to be saved.
     pub fn browser() -> Self {
         Self::with(true, false)
+    }
+
+    /// This store saves stages as records of their own (the nuclear-data
+    /// demo; see `keep_stages`).
+    pub fn keeping_stages(mut self) -> Self {
+        self.keep_stages = true;
+        self
     }
 
     /// Whether this store reads and makes records.
@@ -308,11 +370,125 @@ impl DataStore {
                 Err(e) => self.note(Miss::Unusable(e.to_string()).note(label).unwrap_or_default()),
             }
         }
-        let p = Nuclide::process_evaluation(tape, mat, temp_k, tolerance, errthn)
-            .map_err(|e| format!("{label}: {e}"))?;
+        // A miss: the product from its two stages, each from the cache when
+        // it is there (another temperature, another demo), so this is
+        // `Nuclide::process_evaluation` with the slow parts kept (gh:#923).
+        let sha = self.sha_of(bytes);
+        let t0 = (self.now_ms)();
+        let first = self.stages.len();
+        let recon0 = self.reconstruction(&sha, tape, mat, tolerance, label)?;
+        let urr = self.urr_tables(&sha, tape, mat, temp_k, URR_TABLE_SETTINGS, label)?;
+        let p = Nuclide::process_from_stages(&recon0, urr, temp_k, errthn);
+        let read: Vec<&str> = self.stages[first..]
+            .iter()
+            .filter(|(_, s)| matches!(s, Source::Cached { .. }))
+            .map(|(l, _)| if l.ends_with("(RECONR)") { "RECONR" } else { "PURR" })
+            .collect();
+        log::info!(
+            "nuclear-data cache: {label} made in {:.1} s{}",
+            ((self.now_ms)() - t0) / 1000.0,
+            if read.is_empty() { String::new() } else { format!(" ({} read from this browser's cache)", read.join(" and ")) }
+        );
         self.made(key, label, p.to_f64s());
         self.sources.push((label.to_string(), Source::Processed));
         Ok(p)
+    }
+
+    /// RECONR at 0 K of the tape whose SHA-256 is `tape_sha`
+    /// (`Nuclide::reconstruct_0k`), from the cache or processed now (gh:#923).
+    /// Stored in the [`ProcessedEvaluation`] encoding, with no 0 K elastic, no
+    /// URR tables and `temp_k` 0.
+    ///
+    /// # Errors
+    ///
+    /// RECONR failed.
+    pub fn reconstruction(&mut self, tape_sha: &str, tape: &Tape, mat: i32, tolerance: f64, label: &str) -> Result<ReconrResult, String> {
+        let key = reconstruction_key(tape_sha, mat, tolerance);
+        let what = format!("{label} (RECONR)");
+        if let Some((w, src)) = self.lookup(&key, &what) {
+            match ProcessedEvaluation::from_f64s(&w) {
+                Ok(p) => {
+                    self.stages.push((what, src));
+                    return Ok(p.recon);
+                }
+                Err(e) => self.note(Miss::Unusable(e.to_string()).note(&what).unwrap_or_default()),
+            }
+        }
+        let recon = Nuclide::reconstruct_0k(tape, mat, tolerance).map_err(|e| format!("{label}: {e}"))?;
+        if self.enabled && self.keep_stages {
+            let words = ProcessedEvaluation { recon, elastic_0k: Vec::new(), urr: None, temp_k: 0.0 }.to_f64s();
+            self.made(key, &what, words.clone());
+            self.stages.push((what, Source::Processed));
+            return ProcessedEvaluation::from_f64s(&words).map(|p| p.recon).map_err(|e| e.to_string());
+        }
+        self.stages.push((what, Source::Processed));
+        Ok(recon)
+    }
+
+    /// PURR's tables at `temp_k` with `settings` `(nbin, nladr, nsamp)` of the
+    /// tape whose SHA-256 is `tape_sha`, from the cache or processed now
+    /// (gh:#923). With [`URR_TABLE_SETTINGS`] this is `Nuclide::urr_tables`.
+    /// Stored as `[0]` for none, else `1` then `UrrProbabilityTables::to_f64s`.
+    ///
+    /// # Errors
+    ///
+    /// PURR failed.
+    pub fn urr_tables(
+        &mut self,
+        tape_sha: &str,
+        tape: &Tape,
+        mat: i32,
+        temp_k: f64,
+        settings: (usize, usize, usize),
+        label: &str,
+    ) -> Result<Option<UrrProbabilityTables>, String> {
+        let key = urr_key(tape_sha, mat, temp_k, settings);
+        let what = format!("{label} (PURR)");
+        if let Some((w, src)) = self.lookup(&key, &what) {
+            let decoded = match w.split_first() {
+                Some((&0.0, [])) => Ok(None),
+                Some((&1.0, rest)) => UrrProbabilityTables::from_f64s(rest).map(Some).map_err(|e| e.to_string()),
+                _ => Err("not a PURR record".to_string()),
+            };
+            match decoded {
+                Ok(t) => {
+                    self.stages.push((what, src));
+                    return Ok(t);
+                }
+                Err(e) => self.note(Miss::Unusable(e).note(&what).unwrap_or_default()),
+            }
+        }
+        // A product at this temperature holds these very tables.
+        if settings == URR_TABLE_SETTINGS && self.enabled {
+            let prefix = evaluation_prefix(tape_sha, mat, temp_k);
+            let mut keys: Vec<String> = self.entries.keys().filter(|k| k.starts_with(&prefix)).cloned().collect();
+            keys.sort();
+            for k in keys {
+                if let Some((w, src)) = self.lookup(&k, &what) {
+                    if let Ok(p) = ProcessedEvaluation::from_f64s(&w) {
+                        if p.temp_k.to_bits() == temp_k.to_bits() {
+                            self.stages.push((what, src));
+                            return Ok(p.urr);
+                        }
+                    }
+                }
+            }
+        }
+        let t = if settings == URR_TABLE_SETTINGS {
+            Nuclide::urr_tables(tape, mat, temp_k)
+        } else {
+            UrrProbabilityTables::from_endf(tape, mat, temp_k, settings.0, settings.1, settings.2)
+        }
+        .map_err(|e| format!("{label}: {e}"))?;
+        if self.enabled && self.keep_stages {
+            let words = match &t {
+                None => vec![0.0],
+                Some(t) => std::iter::once(1.0).chain(t.to_f64s()).collect(),
+            };
+            self.made(key, &what, words);
+        }
+        self.stages.push((what, Source::Processed));
+        Ok(t)
     }
 
     /// A nuclide at a [`SpeedTier`]: `Nuclide::from_tape_with_speed`, with
@@ -559,6 +735,7 @@ mod tests {
             let made = first.nuclide(&bytes, &tape, mat, "U234", temp, speed, "U-234").expect("made");
             assert_eq!(fingerprint(&made, temp), want, "{speed:?}: processed through the store");
             assert_eq!(first.sources[0].1, Source::Processed);
+            // The product alone: a Monte Carlo store keeps no stages (gh:#923).
             let records = first.take_fresh();
             assert_eq!(records.len(), 1);
             assert!(records[0].key.starts_with(&tape_prefix(&sha256_hex(&bytes))));
@@ -571,7 +748,7 @@ mod tests {
             assert!(matches!(second.sources[0].1, Source::Cached { .. }));
             assert!(second.take_fresh().is_empty(), "nothing processed on a hit");
             assert!(second.notes.is_empty());
-            eprintln!("U-234 {speed:?}: {} values identical; record {} words", want.len(), records[0].words.len());
+            eprintln!("U-234 {speed:?}: {} values identical; product record {} words", want.len(), records[0].words.len());
             // Refused records: corrupt, another code, not a product.
             let mut corrupt = records[0].clone();
             corrupt.words[10] += 1.0;
@@ -598,6 +775,79 @@ mod tests {
         mem.forget_offered();
         mem.nuclide(&bytes, &tape, mat, "U234", temp, SpeedTier::VeryFast, "U-234").expect("mem");
         assert!(matches!(mem.sources[1].1, Source::Cached { .. }), "memory remembers");
+    }
+
+    /// **A nuclide made from cached stages is the processed nuclide, bit for
+    /// bit** (gh:#923).
+    ///
+    /// Methodology: U-234 at `Fast` (tolerance 1e-3), as in the test above.
+    /// A first store that keeps stages (the nuclear-data demo's kind)
+    /// processes it at 300.15 K, making three records: RECONR at 0 K, PURR at
+    /// 300.15 K, and the product. (a) A Monte Carlo store offered the two
+    /// stage records but not the product: its nuclide must equal
+    /// `Nuclide::from_tape_with_speed` with no tolerance, both stages read
+    /// from the cache, only the product saved. (b) Another offered RECONR
+    /// alone, asked for 600 K: equal to the direct nuclide at 600 K, RECONR
+    /// read, PURR processed and not saved (a Monte Carlo store keeps no
+    /// stages). Also the keys: no key of one kind is a prefix of another
+    /// (each is fetched by a prefix query), and the evaluation key's PURR
+    /// settings are `URR_TABLE_SETTINGS`.
+    ///
+    /// Results, 2026-10-16 (release): (a) and (b) identical on every
+    /// compared value; stage sources as stated.
+    #[test]
+    fn a_nuclide_made_from_cached_stages_is_the_processed_nuclide_bit_for_bit() {
+        let (nbin, nladr, nsamp) = URR_TABLE_SETTINGS;
+        assert_eq!(PURR, format!("purr={nbin},{nladr},{nsamp}"));
+        let keys = [
+            reconstruction_key("ab", 9228, 1e-3),
+            urr_key("ab", 9228, 300.15, URR_TABLE_SETTINGS),
+            evaluation_key("ab", 9228, 300.15, 1e-3, 1e-3),
+            law_key("ab", 9228, 300.15, "x"),
+        ];
+        for a in &keys {
+            for b in &keys {
+                assert!(a == b || !b.starts_with(a.as_str()), "{a} is a prefix of {b}");
+            }
+        }
+        let Some(bytes) = tape_bytes("n-092_U_234-ENDF8.0.endf") else {
+            eprintln!("SKIP: U-234 not in reference-data/endf/");
+            return;
+        };
+        let (tape, mat) = read(&bytes);
+        let speed = SpeedTier::Fast;
+        let mut first = DataStore::browser().keeping_stages();
+        first.begin_tape(&bytes);
+        first.nuclide(&bytes, &tape, mat, "U234", 300.15, speed, "U-234").expect("made");
+        let records = first.take_fresh();
+        assert_eq!(records.len(), 3, "a store keeping stages saves both and the product");
+        let stages: Vec<Record> = records.iter().filter(|r| !r.key.contains("|pe|")).cloned().collect();
+        assert_eq!(stages.len(), 2);
+        let cached = |s: &[(String, Source)], i: usize| matches!(s[i].1, Source::Cached { .. });
+
+        // (a) both stages from the cache.
+        let want = fingerprint(&Nuclide::from_tape_with_speed(&tape, mat, "U234", 300.15, speed).expect("direct"), 300.15);
+        let mut a = DataStore::browser();
+        a.begin_tape(&bytes);
+        a.offer(stages.clone());
+        let n = a.nuclide(&bytes, &tape, mat, "U234", 300.15, speed, "U-234").expect("from stages");
+        assert_eq!(fingerprint(&n, 300.15), want, "from the cached stages");
+        let st = a.take_stages();
+        assert!(cached(&st, 0) && cached(&st, 1), "{st:?}");
+        assert_eq!(a.take_fresh().len(), 1, "only the product is made");
+
+        // (b) another temperature: RECONR from the cache, PURR made.
+        let rc: Vec<Record> = stages.iter().filter(|r| r.key.contains("|rc0|")).cloned().collect();
+        let want600 = fingerprint(&Nuclide::from_tape_with_speed(&tape, mat, "U234", 600.0, speed).expect("direct"), 600.0);
+        let mut b = DataStore::browser();
+        b.begin_tape(&bytes);
+        b.offer(rc);
+        let n = b.nuclide(&bytes, &tape, mat, "U234", 600.0, speed, "U-234").expect("600 K");
+        assert_eq!(fingerprint(&n, 600.0), want600, "600 K from the cached reconstruction");
+        let st = b.take_stages();
+        assert!(cached(&st, 0) && st[1].1 == Source::Processed, "{st:?}");
+        assert_eq!(b.take_fresh().len(), 1, "the product only: PURR is not saved by a Monte Carlo store");
+        eprintln!("U-234 from stages: {} values identical at 300.15 K, {} at 600 K", want.len(), want600.len());
     }
 
     /// **A cached thermal law is the processed law, bit for bit**: the
