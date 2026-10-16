@@ -29,6 +29,8 @@ eval(fs.readFileSync(path.join(__dirname, "bound.js"), "utf8"));
 Object.assign(window.Lesson, { H: 6.62607015e-34, MN: 1.67492749804e-27, EV: 1.602176634e-19 });
 eval(fs.readFileSync(path.join(__dirname, "bragg.js"), "utf8"));
 eval(fs.readFileSync(path.join(__dirname, "doppler-data.js"), "utf8"));
+window.Lesson.arrow = () => {};
+eval(fs.readFileSync(path.join(__dirname, "lattice.js"), "utf8"));
 const M = window.Lesson.qscatterMath, SH = window.Lesson.shapesMath, AN = window.Lesson.anglesMath;
 let failed = 0;
 function check(name, value, limit) {
@@ -458,6 +460,26 @@ for (const [label, A, ap, E] of [["C-12, 10 eV", 11.89365, 6.146927, 10], ["U-23
   const kta = 8.617333262e-5 * 293.6 / DD.awr;
   check("page 22: kT/A for U-238 at 293.6 K is 1.1e-4 eV (relative)", Math.abs(kta / 1.1e-4 - 1), 0.05);
   check("page 22: E_m = 16kT/A for U-235 at 300 K is 0.0017 eV (relative)", Math.abs(16 * 8.617333262e-5 * 300 / 233.0248 / 0.0017 - 1), 0.05);
+}
+
+// Page 23 (gh:#906 designs, 2026-10-16): the toy phonon rules.
+{
+  const LM = window.Lesson.latticeMath;
+  check("phonons: the toy's highest phonon is scaled to 152 meV", Math.abs(LM.mev(LM.OMAX) - 152), 1e-9);
+  // A kick inside the first zone makes a phonon with q = Q: longitudinal
+  // strength 1, transverse 0 (Q.e = 0).
+  const a = LM.match(0.6 * Math.PI, 0, 0);
+  check("phonons: a first-zone kick pushes only the longitudinal style", Math.abs(a.L.strength - 1) + a.T.strength, 1e-12);
+  // A kick folded back by a reciprocal-lattice vector can push a transverse phonon.
+  const b = LM.match(1.5 * Math.PI, 0.6 * Math.PI, 0);
+  check("phonons: a folded kick gives the transverse style a share", b.fold.gx !== 0 && b.T.strength > 0.05 ? 0 : 1, 0);
+  check("phonons: (Q.e)^2 over the two styles adds to 1", Math.abs(b.L.strength + b.T.strength - 1), 1e-12);
+  // The energy rule: a match exactly at the branch energy, none far off it.
+  const c = LM.match(0.6 * Math.PI, 0, 0), hit = LM.match(0.6 * Math.PI, 0, c.L.mev), miss = LM.match(0.6 * Math.PI, 0, c.L.mev + 40);
+  check("phonons: energy on the longitudinal branch matches, 40 meV off does not", hit.L.hit && !miss.L.hit ? 0 : 1, 0);
+  // Periodicity: Q and Q + G make the same phonon energy.
+  const d = LM.match(0.3 * Math.PI, 0.2 * Math.PI, 0), e = LM.match(2.3 * Math.PI, 0.2 * Math.PI, 0);
+  check("phonons: the dispersion repeats with the reciprocal lattice (meV)", Math.abs(d.L.mev - e.L.mev) + Math.abs(d.T.mev - e.T.mev), 1e-9);
 }
 
 if (failed) { console.log(failed + " check(s) failed"); process.exit(1); }

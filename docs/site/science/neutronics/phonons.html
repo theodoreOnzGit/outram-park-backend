@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>What is a phonon?</title>
+<meta name="description" content="Neutronics, page 23: atoms in a crystal are held by springs, so pushes travel as waves and the lattice vibrates in normal modes. Each mode's energy comes in packets, phonons, which can be counted like particles. A neutron makes or absorbs one by kicking a nucleus; a phonon has a direction and a style, and the kick has to match it.">
+<link rel="stylesheet" href="../../style.css">
+<script src="lesson-kit.js" defer></script>
+<script src="lattice.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Neutronics lessons (gh:#906): page 23 per its design comment and amendments (no dashpot; phonon as a particle; stage 3 one neutron meets one phonon; stage 4 direction and style, its own widget; stage 5 which phonon the kick makes; the standing rule: one new idea per step, each simplification says what it leaves out). Many phonons and rho are the next page. Toy lattices only; the energy scale is anchored to the alpha-quartz LEAPR deck (page 20). Checks in check-physics.js. -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response. <strong>Review status:</strong> AI-assisted first draft (2026-10-16), not yet reviewed by a human.</p>
+
+<h1>What is a phonon?</h1>
+<p class="kicker lesson-progress">Neutronics</p>
+<p>Back to the lattice, and to the physics before the maths. Page 21 said a bound atom exchanges energy through the lattice's vibrations, in steps. What are those vibrations, and what are the steps?</p>
+
+<h2>1. Atoms on springs</h2>
+<p>Each atom sits at its place in the crystal, held there by its bonds to its neighbours. For small movements a bond behaves like a spring (the "harmonic approximation"; real bonds are spring-like only for small displacements). Push one atom and its neighbours follow, so the push <b>travels as a wave</b>.</p>
+
+<section class="widget-card">
+  <h3>A lattice of masses and springs</h3>
+  <div class="widget" id="lattice">
+    <canvas aria-label="A 9 by 9 lattice of masses joined by springs: push an atom, watch a mode, or count phonons in one mode"></canvas>
+  </div>
+  <p class="actions"><button type="button" class="btn" data-stage="push">1 Push</button> <button type="button" class="btn ghost" data-stage="mode">2 Modes</button> <button type="button" class="btn ghost" data-stage="phonon">3 Phonons</button></p>
+  <p class="actions" data-for="mode"><button type="button" class="btn" data-mode="long">Longest wave</button> <button type="button" class="btn ghost" data-mode="short">Shorter wave</button> <button type="button" class="btn ghost" data-mode="optical">Two kinds of atom</button></p>
+  <p class="actions" data-for="phonon"><button type="button" class="btn" data-add>Add a phonon</button> <button type="button" class="btn ghost" data-remove>Remove one</button> <button type="button" class="btn" data-neutron>Send a neutron</button></p>
+  <label class="w-check" data-for="phonon"><input type="checkbox" data-has> The lattice already has a phonon</label>
+  <p class="note">A toy in 2D: real crystals are 3D. No damping: in the ideal lattice the modes do not die away; Reset calms it.</p>
+</section>
+
+<h2>2. The lattice vibrates in fixed patterns</h2>
+<p>A crystal can vibrate only in a set of <b>normal modes</b>: patterns in which every atom moves in step, each with its own frequency, like a guitar string's harmonics. It is page 8's "only certain patterns fit" again. The longest waves are <b>sound</b> in the solid, the acoustic modes. With two kinds of atom in the crystal, neighbours can also move <b>against each other</b>, which vibrates faster: the optical modes.</p>
+
+<h2>3. Each mode's energy comes in particles: phonons</h2>
+<p>Light is a wave, but its energy comes in particles called <b>photons</b>. A lattice vibration is a wave too, and its energy comes in particles called <b>phonons</b>. Each normal mode is a harmonic oscillator (page 9), with equally spaced energy levels, so its energy can only change in steps of &#8463;&omega;: one step is one phonon.</p>
+<ul>
+  <li><b>Count them like particles.</b> A vibrating lattice is a gas of phonons. A hot lattice holds more, a cold one fewer. Adding energy creates phonons; taking it away destroys them. Any number can share one mode, since phonons are bosons.</li>
+  <li><b>They move and collide.</b> Phonons travel through the crystal (that is how heat moves through an electrical insulator) and scatter off each other.</li>
+  <li><b>But only inside the material.</b> A phonon is a <b>quasiparticle</b>: a collective motion of many atoms, which cannot leave the crystal the way a photon leaves a lamp.</li>
+</ul>
+<p><b>Why quantum steps matter here.</b> Atoms are about 0.1 nm apart (ångströms); nuclei are femtometres across, a hundred thousand times smaller. But size alone does not decide whether the steps matter: <b>the step &#8463;&omega; compared with the other energies does</b>. Phonon steps run up to about 0.15 eV (quartz's spectrum, page 20); a thermal neutron has 0.0253 eV, the same order. So for a thermal neutron the steps cannot be ignored. For a MeV neutron they are negligible, which is why it sees free atoms (page 20).</p>
+
+<h3>One neutron meets one phonon</h3>
+<p>The neutron never hits a phonon directly: it only feels nuclei, through the short-range nuclear force. But the nuclei are tied together. When the neutron kicks one, the kick passes into the lattice's vibration, and <b>a phonon is created</b>. If the lattice is already vibrating, the neutron can <b>pick up</b> that energy, and <b>a phonon is absorbed</b>. Written as a collision, like page 2:</p>
+<ul>
+  <li><b>Creation</b> (the neutron loses energy): neutron (E) &rarr; neutron (E&prime;) + phonon (&#8463;&omega;), with E &minus; E&prime; = &#8463;&omega;.</li>
+  <li><b>Absorption</b> (the neutron gains energy): neutron (E) + phonon (&#8463;&omega;) &rarr; neutron (E&prime;), with E&prime; &minus; E = &#8463;&omega;.</li>
+</ul>
+<p>Press <b>Send a neutron</b> in stage 3: the count goes up by one and the neutron's energy goes down by exactly one phonon's worth. Tick "already has a phonon" and send another: the reverse.</p>
+
+<h2>4. A phonon has a direction and a style</h2>
+<p>Still one phonon. Two things label it: which way its wave travels, and how long that wave is; and its <b>polarisation</b>, its style: how the atoms move compared with that direction.</p>
+<ul>
+  <li><b>Longitudinal</b>: the atoms move back and forth <b>along</b> the travel direction, like sound or a pushed slinky.</li>
+  <li><b>Transverse</b>: the atoms move <b>across</b> it, like a wave on a rope. In 3D there are two sideways directions, so two transverse styles; this 2D toy shows one.</li>
+</ul>
+
+<section class="widget-card">
+  <h3>One phonon, and the kick that makes it</h3>
+  <div class="widget" id="phonon">
+    <canvas aria-label="One phonon travelling across a lattice, with separate arrows for where the wave travels and how the atoms move; or a neutron's kick and the phonon it makes"></canvas>
+  </div>
+  <p class="actions"><button type="button" class="btn" data-pstage="one">4 One phonon</button> <button type="button" class="btn ghost" data-pstage="kick">5 The neutron's kick</button></p>
+  <p class="actions" data-for="one"><button type="button" class="btn" data-style="L">Along (longitudinal)</button> <button type="button" class="btn ghost" data-style="T">Across (transverse)</button></p>
+  <label class="energy-control" data-for="one"><span>Direction <b data-theta-out></b></span><input type="range" data-theta min="0" max="180" step="1" value="0" aria-label="Direction the phonon travels, in degrees"></label>
+  <label class="energy-control" data-for="one"><span>Wavelength <b data-lam-out></b></span><input type="range" data-lam min="2" max="12" step="0.1" value="6" aria-label="Phonon wavelength in lattice spacings"></label>
+  <label class="energy-control" data-for="kick"><span>Kick direction <b data-qang-out></b></span><input type="range" data-qang min="0" max="90" step="1" value="0" aria-label="Direction of the neutron's kick, in degrees"></label>
+  <label class="energy-control" data-for="kick"><span>Kick size <b data-qmag-out></b></span><input type="range" data-qmag min="0.1" max="1.9" step="0.01" value="0.6" aria-label="Size of the neutron's kick"></label>
+  <label class="energy-control" data-for="kick"><span>Energy the neutron gives <b data-de-out></b></span><input type="range" data-de min="1" max="152" step="1" value="60" aria-label="Energy the neutron loses, in meV"></label>
+  <p class="note">The same toy, as one travelling wave. Brown arrow: where the wave travels; teal: how the atoms move. Toy energies, scaled as above.</p>
+</section>
+
+<h2>5. Which phonon does the neutron make?</h2>
+<p>The neutron cannot make just any phonon. Its kick has to <b>match</b> one, as a resonance needs the incoming energy to match a level (pages 8 and 12). Two rules, in words:</p>
+<ol>
+  <li><b>Energy and wavelength must fit.</b> The energy the neutron loses must equal the phonon's &#8463;&omega;, and the kick must fit the phonon's wavelength and direction. Each phonon pairs one wavelength with one energy, so only kicks that land on an allowed pair make a phonon. Move the energy slider in stage 5: off the curve, nothing.</li>
+  <li><b>The style must fit the push.</b> The neutron pushes the nucleus along its kick, so it mostly makes phonons whose atoms move <b>along</b> the kick. A transverse phonon running along the kick is hard to make.</li>
+</ol>
+<details class="optional">
+  <summary>Like a resonance, and not</summary>
+  <p><b>Like</b> a resonance: there is an event only when the neutron offers exactly what the system allows, the "allowed states" idea again. <b>Not</b> a resonance: nothing is absorbed, there is no compound nucleus, and no Breit&ndash;Wigner peak with a lifetime width. The neutron bounces off and leaves the phonon behind.</p>
+</details>
+<details class="optional">
+  <summary>Deeper: crystal momentum and (Q&middot;e)&sup2;</summary>
+  <p>A phonon's direction and wavelength are its wavevector <b>q</b>; it carries crystal momentum &#8463;<b>q</b>. Rule 1 is conservation of energy and of crystal momentum: the neutron's momentum change &#8463;<b>Q</b> must equal &#8463;<b>q</b> up to a vector of the reciprocal lattice <b>G</b>, the same periodicity behind Bragg scattering (page 21). Rule 2 is the factor (<b>Q</b>&middot;<b>e</b>)&sup2; in the one-phonon cross section, <b>e</b> being the atoms' direction of motion in the phonon <a href="#ref-squires2012thermal">(Squires, 2012)</a>. In the widget, a kick longer than the shortest allowed wave is folded back by a lattice vector, and then a transverse phonon can be pushed. Both rules are cleanest for coherent scattering in a single crystal; for hydrogen, which scatters incoherently, and for polycrystals and liquids, the direction matching averages out, and only the energy match survives. That is where the next page starts.</p>
+</details>
+
+<h2>Why is this so? And more than one?</h2>
+<p>So far, one phonon at a time. <b>Can a collision involve more than one phonon?</b></p>
+
+<nav class="lesson-nav" aria-label="Lessons" data-next-soon="Next: can we have more than one phonon?"></nav>
+
+<!-- references:begin -->
+<h2>References</h2>
+
+<p class="csl-entry" id="ref-squires2012thermal" style="padding-left: 2em; text-indent: -2em;">Squires, G. L. (2012). <i>Introduction to the Theory of Thermal Neutron Scattering</i> (3rd ed.). Cambridge University Press. https://doi.org/10.1017/CBO9781139107808</p>
+
+<!-- references:end -->
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. GPL-3.0. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>
