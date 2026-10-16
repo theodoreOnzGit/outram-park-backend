@@ -1,3 +1,4 @@
+use petir::mathf::RealMath;
 use uom::si::{f64::*, pressure::megapascal, specific_heat_capacity::kilojoule_per_kilogram_kelvin};
 
 /// based on table 2.29
@@ -35,7 +36,7 @@ pub fn p_s3_s(s: SpecificHeatCapacity) -> Pressure {
         let ji = coeffs[1];
         let ni = coeffs[2];
 
-        pi += ni * (sigma - 1.03).powi(ii as i32) * (sigma - 0.699).powi(ji as i32);
+        pi += ni * (sigma - 1.03).r_powi(ii as i32) * (sigma - 0.699).r_powi(ji as i32);
     }
 
     return pi * p_ref;

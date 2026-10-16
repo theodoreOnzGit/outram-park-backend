@@ -26,6 +26,7 @@ const REGION_1_BACK_COEFFS_PH: [[f64; 3]; 20] = [
     [6.0, 32.0, -0.15020185953503e-16],
 ];
 
+use petir::mathf::RealMath;
 use uom::si::{
     available_energy::kilojoule_per_kilogram, f64::*, pressure::megapascal,
     thermodynamic_temperature::kelvin,
@@ -62,7 +63,7 @@ pub fn theta_ph_1(p: Pressure, h: AvailableEnergy) -> f64 {
         let ii = coefficient[0] as i32;
         let ji = coefficient[1] as i32;
         let ni = coefficient[2];
-        sum += ni * pi.powi(ii) * (eta + 1.0).powi(ji);
+        sum += ni * pi.r_powi(ii) * (eta + 1.0).r_powi(ji);
     }
     sum
 }

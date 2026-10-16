@@ -1,3 +1,4 @@
+use petir::mathf::RealMath;
 use uom::si::thermodynamic_temperature::kelvin;
 use uom::si::pressure::{megapascal, pascal};
 use uom::si::f64::*;
@@ -32,7 +33,7 @@ pub fn p_2b2c(h: AvailableEnergy) -> Pressure {
     let n1 = 0.90584278514723e3;
     let n2 = -0.67955786399241;
     let n3 = 0.12809002730136e-3;
-    let p_2b2c = (n1 + n2 * eta + n3 * eta.powi(2)) * p_ref;
+    let p_2b2c = (n1 + n2 * eta + n3 * eta.r_powi(2)) * p_ref;
 
     p_2b2c
 }
@@ -107,7 +108,7 @@ pub fn t_ph_2a(pi: f64, eta: f64) -> ThermodynamicTemperature {
     let x: [usize; 34] = core::array::from_fn(|i| i + 1);
     let theta: f64 = x
         .into_iter()
-        .map(|x| n[x - 1] * pi.powi(i[x - 1]) * (eta - 2.1).powi(j[x - 1]))
+        .map(|x| n[x - 1] * pi.r_powi(i[x - 1]) * (eta - 2.1).r_powi(j[x - 1]))
         .sum();
 
     let t_ref_kelvin: f64 = 1.0;
@@ -173,7 +174,7 @@ pub fn t_ph_2b(pi: f64, eta: f64) -> ThermodynamicTemperature {
 
     let theta: f64 = x
         .into_iter()
-        .map(|x| n[x - 1] * (pi - 2.0).powi(i[x - 1]) * (eta - 2.6).powi(j[x - 1]))
+        .map(|x| n[x - 1] * (pi - 2.0).r_powi(i[x - 1]) * (eta - 2.6).r_powi(j[x - 1]))
         .sum();
     let t_ref_kelvin: f64 = 1.0;
     return ThermodynamicTemperature::new::<kelvin>(theta * t_ref_kelvin);
@@ -220,7 +221,7 @@ pub fn t_ph_2c(pi: f64, eta: f64) -> ThermodynamicTemperature {
     let x: [usize; 23] = core::array::from_fn(|i| i + 1);
     let theta: f64 = x
         .into_iter()
-        .map(|x| n[x - 1] * (pi + 25.0).powi(i[x - 1]) * (eta - 1.8).powi(j[x - 1]))
+        .map(|x| n[x - 1] * (pi + 25.0).r_powi(i[x - 1]) * (eta - 1.8).r_powi(j[x - 1]))
         .sum();
     let t_ref_kelvin: f64 = 1.0;
     return ThermodynamicTemperature::new::<kelvin>(theta * t_ref_kelvin);

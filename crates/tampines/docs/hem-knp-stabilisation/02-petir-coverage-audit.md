@@ -18,8 +18,18 @@ quantity methods and any user method with the same name, so treat the counts as
    files) and **zero** raw `.powf(`. What still reaches the platform on the HEM
    hot path is almost entirely **`f64::powi`, about 258 sites in the IF97
    regions and backward equations**, plus one `.atan(` in thermal conductivity.
-2. **`outram-park-fork-coolprop` has not been migrated at all.** It has 0 `r_*`
-   sites. Its HEM hot path (`eos.rs`, `transport.rs`, `flash.rs`, `vle.rs`,
+   **DONE 2026-10-16 (S2, gh:#903):** 259 `powi`, 1 `atan`, 8 `ln` and 1
+   `exp` (the last nine in `rho_h_flash_eqm`, which this audit had not
+   counted) moved to `r_*`; gated by
+   `tampines-steam-tables/tests/no_platform_libm_on_hot_path.rs`. Moves are
+   recorded in `tampines-steam-tables/verification_and_validation/determinism_golden_moves.md`.
+2. ~~**`outram-park-fork-coolprop` has not been migrated at all.** It has 0 `r_*`
+   sites.~~ **DONE 2026-10-16 (S3, gh:#903)** for the six files below: exactly
+   71 exp, 15 ln, 131 powf, 83 powi, 1 sin and 1 atan now go through
+   `RealMath`, gated by `outram-park-fork-coolprop/tests/no_platform_libm_on_hot_path.rs`.
+   The rest of the crate (`humid_air`, `mixtures`, `incompressibles`,
+   `openfoam_algorithms`, `transport_corresponding_states.rs`) is still
+   unmigrated. The original finding: its HEM hot path (`eos.rs`, `transport.rs`, `flash.rs`, `vle.rs`,
    `ancillaries.rs`, `props.rs`) has **about 71 exp, 15 ln, 131 powf, 83 powi
    and 2 trig** calls.
 3. **`outram-foam-basic-lib` is not on the transcendental hot path.** Tampines
@@ -147,6 +157,16 @@ verified: LLVM constant-folds `llvm.powi` with both arguments constant using the
 is right, the risk is concentrated in constant-argument sites, and IF97's
 `x.powi(ii)` with a runtime base is probably already deterministic.
 
+**MEASURED 2026-10-16 (S2), x86_64-linux:** the constant-folding mechanism
+is real, and it differs *within one target*. `sat_pressure_4(453.15 K)`, with
+a literal temperature in a lib test, gave `1002634.5688120957 Pa` through
+`f64::powi` (folded at compile time) and `…0954 Pa` through `r_powi`; the
+same expression with the temperature behind `black_box` gives the `r_powi`
+bits through `f64::powi` too (scratch reproduction). The triple-point
+`p_triple()` moved by 1 ulp the same way. At runtime-base sites, `f64::powi`
+and `r_powi` agreed on 2 000 000 of 2 000 000 random samples and on every
+Part A/B sub-hash.
+
 ### 2b. External numerics crates
 
 | crate | Cargo deps | where used |
@@ -196,7 +216,10 @@ Remaining platform calls, non-test:
 | backward ph/ps/hs | 5 powi |
 | thermal_conductivity | 7 powi, 1 atan |
 
-That is **≈258 powi and 1 atan**. Everything else is already `r_*` or `sqrt`.
+That is **≈258 powi and 1 atan**. ~~Everything else is already `r_*` or `sqrt`.~~
+**CORRECTED 2026-10-16 (S2):** `interfaces/functional_programming/rho_h_flash_eqm/mod.rs`
+(`p_rho_h_eqm`, on the solver path) also had 8 raw `ln`, 1 `exp` and 1 `powi`;
+the S0 negative control caught it, and S2 migrated it.
 The chebyshev `p_rho_h` (24 `log10`) is **not** on the solver path: only
 `p_rho_h_eqm_explicit` uses it, and the solver calls the iterative
 `p_rho_h_eqm`.

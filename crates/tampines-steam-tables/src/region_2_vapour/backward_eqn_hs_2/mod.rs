@@ -57,7 +57,7 @@ pub(crate) fn p_hs_2a(h: AvailableEnergy, s: SpecificHeatCapacity) -> Pressure {
         pi += ni * (eta - 0.5).r_powf(ii) * (sigma - 1.2).r_powf(ji);
     }
 
-    return pi.powi(4) * p_ref;
+    return pi.r_powi(4) * p_ref;
 }
 
 #[inline]
@@ -79,7 +79,7 @@ pub(crate) fn p_hs_2b(h: AvailableEnergy, s: SpecificHeatCapacity) -> Pressure {
         pi += ni * (eta - 0.6).r_powf(ii) * (sigma - 1.01).r_powf(ji);
     }
 
-    return pi.powi(4) * p_ref;
+    return pi.r_powi(4) * p_ref;
 }
 
 #[inline]
@@ -101,7 +101,7 @@ pub(crate) fn p_hs_2c(h: AvailableEnergy, s: SpecificHeatCapacity) -> Pressure {
         pi += ni * (eta - 0.7).r_powf(ii) * (sigma - 1.1).r_powf(ji);
     }
 
-    return pi.powi(4) * p_ref;
+    return pi.r_powi(4) * p_ref;
 }
 
 /// based on table 2.82

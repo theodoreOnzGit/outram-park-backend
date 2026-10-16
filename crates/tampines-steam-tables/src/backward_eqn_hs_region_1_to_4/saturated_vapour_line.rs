@@ -103,5 +103,5 @@ pub fn h2c3b_prime_s_boundary_enthalpy(s: SpecificHeatCapacity) -> AvailableEner
         eta += ni * (sigma - 1.02).r_powf(ii) * (sigma - 0.726).r_powf(ji);
     }
 
-    return h_ref * eta.powi(4);
+    return h_ref * eta.r_powi(4);
 }

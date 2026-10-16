@@ -13,7 +13,7 @@ pub fn gamma_5_ideal(t: ThermodynamicTemperature, p: Pressure) -> f64 {
     for coefficient in REGION_5_COEFFS_IDEAL {
         let ji: i32 = coefficient[0] as i32;
         let ni: f64 = coefficient[1];
-        sum += ni * tau.powi(ji);
+        sum += ni * tau.r_powi(ji);
     }
     pi.r_ln() + sum
 }
@@ -27,7 +27,7 @@ pub fn gamma_tau_tau_5_ideal(t: ThermodynamicTemperature, _p: Pressure) -> f64 {
     for coefficient in REGION_5_COEFFS_IDEAL {
         let ji: f64 = coefficient[0];
         let ni: f64 = coefficient[1];
-        sum += ni * ji * (ji - 1.0) * tau.powi(ji as i32 - 2);
+        sum += ni * ji * (ji - 1.0) * tau.r_powi(ji as i32 - 2);
     }
     sum
 }
@@ -47,7 +47,7 @@ pub fn gamma_tau_5_ideal(t: ThermodynamicTemperature, _p: Pressure) -> f64 {
     for coefficient in REGION_5_COEFFS_IDEAL {
         let ji: f64 = coefficient[0];
         let ni: f64 = coefficient[1];
-        sum += ni * ji * tau.powi(ji as i32 - 1);
+        sum += ni * ji * tau.r_powi(ji as i32 - 1);
     }
     sum
 }

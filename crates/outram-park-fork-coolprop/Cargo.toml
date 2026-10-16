@@ -48,6 +48,9 @@ maturity = 2
 [dependencies]
 # erf / erfc / tgamma / lgamma in pure Rust, replacing the `extern "C"` calls
 # into the system C libm (bn:op-chyp.6). PETIR is no_std with only `libm`.
+# Since 2026-10-16 (gh:#903 S3) also `petir::mathf::RealMath` for every
+# exp/ln/powf/powi/sin/atan on the HEM hot path (eos, transport, flash, vle,
+# ancillaries, props), gated by tests/no_platform_libm_on_hot_path.rs.
 petir.workspace = true
 uom.workspace = true
 # The FvMesh, MeshError, 1-D mesher and tensor primitives of

@@ -59,15 +59,18 @@
 //!   Each run hashes `p`, `he`, `rho` and `U` after steps 1, 10, 50 and 200,
 //!   so a divergence can be dated.
 //!
-//! # The goldens are PRE-MIGRATION and PLATFORM-SPECIFIC
+//! # The goldens are PLATFORM-SPECIFIC (~~PRE-MIGRATION~~ post-S2 since 2026-10-16)
 //!
 //! `GOLDEN` holds the hashes measured on **x86_64-unknown-linux-gnu, release,
-//! 2026-10-16**. That is before stage S2 moves the IF97 `powi` sites onto
-//! `petir`. The test asserts them **only on x86_64 Linux**. On any other
-//! target it prints its hashes and passes, because cross-target equality is
+//! 2026-10-16**. ~~That is before stage S2 moves the IF97 `powi` sites onto
+//! `petir`.~~ **UPDATED 2026-10-16:** they were regenerated after stage S2
+//! moved the IF97 hot path onto `petir` (see "Golden history"). The test asserts them **only on x86_64 Linux**. On any other
+//! target it prints its hashes and passes. ~~because cross-target equality is
 //! **not yet expected**. The negative control below shows the native and wasm
-//! hashes differ today. Turning this into a cross-target gate is S2's
-//! acceptance criterion, and the CI wiring is out of scope here (see below).
+//! hashes differ today.~~ After S2, native and wasm32-wasip1 agree on every
+//! library sub-hash; only the deliberate raw-`std` canary `std_libm` differs,
+//! so a cross-target gate must exempt it. Wiring that gate into CI (Windows
+//! MSVC and macOS included) is still out of scope here (see below).
 //!
 //! **Golden history.** 2026-10-16: all Part B (`edw_*`) goldens were
 //! regenerated after gh:#900 changed `TampinesSteamArray`'s defaults to
@@ -76,6 +79,15 @@
 //! from step 1. That is the expected physics change, not a determinism
 //! regression. Part A (IF97 sweep) did not move. The record is in
 //! `verification_and_validation/determinism_golden_moves.md`.
+//!
+//! 2026-10-16, **stage S2 done**: the IF97 hot path is now on petir
+//! (`r_powi`, `r_atan`, `r_ln`, `r_exp`), gated by
+//! `tests/no_platform_libm_on_hot_path.rs`. ~~The goldens are pre-migration.~~
+//! They are now **post-S2**: `lambda_ph` (1 value, 1 ulp) and `p_rho_h` (134
+//! values, ≤ 5e-13 relative) moved; nothing else did, Part B included. A
+//! `petir_libm` positive-control probe was added beside `std_libm`. The
+//! native-vs-wasm re-run after the migration is under "Negative control"
+//! below.
 //!
 //! When a golden moves for a legitimate reason, regenerate it with
 //! `DETERMINISM_PRINT=1` and record the move (old hash, new hash, cause) in a
@@ -137,6 +149,14 @@
 //! The discriminating targets for that path are Windows MSVC and macOS. Both
 //! are named in the CI plan below, and neither can be run in this container.
 //!
+//! **Re-run after S2 (2026-10-16, same pair, same runner).** Prediction,
+//! written before the run: `lambda_ph` and `p_rho_h` now agree, `std_libm`
+//! still differs (it is raw `std` in this file by design), so 59 of 60.
+//! **Result: 60 of 61 agree** (59 of the original 60, plus the new
+//! `petir_libm`, which agrees). `lambda_ph` and `p_rho_h` agree; the only
+//! differing sub-hash is `std_libm`. `NEGATIVE_CONTROL` below is kept as the
+//! pre-migration record.
+//!
 //! Running it: the wasm run was made from a git worktree nested inside the
 //! main checkout. There Cargo merges both `.cargo/config.toml` files and
 //! concatenates their `runner` arrays, so the runner failed ("ENOENT: open
@@ -154,6 +174,8 @@
 //! only once S2/S3 claim cross-target equality.
 
 use std::sync::OnceLock;
+
+use petir::mathf::RealMath;
 
 use tampines_steam_tables::interfaces::functional_programming::ph_flash_eqm::{
     kappa_t_ph_eqm, lambda_ph_eqm, ph_flash_region, s_ph_eqm, t_ph_eqm, v_ph_eqm, x_ph_flash,
@@ -248,7 +270,8 @@ impl Fnv {
 }
 
 /// Native golden hashes, `(sub-hash name, value count, hash)`.
-/// x86_64-unknown-linux-gnu, release, 2026-10-16, PRE-migration.
+/// x86_64-unknown-linux-gnu, release, 2026-10-16, ~~PRE-migration~~ post-S2
+/// (`lambda_ph`, `p_rho_h` regenerated, `petir_libm` added; see the module docs).
 const GOLDEN: &[(&str, usize, u64)] = &[
     // GOLDEN-TABLE-START
     ("t_ph", 2164, 0xfe7442848ca7f258),
@@ -257,12 +280,13 @@ const GOLDEN: &[(&str, usize, u64)] = &[
     ("x_ph", 2164, 0x7525347c80e73231),
     ("kappa_t_ph", 2164, 0x30e98ac17f829393),
     ("mu_ph", 2164, 0xf94a3d0371d786d7),
-    ("lambda_ph", 2164, 0x2623fc41179960f4),
+    ("lambda_ph", 2164, 0xf2fb2a32e2b829c9),
     ("hem_sound", 2164, 0x2703fa131e5f029b),
-    ("p_rho_h", 2164, 0xe8efa026bd513b32),
+    ("p_rho_h", 2164, 0x8a482250694e65de),
     ("powi_const", 7, 0x29117476631d81ac),
     ("powi_runtime", 2007, 0x2eecdc58aa489499),
     ("std_libm", 2500, 0xc001414e982af1cb),
+    ("petir_libm", 2500, 0x6dfb4db67eae5e27),
     ("edw_pimple_p_1", 24, 0x5c438839a9588fe5),
     ("edw_pimple_he_1", 24, 0x99e80f2836e95484),
     ("edw_pimple_rho_1", 24, 0xbf05587125d7c7a4),
@@ -536,6 +560,20 @@ fn part_a() -> Vec<(String, usize, u64)> {
         s.push(x.cbrt());
     }
     out.push(("std_libm".into(), s.n, s.h));
+
+    // Positive control (added 2026-10-16, S2): the same samples through petir
+    // `RealMath`, the route S2 moved the library onto. `std_libm` above stays
+    // raw on purpose: it is the canary that shows the platform still differs.
+    let mut q = Fnv::new("petir_libm");
+    for k in 1..=500 {
+        let x = std::hint::black_box(0.0371 * k as f64);
+        q.push(x.r_exp());
+        q.push(x.r_ln());
+        q.push(x.r_powf(1.37));
+        q.push(x.r_sin());
+        q.push(x.r_cbrt());
+    }
+    out.push(("petir_libm".into(), q.n, q.h));
     out
 }
 

@@ -1,3 +1,4 @@
+use petir::mathf::RealMath;
 use super::{pi_5, tau_5, REGION_5_COEFFS_RES};
 use uom::si::f64::*;
 
@@ -12,7 +13,7 @@ pub fn gamma_5_res(t: ThermodynamicTemperature, p: Pressure) -> f64 {
         let ii: i32 = coefficient[0] as i32;
         let ji: i32 = coefficient[1] as i32;
         let ni: f64 = coefficient[2];
-        sum += ni * pi.powi(ii) * tau.powi(ji);
+        sum += ni * pi.r_powi(ii) * tau.r_powi(ji);
     }
     sum
 }
@@ -28,7 +29,7 @@ pub fn gamma_tau_tau_5_res(t: ThermodynamicTemperature, p: Pressure) -> f64 {
         let ii: i32 = coefficient[0] as i32;
         let ji: f64 = coefficient[1];
         let ni: f64 = coefficient[2];
-        sum += ni * pi.powi(ii) * ji * (ji - 1.0) * tau.powi(ji as i32 - 2);
+        sum += ni * pi.r_powi(ii) * ji * (ji - 1.0) * tau.r_powi(ji as i32 - 2);
     }
     sum
 }
@@ -44,7 +45,7 @@ pub fn gamma_pi_5_res(t: ThermodynamicTemperature, p: Pressure) -> f64 {
         let ii: f64 = coefficient[0];
         let ji: i32 = coefficient[1] as i32;
         let ni: f64 = coefficient[2];
-        sum += ni * ii * pi.powi(ii as i32 - 1) * tau.powi(ji);
+        sum += ni * ii * pi.r_powi(ii as i32 - 1) * tau.r_powi(ji);
     }
     sum
 }
@@ -60,7 +61,7 @@ pub fn gamma_pi_pi_5_res(t: ThermodynamicTemperature, p: Pressure) -> f64 {
         let ii: f64 = coefficient[0];
         let ji: i32 = coefficient[1] as i32;
         let ni: f64 = coefficient[2];
-        sum += ni * ii * (ii - 1.0) * pi.powi(ii as i32 - 2) * tau.powi(ji);
+        sum += ni * ii * (ii - 1.0) * pi.r_powi(ii as i32 - 2) * tau.r_powi(ji);
     }
     sum
 }
@@ -76,7 +77,7 @@ pub fn gamma_tau_5_res(t: ThermodynamicTemperature, p: Pressure) -> f64 {
         let ii: i32 = coefficient[0] as i32;
         let ji: f64 = coefficient[1];
         let ni: f64 = coefficient[2];
-        sum += ni * pi.powi(ii) * ji * tau.powi(ji as i32 - 1);
+        sum += ni * pi.r_powi(ii) * ji * tau.r_powi(ji as i32 - 1);
     }
     sum
 }
@@ -91,7 +92,7 @@ pub fn gamma_pi_tau_5_res(t: ThermodynamicTemperature, p: Pressure) -> f64 {
         let ii: f64 = coefficient[0];
         let ji: f64 = coefficient[1];
         let ni: f64 = coefficient[2];
-        sum += ni * ii * pi.powi(ii as i32 - 1) * ji * tau.powi(ji as i32 - 1);
+        sum += ni * ii * pi.r_powi(ii as i32 - 1) * ji * tau.r_powi(ji as i32 - 1);
     }
     sum
 }

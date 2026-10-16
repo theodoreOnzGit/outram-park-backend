@@ -22,6 +22,7 @@
 //! (for the initial guess). Near the critical point the two densities merge and
 //! the Newton system stiffens; callers get [`None`] rather than a wrong number.
 
+use petir::mathf::RealMath;
 use crate::ancillaries::FluidAncillaries;
 use crate::fluid::Fluid;
 use crate::props::state_trho;
@@ -75,7 +76,7 @@ pub fn saturation_at_temperature(fluid: Fluid, t: f64) -> Option<SaturationState
         let big_a_l = delta_l * (1.0 + delta_l * ad_l);
         let big_a_v = delta_v * (1.0 + delta_v * ad_v);
         let f1 = big_a_l - big_a_v;
-        let f2 = (delta_l / delta_v).ln() + (a_l - a_v) + (delta_l * ad_l - delta_v * ad_v);
+        let f2 = (delta_l / delta_v).r_ln() + (a_l - a_v) + (delta_l * ad_l - delta_v * ad_v);
 
         // dA_i/dδ_i = 1 + 2 δ_i α_δ + δ_i² α_δδ  (the isothermal p-slope factor).
         let da_l = 1.0 + 2.0 * delta_l * ad_l + delta_l * delta_l * add_l;

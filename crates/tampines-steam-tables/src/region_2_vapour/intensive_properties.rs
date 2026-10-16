@@ -1,3 +1,4 @@
+use petir::mathf::RealMath;
 use uom::si::f64::*;
 
 use crate::constants::specific_gas_constant_of_water;
@@ -54,7 +55,7 @@ pub fn s_tp_2(t: ThermodynamicTemperature, p: Pressure) -> SpecificHeatCapacity 
 pub fn cp_tp_2(t: ThermodynamicTemperature, p: Pressure) -> SpecificHeatCapacity {
     let tau = tau_2(t);
     -specific_gas_constant_of_water()
-        * tau.powi(2)
+        * tau.r_powi(2)
         * (gamma_tau_tau_2_ideal(t, p) + gamma_tau_tau_2_res(t, p))
 }
 
@@ -64,8 +65,8 @@ pub fn cp_tp_2(t: ThermodynamicTemperature, p: Pressure) -> SpecificHeatCapacity
 pub fn cv_tp_2(t: ThermodynamicTemperature, p: Pressure) -> SpecificHeatCapacity {
     let tau = tau_2(t);
     let pi = pi_2(p);
-    let num = (1.0 + pi * gamma_pi_2_res(t, p) - tau * pi * gamma_pi_tau_2_res(t, p)).powi(2);
-    let den = 1.0 - pi.powi(2) * gamma_pi_pi_2_res(t, p);
+    let num = (1.0 + pi * gamma_pi_2_res(t, p) - tau * pi * gamma_pi_tau_2_res(t, p)).r_powi(2);
+    let den = 1.0 - pi.r_powi(2) * gamma_pi_pi_2_res(t, p);
     cp_tp_2(t, p) - specific_gas_constant_of_water() * num / den
 }
 
@@ -75,10 +76,10 @@ pub fn cv_tp_2(t: ThermodynamicTemperature, p: Pressure) -> SpecificHeatCapacity
 pub fn w_tp_2(t: ThermodynamicTemperature, p: Pressure) -> Velocity {
     let tau = tau_2(t);
     let pi = pi_2(p);
-    let num = 1.0 + 2.0 * pi * gamma_pi_2_res(t, p) + pi.powi(2) * gamma_pi_2_res(t, p).powi(2);
-    let subnum = (1.0 + pi * gamma_pi_2_res(t, p) - tau * pi * gamma_pi_tau_2_res(t, p)).powi(2);
-    let subden = tau.powi(2) * (gamma_tau_tau_2_ideal(t, p) + gamma_tau_tau_2_res(t, p));
-    let den = 1.0 - pi.powi(2) * gamma_pi_pi_2_res(t, p) + subnum / subden;
+    let num = 1.0 + 2.0 * pi * gamma_pi_2_res(t, p) + pi.r_powi(2) * gamma_pi_2_res(t, p).r_powi(2);
+    let subnum = (1.0 + pi * gamma_pi_2_res(t, p) - tau * pi * gamma_pi_tau_2_res(t, p)).r_powi(2);
+    let subden = tau.r_powi(2) * (gamma_tau_tau_2_ideal(t, p) + gamma_tau_tau_2_res(t, p));
+    let den = 1.0 - pi.r_powi(2) * gamma_pi_pi_2_res(t, p) + subnum / subden;
     ((specific_gas_constant_of_water() * t) * num / den).sqrt()
 }
 
@@ -86,10 +87,10 @@ pub fn w_tp_2(t: ThermodynamicTemperature, p: Pressure) -> Velocity {
 pub fn kappa_tp_2(t: ThermodynamicTemperature, p: Pressure) -> Ratio {
     let tau = tau_2(t);
     let pi = pi_2(p);
-    let num = 1.0 + 2.0 * pi * gamma_pi_2_res(t, p) + pi.powi(2) * gamma_pi_2_res(t, p).powi(2);
-    let subnum = (1.0 + pi * gamma_pi_2_res(t, p) - tau * pi * gamma_pi_tau_2_res(t, p)).powi(2);
-    let subden = tau.powi(2) * (gamma_tau_tau_2_ideal(t, p) + gamma_tau_tau_2_res(t, p));
-    let den = (1.0 - pi.powi(2) * gamma_pi_pi_2_res(t, p) + subnum / subden)
+    let num = 1.0 + 2.0 * pi * gamma_pi_2_res(t, p) + pi.r_powi(2) * gamma_pi_2_res(t, p).r_powi(2);
+    let subnum = (1.0 + pi * gamma_pi_2_res(t, p) - tau * pi * gamma_pi_tau_2_res(t, p)).r_powi(2);
+    let subden = tau.r_powi(2) * (gamma_tau_tau_2_ideal(t, p) + gamma_tau_tau_2_res(t, p));
+    let den = (1.0 - pi.r_powi(2) * gamma_pi_pi_2_res(t, p) + subnum / subden)
         * pi
         * (gamma_pi_2_ideal(t, p) + gamma_pi_2_res(t, p));
 
@@ -110,7 +111,7 @@ pub fn alpha_v_tp_2(t: ThermodynamicTemperature, p: Pressure) -> TemperatureCoef
 /// Returns the region-2 isobaric isothermal compressibility
 pub fn kappa_t_tp_2(t: ThermodynamicTemperature, p: Pressure) -> InversePressure {
     let pi = pi_2(p);
-    let num = 1.0 - pi.powi(2) * gamma_pi_pi_2_res(t, p);
+    let num = 1.0 - pi.r_powi(2) * gamma_pi_pi_2_res(t, p);
     let den = 1.0 + pi * gamma_pi_2_res(t, p);
 
     return (num / den) / p;
