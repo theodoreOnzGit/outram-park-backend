@@ -452,6 +452,13 @@ enum Command {
         #[arg(long, default_value = commands::code_walk::render::DEFAULT_REPO_URL)]
         repo_url: String,
     },
+    /// Full-text search index of a built Pages site (gh:#876 item 8): walks
+    /// the site directory and writes `<site>/search-text.json`, which the
+    /// landing page's search box reads (`kovan::site_search`).
+    SiteIndex {
+        /// The built site, e.g. `target/pages` (`scripts/build-pages.sh`).
+        site: PathBuf,
+    },
     /// The workspace's code map (GitHub #734): every crate placed by its
     /// `[package.metadata.kovan]` tag, with its required dependencies, from
     /// `cargo metadata` (no rust-analyzer). `--format json` writes the data,
@@ -861,6 +868,9 @@ fn run(command: Command) -> Result<(), String> {
             root,
             repo_url,
         } => commands::code_walk::run(from, to, depth, format, max_paths, hand, root, repo_url),
+        Command::SiteIndex { site } => {
+            kovan::site_search::write_index(&site).map(|(docs, terms)| eprintln!("site index: {docs} pages, {terms} terms -> {}", site.join("search-text.json").display()))
+        }
         Command::CodeMap { workspace, format, out } => {
             let (root, _) = commands::workspace::resolve(workspace.as_deref())
                 .map_err(|error| error.to_string())?;

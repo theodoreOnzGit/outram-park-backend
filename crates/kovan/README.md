@@ -736,6 +736,22 @@ dialog's concept finder (a qualification covers a concept at its node or
 any ancestor). A function whose reviews link no concept still shows "the
 function has no known concept area" and cannot reach rung 5.
 
+### `site-index` — full-text search of the built Pages site (`site_search`, GitHub #876 item 8)
+
+```bash
+kovan-cli site-index target/pages      # writes target/pages/search-text.json
+```
+
+Walks the built site, skipping `api/`, `code-review/` and mdBook's
+`print.html`, `404.html` and `toc.html`. For each page it reads `<main>`, with
+the sidebar, scripts and the site banner removed, and writes the pages, a
+first-paragraph preview and an inverted index (term → `[page, weight]`,
+weighted title > heading > body). The landing page's search box
+(`docs/site/search.js`) answers a query from it by prefix-AND.
+`scripts/build-pages.sh` runs it after every page is built. The tokeniser is
+shared with `search.js` through `docs/site/search-tokenise-fixture.json`,
+which is checked on both sides.
+
 ### `code-map` — the workspace's code map (`commands::code_map`, GitHub #734)
 
 Every crate placed by the `[package.metadata.kovan]` tag in its

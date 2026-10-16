@@ -453,3 +453,11 @@ pub fn settings_link_row(ui: &mut egui::Ui, link: &str) {
         ui.weak("Same settings and seed, same k on the same device.");
     });
 }
+
+/// Shown beside a pooled run's settings (gh:#907, maintainer 2026-10-16):
+/// the workers share each generation, so larger generations use them
+/// better. The numbers are the browser measurement recorded in
+/// `jemima/mod.rs` (`run_pool_mb`); the defaults are not changed by it.
+pub const POOL_TIP: &str = "Larger generations make better use of the workers: each generation is shared among them, \
+     then gathered on this page. Measured in a browser (Jemima, desktop): 4 workers ran 1.3× faster than 1 at \
+     4000 neutrons per generation, 2.1× at 20 000.";

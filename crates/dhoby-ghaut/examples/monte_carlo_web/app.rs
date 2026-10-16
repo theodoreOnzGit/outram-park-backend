@@ -1601,6 +1601,7 @@ impl McApp {
         let going = matches!(k.state, RunState::Running | RunState::Paused);
         if k.pooled && !k.pool_line.is_empty() {
             ui.weak(&k.pool_line);
+            ui.weak(crate::keff::POOL_TIP);
         }
         ui.add_enabled_ui(!going, |ui| {
             settings_grid(ui, "kinf_cfg", &mut k.cfg);
@@ -1946,6 +1947,9 @@ impl McApp {
                 }
             }
         });
+        if it.pooled {
+            ui.weak(crate::keff::POOL_TIP);
+        }
         ui.horizontal(|ui| match it.state {
             RunState::Idle | RunState::Done => {
                 if ui.button("▶ Run").clicked() {

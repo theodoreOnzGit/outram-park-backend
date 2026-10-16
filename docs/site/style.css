@@ -206,3 +206,5 @@ main > .top { padding: 0; }
   .widget:not(.folded) .w-panel { width: 300px; }
   .widget:not(.folded) .w-bar { left: 306px; }
 }
+/* Full-text search result preview (gh:#876 item 8). */
+.search-preview { color: var(--muted); font-size: 0.85rem; line-height: 1.35; }

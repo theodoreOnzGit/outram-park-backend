@@ -95,6 +95,8 @@ pub mod ingest;
 /// The network behind identifier lookup (GitHub #756), opt-in.
 pub mod lookup_net;
 pub mod session;
+/// Full-text search over the built Pages site (gh:#876 item 8).
+pub mod site_search;
 pub mod standard_corpus;
 pub mod project;
 pub mod relation;

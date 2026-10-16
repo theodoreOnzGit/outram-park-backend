@@ -911,6 +911,7 @@ fn pool_panel(
     });
     let page = dhoby_ghaut::web_demo::platform::page_url();
     crate::keff::settings_link_row(ui, &crate::keff::settings_link(&page, "htr10", "watch", Some("core"), cfg));
+    ui.weak(crate::keff::POOL_TIP);
     ui.horizontal(|ui| {
         if !running && ui.button("▶ Start").clicked() {
             let _ = s.start_run(*cfg, now_s());

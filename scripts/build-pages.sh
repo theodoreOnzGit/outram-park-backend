@@ -361,6 +361,15 @@ while read -r r; do
   grep -qx "$r" <<< "$t_names" || { echo "a page links to TRISO-ATOPS demo rung '$r', not in $tt" >&2; exit 1; }
 done < <(grep -rhoE '(demos/|")triso-atops/\?rung=[a-z0-9_-]+' "$OUT" --include='*.html' | sed 's/.*rung=//' | sort -u)
 
+# Full-text search (gh:#876 item 8): every built page into one inverted index,
+# search-text.json, read by search.js. Run here, after every book and demo
+# page exists. The tokeniser check fails the build if search.js would split a
+# query differently from the index.
+node docs/site/check-search.js
+cargo run --release -q -j "${PAGES_JOBS:-3}" -p knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan --no-default-features --bin kovan-cli -- \
+  site-index "$OUT"
+[[ -s "$OUT/search-text.json" ]] || { echo "the full-text search index was not written" >&2; exit 1; }
+
 # Every relative link from the main menu, the three pathway pages, the deep
 # dives and the tutorials must land on a page in the site (a lesson link into
 # the API 404s silently otherwise).
