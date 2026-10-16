@@ -224,7 +224,8 @@
     ["bound-atoms.html", "But the atoms are bound!"],
     ["lattice-scattering.html", "What does lattice scattering depend on?"],
     ["doppler.html", "Doppler broadening: lone atoms, warm"],
-    ["phonons.html", "What is a phonon?"]
+    ["phonons.html", "What is a phonon?"],
+    ["many-phonons.html", "Can we have more than one phonon?"]
   ];
   function lessonNav() {
     var here = location.pathname.split("/").pop() || LESSONS[0][0], i = -1;

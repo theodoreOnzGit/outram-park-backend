@@ -31,6 +31,7 @@ eval(fs.readFileSync(path.join(__dirname, "bragg.js"), "utf8"));
 eval(fs.readFileSync(path.join(__dirname, "doppler-data.js"), "utf8"));
 window.Lesson.arrow = () => {};
 eval(fs.readFileSync(path.join(__dirname, "lattice.js"), "utf8"));
+eval(fs.readFileSync(path.join(__dirname, "manyphonons.js"), "utf8"));
 const M = window.Lesson.qscatterMath, SH = window.Lesson.shapesMath, AN = window.Lesson.anglesMath;
 let failed = 0;
 function check(name, value, limit) {
@@ -480,6 +481,24 @@ for (const [label, A, ap, E] of [["C-12, 10 eV", 11.89365, 6.146927, 10], ["U-23
   // Periodicity: Q and Q + G make the same phonon energy.
   const d = LM.match(0.3 * Math.PI, 0.2 * Math.PI, 0), e = LM.match(2.3 * Math.PI, 0.2 * Math.PI, 0);
   check("phonons: the dispersion repeats with the reciprocal lattice (meV)", Math.abs(d.L.mev - e.L.mev) + Math.abs(d.T.mev - e.T.mev), 1e-9);
+}
+
+// Page 24 (gh:#906 design, 2026-10-16): random kicks build the toy's density
+// of states; the real spectra's low-energy slopes and lines.
+{
+  const MM = window.Lesson.manyMath, BD = window.BOUND_DATA, NB = MM.NB, rho = MM.rhoToy(NB), r = MM.rng(906), N = 300000, h = new Array(NB).fill(0);
+  for (let i = 0; i < N; i++) h[Math.min(NB - 1, Math.floor(MM.kick(r).mev / 152 * NB))]++;
+  let l1 = 0; for (let b = 0; b < NB; b++) l1 += Math.abs(h[b] / N - rho[b]);
+  // Sampling noise alone gives about sum sqrt(p/N) ~ 0.01 here.
+  check("page 24: 3e5 random kicks vs the toy density of states (L1)", l1, 0.02);
+  const slope = (d) => { const p = []; for (let i = 1; i <= 6; i++) if (d.rho[i] > 0) p.push([Math.log(i * d.delta), Math.log(d.rho[i])]); const n = p.length, sx = p.reduce((a, q) => a + q[0], 0), sy = p.reduce((a, q) => a + q[1], 0), sxx = p.reduce((a, q) => a + q[0] * q[0], 0), sxy = p.reduce((a, q) => a + q[0] * q[1], 0); return (n * sxy - sx * sy) / (n * sxx - sx * sx); };
+  const Q = BD.decks["Si in alpha-quartz"], W = BD.decks["H in H2O"];
+  const hh = fs.readFileSync(path.join(__dirname, "many-phonons.html"), "utf8");
+  const num = (re) => +hh.match(re)[1];
+  check("page 24: quartz low-energy slope in the prose vs the deck", Math.abs(num(/data-qslope>([^<]+)</) - slope(Q)), 0.005);
+  check("page 24: water low-energy slope in the prose vs the deck", Math.abs(num(/data-wslope>([^<]+)</) - slope(W)), 0.005);
+  check("page 24: water's two lines in the prose vs the deck", Math.abs(num(/data-osc0>([^<]+)</) - W.osc[0][0]) + Math.abs(num(/data-osc1>([^<]+)</) - W.osc[1][0]), 1e-12);
+  console.log(`     kicks vs rho L1 ${l1.toFixed(4)}; quartz slope ${slope(Q).toFixed(3)}, water ${slope(W).toFixed(3)}`);
 }
 
 if (failed) { console.log(failed + " check(s) failed"); process.exit(1); }
