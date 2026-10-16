@@ -7,7 +7,8 @@
 const fs = require("fs"), path = require("path");
 global.window = {}; window.Lesson = { widget() {}, css() {}, el() {} };
 eval(fs.readFileSync(path.join(__dirname, "qscatter.js"), "utf8"));
-const M = window.Lesson.qscatterMath;
+eval(fs.readFileSync(path.join(__dirname, "shapes.js"), "utf8"));
+const M = window.Lesson.qscatterMath, SH = window.Lesson.shapesMath;
 let failed = 0;
 function check(name, value, limit) {
   const ok = value <= limit;
@@ -63,6 +64,28 @@ for (const [label, A, ap, E] of [["C-12, 10 eV", 11.89365, 6.146927, 10], ["U-23
   check("U-238, 2 MeV: |total wave| on the sphere", mx, 1e-6);
   const F = M.field(S, 9.48, 30, 8, 8);
   if (!F.inside.some(Boolean)) { failed++; console.log("FAIL field(): no grid point masked inside the sphere"); }
+}
+
+// 4. Page 6's two representations converge on the curve they store, and
+//    the points pass through it. 2026-10-16, worst error as a fraction of the
+//    peak: points 4/8/16/32/64 -> 0.18/0.095/0.032/0.0084/0.0021; cosines
+//    1/4/16 -> 0.81/0.19/8e-13. Sixteen is exact, not lucky: the curve is
+//    |Σ_l c_l P_l(cos θ)|² with significant l <= 5 at this energy, a finite
+//    cosine series in θ (the page says so). The Bessel function by its integral form
+//    against tabulated values (Abramowitz & Stegun table 9.1): J0(2.404825558)
+//    = 0, J1(1) = 0.4400505857.
+{
+  const f = SH.target();
+  let prev = Infinity;
+  for (const n of [4, 8, 16, 32, 64]) {
+    const r = SH.byPoints(f, n), e = SH.worst(f, r.y);
+    if (!(e < prev)) { failed++; console.log(`FAIL points: ${n} points no better than fewer (${e})`); }
+    prev = e;
+  }
+  check("64 points: worst error / peak", prev, 0.005);
+  check("16 cosines: worst error / peak", SH.worst(f, SH.bySeries(f, 16).y), 1e-6);
+  check("J0 at its first zero", Math.abs(SH.besselJ(0, 2.404825558)), 1e-9);
+  check("J1(1) vs 0.4400505857", Math.abs(SH.besselJ(1, 1) - 0.4400505857), 1e-9);
 }
 
 if (failed) { console.log(failed + " check(s) failed"); process.exit(1); }

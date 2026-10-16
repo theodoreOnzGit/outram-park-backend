@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How do we store a continuous shape?</title>
+<meta name="description" content="Neutronics, page 6: a computer needs a finite list of numbers for a smooth curve. Store it as points joined by straight lines, or as a sum of scaled shape functions; meet the families: sines and cosines, Bessel functions, spherical harmonics.">
+<link rel="stylesheet" href="../../style.css">
+<script src="lesson-kit.js" defer></script>
+<script src="qscatter.js" defer></script>
+<script src="shapes.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Neutronics lessons (gh:#906 iteration 2 and the 2026-10-16 working-context checkpoint). One principal question per page (checkpoint §5); the sequence and its navigation are in lesson-kit.js. Shape: docs/lessons/lesson-philosophy.md (a chain of questions; predict before showing; honest numbers). This page: checkpoint §16-§20 and the angular addendum §2-§7 (page A of the split in addendum §14). No ENDF interpolation laws yet; Bessel functions are not "the 2D Fourier transform". -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response. <strong>Review status:</strong> AI-assisted first draft (2026-10-16), not yet reviewed by a human.</p>
+
+<h1>How do we store a continuous shape?</h1>
+<p class="kicker lesson-progress">Neutronics</p>
+<p>The last page ended with a smooth curve: how likely each outgoing direction is. A smooth curve has a value at every one of infinitely many angles, and a computer can only store a finite list of numbers. So the question is not about physics yet; it is about representation. <b>How do we store a continuous shape with a finite list of numbers?</b></p>
+
+<h2>Idea 1: store points, and join them up</h2>
+<p>The simplest way: write down the curve's height at a few angles, and draw straight lines between them when you need a value in between.</p>
+<p class="predict"><b>Predict first.</b> How many points does it take before the joined-up line looks like the real curve? Where does a coarse set of points go most wrong?</p>
+
+<section class="widget-card">
+  <h3>Store a curve</h3>
+  <div class="widget" id="store">
+    <canvas aria-label="A smooth angular distribution and its reconstruction from stored points or from a sum of cosine shapes"></canvas>
+  </div>
+  <p class="note">The curve is the U-238 distribution at 2 MeV from the previous page. The worst error is the largest gap between the grey and the teal curves, as a fraction of the peak.</p>
+</section>
+
+<p><b>One way to store a continuous function is to store its value at selected points and interpolate between them.</b> More points, a better copy; and the points are spent where the curve bends sharply, which is where a coarse set misses.</p>
+
+<h2>Idea 2: build the shape from simpler shapes</h2>
+<p>Now switch the demo to <b>Shape functions</b>. Instead of storing lots of individual points, it builds the complicated curve by adding simpler, known shapes together, each scaled by one stored number:</p>
+<p class="chain">shape 1 + shape 2 + shape 3 + &hellip; = the complicated curve</p>
+<p>The shapes here are cosines: a flat line, then one gentle wave, then waves that wiggle faster. Each stored number says <i>how much</i> of its shape to add. Add more shapes and the sum visibly closes in on the curve. This is the idea behind a <b>Fourier series</b>, and it is the only idea we need from it: <b>a complicated shape can be represented by storing coefficients that tell us how much of each known shape to add.</b></p>
+<p>They're just shape functions.</p>
+<p class="note">With 16 shapes the error drops to zero, to the last digit a computer keeps. That is not luck. The curve was built on the previous page from a handful of partial waves, and each partial wave's angular shape is itself a simple known shape, so the whole curve is a finite sum of such shapes. Real evaluated distributions are not that tidy; the next page uses them.</p>
+
+<h2>Different geometries have their own useful shapes</h2>
+<p>Sines and cosines suit things laid out along a line. Other geometries have their own natural families:</p>
+
+<section class="widget-card">
+  <h3>Families of shapes</h3>
+  <div class="widget short" id="families">
+    <canvas aria-label="Small plots of sine and cosine shapes, Bessel functions, or spherical harmonics"></canvas>
+  </div>
+</section>
+
+<ul>
+  <li><b>Sines and cosines</b> describe waves along a line, the familiar basis of Fourier analysis.</li>
+  <li><b>Bessel functions</b> appear in the radial part of many problems with cylindrical symmetry: how something varies outward from an axis.</li>
+  <li><b>Spherical harmonics</b> describe how something varies over directions on a sphere. Around the axis they vary like sines and cosines; from pole to pole they follow <b>Legendre</b> functions.</li>
+</ul>
+<p><b>Fourier series, Bessel functions, Legendre polynomials and spherical harmonics have intimidating names, largely because mathematics gives names to these useful families of functions. For now, think of them simply as shape functions.</b> By scaling and adding known shapes together, we can represent much more complicated distributions using a finite number of coefficients.</p>
+
+<details class="optional">
+  <summary>Deeper physics: why these shapes?</summary>
+  <p>Not all shape functions are created equal. Sines and cosines, Bessel functions, Legendre functions and spherical harmonics are especially useful because they arise naturally as exact solutions, or eigenfunctions, when important differential equations (the wave equation, the diffusion equation, Schr&ouml;dinger's equation) are written in coordinate systems with the matching symmetry:</p>
+  <ul>
+    <li><b>sines and cosines</b>: oscillatory solutions in simple Cartesian geometries;</li>
+    <li><b>Bessel functions</b>: the radial part of problems with cylindrical symmetry;</li>
+    <li><b>Legendre functions and spherical harmonics</b>: the angular part of problems with spherical symmetry.</li>
+  </ul>
+  <p>So they are not arbitrary mathematical shapes. They are the shapes the physics and the geometry naturally produce, which is why a few of them often go a long way. You met this already: the partial waves on the previous page are the spherical-symmetry family, and each partial wave's angular shape is a Legendre polynomial.</p>
+</details>
+
+<h2>Next question</h2>
+<p>A scattered neutron's direction is a direction on a sphere. <b>Which shape functions do we actually use for neutron scattering, and what does nuclear data store?</b></p>
+
+<nav class="lesson-nav" aria-label="Lessons" data-next-soon="Next: storing scattering angles"></nav>
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. GPL-3.0. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>

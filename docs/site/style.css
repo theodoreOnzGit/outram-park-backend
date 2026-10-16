@@ -170,6 +170,7 @@ details.optional summary { cursor: pointer; font-weight: 600; min-height: 40px; 
    widget, + / − / Reset / full screen on it, controls in a folding panel. */
 .widget { position: relative; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); overflow: hidden; }
 .widget canvas { display: block; width: 100%; height: min(62vh, 420px); touch-action: manipulation; }
+.widget.short canvas { height: min(48vh, 320px); }
 .widget.full { position: fixed; inset: 0; z-index: 2000; border-radius: 0; border: 0; }
 .widget.full canvas { height: calc(100vh - 56px); }
 body.w-noscroll { overflow: hidden; }
