@@ -153,6 +153,7 @@ body.landing { min-height: 100vh; display: flex; flex-direction: column; }
 /* The neutronics glossary (gh:#906 no-jargon rule). */
 .glossary dt { font-weight: 700; margin-top: 14px; scroll-margin-top: 16px; }
 .glossary dd { margin: 4px 0 0 0; }
+a.gl-term { color: inherit; text-decoration: underline dotted var(--accent); text-underline-offset: 3px; }
 .widget-card { margin: 20px 0; padding: 4px 0; }
 .widget-card h3 { margin: 8px 0; }
 .legend-list { padding-left: 0; list-style: none; }

@@ -300,6 +300,7 @@
     pick(card, "data-ki", function (v) { st.ki = +v; }, reset);
     card.querySelectorAll("[data-draw]").forEach(function (b) { b.onclick = function () { sample(+b.getAttribute("data-draw")); frame.redraw(); }; });
     card.querySelectorAll("[data-for]").forEach(function (r) { r.style.display = r.getAttribute("data-for") === st.stage ? "" : "none"; });
+    sample(3000); frame.redraw();
     return frame;
   }
 

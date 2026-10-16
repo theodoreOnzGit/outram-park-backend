@@ -273,11 +273,65 @@
     bottom.append(row, contents);
   }
 
+  // Glossary back-links (gh:#906 no-jargon rule 3): on each lesson page after
+  // the one that defines a term, the term's first mention in the prose links
+  // to its glossary entry. [glossary id, defining page, words to match].
+  var GLOSSARY = [
+    ["compound-nucleus", "why-energy-matters.html", "compound nucleus"],
+    ["doppler-broadening", "moving-nuclei.html", "Doppler broadening"],
+    ["lethargy", "log-scales.html", "lethargy"],
+    ["infinitely-dilute", "unresolved.html", "infinitely dilute"],
+    ["coherent-elastic", "lattice-scattering.html", "coherent elastic"],
+    ["scattering-law", "lattice-scattering.html", "scattering law"],
+    ["detailed-balance", "lattice-scattering.html", "detailed balance"],
+    ["debye-waller", "lattice-scattering.html", "Debye–Waller"],
+    ["normal-mode", "phonons.html", "normal mode"],
+    ["quasiparticle", "phonons.html", "quasiparticle"],
+    ["polarisation", "phonons.html", "polarisation"],
+    ["density-of-states", "many-phonons.html", "density of states"],
+    ["recoil-line", "alpha-beta.html", "recoil line"],
+    ["sum-rule", "free-gas.html", "sum rule"],
+    ["upscatter", "one-spring.html", "up-scatter"],
+    ["phonon-expansion", "one-spring.html", "phonon expansion"],
+    ["convolution", "convolution.html", "convolution"],
+    ["sct", "big-kicks.html", "short-collision-time approximation"],
+    ["zero-point", "zero-point.html", "zero-point motion"],
+    ["effective-temperature", "zero-point.html", "effective temperature"],
+    ["impulse-approximation", "one-spring-check.html", "impulse approximation"]
+  ];
+  function glossaryLinks(here) {
+    var order = LESSONS.map(function (l) { return l[0]; }), i = order.indexOf(here);
+    if (i < 0) return;
+    var main = document.querySelector("main.lesson-body");
+    if (!main) return;
+    GLOSSARY.forEach(function (g) {
+      var j = order.indexOf(g[1]);
+      if (j < 0 || j >= i) return;
+      var re = new RegExp("\\b" + g[2].replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "s?\\b", "i");
+      var walker = document.createTreeWalker(main, NodeFilter.SHOW_TEXT, {
+        acceptNode: function (n) {
+          for (var p = n.parentNode; p && p !== main; p = p.parentNode) {
+            var t = p.nodeName;
+            if (t === "A" || t === "H1" || t === "H2" || t === "H3" || t === "CODE" || t === "NAV" || t === "FOOTER" || (p.classList && (p.classList.contains("widget") || p.classList.contains("banner") || p.classList.contains("csl-entry")))) return NodeFilter.FILTER_REJECT;
+          }
+          return re.test(n.nodeValue) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP;
+        }
+      });
+      var node = walker.nextNode();
+      if (!node) return;
+      var m = re.exec(node.nodeValue), after = node.splitText(m.index);
+      after.splitText(m[0].length);
+      var a = el("a", { href: "glossary.html#" + g[0], "class": "gl-term", title: "Glossary" }, m[0]);
+      after.parentNode.replaceChild(a, after);
+    });
+  }
+
   var WIDGETS = {};
   function widget(id, make) { WIDGETS[id] = make; }
 
   function start() {
     lessonNav();
+    glossaryLinks(location.pathname.split("/").pop());
     for (var id in WIDGETS) {
       var node = document.getElementById(id);
       if (node) WIDGETS[id](node);
