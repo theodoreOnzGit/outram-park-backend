@@ -139,6 +139,29 @@ impl Anim {
         st.get(self.head().0).map_or(f64::NAN, |s| s.energy)
     }
 
+    /// How far the neutron is through its collisions, as one real number
+    /// `n + f`: it has made `n` collisions (scatters) and has flown fraction
+    /// `f` (by path length) of the flight that started at the `n`-th, which
+    /// ends at the next scatter or at the history's end. Surface crossings
+    /// inside a flight do not reset `f`. Equals the number of flights
+    /// ([`History::collision_energies`]`.len()`) once the history is over.
+    pub fn collision_progress(&self) -> f64 {
+        let starts = self.hist.flight_starts();
+        let last = self.cum.len().saturating_sub(1);
+        if starts.is_empty() || last == 0 {
+            return 0.0;
+        }
+        if self.finished() {
+            return starts.len() as f64;
+        }
+        let (k, _) = self.head();
+        let n = starts.partition_point(|&i| i <= k).saturating_sub(1);
+        let a = self.cum[starts[n]];
+        let b = self.cum[starts.get(n + 1).copied().unwrap_or(last)];
+        let f = if b > a { ((self.shown_cm - a) / (b - a)).clamp(0.0, 1.0) } else { 1.0 };
+        n as f64 + f
+    }
+
     /// Fly for `dt` seconds of animation at the speed law, crossing as many
     /// segment boundaries as that takes: each segment is flown at the speed
     /// of its own energy ([`animated_speed`]).
@@ -339,5 +362,22 @@ mod tests {
         assert!((animated_speed(0.0253, 7.0) - 7.0 * 0.0253f64.sqrt()).abs() < 1e-12);
         // 0.0253 eV is 2200 m/s.
         assert!((neutron_speed_cm_s(0.0253) / 2.2e5 - 1.0).abs() < 2e-3);
+    }
+
+    /// The collision progress follows the flight by path length, ignores the
+    /// wall crossing inside the first flight, and ends at the flight count.
+    #[test]
+    fn collision_progress_counts_scatters_by_path_length() {
+        let mut a = Anim::new(crate::history::tests::toy());
+        assert_eq!(a.collision_progress(), 0.0);
+        // (head segment, shown cm) -> progress. Flight 0 is 0..2 cm (one
+        // crossing at 1 cm), flight 1 is 2..3 cm, flight 2 is 3..4 cm.
+        for (seg, shown, want) in [(0, 0.5, 0.25), (1, 1.5, 0.75), (2, 2.5, 1.5), (3, 3.5, 2.5)] {
+            a.seg = seg;
+            a.shown_cm = shown;
+            assert!((a.collision_progress() - want).abs() < 1e-12, "at {shown} cm");
+        }
+        a.shown_cm = a.total();
+        assert_eq!(a.collision_progress(), 3.0);
     }
 }

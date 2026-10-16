@@ -1588,7 +1588,9 @@ impl McApp {
             ui.weak(
                 "The cross sections this tab processed for transport (RECONR + BROADR, and the moderator's S(α,β) law below its \
                  cutoff), read through the same call the collisions use, decimated for drawing (each of 900 log bins keeps its \
-                 highest and lowest point). The dot rides the neutron's energy; a cross marks where it was captured or fissioned.",
+                 highest and lowest point). The dot rides the neutron's energy; a cross marks where it was captured or fissioned. \
+                 The strip under the graph, on the same energy axis, is this neutron's energy after each collision, \
+                 collision number running down.",
             );
         }
     }
@@ -2288,17 +2290,9 @@ impl McApp {
                 if let Some(xr) = xs_rect {
                     // The marker rides the animated neutron; once it is
                     // absorbed it leaves both views and a cross marks where.
-                    let marker = r.current.as_ref().and_then(|a| {
-                        if !a.finished() {
-                            return Some(xs::Marker { energy_ev: a.energy_now(), ended: None });
-                        }
-                        let ended = match a.hist.outcome {
-                            Some(TrackEvent::Absorption) => "captured",
-                            Some(TrackEvent::Fission) => "fission",
-                            _ => return None,
-                        };
-                        Some(xs::Marker { energy_ev: a.hist.track.states.last()?.energy, ended: Some(ended) })
-                    });
+                    // The panel's collision strip draws its energy after
+                    // each collision (gh:#906).
+                    let marker = r.current.as_ref().and_then(xs::Marker::riding);
                     xs::draw(&full_painter, xr, &self.xs, &self.xs_shown, marker, 12.0);
                 }
             }
