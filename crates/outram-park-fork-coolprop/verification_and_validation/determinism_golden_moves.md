@@ -6,6 +6,25 @@ on x86_64-unknown-linux-gnu (release). Its rule is that a golden may move
 including a migration that was expected to move them and did not. It is the
 twin of `crates/tampines-steam-tables/verification_and_validation/determinism_golden_moves.md`.
 
+## 2026-10-16: Part C hybrid runs REMOVED (`n2arr_hybrid_*`, `n2arr_knp_*`); nothing moved
+
+- **Cause.** Maintainer decision D7, "retire the KNP hybrid" (gh:#914), in
+  step with the steam-tables twin. `SolverMode::HybridAllMach` was deleted
+  from `OPCPFluidArray`, so `part_c_rho_pimple_200_steps_hybrid_knp`
+  (`n2arr_hybrid`) and `part_c_rho_pimple_200_steps_knp_forced`
+  (`n2arr_knp`, Mach window and density taper forced open) were deleted with
+  their **32 goldens**. 36 remain: the 20 sweep sub-hashes and the 16
+  `n2arr_pimple` ones.
+- **Removed values.** In git history: the `GOLDEN-TABLE` of commit
+  `42a05c598`.
+- **What did not move, and why that is the check.** The removal had to
+  leave the PIMPLE path bit-identical. Measured after the removal (release,
+  x86_64-linux): all 36 remaining sub-hashes match their goldens unchanged
+  (`cargo test --release -p outram-park-fork-coolprop --test
+  cross_platform_determinism`: `3 passed; 0 failed`). The library suite
+  went from 249 to 245 passing tests: six hybrid-only tests were deleted
+  and the two HEM sound-speed checks moved to `flash.rs`.
+
 ## 2026-10-16: stage S3 (petir migration of the HEM hot path): **no golden moved**
 
 - **Change.** gh:#903 stage S3 (epic #896, maintainer decision D6). Every raw

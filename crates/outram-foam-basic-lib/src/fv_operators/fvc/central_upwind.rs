@@ -53,7 +53,15 @@
 //! | solver family | `w_e` | `f_e` | constructor |
 //! |---|---|---|---|
 //! | density-based, total energy (`rhoCentralFoam`) | `ρE`, `E = e + ½\|U\|²` | `H = E + p/ρ` | [`KnpFaceState::total_energy`] |
-//! | pressure-based, static enthalpy (the `HybridAllMach` PIMPLE arrays) | `ρ·h` | `h` | [`KnpFaceState::static_enthalpy`] |
+//! | pressure-based, static enthalpy (~~the `HybridAllMach` PIMPLE arrays~~; no consumer since 2026-10-16) | `ρ·h` | `h` | [`KnpFaceState::static_enthalpy`] |
+//!
+//! **Consumers, updated 2026-10-16.** ~~The steam-tables and CoolProp
+//! `HybridAllMach` PIMPLE arrays~~ used the static-enthalpy pair,
+//! [`central_face_flux`] and [`mach_blend`] until the KNP hybrid was retired
+//! (maintainer decision D7, gh:#914). The remaining consumers are the
+//! density-based ones: `tampines-steam-tables`' `HemPipe` and appbuilder's
+//! `RhoCentralFoam`. The three hybrid-only items are kept as tested public
+//! API of this crate, with no consumer in the workspace.
 //!
 //! The kernel has **no equation of state**. The pressure `p` and the sound
 //! speed `c` arrive with each face state; which sound speed that is (perfect
@@ -138,7 +146,8 @@ impl KnpFaceState {
 
     /// A face state for a **static-enthalpy** solver (the segregated
     /// `∂(ρh)/∂t + ∇·(φh) = dp/dt` energy equation of the PIMPLE arrays):
-    /// `w_e = ρ·h` and `f_e = h`.
+    /// `w_e = ρ·h` and `f_e = h`. No workspace consumer since the KNP hybrid of the PIMPLE arrays was retired 2026-10-16 (gh:#914);
+    /// kept as tested public API.
     ///
     /// Arguments: density `rho` \[kg/m³\], velocity `u` \[m/s\], pressure `p`
     /// \[Pa\], sound speed `c` \[m/s\], static specific enthalpy `h` \[J/kg\].
@@ -213,8 +222,9 @@ fn physical_flux_with_normal_velocity(s: &KnpFaceState, u_n: f64, n_f: Vector3) 
 /// `1/(a⁺ − a⁻)` (a multiply by the reciprocal), mass and energy are divided
 /// by it. That is the arithmetic of the steam-tables and CoolProp copies this
 /// kernel replaced, kept so their `HybridAllMach` results stayed bit-identical
-/// through the refactor (gh #901). It differs from a division by at most one
-/// ulp per component.
+/// through the refactor (gh #901; that hybrid was retired 2026-10-16, gh:#914,
+/// and the rounding is kept so `HemPipe`'s and `RhoCentralFoam`'s results do
+/// not move). It differs from a division by at most one ulp per component.
 #[inline]
 fn face_flux_impl(
     l: &KnpFaceState,
@@ -263,8 +273,10 @@ pub fn knp_face_flux(l: &KnpFaceState, r: &KnpFaceState, n_f: Vector3) -> KnpFac
 /// non-dissipative part of the flux.
 ///
 /// `knp_face_flux − central_face_flux` is therefore exactly the KNP numerical
-/// dissipation, which is what the pressure-based `HybridAllMach` solvers add
-/// as a deferred correction. It vanishes identically when `l == r`.
+/// dissipation, ~~which is what the pressure-based `HybridAllMach` solvers add
+/// as a deferred correction~~ (they did until the KNP hybrid of the PIMPLE arrays was retired 2026-10-16 (gh:#914); no
+/// workspace consumer since, kept as tested public API). It vanishes
+/// identically when `l == r`.
 pub fn central_face_flux(l: &KnpFaceState, r: &KnpFaceState, n_f: Vector3) -> KnpFaceFlux {
     face_flux_impl(l, r, n_f, false)
 }
@@ -307,11 +319,13 @@ pub fn central_flux_speed_max(l: &KnpFaceState, r: &KnpFaceState, n_f: Vector3) 
 
 /// Continuous Mach-blend weight `β(Ma) = clamp((Ma − lo)/(hi − lo), 0, 1)`.
 ///
-/// Used by the pressure-based `HybridAllMach` solvers to switch the KNP
+/// ~~Used by the pressure-based `HybridAllMach` solvers~~ (until the KNP hybrid of the PIMPLE arrays was retired 2026-10-16 (gh:#914);
+/// no workspace consumer since, kept as tested public API) to switch the KNP
 /// dissipation on only near the sonic point: `β = 0` for `Ma ≤ lo` (no added
 /// dissipation), `β = 1` for `Ma ≥ hi`, linear and monotone in between.
-/// `lo`, `hi` are dimensionless Mach numbers with `hi > lo` (the arrays default
-/// to `0.3` and `1.0`); a degenerate `hi ≤ lo` becomes a hard step at `hi`.
+/// `lo`, `hi` are dimensionless Mach numbers with `hi > lo` (the arrays
+/// defaulted to `0.3` and `1.0`); a degenerate `hi ≤ lo` becomes a hard step
+/// at `hi`.
 #[inline]
 pub fn mach_blend(ma: f64, lo: f64, hi: f64) -> f64 {
     if hi > lo {
@@ -606,6 +620,10 @@ mod tests {
     /// their `HybridAllMach` fields bit-identical through the refactor; this
     /// test stops a later "tidy-up" (e.g. dividing the momentum instead of
     /// multiplying by the reciprocal) from changing them silently.
+    ///
+    /// **Updated 2026-10-16:** the KNP hybrid of the PIMPLE arrays was retired 2026-10-16 (gh:#914) and those arrays no
+    /// longer call this kernel. The test stays as a pin on the kernel's own
+    /// rounding, which `HemPipe` and `RhoCentralFoam` still depend on.
     #[test]
     fn matches_pre_refactor_hybrid_copy_bit_for_bit() {
         fn legacy(

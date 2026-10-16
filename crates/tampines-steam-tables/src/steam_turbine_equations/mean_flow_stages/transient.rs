@@ -1,5 +1,7 @@
 //! Transient mean-flow turbine: the stage chain driven by the crate's 1-D
-//! HEM KNP hybrid solver (bead `op-yi7m`).
+//! HEM PIMPLE array, [`TampinesSteamArray`] (bead `op-yi7m`). ~~driven by the
+//! crate's 1-D HEM KNP hybrid solver~~ **CORRECTED 2026-10-16**: the KNP
+//! hybrid was retired (see "Why plain PIMPLE" below).
 //!
 //! # What changes against the steady model
 //!
@@ -24,15 +26,43 @@
 //!   negative per-cell power source, so the energy equation sees the work
 //!   leaving through the shaft.
 //!
-//! # Why the KNP hybrid
+//! # Why plain PIMPLE (the KNP hybrid was retired 2026-10-16)
 //!
-//! The constructor sets [`SolverMode::HybridAllMach`], PIMPLE with Mach-blended
+//! ~~The constructor sets `SolverMode::HybridAllMach`, PIMPLE with Mach-blended
 //! KNP central-upwind dissipation. Turbine passages run near-sonic at the
 //! nozzle throats and the last stages expand into the dome, which is exactly
 //! the regime the plain pressure-based path rings in. The hybrid damps that
 //! ringing while keeping the flashing behaviour, and it is stable over a full
 //! transient. The mode is public, so a caller who wants the historical
-//! bit-identical PIMPLE path can still ask for it.
+//! bit-identical PIMPLE path can still ask for it.~~
+//!
+//! **RETIRED 2026-10-16** (maintainer decision "retire the KNP hybrid", gh:#914).
+//! After gh:#900 made the array upstream-faithful, the hybrid *added* ringing
+//! on Edwards blowdown instead of damping it, so `SolverMode` was removed from
+//! [`TampinesSteamArray`] and this machine now runs the array's plain PIMPLE
+//! path. The density-based KNP path lives in `crate::hem::HemPipe`.
+//!
+//! **The switch changed nothing here, and the reason is worth knowing.**
+//! Measured 2026-10-16, before deleting the hybrid, by running every scenario
+//! of `transient_tests.rs` under both modes (release, x86_64-linux):
+//!
+//! | scenario | `HybridAllMach` (old default) | `Pimple` (now) |
+//! |---|---|---|
+//! | 1 step at 420 rad/s: shaft power / torque | 3.760603984866e7 W / 8.953819011585e4 N m | identical |
+//! | 10 steps: electrical power / shaft speed | 5.466174525036e7 W / 419.5509615047 rad/s | identical |
+//! | 20 steps: cell pressures \[Pa\] | 3983988.15158468, 3074050.3216784694, 2298233.230397977, 1681831.872790971 | identical, bit for bit |
+//! | spin-up from rest, after 51 steps: speed / power | 32.22944815266 rad/s / 1.654526780372e7 W | identical |
+//! | 200 steps from rest, 100 ohm / 1 ohm: speed | 285.7730811747 / 181.8973309631 rad/s | identical |
+//!
+//! The prediction written before the run was "little change, because the
+//! flow is subsonic". That was right about the outcome and wrong about the
+//! reason: the HEM Mach number reaches **0.70** in the 200-step runs, well
+//! inside the hybrid's `0.3–1.0` blend window. The hybrid was nonetheless a
+//! no-op because its rarefied-tail density taper zeroed the dissipation below
+//! 50 kg/m³, and superheated steam at 16–40 bar / 400 °C is roughly
+//! 6–14 kg/m³. **The hybrid never acted on this machine**, so the "damps
+//! ringing at the nozzle throats" rationale struck through above was never
+//! exercised by any test.
 //!
 //! # The shaft is closed-loop
 //!
@@ -71,7 +101,7 @@ use uom::si::volume::cubic_meter;
 
 use crate::interfaces::object_oriented_programming::TampinesSteamTableCV;
 use crate::openfoam_algorithms::openfoam_source::mesh::MeshError;
-use crate::openfoam_algorithms::rhoPimpleFoam::{SolverMode, TampinesSteamArray};
+use crate::openfoam_algorithms::rhoPimpleFoam::TampinesSteamArray;
 use crate::steam_turbine_equations::generator::ThreePhaseElectricGeneratorTurbine;
 
 use super::stage::{RotorBlading, StageGeometry, StageWorkSplit};
@@ -169,8 +199,9 @@ pub struct TransientMeanFlowTurbine {
 }
 
 impl TransientMeanFlowTurbine {
-    /// Builds the machine, meshing one cell per stage and selecting the KNP
-    /// hybrid solver mode.
+    /// Builds the machine, meshing one cell per stage. The array runs its
+    /// PIMPLE path (~~selecting the KNP hybrid solver mode~~, retired
+    /// 2026-10-16; see the module docs).
     ///
     /// `length` is the axial extent of the whole blade path and `xs_area` its
     /// mean annulus area. Both are uniform, which is the mean-line assumption
@@ -184,13 +215,7 @@ impl TransientMeanFlowTurbine {
         generator: ThreePhaseElectricGeneratorTurbine,
         load_resistance: ElectricalResistance,
     ) -> Result<Self, MeshError> {
-        let mut array = TampinesSteamArray::new(length, xs_area, stages.len() as i64, delta_t)?;
-
-        // Turbine passages run near-sonic at the nozzle throats and the last
-        // stages expand into the dome. That is the regime the plain
-        // pressure-based path rings in, so the hybrid is the right default here
-        // even though it is not the array's own default.
-        array.set_solver_mode(SolverMode::HybridAllMach);
+        let array = TampinesSteamArray::new(length, xs_area, stages.len() as i64, delta_t)?;
 
         Ok(Self {
             array,

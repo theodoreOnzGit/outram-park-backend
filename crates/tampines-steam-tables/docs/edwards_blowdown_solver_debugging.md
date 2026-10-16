@@ -351,6 +351,15 @@ clips were added** — the plateau emerges purely from the corrected thermodynam
 
 ### Part B — the all-Mach hybrid to damp the ringing (bead `op-21g.15`, README v0.2.3)
 
+> **RETIRED 2026-10-16 — read this part as history.** The hybrid described
+> below (`SolverMode::HybridAllMach`, `assemble_hybrid_dissipation`, the
+> rarefied-tail taper) was removed from `TampinesSteamArray` and its CoolProp
+> twin (maintainer decision D7, "retire the KNP hybrid", gh:#914). After
+> gh:#900 made the array's defaults upstream-faithful, plain PIMPLE rang 3.4×
+> less and the hybrid **added** 23.5–36.7 % ringing over it, failing its own
+> gate. The final numbers are in the `tests/edwards_blowdown.rs` header. The
+> density-based KNP route is now `crate::hem::HemPipe`.
+
 With the plateau recovered, the traces rang at the near-sonic front. The design
 (§2.5–2.6): keep the pressure-based PIMPLE skeleton untouched and add the KNP
 central-upwind dissipation as a **Mach-weighted deferred-correction flux**, gated

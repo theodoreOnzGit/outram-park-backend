@@ -4,6 +4,29 @@
 on x86_64-unknown-linux-gnu (release). Its rule is that a golden may move
 **only with a named cause**. This file is where each move is recorded.
 
+## 2026-10-16: Part B hybrid runs REMOVED (`edw_hybrid_*`, `edw_knp_*`); nothing moved
+
+- **Cause.** Maintainer decision D7, "retire the KNP hybrid" (gh:#914).
+  `SolverMode::HybridAllMach` was deleted from `TampinesSteamArray`, so the
+  two Part B runs that exercised it, `part_b_edwards_200_steps_hybrid_knp`
+  (`edw_hybrid`, default Mach window) and
+  `part_b_edwards_200_steps_knp_forced` (`edw_knp`, window opened to
+  `(0, 1e-3)`), were deleted with their **32 goldens** (16 each). The
+  `NEGATIVE_CONTROL` table keeps their rows as the 2026-10-16 record.
+- **Removed values.** In git history: the `GOLDEN-TABLE` of commit
+  `42a05c598`.
+- **What did not move, and why that is the check.** The removal had to
+  leave the PIMPLE path bit-identical. Measured after the removal (release,
+  x86_64-linux): all 13 Part A sub-hashes and all 16 `edw_pimple`
+  sub-hashes match their goldens unchanged (`3 passed; 0 failed`). The
+  Edwards 600 ms target also reproduced its numbers to the printed digit:
+  Linear plateau 360.5 psia, GS-1 RMSE 17.2 psia, 0 pressure-bound events,
+  0 drained-cell holds, break-flow peak 98.2 lbm/s.
+- **The `hem_sound` sub-hash** mirrored the deleted
+  `central_upwind::hem_sound_speed_ph`. The mirror was kept unchanged (it now
+  mirrors the public `ph_flash_eqm::w_ph_eqm_hem`), so its golden did not
+  move.
+
 ## 2026-10-16: Part B (`edw_*`, 200-step Edwards slice), all three modes
 
 - **Cause.** gh:#900 (epic #896 Phase A) changed `TampinesSteamArray`'s

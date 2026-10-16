@@ -38,8 +38,10 @@
 //! momentum balance keeps the **acceleration** term `G^2 (1/rho_out -
 //! 1/rho_in)` that a heated gas duct generates, reported separately from
 //! friction so a caller can see its size. Nothing here is valid at
-//! transonic conditions; for those, reach for
-//! `outram-park-fork-coolprop`'s `SolverMode::HybridAllMach`.
+//! transonic conditions; for those, reach for ~~`outram-park-fork-coolprop`'s
+//! `SolverMode::HybridAllMach`~~ (retired 2026-10-16, gh:#914) the
+//! density-based KNP solver `tampines::hem::HemPipe`, which takes the
+//! CoolProp equation of state.
 //!
 //! ## Correlations and their validity ranges
 //!

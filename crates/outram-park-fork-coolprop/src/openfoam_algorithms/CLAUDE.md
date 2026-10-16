@@ -19,7 +19,11 @@ the crate's `Cargo.toml` lists `outram-foam-basic-lib` as a normal dependency
 (since GitHub #492, which made `mesh`, the 1-D mesher and the tensor
 primitives here re-exports of basic-lib), and since gh #901 the KNP face flux
 of `rhoPimpleFoam/central_upwind.rs` is basic-lib's
-`fv_operators::fvc::central_upwind` too. Still no `ndarray` / BLAS / C. The
+`fv_operators::fvc::central_upwind` too. **Updated 2026-10-16:**
+`rhoPimpleFoam/central_upwind.rs` is gone. The array's KNP hybrid
+(`SolverMode::HybridAllMach`) was retired in step with the steam-tables twin
+(maintainer decision D7, gh:#914), so `OPCPFluidArray` no longer calls the
+KNP kernel and has one flux discretisation, PIMPLE. Still no `ndarray` / BLAS / C. The
 rest of `openfoam_source/` (fields, FV operators, matrices) is still a
 vendored copy.
 

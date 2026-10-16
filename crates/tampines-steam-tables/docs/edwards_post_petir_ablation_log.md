@@ -763,6 +763,11 @@ because the start-of-step convective Courant number stayed at or below 0.017.
 The over-drains happen *inside* a step: the in-step outflow Courant number
 reached 1.3–5.0 while the start-of-step value stayed small.
 
+> **Outcome, 2026-10-16:** the gate below and the hybrid it tested were
+> removed (maintainer decision D7, "retire the KNP hybrid", gh:#914); the
+> `EDW_HYBRID` knob cited above went with them. The numbers here stay as
+> measured.
+
 **A regression in a gate, reported and not relaxed.** `edwards_hybrid_damps_ringing_vs_pimple`
 now **fails** its "hybrid ringing must not grow" assertion under every scheme:
 

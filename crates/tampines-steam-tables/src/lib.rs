@@ -142,10 +142,12 @@ pub mod tabulated_data;
 /// [`openfoam_algorithms::rhoPimpleFoam`], surfaced at the crate root for
 /// convenience. `TampinesSteamArray` backs each finite-volume cell with an
 /// IAPWS-IF97 `(p,h)` flash so a 1-D pipe can carry two-phase steam-water flow.
+///
+/// ~~`SolverMode` and `KnpFaceClosure`~~ were removed 2026-10-16 with the
+/// retired KNP hybrid (gh:#914); the array has one flux discretisation, PIMPLE.
 pub use openfoam_algorithms::rhoPimpleFoam::{
     AdvectionTerminalState, EnergyBalanceMode, EnergyConvectionScheme, KineticEnergyTerms,
-    KnpFaceClosure, PsiRefresh, SolverMode, TampinesSteamArray, TampinesSteamArrayError,
-    ThermoClosure, TimeStepControl,
+    PsiRefresh, TampinesSteamArray, TampinesSteamArrayError, ThermoClosure, TimeStepControl,
 };
 
 // pool boiling code for use within the fhr sim v1

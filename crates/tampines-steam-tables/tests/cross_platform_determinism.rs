@@ -29,8 +29,13 @@
 //!   cannot be called from here, and that tree is not edited by this stage.
 //!   The mirror composes the same public routines in the same order:
 //!   `ph_flash_region`, then Kieffer's region-4 speed with its
-//!   finite-difference fallback, or `w_tp_{1,2,3,5}` at `t_ph_eqm`. The
-//!   function proper is reached by Part B's `edw_knp` run. `lambda_ph` is
+//!   finite-difference fallback, or `w_tp_{1,2,3,5}` at `t_ph_eqm`.
+//!   ~~The function proper is reached by Part B's `edw_knp` run.~~
+//!   **Updated 2026-10-16:** `hem_sound_speed_ph` was deleted with the KNP
+//!   hybrid; the mirror now matches the public
+//!   `ph_flash_eqm::w_ph_eqm_hem` (without its absent clamp), and the
+//!   `edw_knp` run is gone. The mirror is kept unchanged so the `hem_sound`
+//!   golden does not move. `lambda_ph` is
 //!   hashed as NaN at the 17 grid points where `t_ph_eqm < 273.15 K`, because
 //!   `lambda_ph_eqm` panics there (gh:#904; see `part_a`). There are also three
 //!   probes:
@@ -42,16 +47,22 @@
 //! - **Part B, a short Edwards slice** (seconds). It uses
 //!   `tests/edwards_blowdown.rs`'s geometry, the Hendrie initial condition,
 //!   the choked break boundary condition, 4/4 PISO and the pinned `Linear`
-//!   energy scheme. The run is 24 cells, `dt = 30 us` and 200 steps, three
-//!   times:
-//!   - `edw_pimple`: `SolverMode::Pimple`.
-//!   - `edw_hybrid`: `SolverMode::HybridAllMach` at the default Mach-blend
+//!   energy scheme. The run is 24 cells, `dt = 30 us` and 200 steps,
+//!   ~~three times~~ **once since 2026-10-16**:
+//!   - `edw_pimple`: ~~`SolverMode::Pimple`~~ the array's only flux
+//!     discretisation, PIMPLE.
+//!
+//!   **RETIRED 2026-10-16** with the KNP hybrid (gh:#914, decision D7; record
+//!   in `verification_and_validation/determinism_golden_moves.md`). The two
+//!   runs below and their 32 goldens were removed; the `edw_pimple` goldens
+//!   did not move, which is the check that only the hybrid was removed:
+//!   - ~~`edw_hybrid`~~: `SolverMode::HybridAllMach` at the default Mach-blend
 //!     window. ~~This reaches the KNP flux and `hem_sound_speed_ph`.~~
 //!     **Measured 2026-10-16: bit-identical to `edw_pimple` in all 16
 //!     sub-hashes.** No face reaches the blend window within 200 steps, so the
 //!     KNP dissipation never acts here. It is kept because it pins exactly
 //!     that: the hybrid mode is a no-op in this regime.
-//!   - `edw_knp`: `HybridAllMach` with the window opened to `(0, 1e-3)`, so
+//!   - ~~`edw_knp`~~: `HybridAllMach` with the window opened to `(0, 1e-3)`, so
 //!     the KNP flux and `hem_sound_speed_ph` act on every moving face. It
 //!     departs from `edw_pimple` in `U` from step 1, and in every field from
 //!     step 10. This is a code-path exerciser, not a physics configuration.
@@ -196,7 +207,7 @@ use tampines_steam_tables::dynamic_viscosity::mu_ph_eqm;
 use tampines_steam_tables::region_1_subcooled_liquid::{h_tp_1, w_tp_1};
 use tampines_steam_tables::region_4_vap_liq_equilibrium::sat_pressure_4;
 use tampines_steam_tables::steam_turbine_equations::converging_diverging_nozzles::choked_flow::get_critical_pressure_and_mass_flux_multiphase_ph;
-use tampines_steam_tables::{EnergyConvectionScheme, SolverMode, TampinesSteamArray};
+use tampines_steam_tables::{EnergyConvectionScheme, TampinesSteamArray};
 
 use uom::si::area::square_meter;
 use uom::si::available_energy::joule_per_kilogram;
@@ -217,10 +228,13 @@ use uom::si::thermodynamic_temperature::kelvin;
 use uom::si::time::second;
 use uom::si::velocity::meter_per_second;
 
-/// Mirror of `openfoam_algorithms::rhoPimpleFoam::central_upwind::hem_sound_speed_ph`
-/// (`pub(crate)`, unreachable from an integration test), with no `c_min`
-/// clamp, so a non-finite raw value shows in the hash rather than being
-/// masked. Same routines, same order.
+/// ~~Mirror of `openfoam_algorithms::rhoPimpleFoam::central_upwind::hem_sound_speed_ph`
+/// (`pub(crate)`, unreachable from an integration test)~~ **Updated
+/// 2026-10-16:** that function was deleted with the KNP hybrid. This is now a
+/// mirror of the public `ph_flash_eqm::w_ph_eqm_hem`, kept as written so the
+/// `hem_sound` golden does not move. No `c_min` clamp, so a non-finite raw
+/// value shows in the hash rather than being masked. Same routines, same
+/// order.
 fn hem_sound_speed_mirror(p: Pressure, h: AvailableEnergy) -> f64 {
     match ph_flash_region(p, h) {
         FwdEqnRegion::Region4 => {
@@ -303,45 +317,15 @@ const GOLDEN: &[(&str, usize, u64)] = &[
     ("edw_pimple_he_200", 24, 0x2efa2c88b9d4c55c),
     ("edw_pimple_rho_200", 24, 0x4f9fe4a58a074f24),
     ("edw_pimple_U_200", 72, 0xddc1daac10ff6f72),
-    ("edw_hybrid_p_1", 24, 0x5c438839a9588fe5),
-    ("edw_hybrid_he_1", 24, 0x99e80f2836e95484),
-    ("edw_hybrid_rho_1", 24, 0xbf05587125d7c7a4),
-    ("edw_hybrid_U_1", 72, 0x60673c681d1e7655),
-    ("edw_hybrid_p_10", 24, 0x2423d833a3f87c70),
-    ("edw_hybrid_he_10", 24, 0x2745388edcf1211a),
-    ("edw_hybrid_rho_10", 24, 0x5f784bec19fe3451),
-    ("edw_hybrid_U_10", 72, 0xb409cf81ca9ef7ee),
-    ("edw_hybrid_p_50", 24, 0x77a391f98be19cae),
-    ("edw_hybrid_he_50", 24, 0x55a763f07d6ce4b7),
-    ("edw_hybrid_rho_50", 24, 0x928380f00731e1bf),
-    ("edw_hybrid_U_50", 72, 0x341470de4b9f6b88),
-    ("edw_hybrid_p_200", 24, 0x7e798e8b5d233b86),
-    ("edw_hybrid_he_200", 24, 0x61f01a0010decae4),
-    ("edw_hybrid_rho_200", 24, 0x0708e41970983b30),
-    ("edw_hybrid_U_200", 72, 0x2e5772d11e359345),
-    ("edw_knp_p_1", 24, 0x5c438839a9588fe5),
-    ("edw_knp_he_1", 24, 0x99e80f2836e95484),
-    ("edw_knp_rho_1", 24, 0xbf05587125d7c7a4),
-    ("edw_knp_U_1", 72, 0x60673c681d1e7655),
-    ("edw_knp_p_10", 24, 0xa643d9aec5a757b8),
-    ("edw_knp_he_10", 24, 0xbf54790b874b7bd0),
-    ("edw_knp_rho_10", 24, 0x2ff8eaf20ed3c9a7),
-    ("edw_knp_U_10", 72, 0xc654ec63ee49f4a4),
-    ("edw_knp_p_50", 24, 0x266e520da11febdc),
-    ("edw_knp_he_50", 24, 0x05e645504a7c869c),
-    ("edw_knp_rho_50", 24, 0xf6e9978e0247b71e),
-    ("edw_knp_U_50", 72, 0xb07c66134e97c683),
-    ("edw_knp_p_200", 24, 0x5fb76db72bd3d22a),
-    ("edw_knp_he_200", 24, 0x8e38f2d8b450e805),
-    ("edw_knp_rho_200", 24, 0x050e21e1a38ce416),
-    ("edw_knp_U_200", 72, 0xed748703af11b392),
     // GOLDEN-TABLE-END
 ];
 
 /// Negative control: which sub-hashes differed between x86_64-linux (glibc
 /// 2.39) and wasm32-wasip1 (Node 22 WASI), both built 2026-10-16 from this
 /// tree.
-/// `true` = differed. Documentation only; nothing asserts it.
+/// `true` = differed. Documentation only; nothing asserts it. Kept as the
+/// 2026-10-16 record: its `edw_hybrid_*` and `edw_knp_*` rows name runs that
+/// were removed later that day with the KNP hybrid.
 #[allow(dead_code)]
 const NEGATIVE_CONTROL: &[(&str, bool)] = &[
     // NEGATIVE-CONTROL-START
@@ -641,7 +625,7 @@ fn choked_face_velocity(p0_pa: f64, h0_jkg: f64, rho0: f64, t: f64) -> f64 {
     g * a_break / (rho0.max(1e-4) * PIPE_AREA_M2)
 }
 
-fn edwards_slice(mode: SolverMode, blend: Option<(f64, f64)>, tag: &str) -> Vec<(String, usize, u64)> {
+fn edwards_slice(tag: &str) -> Vec<(String, usize, u64)> {
     let dt_s = 30.0e-6;
     let mut array = TampinesSteamArray::new(
         Length::new::<meter>(PIPE_LENGTH_M),
@@ -652,10 +636,6 @@ fn edwards_slice(mode: SolverMode, blend: Option<(f64, f64)>, tag: &str) -> Vec<
     .expect("valid Edwards pipe geometry");
     array.set_he_convection_scheme(EnergyConvectionScheme::Linear);
     array.set_pimple_algorithm(4, 4, Ratio::new::<ratio>(1.0), Ratio::new::<ratio>(1.0));
-    array.set_solver_mode(mode);
-    if let Some((lo, hi)) = blend {
-        array.set_mach_blend_window(Ratio::new::<ratio>(lo), Ratio::new::<ratio>(hi));
-    }
     let n = array.mesh.n_cells;
     for c in 0..n {
         array.p.internal[c] = P_INIT_PA;
@@ -702,25 +682,11 @@ fn edwards_slice(mode: SolverMode, blend: Option<(f64, f64)>, tag: &str) -> Vec<
 
 #[test]
 fn part_b_edwards_200_steps_pimple() {
-    report(&edwards_slice(SolverMode::Pimple, None, "edw_pimple"));
+    report(&edwards_slice("edw_pimple"));
 }
 
-#[test]
-fn part_b_edwards_200_steps_hybrid_knp() {
-    report(&edwards_slice(SolverMode::HybridAllMach, None, "edw_hybrid"));
-}
-
-/// `edw_hybrid` above, at the default Mach-blend window, is **bit-identical
-/// to `edw_pimple`** in every sub-hash (measured 2026-10-16): within 200 steps
-/// no face reaches the window, so the KNP dissipation is never added and that
-/// run has no discriminating power for the KNP path. This run opens the
-/// window to `(0, 1e-3)`, so the KNP flux and `hem_sound_speed_ph` act at
-/// essentially full weight on every moving face. It is a code-path exerciser,
-/// not a physics configuration.
-#[test]
-fn part_b_edwards_200_steps_knp_forced() {
-    report(&edwards_slice(SolverMode::HybridAllMach, Some((0.0, 1.0e-3)), "edw_knp"));
-}
+// ~~`part_b_edwards_200_steps_hybrid_knp` and `part_b_edwards_200_steps_knp_forced`~~
+// removed 2026-10-16 with the KNP hybrid (module docs).
 
 /// The hash moves when one input moves by one ulp: the mutation half of the
 /// negative control (audit §4.7).

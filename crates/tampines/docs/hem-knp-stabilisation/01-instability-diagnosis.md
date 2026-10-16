@@ -1,5 +1,10 @@
 # HEM / KNP instability: diagnosis (epic #896, phase 1)
 
+> **Note, 2026-10-16:** this report is kept as written. The `HybridAllMach`
+> mode, `KnpFaceClosure` and `assemble_hybrid_dissipation` it refers to were
+> removed that day (maintainer decision D7, "retire the KNP hybrid"; see
+> [`README.md`](README.md)). Line numbers into `mod.rs` no longer match.
+
 Read-only diagnosis, 2026-10-16. Nothing in the repo was edited.
 
 **Upstream used.** OpenFOAM is not vendored anywhere in the workspace. Neither

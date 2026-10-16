@@ -683,7 +683,9 @@ mod hrho_tests {
 /// cannot poison downstream arithmetic.
 ///
 /// Public since 2026-10-16 (gh #901, epic #896 step M2); it was a private helper
-/// of the `HybridAllMach` KNP path, which now re-exports it from here. A
+/// of the `HybridAllMach` KNP path, ~~which now re-exports it from here~~.
+/// **Updated 2026-10-16:** that path was retired (gh:#914); the callers are now
+/// [`crate::single_cv`] and `tampines`' CoolProp HEM equation of state. A
 /// homogeneous-equilibrium flow model built on this crate must use this speed,
 /// not [`crate::props::FluidState::speed_of_sound`], inside the dome.
 ///
@@ -785,5 +787,57 @@ fn hem_c_two_phase_fd(fluid: Fluid, p: f64, h: f64) -> Option<f64> {
         Some(a2.sqrt())
     } else {
         None
+    }
+}
+
+/// [`hem_sound_speed_ph`] checks, moved here 2026-10-16 from the deleted
+/// `openfoam_algorithms::rhoPimpleFoam::central_upwind` tests when the KNP
+/// hybrid that owned that module was retired (gh:#914). The Mach-blend
+/// assertion they also carried went with the hybrid.
+#[cfg(test)]
+mod hem_sound_speed_tests {
+    use super::*;
+
+    /// Floor passed as `c_min`, the value the retired hybrid used.
+    const C_MIN_MPS: f64 = 1.0;
+
+    /// Single phase: Nitrogen gas at (1 bar, 300 K) gives a physical vapour
+    /// speed (300–420 m/s) equal to the EOS `speed_of_sound` to 1e-9.
+    #[test]
+    fn hem_c_single_phase_gas_matches_eos() {
+        let h = state_pt(Fluid::Nitrogen, 300.0, 1.0e5).unwrap().enthalpy;
+        let st = state_ph(Fluid::Nitrogen, 1.0e5, h).unwrap();
+        let c = hem_sound_speed_ph(Fluid::Nitrogen, 1.0e5, st.enthalpy, C_MIN_MPS);
+        assert!(c.is_finite() && c > C_MIN_MPS, "c = {c} not physical");
+        assert!(
+            (c - st.speed_of_sound).abs() / st.speed_of_sound < 1e-9,
+            "single-phase HEM speed {c} should equal the EOS speed_of_sound {}",
+            st.speed_of_sound
+        );
+        assert!(
+            (300.0..420.0).contains(&c),
+            "N2 gas sound speed {c} m/s outside expected band"
+        );
+    }
+
+    /// Two phase: Water at 1 bar, x about 0.5 (built from the saturated-phase
+    /// enthalpies at `T_sat`, so the point is guaranteed in-dome) gives a
+    /// finite, positive equilibrium speed well below the liquid speed. This
+    /// exercises the finite difference along the equilibrium isentrope.
+    #[test]
+    fn hem_c_two_phase_equilibrium_is_finite_and_low() {
+        let p = 1.0e5_f64;
+        let t_sat = saturation_temperature(Fluid::Water, p).expect("water sat T at 1 bar");
+        let sat = saturation_at_temperature(Fluid::Water, t_sat).unwrap();
+        let h_l = state_trho(Fluid::Water, t_sat, sat.rho_liquid).enthalpy;
+        let h_v = state_trho(Fluid::Water, t_sat, sat.rho_vapour).enthalpy;
+        let h = 0.5 * (h_l + h_v);
+        assert!(
+            matches!(phase_at_ph(Fluid::Water, p, h), PhaseAtPh::TwoPhase { .. }),
+            "sample must classify two-phase"
+        );
+        let c = hem_sound_speed_ph(Fluid::Water, p, h, C_MIN_MPS);
+        assert!(c.is_finite() && c > C_MIN_MPS, "two-phase HEM c = {c} not physical");
+        assert!(c < 800.0, "two-phase HEM speed {c} m/s should be well below the liquid speed");
     }
 }

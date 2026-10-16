@@ -61,7 +61,8 @@ pub use stage::*;
 pub mod velocity_triangle;
 pub use velocity_triangle::*;
 
-/// The same stage chain driven in time by the 1-D HEM KNP hybrid solver.
+/// The same stage chain driven in time by the 1-D HEM PIMPLE array
+/// (~~KNP hybrid solver~~, retired 2026-10-16).
 pub mod transient;
 pub use transient::*;
 

@@ -15,6 +15,35 @@
 | D4 | **Yes**: try CoolProp (ρ,e) inside the dome. |
 | D5 | **Move the defaults**: implicit energy convection and `OncePerOuterCorrector`. Re-measure Edwards. |
 | D6 | **Yes**: extend petir `RealMath`. |
+| D7 | **Retire the KNP hybrid** (2026-10-16, after gh:#914). `SolverMode::HybridAllMach` is removed from both PIMPLE arrays. |
+
+**D7, recorded 2026-10-16: "retire the KNP hybrid".** After gh:#900 (D5) made
+the arrays upstream-faithful, plain PIMPLE rings 3.4× less on Edwards and the
+hybrid **adds** ringing over it: −23.5 % (Linear), −31.0 % (van Leer),
+−36.7 % (upwind) on its own gate, summed excess total variation 0–0.15 s
+(Linear: 1648.3 → 2035.8 psia). It failed its own acceptance test, so it was
+removed from `TampinesSteamArray` and `OPCPFluidArray`: `SolverMode`,
+`KnpFaceClosure`, `assemble_hybrid_dissipation`, `HybridDissipation`, the
+Mach-blend window, the rarefied-tail taper, each array's `central_upwind.rs`,
+the gate `edwards_hybrid_damps_ringing_vs_pimple`, and the hybrid
+determinism sub-hashes (`edw_hybrid_*`, `edw_knp_*`, `n2arr_hybrid_*`,
+`n2arr_knp_*`). The PIMPLE path did not move: every remaining determinism
+golden, and the Edwards 600 ms Linear numbers (360.5 / 17.2 psia, 0 bound
+events), are unchanged. The only default user, the transient mean-flow
+turbine, gave identical results in both modes, because its 6–14 kg/m³ steam
+sat below the hybrid's 50 kg/m³ density taper. The density-based KNP path is
+`HemPipe` (B3–B6), which this does not touch; the shared kernel stays.
+
+**A negative result removed with it, recorded here so it is not lost.**
+`KnpFaceClosure::EosConsistentPressure` closed the KNP face pressure from the
+reconstructed `(ρ, h)` through `p_rho_h_eqm`, instead of taking the
+independently limited MUSCL pressure. Measured 2026-09-14 (Edwards,
+`HybridAllMach`, 0–50 ms, 24 cells, 30 µs): 50.9 s vs 46.2 s, and the hybrid
+went from damping ringing to adding it (`sum_h` 1367.58 vs `sum_p` 1330.25).
+The likely cause: the EOS map of two limited quantities is no longer TVD, so
+the face pressure can overshoot where neither input did. No literature search
+was done on this trade. It is relevant to `HemPipe`'s choice of reconstructed
+variables.
 
 **Consequence of D2 for the design below.** §B3/B4 originally placed `HemPipe` in
 `tampines`, with Edwards reaching it through a dev-dependency back-edge (B6).
@@ -40,7 +69,8 @@ That is **superseded**:
 **The instability is not in KNP.**
 
 - `TampinesSteamArray` is a pressure-based `rhoPimpleFoam` port. KNP enters
-  only as the opt-in deferred-correction dissipation `SolverMode::HybridAllMach`.
+  only as the opt-in deferred-correction dissipation `SolverMode::HybridAllMach`
+  (~~still present~~ retired 2026-10-16, D7).
 - The reproduced failure is in the **default Pimple mode, with KNP off**:
   `EDW_HE_SCHEME=vanleer`, 30 µs, release. Per gh:#406 the hybrid fails the
   same way.
@@ -74,7 +104,7 @@ not gh:#342's 17.7 mK band, which `boundary_273_15_repro` still reproduces.
    *more* accurate.
 5. **The `transonic` pressure-equation branch.** The port lacks it (register row 15).
 
-The KNP hybrid itself also differs from upstream. It adds its flux after the
+The KNP hybrid (retired 2026-10-16, D7) itself also differed from upstream. It added its flux after the
 pressure equation has converged, with no wave-speed Courant check. It applies
 no energy dissipation and skips boundary faces.
 
@@ -128,6 +158,8 @@ step, because the start-of-step Courant number stayed at or below 0.017.
 `edwards_hybrid_damps_ringing_vs_pimple`, fails under all three schemes. The
 hybrid adds 23–37 % ringing over plain PIMPLE, which itself rings 3.4× less
 than before. The threshold was left as it was. This feeds Phase B (gh:#914).
+**Resolved 2026-10-16 by D7:** the hybrid and this gate were removed, with
+the gate's final numbers recorded in the `tests/edwards_blowdown.rs` header.
 
 ### Phase B: one KNP kernel, and a HEM solver exported from `tampines`
 
