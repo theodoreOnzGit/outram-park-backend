@@ -220,7 +220,8 @@
     ["adler-adler.html", "Cheaper still: fit the curves?"],
     ["log-scales.html", "Why are cross sections drawn on log scales?"],
     ["unresolved.html", "The double whammy: unresolved resonances"],
-    ["purr.html", "PURR: make up the resonances"]
+    ["purr.html", "PURR: make up the resonances"],
+    ["bound-atoms.html", "But the atoms are bound!"]
   ];
   function lessonNav() {
     var here = location.pathname.split("/").pop() || LESSONS[0][0], i = -1;

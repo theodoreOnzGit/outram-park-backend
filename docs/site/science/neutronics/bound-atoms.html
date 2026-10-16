@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>But the atoms are bound!</title>
+<meta name="description" content="Neutronics, page 20: in a reactor the atoms are bound in solids and molecules. A fast neutron hands a struck atom far more energy than the bonds' vibrations hold, so it recoils as if free; a slow neutron does not, and scatters from the whole bound system. Vibration energies from the alpha-quartz and water LEAPR decks; where the ENDF/B-VIII.0 thermal tables stop, from their MF=7.">
+<link rel="stylesheet" href="../../style.css">
+<script src="lesson-kit.js" defer></script>
+<script src="bound-data.js" defer></script>
+<script src="bound.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Neutronics lessons (gh:#906): page 20 of the design comment of 2026-10-16. Per its [correctness] notes: the scale that matters is the bound atoms' vibration energies (data: LEAPR decks), not breaking the bond; water is bound in molecules, not a crystal; where the thermal tables stop is read from each tape's MF=7 B(4); Bragg is named only; no LEAPR/THERMR plumbing. Numbers: bound-data.js (examples/lesson_bound.rs), checked by check-physics.js. -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response. <strong>Review status:</strong> AI-assisted first draft (2026-10-16), not yet reviewed by a human.</p>
+
+<h1>But the atoms are bound!</h1>
+<p class="kicker lesson-progress">Neutronics</p>
+<p>On page 3 the nuclei moved freely, each a lone atom that recoils on its own when a neutron hits it: the <b>free-gas</b> picture. But in a reactor the atoms are not free. They are <b>bound</b>: in solids such as graphite, UO<sub>2</sub>, SiC and ZrH, and in molecules such as H<sub>2</sub>O.</p>
+<p>Does that matter? It depends on how much energy the neutron can hand over, compared with the energies the bound atoms vibrate with.</p>
+
+<section class="widget-card">
+  <h3>Free atom or bound atom?</h3>
+  <div class="widget" id="bound">
+    <canvas aria-label="A neutron striking one atom, either free or held in a small lattice by springs, with a ladder of vibration levels when the binding matters"></canvas>
+  </div>
+  <p class="actions"><button type="button" class="btn ghost" data-bound="0">Free atom</button> <button type="button" class="btn" data-bound="1">Bound atom</button> <button type="button" class="btn ghost" data-hit>Hit again</button></p>
+  <label class="energy-control"><span>Neutron energy <b data-loge-out></b></span>
+    <input type="range" data-loge min="-3" max="6.3" step="0.01" value="6.30103" aria-label="Neutron energy, from 1 meV to 2 MeV on a log scale"></label>
+  <p class="note">Si bound in &alpha;-quartz, with its vibration energies from the quartz LEAPR deck distributed with NJOY2016 <a href="#ref-njoy2016">(MacFarlane et al., 2017)</a>. The springs and the ladder are drawings, not a model of quartz.</p>
+</section>
+
+<h2>Fast neutrons see free atoms</h2>
+<p>A 2 MeV neutron can hand a Si atom up to about 270 keV (page 2's kinematics). The vibrations of Si bound in &alpha;-quartz reach only <b data-vib="Si in alpha-quartz">0.152</b> eV. The bonds cannot hold on to that kind of energy, so the struck atom recoils as if it were free, and free-gas scattering works. Even a 100 eV neutron can hand it about 13 eV, still far above the vibration energies.</p>
+
+<h2>Slow neutrons see the whole lattice</h2>
+<p>Once the neutron has slowed to the energies of those vibrations, the struck atom can no longer simply recoil on its own: it is tied to its neighbours. The neutron then exchanges energy with the <b>bound system as a whole</b>, in vibration-sized steps, and it can <b>gain</b> energy from the vibrations as well as lose it. That is not free-gas scattering any more.</p>
+<p>And a thermal neutron is right in that range: 0.0253 eV, against vibration energies up to <b data-vib="Si in alpha-quartz">0.152</b> eV in quartz. Water is the same story with molecules: its hydrogen sits in an H<sub>2</sub>O molecule that rotates, drifts and vibrates, with a continuous spectrum up to <b data-vib="H in H2O">0.149</b> eV and two sharp internal vibrations at <b data-osc="0">0.205</b> and <b data-osc="1">0.415</b> eV in its ENDF/B-VIII.0 model.</p>
+<p>The thermal-scattering data in ENDF describe exactly this: "the scattering law S(&alpha;, &beta;) describes the binding of the scattering atom in a material" <a href="#ref-njoy2016">(MacFarlane et al., 2017)</a>. Each evaluation stops at an energy it states itself, above which free-atom data take over: <b data-emax="graphite (crystalline)">5.0</b> eV for graphite, <b data-emax="H in H2O">10.0</b> eV for H in H<sub>2</sub>O, <b data-emax="H in ZrH">1.97</b> eV for H in ZrH and <b data-emax="Si in SiC">5.0</b> eV for SiC <a href="#ref-brown2018endf8">(Brown &amp; others, 2018)</a>.</p>
+
+<h2>Why it matters most for moderators</h2>
+<p>Thermal neutrons do most of their scattering in the moderator: graphite, water, ZrH. So that is where the binding matters most. The binding of the fuel (UO<sub>2</sub>) and of the TRISO layers (SiC) is real too, but it matters less.</p>
+<p>There is a second way a crystal differs from a free gas. A thermal neutron's wavelength, about 1.8 &Aring; (page 4), is about the spacing between atoms in a crystal. So the neutron wave can <b>diffract</b> off the crystal's planes of atoms: Bragg scattering, which a gas of lone atoms cannot do.</p>
+
+<h2>Why is this so? So what is different?</h2>
+<p><b>So how is scattering from a bound lattice different?</b></p>
+
+<nav class="lesson-nav" aria-label="Lessons" data-next-soon="Next: what lattice scattering depends on"></nav>
+
+<!-- references:begin -->
+<h2>References</h2>
+
+<p class="csl-entry" id="ref-brown2018endf8" style="padding-left: 2em; text-indent: -2em;">Brown, D. A. &#38; others. (2018). ENDF/B-VIII.0: The 8th Major Release of the Nuclear Reaction Data Library with CIELO-project Cross Sections, New Standards and Thermal Scattering Data. <i>Nuclear Data Sheets</i>, <i>148</i>, 1–142. https://doi.org/10.1016/j.nds.2018.02.001</p>
+
+<p class="csl-entry" id="ref-njoy2016" style="padding-left: 2em; text-indent: -2em;">MacFarlane, R. E., Muir, D. W., Boicourt, R. M., Kahler, A. C., &#38; Conlin, J. L. (2017). <i>The NJOY Nuclear Data Processing System, Version 2016</i> (Technical Report LA-UR-17-20093). Los Alamos National Laboratory. https://www.osti.gov/biblio/1338791</p>
+
+<!-- references:end -->
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. GPL-3.0. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>

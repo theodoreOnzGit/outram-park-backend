@@ -70,6 +70,7 @@
 <p>Each press draws a random number, finds where it falls on the table's cumulative probability, and reads off one cosine &mu;: the neutron leaves at &theta; = arccos &mu;, and the transport continues from there. That is the step OutramMC takes at every elastic collision, and it is part of what made the paths zig-zag in the <a href="meet-the-neutron.html">first demo</a>.</p>
 <p class="chain">stored nuclear data &rarr; probability distribution &rarr; random number &rarr; sampled direction &rarr; the neutron continues</p>
 <p>Press <b>Sample 100 more</b> a few times: the samples crowd where the curve is high, and their average cosine closes in on a<sub>1</sub>.</p>
+<p class="note"><b>This pattern comes back.</b> Angles are not the only thing stored as "how likely is each value". In the unresolved resonance range, nuclear data stores how likely each value of the <b>cross section</b> is, and a transport code samples one the same way (<a href="purr.html">page 19</a>). And random sampling is used <b>before</b> transport too: NJOY's PURR builds those tables by making up many statistically correct ladders of resonances and sampling them. There is randomness in making the data as well as in using it.</p>
 <p><b>We now know how nuclear data can store the shape of a scattering angular distribution, and how a Monte Carlo code can sample an outgoing direction from it.</b></p>
 
 <h2>But remember our neutron matter wave?</h2>

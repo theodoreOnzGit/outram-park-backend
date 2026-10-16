@@ -24,6 +24,8 @@ eval(fs.readFileSync(path.join(__dirname, "unresolved-data.js"), "utf8"));
 eval(fs.readFileSync(path.join(__dirname, "unresolved.js"), "utf8"));
 eval(fs.readFileSync(path.join(__dirname, "purr-data.js"), "utf8"));
 eval(fs.readFileSync(path.join(__dirname, "purr.js"), "utf8"));
+eval(fs.readFileSync(path.join(__dirname, "bound-data.js"), "utf8"));
+eval(fs.readFileSync(path.join(__dirname, "bound.js"), "utf8"));
 const M = window.Lesson.qscatterMath, SH = window.Lesson.shapesMath, AN = window.Lesson.anglesMath;
 let failed = 0;
 function check(name, value, limit) {
@@ -392,6 +394,24 @@ for (const [label, A, ap, E] of [["C-12, 10 eV", 11.89365, 6.146927, 10], ["U-23
   q(/data-infd="(total|cap)">([^<]+)</g, (m) => PD.infd[m[1]]);
   check("page 19: " + nq + " numbers in the prose vs the data", bad, 0);
   console.log(`     PURR U-238 ${PD.e} eV: aver ${run[n - 1].toFixed(4)} b vs infd ${PD.infd.total.toFixed(4)} b; one ladder scatters ${PD.conv.pct.toFixed(2)} %`);
+}
+
+// Page 20 (gh:#906 design, 2026-10-16): bound atoms, against bound-data.js
+// (examples/lesson_bound.rs: LEAPR decks and the tsl tapes' MF=7 B(4)).
+{
+  const BM = window.Lesson.boundMath, BD = window.BOUND_DATA;
+  const h = fs.readFileSync(path.join(__dirname, "bound-atoms.html"), "utf8");
+  const half = (t) => { const d = t.split(".")[1]; return 0.5 * Math.pow(10, -(d ? d.length : 0)) * (1 + 1e-9); };
+  let bad = 0, n = 0;
+  const q = (re, f) => { for (const m of h.matchAll(re)) { n++; const t = m[m.length - 1], want = f(m); if (Math.abs(+t - want) > half(t)) { bad++; console.log("     mismatch", m[0], "want", want); } } };
+  q(/data-vib="([^"]+)">([^<]+)</g, (m) => BM.spectrum(BD.decks[m[1]]).top);
+  q(/data-osc="(\d)">([^<]+)</g, (m) => BD.decks["H in H2O"].osc[+m[1]][0]);
+  q(/data-emax="([^"]+)">([^<]+)</g, (m) => BD.tapes[m[1]].emax);
+  check("page 20: " + n + " numbers in the prose vs the data", bad, 0);
+  // The prose's "up to about 270 keV" and "about 13 eV" for Si.
+  const A = BD.decks["Si in alpha-quartz"].awr;
+  check("Si: most a 2 MeV neutron gives, about 270 keV (relative)", Math.abs(BM.maxTransfer(2e6, A) / 2.7e5 - 1), 0.02);
+  check("Si: most a 100 eV neutron gives, about 13 eV (relative)", Math.abs(BM.maxTransfer(100, A) / 13 - 1), 0.04);
 }
 
 if (failed) { console.log(failed + " check(s) failed"); process.exit(1); }
