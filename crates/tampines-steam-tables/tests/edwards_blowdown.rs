@@ -163,8 +163,10 @@
 //! - **Break boundary**: a choked (critical) outlet. Each step the last cell's
 //!   `(p0,h0)` is fed to the crate's existing HEM critical-flow dispatcher
 //!   [`get_critical_pressure_and_mass_flux_multiphase_ph`] (the same machinery
-//!   validated against Moody / Zaloudek; Marviken data is digitised but its
-//!   test is `#[ignore]`d and not yet gated), giving the throat mass
+//!   validated against Moody / Zaloudek; ~~Marviken data is digitised but its
+//!   test is `#[ignore]`d and not yet gated~~ **CORRECTED 2026-10-16:**
+//!   Marviken is gated, with six live tests in `marviken_tests.rs`; test 23 is
+//!   validated and test 24 is not, per the crate `CLAUDE.md`), giving the throat mass
 //!   flux `G*` and throat pressure. The break mass flow is
 //!   `m_dot = G* * A_break(t)` and the equivalent full-face outlet velocity
 //!   `U = m_dot / (rho * A)` is imposed via `set_outlet_velocity`. The closed
