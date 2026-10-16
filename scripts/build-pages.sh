@@ -265,8 +265,8 @@ done < <(find "$OUT" -mindepth 1 -type d -print0)
 # Every page must exist where the main menu points.
 for f in index.html site-nav.js code-map-bar.js code-map/index.html code-map/code_map.svg \
   search.js search.json code/index.html science/index.html demos/index.html \
-  science/neutronics/{meet-the-neutron,why-it-scatters,moving-nuclei,matter-waves,quantum-scattering,storing-shapes}.html \
-  science/neutronics/{lesson-kit,kinematics,waves,qscatter,shapes}.js \
+  science/neutronics/{meet-the-neutron,why-it-scatters,moving-nuclei,matter-waves,quantum-scattering,storing-shapes,scattering-angles}.html \
+  science/neutronics/{lesson-kit,kinematics,waves,qscatter,shapes,angles,angular-data}.js \
   kovan-schema/index.html \
   code-map/code_map.json code-map/site_links.json \
   api/outram_mc_libs/index.html api/changi/index.html \

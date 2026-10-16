@@ -207,7 +207,8 @@
     ["moving-nuclei.html", "The nucleus is moving too"],
     ["matter-waves.html", "Why not billiard balls?"],
     ["quantum-scattering.html", "A neutron wave at a nucleus"],
-    ["storing-shapes.html", "How do we store a shape?"]
+    ["storing-shapes.html", "How do we store a shape?"],
+    ["scattering-angles.html", "How are scattering angles stored?"]
   ];
   function lessonNav() {
     var here = location.pathname.split("/").pop() || LESSONS[0][0], i = -1;

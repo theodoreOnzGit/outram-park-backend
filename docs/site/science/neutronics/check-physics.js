@@ -8,7 +8,9 @@ const fs = require("fs"), path = require("path");
 global.window = {}; window.Lesson = { widget() {}, css() {}, el() {} };
 eval(fs.readFileSync(path.join(__dirname, "qscatter.js"), "utf8"));
 eval(fs.readFileSync(path.join(__dirname, "shapes.js"), "utf8"));
-const M = window.Lesson.qscatterMath, SH = window.Lesson.shapesMath;
+eval(fs.readFileSync(path.join(__dirname, "angular-data.js"), "utf8"));
+eval(fs.readFileSync(path.join(__dirname, "angles.js"), "utf8"));
+const M = window.Lesson.qscatterMath, SH = window.Lesson.shapesMath, AN = window.Lesson.anglesMath;
 let failed = 0;
 function check(name, value, limit) {
   const ok = value <= limit;
@@ -86,6 +88,53 @@ for (const [label, A, ap, E] of [["C-12, 10 eV", 11.89365, 6.146927, 10], ["U-23
   check("16 cosines: worst error / peak", SH.worst(f, SH.bySeries(f, 16).y), 1e-6);
   check("J0 at its first zero", Math.abs(SH.besselJ(0, 2.404825558)), 1e-9);
   check("J1(1) vs 0.4400505857", Math.abs(SH.besselJ(1, 1) - 0.4400505857), 1e-9);
+}
+
+// 5. Page 7's real data. For every held energy of C-12 and U-238:
+//    (a) the evaluation's Legendre density integrates to 1 (a_0 = 1);
+//    (b) it agrees with ACER's table at the table's cosines within ptleg2's
+//        own tolerances (0.02 % rebuild, 0.2 % thinning, then the area
+//        normalisation), wherever the density is not clamped near zero;
+//    (c) the lin-lin sampler's mean cosine over 400 000 draws matches the
+//        table's exact mean, and the table's mean matches a_1, the
+//        evaluation's mean cosine, within the thinning.
+//    2026-10-16, worst over the ten: (a) 1.5e-7, (b) 1.1e-3, (c) 2.0e-3
+//    for the sampler (its standard error is ~9e-4, so 2.1 sd; the seed is
+//    fixed, so the check is repeatable) and 5.3e-4 for a_1.
+{
+  let worstInt = 0, worstTab = 0, worstMean = 0, worstA1 = 0;
+  let seed = 99;
+  const rand = () => { seed ^= seed << 13; seed ^= seed >>> 17; seed ^= seed << 5; return (seed >>> 0) / 4294967296; };
+  for (const nuc of ["C-12", "U-238"]) {
+    for (const R of window.ANGULAR_DATA[nuc]) {
+      const NL = R.a.length, N = 20000;
+      let integral = 0;
+      for (let i = 0; i < N; i++) {
+        const m0 = -1 + 2 * i / N, m1 = -1 + 2 * (i + 1) / N;
+        integral += 0.5 * (AN.density(R.a, NL, m0) + AN.density(R.a, NL, m1)) * (m1 - m0);
+      }
+      worstInt = Math.max(worstInt, Math.abs(integral - 1));
+      let pk = 0; for (const v of R.pdf) pk = Math.max(pk, v);
+      for (let i = 0; i < R.mu.length; i++) {
+        const d = AN.density(R.a, NL, R.mu[i]);
+        if (d > 1e-3 * pk) worstTab = Math.max(worstTab, Math.abs(R.pdf[i] / d - 1));
+      }
+      // The exact mean of the lin-lin table: ∫ μ p(μ) dμ bin by bin.
+      let tmean = 0;
+      for (let i = 0; i + 1 < R.mu.length; i++) {
+        const a = R.mu[i], b = R.mu[i + 1], pa = R.pdf[i], pb = R.pdf[i + 1], m = (pb - pa) / (b - a);
+        tmean += (pa - m * a) * (b * b - a * a) / 2 + m * (b * b * b - a * a * a) / 3;
+      }
+      let sum = 0; const n = 400000;
+      for (let k = 0; k < n; k++) sum += AN.sampleTabular(R.mu, R.pdf, R.cdf, rand());
+      worstMean = Math.max(worstMean, Math.abs(sum / n - tmean));
+      worstA1 = Math.max(worstA1, Math.abs(tmean - R.a[0]));
+    }
+  }
+  check("Legendre density integrates to 1", worstInt, 1e-6);
+  check("ACER table vs Legendre density, relative", worstTab, 0.01);
+  check("sampled mean cosine vs the table's (sd of a 400k mean ~ 1e-3)", worstMean, 4e-3);
+  check("table mean cosine vs a_1", worstA1, 2e-3);
 }
 
 if (failed) { console.log(failed + " check(s) failed"); process.exit(1); }
