@@ -53,7 +53,7 @@
   <p>From the NJOY2016 manual, §7.2 (eqs. 231&ndash;232), with A the scatterer's mass ratio and &mu; the laboratory scattering cosine:</p>
   <p class="eq-block">&beta; = (E&prime; &minus; E)/kT, &nbsp; &alpha; = (E&prime; + E &minus; 2&mu;&radic;(EE&prime;))/(AkT)</p>
   <p>The S in the formula above is ENDF's <b>symmetric</b> S, which is why the factor e<sup>&minus;&beta;/2</sup> appears; LEAPR's own asymmetric form folds it in. Symmetric means S(&alpha;, &beta;) = S(&alpha;, &minus;&beta;): with the e<sup>&minus;&beta;/2</sup> factor, a neutron gains a given energy less often than it loses it, by e<sup>&minus;&beta;</sup>. That is detailed balance, the condition that lets neutrons come into thermal equilibrium with the material.</p>
-  <p>The Bragg steps also depend on temperature, through the Debye&ndash;Waller factor e<sup>&minus;2WE<sub>i</sub></sup> in the manual's coherent elastic formula (eq. 225). So "structure first, temperature later" is the teaching order, not a physical separation.</p>
+  <p>The Bragg steps also depend on temperature: the more the atoms shake about their places, the less cleanly the planes reflect. The factor that measures this weakening is called the <b>Debye&ndash;Waller factor</b>, e<sup>&minus;2WE<sub>i</sub></sup> in the manual's coherent elastic formula (eq. 225). So "structure first, temperature later" is the teaching order, not a physical separation.</p>
 </details>
 
 <div class="misconception" role="note"><b>Common misconception: "S(&alpha;, &beta;) = e<sup>&minus;&beta;</sup> S(&alpha;, &minus;&beta;) is what S is."</b>
