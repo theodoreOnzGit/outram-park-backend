@@ -151,6 +151,14 @@ body.landing { min-height: 100vh; display: flex; flex-direction: column; }
 .next-row { justify-content: flex-end; margin-top: 24px; }
 details.optional { margin: 16px 0; padding: 4px 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); }
 details.optional summary { cursor: pointer; font-weight: 600; min-height: 40px; line-height: 40px; }
+.chain { text-align: center; color: var(--muted); font-weight: 600; }
+/* The lesson navigation (lesson-kit.js): previous / next, and a Contents
+   list folded under them, never a sidebar (addendum §15). */
+.lesson-nav { margin-top: 32px; border-top: 1px solid var(--line); padding-top: 8px; }
+.lesson-steps { justify-content: space-between; }
+.lesson-contents summary { cursor: pointer; font-weight: 600; min-height: 40px; line-height: 40px; }
+.lesson-contents ol { margin: 0 0 8px; }
+.lesson-contents li { margin: 6px 0; }
 .lesson-foot { margin-top: 32px; color: var(--muted); font-size: 0.88rem; border-top: 1px solid var(--line); }
 .iframe-slot { border: 1px solid var(--line); border-radius: 8px; padding: 16px; background: var(--panel); text-align: center; }
 .iframe-slot.live { padding: 0; }
@@ -158,7 +166,7 @@ details.optional summary { cursor: pointer; font-weight: 600; min-height: 40px; 
 .start-demo { min-height: 48px; padding: 0 22px; font: inherit; font-weight: 600; border: 0; border-radius: 24px;
   background: var(--accent); color: var(--accent-fg); cursor: pointer; }
 
-/* The widget frame (science/neutronics/lesson1.js): the picture fills the
+/* The widget frame (science/neutronics/lesson-kit.js): the picture fills the
    widget, + / − / Reset / full screen on it, controls in a folding panel. */
 .widget { position: relative; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); overflow: hidden; }
 .widget canvas { display: block; width: 100%; height: min(62vh, 420px); touch-action: manipulation; }

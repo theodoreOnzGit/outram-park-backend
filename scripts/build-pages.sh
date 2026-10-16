@@ -142,7 +142,7 @@ done < <(cat docs/site/deep-dives.txt docs/site/tutorials.txt)
 # fails on a stale list or an unknown key; the fix is
 # `kovan-cli references --update --bib docs/site/references.bib <book>`.
 cargo run --release -q -p knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan --no-default-features --bin kovan-cli -- \
-  references --bib docs/site/references.bib "${walk_dirs[@]}" docs/site/code/index.html docs/site/science/neutronics/meet-the-neutron.html \
+  references --bib docs/site/references.bib "${walk_dirs[@]}" docs/site/code/index.html docs/site/science/neutronics/*.html \
   crates/dhoby-ghaut/web/{monte_carlo,delta_tracking,nuclear_data,triso_atops,dem}/index.html
 
 # Deep-dive books.
@@ -260,7 +260,8 @@ done < <(find "$OUT" -mindepth 1 -type d -print0)
 # Every page must exist where the main menu points.
 for f in index.html site-nav.js code-map-bar.js code-map/index.html code-map/code_map.svg \
   search.js search.json code/index.html science/index.html demos/index.html \
-  science/neutronics/meet-the-neutron.html \
+  science/neutronics/{meet-the-neutron,why-it-scatters,moving-nuclei,matter-waves}.html \
+  science/neutronics/{lesson-kit,kinematics,waves}.js \
   kovan-schema/index.html \
   code-map/code_map.json code-map/site_links.json \
   api/outram_mc_libs/index.html api/changi/index.html \

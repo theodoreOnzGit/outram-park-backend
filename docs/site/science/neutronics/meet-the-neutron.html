@@ -4,24 +4,17 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Meet the neutron</title>
-<meta name="description" content="Neutronics Lesson 1: watch a neutron random-walk through natural uranium, then see why it moves that way — elastic collisions, the de Broglie wavelength and discrete nuclear energy levels — on the way to cross sections.">
+<meta name="description" content="Neutronics, page 1: watch neutrons random-walk through a bar of natural uranium, simulated by real Monte Carlo transport, and name what happens to them: scattering, absorption, fission and leakage.">
 <link rel="stylesheet" href="../../style.css">
-<script src="lesson1.js" defer></script>
+<script src="lesson-kit.js" defer></script>
 </head>
 <body class="lesson">
-<!-- Neutronics Lesson 1 (gh:#906 spec §6–§13, #910–#913; maintainer
-     specification 2026-10-16). Shape: docs/lessons/lesson-philosophy.md
-     (a chain of questions; predict before showing; honest numbers). The
-     physics guardrails of spec §14 are binding on every sentence here:
-     lambda = h/p; the envelope is not lambda; Heisenberg relates spreads,
-     not the mean speed; lambda does not derive the 1/v law; the billiard
-     collision is kinematics only. Widgets: lesson1.js. -->
+<!-- Neutronics lessons (gh:#906 iteration 2 and the 2026-10-16 working-context checkpoint). One principal question per page (checkpoint §5); the sequence and its navigation are in lesson-kit.js. Shape: docs/lessons/lesson-philosophy.md (a chain of questions; predict before showing; honest numbers). This page: checkpoint §10 (what is neutronics; the first real OutramMC demo). -->
 <main class="lesson-body">
 <p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response. <strong>Review status:</strong> AI-assisted first draft (2026-10-16), not yet reviewed by a human.</p>
 
 <h1>Meet the neutron</h1>
-<p class="kicker">Neutronics · Lesson 1</p>
-
+<p class="kicker lesson-progress">Neutronics</p>
 <h2>What is neutronics?</h2>
 <p>Neutronics is the study of the behaviour of neutrons in nuclear systems.</p>
 <p>In a nuclear reactor, neutrons move through different materials and interact with atomic nuclei. A neutron may travel through a material without interacting, scatter from a nucleus, be absorbed, or cause fission.</p>
@@ -30,9 +23,9 @@
 <section class="widget-card" id="walk">
   <h3>A neutron in natural uranium</h3>
   <p class="predict"><b>Predict first.</b> A neutron is born inside a bar of natural uranium. Does it fly in a straight line until it leaves? How far does it get?</p>
-  <div class="iframe-slot" data-src="../../demos/monte-carlo/?rung=natu&amp;mode=watch">
+  <div class="iframe-slot" data-title="Neutron random-walk demo" data-src="../../demos/monte-carlo/?rung=natu&amp;mode=watch">
     <button type="button" class="start-demo">Start the neutron demo</button>
-    <p class="note">The demo starts by itself when you scroll to it. Real Monte Carlo transport by OUTRAM PARK's Rust code, on ENDF/B-VIII.0 nuclear data that your browser downloads and processes first: allow about a minute the first time (later visits read the processed data from this browser's cache). The page stays responsive meanwhile.</p>
+    <p class="note">The demo starts by itself when you scroll to it. Real Monte Carlo transport by OUTRAM PARK's Rust code, on ENDF/B-VIII.0 nuclear data <a href="#ref-brown2018endf8">(Brown &amp; others, 2018)</a> that your browser downloads and processes first: allow about a minute the first time (later visits read the processed data from this browser's cache). The page stays responsive meanwhile.</p>
   </div>
   <p class="actions"><a class="btn ghost" href="../../demos/monte-carlo/?rung=natu&amp;mode=watch">Open the demo full screen</a></p>
 </section>
@@ -47,101 +40,15 @@
 </ul>
 <p class="note">The markers are drawn as the demo draws them; the green ring is where a neutron was born. The tracks are three-dimensional and drawn from above, so a neutron that left through the top or bottom face seems to stop inside the bar.</p>
 
-<h2>Why does the neutron interact with matter like that?</h2>
-<p>Begin with the easiest interaction to understand: <b>elastic scattering</b>, a collision in which the neutron and the nucleus only exchange motion. No energy goes into the nucleus's insides, and nothing is created or destroyed.</p>
+<h2>Next question</h2>
+<p>The paths zig-zag: a neutron rarely goes far before something changes its direction. <b>Why does a neutron interact with matter like that?</b></p>
 
-<h2>Elastic scattering: the classical picture</h2>
-<p>Treat the neutron and the nucleus as two balls on a table. In an elastic collision two things are conserved:</p>
-<ul>
-  <li><b>momentum</b>, <span class="eq">m<sub>n</sub> <b>v</b> = m<sub>n</sub> <b>v</b>&prime; + M <b>V</b>&prime;</span>, and</li>
-  <li><b>kinetic energy</b>, <span class="eq">&frac12; m<sub>n</sub> v&sup2; = &frac12; m<sub>n</sub> v&prime;&sup2; + &frac12; M V&prime;&sup2;</span>.</li>
-</ul>
-<p>From those two laws alone, a neutron that hits a nucleus at rest head-on keeps the fraction</p>
-<p class="eq-block">E&prime; / E = ( (A &minus; 1) / (A + 1) )&sup2;</p>
-<p>of its energy, where A is the nucleus's mass in neutron masses. The rest goes to the nucleus.</p>
-<p class="predict"><b>Predict first.</b> To take energy away from a fast neutron, is a light nucleus (hydrogen) or a heavy one (uranium) better?</p>
-
-<section class="widget-card">
-  <h3>Collide a neutron with a nucleus</h3>
-  <div class="widget" id="collision" data-awr-h1="0.9991673" data-awr-c12="11.89365" data-awr-u238="236.0058">
-    <canvas aria-label="A neutron colliding with a nucleus, seen from above, with velocity arrows before and after"></canvas>
-  </div>
-  <p class="note">Masses: each nucleus's atomic weight ratio <i>A</i> (mass in neutron masses) as its ENDF/B-VIII.0 evaluation states it <a href="#ref-brown2018endf8">(Brown &amp; others, 2018)</a>: H-1 0.9991673 (the H-1 tape in this repository is the ENDF/B-VIII.0 beta-6 file), C-12 11.89365, U-238 236.0058. The drawn sizes are illustrative, and the animation is not to time scale; the relative speeds before and after are.</p>
-</section>
-
-<p>Hydrogen can take almost all of a neutron's energy in one collision; uranium-238 takes at most about 1.7 %. That is why a reactor that wants slow neutrons surrounds its fuel with light nuclei (water, graphite): the idea behind <b>moderation</b>, which comes back in later lessons.</p>
-<p class="note"><b>What this picture is not.</b> The two-ball collision is intuition for the kinematics of scattering only. OUTRAM PARK, like OpenMC, does not model scattering as hard spheres: it samples the outgoing angle and energy from the evaluated angular and energy distributions in the nuclear data. And at thermal energies the target nucleus is not at rest, and may be bound in a molecule or crystal, which needs another treatment altogether.</p>
-
-<h2>Where the classical picture stops</h2>
-<p>The collision demo answers one question and leaves another open.</p>
-<ol class="two-q">
-  <li><b>If a collision happens, what happens afterwards?</b> Classical two-body kinematics gives useful intuition: conservation of momentum and energy decide how the energy is shared.</li>
-  <li><b>How likely is the neutron to interact with the nucleus in the first place?</b> Here the billiard-ball picture fails. Answering it needs quantum physics.</li>
-</ol>
-
-<h2>Why isn't a nucleus just a tiny billiard ball?</h2>
-<p>A neutron and a nucleus are quantum-mechanical systems, and matter shows wave-particle duality. Two consequences matter here; neither needs Schr&ouml;dinger's equation yet.</p>
-
-<h3>1. A moving neutron has a wavelength</h3>
-<p>De Broglie's relation gives a moving particle a wavelength set by its momentum <i>p</i>:</p>
-<p class="eq-block">&lambda; = h / p &nbsp;&nbsp;&asymp;&nbsp;&nbsp; h / (m<sub>n</sub> v) &nbsp;(slow, non-relativistic neutron)</p>
-<p><b>The slower the neutron, the longer its matter wavelength.</b> A thermal neutron (0.0253 eV, about 2200 m/s) has &lambda; &asymp; 1.8 &Aring;, the size of an atom; a 1 MeV fission neutron has &lambda; &asymp; 29 fm. (Computed in the demo below from the CODATA 2018 constants <a href="#ref-tiesinga2021codata2018">(Tiesinga et al., 2021)</a>.)</p>
-<p class="note">Careful: a longer wavelength does <i>not</i> mean the neutron is more smeared out in space. Wavelength and localisation are different quantities, and the demo draws them separately.</p>
-
-<section class="widget-card">
-  <h3>A neutron as a wave packet</h3>
-  <div class="widget" id="packet">
-    <canvas aria-label="A neutron wave packet: the oscillating carrier wave and its probability envelope"></canvas>
-  </div>
-  <p class="note">A free-particle Gaussian wave packet, computed exactly: the carrier wave's wavelength is the de Broglie &lambda; = h/(m<sub>n</sub>v); the envelope's width is how localised the neutron is, which you set separately. Animated, the packet moves at the neutron's speed and slowly spreads, while the crests inside it move at half that speed (the phase velocity of a free particle). Constants: CODATA 2018 <a href="#ref-tiesinga2021codata2018">(Tiesinga et al., 2021)</a>.</p>
-</section>
-
-<details class="optional">
-  <summary>Optional: Heisenberg's uncertainty relation</summary>
-  <p>Turn on <b>Heisenberg</b> in the wave-packet controls. The lower strip shows the spread of the neutron's speed that belongs to the packet above it. Make the packet narrower (more localised) and the spread of speeds gets broader, and the other way round: for this Gaussian packet, &sigma;<sub>x</sub> &sigma;<sub>p</sub> = &#8463;/2, the smallest the uncertainty relation allows.</p>
-  <p>The relation is about the two <i>spreads</i>. It says nothing about the neutron's mean speed: a slow neutron is not, because it is slow, more spread out in space.</p>
-</details>
-
-<h3>2. A nucleus has discrete energy levels</h3>
-<p>Just as electrons in an atom occupy discrete quantum states, a nucleus has discrete quantum energy levels: a ground state and excited states above it, with nothing allowed in between. So a neutron meets a quantum system with allowed states, not a featureless sphere.</p>
-<p>A standing wave gives the intuition. A wave confined to a region can only fit a whole number of half-wavelengths, so only certain patterns, and certain energies, are allowed.</p>
-
-<section class="widget-card">
-  <h3>Only some states fit</h3>
-  <div class="widget" id="levels">
-    <canvas aria-label="Standing waves in a box and the ladder of allowed energies"></canvas>
-  </div>
-  <p class="note">An illustration: a wave in a one-dimensional box, whose allowed energies grow as n&sup2;. It is the intuition for why bound quantum systems have levels, not a model of any nucleus; real nuclear levels are measured, and their spacing is irregular.</p>
-</section>
-
-<p>Discrete levels are what later lessons build on: <b>nuclear excitation</b>, <b>resonances</b> (a neutron whose energy matches a level of the combined nucleus is far more likely to interact), <b>inelastic scattering</b> and the <b>compound nucleus</b>.</p>
-<p class="note">A longer wavelength at low energy is useful intuition for why slow neutrons interact differently, but the wavelength alone does not derive the "1/v" law of absorption at low energy. That needs the reaction physics, in a later lesson.</p>
-
-<h2>From here to cross sections</h2>
-<div class="summary-pair">
-  <p><b>If a neutron scatters, how does it move afterwards?</b><br>&rarr; collision kinematics and the conservation laws.</p>
-  <p><b>How likely is a neutron to interact with a nucleus at all?</b><br>&rarr; nuclear quantum mechanics sets the interaction probabilities.</p>
-</div>
-<p>Neutron transport carries those probabilities in one quantity: the <b>cross section</b>.</p>
-
-<p class="actions next-row">
-  <span class="btn disabled" aria-disabled="true">Next: What is a cross section? &rarr;</span>
-</p>
-<p class="status">Lesson 2 is being designed with the maintainer, one lesson at a time (<a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/906">#906</a>).</p>
-
-<h2>Try it, and see the code</h2>
-<p class="actions">
-  <a class="btn" href="../../demos/monte-carlo/?rung=natu&amp;mode=watch">Try the demo</a>
-  <a class="btn ghost" href="../../code-review/#crate=outram-mc-libs">See the code: outram-mc-libs</a>
-  <a class="btn ghost" href="../../demos/">More demos</a>
-</p>
+<nav class="lesson-nav" aria-label="Lessons"></nav>
 
 <!-- references:begin -->
 <h2>References</h2>
 
 <p class="csl-entry" id="ref-brown2018endf8" style="padding-left: 2em; text-indent: -2em;">Brown, D. A. &#38; others. (2018). ENDF/B-VIII.0: The 8th Major Release of the Nuclear Reaction Data Library with CIELO-project Cross Sections, New Standards and Thermal Scattering Data. <i>Nuclear Data Sheets</i>, <i>148</i>, 1–142. https://doi.org/10.1016/j.nds.2018.02.001</p>
-
-<p class="csl-entry" id="ref-tiesinga2021codata2018" style="padding-left: 2em; text-indent: -2em;">Tiesinga, E., Mohr, P. J., Newell, D. B., &#38; Taylor, B. N. (2021). CODATA recommended values of the fundamental physical constants: 2018. <i>Reviews of Modern Physics</i>, <i>93</i>(2), 025010. https://doi.org/10.1103/RevModPhys.93.025010</p>
 
 <!-- references:end -->
 

@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The nucleus is moving too</title>
+<meta name="description" content="Neutronics, page 3: nuclei are in thermal motion, so a neutron meets them at a spread of relative velocities. Change the temperature and the target and watch the encounter energies spread out: the root of Doppler broadening.">
+<link rel="stylesheet" href="../../style.css">
+<script src="lesson-kit.js" defer></script>
+<script src="kinematics.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Neutronics lessons (gh:#906 iteration 2 and the 2026-10-16 working-context checkpoint). One principal question per page (checkpoint §5); the sequence and its navigation are in lesson-kit.js. Shape: docs/lessons/lesson-philosophy.md (a chain of questions; predict before showing; honest numbers). This page: checkpoint §12 (relative velocity and temperature; the visual is meant to be reused for Doppler broadening / BROADR). -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response. <strong>Review status:</strong> AI-assisted first draft (2026-10-16), not yet reviewed by a human.</p>
+
+<h1>The nucleus is moving too</h1>
+<p class="kicker lesson-progress">Neutronics</p>
+<p>In the collision demo the nucleus sat still until the neutron arrived. Real nuclei never do. The atoms of any material at a temperature above absolute zero are in constant thermal motion, and a nucleus moves with its atom.</p>
+<p>So what decides how a collision goes is not the neutron's velocity alone but its velocity <b>relative to the nucleus</b>:</p>
+<p class="eq-block"><b>v</b><sub>rel</sub> = <b>v</b> &minus; <b>V</b></p>
+<p>where <b>v</b> is the neutron's velocity and <b>V</b> the nucleus's. The chain the next demo shows:</p>
+<p class="chain">temperature &rarr; thermal motion of the nuclei &rarr; a spread of relative velocities &rarr; a spread of encounter energies</p>
+<p class="predict"><b>Predict first.</b> A slow (thermal, 0.0253 eV) neutron meets carbon at room temperature. Does every encounter happen at the neutron's own energy? Would it matter more for a 1 keV neutron, or less?</p>
+
+<section class="widget-card">
+  <h3>Nuclei in thermal motion</h3>
+  <div class="widget" id="thermal" data-awr-h1="0.9991673" data-awr-c12="11.89365" data-awr-u238="236.0058">
+    <canvas aria-label="Nuclei moving with thermal velocities, the velocity triangle for one neutron-nucleus pair, and a histogram of encounter energies"></canvas>
+  </div>
+  <p class="note">The nuclei are a free gas: each component of a nucleus's velocity is drawn from a Gaussian of spread &radic;(kT/M), the Maxwell&ndash;Boltzmann distribution, with M from each nucleus's ENDF/B-VIII.0 atomic weight ratio <a href="#ref-brown2018endf8">(Brown &amp; others, 2018)</a> and k from CODATA 2018 <a href="#ref-tiesinga2021codata2018">(Tiesinga et al., 2021)</a>. The encounter energy is &frac12;m<sub>n</sub>|<b>v</b> &minus; <b>V</b>|&sup2;, the energy the neutron would have if the nucleus stood still. The histogram counts nuclei; how often each pair actually meets also grows with the relative speed, which it leaves out.</p>
+</section>
+
+<p>Three things to see:</p>
+<ul>
+  <li><b>A hotter material spreads the encounters wider.</b> At 0 K every encounter is at the neutron's own energy; heat the material and the encounter energies smear out around it.</li>
+  <li><b>Light nuclei move faster.</b> At the same temperature, hydrogen's spread is far wider than uranium's, because its mass is smaller.</li>
+  <li><b>It matters most for slow neutrons.</b> A thermal neutron moves at about the same speed as the nuclei, so the encounter energy can be almost anything. A 1 keV neutron is so much faster that the nuclei hardly change it.</li>
+</ul>
+<p>This smearing is the root of <b>Doppler broadening</b>: when the chance of an interaction changes sharply with energy, the thermal motion of the nuclei blurs it. It comes back when the lessons reach cross sections and NJOY's BROADR.</p>
+
+<h2>Next question</h2>
+<p>The relative velocity tells us about the <i>encounter</i>. It does not tell us whether the neutron and the nucleus interact at all. The billiard-ball picture has no answer to that.</p>
+<ol class="two-q">
+  <li><b>If a collision happens, what happens afterwards?</b> Classical kinematics gives useful intuition: conservation of momentum and energy decide how the energy is shared.</li>
+  <li><b>How likely is the neutron to interact with the nucleus in the first place?</b> Here the billiard-ball picture fails. <b>Why isn't a nucleus just a tiny billiard ball?</b></li>
+</ol>
+
+<nav class="lesson-nav" aria-label="Lessons"></nav>
+
+<!-- references:begin -->
+<h2>References</h2>
+
+<p class="csl-entry" id="ref-brown2018endf8" style="padding-left: 2em; text-indent: -2em;">Brown, D. A. &#38; others. (2018). ENDF/B-VIII.0: The 8th Major Release of the Nuclear Reaction Data Library with CIELO-project Cross Sections, New Standards and Thermal Scattering Data. <i>Nuclear Data Sheets</i>, <i>148</i>, 1–142. https://doi.org/10.1016/j.nds.2018.02.001</p>
+
+<p class="csl-entry" id="ref-tiesinga2021codata2018" style="padding-left: 2em; text-indent: -2em;">Tiesinga, E., Mohr, P. J., Newell, D. B., &#38; Taylor, B. N. (2021). CODATA recommended values of the fundamental physical constants: 2018. <i>Reviews of Modern Physics</i>, <i>93</i>(2), 025010. https://doi.org/10.1103/RevModPhys.93.025010</p>
+
+<!-- references:end -->
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. GPL-3.0. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>

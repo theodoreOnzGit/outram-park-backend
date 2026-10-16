@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Why does a neutron bounce?</title>
+<meta name="description" content="Neutronics, page 2: elastic scattering as a classical two-body collision. Collide a neutron with H-1, C-12 or U-238 and see momentum and kinetic energy conserved, and why light nuclei slow neutrons down.">
+<link rel="stylesheet" href="../../style.css">
+<script src="lesson-kit.js" defer></script>
+<script src="kinematics.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Neutronics lessons (gh:#906 iteration 2 and the 2026-10-16 working-context checkpoint). One principal question per page (checkpoint §5); the sequence and its navigation are in lesson-kit.js. Shape: docs/lessons/lesson-philosophy.md (a chain of questions; predict before showing; honest numbers). This page: checkpoint §11 (elastic scattering, classical intuition only: never imply nuclear scattering is hard-sphere physics). -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response. <strong>Review status:</strong> AI-assisted first draft (2026-10-16), not yet reviewed by a human.</p>
+
+<h1>Why does a neutron bounce?</h1>
+<p class="kicker lesson-progress">Neutronics</p>
+<p>Begin with the easiest interaction to picture.</p>
+<p><b>Elastic scattering</b> is a collision in which the neutron and the nucleus only exchange motion. No energy goes into the nucleus's insides, and nothing is created or destroyed.</p>
+
+<h2>Elastic scattering: the classical picture</h2>
+<p>Treat the neutron and the nucleus as two balls on a table. In an elastic collision two things are conserved:</p>
+<ul>
+  <li><b>momentum</b>, <span class="eq">m<sub>n</sub> <b>v</b> = m<sub>n</sub> <b>v</b>&prime; + M <b>V</b>&prime;</span>, and</li>
+  <li><b>kinetic energy</b>, <span class="eq">&frac12; m<sub>n</sub> v&sup2; = &frac12; m<sub>n</sub> v&prime;&sup2; + &frac12; M V&prime;&sup2;</span>.</li>
+</ul>
+<p>From those two laws alone, a neutron that hits a nucleus at rest head-on keeps the fraction</p>
+<p class="eq-block">E&prime; / E = ( (A &minus; 1) / (A + 1) )&sup2;</p>
+<p>of its energy, where A is the nucleus's mass in neutron masses. The rest goes to the nucleus.</p>
+<p class="predict"><b>Predict first.</b> To take energy away from a fast neutron, is a light nucleus (hydrogen) or a heavy one (uranium) better?</p>
+
+<section class="widget-card">
+  <h3>Collide a neutron with a nucleus</h3>
+  <div class="widget" id="collision" data-awr-h1="0.9991673" data-awr-c12="11.89365" data-awr-u238="236.0058">
+    <canvas aria-label="A neutron colliding with a nucleus, seen from above, with velocity arrows before and after"></canvas>
+  </div>
+  <p class="note">Masses: each nucleus's atomic weight ratio <i>A</i> (mass in neutron masses) as its ENDF/B-VIII.0 evaluation states it <a href="#ref-brown2018endf8">(Brown &amp; others, 2018)</a>: H-1 0.9991673 (the H-1 tape in this repository is the ENDF/B-VIII.0 beta-6 file), C-12 11.89365, U-238 236.0058. The drawn sizes are illustrative, and the animation is not to time scale; the relative speeds before and after are.</p>
+</section>
+
+<p>Hydrogen can take almost all of a neutron's energy in one collision; uranium-238 takes at most about 1.7 %. That is why a reactor that wants slow neutrons surrounds its fuel with light nuclei (water, graphite): the idea behind <b>moderation</b>, which comes back in later lessons.</p>
+<p class="note"><b>What this picture is not.</b> The two-ball collision is intuition for the kinematics of scattering only. OUTRAM PARK, like OpenMC, does not model scattering as hard spheres: it samples the outgoing angle and energy from the evaluated angular and energy distributions in the nuclear data. And at thermal energies the target nucleus is not at rest, and may be bound in a molecule or crystal, which needs another treatment altogether.</p>
+
+<h2>Next question</h2>
+<p>The demo kept the nucleus at rest until the neutron hit it. In real matter it is not: <b>the nucleus is moving too.</b></p>
+
+<nav class="lesson-nav" aria-label="Lessons"></nav>
+
+<!-- references:begin -->
+<h2>References</h2>
+
+<p class="csl-entry" id="ref-brown2018endf8" style="padding-left: 2em; text-indent: -2em;">Brown, D. A. &#38; others. (2018). ENDF/B-VIII.0: The 8th Major Release of the Nuclear Reaction Data Library with CIELO-project Cross Sections, New Standards and Thermal Scattering Data. <i>Nuclear Data Sheets</i>, <i>148</i>, 1–142. https://doi.org/10.1016/j.nds.2018.02.001</p>
+
+<!-- references:end -->
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. GPL-3.0. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>
