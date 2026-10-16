@@ -42,7 +42,9 @@ Every crate a CFD track would call is already **wasm in-scope**:
 is not running. The gate is `--lib` only and `std::thread`, `Instant` and
 `std::fs` all compile for wasm and fail at run time. Each track's first task is
 to find out which of these the solver loops actually touch — not to assume the
-gate settles it.
+gate settles it. **Done for `RhoCentralFoam`, 2026-10-16 (gh:#893): zero host
+imports, 0.26 s in a worker for the full Sod case — see §9.** Every other
+solver still needs the same check.
 
 ## 2. The one structural difference: there is no data to prepare
 
@@ -212,20 +214,26 @@ tracks already are.
 
 Stated plainly, because none of it has been measured yet:
 
-- **No timing has been taken in wasm.** One *native* number was measured for
-  this scoping, 2026-10-13 on this container: `cargo test --release -p
-  outram-foam-appbuilder-lib --test sod_shock_tube_validation` runs all four
-  tests — including `rho_central_foam_matches_sod_table_ii`, the full 100-cell
-  shock-tube solve to τ = 0.2 at Δt = 1e-6 (≈6325 timesteps) — in **1.25 s
-  total**. That is a bound on the native cost of a whole Track A rung, and it
-  is strong evidence the `sod` rung can run live rather than recorded. It is
-  **not** a wasm number: single-threaded wasm is typically slower than native
-  by a factor of a few, and that has not been measured here. The first task of
-  item 1 in §7 is to measure a real case in a browser, and that number governs
-  which rungs can be live.
-- **No foam solver has been run in a Web Worker at all.** Whether the solver
+- ~~**No timing has been taken in wasm.**~~ **CORRECTED 2026-10-16 (gh:#893)**:
+  measured. The same Sod solve (100 cells, Δt = 1e-6, 6325 steps), built for
+  `wasm32-unknown-unknown` and run in a Node `worker_threads` Worker on V8,
+  takes **0.26 s** against **0.24 s** native. Across four Δt the ratio is
+  1.1–1.6×, about 1.3×. This scoping had guessed "slower by a factor of a
+  few"; the guess was pessimistic. Answers agree to round-off (≤ 9e-16
+  relative on the mass checksum), not bit for bit. Record, methodology and
+  how to reproduce:
+  `crates/outram-foam-appbuilder-lib/verification_and_validation/wasm_worker_timing/`.
+  (The original native figure stands: the four-test Sod suite takes 1.25 s,
+  measured 2026-10-13.) **Still unmeasured:** a real browser (Safari is not
+  V8), a phone, and any solver with an implicit pressure or eigenvalue solve.
+  Sod is fully explicit and therefore the cheapest case.
+- ~~**No foam solver has been run in a Web Worker at all.** Whether the solver
   loops touch `std::thread`, `Instant` or `std::fs` — all of which compile for
-  wasm and fail at run time — is unchecked.
+  wasm and fail at run time — is unchecked.~~ **CORRECTED 2026-10-16**:
+  `RhoCentralFoam` has run in one. Its wasm module has **zero imports**, so
+  the solve path makes no host calls. `rayon` is behind the off-by-default
+  `parallel` feature of `outram-foam-basic-lib`, and it stays unchecked on
+  wasm.
 - **`outram-foam-appbuilder-lib` has no field writer**: every function in
   `io::output` is `todo!()`. That does not block a demo (the demo reads the
   solver's public fields directly, as its tests do) but it does mean there is
@@ -234,7 +242,7 @@ Stated plainly, because none of it has been measured yet:
   **not** in `kovan-literature` — checked 2026-10-13 against
   `crates/kovan-literature/CATALOGUE.md` (761 lines): no entry matches `ghia`,
   `lid-driven`, `log-law` or `cavity` other than an unrelated HTR-10
-  core-cavity line. Both must be catalogued through `kovan lit import`, with
-  their access tier decided from the copyright page, before any page quotes
-  them — the literature hard rule. Until then the `cavity` and `turb` rungs
+  core-cavity line. The maintainer supplies the kovan corpus, so both must be
+  catalogued by them (through `kovan lit import`, with the access tier decided
+  from the copyright page) before any page quotes them — the literature hard rule. Until then the `cavity` and `turb` rungs
   have no citable reference and cannot claim one.
