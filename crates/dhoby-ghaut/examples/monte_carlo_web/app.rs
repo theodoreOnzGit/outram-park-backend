@@ -381,6 +381,12 @@ struct KinfPoint {
 /// The `k_inf` case as the UI follows it: one generation per request, so
 /// stopping is not asking for the next.
 struct KinfRun {
+    /// On the rung's worker pool (gh:#908) rather than the page's one
+    /// worker; `pool_start` asks the pool to start once it is ready, and
+    /// `pool_line` says what the pool is doing.
+    pooled: bool,
+    pool_start: bool,
+    pool_line: String,
     /// When Pause was pressed (the clock stops while paused).
     paused_at: Option<f64>,
     case: KinfCase,
@@ -412,6 +418,9 @@ impl KinfRun {
             elapsed: 0.0,
             rate: None,
             paused_at: None,
+            pooled: false,
+            pool_start: false,
+            pool_line: String::new(),
         }
     }
     /// Pause or resume (gh:#876 item 5): a paused run asks for no further
@@ -437,6 +446,11 @@ impl KinfRun {
         self.gens.clear();
         self.started_at = now_s();
         self.elapsed = 0.0;
+        if self.pooled {
+            // The app's pool pump sends the arm and starts the run.
+            self.pool_start = true;
+            return;
+        }
         link.send(Request::KinfStart { param: self.param, cfg: self.cfg });
         link.send(Request::KinfStep);
         self.waiting = true;
@@ -444,7 +458,7 @@ impl KinfRun {
     fn pump(&mut self, link: &McLink) {
         if self.state == RunState::Running {
             self.elapsed = now_s() - self.started_at;
-            if !self.waiting {
+            if !self.waiting && !self.pooled {
                 link.send(Request::KinfStep);
                 self.waiting = true;
             }
@@ -1069,11 +1083,62 @@ impl McApp {
         }
     }
 
+    /// One frame of a pooled `k_inf` run (gh:#908): the arm and the start
+    /// out once the pool is ready, Pause / Stop through, generations in as
+    /// the view's own `KinfGeneration`s. The finished point, if the run
+    /// ended this frame.
+    fn pump_kinf_pool(bench: Option<&mut crate::benchpool::BenchPool>, k: &mut KinfRun) -> Option<KinfPoint> {
+        let Some(b) = bench else {
+            k.pool_line = "the worker pool could not be started".into();
+            return None;
+        };
+        let notes = b.pump();
+        let n = b.workers();
+        k.pool_line = match (&b.state, b.failed()) {
+            (_, Some(e)) => format!("Worker pool: {e}"),
+            (None, _) => format!("Worker pool: {n} workers loading the data, {:.0} % ({:.0} s)", 100.0 * b.load_progress(), now_s() - b.started_s),
+            (Some(s), _) => format!("Worker pool: {} of {n} workers ready ({})", s.live_workers(), b.plan.reason),
+        };
+        if b.state.is_some() && k.pool_start {
+            b.set_arm(k.running_param);
+        }
+        if let Some(s) = b.state.as_mut() {
+            if k.pool_start {
+                match s.start_run(k.cfg, now_s()) {
+                    Ok(()) => k.pool_start = false,
+                    Err(e) => k.pool_line = format!("Worker pool: {e}"),
+                }
+            }
+            if s.run.as_ref().is_some_and(|r| r.going()) {
+                s.set_paused(k.state == RunState::Paused);
+                if k.state == RunState::Done {
+                    s.stop_run();
+                }
+            }
+        }
+        let total = k.cfg.n_inactive + k.cfg.n_active;
+        let mut point = None;
+        for note in notes {
+            match note {
+                crate::htr10::core::pool::Note::Generation(g) => {
+                    let (mean, sem) = g.gen.k_mean.unwrap_or((f64::NAN, f64::NAN));
+                    k.receive(KinfGeneration { param: k.running_param, index: g.gen.index, total, active: g.gen.active, k: g.gen.k, mean, sem });
+                }
+                crate::htr10::core::pool::Note::RunDone => point = k.engine_done().or(point),
+            }
+        }
+        point
+    }
+
     /// Build the screen for the current rung, mode and view, on loaded data.
     fn enter_screen(&mut self) {
         self.recorded = None;
         self.run_tracks = None;
         if let (Mode::Run, Some(mb)) = (self.mode, self.rung.run_pool_mb()) {
+            self.ensure_bench(mb);
+        }
+        // The k∞ view's pool (gh:#908), started with the view as Run's is.
+        if let (Mode::Watch, WatchView::Kinf, Some(mb)) = (self.mode, self.watch_view, self.rung.kinf_pool_mb()) {
             self.ensure_bench(mb);
         }
         let Some(link) = &self.link else { return };
@@ -1121,6 +1186,7 @@ impl McApp {
             (Mode::Watch, WatchView::Kinf, _) if self.rung.kinf_case().is_some() => {
                 let mut k = KinfRun::new(self.rung.kinf_case().expect("checked"));
                 k.cfg = run_cfg_from_query(k.cfg, &self.startup_query);
+                k.pooled = self.rung.kinf_pool_mb().is_some();
                 if self.autostart {
                     k.start(link);
                 }
@@ -1286,6 +1352,13 @@ impl eframe::App for McApp {
                     if it.state == RunState::Running {
                         ctx.request_repaint_after(std::time::Duration::from_millis(100));
                     }
+                }
+                Screen::Kinf(k) if k.pooled => {
+                    k.elapsed = if k.state == RunState::Running { now_s() - k.started_at } else { k.elapsed };
+                    if let Some(p) = Self::pump_kinf_pool(self.bench.as_mut(), k) {
+                        self.kinf_points.push(p);
+                    }
+                    ctx.request_repaint_after(std::time::Duration::from_millis(100));
                 }
                 Screen::Kinf(k) => {
                     k.pump(link);
@@ -1526,6 +1599,9 @@ impl McApp {
         ui.strong(k.case.title);
         Self::kinf_slider(ui, k, 0.0);
         let going = matches!(k.state, RunState::Running | RunState::Paused);
+        if k.pooled && !k.pool_line.is_empty() {
+            ui.weak(&k.pool_line);
+        }
         ui.add_enabled_ui(!going, |ui| {
             settings_grid(ui, "kinf_cfg", &mut k.cfg);
             ui.horizontal_wrapped(|ui| {

@@ -57,6 +57,8 @@
 //! (`collision` / `inelastic_scatter`). The reflective-cube flight is new pebble-bed
 //! assembly built on this crate's primitives.
 
+pub mod distributed;
+
 use crate::geometry::position::{Direction, Position};
 use crate::material::material::Material;
 use crate::material::nuclide::library_energy_max_ev;

@@ -60,6 +60,10 @@ impl Tier {
 pub enum Request {
     /// Process the rung's tapes (replacing whatever was loaded).
     Load { id: u32, rung: Rung, tier: Tier },
+    /// Which arm of the rung's `k_inf` case a pooled run transports
+    /// ([`crate::rungs::LoadedRung::pool_arm`]), sent to every pool worker
+    /// before the run starts (gh:#908).
+    PoolArm { param: f64 },
     /// Process only jobs `jobs` of the rung's load into the shared cache,
     /// building nothing (a processing-pool worker, [`crate::prime_pool`]):
     /// `JobStarted` / `JobDone` per job under load `id`, then `Ready`.
@@ -146,6 +150,11 @@ pub fn serve(l: &mut Loaded, r: Request, post: &mut impl FnMut(Event)) {
         },
         Request::KinfStart { param, cfg } => {
             if let Err(e) = l.kinf_start(param, cfg) {
+                post(Event::Error(e));
+            }
+        }
+        Request::PoolArm { param } => {
+            if let Err(e) = l.pool_arm(param) {
                 post(Event::Error(e));
             }
         }
@@ -596,6 +605,10 @@ pub mod web {
                     js::set(&o, "cfg", js::f64s(&v));
                 }
                 Request::KinfStep => js::set(&o, "kind", "kinf_step"),
+                Request::PoolArm { param } => {
+                    js::set(&o, "kind", "pool_arm");
+                    js::set(&o, "param", *param);
+                }
                 Request::XsCurves => js::set(&o, "kind", "xs_curves"),
                 Request::Raster(r) => {
                     js::set(&o, "kind", "raster");
@@ -665,6 +678,7 @@ pub mod web {
                     }
                 }
                 "kinf_step" => Request::KinfStep,
+                "pool_arm" => Request::PoolArm { param: js::get_f64(v, "param").unwrap_or(0.0) },
                 "xs_curves" => Request::XsCurves,
                 "raster" => Request::Raster(crate::raster::RasterReq::decode(&js::get_f64s(v, "req"))?),
                 "walk" => Request::Walk(js::get_f64s(v, "data")),

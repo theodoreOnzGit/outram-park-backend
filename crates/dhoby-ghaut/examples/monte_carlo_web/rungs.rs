@@ -168,6 +168,13 @@ pub trait LoadedRung {
     fn pool_chunk(&mut self, _cfg: KeffConfig, _chunk: &[f64]) -> Option<Result<Vec<f64>, String>> {
         None
     }
+    /// Choose the arm (`param`, as [`LoadedRung::kinf_start`]'s) the next
+    /// pooled run transports: a rung whose `k_inf` case runs on the pool
+    /// ([`McRung::kinf_pool_mb`]) answers `pool_source` / `pool_chunk` for
+    /// that arm. The default has nothing to choose.
+    fn pool_arm(&mut self, _param: f64) -> Result<(), String> {
+        Ok(())
+    }
 }
 
 /// A pooled run's initial source ([`LoadedRung::pool_source`]).
@@ -260,6 +267,11 @@ pub trait McRung {
     /// are loaded, which sizes the pool (`web_demo::pool::plan`). `None`
     /// (the default) runs it on the one engine worker.
     fn run_pool_mb() -> Option<f64> {
+        None
+    }
+    /// One pool worker's memory, MB, when the rung's `k_inf` case runs on a
+    /// pool of workers (gh:#908); `None`: it runs in the page's one worker.
+    fn kinf_pool_mb() -> Option<f64> {
         None
     }
     /// Neutron tracks recorded natively and shipped with the page
@@ -361,6 +373,9 @@ macro_rules! rung_table {
                 pub fn run_pool_mb(self) -> Option<f64> {
                     match self { $( Rung::$t => <$crate::$m::$t as McRung>::run_pool_mb(), )+ }
                 }
+                pub fn kinf_pool_mb(self) -> Option<f64> {
+                    match self { $( Rung::$t => <$crate::$m::$t as McRung>::kinf_pool_mb(), )+ }
+                }
                 pub fn kinf_case(self) -> Option<KinfCase> {
                     match self { $( Rung::$t => <$crate::$m::$t as McRung>::kinf_case(), )+ }
                 }
@@ -434,6 +449,9 @@ macro_rules! rung_table {
                 }
                 pub fn pool_chunk(&mut self, cfg: KeffConfig, chunk: &[f64]) -> Option<Result<Vec<f64>, String>> {
                     match self { $( Loaded::$t(l) => l.pool_chunk(cfg, chunk), )+ }
+                }
+                pub fn pool_arm(&mut self, param: f64) -> Result<(), String> {
+                    match self { $( Loaded::$t(l) => l.pool_arm(param), )+ }
                 }
             }
         }

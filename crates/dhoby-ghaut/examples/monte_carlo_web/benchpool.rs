@@ -32,7 +32,7 @@ use crate::keff::{Generation, KeffConfig};
 use crate::table::Rung;
 use dhoby_ghaut::web_demo::link::Link;
 use dhoby_ghaut::web_demo::pool::Plan;
-use outram_mc_libs::physics::keff::{GenerationReport, HistoryCounts};
+use outram_mc_libs::physics::keff::GenerationReport;
 
 /// The load id every pool worker uses (each worker loads once).
 const LOAD_ID: u32 = 1;
@@ -159,6 +159,15 @@ impl BenchPool {
         })
     }
 
+    /// Tell every worker which `k_inf` arm the next run transports
+    /// (`Request::PoolArm`, gh:#908). Sent before the run's first request,
+    /// and each link keeps its order, so every worker has it in time.
+    pub fn set_arm(&self, param: f64) {
+        for l in &self.links {
+            l.send(Request::PoolArm { param });
+        }
+    }
+
     /// Stop every worker (a dropped `Link` would leave its Web Worker running).
     pub fn terminate(&self) {
         for l in &self.links {
@@ -192,6 +201,7 @@ pub fn generation(s: &GenSummary, cfg: KeffConfig) -> Generation {
 mod tests {
     use super::*;
     use crate::table::Loaded;
+    use outram_mc_libs::physics::keff::HistoryCounts;
     use outram_mc_libs::physics::compute::{ComputeType, ThreadCount};
     use outram_mc_libs::physics::transport_csg::run_keff_csg_par;
 

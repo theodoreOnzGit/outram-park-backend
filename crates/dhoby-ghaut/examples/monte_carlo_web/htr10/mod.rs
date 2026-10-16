@@ -232,6 +232,12 @@ impl McRung for Htr10 {
     /// 97–124 s per case (43–50 s majorant and source, 54–75 s transport);
     /// resolved 1.5696 ± 0.0050, homogenised 1.4430 ± 0.0049, worth
     /// −12 653 ± 706 pcm (record −12 452 ± 126). Natively the same digits.
+    /// The fuel-zone `k_inf` runs on a pool of workers (gh:#908). One
+    /// worker's memory: an ESTIMATE (eight tapes at 0.001, two majorants),
+    /// NOT measured (gh:#907's open item).
+    fn kinf_pool_mb() -> Option<f64> {
+        Some(400.0)
+    }
     fn kinf_case() -> Option<KinfCase> {
         Some(KinfCase {
             title: "fuel-zone k∞: kernels resolved or smeared",
@@ -252,7 +258,7 @@ impl McRung for Htr10 {
             }],
             notes: vec![
                 "The record's fuel zone (htr10_fuel_zone_kinf.rs): a 2 cm reflective cube of HTR-10 fuel-zone material, 1018 RSA-packed UO₂ kernels (r = 0.025 cm, IAEA-TECDOC-1382 Table 4-38 densities) in graphite matrix, against the SAME atoms smeared uniformly. Coatings are not resolved (smeared into the matrix), as in the record.",
-                "Delta (Woodcock) tracking with the library's Majorant::bounding (a bound by construction since #585), ENDF/B-VIII.0 processed in this tab at NJOY's tolerance 0.001, graphite S(α,β) (30 % porosity law), 293.15 K. A real power iteration, one generation per worker message.",
+                "Delta (Woodcock) tracking with the library's Majorant::bounding (a bound by construction since #585), ENDF/B-VIII.0 processed in this tab at NJOY's tolerance 0.001, graphite S(α,β) (30 % porosity law), 293.15 K. A real power iteration on a pool of this tab's workers (since 2026-10-16, gh:#908): outram-mc-libs' pebble_beds::keff_delta::distributed, which is run_keff_delta_par_in bit for bit whatever the number of workers.",
                 "Recorded: resolved 1.57136 ± 0.00088, homogenised 1.44684 ± 0.00090, so smearing the kernels costs −12 452 ± 126 pcm (2026-10-05, c5a6ca4ae). That is the double-heterogeneity worth: lumps (the kernels) shield themselves, as rung 3's lumps did.",
                 "Your ± is the spread of one run's active generations, which understates the true σ. This is k∞ of a fuel-zone cube, not the reactor.",
             ],
@@ -272,7 +278,7 @@ impl RungBuilder for model::DataBuilder {
         model::DataBuilder::make(index, bytes, store).map(|_| ())
     }
     fn finish(self) -> Result<Loaded, String> {
-        Ok(Loaded { core: None, fuel: model::DataBuilder::finish(self)?, run: None })
+        Ok(Loaded { core: None, fuel: model::DataBuilder::finish(self)?, run: None, pool_resolved: true })
     }
 }
 
@@ -288,6 +294,28 @@ pub struct Loaded {
     pub core: Option<(usize, nee_soon::htr10_rmc::core_model::AssembledCore)>,
     pub fuel: Option<model::FuelZone>,
     pub run: Option<FuelRun>,
+    /// The arm a pooled `k_inf` run transports ([`LoadedRung::pool_arm`]):
+    /// kernels resolved (`true`) or smeared.
+    pub pool_resolved: bool,
+}
+
+/// The fuel zone's entropy mesh for a pooled run: the reflective cube, 4³.
+fn fuel_mesh() -> outram_mc_libs::tally::mesh::RegularMesh {
+    let h = model::HALF_CM;
+    outram_mc_libs::tally::mesh::RegularMesh { lower_left: [-h; 3], upper_right: [h; 3], dimension: [4; 3] }
+}
+
+/// The run settings of the fuel-zone `k_inf`, serial or pooled (one
+/// function, so the two cannot drift apart).
+fn fuel_settings(cfg: KeffConfig) -> KeffSettings {
+    KeffSettings {
+        n_particles: cfg.n_particles,
+        n_inactive: cfg.n_inactive,
+        n_active: cfg.n_active,
+        seed: cfg.seed,
+        temperature_k: model::TEMP_K,
+        ..KeffSettings::default()
+    }
 }
 
 impl LoadedRung for Loaded {
@@ -321,14 +349,7 @@ impl LoadedRung for Loaded {
     fn kinf_start(&mut self, param: f64, cfg: KeffConfig) -> Result<(), String> {
         let fuel = self.fuel.as_mut().ok_or("the fuel-zone data are not loaded")?;
         let resolved = param > 0.5;
-        let settings = KeffSettings {
-            n_particles: cfg.n_particles,
-            n_inactive: cfg.n_inactive,
-            n_active: cfg.n_active,
-            seed: cfg.seed,
-            temperature_k: model::TEMP_K,
-            ..KeffSettings::default()
-        };
+        let settings = fuel_settings(cfg);
         let (mats, _, nucs, packed) = fuel.arm(resolved);
         let domain = DeltaDomain::Cube { half: model::HALF_CM };
         let it = if resolved {
@@ -353,6 +374,48 @@ impl LoadedRung for Loaded {
         let (mean, sem) = g.k_mean.unwrap_or((f64::NAN, f64::NAN));
         Some(KinfGeneration { param: if run.resolved { 1.0 } else { 0.0 }, index: g.index, total: run.total, active: g.active, k: g.k, mean, sem })
     }
+    /// The fuel-zone `k_inf` on a pool of workers (gh:#908): its arm, then
+    /// `pebble_beds::keff_delta::distributed`, which reproduces
+    /// `run_keff_delta_par_in` bit for bit (not the serial
+    /// `DeltaPowerIteration` above, whose single stream differs).
+    fn pool_arm(&mut self, param: f64) -> Result<(), String> {
+        let fuel = self.fuel.as_mut().ok_or("the fuel-zone data are not loaded")?;
+        self.pool_resolved = param > 0.5;
+        fuel.arm(self.pool_resolved); // builds the arm's majorant once
+        Ok(())
+    }
+    fn pool_source(&mut self, cfg: KeffConfig) -> Option<Result<crate::rungs::PoolSource, String>> {
+        use outram_mc_libs::pebble_beds::keff_delta::distributed::initial_source;
+        let resolved = self.pool_resolved;
+        let fuel = self.fuel.as_mut()?;
+        let (mats, _, nucs, packed) = fuel.arm(resolved);
+        let domain = DeltaDomain::Cube { half: model::HALF_CM };
+        let s = fuel_settings(cfg);
+        let (sites, seed) = if resolved {
+            initial_source(domain, mats, nucs, &|p: Position| Some(if packed.is_inside_kernel(p) { 0usize } else { 1usize }), &s)
+        } else {
+            initial_source(domain, mats, nucs, &|_p: Position| Some(0usize), &s)
+        };
+        Some(Ok(crate::rungs::PoolSource { sites, seed, mesh: fuel_mesh() }))
+    }
+    fn pool_chunk(&mut self, _cfg: KeffConfig, chunk: &[f64]) -> Option<Result<Vec<f64>, String>> {
+        use outram_mc_libs::pebble_beds::keff_delta::distributed::transport_chunk;
+        use outram_mc_libs::physics::transport_csg::distributed::GenerationChunk;
+        let resolved = self.pool_resolved;
+        let fuel = self.fuel.as_mut()?;
+        let c = match GenerationChunk::from_f64s(chunk) {
+            Ok(c) => c,
+            Err(e) => return Some(Err(e)),
+        };
+        let (mats, maj, nucs, packed) = fuel.arm(resolved);
+        let domain = DeltaDomain::Cube { half: model::HALF_CM };
+        let r = if resolved {
+            transport_chunk(domain, mats, nucs, maj, &|p: Position| Some(if packed.is_inside_kernel(p) { 0usize } else { 1usize }), &c)
+        } else {
+            transport_chunk(domain, mats, nucs, maj, &|_p: Position| Some(0usize), &c)
+        };
+        Some(Ok(r.to_f64s()))
+    }
 }
 
 #[cfg(all(test, not(target_arch = "wasm32")))]
@@ -360,6 +423,61 @@ mod tests {
     use super::*;
     use outram_mc_libs::geometry::cell::SurfaceToken;
     use outram_mc_libs::geometry::position::Direction;
+
+    /// **Methodology (gh:#908).** The fuel-zone `k_inf`, resolved arm, 500
+    /// neutrons × [2 + 4], seed 3, on a pool of 1 and of 2 native workers
+    /// (each loading the eight tapes, `PoolArm` then the pool's run), against
+    /// outram-mc-libs' `run_keff_delta_par_in` on the same data. Pass: every
+    /// generation's `k` is the same `f64` in all three. Opt-in: three native
+    /// loads of eight tapes at 0.001. **Result (2026-10-16, i9-13900K, 203
+    /// s):** 1 and 2 workers equal `run_keff_delta_par_in` bit for bit in
+    /// all 6 generations (mean 1.535 ± 0.035 at this harness size, not a
+    /// result).
+    #[test]
+    #[ignore = "processes the eight fuel-zone tapes three times (minutes); run with --ignored"]
+    fn the_pooled_kinf_is_run_keff_delta_par_in_bit_for_bit() {
+        use outram_mc_libs::physics::compute::ThreadCount;
+        let cfg = KeffConfig { n_particles: 500, n_inactive: 2, n_active: 4, seed: 3, point_source: false, want_sites: false };
+        let pooled = |n: usize| -> Vec<f64> {
+            let ctx = egui::Context::default();
+            let plan = dhoby_ghaut::web_demo::pool::Plan { workers: n, reason: "test".into() };
+            let mut p = crate::benchpool::BenchPool::start(&ctx, plan, crate::table::Rung::Htr10, Tier::Exact).expect("start");
+            let (mut ks, mut started) = (Vec::new(), false);
+            let t0 = std::time::Instant::now();
+            loop {
+                for note in p.pump() {
+                    match note {
+                        crate::htr10::core::pool::Note::Generation(g) => ks.push(g.gen.k),
+                        crate::htr10::core::pool::Note::RunDone => {
+                            p.terminate();
+                            return ks;
+                        }
+                    }
+                }
+                if !started && p.state.is_some() {
+                    p.set_arm(1.0);
+                    p.state.as_mut().expect("ready").start_run(cfg, 0.0).expect("start the run");
+                    started = true;
+                }
+                assert!(p.failed().is_none(), "{:?}", p.failed());
+                assert!(t0.elapsed().as_secs() < 1800, "the pooled run did not finish");
+                std::thread::sleep(std::time::Duration::from_millis(5));
+            }
+        };
+        let mut l = match crate::load_native(crate::table::Rung::Htr10, Tier::Exact, |_, _| {}).expect("load") {
+            crate::table::Loaded::Htr10(l) => l,
+            _ => unreachable!(),
+        };
+        let fuel = l.fuel.as_mut().expect("fuel zone");
+        let (mats, maj, nucs, packed) = fuel.arm(true);
+        let q = |p: Position| Some(if packed.is_inside_kernel(p) { 0usize } else { 1usize });
+        let reference = outram_mc_libs::pebble_beds::keff_delta::run_keff_delta_par_in(DeltaDomain::Cube { half: model::HALF_CM }, mats, nucs, maj, q, &fuel_settings(cfg), ThreadCount::Fixed(1));
+        let bits = |v: &[f64]| v.iter().map(|x| x.to_bits()).collect::<Vec<_>>();
+        for n in [1, 2] {
+            assert_eq!(bits(&pooled(n)), bits(&reference.k_by_generation), "{n} workers");
+        }
+        eprintln!("  pooled fuel-zone k_inf by generation: {:?} (mean {:.5} ± {:.5})", reference.k_by_generation, reference.k_mean, reference.k_std);
+    }
 
     /// The ladder's x-y plane runs through a kernel of the fuel pebble at the
     /// origin of the N = 12 core: the TRISO and kernel steps show fuel.
@@ -370,7 +488,7 @@ mod tests {
         let m = core.geometry.locate(p, Direction::new(0.0, 0.0, 1.0), SurfaceToken::NONE).and_then(|l| l.material);
         assert_eq!(m, Some(nee_soon::htr10_rmc::core_model::mat::KERNEL));
         // A raster of the kernel step has kernel at its centre.
-        let mut l = Loaded { core: None, fuel: None, run: None };
+        let mut l = Loaded { core: None, fuel: None, run: None, pool_resolved: true };
         let req = RasterReq { id: 1, basis: Basis::Xy, centre: PARTICLE_XY, depth: LADDER_Z, width: [0.07, 0.07], px: [21, 21], param: LADDER_N };
         let map = l.raster(&req).unwrap();
         assert_eq!(map.len(), 441);
@@ -412,7 +530,7 @@ mod tests {
             b.step(&crate::tapes::strip_covariances(&raw), &mut crate::processed_cache::DataStore::off()).expect("step");
             eprintln!("  {label:<16} {:6.1} s", t1.elapsed().as_secs_f64());
         }
-        let mut l = Loaded { core: None, fuel: b.finish().expect("finish"), run: None };
+        let mut l = Loaded { core: None, fuel: b.finish().expect("finish"), run: None, pool_resolved: true };
         eprintln!("  data {:.1} s", t.elapsed().as_secs_f64());
         let cfg = Htr10::kinf_case().unwrap().cfg;
         for (arm, rec) in [(1.0, RECORD_HET), (0.0, RECORD_HOM)] {
