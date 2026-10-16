@@ -39,18 +39,18 @@ not gh:#342's 17.7 mK band, which `boundary_273_15_repro` still reproduces.
 **What upstream does that the port does not**, from reading OpenFOAM-10:
 
 1. **Adaptive Δt from a Courant number** (`compressibleCourantNo.H`,
-   `setDeltaT.H`). The port uses a fixed Δt and computes no Courant number
-   anywhere.
-2. **Implicit energy convection** (`fvm::div(phi, he)` in `EEqn.H`). The port is
-   explicit, and an explicit update stops being a convex combination once a
+   `setDeltaT.H`). ~~The port uses a fixed Δt and computes no Courant number
+   anywhere.~~ **Done 2026-10-16 (gh:#900, A1)** — see the Phase A results below.
+2. **Implicit energy convection** (`fvm::div(phi, he)` in `EEqn.H`). ~~The port is
+   explicit~~ (**done 2026-10-16, A2**: implicit is now the default), and an explicit update stops being a convex combination once a
    cell's outflow exceeds its content.
-3. **The kinetic-energy terms** `fvc::ddt(rho,K) + fvc::div(phi,K)`. These are
-   missing, and the omissions register has no row for them.
+3. **The kinetic-energy terms** `fvc::ddt(rho,K) + fvc::div(phi,K)`. ~~These are
+   missing, and the omissions register has no row for them.~~ **Done 2026-10-16** (default on; register row 12).
 4. **`thermo.correct()` once per outer corrector,** with a linear ρ update inside
-   the pressure equation. That is the port's non-default
+   the pressure equation. That is the port's ~~non-default~~ (default since 2026-10-16, A3)
    `PsiRefresh::OncePerOuterCorrector`, which the port had already measured as
    *more* accurate.
-5. **The `transonic` pressure-equation branch.** The port lacks it.
+5. **The `transonic` pressure-equation branch.** The port lacks it (register row 15).
 
 The KNP hybrid itself also differs from upstream. It adds its flux after the
 pressure equation has converged, with no wave-speed Courant check. It applies
@@ -80,8 +80,32 @@ replaces a panic with an error; it adds no stability.
 
 **A4. Ablation.** Run A1 and A2 together, then each alone. Count
 `pressure_bound_events` and `drained_hold_events`. **Re-measure every Edwards
-number** (current pins: plateau 359.0 psia, GS-1 RMSE 42.8 psia, Linear scheme)
+number** (~~current~~ pins before Phase A: plateau 359.0 psia, GS-1 RMSE 42.8 psia, Linear scheme)
 and record every move, including unflattering ones.
+
+### Phase A results (measured 2026-10-16, gh:#900)
+
+Done, with D5's defaults: implicit energy convection, the kinetic-energy
+terms, `PsiRefresh::OncePerOuterCorrector`, a guarded fixed Δt, an opt-in
+`setDeltaT.H` controller, and checked `(p,h)` flashes in `correct_thermo`.
+The 18-row ablation table, the predictions and how each one scored are in
+the module header of `crates/tampines-steam-tables/tests/edwards_blowdown.rs`.
+
+| Edwards, 600 ms, 30 µs | before (pins) | after (defaults) |
+|---|---|---|
+| Linear: plateau / GS-1 RMSE | 359.0 / 42.8 psia | **360.5 / 17.2 psia** |
+| Linear: pressure-bound events | 150 | **0** |
+| van Leer | fails at ≈ 0.12 s | **passes: 358.3 / 19.9 psia, 0 bound events, 0 holds** |
+
+The deciding change was **A3**, not A1 or A2. A3 alone on the old path gives
+361.1 / 17.3 psia with no bound events. A2 alone keeps van Leer running, but it
+clamps the pressure 7508 times. The adaptive controller never shortened the
+step, because the start-of-step Courant number stayed at or below 0.017.
+
+**A gate now fails.** The hybrid ringing gate,
+`edwards_hybrid_damps_ringing_vs_pimple`, fails under all three schemes. The
+hybrid adds 23–37 % ringing over plain PIMPLE, which itself rings 3.4× less
+than before. The threshold was left as it was. This feeds Phase B (gh:#914).
 
 ### Phase B: one KNP kernel, and a HEM solver exported from `tampines`
 

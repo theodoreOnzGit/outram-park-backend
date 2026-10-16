@@ -119,7 +119,7 @@ fn impose_descending_pressure(machine: &mut TransientMeanFlowTurbine) {
         machine.array.p.internal[cell] = Pressure::new::<bar>(*pressure_bar).get::<pascal>();
     }
 
-    machine.array.correct_thermo();
+    machine.array.correct_thermo().unwrap();
 }
 
 /// The constructor must select the KNP hybrid, not the array's own PIMPLE

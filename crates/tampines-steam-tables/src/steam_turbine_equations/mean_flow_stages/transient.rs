@@ -211,6 +211,11 @@ impl TransientMeanFlowTurbine {
     /// The array's own initial condition is liquid water at 1 bar and 300 K,
     /// which is not a useful starting point for a steam turbine, so this is
     /// almost always the first call after construction.
+    ///
+    /// # Panics
+    ///
+    /// If the `(T,p)` state's `(p,h)` image lies outside the IAPWS-IF97
+    /// envelope, which a successful `(T,p)` flash should exclude.
     pub fn initialise_uniform(
         &mut self,
         pressure: Pressure,
@@ -228,7 +233,11 @@ impl TransientMeanFlowTurbine {
         }
 
         // rho, T, psi and the transport properties all follow from (p, he).
-        self.array.correct_thermo();
+        // A uniform state built from a (T,p) flash is inside the (p,h)
+        // envelope by construction, so an error here is a defect.
+        self.array
+            .correct_thermo()
+            .expect("a (T,p)-flashed uniform state lies inside the (p,h) envelope");
     }
 
     /// The steam state of one stage, as a control volume.
@@ -251,6 +260,14 @@ impl TransientMeanFlowTurbine {
     /// solved axial velocity, take both parts of the work, convert to a power
     /// with the local mass flux, and register it as a negative power source.
     /// Then step the array once, so the energy equation sees the work leave.
+    ///
+    /// # Panics
+    ///
+    /// If the underlying [`crate::TampinesSteamArray::step`] returns an error
+    /// (a Courant violation at the fixed step, or a `(p,h)` state outside the
+    /// IAPWS-IF97 envelope). Before 2026-10-16 the array panicked internally on
+    /// the latter; this keeps that behaviour at the machine level until this
+    /// API carries a `Result`.
     pub fn step(&mut self) -> TransientStepOutcome {
         let shaft_speed_before = self.shaft_speed();
         let stage_outcomes = self.evaluate_stages();
@@ -270,7 +287,12 @@ impl TransientMeanFlowTurbine {
                 .expect("fraction vector is built at mesh.n_cells length");
         }
 
-        self.array.step();
+        // `TampinesSteamArray::step` returns an error instead of panicking
+        // since 2026-10-16 (gh:#900); this machine-level API does not yet
+        // carry a `Result`, so the error is raised here with its message.
+        if let Err(e) = self.array.step() {
+            panic!("turbine stage array step failed: {e}");
+        }
 
         // The shaft closes the loop: the stages' tangential momentum change is
         // a torque, and the generator advances the rotor against its own

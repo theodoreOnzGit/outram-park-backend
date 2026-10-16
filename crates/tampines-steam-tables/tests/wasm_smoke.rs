@@ -122,7 +122,7 @@ fn edwards_blowdown_advances_under_wasm() {
     // Open the break: the last cell sees ambient.
     for step in 0..20 {
         array.p.internal[n - 1] = 1.0e5;
-        array.step();
+        array.step().unwrap();
 
         for c in 0..n {
             let p = array.p.internal[c];
