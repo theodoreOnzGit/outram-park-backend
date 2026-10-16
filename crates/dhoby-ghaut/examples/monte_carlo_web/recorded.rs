@@ -39,10 +39,11 @@ pub fn histories(z: &[u8]) -> Result<Vec<History>, String> {
 }
 
 /// Record `n` histories of `rung`'s Watch chain and encode them. Native only:
-/// it processes the rung's tapes at the Watch tier first.
+/// it processes the rung's tapes first, at the demo's one tier, 0.001
+/// (~~the 0.01 Watch tier~~ until 2026-10-16, gh:#876 item 3).
 #[cfg(not(target_arch = "wasm32"))]
 pub fn bake(rung: crate::table::Rung, n: usize, mut report: impl FnMut(&str, f64)) -> Result<Vec<u8>, String> {
-    let mut loaded = crate::load_native(rung, crate::engine::Tier::Loose, &mut report)?;
+    let mut loaded = crate::load_native(rung, crate::engine::Tier::Exact, &mut report)?;
     let tracks: Vec<(usize, usize, outram_mc_libs::physics::track_output::Track)> =
         (0..n).map(|i| (0, i, loaded.run_next().track)).collect();
     if let Some((_, i, t)) = tracks.iter().find(|(_, _, t)| t.dropped_states > 0 || t.states.len() < 2) {

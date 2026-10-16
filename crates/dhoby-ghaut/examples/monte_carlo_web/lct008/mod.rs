@@ -102,11 +102,13 @@ impl McRung for Lct008 {
         &model::JOBS
     }
     /// ~~Always the loosened 0.01 tier~~ **CORRECTED 2026-10-13** (gh:#859):
-    /// the tier asked for. Watch asks for the loosened 0.01 (an
+    /// ~~the tier asked for. Watch asks for the loosened 0.01 (an
     /// illustration); Run k_eff and the pitch view, which compute a `k`, ask
-    /// for NJOY's 0.001, the record's own (module docs of [`model`]).
-    fn tier(requested: Tier) -> Tier {
-        requested
+    /// for NJOY's 0.001, the record's own (module docs of [`model`]).~~
+    /// **CORRECTED 2026-10-16:** 0.001 for every mode (gh:#876 item 3), so Watch and Run share one
+    /// load.
+    fn tier(_requested: Tier) -> Tier {
+        Tier::Exact
     }
     /// Native seconds per job at tolerance 0.01, measured 2026-10-04 by the
     /// rung's ignored test (i9-13900K, one thread, shared machine; 0.0 s
@@ -115,7 +117,8 @@ impl McRung for Lct008 {
     /// Progress-bar weights only.
     fn job_weights(tier: Tier) -> Vec<f64> {
         match tier {
-            Tier::Loose => vec![0.1, 0.1, 0.1, 0.8, 14.8, 13.0, 0.1, 0.1, 0.1, 0.1, 0.5, 16.2],
+            // Never asked: this rung always processes at 0.001 (`tier`).
+            Tier::NoData => Vec::new(),
             Tier::Exact => vec![0.2, 0.2, 0.2, 1.6, 29.5, 31.1, 0.2, 0.2, 0.2, 0.2, 1.0, 16.2],
         }
     }
@@ -157,7 +160,7 @@ impl McRung for Lct008 {
     fn notes() -> &'static [&'static str] {
         &[
             "Model: ICSBEP LEU-COMP-THERM-008 case 1 (Babcock & Wilcox critical lattice): 4961 rods of 2.459 w/o UO₂ in Al-6061 clad, 1.63576 cm pitch, in water with 1511 ppm boron, arranged as a 7 × 7 core lattice of 15 × 15 pin lattices. Read at run time from the committed mit-crpg/benchmarks OpenMC cards by the same code the recorded result was measured with.",
-            "Data: ENDF/B-VIII.0, processed in this browser by OUTRAM PARK's NJOY port. Watch: tolerance 0.01 (NJOY uses 0.001; measured effect on this lattice −65 ± 40 pcm). Run k_eff and the pitch view: NJOY's 0.001, as the record. Hydrogen in the water uses the H in H₂O S(α,β) thermal-scattering law, generated in this browser by OUTRAM PARK's LEAPR port from the ENDF/B-VIII.0 deck (no tape is downloaded for it). All 35 nuclides of the benchmark cards, the clad's trace elements (Mg, Ti, Cr, Fe, Cu, Zn) and B-11 included. The recorded results quoted here are on the same 35 (2026-10-14).",
+            "Data: ENDF/B-VIII.0, processed in this browser by OUTRAM PARK's NJOY port. Watch, Run k_eff and the pitch view all use NJOY's tolerance 0.001, as the record, one load cached for all three. Hydrogen in the water uses the H in H₂O S(α,β) thermal-scattering law, generated in this browser by OUTRAM PARK's LEAPR port from the ENDF/B-VIII.0 deck (no tape is downloaded for it). All 35 nuclides of the benchmark cards, the clad's trace elements (Mg, Ti, Cr, Fe, Cu, Zn) and B-11 included. The recorded results quoted here are on the same 35 (2026-10-14).",
             "Each track is one real history (a one-particle fixed-source run through the nested lattices), drawn projected from above. Chaining one neutron after the next is the illustration.",
             "Run k_eff is true Monte Carlo on the whole core, on a pool of workers (since 2026-10-16, gh:#907): outram-mc-libs' `run_keff_csg_par` power iteration taken apart by `transport_csg::distributed`. Each generation's histories are shared among the workers and added up in history order, so k is the same bit for bit whatever their number, and is what `run_keff_csg_par` (the driver of the recorded five-route results) gives for the same seed and data. Each worker holds its own copy of the processed data (read from this browser's cache). Before 2026-10-16 this ran the single-thread `CsgPowerIteration` in one worker. Its default, 5000 neutrons × [40 inactive + 120 active], is sized to run in a browser, like the other benchmark rungs. It is smaller than the recorded campaign's 10 000 × [250 + 400] (32 seeds on all 35 nuclides at 10 000 × [40 + 120], 2026-10-15: +89 ± 21 pcm from the benchmark k of 1.0007 ± 0.0016; OpenMC on NJOY2016 data +91 ± 13), and at the default the fission source of this 1.5 m core has not fully settled: 16 native seeds on the 11-nuclide model gave k about 80 pcm above that model's campaign. One run scatters by about 190 pcm, so that offset is inside one run's noise. For a k comparable with the record, set the campaign's numbers and wait.",
             "\"pitch k∞\" runs a real, single-threaded power iteration of ONE rod in a reflective square cell (an infinite lattice, no leakage) at the pitch you choose, on the same data, and draws it against the recorded sweep. It is k∞ of the pin lattice, not the core's k_eff.",
@@ -458,10 +461,10 @@ mod tests {
     }
 
     /// The slider's run, natively, at the slider's defaults (1000 × [20 +
-    /// 30], seed 1) and LCT-008's pitch, on the rung's tolerance-0.01 data:
+    /// 30], seed 1) and LCT-008's pitch, on the rung's data (~~tolerance 0.01~~ 0.001 since 2026-10-16):
     /// it streams one generation per step, ends at the last, and its k∞ is
     /// within 5 of its own σ of the recorded 1.06403 ± 0.00117 (a harness
-    /// check, not V&V: different tier, settings and random stream). Also
+    /// check, not V&V: different settings and random stream). Also
     /// prints the σ(E) curves' sizes and the timings quoted on gh:#549.
     #[test]
     #[ignore = "processes 35 ENDF tapes and LEAPR (minutes); run with --ignored"]
@@ -491,7 +494,7 @@ mod tests {
         assert!((g.mean - 1.06403).abs() < 5.0 * g.sem, "k_inf {} +/- {}", g.mean, g.sem);
     }
 
-    /// Process the tapes (tolerance 0.01) and run real histories through the
+    /// Process the tapes (tolerance 0.001; ~~0.01~~ until 2026-10-16) and run real histories through the
     /// core: each ends in a leak, capture or fission, inside the core
     /// cylinder, and most of them reach thermal energies (this is a
     /// water-moderated lattice). Needs `reference-data/endf/` and about a

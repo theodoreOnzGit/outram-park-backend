@@ -11,9 +11,11 @@
 //! **Data tier.** Run k_eff processes the tapes at NJOY's tolerance 0.001
 //! ([`SpeedTier::Fast`], the library default and exactly the record's data),
 //! so a reader's `k` is comparable with the record (maintainer decision (a),
-//! 2026-10-04). Watch mode is an illustration and may use the loosened 0.01
+//! 2026-10-04). ~~Watch mode is an illustration and may use the loosened 0.01
 //! tier ([`SpeedTier::VeryFast`]), whose measured effect on Godiva is
-//! +7 ± 41 pcm (`outram-mc-libs/docs/profiling/speed_tiers_2026_09_27.md`).
+//! +7 ± 41 pcm (`outram-mc-libs/docs/profiling/speed_tiers_2026_09_27.md`).~~
+//! **CORRECTED 2026-10-16** (maintainer, gh:#876 item 3): Watch uses the same
+//! 0.001 data, one cached load for both modes.
 
 use crate::tapes::read_tape;
 use outram_mc_libs::geometry::cell::{Cell, HalfSpaceSense, RegionToken};

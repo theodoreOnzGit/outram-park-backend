@@ -60,7 +60,7 @@ impl LoadState {
     fn tolerance(&self) -> &'static str {
         match self.tier {
             Tier::Exact => "0.001 (NJOY's own)",
-            Tier::Loose => "0.01 (loosened)",
+            Tier::NoData => "none needed for this view",
         }
     }
 }
@@ -503,7 +503,7 @@ enum Phase {
 }
 
 /// Watch mode has two views where the rung has generations to show.
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 enum WatchView {
     Neutrons,
     Generations,
@@ -570,7 +570,59 @@ struct Layers {
     slicer: Slicer,
 }
 
+/// Where a tap on the rung row, the mode switch or the Watch views asks to
+/// go.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+struct Target {
+    rung: Rung,
+    mode: Mode,
+    view: WatchView,
+}
+
+/// "Sure anot?" (gh:#876 item 2, maintainer 2026-10-16): a tap that would
+/// leave a running or paused k_eff / k_inf run is held here until the reader
+/// confirms, because a stray thumb on another demo used to cancel a long run
+/// at once. Nothing is held while no run is in progress.
+#[derive(Default)]
+struct SwitchGuard {
+    pending: Option<Target>,
+}
+
+impl SwitchGuard {
+    /// The target to go to now, or `None` while it waits for the answer.
+    fn request(&mut self, to: Target, busy: bool) -> Option<Target> {
+        if busy {
+            self.pending = Some(to);
+            None
+        } else {
+            Some(to)
+        }
+    }
+    /// "Keep running" (the default): forget the tap, leave the run alone.
+    fn keep(&mut self) {
+        self.pending = None;
+    }
+    /// "Cancel run and switch": the held target.
+    fn confirm(&mut self) -> Option<Target> {
+        self.pending.take()
+    }
+}
+
+/// Whether leaving the screen would throw away a run in progress: a Run
+/// k_eff, a Watch-generations or a k_inf run that is going or paused. The
+/// whole-core view's pool survives a switch (gh:#818), so it does not count.
+fn run_in_progress(phase: &Phase) -> bool {
+    let live = |s: RunState| matches!(s, RunState::Running | RunState::Paused);
+    match phase {
+        Phase::Ready(Screen::Run(it) | Screen::Generations(it)) => live(it.state),
+        Phase::Ready(Screen::Kinf(k)) => live(k.state),
+        _ => false,
+    }
+}
+
 pub struct McApp {
+    /// A switch held for "Sure anot?" (gh:#876 item 2).
+    guard: SwitchGuard,
     link: Option<McLink>,
     rung: Rung,
     mode: Mode,
@@ -643,6 +695,7 @@ impl McApp {
         // `?workers=` (gh:#786), read before `switch` rewrites the URL.
         let _ = crate::htr10::core::screen::remember_query();
         let mut app = Self {
+            guard: SwitchGuard::default(),
             link: None,
             rung,
             mode,
@@ -695,16 +748,59 @@ impl McApp {
         app
     }
 
-    /// The tier a mode asks for: Run k_eff processes at NJOY's tolerance so
-    /// its `k` is comparable with the record; Watch may use the loosened
-    /// tier. The rung has the last word ([`crate::rungs::McRung::tier`]).
-    /// The k_inf view computes too, so it asks for the full tier (a rung such
-    /// as `lct008` processes one tier whatever is asked; `htr10` loads its
-    /// tapes only for this view).
+    /// The tier a mode asks for: Run k_eff and the k_inf view need cross
+    /// sections; another Watch view asks for none, and a rung whose Watch
+    /// transports neutrons answers 0.001 regardless
+    /// ([`crate::rungs::McRung::tier`]), so its data load once and serve
+    /// every mode (gh:#876 item 3). Only `htr10` and `dhshort`, whose other
+    /// views draw geometry or a recorded sweep, take the `NoData` answer.
     fn tier_for(mode: Mode, view: WatchView) -> Tier {
         match (mode, view) {
             (Mode::Run, _) | (Mode::Watch, WatchView::Kinf) => Tier::Exact,
-            (Mode::Watch, _) => Tier::Loose,
+            (Mode::Watch, _) => Tier::NoData,
+        }
+    }
+
+    /// A tap asking to go to `to`: at once, or held for "Sure anot?" while a
+    /// run is in progress ([`SwitchGuard`]).
+    fn go(&mut self, to: Target) {
+        if let Some(t) = self.guard.request(to, run_in_progress(&self.phase)) {
+            self.watch_view = t.view;
+            self.switch(t.rung, t.mode);
+        }
+    }
+
+    /// The "Sure anot?" dialog while a switch is held. GUI drawing (the test
+    /// rule's exception); the decision is [`SwitchGuard`], tested.
+    fn confirm_dialog(&mut self, ctx: &egui::Context) {
+        if self.guard.pending.is_none() {
+            return;
+        }
+        let mut keep = false;
+        let mut go = false;
+        let r = egui::Modal::new(egui::Id::new("sure-anot")).show(ctx, |ui| {
+            ui.set_max_width(320.0);
+            ui.heading("Sure anot?");
+            ui.label("Switching demos will cancel your running k_eff simulation.");
+            ui.add_space(12.0);
+            let w = ui.available_width();
+            let size = Vec2::new(w, dhoby_ghaut::web_demo::panel::HIDE_PX);
+            if ui.add(egui::Button::new(RichText::new("Keep running").size(18.0).strong()).min_size(size)).clicked() {
+                keep = true;
+            }
+            ui.add_space(16.0);
+            if ui.add(egui::Button::new(RichText::new("Cancel run and switch").size(16.0).color(Color32::from_rgb(255, 120, 120))).min_size(size)).clicked() {
+                go = true;
+            }
+        });
+        // A tap outside the dialog or Escape keeps the run too.
+        if keep || (!go && r.should_close()) {
+            self.guard.keep();
+        } else if go {
+            if let Some(t) = self.guard.confirm() {
+                self.watch_view = t.view;
+                self.switch(t.rung, t.mode);
+            }
         }
     }
 
@@ -731,7 +827,8 @@ impl McApp {
         self.set_url();
         let need = rung.tier(Self::tier_for(mode, self.watch_view));
         let ok = match self.loaded {
-            // Exact data serve Watch too; loose data do not serve Run.
+            // 0.001 data serve every view; a NoData load serves only views
+            // that need no cross sections.
             Some((r, t)) => r == rung && (t == need || t == Tier::Exact),
             None => false,
         };
@@ -1090,6 +1187,7 @@ impl eframe::App for McApp {
         let mut panel = std::mem::take(&mut self.panel);
         panel.show(ui, "Monte Carlo", |ui| self.side_panel(ui));
         self.panel = panel;
+        self.confirm_dialog(&ctx);
         egui::CentralPanel::default().frame(egui::Frame::NONE).show(ui, |ui| self.canvas(ui));
     }
 }
@@ -1109,7 +1207,7 @@ impl McApp {
             });
         }
         if (rung, mode) != (self.rung, self.mode) {
-            self.switch(rung, mode);
+            self.go(Target { rung, mode, view: self.watch_view });
         }
         ui.strong(self.rung.info().title);
         lesson::whats_happening(ui, self.rung);
@@ -1174,8 +1272,7 @@ impl McApp {
         if let Some(v) = want_view {
             // A view may need other data (htr10's k_inf loads its tapes):
             // `switch` reloads only if what is loaded will not do.
-            self.watch_view = v;
-            self.switch(self.rung, self.mode);
+            self.go(Target { rung: self.rung, mode: self.mode, view: v });
         }
 
         ui.separator();
@@ -2483,6 +2580,36 @@ fn draw_kinf(painter: &egui::Painter, rect: Rect, k: &KinfRun, done: &[KinfPoint
 #[cfg(all(test, not(target_arch = "wasm32")))]
 mod tests {
     use super::*;
+
+    /// gh:#876 item 2: with a run going or paused, a tap elsewhere is held
+    /// and "Keep running" leaves the run untouched; "Cancel run and switch"
+    /// releases the tap; with nothing running there is no dialog.
+    #[test]
+    fn a_running_k_eff_is_not_cancelled_without_confirmation() {
+        let cfg = KeffConfig { n_particles: 100, n_inactive: 2, n_active: 3, seed: 1, point_source: false, want_sites: false };
+        let to = Target { rung: Rung::Jemima, mode: Mode::Watch, view: WatchView::Neutrons };
+        for (state, busy) in [(RunState::Idle, false), (RunState::Running, true), (RunState::Paused, true), (RunState::Done, false)] {
+            let mut it = Iteration::pooled(cfg);
+            it.state = state;
+            assert_eq!(run_in_progress(&Phase::Ready(Screen::Run(it))), busy, "{state:?}");
+            let mut it = Iteration::pooled(cfg);
+            it.state = state;
+            assert_eq!(run_in_progress(&Phase::Ready(Screen::Generations(it))), busy, "{state:?}");
+        }
+        assert!(!run_in_progress(&Phase::Loading(LoadState::new(Rung::Godiva, Tier::Exact))));
+        assert!(!run_in_progress(&Phase::Ready(Screen::Core)));
+
+        let mut g = SwitchGuard::default();
+        assert_eq!(g.request(to, false), Some(to), "nothing running: switch at once");
+        assert_eq!(g.pending, None);
+        assert_eq!(g.request(to, true), None, "a run going: held");
+        assert_eq!(g.pending, Some(to));
+        g.keep();
+        assert_eq!((g.pending, g.confirm()), (None, None), "Keep running forgets the tap");
+        assert_eq!(g.request(to, true), None);
+        assert_eq!(g.confirm(), Some(to), "Cancel run and switch releases it");
+        assert_eq!(g.pending, None);
+    }
 
     /// A link's `?particles=&inactive=&active=&seed=` preset the Run k_eff
     /// settings, inside the panel's ranges; the rest keep the rung's default.

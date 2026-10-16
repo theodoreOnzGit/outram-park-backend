@@ -14,8 +14,10 @@
 //! cargo run -p dhoby-ghaut --example monte_carlo_web --release [-- --rung godiva --mode run]
 //! cargo run -p dhoby-ghaut --example monte_carlo_web --release -- --headless [n] [seed]
 //! cargo run -p dhoby-ghaut --example monte_carlo_web --release -- --headless-godiva [n] [seed]
-//! cargo run -p dhoby-ghaut --example monte_carlo_web --release -- --headless-keff [n inactive active seed] [--loose]
-//! cargo run -p dhoby-ghaut --example monte_carlo_web --release -- --headless-keff-rung <jemima|hst009|lct008> [n inactive active seed] [--loose]
+//! cargo run -p dhoby-ghaut --example monte_carlo_web --release -- --headless-keff [n inactive active seed]
+//! cargo run -p dhoby-ghaut --example monte_carlo_web --release -- --headless-keff-rung <jemima|hst009|lct008> [n inactive active seed]
+//! (~~`--loose`, the 0.01 tier~~: removed 2026-10-16, gh:#876 item 3; every
+//! load is NJOY's 0.001.)
 //! cargo run -p dhoby-ghaut --example monte_carlo_web --release -- --bake-tracks <rung> [n]
 //! cargo run -p dhoby-ghaut --example monte_carlo_web --release -- --render-geometry <dir>
 //! cargo run -p dhoby-ghaut --example monte_carlo_web --release -- --prepare-web-data <dir>
@@ -32,9 +34,11 @@
 //!   (`PowerIteration`, which `run_keff` is), stepped one generation at a time.
 //! - **Data**: ENDF/B-VIII.0 tapes from `reference-data/endf/`, covariances
 //!   stripped, processed by the workspace's NJOY port (RECONR + BROADR). The
-//!   tier per rung and mode is in [`app`] (`tier_for`): Godiva Run k_eff at
+//!   tier per rung and mode is in [`app`] (`tier_for`): ~~Godiva Run k_eff at
 //!   NJOY's tolerance 0.001, so its `k` is comparable with the record; the
-//!   Watch modes at 0.01.
+//!   Watch modes at 0.01~~ **every rung and mode at NJOY's 0.001, one
+//!   cached load** (maintainer, 2026-10-16, gh:#876 item 3); views that
+//!   need no cross sections load none.
 //! - **Geometry**: TRISO from IAEA-TECDOC-1382 ([`triso::model`]); Godiva from
 //!   `outram_mc_libs::vv::godiva` ([`godiva::model`]).
 //!
@@ -148,13 +152,13 @@ fn main() -> Result<(), String> {
         Some("--headless") => {
             let (n, seed) = (num(1, 200)? as usize, num(2, 1)?);
             eprintln!("Processing ENDF/B-VIII.0 (tier {:?}, {} K):", triso::model::SPEED, triso::model::TEMPERATURE_K);
-            let Loaded::Triso(l) = load_native(Rung::Triso, Tier::Loose, timing)? else { unreachable!() };
+            let Loaded::Triso(l) = load_native(Rung::Triso, Tier::Exact, timing)? else { unreachable!() };
             print!("{}", triso::sim::headless_csv(&l.phys, n, seed));
             Ok(())
         }
         Some("--headless-godiva") => {
             let (n, seed) = (num(1, 200)? as usize, num(2, 1)?);
-            let Loaded::Godiva(l) = load_native(Rung::Godiva, Tier::Loose, timing)? else { unreachable!() };
+            let Loaded::Godiva(l) = load_native(Rung::Godiva, Tier::Exact, timing)? else { unreachable!() };
             let mut chain = godiva::sim::Chain::new(seed);
             println!("{}", history::CSV_HEADER);
             for _ in 0..n {
@@ -163,7 +167,6 @@ fn main() -> Result<(), String> {
             Ok(())
         }
         Some("--headless-keff") => {
-            let loose = args.iter().any(|a| a == "--loose");
             let d = Rung::Godiva.run_default().ok_or("no run default")?;
             let cfg = keff::KeffConfig {
                 n_particles: num(1, d.n_particles as u64)? as usize,
@@ -172,7 +175,7 @@ fn main() -> Result<(), String> {
                 seed: num(4, d.seed)?,
                 ..d
             };
-            let tier = if loose { Tier::Loose } else { Tier::Exact };
+            let tier = Tier::Exact;
             eprintln!("Processing ENDF/B-VIII.0 for Godiva ({tier:?} tier, {} K):", godiva::model::TEMPERATURE_K);
             let t0 = std::time::Instant::now();
             let Loaded::Godiva(l) = load_native(Rung::Godiva, tier, timing)? else { unreachable!() };
@@ -231,7 +234,7 @@ fn main() -> Result<(), String> {
         }
         Some("--headless-keff-rung") => {
             // A benchmark rung's Run k_eff without a window (gh:#859):
-            // `--headless-keff-rung <jemima|hst009|lct008> [n inactive active seed] [--loose]`.
+            // `--headless-keff-rung <jemima|hst009|lct008> [n inactive active seed]`.
             let name = arg(1).ok_or("--headless-keff-rung needs a rung name")?;
             let rung = *table::ALL.iter().find(|r| r.info().name == name).ok_or_else(|| format!("no rung named {name}"))?;
             let d = rung.run_default().ok_or("this rung has no Run k_eff")?;
@@ -242,7 +245,7 @@ fn main() -> Result<(), String> {
                 seed: num(5, d.seed)?,
                 ..d
             };
-            let tier = if args.iter().any(|a| a == "--loose") { Tier::Loose } else { Tier::Exact };
+            let tier = Tier::Exact;
             eprintln!("Processing ENDF/B-VIII.0 for {} ({tier:?} tier):", rung.info().title);
             let t0 = std::time::Instant::now();
             let loaded = load_native(rung, tier, timing)?;
@@ -359,7 +362,7 @@ mod tests {
 
     fn physics() -> &'static triso::sim::Physics {
         static P: OnceLock<triso::sim::Physics> = OnceLock::new();
-        P.get_or_init(|| match load_native(Rung::Triso, Tier::Loose, |_, _| {}).expect("load nuclear data") {
+        P.get_or_init(|| match load_native(Rung::Triso, Tier::Exact, |_, _| {}).expect("load nuclear data") {
             Loaded::Triso(l) => l.phys,
             _ => unreachable!(),
         })
@@ -367,7 +370,7 @@ mod tests {
 
     fn godiva_physics() -> &'static godiva::sim::Physics {
         static P: OnceLock<godiva::sim::Physics> = OnceLock::new();
-        P.get_or_init(|| match load_native(Rung::Godiva, Tier::Loose, |_, _| {}).expect("load nuclear data") {
+        P.get_or_init(|| match load_native(Rung::Godiva, Tier::Exact, |_, _| {}).expect("load nuclear data") {
             Loaded::Godiva(l) => l.phys,
             _ => unreachable!(),
         })
@@ -559,7 +562,7 @@ mod tests {
     #[test]
     fn the_engine_thread_runs_the_headless_sequence() {
         let link = dhoby_ghaut::web_demo::link::start_native(engine::McEngine::default(), || {});
-        link.send(engine::Request::Load { id: 7, rung: Rung::Triso, tier: Tier::Loose });
+        link.send(engine::Request::Load { id: 7, rung: Rung::Triso, tier: Tier::Exact });
         let deadline = std::time::Instant::now() + std::time::Duration::from_secs(900);
         let (mut ready, mut got) = (false, Vec::new());
         while got.len() < 5 {
@@ -608,7 +611,7 @@ mod tests {
             }
             (sources, info)
         };
-        link.send(engine::Request::Load { id: 8, rung: Rung::Triso, tier: Tier::Loose });
+        link.send(engine::Request::Load { id: 8, rung: Rung::Triso, tier: Tier::Exact });
         let (sources, info) = wait(8);
         assert_eq!(sources.len(), triso::model::JOBS.len());
         assert!(sources.iter().all(|s| matches!(s, dhoby_ghaut::web_demo::data_cache::Source::Cached { .. })), "{sources:?}");
@@ -712,12 +715,17 @@ mod tests {
     /// the page decodes it. Every history must be complete (born first,
     /// ended by a leak, a capture or a fission, nothing dropped) and every
     /// state must lie inside the rung's model: within the radius the picture
-    /// is fitted to. **Result (2026-10-13):** Godiva 60 histories / 266
+    /// is fitted to. ~~**Result (2026-10-13):** Godiva 60 histories / 266
     /// states, Jemima 60 / 1381, HEU-SOL-THERM-009 30 / 3185, LEU-COMP-THERM-008
-    /// 30 / 2288; none truncated, none outside.
+    /// 30 / 2288; none truncated, none outside.~~ **Result (2026-10-16, files
+    /// re-baked at NJOY's 0.001, gh:#876 item 3; the 2026-10-13 files were at
+    /// 0.01):** Godiva 60 / 266 and Jemima 60 / 1381, unchanged (fast systems:
+    /// the same histories); HEU-SOL-THERM-009 30 / 2618 and
+    /// LEU-COMP-THERM-008 30 / 2112, changed by the thermal data; none
+    /// truncated, none outside.
     #[test]
     fn the_shipped_tracks_are_whole_histories_inside_their_geometry() {
-        for (r, n, states) in [(Rung::Godiva, 60, 266), (Rung::Jemima, 60, 1381), (Rung::Hst009, 30, 3185), (Rung::Lct008, 30, 2288)] {
+        for (r, n, states) in [(Rung::Godiva, 60, 266), (Rung::Jemima, 60, 1381), (Rung::Hst009, 30, 2618), (Rung::Lct008, 30, 2112)] {
             let name = r.info().name;
             let h = recorded::histories(r.recorded_tracks().expect("shipped")).unwrap_or_else(|e| panic!("{name}: {e}"));
             assert_eq!((h.len(), h.iter().map(|x| x.track.states.len()).sum::<usize>()), (n, states), "{name}");
@@ -737,21 +745,25 @@ mod tests {
 
     fn jemima_loaded() -> &'static std::sync::Mutex<csgrung::Loaded<jemima::Jemima>> {
         static P: OnceLock<std::sync::Mutex<csgrung::Loaded<jemima::Jemima>>> = OnceLock::new();
-        P.get_or_init(|| match load_native(Rung::Jemima, Tier::Loose, |_, _| {}).expect("load nuclear data") {
+        P.get_or_init(|| match load_native(Rung::Jemima, Tier::Exact, |_, _| {}).expect("load nuclear data") {
             Loaded::Jemima(l) => std::sync::Mutex::new(l),
             _ => unreachable!(),
         })
     }
 
     /// **Methodology.** The Jemima rung on the three ENDF/B-VIII.0 tapes at
-    /// the Watch tier (tolerance 0.01): 60 chained histories, then a small
+    /// NJOY's tolerance 0.001 (~~the Watch tier, 0.01~~ until 2026-10-16, gh:#876 item 3): 60 chained histories, then a small
     /// headless Run k_eff (1000 neutrons × [10 inactive + 30 active], seed 1)
     /// run twice. Checks: every history ends in a leak, a capture or a
     /// fission inside the assembly; the run is deterministic; its `k` is
     /// within 5 of its own σ of the recorded 0.99609 ± 0.00027 (five-route
-    /// route 4). A harness check, not V&V: a different tier and run size
-    /// from the record. **Result (2026-10-13):** `k = 0.99954 ± 0.00851`,
-    /// 0.4 σ from the record; all 60 histories ended properly.
+    /// route 4). A harness check, not V&V: a different run size from the
+    /// record. ~~**Result (2026-10-13):** `k = 0.99954 ± 0.00851`, 0.4 σ from
+    /// the record; all 60 histories ended properly.~~ (at 0.01) **Result
+    /// (2026-10-16, at 0.001, gh:#876 item 3):** `k = 0.98455 ± 0.00799`,
+    /// −1.4 σ from the record; all 60 histories ended properly. The two
+    /// results are three days of code apart, so their difference is not
+    /// the tolerance's alone.
     #[test]
     fn the_jemima_rung_tracks_neutrons_and_runs_its_keff() {
         use rungs::{LoadedRung as _, McRung as _};
@@ -775,7 +787,7 @@ mod tests {
         assert!(a[a.len() - 4].contains("computed now by"), "{}", a[a.len() - 4]);
         assert!(a[a.len() - 2].contains("OpenMC 0.16.1-dev25 at d7d3284a1 on NJOY2016 2016.79 at ac5adf5"), "{}", a[a.len() - 2]);
         assert!(a[a.len() - 1].contains("2026-10-15, at 093d8590cf"), "{}", a[a.len() - 1]);
-        eprintln!("  Jemima 1000 x [10 + 30], Watch tier: k = {k:.5} +/- {s:.5}");
+        eprintln!("  Jemima 1000 x [10 + 30], tolerance 0.001: k = {k:.5} +/- {s:.5}");
         let rec = jemima::Jemima::reference().expect("record");
         assert!((k - rec.k).abs() < 5.0 * s, "k {k} +/- {s} against the record {}", rec.k);
 
@@ -804,7 +816,7 @@ mod tests {
     }
 
     /// **Methodology.** The `natu` rung (Lesson 1's random walk, gh:#911) on
-    /// Jemima's three ENDF/B-VIII.0 tapes at the Watch tier (tolerance 0.01):
+    /// Jemima's three ENDF/B-VIII.0 tapes at NJOY's tolerance 0.001 (~~the Watch tier, 0.01~~ until 2026-10-16, gh:#876 item 3):
     /// 200 chained histories, each checked to start with a birth, end in a
     /// leak, a capture or a fission, drop no state, and stay inside the bar.
     /// The outcome counts are printed and recorded here, since the lesson
@@ -812,10 +824,11 @@ mod tests {
     /// **Result (2026-10-16, on e9b5484608 plus the change adding the rung):**
     /// all 200 ended properly inside the bar: 140 leaked, 37 captured, 23
     /// fission; 12.6 scatters per history on average.
+    /// Re-run at 0.001 the same day (gh:#876 item 3): the same counts.
     #[test]
     fn the_natural_uranium_rung_tracks_whole_histories_inside_the_bar() {
         use rungs::LoadedRung as _;
-        let mut l = match load_native(Rung::Natu, Tier::Loose, |_, _| {}).expect("load nuclear data") {
+        let mut l = match load_native(Rung::Natu, Tier::Exact, |_, _| {}).expect("load nuclear data") {
             Loaded::Natu(l) => l,
             _ => unreachable!(),
         };
@@ -858,7 +871,7 @@ mod tests {
     #[ignore = "processes 11 ENDF tapes and LEAPR (minutes); run with --ignored"]
     fn the_hst009_rung_thermalises_and_runs_its_keff() {
         use rungs::{LoadedRung as _, McRung as _};
-        let Loaded::Hst009(mut l) = load_native(Rung::Hst009, Tier::Loose, |_, _| {}).expect("load") else { unreachable!() };
+        let Loaded::Hst009(mut l) = load_native(Rung::Hst009, Tier::Exact, |_, _| {}).expect("load") else { unreachable!() };
         let reach = outram_mc_libs::vv::hst009::R_REFLECTOR * (1.0 + 1e-9);
         let (mut thermal, n) = (0, 40);
         for _ in 0..n {
@@ -893,7 +906,7 @@ mod tests {
     #[ignore = "processes 35 ENDF tapes and LEAPR (minutes); run with --ignored"]
     fn the_lct008_rung_runs_a_whole_core_keff() {
         use rungs::LoadedRung as _;
-        let Loaded::Lct008(mut l) = load_native(Rung::Lct008, Tier::Loose, |_, _| {}).expect("load") else { unreachable!() };
+        let Loaded::Lct008(mut l) = load_native(Rung::Lct008, Tier::Exact, |_, _| {}).expect("load") else { unreachable!() };
         let cfg = keff::KeffConfig { n_particles: 2000, n_inactive: 20, n_active: 20, seed: 1, point_source: false, want_sites: true };
         let sites = l.keff_start(cfg).expect("start");
         assert_eq!(sites.len(), 2000);

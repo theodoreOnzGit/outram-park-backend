@@ -88,7 +88,7 @@ impl DataBuilder {
     }
     /// The fuel zone, if this load processed the tapes (the full tier).
     pub fn finish(self) -> Result<Option<FuelZone>, String> {
-        if self.tier == Tier::Loose {
+        if self.tier == Tier::NoData {
             return Ok(None);
         }
         let sab = self.sab.ok_or("no graphite S(a,b)")?;

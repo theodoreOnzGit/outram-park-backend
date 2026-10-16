@@ -33,21 +33,27 @@ use outram_mc_libs::physics::track_output::{Track, TrackEvent, TrackState};
 /// Seed of the neutron chain the GUI shows.
 pub const CHAIN_SEED: u64 = 1;
 
-/// Which nuclear-data tier to process tapes at.
+/// What a load processes. **One tolerance in the whole demo:** NJOY's 0.001
+/// (gh:#876 item 3, maintainer 2026-10-16: "All demos should use the same
+/// 0.001 tolerance cached data"). ~~`Loose`: tolerance 0.01, an
+/// approximation ([`SpeedTier::VeryFast`]), used by Watch.~~ **Removed
+/// 2026-10-16**; a view that used it either processes at 0.001 now or, where
+/// it never needed cross sections, processes nothing ([`Tier::NoData`]).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Tier {
-    /// NJOY's tolerance 0.001, exact ([`SpeedTier::Fast`], the default).
+    /// NJOY's tolerance 0.001 ([`SpeedTier::Fast`], the library default and
+    /// the records' own data).
     Exact,
-    /// Tolerance 0.01, an approximation ([`SpeedTier::VeryFast`]).
-    Loose,
+    /// No tapes: a view that draws geometry or plays a recorded sweep (the
+    /// HTR-10 and DH-shortcut rungs' Watch views, the packing rung).
+    NoData,
 }
 
 impl Tier {
+    /// The processing tier: 0.001 always. `NoData` loads no tapes, so it
+    /// never reaches processing; were it to, it would still be 0.001.
     pub fn speed(self) -> SpeedTier {
-        match self {
-            Tier::Exact => SpeedTier::Fast,
-            Tier::Loose => SpeedTier::VeryFast,
-        }
+        SpeedTier::Fast
     }
 }
 
@@ -572,7 +578,7 @@ pub mod web {
                 "load" => Request::Load {
                     id: js::get_f64(v, "id").unwrap_or(0.0) as u32,
                     rung: dhoby_ghaut::web_demo::lesson::parse(&js::get_str(v, "rung")).ok_or("unknown rung")?,
-                    tier: if js::get_bool(v, "exact").unwrap_or(false) { Tier::Exact } else { Tier::Loose },
+                    tier: if js::get_bool(v, "exact").unwrap_or(false) { Tier::Exact } else { Tier::NoData },
                 },
                 "run" => Request::Run {
                     n: js::get_f64(v, "n").unwrap_or(1.0) as usize,

@@ -46,10 +46,11 @@ impl McRung for Triso {
     fn jobs() -> &'static [(&'static str, &'static str)] {
         TAPES.get_or_init(|| model::JOBS.iter().map(|j| (j.label, j.tape)).collect())
     }
-    /// Always [`model::SPEED`], the loosened 0.01 tier (maintainer's choice
-    /// for this demo, 2026-10-03).
+    /// Always [`model::SPEED`]: ~~the loosened 0.01 tier (maintainer's
+    /// choice for this demo, 2026-10-03)~~ **0.001 since 2026-10-16**
+    /// (maintainer, gh:#876 item 3).
     fn tier(_requested: Tier) -> Tier {
-        Tier::Loose
+        Tier::Exact
     }
     /// Headless Chromium, 2026-10-03.
     fn job_weights(_tier: Tier) -> Vec<f64> {
@@ -106,7 +107,7 @@ impl McRung for Triso {
             "Transport: outram-mc-libs continuous-energy Monte Carlo, unmodified. Each neutron is a one-particle fixed-source run with fission progeny switched off, so every track is one real history, drawn projected onto the slice.",
             "Data: ENDF/B-VIII.0 (U-235, U-238, O-16, B-10, B-11, C-12, C-13, Si-28/29/30), reconstructed and Doppler-broadened to 296 K in this browser by OUTRAM PARK's NJOY port, in a background worker. Graphite carbon uses the crystalline-graphite S(α,β) thermal-scattering law.",
             "Covariance data (ENDF files 30–40) are removed before download: transport never reads them. A test proves the stripped tapes give bit-identical cross sections and fission spectra.",
-            "Low fidelity, deliberately: reconstruction tolerance 0.01, not NJOY's 0.001.",
+            "Reconstruction tolerance: NJOY's own 0.001 (since 2026-10-16; until then 0.01).",
             "Geometry: HTR-10 pebble dimensions (IAEA-TECDOC-1382) in 2D. The TRISO particles are therefore infinitely long rods, not spheres: 152 of them, so the fuel fraction of the fuelled zone matches the real pebble (5.0 %). Rods self-shield differently from spheres, so this is a picture of how neutrons move, not a model of HTR-10.",
             "Approximations: carbon in the thin SiC layer is free gas; every fission's next neutron takes the U-235 fission spectrum; helium is void.",
             "Animation speed is proportional to the neutron's real speed (classical kinetic energy, v proportional to √E).",

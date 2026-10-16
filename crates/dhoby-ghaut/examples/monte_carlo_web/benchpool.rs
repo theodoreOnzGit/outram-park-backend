@@ -206,7 +206,7 @@ mod tests {
     fn pooled_timed(n: usize, cfg: KeffConfig) -> (Vec<f64>, Option<(f64, f64)>, f64) {
         let ctx = egui::Context::default();
         let plan = Plan { workers: n, reason: "test".into() };
-        let mut p = BenchPool::start(&ctx, plan, Rung::Jemima, Tier::Loose).expect("start");
+        let mut p = BenchPool::start(&ctx, plan, Rung::Jemima, Tier::Exact).expect("start");
         let t0 = std::time::Instant::now();
         let mut ks = Vec::new();
         let mut mean = None;
@@ -237,18 +237,22 @@ mod tests {
         }
     }
 
-    /// **Methodology.** Jemima at the Watch tier (tolerance 0.01), 400
+    /// **Methodology.** Jemima at NJOY's tolerance 0.001 (~~the Watch tier, 0.01~~ until 2026-10-16, gh:#876 item 3), 400
     /// neutrons × [3 inactive + 5 active], seed 7, run three ways: on a pool
     /// of 1 native worker, on a pool of 3 (each loading the data itself, as
     /// Web Workers do), and by outram-mc-libs' `run_keff_csg_par` directly
     /// on the same data and settings. Pass: every generation's `k` is the
     /// same `f64` in all three. This is the claim the module docs make, that
     /// the pool reproduces the driver the five-route records used and does
-    /// not depend on the worker count. **Result (2026-10-16, on fc6d02257
+    /// not depend on the worker count. ~~**Result (2026-10-16, on fc6d02257
     /// plus this change):** all three agree bit for bit in all 8
     /// generations; mean k = 0.97397 ± 0.01815 (a harness check at 400
     /// neutrons, not a benchmark result). 87 s, most of it the four native
-    /// loads of the three tapes.
+    /// loads of the three tapes.~~ (at 0.01) **Result at 0.001 (2026-10-16,
+    /// gh:#876 item 3):** all three agree bit for bit; mean k = 0.97397 ±
+    /// 0.01815, the 0.01 value to the printed digits (a fast system: these
+    /// 400 neutrons take the same paths). 141 s on an i9-13900K, the loads
+    /// now at 0.001.
     #[test]
     fn a_pooled_run_is_run_keff_csg_par_on_any_number_of_workers() {
         let cfg = KeffConfig { n_particles: 400, n_inactive: 3, n_active: 5, seed: 7, point_source: false, want_sites: false };
@@ -258,7 +262,7 @@ mod tests {
         assert_eq!(one, three, "1 worker against 3");
         assert_eq!(m1, m3);
 
-        let l = match crate::load_native(Rung::Jemima, Tier::Loose, |_, _| {}).expect("load") {
+        let l = match crate::load_native(Rung::Jemima, Tier::Exact, |_, _| {}).expect("load") {
             Loaded::Jemima(l) => l,
             _ => unreachable!(),
         };

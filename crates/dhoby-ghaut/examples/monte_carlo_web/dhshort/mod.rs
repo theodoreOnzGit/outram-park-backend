@@ -58,11 +58,11 @@ impl McRung for DhShort {
     }
     fn jobs_for(tier: Tier) -> &'static [(&'static str, &'static str)] {
         match tier {
-            Tier::Loose => &[],
+            Tier::NoData => &[],
             Tier::Exact => &data::JOBS,
         }
     }
-    /// The demo view needs no data (the loose tier loads none); the k∞ run
+    /// The demo view needs no data (a `NoData` load processes none); the k∞ run
     /// processes at NJOY's tolerance, like the record.
     fn tier(requested: Tier) -> Tier {
         requested
@@ -70,7 +70,7 @@ impl McRung for DhShort {
     /// Rough native seconds per tape at tolerance 0.001 (progress bar only).
     fn job_weights(tier: Tier) -> Vec<f64> {
         match tier {
-            Tier::Loose => Vec::new(),
+            Tier::NoData => Vec::new(),
             Tier::Exact => vec![70.0, 70.0, 10.0, 3.0, 3.0, 2.0, 2.0, 2.0, 4.0, 8.0],
         }
     }
@@ -282,7 +282,7 @@ mod tests {
     /// live run refuses rather than runs.
     #[test]
     fn the_worker_serves_every_treatment() {
-        let mut l = Builder::new(Tier::Loose).finish().unwrap();
+        let mut l = Builder::new(Tier::NoData).finish().unwrap();
         for i in 0..model::TREATMENTS.len() {
             let d = l.walk(&[MSG_DESCRIBE, i as f64]).unwrap();
             assert_eq!(d.len(), 6);

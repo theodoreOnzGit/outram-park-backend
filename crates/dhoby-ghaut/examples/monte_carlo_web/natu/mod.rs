@@ -158,9 +158,9 @@ impl McRung for Natu {
     fn jobs() -> &'static [(&'static str, &'static str)] {
         &JOBS
     }
-    /// Watch only, so always the loosened tolerance 0.01.
+    /// 0.001 (gh:#876 item 3; ~~the loosened 0.01 tier~~ until 2026-10-16).
     fn tier(_requested: Tier) -> Tier {
-        Tier::Loose
+        Tier::Exact
     }
     /// The Jemima rung's weights for the same three tapes (progress bar only).
     fn job_weights(_tier: Tier) -> Vec<f64> {
@@ -186,7 +186,7 @@ impl McRung for Natu {
     }
     fn notes() -> &'static [&'static str] {
         &[
-            "Each track is one real neutron history, traced by outram-mc-libs (a Rust port of OpenMC's transport) on ENDF/B-VIII.0 data that this browser processed with OUTRAM PARK's NJOY port, at the loosened tolerance 0.01.",
+            "Each track is one real neutron history, traced by outram-mc-libs (a Rust port of OpenMC's transport) on ENDF/B-VIII.0 data that this browser processed with OUTRAM PARK's NJOY port, at NJOY's tolerance 0.001.",
             "The uranium is natural uranium metal: the reflector material of the ICSBEP Jemima benchmark (U-234, U-235 at 0.72 % of the atoms, U-238), at 293.6 K, as outram-mc-libs' vv::jemima records it.",
             "Liberties: the bar (60 × 20 × 20 cm, vacuum outside) is an idealised shape, not an experiment. A fresh neutron is born at x = −20 cm on the axis from the U-235 fission spectrum; after a fission the next neutron starts at that fission site. That chaining is the illustration; each track is real.",
             "Tracks are 3D, drawn projected from above, so a neutron can appear to end inside the bar when it left through the top or bottom face.",

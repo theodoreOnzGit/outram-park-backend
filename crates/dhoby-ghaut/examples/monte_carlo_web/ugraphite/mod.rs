@@ -55,9 +55,9 @@ impl McRung for Ugraphite {
     fn jobs() -> &'static [(&'static str, &'static str)] {
         &model::JOBS
     }
-    /// Always the loosened 0.01 tier: Watch mode is an illustration.
+    /// 0.001 (gh:#876 item 3; ~~the loosened 0.01 tier~~ until 2026-10-16).
     fn tier(_requested: Tier) -> Tier {
-        Tier::Loose
+        Tier::Exact
     }
     fn job_weights(_tier: Tier) -> Vec<f64> {
         JOB_WEIGHTS_LOOSE.to_vec()
@@ -83,7 +83,7 @@ impl McRung for Ugraphite {
     fn notes() -> &'static [&'static str] {
         &[
             "Model: rung 2's main case, the uranium and carbon of one HTR-10 fuel pebble (17 wt% U-235) smeared evenly, N_C/N_U = 767.2, at 296 K, in a cube with reflective walls: an infinite homogeneous medium. The atoms are outram-mc-libs' `vv::ugraphite`, the model the recorded k_inf = 1.56777 ± 0.00081 was measured on (lesson page).",
-            "Data: ENDF/B-VIII.0 (U-234, U-235, U-238, C-12, C-13), processed in this browser by OUTRAM PARK's NJOY port at tolerance 0.01 (NJOY uses 0.001). Carbon carries the crystalline-graphite S(α,β) law; U-238 its URR probability tables and DBRC.",
+            "Data: ENDF/B-VIII.0 (U-234, U-235, U-238, C-12, C-13), processed in this browser by OUTRAM PARK's NJOY port at NJOY's tolerance 0.001. Carbon carries the crystalline-graphite S(α,β) law; U-238 its URR probability tables and DBRC.",
             "Each track is one real history (a one-particle fixed-source run), drawn projected from above. Chaining one neutron after the next is the illustration: a fission's next neutron is born at its site, a capture's somewhere random.",
             "Watch a neutron slow down: it is born at about 2 MeV and loses on average 16 % of its energy per carbon collision, so it takes a hundred-odd collisions to reach thermal. Some are caught on the way by U-238's resonances; that is the resonance escape probability p.",
             "There is no Run k_eff for this rung: the recorded k_inf and its four factors are on the lesson page.",
@@ -212,7 +212,7 @@ pub(crate) mod tests {
         let phys = sim::Physics {
             geometry: model::build_geometry(),
             materials: model::materials(),
-            nuclides: load(Tier::Loose),
+            nuclides: load(Tier::Exact),
             birth: sim::Birth::Cube { half: model::HALF_CM },
         };
         assert!(phys.nuclides[3].sample_thermal(0.01, &mut 1).is_some(), "C-12 carries the graphite law");

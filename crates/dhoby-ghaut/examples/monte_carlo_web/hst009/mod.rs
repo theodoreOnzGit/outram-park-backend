@@ -116,10 +116,10 @@ impl McRung for Hst009 {
     fn jobs() -> &'static [(&'static str, &'static str)] {
         &JOBS
     }
-    /// Run k_eff asks for NJOY's tolerance (so `k` is comparable with the
-    /// record); Watch for the loosened 0.01.
-    fn tier(requested: Tier) -> Tier {
-        requested
+    /// 0.001 for every mode (gh:#876 item 3), so Watch and Run share one
+    /// load.
+    fn tier(_requested: Tier) -> Tier {
+        Tier::Exact
     }
     /// Native seconds per job, i9-13900K, one thread, shared machine: the
     /// uranium tapes as the Godiva rung measured them, the light nuclides and
@@ -129,7 +129,8 @@ impl McRung for Hst009 {
     fn job_weights(tier: Tier) -> Vec<f64> {
         match tier {
             Tier::Exact => vec![1.6, 29.5, 31.1, 1.0, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 1.0, 1.6, 16.2],
-            Tier::Loose => vec![1.0, 11.2, 11.6, 0.5, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.5, 1.0, 16.2],
+            // Never asked: this rung always processes at 0.001 (`tier`).
+            Tier::NoData => Vec::new(),
         }
     }
     fn half_extent() -> f64 {
@@ -155,7 +156,7 @@ impl McRung for Hst009 {
         &[
             "Model: ICSBEP HEU-SOL-THERM-009 case 1: a sphere of highly enriched uranium oxyfluoride (UO₂F₂) solution, r = 11.5177 cm, in a 1100-aluminium tank 0.1587 cm thick, reflected by water to r = 35 cm, 293.6 K. The numbers are outram-mc-libs' `vv::hst009`, the model the recorded result was measured on.",
             "Two stated approximations, as in the record: O-17 is folded into O-16, and the tank's copper and zinc are omitted. U-236 (0.5 % of the uranium) has been in the model since 2026-10-15, and the recorded results quoted below include it (it is worth −167 ± 38 pcm).",
-            "Data: ENDF/B-VIII.0, twelve nuclides, processed in this browser by OUTRAM PARK's NJOY port. Hydrogen uses the H in H₂O S(α,β) thermal-scattering law, in the solution and in the reflector. Run k_eff: NJOY's tolerance 0.001 (as the record). Watch: the loosened 0.01, whose measured effect on this case is −57 ± 35 pcm.",
+            "Data: ENDF/B-VIII.0, twelve nuclides, processed in this browser by OUTRAM PARK's NJOY port. Hydrogen uses the H in H₂O S(α,β) thermal-scattering law, in the solution and in the reflector. Run k_eff and Watch both use NJOY's tolerance 0.001 (as the record), one load cached for both.",
             "Run k_eff is true Monte Carlo on a pool of workers (since 2026-10-16, gh:#907): outram-mc-libs' `run_keff_csg_par` power iteration taken apart by `transport_csg::distributed`. Each generation's histories are shared among the workers and added up in history order, so k is the same bit for bit whatever their number, and is what `run_keff_csg_par` (the driver of the recorded five-route results) gives for the same seed and data. Each worker holds its own copy of the processed data (read from this browser's cache). Before 2026-10-16 this ran the single-thread `CsgPowerIteration` in one worker.",
             "The benchmark k is 0.9990 ± 0.0043 (430 pcm), not 1. On this data the case sits inside that band: OpenMC on NJOY2016 data gives +224 ± 29 pcm from the benchmark k and outram-mc +172 ± 21 pcm (32 seeds each, 2026-10-15).",
             "Watch, one neutron at a time, is an illustration: each track is one real history (a one-particle fixed-source run), chained by hand. Tracks are 3D, drawn projected onto the plane of the picture.",

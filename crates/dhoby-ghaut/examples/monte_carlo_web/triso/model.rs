@@ -104,11 +104,14 @@ const AB_SI30: f64 = 0.0308716;
 /// regenerating the law in the browser. A 3 K offset is immaterial here.
 pub const TEMPERATURE_K: f64 = 296.0;
 
-/// Reconstruction tier. `VeryFast` reconstructs and Doppler-broadens at
-/// tolerance 0.01 instead of NJOY's 0.001 — an APPROXIMATION, chosen for this
-/// demo by the maintainer (2026-10-03) to make in-browser processing tolerable.
-/// Measured natively: U-235 19.1 s vs 46.2 s, U-238 13.4 s vs 36.3 s.
-pub const SPEED: SpeedTier = SpeedTier::VeryFast;
+/// Reconstruction tier: NJOY's tolerance 0.001 ([`SpeedTier::Fast`]).
+/// ~~`VeryFast` reconstructs and Doppler-broadens at tolerance 0.01 instead
+/// of NJOY's 0.001 — an APPROXIMATION, chosen for this demo by the maintainer
+/// (2026-10-03) to make in-browser processing tolerable.~~ **CORRECTED
+/// 2026-10-16** (maintainer, gh:#876 item 3): every demo uses the same 0.001
+/// cached data. The cost, measured natively 2026-10-03: U-235 46.2 s against
+/// 19.1 s at 0.01, U-238 36.3 s against 13.4 s; the cache pays it once.
+pub const SPEED: SpeedTier = SpeedTier::Fast;
 
 /// Half-length of the reflective slab in z, cm. The geometry is z-invariant,
 /// so any value gives the same physics; it only bounds void streaming.

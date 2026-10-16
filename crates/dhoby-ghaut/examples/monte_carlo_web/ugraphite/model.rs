@@ -13,10 +13,12 @@
 //! - **Geometry** ([`build_geometry`]): the same reflective cube
 //!   (`homogeneous_cube`, half-width [`HALF_CM`]) the example uses, so a
 //!   neutron reaching a wall comes back: an infinite medium.
-//! - **Data tier.** Watch mode is an illustration and processes the tapes at
+//! - **Data tier.** ~~Watch mode is an illustration and processes the tapes at
 //!   the loosened tolerance 0.01 ([`SpeedTier::VeryFast`]); its measured
 //!   effect on the thermal benchmarks is about −60 pcm
-//!   (`outram-mc-libs/docs/profiling/speed_tiers_2026_09_27.md`).
+//!   (`outram-mc-libs/docs/profiling/speed_tiers_2026_09_27.md`).~~
+//!   **CORRECTED 2026-10-16** (maintainer, gh:#876 item 3): NJOY's 0.001,
+//!   as every demo.
 
 use crate::tapes::read_tape;
 use outram_mc_libs::geometry::geometry::Geometry;

@@ -35,9 +35,9 @@ impl McRung for Lumped {
     fn jobs() -> &'static [(&'static str, &'static str)] {
         &ugraphite::model::JOBS
     }
-    /// Always the loosened 0.01 tier: Watch mode is an illustration.
+    /// 0.001 (gh:#876 item 3; ~~the loosened 0.01 tier~~ until 2026-10-16).
     fn tier(_requested: Tier) -> Tier {
-        Tier::Loose
+        Tier::Exact
     }
     fn job_weights(_tier: Tier) -> Vec<f64> {
         ugraphite::JOB_WEIGHTS_LOOSE.to_vec()
@@ -68,7 +68,7 @@ impl McRung for Lumped {
         &[
             "Model: rung 3's Wigner-Seitz cell. A sphere of natural uranium metal (19.05 g/cm³), radius 3 mm (the scan's best radius, k_inf = 0.959), at the centre of a graphite sphere (1.73 g/cm³) of radius 2.08 cm, sized so the cell holds 600 carbon atoms per uranium atom, the same proportion as the homogeneous mixture it is compared with. The atoms are outram-mc-libs' `vv::ugraphite`, the cell `examples/lumped_ugraphite_kinf.rs`'s.",
             "Boundary: white. A neutron reaching the outer sphere is sent back in with a cosine-law direction, as if from a neighbouring cell. That approximates an infinite lattice of lumps; a mirror (specular) sphere would not, because it traps neutrons that miss the lump for ever.",
-            "Data: ENDF/B-VIII.0 (U-234, U-235, U-238, C-12, C-13), processed in this browser by OUTRAM PARK's NJOY port at tolerance 0.01 (NJOY uses 0.001). Carbon carries the crystalline-graphite S(α,β) law; U-238 its URR probability tables and DBRC.",
+            "Data: ENDF/B-VIII.0 (U-234, U-235, U-238, C-12, C-13), processed in this browser by OUTRAM PARK's NJOY port at NJOY's tolerance 0.001. Carbon carries the crystalline-graphite S(α,β) law; U-238 its URR probability tables and DBRC.",
             "Each track is one real history (a one-particle fixed-source run), drawn projected onto the slice. Chaining one neutron after the next is the illustration: a fission's next neutron is born at its site, a capture's somewhere random in the lump.",
             "Watch where captures happen: neutrons slowing down in the graphite are caught at the lump's surface by U-238's resonances, and few reach the inside. That is spatial self-shielding.",
             "There is no Run k_eff for this rung: the recorded k_inf against lump radius (it peaks at 0.959, below 1, at this ratio) is on the lesson page.",
@@ -153,7 +153,7 @@ mod tests {
         let phys = sim::Physics {
             geometry: model::build_geometry(),
             materials: model::materials(),
-            nuclides: crate::ugraphite::tests::load(Tier::Loose),
+            nuclides: crate::ugraphite::tests::load(Tier::Exact),
             birth: sim::Birth::Ball { r: model::LUMP_R_CM },
         };
         let mut chain = sim::Chain::new(3);

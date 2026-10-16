@@ -92,12 +92,12 @@ impl McRung for Htr10 {
     }
     fn jobs_for(tier: Tier) -> &'static [(&'static str, &'static str)] {
         match tier {
-            Tier::Loose => &[],
+            Tier::NoData => &[],
             Tier::Exact => &model::JOBS,
         }
     }
-    /// The geometry and the recorded sweep need no data (the loose tier
-    /// loads none); the fuel-zone k∞ processes at NJOY's tolerance, like the
+    /// The geometry and the recorded sweep need no data (a `NoData` load
+    /// processes none); the fuel-zone k∞ processes at NJOY's tolerance, like the
     /// record.
     fn tier(requested: Tier) -> Tier {
         requested
@@ -106,7 +106,7 @@ impl McRung for Htr10 {
     /// U-235 and U-238 about 70 s each (#528), the rest small.
     fn job_weights(tier: Tier) -> Vec<f64> {
         match tier {
-            Tier::Loose => Vec::new(),
+            Tier::NoData => Vec::new(),
             Tier::Exact => vec![70.0, 70.0, 10.0, 3.0, 2.0, 2.0, 2.0, 5.0],
         }
     }

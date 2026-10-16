@@ -83,7 +83,7 @@ impl DataBuilder {
     /// The nuclide table in `fhr`'s index order, if this load processed the
     /// tapes (the full tier); `None` for the Watch view's load.
     pub fn finish(self) -> Result<Option<Vec<Nuclide>>, String> {
-        if self.tier == Tier::Loose {
+        if self.tier == Tier::NoData {
             return Ok(None);
         }
         let sab = self.sab.ok_or("no graphite S(α,β)")?;
@@ -144,7 +144,7 @@ mod tests {
     /// A Watch load processes nothing and holds no table.
     #[test]
     fn a_watch_load_has_no_table() {
-        assert!(DataBuilder::new(Tier::Loose).finish().unwrap().is_none());
+        assert!(DataBuilder::new(Tier::NoData).finish().unwrap().is_none());
         assert!(DataBuilder::new(Tier::Exact).finish().is_err());
     }
 }

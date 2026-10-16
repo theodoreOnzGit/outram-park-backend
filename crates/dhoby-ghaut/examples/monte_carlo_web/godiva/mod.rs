@@ -60,10 +60,10 @@ impl McRung for Godiva {
     fn jobs() -> &'static [(&'static str, &'static str)] {
         &model::JOBS
     }
-    /// Run k_eff asks for NJOY's tolerance (so `k` is comparable with the
-    /// record); Watch for the loosened 0.01.
-    fn tier(requested: Tier) -> Tier {
-        requested
+    /// 0.001 for every mode (gh:#876 item 3), so Watch and Run share one
+    /// load.
+    fn tier(_requested: Tier) -> Tier {
+        Tier::Exact
     }
     /// Native, 2026-10-04, i9-13900K, one thread, shared machine (U-234 /
     /// U-235 / U-238: 1.6 / 29.5 / 31.1 s at tolerance 0.001, 1.0 / 11.2 /
@@ -71,7 +71,8 @@ impl McRung for Godiva {
     fn job_weights(tier: Tier) -> Vec<f64> {
         match tier {
             Tier::Exact => vec![1.6, 29.5, 31.1],
-            Tier::Loose => vec![1.0, 11.2, 11.6],
+            // Never asked: this rung always processes at 0.001 (`tier`).
+            Tier::NoData => Vec::new(),
         }
     }
     fn half_extent() -> f64 {
@@ -94,7 +95,7 @@ impl McRung for Godiva {
     fn notes() -> &'static [&'static str] {
         &[
             "Model: ICSBEP HEU-MET-FAST-001 (Godiva), a bare sphere of highly enriched uranium metal, r = 8.7407 cm, U-234/235/238 at the evaluation's atom densities, 293.6 K. The numbers are outram-mc-libs' `vv::godiva`, the model the recorded result was measured on.",
-            "Data: ENDF/B-VIII.0, processed in this browser by OUTRAM PARK's NJOY port. Run k_eff: NJOY's tolerance 0.001 (as the record). Watch: the loosened 0.01, whose measured effect on Godiva is +7 ± 41 pcm.",
+            "Data: ENDF/B-VIII.0, processed in this browser by OUTRAM PARK's NJOY port. Run k_eff and Watch both use NJOY's tolerance 0.001 (as the record), one load cached for both.",
             "Run k_eff is true Monte Carlo: outram-mc-libs' single-thread reference power iteration, one generation at a time. Its counts (leaked, captured, fissioned) are tallied by that transport.",
             "Watch, one neutron at a time, is an illustration: each track is one real history (a one-particle fixed-source run), chained by hand. Tracks are 3D, drawn projected from above.",
             "Watch, whole generations, is the real power iteration started from a point at the centre, to show the source spreading.",

@@ -64,8 +64,9 @@ impl McRung for Packing {
     fn jobs() -> &'static [(&'static str, &'static str)] {
         &[]
     }
+    /// No tapes: the packer needs no cross sections.
     fn tier(_requested: Tier) -> Tier {
-        Tier::Loose
+        Tier::NoData
     }
     fn job_weights(_tier: Tier) -> Vec<f64> {
         Vec::new()
@@ -216,7 +217,7 @@ mod tests {
     /// quoted on gh:#785.
     #[test]
     fn the_plan_and_its_replays_are_pack_in_ball() {
-        let mut l = Builder::new(Tier::Loose).finish().unwrap();
+        let mut l = Builder::new(Tier::NoData).finish().unwrap();
         let t = std::time::Instant::now();
         let p = l.walk(&[MSG_PLAN]).unwrap();
         let plan_s = t.elapsed().as_secs_f64();

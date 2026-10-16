@@ -24,10 +24,13 @@ use njoy_outram_park_fork::endf::tape::Tape;
 use njoy_outram_park_fork::reconr::{reconr, ReconrConfig, ReconrResult, ReconrSection};
 use std::sync::Arc;
 
-/// RECONR tolerance the BROADR and GROUPR rungs build on. NJOY's default is
-/// 0.001; the demo uses 0.01 so a phone gets there in reasonable time. A
-/// deliberate liberty, stated in the panel.
-pub const BASE_TOL: f64 = 0.01;
+/// RECONR tolerance the BROADR and GROUPR rungs build on: NJOY's default,
+/// 0.001. ~~The demo uses 0.01 so a phone gets there in reasonable time. A
+/// deliberate liberty, stated in the panel.~~ **CORRECTED 2026-10-16**
+/// (maintainer, gh:#876 item 3: "All demos should use the same 0.001
+/// tolerance"). The RECONR rung's own sweep ([`RECONR_TOLS`]) still steps
+/// through coarser tolerances: that convergence is what the rung teaches.
+pub const BASE_TOL: f64 = 0.001;
 
 /// The RECONR rung's tolerance sequence, coarse to fine; the last is NJOY's
 /// default and the one the lessons' records use.
