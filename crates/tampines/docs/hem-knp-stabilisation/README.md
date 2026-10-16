@@ -139,8 +139,11 @@ case, calling `HemPipe` from `tests/edwards_blowdown.rs`.
 - Targets: linux, windows, macOS-aarch64 and `wasm32-wasip1` CI.
 - Record the hashes **before** migrating, so the test is shown to be able to
   fail.
-- Also trace the untraced ~9e-16 wasm-vs-native Sod difference. `sqrt` cannot
-  cause it, because it is correctly rounded on every target.
+- ~~Also trace the untraced ~9e-16 wasm-vs-native Sod difference. `sqrt` cannot
+  cause it, because it is correctly rounded on every target.~~ **Done
+  2026-10-16:** it was `block_mesh` boundary-face order taken from a randomly
+  seeded `HashMap`, which made native runs differ from each other. The order
+  is now fixed, and native equals wasm bit for bit (audit §0 item 7).
 
 **S1. Extend petir's `RealMath`** with `r_powi`, `r_log10`, `r_cbrt`, trig and
 the rest. These are all `libm` delegations. Also fix petir's self-contradiction
@@ -176,6 +179,10 @@ solver's determinism.
 - **D3. Time integrator.** petir has no SSP-RK, and its rules forbid AI-written
   numerics. The options are forward Euler (as upstream `rhoCentralFoam` uses),
   porting an SSP-RK2 from a named upstream, or granting an exception.
+  **Decided 2026-10-16:** "port an SSP Runge–Kutta from OpenFOAM or wherever
+  suitable." OpenFOAM-10 and -dev have none. `petir::ssprk` ports PyClaw's
+  SSP22, SSP33 and SSP104 (BSD-3-Clause), and is bit-identical to PyClaw's own
+  `step()` on 96/96 values (gh:#903).
 - **D4. CoolProp in the dome.** `state_hrho` refuses two-phase states. The new
   `(ρ,e)` root over `state_ph` would cover them, but nothing has verified it.
 - **D5. Defaults that move validated numbers.** Do you want implicit energy
@@ -183,3 +190,4 @@ solver's determinism.
   restore upstream behaviour, and both require re-measuring Edwards.
 - **D6. Extending petir.** May petir's `RealMath` gain the `libm`-delegated
   methods (S1)? `mathf.rs` deliberately left them out ("opt in knowingly").
+  **Decided 2026-10-16: yes.** It was implemented the same day, under gh:#903.

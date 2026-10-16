@@ -206,8 +206,12 @@ pub mod integration;
 pub mod interp;
 pub mod linalg;
 /// `f64` transcendentals as methods (the `RealMath` trait), so a crate can
-/// adopt the deterministic route by renaming rather than rewriting. Carries
-/// the `platform-libm` escape hatch; see its module docs before using it.
+/// adopt the deterministic route by renaming rather than rewriting.
+/// ~~Carries the `platform-libm` escape hatch; see its module docs before
+/// using it.~~ **CORRECTED 2026-10-16** — that hatch was removed 2026-09-17;
+/// the module docs record why. Since 2026-10-16 it also carries `r_powi` and
+/// the `libm`-delegated trig, hyperbolic, `log10`, `cbrt`, `exp_m1`, `ln_1p`
+/// and `hypot` methods.
 pub mod mathf;
 pub mod min;
 pub mod ode;
@@ -217,6 +221,7 @@ pub mod rng;
 pub mod roots;
 pub mod scalar;
 pub mod specfunc;
+pub mod ssprk;
 #[cfg(feature = "transfer-fn")]
 pub mod transfer_fn;
 /// **WGSL kernels** — PETIR's pointwise numerics as GPU shader source, in

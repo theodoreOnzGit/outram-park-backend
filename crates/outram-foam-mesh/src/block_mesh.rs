@@ -1027,6 +1027,22 @@ impl BlockMeshDict {
         // Deterministic internal-face ordering: by (owner, neighbour).
         internal.sort_by_key(|f| (f.owner, f.neighbour.unwrap_or(usize::MAX)));
 
+        // Deterministic boundary-face ordering: by (owner, sorted point ids).
+        // `groups` is a randomly seeded `HashMap`, so `groups.values()` hands
+        // the boundary faces over in a different order on every run. Without
+        // this sort, a patch's face order (and so the summation order of every
+        // face-sum, cell centres included) changed from process to process:
+        // the Sod shock tube's cell centres moved by 1 ulp between runs of the
+        // same binary and its final rho sum by up to 7 ulp (gh:#903, 2026-10-16;
+        // `wasm_worker_timing/README.md` in outram-foam-appbuilder-lib). This
+        // does not reproduce OpenFOAM blockMesh's own boundary-face numbering;
+        // the port did not do that before either.
+        boundary.sort_by_key(|f| {
+            let mut key = f.verts.clone();
+            key.sort_unstable();
+            (f.owner, key)
+        });
+
         // Assign boundary faces to patches by coarse block-face set.
         let mut patch_lookup: HashMap<[usize; 4], usize> = HashMap::new();
         for (pi, pd) in self.patches.iter().enumerate() {

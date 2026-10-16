@@ -155,6 +155,29 @@ them.
   GPL-3.0-compatible; the flow is ONE-WAY.
 
 ================================================================================
+DERIVED WORK — Clawpack / PyClaw (SSP Runge-Kutta time integrators)
+================================================================================
+
+`src/ssprk.rs` ports the 'SSP22', 'SSP33' and 'SSP104' branches of
+`SharpClawSolver.step` and its helpers `ssp22` / `ssp104` from PyClaw's
+`src/pyclaw/sharpclaw/solver.py` (file author David Ketcheson). Ported
+2026-10-16 at the maintainer's direction (decision D3, gh:#896/#903: "port an
+SSP Runge-Kutta time integrator from OpenFOAM or wherever suitable";
+OpenFOAM-10 and OpenFOAM-dev have none). The full BSD-3-Clause notice is
+reproduced in the file header.
+
+  Project    : Clawpack — PyClaw
+  Upstream   : https://github.com/clawpack/pyclaw
+  Commit     : f522337ef75abef1153e2025a204b7ef4f7c5c9f (2026-06-25)
+  Licence    : BSD-3-Clause
+
+      Copyright (c) 1994-2018, Clawpack Developers
+
+  BSD-3-Clause is permissive and GPL-3.0-compatible; the flow is ONE-WAY.
+  The non-endorsement clause binds: do not use the Clawpack name to promote
+  this crate.
+
+================================================================================
 OTHER UPSTREAM SOURCES
 ================================================================================
 
