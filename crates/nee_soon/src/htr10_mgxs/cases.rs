@@ -27,6 +27,8 @@
 use uom::si::f64::ThermodynamicTemperature;
 use uom::si::thermodynamic_temperature::kelvin;
 
+use super::cells::CellKind;
+
 /// The model a case transports.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CaseModel {
@@ -40,6 +42,10 @@ pub enum CaseModel {
         /// Şeker layers N (bed height `9.798 N + 6` cm).
         layers: usize,
     },
+    /// One of the small cells of [`super::cells`] (added 2026-10-13,
+    /// gh:#849): the single pebble or a Şeker cluster, built from the core's
+    /// own particle and pebbles, reflective all round.
+    Cell(CellKind),
 }
 
 impl CaseModel {
@@ -51,6 +57,7 @@ impl CaseModel {
                 "full HTR-10 core, Şeker 13-ball bed N = {layers} ({:.3} cm), explicit TRISO, explicit reflector, rods withdrawn",
                 9.798 * layers as f64 + 6.0
             ),
+            Self::Cell(kind) => kind.describe(),
         }
     }
 }
@@ -109,6 +116,15 @@ pub const RECORD_INACTIVE: usize = 20;
 /// Active generations of a recorded case (the `k` record's 135).
 pub const RECORD_ACTIVE: usize = 135;
 
+/// Particles per generation of a cell pilot (`pilot_*`).
+pub const PILOT_PARTICLES: usize = 2_000;
+/// Inactive generations of a cell pilot. A reflective cell has no leakage
+/// mode to settle, so 10 suffices where the full core needs 20; the record's
+/// entropy trace says whether it did.
+pub const PILOT_INACTIVE: usize = 10;
+/// Active generations of a cell pilot.
+pub const PILOT_ACTIVE: usize = 40;
+
 impl MgxsCase {
     const fn record(
         name: &'static str,
@@ -132,6 +148,44 @@ impl MgxsCase {
         }
     }
 
+    const fn cell_record(
+        name: &'static str,
+        purpose: &'static str,
+        kind: CellKind,
+    ) -> Self {
+        Self {
+            name,
+            purpose,
+            issue: "#849 (#850)",
+            model: CaseModel::Cell(kind),
+            temperature_k: 300.15,
+            particles: RECORD_PARTICLES,
+            inactive: RECORD_INACTIVE,
+            active: RECORD_ACTIVE,
+            seed: SEED,
+            is_record: true,
+        }
+    }
+
+    /// A pilot of a cell case: the same cell, temperature and seed at
+    /// [`PILOT_PARTICLES`] × \[[`PILOT_INACTIVE`] + [`PILOT_ACTIVE`]\], so the
+    /// cell-size convergence can be measured on a 4-core machine in about an
+    /// hour per cell. Not a record: the record is the `cell_*_t300` case.
+    const fn cell_pilot(name: &'static str, kind: CellKind) -> Self {
+        Self {
+            name,
+            purpose: "pilot of the matching cell_*_t300 case at a small budget: cell-size convergence of k_inf and the constants, not a record",
+            issue: "#849",
+            model: CaseModel::Cell(kind),
+            temperature_k: 300.15,
+            particles: PILOT_PARTICLES,
+            inactive: PILOT_INACTIVE,
+            active: PILOT_ACTIVE,
+            seed: SEED,
+            is_record: false,
+        }
+    }
+
     /// Every case, in the order they should be run.
     ///
     /// | case | model | T \[K\] | budget per pass | feeds |
@@ -143,6 +197,11 @@ impl MgxsCase {
     /// | `core_n12_t900` | as above | 900 | as above | #852 |
     /// | `core_n12_t1200` | as above | 1200 | as above | #852 |
     /// | `core_n12_t300_replica` | as `core_n12_t300`, seed 20 261 013 | 300.15 | as above | the MGXS statistical spread |
+    /// | `cell_pebble_t300` | single pebble, reflective 6 cm cube | 300.15 | 10 000 × \[20 + 135\] | #850's simplest gate cell |
+    /// | `cell_seker1_t300` | Şeker cluster, 1 tile | 300.15 | as above | #849 side-face convergence |
+    /// | `cell_seker7_t300` | Şeker cluster, 7 tiles | 300.15 | as above | #849 side-face convergence |
+    /// | `cell_seker19_t300` | Şeker cluster, 19 tiles | 300.15 | as above | #849 side-face convergence, #850's production cell |
+    /// | `pilot_pebble`, `pilot_seker1`, `pilot_seker7`, `pilot_seker19` | the four cells above | 300.15 | 2000 × \[10 + 40\] | #849's convergence pilot, not records |
     ///
     /// 300.15 K (27 °C) is the temperature of Li, Yu & Wei (2014) and Şeker
     /// & Çolak (2003), and of every recorded HTR-10 `k` here.
@@ -213,6 +272,30 @@ impl MgxsCase {
                 300.15,
                 REPLICA_SEED,
             ),
+            Self::cell_record(
+                "cell_pebble_t300",
+                "MGXS of one explicit-TRISO pebble in a reflective 6 cm cube (packing 0.524): the simplest cell for the MG-vs-CE gate",
+                CellKind::SinglePebble,
+            ),
+            Self::cell_record(
+                "cell_seker1_t300",
+                "MGXS of one Şeker tile, reflective: the smallest cluster, for the side-face convergence",
+                CellKind::SekerCluster { rings: 1 },
+            ),
+            Self::cell_record(
+                "cell_seker7_t300",
+                "MGXS of a 7-tile Şeker cluster, reflective: side-face convergence",
+                CellKind::SekerCluster { rings: 2 },
+            ),
+            Self::cell_record(
+                "cell_seker19_t300",
+                "MGXS of a 19-tile Şeker cluster, reflective: side-face convergence and the production cell at the core's packing",
+                CellKind::SekerCluster { rings: 3 },
+            ),
+            Self::cell_pilot("pilot_pebble", CellKind::SinglePebble),
+            Self::cell_pilot("pilot_seker1", CellKind::SekerCluster { rings: 1 }),
+            Self::cell_pilot("pilot_seker7", CellKind::SekerCluster { rings: 2 }),
+            Self::cell_pilot("pilot_seker19", CellKind::SekerCluster { rings: 3 }),
         ]
     }
 
@@ -241,7 +324,8 @@ mod tests {
     use super::*;
 
     /// Names are unique (they are folder names), the recorded cases share one
-    /// budget, and only `smoke` is not a record.
+    /// budget, and only `smoke`, `verify_tallies` and the cell pilots are not
+    /// records.
     #[test]
     fn the_registry_is_consistent() {
         let all = MgxsCase::all();
@@ -258,7 +342,11 @@ mod tests {
                 );
                 assert_eq!(c.histories_per_pass(), 1_550_000);
             } else {
-                assert!(["smoke", "verify_tallies"].contains(&c.name), "{}", c.name);
+                assert!(
+                    ["smoke", "verify_tallies"].contains(&c.name) || c.name.starts_with("pilot_"),
+                    "{}",
+                    c.name
+                );
             }
         }
         let t = MgxsCase::find("core_n12_t900").expect("listed");

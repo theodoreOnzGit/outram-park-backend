@@ -124,6 +124,18 @@ pub const PIN_SHELLS: &[(i32, &[(f64, i32)], i32)] = &[
 /// ENDF text apiece, and reconstruction dominates the run before a single
 /// neutron moves. [`TAPES_CHEAP`] exists for iterating on geometry, tallies or
 /// statistics, where the clad's trace elements change nothing being looked at.
+///
+/// # ~~Known ACE differences~~ Fixed (gh:#875)
+///
+/// ~~The Rust ACER's tables for 12 of the clad's trace nuclides (Na, Ti, Cr,
+/// Fe-57/58, Cu-65, Zn) differ from NJOY2016's: 24 of 74 tables at
+/// 293.6 K and 0 K.~~ **CORRECTED 2026-10-15:** all 74 tables of
+/// `nuclides.tsv` (37 nuclides, 293.6 K and 0 K) are NJOY2016's in every
+/// word. Four of the six fixes were upstream of ACER (RECONR's `facphi` guard
+/// and resonance-grid end; PURR's grid and parameter law), so they reach
+/// route 4 and the browser demo too, on Ti-48, Zn and Fe-58. The
+/// `lct008-full` rows of 2026-10-14 were taken before the fixes and have not
+/// been re-measured.
 pub const TAPES: &[(&str, &str)] = &[
     // Everything in the cheap tier ...
     ("H1", "n-001_H_001-ENDF8.0-Beta6.endf"),
@@ -170,10 +182,14 @@ pub const TAPES: &[(&str, &str)] = &[
 /// The **cheap** subset — fuel, moderator, soluble-boron poison, and the three
 /// clad nuclides the clad cannot do without. Selected with `--cheap-nuclides`.
 ///
-/// It exercises the identical transport path at a fraction of the
-/// reconstruction cost, so it is the tier to use while iterating on geometry,
-/// tallies or statistics. It is **not** the default: the model it describes is
-/// incomplete, and correct physics is the default here.
+/// **A smoke test only, since 2026-10-14 (maintainer direction): the
+/// 11-nuclide model is retired.** It exercises the identical transport path
+/// at a fraction of the reconstruction cost, so it serves to check that the
+/// code runs (the acceptance check's LCT-008 case) and to iterate on
+/// geometry, tallies or statistics. No result on it is quoted as the
+/// lattice's `k`: the model it describes is incomplete (the 24 dropped
+/// nuclides are worth −75 ± 14 pcm, gh:#533), and correct physics is the
+/// default here.
 pub const TAPES_CHEAP: &[(&str, &str)] = &[
     ("H1", "n-001_H_001-ENDF8.0-Beta6.endf"),
     ("B10", "n-005_B_010-ENDF8.0.endf"),

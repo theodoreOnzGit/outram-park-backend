@@ -118,9 +118,27 @@ Full design notes and Termux usage live in
 
 See `CLAUDE.md` for the full porting-rule and module-scope table (RNG,
 geometry, surfaces, particle tracking, k-eigenvalue, pebble-bed delta
-tracking). Every transport/physics/geometry behaviour here is ported from
-the canonical OpenMC C++ source — see `CLAUDE.md` for the reference-file
-discipline.
+tracking). ~~Every transport/physics/geometry behaviour here is ported from
+the canonical OpenMC C++ source~~ **CORRECTED 2026-10-15:** transport,
+physics and geometry behaviour is ported from the canonical OpenMC C++
+source, except for the deliberate deviations listed below. See `CLAUDE.md`
+for the reference-file discipline.
+
+## Port deviations from OpenMC
+
+These are places where the port **deliberately does not follow upstream**.
+Each one is listed so that "ported from OpenMC" is never read as covering
+it.
+
+| Area | OpenMC | This crate | Why | Known consequence |
+|---|---|---|---|---|
+| **RNG seeding and streams** | One run-wide particle counter, `(total_gen + gen − 1) × n_particles + id`, times the stride (`simulation.cpp` `compute_transport_seed`). **Four streams per particle** (tracking, source, URR tables, volume), each started from its own master seed, `seeds[i] = M·(master + i) + C` (`random_lcg.cpp` `init_particle_seeds`). | A two-level jump: `gen × 2⁴⁰`, then `hist × 152 917` ([`transport_csg.rs`](src/physics/transport_csg.rs) `HIST_STRIDE`, `GEN_STRIDE`). **One stream per history.** The delayed-group, URR-table and split-child streams are jumps of 3, 5 and 1 × 152 917 draws **inside that stream** (`DELAYED_STRIDE`, `URR_STRIDE`, `SPLIT_STRIDE`; also `keff.rs`, `keff_delta.rs`). | The goal is statistical correctness and repeatability, not draw-for-draw parity (maintainer decision 2026-08-06, `CLAUDE.md` "RNG goal"). Histories here run in a different order and sample their source differently, so parity was never reachable. A run is repeatable for a given seed at any thread count. | **gh:#700 (open, P2):** each auxiliary stream starts where another history's tracking stream starts. History *i*'s URR draws are history *i+5*'s, its delayed-group draws are *i+3*'s, and a split child's are *i+1*'s. Each history still sees uniform draws, so mean `k` is unbiased, but neighbouring histories are not fully independent, which affects the quoted σ. Its size is not measured. |
+| Generator itself | PCG-RXS-M-XS output on a 64-bit LCG | **Identical**: constants, output permutation, jump ahead ([`petir::rng::lcg`](../petir/src/rng/lcg.rs)) | — | Not a deviation; listed so the row above is not over-read |
+| MG (n,xn) scattering multiplicity | `wgt *= mult[g][g']` (`scattdata.cpp:367`) | Weights by the row multiplicity `nu_row / s_row` | Upstream samples g′ from the nu-scatter row, so its weighting is exact only for a row-uniform multiplicity | On a two-group set this port gives 1.516 ± 0.003 against the analytic 1.517; upstream's rule gives 1.578 (`physics_mg::tests::multiplicity_weights_by_the_row_and_matches_analytic_kinf`) |
+
+Two other categories are not deviations: behaviour that is **NEW WORK** (absent
+upstream, e.g. delta tracking; see `CLAUDE.md`) and what is **out of scope**
+(`CLAUDE.md`, "Out of scope").
 
 ## License
 

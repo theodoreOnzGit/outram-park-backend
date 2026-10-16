@@ -46,6 +46,11 @@
 #                     (~~gate_rung4 alone opens rung 4~~ CORRECTED 2026-10-07)
 #   block_rung4       one of rung 4's two axes fails: the stamp is allowed,
 #                     at rung 3 (GitHub #855)
+#   flag_cap_rung3    a waiver (maintainer, 2026-10-14): a required check is
+#                     skipped with a typed reason. The stamp is allowed,
+#                     capped at rung 3 whatever the V&V answers say, and the
+#                     answer is recorded as "needs improvement" so the
+#                     function stays listed.
 #   not_independent   the reviewer is not independent of the code: the stamp
 #                     counts at rung 3 or 4 but cannot be ~~the independent
 #                     second review for rung 5~~ (CORRECTED 2026-10-08, #809)
@@ -200,6 +205,22 @@ key = "guard_missing"
 label = "A guard is missing"
 effect = "block"
 
+# The waiver (maintainer, 2026-10-14). Research code often has no guard.
+# NUREG/BR-0167 grades software by use (§1.2: Level 1 is "used in a safety
+# decision by the NRC", and the degree of applicability depends on the level
+# and "a managerial judgment of the cost effectiveness of each software
+# quality activity"), so skipping a guard is allowed here for code not used in
+# a safety decision. It costs a typed reason every time, it is listed as needs
+# improvement, and it caps the stamp at rung 3: §3.2.4.1 puts "proper handling
+# of boundary conditions, including extreme inputs" among the objectives of
+# requirements-driven testing, so the function is reviewed, not V&V'd.
+# `guard_missing` still blocks: it is the answer when no reason is offered.
+[[question.option]]
+key = "guard_waived_research"
+label = "No guard, accepted for research use (not for a safety decision), because: ____"
+effect = "flag_cap_rung3"
+requires_text = true
+
 [[question.option]]
 key = "no_limits"
 label = "No limits apply, explained: ____"
@@ -232,6 +253,13 @@ page = "64-65"
 document = "nureg-br-0167"
 section = "§3.2.4.1"
 page = "11"
+
+# Added 2026-10-14 with the waiver: the grading of software by use.
+[[question.source]]
+document = "nureg-br-0167"
+section = "§1.2"
+page = "1"
+quote = "The guidelines in this document apply to Level 1 and Level 2 software only"
 
 # ---------------------------------------------------------------- 4
 # Narrowed on #769 (2026-10-07) to whether units are documented; the `uom`

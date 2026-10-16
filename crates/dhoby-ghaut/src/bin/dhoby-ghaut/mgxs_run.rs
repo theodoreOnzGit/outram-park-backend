@@ -10,9 +10,11 @@
 //!    exactly as Step 5 calls it, with the tally of `nee_soon::mgxs`
 //!    ([`nee_soon::mgxs::scalar_tally`] / [`nee_soon::mgxs::matrix_tally`])
 //!    rebuilt with the **neutronics mesh** as the spatial filter instead of
-//!    materials: `[Mesh, Energy]` with `Flux, Total, Absorption, NuFission,
-//!    KappaFission`, and `[Mesh, Energy, EnergyOut]` with `ScatterN,
-//!    NuFission`. The unstructured mesh filter splits track lengths across
+//!    materials: `[Mesh, Energy]` with ~~`Flux, Total, Absorption, NuFission,
+//!    KappaFission`~~ `nee_soon::mgxs::SCALAR_SCORES` (those five plus
+//!    `Fission`, since 2026-10-12), and `[Mesh, Energy, EnergyOut]` with
+//!    `nee_soon::mgxs::MATRIX_SCORE_TYPES` (~~`ScatterN, NuFission`~~
+//!    `ScatterN, NuFission, Scatter` since 2026-10-13, gh:#682). The unstructured mesh filter splits track lengths across
 //!    cells (OpenMC's MOAB `bins_crossed`, `outram_mc_libs::tally::mesh_unstructured`).
 //!    **In the delta-tracked pebble bed there is no track length**: flux and
 //!    reaction rates there come from the tentative-collision estimator
@@ -51,7 +53,9 @@ use nee_soon::htr10_rmc::data::{
 };
 use nee_soon::htr10_rmc::keff_vs_height::{bed_majorant, fissile_entropy_mesh, fissile_source_box};
 use nee_soon::htr10_rmc::materials::{htr10_material_set, Htr10MaterialConfig};
-use nee_soon::mgxs::{condense, GroupStructure, MgxsLibrary, MATRIX_SCORES, SCALAR_SCORES};
+use nee_soon::mgxs::{
+    condense, GroupStructure, MgxsLibrary, MATRIX_SCORES, MATRIX_SCORE_TYPES, SCALAR_SCORES,
+};
 use outram_blender::unstructured::UnstructuredMesh;
 use outram_foam_appbuilder_lib::genfoam::neutronics::xs::input::NuclearDataInput;
 use outram_foam_appbuilder_lib::genfoam::neutronics::xs::variables::{VariableLaw, XsVariable};
@@ -126,8 +130,8 @@ fn tallies(groups: &GroupStructure, mesh: &Arc<UnstructuredMesh>) -> (Tally, Tal
                 bins: groups.edges().to_vec(),
             }),
         ],
-        // The same two scores, same order, as `nee_soon::mgxs::matrix_tally`.
-        scores: vec![ScoreType::ScatterN, ScoreType::NuFission],
+        // The same scores, same order, as `nee_soon::mgxs::matrix_tally`.
+        scores: MATRIX_SCORE_TYPES.to_vec(),
         bins: vec![TallyBin::default(); n_c * n_g * n_g * MATRIX_SCORES],
     };
     (scalar, matrix)

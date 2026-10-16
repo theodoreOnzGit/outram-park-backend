@@ -261,6 +261,9 @@ fn main() -> Result<(), String> {
             let mut done: Vec<&str> = Vec::new();
             for r in table::ALL {
                 for &(_, tape) in r.jobs() {
+                    if tapes::is_generated(tape) {
+                        continue; // a LEAPR law: nothing to publish
+                    }
                     if done.contains(&tape) {
                         continue; // shared between rungs (U-235, U-238)
                     }
@@ -645,25 +648,53 @@ mod tests {
     /// without Run ignores mode=run.
     /// The four benchmark rungs of the acceptance tests (gh:#859) each have
     /// what the issue asks of them, read from the rung table: a Run k_eff
-    /// whose default is the recorded campaign's run size, a recorded result
-    /// read from the five-route summary (route 4), and recorded tracks.
+    /// with one default run size for all four (the campaign's own for three;
+    /// smaller than the campaign's for the lattice), a recorded result read
+    /// from the five-route summary (route 4), and recorded tracks.
     #[test]
     fn the_benchmark_rungs_have_run_settings_a_record_and_shipped_tracks() {
         let expect = [
             (Rung::Godiva, (5000, 40, 120), 0.99994),
             (Rung::Jemima, (5000, 40, 120), 0.996092),
-            (Rung::Hst009, (5000, 40, 120), 1.001975),
-            (Rung::Lct008, (10_000, 250, 400), 1.002360),
+            // HST-009 carries U-236 since 2026-10-15 (was 1.001975 without it).
+            (Rung::Hst009, (5000, 40, 120), 1.000717),
+            // The lattice's record is the full 35-nuclide model since
+            // 2026-10-15 (`lct008-full`); it was the 11-nuclide 1.002360,
+            // then 1.001178 (8 seeds at [250 + 400]).
+            (Rung::Lct008, (5000, 40, 120), 1.001594),
         ];
-        for (r, size, k) in expect {
+        // Benchmark k and its uncertainty, as tabulated by Mosteller
+        // (LA-UR-10-06230) and van der Marck (Nucl. Data Sheets 107, 2006);
+        // the maintainer confirmed the four rows on 2026-10-13.
+        let bench = [(1.0000, 0.0010), (1.0000, 0.0030), (0.9990, 0.0043), (1.0007, 0.0016)];
+        // Active histories of one seed of each record (the lattice's is the
+        // campaign's 10 000 x 400, not the demo's default).
+        let recorded = [600_000.0, 600_000.0, 600_000.0, 1_200_000.0];
+        for (((r, size, k), hist), bench) in expect.into_iter().zip(recorded).zip(bench) {
             let name = r.info().name;
             let d = r.run_default().unwrap_or_else(|| panic!("{name} has no Run k_eff"));
             assert_eq!((d.n_particles, d.n_inactive, d.n_active, d.seed), (size.0, size.1, size.2, 1), "{name}");
             let rec = r.reference().unwrap_or_else(|| panic!("{name} has no record"));
             assert_eq!(rec.k, k, "{name}");
             assert!(rec.sem > 0.0 && rec.sem < 0.0005 && rec.sd_one_run > rec.sem && rec.experiment.is_some(), "{name}");
-            assert_eq!(rec.histories_one_run, (size.0 * size.2) as f64, "{name}");
+            assert_eq!(rec.histories_one_run, hist, "{name}");
+            assert_eq!(rec.experiment.map(|(_, k, s)| (k, s)), Some(bench), "{name}");
             assert!(r.recorded_tracks().is_some(), "{name} ships no tracks");
+            // Every recorded k is printed with its date and commit, and the
+            // reference code with its versions (maintainer, 2026-10-14).
+            let code = rec.code.unwrap_or_else(|| panic!("{name} has no reference-code k"));
+            // Every route 1 was re-run on 2026-10-15 on OpenMC d7d3284a1.
+            let (openmc, date) = ("OpenMC 0.16.1-dev25 at d7d3284a1 on NJOY2016 2016.79 at ac5adf5", "2026-10-15");
+            assert!(code.label.contains(openmc) && code.label.ends_with(date), "{name}: {}", code.label);
+            assert!(code.sem > 0.0 && (code.k - rec.k).abs() < 0.002, "{name}: {} against {}", code.k, rec.k);
+            assert!(rec.label.contains(" at ") && rec.label.contains("2026-"), "{name}: {}", rec.label);
+            let lines = keff::reference_lines(&rec);
+            assert_eq!(lines.len(), 3, "{name}: experiment, reference code, record");
+            assert!(lines[1].starts_with(" Reference code (OpenMC") && lines[2].starts_with(" Recorded ("), "{name}: {lines:?}");
+        }
+        assert!(keff::build_stamp().starts_with("computed now by"));
+        for r in [beds::LATTICE_K, beds::RANDOM_K] {
+            assert!(r.record.starts_with("2026-10-0") && r.record.contains(", at "), "{}", r.record);
         }
         // Route 1 is OpenMC on NJOY2016 data, the acceptance check's reference.
         assert_eq!(keff::five_route_row("jemima", "route1"), Some((0.995938, 0.000174, 0.000987)));
@@ -736,7 +767,10 @@ mod tests {
         let mut b = Vec::new();
         assert_eq!(csgrung::headless_keff::<jemima::Jemima>(&l.phys, cfg, |line| b.push(line.to_string())), (k, s));
         assert_eq!(a, b);
-        assert_eq!(a.len(), 2 + 40 + 4, "header, 40 generations, blank, result, experiment, record");
+        assert_eq!(a.len(), 2 + 40 + 5, "header, 40 generations, blank, result, experiment, reference code, record");
+        assert!(a[a.len() - 4].contains("computed now by"), "{}", a[a.len() - 4]);
+        assert!(a[a.len() - 2].contains("OpenMC 0.16.1-dev25 at d7d3284a1 on NJOY2016 2016.79 at ac5adf5"), "{}", a[a.len() - 2]);
+        assert!(a[a.len() - 1].contains("2026-10-15, at 093d8590cf"), "{}", a[a.len() - 1]);
         eprintln!("  Jemima 1000 x [10 + 30], Watch tier: k = {k:.5} +/- {s:.5}");
         let rec = jemima::Jemima::reference().expect("record");
         assert!((k - rec.k).abs() < 5.0 * s, "k {k} +/- {s} against the record {}", rec.k);
@@ -747,10 +781,16 @@ mod tests {
         let sites = l.keff_start(w).expect("start");
         assert_eq!(sites.len(), 300);
         assert!(sites.iter().all(|p| p[0].abs() < 0.06 && p[1].abs() < 0.06), "a point source starts at the axis");
+        // While the run is going, a drawn neutron is born at a site of its
+        // source: here, still the point at the axis.
+        let h = l.run_next();
+        assert!(h.from_fission && h.birth.x.abs() < 0.06 && h.birth.y.abs() < 0.06, "born at {:?}", h.birth);
         let mut n = 0;
         while let Some(g) = l.keff_step() {
             assert_eq!((g.report.index, g.report.active), (n, n >= 2));
-            assert!(g.report.entropy.is_none() && g.report.counts.tracked == 0);
+            // 5 x 5 x 5 mesh on the whole assembly: at most log2(125) bits.
+            let h = g.report.entropy.expect("a CSG generation reports its source entropy");
+            assert!(h > 0.0 && h <= 125f64.log2() && g.report.counts.tracked == 0, "entropy {h}");
             assert!((g.report.production - g.report.k * 300.0).abs() < 1e-9);
             assert!(g.sites.iter().any(|p| p[0].abs() > 1.0), "the source has spread");
             n += 1;
@@ -774,7 +814,7 @@ mod tests {
     /// uniform start is short; this run cannot say more than "no gross
     /// error".
     #[test]
-    #[ignore = "processes 12 ENDF tapes (~30 s); run with --ignored"]
+    #[ignore = "processes 11 ENDF tapes and LEAPR (minutes); run with --ignored"]
     fn the_hst009_rung_thermalises_and_runs_its_keff() {
         use rungs::{LoadedRung as _, McRung as _};
         let Loaded::Hst009(mut l) = load_native(Rung::Hst009, Tier::Loose, |_, _| {}).expect("load") else { unreachable!() };
@@ -809,7 +849,7 @@ mod tests {
     /// 950 pcm below the record, 2.1 of its own σ, as expected of a source
     /// that has not converged.
     #[test]
-    #[ignore = "processes 12 ENDF tapes (~30 s); run with --ignored"]
+    #[ignore = "processes 35 ENDF tapes and LEAPR (minutes); run with --ignored"]
     fn the_lct008_rung_runs_a_whole_core_keff() {
         use rungs::LoadedRung as _;
         let Loaded::Lct008(mut l) = load_native(Rung::Lct008, Tier::Loose, |_, _| {}).expect("load") else { unreachable!() };

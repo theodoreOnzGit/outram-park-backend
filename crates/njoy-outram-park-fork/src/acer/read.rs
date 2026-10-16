@@ -873,6 +873,13 @@ pub fn read_table<P: AsRef<Path>>(path: P, name: &str) -> Result<RawAceTable, Nj
         })
 }
 
+/// Every ACE table in `bytes`, of either type, gzipped or not: [`read_library`]
+/// for bytes already in memory, such as a file a browser user picked (GitHub
+/// #863). `name` labels error messages.
+pub fn read_library_from_bytes(bytes: Vec<u8>, name: &str) -> Result<Vec<RawAceTable>, NjoyError> {
+    read_library_bytes(bytes, Path::new(name))
+}
+
 /// Sniff, inflate if gzipped, and parse every table. **gzip is transparent for
 /// both types** (since 2026-09-29 a gzipped Type-2 file too; before, a gzip
 /// member was always parsed as Type 1).

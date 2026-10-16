@@ -91,10 +91,15 @@ pub fn unr_words(t: &UrrProbabilityTables) -> Vec<(f64, bool)> {
             w.push((c, false));
         }
         // Total, elastic, fission, capture — column-major over bands, as ACE
-        // stores `(column, band)` within one energy.
+        // stores `(column, band)` within one energy. Copied as read, NOT
+        // rounded again: `acelod` moves them straight from the MT=153 record
+        // (`xss(ll+nurb+ib)=urd(jj+nurb+ib)`, `acefc.f90:5980-5983`), which it
+        // read as text, so they carry no `sigfig` bias. A second `sigfig` here
+        // left every such word 1e-13 high (U-234, Mn-55, Fe-58, Zn at
+        // 293.6 K), seen only in a Type-2 comparison.
         for col in 0..4 {
             for v in &p.value {
-                w.push((sigfig(v[col], 7), false));
+                w.push((v[col], false));
             }
         }
         // Heating: MeV for LSSF = 0, a factor for LSSF = 1; not rounded, as

@@ -29,9 +29,14 @@
 //!   ~3000x "disagreement" that was purely the temperature mismatch.
 //!
 //! Ours is built on **NJOY's own incident-energy grid**, and Bragg edges are
-//! matched **by energy**, never by index — this port emits 568 edges where NJOY
-//! keeps 309, and differencing by position would repeat the 1753x artefact that
-//! shaped the continuous-energy comparator.
+//! matched **by energy**, never by index — ~~this port emits 568 edges where NJOY
+//! keeps 309~~ **CORRECTED 2026-10-14 (GitHub #865):** it now keeps NJOY's 309,
+//! with ACER's own selection; differencing by position would repeat the 1753x
+//! artefact that shaped the continuous-energy comparator.
+//!
+//! This test builds **without** the incident nuclide's PENDF, so its ITIX is
+//! not on NJOY's grid; the whole-table, word-for-word gate (with it) is
+//! `tests/acer_thermal_word_parity.rs`.
 //!
 //! # Results (2026-09-20, NJOY2016 2016.79 `ac5adf5`)
 //!
@@ -44,6 +49,19 @@
 //!
 //! The inelastic gate is deliberately looser than the elastic one because the
 //! measured agreement is genuinely looser, not because a tighter one failed.
+//!
+//! # Re-measured 2026-10-14 (GitHub #865)
+//!
+//! | quantity | measured | gate |
+//! |---|---|---|
+//! | inelastic `sigma` worst rel, 106 points | **1.081e-3** (at 1.417e-8 MeV) | 5e-2 |
+//! | coherent-elastic cumulative `S` worst rel, 309 matched edges | **4.381e-10** | 1e-4 |
+//! | NJOY Bragg edges found in ours to 1e-6 | **309 of 309**, ours 309 | all |
+//!
+//! The 2.238e-2 above came from the port's own analytic inelastic integral and
+//! a `sig` kernel that differed from upstream's; the remaining 1.1e-3 is the
+//! ITIX interpolation on the incident PENDF grid, which this test does not
+//! supply. The gates were not moved.
 
 use std::fs::File;
 
@@ -207,12 +225,20 @@ fn al27_thermal_table_matches_njoy2016() {
             }
         }
     }
+    println!(
+        "[al27-thermal] inelastic worst {:.3e} at {:.6e} MeV; {matched} of {} NJOY edges found, ours {nee_ours}; cumulative S worst {:.3e}",
+        worst.0,
+        worst.1,
+        oracle.bragg.len(),
+        worst_s.0
+    );
     assert_eq!(
         matched,
         oracle.bragg.len(),
         "every NJOY Bragg edge must be present in ours to 1e-6 relative; found \
-         {matched} of {}. This port emits more edges than NJOY keeps (568 vs 309 \
-         on 2026-09-20), which is a thinning difference — a MISSING edge is not.",
+         {matched} of {}. This port emitted more edges than NJOY keeps (568 vs 309 \
+         on 2026-09-20) until ACER's selection was ported (309 on 2026-10-14); \
+         a MISSING edge was never acceptable.",
         oracle.bragg.len()
     );
     assert!(

@@ -10,7 +10,10 @@
 //! - `purr` — PURR's probability bands in the unresolved range;
 //! - `thermr` — S(α,β) cross sections and emission (graphite, H in H₂O);
 //! - `groupr` — group averages, dilute and self-shielded;
-//! - `acer` — recorded results only (an ACE build takes minutes).
+//! - `acer` — recorded results only (an ACE build takes minutes);
+//! - `ace-generator`, `thermal-ace-generator`, `ace-comparator` — the
+//!   reader's own ENDF tape, thermal tape or LEAPR deck to an ACE file for
+//!   download, and two ACE files compared block by block (gh:#863-#865).
 //!
 //! ```text
 //! cargo run -p dhoby-ghaut --example nuclear_data_web --release [-- --rung broadr]
@@ -28,6 +31,8 @@
 //! for reactor operation, licensing, or safety-critical decisions.
 
 #[cfg(not(target_os = "android"))]
+mod acetools;
+#[cfg(not(target_os = "android"))]
 mod app;
 #[cfg(not(target_os = "android"))]
 mod engine;
@@ -40,6 +45,13 @@ mod rungs;
 #[cfg(not(target_os = "android"))]
 #[path = "../monte_carlo_web/tapes.rs"]
 mod tapes;
+/// The processed-data cache `tapes.rs` names in `leapr_h_in_h2o` (gh:#818).
+/// This demo does not call that function, but `tapes.rs` does not compile
+/// without the module (the Pages build broke on it, 2026-10-14).
+#[cfg(not(target_os = "android"))]
+#[allow(dead_code)]
+#[path = "../common/processed_cache.rs"]
+mod processed_cache;
 
 /// Android stub: windowing GUIs are out of scope on Termux.
 #[cfg(target_os = "android")]
@@ -108,7 +120,8 @@ fn headless(rung: rungs::Rung) -> Result<(), String> {
             Request::Thermr { job: 1, material: 1, temp_k: 293.6, e_emit: 0.0253 },
         ],
         rungs::Rung::Groupr => vec![Request::Groupr { job: 1, ngroups: 30, sigma0: 1.0e10 }, Request::Groupr { job: 1, ngroups: 30, sigma0: 50.0 }],
-        rungs::Rung::Acer => Vec::new(),
+        // The ACE tools take the reader's own files; nothing to run headless.
+        rungs::Rung::Acer | rungs::Rung::AceMake | rungs::Rung::ThermalAceMake | rungs::Rung::AceCompare => Vec::new(),
     };
     for r in reqs {
         e.handle(r, &mut post);
@@ -184,5 +197,42 @@ mod tests {
         let note = &got[1].3;
         let pct: f64 = note.rsplit('(').next().and_then(|s| s.split(' ').next()).and_then(|s| s.parse().ok()).expect("area change in the note");
         assert!(pct.abs() < 0.5, "area under capture moved {pct} % on broadening: {note}");
+    }
+
+    /// **Methodology.** The ACE rungs through the engine, in the order the UI
+    /// sends them (gh:#863-#865): the reader's ENDF tape (H-2) into its slot,
+    /// a build, the built file into both comparator slots, a comparison; and
+    /// a build asked before any file is chosen. **Result (2026-10-14):** each
+    /// file is acknowledged with its size; the build returns `1002.00c.ace`
+    /// for the job asked; the comparison of the file with itself says
+    /// identical; the early build fails with a message naming the missing
+    /// file instead of a panic.
+    #[test]
+    fn the_engine_builds_an_ace_file_from_a_supplied_tape_and_compares_it() {
+        let h2 = std::fs::read(njoy_outram_park_fork::reference_data::reference_endf("n-001_H_002-ENDF8.0.endf").expect("H-2 tape")).unwrap();
+        let mut e = NdEngine::default();
+        let mut events: Vec<Event> = Vec::new();
+        let mut post = |ev: Event| events.push(ev);
+        e.handle(Request::MakeAce { job: 1, temp_k: 0.0, purr: false, heatr: false }, &mut post);
+        e.handle(Request::PutFile { slot: engine::SLOT_ENDF, name: "H2.endf".into(), bytes: h2.clone() }, &mut post);
+        e.handle(Request::MakeAce { job: 2, temp_k: 293.6, purr: false, heatr: true }, &mut post);
+        let made = events.iter().find_map(|ev| match ev {
+            Event::File { job: 2, name, bytes, .. } => Some((name.clone(), bytes.clone())),
+            _ => None,
+        });
+        assert!(matches!(&events[0], Event::Error(m) if m.contains("ENDF tape")), "{:?}", events.first().map(|_| ()));
+        assert!(events.iter().any(|ev| matches!(ev, Event::Stored { slot: 0, len, .. } if *len == h2.len())));
+        let (name, bytes) = made.expect("the build answered job 2 with a file");
+        assert_eq!(name, "1002.00c.ace");
+        let mut events: Vec<Event> = Vec::new();
+        let mut post = |ev: Event| events.push(ev);
+        e.handle(Request::PutFile { slot: engine::SLOT_ACE_FIRST, name: "a.ace".into(), bytes: bytes.clone() }, &mut post);
+        e.handle(Request::PutFile { slot: engine::SLOT_ACE_SECOND, name: "b.ace".into(), bytes }, &mut post);
+        e.handle(Request::CompareAce { job: 3 }, &mut post);
+        let note = events.iter().find_map(|ev| match ev {
+            Event::Result { job: 3, note, .. } => Some(note.clone()),
+            _ => None,
+        });
+        assert!(note.expect("a comparison result").contains("identical in every compared word"));
     }
 }

@@ -44,7 +44,9 @@
 //!
 //! # Fidelity
 //!
-//! Analog transport (weight 1). **The MG path does not yet read
+//! ~~Analog transport (weight 1).~~ **CORRECTED 2026-10-13 (gh:#682):** analog
+//! except for the scattering multiplicity of a nu-scatter set, which is
+//! carried as a weight ([`ScatterMultiplicity`]). **The MG path does not yet read
 //! `variance_reduction`** — #258's survival biasing and weight windows are
 //! wired into the CSG kernel only, so an MG run is analog whatever the
 //! setting says. Stated rather than left to be discovered from a setting
@@ -111,8 +113,11 @@ use crate::geometry::crossing::GeometryExt;
 /// - the scattering matrix is `n_groups × n_groups`, stored **row-major** as
 ///   `scatter[g * G + g']` = Σ_s,g→g' (out of `g`, into `g'`);
 /// - `fission[g] ≤ absorption[g] ≤ total[g]` (fission is part of absorption);
-/// - χ sums to 1 (renormalised on construction if it does not, and it is
-///   non-zero).
+/// - χ sums to 1 (renormalised on construction if it does not), **for a
+///   fissile set**. A set with `ν·Σ_f = 0` in every group (graphite, helium,
+///   a TRISO coating) may carry an all-zero χ, which is kept as zeros. ~~χ
+///   must be non-zero~~ **CHANGED 2026-10-13 (gh:#848):** that assertion made
+///   every non-fissile material of a condensed library panic.
 ///
 /// The transport kernel treats `total[g] − absorption[g]` as the scatter-out
 /// cross section and samples the outgoing group from row `g`; see
@@ -142,6 +147,56 @@ pub struct Mgxs {
     /// the caller supplied Legendre moments — see
     /// [`Mgxs::with_legendre_scattering`]. GitHub #265.
     pub scatter_angle: ScatterAngle,
+    /// Scattering multiplicity, the (n,xn) gain of a **nu**-scatter matrix
+    /// (gh:#682). `None` (what [`Mgxs::new`] builds) means every transfer
+    /// emits one neutron. Attached by [`Mgxs::with_scattering_multiplicity`]
+    /// and, once attached, applied by [`run_keff_mg`] with no further
+    /// opt-in; [`Mgxs::without_scattering_multiplicity`] is the ablation.
+    pub multiplicity: Option<ScatterMultiplicity>,
+}
+
+/// The multiplicity data of a [`Mgxs`] whose [`Mgxs::scatter`] is a
+/// **nu-scatter** matrix (neutrons emitted per unit flux, so an (n,2n)
+/// counts twice), as OpenMC's MG library stores it.
+///
+/// # Upstream, and the one place this port differs
+///
+/// OpenMC keeps the nu-scatter matrix as `scatter_matrix` and the
+/// per-transfer `multiplicity_matrix = nu-scatter / scatter`
+/// (`openmc/mgxs/library.py:1197-1229`, `mgxs_library.py:1637-1713`), with
+/// zeros replaced by 1 (`src/scattdata.cpp:38-43`). Its kernel samples the
+/// outgoing group from the normalised **nu-scatter** row (`energy`, built
+/// from `scatter_matrix`, `:252-271`, `sample_energy` `:160-172`) and then
+/// multiplies the weight by that transfer's multiplicity,
+/// `wgt *= mult[gin][i_gout]` (`:367-368`; OpenMC `afa7a14`).
+///
+/// **That is exact only when the multiplicity is the same across the row.**
+/// Per scatter (probability `s_row / Sigma_t`), the expected weight it sends
+/// into `g'` is `(nu_g' / nu_row) * (nu_g' / s_g')`, where the evaluation
+/// says `nu_g' / s_row`; the two agree only if `nu_g' / s_g' = nu_row / s_row`
+/// for every `g'`. Example: scatter `(1, 1)`, nu-scatter `(1, 2)`, no
+/// absorption: true outgoing weight per collision `(0.5, 1.0)`, upstream
+/// `(1/3, 4/3)`, 11 % high in total. In a fast group the (n,2n) neutrons
+/// land lower than the elastic ones, so real rows are not uniform.
+///
+/// This port keeps upstream's data and its sampling (from the nu-scatter
+/// row) and weights by the **row** multiplicity
+/// `m_g = nu_row / s_row = sum_g' nu_g,g' / sum_g' (nu_g,g' / mult_g,g')`,
+/// which makes the expected weight into every `g'` exactly `nu_g' / s_row`.
+/// It also keeps a transfer that only (n,xn) neutrons reach (`s = 0`,
+/// `nu > 0`, `mult = inf`), which sampling the scatter-only row would lose.
+/// The divergence is pinned by
+/// `tests::multiplicity_weights_by_the_row_and_matches_analytic_kinf`, which
+/// also records upstream's value on the same set.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ScatterMultiplicity {
+    /// Per-transfer multiplicity `nu-scatter / scatter`, row-major `G * G`,
+    /// as upstream stores it (zeros already replaced by 1; `inf` where only
+    /// (n,xn) neutrons reach the transfer).
+    pub per_transfer: Vec<f64>,
+    /// Row multiplicity `m_g = nu_row / s_row`, the weight the kernel
+    /// applies on a scatter out of group `g` (1 for a row with no scatter).
+    pub row: Vec<f64>,
 }
 
 /// The angular representation a [`Mgxs`] set carries for its scattering matrix.
@@ -198,6 +253,18 @@ impl Mgxs {
     /// inconsistent or an ordering invariant (`fission ≤ absorption ≤ total`) is
     /// violated. χ is renormalised to sum to 1.
     ///
+    /// # χ on a non-fissile material
+    ///
+    /// If no group has `ν·Σ_f > 0`, χ may be all zero and is kept so. This
+    /// follows upstream: `XsData::XsData` allocates `chi_prompt` and
+    /// `chi_delayed` only `if (fissionable)` (`src/xsdata.cpp:40-63`, OpenMC
+    /// `afa7a14`), and `XsData::from_hdf5` reads the fission block only for a
+    /// fissionable set (`:87-90`), so a non-fissile material never has a χ.
+    /// The kernel cannot sample it: the source is drawn only in fissile
+    /// cells ([`Mgxs::is_fissile`]) and a collision banks `n ≈ ν̄_g/k` sites,
+    /// which is zero when `ν·Σ_f = 0`. A **fissile** set with a zero χ still
+    /// panics, because its neutrons would have no birth group.
+    ///
     /// # Units
     /// All cross sections are **macroscopic**, \[cm⁻¹\]; χ is dimensionless.
     pub fn new(
@@ -231,8 +298,19 @@ impl Mgxs {
             );
         }
         let chi_sum: f64 = chi.iter().sum();
-        assert!(chi_sum > 0.0, "chi must be non-zero (fission spectrum)");
-        let chi = chi.into_iter().map(|c| c / chi_sum).collect();
+        let fissile = nu_fission.iter().any(|&v| v > 0.0);
+        let chi = if fissile {
+            assert!(
+                chi_sum > 0.0,
+                "chi must be non-zero for a fissile set (nu_fission > 0 in some group)"
+            );
+            chi.into_iter().map(|c| c / chi_sum).collect()
+        } else if chi_sum > 0.0 {
+            chi.into_iter().map(|c| c / chi_sum).collect()
+        } else {
+            // Non-fissile: no fission spectrum, as upstream (see doc above).
+            vec![0.0; g]
+        };
         Self {
             name: name.into(),
             n_groups: g,
@@ -243,7 +321,76 @@ impl Mgxs {
             chi,
             scatter,
             scatter_angle: ScatterAngle::Isotropic,
+            multiplicity: None,
         }
+    }
+
+    /// Attach the per-transfer scattering multiplicity, row-major `G * G`,
+    /// `mult[g * G + g'] = nu-scatter / scatter` (OpenMC's
+    /// `multiplicity_matrix`), declaring [`Self::scatter`] to be the
+    /// **nu**-scatter matrix. Used by [`run_keff_mg`] from here on with no
+    /// further opt-in (gh:#682); see [`ScatterMultiplicity`] for how.
+    ///
+    /// A zero entry is read as 1, as upstream's `base_init` does
+    /// (`src/scattdata.cpp:38-43`). `f64::INFINITY` marks a transfer that
+    /// only (n,xn) neutrons reach.
+    ///
+    /// # Errors
+    ///
+    /// An array that is not `G * G`, or an entry that is NaN, negative, or
+    /// strictly between 0 and 1 (a scatter cannot emit fewer neutrons than
+    /// it absorbed; that would be a defect in whatever built the array).
+    pub fn with_scattering_multiplicity(mut self, mult: Vec<f64>) -> Result<Self, String> {
+        let g = self.n_groups;
+        if mult.len() != g * g {
+            return Err(format!(
+                "multiplicity must be a {g}x{g} row-major array, got {} entries",
+                mult.len()
+            ));
+        }
+        let mut per_transfer = mult;
+        for (i, m) in per_transfer.iter_mut().enumerate() {
+            if *m == 0.0 {
+                *m = 1.0;
+            }
+            if m.is_nan() || *m < 1.0 {
+                return Err(format!(
+                    "transfer {} -> {}: multiplicity {m} is below 1",
+                    i / g,
+                    i % g
+                ));
+            }
+        }
+        let row = (0..g)
+            .map(|gi| {
+                let nu: f64 = self.scatter[gi * g..(gi + 1) * g].iter().sum();
+                let s: f64 = (0..g)
+                    .map(|gp| self.scatter[gi * g + gp] / per_transfer[gi * g + gp])
+                    .sum();
+                if s > 0.0 {
+                    nu / s
+                } else {
+                    1.0
+                }
+            })
+            .collect();
+        self.multiplicity = Some(ScatterMultiplicity { per_transfer, row });
+        Ok(self)
+    }
+
+    /// **Ablate** the scattering multiplicity: every scatter emits one
+    /// neutron, so a nu-scatter set loses its (n,xn) gain, as `run_keff_mg`
+    /// did before gh:#682. An explicit, visible act, never the default.
+    pub fn without_scattering_multiplicity(mut self) -> Self {
+        self.multiplicity = None;
+        self
+    }
+
+    /// The weight a scatter out of group `g` multiplies the neutron by: the
+    /// row multiplicity, or 1 with none attached.
+    #[inline]
+    pub fn scatter_weight(&self, g: usize) -> f64 {
+        self.multiplicity.as_ref().map_or(1.0, |m| m.row[g])
     }
 
     /// Attach Legendre angular moments to the scattering matrix.
@@ -597,10 +744,12 @@ pub fn run_keff_mg(
 /// geometry, banking fission neutrons. Returns the fission production ν̄ summed
 /// over the history's fission events (the generation-k numerator contribution).
 ///
-/// MG has no `(n,2n)` multiplicity channel, so — unlike the CE
-/// [`transport_csg`](crate::physics::transport_csg) history — there is no
-/// same-generation secondary stack: a fission is terminal for the incident
-/// neutron and only feeds `next_bank`.
+/// MG has no `(n,2n)` secondary stack — unlike the CE
+/// [`transport_csg`](crate::physics::transport_csg) history — so a fission is
+/// terminal for the incident neutron and only feeds `next_bank`. ~~MG has no
+/// `(n,2n)` multiplicity channel~~ **CORRECTED 2026-10-13 (gh:#682):** the
+/// (n,xn) gain of a nu-scatter set is carried as a weight, multiplied on
+/// every scatter, as upstream does (see [`ScatterMultiplicity`]).
 fn transport_history(
     site: Site,
     geom: &Geometry,
@@ -618,6 +767,10 @@ fn transport_history(
     let mut r = site.r;
     let mut u = site.u;
     let mut g = site.g;
+    // Statistical weight: 1 at birth, multiplied by the row multiplicity on
+    // every scatter (gh:#682). Without multiplicity it stays exactly 1 and
+    // the history is the analog one it always was.
+    let mut w = 1.0_f64;
     let mut on_surface = SurfaceToken::NONE;
     let mut events = 0u32;
 
@@ -652,9 +805,12 @@ fn transport_history(
             // Reaction partition on the group total: fission | capture | scatter.
             let xi = prn(seed) * sigma_t;
             if xi < mat.fission[g] {
+                // A weighted neutron yields `w * nu_bar` neutrons in
+                // expectation, as upstream's `create_fission_sites`
+                // (`nu_t = wgt / keff * ...`, `src/physics_mg.cpp:101-103`).
                 let nu_bar = mat.nu_bar(g);
-                production += nu_bar;
-                let n = sample_num_neutrons(nu_bar, k_running, seed);
+                production += w * nu_bar;
+                let n = sample_num_neutrons(w * nu_bar, k_running, seed);
                 for _ in 0..n {
                     let (dx, dy, dz) = isotropic_direction(seed);
                     next_bank.push(Site {
@@ -670,6 +826,7 @@ fn transport_history(
                 // Scatter to a new group, then set the outgoing direction.
                 let g_last = g;
                 g = mat.sample_scatter_group(g_last, seed);
+                w *= mat.scatter_weight(g_last);
                 // `scatter` (`src/physics_mg.cpp:86-90`): sample mu from the
                 // transfer's own kernel and ROTATE the incoming direction by
                 // it. Only a transfer with no angular data is resampled
@@ -946,5 +1103,139 @@ mod tests {
         );
         assert!(!absorber.is_fissile());
         assert!((absorber.scatter_out(0)).abs() < 1e-15);
+    }
+
+    /// A non-fissile set (graphite-like) may carry an all-zero χ (gh:#848),
+    /// as upstream's `XsData` has no χ unless the set is fissionable. Before
+    /// the change `Mgxs::new` panicked here. Transport through such a set is
+    /// exercised by `nee_soon`'s `tests/mgxs_from_monte_carlo.rs` round trip,
+    /// whose moderator is non-fissile.
+    #[test]
+    fn non_fissile_set_may_have_zero_chi() {
+        let graphite = Mgxs::new(
+            "graphite",
+            vec![0.40, 0.42],
+            vec![1.0e-4, 3.0e-4],
+            vec![0.0, 0.0],
+            vec![0.0, 0.0],
+            vec![0.0, 0.0],
+            vec![0.38, 0.0199, 0.0, 0.4197],
+        );
+        assert!(!graphite.is_fissile());
+        assert_eq!(graphite.chi, vec![0.0, 0.0]);
+    }
+
+    /// A fissile set with no fission spectrum is still refused: its neutrons
+    /// would have no birth group.
+    #[test]
+    #[should_panic(expected = "chi must be non-zero for a fissile set")]
+    fn fissile_set_with_zero_chi_still_panics() {
+        let _ = Mgxs::new(
+            "fuel",
+            vec![0.30],
+            vec![0.10],
+            vec![0.05],
+            vec![0.13],
+            vec![0.0],
+            vec![0.20],
+        );
+    }
+
+    /// A nu-scatter two-group set whose fast row emits 1.5 neutrons per
+    /// fast-to-thermal scatter: scatter-only `(0.05, 0.02)`, nu-scatter
+    /// `(0.05, 0.03)`, the rest as [`two_group_set`]. `Sigma_t - Sigma_a`
+    /// equals the scatter-only row in both groups.
+    fn multiplying_set() -> Mgxs {
+        Mgxs::new(
+            "2g-nxn",
+            vec![0.080, 0.180],
+            vec![0.010, 0.080],
+            vec![0.0032, 0.040],
+            vec![0.008, 0.100],
+            vec![1.0, 0.0],
+            vec![0.050, 0.030, 0.000, 0.100],
+        )
+        .with_scattering_multiplicity(vec![1.0, 1.5, 0.0, 1.0])
+        .expect("valid multiplicity")
+    }
+
+    /// Scattering multiplicity (gh:#682) against the analytic `k_inf`.
+    ///
+    /// # Methodology
+    ///
+    /// [`multiplying_set`] in the reflective cube, 4000 × \[40 + 120\],
+    /// seed 1. With no upscatter and `chi = (1, 0)` the nu-scatter matrix
+    /// gives `k_inf = nuSf0 / (St0 - nuS00) + nuSf1 * nuS01 /
+    /// ((St0 - nuS00)(St1 - nuS11)) = 0.008/0.03 + 0.1*0.03/(0.03*0.08)
+    /// = 1.516667`. Three arms, all on the same set:
+    ///
+    /// | arm | expected `k_inf` |
+    /// |---|---|
+    /// | this port (row weight `nu_row/s_row`, the default) | **1.516667**, exact |
+    /// | upstream's per-transfer `wgt *= mult[g][g']` (computed, not run) | 1.578448 (+4.1 %) |
+    /// | ablation `without_scattering_multiplicity` | 1.125862 |
+    ///
+    /// The upstream and ablation values are the same closed form with the
+    /// kernel's transfer probabilities (outgoing group from the nu-scatter
+    /// row, scatter probability `(Sigma_t - Sigma_a)/Sigma_t`). The gate is
+    /// the existing analytic test's: within 0.01 and `sigma < 0.005`. The
+    /// default arm 0.06 from upstream's value and 0.39 from the ablation, so
+    /// the gate separates all three.
+    ///
+    /// # Result (2026-10-13)
+    ///
+    /// Default `k = 1.51597 ± 0.00287` against 1.51667 (−0.2σ); ablated
+    /// `k = 1.12789 ± 0.00184` against 1.12586 (+1.1σ). Upstream's
+    /// per-transfer weighting would give 1.57845, 21σ from the default arm.
+    #[test]
+    fn multiplicity_weights_by_the_row_and_matches_analytic_kinf() {
+        const K_TRUE: f64 = 1.516_666_666_666_667;
+        const K_ABLATED: f64 = 1.125_862_068_965_517;
+        let m = multiplying_set();
+        let mult = m.multiplicity.as_ref().expect("attached");
+        assert!((mult.row[0] - 0.08 / 0.07).abs() < 1e-15, "row 0 m = nu_row/s_row");
+        assert_eq!(mult.row[1], 1.0);
+        let geom = infinite_medium_cube(10.0);
+        let settings = MgSettings {
+            n_particles: 4000,
+            n_inactive: 40,
+            n_active: 120,
+            seed: 1,
+        };
+        let src = SourceBox {
+            lower: Position::new(-5.0, -5.0, -5.0),
+            upper: Position::new(5.0, 5.0, 5.0),
+        };
+        let on = run_keff_mg(&geom, &MgxsLibrary::new(vec![m.clone()]), src, &settings);
+        let off = run_keff_mg(
+            &geom,
+            &MgxsLibrary::new(vec![m.without_scattering_multiplicity()]),
+            src,
+            &settings,
+        );
+        eprintln!(
+            "[mg mult] on k = {:.5} ± {:.5} (analytic {K_TRUE:.5}); ablated k = {:.5} ± {:.5} (analytic {K_ABLATED:.5})",
+            on.k_mean, on.k_std, off.k_mean, off.k_std
+        );
+        for (r, want, arm) in [(&on, K_TRUE, "on"), (&off, K_ABLATED, "ablated")] {
+            assert!(r.k_std < 0.005, "{arm}: sigma {}", r.k_std);
+            assert!(
+                (r.k_mean - want).abs() < 0.01,
+                "{arm}: k {} vs analytic {want}",
+                r.k_mean
+            );
+        }
+    }
+
+    /// A multiplicity below 1 is refused: a scatter cannot emit fewer
+    /// neutrons than it absorbed.
+    #[test]
+    fn multiplicity_below_one_is_refused() {
+        assert!(two_group_set()
+            .with_scattering_multiplicity(vec![1.0, 0.5, 1.0, 1.0])
+            .is_err());
+        assert!(two_group_set()
+            .with_scattering_multiplicity(vec![1.0; 3])
+            .is_err());
     }
 }

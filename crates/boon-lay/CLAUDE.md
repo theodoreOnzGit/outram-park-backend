@@ -58,6 +58,24 @@ against `openmc --plot`
 axes in one call; `crates/nee_soon/examples/htr10_geometry_images.rs` is the
 worked example. For meshes, plot the mesh itself (cells, patches, zones).
 
+## Charged-particle transport lives here (maintainer decision, 2026-10-16)
+
+> "Charged particles go thru boon lay, uncharged thru OutramMC."
+
+`boon-lay` owns every charged particle, and `outram-mc-libs` owns the neutral
+ones (neutrons, and photons once ported).
+
+- **The first charged-particle code is RustBCA.** It is copied, not taken as a
+  dependency, into its own module tree in this crate, with clear attribution:
+  upstream `lcpp-org/RustBCA` v3.0.0 `a356280d`, GPL-3.0, with a provenance
+  header on every file and a list of local changes. Its `no_std` + `alloc`
+  build is re-exported from here (gh:#876, item 7). It covers fission
+  fragments, alphas and recoil knock-ons, all of which are in scope.
+- **Nothing is ported yet.** A headless example that measures the cost of one
+  cascade comes first.
+- Fragment tracks are illustrative until they pass V&V against uncalibrated
+  range data, because RustBCA's Bethe term uses the bare Za².
+
 ## What this crate does
 
 Simulates fission product behaviour in TRISO particles from a **Lagrangian**

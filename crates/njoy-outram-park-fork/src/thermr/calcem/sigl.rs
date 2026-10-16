@@ -57,7 +57,10 @@ const EPS: f64 = 1.0e-3;
 /// target `fract` before the bin boundary is forced to land here rather than
 /// carrying into the next segment.
 const SHADE: f64 = 0.99999999;
-const THIRD: f64 = 1.0 / 3.0;
+/// `sigl`'s `third`, the literal `.333333333e0` (`thermr.f90:2687`), NOT `1/3`:
+/// ~~`1.0 / 3.0`~~ **CORRECTED 2026-10-14 (GitHub #865)**. The exact third
+/// moved every equally-probable cosine by about 5e-10 against NJOY2016's.
+const THIRD: f64 = 0.333333333;
 
 /// `sigl(e, ep, nlin, ii, natom, tolin)` — cross section and angular data for
 /// scattering `e → ep` \[eV\] at temperature `ii.temperature_k` \[K\].
@@ -92,7 +95,7 @@ pub fn sigl(
     let temp_k = ii.temperature_k;
     let tev = crate::common::phys::BK_EV_PER_K * temp_k;
     let lat = ii.lat;
-    let sig = |mu: f64| ii.double_differential(e, ep, mu, temp_k, natom);
+    let sig = |mu: f64| super::sig(ii, e, ep, mu, temp_k, natom);
 
     let tol = 0.5 * tolin;
 
@@ -347,7 +350,10 @@ pub fn sigl(
                 // accept the whole segment into the running partial-bin sum, no
                 // boundary here — label 250 follows.
                 sum2 += add;
-                gral += 0.5 * (yl2 * x[i] - y[i] * xl2) * (x[i] + xl2)
+                // `gral=gral+A+B` is `(gral+A)+B` in Fortran, not `gral+(A+B)`
+                // (GitHub #865: one ulp in the last cosine otherwise).
+                gral = gral
+                    + 0.5 * (yl2 * x[i] - y[i] * xl2) * (x[i] + xl2)
                     + THIRD * (y[i] - yl2) * (x[i] * x[i] + x[i] * xl2 + xl2 * xl2);
                 // label 250
                 xl2 = x[i];

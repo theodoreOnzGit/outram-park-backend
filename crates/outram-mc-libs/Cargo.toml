@@ -9,17 +9,23 @@ homepage.workspace = true
 repository.workspace = true
 readme = "README.md"
 categories.workspace = true
-# V&V raw data (verification_and_validation/*.csv) is dev-only, gitignored,
-# and never shipped in the packaged crate. `docs/` (incl. the generated
-# docs/api.md rustdoc mirror) isn't crate content either.
-exclude = [
-    "verification_and_validation/*.csv",
-    "verification_and_validation/**/*.csv",
-    # OpenMC input-script snapshots: committed to git for reproducibility, but
-    # they are third-party (BSD-3) reference decks, not crate source — keep them
-    # out of the published tarball.
-    "verification_and_validation/**/openmc_inputs/**",
-    "docs",
+# What crates.io gets: an ALLOW-LIST (maintainer direction 2026-10-16;
+# was an `exclude` list, which shipped 707 files, 5.9 MiB compressed of the
+# 10 MiB limit, mostly V&V figures, .npy references and kovan metadata).
+# Patterns are anchored with a leading / (gitignore rules: an unanchored
+# "README.md" matches every README in the tree). Only the library source, its embedded WGSL shaders (under src/), the
+# licences and the provenance notes ship. tests/, examples/,
+# verification_and_validation/, docs/ and the kovan files stay in git.
+include = [
+    "/src/**/*.rs",
+    "/src/**/*.wgsl",
+    "/src/**/README.md",
+    "/README.md",
+    "/LICENSE",
+    "/LICENSE.openmc",
+    "/TRADEMARKS.md",
+    "/NUCLEAR_DATA.md",
+    "/upstream_source/README.md",
 ]
 
 # Where this crate sits in kovan's code map (GitHub #729, #733; maintainer

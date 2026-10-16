@@ -34,6 +34,7 @@
 //!            ├─ option effect = block ───────────────────────────────> blocked_by: Answer
 //!            ├─ option effect = prompt_needs_fix ────────────────────> prompts ("Mark as Needs fix instead?")
 //!            ├─ option effect = flag ────────────────────────────────> flags (needs improvement; never blocks)
+//!            ├─ option effect = flag_cap_rung3 (a waiver, 2026-10-14) ──> flags AND rung_capped: rung 4 is closed
 //!            ├─ rung4_allowed = some gate_rung4 answer (vv_evidence)
 //!            │    AND a gate_rung4_author answer (vv_case_author =
 //!            │    human_wrote_and_verified; added 2026-10-07)
@@ -242,6 +243,17 @@ pub enum Effect {
     /// Rung 4 is not opened by this stamp: one of its two axes fails
     /// (GitHub #855). The stamp is allowed at rung 3.
     BlockRung4,
+    /// A waiver: a required check was skipped with a typed reason
+    /// (maintainer, 2026-10-14; first use `limits_and_guards =
+    /// guard_waived_research`). The stamp is allowed, capped at rung 3
+    /// whatever the V&V answers say, and the answer is listed as needs
+    /// improvement ([`GateResult::flags`], [`GateResult::rung_capped`]) so a
+    /// waived function stays visible. Why rung 3 and not 4: NUREG/BR-0167
+    /// §3.2.4.1 puts "proper handling of boundary conditions, including
+    /// extreme inputs" and "adequate error detection, handling, and
+    /// recovery" among the objectives of requirements-driven testing, so a
+    /// function that skips them is reviewed (3) and not V&V'd (4).
+    FlagCapRung3,
 }
 
 /// A UI action an option offers.
@@ -540,6 +552,9 @@ pub struct GateResult {
     /// The axes a [`Effect::BlockRung4`] answer fails, sorted: rung 4 is
     /// not opened while there is one.
     pub rung4_failed: Vec<Axis>,
+    /// The waivers given ([`Effect::FlagCapRung3`]): rung 4 is not opened
+    /// while there is one. Each is also in [`Self::flags`].
+    pub rung_capped: Vec<Choice>,
     /// `independence` is answered and no answer is `not_independent`: one of
     /// rung 5's conditions (~~this stamp may be the independent second review
     /// for rung 5~~ **CORRECTED 2026-10-08**, #809: rung 5 is IV&V,
@@ -752,6 +767,10 @@ impl ReviewWizard {
                     let axis = self.question(q).and_then(|q| q.axis).unwrap_or(Axis::Accuracy);
                     g.rung4_failed.push(axis);
                 }
+                Effect::FlagCapRung3 => {
+                    g.flags.push(c.clone());
+                    g.rung_capped.push(c);
+                }
             }
         }
         for q in self.applicable(ctx) {
@@ -766,7 +785,7 @@ impl ReviewWizard {
         }
         g.rung4_failed.sort();
         g.rung4_failed.dedup();
-        g.rung4_allowed = opens && opens_author && g.rung4_failed.is_empty();
+        g.rung4_allowed = opens && opens_author && g.rung4_failed.is_empty() && g.rung_capped.is_empty();
         g.independent = answers.contains_key("independence") && !not_independent;
         g.rung = rung_from(g.rung4_allowed, ctx.tests);
         g
@@ -812,7 +831,8 @@ fn rung_from(rung4_allowed: bool, tests: TestAuthorship) -> Rung {
 /// `vv_case_author = human_wrote_and_verified` AND git shows no agent
 /// trailer on the commits that added the tests reaching the function;
 /// AND (GitHub #855) no answer fails one of rung 4's two axes
-/// ([`Effect::BlockRung4`]);
+/// ([`Effect::BlockRung4`]) and none is a waiver ([`Effect::FlagCapRung3`],
+/// 2026-10-14);
 /// otherwise **3** (a half-done V&V case gives 3). Pure: the answers and
 /// git's [`TestAuthorship`] in, the rung out.
 pub fn derived_rung(answers: &BTreeMap<String, String>, tests: TestAuthorship) -> Rung {
@@ -826,7 +846,7 @@ pub fn derived_rung(answers: &BTreeMap<String, String>, tests: TestAuthorship) -
         match question.option(key).map(|o| o.effect) {
             Some(Effect::GateRung4) => opens = true,
             Some(Effect::GateRung4Author) => opens_author = true,
-            Some(Effect::BlockRung4) => axis_fails = true,
+            Some(Effect::BlockRung4 | Effect::FlagCapRung3) => axis_fails = true,
             _ => {}
         }
     }
@@ -1322,6 +1342,46 @@ requires_text = true
             }
         }
         assert_eq!(counts, [7, 6, 2]);
+    }
+
+    /// Methodology: the number-guard waiver (maintainer, 2026-10-14).
+    /// `limits_and_guards = guard_waived_research` is a `flag_cap_rung3`
+    /// answer. Judged on a set of answers that otherwise gives rung 4 (a
+    /// qualifying V&V case, written by hand, git agreeing): with the waiver
+    /// the stamp is allowed, the answer is in `flags` and in `rung_capped`,
+    /// rung 4 is closed and the rung is 3 from both `stamp_gate` and
+    /// `derived_rung`; the same answers with a guard give rung 4 and no
+    /// flag. The waiver needs its reason (refused without text), and
+    /// `guard_missing` still blocks the stamp.
+    ///
+    /// Result (2026-10-14): passes.
+    #[test]
+    fn a_waived_guard_is_flagged_and_caps_the_stamp_at_rung_3() {
+        let human = Applicability { tests: TestAuthorship::Human, ..NONE };
+        let w = ReviewWizard::embedded();
+        let o = w.question("limits_and_guards").unwrap().option("guard_waived_research").unwrap();
+        assert_eq!(o.effect, Effect::FlagCapRung3);
+        assert!(o.requires_text);
+        let mut m = clean();
+        m.insert("vv_evidence".into(), "analytical_case".into());
+        m.insert("vv_case_author".into(), "human_wrote_and_verified".into());
+        let g = stamp_gate(&m, human);
+        assert_eq!((g.rung, g.flags.len(), g.rung_capped.len()), (Rung::Four, 0, 0));
+
+        m.insert("limits_and_guards".into(), "guard_waived_research: scoping study, inputs come from one deck".into());
+        let g = stamp_gate(&m, human);
+        let c = Choice { question: "limits_and_guards".into(), option: "guard_waived_research".into() };
+        assert!(g.stampable(), "{:?}", g.blocked_by);
+        assert_eq!(g.flags, [c.clone()]);
+        assert_eq!(g.rung_capped, [c]);
+        assert!(!g.rung4_allowed);
+        assert_eq!(g.rung, Rung::Three);
+        assert_eq!(derived_rung(&m, TestAuthorship::Human), Rung::Three);
+
+        m.insert("limits_and_guards".into(), "guard_waived_research".into());
+        assert!(matches!(stamp_gate(&m, human).blocked_by.as_slice(), [GateReason::Invalid(_)]));
+        m.insert("limits_and_guards".into(), "guard_missing".into());
+        assert!(matches!(stamp_gate(&m, human).blocked_by.as_slice(), [GateReason::Answer(_)]));
     }
 
     /// Methodology: the derived rung (maintainer, #769, 2026-10-07: "the

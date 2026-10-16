@@ -5,6 +5,42 @@ comparison with three critical experiments. **No human V&V sign-off.** This is
 an AI-assisted draft under `RESPONSIBLE_USE.md`, not for any operational,
 licensing or safety use.
 
+**Change of model, 2026-10-14 (maintainer direction). Not yet run.**
+- **LCT-008 runs its full nuclide list (35) by default** on every route:
+  `icsbep_five_route_keff.rs`, `openmc_inputs/icsbep_openmc.py` and both ACE
+  libraries (`five_route_keff/nuclides.tsv` now lists all 36 tapes of
+  `lct008_model::TAPES`; case 1 uses 35). Full-model rows are labelled case
+  **`lct008-full`** and never pool with the 11-nuclide rows below, which keep
+  the label `lct008`. **The 11-nuclide tier is retired as a model**
+  (`--cheap-nuclides`): it is now a smoke test only, the acceptance check's
+  LCT-008 case. The 24 extra nuclides are worth −75 ± 14 pcm on route 4
+  (#533).
+- **H in H₂O comes from LEAPR on every route that uses the Rust NJOY port**
+  (2, 4 and 5): route 4 through `ThermalScattering::from_embedded_leapr_deck`,
+  routes 2 and 5 through `write_ace_library --thermal-leapr`. Routes 1 and 3
+  keep NJOY2016's table, the reference.
+- ~~**Every LCT-008 number in this record is the 11-nuclide model.** The
+  full-model campaign (all five routes) has not been run: routes 1 and 2 need
+  OpenMC.~~ **CORRECTED later 2026-10-14:** the LCT-008 numbers in the body of
+  this record are the 11-nuclide model; the full model now has all five
+  routes (below). **First full-model numbers, routes 4 and 5, 8 seeds each
+  (2026-10-14, `five_route_keff/data/lct008_full_routes45_2026_10_14.md`):**
+  route 4 1.00118 ± 0.00019, ~~route 5 1.00175 ± 0.00031; route 5 − route 4
+  +58 ± 36 pcm (1.6σ, not resolved)~~ (route 5 superseded: it read a
+  defective Mg-24 table, fixed in `98cb2c850`). **All five routes on the full
+  model, 8 seeds each (later 2026-10-14,
+  `five_route_keff/data/lct008_full_five_routes_2026_10_14.md`, merged into
+  `per_seed_keff.csv` as `lct008-full`):**
+  - route 1 1.00168 ± 0.00023;
+  - route 2 1.00163 ± 0.00024;
+  - route 3 1.00134 ± 0.00019;
+  - route 4 1.00118 ± 0.00019;
+  - route 5 1.00137 ± 0.00025.
+
+  Every route is within 2σ of route 1. Routes 1 and 2 ran on OpenMC
+  `ec3bc73`, not on the earlier rows' `d7d3284a1`. Tracked in #874. The figure draws only the full-model panel; the
+  11-nuclide rows stay in `summary_keff.csv` as the smoke test's reference.
+
 **Status (2026-09-30).** All five routes are complete for all four cases.
 Routes 3–5 are at `0414bc8277`, after the OpenMC-parity audit (#407); see
 "Results — after the OpenMC-parity audit" below. The lattice is at 96 seeds on
@@ -49,7 +85,7 @@ water inside r = 76.2 cm.
 |---|---|---|---|
 | `godiva` | HEU-MET-FAST-001 | bare sphere, r = 8.7407 cm, U-234/235/238 | `examples/godiva_keff_endf_local.rs` |
 | `jemima` | IEU-MET-FAST-002 | 4-cell cylinder, core plus natural-U reflector | `examples/jemima_keff.rs` |
-| `hst009` | HEU-SOL-THERM-009 case 1 | 3 spheres: solution, Al tank, water. U-236 and Cu/Zn dropped, O-17 folded into O-16 | `examples/hst009_keff.rs` |
+| `hst009` | HEU-SOL-THERM-009 case 1 | 3 spheres: solution, Al tank, water. ~~U-236 and~~ Cu/Zn dropped, O-17 folded into O-16; U-236 in the model since 2026-10-15 (worth −167 ± 38 pcm, below) | `examples/hst009_keff.rs` |
 | `lct008` | LEU-COMP-THERM-008 case 1 | **the real lattice**: 22 assembly lattices in a 7 × 7 core, parsed at run time from the committed `mit-crpg/benchmarks` OpenMC cards (`leu-comp-therm-008/`) | `examples/common/lct008_model.rs`, shared with `lct008_keff.rs` and `lct008_ace_roundtrip.rs` |
 
 **LCT-008 is "simplified" only in its nuclide list.** It uses `lct008_keff.rs`'s
@@ -74,6 +110,16 @@ The fuel, including U-234 and its B-10 impurity, is complete.
   literature corpus or the local notes holds it. The figure's ±0.006 band is the
   examples' stand-in and is labelled as such; Godiva's ±0.0010 is the one
   quoted ICSBEP value.
+  **CORRECTED 2026-10-14.** The benchmark k and uncertainty of all four cases
+  are now cited, as the handbook values tabulated in two open secondary
+  sources: Mosteller, *An Expanded Criticality Validation Suite for MCNP*, LA-UR-10-06230 (2010), and van der Marck, *Benchmarking ENDF/B-VII.0*, Nucl. Data Sheets 107 (2006) 3061. The maintainer checked the rows on 2026-10-13:
+  Godiva 1.0000 ± 0.0010, Jemima 1.0000 ± 0.0030, HEU-SOL-THERM-009 case 1
+  0.9990 ± 0.0043, LEU-COMP-THERM-008 case 1 1.0007 ± 0.0016.
+  `data/summary_keff.*` and the figure now measure "Δ vs benchmark" from
+  these (`scripts/make_figure.py`, regenerated 2026-10-14). **The "Δ vs k=1"
+  tables in this record are left as they were measured**: add 100 pcm for
+  HEU-SOL-THERM-009 and subtract 70 pcm for the lattice to read them against
+  the benchmark k.
 
 ### Routes
 
@@ -132,6 +178,13 @@ Data and decks:
 | setting | Godiva, Jemima, HST-009 | lattice LCT-008 |
 |---|---|---|
 | histories | 5000 × [40 + 120] | 10 000 × [250 + 400] |
+
+**Changed 2026-10-15 (maintainer direction):** `run_all.sh` and the driver now
+default the lattice to **10 000 × [40 + 120]**. Every lattice row recorded
+before that date, `lct008-full` included, is at 10 000 × [250 + 400]. 40
+inactive generations leave this core's fission source not fully converged:
+on the 11-nuclide tier at 5000 histories they read about +80 pcm high. Rows
+of the two sizes are not pooled; `make_figure.py` refuses them.
 | threads | 8 threads (first campaign) and 4 threads (later runs), one job at a time | 4 threads, one job at a time |
 
 - **Thread count does not change the answer.** Both codes' multi-thread results
@@ -218,7 +271,140 @@ fixed; it runs since then.
 | P8 | #460 (combed fission source): +0 to +5 pcm on the lattice, below what 96 seeds resolve | not measured paired; the unpaired route-3 move from f78b5180d5 (96 seeds each) is +5 ± 10, consistent with it and with zero |
 | P9 | at the audited code, every case × route within 2σ of route 1 | **held on 11 of 12 outram-mc cells**; the lattice on route 3 is −18 ± 8 (2.3σ) at 96 seeds a side |
 
-## Results — after the OpenMC-parity audit (2026-09-30, routes 3/4/5 at `0414bc8277`)
+## Results — full re-run, all four cases on all five routes (2026-10-15, current)
+
+**Protocol.**
+- **Code:** `run_all.sh` unmodified. HST-009 ran at `50911476b`. Godiva,
+  Jemima and LCT-008 ran at `093d8590c`, which adds only documentation.
+- **Run size:** 32 seeds per case and route, 36 threads.
+  - Godiva, Jemima and HST-009: 5,000 × [40 + 120].
+  - LCT-008: the full 35-nuclide model at 10,000 × [40 + 120], the
+    launcher's default since `be19eeb5a`.
+- **Libraries:** both ACE libraries were built fresh. NJOY2016 is 2016.79
+  `ac5adf5`. Routes 1 and 2 ran on OpenMC 0.16.1-dev25 `d7d3284a1`, rebuilt
+  on this host with its Python API on Python 3.12.
+- **Model change:** HST-009 carries U-236 (above).
+- **Host:** Intel Xeon W-2195, 36 logical cores, 62 GiB, Linux Mint 21.3,
+  CPU only.
+- **Data:** the 640 rows replace `data/per_seed_keff.csv`. The rows they
+  replace are archived in `data/per_seed_keff_pre_2026_10_15.csv`.
+- **Summary:** `summary_keff.{csv,md}` and the figure are regenerated from
+  them.
+  - `make_figure.py` now uses the 2026-10-05 288-seed Godiva route-4 file
+    only while its seeds 1–32 still equal the campaign's. They match 0 of
+    32 at this code, so the campaign's own 32 seeds are used.
+
+**Prediction, written before the run.** LCT-008 at [40 + 120] agrees with
+the 2026-10-14 [250 + 400] rows on the same model (8 seeds) within 2σ on
+every route. A consistent shift of +50 pcm or more would mean the source is
+not converged.
+
+| case | route 1 k | Δ vs benchmark [pcm] | route 2 | route 3 | route 4 | route 5 |
+|---|---|---|---|---|---|---|
+| Godiva | 1.00016 ± 0.00021 | +16 ± 21 | +0 ± 29 | −7 ± 36 | −47 ± 35 (−1.3σ) | −7 ± 36 |
+| Jemima | 0.99594 ± 0.00017 | −406 ± 17 | +0 ± 25 | +0 ± 31 | +15 ± 32 | +0 ± 31 |
+| HST-009 (with U-236) | 1.00124 ± 0.00029 | +224 ± 29 | +0 ± 41 | −48 ± 41 | −52 ± 36 (−1.5σ) | −48 ± 41 |
+| LCT-008 (35 nuclides) | 1.00161 ± 0.00013 | +91 ± 13 | −32 ± 21 (−1.6σ) | −9 ± 23 | −1 ± 25 | −25 ± 25 |
+
+The route columns are Δ vs route 1 in pcm. The full table, with every route's
+k and seed sd, is `data/summary_keff.md`.
+
+**What it says.**
+- **Every case and route is within 2σ of route 1.**
+- **Same data gives the same answer.** On Godiva, Jemima and HST-009,
+  route 1 = route 2 and route 3 = route 5 seed for seed (32 of 32): the Rust
+  NJOY port's tables give bit-identical transport on both codes.
+  - On LCT-008 they do not: 0 of 32 for routes 1 and 2, and 25 of 32 for
+    routes 3 and 5.
+  - Comparing the two libraries word by word, every text table is
+    numerically identical except the heating array, which transport does not
+    read. HinH2O is identical in all 128,622 words.
+  - **B-10 is the one table that differs, and only LCT-008 contains it.**
+    NJOY2016's Type-1 writer aborts on it, so that library holds a binary
+    Type-2 table. About 7,100 words differ, by at most 2.5e-7 relative, and
+    the first MTR word is 0 against 4.548838. ~~Not yet explained; handed to a
+    separate investigation and to be recorded on gh:#875.~~ **UPDATED
+    2026-10-15 (later):** at `a83067e06c` those differences are gone. What
+    is left is the Type-2/Type-1 container itself, and it is the whole
+    reason LCT-008's routes 1 and 2 differ. See "Reproduction at
+    `a83067e06c`, and why LCT-008 differs: B-10" below.
+  - Those differences change histories chaotically, so the k values differ
+    by noise only, not resolved.
+- **The runs reproduce exactly.** Jemima matches the 2026-09-30 records to
+  every digit on all five routes, and so do Godiva routes 1 and 2. The
+  OpenMC and NJOY2016 rebuilt on this host reproduce them.
+- **The prediction held.** LCT-008 at [40 + 120] against [250 + 400], per
+  route: −8 ± 26, −34 ± 29, +18 ± 27, +42 ± 28 and −1 ± 33 pcm. All are
+  within 2σ, with no common sign. Forty inactive generations at 10,000
+  neutrons show no unconverged source at this resolution.
+- **Route 3 on the lattice:** −9 ± 23 pcm. The 11-nuclide model's −18 ± 8
+  (2.3σ) is not seen. The model and the resolution both differ, so this is
+  not seen at ±23, not shown to be gone.
+
+### Reproduction at `a83067e06c`, and why LCT-008 differs: B-10 (2026-10-15, later)
+
+**The campaign was run again on a second host, at a later commit, and every
+number reproduced.**
+- **Run:** `run_all.sh` at its defaults at `a83067e06c`, with both libraries
+  rebuilt fresh. 640 runs, 0 failures.
+- **Host:** Intel Core i9-13900K (32 logical CPUs, 16 available), 14
+  threads, 62 GB, Linux 7.2.9, CPU only, not otherwise loaded. 17:33–18:37
+  local, libraries included.
+- **Rows:** `data/per_seed_keff_repro_a83067e06c_2026_10_15.csv`.
+
+**All 640 per-seed k equal the rows above to the printed digit**, on every
+case and route. So these results do not depend on host or thread count (36
+threads there, 14 here). The NJOY changes between `093d8590c` and
+`a83067e06c` (HEATR with the library, B-10 and the PURR tables bit for bit
+against NJOY2016's Type 2) move no k. The seed-for-seed pattern reproduces
+too: on LCT-008, routes 1 and 2 match 0 of 32 seeds and routes 3 and 5
+match 25 of 32.
+
+#### Why LCT-008's routes 1 and 2 differ: B-10, and only B-10
+
+**On Godiva, Jemima and HST-009, route 1 equals route 2 seed for seed. On
+LCT-008 it does not, and B-10 is the reason.** B-10 is the only nuclide
+whose two tables are not the same numbers, and LCT-008 is the only case that
+contains it.
+
+The cause is NJOY2016, not the port. **NJOY2016's Type-1 writer aborts on
+B-10** (§2 of the preparation findings: `acefc.f90:13942`, "Undefined law for
+dlwh block: 0"). So route 1's B-10 is the **binary Type 2** table, which
+carries NJOY's unrounded doubles. Every other route-1 table, and every
+route-2 table including the port's B-10, is **Type-1 text**: 12 significant
+figures, and a header temperature printed to 4.
+
+Measured at `a83067e06c`, the HDF5 files OpenMC reads were compared dataset by
+dataset (`h5_njoy` against `h5_rust`):
+
+| what | differs? |
+|---|---|
+| 37 of the 38 nuclides, and H in H₂O | identical in every dataset except heating (MT=301 and the URR heating row), which transport does not read. The port's library runs HEATR; the NJOY2016 deck does not |
+| **B-10** | **every array differs**, by at most **1.0e-13** relative (Type 2 unrounded against Type 1 text). **kT differs by 1.9e-5** relative (`2.5300E-08` MeV as printed by Type 1, against the unrounded double) |
+
+The ACE files themselves, compared word by word at 12 figures with heating
+excluded, agree in every word but one. That word is B-10's MTRP, where
+NJOY2016's Type 2 stores `801001.2` and Type 1 prints `801001` (photon
+production, not read in neutron transport).
+
+**Why a 1e-13 difference gives 0 of 32.** Neither difference is a physics
+difference worth anything at this resolution. But a history that collides
+with B-10 draws from slightly different numbers, its path diverges, and from
+then on the run is an independent sample. So LCT-008's route 1 and route 2
+are **two independent estimates of the same k**. **−32 ± 21 pcm (−1.6σ) is
+scatter, not a data defect.**
+
+**A hypothesis, not tested: why routes 3 and 5 still match 25 of 32.**
+outram-mc reads the ACE files directly rather than through HDF5, and it may
+take the temperature from the run rather than from the table header. If so,
+only the 1e-13 rounding remains, and it diverges a history far less often
+than the 1.9e-5 in kT. This is untested.
+
+**The check that would settle it (not done):** write the port's B-10 as
+Type 2 as well. Then route 2 should equal route 1 seed for seed on LCT-008,
+as on the other three cases.
+
+## Results — after the OpenMC-parity audit (2026-09-30, routes 3/4/5 at `0414bc8277`) — *superseded 2026-10-15, above*
 
 **These supersede the 2026-09-29 table below.** The audit (#407) compared
 outram-mc with OpenMC `d7d3284a1` routine by routine and fixed:
@@ -466,6 +652,137 @@ same
   because OpenMC ran the same 11 nuclides.
 - **Still not done:** a per-nuclide split. #533 did not require one.
 
+### HST-009: U-236 added to the model, worth −167 ± 38 pcm (2026-10-15, gh:#875)
+
+**Change.** HEU-SOL-THERM-009 case 1 now carries U-236 at the benchmark's
+8.8837e-6 /b·cm. It was the first of the model's stated approximations. The
+change covers `vv::hst009`, `examples/hst009_keff.rs`, this driver,
+`openmc_inputs/icsbep_openmc.py`, `nuclides.tsv` and the browser demo.
+- **Tape:** `n-092_U_236-ENDF8.0.endf` (MAT 9231) in `reference-data/endf/`.
+- **Table:** its NJOY2016 293.6 K ACE table in the `reference-data/ace`
+  submodule.
+
+**Prediction, written before the run.** U-236 absorbs mainly in its 5.45 eV
+resonance (resonance integral ≈ 350 b), and hydrogen does nearly all the
+slowing down (ξΣ_s ≈ 1.2 cm⁻¹).
+- The dilute estimate N·RI/ξΣ_s ≈ 2.6e-3 of slowing-down neutrons gives
+  **Δk ≈ −100 to −250 pcm, negative**.
+- The "tens of pcm" in the earlier comments was never measured.
+
+**Methodology.**
+- **Instrument:** an A/B on route 4 (outram-mc reading ENDF directly). Two
+  binaries were built from the same tree, `0a4505ed1` with and without the
+  change, so U-236 is the only difference.
+- **Run:** HST-009 at 5,000 × [40 + 120], seeds 1–32 on each arm, 36 threads,
+  Intel Xeon W-2195.
+- **Data:** `five_route_keff/data/per_seed_keff_hst009_u236_ab_2026_10_15.csv`.
+- **Check on the baseline:** the without arm should reproduce the
+  2026-10-14 32-seed route-4 run at `6e35113e2`.
+
+**Results.**
+
+| arm | n | k ± sem | seed sd [pcm] | Δ vs benchmark [pcm] |
+|---|---|---|---|---|
+| without U-236 | 32 | 1.002385 ± 0.000323 | 183 | +339 ± 32 |
+| with U-236 | 32 | 1.000717 ± 0.000208 | 118 | +172 ± 21 |
+
+- **Worth:** −167 ± 38 pcm unpaired (4.4σ); −167 ± 34 paired by seed
+  (correlation 0.24).
+- **Prediction met:** inside the predicted range, with the predicted sign.
+- **Baseline check passed:** the without arm reproduces 1.00238 at
+  `6e35113e2`, so the code changes since then do not affect this case.
+
+**What this leaves stale.**
+- **Every HST-009 row in `per_seed_keff.csv` and `summary_keff.*` is the
+  U-236-omitted model,** including route 1, the reference for the acceptance
+  check (#859) and the browser demo.
+- Route 4 with U-236 sits −162 pcm from that route 1, inside the 200 pcm
+  allowance but not by a wide margin. An acceptance run at small size can
+  fail on this model mismatch, not on a defect.
+- **Fix:** re-run HST-009 on all five routes with U-236. Routes 1 and 2 need
+  OpenMC 0.15 or later; this host has 0.14.1-dev. Until then the demo says
+  its recorded numbers were measured without U-236.
+
+## Lesson: 96 seeds diagnose, the parity audit fixes (maintainer judgement, 2026-10-15)
+
+**Maintainer's conclusion:** *"We spent 96 seeds trying to chase down a
+discrepancy by brute force. However, when doing differential testing, i.e.
+getting the physics correct, we could get within 2σ. Correct processes with
+human judgment beat brute-force tuning to correct answers by AI."*
+
+**Refined the same day:** ~~*"The 96 seeds were unnecessary."*~~ **96 seeds
+were a good diagnostic: they told us there was a problem. Without the
+OpenMC-parity audit, the underlying problems could not have been fixed.**
+- The gap was already visible at 32 seeds (3.8 to 4.9σ).
+- 96 seeds confirmed that route 3's remaining −18 ± 8 pcm (2.3σ) is a real
+  residual and not a 32-seed fluctuation.
+- They also gave the paired A/Bs enough resolution to measure fixes worth
+  tens of pcm.
+- Locating and fixing each defect took the differential audit against
+  upstream.
+
+**What happened (#407):**
+- **2026-09-29, first campaign:** outram-mc routes 3, 4 and 5 sat −50 to
+  −73 pcm below OpenMC on the lattice (3.8 to 4.9σ, 32 seeds).
+- **What moved the residual was physics.** Four fixes, each a paired A/B with
+  a prediction written first, changed it by tens of pcm:
+  - angular sampling as OpenMC (−13 ± 9);
+  - URR band per nuclide and energy (+32 ± 18);
+  - DBRC gate (+7 ± 18);
+  - S(α,β) sampling as OpenMC (+36 to +42).
+- **After the fixes, at 32 seeds:** route 3 was −36 ± 15 (2.5σ), and an
+  extension to 96 seeds on routes 1 and 3 to 5 was declared.
+- **At 96 seeds, after the OpenMC-parity audit:**
+  - route 3: −18 ± 8 (2.3σ);
+  - route 4: −8 ± 9;
+  - route 5: −3 ± 8.
+
+  The extra 64 seeds per route shrank the σ of the difference from route 1
+  from about 15 to 8 pcm. No route crossed 2σ either way: routes 4 and 5
+  were within 2σ at 32 seeds (+1.6σ and −1.5σ) and route 3 was outside
+  (2.5σ). The seeds explained nothing about route 3's residual. The 32 and
+  96-seed rows are also on different code (`f78b5180d5`, then
+  `0414bc8277`), so the shift between them is the audit's, not the seeds'.
+- **2026-10-14, 32 seeds:** routes 4 and 5, with H in H₂O from LEAPR, are
+  −23 ± 13 (−1.8σ) and −10 ± 11 (−0.9σ) against route 1. Both are within
+  2σ at a third of the seeds
+  (`five_route_keff/data/leapr_routes45_2026_10_14.md`).
+
+**What the extra seeds bought:**
+- More seeds narrow a confidence interval. That tells you whether a residual
+  is real. It cannot tell you where the defect is.
+- Each residual that closed was closed by finding a physics difference
+  against the reference implementation. Adding histories closed none.
+- Route 3 at 2.3σ is still open after 96 seeds. It is open for the same
+  reason it was at 32.
+
+**How to apply it here:**
+- When a code-to-code residual is resolved at 2 to 3σ, the next step is a
+  differential A/B against upstream, with its sign and size predicted first.
+  Extending the seed count is not that step.
+- Extend the seeds only when a decision depends on the narrower interval,
+  and say which decision.
+- 32 seeds per case and route stays the campaign size.
+
+**Sizing rule: choose the seed count before the run, from the effect size
+the run must resolve, and write the reason down.** On the lattice, one seed
+has a spread of about 60 pcm. An unpaired difference of two n-seed means
+has σ ≈ 60 × √(2/n) pcm.
+
+| use | what has to be resolved | seeds on the lattice |
+|---|---|---|
+| Regression or acceptance (#859) | a 200 pcm allowance, with 3σ inside it | σ ≤ 67 pcm. ~~so 1 to 4 seeds~~ **CORRECTED 2026-10-15:** 1 to 4 holds at the lattice's campaign size (about 60 pcm per seed), but the acceptance check runs 5,000 × [40 + 120], where one seed spreads by 150 to 190 pcm, so the floor is about 8 seeds per case (6 for Jemima). The check runs 16, 24, 16 and 16 (Godiva, Jemima, HST-009, LCT-008) |
+| Validation against the experiment | benchmark uncertainty of 300 to 430 pcm (Jemima ±300, HST-009 ±430) | a few. At 32 seeds the statistical σ is ±10 pcm, well under a tenth of the benchmark's |
+| Code-to-code verification (a route against route 1) | differences of about 30 to 50 pcm | 32: σ of the difference ≈ 15 pcm, so 2σ ≈ 30 pcm |
+| Diagnosing a residual under 30 pcm | about 15 to 20 pcm | 96 or more. The only use where 96 seeds earned their cost |
+
+96 seeds answered one diagnostic question: is a 20 pcm code-to-code residual
+real? For regression testing that is about 20 times the compute the
+allowance needs. For validation, the benchmark's own uncertainty dominates
+long before 96 seeds. The extension was declared before the run, as the
+protocol requires, but no effect size was stated for it. Under this rule,
+stating one is part of declaring the run.
+
 ## Results — FINAL (2026-09-29, routes 3/4/5 at `f78b5180d5`) — *superseded 2026-09-30, above*
 
 - **Routes 1 and 2** are unchanged from the interim campaign.
@@ -559,8 +876,11 @@ cross-check is running.
 
 ## What this cannot do
 
-- **Benchmark bands.** The handbook uncertainties are not available here;
-  Jemima, HST-009 and LCT-008 bands are stand-ins.
+- ~~**Benchmark bands.** The handbook uncertainties are not available here;
+  Jemima, HST-009 and LCT-008 bands are stand-ins.~~ **Corrected 2026-10-14:**
+  the bands are cited second-hand from open sources (see "Benchmark k"
+  above). They are the handbook's as of 2006 and 2010, not read from the
+  handbook itself.
 - **Data library.** Only ENDF/B-VIII.0 at 293.6 K is covered.
 - **LCT-008 nuclide list.** The lattice runs an 11-nuclide tier, not the full
   model `lct008_keff.rs` runs by default (35 nuclides in case 1). The dropped

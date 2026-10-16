@@ -608,8 +608,22 @@ pub fn score_fission_birth(
 ///
 /// # What it scores, and what it deliberately does not
 ///
-/// Only [`ScoreType::ScatterN`] and [`ScoreType::Events`] receive the event's
-/// weight. Every other score is left at zero, because they are meaningless on a
+/// The caller calls this once for **every neutron the collision emits**,
+/// saying which one with `emission`:
+///
+/// - [`ScoreType::ScatterN`] and [`ScoreType::Events`] receive the weight on
+///   every call, so `ScatterN` is the **nu**-scatter matrix (an (n,2n)
+///   scores twice, each neutron in its own outgoing group).
+/// - [`ScoreType::Scatter`] receives it only for
+///   [`ScatterEmission::Primary`], once per scattering collision, binned on
+///   the primary's outgoing energy (added 2026-10-13, gh:#682): the
+///   scatter-only matrix OpenMC's `scatter matrix` is, whose ratio to the
+///   nu-scatter matrix is the multiplicity. Its row sum estimates
+///   `Sigma_t - Sigma_a`; a collision whose evaluated yield is 0 (U-235's
+///   MT=5 below ~100 keV) kills the neutron before it is scored, so the row
+///   falls short of `Sigma_t - Sigma_a` by that channel.
+///
+/// Every other score Every other score is left at zero, because they are meaningless on a
 /// scattering event: there is no fission, no absorption and no track length
 /// here, and depositing `weight` into them would fabricate reaction rates that
 /// did not occur. In particular [`ScoreType::Flux`] is **not** scored — flux is
@@ -636,6 +650,9 @@ pub fn score_fission_birth(
 ///   S(alpha,beta) kernels produce it.
 /// - `position` — collision site, for spatial filters.
 /// - `weight` — particle statistical weight (1.0 for analog transport).
+/// - `emission` — whether this is the collision's primary neutron or an
+///   (n,xn) secondary.
+#[allow(clippy::too_many_arguments)]
 pub fn score_scatter_matrix(
     batch: &mut [f64],
     tally: &Tally,
@@ -646,6 +663,7 @@ pub fn score_scatter_matrix(
     energy_out: f64,
     position: Position,
     weight: f64,
+    emission: ScatterEmission,
 ) {
     if !energy_in.is_finite() || !energy_out.is_finite() || energy_out < 0.0 {
         return;
@@ -682,14 +700,26 @@ pub fn score_scatter_matrix(
     };
     let n_scores = tally.scores.len();
     for (s_idx, score) in tally.scores.iter().enumerate() {
-        let val = match score {
-            ScoreType::ScatterN | ScoreType::Events => weight,
+        let val = match (score, emission) {
+            (ScoreType::ScatterN | ScoreType::Events, _) => weight,
+            (ScoreType::Scatter, ScatterEmission::Primary) => weight,
             _ => 0.0,
         };
         if val != 0.0 && val.is_finite() {
             batch[bin * n_scores + s_idx] += val;
         }
     }
+}
+
+/// Which neutron of a scattering collision [`score_scatter_matrix`] is
+/// scoring: the one that continues (`Primary`, one per collision) or an extra
+/// neutron of an (n,2n), (n,3n), MT=5 or other (n,xn) reaction (`Secondary`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ScatterEmission {
+    /// The colliding neutron's own outgoing state: one per collision.
+    Primary,
+    /// An extra neutron emitted by the same collision.
+    Secondary,
 }
 
 /// Close a batch (generation): flush every per-batch accumulator into the tally's
@@ -840,6 +870,45 @@ mod tests {
             scores: vec![ScoreType::Flux],
             bins: vec![TallyBin::default(); n],
         }
+    }
+
+    /// An (n,2n) scores twice into the nu-scatter matrix (`ScatterN`, each
+    /// neutron in its own outgoing group) and once into the scatter-only
+    /// matrix (`Scatter`, on the primary's outgoing group), gh:#682. With
+    /// two groups split at 1 MeV: a 10 MeV collision whose primary leaves at
+    /// 2 MeV and whose secondary leaves at 0.5 MeV must put
+    /// `ScatterN (1->1) = 1`, `ScatterN (1->0) = 1`, `Scatter (1->1) = 1`,
+    /// `Scatter (1->0) = 0`. Without an `EnergyOutFilter` nothing is scored.
+    #[test]
+    fn scatter_matrix_scores_nu_scatter_per_neutron_and_scatter_per_collision() {
+        use crate::tally::filter::{EnergyFilter, EnergyOutFilter};
+        let edges = vec![1.0e-5, 1.0e6, 2.0e7];
+        let t = Tally {
+            id: 1,
+            name: "m".into(),
+            filters: vec![
+                FilterKind::Energy(EnergyFilter { bins: edges.clone() }),
+                FilterKind::EnergyOut(EnergyOutFilter { bins: edges }),
+            ],
+            scores: vec![ScoreType::ScatterN, ScoreType::Scatter],
+            bins: vec![TallyBin::default(); 2 * 2 * 2],
+        };
+        let mut batch = vec![0.0; t.bins.len()];
+        let r = Position::new(0.0, 0.0, 0.0);
+        score_scatter_matrix(&mut batch, &t, 0, 0, 0, 1.0e7, 2.0e6, r, 1.0, ScatterEmission::Primary);
+        score_scatter_matrix(&mut batch, &t, 0, 0, 0, 1.0e7, 5.0e5, r, 1.0, ScatterEmission::Secondary);
+        // bin = (g_in * 2 + g_out) * 2 + score
+        let at = |gi: usize, go: usize, s: usize| batch[(gi * 2 + go) * 2 + s];
+        assert_eq!((at(1, 1, 0), at(1, 0, 0)), (1.0, 1.0), "nu-scatter: both neutrons");
+        assert_eq!((at(1, 1, 1), at(1, 0, 1)), (1.0, 0.0), "scatter: the collision once");
+        let plain = Tally {
+            filters: vec![t.filters[0].clone()],
+            bins: vec![TallyBin::default(); 2 * 2],
+            ..t.clone()
+        };
+        let mut b2 = vec![0.0; plain.bins.len()];
+        score_scatter_matrix(&mut b2, &plain, 0, 0, 0, 1.0e7, 2.0e6, r, 1.0, ScatterEmission::Primary);
+        assert!(b2.iter().all(|v| *v == 0.0), "opt-in: no EnergyOutFilter, no score");
     }
 
     /// A collision in a filtered cell scores `1/Σ_t`; a collision in an

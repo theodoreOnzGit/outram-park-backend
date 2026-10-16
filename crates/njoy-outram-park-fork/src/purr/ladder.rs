@@ -8,7 +8,7 @@
 
 use crate::unresr::mf2::UnresolvedRange;
 use crate::unresr::wfun::{qp_node, qw_weight};
-use crate::unresr::{channel_radius_urr, penetrability_factor, range_sequences};
+use crate::unresr::{channel_radius_urr, penetrability_factor, range_sequences_purr};
 use crate::NjoyError;
 
 /// NJOY's pseudo-random number generator — a shuffled linear-congruential
@@ -418,7 +418,7 @@ pub fn infinite_dilution_reference(
         if e < range.el || e > range.eh {
             continue;
         }
-        for seq in range_sequences(range, e)? {
+        for seq in range_sequences_purr(range, e)? {
             let aa = channel_radius_urr(seq.awri, seq.naps, seq.nro, seq.ap, seq.ap_cont)?;
             let rat = seq.awri / (seq.awri + 1.0);
             let k = crate::reconr::slbw::WAVE_K * rat * e2;

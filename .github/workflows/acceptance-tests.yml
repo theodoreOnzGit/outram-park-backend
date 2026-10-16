@@ -25,10 +25,21 @@
 # run also uploads its record as an artifact and prints it in the job summary.
 #
 # WHEN IT RUNS. On a push to `develop` that touches the nuclear-data or
-# transport code, the cases' data, or this workflow: not on every push, since
-# one run is about an hour of runner time per operating system.
+# transport code, the cases' data, or this workflow: not on every push.
+# Every case runs 5000 x [40 + 120] per seed, the lattice included
+# (maintainer, 2026-10-13: acceptance is seeing it run on every platform,
+# not validation; the first runs at the lattice's campaign size took about
+# 40 min per desktop job and over an hour on the emulator).
 # `workflow_dispatch` works only once this file is on the default branch
 # (see `manual-tests.yml`).
+#
+# TWO TIERS (maintainer, 2026-10-14). On `develop` this is a SMOKE TEST: the
+# code builds and runs on every platform and gives a sane k, with the 200 pcm
+# code-to-code allowance as the bar (the lattice's measured +70 pcm at this
+# run size is inside it and is acceptable here). A merge to `main` is held to
+# more: a pull request into `main` runs this workflow with no path filter,
+# beside `full-tests.yml`, which runs the whole test suite there. The 50 pcm
+# criterion at full statistics is qualification testing, not CI.
 #
 # ANDROID IS AN EMULATOR, NOT A PHONE. The `android` job cross-compiles the
 # same driver for `x86_64-linux-android` with the runner's NDK and runs it
@@ -53,6 +64,8 @@ on:
       - "crates/outram-mc-libs/verification_and_validation/icsbep/**"
       - "crates/outram-blender/src/csg/**"
       - "reference-data/endf/**"
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 env:
@@ -152,7 +165,7 @@ jobs:
           cp target/x86_64-linux-android/release/examples/icsbep_five_route_keff stage/
           cp crates/outram-mc-libs/verification_and_validation/icsbep/five_route_keff/data/summary_keff.csv stage/
           # Only the tapes the four cases read.
-          for t in n-092_U_234-ENDF8.0.endf n-092_U_235-ENDF8.0.endf n-092_U_238.endf \
+          for t in n-092_U_234-ENDF8.0.endf n-092_U_235-ENDF8.0.endf n-092_U_236-ENDF8.0.endf n-092_U_238.endf \
                    n-009_F_019-ENDF8.0.endf n-008_O_016-ENDF8.0.endf n-001_H_001-ENDF8.0-Beta6.endf \
                    n-013_Al_027-ENDF8.0.endf n-014_Si_028-ENDF8.0.endf n-014_Si_029-ENDF8.0.endf \
                    n-014_Si_030-ENDF8.0.endf n-025_Mn_055-ENDF8.0.endf n-005_B_010-ENDF8.0.endf \

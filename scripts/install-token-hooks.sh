@@ -6,6 +6,11 @@
 # so the first accounted commit shows a sensible delta (not the whole
 # session-to-date). Run once per fresh clone. Idempotent.
 #
+# The same hooksPath also installs the submodule sync (.githooks/submodule-sync.sh,
+# 2026-10-15): after `git pull`, a rebase or a branch switch, every initialised
+# submodule is moved to the commit the superproject records. To get only that,
+# without the accounting: `git config core.hooksPath .githooks`.
+#
 #   ./scripts/install-token-hooks.sh
 #
 # NOTE (epic op-yz7b): accounting is now the `kovan` binary (crates/kovan-metrics),
@@ -39,6 +44,7 @@ if [ -z "${KOVAN_BIN:-}" ]; then
 fi
 
 "$KOVAN_BIN" tokens init
-echo "Installed: core.hooksPath -> .githooks (prepare-commit-msg + post-commit)."
+echo "Installed: core.hooksPath -> .githooks (prepare-commit-msg + post-commit, and the"
+echo "submodule sync on pull/checkout: post-merge, post-rewrite, post-checkout)."
 echo "Accounting binary: $KOVAN_BIN"
 echo "Every commit from now on will carry an API-Usage trailer and refresh docs/token-usage.md."

@@ -35,6 +35,14 @@ pub enum Rung {
     Groupr,
     /// Rung 9: ACER (recorded results only).
     Acer,
+    /// Build a continuous-energy ACE table from the reader's ENDF tape
+    /// (gh:#864).
+    AceMake,
+    /// Build a thermal S(α,β) ACE table from the reader's thermal tape or
+    /// LEAPR deck (gh:#865).
+    ThermalAceMake,
+    /// Compare two ACE files the reader supplies, block by block (gh:#863).
+    AceCompare,
 }
 
 /// One row of the rung table.
@@ -57,7 +65,7 @@ pub const GRAPHITE: &str = "tsl-crystalline-graphite.endf";
 /// ENDF/B-VIII.0 thermal scattering law, hydrogen in light water.
 pub const H_IN_H2O: &str = "tsl-HinH2O.endf";
 
-pub const RUNGS: [RungInfo; 7] = [
+pub const RUNGS: [RungInfo; 10] = [
     RungInfo {
         rung: Rung::Endf,
         name: "endf",
@@ -107,6 +115,29 @@ pub const RUNGS: [RungInfo; 7] = [
         lesson: "deep-dives/nuclear-data/acer.html",
         tapes: &[],
     },
+    // The three ACE tools (gh:#863-#865): every input is the reader's own
+    // file, so they ship no tapes, and they share ACER's lesson page.
+    RungInfo {
+        rung: Rung::AceMake,
+        name: "ace-generator",
+        title: "ACE generator: your ENDF tape to an ACE table",
+        lesson: "deep-dives/nuclear-data/acer.html",
+        tapes: &[],
+    },
+    RungInfo {
+        rung: Rung::ThermalAceMake,
+        name: "thermal-ace-generator",
+        title: "Thermal ACE generator: S(α,β) tape or LEAPR deck to an ACE table",
+        lesson: "deep-dives/nuclear-data/acer.html",
+        tapes: &[],
+    },
+    RungInfo {
+        rung: Rung::AceCompare,
+        name: "ace-comparator",
+        title: "ACE comparator: two ACE files, block by block",
+        lesson: "deep-dives/nuclear-data/acer.html",
+        tapes: &[],
+    },
 ];
 
 impl Rung {
@@ -117,7 +148,18 @@ impl Rung {
 
 impl dhoby_ghaut::web_demo::lesson::Rung for Rung {
     fn all() -> &'static [Self] {
-        &[Rung::Reconr, Rung::Endf, Rung::Broadr, Rung::Purr, Rung::Thermr, Rung::Groupr, Rung::Acer]
+        &[
+            Rung::Reconr,
+            Rung::Endf,
+            Rung::Broadr,
+            Rung::Purr,
+            Rung::Thermr,
+            Rung::Groupr,
+            Rung::Acer,
+            Rung::AceMake,
+            Rung::ThermalAceMake,
+            Rung::AceCompare,
+        ]
     }
     fn name(self) -> &'static str {
         self.info().name

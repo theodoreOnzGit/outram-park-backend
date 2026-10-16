@@ -260,7 +260,7 @@ pub mod reflector;
 pub mod reflector_geometry;
 pub mod core_model;
 pub mod core_design;
-mod core_shell;
+pub(crate) mod core_shell;
 pub mod explicit_bed;
 pub mod control_rod;
 pub mod data;

@@ -1290,70 +1290,16 @@ pub fn assemble_explicit_triso_with(
         }
     }
     keys_used.sort_unstable();
-    let mut key_universe: std::collections::BTreeMap<(u32, u32), usize> =
-        std::collections::BTreeMap::new();
-    assert!(
-        keys_used.len() < TILE_VARIANTS_MAX,
-        "tile cell ids hold at most {TILE_VARIANTS_MAX} variants, {} needed",
-        keys_used.len()
+    // The tile universes: `build_tile_universes` (extracted 2026-10-13,
+    // gh:#849, so `htr10_mgxs::cells` builds the same pebbles; moved verbatim).
+    let key_universe = build_tile_universes(
+        &keys_used,
+        &site_centres,
+        &site_surfaces,
+        1,
+        &mut cells,
+        &mut universes,
     );
-    for (v, &(m, p)) in keys_used.iter().enumerate() {
-        let u = universes.len();
-        let base = TILE_SITE_STRIDE * v as i32;
-        let mut idx = Vec::new();
-        let mut helium_region: Option<Rgn> = None;
-        for (i, &[x, y, z]) in site_centres.iter().enumerate() {
-            if p & (1 << i) == 0 {
-                continue; // rejected: no ball here, its space is helium
-            }
-            let (fz, pb) = site_surfaces[i];
-            let id = base + i as i32;
-            if m & (1 << i) != 0 {
-                // Fuel zone: the TRISO lattice, translated to the ball centre.
-                idx.push(cells.len());
-                cells.push(Cell::fill(
-                    TILE_FUEL_ZONE_CELL_ID + id,
-                    vec![ins(fz)],
-                    CellFill::Lattice(1),
-                    Position::new(x, y, z),
-                ));
-                idx.push(cells.len());
-                cells.push(shell(fz, pb, mat::GRAPHITE, TILE_FUEL_SHELL_CELL_ID + id));
-            } else {
-                idx.push(cells.len());
-                cells.push(Cell::material(
-                    TILE_DUMMY_BALL_CELL_ID + id,
-                    vec![ins(pb)],
-                    mat::GRAPHITE,
-                    293.6,
-                ));
-            }
-            helium_region = Some(match helium_region {
-                None => Rgn::out(pb),
-                Some(r) => r.and(Rgn::out(pb)),
-            });
-        }
-        match helium_region {
-            Some(r) => {
-                idx.push(cells.len());
-                cells.push(Cell::material(TILE_HELIUM_CELL_ID + base, r.0, mat::HELIUM, 293.6));
-            }
-            None => {
-                // Every ball of the tile rejected: all helium. Two cells,
-                // because an empty region is FALSE (see the TRISO matrix).
-                let (_, pb) = site_surfaces[0];
-                for r in [Rgn::ins(pb), Rgn::out(pb)] {
-                    idx.push(cells.len());
-                    cells.push(Cell::material(TILE_HELIUM_CELL_ID + base, r.0, mat::HELIUM, 293.6));
-                }
-            }
-        }
-        key_universe.insert((m, p), u);
-        universes.push(Universe {
-            id: u as i32,
-            cell_indices: idx,
-        });
-    }
     let outer_universe = key_universe[&outer_key];
 
     // Placeholder levels in `from_rings_3d`'s ring layout (it validates the ring
@@ -1395,6 +1341,95 @@ pub fn assemble_explicit_triso_with(
     // THE REFLECTOR, explicit: see `CoreShell::add_reflector`.
     sh.add_reflector();
     sh.finish(bed_lattice, tiles, lat_pitch, lat_height, bed)
+}
+
+/// One universe per `(fuel mask, presence mask)` in `keys_used` (sorted): bit
+/// `i` = ball site `i` fuelled / present. Site `i` is centred at
+/// `site_centres[i]` (tile-local \[cm\]) with its fuel-zone and pebble
+/// spheres at `site_surfaces[i]`; a fuelled ball's fuel zone is filled with
+/// lattice `triso_lattice`, translated to the ball centre. A rejected
+/// (absent) ball's space is helium. Returns the universe index of each key.
+///
+/// **Extracted 2026-10-13 (gh:#849), not rewritten**, out of
+/// [`assemble_explicit_triso_with`], so the cells of
+/// [`crate::htr10_mgxs::cells`] build exactly the core's pebbles; the core
+/// passes `triso_lattice = 1` and builds the geometry it always did.
+///
+/// # Panics
+/// If `keys_used` needs more than [`TILE_VARIANTS_MAX`] variants.
+pub(crate) fn build_tile_universes(
+    keys_used: &[(u32, u32)],
+    site_centres: &[[f64; 3]],
+    site_surfaces: &[(usize, usize)],
+    triso_lattice: usize,
+    cells: &mut Vec<Cell>,
+    universes: &mut Vec<Universe>,
+) -> std::collections::BTreeMap<(u32, u32), usize> {
+    let mut key_universe: std::collections::BTreeMap<(u32, u32), usize> =
+        std::collections::BTreeMap::new();
+    assert!(
+        keys_used.len() < TILE_VARIANTS_MAX,
+        "tile cell ids hold at most {TILE_VARIANTS_MAX} variants, {} needed",
+        keys_used.len()
+    );
+    for (v, &(m, p)) in keys_used.iter().enumerate() {
+        let u = universes.len();
+        let base = TILE_SITE_STRIDE * v as i32;
+        let mut idx = Vec::new();
+        let mut helium_region: Option<Rgn> = None;
+        for (i, &[x, y, z]) in site_centres.iter().enumerate() {
+            if p & (1 << i) == 0 {
+                continue; // rejected: no ball here, its space is helium
+            }
+            let (fz, pb) = site_surfaces[i];
+            let id = base + i as i32;
+            if m & (1 << i) != 0 {
+                // Fuel zone: the TRISO lattice, translated to the ball centre.
+                idx.push(cells.len());
+                cells.push(Cell::fill(
+                    TILE_FUEL_ZONE_CELL_ID + id,
+                    vec![ins(fz)],
+                    CellFill::Lattice(triso_lattice),
+                    Position::new(x, y, z),
+                ));
+                idx.push(cells.len());
+                cells.push(shell(fz, pb, mat::GRAPHITE, TILE_FUEL_SHELL_CELL_ID + id));
+            } else {
+                idx.push(cells.len());
+                cells.push(Cell::material(
+                    TILE_DUMMY_BALL_CELL_ID + id,
+                    vec![ins(pb)],
+                    mat::GRAPHITE,
+                    293.6,
+                ));
+            }
+            helium_region = Some(match helium_region {
+                None => Rgn::out(pb),
+                Some(r) => r.and(Rgn::out(pb)),
+            });
+        }
+        match helium_region {
+            Some(r) => {
+                idx.push(cells.len());
+                cells.push(Cell::material(TILE_HELIUM_CELL_ID + base, r.0, mat::HELIUM, 293.6));
+            }
+            None => {
+                // Every ball of the tile rejected: all helium. Two cells,
+                // because an empty region is FALSE (see the TRISO matrix).
+                let (_, pb) = site_surfaces[0];
+                for r in [Rgn::ins(pb), Rgn::out(pb)] {
+                    idx.push(cells.len());
+                    cells.push(Cell::material(TILE_HELIUM_CELL_ID + base, r.0, mat::HELIUM, 293.6));
+                }
+            }
+        }
+        key_universe.insert((m, p), u);
+        universes.push(Universe {
+            id: u as i32,
+            cell_indices: idx,
+        });
+    }
+    key_universe
 }
 
 /// Universe index of one TRISO particle (kernel, four coatings, matrix

@@ -224,12 +224,20 @@ impl CaseRecord {
         );
         let _ = writeln!(
             m,
-            "- **Not done here:** no multigroup `k_eff` (needs #848 and #682), no σ on collapsed constants (the replica case measures spread), P0 scattering only, no delayed-neutron data.\n"
+            "- **Not done here:** no multigroup `k_eff` (the #850 gate runs it, through `MgxsLibrary::to_physics_mg`), no σ on collapsed constants (the replica case measures spread), P0 scattering only, no delayed-neutron data.\n"
         );
         let _ = writeln!(m, "## Results\n");
+        // Whether the model leaks is read off the run, not assumed from the
+        // case: the full core has vacuum boundaries, a cell is reflective.
+        let leaked: u64 = self.passes.iter().map(|p| p.leak_vacuum).sum();
+        let leakage = if leaked == 0 {
+            "No history leaked: the model is reflective, so `k_eff` is this model's `k_inf`"
+        } else {
+            "Histories leaked through vacuum boundaries: this is `k_eff` WITH leakage"
+        };
         let _ = writeln!(
             m,
-            "**`k_eff` = {k:.6} ± {s:.6}** (scalar pass, within-run 1σ, one seed). This is the full core WITH leakage.\n"
+            "**`k_eff` = {k:.6} ± {s:.6}** (scalar pass, within-run 1σ, one seed). {leakage}.\n"
         );
         let _ = writeln!(m, "| pass | k | σ | histories | lost | vacuum leaks | entropy first → last \\[bits\\] | transport \\[s\\] |");
         let _ = writeln!(m, "|---|---|---|---|---|---|---|---|");
@@ -255,7 +263,7 @@ impl CaseRecord {
         }
         let _ = writeln!(
             m,
-            "\n`k_inf` is production over absorption summed over every zone, with no leakage, so it sits above `k_eff` by the core's leakage. It must be identical on every structure (collapse is exact). The balance residual is `|Sigma_a + Sigma_s,row - Sigma_t| / Sigma_t`; the collision-weighted one is the number to quote, the worst bin is whichever (zone, group) saw fewest collisions. A weighted residual well above statistics is the ν-scatter excess of #682 or a condensation defect.\n"
+            "\n`k_inf` is production over absorption summed over every zone, with no leakage, so it sits above `k_eff` by the model's leakage (none in a reflective cell, where the two agree within statistics). It must be identical on every structure (collapse is exact). The balance residual is `|Sigma_a + Sigma_s,row - Sigma_t| / Sigma_t`; the collision-weighted one is the number to quote, the worst bin is whichever (zone, group) saw fewest collisions. A weighted residual well above statistics is the ν-scatter excess of #682 or a condensation defect.\n"
         );
         let _ = writeln!(m, "### Checks\n");
         let _ = writeln!(m, "| check | result | detail |");
@@ -419,6 +427,8 @@ mod tests {
                     kappa_fission: vec![0.0],
                     scatter: vec![vec![0.9]],
                     chi: vec![1.0],
+                    sigma: None,
+                    scatter_only: Vec::new(),
                 }],
             },
             collapsed: vec![CollapsedSummary {

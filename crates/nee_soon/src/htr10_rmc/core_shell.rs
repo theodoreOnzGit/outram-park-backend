@@ -43,7 +43,7 @@ use super::reflector_geometry::{
 };
 
 /// Inside half-space of surface `i`.
-pub(super) fn ins(i: usize) -> RegionToken {
+pub(crate) fn ins(i: usize) -> RegionToken {
     RegionToken::HalfSpace {
         surface_idx: i,
         sense: HalfSpaceSense::Inside,
@@ -51,7 +51,7 @@ pub(super) fn ins(i: usize) -> RegionToken {
 }
 
 /// Outside half-space of surface `i`.
-pub(super) fn out(i: usize) -> RegionToken {
+pub(crate) fn out(i: usize) -> RegionToken {
     RegionToken::HalfSpace {
         surface_idx: i,
         sense: HalfSpaceSense::Outside,
@@ -59,7 +59,7 @@ pub(super) fn out(i: usize) -> RegionToken {
 }
 
 /// A material shell between two surfaces: outside `inner`, inside `outer`.
-pub(super) fn shell(inner: usize, outer: usize, m: usize, id: i32) -> Cell {
+pub(crate) fn shell(inner: usize, outer: usize, m: usize, id: i32) -> Cell {
     Cell::material(
         id,
         vec![out(inner), ins(outer), RegionToken::Intersection],
@@ -201,78 +201,14 @@ impl CoreShell {
             has_refl,
             explicit_tube,
         } = *frame;
-        // Adjudicated radii (op-867c.12): TECDOC-1382, 90 um buffer -- the
-        // default design's `core_design::TRISO_RADII_CM` (gh:#566).
-        let tr = design.triso_radii_cm;
-        let r_part = tr[4];
-        // ONE offset, used both to COUNT the particles and to BUILD the lattice
-        // (gh:#316). Until 2026-09-25 the count used [0.5, 0.5, 0.0] -- 8340
-        // particles -- while the RectLattice below was built with (i + 0.5) centres
-        // on ALL three axes (26 cells each), which holds only 8240. Every fuel
-        // pebble carried 1.2 % less heavy metal than reported; sampling the built
-        // core measured 0.9875 +/- 0.0014 of the paper-implied kernel fraction,
-        // against 8240/8340 = 0.9880.
-        //
-        // ~~`[0.5, 0.5, 0.0]`, 8340 particles (+0.06 %)~~ **CHANGED 2026-10-01
-        // (gh:#430):** a generic offset reaches the stated 8335 exactly. Şeker &
-        // Çolak (2003) p.266 build the same whole-particle cubic lattice and state
-        // that the count *"is verified to be 8335"*. The symmetric offsets tried
-        // before can only move the count in symmetry shells; this one breaks the
-        // symmetry, and the pitch search finds 8335 at 0.1951235 cm. That is the
-        // source's specification realised, not a comparison tuned: 8335 is an
-        // INPUT (Li Table 2, Şeker p.266), and the `assert_eq!` below checks the
-        // built lattice holds exactly the counted number.
-        const TRISO_OFFSET: [f64; 3] = [0.13, 0.37, 0.71];
-        let (pitch_triso, n_particles) =
-            cubic_pitch_for_count(r_part, r_fuel_zone, design.particles_per_pebble, TRISO_OFFSET);
-        // A cubic lattice spanning the fuel zone; tiles outside it fall through to
-        // `outer` = matrix graphite, which is exactly the "not occupied is filled
-        // with graphite" the paper specifies.
-        // The lattice spans the fuel-zone DIAMETER, but its tiles are assigned
-        // per-tile: a particle universe where the tile centre lies within the
-        // whole-particle radius, matrix graphite elsewhere. That is how a cube
-        // lattice expresses a sphere-clipped array -- the same technique the bed
-        // uses for its 57:43 split.
-        //
-        // Two earlier attempts were wrong and are recorded because each failed
-        // differently. Sizing the lattice to the zone DIAMETER leaves its corner
-        // tiles poking outside the sphere (26 tiles x 0.194963 = 5.069 cm against
-        // 5.0 cm), which produced a stuck crossing loop -- 90 s for 400 histories.
-        // Inscribing it instead (half = r/sqrt(3)) removed the loop but cut the
-        // fuel from 8340 particles to 2744, making the model too dilute to multiply.
-        // CEIL, not floor. The lattice must COVER the fuel-zone sphere it fills:
-        // with `floor` the lattice half-width is 2.4370 cm inside a 2.5 cm sphere,
-        // so the shell between them lies inside the cell but OUTSIDE the lattice.
-        // `Lattice::distance` then reports a tile boundary BEHIND the particle -- a
-        // negative distance-to-boundary, measured at 3.3e8 occurrences (worst
-        // -2.8e4 cm), which steps the neutron backwards until it oscillates and the
-        // event budget kills it. That single sign error was ending 83 % of all
-        // histories. The extra ring of tiles simply carries the matrix universe.
-        //
-        // Per axis, the cells whose centres sit at `(k + offset) * pitch` and
-        // together COVER [-r_fuel_zone, r_fuel_zone]: an offset of 0.5 gives an
-        // even count centred on a cell face (26 here), 0.0 an odd count centred on
-        // a cell (27 here). The covering rule is the CEIL rule above, per axis.
-        let triso_axis = |off: f64| -> (usize, f64) {
-            let k_lo = (-r_fuel_zone / pitch_triso - off + 0.5).floor();
-            let k_hi = (r_fuel_zone / pitch_triso - off - 0.5).ceil();
-            ((k_hi - k_lo) as usize + 1, (k_lo + off - 0.5) * pitch_triso)
-        };
-        let triso_axes = TRISO_OFFSET.map(triso_axis);
+        // The TRISO particle and its lattice: `TrisoBuild` (extracted
+        // 2026-10-13, gh:#849, so the cells of `htr10_mgxs::cells` build the
+        // same particle and lattice; moved verbatim, geometry unchanged).
+        let triso = TrisoBuild::new(design);
+        let n_particles = triso.n_particles;
 
         // Surfaces 0..4 are the TRISO shells, in PARTICLE-local coordinates.
-        let mut surfaces: Vec<SurfaceKind> = tr
-            .iter()
-            .map(|&r| {
-                SurfaceKind::Sphere(Sphere {
-                    x0: 0.0,
-                    y0: 0.0,
-                    z0: 0.0,
-                    r,
-                    bc: BoundaryType::Transmissive,
-                })
-            })
-            .collect();
+        let mut surfaces: Vec<SurfaceKind> = triso.shells();
         // 5: fuel zone, 6: pebble -- in TILE-local coordinates, of the ABottom
         // ball site (0, 0, -height/2). The other four sites' pairs are appended
         // after surface 21 (`site_surfaces` below), so that 7..21 keep the indices
@@ -528,77 +464,19 @@ impl CoreShell {
         }
         let n_root_fixed = cells.len();
         let triso_first = cells.len();
-        cells.extend([
-            // 7..12: the TRISO particle's shells, then matrix beyond it
-            // (universe TRISO_PARTICLE_UNIVERSE)
-            Cell::material(8, vec![ins(0)], mat::KERNEL, 293.6),
-            shell(0, 1, mat::BUFFER, 9),
-            shell(1, 2, mat::IPYC, 10),
-            shell(2, 3, mat::SIC, 11),
-            shell(3, 4, mat::OPYC, 12),
-            Cell::material(13, vec![out(4)], mat::GRAPHITE, 293.6),
-            // 13, 14: pure matrix, the TRISO lattice's `outer` universe
-            // (TRISO_MATRIX_UNIVERSE).
-            //
-            // TWO cells, because a cell region cannot be "everything": an empty
-            // token stream evaluates to FALSE, not true. A single `out(4)` cell
-            // leaves an undefined 0.0455 cm hole at the centre of every
-            // non-particle tile, where `locate` finds no cell and the history is
-            // lost. Splitting it into inside/outside the same surface covers the
-            // tile completely with one material.
-            Cell::material(14, vec![out(4)], mat::GRAPHITE, 293.6),
-            Cell::material(15, vec![ins(4)], mat::GRAPHITE, 293.6),
-        ]);
+        cells.extend(TrisoBuild::cells(0));
+        let [particle_universe, matrix_universe] =
+            TrisoBuild::universes(triso_first, TRISO_PARTICLE_UNIVERSE, TRISO_MATRIX_UNIVERSE);
         let universes = vec![
             Universe {
                 id: 0,
                 cell_indices: (0..n_root_fixed).collect(),
             },
-            Universe {
-                id: TRISO_PARTICLE_UNIVERSE as i32,
-                cell_indices: (triso_first..triso_first + 6).collect(),
-            },
-            Universe {
-                id: TRISO_MATRIX_UNIVERSE as i32,
-                cell_indices: vec![triso_first + 6, triso_first + 7],
-            },
+            particle_universe,
+            matrix_universe,
         ];
 
-        let (tp, tm) = (TRISO_PARTICLE_UNIVERSE, TRISO_MATRIX_UNIVERSE);
-        let triso_lattice = RectLattice {
-            id: 1,
-            n: triso_axes.map(|(n, _)| n),
-            lower_left: Position::new(triso_axes[0].1, triso_axes[1].1, triso_axes[2].1),
-            pitch: [pitch_triso; 3],
-            universes: {
-                // Whole-particle rejection, the benchmark's own rule, applied per
-                // tile: keep a particle only where it lies wholly inside the zone.
-                let r_keep = r_fuel_zone - r_part;
-                let [(nx, x0), (ny, y0), (nz, z0)] = triso_axes;
-                let c = |lo: f64, n: usize| lo + (n as f64 + 0.5) * pitch_triso;
-                let mut v = Vec::with_capacity(nx * ny * nz);
-                for k in 0..nz {
-                    for j in 0..ny {
-                        for i in 0..nx {
-                            let (x, y, z) = (c(x0, i), c(y0, j), c(z0, k));
-                            v.push(if x * x + y * y + z * z <= r_keep * r_keep {
-                                tp
-                            } else {
-                                tm
-                            });
-                        }
-                    }
-                }
-                // The built count MUST be the counted one -- the whole of #316.
-                let built = v.iter().filter(|&&u| u == tp).count();
-                assert_eq!(
-                    built, n_particles,
-                    "TRISO lattice holds {built} particles but {n_particles} were counted"
-                );
-                v
-            },
-            outer: Some(tm),
-        };
+        let triso_lattice = triso.lattice(1, TRISO_PARTICLE_UNIVERSE, TRISO_MATRIX_UNIVERSE);
 
         Self {
             surfaces,
@@ -717,6 +595,209 @@ impl CoreShell {
             bed: Some(bed),
             triso_particles: Some(triso_particles),
             rod_lower_end_zt_cm: (has_refl && withdrawn_rods).then_some(rod_lower_end_zt_cm),
+        }
+    }
+}
+
+/// The TRISO particle and the cubic lattice that fills a 2.5 cm fuel zone
+/// with it: the five shell spheres, the eight cells, and the `RectLattice`
+/// with the whole-particle rejection applied per tile.
+///
+/// **Extracted 2026-10-13 (gh:#849), not rewritten.** The code and its
+/// comments moved verbatim out of [`CoreShell::new`] so the cells of
+/// [`crate::htr10_mgxs::cells`] build exactly the core's particle and
+/// lattice. The core's geometry is unchanged: the full-core `Debug`
+/// fingerprint was compared before and after (recorded in the commit).
+pub(crate) struct TrisoBuild {
+    /// Whole particles the lattice holds.
+    pub(crate) n_particles: usize,
+    /// TRISO layer outer radii \[cm\]: kernel, buffer, IPyC, SiC, OPyC.
+    radii: [f64; 5],
+    pitch_triso: f64,
+    triso_axes: [(usize, f64); 3],
+    r_fuel_zone: f64,
+    r_part: f64,
+}
+
+impl TrisoBuild {
+    /// Count and lay out the particles of one fuel zone of `design`.
+    pub(crate) fn new(design: &Htr10CoreDesign) -> Self {
+        let r_fuel_zone = design.fuel_zone_radius_cm;
+        // Adjudicated radii (op-867c.12): TECDOC-1382, 90 um buffer -- the
+        // default design's `core_design::TRISO_RADII_CM` (gh:#566).
+        let tr = design.triso_radii_cm;
+        let r_part = tr[4];
+        // ONE offset, used both to COUNT the particles and to BUILD the lattice
+        // (gh:#316). Until 2026-09-25 the count used [0.5, 0.5, 0.0] -- 8340
+        // particles -- while the RectLattice below was built with (i + 0.5) centres
+        // on ALL three axes (26 cells each), which holds only 8240. Every fuel
+        // pebble carried 1.2 % less heavy metal than reported; sampling the built
+        // core measured 0.9875 +/- 0.0014 of the paper-implied kernel fraction,
+        // against 8240/8340 = 0.9880.
+        //
+        // ~~`[0.5, 0.5, 0.0]`, 8340 particles (+0.06 %)~~ **CHANGED 2026-10-01
+        // (gh:#430):** a generic offset reaches the stated 8335 exactly. Şeker &
+        // Çolak (2003) p.266 build the same whole-particle cubic lattice and state
+        // that the count *"is verified to be 8335"*. The symmetric offsets tried
+        // before can only move the count in symmetry shells; this one breaks the
+        // symmetry, and the pitch search finds 8335 at 0.1951235 cm. That is the
+        // source's specification realised, not a comparison tuned: 8335 is an
+        // INPUT (Li Table 2, Şeker p.266), and the `assert_eq!` below checks the
+        // built lattice holds exactly the counted number.
+        const TRISO_OFFSET: [f64; 3] = [0.13, 0.37, 0.71];
+        let (pitch_triso, n_particles) =
+            cubic_pitch_for_count(r_part, r_fuel_zone, design.particles_per_pebble, TRISO_OFFSET);
+        // A cubic lattice spanning the fuel zone; tiles outside it fall through to
+        // `outer` = matrix graphite, which is exactly the "not occupied is filled
+        // with graphite" the paper specifies.
+        // The lattice spans the fuel-zone DIAMETER, but its tiles are assigned
+        // per-tile: a particle universe where the tile centre lies within the
+        // whole-particle radius, matrix graphite elsewhere. That is how a cube
+        // lattice expresses a sphere-clipped array -- the same technique the bed
+        // uses for its 57:43 split.
+        //
+        // Two earlier attempts were wrong and are recorded because each failed
+        // differently. Sizing the lattice to the zone DIAMETER leaves its corner
+        // tiles poking outside the sphere (26 tiles x 0.194963 = 5.069 cm against
+        // 5.0 cm), which produced a stuck crossing loop -- 90 s for 400 histories.
+        // Inscribing it instead (half = r/sqrt(3)) removed the loop but cut the
+        // fuel from 8340 particles to 2744, making the model too dilute to multiply.
+        // CEIL, not floor. The lattice must COVER the fuel-zone sphere it fills:
+        // with `floor` the lattice half-width is 2.4370 cm inside a 2.5 cm sphere,
+        // so the shell between them lies inside the cell but OUTSIDE the lattice.
+        // `Lattice::distance` then reports a tile boundary BEHIND the particle -- a
+        // negative distance-to-boundary, measured at 3.3e8 occurrences (worst
+        // -2.8e4 cm), which steps the neutron backwards until it oscillates and the
+        // event budget kills it. That single sign error was ending 83 % of all
+        // histories. The extra ring of tiles simply carries the matrix universe.
+        //
+        // Per axis, the cells whose centres sit at `(k + offset) * pitch` and
+        // together COVER [-r_fuel_zone, r_fuel_zone]: an offset of 0.5 gives an
+        // even count centred on a cell face (26 here), 0.0 an odd count centred on
+        // a cell (27 here). The covering rule is the CEIL rule above, per axis.
+        let triso_axis = |off: f64| -> (usize, f64) {
+            let k_lo = (-r_fuel_zone / pitch_triso - off + 0.5).floor();
+            let k_hi = (r_fuel_zone / pitch_triso - off - 0.5).ceil();
+            ((k_hi - k_lo) as usize + 1, (k_lo + off - 0.5) * pitch_triso)
+        };
+        let triso_axes = TRISO_OFFSET.map(triso_axis);
+        Self {
+            n_particles,
+            radii: tr,
+            pitch_triso,
+            triso_axes,
+            r_fuel_zone,
+            r_part,
+        }
+    }
+
+    /// The five TRISO shell spheres, in PARTICLE-local coordinates (the
+    /// core's surfaces 0..4).
+    pub(crate) fn shells(&self) -> Vec<SurfaceKind> {
+        self.radii
+            .iter()
+            .map(|&r| {
+                SurfaceKind::Sphere(Sphere {
+                    x0: 0.0,
+                    y0: 0.0,
+                    z0: 0.0,
+                    r,
+                    bc: BoundaryType::Transmissive,
+                })
+            })
+            .collect()
+    }
+
+    /// The eight TRISO cells, with the shells at surfaces `s0..s0 + 5`: six
+    /// for the particle universe (kernel, four coatings, matrix beyond), then
+    /// two for the matrix universe. The core passes `s0 = 0`.
+    pub(crate) fn cells(s0: usize) -> Vec<Cell> {
+        vec![
+            // 7..12: the TRISO particle's shells, then matrix beyond it
+            // (universe TRISO_PARTICLE_UNIVERSE)
+            Cell::material(8, vec![ins(s0)], mat::KERNEL, 293.6),
+            shell(s0, s0 + 1, mat::BUFFER, 9),
+            shell(s0 + 1, s0 + 2, mat::IPYC, 10),
+            shell(s0 + 2, s0 + 3, mat::SIC, 11),
+            shell(s0 + 3, s0 + 4, mat::OPYC, 12),
+            Cell::material(13, vec![out(s0 + 4)], mat::GRAPHITE, 293.6),
+            // 13, 14: pure matrix, the TRISO lattice's `outer` universe
+            // (TRISO_MATRIX_UNIVERSE).
+            //
+            // TWO cells, because a cell region cannot be "everything": an empty
+            // token stream evaluates to FALSE, not true. A single `out(4)` cell
+            // leaves an undefined 0.0455 cm hole at the centre of every
+            // non-particle tile, where `locate` finds no cell and the history is
+            // lost. Splitting it into inside/outside the same surface covers the
+            // tile completely with one material.
+            Cell::material(14, vec![out(s0 + 4)], mat::GRAPHITE, 293.6),
+            Cell::material(15, vec![ins(s0 + 4)], mat::GRAPHITE, 293.6),
+        ]
+    }
+
+    /// The particle and matrix universes over cells
+    /// `triso_first..triso_first + 8` (as laid out by [`Self::cells`]), with
+    /// ids `particle_u` and `matrix_u`.
+    pub(crate) fn universes(triso_first: usize, particle_u: usize, matrix_u: usize) -> [Universe; 2] {
+        [
+            Universe {
+                id: particle_u as i32,
+                cell_indices: (triso_first..triso_first + 6).collect(),
+            },
+            Universe {
+                id: matrix_u as i32,
+                cell_indices: vec![triso_first + 6, triso_first + 7],
+            },
+        ]
+    }
+
+    /// The lattice with id `id` placing universe `tp` (the particle) where a
+    /// whole particle fits and `tm` (matrix) elsewhere and outside.
+    ///
+    /// # Panics
+    /// If the built count differs from the counted one (gh:#316).
+    pub(crate) fn lattice(&self, id: i32, tp: usize, tm: usize) -> RectLattice {
+        let Self {
+            n_particles,
+            pitch_triso,
+            triso_axes,
+            r_fuel_zone,
+            r_part,
+            ..
+        } = *self;
+        RectLattice {
+            id,
+            n: triso_axes.map(|(n, _)| n),
+            lower_left: Position::new(triso_axes[0].1, triso_axes[1].1, triso_axes[2].1),
+            pitch: [pitch_triso; 3],
+            universes: {
+                // Whole-particle rejection, the benchmark's own rule, applied per
+                // tile: keep a particle only where it lies wholly inside the zone.
+                let r_keep = r_fuel_zone - r_part;
+                let [(nx, x0), (ny, y0), (nz, z0)] = triso_axes;
+                let c = |lo: f64, n: usize| lo + (n as f64 + 0.5) * pitch_triso;
+                let mut v = Vec::with_capacity(nx * ny * nz);
+                for k in 0..nz {
+                    for j in 0..ny {
+                        for i in 0..nx {
+                            let (x, y, z) = (c(x0, i), c(y0, j), c(z0, k));
+                            v.push(if x * x + y * y + z * z <= r_keep * r_keep {
+                                tp
+                            } else {
+                                tm
+                            });
+                        }
+                    }
+                }
+                // The built count MUST be the counted one -- the whole of #316.
+                let built = v.iter().filter(|&&u| u == tp).count();
+                assert_eq!(
+                    built, n_particles,
+                    "TRISO lattice holds {built} particles but {n_particles} were counted"
+                );
+                v
+            },
+            outer: Some(tm),
         }
     }
 }

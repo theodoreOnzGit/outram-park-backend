@@ -8,11 +8,11 @@
 //! are processed, the tracks come from the run itself: the first
 //! [`super::TRACED_PER_GENERATION`] histories of every generation.
 
-use super::pool::{CorePool, GenSummary, Note, PoolPhase, PoolState, RestartKind, RunOrigin};
+use super::pool::{CorePool, GenSummary, Note, PoolPhase, PoolState, RestartKind, RunOrigin, RunState};
 use super::{DEFAULT_RUN, RECORD_SEED};
 use crate::anim::{animated_speed, draw_track, energy_bar, fmt_speed, legend_markers, Anim};
 use crate::history::History;
-use crate::keff::KeffConfig;
+use crate::keff::{clamp_to_caps, eta_line, plan_line, KeffConfig, MAX_GENERATIONS, MAX_PARTICLES, MIN_ACTIVE};
 use crate::raster::{Preset, RasterInfo, Slicer};
 use dhoby_ghaut::web_demo::platform::now_s;
 use dhoby_ghaut::web_demo::pool::{plan, Device, Plan};
@@ -20,6 +20,13 @@ use egui::{Color32, Pos2, Rect, Stroke, Vec2};
 use outram_mc_libs::geometry::position::{Direction, Position};
 use outram_mc_libs::physics::track_output::{Track, TrackEvent, TrackState};
 use std::collections::VecDeque;
+
+/// A core run's time left on this device, from its generations' measured
+/// wall times (the pool's, so every worker counts); `None` before the first.
+pub fn run_eta(run: &RunState) -> Option<String> {
+    let secs: f64 = run.gens.iter().map(|g| g.wall_s).sum();
+    eta_line(run.cfg.n_particles, run.cfg.n_inactive + run.cfg.n_active, run.gens.len(), secs)
+}
 
 /// The 2026-10-07 record (all 22 points at 10 000 × [5 + 135] on the bounded
 /// majorant), read at build time.
@@ -687,6 +694,10 @@ fn status_lines(p: &CorePool) -> Vec<(String, Color32)> {
                             ),
                             white,
                         ));
+                        if let Some(l) = run.going().then(|| run_eta(run)).flatten() {
+                            let colour = if l.starts_with('⚠') { amber } else { white };
+                            v.push((l, colour));
+                        }
                     }
                 }
             }
@@ -864,20 +875,25 @@ fn pool_panel(
         ui.label(dem_record_line());
     }
     ui.strong("Run k_eff (the whole core)");
+    // Held to the demo's caps (keff::MAX_PARTICLES, MAX_GENERATIONS in all;
+    // 2026-10-15, were 20 000 and 50 + 200 here).
     egui::Grid::new("core_cfg").num_columns(2).show(ui, |ui| {
         ui.label("neutrons per generation");
-        ui.add(egui::DragValue::new(&mut cfg.n_particles).range(100..=20_000));
+        ui.add(egui::DragValue::new(&mut cfg.n_particles).range(100..=MAX_PARTICLES).speed(100));
         ui.end_row();
         ui.label("inactive generations");
-        ui.add(egui::DragValue::new(&mut cfg.n_inactive).range(0..=50));
+        let hi = MAX_GENERATIONS - cfg.n_active.max(MIN_ACTIVE);
+        ui.add(egui::DragValue::new(&mut cfg.n_inactive).range(0..=hi));
         ui.end_row();
         ui.label("active generations");
-        ui.add(egui::DragValue::new(&mut cfg.n_active).range(2..=200));
+        let hi = MAX_GENERATIONS - cfg.n_inactive.min(MAX_GENERATIONS - MIN_ACTIVE);
+        ui.add(egui::DragValue::new(&mut cfg.n_active).range(MIN_ACTIVE..=hi));
         ui.end_row();
         ui.label("seed");
         ui.add(egui::DragValue::new(&mut cfg.seed));
         ui.end_row();
     });
+    *cfg = clamp_to_caps(*cfg, 0);
     if cfg.seed != RECORD_SEED {
         ui.weak(format!("The record used seed {RECORD_SEED}."));
     }
@@ -893,8 +909,21 @@ fn pool_panel(
             {
                 s.set_paused(!paused);
             }
+            if ui.button("■ Stop").clicked() {
+                s.stop_run();
+            }
         }
     });
+    match s.run.as_ref().filter(|_| running) {
+        Some(run) => {
+            if let Some(l) = run_eta(run) {
+                ui.label(l);
+            }
+        }
+        None => {
+            ui.weak(plan_line(cfg, None));
+        }
+    }
     if let Some(run) = &s.run {
         // What kind of run this is (a restart says how, gh:#817).
         let mut what = run.describe();

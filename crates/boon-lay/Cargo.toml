@@ -7,9 +7,24 @@ description = "BOmbardment of neutrons On Nuclides with Lagrangian transport and
 homepage.workspace = true
 repository.workspace = true
 categories.workspace = true
-# V&V raw data (verification_and_validation/*.csv) is dev-only, gitignored,
-# and never shipped in the packaged crate.
-exclude = ["docs", "verification_and_validation/*.csv"]
+# What crates.io gets: an ALLOW-LIST (maintainer direction 2026-10-16;
+# was an `exclude` list). Patterns are anchored with a leading / (gitignore
+# rules: an unanchored "README.md" matches every README in the tree). Only
+# the library source, the licences, the TRISO-ATOPS notice and provenance
+# notes ship; src/'s kovan.toml and review.md review metadata do not. tests/, examples/, dev/,
+# verification_and_validation/, docs/ and the kovan files stay in git.
+include = [
+    "/src/**/*.rs",
+    "/src/**/*.wgsl",
+    "/src/**/README.md",
+    "/README.md",
+    "/LICENSE",
+    "/LICENSE.triso-atops",
+    "/NOTICE.triso-atops",
+    "/TRADEMARKS.md",
+    "/TRISO_ATOPS_DERIVATION.md",
+    "/upstream_source/README.md",
+]
 
 # Where this crate sits in kovan's code map (GitHub #729, #733; maintainer
 # decisions 2026-10-06). row: degree of integration, 0-1 utilities and

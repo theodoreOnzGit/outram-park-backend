@@ -25,7 +25,7 @@ use crate::{
     common::phys::PI,
     reconr::{
         mf2::RmLState,
-        slbw::{channel_radius, phase_shift, shift_and_penetrability, WAVE_K},
+        slbw::{channel_radius, facphi, shift_and_penetrability, WAVE_K},
     },
 };
 
@@ -240,7 +240,7 @@ pub fn eval_rm_range(e: f64, lstates: &[RmLState], ap: f64, spi: f64, naps: i32)
             rho = k * apl;
         }
         let (_, pe) = shift_and_penetrability(ll, rho);
-        let phi = phase_shift(ll, rhoc);
+        let phi = facphi(ll, rhoc);
         let p1 = (2.0 * phi).cos();
         let p2 = (2.0 * phi).sin();
 

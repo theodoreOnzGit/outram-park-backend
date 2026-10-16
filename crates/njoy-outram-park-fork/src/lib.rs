@@ -78,6 +78,12 @@ pub mod modules;
 pub mod nuclear_data;
 pub mod photon;
 pub mod prelude;
+/// **The high-level way in** (GitHub #871): an incident ENDF tape and a
+/// temperature to cross sections ([`process::cross_sections`]) or an ACE file
+/// ([`process::ace`]); with a LEAPR deck, to a thermal scattering law
+/// ([`process::thermal_scattering`]) or a thermal ACE file
+/// ([`process::thermal_ace`]). Runs on `wasm32`.
+pub mod process;
 pub mod reconr;
 /// Locating the repository's reference ENDF tapes for V&V. The tapes live at
 /// the repo root (`reference-data/endf/`), never inside a crate — they are far

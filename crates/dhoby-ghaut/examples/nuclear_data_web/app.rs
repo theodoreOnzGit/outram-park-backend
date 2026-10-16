@@ -8,7 +8,9 @@
 
 #[cfg(not(target_arch = "wasm32"))]
 use crate::engine::NdEngine;
-use crate::engine::{Curve, Event, Request, BROADR_SHOWN, RECONR_TOLS};
+use crate::acetools::{AceGen, ThermalGen};
+use crate::engine::{Curve, Event, Request, BROADR_SHOWN, RECONR_TOLS, SLOTS, SLOT_ACE_FIRST, SLOT_ACE_SECOND, SLOT_ENDF, SLOT_INCIDENT, SLOT_THERMAL};
+use dhoby_ghaut::web_demo::files::FileSlot;
 use crate::plot::{self, Frame};
 use crate::rungs::Rung;
 use dhoby_ghaut::web_demo::lesson::{self, Rung as _};
@@ -26,6 +28,14 @@ const CAPTURE: Color32 = Color32::from_rgb(255, 150, 80);
 const FAINT: Color32 = Color32::from_rgb(90, 96, 110);
 const BANDS: Color32 = Color32::from_rgba_premultiplied(230, 200, 90, 200);
 const FREE: Color32 = Color32::from_rgb(200, 200, 200);
+
+/// What the native file dialog was opened for.
+#[cfg(not(target_arch = "wasm32"))]
+#[derive(Clone, Copy)]
+enum DialogFor {
+    Pick(usize),
+    Save,
+}
 
 enum Phase {
     Loading(Loading),
@@ -68,6 +78,17 @@ pub struct NdApp {
     groupr_s0: f64,
     text_size: f32,
     title: String,
+    /// The ACE rungs (gh:#863-#865): a picker per file slot, what the engine
+    /// holds in each (name, bytes), the file it made, and the settings.
+    picks: [FileSlot; 5],
+    held: [Option<(String, usize)>; 5],
+    made: Option<(String, Vec<u8>)>,
+    ace_gen: AceGen,
+    thermal_gen: ThermalGen,
+    #[cfg(not(target_arch = "wasm32"))]
+    dialog: egui_file_dialog::FileDialog,
+    #[cfg(not(target_arch = "wasm32"))]
+    dialog_for: Option<DialogFor>,
 }
 
 impl NdApp {
@@ -109,6 +130,15 @@ impl NdApp {
             groupr_s0: 50.0,
             text_size: 14.0,
             title: String::new(),
+            picks: Default::default(),
+            held: Default::default(),
+            made: None,
+            ace_gen: AceGen::default(),
+            thermal_gen: ThermalGen::default(),
+            #[cfg(not(target_arch = "wasm32"))]
+            dialog: egui_file_dialog::FileDialog::new(),
+            #[cfg(not(target_arch = "wasm32"))]
+            dialog_for: None,
         };
         match link {
             Ok(l) => {
@@ -134,6 +164,7 @@ impl NdApp {
         self.reconr_next = 0;
         self.reconr_log.clear();
         self.computing_since = None;
+        self.made = None;
         let tapes = rung.info().tapes;
         if tapes.is_empty() {
             self.phase = Phase::Ready;
@@ -177,7 +208,7 @@ impl NdApp {
             Rung::Purr => self.ask(self.purr_request()),
             Rung::Thermr => self.ask(self.thermr_request()),
             Rung::Groupr => self.ask(self.groupr_request()),
-            Rung::Acer => {}
+            Rung::Acer | Rung::AceMake | Rung::ThermalAceMake | Rung::AceCompare => {}
         }
     }
     fn purr_request(&self) -> Request {
@@ -193,11 +224,33 @@ impl NdApp {
     fn handle(&mut self, events: Vec<Event>) {
         for e in events {
             match e {
+                // A file the ACE tools cannot use is the reader's to fix: say
+                // why and keep the rung, so they can choose another.
+                Event::Error(m) if self.is_ace_tool() => {
+                    self.in_flight = false;
+                    self.computing_since = None;
+                    self.note = format!("Failed: {m}");
+                }
                 Event::Error(m) => {
                     self.in_flight = false;
                     self.computing_since = None;
                     self.reconr_running = false;
                     self.phase = Phase::Failed(m);
+                }
+                Event::Stored { slot, name, len } => {
+                    if let Some(h) = self.held.get_mut(slot as usize) {
+                        *h = Some((name, len));
+                    }
+                }
+                Event::File { job, name, bytes, note, secs } => {
+                    if job != self.job {
+                        continue;
+                    }
+                    self.in_flight = false;
+                    self.computing_since = None;
+                    self.made = Some((name, bytes));
+                    self.note = note;
+                    self.secs = secs;
                 }
                 Event::JobStarted { id, index } if id == self.load_id => {
                     if let Phase::Loading(l) = &mut self.phase {
@@ -264,6 +317,81 @@ impl NdApp {
         }
     }
 
+    fn is_ace_tool(&self) -> bool {
+        matches!(self.rung, Rung::AceMake | Rung::ThermalAceMake | Rung::AceCompare)
+    }
+
+    /// Files the reader chose arrive here (asynchronously in the browser) and
+    /// go to the engine; natively the file dialog's choice is read first.
+    fn poll_files(&mut self, ctx: &egui::Context) {
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            self.dialog.update(ctx);
+            if let Some(path) = self.dialog.take_picked() {
+                match self.dialog_for.take() {
+                    Some(DialogFor::Pick(i)) => self.picks[i].fill_from_path(&path),
+                    Some(DialogFor::Save) => {
+                        if let Some((_, bytes)) = &self.made {
+                            self.note = match dhoby_ghaut::web_demo::files::save_file(&path, bytes) {
+                                Ok(()) => format!("{}\nsaved to {}", self.note, path.display()),
+                                Err(e) => format!("Failed to save: {e}"),
+                            };
+                        }
+                    }
+                    None => {}
+                }
+            }
+        }
+        #[cfg(target_arch = "wasm32")]
+        let _ = ctx;
+        for i in 0..self.picks.len() {
+            match self.picks[i].take() {
+                Some(Ok(f)) => self.send(Request::PutFile { slot: i as u8, name: f.name, bytes: f.bytes }),
+                Some(Err(e)) => self.note = format!("Failed: {e}"),
+                None => {}
+            }
+        }
+    }
+
+    /// Open a file chooser for slot `i`.
+    fn choose(&mut self, i: usize) {
+        #[cfg(target_arch = "wasm32")]
+        dhoby_ghaut::web_demo::files::pick_file(&self.picks[i]);
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            self.dialog_for = Some(DialogFor::Pick(i));
+            self.dialog.pick_file();
+        }
+    }
+
+    /// Give the made file to the reader.
+    fn download(&mut self) {
+        let Some((name, bytes)) = &self.made else { return };
+        #[cfg(target_arch = "wasm32")]
+        if let Err(e) = dhoby_ghaut::web_demo::files::save_file(name, bytes) {
+            self.note = format!("Failed to download: {e}");
+        }
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            let _ = (name, bytes);
+            self.dialog_for = Some(DialogFor::Save);
+            self.dialog.save_file();
+        }
+    }
+
+    /// A slot's button and what it holds.
+    fn slot_row(&mut self, ui: &mut egui::Ui, i: usize) {
+        ui.horizontal_wrapped(|ui| {
+            if ui.button(format!("Choose {}…", SLOTS[i])).clicked() {
+                self.choose(i);
+            }
+            match &self.held[i] {
+                Some((n, len)) => ui.label(format!("{n} ({:.2} MB)", *len as f64 / 1e6)),
+                None => ui.weak("none chosen"),
+            };
+        });
+    }
+
     fn title_now(&mut self, ctx: &egui::Context) {
         let t = match &self.phase {
             Phase::Loading(l) => format!("{} · loading · {}", self.rung.title(), l.status_line()),
@@ -283,7 +411,8 @@ impl eframe::App for NdApp {
         let ctx = ui.ctx().clone();
         let events = self.link.as_ref().map(|l| l.drain()).unwrap_or_default();
         self.handle(events);
-        if matches!(self.phase, Phase::Loading(_)) || self.in_flight {
+        self.poll_files(&ctx);
+        if matches!(self.phase, Phase::Loading(_)) || self.in_flight || self.is_ace_tool() {
             ctx.request_repaint_after(std::time::Duration::from_millis(100));
         }
         self.title_now(&ctx);
@@ -319,7 +448,13 @@ impl NdApp {
             }
             Phase::Ready => self.controls(ui),
         }
-        if !self.note.is_empty() {
+        if !self.note.is_empty() && self.rung == Rung::AceCompare {
+            // The full report is the main view's; the panel keeps the verdict.
+            ui.separator();
+            let verdict = self.note.lines().find(|l| l.starts_with("VERDICT") || l.starts_with("Failed")).unwrap_or("");
+            ui.label(RichText::new(verdict).size(12.5).strong());
+            ui.weak("the block-by-block report is in the main view");
+        } else if !self.note.is_empty() {
             ui.separator();
             ui.label(RichText::new(&self.note).size(12.5));
             if self.secs > 0.0 {
@@ -432,6 +567,75 @@ impl NdApp {
             Rung::Acer => {
                 ui.label("Recorded results, not a live calculation: building a U-238 ACE table takes minutes natively. The main view lists the record and where it is.");
             }
+            Rung::AceMake => {
+                ui.label("Your ENDF tape (the first material on it) to a continuous-energy ACE table, with the deck the port's word-for-word NJOY2016 comparisons use.");
+                self.slot_row(ui, SLOT_ENDF as usize);
+                ui.add(egui::Slider::new(&mut self.ace_gen.temp_k, 0.0..=3000.0).text("temperature (K); 0 = no BROADR"));
+                ui.checkbox(&mut self.ace_gen.purr, "PURR probability tables (20 bands, 64 ladders)");
+                ui.checkbox(&mut self.ace_gen.heatr, "HEATR heating numbers");
+                ui.weak("NJOY2016's own reference decks in this repository ran without HEATR: turn it off to compare with tables made that way.");
+                let ready = self.held[SLOT_ENDF as usize].is_some() && !self.in_flight;
+                if ui.add_enabled(ready, egui::Button::new("Build the ACE table")).clicked() {
+                    self.made = None;
+                    let g = self.ace_gen;
+                    self.ask(Request::MakeAce { job, temp_k: g.temp_k, purr: g.purr, heatr: g.heatr });
+                }
+                self.made_row(ui);
+            }
+            Rung::ThermalAceMake => {
+                ui.label("A LEAPR deck (run through the port's LEAPR at the deck's first temperature, then THERMR and ACER), or an ENDF thermal scattering (MF=7) tape at the evaluation's base temperature, to a thermal S(α,β) ACE table.");
+                self.slot_row(ui, SLOT_THERMAL as usize);
+                ui.label("The scatterer's own incident-neutron ENDF tape (H-1 for H in H2O, C-12 for graphite): required with a LEAPR deck, optional with a thermal tape. NJOY's deck runs it through RECONR and BROADR first, and the inelastic cross section is read off that grid. With it the table is NJOY2016's word for word; without it, that block and the header's MAT differ.");
+                self.slot_row(ui, SLOT_INCIDENT as usize);
+                ui.horizontal(|ui| {
+                    ui.label("table name (ZAID, ACER's tname)");
+                    ui.add(egui::TextEdit::singleline(&mut self.thermal_gen.tname).char_limit(6).desired_width(80.0).hint_text("from file"));
+                });
+                ui.add(egui::Slider::new(&mut self.thermal_gen.n_outgoing, 4..=64).text("outgoing energies"));
+                ui.add(egui::Slider::new(&mut self.thermal_gen.n_cosines, 2..=32).text("cosines per outgoing energy"));
+                egui::ComboBox::from_label("secondary-energy form (ACER iwt)")
+                    .selected_text(match self.thermal_gen.iwt { 0 => "skewed bins (iwt 0)", 2 => "continuous (iwt 2)", _ => "equiprobable bins (iwt 1)" })
+                    .show_ui(ui, |ui| {
+                        ui.selectable_value(&mut self.thermal_gen.iwt, 1, "equiprobable bins (iwt 1)");
+                        ui.selectable_value(&mut self.thermal_gen.iwt, 0, "skewed bins (iwt 0)");
+                        ui.selectable_value(&mut self.thermal_gen.iwt, 2, "continuous (iwt 2)");
+                    });
+                ui.add(egui::Slider::new(&mut self.thermal_gen.tol, 1.0e-4..=0.1).logarithmic(true).text("THERMR tolerance (tol)"));
+                ui.checkbox(&mut self.thermal_gen.from_tape, "natom and highest energy from the tape (B(6), B(4)), as OpenMC does");
+                ui.add_enabled_ui(!self.thermal_gen.from_tape, |ui| {
+                    ui.add(egui::Slider::new(&mut self.thermal_gen.emax_ev, 0.5..=10.0).text("highest incident energy (eV)"));
+                    ui.add(egui::Slider::new(&mut self.thermal_gen.natom, 1.0..=4.0).step_by(1.0).text("principal atoms (natom)"));
+                });
+                ui.weak("Match these to the NJOY deck you compare with. OpenMC's make_ace_thermal uses tol 0.001, 16 cosines, 64 outgoing energies, iwt 2, and natom and emax from the tape.");
+                let ready = self.held[SLOT_THERMAL as usize].is_some() && !self.in_flight;
+                if ui.add_enabled(ready, egui::Button::new("Build the thermal ACE table")).clicked() {
+                    self.made = None;
+                    let g = self.thermal_gen.clone();
+                    self.ask(Request::MakeThermalAce { job, tname: g.tname, n_outgoing: g.n_outgoing, n_cosines: g.n_cosines, emax_ev: g.emax_ev, tol: g.tol, natom: g.natom, from_tape: g.from_tape, iwt: g.iwt });
+                }
+                self.made_row(ui);
+            }
+            Rung::AceCompare => {
+                ui.label("Two ACE files of the same evaluation and deck, typically one from this page and one from NJOY2016, compared block by block and word for word. Type 1 or 2, gzipped or not.");
+                self.slot_row(ui, SLOT_ACE_FIRST as usize);
+                self.slot_row(ui, SLOT_ACE_SECOND as usize);
+                let ready = self.held[SLOT_ACE_FIRST as usize].is_some() && self.held[SLOT_ACE_SECOND as usize].is_some() && !self.in_flight;
+                if ui.add_enabled(ready, egui::Button::new("Compare")).clicked() {
+                    self.ask(Request::CompareAce { job });
+                }
+                self.busy_line(ui);
+            }
+        }
+    }
+
+    /// The generators' busy line, and the download once a file is made.
+    fn made_row(&mut self, ui: &mut egui::Ui) {
+        self.busy_line(ui);
+        let label = self.made.as_ref().map(|(n, b)| format!("Download {n} ({:.2} MB)", b.len() as f64 / 1e6));
+        if let Some(l) = label {
+            if ui.button(l).clicked() {
+                self.download();
+            }
         }
     }
 
@@ -445,6 +649,9 @@ impl NdApp {
             Rung::Thermr => "Data: ENDF/B-VIII.0 thermal scattering laws (crystalline graphite; H in H2O). The S(α,β) inelastic and Bragg cross sections are this crate's THERMR port; recorded check: calcem against NJOY2016 to its 7 printed figures (lesson rung 5).",
             Rung::Groupr => "Liberties: the pointwise input is RECONR at tolerance 0.01 and 0 K; the weight is 1/E times the narrow-resonance (Bondarenko) factor with σ_pot set to 0, which cancels in each group average. The recorded GROUPR check (U-238, 29 groups) is in lesson rung 7.",
             Rung::Acer => "Provenance: crates/njoy-outram-park-fork/verification_and_validation/ace_block_parity/ace_block_parity_2026_09_26.md and outram-mc-libs' five_route_keff_2026_09_29.md (2026-09-30 table).",
+            Rung::AceMake => "Your file stays in this tab: nothing is uploaded. The deck is RECONR at NJOY's default tolerance 0.001, BROADR, PURR and HEATR as chosen, then ACER, all in this workspace's NJOY port. With the same deck it reproduced NJOY2016's U-234, U-235 and U-238 tables word for word (2026-09-26, re-run 2026-10-14); other evaluations have not been checked, so compare your table with NJOY's in the comparator rung. A large actinide takes minutes in a browser.",
+            Rung::ThermalAceMake => "Your files stay in this tab. With the incident-neutron tape and the same name, tol, natom, bins, form and emax as the NJOY deck (text units), the table is NJOY2016's in every word: checked 2026-10-14 on Al-27 at 20 K (tol 0.05 and 0.001; iwt 0, 1 and 2), H in H2O at 283.6 K (iwt 0, 1, 2) and crystalline graphite at 296 K. Without the incident tape, the inelastic cross section (ITIX) and the header's MAT and AWR differ. Only the evaluation's base temperature is built.",
+            Rung::AceCompare => "Both files stay in this tab. Blocks are named for continuous-energy (c) and thermal (t) tables; other classes are compared as a whole. Equal means the same parsed value: from Type-1 text, the same printed value to 12 figures, with no tolerance. The date and comment are shown, not judged.",
         };
         ui.label(RichText::new(text).size(12.0).color(Color32::from_rgb(170, 176, 190)));
     }
@@ -455,13 +662,14 @@ impl NdApp {
 impl NdApp {
     fn main_view(&mut self, ui: &mut egui::Ui) {
         let rect = ui.available_rect_before_wrap();
-        let table_rung = matches!(self.rung, Rung::Endf | Rung::Acer);
+        let table_rung = matches!(self.rung, Rung::Endf | Rung::Acer) || self.is_ace_tool();
         if table_rung && matches!(self.phase, Phase::Ready) {
             ui.painter().rect_filled(rect, 0.0, BG);
             let inner = rect.shrink2(egui::vec2(12.0, 52.0));
             ui.scope_builder(egui::UiBuilder::new().max_rect(inner), |ui| {
                 egui::ScrollArea::both().auto_shrink([false, false]).show(ui, |ui| match self.rung {
                     Rung::Endf => self.sections_table(ui),
+                    Rung::AceMake | Rung::ThermalAceMake | Rung::AceCompare => self.ace_tool_view(ui),
                     _ => self.acer_table(ui),
                 });
             });
@@ -592,6 +800,36 @@ impl NdApp {
         plot::legend(painter, rect, &legend);
         if self.curves.is_empty() && self.rung != Rung::Acer {
             painter.text(rect.center(), egui::Align2::CENTER_CENTER, "waiting for the first result…", egui::FontId::proportional(14.0), FAINT);
+        }
+    }
+
+    /// The ACE tools' main view: what was done, or the comparison, line by
+    /// line.
+    fn ace_tool_view(&self, ui: &mut egui::Ui) {
+        let s = self.text_size;
+        ui.label(RichText::new(self.rung.title()).size(s + 2.0).strong());
+        if self.in_flight {
+            ui.horizontal(|ui| {
+                ui.spinner();
+                ui.label(RichText::new("working in the background; the page stays live").size(s));
+            });
+        }
+        if self.note.is_empty() {
+            let hint = match self.rung {
+                Rung::AceCompare => "Choose two ACE files in the side panel, then Compare.",
+                _ => "Choose your file in the side panel, then Build.",
+            };
+            ui.label(RichText::new(hint).size(s).weak());
+        }
+        for l in self.note.lines() {
+            let colour = if l.contains("DIFFERENT") || l.contains("MISSING") || l.starts_with("Failed") {
+                Color32::from_rgb(255, 150, 120)
+            } else if l.contains("SAME") || l.contains("identical") {
+                Color32::from_rgb(140, 220, 160)
+            } else {
+                Color32::from_rgb(210, 214, 222)
+            };
+            ui.label(RichText::new(l).size(s).monospace().color(colour));
         }
     }
 

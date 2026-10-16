@@ -506,8 +506,15 @@ impl CodeMapView {
 
             // The root card.
             let rr = to_rect(&lay.root);
-            painter.rect_filled(rr, 10.0 * z, egui::Color32::from_rgb(30, 41, 59));
-            painter.text(rr.center(), egui::Align2::CENTER_CENTER, &map.root, font(22.0), egui::Color32::WHITE);
+            // Slate with white text on a dark theme; the theme's own widget
+            // fill and strong text on a light one (Gruvbox light kept it dark).
+            let (root_fill, root_text) = if ui.visuals().dark_mode {
+                (egui::Color32::from_rgb(30, 41, 59), egui::Color32::WHITE)
+            } else {
+                (ui.visuals().widgets.inactive.bg_fill, strong)
+            };
+            painter.rect_filled(rr, 10.0 * z, root_fill);
+            painter.text(rr.center(), egui::Align2::CENTER_CENTER, &map.root, font(22.0), root_text);
 
             // Crate cards, painted as the mind map's.
             for card in &lay.cards {

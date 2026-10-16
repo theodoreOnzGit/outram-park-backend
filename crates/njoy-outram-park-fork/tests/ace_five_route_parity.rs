@@ -1,0 +1,226 @@
+// SPDX-License-Identifier: GPL-3.0
+
+//! # The five-route library's light nuclides are NJOY2016's tables in every word (GitHub #872)
+//!
+//! ## Methodology
+//!
+//! - **Reference:** NJOY2016 2016.79 (commit `ac5adf5`, `build2`), run with
+//!   the five-route campaign's deck
+//!   (`crates/outram-mc-libs/verification_and_validation/openmc_godiva_cross_code/make_ace.sh`,
+//!   called by `.../icsbep/five_route_keff/scripts/make_njoy_library.sh`):
+//!   `RECONR (0.001) -> BROADR (293.6 K, 0.001) -> PURR (20 bins, 64
+//!   ladders) -> ACER (iopt 1, newfor 1, iopp 1)`, **no HEATR**. The tables
+//!   are committed in `reference-data/acer/five_route/`, each carrying its
+//!   provenance in its own 70-character comment. B-10's is Type 2: NJOY2016's
+//!   Type-1 formatter stops in `change` on its law-0 DLWH entry, and the
+//!   campaign script reruns it with `itype = 2`.
+//! - **Ours:** `process::cross_sections` on the same ENDF/B-VIII.0 tape at
+//!   293.6 K with `without_heatr()` (PURR at the deck's 20 / 64 and NJOY's
+//!   default 10 000 samples), written as Type 1 and read back.
+//! - **Comparison:** `acer::compare`, every header field, NXS, JXS and every
+//!   XSS word, with **no tolerance**. A Type-2 reference is printed through
+//!   Type 1 first (integer words with our table's mask, reals to 12 figures),
+//!   which is what NJOY2016's own Type-1 writer would have printed.
+//! - **Pass:** `AceComparison::identical()`.
+//!
+//! Each nuclide gates the mechanisms #872 fixed:
+//!
+//! | nuclide | what it exercises |
+//! |---|---|
+//! | H-1 | the MF=6 LAW=2 capture photon; LDLW/DLW with NR = 0; the capture-recoil deuteron (`acelcp`) |
+//! | F-19 | `convr`'s corrected MF=12 totals (GPD); photon yields with two interpolation regions |
+//! | Al-27 | discrete levels given as MF=6 LAW=2 neutrons (AND); MF=6 LAW=2/4 charged particles |
+//! | B-10 | `unionx`'s photon discontinuities in the energy grid; MF=6 LAW=0 particles |
+//! | O-16 | anisotropic MF=14 photons (`ptleg`, ANDP); MF=4 LTT=1 charged particles; MF=13 windows |
+//!
+//! ## Results (2026-10-14)
+//!
+//! All five identical in every word. The full library, all 12 five-route
+//! nuclides (U-234/235/238, F-19, O-16, H-1, Al-27, Si-28/29/30, Mn-55,
+//! B-10) at 293.6 K and at 0 K (`RECONR -> ACER`), is identical too: 24 of 24
+//! tables. Record:
+//! `crates/njoy-outram-park-fork/verification_and_validation/ace_five_route_parity_2026_10_14.md`.
+
+use njoy_outram_park_fork::acer::compare::compare;
+use njoy_outram_park_fork::acer::photon_read::{decode_photon_production, AcePhotonEntry};
+use njoy_outram_park_fork::acer::read::{self, AceFileType};
+use njoy_outram_park_fork::endf::tape::Tape;
+use njoy_outram_park_fork::process::{self, CrossSectionSettings};
+use njoy_outram_park_fork::reference_data::{reference_endf, reference_file_or_skip};
+use uom::si::f64::ThermodynamicTemperature as Temperature;
+use uom::si::thermodynamic_temperature::kelvin;
+
+fn identical_to_njoy2016(name: &str, tape_file: &str) {
+    identical_at(name, tape_file, 293.6);
+}
+
+/// At 293.6 K the deck is `RECONR -> BROADR -> PURR -> ACER`; at 0 K it is
+/// `RECONR -> ACER` (`make_ace_0k.sh`), so PURR is off.
+fn identical_at(name: &str, tape_file: &str, t_k: f64) {
+    identical_deck(name, tape_file, t_k, false);
+}
+
+/// `heatr = true` is the deck with HEATR between BROADR and PURR (`heatr
+/// 20 22 26 / MAT 0 0 0 0 0 /`, all units positive, so its scratch tapes
+/// are text), as `AceDeck`'s default and the LCT-008 library writer run it;
+/// the reference is `{name}_{T}_heatr_njoy2016.ace.gz`.
+fn identical_deck(name: &str, tape_file: &str, t_k: f64, heatr: bool) {
+    let label = if t_k == 0.0 { "0K".to_string() } else { format!("{t_k}K") };
+    let file = if heatr { format!("five_route/{name}_{label}_heatr_njoy2016.ace.gz") } else { format!("five_route/{name}_{label}_njoy2016.ace.gz") };
+    let Some(reference) = reference_file_or_skip("acer", &file, "ace-five-route-parity") else {
+        return;
+    };
+    let Some(tape_path) = reference_endf(tape_file) else {
+        eprintln!("SKIP: {tape_file} not in reference-data/endf");
+        return;
+    };
+    let tape = Tape::read_file(&tape_path).expect("parse tape");
+    let mut settings = if heatr { CrossSectionSettings::default() } else { CrossSectionSettings::default().without_heatr() };
+    if t_k == 0.0 {
+        settings = settings.without_purr();
+    }
+    let ace = process::ace(&tape, Temperature::new::<kelvin>(t_k), &settings).expect("ours");
+    let ours = read::parse_type1(&ace.to_type1_text().expect("type 1")).expect("re-read ours");
+    let mut njoy = read::read_library_from_bytes(std::fs::read(&reference).expect("read reference"), name)
+        .expect("read NJOY2016's table")
+        .remove(0);
+    if njoy.file_type == AceFileType::Type2Binary {
+        // A Type-2 reference carries NJOY2016's unrounded doubles, so it is
+        // held to them bit for bit first: the print-precision comparison
+        // below cannot see `sigfig`'s 1e-13 bias, nor MTRP's 801001.2.
+        assert_eq!((&ace.nxs[..], &ace.jxs[..]), (&njoy.nxs[..], &njoy.jxs[..]), "{name}: NXS/JXS");
+        assert_eq!(njoy.xss.len(), ace.xss.len(), "{name}: XSS lengths differ");
+        let bits: Vec<usize> = (0..ace.xss.len()).filter(|&i| ace.xss[i].to_bits() != njoy.xss[i].to_bits()).collect();
+        if let Some(&i) = bits.first() {
+            panic!(
+                "{name}: {} of {} XSS words differ from NJOY2016's Type 2 in some bit; first word {} ours {:e}, NJOY2016 {:e}",
+                bits.len(),
+                ace.xss.len(),
+                i + 1,
+                ace.xss[i],
+                njoy.xss[i]
+            );
+        }
+        println!("  {name}: all {} XSS words bit-identical to NJOY2016's Type 2", ace.xss.len());
+        assert_eq!(njoy.xss.len(), ace.xss_is_int.len(), "{name}: XSS lengths differ");
+        njoy.xss_is_int = Some(ace.xss_is_int.clone());
+        njoy = read::parse_type1(&njoy.to_type1_string()).expect("NJOY2016's Type 2 as Type 1");
+    }
+    let c = compare(&ours, &njoy);
+    for l in c.report_lines() {
+        println!("  {name}: {l}");
+    }
+    assert!(c.identical(), "{name}: {:#?}", c.report_lines());
+    // The photon production this crate now writes must also read back with
+    // its own reader, the one the transport route uses, and decode as
+    // NJOY2016's does: the same entries, the same anisotropic ones.
+    let mine = decode_photon_production(&ours).expect("our photon blocks decode");
+    let theirs = decode_photon_production(&njoy).expect("NJOY2016's photon blocks decode");
+    assert_eq!(mine.len(), theirs.len(), "{name}: photon entries");
+    let aniso = |v: &[AcePhotonEntry]| v.iter().filter(|e| e.angular.is_some()).count();
+    assert_eq!(aniso(&mine), aniso(&theirs), "{name}: anisotropic photons");
+    println!("  {name}: {} photon entries decode, {} anisotropic", mine.len(), aniso(&mine));
+}
+
+#[test]
+fn h1_is_njoy2016s_table_in_every_word() {
+    identical_to_njoy2016("H1", "n-001_H_001-ENDF8.0-Beta6.endf");
+}
+
+#[test]
+fn f19_is_njoy2016s_table_in_every_word() {
+    identical_to_njoy2016("F19", "n-009_F_019-ENDF8.0.endf");
+}
+
+#[test]
+fn al27_is_njoy2016s_table_in_every_word() {
+    identical_to_njoy2016("Al27", "n-013_Al_027-ENDF8.0.endf");
+}
+
+#[test]
+fn b10_is_njoy2016s_table_in_every_word() {
+    identical_to_njoy2016("B10", "n-005_B_010-ENDF8.0.endf");
+}
+
+#[test]
+fn o16_is_njoy2016s_table_in_every_word() {
+    identical_to_njoy2016("O16", "n-008_O_016-ENDF8.0.endf");
+}
+
+/// Mg-24 gives MT=16, 22, 28 and 91 as MF=4 angles + MF=5 energies, with no
+/// MF=6 (2026-10-14). Before `build_emissions` took that path they were
+/// written with TYR = 0 (no neutron out) and an inconsistent DLW layout, and
+/// OpenMC segfaulted on the table in LCT-008's full model.
+#[test]
+fn mg24_mf4_mf5_continuum_is_njoy2016s_table_in_every_word() {
+    identical_to_njoy2016("Mg24", "n-012_Mg_024-ENDF8.0.endf");
+}
+
+// ── GitHub #875: LCT-008's full nuclide list ────────────────────────────────
+//
+// One table per mechanism fixed, each the smallest that shows it. Fe-58's
+// PURR grid (`etop`) is gated by `purr::tables::urr_grid_tests` instead: its
+// table is 17 MB compressed.
+
+/// Cu-65 at 0 K: `convr` writes an MF=12 LO=2 cascade's yield to its scratch
+/// tape as text, so `gamsum` sums `a11`'s rounding (MT=52's 1.0000607248 is
+/// 1.00006072). GPD was one unit off in the 7th figure at four energies.
+#[test]
+fn cu65_lo2_yields_carry_a11_rounding_in_gpd() {
+    identical_at("Cu65", "n-029_Cu_065-ENDF8.0.endf", 0.0);
+}
+
+/// Na-23 at 0 K: an MF=15 continuum's probability record is copied into the
+/// DLWP law header as it stands (`acefc.f90:8540-8566`). Na-23's MT=3
+/// record has two regions (histogram, then lin-lin) over three points, where
+/// the fixed header writes none over two. DLWP was 6 words short.
+#[test]
+fn na23_mf15_probability_record_is_the_dlwp_applicability() {
+    identical_at("Na23", "n-011_Na_023-ENDF8.0.endf", 0.0);
+}
+
+/// Ti-48 at 0 K: RECONR's `facphi` zeroes an l >= 2 phase shift below
+/// `phi/rho = 1e-6`. Without it the Reich-Moore elastic moved by 3e-8 and
+/// four 7th figures near 6.7 keV flipped.
+#[test]
+fn ti48_reconr_phase_shift_guard() {
+    identical_at("Ti48", "n-022_Ti_048-ENDF8.0.endf", 0.0);
+}
+
+/// Zn-64 at 0 K: `resxs` ends on the union grid's last node below `eresh`.
+/// MT=107's histogram step at the resolved range's end replaced
+/// `sigfig(eh,7,-1)` there, and adding it back put 0.1299999 MeV in the
+/// table.
+#[test]
+fn zn64_resonance_grid_ends_on_the_union_grid() {
+    identical_at("Zn64", "n-030_Zn_064-ENDF8.0.endf", 0.0);
+}
+
+/// Zn-70 at 293.6 K: PURR's `intr2` interpolates Case C parameters under the
+/// J-state's own INT (here log-log), not UNRESR's forced lin-lin; the bands
+/// at the inserted node 0.35 MeV differed.
+#[test]
+fn zn70_purr_parameters_use_the_stored_int() {
+    identical_at("Zn70", "n-030_Zn_070-ENDF8.0.endf", 293.6);
+}
+
+/// The LCT-008 library (`write_ace_library`, routes 2 and 5) runs HEATR, so
+/// its tables are held against NJOY2016's deck with HEATR too (2026-10-15).
+/// Ti-48 at 0 K exercises the heating number's four upstream details:
+/// `acelod` divides by the running total at MT=301, unrounded; `unionx`
+/// carries MT=301 onto the grid through a text scratch tape; ACER reads
+/// HEATR's MT=301 as printed; and HEATR's `hconvr` hands its converted
+/// MF=12 LO=2 yields to `gheat` through text. Before them 217 heating words
+/// differed, by up to 25 %.
+#[test]
+fn ti48_heating_number_with_heatr_is_njoy2016s() {
+    identical_deck("Ti48", "n-022_Ti_048-ENDF8.0.endf", 0.0, true);
+}
+
+/// Zn-70 at 293.6 K with HEATR: PURR's `rdheat` finds MT=301 and fills the
+/// probability tables' heating column (`ihave = 1`; LSSF = 1, so `1`).
+/// Ours wrote zero there.
+#[test]
+fn zn70_purr_heating_column_with_heatr_is_njoy2016s() {
+    identical_deck("Zn70", "n-030_Zn_070-ENDF8.0.endf", 293.6, true);
+}

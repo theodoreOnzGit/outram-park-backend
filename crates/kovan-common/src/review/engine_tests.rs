@@ -622,6 +622,63 @@ fn rung_is_derived_and_a_mismatch_is_invalid() {
     ));
 }
 
+/// Methodology: the number-guard waiver in the engine (maintainer,
+/// 2026-10-14). A review whose answers would give rung 4 (a qualifying V&V
+/// case written by hand, both rung 4 axes answered well, git showing a human
+/// wrote the reaching test) also answers `limits_and_guards =
+/// guard_waived_research: <reason>`. Recorded at rung 4 it is invalid (a
+/// rung mismatch, 4 recorded and 3 derived); recorded at rung 3 it is valid,
+/// counts at rung 3, and the function carries one `RungCappedByWaiver` flag
+/// naming the answer as written.
+///
+/// Result (2026-10-14): passes.
+#[test]
+fn a_waived_guard_caps_a_review_at_rung_3_and_flags_the_function() {
+    let idx = [folder("x", D, &[("a.rs", vec![fun(F, 'a', &[], &["t::ok"])])])];
+    let eval = |r: &ReviewEntry| {
+        let revs = [reviews_in("x", D, vec![r.clone()])];
+        let mut g = git_for(&[&revs[0]]);
+        let key = ReviewKey { function: fid(F), by: M.into() };
+        g.stamps.get_mut(&key).unwrap().tests_at_review = Some(TestsAtReview {
+            reached_by: vec!["t::ok".into()],
+            commit_messages: [("t::ok".to_string(), vec!["add flash analytical test".to_string()])].into(),
+        });
+        eval(&revs, &idx, &root(), &g, &ConceptAreas::new(), SignaturePolicy::NotChecked).functions[&fid(F)].clone()
+    };
+    let mut r = review(F, M, 'a', &[]);
+    r.review.rung = 4;
+    for (q, o) in [
+        ("vv_evidence", "analytical_case"),
+        ("vv_case_author", "human_wrote_and_verified"),
+        ("rung4_tests_pass", "all_pass"),
+        ("rung4_test_catches_wrong_physics", "compared_with_tolerance"),
+        ("rung4_tolerance_justified", "from_outside"),
+        ("rung4_usable_without_source", "from_name_and_description"),
+        ("rung4_wrong_quantity_by_accident", "no_named_and_unit_carrying"),
+    ] {
+        r.review.checklist.insert(q.into(), o.into());
+    }
+    let f = eval(&r);
+    assert_eq!((f.state.clone(), f.rung), (StampState::Valid, Some(4)));
+    assert!(f.flags.is_empty(), "{:?}", f.flags);
+
+    let waiver = "guard_waived_research: scoping study, inputs come from one deck";
+    r.review.checklist.insert("limits_and_guards".into(), waiver.into());
+    assert!(matches!(
+        eval(&r).state,
+        StampState::Invalid(InvalidReason::RungMismatch { recorded: 4, derived: 3, .. })
+    ));
+    r.review.rung = 3;
+    let f = eval(&r);
+    assert_eq!((f.state.clone(), f.rung), (StampState::Valid, Some(3)));
+    assert_eq!(f.flags.iter().map(FunctionFlag::kind).collect::<Vec<_>>(), [FlagKind::RungCappedByWaiver]);
+    assert!(
+        matches!(&f.flags[0], FunctionFlag::RungCappedByWaiver { waived, .. } if waived == &[format!("limits_and_guards = {waiver}")]),
+        "{:?}",
+        f.flags
+    );
+}
+
 /// The key history is append-only (#762 follow-up): against the previous
 /// committed `kovan_root.toml`, a removed last entry, a changed entry, a
 /// removed key and a removed reviewer each give a loud warning; appending

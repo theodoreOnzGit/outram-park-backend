@@ -87,8 +87,14 @@ def load(path):
     except UnicodeDecodeError:
         return read_njoy_type2(path)
 
-NUCLIDES = ["U234", "U235", "U238", "F19", "O16", "H1", "Al27",
-            "Si28", "Si29", "Si30", "Mn55", "B10"]
+# Every nuclide of the study, read from ../nuclides.tsv: the same list both
+# ACE libraries are built from. ~~A hard-coded list of the 12~~ CHANGED
+# 2026-10-14: LCT-008's full nuclide list (36 tapes) became the model, and a
+# second copy of the list here left OpenMC without B-11 and the clad's trace
+# elements.
+NUCLIDES = [line.split("\t")[0]
+            for line in (pathlib.Path(__file__).resolve().parents[1] / "nuclides.tsv").read_text().splitlines()
+            if line.strip() and not line.startswith("#")]
 
 
 def main():

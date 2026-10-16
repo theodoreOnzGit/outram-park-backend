@@ -64,13 +64,16 @@
 //!
 //! # Interpretation
 //!
-//! Agreement is uniform at **~0.6 %** across five decades of incident energy,
+//! ~~Agreement is uniform at **~0.6 %** across five decades of incident energy,
 //! and `T_eff` — the short-collision-time parameter that governs the whole
-//! high-energy tail — lands within 0.09 %. That is strong evidence the three
+//! high-energy tail — lands within 0.09 %.~~ **CORRECTED 2026-10-14:** that was
+//! the 2026-08-14 state; since the temperature-block fix above, σ_inel agrees
+//! to ≤ 0.01 % across five decades of incident energy and `T_eff` to 0.0028 %. That is strong evidence the three
 //! generation stages and the `B` constants are all wired correctly.
 //!
 //! It is **not** a bit-parity claim of the kind made for crystalline graphite
-//! (60,000/60,000 stored values identical). A residual of a few tenths of a
+//! (~~60,000/60,000 stored values identical~~ 1.004e-13 max, 6,645/60,000
+//! bit-identical; CORRECTED 2026-10-14). A residual of a few tenths of a
 //! percent is consistent with the deck's `rho(E)` being a tabulated input and
 //! with accumulated quadrature differences; localising it would need the
 //! published tape present for a point-by-point diff. Light water is therefore

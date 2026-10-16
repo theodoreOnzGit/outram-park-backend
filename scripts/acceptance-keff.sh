@@ -26,6 +26,12 @@
 # at this size is predicted ~190 pcm (scaled by the square root of active
 # histories), so it runs 16 seeds rather than the campaign's 6: at 6 seeds
 # three standard errors would be ~240 pcm and every run UNRESOLVED.
+#
+# LCT-008 here is a SMOKE TEST on the retired 11-nuclide tier
+# (--cheap-nuclides; maintainer direction 2026-10-14). The lattice's model is
+# the full nuclide list everywhere else; the 11-nuclide tier is kept to check
+# that the code runs on each platform, judged against its own recorded
+# route-1 k. It is not the lattice's k.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -39,6 +45,14 @@ commit="$(git rev-parse --short=10 HEAD 2>/dev/null || echo unknown)"
 summary=crates/outram-mc-libs/verification_and_validation/icsbep/five_route_keff/data/summary_keff.csv
 mkdir -p "$(dirname "$record")"
 rm -f "$record"
+
+# Extra flags per case (see the LCT-008 smoke-test note at the top).
+extra_for() {
+  case "$1" in
+    lct008) echo --cheap-nuclides ;;
+    *) echo ;;
+  esac
+}
 
 seeds_for() {
   case "$1" in
@@ -58,7 +72,7 @@ for c in "${cases[@]}"; do
   rm -f "$per_seed"
   cargo run --release -q -p outram-mc-libs --features endf-pebble-cases --example icsbep_five_route_keff -- \
     --case "$c" --route endf --label route4 --seeds "$(seeds_for "$c")" --threads "$threads" \
-    --particles 5000 --inactive 40 --active 120 \
+    --particles 5000 --inactive 40 --active 120 $(extra_for "$c") \
     --csv "$per_seed" --commit "$commit" \
     --accept "$summary" --allowance-pcm 200 --accept-record "$record" || status=1
 done

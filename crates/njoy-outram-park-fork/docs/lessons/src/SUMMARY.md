@@ -27,3 +27,4 @@
 - [Coverage table](./coverage.md)
 - [Re-measurement log, 2026-10-04](./remeasured.md)
 - [Call trees](./call-trees.md)
+- [Where the physics is (proposal)](./physics-functions.md)

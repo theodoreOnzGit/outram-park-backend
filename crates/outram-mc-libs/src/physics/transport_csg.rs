@@ -93,7 +93,7 @@ use crate::physics::variance_reduction::{
 use crate::rng::distributions::isotropic_direction;
 use crate::rng::lcg::{future_seed, prn};
 use crate::tally::scoring::{
-    flush_batch, flush_bins, score_fission_birth, score_scatter_matrix,
+    flush_batch, flush_bins, score_fission_birth, score_scatter_matrix, ScatterEmission,
     score_track_length,
 };
 use crate::tally::tally::{Tally, TallyBin};
@@ -2058,7 +2058,7 @@ pub(crate) fn transport_history_vr<O: FnMut(TraceEvent)>(
                     // short: inelastic is where a fast neutron loses most of its
                     // energy on a heavy nuclide.
                     if let Some(t) = tally {
-                        score_scatter_matrix(batch, t, cell_idx, m, leaf.universe, e, e2, r, w);
+                        score_scatter_matrix(batch, t, cell_idx, m, leaf.universe, e, e2, r, w, ScatterEmission::Primary);
                     }
                     e = e2;
                     u = u2;
@@ -2106,7 +2106,7 @@ pub(crate) fn transport_history_vr<O: FnMut(TraceEvent)>(
                     // neutron actually emitted scores its own (E_in, E_out). The
                     // secondary is scored only when emitted, matching its gate.
                     if let Some(t) = tally {
-                        score_scatter_matrix(batch, t, cell_idx, m, leaf.universe, e, e2, r, w);
+                        score_scatter_matrix(batch, t, cell_idx, m, leaf.universe, e, e2, r, w, ScatterEmission::Primary);
                         if nuc.emits_n2n_secondary() {
                             score_scatter_matrix(
                                 batch,
@@ -2118,6 +2118,7 @@ pub(crate) fn transport_history_vr<O: FnMut(TraceEvent)>(
                                 sec_e2,
                                 r,
                                 w,
+                                ScatterEmission::Secondary,
                             );
                         }
                     }
@@ -2168,12 +2169,13 @@ pub(crate) fn transport_history_vr<O: FnMut(TraceEvent)>(
                                     se,
                                     r,
                                     w,
+                                    ScatterEmission::Secondary,
                                 );
                             }
                         }
                     }
                     if let Some(t) = tally {
-                        score_scatter_matrix(batch, t, cell_idx, m, leaf.universe, e, e2, r, w);
+                        score_scatter_matrix(batch, t, cell_idx, m, leaf.universe, e, e2, r, w, ScatterEmission::Primary);
                     }
                     e = e2;
                     u = u2;
@@ -2227,11 +2229,12 @@ pub(crate) fn transport_history_vr<O: FnMut(TraceEvent)>(
                                 *se,
                                 r,
                                 w,
+                                ScatterEmission::Secondary,
                             );
                         }
                     }
                     if let Some(t) = tally {
-                        score_scatter_matrix(batch, t, cell_idx, m, leaf.universe, e, e2, r, w);
+                        score_scatter_matrix(batch, t, cell_idx, m, leaf.universe, e, e2, r, w, ScatterEmission::Primary);
                     }
                     e = e2;
                     u = u2;
@@ -2258,11 +2261,11 @@ pub(crate) fn transport_history_vr<O: FnMut(TraceEvent)>(
                             time_s,
                         ));
                         if let Some(t) = tally {
-                            score_scatter_matrix(batch, t, cell_idx, m, leaf.universe, e, *se, r, w);
+                            score_scatter_matrix(batch, t, cell_idx, m, leaf.universe, e, *se, r, w, ScatterEmission::Secondary);
                         }
                     }
                     if let Some(t) = tally {
-                        score_scatter_matrix(batch, t, cell_idx, m, leaf.universe, e, o.e, r, w);
+                        score_scatter_matrix(batch, t, cell_idx, m, leaf.universe, e, o.e, r, w, ScatterEmission::Primary);
                     }
                     e = o.e;
                     u = o.u;
@@ -2312,7 +2315,7 @@ pub(crate) fn transport_history_vr<O: FnMut(TraceEvent)>(
                     // is left to the track-length estimator (see
                     // `score_scatter_matrix`).
                     if let Some(t) = tally {
-                        score_scatter_matrix(batch, t, cell_idx, m, leaf.universe, e, e2, r, w);
+                        score_scatter_matrix(batch, t, cell_idx, m, leaf.universe, e, e2, r, w, ScatterEmission::Primary);
                     }
                     e = e2;
                     u = u2;
@@ -2896,5 +2899,32 @@ impl CsgPowerIteration {
     /// the sphere. Reading it draws no random number.
     pub fn source_positions(&self) -> Vec<Position> {
         self.source.iter().map(|s| s.r).collect()
+    }
+}
+
+// At the end of the file for the same reason (2026-10-14, GitHub #859).
+impl CsgPowerIteration {
+    /// **Shannon entropy of the fission source on `mesh`, in bits**: the
+    /// source the next generation starts from (the initial source before the
+    /// first [`Self::step`]), binned on the mesh, through the same
+    /// [`raffles::estimators::shannon_entropy_bits`] the sphere iteration
+    /// uses ([`crate::tally::mesh::RegularMeshExt::shannon_entropy`]).
+    ///
+    /// A source site of this iteration carries no weight, so every site
+    /// counts one. A site outside the mesh is not counted, as in OpenMC
+    /// (`src/eigenvalue.cpp`, `shannon_entropy`). `None` when no site lies in
+    /// the mesh. Reading it draws no random number and changes nothing.
+    ///
+    /// The diagnostic is for judging `n_inactive`: the entropy drifts while
+    /// the source is still settling and scatters about a level once it has.
+    pub fn source_entropy(&self, mesh: &crate::tally::mesh::RegularMesh) -> Option<f64> {
+        use crate::tally::mesh::RegularMeshExt;
+        let mut counts = vec![0.0; mesh.n_bins()];
+        for s in &self.source {
+            if let Some(bin) = mesh.get_bin(s.r) {
+                counts[bin] += 1.0;
+            }
+        }
+        raffles::estimators::shannon_entropy_bits(&counts)
     }
 }

@@ -159,6 +159,37 @@ pub fn powf(x: f64, y: f64) -> f64 {
     crate::fast_pow::powf_ieee(x, y)
 }
 
+/// `x` to the integer power `m`, with the same operations on every target:
+/// libgcc's `__powidf2` (square-and-multiply on `|m|`, then one reciprocal
+/// for `m < 0`), which is also what gfortran compiles `real**integer` to.
+///
+/// `f64::powi` is lowered by each target's backend, so its last bit is not
+/// pinned: on `x86_64-pc-windows-msvc` it gave a different `10**(-23)` from
+/// Linux, and 27 words of an ACE table differed from NJOY2016's on Windows
+/// only (njoy-outram-park-fork's `sigfig`, 2026-10-15). Use this where a
+/// result must match Fortran, or itself, bit for bit across platforms.
+#[inline]
+pub fn powi(x: f64, m: i32) -> f64 {
+    let mut n = m.unsigned_abs();
+    let mut x = x;
+    let mut y = if n % 2 == 1 { x } else { 1.0 };
+    loop {
+        n >>= 1;
+        if n == 0 {
+            break;
+        }
+        x *= x;
+        if n % 2 == 1 {
+            y *= x;
+        }
+    }
+    if m < 0 {
+        1.0 / y
+    } else {
+        y
+    }
+}
+
 /// Cosine. (`std`: `f64::cos`.)
 #[inline]
 pub fn cos(x: f64) -> f64 {
@@ -639,6 +670,17 @@ impl Real for f32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn powi_is_libgcc_square_and_multiply_then_one_reciprocal() {
+        assert_eq!(powi(10.0, 0), 1.0);
+        assert_eq!(powi(10.0, 1), 10.0);
+        assert_eq!(powi(10.0, 23), 1.0e23);
+        // One reciprocal of the positive power, not a product of 0.1s.
+        assert_eq!(powi(10.0, -23).to_bits(), (1.0 / 1.0e23_f64).to_bits());
+        assert_eq!(powi(10.0, -4), 1.0 / 10_000.0);
+        assert_eq!(powi(-3.0, 3), -27.0);
+    }
 
     /// Anchor values that do not depend on which libm is underneath.
     #[test]

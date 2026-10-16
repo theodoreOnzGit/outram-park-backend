@@ -62,6 +62,28 @@ cp -rf source dest          # NOT: cp -r source dest
 - `apt-get` - use `-y` flag
 - `brew` - use `HOMEBREW_NO_AUTO_UPDATE=1` env var
 
+## GitHub rulesets: the "Bypassed rule violations" notice is expected
+
+Checked against the repository's rulesets on 2026-10-16
+(`gh api repos/theodoreOnzGit/outram-park-backend/rulesets/<id>`):
+
+| ruleset | branch | rules | always-bypass actors |
+|---|---|---|---|
+| protection for develop | `develop` | no deletion, no force-push, pull request required | `theodoreOnzGit` (the maintainer), `snrthyr`, Repository admin role |
+| Protection for main | `main` | no deletion, no force-push, no update, code quality | `theodoreOnzGit` |
+
+- **A push to `develop` as `theodoreOnzGit` is allowed.** GitHub prints
+  `Bypassed rule violations for refs/heads/develop … Changes must be made
+  through a pull request` as a notice, not an error, and the push lands. Do not
+  report it as a problem, and do not open a PR to work around it (maintainer
+  direction, 2026-10-16).
+- **GitHub will NOT stop a push to `main` from this account**, because the
+  maintainer bypasses that ruleset too. The only guard is the rule in
+  `CLAUDE.md`: never push to `main` unless the maintainer asks for it in so
+  many words.
+- If a push is ever *rejected* (not merely noticed), stop and report the exact
+  error. Never force-push.
+
 ## Session Completion
 
 This protocol applies when ending an implementation workflow. It is

@@ -58,6 +58,9 @@ const EMEV: f64 = 1.0e6;
 /// `acelod`'s `eps` (`acefc.f90`, `real(kr),parameter::eps=1.e-10_kr`), the
 /// relative slack in its threshold-index search.
 const SIG_EPS: f64 = 1.0e-10;
+/// `unionx`'s `eps` (`acefc.f90:1096`): its first grid point is read at
+/// `E*(1+eps)`.
+const UNIONX_EPS: f64 = 1.0e-10;
 
 /// How closely MT=19+20+21+38 must reproduce MT=18 before the partial fission
 /// channels may replace it as the stored representation.
@@ -276,7 +279,7 @@ impl AceTable {
     /// To include the elastic angular distribution, use
     /// [`from_reconr_with_angular`][Self::from_reconr_with_angular].
     pub fn from_reconr(result: &ReconrResult, kt_mev: f64, suffix: u32) -> Self {
-        Self::build(result, kt_mev, suffix, None, &[], None, None, false, None, None, None)
+        Self::build(result, kt_mev, suffix, None, &[], None, None, false, None, None, None, &[])
     }
 
     /// Assemble an ACE table including the **elastic** angular distribution.
@@ -303,8 +306,7 @@ impl AceTable {
             false,
             None,
             None,
-            None,
-        )
+            None, &[])
     }
 
     /// Assemble a full ACE table: cross sections, the elastic angular
@@ -314,8 +316,13 @@ impl AceTable {
     ///
     /// This is the loadable-transport path: reactions listed in `emissions` get a
     /// TYR yield and a DLW law (Law 3 for discrete levels, Law 4 for continuum /
-    /// (n,xn)); their secondary angular distribution is left isotropic (an
-    /// AND-block upgrade is future work). NXS(5)=NR is set to the producer count.
+    /// (n,xn)); ~~their secondary angular distribution is left isotropic (an
+    /// AND-block upgrade is future work)~~ **CORRECTED 2026-10-14:** their
+    /// angular distributions are written too: through
+    /// [`Self::from_reconr_full_with_extras`], U-234's AND block (78 143
+    /// words, every reaction) is NJOY2016's in every word
+    /// (`tests/process_api.rs`, `tests/ace_compare.rs`). NXS(5)=NR is set to
+    /// the producer count.
     /// `heating` is the MT=301 KERMA cross section (build it with
     /// ~~[`Kerma::from_reconr`][crate::heatr::Kerma::from_reconr]~~
     /// ~~[`Kerma::from_endf`][crate::heatr::Kerma::from_endf], which deposits
@@ -336,8 +343,7 @@ impl AceTable {
         photons: Option<&[super::photon_blocks::PhotonEntry]>,
     ) -> Self {
         Self::build(
-            result, kt_mev, suffix, angular, emissions, heating, nu, mt19, photons, None, None,
-        )
+            result, kt_mev, suffix, angular, emissions, heating, nu, mt19, photons, None, None, &[])
     }
 
     /// [`from_reconr_full`][Self::from_reconr_full] **plus the UNR block** —
@@ -369,8 +375,7 @@ impl AceTable {
     ) -> Self {
         Self::build(
             result, kt_mev, suffix, angular, emissions, heating, nu, mt19, photons, Some(urr),
-            None,
-        )
+            None, &[])
     }
 
     /// [`from_reconr_full`][Self::from_reconr_full] plus the optional blocks a
@@ -395,8 +400,32 @@ impl AceTable {
         urr: Option<&crate::purr::UrrProbabilityTables>,
         delayed: Option<&super::delayed_blocks::DelayedBlocks>,
     ) -> Self {
+        Self::from_reconr_full_with_extras_disc(
+            result, kt_mev, suffix, angular, emissions, heating, nu, mt19, photons, urr, delayed, &[],
+        )
+    }
+
+    /// [`Self::from_reconr_full_with_extras`] with the photon-production
+    /// discontinuities `convr` finds (`photon_blocks::gamma_discontinuities`),
+    /// which `unionx` puts into the energy grid as a pair straddling each one
+    /// (`acefc.f90:1180-1250`). The ordinary build path passes them.
+    #[allow(clippy::too_many_arguments)]
+    pub fn from_reconr_full_with_extras_disc(
+        result: &ReconrResult,
+        kt_mev: f64,
+        suffix: u32,
+        angular: Option<&ElasticAngular>,
+        emissions: &[Emission],
+        heating: Option<&crate::heatr::Kerma>,
+        nu: Option<&[f64]>,
+        mt19: bool,
+        photons: Option<&[super::photon_blocks::PhotonEntry]>,
+        urr: Option<&crate::purr::UrrProbabilityTables>,
+        delayed: Option<&super::delayed_blocks::DelayedBlocks>,
+        gamma_disc: &[f64],
+    ) -> Self {
         Self::build(
-            result, kt_mev, suffix, angular, emissions, heating, nu, mt19, photons, urr, delayed,
+            result, kt_mev, suffix, angular, emissions, heating, nu, mt19, photons, urr, delayed, gamma_disc,
         )
     }
 
@@ -413,6 +442,7 @@ impl AceTable {
         photons: Option<&[super::photon_blocks::PhotonEntry]>,
         urr: Option<&crate::purr::UrrProbabilityTables>,
         delayed: Option<&super::delayed_blocks::DelayedBlocks>,
+        gamma_disc: &[f64],
     ) -> Self {
         let za = result.material.za.round() as i32;
         let awr = result.material.awr;
@@ -528,6 +558,7 @@ impl AceTable {
         egrid.retain(|&x| x > 0.0);
         egrid.sort_by(|a, b| a.partial_cmp(b).unwrap());
         egrid.dedup_by(|a, b| (*a - *b).abs() <= 1e-10 * b.abs().max(1.0));
+        let egrid = unionx_discontinuities(&egrid, gamma_disc);
         let nes = egrid.len();
 
         // ── ESZ block: energy, total, disappearance, elastic, heating ───────
@@ -590,8 +621,21 @@ impl AceTable {
 
         let mut total = elastic_xs.clone();
         let mut disappear = vec![0.0f64; nes];
+        // The total as `acelod` holds it when it reaches MT=301 in its MF=3
+        // walk (ascending MT): elastic plus the partials before 301, and not
+        // yet rounded by the final 9-figure pass. The heating number divides
+        // by this (`xss(ih+j)=sigfig(s/emev/xss(it+j),7,0)`,
+        // `acefc.f90:5641-5645`), not by the finished total; dividing by the
+        // finished one moved the 7th figure at 1 to 54 energies per table
+        // (B-10, Zn-70 against NJOY2016 with HEATR, found 2026-10-15 by
+        // printing NJOY's `xss(it+j)` there: 1438.40835365984390 against the
+        // stored 1438.40835).
+        let mut total_at_301: Option<Vec<f64>> = None;
         for (k, sec) in partials.iter().enumerate() {
             let mt = i32::from(sec.mt);
+            if mt > 301 && total_at_301.is_none() {
+                total_at_301 = Some(total.clone());
+            }
             let disap = is_disappearance(mt, &present);
             let in_total = contributes_to_total(mt, &present);
             for j in 0..nes {
@@ -603,6 +647,7 @@ impl AceTable {
                 }
             }
         }
+        let total_at_301 = total_at_301.unwrap_or_else(|| total.clone());
         // ~~Re-round the accumulated sums to 7 sig figs, as acelod does.~~
         // CORRECTED 2026-09-26: `acelod` does not. Its total and absorption
         // are plain sums of the 7-figure partials (`xss(it+j)=xss(it+j)+s`,
@@ -644,8 +689,24 @@ impl AceTable {
         for (j, &e) in egrid.iter().enumerate() {
             let h = match g301.as_mut() {
                 Some(g) => {
-                    let s = sigfig(g.get(e).y, 7);
-                    if total[j] != 0.0 { sigfig(s / EMEV / total[j], 7) } else { 0.0 }
+                    // `unionx` first carries MT=301 onto the union grid
+                    // (`thresh=elow`: every point, the first at
+                    // `E*(1+eps)`, `acefc.f90:1780-1800`) and writes it to
+                    // a scratch tape that is text when the PENDF is
+                    // (`if (nin.lt.0) nscr=-nscr`, `:1110`), so `acelod`'s
+                    // `gety1` (`:5636`) meets `a11` of that value at the
+                    // node. Ti-48's 311 keV value is 9005.658499863 there
+                    // and 9005.6585 after the text, which `sigfig` takes to
+                    // 9005.659 (2026-10-15, found with an instrumented
+                    // NJOY2016).
+                    let eu = if j == 0 { e * (1.0 + UNIONX_EPS) } else { e };
+                    let gy = g.get(eu).y;
+                    let s = sigfig(
+                        crate::endf::parse::parse_endf_float(&crate::endf::parse::format_endf_float(gy)).unwrap_or(gy),
+                        7,
+                    );
+                    let t = total_at_301[j];
+                    if t != 0.0 { sigfig(s / EMEV / t, 7) } else { 0.0 }
                 }
                 None => 0.0,
             };
@@ -786,6 +847,13 @@ impl AceTable {
                 append_dlw(&mut b, &producers, &law3_lo, sigfig(egrid[nes - 1] / EMEV, 7));
             jxs[jxs::LDLW] = ldlw;
             jxs[jxs::DLW] = dlw;
+        } else {
+            // Upstream sets `ldlw = next` and `dlw = next` whatever NR is
+            // (`acefc.f90:5902-5904`), so a table with no secondary-neutron
+            // reaction (H-1) carries both locators at the next free word, an
+            // empty block, not 0 (GitHub #872).
+            jxs[jxs::LDLW] = b.next_locator();
+            jxs[jxs::DLW] = b.next_locator();
         }
 
         // ── UNR (unresolved-range probability tables) ───────────────────────
@@ -885,14 +953,19 @@ impl AceTable {
         // (continuous-energy neutron), e.g. "92235.00c".
         let zaid_num = za as f64 + suffix as f64 / 100.0;
         let zaid = format!("{:9.2}c", zaid_num);
-        // `hm` is a cosmetic 10-char material tag. We do not retain the ENDF MAT
-        // in `ReconrResult`, so tag with ZA (what a reader displays anyway).
+        // `hm` is a 10-char material tag. ~~We do not retain the ENDF MAT in
+        // `ReconrResult`, so tag with ZA (what a reader displays anyway).~~
+        // CORRECTED 2026-10-14 (gh:#864): upstream writes the MAT
+        // (`acefc.f90:4949`, `'   mat',i4`), and `build_deck`, which knows
+        // it, now overwrites this tag with it; only a table built here without
+        // a deck keeps the ZA.
         let mat_id = format!("{:>10}", format!("mat{za}"));
 
         AceTable {
             zaid,
             awr,
             kt_mev,
+            iz: [0; 16],
             date: "  njoy-rust".to_string(),
             // Provenance, written into the ACE `hk` field (70 chars) so it
             // travels with the table rather than beside it: which crate
@@ -1149,10 +1222,21 @@ fn append_photon_blocks(
 ) -> (i32, i32, i32, i32, i32, i32, i32) {
     let n = entries.len();
 
-    // MTRP.
+    // MTRP. `acelpp` stores `mto = 10*(MT*1000 + k)` plus a flag digit
+    // (`lff`: 0 for a discrete line, 1 for an MF=15 law-4 photon, 2 for an
+    // MF=6 photon, `acefc.f90:8384-8386`) and later strips it in place with
+    // `xss(mtrp-1+i)=xss(mtrp-1+i)/10` (`:8490`). So the word NJOY2016 holds
+    // is fractional for lff > 0 (B-10's MT=801 photon is 801001.2). Its
+    // Type-1 writer prints it with `nint` and hides that; its Type-2 file
+    // keeps it, and so does this word (still flagged an integer for Type 1).
     let mtrp = b.next_locator();
     for e in entries {
-        b.int(e.mtrp);
+        let lff = match (&e.sigp, &e.law) {
+            (SigP::Yield { mftype: 16, .. }, _) => 2,
+            (_, EnergyLaw::Law4(_)) => 1,
+            _ => 0,
+        };
+        b.word(f64::from(e.mtrp * 10 + lff) / 10.0, true);
     }
 
     // LSIGP: SIGP-relative 1-based offsets, so size each SIGP entry first.
@@ -1171,11 +1255,18 @@ fn append_photon_blocks(
     // `E(1-eps)`, the threshold point itself is zero, and every value is
     // `sigfig(y, 7, 0)`. ~~Unrounded `eval_tab1` values~~, CHANGED
     // 2026-09-26 (GitHub #340).
+    // An MF=13 entry's SIGP window, as `gamsum` and `acelpp` make it
+    // (`acefc.f90:3700-3760`, `:8336-8371`). `gamsum` evaluates the cross
+    // section at every grid energy from the table's first energy on (the
+    // value is held past its last), zero at that first energy; `acelpp` then
+    // keeps the run from the last leading zero to one point past the last
+    // non-zero value. ~~The window used to stop at the table's last energy~~
+    // (CORRECTED 2026-10-14, GitHub #872): O-16's MT=4 tables run to 150 MeV
+    // with zeros above 30 MeV, which NJOY2016 does not store.
     let xs_window = |interp: &[(u32, u32)], pairs: &[(f64, f64)]| -> (i32, Vec<f64>) {
         const EPS: f64 = 1.0e-10;
-        let e_last = match pairs.last() {
-            Some(&(b, _)) => b,
-            None => return (1, Vec::new()),
+        let Some(&(thresh, _)) = pairs.first() else {
+            return (1, Vec::new());
         };
         let np = pairs.len() as i32;
         let tab = crate::endf::records::Tab1 {
@@ -1184,19 +1275,12 @@ fn append_photon_blocks(
             pairs: pairs.to_vec(),
         };
         let mut g = crate::endf::gety1::Gety1::new(&tab);
-        let thresh = g.get(0.0).xnext;
-        let Some(ie) = egrid.iter().position(|&e| e >= (1.0 - EPS) * thresh) else {
+        let _ = g.get(0.0);
+        let Some(i0) = egrid.iter().position(|&e| e >= (1.0 - EPS) * thresh) else {
             return (1, Vec::new());
         };
-        let last = egrid
-            .iter()
-            .rposition(|&e| e <= e_last)
-            .unwrap_or(egrid.len().saturating_sub(1));
-        if last < ie {
-            return (1, Vec::new());
-        }
         let nen = egrid.len();
-        let sig = (ie..=last)
+        let ys: Vec<f64> = (i0..nen)
             .map(|i| {
                 let mut e = egrid[i];
                 if i == 0 {
@@ -1209,16 +1293,41 @@ fn append_photon_blocks(
                 if i > 0 && e < thresh * (1.0 + EPS) {
                     y = 0.0;
                 }
-                sigfig(y, 7)
+                // `gamsum` writes these to a text scratch tape that `acelpp`
+                // reads back, so each value carries `a11`'s rounding (6
+                // figures for a two-digit exponent).
+                let y = sigfig(y, 7);
+                crate::endf::parse::parse_endf_float(&crate::endf::parse::format_endf_float(y)).unwrap_or(y)
             })
             .collect();
-        (ie as i32 + 1, sig)
+        // `acelpp`'s jfirst / jlast over those values.
+        let (mut jfirst, mut jn, mut jlast) = (0usize, 0usize, 0usize);
+        let mut kept: Vec<f64> = Vec::with_capacity(ys.len());
+        for (m, &y) in ys.iter().enumerate() {
+            if y == 0.0 && jlast == 0 && jn == 1 {
+                jn = 0;
+                kept.clear();
+            }
+            if jn == 0 {
+                jfirst = m;
+            }
+            jn += 1;
+            if y != 0.0 {
+                jlast = jn;
+            }
+            kept.push(y);
+        }
+        if jlast < jn {
+            jlast += 1;
+        }
+        kept.truncate(jlast);
+        ((i0 + jfirst) as i32 + 1, kept)
     };
 
     let sigp_len = |e: &super::photon_blocks::PhotonEntry| -> i32 {
         match &e.sigp {
-            // [12, MTMULT, NR=0, NE, E(NE), y(NE)]
-            SigP::Yield { e_mev, .. } => 4 + 2 * e_mev.len() as i32,
+            // [12, MTMULT, NR, NBT(NR), INT(NR), NE, E(NE), y(NE)]
+            SigP::Yield { e_mev, interp, .. } => 4 + 2 * e_mev.len() as i32 + 2 * yield_nr(interp) as i32,
             // [13, IE, NE, sigma(NE)]
             SigP::Xs { interp, pairs } => 3 + xs_window(interp, pairs).1.len() as i32,
         }
@@ -1243,10 +1352,22 @@ fn append_photon_blocks(
                 mtmult,
                 e_mev,
                 y,
+                interp,
             } => {
                 b.int(*mftype);
                 b.int(*mtmult);
-                b.int(0); // NR — single lin-lin range
+                // NR = 0 for one lin-lin region, else the regions as they are
+                // (`acefc.f90:8312-8322`).
+                let nr = yield_nr(interp);
+                b.int(nr as i32);
+                if nr > 0 {
+                    for &(nbt, _) in interp {
+                        b.int(nbt as i32);
+                    }
+                    for &(_, int) in interp {
+                        b.int(int as i32);
+                    }
+                }
                 b.int(e_mev.len() as i32);
                 for &v in e_mev {
                     b.real(v);
@@ -1267,31 +1388,68 @@ fn append_photon_blocks(
         }
     }
 
-    // LANDP: 0 ⇒ isotropic. Every photon this port writes is isotropic, which
-    // `photon_blocks::build` guarantees by refusing MF=14 with LI=0 outright.
+    // LANDP / ANDP (`acelpp`, `acefc.f90:8402-8478`). Each anisotropic MF=14
+    // subsection is one ANDP table, `[NE, E(NE), L(NE), 33 cosines per
+    // anisotropic energy]`, written in the order the entries carry them; a
+    // photon points at its table (1-based, ANDP-relative) or has 0.
+    let tables: Vec<&super::photon_blocks::PhotonAngularTable> =
+        entries.iter().flat_map(|e| e.andp_tables.iter()).collect();
+    let mut table_loc = Vec::with_capacity(tables.len());
+    let mut loc = 1i32;
+    for t in &tables {
+        table_loc.push(loc);
+        let aniso = t.bins.iter().filter(|b| b.is_some()).count();
+        loc += 1 + 2 * t.e_mev.len() as i32 + 33 * aniso as i32;
+    }
     let landp = b.next_locator();
-    for _ in entries {
-        b.int(0);
+    for e in entries {
+        b.int(e.landp.map_or(0, |id| table_loc[id]));
+    }
+    let andp = b.next_locator();
+    for (t, &base) in tables.iter().zip(&table_loc) {
+        let ne = t.e_mev.len() as i32;
+        b.int(ne);
+        for &e in &t.e_mev {
+            b.real(e);
+        }
+        let mut m = 0i32;
+        for bins in &t.bins {
+            if bins.is_some() {
+                b.int(base + 2 * ne + 33 * m + 1);
+                m += 1;
+            } else {
+                b.int(0);
+            }
+        }
+        for bins in t.bins.iter().flatten() {
+            for &c in bins {
+                b.real(c);
+            }
+        }
     }
 
     // LDLWP / DLWP, laid out exactly as the neutron LDLW/DLW.
-    const HEADER: i32 = 9;
+    // LNW, LAW, IDAT, then the applicability TAB1: NR, (NBT, INT) x NR, NE,
+    // E x NE, P x NE. The fixed form (NR = 0, NE = 2) is 9 words.
+    let header_len = |e: &super::photon_blocks::PhotonEntry| -> i32 {
+        match &e.applicability {
+            None => 9,
+            Some(a) => 3 + 1 + 2 * a.interp.len() as i32 + 1 + 2 * a.e_mev.len() as i32,
+        }
+    };
     let mut header_off = Vec::with_capacity(n);
     let mut off = 1i32;
     for e in entries {
         header_off.push(off);
-        off += HEADER + e.law.data_len();
+        off += header_len(e) + e.law.data_len();
     }
     let ldlwp = b.next_locator();
     for &o in &header_off {
         b.int(o);
     }
-    // ANDP carries nothing, so it starts where DLWP does — the same
-    // convention NJOY writes.
-    let andp = ldlwp;
     let dlwp = b.next_locator();
     for (i, e) in entries.iter().enumerate() {
-        let idat_rel = header_off[i] + HEADER;
+        let idat_rel = header_off[i] + header_len(e);
         // For an MF=13 entry `acelpp` takes the law's energy range from the
         // ESZ grid at the entry's first and last SIGP index (`ef=xss(esz+ie)`,
         // `el=xss(esz+ie+n-1)`, `acefc.f90:8370-8371`), not from the
@@ -1313,12 +1471,34 @@ fn append_photon_blocks(
         b.int(0); // LNW
         b.int(e.law.law_number());
         b.int(idat_rel);
-        b.int(0); // NR
-        b.int(2); // NE
-        b.real(e_lo);
-        b.real(e_hi);
-        b.real(1.0);
-        b.real(1.0);
+        match &e.applicability {
+            None => {
+                b.int(0); // NR
+                b.int(2); // NE
+                b.real(e_lo);
+                b.real(e_hi);
+                b.real(1.0);
+                b.real(1.0);
+            }
+            // An MF=15 probability record, as `acelpp` copies it
+            // (`acefc.f90:8549-8566`, GitHub #875).
+            Some(a) => {
+                b.int(a.interp.len() as i32);
+                for &(nbt, _) in &a.interp {
+                    b.int(nbt as i32);
+                }
+                for &(_, int) in &a.interp {
+                    b.int(int as i32);
+                }
+                b.int(a.e_mev.len() as i32);
+                for &v in &a.e_mev {
+                    b.real(v);
+                }
+                for &v in &a.p {
+                    b.real(v);
+                }
+            }
+        }
         for (v, is_int) in e.law.serialize(idat_rel) {
             b.word(v, is_int);
         }
@@ -1476,4 +1656,64 @@ mod tests {
         );
         assert_eq!(eval_partial(&sec, 9.9e6), 3.0, "above range → clamp high");
     }
+}
+
+/// The NR `acelpp` writes for a photon yield: 0 for one lin-lin region (or
+/// none recorded), else the number of regions (`acefc.f90:8312-8322`).
+fn yield_nr(interp: &[(u32, u32)]) -> usize {
+    if interp.is_empty() || (interp.len() == 1 && interp[0].1 == 2) {
+        0
+    } else {
+        interp.len()
+    }
+}
+
+/// `unionx`'s treatment of the photon-production discontinuities on the
+/// energy grid (`acefc.f90:1180-1250`, `iskp = 0`, no thinning). For each
+/// discontinuity `d` (ascending), `egl = sigfig(d, 7, -1)` replaces the first
+/// grid energy at or above it, and the walk then jumps to
+/// `egh = sigfig(d, 7, +1)`, dropping any grid energy in between. The values
+/// at those energies are interpolated like any other grid point.
+///
+/// `unionx`'s second pair (`edl`/`edh`, for a discontinuity in MT=1 itself
+/// met at `egh`) is not reproduced: this grid has no repeated energies.
+fn unionx_discontinuities(grid: &[f64], disc: &[f64]) -> Vec<f64> {
+    const EPS: f64 = 1.0e-10;
+    const ETOP: f64 = 1.0e10;
+    if disc.is_empty() || grid.is_empty() {
+        return grid.to_vec();
+    }
+    let pair = |i: usize| -> (f64, f64) {
+        disc.get(i).map_or((ETOP, ETOP), |&d| (sigfig_dir(d, -1), sigfig_dir(d, 1)))
+    };
+    let mut iedis = 0usize;
+    let (mut egl, mut egh) = pair(iedis);
+    let mut out = Vec::with_capacity(grid.len() + 2 * disc.len());
+    let mut k = 0usize; // first grid index > e
+    let mut enext = grid[0];
+    loop {
+        let e = enext;
+        while k < grid.len() && grid[k] <= e {
+            k += 1;
+        }
+        enext = if k < grid.len() { grid[k] } else { ETOP * 100.0 };
+        if (e - egl).abs() < EPS * egl {
+            enext = egh;
+        } else if (e - egh).abs() < EPS * egh {
+            iedis += 1;
+            (egl, egh) = pair(iedis);
+        } else if enext >= (1.0 - EPS) * egl {
+            enext = egl;
+        }
+        out.push(e);
+        if enext > ETOP - ETOP / 100.0 {
+            break;
+        }
+    }
+    out
+}
+
+/// `sigfig(x, 7, idig)`.
+fn sigfig_dir(x: f64, idig: i32) -> f64 {
+    crate::mixr::mix::sigfig(x, 7, idig)
 }

@@ -343,7 +343,9 @@ pub mod godiva {
     /// The benchmark `k_eff`: the assembly was critical, so 1.0000 by
     /// construction.
     pub const BENCHMARK_K: f64 = 1.0000;
-    /// The evaluation's stated uncertainty on [`BENCHMARK_K`].
+    /// The evaluation's stated uncertainty on [`BENCHMARK_K`], as tabulated
+    /// in Mosteller, LA-UR-10-06230 (2010) and van der Marck, Nucl. Data
+    /// Sheets 107 (2006) 3061 (rows checked by the maintainer, 2026-10-13).
     pub const BENCHMARK_SIGMA: f64 = 0.0010;
 
     /// The Godiva material, indexing nuclides `0, 1, 2` in [`NUCLIDES`] order.
@@ -453,10 +455,16 @@ pub mod jemima {
         ("oralloy core", &[("U234", 8.4430e-05), ("U235", 7.7777e-03), ("U238", 3.9671e-02)]),
         ("natural uranium reflector", &[("U234", 2.6433e-06), ("U235", 3.4603e-04), ("U238", 4.7711e-02)]),
     ];
-    /// The benchmark `k_eff`: critical, so 1.0000 by construction. No
-    /// handbook uncertainty is cited (the ICSBEP handbook is licence
-    /// restricted, `DATA_POLICY.md`).
+    /// The benchmark `k_eff`, 1.0000 ± 0.0030. ~~No handbook uncertainty is
+    /// cited.~~ **CORRECTED 2026-10-14:** the handbook value as tabulated in
+    /// two open secondary sources (the handbook itself is licence
+    /// restricted, `DATA_POLICY.md`): Mosteller, *An Expanded Criticality
+    /// Validation Suite for MCNP*, LA-UR-10-06230 (2010), and van der Marck,
+    /// *Benchmarking ENDF/B-VII.0*, Nucl. Data Sheets 107 (2006) 3061. The
+    /// maintainer checked the rows against the source pages on 2026-10-13.
     pub const BENCHMARK_K: f64 = 1.0000;
+    /// The benchmark's stated uncertainty on [`BENCHMARK_K`], same sources.
+    pub const BENCHMARK_SIGMA: f64 = 0.0030;
 
     /// The two materials, indexing nuclides in [`NUCLIDES`] order.
     pub fn materials() -> Vec<Material> {
@@ -506,9 +514,12 @@ pub mod jemima {
 /// outside.
 ///
 /// As `examples/hst009_keff.rs` transcribed it and as the five-route study
-/// runs it, with that example's three stated approximations: **U-236
-/// omitted** (8.8837e-6 /b·cm, 0.5 % of the uranium; no tape here), **O-17
-/// folded into O-16**, and **Cu and Zn omitted from the tank**. Collected
+/// runs it, with that example's stated approximations: ~~**U-236
+/// omitted** (8.8837e-6 /b·cm, 0.5 % of the uranium; no tape here),~~
+/// **O-17 folded into O-16**, and **Cu and Zn omitted from the tank**.
+/// **CHANGED 2026-10-15 (maintainer direction, gh:#875):** U-236 is in the
+/// model at the benchmark's 8.8837e-6 /b·cm, appended last in [`NUCLIDES`]
+/// so the other indices are unchanged. Collected
 /// here on 2026-10-13 (GitHub #859) for the same reason as [`jemima`];
 /// `examples/hst009_keff.rs` still carries its own copy.
 ///
@@ -532,7 +543,7 @@ pub mod hst009 {
     pub const TEMPERATURE_K: f64 = 293.6;
     /// `(name, ENDF/B-VIII.0 tape in reference-data/endf/)`, in the order
     /// [`materials`] indexes them.
-    pub const NUCLIDES: [(&str, &str); 11] = [
+    pub const NUCLIDES: [(&str, &str); 12] = [
         ("U234", "n-092_U_234-ENDF8.0.endf"),
         ("U235", "n-092_U_235-ENDF8.0.endf"),
         ("U238", "n-092_U_238.endf"),
@@ -544,6 +555,7 @@ pub mod hst009 {
         ("Si29", "n-014_Si_029-ENDF8.0.endf"),
         ("Si30", "n-014_Si_030-ENDF8.0.endf"),
         ("Mn55", "n-025_Mn_055-ENDF8.0.endf"),
+        ("U236", "n-092_U_236-ENDF8.0.endf"),
     ];
     /// Index of H-1 in [`NUCLIDES`] (it takes the thermal scattering law).
     pub const N_H1: usize = 5;
@@ -561,6 +573,7 @@ pub mod hst009 {
             &[
                 ("U234", 1.7561e-05),
                 ("U235", 1.6626e-03),
+                ("U236", 8.8837e-06),
                 ("U238", 9.4079e-05),
                 ("F19", 3.5663e-03),
                 ("O16", 3.334735656e-02 + 1.264344e-05),
@@ -579,8 +592,16 @@ pub mod hst009 {
         ),
         ("water reflector", &[("H1", 6.6659e-02), ("O16", 3.3316368309e-02 + 1.2631691e-05)]),
     ];
-    /// The benchmark `k_eff`: critical, so 1.0000 by construction.
-    pub const BENCHMARK_K: f64 = 1.0000;
+    /// The benchmark `k_eff`, 0.9990 ± 0.0043. ~~Critical, so 1.0000 by
+    /// construction.~~ **CORRECTED 2026-10-14:** the benchmark model's k is
+    /// not 1. This is the handbook value as tabulated in an open secondary
+    /// source (the handbook itself is licence restricted, `DATA_POLICY.md`):
+    /// van der Marck, *Benchmarking ENDF/B-VII.0*, Nucl. Data Sheets 107
+    /// (2006) 3061, HST-009 case 1. The maintainer checked the row against
+    /// the source page on 2026-10-13.
+    pub const BENCHMARK_K: f64 = 0.9990;
+    /// The benchmark's stated uncertainty on [`BENCHMARK_K`], same source.
+    pub const BENCHMARK_SIGMA: f64 = 0.0043;
 
     /// The three materials, indexing nuclides in [`NUCLIDES`] order.
     pub fn materials() -> Vec<Material> {
@@ -676,7 +697,9 @@ mod icsbep_model_tests {
     /// appears in the solution and the water, not the tank. **Result
     /// (2026-10-13):** no mismatch, and the solution takes its volume share
     /// of the points inside the model, to within 0.003
-    /// ((11.5177 / 35)³ = 0.0356).
+    /// ((11.5177 / 35)³ = 0.0356). Since 2026-10-15 (gh:#875) it also pins
+    /// U-236 in the solution, and only there, at the benchmark's
+    /// 8.8837e-6 /b·cm.
     #[test]
     fn hst009_is_three_concentric_spheres() {
         let g = hst009::geometry();
@@ -711,6 +734,10 @@ mod icsbep_model_tests {
         assert_eq!(hst009::NUCLIDES[hst009::N_H1].0, "H1");
         let has_h = |i: usize| m[i].components.iter().any(|c| c.nuclide_idx == hst009::N_H1);
         assert!(has_h(hst009::MAT_SOLUTION) && !has_h(hst009::MAT_TANK) && has_h(hst009::MAT_WATER));
+        let u236 = hst009::NUCLIDES.iter().position(|(n, _)| *n == "U236").expect("U236 in NUCLIDES");
+        let u236_in = |i: usize| m[i].components.iter().find(|c| c.nuclide_idx == u236).map(|c| c.atom_density);
+        assert_eq!(u236_in(hst009::MAT_SOLUTION), Some(8.8837e-06));
+        assert!(u236_in(hst009::MAT_TANK).is_none() && u236_in(hst009::MAT_WATER).is_none());
         assert_eq!(m.iter().map(|x| x.id).collect::<Vec<_>>(), vec![1, 2, 3]);
         let b = hst009::source_box();
         assert_eq!(material_at(&g, Position::new(0.5 * b.upper.x, 0.0, 0.0)), Some(hst009::MAT_SOLUTION));

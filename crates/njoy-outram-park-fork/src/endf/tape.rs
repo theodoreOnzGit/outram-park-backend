@@ -41,7 +41,10 @@ pub struct Section {
 /// let sec = tape.section(228, 3, 2).unwrap();  // He-4 elastic cross section
 /// println!("{} rows in MF=3 MT=2", sec.rows.len());
 /// ```
-#[derive(Debug)]
+///
+/// `Clone` since 2026-10-14 (GitHub #871): [`crate::process::NuclearCrossSections`]
+/// keeps the evaluation it was made from, for ACER.
+#[derive(Debug, Clone)]
 pub struct Tape {
     /// First line of the tape (free-text tape identification, MAT=1 MF=0 MT=0).
     pub tpid: String,

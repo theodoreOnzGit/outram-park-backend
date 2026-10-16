@@ -207,14 +207,19 @@ const FISSION_MTS: [i32; 5] = [18, 19, 20, 21, 38];
 /// (U-235, U-238) and for each of MT=19/20/21/38 (U-234).
 const TYR_FISSION: i32 = 19;
 
+/// The neutron multiplicity ACER writes to TYR for a reaction with angular
+/// data, from its MT alone: `acelod`'s table, `acefc.f90:5859-5868`, for
+/// every `MT <= 91` but elastic. **CORRECTED 2026-10-14:** the table here had
+/// drifted from upstream's (MT=24 and 41 are 2, MT=25 and 42 are 3, MT=11 and
+/// 26 are 2, and every other `MT <= 91` is 1, not "no neutron"). Fission
+/// (19 in upstream's table) is handled before this is asked.
 fn neutron_yield(mt: i32) -> Option<u32> {
     match mt {
-        16 => Some(2),      // (n,2n)
-        17 => Some(3),      // (n,3n)
-        37 => Some(4),      // (n,4n)
-        51..=91 => Some(1), // (n,n') discrete levels + continuum
-        22 | 23 | 24 | 25 | 28 | 29 | 30 | 32 | 33 | 34 | 35 | 36 | 41 | 42 | 44 | 45 => Some(1),
-        5 => Some(1), // (n,anything) — approx one neutron
+        6..=9 | 16 | 24 | 26 | 46..=49 | 11 | 41 => Some(2),
+        17 | 25 | 42 => Some(3),
+        37 => Some(4),
+        2 => None,
+        1..=91 => Some(1),
         _ => None,
     }
 }
@@ -226,8 +231,11 @@ fn neutron_yield(mt: i32) -> Option<u32> {
 ///   (two-body kinematics), centre-of-mass frame.
 /// - Continuum / multi-neutron reactions (MT=91, 16, 17, 37, (n,n'+particle), 5)
 ///   become **Law 4** from their MF=6 neutron spectrum, with the TYR sign set by
-///   the MF=6 frame (LCT). Reactions whose MF=6 is absent or not yet parseable
-///   are skipped (they simply carry no secondary in this table).
+///   the MF=6 frame (LCT). ~~Reactions whose MF=6 is absent or not yet
+///   parseable are skipped (they simply carry no secondary in this table).~~
+///   **CORRECTED 2026-10-14:** with no MF=6 but MF=4 + MF=5, they take
+///   `acelf5`'s law and MF=4's angles, as upstream does; only a reaction with
+///   neither is skipped.
 /// - **Fission** (MT=18, or the partial chances MT=19/20/21/38 when those are
 ///   the stored representation) becomes **Law 4 from MF=5**, laboratory frame,
 ///   with `TYR = 19` — the ACE flag meaning *the neutron yield for this
@@ -278,10 +286,16 @@ pub fn build_emissions(tape: &Tape, mat: i32, awr: f64, partials: &[(i32, f64)])
         if (51..=90).contains(&mt) {
             // Two-body discrete level → Law 3 (CM frame ⇒ negative TYR). Its
             // angular distribution is given separately in MF=4 (→ AND block).
-            let angular = tape
-                .section(mat, 4, mt)
-                .and_then(|s| parse_elastic_angular(s).ok())
-                .filter(|a| !a.is_all_isotropic());
+            // With no MF=4, a level given in MF=6 as a two-body (`LAW = 2`)
+            // neutron carries its angles there; upstream reads them as a
+            // regular angular distribution (`acefc.f90:5851-5876`). GitHub
+            // #872: Al-27 and Si-28/29/30 give every level this way.
+            let angular = match tape.section(mat, 4, mt) {
+                Some(s) => parse_elastic_angular(s).ok().filter(|a| !a.is_all_isotropic()),
+                None => tape
+                    .section(mat, 6, mt)
+                    .and_then(|s| crate::acer::acensd::parse_mf6_law2_for_acer(s).ok().flatten()),
+            };
             out.push(Emission {
                 mt,
                 tyr: -(y as i32),
@@ -328,6 +342,27 @@ pub fn build_emissions(tape: &Tape, mat: i32, awr: f64, partials: &[(i32, f64)])
                     tyr: sign * y as i32,
                     law: EnergyLaw::Law4(n.law4),
                     angular: None,
+                });
+            }
+        } else if let (Some(s4), Some(s5)) = (tape.section(mat, 4, mt), tape.section(mat, 5, mt)) {
+            // No MF=6: angles in MF=4, energies in MF=5 (Mg-24's MT=16, 22,
+            // 28 and 91 in ENDF/B-VIII.0). Upstream writes these like any
+            // other reaction: TYR is the MT's multiplicity signed by MF=4's
+            // own LCT (`acefc.f90:5859-5870`), the angles go to AND
+            // (`acensd`), and the energy law is `acelf5` (`:5924`).
+            // **ADDED 2026-10-14:** before this they were skipped, written
+            // with TYR = 0, so the table emitted no neutron from them and
+            // OpenMC crashed on its DLW layout.
+            let ang = parse_elastic_angular(s4).ok();
+            let lct = ang.as_ref().map_or(1, |a| a.lct);
+            let tyr = if lct >= 2 { -(y as i32) } else { y as i32 };
+            let q_mev = crate::mixr::mix::sigfig(qi / EMEV, 7, 0);
+            if let Ok(Some(entry)) = crate::acer::acelf5::acelf5(s5, mt, q_mev, tyr, true) {
+                out.push(Emission {
+                    mt,
+                    tyr,
+                    law: EnergyLaw::Acelf6(entry),
+                    angular: ang.filter(|a| !a.is_all_isotropic()),
                 });
             }
         }

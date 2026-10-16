@@ -84,8 +84,8 @@ def jemima():
 
 def hst009():
     sol = mat("uranium oxyfluoride solution", [
-        ("U234", 1.7561e-05), ("U235", 1.6626e-03), ("U238", 9.4079e-05),
-        ("F19", 3.5663e-03), ("O16", 3.334735656e-02 + 1.264344e-05), ("H1", 5.9587e-02)], sab=True)
+        ("U234", 1.7561e-05), ("U235", 1.6626e-03), ("U236", 8.8837e-06),  # U-236 since 2026-10-15, gh:#875
+        ("U238", 9.4079e-05), ("F19", 3.5663e-03), ("O16", 3.334735656e-02 + 1.264344e-05), ("H1", 5.9587e-02)], sab=True)
     tank = mat("1100 aluminium tank", [
         ("Al27", 5.9699e-02), ("Si28", 5.09126279536e-04), ("Si29", 2.5851979832e-05),
         ("Si30", 1.7041740632e-05), ("Mn55", 1.4853e-05)])
@@ -105,25 +105,30 @@ def hst009():
 # LEU-COMP-THERM-008 case 1, the REAL lattice: the same committed
 # mit-crpg/benchmarks cards outram-mc parses (examples/common/lct008_model.rs),
 # read here with OpenMC's own XML readers, so geometry and densities are the
-# file's, not a transcription. Restricted to the SAME 11-nuclide tier outram-mc
-# runs (lct008_keff.rs `TAPES_CHEAP`): every other nuclide is dropped and NOT
-# renormalised, matching `build_materials` (density units="sum" then sums what
-# is left, exactly as outram-mc's per-nuclide atom densities do).
+# file's, not a transcription. Since 2026-10-14 (maintainer direction) every
+# nuclide of the file is kept, as outram-mc's default full tier keeps them
+# (35 nuclides; rows labelled case `lct008-full`). `--cheap-nuclides` runs the
+# RETIRED 11-nuclide tier (a smoke test only, 2026-10-14) every earlier row ran on
+# (lct008_keff.rs `TAPES_CHEAP`, rows labelled `lct008`): every other nuclide
+# is then dropped and NOT renormalised, matching `build_materials` (density
+# units="sum" then sums what is left, exactly as outram-mc's per-nuclide atom
+# densities do).
 LCT008_DIR = pathlib.Path(__file__).resolve().parents[2] / "leu-comp-therm-008"
 LCT008_TIER = {"H1", "B10", "O16", "U234", "U235", "U238", "Al27",
                "Si28", "Si29", "Si30", "Mn55"}
 
 
-def lct008():
+def lct008(cheap=False):
     mats = openmc.Materials.from_xml(str(LCT008_DIR / "materials.xml"))
     dropped = set()
     for m in mats:
         m.temperature = T
         for nuc in [n.name for n in m.nuclides]:
-            if nuc not in LCT008_TIER:
+            if cheap and nuc not in LCT008_TIER:
                 m.remove_nuclide(nuc)
                 dropped.add(nuc)
-    print("lct008: dropped (not in the outram-mc tier):", ", ".join(sorted(dropped)))
+    print("lct008: dropped (--cheap-nuclides):" if cheap else "lct008: full nuclide list, dropped:",
+          ", ".join(sorted(dropped)) or "none")
     geo = openmc.Geometry.from_xml(str(LCT008_DIR / "geometry.xml"), materials=mats)
     used = list(geo.get_all_materials().values())
     # Same source region as outram-mc: the core cylinder's bounding box.
@@ -164,10 +169,20 @@ def main():
                     help="diagnostic (GitHub #407): comma-separated resonant nuclides "
                          "(resonance_scattering['nuclides']); pairs with outram-mc's "
                          "--ablate dbrc-only=<name>")
+    ap.add_argument("--cheap-nuclides", action="store_true",
+                    help="smoke test (lct008 only): the retired 11-nuclide tier every row before "
+                         "2026-10-14 ran on; rows are labelled lct008, the full tier lct008-full")
     ap.add_argument("--openmc", default=os.path.expanduser("~/Documents/research/openmcbin/bin/openmc"))
     a = ap.parse_args()
 
-    mats, geo, space = CASES[a.case]()
+    if a.cheap_nuclides:
+        assert a.case == "lct008", "--cheap-nuclides is defined for lct008 only"
+        mats, geo, space = lct008(cheap=True)
+    else:
+        mats, geo, space = CASES[a.case]()
+    # The case label in the CSV: the full-tier lattice never pools with the
+    # 11-nuclide rows recorded before (the driver's `case_label`).
+    case_label = "lct008-full" if a.case == "lct008" and not a.cheap_nuclides else a.case
     if a.variant:
         assert a.case == "hst009", "--variant is defined for hst009 only"
         sol = mats[0]
@@ -220,11 +235,11 @@ def main():
                         "inactive", "active", "threads", "wall_s", "load_s", "n_nuclides",
                         "n_urr", "n_dbrc", "sab", "commit", "k_alt"])
         n_nuc = len({n.name for m in mats for n in m.nuclides})
-        w.writerow([a.case, a.label, "openmc", a.seed, f"{k.nominal_value:.6f}",
+        w.writerow([case_label, a.label, "openmc", a.seed, f"{k.nominal_value:.6f}",
                     f"{k.std_dev:.6f}", a.particles, a.inactive, a.active, a.threads,
                     f"{wall:.1f}", "", n_nuc, "", "", str(CASES[a.case] in (hst009, lct008)).lower(),
                     a.commit, f"{kgen.mean():.6f}"])
-    print(f"{a.case} {a.label} seed {a.seed}: k = {k.nominal_value:.5f} +/- {k.std_dev:.5f}"
+    print(f"{case_label} {a.label} seed {a.seed}: k = {k.nominal_value:.5f} +/- {k.std_dev:.5f}"
           f"  (generation mean {kgen.mean():.5f})  {wall:.1f} s")
 
 

@@ -267,6 +267,9 @@ pub fn describe_flag(f: &FunctionFlag) -> String {
         FunctionFlag::Rung4AxesNotRecorded { review } => {
             format!("{label} ({review}): it still counts at rung 4; stamp again to record them")
         }
+        FunctionFlag::RungCappedByWaiver { review, waived } => {
+            format!("{label} ({review}): {}", waived.join("; "))
+        }
     }
 }
 

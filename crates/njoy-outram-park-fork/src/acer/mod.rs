@@ -87,6 +87,7 @@ pub mod acelf6;
 pub mod acensd;
 pub mod angular;
 pub mod build;
+pub mod compare;
 pub mod ce_decode;
 pub mod ce_laws;
 pub mod delayed;
@@ -96,6 +97,7 @@ pub mod energy;
 pub mod fortran_fmt;
 pub mod nu;
 pub mod photoatomic;
+pub mod photon_angular;
 pub mod photon_blocks;
 pub mod photonuclear;
 
@@ -197,6 +199,10 @@ pub struct AceTable {
     pub comment: String,
     /// Material-id string (`hm`), e.g. `"   mat9228"`. 10 chars.
     pub mat_id: String,
+    /// The header's 16 IZ entries (their AW partners are written as 0). Zero
+    /// for a table built from an incident evaluation; a thermal table carries
+    /// ACER card 8a's moderator ZA values (`acer.f90:396-399`).
+    pub iz: [i32; 16],
     /// The 16-entry **NXS** array of table dimensions (1-based in ACE docs;
     /// stored 0-based here). See [`nxs`](self::nxs) for the index names.
     pub nxs: [i32; 16],
@@ -461,21 +467,75 @@ pub fn build_deck(
     suffix: u32,
     deck: &AceDeck,
 ) -> Result<AceTable, crate::NjoyError> {
-    const K_BOLTZMANN_MEV: f64 = 8.617_333_262e-11;
     // ACER reads its cross sections from a PENDF tape, not from memory.
     let pendf = recon.through_pendf_text();
-    let recon = &pendf;
+    let modules = deck_modules(tape, mat, &pendf, kt_mev, deck)?;
+    assemble(tape, mat, &pendf, kt_mev, suffix, &modules)
+}
+
+/// What the modules a deck runs between BROADR and ACER leave on the PENDF:
+/// PURR's probability tables and HEATR's MT=301. [`build_deck`] computes them
+/// and hands them to [`assemble`]; [`crate::process::cross_sections`] keeps
+/// them in its result so the ACE file is assembled from the same numbers.
+#[derive(Debug, Clone, Default)]
+pub(crate) struct DeckModules {
+    /// PURR's tables; `None` without PURR or without an unresolved range.
+    pub(crate) urr: Option<crate::purr::UrrProbabilityTables>,
+    /// HEATR's KERMA; `None` without HEATR.
+    pub(crate) kerma: Option<crate::heatr::Kerma>,
+}
+
+/// Run the deck's PURR and HEATR on `pendf` (a result already through
+/// [`crate::reconr::ReconrResult::through_pendf_text`]).
+pub(crate) fn deck_modules(
+    tape: &crate::endf::tape::Tape,
+    mat: i32,
+    pendf: &crate::reconr::ReconrResult,
+    kt_mev: f64,
+    deck: &AceDeck,
+) -> Result<DeckModules, crate::NjoyError> {
+    const K_BOLTZMANN_MEV: f64 = 8.617_333_262e-11;
+    // HEATR, as the deck runs it: the full translation of `heatr.f90` on this
+    // PENDF, photons transported (`local = 0`); ACER takes MT=301 from its
+    // tape as upstream's ACER takes it from HEATR's (`acefc.f90:5641-5645`).
+    // Before 2026-10-05 this was `Kerma::from_endf(..).with_energy_balance`,
+    // an approximation of `nheat`/`gheat` on its own grid. It runs BEFORE
+    // PURR, as in the deck (`... broadr -> heatr -> purr -> acer`), because
+    // PURR's `rdheat` reads its MT=301 for the bands' heating column.
+    let kerma = if deck.heatr {
+        Some(crate::heatr::heatr_kerma(tape, mat, pendf)?)
+    } else {
+        None
+    };
     let urr = match deck.purr {
-        Some((nbin, nladr, nsamp)) => crate::purr::UrrProbabilityTables::from_endf(
+        Some((nbin, nladr, nsamp)) => crate::purr::UrrProbabilityTables::from_endf_with_mt301(
             tape,
             mat,
             deck.temperature_k.unwrap_or(kt_mev / K_BOLTZMANN_MEV),
             nbin,
             nladr,
             nsamp,
+            kerma.as_ref(),
         )?,
         None => None,
     };
+    Ok(DeckModules { urr, kerma })
+}
+
+/// ACER proper: the continuous-energy table from the PENDF and what
+/// [`deck_modules`] left on it. `pendf` must already be through
+/// [`crate::reconr::ReconrResult::through_pendf_text`].
+pub(crate) fn assemble(
+    tape: &crate::endf::tape::Tape,
+    mat: i32,
+    pendf: &crate::reconr::ReconrResult,
+    kt_mev: f64,
+    suffix: u32,
+    modules: &DeckModules,
+) -> Result<AceTable, crate::NjoyError> {
+    let recon = pendf;
+    let urr = modules.urr.as_ref();
+    let kerma = modules.kerma.as_ref();
     let angular = match tape.section(mat, 4, 2) {
         Some(s) => Some(crate::acer::angular::parse_elastic_angular(s)?),
         None => None,
@@ -486,37 +546,32 @@ pub fn build_deck(
         .map(|s| (i32::from(s.mt), s.qi))
         .collect();
     let emissions = crate::acer::energy::build_emissions(tape, mat, recon.material.awr, &partials);
-    // HEATR, as the deck runs it: the full translation of `heatr.f90` on this
-    // PENDF, photons transported (`local = 0`); ACER takes MT=301 from its
-    // tape as upstream's ACER takes it from HEATR's (`acefc.f90:5641-5645`).
-    // Before 2026-10-05 this was `Kerma::from_endf(..).with_energy_balance`,
-    // an approximation of `nheat`/`gheat` on its own grid.
-    let kerma = if deck.heatr {
-        Some(crate::heatr::heatr_kerma(tape, mat, recon)?)
-    } else {
-        None
-    };
     let nu_block = crate::acer::nu::build(tape, mat)?;
     // Delayed-neutron blocks whenever the evaluation has them, as NJOY writes
     // them regardless of the rest of the deck (`acefc.f90:6003`). ismooth = 1
     // is upstream's default (`acer.f90:326`).
     let delayed = crate::acer::delayed_blocks::build(tape, mat, true)?;
-    let mut table = AceTable::from_reconr_full_with_extras(
+    let mut table = AceTable::from_reconr_full_with_extras_disc(
         recon,
         kt_mev,
         suffix,
         angular.as_ref(),
         &emissions,
-        kerma.as_ref(),
+        kerma,
         nu_block.as_deref(),
         crate::acer::has_mt19_distributions(tape, mat),
         crate::acer::photon_blocks::build_with_pendf(tape, mat, recon).as_deref(),
-        urr.as_ref(),
+        urr,
         delayed.as_ref(),
+        &crate::acer::photon_blocks::gamma_discontinuities(tape, mat),
     );
     if let Some(g) = crate::acer::photon_blocks::gpd(tape, mat, recon) {
         table.insert_gpd(&g);
     }
+    // NJOY's `hm`: the ENDF MAT, `'   mat',i4` (`acefc.f90:4949`). Found
+    // 2026-10-14 (gh:#864) by a browser-built U-234 table whose every other
+    // byte matched NJOY2016's: it read `mat92234` (the ZA) for `mat9225`.
+    table.mat_id = format!("   mat{mat:4}");
     // Charged-particle production, after END (`acelcp`, `acefc.f90:6323`).
     crate::acer::acelcp::append(&mut table, tape, mat, recon);
     Ok(table)

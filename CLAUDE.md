@@ -23,7 +23,7 @@ exactly as if it were here.
 | building an egui simulator (headless mode is mandatory) | [`crates/outram-park-digital-twin-engine/CLAUDE.md`](crates/outram-park-digital-twin-engine/CLAUDE.md) |
 | preparing anything for **human review** (the bottleneck): every practice that makes it cheaper, including building the picture before the code is read | [`docs/claude-md/human-review.md`](docs/claude-md/human-review.md) |
 | writing a tutorial, deep dive or interactive demo (**mobile-first is a HARD RULE**) | [`docs/claude-md/mobile-first-tutorials-and-demos.md`](docs/claude-md/mobile-first-tutorials-and-demos.md) |
-| designing or writing any lesson, tutorial or deep dive (question chain, rung ladder, code walks, honest numbers) | [`docs/lessons/lesson-philosophy.md`](docs/lessons/lesson-philosophy.md) |
+| designing or writing any lesson, tutorial or deep dive (question chain, rung ladder, Code Review map links (code walks removed 2026-10-14), honest numbers) | [`docs/lessons/lesson-philosophy.md`](docs/lessons/lesson-philosophy.md) |
 | asked to enable the working-hours guardrail (opt-in, off by default) | [`docs/claude-md/working-hours-guardrail.md`](docs/claude-md/working-hours-guardrail.md) |
 | asked for Singlish mode | [`docs/claude-md/singlish-mode.md`](docs/claude-md/singlish-mode.md) |
 | publishing, upgrading dependencies, or needing consolidation history | [`docs/workspace-maintenance.md`](docs/workspace-maintenance.md) |
@@ -591,7 +591,12 @@ Kovan corpus" below). Clone with `git clone --recurse-submodules`, or run
 **empty directory rather than an error**, so nothing complains until something
 looks for a file and does not find one. (Since 2026-09-30 the first workspace
 `kovan-cli` command fetches the literature submodule if it is empty; the ACE
-submodule is still yours to fetch.)
+submodule is still yours to fetch.) **Since 2026-10-15, `.githooks/` keeps
+initialised submodules in step:** after `git pull` (merge or rebase) or a
+branch switch, `submodule-sync.sh` checks each one out at the recorded commit,
+skipping any with uncommitted work and never initialising one. It needs
+`git config core.hooksPath .githooks` (which `scripts/install-token-hooks.sh`
+sets).
 
 ```bash
 cargo build --workspace --release                   # all libraries

@@ -21,9 +21,16 @@
 //!   iteration `run_keff_csg` runs, stepped one generation per request.
 //!
 //! **What a CSG run does not report** (and the page therefore does not show):
-//! the Shannon entropy of the source and the leaked / captured / fissioned
-//! counts, which `CsgPowerIteration` does not tally. The Godiva rung, on the
-//! sphere-only `PowerIteration`, has both.
+//! ~~the Shannon entropy of the source and~~ the leaked / captured / fissioned
+//! counts, which `CsgPowerIteration` does not tally; the Godiva rung, on the
+//! sphere-only `PowerIteration`, has them. **Corrected 2026-10-14 (gh:#859):**
+//! the source entropy is reported, from `CsgPowerIteration::source_entropy`
+//! on a 5 × 5 × 5 mesh over [`CsgCase::entropy_box`].
+//!
+//! **Run mode's drawn neutrons.** While a run is going, [`Loaded::run_next`]
+//! starts each traced history at a site of the run's present fission source.
+//! They are extra one-neutron fixed-source runs, not the run's own histories,
+//! and are not counted in `k`.
 
 // Headless output is native-only.
 #![cfg_attr(target_arch = "wasm32", allow(dead_code))]
@@ -43,6 +50,7 @@ use outram_mc_libs::physics::fixed_source::{run_fixed_source_traced, FixedSource
 use outram_mc_libs::physics::keff::{GenerationReport, HistoryCounts, KeffSettings};
 use outram_mc_libs::physics::track_output::{TrackEvent, TrackRecorder};
 use outram_mc_libs::physics::transport_csg::{CsgGenerationReport, CsgPowerIteration, SourceBox};
+use outram_mc_libs::tally::mesh::RegularMesh;
 use std::marker::PhantomData;
 
 /// A thermal scattering law a case attaches to one of its nuclides.
@@ -50,7 +58,8 @@ use std::marker::PhantomData;
 pub struct ThermalLaw {
     /// Label shown while loading.
     pub label: &'static str,
-    /// Tape in `reference-data/endf/`.
+    /// Tape in `reference-data/endf/`, or a law LEAPR generates
+    /// ([`crate::tapes::LEAPR_H_IN_H2O`], nothing downloaded).
     pub tape: &'static str,
     /// The law's name, e.g. `c_H_in_H2O`.
     pub name: &'static str,
@@ -79,6 +88,11 @@ pub trait CsgCase {
     fn geometry() -> Geometry;
     /// Where the first generation of a k-eigenvalue run starts.
     fn source_box() -> SourceBox;
+    /// The box the source-entropy mesh covers: every place a fission can
+    /// happen. The source box, unless the case fissions outside it.
+    fn entropy_box() -> SourceBox {
+        Self::source_box()
+    }
     /// A uniformly random point of the multiplying region, for a fresh chain.
     fn fresh_birth(rng: &mut u64) -> Position;
     /// The recorded result the headless run prints beside its own.
@@ -102,7 +116,8 @@ impl<C: CsgCase> RungBuilder for Builder<C> {
     }
     /// The next tape: RECONR + BROADR to the case's temperature at this
     /// builder's tier (URR tables and DBRC on, the library default), or
-    /// THERMR for the thermal law. The expensive half comes from `store`
+    /// THERMR for the thermal law (LEAPR when the law is generated, with
+    /// empty `bytes`). The expensive half comes from `store`
     /// when it holds it (gh:#818).
     fn step(&mut self, bytes: &[u8], store: &mut crate::processed_cache::DataStore) -> Result<(), String> {
         let i = self.nuclides.len();
@@ -113,6 +128,10 @@ impl<C: CsgCase> RungBuilder for Builder<C> {
             return Ok(());
         }
         match (C::thermal(), &self.law) {
+            (Some(law), None) if law.tape == crate::tapes::LEAPR_H_IN_H2O => {
+                self.law = Some(crate::tapes::leapr_h_in_h2o(store, C::TEMPERATURE_K, law.label)?);
+                Ok(())
+            }
             (Some(law), None) => {
                 let (tape, mat) = read_tape(bytes, law.label)?;
                 self.law = Some(store.thermal(bytes, &tape, mat, C::TEMPERATURE_K, law.name, law.label)?);
@@ -209,6 +228,16 @@ impl Chain {
 pub struct Keff {
     pub cfg: KeffConfig,
     it: CsgPowerIteration,
+    /// The source-entropy mesh, [`ENTROPY_MESH`]³ on the source box unless
+    /// [`Self::with_entropy_box`] moved it.
+    mesh: RegularMesh,
+}
+
+/// Bins per side of the source-entropy mesh, as on the Godiva rung.
+pub const ENTROPY_MESH: usize = 5;
+
+fn entropy_mesh(b: SourceBox) -> RegularMesh {
+    RegularMesh { lower_left: [b.lower.x, b.lower.y, b.lower.z], upper_right: [b.upper.x, b.upper.y, b.upper.z], dimension: [ENTROPY_MESH; 3] }
 }
 
 /// Half-width of the box a Watch "whole generations" run starts in, cm: every
@@ -235,7 +264,20 @@ impl Keff {
         } else {
             source_box
         };
-        Self { cfg, it: CsgPowerIteration::new(geometry, materials, nuclides, source, &settings) }
+        Self { cfg, it: CsgPowerIteration::new(geometry, materials, nuclides, source, &settings), mesh: entropy_mesh(source_box) }
+    }
+
+    /// Put the source-entropy mesh on `b` ([`CsgCase::entropy_box`]).
+    pub fn with_entropy_box(mut self, b: SourceBox) -> Self {
+        self.mesh = entropy_mesh(b);
+        self
+    }
+
+    /// A site of the source the next generation starts from, picked with
+    /// `rng`: where Run mode's drawn neutrons are born.
+    pub fn source_site(&self, rng: &mut u64) -> Option<Position> {
+        let sites = self.it.source_positions();
+        (!sites.is_empty()).then(|| sites[(splitmix(rng) % sites.len() as u64) as usize])
     }
 
     /// The source before the first generation (Watch draws it).
@@ -247,7 +289,7 @@ impl Keff {
     pub fn step(&mut self, geometry: &Geometry, materials: &[Material], nuclides: &[Nuclide]) -> Option<Generation> {
         let r = self.it.step(geometry, materials, nuclides)?;
         let sites = if self.cfg.want_sites { sample_sites(&self.it.source_positions()) } else { Vec::new() };
-        Some(Generation { report: report(&r, self.cfg.n_particles), sites })
+        Some(Generation { report: report(&r, self.cfg.n_particles, self.it.source_entropy(&self.mesh)), sites })
     }
 
     pub fn finished(&self) -> bool {
@@ -255,15 +297,16 @@ impl Keff {
     }
 }
 
-/// A CSG generation as the page's shared [`GenerationReport`]: no entropy and
-/// no history counts (module docs); the production is `k` × source neutrons,
-/// which is how `k` is defined.
-pub fn report(r: &CsgGenerationReport, n_particles: usize) -> GenerationReport {
+/// A CSG generation as the page's shared [`GenerationReport`]: `entropy` is
+/// the Shannon entropy of the source this generation produced
+/// (`CsgPowerIteration::source_entropy`); no history counts (module docs);
+/// the production is `k` × source neutrons, which is how `k` is defined.
+pub fn report(r: &CsgGenerationReport, n_particles: usize, entropy: Option<f64>) -> GenerationReport {
     GenerationReport {
         index: r.index,
         active: r.active,
         k: r.k,
-        entropy: None,
+        entropy,
         k_mean: r.k_mean,
         bank_size: r.bank_size,
         production: r.k * n_particles as f64,
@@ -274,7 +317,7 @@ pub fn report(r: &CsgGenerationReport, n_particles: usize) -> GenerationReport {
 /// A headless Run k_eff: the console, then the result against the case's
 /// record. Deterministic for a given config and data. Returns `(k, σ)`.
 pub fn headless_keff<C: CsgCase>(phys: &Physics, cfg: KeffConfig, mut out: impl FnMut(&str)) -> (f64, f64) {
-    let mut k = Keff::new(&phys.geometry, &phys.materials, &phys.nuclides, phys.source_box, phys.temperature_k, cfg);
+    let mut k = Keff::new(&phys.geometry, &phys.materials, &phys.nuclides, phys.source_box, phys.temperature_k, cfg).with_entropy_box(C::entropy_box());
     for l in CONSOLE_HEADER {
         out(l);
     }
@@ -286,12 +329,18 @@ pub fn headless_keff<C: CsgCase>(phys: &Physics, cfg: KeffConfig, mut out: impl 
         }
     }
     out("");
-    out(&format!(" k-effective = {:.5} +/- {:.5}   ({:+.0} +/- {:.0} pcm from 1)", last.0, last.1, (last.0 - 1.0) * 1e5, last.1 * 1e5));
+    out(&format!(
+        " k-effective = {:.5} +/- {:.5}   ({:+.0} +/- {:.0} pcm from 1), {}",
+        last.0,
+        last.1,
+        (last.0 - 1.0) * 1e5,
+        last.1 * 1e5,
+        crate::keff::build_stamp()
+    ));
     if let Some(r) = C::reference() {
-        if let Some((name, kx, s)) = r.experiment {
-            out(&format!(" Experiment ({name}): {kx:.4} +/- {s:.4}"));
+        for l in crate::keff::reference_lines(&r) {
+            out(&l);
         }
-        out(&format!(" Recorded ({}): {:.5} +/- {:.5} ({:+.0} +/- {:.0} pcm)", r.label, r.k, r.sem, (r.k - 1.0) * 1e5, r.sem * 1e5));
     }
     last
 }
@@ -305,12 +354,20 @@ pub struct Loaded<C: CsgCase> {
 }
 
 impl<C: CsgCase> LoadedRung for Loaded<C> {
+    /// While a k-eigenvalue run is going, the neutron is born at a site of
+    /// the run's present fission source (Run mode draws these, gh:#859);
+    /// otherwise the Watch chain's next history.
     fn run_next(&mut self) -> History {
+        if let Some(k) = self.keff.as_ref().filter(|k| !k.finished()) {
+            if let Some(r) = k.source_site(&mut self.chain.rng) {
+                self.chain.pending_fission = Some((r, C::FRESH_INCIDENT_EV));
+            }
+        }
         self.chain.run_next::<C>(&self.phys)
     }
     fn keff_start(&mut self, cfg: KeffConfig) -> Result<Vec<[f32; 2]>, String> {
         let p = &self.phys;
-        let k = Keff::new(&p.geometry, &p.materials, &p.nuclides, p.source_box, p.temperature_k, cfg);
+        let k = Keff::new(&p.geometry, &p.materials, &p.nuclides, p.source_box, p.temperature_k, cfg).with_entropy_box(C::entropy_box());
         if k.finished() {
             return Err("the initial source is empty: no fissionable material in the source box".into());
         }
@@ -353,16 +410,17 @@ mod tests {
     use super::*;
 
     /// A CSG generation crosses to the page with its `k`, its running mean
-    /// and a production of `k` × source neutrons, and with no entropy or
-    /// counts (the CSG iteration tallies neither). The fresh-birth samplers
-    /// stay inside their regions.
+    /// and a production of `k` × source neutrons, with the entropy it is
+    /// given and no counts (the CSG iteration tallies none). The fresh-birth
+    /// samplers stay inside their regions.
     #[test]
-    fn a_csg_generation_is_reported_without_entropy_or_counts() {
+    fn a_csg_generation_is_reported_with_its_entropy_and_no_counts() {
         let r = CsgGenerationReport { index: 7, active: true, k: 1.25, k_mean: Some((1.2, 0.01)), bank_size: 900 };
-        let g = report(&r, 800);
+        let g = report(&r, 800, Some(5.5));
         assert_eq!((g.index, g.active, g.k, g.k_mean, g.bank_size), (7, true, 1.25, Some((1.2, 0.01)), 900));
         assert_eq!(g.production, 1000.0);
-        assert!(g.entropy.is_none() && g.counts.tracked == 0);
+        assert!(g.entropy == Some(5.5) && g.counts.tracked == 0);
+        assert!(report(&r, 800, None).entropy.is_none());
         let mut rng = 3u64;
         for _ in 0..2000 {
             let p = uniform_in_sphere(&mut rng, 2.0);

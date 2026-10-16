@@ -108,7 +108,9 @@ pub fn shift_and_penetrability(l: u32, rho: f64) -> (f64, f64) {
         }
         2 => {
             let r4 = r2 * r2;
-            let den = 9.0 + 3.0 * r2 + r4;
+            // `den=3*r2+r4+9` (`reconr.f90:1605`), in that order: addition is
+            // not associative in the last bit.
+            let den = 3.0 * r2 + r4 + 9.0;
             (-(18.0 + 3.0 * r2) / den, r4 * rho / den)
         }
         3 => {
@@ -139,6 +141,9 @@ pub fn shift_and_penetrability(l: u32, rho: f64) -> (f64, f64) {
 /// | 0 | ρ                                    |
 /// | 1 | ρ − atan(ρ)                          |
 /// | 2 | ρ − atan(3ρ/(3−ρ²))                 |
+///
+/// This is the unguarded form, `unresr`'s `unfac`. RECONR's resonance
+/// routines call [`facphi`], which zeroes a vanishing shift.
 pub fn phase_shift(l: u32, rho_c: f64) -> f64 {
     let r2 = rho_c * rho_c;
     match l {
@@ -150,6 +155,23 @@ pub fn phase_shift(l: u32, rho_c: f64) -> f64 {
             let r4 = r2 * r2;
             rho_c - ((105.0 * rho_c - 10.0 * r2 * rho_c) / (105.0 - 45.0 * r2 + r4)).atan()
         }
+    }
+}
+
+/// RECONR's hard-sphere phase shift, `facphi` (`reconr.f90:4441-4471`):
+/// [`phase_shift`], set to zero for `l >= 2` when `phi/rho < 1e-6`.
+///
+/// The guard matters at the last bit. Ti-48's d-wave at 6.7 keV has
+/// `phi/rho ~ 7e-7`; keeping `phi ~ 5e-8` moved the Reich-Moore elastic by
+/// 3e-8 relative and flipped its 7-figure rounding at four energies against
+/// NJOY2016 (GitHub #875).
+pub fn facphi(l: u32, rho: f64) -> f64 {
+    const TEST: f64 = 1.0e-6;
+    let phi = phase_shift(l, rho);
+    if l >= 2 && phi / rho < TEST {
+        0.0
+    } else {
+        phi
     }
 }
 
@@ -232,7 +254,7 @@ pub fn eval_slbw_lstate(
     let rhoc = k * ap;
 
     let (se, pe) = shift_and_penetrability(l, rho);
-    let phi = phase_shift(l, rhoc);
+    let phi = facphi(l, rhoc);
     let cos2p = (2.0 * phi).cos();
     let sin2p = (2.0 * phi).sin();
     let sinsq = phi.sin().powi(2);
@@ -310,7 +332,7 @@ pub fn eval_mlbw_lstate(
     let rho = k * ra;
     let rhoc = k * ap;
     let (se, pe) = shift_and_penetrability(l, rho);
-    let phi = phase_shift(l, rhoc);
+    let phi = facphi(l, rhoc);
     let cos2p = 1.0 - (2.0 * phi).cos();
     let sin2p = (2.0 * phi).sin();
 

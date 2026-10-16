@@ -144,6 +144,9 @@ crates/outram-mc-libs/verification_and_validation/openmc_godiva_cross_code/work/
 # comparison it belongs to would skip rather than fail.
 !reference-data/acer/*.ace
 !reference-data/acer/*.ace.gz
+# The five-route parity gate's NJOY2016 tables (GitHub #872); without this
+# exception they were never committed and the gate skipped everywhere.
+!reference-data/acer/five_route/*.ace.gz
 
 # perf(1) output from profiling runs (cargo flamegraph / perf record).
 # Never committed: it is host- and run-specific, and large.

@@ -331,9 +331,25 @@ freely redistributable, so fetching it would breach `DATA_POLICY.md`. There is
 no ICSBEP material in `crates/kovan-literature`, in `reference-data/`, or in
 the local OpenMC checkout.
 
-**Obtaining the real case uncertainties requires a handbook licence and is the
+~~**Obtaining the real case uncertainties requires a handbook licence and is the
 single action that would settle three of the four verdicts.** It is a data
-task, not a compute one, and no amount of further ablation substitutes for it.
+task, not a compute one, and no amount of further ablation substitutes for it.~~
+
+**CORRECTED 2026-10-14.** No licence was needed: the handbook's benchmark k
+and uncertainty for the four cases are tabulated in two open secondary
+sources, Mosteller, *An Expanded Criticality Validation Suite for MCNP*, LA-UR-10-06230 (2010), and van der Marck, *Benchmarking ENDF/B-VII.0*, Nucl. Data Sheets 107 (2006) 3061. The maintainer checked the rows against the source pages
+on 2026-10-13.
+
+| case | benchmark k | source |
+|---|---|---|
+| Godiva, HEU-MET-FAST-001 | 1.0000 ± 0.0010 | Mosteller 2010; van der Marck 2006 |
+| Jemima, IEU-MET-FAST-002 | 1.0000 ± 0.0030 | Mosteller 2010; van der Marck 2006 |
+| HEU-SOL-THERM-009 case 1 | 0.9990 ± 0.0043 | van der Marck 2006 |
+| LEU-COMP-THERM-008 case 1 | 1.0007 ± 0.0016 | Mosteller 2010 |
+
+The verdicts earlier in this file were written against the stand-in bands and
+k = 1 and **have not been re-derived here**. `five_route_keff/data/summary_keff.md`
+measures every route from these values.
 
 ---
 

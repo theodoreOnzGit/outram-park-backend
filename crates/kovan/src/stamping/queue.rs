@@ -277,6 +277,10 @@ pub fn flag_detail(flag: &FunctionFlag) -> Vec<String> {
         FunctionFlag::Rung4AxesNotRecorded { review } => vec![format!(
             "review {review}: rung 4, written before rung 4 asked about physical accuracy and usability. It still counts. Next: stamp it again to record both."
         )],
+        FunctionFlag::RungCappedByWaiver { review, waived } => vec![format!(
+            "review {review}: a check was waived ({}). It counts, capped at rung 3. Next: add the check, then stamp it again.",
+            waived.join("; ")
+        )],
         FunctionFlag::IndependentVvNotCounted { review, misses } => misses
             .iter()
             .map(|m| {

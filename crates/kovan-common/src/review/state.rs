@@ -169,15 +169,20 @@ pub enum FlagKind {
     /// A valid rung 4 review written before rung 4 asked about its two
     /// axes (GitHub #855): it still counts; stamping again records them.
     Rung4AxesNotRecorded,
+    /// A valid review waived a required check with a typed reason
+    /// (`flag_cap_rung3`, 2026-10-14): it counts, capped at rung 3, and the
+    /// function stays listed until the check is done and it is stamped again.
+    RungCappedByWaiver,
 }
 
 impl FlagKind {
-    pub const ALL: [FlagKind; 5] = [
+    pub const ALL: [FlagKind; 6] = [
         Self::NewReachingTest,
         Self::DuplicateCode,
         Self::ImplausibleSigningTime,
         Self::IndependentVvNotCounted,
         Self::Rung4AxesNotRecorded,
+        Self::RungCappedByWaiver,
     ];
 
     pub fn label(self) -> &'static str {
@@ -187,6 +192,7 @@ impl FlagKind {
             Self::ImplausibleSigningTime => "implausible signing time",
             Self::IndependentVvNotCounted => "independent V&V not counted",
             Self::Rung4AxesNotRecorded => "rung 4 axes not recorded (accuracy and usability)",
+            Self::RungCappedByWaiver => "a check was waived: capped at rung 3",
         }
     }
 

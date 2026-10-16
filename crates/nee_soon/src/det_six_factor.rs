@@ -206,6 +206,8 @@ mod tests {
                     kappa_fission: vec![0.0; 4],
                     scatter: vec![vec![0.0; 4]; 4],
                     chi: vec![0.0, 0.0, 0.0, 1.0],
+                    sigma: None,
+                    scatter_only: Vec::new(),
                 },
                 ZoneMgxs {
                     name: "reflector".into(),
@@ -217,6 +219,8 @@ mod tests {
                     kappa_fission: vec![0.0; 4],
                     scatter: vec![vec![0.0; 4]; 4],
                     chi: vec![0.0; 4],
+                    sigma: None,
+                    scatter_only: Vec::new(),
                 },
             ],
         };

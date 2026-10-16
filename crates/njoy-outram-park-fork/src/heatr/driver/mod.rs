@@ -179,6 +179,28 @@ pub struct HeatrOutput {
     pub plot: Option<String>,
 }
 
+/// The elapsed seconds the listing prints, as upstream's `timer` does.
+/// `std::time::Instant` aborts on `wasm32-unknown-unknown` (no clock), which
+/// took down the browser demo's ACE generator whenever HEATR was in the deck
+/// ("RuntimeError: unreachable", 2026-10-14), so there the listing reads 0.0 s.
+#[derive(Clone, Copy)]
+struct Clock(#[cfg(not(target_arch = "wasm32"))] std::time::Instant);
+
+impl Clock {
+    fn start() -> Self {
+        #[cfg(not(target_arch = "wasm32"))]
+        return Clock(std::time::Instant::now());
+        #[cfg(target_arch = "wasm32")]
+        return Clock();
+    }
+    fn secs(self) -> f64 {
+        #[cfg(not(target_arch = "wasm32"))]
+        return self.0.elapsed().as_secs_f64();
+        #[cfg(target_arch = "wasm32")]
+        return 0.0;
+    }
+}
+
 /// Run HEATR (`heatr.f90`'s `heatr`) on material `input.matd` of `endf`, using
 /// the pointwise cross sections of `pendf` (a RECONR/BROADR tape).
 ///
@@ -190,14 +212,15 @@ pub struct HeatrOutput {
 pub fn heatr(endf: &Tape, pendf: &Tape, input: &HeatrInput) -> Result<HeatrOutput, NjoyError> {
     const NPKMAX: usize = 28;
     const QTEST: f64 = 99.0e6;
-    let t0 = std::time::Instant::now();
-    let secs = |t0: std::time::Instant| t0.elapsed().as_secs_f64();
+    let t0 = Clock::start();
+    let secs = |t0: Clock| t0.secs();
     let mut h = Heatr::new(Tape::from_sections(String::new(), Vec::new()));
     h.listing.push_str(&format!("\n heatr...prompt kerma{:48}{:8.1}s\n", "", secs(t0)));
     h.matd = input.matd;
     let mut npk = input.partial_kermas.len();
     h.nqa = input.user_q.len();
     h.local = i32::from(input.local);
+    h.text_scratch = input.units.nendf > 0;
     h.iprint = input.iprint;
     h.brk = input.ed;
     h.kchk = 0;
@@ -406,9 +429,21 @@ pub fn pendf_for_heatr(endf: &Tape, mat: i32, recon: &crate::reconr::ReconrResul
 /// has no MT=301 (it always writes one).
 pub fn heatr_kerma(endf: &Tape, mat: i32, recon: &crate::reconr::ReconrResult) -> Result<crate::heatr::Kerma, NjoyError> {
     let pendf = pendf_for_heatr(endf, mat, recon);
-    let input = HeatrInput { matd: mat, ..HeatrInput::default() };
+    // The deck an ACE build mirrors runs on text tapes (positive units, as
+    // the five-route NJOY2016 decks), so HEATR's scratch copies are text.
+    let units = HeatrUnits { nendf: 20, nin: 21, nout: 22, nplot: 0 };
+    let input = HeatrInput { matd: mat, units, ..HeatrInput::default() };
     let out = heatr(endf, &pendf, &input)?;
-    let s301 = out.tape.section(mat, 3, 301).ok_or(NjoyError::SectionNotFound { mat, mf: 3, mt: 301 })?;
+    // The next module reads HEATR's output tape as ENDF text, so its MT=301
+    // is what `Tape::write` prints (`a11`), energies included. Read in memory
+    // instead, an energy a few ulps off its printed value made ACER's `gety1`
+    // interpolate from the neighbouring node: on Ti-48's dense 155.38 keV
+    // grid that moved the heating number by up to 25 % at alternate points
+    // (0 K, against NJOY2016 with HEATR, 2026-10-15).
+    let mut text = Vec::new();
+    out.tape.write(&mut text)?;
+    let written = Tape::read(&text[..])?;
+    let s301 = written.section(mat, 3, 301).ok_or(NjoyError::SectionNotFound { mat, mf: 3, mt: 301 })?;
     let mut cur = crate::endf::records::SectionCursor::new(&s301.rows);
     cur.read_cont()?;
     let t = cur.read_tab1()?;

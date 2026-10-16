@@ -8,8 +8,8 @@
 //! |------|------|---------|
 //! | 1 | histogram | y = y₁ (constant) |
 //! | 2 | lin-lin   | linear in x and y |
-//! | 3 | lin-log   | linear in x, log in y |
-//! | 4 | log-lin   | log in x, linear in y |
+//! | 3 | lin-log   | ~~linear in x, log in y~~ y linear in ln x (CORRECTED 2026-10-14; the code and ENDF-102 agree) |
+//! | 4 | log-lin   | ~~log in x, linear in y~~ ln y linear in x (CORRECTED 2026-10-14) |
 //! | 5 | log-log   | log in x and y |
 //! | 6 | charged-particle special (not used here) |
 

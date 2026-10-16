@@ -87,6 +87,10 @@ pub enum SigP {
         e_mev: Vec<f64>,
         /// Yield (photons per reaction) aligned with `e_mev`.
         y: Vec<f64>,
+        /// The yield's ENDF interpolation regions `(NBT, INT)`. `acelpp`
+        /// writes them unless there is one lin-lin region, when it writes
+        /// `NR = 0` (`acefc.f90:8312-8322`). Empty means one lin-lin region.
+        interp: Vec<(u32, u32)>,
     },
     /// `MFTYPE = 13` — a photon-production cross section \[barn\], kept as the
     /// evaluation's own tabulation.
@@ -102,6 +106,15 @@ pub enum SigP {
     },
 }
 
+/// One anisotropic MF=14 subsection as `acelpp` stores it in ANDP: its
+/// incident energies \[MeV\], each with 32 equiprobable cosine bins (33 edges)
+/// or `None` when that energy is isotropic (locator 0).
+#[derive(Debug, Clone, PartialEq)]
+pub struct PhotonAngularTable {
+    pub e_mev: Vec<f64>,
+    pub bins: Vec<Option<[f64; super::photon_angular::NPT]>>,
+}
+
 /// One photon-production entry: one subsection of one reaction.
 #[derive(Debug, Clone)]
 pub struct PhotonEntry {
@@ -115,6 +128,36 @@ pub struct PhotonEntry {
     pub e_lo_mev: f64,
     /// Upper bound of the law's applicability \[MeV\].
     pub e_hi_mev: f64,
+    /// The photon energy `EG` \[eV\] as the MF=12/13 subsection gives it
+    /// (`phot(5*(j-1)+1)`), 0 for a continuum or MF=6 photon. `acelpp`
+    /// matches MF=14 subsections to photons by it (`acefc.f90:8437-8460`).
+    pub eg_ev: f64,
+    /// The anisotropic angular table this photon points at (an index into the
+    /// tables carried by `andp_tables`, in order), or `None` for LANDP = 0.
+    pub landp: Option<usize>,
+    /// The ANDP tables `acelpp` writes when it reaches this entry's MT
+    /// (attached to the MT's first entry), in the order it writes them.
+    pub andp_tables: Vec<PhotonAngularTable>,
+    /// The law's applicability table when it is not the fixed two-point
+    /// form: an MF=15 continuum's own probability record, as `acelpp` copies
+    /// it (`acefc.f90:8540-8566`). `None` writes `NR = 0, NE = 2`,
+    /// `(e_lo, e_hi)`, `(1, 1)`, as the discrete and MF=16 branches do.
+    pub applicability: Option<PhotonApplicability>,
+}
+
+/// An MF=15 probability record as `acelpp` writes it into a DLWP header:
+/// its interpolation regions (empty for a single lin-lin region, written as
+/// `NR = 0`), its energies as `sigfig(E/1e6, 7)` and its probabilities as
+/// the tape gives them. Cr-50/52/53/54 and Na-23 carry histogram records
+/// (GitHub #875).
+#[derive(Clone, Debug, PartialEq)]
+pub struct PhotonApplicability {
+    /// `(NBT, INT)` pairs; empty when the record is one lin-lin region.
+    pub interp: Vec<(u32, u32)>,
+    /// Incident energies \[MeV\].
+    pub e_mev: Vec<f64>,
+    /// Probabilities.
+    pub p: Vec<f64>,
 }
 
 /// Build every photon-production entry for `mat`.
@@ -152,25 +195,10 @@ pub fn build_with_pendf(tape: &Tape, mat: i32, pendf: &crate::reconr::ReconrResu
 }
 
 fn build_impl(tape: &Tape, mat: i32, pendf: Option<&crate::reconr::ReconrResult>) -> Option<Vec<PhotonEntry>> {
-    // Anisotropic photons are not written. MF=14 with LI=1 is "all isotropic"
-    // and needs nothing; LI=0 carries real distributions we cannot serialise.
-    // From MT=1: MT=0 is a section TERMINATOR (SEND), not a section. Its
-    // record carries zeros, so reading it as an MF=14 HEAD sees LI=0 and
-    // wrongly concludes the photons are anisotropic — which silently
-    // suppressed the whole block on the first run of this code.
-    for mt in 1..1000 {
-        if mt == MT_DELAYED_PHOTON {
-            continue; // `acefc.f90:4030` — MF=14/MT=460 is skipped outright
-        }
-        if let Some(sec) = tape.section(mat, 14, mt) {
-            let mut cur = SectionCursor::new(&sec.rows);
-            if let Ok(h) = cur.read_cont() {
-                if h.l1 == 0 {
-                    return None; // LI=0 ⇒ anisotropic
-                }
-            }
-        }
-    }
+    // ~~Anisotropic photons are not written: MF=14 with LI = 0 refused the
+    // whole photon build.~~ CORRECTED 2026-10-14 (GitHub #872): O-16 lost all
+    // 131 photons to that rule. The anisotropic tables are written now, by
+    // `assign_mf14` at the end, as `acelpp` writes them.
 
     // ORDER MATTERS: NJOY emits every MF=12 (yield) entry first, then every
     // MF=13 (cross section) one, because `gamout` walks the two files in turn.
@@ -245,10 +273,14 @@ fn build_impl(tape: &Tape, mat: i32, pendf: Option<&crate::reconr::ReconrResult>
                     let y = rt(yy);
                     out.push(PhotonEntry {
                         mtrp: mt * 1000 + k as i32 + 1,
-                        sigp: SigP::Yield { mftype: 12, mtmult: mt, e_mev: vec![lo, hi], y: vec![y, y] },
+                        sigp: SigP::Yield { mftype: 12, mtmult: mt, e_mev: vec![lo, hi], y: vec![y, y], interp: Vec::new() },
                         law: EnergyLaw::Law2 { lp: 0, eg_mev: sigfig(rt(eg) / EMEV, 7, 0) },
                         e_lo_mev: lo,
                         e_hi_mev: hi,
+                        eg_ev: rt(eg),
+                        landp: None,
+                        andp_tables: Vec::new(),
+                        applicability: None,
                     });
                 }
                 continue;
@@ -291,6 +323,7 @@ fn build_impl(tape: &Tape, mat: i32, pendf: Option<&crate::reconr::ReconrResult>
                 let e_first = tab.pairs.first().map(|&(e, _)| e).unwrap_or(0.0);
                 let e_last = tab.pairs.last().map(|&(e, _)| e).unwrap_or(0.0);
 
+                let mut applicability = None;
                 let law = if lf == 2 || lf == 0 {
                     // `xss(nex+10)=sigfig(eg/emev,7,0)` (`acefc.f90:8509`)
                     EnergyLaw::Law2 {
@@ -307,7 +340,8 @@ fn build_impl(tape: &Tape, mat: i32, pendf: Option<&crate::reconr::ReconrResult>
                     }
                     mf15_used = true;
                     let sec15 = tape.section(mat, 15, mt)?;
-                    let l4 = acelpp_law4(sec15, k).ok()?;
+                    let (l4, prob) = acelpp_law4(sec15, k).ok()?;
+                    applicability = Some(prob);
                     EnergyLaw::Law4(l4)
                 };
 
@@ -322,6 +356,7 @@ fn build_impl(tape: &Tape, mat: i32, pendf: Option<&crate::reconr::ReconrResult>
                             .map(|&(e, _)| crate::mixr::mix::sigfig(e / EMEV, 7, 0))
                             .collect(),
                         y: tab.pairs.iter().map(|&(_, y)| y).collect(),
+                        interp: tab.interp.clone(),
                     }
                 } else {
                     SigP::Xs {
@@ -337,6 +372,10 @@ fn build_impl(tape: &Tape, mat: i32, pendf: Option<&crate::reconr::ReconrResult>
                     // `sigfig(ef/emev,7,0)`, `sigfig(el/emev,7,0)` (`:8504-8505`)
                     e_lo_mev: crate::mixr::mix::sigfig(e_first / EMEV, 7, 0),
                     e_hi_mev: crate::mixr::mix::sigfig(e_last / EMEV, 7, 0),
+                    eg_ev: if lf == 1 { 0.0 } else { eg_ev },
+                    landp: None,
+                    andp_tables: Vec::new(),
+                    applicability,
                 });
             }
         }
@@ -362,9 +401,16 @@ fn build_impl(tape: &Tape, mat: i32, pendf: Option<&crate::reconr::ReconrResult>
                 continue;
             }
         }
-        let Ok(products) = super::energy::parse_mf6_law1_products(sec, 0) else {
+        // Every `ZAP = 0, LAW != 0` product, whatever its law: `convr` moves
+        // them all (`acefc.f90:4400-4430`). ~~Only the products the LAW = 1
+        // neutron parser accepted were taken~~ (CORRECTED 2026-10-14, GitHub
+        // #872): that parser refuses a LAW = 2 photon, and the refusal skipped
+        // the whole MT, so H-1's capture photon (MF=6/MT=102, LAW = 2) was
+        // never written and its table had no photon production at all.
+        let yields = mf6_photon_yields(sec);
+        if yields.is_empty() {
             continue;
-        };
+        }
         let lib = tape
             .section(mat, 1, 451)
             .map(|s| {
@@ -372,32 +418,151 @@ fn build_impl(tape: &Tape, mat: i32, pendf: Option<&crate::reconr::ReconrResult>
                 (r(0, 4), r(2, 5), r(2, 2))
             })
             .unwrap_or((0, 0, 0));
-        for (k, mut prod) in products.into_iter().enumerate() {
-            if prod.yield_pairs.is_empty() {
+        for (k, y) in yields.iter().enumerate() {
+            if y.pairs.is_empty() {
                 continue;
             }
-            // `acelpp`'s own MF=16 rounding (see `acelpp_mf16_law4`).
-            if let Some(l4) = acelpp_mf16_law4(sec, k, lib) {
-                prod.law4 = l4;
-            }
-            let e_first = crate::mixr::mix::sigfig(prod.yield_pairs.first().map(|&(e, _)| e).unwrap_or(0.0), 7, 0);
-            let e_last = crate::mixr::mix::sigfig(prod.yield_pairs.last().map(|&(e, _)| e).unwrap_or(0.0), 7, 0);
+            // `acelpp`'s MF=16 law-4 data. A law it cannot write refuses the
+            // whole photon build (NXS(6) = 0), never a table missing one photon.
+            let law4 = acelpp_mf16_law4(sec, k, lib)?;
+            // The law's applicability range: `sigfig(E/emev,7,0)` on the
+            // yield's raw first and last energies (`acefc.f90:8805-8806`).
+            // Rounding in eV first and then dividing left `bias/1e6` in the
+            // word: B-10's 1e-5 eV read 1.0000000000000998e-11 MeV against
+            // NJOY2016's 1.0000000000001e-11, visible only in Type 2.
+            let e_first = y.pairs.first().map(|&(e, _)| e).unwrap_or(0.0);
+            let e_last = y.pairs.last().map(|&(e, _)| e).unwrap_or(0.0);
             out.push(PhotonEntry {
                 mtrp: mt * 1000 + k as i32 + 1,
                 sigp: SigP::Yield {
                     mftype: 16,
                     mtmult: mt,
-                    e_mev: prod.yield_pairs.iter().map(|&(e, _)| e / EMEV).collect(),
-                    y: prod.yield_pairs.iter().map(|&(_, y)| y).collect(),
+                    // `sigfig(E/emev,7,0)` as for every yield (`acefc.f90:8326`)
+                    e_mev: y.pairs.iter().map(|&(e, _)| crate::mixr::mix::sigfig(e / EMEV, 7, 0)).collect(),
+                    y: y.pairs.iter().map(|&(_, y)| y).collect(),
+                    interp: y.interp.clone(),
                 },
-                law: EnergyLaw::Law4(prod.law4),
-                e_lo_mev: e_first / EMEV,
-                e_hi_mev: e_last / EMEV,
+                law: EnergyLaw::Law4(law4),
+                e_lo_mev: crate::mixr::mix::sigfig(e_first / EMEV, 7, 0),
+                e_hi_mev: crate::mixr::mix::sigfig(e_last / EMEV, 7, 0),
+                eg_ev: 0.0,
+                landp: None,
+                andp_tables: Vec::new(),
+                applicability: None,
             });
         }
     }
 
+    assign_mf14(tape, mat, &mut out)?;
     Some(out)
+}
+
+/// `acelpp`'s photon angular pass (`acefc.f90:8402-8478`): walk the entries
+/// that came from MF=12/13 (MF=6 photons are skipped, `lff > 1`) one MT group
+/// at a time, read that MT's MF=14, and convert each anisotropic subsection
+/// with `ptleg` (`LTT = 1`) or `pttab` (`LTT = 2`), as `convr` does
+/// (`:4617-4657`). A subsection is matched to every photon of the same MT
+/// whose `EG` agrees within `EG/1e7`, isotropic ones giving LANDP = 0.
+///
+/// `None` where upstream would stop with an error (an MT met twice, a group
+/// shorter than its MF=14 `NK`) or a conversion is not ported.
+fn assign_mf14(tape: &Tape, mat: i32, out: &mut [PhotonEntry]) -> Option<()> {
+    use super::photon_angular::{ptleg, pttab};
+    use crate::mixr::mix::sigfig;
+    let n = out.len();
+    let from_mf6 = |e: &PhotonEntry| matches!(e.sigp, SigP::Yield { mftype: 16, .. });
+    // `l2flg`: some MF=12 section is LO = 2. Then `convr` replaces the MF=14
+    // of every discrete-level MT (ENDF-6 ranges) by an isotropic one
+    // (`acefc.f90:4035`, `:4357-4385`), discarding its anisotropy.
+    let l2flg = tape
+        .sections()
+        .iter()
+        .any(|s| s.key.mat == mat && s.key.mf == 12 && s.key.mt != MT_DELAYED_PHOTON && s.rows.first().is_some_and(|r| r[2] as i32 == 2));
+    let level_mt = |mt: i32| {
+        (50..=90).contains(&mt)
+            || (600..=648).contains(&mt)
+            || (650..=698).contains(&mt)
+            || (700..=748).contains(&mt)
+            || (750..=798).contains(&mt)
+            || (800..=848).contains(&mt)
+    };
+    let mut tables = 0usize;
+    let mut mtdold = -1;
+    let mut i = 0usize; // 0-based; upstream's i - 1
+    while i < n {
+        if from_mf6(&out[i]) {
+            i += 1;
+            continue;
+        }
+        let mtd = out[i].mtrp / 1000;
+        if mtd == mtdold {
+            return None; // `mf14/mt infinite loop`
+        }
+        mtdold = mtd;
+        let first = i;
+        let Some(sec) = tape.section(mat, 14, mtd) else {
+            // No MF=14 for this MT: its photons are isotropic.
+            while i < n && !from_mf6(&out[i]) && out[i].mtrp / 1000 == mtd {
+                i += 1;
+            }
+            continue;
+        };
+        let mut cur = SectionCursor::new(&sec.rows);
+        let head = cur.read_cont().ok()?;
+        let (li, ltt, nk, ni) = (head.l1, head.l2, head.n1.max(0) as usize, head.n2.max(0) as usize);
+        if l2flg && level_mt(mtd) {
+            // `convr` rewrote this MT's MF=14 as isotropic with one subsection
+            // per cascade photon (`acefc.f90:4357-4385`).
+            i += out[i..].iter().take_while(|e| !from_mf6(e) && e.mtrp / 1000 == mtd).count();
+            continue;
+        }
+        if li != 0 {
+            i += nk;
+            continue;
+        }
+        let matches = |out: &[PhotonEntry], eg: f64| -> Vec<usize> {
+            (0..out.len())
+                .filter(|&j| out[j].mtrp / 1000 == mtd && (eg - out[j].eg_ev).abs() <= eg / 10_000_000.0)
+                .collect()
+        };
+        for _ in 0..ni {
+            let c = cur.read_cont().ok()?;
+            for j in matches(out, c.c1) {
+                out[j].landp = None;
+            }
+        }
+        for _ in ni..nk {
+            let t2 = cur.read_tab2().ok()?;
+            let eg = t2.head.c1;
+            let ne = t2.head.n2.max(0) as usize;
+            let mut table = PhotonAngularTable { e_mev: Vec::with_capacity(ne), bins: Vec::with_capacity(ne) };
+            for _ in 0..ne {
+                let (e, bins) = if ltt == 2 {
+                    let t = cur.read_tab1().ok()?;
+                    (t.head.c2, pttab(&t.interp, &t.pairs).ok()?)
+                } else {
+                    let l = cur.read_list().ok()?;
+                    (l.head.c2, ptleg(&l.data))
+                };
+                // `convr` writes the converted MF=14 to its output tape as
+                // text, so `acelpp` reads every bin edge back through `a11`
+                // (a small negative edge keeps only 6 figures there).
+                let rt = |x: f64| {
+                    use crate::endf::parse::{format_endf_float, parse_endf_float};
+                    parse_endf_float(&format_endf_float(x)).unwrap_or(x)
+                };
+                table.e_mev.push(sigfig(e / EMEV, 7, 0));
+                table.bins.push(bins.map(|b| b.map(rt)));
+            }
+            for j in matches(out, eg) {
+                out[j].landp = Some(tables);
+            }
+            out[first].andp_tables.push(table);
+            tables += 1;
+        }
+        i += nk;
+    }
+    Some(())
 }
 
 /// One excited level's decay data, from its MF=12 `LO=2` section.
@@ -531,6 +696,7 @@ fn expand_cascade(levels: &[Level], mt: i32, awr: f64, e_max_ev: f64) -> Vec<Pho
                 mtmult: mt,
                 e_mev: vec![e_lo / EMEV, e_max_ev / EMEV],
                 y: vec![y, y],
+                interp: Vec::new(),
             },
             law: EnergyLaw::Law2 {
                 lp: 0,
@@ -538,6 +704,10 @@ fn expand_cascade(levels: &[Level], mt: i32, awr: f64, e_max_ev: f64) -> Vec<Pho
             },
             e_lo_mev: e_lo / EMEV,
             e_hi_mev: e_max_ev / EMEV,
+            eg_ev,
+            landp: None,
+            andp_tables: Vec::new(),
+            applicability: None,
         })
         .collect()
 }
@@ -558,7 +728,13 @@ fn expand_cascade(levels: &[Level], mt: i32, awr: f64, e_max_ev: f64) -> Vec<Pho
 /// ~~`parse_mf5_law4`, the neutron MF=5 reader~~, **CHANGED 2026-09-26**
 /// (GitHub #340). It left pdf and cdf unrounded: 16 241 of U-234's 25 126
 /// DLWP words differed from NJOY's in the 10th figure.
-fn acelpp_law4(sec15: &crate::endf::tape::Section, mtdnc: i32) -> Result<super::energy::Law4, crate::NjoyError> {
+///
+/// Also returns the subsection's probability record, which `acelpp` writes
+/// as the law's applicability table (`acefc.f90:8540-8566`).
+fn acelpp_law4(
+    sec15: &crate::endf::tape::Section,
+    mtdnc: i32,
+) -> Result<(super::energy::Law4, PhotonApplicability), crate::NjoyError> {
     use crate::mixr::mix::sigfig;
     const RMIN: f64 = 1.0e-30;
     let mut cur = SectionCursor::new(&sec15.rows);
@@ -566,7 +742,7 @@ fn acelpp_law4(sec15: &crate::endf::tape::Section, mtdnc: i32) -> Result<super::
     let nc = head.n1;
     let want = if mtdnc > nc { 1 } else { mtdnc };
     for ic in 1..=nc {
-        let _prob = cur.read_tab1()?;
+        let prob = cur.read_tab1()?;
         let tab2 = cur.read_tab2()?;
         let ne = tab2.head.n2;
         if ic != want {
@@ -615,10 +791,21 @@ fn acelpp_law4(sec15: &crate::endf::tape::Section, mtdnc: i32) -> Result<super::
         // `if (m.ne.1.or.jnt.ne.2)`: a single lin-lin region is written as
         // NR = 0.
         let simple = tab2.interp.len() == 1 && tab2.interp[0].1 == 2;
-        return Ok(super::energy::Law4 {
-            e_in_interp: if simple { Vec::new() } else { tab2.interp.clone() },
-            incident,
-        });
+        // The probability record by the same rule (`:8549-8558`): E as
+        // `sigfig(E/emev,7,0)`, P as the tape has it (`:8562-8565`).
+        let prob_simple = prob.interp.len() == 1 && prob.interp[0].1 == 2;
+        let applicability = PhotonApplicability {
+            interp: if prob_simple { Vec::new() } else { prob.interp.clone() },
+            e_mev: prob.pairs.iter().map(|&(e, _)| sigfig(e / EMEV, 7, 0)).collect(),
+            p: prob.pairs.iter().map(|&(_, p)| p).collect(),
+        };
+        return Ok((
+            super::energy::Law4 {
+                e_in_interp: if simple { Vec::new() } else { tab2.interp.clone() },
+                incident,
+            },
+            applicability,
+        ));
     }
     Err(crate::NjoyError::EndfParse("MF=15 subsection not found".into()))
 }
@@ -647,6 +834,7 @@ fn acelpp_law4(sec15: &crate::endf::tape::Section, mtdnc: i32) -> Result<super::
 /// `convr` rebuilds from the subsections.
 pub fn gpd(tape: &Tape, mat: i32, pendf: &crate::reconr::ReconrResult) -> Option<Vec<f64>> {
     use crate::endf::gety1::Gety1;
+    use crate::endf::parse::{format_endf_float, parse_endf_float};
     use crate::endf::records::{Cont, Tab1};
     use crate::mixr::mix::sigfig;
     const EPS: f64 = 1.0e-10;
@@ -721,8 +909,14 @@ pub fn gpd(tape: &Tape, mat: i32, pendf: &crate::reconr::ReconrResult) -> Option
             let level = |m: i32| eeth(m).map(|e| e * awr / (awr + 1.0));
             let out = cascade.section(sec.key.mt, head.l2, &list, &level)?;
             let Some(out) = out else { continue };
-            let ysum = out.ysum;
-            let elow = eeth(sec.key.mt).unwrap_or(0.0);
+            // `convr` writes the converted record to its scratch tape as
+            // text (`tab1io`, `acefc.f90:4318-4331`), so `gamsum` reads back
+            // `a11`'s rounding: Cu-65's MT=52 yield 1.0000607248 is
+            // 1.00006072 there (GitHub #875).
+            let rt = |v: f64| parse_endf_float(&format_endf_float(v)).unwrap_or(v);
+            let ysum = rt(out.ysum);
+            let elow = rt(eeth(sec.key.mt).unwrap_or(0.0));
+            let elim = rt(elim);
             Tab1 {
                 head: Cont { c1: 0.0, c2: 0.0, l1: 0, l2: 0, n1: 1, n2: 2 },
                 interp: vec![(2, 2)],
@@ -730,11 +924,13 @@ pub fn gpd(tape: &Tape, mat: i32, pendf: &crate::reconr::ReconrResult) -> Option
             }
         } else {
             if head.n1 > 1 {
-                // `convr` rebuilds a multi-subsection LO=1 total as the sum of
-                // its subsections (`:4078-4105`); not ported here yet.
-                return None;
+                // `convr` rebuilds a multi-subsection LO=1 total as the sum
+                // of its subsections, and `gamsum` reads the rebuilt one
+                // (GitHub #872: F-19, Al-27 and Si had no GPD for want of it).
+                convr_corrected_total(sec, 12)?
+            } else {
+                cur.read_tab1().ok()?
             }
-            cur.read_tab1().ok()?
         };
         let mts: &[(i32, f64)] = if sec.key.mt == 3 { &[(1, 1.0), (2, -1.0)] } else { &[(0, 1.0)] };
         for &(mtd, sign) in mts {
@@ -784,7 +980,103 @@ pub fn gpd(tape: &Tape, mat: i32, pendf: &crate::reconr::ReconrResult) -> Option
     if !any {
         return None;
     }
-    Some(c.into_iter().map(|v| sigfig(v, 7, 0)).collect())
+    // `gamsum` writes `sigfig(c,7,0)` to MF=13/MT=1 on its output tape as
+    // text (`tab1io`, `acefc.f90:3828-3843`), and `acelod` reads that back
+    // (`:6259-6270`), so the stored word carries `a11`'s rounding and not
+    // `sigfig`'s `bias`. Without the round trip every GPD word sat 1e-13
+    // high (B-10: 941 of 941), invisible at Type-1 print precision.
+    Some(c.into_iter().map(|v| parse_endf_float(&format_endf_float(sigfig(v, 7, 0))).unwrap_or(v)).collect())
+}
+
+/// `convr`'s corrected total of an MF=12 (`LO = 1`) or MF=13 section with
+/// `NK > 1` subsections (`acefc.f90:4044-4105`).
+///
+/// The tape's total is kept for its energy grid only, after splitting each
+/// repeated energy as upstream does (`sigfig(E, 7, -1)` below,
+/// `sigfig(E, 7, +1)` above; not the first point of an MF=13 total). The
+/// value at each grid energy is then the sum of the subsections, each read
+/// by `gety1` and only while its next tabulated energy is below
+/// `etop - etop/100`. `convr` writes the result to its output tape as text,
+/// so every value carries `a11`'s rounding, which is what `gamsum` reads back.
+fn convr_corrected_total(sec: &crate::endf::tape::Section, mf: i32) -> Option<crate::endf::records::Tab1> {
+    use crate::endf::gety1::Gety1;
+    use crate::endf::parse::{format_endf_float, parse_endf_float};
+    use crate::mixr::mix::sigfig;
+    const ETOP: f64 = 1.0e10;
+    let mut cur = SectionCursor::new(&sec.rows);
+    let head = cur.read_cont().ok()?;
+    let nk = head.n1.max(0) as usize;
+    let mut tot = cur.read_tab1().ok()?;
+    let mut parts = Vec::with_capacity(nk);
+    for _ in 0..nk {
+        parts.push(cur.read_tab1().ok()?);
+    }
+    let np = tot.pairs.len();
+    for i in 0..np {
+        if i == 0 && mf == 13 {
+            continue;
+        }
+        if i != 0 && tot.pairs[i].0 == tot.pairs[i - 1].0 {
+            tot.pairs[i - 1].0 = sigfig(tot.pairs[i - 1].0, 7, -1);
+            tot.pairs[i].0 = sigfig(tot.pairs[i].0, 7, 1);
+        }
+    }
+    for p in tot.pairs.iter_mut() {
+        p.1 = 0.0;
+    }
+    let test = ETOP - ETOP / 100.0;
+    for part in &parts {
+        let mut g = Gety1::new(part);
+        let e1 = g.get(0.0).xnext;
+        let mut enext = e1;
+        for p in tot.pairs.iter_mut() {
+            let e = p.0;
+            if e >= e1 && enext <= test {
+                let r = g.get(e);
+                p.1 += r.y;
+                enext = r.xnext;
+            }
+        }
+    }
+    let rt = |x: f64| parse_endf_float(&format_endf_float(x)).unwrap_or(x);
+    for p in tot.pairs.iter_mut() {
+        *p = (rt(p.0), rt(p.1));
+    }
+    Some(tot)
+}
+
+/// `convr`'s energy discontinuities in the photon files (`disc`,
+/// `acefc.f90:4067-4078` and `aordr`): every repeated energy in the total of
+/// an MF=12 (`LO = 1`) or MF=13 section with `NK > 1`, taken before `convr`
+/// splits it, sorted and de-duplicated within 1e-10. `unionx` puts each one
+/// into the ACE energy grid (B-10's MT=601 photon threshold at 3.458281 MeV,
+/// GitHub #872).
+pub fn gamma_discontinuities(tape: &Tape, mat: i32) -> Vec<f64> {
+    use crate::mixr::mix::sigfig;
+    let mut disc: Vec<f64> = Vec::new();
+    for sec in tape.sections().iter().filter(|s| s.key.mat == mat && (s.key.mf == 12 || s.key.mf == 13)) {
+        if sec.key.mt == MT_DELAYED_PHOTON {
+            continue;
+        }
+        let mut cur = SectionCursor::new(&sec.rows);
+        let Ok(head) = cur.read_cont() else { continue };
+        if (sec.key.mf == 12 && head.l1 != 1) || head.n1 <= 1 {
+            continue;
+        }
+        let Ok(tot) = cur.read_tab1() else { continue };
+        let mut x: Vec<f64> = tot.pairs.iter().map(|p| p.0).collect();
+        for i in 1..x.len() {
+            if x[i] == x[i - 1] {
+                disc.push(x[i - 1]);
+                x[i - 1] = sigfig(x[i - 1], 7, -1);
+                x[i] = sigfig(x[i], 7, 1);
+            }
+        }
+    }
+    // `aordr`: ascending, duplicates within 1e-10 dropped.
+    disc.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+    disc.dedup_by(|b, a| *b <= (1.0 + 1.0e-10) * *a);
+    disc
 }
 
 /// The yield TAB1 of every MF=6 photon product (`ZAP = 0`, `LAW != 0`), in
@@ -982,7 +1274,10 @@ impl Lo2Cascade {
 }
 
 /// The law-4 DLWP data `acelpp` writes for an MF=16 photon (an MF=6
-/// `ZAP = 0`, `LAW = 1` product moved by `convr`): `acefc.f90:8631-8960`.
+/// `ZAP = 0`, `LAW = 1` or `LAW = 2` product moved by `convr`):
+/// `acefc.f90:8631-8960`. A `LAW = 2` photon is first rewritten as `convr`
+/// writes it, one discrete line per incident energy (`acefc.f90:4440-4447`);
+/// any other law gives `None`.
 ///
 /// Two passes over the incident energies, as upstream:
 ///
@@ -1023,17 +1318,41 @@ fn acelpp_mf16_law4(
             super::energy::mf6::skip_mf6_subsection(&mut cur, law).ok()?;
             continue;
         }
-        if seen != photon || law != 1 {
+        if seen != photon {
             seen += 1;
             super::energy::mf6::skip_mf6_subsection(&mut cur, law).ok()?;
             continue;
         }
+        if law != 1 && law != 2 {
+            return None;
+        }
+        // `acelpp` reads `egamma` off the yield TAB1's C2 for a LAW = 2
+        // photon (`acefc.f90:8648`).
+        let egamma = y.head.c2;
         let t2 = cur.read_tab2().ok()?;
         let lep = t2.head.l2;
         let ne = t2.head.n2.max(0) as usize;
         let mut lists = Vec::with_capacity(ne);
         for _ in 0..ne {
-            lists.push(cur.read_list().ok()?);
+            let mut l = cur.read_list().ok()?;
+            // `convr` writes a LAW = 2 ("discrete anisotropic") photon to MF=16
+            // as a simple primary: each LIST becomes ND = 1, NA = 0, NW = 2,
+            // NEP = 1 with one line at `egamma + awr*E/(awr+1)`, probability 1
+            // (`acefc.f90:4440-4447`). The angular data is dropped, as upstream
+            // drops it ("treated as simple primary photon").
+            if law == 2 && egamma > 0.0 {
+                let e = l.head.c2;
+                l.head.l1 = 1;
+                l.head.l2 = 0;
+                l.head.n1 = 2;
+                l.head.n2 = 1;
+                // Through `convr`'s formatted scratch tape: the value
+                // `acelpp` reads back is `a11`'s text of it.
+                let ep = egamma + awr * e / (awr + 1.0);
+                let ep = crate::endf::parse::parse_endf_float(&crate::endf::parse::format_endf_float(ep)).ok()?;
+                l.data = vec![ep, 1.0];
+            }
+            lists.push(l);
         }
         // pass 1: the union list of discrete photons
         let mut dise: Vec<f64> = Vec::new();

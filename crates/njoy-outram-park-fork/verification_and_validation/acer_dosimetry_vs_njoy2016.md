@@ -57,8 +57,8 @@ branch that H-1 never reaches:
 
 ## NJOY does not test this path itself
 
-All 40 cases in `upstream_source/NJOY2016/tests` were checked: `acer` appears
-with `iopt` 1, 2 and 7 only. **No upstream test runs `iopt = 3`.** The gate
+~~All 40 cases in `upstream_source/NJOY2016/tests` were checked: `acer` appears
+with `iopt` 1, 2 and 7 only.~~ **CORRECTED 2026-10-14** (counted in the vendored upstream at `ac5adf5`): there are 86 numbered cases, 46 of which run `acer`, with `iopt` 1, 2, 4, 5 and 7; none runs `iopt = 3`. **No upstream test runs `iopt = 3`.** The gate
 here therefore covers a path that has no regression cover upstream, which is
 worth knowing before trusting either code's dosimetry output.
 

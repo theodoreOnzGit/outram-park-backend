@@ -39,9 +39,106 @@ fn mono(size: f32) -> FontId {
     FontId::monospace(quantise(size))
 }
 
-/// A topic colour darkened for a card's fill.
-fn fill_of(c: Color32) -> Color32 {
-    Color32::from_rgb((c.r() as u16 * 35 / 100) as u8, (c.g() as u16 * 35 / 100) as u8, (c.b() as u16 * 35 / 100) as u8)
+/// The canvas colours for the theme in force. The cards were drawn for a
+/// dark background (the site forces dark visuals); desktop kovan sets its
+/// own theme for the whole window (#820), and under a light one (Gruvbox
+/// light) the cards stayed dark. Dark keeps the colours the cards always
+/// had, so the published site does not change; light takes its fills and
+/// text from the host's visuals, so the cards follow whichever light theme
+/// is set.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) struct Palette {
+    dark: bool,
+    /// Behind the card fills, for mixing a topic tint (light only).
+    bg: Color32,
+    /// The code map's root card.
+    root: Color32,
+    /// A module card, and a function of the crate being viewed.
+    card: Color32,
+    /// The examples card.
+    examples: Color32,
+    /// The in-place module list under an expanded crate on the map.
+    list: Color32,
+    /// Card titles, and the outline of a selected card.
+    strong: Color32,
+    /// Card subtitles.
+    text: Color32,
+    /// Third lines, labels and the plain connectors.
+    weak: Color32,
+    /// Blue-ish informational text: a module's "mod · M2" line, the module
+    /// list, the unfold toggles.
+    info: Color32,
+    /// An outline with no topic colour (the root and examples cards).
+    outline: Color32,
+    /// A lit call: from the selected module or function, and into it.
+    lit_out: Color32,
+    lit_in: Color32,
+}
+
+impl Palette {
+    /// The palette for `v`: the dark one when `v.dark_mode`, else derived
+    /// from `v`'s own fills and text colours.
+    pub(crate) fn of(v: &egui::Visuals) -> Self {
+        if v.dark_mode {
+            return Palette {
+                dark: true,
+                bg: v.panel_fill,
+                root: Color32::from_rgb(40, 46, 58),
+                card: Color32::from_rgb(28, 32, 42),
+                examples: Color32::from_rgb(34, 36, 44),
+                list: Color32::from_rgba_unmultiplied(20, 24, 32, 240),
+                strong: Color32::WHITE,
+                text: Color32::from_gray(200),
+                weak: Color32::from_gray(170),
+                info: Color32::from_rgb(190, 210, 255),
+                outline: Color32::from_gray(160),
+                lit_out: Color32::from_rgb(120, 190, 255),
+                lit_in: Color32::from_rgb(255, 170, 90),
+            };
+        }
+        // Fills are the panel colour shaded towards the text colour, so they
+        // keep the theme's hue (cream under Gruvbox light). Not
+        // `faint_bg_color`: egui's light theme makes it a transparent tint.
+        let (bg, ink) = (v.panel_fill, v.strong_text_color());
+        let shade = |k: u16| {
+            let mix = |a: u8, b: u8| ((a as u16 * (100 - k) + b as u16 * k) / 100) as u8;
+            Color32::from_rgb(mix(bg.r(), ink.r()), mix(bg.g(), ink.g()), mix(bg.b(), ink.b()))
+        };
+        Palette {
+            dark: false,
+            bg,
+            root: shade(16),
+            card: shade(6),
+            examples: shade(10),
+            list: v.window_fill,
+            strong: v.strong_text_color(),
+            text: v.text_color(),
+            weak: v.weak_text_color(),
+            info: v.hyperlink_color,
+            outline: v.weak_text_color(),
+            lit_out: v.hyperlink_color,
+            lit_in: Color32::from_rgb(196, 98, 16),
+        }
+    }
+
+    /// A topic colour as a card's fill: darkened to 35 % on dark, a 22 %
+    /// tint over the background on light.
+    fn fill_of(&self, c: Color32) -> Color32 {
+        if self.dark {
+            return Color32::from_rgb((c.r() as u16 * 35 / 100) as u8, (c.g() as u16 * 35 / 100) as u8, (c.b() as u16 * 35 / 100) as u8);
+        }
+        let mix = |a: u8, b: u8| ((a as u16 * 22 + b as u16 * 78) / 100) as u8;
+        Color32::from_rgb(mix(c.r(), self.bg.r()), mix(c.g(), self.bg.g()), mix(c.b(), self.bg.b()))
+    }
+
+    /// A bright accent (a review state, a topic) used as text: unchanged on
+    /// dark, darkened to 60 % on light so it reads on a light card.
+    fn on_card(&self, c: Color32) -> Color32 {
+        if self.dark {
+            return c;
+        }
+        Color32::from_rgb((c.r() as u16 * 60 / 100) as u8, (c.g() as u16 * 60 / 100) as u8, (c.b() as u16 * 60 / 100) as u8)
+    }
 }
 
 fn topic_of(map: &CodeMap, krate: &str) -> Topic {
@@ -80,13 +177,13 @@ const TO_REVIEW: Color32 = Color32::from_rgb(220, 80, 80);
 /// "· M to review" in red (each only when non-zero), clipped to the card.
 /// GUI drawing code (exempt from the test rule; the counts are
 /// [`model::Facts::review_split`], tested).
-fn review_counts(painter: &egui::Painter, card: Rect, after: Option<Rect>, size: f32, (done, todo): (usize, usize)) {
+fn review_counts(painter: &egui::Painter, pal: &Palette, card: Rect, after: Option<Rect>, size: f32, (done, todo): (usize, usize)) {
     let Some(after) = after else { return };
     let p = painter.with_clip_rect(card.shrink(1.0));
     let mut x = after.right();
     for (n, what, colour) in [(done, "reviewed", REVIEWED), (todo, "to review", TO_REVIEW)] {
         if n > 0 {
-            x = p.text(Pos2::new(x, after.center().y), Align2::LEFT_CENTER, format!(" \u{b7} {n} {what}"), font(size), colour).right();
+            x = p.text(Pos2::new(x, after.center().y), Align2::LEFT_CENTER, format!(" \u{b7} {n} {what}"), font(size), pal.on_card(colour)).right();
         }
     }
 }
@@ -183,7 +280,8 @@ impl CodeReview {
         }
         if subject.is_none() || !snap.errors.is_empty() {
             let msg = if snap.map.is_none() && snap.errors.is_empty() { "Loading the code map…".to_string() } else if let Some(e) = snap.errors.first() { e.clone() } else { self.loading_message(snap) };
-            painter.text(rect.center(), Align2::CENTER_CENTER, msg, font(16.0), Color32::from_rgb(200, 205, 215));
+            let text = if ui.visuals().dark_mode { Color32::from_rgb(200, 205, 215) } else { ui.visuals().text_color() };
+            painter.text(rect.center(), Align2::CENTER_CENTER, msg, font(16.0), text);
         }
     }
 
@@ -425,6 +523,7 @@ impl CodeReview {
         let (map, layout) = (snap.map.as_ref()?, snap.layout.as_ref()?);
         let cam = self.cams.get(&Level::Map).copied().unwrap_or_default();
         let z = cam.scale as f32;
+        let pal = Palette::of(&painter.ctx().global_style().visuals);
         let b = layout.bounds;
         // Frames.
         for f in &layout.frames {
@@ -432,13 +531,13 @@ impl CodeReview {
             let c = hex(topic_colour(f.topic));
             painter.rect(r, 8.0 * z, c.gamma_multiply(0.08), Stroke::new(1.5, c.gamma_multiply(0.7)), StrokeKind::Inside);
             if 13.0 * z >= 5.0 && f.kind != FrameKind::App {
-                painter.text(r.left_top() + Vec2::new(10.0 * z, 8.0 * z), Align2::LEFT_TOP, &f.title, font(13.0 * z), c);
+                painter.text(r.left_top() + Vec2::new(10.0 * z, 8.0 * z), Align2::LEFT_TOP, &f.title, font(13.0 * z), pal.on_card(c));
             }
         }
         for l in &layout.labels {
             if 12.0 * z >= 5.0 {
                 let at = cam.to_screen(rect, l.x, l.y);
-                painter.text(at, Align2::CENTER_CENTER, &l.text, font(12.0 * z), Color32::from_gray(150));
+                painter.text(at, Align2::CENTER_CENTER, &l.text, font(12.0 * z), if pal.dark { Color32::from_gray(150) } else { pal.weak });
                 if !l.tip.is_empty() {
                     hits.push((Rect::from_center_size(at, Vec2::new(36.0 * z.max(0.5), 18.0 * z.max(0.5))), Hit::Label(l.tip.clone())));
                 }
@@ -457,26 +556,26 @@ impl CodeReview {
         }
         // Root card.
         let rr = cam.rect(rect, layout.root.x, layout.root.y, layout.root.w, layout.root.h);
-        painter.rect(rr, 8.0 * z, Color32::from_rgb(40, 46, 58), Stroke::new(1.5, Color32::from_gray(160)), StrokeKind::Inside);
-        card_text(painter, rr, &[(map.root.as_str(), 20.0, Color32::WHITE)], z);
+        painter.rect(rr, 8.0 * z, pal.root, Stroke::new(1.5, pal.outline), StrokeKind::Inside);
+        card_text(painter, rr, &[(map.root.as_str(), 20.0, pal.strong)], z);
         let in_index = |c: &str| snap.index.as_ref().is_some_and(|i| i.crates.iter().any(|e| e.name == c));
         for card in &layout.cards {
             let Some(c) = map.get(&card.name) else { continue };
             let r = cam.rect(rect, card.rect.x, card.rect.y, card.rect.w, card.rect.h);
             let col = hex(topic_colour(c.topic));
-            painter.rect(r, 6.0 * z, fill_of(col), Stroke::new(1.5, col), StrokeKind::Inside);
+            painter.rect(r, 6.0 * z, pal.fill_of(col), Stroke::new(1.5, col), StrokeKind::Inside);
             let sub = card_subtitle(c);
             let fns = snap.index.as_ref().and_then(|i| i.crates.iter().find(|e| e.name == c.name)).map(|e| format!("{} modules · {} fn", e.modules, e.functions));
-            let mut lines = vec![(c.name.as_str(), 14.0, Color32::WHITE), (sub.as_str(), 11.0, Color32::from_gray(200))];
+            let mut lines = vec![(c.name.as_str(), 14.0, pal.strong), (sub.as_str(), 11.0, pal.text)];
             if let Some(f) = &fns {
-                lines.push((f.as_str(), 10.0, Color32::from_gray(170)));
+                lines.push((f.as_str(), 10.0, pal.weak));
             }
             card_text(painter, r, &lines, z);
             hits.push((r, Hit::MapCrate(c.name.clone())));
             if in_index(&c.name) {
                 let t = Rect::from_center_size(Pos2::new(r.right() - 14.0 * z, r.bottom() - 12.0 * z), Vec2::splat((20.0 * z).max(14.0)));
                 let open = self.map_expanded.contains(&c.name);
-                triangle(painter, t.center(), 10.0 * z.max(0.6), true, open, open, Color32::WHITE);
+                triangle(painter, t.center(), 10.0 * z.max(0.6), true, open, open, pal.strong);
                 hits.push((t, Hit::MapToggle(c.name.clone())));
             }
         }
@@ -499,11 +598,11 @@ impl CodeReview {
             // 200 pt wide), so it stays readable and tappable at any zoom.
             let row_h = 20.0;
             let list = Rect::from_min_size(r.left_bottom() + Vec2::new(0.0, 2.0), Vec2::new(r.width().max(200.0), row_h * rows.len() as f32 + 4.0));
-            painter.rect(list, 4.0, Color32::from_rgba_unmultiplied(20, 24, 32, 240), Stroke::new(1.0, Color32::from_gray(110)), StrokeKind::Inside);
+            painter.rect(list, 4.0, pal.list, Stroke::new(1.0, if pal.dark { Color32::from_gray(110) } else { pal.outline }), StrokeKind::Inside);
             for (i, (label, file, n)) in rows.iter().enumerate() {
                 let rr = Rect::from_min_size(list.left_top() + Vec2::new(0.0, 2.0 + row_h * i as f32), Vec2::new(list.width(), row_h));
                 let text = if *n > 0 { format!("{label}  ({n} fn)") } else { label.clone() };
-                painter.with_clip_rect(rr).text(rr.left_center() + Vec2::new(8.0, 0.0), Align2::LEFT_CENTER, text, mono(11.0), Color32::from_rgb(190, 210, 255));
+                painter.with_clip_rect(rr).text(rr.left_center() + Vec2::new(8.0, 0.0), Align2::LEFT_CENTER, text, mono(11.0), pal.info);
                 if !file.is_empty() {
                     hits.push((rr, Hit::MapModule { krate: name.clone(), file: file.clone() }));
                 }
@@ -523,6 +622,7 @@ impl CodeReview {
         let cam = self.cams.get(&self.place.level).copied().unwrap_or_default();
         let z = cam.scale as f32;
         let col = hex(topic_colour(topic_of(map, krate)));
+        let pal = Palette::of(&painter.ctx().global_style().visuals);
         let size_of = |it: TreeItem| if it == TreeItem::Crate { (MOD_CARD.0 * 1.15, MOD_CARD.1 * 1.25) } else { MOD_CARD };
         // Module-to-module calls, faint; lit for the selected module.
         let pos_of_file = |f: &str| tree.find(f).and_then(|i| tl.position(TreeItem::Module(i)).or_else(|| (tree.lib_root == Some(i)).then(|| Point::new(0.0, 0.0))));
@@ -537,7 +637,7 @@ impl CodeReview {
                 continue;
             }
             let stroke = if lit {
-                Stroke::new(2.0, if sel.as_deref() == Some(a.from.as_str()) { Color32::from_rgb(120, 190, 255) } else { Color32::from_rgb(255, 170, 90) })
+                Stroke::new(2.0, if sel.as_deref() == Some(a.from.as_str()) { pal.lit_out } else { pal.lit_in })
             } else {
                 Stroke::new(1.0, Color32::from_rgba_unmultiplied(150, 160, 190, 28))
             };
@@ -547,7 +647,7 @@ impl CodeReview {
         for (item, p, parent) in &tl.cards {
             if let Some(pp) = parent.and_then(|x| tl.position(x)) {
                 if let Some(c) = connector_sized(pp, size_of(parent.unwrap()), *p, size_of(*item)) {
-                    curve(painter, &cam, rect, c, Stroke::new(1.2, Color32::from_gray(110)));
+                    curve(painter, &cam, rect, c, Stroke::new(1.2, if pal.dark { Color32::from_gray(110) } else { pal.weak }));
                 }
             }
         }
@@ -557,41 +657,43 @@ impl CodeReview {
                 TreeItem::Crate => {
                     let file = tree.lib_root.map(|i| tree.nodes[i].file.clone());
                     let selected = file.is_some() && sel == file;
-                    painter.rect(r, 8.0 * z, fill_of(col), Stroke::new(if selected { 3.0 } else { 2.0 }, if selected { Color32::WHITE } else { col }), StrokeKind::Inside);
+                    painter.rect(r, 8.0 * z, pal.fill_of(col), Stroke::new(if selected { 3.0 } else { 2.0 }, if selected { pal.strong } else { col }), StrokeKind::Inside);
                     let ids = tree.lib_root.map(|i| tree.nodes[i].fn_ids.as_slice()).unwrap_or(&[]);
                     let sub = if ids.is_empty() { format!("M{} · lib.rs · 0 fn", slice.krate.maturity.unwrap_or(0)) } else { format!("M{} · lib.rs", slice.krate.maturity.unwrap_or(0)) };
-                    let drawn = card_text(painter, r, &[(krate, 17.0, Color32::WHITE), (sub.as_str(), 11.0, Color32::from_gray(200))], z);
-                    review_counts(painter, r, drawn.get(1).copied().flatten(), 11.0 * z, facts.review_split(ids));
+                    let drawn = card_text(painter, r, &[(krate, 17.0, pal.strong), (sub.as_str(), 11.0, pal.text)], z);
+                    review_counts(painter, &pal, r, drawn.get(1).copied().flatten(), 11.0 * z, facts.review_split(ids));
                     if let Some(f) = file {
                         hits.push((r, Hit::TreeModule(f)));
                     }
                 }
                 TreeItem::Examples => {
-                    painter.rect(r, 8.0 * z, Color32::from_rgb(34, 36, 44), Stroke::new(1.5, Color32::from_gray(140)), StrokeKind::Inside);
+                    painter.rect(r, 8.0 * z, pal.examples, Stroke::new(1.5, if pal.dark { Color32::from_gray(140) } else { pal.outline }), StrokeKind::Inside);
                     let n = format!("{} examples", tree.example_roots.len());
-                    card_text(painter, r, &[("examples", 14.0, Color32::from_gray(230)), (n.as_str(), 11.0, Color32::from_gray(180))], z);
+                    let (title, sub) = if pal.dark { (Color32::from_gray(230), Color32::from_gray(180)) } else { (pal.strong, pal.text) };
+                    card_text(painter, r, &[("examples", 14.0, title), (n.as_str(), 11.0, sub)], z);
                 }
                 TreeItem::Module(i) => {
                     let node = &tree.nodes[*i];
                     let selected = sel.as_deref() == Some(node.file.as_str());
-                    painter.rect(r, 6.0 * z, Color32::from_rgb(28, 32, 42), Stroke::new(if selected { 3.0 } else { 1.5 }, if selected { Color32::WHITE } else { col }), StrokeKind::Inside);
+                    painter.rect(r, 6.0 * z, pal.card, Stroke::new(if selected { 3.0 } else { 1.5 }, if selected { pal.strong } else { col }), StrokeKind::Inside);
                     let rel = node.file.strip_prefix(&format!("{}/", slice.krate.dir)).unwrap_or(&node.file).to_string();
                     let m = node.maturity.or(slice.krate.maturity).unwrap_or(0);
                     let sub = if node.fn_ids.is_empty() { format!("mod · M{m} · 0 fn") } else { format!("mod · M{m}") };
-                    let drawn = card_text(painter, r, &[(node.name.as_str(), 14.0, Color32::WHITE), (rel.as_str(), 10.0, Color32::from_gray(170)), (sub.as_str(), 10.0, Color32::from_rgb(170, 200, 240))], z);
-                    review_counts(painter, r, drawn.get(2).copied().flatten(), 10.0 * z, facts.review_split(&node.fn_ids));
+                    let info = if pal.dark { Color32::from_rgb(170, 200, 240) } else { pal.info };
+                    let drawn = card_text(painter, r, &[(node.name.as_str(), 14.0, pal.strong), (rel.as_str(), 10.0, pal.weak), (sub.as_str(), 10.0, info)], z);
+                    review_counts(painter, &pal, r, drawn.get(2).copied().flatten(), 10.0 * z, facts.review_split(&node.fn_ids));
                     hits.push((r, Hit::TreeModule(node.file.clone())));
                     if !node.children.is_empty() {
                         let right = p.x >= 0.0;
                         let tc = if right { Pos2::new(r.right() + 10.0 * z, r.center().y) } else { Pos2::new(r.left() - 10.0 * z, r.center().y) };
                         let folded = self.collapsed.contains(&node.file);
-                        triangle(painter, tc, 12.0 * z.max(0.6), right, !folded, true, Color32::from_gray(200));
+                        triangle(painter, tc, 12.0 * z.max(0.6), right, !folded, true, pal.text);
                         hits.push((Rect::from_center_size(tc, Vec2::splat((20.0 * z).max(16.0))), Hit::TreeToggle(node.file.clone())));
                     }
                 }
             }
             if selected_hint(item, &tree, &sel) && 11.0 * z >= 5.0 {
-                painter.text(r.center_bottom() + Vec2::new(0.0, 4.0 * z), Align2::CENTER_TOP, "tap again to open", font(11.0 * z), Color32::from_gray(220));
+                painter.text(r.center_bottom() + Vec2::new(0.0, 4.0 * z), Align2::CENTER_TOP, "tap again to open", font(11.0 * z), if pal.dark { Color32::from_gray(220) } else { pal.text });
             }
         }
         Some(bounds(tl.cards.iter().map(|(it, p, _)| centred(*p, size_of(*it)))).map_pad(40.0))
@@ -604,7 +706,9 @@ impl CodeReview {
         let slice = snap.slice(krate)?;
         let (module, _, _) = model::find_module(&slice.krate, file)?;
         let facts = snap.facts();
-        let ring_ids: Vec<String> = model::reviewables(module, self.show_tests).map(|f| f.id.clone()).collect();
+        // A deep-linked test joins the ring even while test code is hidden (#867).
+        let ring_ids = model::ring_ids(module, self.show_tests, self.place.selected.as_deref());
+        let n_reviewables = model::reviewables(module, self.show_tests).count();
         let slice_for = |id: &str| -> Option<Arc<CrateSlice>> { snap.slice_of(id).cloned() };
         let hl = model::hierarchy_layout(
             &ring_ids,
@@ -615,10 +719,11 @@ impl CodeReview {
         let cam = self.cams.get(&self.place.level).copied().unwrap_or_default();
         let z = cam.scale as f32;
         let home = topic_of(map, krate);
+        let pal = Palette::of(&painter.ctx().global_style().visuals);
         // Centre card to ring.
         for (_, p) in &hl.ring {
             if let Some(c) = connector_sized(Point::new(0.0, 0.0), CENTRE_CARD_SIZE, *p, CARD_SIZE) {
-                curve(painter, &cam, rect, c, Stroke::new(1.0, Color32::from_gray(80)));
+                curve(painter, &cam, rect, c, Stroke::new(1.0, if pal.dark { Color32::from_gray(80) } else { pal.weak }));
             }
         }
         // Call edges.
@@ -626,7 +731,9 @@ impl CodeReview {
         for (a, b) in &hl.edges {
             let (Some(p), Some(q)) = (hl.position(a), hl.position(b)) else { continue };
             let lit = sel.as_deref() == Some(a.as_str()) || sel.as_deref() == Some(b.as_str());
-            let stroke = Stroke::new(if lit { 2.2 } else { 1.3 }, if lit { Color32::from_rgb(130, 200, 255) } else { Color32::from_rgba_unmultiplied(130, 200, 255, 110) });
+            let call = if pal.dark { Color32::from_rgb(130, 200, 255) } else { pal.lit_out };
+            let faint = if pal.dark { Color32::from_rgba_unmultiplied(130, 200, 255, 110) } else { call.gamma_multiply(110.0 / 255.0) };
+            let stroke = Stroke::new(if lit { 2.2 } else { 1.3 }, if lit { call } else { faint });
             // A dot where the call arrives, on the callee's edge.
             let tip = match kovan_common::mindmap_view::connector(p, q) {
                 Some(c) => {
@@ -643,61 +750,65 @@ impl CodeReview {
         // The module card.
         let mr = screen(&cam, rect, centred(Point::new(0.0, 0.0), CENTRE_CARD_SIZE));
         let col = hex(topic_colour(home));
-        painter.rect(mr, 8.0 * z, fill_of(col), Stroke::new(2.0, col), StrokeKind::Inside);
+        painter.rect(mr, 8.0 * z, pal.fill_of(col), Stroke::new(2.0, col), StrokeKind::Inside);
         let name = file.rsplit('/').next().unwrap_or(file).to_string();
         let path = if module.path.is_empty() { format!("{krate} (target root)") } else { module.path.clone() };
         let n_items = module.items.iter().filter(|f| self.show_tests || !f.test).count();
         let sub = if n_items == 0 {
-            format!("{} functions", ring_ids.len())
+            format!("{n_reviewables} functions")
         } else {
-            format!("{} functions · {n_items} types and constants", ring_ids.len() - n_items)
+            format!("{} functions · {n_items} types and constants", n_reviewables - n_items)
         };
-        card_text(painter, mr, &[(name.as_str(), 16.0, Color32::WHITE), (path.as_str(), 10.0, Color32::from_gray(190)), (sub.as_str(), 11.0, Color32::from_gray(200))], z);
+        let path_colour = if pal.dark { Color32::from_gray(190) } else { pal.weak };
+        card_text(painter, mr, &[(name.as_str(), 16.0, pal.strong), (path.as_str(), 10.0, path_colour), (sub.as_str(), 11.0, pal.text)], z);
         hits.push((mr, Hit::ModuleCard));
-        let mut draw_fn = |id: &str, p: Point, toggles: (bool, bool)| {
+        let mut draw_fn = |id: &str, p: Point| {
             let r = screen(&cam, rect, centred(p, CARD_SIZE));
             let k = crate_of(map, id).unwrap_or("");
             let topic = topic_of(map, k);
             let tc = hex(topic_colour(topic));
             let review = facts.review(id);
             let selected = sel.as_deref() == Some(id);
-            let fill = if k == krate { Color32::from_rgb(30, 34, 44) } else { fill_of(tc) };
-            painter.rect(r, 6.0 * z, fill, Stroke::new(if selected { 3.5 } else { 2.0 }, if selected { Color32::WHITE } else { review_colour(&review) }), StrokeKind::Inside);
-            let found = snap.slice_of(id).and_then(|s| model::find_function(&s.krate, id).map(|(m, f, _)| (model::function_maturity(m, map, k), model::display_name(f), f.shape)));
+            let home_fill = if pal.dark { Color32::from_rgb(30, 34, 44) } else { pal.card };
+            let fill = if k == krate { home_fill } else { pal.fill_of(tc) };
+            painter.rect(r, 6.0 * z, fill, Stroke::new(if selected { 3.5 } else { 2.0 }, if selected { pal.strong } else { review_colour(&review) }), StrokeKind::Inside);
+            let found = snap.slice_of(id).and_then(|s| model::find_function(&s.krate, id).map(|(m, f, _)| (model::function_maturity(m, map, k), model::display_name(f), model::card_kind(f), f.test_fn)));
             let title = match &found {
-                Some((_, n, _)) => n.clone(),
+                Some((_, n, _, _)) => n.clone(),
                 None => model::short_name(id).to_string(),
             };
             let mat = found.as_ref().and_then(|f| f.0).map(|m| format!("M{m} · ")).unwrap_or_default();
-            // A type or constant says what it is in plain words (#843).
-            let what = found.as_ref().and_then(|f| f.2).map(|s| format!("{} · ", s.plain_name())).unwrap_or_default();
+            // A type or constant says what it is in plain words (#843), a
+            // test that it is a test (#867).
+            let what = found.as_ref().map(|f| f.2.clone()).unwrap_or_default();
             let line2 = format!("{what}{mat}{}", review.label());
-            let mut lines = vec![(title.as_str(), 12.5, Color32::WHITE), (line2.as_str(), 10.0, review_colour(&review))];
+            let mut lines = vec![(title.as_str(), 12.5, pal.strong), (line2.as_str(), 10.0, pal.on_card(review_colour(&review)))];
             if k != krate {
-                lines.push((k, 9.5, tc));
+                lines.push((k, 9.5, pal.on_card(tc)));
             }
             card_text(painter, r, &lines, z);
             hits.push((r, Hit::Function(id.to_string())));
             let t = (16.0 * z).max(14.0);
-            for (on, dir, right) in [(toggles.1, Dir::Callees, true), (toggles.0, Dir::Callers, false)] {
+            // A test is an entry point: nothing calls it, so no callers toggle.
+            let entry = found.as_ref().is_some_and(|f| f.3);
+            for (on, dir, right) in [(true, Dir::Callees, true), (!entry, Dir::Callers, false)] {
                 if !on {
                     continue;
                 }
                 let c = if right { Pos2::new(r.right() + 0.6 * t, r.center().y) } else { Pos2::new(r.left() - 0.6 * t, r.center().y) };
                 let open = self.place.expanded.contains(&(id.to_string(), dir));
-                triangle(painter, c, 11.0 * z.max(0.6), right, false, open, Color32::from_rgb(200, 220, 255));
+                triangle(painter, c, 11.0 * z.max(0.6), right, false, open, if pal.dark { Color32::from_rgb(200, 220, 255) } else { pal.info });
                 hits.push((Rect::from_center_size(c, Vec2::splat(t * 1.3)), Hit::FnToggle(id.to_string(), dir)));
             }
         };
-        for (id, p) in &hl.ring {
-            draw_fn(id, *p, (true, true));
-        }
-        for (id, p, col) in &hl.unfolded {
-            draw_fn(id, *p, (*col < 0, *col > 0));
+        // Every card unfolds both ways (#867): a test among the callers
+        // unfolds what it exercises.
+        for (id, p) in hl.ring.iter().map(|r| (&r.0, r.1)).chain(hl.unfolded.iter().map(|u| (&u.0, u.1))) {
+            draw_fn(id, p);
         }
         for id in &hl.waiting {
             if let Some(p) = hl.position(id) {
-                painter.text(cam.to_screen(rect, p.x, p.y + 0.5 * CARD_SIZE.1 + 8.0), Align2::CENTER_TOP, "loading…", font(11.0), Color32::from_gray(200));
+                painter.text(cam.to_screen(rect, p.x, p.y + 0.5 * CARD_SIZE.1 + 8.0), Align2::CENTER_TOP, "loading…", font(11.0), pal.text);
             }
         }
         Some(bounds(std::iter::once(centred(Point::new(0.0, 0.0), CENTRE_CARD_SIZE)).chain(hl.points().map(|p| centred(p, CARD_SIZE)))).map_pad(50.0))
@@ -720,5 +831,59 @@ trait Pad {
 impl Pad for WorldRect {
     fn map_pad(self, p: f64) -> WorldRect {
         [self[0] - p, self[1] - p, self[2] + p, self[3] + p]
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// WCAG relative luminance of an opaque colour.
+    fn luminance(c: Color32) -> f32 {
+        let lin = |u: u8| {
+            let x = u as f32 / 255.0;
+            if x <= 0.03928 { x / 12.92 } else { ((x + 0.055) / 1.055).powf(2.4) }
+        };
+        0.2126 * lin(c.r()) + 0.7152 * lin(c.g()) + 0.0722 * lin(c.b())
+    }
+
+    fn contrast(a: Color32, b: Color32) -> f32 {
+        let (x, y) = (luminance(a), luminance(b));
+        (x.max(y) + 0.05) / (x.min(y) + 0.05)
+    }
+
+    /// Dark is what the site shows: the colours the cards were always drawn
+    /// with, unchanged.
+    #[test]
+    fn the_dark_palette_keeps_the_original_card_colours() {
+        let p = Palette::of(&egui::Visuals::dark());
+        assert_eq!(p.root, Color32::from_rgb(40, 46, 58));
+        assert_eq!(p.card, Color32::from_rgb(28, 32, 42));
+        assert_eq!(p.strong, Color32::WHITE);
+        let topic = Color32::from_rgb(200, 100, 40);
+        assert_eq!(p.fill_of(topic), Color32::from_rgb(70, 35, 14));
+        assert_eq!(p.on_card(topic), topic);
+    }
+
+    /// Under a light theme (desktop kovan's Gruvbox light, or egui's light)
+    /// the cards are light and their text is readable on them.
+    #[test]
+    fn under_a_light_theme_the_cards_are_light_and_readable() {
+        let mut gruvbox_light = egui::Visuals::light();
+        gruvbox_light.panel_fill = Color32::from_rgb(0xf9, 0xf5, 0xd7);
+        gruvbox_light.faint_bg_color = Color32::from_rgb(0xeb, 0xdb, 0xb2);
+        gruvbox_light.widgets.inactive.bg_fill = Color32::from_rgb(0xeb, 0xdb, 0xb2);
+        for v in [egui::Visuals::light(), gruvbox_light] {
+            let p = Palette::of(&v);
+            let topic = Color32::from_rgb(69, 133, 136);
+            for fill in [p.root, p.card, p.examples, p.fill_of(topic)] {
+                assert!(luminance(fill) > 0.5, "{fill:?} is a dark fill under a light theme");
+                assert!(contrast(p.strong, fill) >= 4.5, "title on {fill:?}: {}", contrast(p.strong, fill));
+                assert!(contrast(p.text, fill) >= 4.5, "subtitle on {fill:?}: {}", contrast(p.text, fill));
+            }
+            // A bright state colour as card text is darkened to read on the card.
+            let green = Color32::from_rgb(90, 190, 110);
+            assert!(contrast(p.on_card(green), p.card) > contrast(green, p.card));
+        }
     }
 }

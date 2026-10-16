@@ -99,6 +99,33 @@ separate machine by `examples/htr10_mgxs_case.rs` following
 changed case a new name once it has a record. The scalar pass carries `Fission`
 since the same change (`mgxs::SCALAR_SCORES`, appended last).
 
+**MGXS into the multigroup kernel (gh:#848, #682, 2026-10-13).**
+`MgxsLibrary::to_physics_mg()` converts to `outram_mc_libs::physics::physics_mg`:
+it reverses to descending energy and attaches the (n,xn) scattering
+multiplicity **by default** (`to_physics_mg_without_multiplicity` is the
+ablation). It refuses a library whose scatter-only row disagrees with
+`Sigma_t - Sigma_a` beyond 4σ of `condense`'s per-group standard errors
+(`ZoneMgxs::sigma`). It also refuses a library with no standard errors or no
+scatter-only matrix (`ZoneMgxs::scatter_only`, the matrix tally's third score,
+`MATRIX_SCORE_TYPES`). Records written before 2026-10-13 carry neither, so they
+convert only through explicit ablations
+(`verification_and_validation/htr10_mgxs_runs/README.md`). `k_inf()` counts the
+(n,xn) gain since the same change. End-to-end check:
+`tests/mgxs_multiplicity_infinite_medium.rs`.
+
+**HTR-10 cells (gh:#849, 2026-10-13).** `htr10_mgxs::cells::Htr10Cell` is
+built from the core's own TRISO and pebble builders
+(`core_shell::TrisoBuild`, `core_model::build_tile_universes`, extracted; the
+core's geometry hash is unchanged). There are two kinds:
+- `single_pebble()`: a reflective 6 cm cube;
+- `seker_cluster(1..=3)`: reflective superlattice prisms of 1/7/19 tiles.
+
+They are drawn and checked in `verification_and_validation/htr10_mgxs_cells/`.
+The CSG pebble agrees with `DhUniverse::pebble` (+102 ± 347 pcm). The single
+pebble is under-moderated (no dummy balls), so its constants do not describe
+the core; use a Şeker cluster for that. The 1/7/19 convergence is not resolved
+by the pilots and waits on the `cell_*_t300` records.
+
 **HTR-10 bed options (2026-10-05).** Two builders share everything outside
 the bed (`htr10_rmc::core_shell`, extracted from `assemble_explicit_triso`,
 geometry verified byte-identical before/after by its `Debug` hash):

@@ -6,13 +6,14 @@
 
 Every public module of the crate has a row. A module with no lesson would be
 a visible row with "none"; at this survey there is none without a page, but
-several have **no V&V**, and those rows say so. "Code walk" names the page
-section whose `code-walk` block reaches the module. "Rung" is the demo's
+several have **no V&V**, and those rows say so. "Code Review map" names the
+page section whose link into the [Code Review map](../../code-review/) reaches
+the module (until 2026-10-14, a generated code walk). "Rung" is the demo's
 `?rung=` name.
 
 ## The random-walk side (`lagrangian_decay_simulator`, `lagrangian_transmutation_and_fission_simulator`)
 
-| Module | Core lesson | Extended | Code walk | V&V record | Gaps |
+| Module | Core lesson | Extended | Code Review map | V&V record | Gaps |
 |---|---|---|---|---|---|
 | `…::single_particle_simulator::constructive_solid_geometry` (`TrisoCell`, `Region`, `Sphere`, `TrisoRegion`) | [1 `triso`](../../tutorials/triso-atops/triso.html) | [legacy](./legacy-gaussian.md) | rung 1, steps 1–2 | `triso_cell_slice` geometry check (2026-10-04) | — |
 | `…::monte_carlo_single_radionuclide_decay_simulator` (`SingleNuclideSimulatorMC`, postprocessing) | [2 `decay`](../../tutorials/triso-atops/decay.html) | — | rung 2, steps 1 and 4 | `stochastic_half_life_calculator` (re-measured 2026-10-04), `decay_chain_th232` | branching frequencies never sampled |
@@ -31,7 +32,7 @@ section whose `code-walk` block reaches the module. "Rung" is the demo's
 
 ## Decay data
 
-| Module | Core lesson | Extended | Code walk | V&V record | Gaps |
+| Module | Core lesson | Extended | Code Review map | V&V record | Gaps |
 |---|---|---|---|---|---|
 | `nuclide_reaction_and_decay_data` (`DecayLibrary`, `NuclideReactionAndDecayData`, `DecayType`, `get_decay_info`, parsing) | [2 `decay`](../../tutorials/triso-atops/decay.html) | [decay data](./decay-data.md) | rung 2, step 3; decay-data page | about 70 half-life parse tests | gh:#538 (`get_decay_branch_info` is `todo!()`) |
 | `decay_xml_info_serde` | — | [decay data](./decay-data.md) | decay-data page | re-export only | — |
@@ -39,7 +40,7 @@ section whose `code-walk` block reaches the module. "Rung" is the demo's
 
 ## boon-lay fuel failure (`fuel_failure`)
 
-| Module | Core lesson | Extended | Code walk | V&V record | Gaps |
+| Module | Core lesson | Extended | Code Review map | V&V record | Gaps |
 |---|---|---|---|---|---|
 | `geometry` (`SicLayer`) | [1](../../tutorials/triso-atops/triso.html), [5](../../tutorials/triso-atops/failure.html) | [fuel failure](./fuel-failure.md) | rung 1 step 3; rung 5 step 2 | stress-route tests | — |
 | `pressure`, `booth`, `oxygen`, `molar_volume`, `diffusion` | [5 `failure`](../../tutorials/triso-atops/failure.html) step 1 | [fuel failure](./fuel-failure.md) | rung 5, step 1 | module docs + [units register](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/docs/panama-i-units-and-open-questions.md) (Figs 1, 2, 3) | UO₂ `D_S` disagrees with Fig. 2 (recorded) |
@@ -52,7 +53,7 @@ section whose `code-walk` block reaches the module. "Rung" is the demo's
 
 ## Chemistry (`chemistry`)
 
-| Module | Core lesson | Code walk | V&V record | Gaps |
+| Module | Core lesson | Code Review map | V&V record | Gaps |
 |---|---|---|---|---|
 | `graphite_air` | [6 `chemistry`](../../tutorials/triso-atops/chemistry.html) step 1 | rung 6, step 1 | transcription test | gh:#457, #441, #442 |
 | `graphite_steam` | 6, step 2 | rung 6, step 2 | transcription test; loose band vs measured points | gh:#441 |
@@ -60,7 +61,7 @@ section whose `code-walk` block reaches the module. "Rung" is the demo's
 
 ## The TRISO-ATOPS port (`triso_atops_fork`)
 
-| Module | Core lesson | Extended | Code walk | V&V record | Gaps |
+| Module | Core lesson | Extended | Code Review map | V&V record | Gaps |
 |---|---|---|---|---|---|
 | `nuclide_model` (+ `nuclide_database`) | [4](../../tutorials/triso-atops/layers.html) step 3 | [running](./running-triso-atops.md) | rung 4 step 3; running page | code to code | — |
 | `diffusion` | [4](../../tutorials/triso-atops/layers.html), [7](../../tutorials/triso-atops/coolant.html) | [Getting out](./release.md) | rung 7 steps 1, 3 | code to code | — |

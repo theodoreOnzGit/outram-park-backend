@@ -597,7 +597,7 @@ a translation of it.
 | Transport loop | `src/physics.cpp` | `collision()`, `transport_history_based()` |
 | Scattering | `src/physics_common.cpp` | Elastic, inelastic, CM-frame kinematics |
 | Fission | `src/physics.cpp` | ν sampling, fission bank creation |
-| Multigroup | `src/physics_mg.cpp`, `src/mgxs.cpp` | Group-averaged cross-section transport — ~~stub — pending~~ **CORRECTED 2026-09-22**: implemented in `src/physics/physics_mg.rs` (771 lines) as `Mgxs` / `MgxsLibrary` + `run_keff_mg`, exercised live by `tests/openmc_notebooks/mg_mode_part_i.rs`. ~~Still absent: anisotropic MG scattering (`src/scattdata.cpp`, `max_order`)~~ **CORRECTED 2026-09-22 (gh:#265)** — anisotropic MG scattering is ported: `src/physics/scattdata.rs` carries `LegendreKernel` (rejection sampling, upstream's 10 % bounding-box margin and its `f > 0` negativity truncation) and `TabularKernel` (`convert_legendre_to_tabular`, the clamp-and-renormalise path), and `Mgxs::with_legendre_scattering` wires them into `run_keff_mg`. Paired P0-vs-P3 worth on a bare 35 cm cube: **−4371 ± 44 pcm (99.6 σ)** at 128 seeds against **−4200 predicted before the run**, with the zero-leakage control at −1 ± 38 pcm (0.0 σ), and agreement with OpenMC's own MG mode within 1.3 σ on every arm (~~a 32-seed first pass gave −4308 ± 93~~ superseded by the 128-seed run, which it agrees with) — `verification_and_validation/mg_anisotropic_scattering/`. Still absent: MGXS *generation* from CE data (the `njoy-outram-park-fork` track) |
+| Multigroup | `src/physics_mg.cpp`, `src/mgxs.cpp` | Group-averaged cross-section transport — ~~stub — pending~~ **CORRECTED 2026-09-22**: implemented in `src/physics/physics_mg.rs` (771 lines) as `Mgxs` / `MgxsLibrary` + `run_keff_mg`, exercised live by `tests/openmc_notebooks/mg_mode_part_i.rs`. ~~Still absent: anisotropic MG scattering (`src/scattdata.cpp`, `max_order`)~~ **CORRECTED 2026-09-22 (gh:#265)** — anisotropic MG scattering is ported: `src/physics/scattdata.rs` carries `LegendreKernel` (rejection sampling, upstream's 10 % bounding-box margin and its `f > 0` negativity truncation) and `TabularKernel` (`convert_legendre_to_tabular`, the clamp-and-renormalise path), and `Mgxs::with_legendre_scattering` wires them into `run_keff_mg`. Paired P0-vs-P3 worth on a bare 35 cm cube: **−4371 ± 44 pcm (99.6 σ)** at 128 seeds against **−4200 predicted before the run**, with the zero-leakage control at −1 ± 38 pcm (0.0 σ), and agreement with OpenMC's own MG mode within 1.3 σ on every arm (~~a 32-seed first pass gave −4308 ± 93~~ superseded by the 128-seed run, which it agrees with) — `verification_and_validation/mg_anisotropic_scattering/`. Still absent: MGXS *generation* from CE data (the `njoy-outram-park-fork` track). **(n,xn) scattering multiplicity since 2026-10-13 (gh:#682):** `Mgxs::with_scattering_multiplicity` takes upstream's per-transfer `multiplicity_matrix`. The kernel then weights each scatter by the **row** multiplicity `nu_row / s_row`, where upstream uses `wgt *= mult[g][g']` (`src/scattdata.cpp:367`). That is a deliberate divergence: upstream samples g' from the nu-scatter row, so its weighting is exact only for a row-uniform multiplicity. On a two-group set it would give 1.578 against the analytic 1.517; this port gives 1.516 ± 0.003 (`physics_mg::tests::multiplicity_weights_by_the_row_and_matches_analytic_kinf`). A non-fissile set may carry chi = 0 (gh:#848, as `src/xsdata.cpp:40-63`) |
 | Depletion | `src/chain.cpp`, `openmc/deplete/` | **Implemented** — CRAM `exp(A·dt)` burnup, `DepletionChain`, transmutation matrix, one-group operator (`src/depletion/`: `chain.rs`, `cram.rs`, `matrix.rs`, `operator.rs`); live one-group burnup test vs the `depletion` notebook |
 
 ### Out of scope (will NOT be ported)
@@ -621,7 +621,7 @@ a translation of it.
 - **XML configuration parsing** — `src/xml_interface.cpp`
 - **CMFD accelerator** — `src/cmfd_solver.cpp`
 - **Random ray extension** — `src/random_ray/`
-- **Photon/electron transport** — `src/photon.cpp`
+- ~~**Photon/electron transport** — `src/photon.cpp`~~ **CORRECTED 2026-10-16 (maintainer decision): photons are IN scope here, electrons are not.** "Charged particles go thru boon lay, uncharged thru OutramMC." Photon transport (`src/photon.cpp`, `src/bremsstrahlung.cpp`) may be ported into this crate; electrons and every other charged particle go to `boon-lay` (see "Particle split" below). Nothing is ported yet.
 - **Python/ctypes C API** — `openmc/lib/` Python package
 - **Geometry overlap checker** — `src/geometry_aux.cpp` (overlap detection only; the core intersection logic is in scope). *Note 2026-09-25:* the plotter's per-pixel overlap test (`check_cell_overlap`, `src/geometry.cpp:38-90`) IS ported, as `geometry::plot::slice::check_cell_overlap`, because `<show_overlaps>` needs it; transport still does no overlap checking.
 
@@ -771,8 +771,35 @@ convenience at the end of a plot, never inside transport. The DEFLATE codec is
 `miniz_oxide`, already in this crate's tree via `njoy-outram-park-fork`.
 
 ### Neutron-only initially
-Photon and electron physics (`src/photon.cpp`) are deferred.  The `ParticleType`
-enum reserves slots for them, but only `Neutron` transport is implemented.
+~~Photon and electron physics (`src/photon.cpp`) are deferred.~~ **CORRECTED
+2026-10-16:** photon physics is deferred but in scope; electron physics is not
+this crate's (next section). The `ParticleType` enum reserves slots for them,
+but only `Neutron` transport is implemented.
+
+### Particle split: uncharged here, charged in `boon-lay` (maintainer decision, 2026-10-16)
+
+> "Charged particles go thru boon lay, uncharged thru OutramMC."
+
+- **This crate:** neutral particles, which means neutrons now and photons when
+  OpenMC's photon transport is ported. Secondary photons from neutron
+  collisions are born in this crate's collision loop, as in OpenMC.
+- **`boon-lay`:** every charged particle. That covers fission fragments,
+  alphas, recoil knock-ons and electrons, starting with the RustBCA copy
+  (gh:#876, item 7).
+- ~~**Electrons are the seam.** … Whether a photon port here keeps that local
+  approximation, or hands every electron to `boon-lay`, is **not yet decided**.
+  Ask the maintainer before porting it.~~ **DECIDED 2026-10-16 (maintainer):
+  this crate carries its upstream.** A photon port brings OpenMC's
+  thick-target bremsstrahlung (TTB) treatment with it (`photon.cpp`,
+  `bremsstrahlung.cpp`). Electrons and positrons produced by photons are
+  **not transported**. Their kinetic energy is deposited where they are born,
+  and they emit only bremsstrahlung photons. A positron annihilates at its
+  birth point into two 0.511 MeV photons. This is local deposition plus
+  secondary-photon production, not charged-particle transport, so it does not
+  break the split. It holds because a MeV electron's range (millimetres in
+  graphite, a fraction of a millimetre in UO2) is short against photon mean
+  free paths of centimetres. If electron tracks themselves are ever needed
+  (dose at an interface, a thin detector), they go to `boon-lay`.
 
 ### Parallelism: per-particle RNG streams
 OpenMC's reproducibility guarantee relies on each particle having a completely

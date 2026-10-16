@@ -40,6 +40,8 @@ use crate::endf::parse::format_endf_float;
 use crate::endf::tape::Tape;
 use crate::leapr::coher::coher_with_constants;
 use crate::leapr::deck::LeaprDeck;
+use crate::leapr::input::ColdOption;
+use crate::leapr::SabMatrix;
 use crate::leapr::endout::{endout, ElasticOutput, LeaprOutput};
 use crate::leapr::generate::{build_law_at_temperature, COHERENT_ELASTIC_EMAX_EV};
 use crate::mixr::mix::sigfig;
@@ -258,6 +260,23 @@ pub fn run_deck(deck: &LeaprDeck) -> Result<LeaprRun, NjoyError> {
     }
     let constants = laws[0].constants;
     let mixed = deck.is_mixed_moderator();
+    // `isym` (`leapr.f90:423-425`): the cold-moderator flag is the low bit
+    // (a signed beta grid, whose positive half `coldh` leaves in `ssp`), the
+    // asymmetric-output flag the +2. ~~`isym = isabt`, `ssp` dropped~~
+    // **CORRECTED 2026-10-14 (GitHub #871):** that wrote a cold H2/D2 deck's
+    // law as if it were symmetric; `generate_tape` already built it this way.
+    let cold = deck.ncold != ColdOption::None;
+    let isym = i32::from(cold) + 2 * i32::from(deck.isabt == 1);
+    let ssp: Option<Vec<SabMatrix>> = if cold {
+        Some(
+            laws.iter()
+                .map(|l| l.ssp.clone())
+                .collect::<Option<Vec<_>>>()
+                .ok_or(NjoyError::NotPorted("leapr: a cold-moderator block came back without its positive-beta half"))?,
+        )
+    } else {
+        None
+    };
 
     // `iel = -1` for a solid with no translational term (leapr.f90:3043):
     // `twt` is the module global, i.e. the last card 11 read.
@@ -297,7 +316,7 @@ pub fn run_deck(deck: &LeaprDeck) -> Result<LeaprRun, NjoyError> {
         za: deck.za,
         awr: deck.awr,
         lat: if deck.lat { 1 } else { 0 },
-        isym: deck.isabt,
+        isym,
         ilog: deck.ilog != 0,
         smin: deck.smin,
         alpha: deck.alpha.clone(),
@@ -324,7 +343,7 @@ pub fn run_deck(deck: &LeaprDeck) -> Result<LeaprRun, NjoyError> {
             None
         },
         ssm: laws.into_iter().map(|l| l.ssm).collect(),
-        ssp: None,
+        ssp,
         npr: deck.npr,
         spr: deck.spr,
         elastic,
@@ -350,6 +369,46 @@ pub fn run_deck(deck: &LeaprDeck) -> Result<LeaprRun, NjoyError> {
         tape,
         header,
     })
+}
+
+/// [`run_deck`] at one temperature \[K\]: the deck cut to a single
+/// temperature block, LEAPR's whole driver run on that (GitHub #871).
+///
+/// **Which block, and at what temperature.** The block is the one
+/// [`crate::leapr::generate`] uses for a temperature request: a declared
+/// temperature within `T/1000 + 5` K of `temperature_k` (the nearest), or,
+/// when every later block inherits block 0's spectrum (card 10 negative), block
+/// 0 at any temperature. A deck that re-specifies its spectrum per temperature
+/// and declares none near the request is refused: no spectrum belongs to it.
+/// LEAPR then runs at `temperature_k` itself, so the tape is tabulated at the
+/// request and THERMR's `T/500` window always finds it.
+///
+/// Cutting the deck is what NJOY's oracle decks here do
+/// (`reference-data/leapr/*-293.6K-*.njoy-input`), and LEAPR's temperature
+/// loop is independent per block, so the cut deck's law at its temperature is
+/// the full deck's at that temperature.
+///
+/// # Errors
+/// [`NjoyError::NotPorted`] when no block belongs to the request; those of
+/// [`run_deck`].
+pub fn run_deck_at_temperature(deck: &LeaprDeck, temperature_k: f64) -> Result<LeaprRun, NjoyError> {
+    let block = crate::leapr::generate::temperature_block_index(deck, temperature_k)?;
+    let mut one = deck.clone();
+    let mut t = deck.temperatures[block].clone();
+    t.temperature_k = temperature_k;
+    t.inherited = false;
+    one.temperatures = vec![t];
+    if deck.is_mixed_moderator() {
+        let mut s = deck
+            .secondary_temperatures
+            .get(block)
+            .cloned()
+            .ok_or(NjoyError::NotPorted("leapr: a mixed-moderator deck without the secondary's block"))?;
+        s.temperature_k = temperature_k;
+        s.inherited = false;
+        one.secondary_temperatures = vec![s];
+    }
+    run_deck(&one)
 }
 
 /// [`run_deck`] on deck text (`LeaprDeck::parse`), the closest thing to

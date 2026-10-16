@@ -97,15 +97,23 @@ pub(crate) fn interp_case_b_fission_width(
 
 /// Interpolate all five Case-C energy-dependent parameters (`D`, `GX`,
 /// `GNO`, `GG`, `GF`) at energy `e` — ported from `intr`
-/// (`unresr.f90:1261-1289`). Also forces linear-linear interpolation
-/// (`int=2`, `unresl:1058`) regardless of the stored `INT`.
+/// (`unresr.f90:1261-1289`). UNRESR forces linear-linear interpolation
+/// (`int=2`, `unresl:1058`) regardless of the stored `INT`; the caller
+/// passes the law.
 ///
 /// Returns `(d, gx, gno, gg, gf)`, with `gx`/`gf` floored to `0.0` below
 /// `1e-8` (`unresr.f90:1286-1287`: negligible competitive/fission width is
 /// treated as exactly absent, not left as quadrature-polluting noise).
+///
+/// `law` is `IntLaw::LinLin` for UNRESR. PURR's `intr2`
+/// (`purr.f90:1539-1570`) passes the J-state's own `INT` to `terp1`
+/// instead: Zn-64's INT is 5 (log-log), and at PURR's inserted node
+/// 0.35 MeV lin-lin parameters gave a different ladder from NJOY2016's
+/// (GitHub #875).
 pub(crate) fn interp_case_c(
     e: f64,
     points: &[mf2::UnresolvedPointC],
+    law: IntLaw,
 ) -> Result<(f64, f64, f64, f64, f64), NjoyError> {
     const SMALL: f64 = 1e-8;
     let mut d = 0.0;
@@ -116,11 +124,11 @@ pub(crate) fn interp_case_c(
     for i in 1..points.len() {
         let (p0, p1) = (points[i - 1], points[i]);
         if e >= p0.e && e <= p1.e {
-            d = terp1(p0.e, p0.d, p1.e, p1.d, e, IntLaw::LinLin)?;
-            gx = terp1(p0.e, p0.gx, p1.e, p1.gx, e, IntLaw::LinLin)?;
-            gno = terp1(p0.e, p0.gno, p1.e, p1.gno, e, IntLaw::LinLin)?;
-            gg = terp1(p0.e, p0.gg, p1.e, p1.gg, e, IntLaw::LinLin)?;
-            gf = terp1(p0.e, p0.gf, p1.e, p1.gf, e, IntLaw::LinLin)?;
+            d = terp1(p0.e, p0.d, p1.e, p1.d, e, law)?;
+            gx = terp1(p0.e, p0.gx, p1.e, p1.gx, e, law)?;
+            gno = terp1(p0.e, p0.gno, p1.e, p1.gno, e, law)?;
+            gg = terp1(p0.e, p0.gg, p1.e, p1.gg, e, law)?;
+            gf = terp1(p0.e, p0.gf, p1.e, p1.gf, e, law)?;
         }
     }
     if gx < SMALL {
@@ -201,6 +209,24 @@ pub(crate) fn range_sequences(
     range: &mf2::UnresolvedRange,
     e: f64,
 ) -> Result<Vec<SequenceParams>, NjoyError> {
+    range_sequences_with(range, e, false)
+}
+
+/// [`range_sequences`] as PURR's `unresx` reads the parameters: Case C under
+/// each J-state's own `INT` (`intr2`), not UNRESR's forced lin-lin. Case B's
+/// fission widths stay lin-lin in both (`intrf2(..,2,..)`, `purr.f90:1419`).
+pub(crate) fn range_sequences_purr(
+    range: &mf2::UnresolvedRange,
+    e: f64,
+) -> Result<Vec<SequenceParams>, NjoyError> {
+    range_sequences_with(range, e, true)
+}
+
+fn range_sequences_with(
+    range: &mf2::UnresolvedRange,
+    e: f64,
+    stored_int: bool,
+) -> Result<Vec<SequenceParams>, NjoyError> {
     let ay = range.scattering_radius(e)?;
     let mut out = Vec::new();
     match &range.case_ {
@@ -274,7 +300,8 @@ pub(crate) fn range_sequences(
         } => {
             for ls in l_states {
                 for j in &ls.j_states {
-                    if let Ok((d, gx, gno, gg, gf)) = interp_case_c(e, &j.points) {
+                    let law = if stored_int { IntLaw::from_code(j.int_ as u32) } else { IntLaw::LinLin };
+                    if let Ok((d, gx, gno, gg, gf)) = interp_case_c(e, &j.points, law) {
                         out.push(SequenceParams {
                             l: ls.l,
                             abn: range.abn,
