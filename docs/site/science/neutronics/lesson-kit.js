@@ -226,7 +226,22 @@
     ["doppler.html", "Doppler broadening: lone atoms, warm"],
     ["phonons.html", "What is a phonon?"],
     ["many-phonons.html", "Can we have more than one phonon?"],
-    ["structure.html", "How does structure shape the phonons?"]
+    ["structure.html", "How does structure shape the phonons?"],
+    ["alpha-beta.html", "Maths 1: two numbers for a collision"],
+    ["jiggle.html", "Maths 1½: let the nucleus jiggle"],
+    ["free-gas.html", "Maths 2: the free gas, exactly"],
+    ["one-spring.html", "Maths 3: one swing"],
+    ["convolution.html", "Maths 3½: what is a convolution?"],
+    ["many-modes.html", "Maths 4: many modes, many phonons"],
+    ["big-kicks.html", "Maths 5: big kicks, use the bell"],
+    ["bell-shape.html", "Maths 5a: what shapes the bell curve?"],
+    ["zero-point.html", "Maths 5b: why can't atoms sit still?"],
+    ["stiff-soft.html", "Maths 5c: stiff springs, soft springs"],
+    ["snapshot.html", "Maths 5d: what does a hard kick see?"],
+    ["why-bell.html", "Maths 5e: why is it a bell curve?"],
+    ["width.html", "Maths 5f: what sets the width?"],
+    ["one-spring-check.html", "Maths 5g: checking it, one spring then a crystal"],
+    ["coherent.html", "Maths 5h: do the waves add up?"]
   ];
   function lessonNav() {
     var here = location.pathname.split("/").pop() || LESSONS[0][0], i = -1;

@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Maths 5b: why can't atoms sit still?</title>
+<meta name="description" content="Neutronics maths track, rung 5b: an atom held in place is confined, and a confined particle cannot have exactly zero motion: even the ground state still has motion, the zero-point motion, one half hbar omega per mode. The atoms jiggle more than the thermometer says: the effective temperature. Two common misconceptions: it is not the third law, and it is not the Fermi energy.">
+<link rel="stylesheet" href="../../style.css">
+<script src="lesson-kit.js" defer></script>
+<script src="leapr-data.js" defer></script>
+<script src="bound-data.js" defer></script>
+<script src="mathtrack.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Neutronics maths track (gh:#906): rung 5b with its headline and both required misconception boxes (third law; Fermi energy), in the visible style. Widget: mathtrack.js #zero in "zp" mode. -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response. <strong>Review status:</strong> AI-assisted first draft (2026-10-16), not yet reviewed by a human.</p>
+
+<h1>Maths 5b: why can't atoms sit still?</h1>
+<p class="kicker lesson-progress">Neutronics</p>
+<p>Hold an atom in place with springs and it is <b>confined</b> to a small region. Quantum mechanics says a confined particle cannot have exactly zero motion: the more tightly you pin down where it is, the more spread its momentum must have. That is page 4's uncertainty relation, which is about <b>spreads</b>. So even in its lowest possible state, the swing keeps a small, unavoidable jiggle.</p>
+<p><b>Even the ground state, the lowest possible state, still has motion.</b></p>
+<p>Each vibration mode keeps an energy of <b>&frac12;&#8463;&omega;</b> even at absolute zero: the bottom rung of rung 3's ladder sits half a step above the bottom of the well. This unavoidable jiggle is called <b>zero-point motion</b>.</p>
+
+<section class="widget-card">
+  <h3>Cool the swing</h3>
+  <div class="widget" id="zero" data-zero="zp">
+    <canvas aria-label="A swing's ladder of levels with the lowest at one half hbar omega, and a cloud showing where the atom is, which never collapses to a point"></canvas>
+  </div>
+  <label class="energy-control"><span>Temperature <b data-zt-out></b></span><input type="range" data-zt min="0" max="1500" step="5" value="0" aria-label="Temperature in kelvin"></label>
+</section>
+
+<p><b>The consequence:</b> the atoms jiggle more than the thermometer alone would suggest, so the big-kick bell (rung 5a) is wider, as if the material were a bit hotter. The temperature that matches this wider bell is called the <b>effective temperature</b>, T&#772;. It is always at least the real temperature.</p>
+
+<div class="misconception" role="note"><b>Common misconception: "Zero-point motion comes from the third law."</b>
+  <p>The third law says that as a perfect crystal is cooled towards absolute zero, it settles into its single lowest state. Quantum mechanics adds that even this lowest state still has motion. The two fit together, but the third law does not cause the jiggle. The jiggle comes from confinement: an atom pinned in place cannot have exactly zero motion.</p></div>
+<div class="misconception" role="note"><b>Common misconception: "Zero-point energy is the Fermi energy."</b>
+  <p>Both are energy left over at absolute zero, but for different reasons.</p>
+  <ul>
+    <li><b>Zero-point energy:</b> any confined particle, even a single atom on one spring, can't sit still. Each vibration mode keeps &frac12;&#8463;&omega;: a fraction of one phonon step.</li>
+    <li><b>Fermi energy:</b> many electrons can't share the same state (Pauli exclusion), so they are forced to stack up into higher and higher levels; in a metal that is a large energy.</li>
+    <li>Phonons are bosons and can pile into the same mode, so they have zero-point energy but no Fermi-style stacking.</li>
+  </ul>
+  <p>Same lesson, quantum mechanics forbids zero energy at 0 K; different cause.</p></div>
+<p class="note">&frac12;&#8463;&omega; per mode is the harmonic oscillator's ground state, exact for the springs these pages use; real bonds deviate slightly.</p>
+<h2>Why is this so? How much does it matter?</h2>
+<p><b>Does the zero-point jiggle matter as much for every spring?</b></p>
+
+<nav class="lesson-nav" aria-label="Lessons"></nav>
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. GPL-3.0. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>

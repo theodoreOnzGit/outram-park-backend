@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Maths 5h: do the waves add up?</title>
+<meta name="description" content="Neutronics maths track, rung 5h: every atom sends out its own scattered wave. Identical atoms in a perfect pattern keep their waves in step, which add into Bragg beams: coherent scattering. Atoms that each scatter a little differently give waves that do not line up: incoherent scattering. Hydrogen is almost completely incoherent, carbon and oxygen almost completely coherent.">
+<link rel="stylesheet" href="../../style.css">
+<script src="lesson-kit.js" defer></script>
+<script src="leapr-data.js" defer></script>
+<script src="bound-data.js" defer></script>
+<script src="mathtrack.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Neutronics maths track (gh:#906): rung 5h, the coherent/incoherent gap page placed after 5g; the manual's statements quoted; the spin reason given only as the manual words it; the anticipated misconception box. Widget: mathtrack.js #waves. The double-differential culmination page is not designed yet. -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response. <strong>Review status:</strong> AI-assisted first draft (2026-10-16), not yet reviewed by a human.</p>
+
+<h1>Maths 5h: do the waves add up?</h1>
+<p class="kicker lesson-progress">Neutronics</p>
+<p>A neutron is a wave (page 4). When it passes through a crystal, every atom sends out its own little scattered wave. <b>Do those waves add up, or not?</b></p>
+<ul>
+  <li><b>The waves keep in step.</b> If all the atoms are identical and sit in a perfect repeating pattern, their scattered waves keep in step. In certain directions the crests line up and <b>add up</b> into a strong beam; in others they cancel. It is the interference of pages 5 and 13, and diffraction off the crystal's planes: the <b>Bragg scattering</b> of page 21, with its edges. <b>When the waves from different atoms interfere like this, the scattering is called coherent.</b></li>
+  <li><b>The waves don't keep in step.</b> If each nucleus scatters a little differently, a different strength or sign from one atom to the next, the waves have no fixed relationship and don't line up. They add as separate contributions, spread in all directions, with no Bragg peaks. <b>That is incoherent scattering: no interference between atoms.</b></li>
+</ul>
+
+<section class="widget-card">
+  <h3>A patch of atoms, scattering</h3>
+  <div class="widget" id="waves">
+    <canvas aria-label="The intensity scattered in each direction by a patch of atoms, with strong beams when the atoms are identical and an even spray when each scatters differently"></canvas>
+  </div>
+  <p class="actions"><button type="button" class="btn" data-coh="1">Identical atoms, perfect pattern</button> <button type="button" class="btn ghost" data-coh="0">Each scatters differently</button></p>
+  <label class="energy-control"><span>Neutron wavelength <b data-wlam-out></b></span><input type="range" data-wlam min="0.5" max="9" step="0.05" value="1.8" aria-label="Wavelength in angstroms"></label>
+</section>
+
+<p><b>Real materials.</b> NJOY's manual: "the scattering from hydrogen is almost completely incoherent, and the scattering from carbon and oxygen is almost completely coherent" <a href="#ref-njoy2016">(MacFarlane et al., 2017)</a>. The reason it gives is "a random distribution of spins or isotope types" from atom to atom. So:</p>
+<ul>
+  <li><b>graphite</b>, carbon in a crystal, shows Bragg edges (page 21);</li>
+  <li><b>water</b>'s hydrogen scatters incoherently, so water shows no Bragg edges;</li>
+  <li><b>ZrH</b>, hydrogen in a solid, has incoherent elastic scattering (page 21's second kind).</li>
+</ul>
+<p><b>Why this matters for the earlier pages.</b> For an incoherent scatterer there is no interference to keep track of, so all that matters is how much energy each collision trades: that is why the density of states and rungs 3&ndash;5 are enough. For coherent scattering in a crystal, the Bragg (zero-phonon) part needs the crystal's structure itself: page 21's coherent elastic.</p>
+<details class="optional"><summary>Deeper: coherent inelastic</summary>
+  <p>Coherent inelastic scattering has both interference terms and direct terms; for gases, liquids and randomly oriented crystallites the direct part "has approximately the same form as the incoherent term. The interference is usually neglected" (NJOY2016 manual, §24).</p></details>
+<div class="misconception" role="note"><b>Common misconception: "Coherent means organised, incoherent means a messy crystal."</b>
+  <p>No: it is about whether the scattered <b>waves</b> from different atoms interfere. A perfect crystal of a hydrogen-containing material can still scatter mostly incoherently, because each hydrogen nucleus scatters a little differently.</p></div>
+<h2>Why is this so? Putting it all together</h2>
+<p>Every piece is now on the table: the kinematics, the scattering law and the laws it obeys. <b>Where does the neutron come out, and at what energy?</b> That page is the next to be designed, with the maintainer.</p>
+
+<nav class="lesson-nav" aria-label="Lessons" data-next-soon="Next: where does the neutron come out? (to be designed)"></nav>
+
+<!-- references:begin -->
+<h2>References</h2>
+
+<p class="csl-entry" id="ref-njoy2016" style="padding-left: 2em; text-indent: -2em;">MacFarlane, R. E., Muir, D. W., Boicourt, R. M., Kahler, A. C., &#38; Conlin, J. L. (2017). <i>The NJOY Nuclear Data Processing System, Version 2016</i> (Technical Report LA-UR-17-20093). Los Alamos National Laboratory. https://www.osti.gov/biblio/1338791</p>
+
+<!-- references:end -->
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. GPL-3.0. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>

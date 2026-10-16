@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Maths 5a: what shapes the bell curve?</title>
+<meta name="description" content="Neutronics maths track, rung 5a (a key page): the big-kick bell is centred on the free-atom recoil, set by the kick and the mass alone, and its width is set by how much the atoms jiggle: the real temperature, plus a quantum jiggle that never stops, weighted by the crystal's springs.">
+<link rel="stylesheet" href="../../style.css">
+<script src="lesson-kit.js" defer></script>
+<script src="leapr-data.js" defer></script>
+<script src="bound-data.js" defer></script>
+<script src="mathtrack.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Neutronics maths track (gh:#906): rung 5a, flagged by the maintainer as extremely important: its own widget and the summary card (centre, width, three ingredients previewed). Widget: mathtrack.js #bell in "shape" mode. -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response. <strong>Review status:</strong> AI-assisted first draft (2026-10-16), not yet reviewed by a human.</p>
+
+<h1>Maths 5a: what shapes the bell curve?</h1>
+<p class="kicker lesson-progress">Neutronics</p>
+<p><b>The centre is the free atom.</b> The bell sits at the energy a <b>free</b> atom would take from that kick: recoil = (kick)&sup2; / (2 &times; atom mass). Only the kick and the mass set it; the crystal doesn't. It is rung 3's rule that on average the bound atom still takes the free recoil.</p>
+<p><b>The width is how much the atoms jiggle</b>: roughly &radic;(2 &times; recoil &times; jiggle energy). Three ingredients, in this order:</p>
+<ol>
+  <li><b>The real temperature</b>, thermal jiggle: hotter material jiggles more, so the bell is wider. The same physics as rungs 1½&ndash;2 and Doppler broadening.</li>
+  <li><b>A quantum jiggle that never stops</b>, even at absolute zero: <a href="zero-point.html">rung 5b</a>.</li>
+  <li><b>The crystal's springs</b>, which decide how much each of the first two counts: <a href="stiff-soft.html">rung 5c</a>.</li>
+</ol>
+
+<section class="widget-card">
+  <h3>Move the bell</h3>
+  <div class="widget" id="bell" data-bell="shape">
+    <canvas aria-label="A bell curve of the neutron's energy loss, centred on the free recoil, with sliders for the kick, the atom's mass and the temperature"></canvas>
+  </div>
+  <label class="energy-control"><span>Kick <b data-bq-out></b></span><input type="range" data-bq min="1" max="12" step="0.1" value="4" aria-label="Kick in inverse angstroms"></label>
+  <label class="energy-control"><span>Atom mass <b data-ba-out></b></span><input type="range" data-ba min="1" max="60" step="1" value="12" aria-label="Atom mass in neutron masses"></label>
+  <label class="energy-control"><span>Temperature <b data-bt-out></b></span><input type="range" data-bt min="1" max="1500" step="1" value="293.6" aria-label="Temperature in kelvin"></label>
+</section>
+
+<p class="misconception" style="border-left-color: var(--accent)"><b>The bell curve is centred on the free-atom recoil, set by the kick and the mass. Its width is set by an effective temperature that combines the real temperature and quantum zero-point jiggle, weighted by the crystal's vibrations.</b> (The <a href="zero-point.html">zero-point jiggle</a> and the <a href="zero-point.html">effective temperature</a> are defined on rung 5b.)</p>
+<p class="note"><b>Conventions on these pages.</b> &beta; = (E&prime; &minus; E)/kT is positive when the neutron <b>gains</b> energy; &alpha; measures the size of the kick. S is LEAPR's asymmetric scattering law (the NJOY2016 manual's script S); ENDF stores the symmetric S = e<sup>&beta;/2</sup> times it (page 21).</p>
+<h2>Why is this so? Even at absolute zero?</h2>
+<p>Cool the widget to 1 K: the thermal width all but vanishes. But a bound atom's bell does not shrink to a line, even at absolute zero (the grey band). <b>Why can't the atoms ever sit still?</b></p>
+
+<nav class="lesson-nav" aria-label="Lessons"></nav>
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. GPL-3.0. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>

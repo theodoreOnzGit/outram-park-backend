@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Maths 3: one swing</title>
+<meta name="description" content="Neutronics maths track, rung 3: an atom on one spring is a quantum swing whose energy changes in whole steps. A sudden kick adds 0, 1, 2 or more steps at random, with Poisson chances that average to the free recoil. A gentle kick can still make a whole phonon (down-scatter); a slow neutron cannot make one but can take one from a warm swing (up-scatter). Sorting the outcomes by phonon count is the phonon expansion.">
+<link rel="stylesheet" href="../../style.css">
+<script src="lesson-kit.js" defer></script>
+<script src="leapr-data.js" defer></script>
+<script src="bound-data.js" defer></script>
+<script src="mathtrack.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Neutronics maths track (gh:#906): rung 3 with its amendments (the swing picture first; Case A down-scatter / Case B creation impossible; upscatter defined here; detailed balance in words; the phonon expansion defined here; Why Poisson? layered in boxes; the gentle-kick misconception). Marked draft under maintainer review, per the maintainer. Widget: mathtrack.js #swing, eq. 542 checked against the LEAPR port's bfact. -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response. <strong>Review status:</strong> <b>draft: under maintainer review</b> (the explanation of rung 3 is being revisited with the maintainer); AI-assisted, not yet reviewed by a human.</p>
+
+<h1>Maths 3: one swing</h1>
+<p class="kicker lesson-progress">Neutronics</p>
+<p>Tie the atom to a spring, one vibration mode (page 23). Picture a <b>child on a swing</b> whose energy can only go up or down in whole steps of &#8463;&omega;: phonons.</p>
+<p>The neutron gives the swing <b>one sudden shove</b>. Afterwards there is some chance it has gained 0 steps, some chance 1, some chance 2, and so on. On average the shove adds just enough steps to carry the free-recoil energy (rung 2's sum rule). So:</p>
+<ul>
+  <li>a <b>gentle</b> shove usually adds nothing: the neutron bounces off with its energy unchanged, <b>elastic</b> scattering;</li>
+  <li>a <b>hard</b> shove adds many steps, and their spread takes on a familiar bell shape.</li>
+</ul>
+
+<section class="widget-card">
+  <h3>Shove the swing</h3>
+  <div class="widget" id="swing">
+    <canvas aria-label="Bars for the chances of making or absorbing 0, 1, 2 or more phonons in one shove, with sampled shoves drawn as lines"></canvas>
+  </div>
+  <label class="energy-control"><span>Kick (as a free-recoil energy) <b data-kick-out></b></span><input type="range" data-kick min="0.05" max="8" step="0.05" value="1" aria-label="Kick size"></label>
+  <label class="energy-control"><span>One step &#8463;&omega; <b data-hw-out></b></span><input type="range" data-hw min="10" max="200" step="5" value="100" aria-label="Step size in meV"></label>
+  <label class="energy-control"><span>Neutron energy <b data-en-out></b></span><input type="range" data-en min="1" max="300" step="0.5" value="200" aria-label="Neutron energy in meV"></label>
+  <p class="actions"><button type="button" class="btn" data-warm="1">Warm swing (293.6 K)</button> <button type="button" class="btn ghost" data-warm="0">Cold swing</button></p>
+  <p class="actions"><button type="button" class="btn ghost" data-shove="1">Shove once</button> <button type="button" class="btn" data-shove="1000">Shove 1000 times</button></p>
+</section>
+
+<h2>How can a gentle kick make a whole phonon?</h2>
+<p><b>The kick decides how likely a phonon is. The neutron's own energy decides whether a phonon is possible at all. When a phonon is made, the neutron pays for it in full.</b></p>
+<ul>
+  <li><b>Case A: creating a phonon means down-scatter.</b> The neutron has plenty of energy (E &gt; &#8463;&omega;) but only grazes the atom, so the free recoil is, say, a tenth of a step. It can still make one phonon, <b>sometimes</b>: roughly 1 collision in 10 does, and leaves with E&prime; = E &minus; &#8463;&omega;; the rest make none. Energy is conserved in every collision: the neutron never loses "a tenth of a step". The tenth is the <b>average</b> over many collisions, not a budget for each one.</li>
+  <li><b>Case B: creation is impossible.</b> The neutron has less than one step of energy (E &lt; &#8463;&omega;): there is nothing to pay for a phonon with. It can still bounce off elastically, or, if the swing is warm, take a phonon that is already there and leave <b>faster</b>. In a cold lattice there is almost nothing to take, so elastic is all that is left.</li>
+</ul>
+<div class="misconception" role="note"><b>Common misconception: "A gentle kick can't make a whole phonon."</b>
+  <p>It can, sometimes. The neutron then pays the full &#8463;&omega; from its own energy (Case A); the gentle kick only makes it rare.</p></div>
+
+<h2>Up-scatter and down-scatter</h2>
+<p>Here the two words get their meaning. <b>Down-scatter</b>: the neutron loses energy by making a phonon. <b>Up-scatter</b>: it gains energy by absorbing a phonon that already exists. Up-scatter needs a <b>warm</b> lattice, because a cold one holds almost no phonons to give away; the hotter, the more likely. It is open to any neutron in a warm lattice, not only slow ones. Still, a neutron is always more likely to lose a given amount of energy than to gain it: the ratio is <b>detailed balance</b>.</p>
+<details class="optional"><summary>Deeper: detailed balance as a formula</summary>
+  <p>In the asymmetric convention used here: S(&alpha;, &beta;) = e<sup>&minus;&beta;</sup> S(&alpha;, &minus;&beta;). Gaining an energy &beta; (in kT) is e<sup>&minus;&beta;</sup> times as likely as losing it.</p></details>
+<p>It is why thermal neutrons settle into a spectrum at the moderator's temperature instead of slowing down forever. (Spectrum calculations come later.)</p>
+
+<h2>Putting it together: the phonon expansion</h2>
+<p>We now know everything a single collision with our swing can do. Sort the possibilities by how many phonons are made:</p>
+<ul>
+  <li>0 phonons: the neutron bounces off with the same energy (elastic);</li>
+  <li>1 phonon: it loses exactly one step (or gains one, if the swing was already moving: up-scatter);</li>
+  <li>2 phonons: two steps; and so on.</li>
+</ul>
+<p>Each case has its own chance, the bars above, and its own energy change, a whole number of steps. To describe everything that can happen, write each case with its chance and add them all up:</p>
+<p class="eq-block">everything = (chance of 0) &times; [no change] + (chance of 1) &times; [one step] + (chance of 2) &times; [two steps] + &hellip;</p>
+<p>Writing the answer as a sum of "0 phonons + 1 phonon + 2 phonons + &hellip;" is called the <b>phonon expansion</b>. "Expansion" is the mathematician's word for writing something as a sum of simpler pieces. The bars in the widget are the phonon expansion for one swing, one bar per term.</p>
+
+<details class="optional"><summary>Where does Poisson come from?</summary>
+  <p>A sudden shove is written as an exponential: the swing's response contains exp(i &times; kick &times; displacement). Writing it out term by term, exp(x) = 1 + x + x&sup2;/2! + &hellip;, sorts the outcomes by phonon count: 1 is no phonon, x one phonon, x&sup2;/2! two. Squared, this gives the chances e<sup>&minus;n&#772;</sup> n&#772;<sup>n</sup>/n!, with n&#772; the free recoil counted in steps: a <b>Poisson</b> distribution. The exponential comes from the physics of the kick; the phonon counts come out of expanding it. The NJOY2016 manual says the same: "expanding the time-dependent part of the exponential" (§24, phonon expansion).</p></details>
+<details class="optional"><summary>Rare events, the bell shape, and a warm swing</summary>
+  <p><b>Rare events, as intuition only.</b> Poisson is the law of many independent chances, each unlikely; picture the kick as many tiny chances to make a phonon. The exact reason is the expansion above, not literally independent trials.</p>
+  <p><b>Poisson and the bell curve.</b> A Poisson distribution with a large mean looks like a bell centred at the mean, with width &radic;mean. That is why a hard kick's bars take a bell shape. For a small mean it is lopsided, mostly 0 and a little 1: not a bell at all. Try both with the kick slider.</p>
+  <p><b>A warm swing.</b> If the swing is already moving, the neutron can also absorb phonons, and the chances become a two-sided version of Poisson, written with modified Bessel functions: the manual's eq. 542, which the widget computes. The mean stays the free recoil.</p></details>
+<p class="note"><b>Conventions on these pages.</b> &beta; = (E&prime; &minus; E)/kT is positive when the neutron <b>gains</b> energy; &alpha; measures the size of the kick. S is LEAPR's asymmetric scattering law (the NJOY2016 manual's script S); ENDF stores the symmetric S = e<sup>&beta;/2</sup> times it (page 21).</p>
+<h2>Why is this so? And more than one swing?</h2>
+<p>So far one swing, one mode. A real lattice has many modes, and one collision can make phonons in several of them. <b>How do those add up?</b> First, a tool for adding random things.</p>
+
+<nav class="lesson-nav" aria-label="Lessons"></nav>
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. GPL-3.0. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>

@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Maths 5e: why is it a bell curve?</title>
+<meta name="description" content="Neutronics maths track, rung 5e: the atoms' speeds along any direction are bell-shaped, thermally (Maxwell-Boltzmann) and quantum-mechanically (a swing's ground state has a Gaussian spread of momentum). A bell-shaped spread of speeds gives a bell-shaped spread of energy losses.">
+<link rel="stylesheet" href="../../style.css">
+<script src="lesson-kit.js" defer></script>
+<script src="leapr-data.js" defer></script>
+<script src="bound-data.js" defer></script>
+<script src="mathtrack.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Neutronics maths track (gh:#906): rung 5e (step 3 of the snapshot design), big-kick limit and harmonic assumption stated. Widget: mathtrack.js #bell in "sample" mode with thermal / zero-point / both. -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response. <strong>Review status:</strong> AI-assisted first draft (2026-10-16), not yet reviewed by a human.</p>
+
+<h1>Maths 5e: why is it a bell curve?</h1>
+<p class="kicker lesson-progress">Neutronics</p>
+<p><b>The atom's speed along any direction is bell-shaped</b>, for two reasons:</p>
+<ul>
+  <li><b>Thermal jiggle</b>: the Maxwell&ndash;Boltzmann distribution, a Gaussian (rung 1½).</li>
+  <li><b>Quantum jiggle</b>: a swing in its ground state also has a <b>Gaussian</b> spread of momentum, the shape of the oscillator's ground state. So rung 5b's "the ground state still has motion" literally produces a bell curve.</li>
+</ul>
+<p>A bell-shaped spread of atom speeds gives a bell-shaped spread of energy losses (rung 5d's shift is a straight-line function of the speed). <b>That is why the curve is a bell.</b></p>
+
+<section class="widget-card">
+  <h3>Many snapshots</h3>
+  <div class="widget" id="bell" data-bell="sample">
+    <canvas aria-label="A histogram of energy losses from many snapshots of a jiggling atom, approaching a bell curve"></canvas>
+  </div>
+  <p class="actions"><button type="button" class="btn ghost" data-jig="thermal">Thermal only</button> <button type="button" class="btn ghost" data-jig="zero">Zero-point only</button> <button type="button" class="btn" data-jig="both">Both</button></p>
+  <label class="energy-control"><span>Temperature <b data-bt-out></b></span><input type="range" data-bt min="1" max="1500" step="1" value="293.6" aria-label="Temperature in kelvin"></label>
+  <label class="energy-control"><span>Spring step &#8463;&omega; <b data-bhw-out></b></span><input type="range" data-bhw min="5" max="300" step="5" value="100" aria-label="Spring step in meV"></label>
+  <p class="actions"><button type="button" class="btn" data-snap="5000">5000 snapshots</button></p>
+</section>
+<p>Cool it to 1 K with "both": the bell keeps a width from the zero-point jiggle alone.</p>
+<p class="note">The big-kick limit again; and the Gaussian ground state is exact for the harmonic springs used here. Real bonds deviate slightly.</p>
+<h2>Why is this so? How wide?</h2>
+<p><b>What sets the width, exactly?</b></p>
+
+<nav class="lesson-nav" aria-label="Lessons"></nav>
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. GPL-3.0. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>

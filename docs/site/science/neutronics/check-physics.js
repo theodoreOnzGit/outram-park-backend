@@ -33,6 +33,8 @@ window.Lesson.arrow = () => {};
 eval(fs.readFileSync(path.join(__dirname, "lattice.js"), "utf8"));
 eval(fs.readFileSync(path.join(__dirname, "manyphonons.js"), "utf8"));
 eval(fs.readFileSync(path.join(__dirname, "structure.js"), "utf8"));
+eval(fs.readFileSync(path.join(__dirname, "leapr-data.js"), "utf8"));
+eval(fs.readFileSync(path.join(__dirname, "mathtrack.js"), "utf8"));
 const M = window.Lesson.qscatterMath, SH = window.Lesson.shapesMath, AN = window.Lesson.anglesMath;
 let failed = 0;
 function check(name, value, limit) {
@@ -523,6 +525,65 @@ for (const [label, A, ap, E] of [["C-12, 10 eV", 11.89365, 6.146927, 10], ["U-23
   check("page 25: the layered toy is faster along its layers", SM.alongDir(0, q, SM.LAYER) / SM.alongDir(Math.PI / 2, q, SM.LAYER) > 2 ? 0 : 1, 0);
   const h = fs.readFileSync(path.join(__dirname, "structure.html"), "utf8"), W = BD.decks["H in H2O"];
   check("page 25: water's lines in the prose vs the deck", Math.abs(+h.match(/data-osc0>([^<]+)</)[1] - W.osc[0][0]) + Math.abs(+h.match(/data-osc1>([^<]+)</)[1] - W.osc[1][0]), 1e-12);
+}
+
+// The maths track, rungs 1-5h (gh:#906 designs, 2026-10-16), against
+// leapr-data.js (examples/lesson_leapr.rs, OUTRAM PARK's LEAPR port).
+{
+  const MT = window.Lesson.mathTrack, LD = window.LEAPR_DATA, BD = window.BOUND_DATA;
+  // Free gas (rung 2): normalised, mean beta = -alpha (the sum rule), variance 2 alpha.
+  let wfg = 0;
+  for (const a of [0.1, 1, 5]) {
+    let s0 = 0, s1 = 0, s2 = 0; const db = 0.001;
+    for (let b = -a - 40 * Math.sqrt(a) - 5; b < -a + 40 * Math.sqrt(a) + 5; b += db) { const v = MT.freeGas(a, b) * db; s0 += v; s1 += b * v; s2 += b * b * v; }
+    wfg = Math.max(wfg, Math.abs(s0 - 1), Math.abs(s1 + a), Math.abs(s2 - s1 * s1 - 2 * a) / (2 * a));
+  }
+  check("rung 2: free gas normalised, mean -alpha, variance 2 alpha", wfg, 1e-6);
+  // Rung 3: the page's eq. 542 against the LEAPR port's bfact.
+  let wo = 0;
+  LD.osc.forEach((o) => {
+    const W = MT.oscWeights(o.a, o.bi, 10), rel = (x, y) => Math.abs(x - y) / Math.max(Math.abs(y), 1e-300);
+    wo = Math.max(wo, rel(W.w[10], o.b0));
+    for (let k = 1; k <= 10; k++) { if (o.up[k - 1] > 1e-200) wo = Math.max(wo, rel(W.w[10 + k], o.up[k - 1])); if (o.down[k - 1] > 1e-200) wo = Math.max(wo, rel(W.w[10 - k], o.down[k - 1])); }
+  });
+  check("rung 3: eq. 542 vs the LEAPR port's bfact (relative)", wo, 1e-5);
+  let wsr = 0;
+  for (const [a, bi] of [[0.2, 8], [1.3, 2], [6, 0.7]]) { const W = MT.oscWeights(a, bi, 60); let s0 = 0, s1 = 0; W.w.forEach((v, k) => { s0 += v; s1 += (k - 60) * bi * v; }); wsr = Math.max(wsr, Math.abs(s0 - 1), Math.abs(s1 + a)); }
+  check("rung 3: one swing normalised, mean beta = -alpha (sum rule)", wsr, 1e-9);
+  // Rung 3 1/2: two fair dice.
+  const two = MT.convolve([1, 1, 1, 1, 1, 1].map((x) => x / 6), [1, 1, 1, 1, 1, 1].map((x) => x / 6));
+  check("rung 3 1/2: P(7) = 6/36 for two dice", Math.abs(two[5] - 6 / 36), 1e-15);
+  // Rung 4: the port's S(alpha, -beta) plus the zero-phonon spike obeys the sum rule.
+  const Q = LD.quartz;
+  let w4 = 0;
+  Q.cols.forEach((c) => {
+    if (c.a > 5) return; // beyond the 30 kT grid the loss side is truncated
+    let s0 = Math.exp(-c.a * Q.lambda), s1 = 0;
+    c.s.forEach((v, k) => { const b = Q.beta[k], wq = (k === 0 || k === c.s.length - 1 ? 0.5 : 1) * 0.05; s0 += v * (1 + Math.exp(-b)) * wq; s1 += -b * v * (1 - Math.exp(-b)) * wq; });
+    w4 = Math.max(w4, Math.abs(s0 - 1), Math.abs(s1 + c.a) / c.a);
+  });
+  check("rung 4: the LEAPR port's S (with the elastic spike) normalised and obeying the sum rule", w4, 0.02);
+  // Rung 4: sampling n phonons from T1 and averaging the energy change gives -alpha.
+  { const r = MT.rng(44), t1 = Q.tn[0], db = Q.deltab, cum = []; let tot = 0;
+    for (let i = 0; i < t1.length; i++) { const b = i * db; tot += t1[i] * (1 + Math.exp(-b)) * db; cum.push(tot); }
+    const draw = () => { const u = r() * tot; let k = 0; while (k < cum.length - 1 && cum[k] < u) k++; const b = Math.max((k + r() - 0.5) * db, 0); return r() < 1 / (1 + Math.exp(-b)) ? -b : b; };
+    const a = 1, N = 200000; let s1 = 0, s2 = 0;
+    for (let i = 0; i < N; i++) { const n = MT.poisson(r, a * Q.lambda); let v = 0; for (let d = 0; d < n; d++) v += draw(); s1 += v; s2 += v * v; }
+    const mean = s1 / N, se = Math.sqrt((s2 / N - mean * mean) / N);
+    check("rung 4: sampled mean energy change vs -alpha, in standard errors", Math.abs(mean + a) / se, 4);
+  }
+  // Rungs 5c, 5g: rho-weighted (beta/2)coth(beta/2) reproduces the port's Tbar.
+  const tb = MT.tbarFromRho(BD.decks["Si in alpha-quartz"].rho, BD.decks["Si in alpha-quartz"].delta, Q.tev);
+  check("rungs 5c/5g: rho-weighted coth vs the LEAPR port's Tbar/T (relative)", Math.abs(tb / Q.tbar - 1), 1e-8);
+  // Rung 5: the shortcut agrees with the sum for the biggest kick and not the smallest.
+  const diff = (c) => { let d = 0, s = 0; c.s.forEach((v, k) => { d += Math.abs(v - c.sct[k]); s += v; }); return d / s; };
+  check("rung 5: the bell shortcut fits kick 20 (within 10 %) and not kick 0.05", diff(Q.cols[4]) < 0.1 && diff(Q.cols[0]) > 0.3 ? 0 : 1, 0);
+  // Prose numbers.
+  const num = (f, re) => +fs.readFileSync(path.join(__dirname, f), "utf8").match(re)[1];
+  check("rung 5c: quartz Tbar/T in the prose", Math.abs(num("stiff-soft.html", /data-qtbar>([^<]+)</) - Q.tbar), 0.0005);
+  check("rung 5c: quartz Tbar in kelvin in the prose", Math.abs(num("stiff-soft.html", /data-qtbark>([^<]+)</) - Q.tbar * Q.t), 0.5);
+  check("rung 5g: quartz Tbar/T in the prose", Math.abs(num("one-spring-check.html", /data-qtbar2>([^<]+)</) - Q.tbar), 0.0005);
+  console.log(`     rung 5 shortcut misfit: kick 20 ${(100 * diff(Q.cols[4])).toFixed(1)} %, kick 0.05 ${(100 * diff(Q.cols[0])).toFixed(0)} %; quartz Tbar/T ${Q.tbar.toFixed(4)}`);
 }
 
 if (failed) { console.log(failed + " check(s) failed"); process.exit(1); }

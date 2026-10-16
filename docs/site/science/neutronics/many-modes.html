@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Maths 4: many modes, many phonons</title>
+<meta name="description" content="Neutronics maths track, rung 4: with many vibration modes each term of the phonon expansion is a spread, drawn from the density of states: one phonon is rho-shaped, two are its convolution, and so on. Sampled here for Si in alpha-quartz and compared with OUTRAM PARK's LEAPR port, which computes it exactly. The number of phonons is Poisson; their summed energy turns into a bell curve.">
+<link rel="stylesheet" href="../../style.css">
+<script src="lesson-kit.js" defer></script>
+<script src="leapr-data.js" defer></script>
+<script src="bound-data.js" defer></script>
+<script src="mathtrack.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Neutronics maths track (gh:#906): rung 4 with its amendments (the sampling demo; the two random things box and its headline; the Poisson misconception; "we sample it to see it; LEAPR computes it exactly"; the phonon expansion extended, not redefined). Widget: mathtrack.js #sampler with T_n and S from the LEAPR port (leapr-data.js). check-physics.js tests the sum rule. -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response. <strong>Review status:</strong> AI-assisted first draft (2026-10-16), not yet reviewed by a human.</p>
+
+<h1>Maths 4: many modes, many phonons</h1>
+<p class="kicker lesson-progress">Neutronics</p>
+<p>On rung 3 every term of the <a href="one-spring.html">phonon expansion</a> was a sharp spike, because one swing has one step size. A real lattice has many modes, with the density of states &rho; (page 24). So each term is now a <b>spread</b> of energies: the 1-phonon term is &rho;-shaped, the 2-phonon term is &rho; convolved with itself (rung 3½), and so on. It is the same phonon expansion with smeared terms, and it is what NJOY's LEAPR computes.</p>
+
+<section class="widget-card">
+  <h3>Build it by sampling</h3>
+  <div class="widget" id="sampler">
+    <canvas aria-label="Histograms of sampled sums, first dice, then phonon energies drawn from quartz's spectrum, compared with OUTRAM PARK's LEAPR port"></canvas>
+  </div>
+  <p class="actions"><button type="button" class="btn" data-sstage="dice">Dice</button> <button type="button" class="btn ghost" data-sstage="one">1 phonon</button> <button type="button" class="btn ghost" data-sstage="n">n phonons</button> <button type="button" class="btn ghost" data-sstage="full">Whole collision</button></p>
+  <p class="actions" data-for="dice"><button type="button" class="btn ghost" data-dice="1">1 die</button> <button type="button" class="btn" data-dice="2">2 dice</button> <button type="button" class="btn ghost" data-dice="5">5</button> <button type="button" class="btn ghost" data-dice="20">20</button></p>
+  <p class="actions" data-for="n"><button type="button" class="btn ghost" data-nph="2">2</button> <button type="button" class="btn" data-nph="3">3</button> <button type="button" class="btn ghost" data-nph="6">6</button></p>
+  <p class="actions" data-for="full"><button type="button" class="btn ghost" data-ki="0">kick 0.05</button> <button type="button" class="btn ghost" data-ki="1">0.3</button> <button type="button" class="btn" data-ki="2">1</button> <button type="button" class="btn ghost" data-ki="3">5</button> <button type="button" class="btn ghost" data-ki="4">20</button></p>
+  <p class="actions"><button type="button" class="btn ghost" data-draw="1000">Draw 1000</button> <button type="button" class="btn" data-draw="20000">Draw 20 000</button></p>
+  <p class="note">The phonon energies are drawn from Si in &alpha;-quartz's spectrum (its LEAPR deck); the brown curves are OUTRAM PARK's port of LEAPR <a href="#ref-njoy2016">(MacFarlane et al., 2017)</a>. We sample it to see it; LEAPR computes it exactly, by integration, not by sampling.</p>
+</section>
+
+<p>Dice first: the totals of more and more dice pile into a smoother, more bell-shaped curve. Then the same with phonons: one phonon's energy drawn from &rho; (the small right-hand side is up-scatter, absorbing a phonon already there), then n phonons added, then a whole collision: a Poisson number of phonons, their energies added.</p>
+
+<div class="misconception" role="note"><b>Common misconception: "It's Gaussian, not Poisson."</b>
+  <p><b>Underneath, the number of phonons is always Poisson. But when many phonons are added together, the central limit theorem applies and the result becomes Gaussian.</b></p>
+  <p>There are two different random things in one collision: <b>how many</b> phonons (Poisson, rung 3), and <b>their total energy</b> (the sum of that many draws from &rho;, a convolution, rung 3½). A gentle kick makes a phonon a rare event: mostly 0, sometimes 1, lopsided. A hard kick makes many, and two effects push the result to a bell: a Poisson count with a large mean is itself bell-shaped, and adding many random energies is too. Rare events look Poisson; many events add up to a bell curve.</p></div>
+<p class="note"><b>Conventions on these pages.</b> &beta; = (E&prime; &minus; E)/kT is positive when the neutron <b>gains</b> energy; &alpha; measures the size of the kick. S is LEAPR's asymmetric scattering law (the NJOY2016 manual's script S); ENDF stores the symmetric S = e<sup>&beta;/2</sup> times it (page 21).</p>
+<p>On average every collision still loses the free recoil: the widget's running mean heads for &minus;&alpha;, the sum rule of rung 2.</p>
+<h2>Why is this so? And huge kicks?</h2>
+<p>For a hard kick the neutron makes hundreds of phonons, and adding hundreds of cases gives a bell curve anyway. <b>Why not use the bell curve directly?</b></p>
+
+<nav class="lesson-nav" aria-label="Lessons"></nav>
+
+<!-- references:begin -->
+<h2>References</h2>
+
+<p class="csl-entry" id="ref-njoy2016" style="padding-left: 2em; text-indent: -2em;">MacFarlane, R. E., Muir, D. W., Boicourt, R. M., Kahler, A. C., &#38; Conlin, J. L. (2017). <i>The NJOY Nuclear Data Processing System, Version 2016</i> (Technical Report LA-UR-17-20093). Los Alamos National Laboratory. https://www.osti.gov/biblio/1338791</p>
+
+<!-- references:end -->
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. GPL-3.0. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>

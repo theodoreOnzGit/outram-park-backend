@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Maths 5f: what sets the width?</title>
+<meta name="description" content="Neutronics maths track, rung 5f: the bell's width squared is about twice the recoil times the atoms' jiggle energy, exact for a free gas. The effective temperature is the atoms' real average kinetic energy, thermal plus zero-point, written as a temperature, not a fitting fudge.">
+<link rel="stylesheet" href="../../style.css">
+<script src="lesson-kit.js" defer></script>
+<script src="leapr-data.js" defer></script>
+<script src="bound-data.js" defer></script>
+<script src="mathtrack.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Neutronics maths track (gh:#906): rung 5f (step 4), with "exact for free gas only" and the required misconception box (Tbar is not a fudge). Widget: mathtrack.js #bell in "width" mode. check-physics.js tests the free-gas variance 2 alpha. -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response. <strong>Review status:</strong> AI-assisted first draft (2026-10-16), not yet reviewed by a human.</p>
+
+<h1>Maths 5f: what sets the width?</h1>
+<p class="kicker lesson-progress">Neutronics</p>
+<p><b>The width comes from how fast the atoms really move</b>, that is, their kinetic energy:</p>
+<p class="eq-block">width&sup2; &asymp; 2 &times; recoil &times; (jiggle energy)</p>
+<p>For a free gas this is exact: in rung 2's formula the spread of &beta; is &radic;(2&alpha;), so the variance of the energy change is 2&middot;E<sub>R</sub>&middot;kT. For bound atoms it holds in the big-kick limit, with the effective temperature in place of T.</p>
+<p><b>The effective temperature T&#772; is simply the atoms' real average kinetic energy, thermal plus zero-point, written as a temperature.</b></p>
+
+<section class="widget-card">
+  <h3>Width from jiggle energy</h3>
+  <div class="widget" id="bell" data-bell="width">
+    <canvas aria-label="The bell curve of energy loss with its width set by the atoms' jiggle energy"></canvas>
+  </div>
+  <p class="actions"><button type="button" class="btn ghost" data-jig="thermal">Thermal only</button> <button type="button" class="btn ghost" data-jig="zero">Zero-point only</button> <button type="button" class="btn" data-jig="both">Both</button></p>
+  <label class="energy-control"><span>Temperature <b data-bt-out></b></span><input type="range" data-bt min="1" max="1500" step="1" value="293.6" aria-label="Temperature in kelvin"></label>
+  <label class="energy-control"><span>Spring step &#8463;&omega; <b data-bhw-out></b></span><input type="range" data-bhw min="5" max="300" step="5" value="100" aria-label="Spring step in meV"></label>
+</section>
+
+<div class="misconception" role="note"><b>Common misconception: "T&#772; is just a fitting fudge."</b>
+  <p>No: it is the atoms' actual average kinetic energy, thermal plus zero-point, expressed as a temperature. Nothing in it is fitted.</p></div>
+<h2>Why is this so? Can we check it?</h2>
+<p><b>Does this picture reproduce what LEAPR uses?</b> Check it with one spring, then a whole crystal.</p>
+
+<nav class="lesson-nav" aria-label="Lessons"></nav>
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. GPL-3.0. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>

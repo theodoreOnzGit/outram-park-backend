@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Maths 1½: let the nucleus jiggle</title>
+<meta name="description" content="Neutronics maths track, rung 1 1/2: give the struck nucleus thermal motion and the same kick gives a slightly different energy change each time, so the recoil line spreads into a band: Doppler broadening again. The band is a bell curve because the nuclei's velocities are, and a bell curve is an exponential of a square.">
+<link rel="stylesheet" href="../../style.css">
+<script src="lesson-kit.js" defer></script>
+<script src="leapr-data.js" defer></script>
+<script src="bound-data.js" defer></script>
+<script src="mathtrack.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Neutronics maths track (gh:#906): rung 1 1/2, the maintainer's jiggle demo (Doppler broadening again; why an exp appears). Wording: "jiggle" or "thermal motion", not "vibration" (that is rung 3). Widget: mathtrack.js #abmap at stage "jiggle". -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response. <strong>Review status:</strong> AI-assisted first draft (2026-10-16), not yet reviewed by a human.</p>
+
+<h1>Maths 1½: let the nucleus jiggle</h1>
+<p class="kicker lesson-progress">Neutronics</p>
+<p>Take rung 1's collision and switch on thermal motion of the target: the nucleus drifts a little toward or away from the neutron, at random. Now the same kick gives a <b>slightly different energy change every time</b>.</p>
+
+<section class="widget-card">
+  <h3>Collisions with jiggling nuclei</h3>
+  <div class="widget" id="abmap" data-abstage="jiggle">
+    <canvas aria-label="Dots for collisions in the alpha-beta plane, scattering around the recoil line, wider at higher temperature"></canvas>
+  </div>
+  <label class="energy-control"><span>Temperature <b data-abt-out></b></span><input type="range" data-abt min="20" max="1200" step="10" value="293.6" aria-label="Temperature in kelvin"></label>
+</section>
+
+<p>The dots scatter around the recoil line and form a band, and the band widens as the material heats up. <b>This is Doppler broadening again</b> (page 22): target motion smears what would otherwise be sharp. On page 22 it smeared a resonance in energy; here it smears the recoil line.</p>
+
+<h2>Why an exponential appears</h2>
+<ul>
+  <li>At temperature T, each velocity component of the nuclei follows a <b>bell curve</b> (a normal, or Gaussian, distribution): the Maxwell&ndash;Boltzmann distribution, with probability proportional to exp(&minus;Mv&sup2;/2kT) (page 3).</li>
+  <li>For a given kick, the extra energy change depends <b>in a straight line</b> on the nucleus's velocity along the kick.</li>
+  <li>A straight-line function of a bell-curve quantity is a bell curve too. So the band is a bell curve, and a bell curve is an <b>exp(&minus;(something)&sup2;)</b>.</li>
+</ul>
+<p><b>Every exponential in the free-gas maths that follows is that bell curve.</b></p>
+<p class="note"><b>Conventions on these pages.</b> &beta; = (E&prime; &minus; E)/kT is positive when the neutron <b>gains</b> energy; &alpha; measures the size of the kick. S is LEAPR's asymmetric scattering law (the NJOY2016 manual's script S); ENDF stores the symmetric S = e<sup>&beta;/2</sup> times it (page 21).</p>
+<p class="note">"Jiggle" here means the atoms <b>drifting</b> in random directions, as a gas does. Vibrating about a fixed place, on a spring, is a different motion: rung 3.</p>
+<h2>Why is this so? Can we write the band down?</h2>
+<p><b>What is the exact shape of the band?</b></p>
+
+<nav class="lesson-nav" aria-label="Lessons"></nav>
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. GPL-3.0. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>
