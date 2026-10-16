@@ -56,33 +56,40 @@
 //!
 //! The upstream `rhoCentralFoam` is a *stand-alone density-based marcher* that
 //! updates the conserved variables `[ρ, ρU, ρE]` explicitly. Here we keep the
-//! implicit-acoustics PIMPLE solver and borrow **only the KNP face-flux math**,
-//! re-expressed in this crate's own `openfoam_source` field types. The
-//! stand-alone marcher, its `RhoCentralFoam` struct and `run()` loop are *not*
-//! copied.
+//! implicit-acoustics PIMPLE solver and borrow **only the KNP face-flux math**.
+//! ~~That math is re-expressed in this crate's own `openfoam_source` field
+//! types.~~ **CORRECTED 2026-10-16 (gh #901):** the face-flux math is no longer
+//! copied here. It is the shared, EOS-free kernel
+//! `outram_foam_basic_lib::fv_operators::fvc::central_upwind`, which this
+//! module calls (as do the CoolProp twin and appbuilder's `RhoCentralFoam`).
+//! This module keeps only what is specific to IAPWS-IF97: the HEM equilibrium
+//! sound speed ([`hem_sound_speed_ph`]) and the choice of the static-enthalpy
+//! energy pair when the hybrid assembler builds each face state
+//! (`KnpFaceState::static_enthalpy`). The stand-alone marcher, its
+//! `RhoCentralFoam` struct and `run()` loop are *not* copied.
 //!
-//! Two changes versus the density-based port:
+//! Two choices versus the density-based solver:
 //!
-//! - **No perfect-gas EOS.** The upstream code closes the state with
-//!   `p = (γ−1)ρe` and `c = √(γp/ρ)`. That is deleted. The pressure `p` and the
-//!   **HEM equilibrium sound speed** `c` are passed in per face state
-//!   ([`FaceState`]) — computed by [`hem_sound_speed_ph`] from the real
-//!   IAPWS-IF97 `(p, h)` closure, never Wood–Wallis / frozen / perfect-gas.
-//! - **Static-enthalpy energy form.** The energy variable is the static
-//!   specific-enthalpy density `ρ·he` (not the total energy `ρE`), with
-//!   convective flux `ρ·U_n·he` — matching the array's segregated EEqn, which
-//!   advances `∂(ρh)/∂t + ∇·(φh) = dp/dt` in static enthalpy with the pressure
-//!   work carried by a separate `dp/dt` source. Dissipating `ρE` instead would
-//!   double-count that pressure work and over-cool the near-break cell during
-//!   the strong rarefaction (see [`knp_face_flux`]).
+//! - **No perfect-gas EOS.** The pressure `p` and the **HEM equilibrium sound
+//!   speed** `c` are passed in per face state, computed by
+//!   [`hem_sound_speed_ph`] from the real IAPWS-IF97 `(p, h)` closure, never
+//!   Wood–Wallis / frozen / perfect-gas.
+//! - **Static-enthalpy energy form.** The energy pair is `w_e = ρ·he`,
+//!   `f_e = he` (not the total energy `ρE`, `H`), matching the array's
+//!   segregated EEqn, which advances `∂(ρh)/∂t + ∇·(φh) = dp/dt` in static
+//!   enthalpy with the pressure work carried by a separate `dp/dt` source.
+//!   Dissipating `ρE` instead would re-inject `−Δp` pressure work (and the
+//!   kinetic term) into that equation: during the strong Edwards rarefaction
+//!   the large `Δp` across the flashing front then over-cools the near-break
+//!   cell straight through the 273.15 K isotherm.
 //!
 //! ## How the dissipation is used
 //!
-//! For each internal face the assembler forms the KNP flux [`knp_face_flux`]
-//! and the **jump-free central flux** [`central_face_flux`] (the same flux with
+//! For each internal face the assembler forms the KNP flux (`knp_face_flux`)
+//! and the **jump-free central flux** (`central_face_flux`) (the same flux with
 //! the `a_L·a_R·(W_R − W_L)` dissipation term zeroed). Their difference is the
 //! pure numerical dissipation. It is scaled by the Mach-blend weight
-//! `β(Ma) ∈ [0, 1]` ([`mach_blend`]) and injected as a deferred correction into
+//! `β(Ma) ∈ [0, 1]` (`mach_blend`) and injected as a deferred correction into
 //! the **continuity** (`ρ`) and **momentum** (`ρU`) equations: subsonic faces
 //! (`β = 0`) get **identically zero** added flux, so the default `Pimple` path
 //! is bit-identical; only near-sonic faces (`β → 1`, the flashing front) receive
@@ -103,106 +110,40 @@ use crate::openfoam_algorithms::openfoam_source::field::Field;
 use crate::openfoam_algorithms::openfoam_source::vol_field::{VolScalarField, VolVectorField};
 use crate::openfoam_algorithms::openfoam_source::Vector3;
 
-use crate::interfaces::functional_programming::ph_flash_eqm::{ph_flash_region, s_ph_eqm, t_ph_eqm};
-use crate::interfaces::functional_programming::pt_flash_eqm::FwdEqnRegion;
-use crate::region_1_subcooled_liquid::w_tp_1;
-use crate::region_2_vapour::w_tp_2;
-use crate::region_3_single_phase_plus_supercritical_steam::w_tp_3;
-use crate::region_4_vap_liq_equilibrium::{w_ps_eqm_region4_finite_diff_vol, w_ps_eqm_region4_kieffer};
-use crate::region_5_steam_at_800_plus_degc::w_tp_5;
+use crate::interfaces::functional_programming::ph_flash_eqm::w_ph_eqm_hem;
 
 use uom::si::available_energy::joule_per_kilogram;
 use uom::si::f64::{AvailableEnergy, Pressure};
 use uom::si::pressure::pascal;
 use uom::si::velocity::meter_per_second;
 
+/// The shared KNP kernel this module's hybrid assembler calls (gh #901). Re-
+/// exported so the assembler in [`super`] names one module for the whole
+/// hybrid path.
+pub(crate) use outram_foam_basic_lib::fv_operators::fvc::central_upwind::{
+    central_face_flux, knp_face_flux, mach_blend, KnpFaceState,
+};
+
 /// Defensive lower bound \[m/s\] on the HEM sound speed. The equilibrium
 /// two-phase speed can legitimately fall to a few tens of m/s near the
-/// bubble/dew points, and the Kieffer closure ([`w_ps_eqm_region4_kieffer`]) is
+/// bubble/dew points, and the Kieffer closure
+/// ([`crate::region_4_vap_liq_equilibrium::w_ps_eqm_region4_kieffer`]) is
 /// AI-generated/unvalidated, so a non-finite or non-positive result is clamped
 /// to this floor rather than allowed to poison the Mach number or the KNP wave
 /// speeds. It sits far below any physical water/steam sound speed, so it never
 /// perturbs `β` in the regimes the blend actually acts on.
 pub(crate) const C_MIN_MPS: f64 = 1.0;
 
-/// A reconstructed face state feeding the KNP flux: the MUSCL owner-biased
-/// (`pos`) or neighbour-biased (`neg`) value of each primitive at a face.
-///
-/// All quantities are plain SI `f64` (this layer carries no `uom` bookkeeping,
-/// matching the surrounding `openfoam_source` fields); the units are spelled
-/// out per field.
-#[derive(Clone, Copy, Debug)]
-pub(crate) struct FaceState {
-    /// Density ρ \[kg/m³\].
-    pub rho: f64,
-    /// Velocity **U** \[m/s\].
-    pub u: Vector3,
-    /// Static specific enthalpy `he` \[J/kg\].
-    pub he: f64,
-    /// Pressure `p` \[Pa\].
-    pub p: f64,
-    /// HEM equilibrium sound speed `c` \[m/s\] (see [`hem_sound_speed_ph`]).
-    pub c: f64,
-}
-
-/// A face flux in the face-normal direction, per unit face area.
-///
-/// Multiply each component by the face area magnitude `|Sf|` \[m²\] to obtain
-/// the total flux through the face.
-#[derive(Clone, Copy, Debug)]
-pub(crate) struct FaceFlux {
-    /// Continuity (mass) flux `ρ·U_n` \[kg/(m²·s)\].
-    pub cont: f64,
-    /// Momentum flux `ρ·U_n·U + p·n` \[Pa\].
-    pub mom: Vector3,
-    /// Static-enthalpy energy flux `ρ·U_n·he` \[W/m²\].
-    ///
-    /// Completes the KNP flux for the `[ρ, ρU, ρ·he]` system and is exercised by
-    /// the unit tests, but is not injected by the hybrid assembler: the energy
-    /// shock-capturing rides on the continuity dissipation folded into `phi`
-    /// (see the module doc / [`super::HybridDissipation`]), so this component has
-    /// no lib-side consumer today. Kept for flux completeness and future use.
-    #[allow(dead_code)]
-    pub ener: f64,
-}
-
-/// Continuous Mach-blend weight `β(Ma) = clamp((Ma − lo)/(hi − lo), 0, 1)`.
-///
-/// - Returns `0` for `Ma ≤ lo` (subsonic ⇒ **no** added dissipation, so the
-///   default PIMPLE path is preserved bit-for-bit),
-/// - ramps linearly to `1` at `Ma ≥ hi` (near-sonic ⇒ full shock-capturing),
-/// - is monotone non-decreasing in `Ma` and clamped to `[0, 1]`.
-///
-/// `lo` and `hi` are dimensionless Mach thresholds with `hi > lo`; the array
-/// defaults are `lo = 0.3`, `hi = 1.0`. A degenerate `hi ≤ lo` falls back to a
-/// hard step at `hi`.
-#[inline]
-pub(crate) fn mach_blend(ma: f64, lo: f64, hi: f64) -> f64 {
-    if hi > lo {
-        ((ma - lo) / (hi - lo)).clamp(0.0, 1.0)
-    } else if ma >= hi {
-        1.0
-    } else {
-        0.0
-    }
-}
-
-/// HEM **equilibrium** sound speed `c` \[m/s\] at a cell's `(p, h)` state.
+/// HEM **equilibrium** sound speed `c` \[m/s\] at a cell's `(p, h)` state,
+/// floored at `c_min`.
 ///
 /// This is the sound speed used for *both* the regime Mach number *and* the KNP
-/// characteristic wave speeds `u ± c`. It is the true homogeneous-equilibrium
-/// speed, never Wood–Wallis (frozen) or perfect-gas:
-///
-/// - **Two-phase dome (Region 4)**: entropy `s` from the `(p, h)` flash
-///   ([`s_ph_eqm`]) feeds Kieffer eq. 28 ([`w_ps_eqm_region4_kieffer`]) —
-///   equilibrium derivatives along the saturation curve. If that (unvalidated)
-///   closure returns a non-finite/non-positive value it falls back to the
-///   simpler finite-difference speed [`w_ps_eqm_region4_finite_diff_vol`].
-/// - **Single phase (Regions 1/2/3/5)**: the region forward speed
-///   `w_tp_{1,2,3,5}(T, p)` at `T = t_ph_eqm(p, h)`.
-///
-/// The result is clamped to `c ≥ c_min` (`c_min` in m/s, e.g. [`C_MIN_MPS`]) so
-/// a pathological non-finite value cannot poison downstream arithmetic.
+/// characteristic wave speeds `u ± c`. It is the public equilibrium speed
+/// [`w_ph_eqm_hem`] (Kieffer eq. 28 in the dome with a finite-difference
+/// fallback, the region forward speed outside it), never Wood–Wallis (frozen)
+/// or perfect-gas, converted to raw SI and clamped to `c ≥ c_min` (`c_min` in
+/// m/s, e.g. [`C_MIN_MPS`]) so a pathological non-finite value cannot poison
+/// downstream arithmetic.
 ///
 /// ## Parameters
 /// - `p_pa`  — pressure \[Pa\]
@@ -212,21 +153,7 @@ pub(crate) fn hem_sound_speed_ph(p_pa: f64, h_jkg: f64, c_min: f64) -> f64 {
     let p = Pressure::new::<pascal>(p_pa);
     let h = AvailableEnergy::new::<joule_per_kilogram>(h_jkg);
 
-    let c = match ph_flash_region(p, h) {
-        FwdEqnRegion::Region4 => {
-            let s = s_ph_eqm(p, h);
-            let c_kieffer = w_ps_eqm_region4_kieffer(p, s).get::<meter_per_second>();
-            if c_kieffer.is_finite() && c_kieffer > 0.0 {
-                c_kieffer
-            } else {
-                w_ps_eqm_region4_finite_diff_vol(p, s).get::<meter_per_second>()
-            }
-        }
-        FwdEqnRegion::Region1 => w_tp_1(t_ph_eqm(p, h), p).get::<meter_per_second>(),
-        FwdEqnRegion::Region2 => w_tp_2(t_ph_eqm(p, h), p).get::<meter_per_second>(),
-        FwdEqnRegion::Region3 => w_tp_3(t_ph_eqm(p, h), p).get::<meter_per_second>(),
-        FwdEqnRegion::Region5 => w_tp_5(t_ph_eqm(p, h), p).get::<meter_per_second>(),
-    };
+    let c = w_ph_eqm_hem(p, h).get::<meter_per_second>();
 
     if c.is_finite() && c > c_min {
         c
@@ -235,97 +162,18 @@ pub(crate) fn hem_sound_speed_ph(p_pa: f64, h_jkg: f64, c_min: f64) -> f64 {
     }
 }
 
-/// Shared KNP flux kernel. With `with_dissipation = true` this is the full KNP
-/// flux; with `false` the `a_L·a_R·(W_R − W_L)` jump term is dropped, giving the
-/// jump-free central flux. See [`knp_face_flux`] / [`central_face_flux`].
-#[inline]
-fn face_flux_impl(l: &FaceState, r: &FaceState, n_f: Vector3, with_dissipation: bool) -> FaceFlux {
-    // Face-normal velocities.
-    let u_n_l = l.u.dot(n_f);
-    let u_n_r = r.u.dot(n_f);
-
-    // KNP one-sided local wave-speed estimates (clamped so a_R > a_L).
-    let a_l = (u_n_l - l.c).min(u_n_r - r.c).min(0.0);
-    let a_r = (u_n_l + l.c).max(u_n_r + r.c).max(0.0);
-    let da = (a_r - a_l).max(1e-10);
-
-    // Conserved variables W = [ρ, ρU, ρ·he] transported by this system.
-    //
-    // The energy variable is the **static** specific-enthalpy density `ρ·he`,
-    // NOT the total energy `ρE = ρ·(he + ½|U|²) − p`. This deliberately matches
-    // the array's segregated EEqn, which advances `∂(ρh)/∂t + ∇·(φh) = dp/dt` in
-    // *static* enthalpy with the pressure work carried by a separate `dp/dt`
-    // source. Dissipating `ρE` here would re-inject `−Δp` pressure work (and the
-    // kinetic term) into that equation — during the strong Edwards rarefaction
-    // the large `Δp` across the flashing front then over-cools the near-break
-    // cell straight through the 273.15 K isotherm. Dissipating `ρ·he` keeps the
-    // shock-capturing viscosity consistent with the enthalpy transport it is
-    // correcting. The acoustic wave speeds `u ± c` (`c` the HEM equilibrium
-    // sound speed) are unchanged.
-    let w_rho_l = l.rho;
-    let w_rho_r = r.rho;
-    let w_rhou_l = l.rho * l.u;
-    let w_rhou_r = r.rho * r.u;
-    let w_rhoe_l = l.rho * l.he;
-    let w_rhoe_r = r.rho * r.he;
-
-    // Physical (convective + pressure) fluxes in the face-normal direction.
-    let f_cont_l = l.rho * u_n_l;
-    let f_cont_r = r.rho * u_n_r;
-    let f_mom_l = (l.rho * u_n_l) * l.u + l.p * n_f;
-    let f_mom_r = (r.rho * u_n_r) * r.u + r.p * n_f;
-    let f_ener_l = l.rho * u_n_l * l.he;
-    let f_ener_r = r.rho * u_n_r * r.he;
-
-    // Dissipation jump term a_L·a_R·(W_R − W_L)/da (zeroed for the central flux).
-    let (j_rho, j_rhou, j_rhoe) = if with_dissipation {
-        (
-            a_l * a_r * (w_rho_r - w_rho_l),
-            a_l * a_r * (w_rhou_r - w_rhou_l),
-            a_l * a_r * (w_rhoe_r - w_rhoe_l),
-        )
-    } else {
-        (0.0, Vector3::ZERO, 0.0)
-    };
-
-    FaceFlux {
-        cont: (a_r * f_cont_l - a_l * f_cont_r + j_rho) / da,
-        mom: (a_r * f_mom_l - a_l * f_mom_r + j_rhou) * (1.0 / da),
-        ener: (a_r * f_ener_l - a_l * f_ener_r + j_rhoe) / da,
-    }
-}
-
-/// KNP central-upwind numerical flux at a face (Kurganov, Noelle & Petrova,
-/// SIAM J. Sci. Comp. 2001), per unit face area:
-///
-/// ```text
-/// F_KNP = (a_R·F_L − a_L·F_R + a_L·a_R·(W_R − W_L)) / (a_R − a_L)
-/// a_L = min(U_n,L − c_L,  U_n,R − c_R,  0)
-/// a_R = max(U_n,L + c_L,  U_n,R + c_R,  0)
-/// ```
-///
-/// with `W = [ρ, ρU, ρ·he]` (the **static** enthalpy density — see the module
-/// doc for why not the total energy `ρE`) and `c` the HEM equilibrium sound
-/// speed passed in via each [`FaceState`]. `n_f` is the unit face normal
-/// (owner → neighbour).
-pub(crate) fn knp_face_flux(l: &FaceState, r: &FaceState, n_f: Vector3) -> FaceFlux {
-    face_flux_impl(l, r, n_f, true)
-}
-
-/// The KNP flux with the `a_L·a_R·(W_R − W_L)` dissipation jump term zeroed —
-/// i.e. the central, non-dissipative reference flux. The deferred-correction
-/// dissipation used by the hybrid solver is `knp − central`, so at `L == R`
-/// (uniform field) it is identically zero.
-pub(crate) fn central_face_flux(l: &FaceState, r: &FaceState, n_f: Vector3) -> FaceFlux {
-    face_flux_impl(l, r, n_f, false)
-}
-
 /// Extract one component (0=x, 1=y, 2=z) of a [`VolVectorField`] as a
 /// [`VolScalarField`], carrying the matching scalar boundary conditions so the
 /// MUSCL reconstruction's cell gradients are correct at the boundaries.
 ///
 /// Mirrors OpenFOAM's `U.component(cmpt)` used inside `rhoCentralFoam` to build
 /// the per-component `interpolate(U, pos/neg)` face states.
+///
+/// **Still a copy (gh #901).** `outram_foam_basic_lib::fv_operators::fvc::central_upwind::velocity_component`
+/// is the shared version, but it takes basic-lib's `VolVectorField`, while this
+/// crate's `openfoam_source` fields (and their smaller `BoundaryCondition`
+/// enum) are still a vendored copy. This one goes when those field types are
+/// unified (the #492 follow-on, epic #896 step M10).
 pub(crate) fn velocity_component(u: &VolVectorField, comp: usize) -> VolScalarField {
     let pick = |v: Vector3| match comp {
         0 => v.x,
@@ -365,92 +213,12 @@ pub(crate) fn velocity_component(u: &VolVectorField, comp: usize) -> VolScalarFi
 mod tests {
     use super::*;
 
-    /// L == R (uniform field) ⇒ the KNP flux equals the central flux, i.e. the
-    /// deferred-correction dissipation `knp − central` is identically zero. This
-    /// is the property that makes a uniform / subsonic field see no added flux.
-    #[test]
-    fn identical_states_give_zero_dissipation() {
-        let s = FaceState {
-            rho: 950.0,
-            u: Vector3::new(3.0, 0.0, 0.0),
-            he: 5.0e5,
-            p: 7.0e6,
-            c: 1200.0,
-        };
-        let n_f = Vector3::new(1.0, 0.0, 0.0);
-        let knp = knp_face_flux(&s, &s, n_f);
-        let cen = central_face_flux(&s, &s, n_f);
-        assert!(
-            (knp.cont - cen.cont).abs() < 1e-9,
-            "cont dissipation nonzero"
-        );
-        assert!(
-            (knp.mom.x - cen.mom.x).abs() < 1e-6,
-            "mom dissipation nonzero"
-        );
-        assert!(
-            (knp.ener - cen.ener).abs() < 1e-3,
-            "ener dissipation nonzero"
-        );
-    }
-
-    /// Fully supersonic one-sided flow (both sides have `U_n − c > 0`) ⇒ `a_L = 0`
-    /// so the KNP flux collapses to the pure upwind (left) physical flux.
-    #[test]
-    fn supersonic_one_sided_is_upwind() {
-        let n_f = Vector3::new(1.0, 0.0, 0.0);
-        // U_n = 500 m/s > c = 300 m/s on both sides ⇒ a_L = 0.
-        let l = FaceState {
-            rho: 20.0,
-            u: Vector3::new(500.0, 0.0, 0.0),
-            he: 2.6e6,
-            p: 1.0e6,
-            c: 300.0,
-        };
-        let r = FaceState {
-            rho: 18.0,
-            u: Vector3::new(520.0, 0.0, 0.0),
-            he: 2.5e6,
-            p: 0.9e6,
-            c: 300.0,
-        };
-        let knp = knp_face_flux(&l, &r, n_f);
-        // Pure upwind (left) physical fluxes (static-enthalpy energy form).
-        let u_n_l = l.u.dot(n_f);
-        let f_cont_l = l.rho * u_n_l;
-        let f_ener_l = l.rho * u_n_l * l.he;
-        assert!(
-            (knp.cont - f_cont_l).abs() / f_cont_l.abs() < 1e-9,
-            "supersonic KNP cont {} != upwind {}",
-            knp.cont,
-            f_cont_l
-        );
-        assert!(
-            (knp.ener - f_ener_l).abs() / f_ener_l.abs() < 1e-9,
-            "supersonic KNP ener {} != upwind {}",
-            knp.ener,
-            f_ener_l
-        );
-    }
-
-    /// `β(Ma)` is zero below `lo`, one above `hi`, linear in between, and
-    /// monotone non-decreasing and clamped to `[0, 1]`.
-    #[test]
-    fn mach_blend_monotone_and_clamped() {
-        assert_eq!(mach_blend(0.1, 0.3, 1.0), 0.0);
-        assert_eq!(mach_blend(0.3, 0.3, 1.0), 0.0);
-        assert_eq!(mach_blend(1.0, 0.3, 1.0), 1.0);
-        assert_eq!(mach_blend(1.5, 0.3, 1.0), 1.0);
-        assert!((mach_blend(0.65, 0.3, 1.0) - 0.5).abs() < 1e-12);
-        // Monotone non-decreasing over a sweep.
-        let mut prev = -1.0;
-        for i in 0..=20 {
-            let ma = i as f64 / 20.0 * 1.2;
-            let b = mach_blend(ma, 0.3, 1.0);
-            assert!(b >= prev - 1e-12 && (0.0..=1.0).contains(&b));
-            prev = b;
-        }
-    }
+    // The flux-kernel unit tests that used to live here (`L == R` gives zero
+    // dissipation, supersonic flow is pure upwind, `β(Ma)` is monotone and
+    // clamped) moved with the kernel to
+    // `outram_foam_basic_lib::fv_operators::fvc::central_upwind::tests`
+    // (gh #901). What stays is what is specific to this crate: the IF97 HEM
+    // sound speed and the bit-identity gate of the hybrid assembler.
 
     /// HEM sound speed wiring: subcooled liquid water (7 MPa, h ≈ 1.0 MJ/kg,
     /// Region 1) gives a physical liquid speed (~1000–1700 m/s), so a modest
@@ -487,5 +255,97 @@ mod tests {
             c < 800.0,
             "two-phase HEM speed {c} m/s should be well below liquid"
         );
+    }
+
+    /// Hash of the pre-refactor dissipation under
+    /// `KnpFaceClosure::ReconstructedPressure` (see the gate below).
+    const PINNED_HASH_RECONSTRUCTED: u64 = 0x8232_9ef7_7a39_dde1;
+    /// Hash of the pre-refactor dissipation under
+    /// `KnpFaceClosure::EosConsistentPressure` (see the gate below).
+    const PINNED_HASH_EOS_CONSISTENT: u64 = 0xd37b_0afb_8e70_77f1;
+
+    /// FNV-1a over the IEEE-754 bit patterns of the assembled hybrid
+    /// dissipation, so a one-ulp change anywhere in the KNP arithmetic moves
+    /// the hash.
+    fn hash_dissipation(d: &super::super::HybridDissipation) -> u64 {
+        let mut h: u64 = 0xcbf2_9ce4_8422_2325;
+        let mut eat = |x: f64| {
+            for b in x.to_bits().to_le_bytes() {
+                h ^= u64::from(b);
+                h = h.wrapping_mul(0x0000_0100_0000_01b3);
+            }
+        };
+        for v in &d.d_phi {
+            eat(*v);
+        }
+        for m in &d.mom_src {
+            eat(m.x);
+            eat(m.y);
+            eat(m.z);
+        }
+        h
+    }
+
+    /// A dense, near-sonic two-phase state on which the hybrid KNP dissipation
+    /// is genuinely active: 5.5 → 4.5 MPa, low-quality two-phase enthalpy
+    /// (1.20 → 1.40 MJ/kg, mixture density far above the 100 kg/m³ taper) and
+    /// a velocity ramp of 20 → 115 m/s against an equilibrium sound speed of
+    /// tens of m/s, so faces sit in the `β(Ma) > 0` band.
+    fn dense_near_sonic_array() -> super::super::TampinesSteamArray {
+        use uom::si::area::square_meter;
+        use uom::si::f64::{Area, Length, Time};
+        use uom::si::length::meter;
+        use uom::si::time::second;
+        let n = 20_usize;
+        let mut a = super::super::TampinesSteamArray::new(
+            Length::new::<meter>(1.0),
+            Area::new::<square_meter>(0.01),
+            n as i64,
+            Time::new::<second>(1e-4),
+        )
+        .expect("valid 1-D geometry");
+        for c in 0..n {
+            let s = c as f64 / (n - 1) as f64;
+            a.p.internal[c] = 5.5e6 - 1.0e6 * s;
+            a.he.internal[c] = 1.20e6 + 0.20e6 * s;
+            a.u.internal[c] = Vector3::new(20.0 + 95.0 * s, 0.0, 0.0);
+        }
+        a.correct_thermo();
+        a
+    }
+
+    /// **Bit-identity gate for the shared-kernel refactor (gh #901, M3).**
+    ///
+    /// Methodology: assemble the `HybridAllMach` deferred-correction
+    /// dissipation (`assemble_hybrid_dissipation`, this crate's only consumer
+    /// of the KNP flux) on [`dense_near_sonic_array`] under both
+    /// `KnpFaceClosure` options, and hash every output word. The pinned hashes
+    /// were measured on the pre-refactor code (base commit `10af85038`, where
+    /// the KNP flux was a private copy in this file). Pass criterion: exact
+    /// equality, i.e. moving the flux onto
+    /// `outram_foam_basic_lib::fv_operators::fvc::central_upwind` changed no
+    /// bit. The test also asserts that the dissipation is non-zero, so the
+    /// hash cannot pass vacuously on a state where every face has `β = 0`.
+    #[test]
+    fn hybrid_dissipation_is_bit_identical_to_pre_refactor() {
+        let mut a = dense_near_sonic_array();
+        let d = a.assemble_hybrid_dissipation();
+        let active = d.d_phi.iter().filter(|v| **v != 0.0).count();
+        assert!(
+            active > 0,
+            "dissipation inactive: the gate would be vacuous"
+        );
+        let h_rec = hash_dissipation(&d);
+
+        a.knp_face_closure = super::super::KnpFaceClosure::EosConsistentPressure;
+        let d_eos = a.assemble_hybrid_dissipation();
+        let h_eos = hash_dissipation(&d_eos);
+        println!(
+            "MEASURE active faces = {active}/{}, hash(Reconstructed) = {h_rec:#018x}, \
+             hash(EosConsistent) = {h_eos:#018x}",
+            d.d_phi.len()
+        );
+        assert_eq!(h_rec, PINNED_HASH_RECONSTRUCTED);
+        assert_eq!(h_eos, PINNED_HASH_EOS_CONSISTENT);
     }
 }

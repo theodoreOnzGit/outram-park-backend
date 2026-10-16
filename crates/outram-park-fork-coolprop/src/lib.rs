@@ -151,7 +151,7 @@ pub mod openfoam_algorithms;
 
 pub use ancillaries::{FluidAncillaries, SatAncillary};
 pub use eos::{FluidEos, HelmholtzDerivs, IdealTerm, ResidualTerm};
-pub use flash::{state_ph, state_ps, state_pt, density_pt, FlashError};
+pub use flash::{density_pt, hem_sound_speed_ph, state_ph, state_ps, state_pt, FlashError};
 pub use fluid::Fluid;
 pub use openfoam_algorithms::rhoPimpleFoam::{OPCPFluidArray, OPCPFluidArrayError};
 pub use props::{state_trho, pressure_trho, FluidState};

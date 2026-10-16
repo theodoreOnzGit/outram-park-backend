@@ -3,6 +3,16 @@
 Read-only survey, 2026-10-16. The repo was not edited. Every claim below was
 checked against the tree at that date, unless it is marked **unverified**.
 
+> **Status update, 2026-10-16 (gh #901):** steps **M1–M4 have landed.** The KNP
+> flux is one kernel, `outram_foam_basic_lib::fv_operators::fvc::central_upwind`;
+> copies A, B and C call it; and the equilibrium sound speeds are public (M2).
+> §2's inventory (line counts, `pub(crate)`, "three copies") describes the tree
+> *before* that change and is kept as the survey record. Two deviations from
+> §5: `KnpFaceState::u` is the velocity **vector** (plus a face normal), not a
+> scalar normal velocity, because all three callers transport 3-D momentum;
+> and B's and C's `velocity_component` stay, because their vendored field
+> types are not basic-lib's (that dedup waits for M10).
+
 ---
 
 ## 1. Dependency graph

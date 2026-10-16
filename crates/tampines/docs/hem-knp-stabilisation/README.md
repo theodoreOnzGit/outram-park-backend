@@ -95,8 +95,12 @@ chain already depends on basic-lib, so this adds no dependency edge.
 
 **B2. Public equilibrium sound speeds.**
 `TampinesSteamTableCV::get_speed_of_sound` returns the **frozen Wood–Wallis**
-speed. The equilibrium HEM speeds are `pub(crate)`, so a wrapper written today
-would silently use the wrong physics.
+speed. ~~The equilibrium HEM speeds are `pub(crate)`, so a wrapper written today
+would silently use the wrong physics.~~ **UPDATED 2026-10-16 (gh #901):** they
+are now public: steam-tables `ph_flash_eqm::w_ph_eqm_hem` (and
+`TampinesSteamTableCV::get_equilibrium_speed_of_sound`), CoolProp
+`flash::hem_sound_speed_ph`. `get_speed_of_sound` still returns the frozen
+speed, and its doc now says so.
 
 **B3. `HemEquationOfState { Iapws97, CoolProp(..), IdealGas{..} }`** in
 `tampines`, with a `(ρ,e) → p` inversion. That inversion is one `petir::roots`

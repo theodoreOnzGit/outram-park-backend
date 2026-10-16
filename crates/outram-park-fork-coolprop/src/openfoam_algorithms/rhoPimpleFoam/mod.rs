@@ -226,7 +226,7 @@ pub use lateral_coupling::OPCPFluidArrayError;
 mod central_upwind;
 use central_upwind::{
     central_face_flux, hem_sound_speed_ph, knp_face_flux, mach_blend, velocity_component,
-    FaceState, C_MIN_MPS,
+    KnpFaceState, C_MIN_MPS,
 };
 
 /// Selects the flux discretisation used by [`OPCPFluidArray::step`].
@@ -1923,7 +1923,7 @@ impl OPCPFluidArray {
     /// scaling that keeps a subsonic acoustic interface stable (dissipation
     /// activates only where *both* sides are near-sonic). van-Leer MUSCL
     /// owner/neighbour reconstructions of `ρ, U, he, p, c` build the left/right
-    /// [`FaceState`]s, and the deferred-correction dissipation is
+    /// [`KnpFaceState`]s, and the deferred-correction dissipation is
     /// `β·(knp − central)·|Sf|` — the pure KNP jump term, identically zero on a
     /// subsonic face. Continuity dissipation is returned as a face mass flux to
     /// fold into `phi`; momentum dissipation as an owner-loses / neighbour-gains
@@ -2036,20 +2036,20 @@ impl OPCPFluidArray {
             let sf = mesh.face_area_vectors[f];
             let n_f = Vector3::new(sf.x / area, sf.y / area, sf.z / area);
 
-            let l = FaceState {
-                rho: rho_pos.internal[f].max(1e-10),
-                u: Vector3::new(ux_pos.internal[f], uy_pos.internal[f], uz_pos.internal[f]),
-                he: he_pos.internal[f],
-                p: p_pos.internal[f],
-                c: c_pos.internal[f].max(C_MIN_MPS),
-            };
-            let r = FaceState {
-                rho: rho_neg.internal[f].max(1e-10),
-                u: Vector3::new(ux_neg.internal[f], uy_neg.internal[f], uz_neg.internal[f]),
-                he: he_neg.internal[f],
-                p: p_neg.internal[f],
-                c: c_neg.internal[f].max(C_MIN_MPS),
-            };
+            let l = KnpFaceState::static_enthalpy(
+                rho_pos.internal[f].max(1e-10),
+                Vector3::new(ux_pos.internal[f], uy_pos.internal[f], uz_pos.internal[f]),
+                p_pos.internal[f],
+                c_pos.internal[f].max(C_MIN_MPS),
+                he_pos.internal[f],
+            );
+            let r = KnpFaceState::static_enthalpy(
+                rho_neg.internal[f].max(1e-10),
+                Vector3::new(ux_neg.internal[f], uy_neg.internal[f], uz_neg.internal[f]),
+                p_neg.internal[f],
+                c_neg.internal[f].max(C_MIN_MPS),
+                he_neg.internal[f],
+            );
 
             let knp = knp_face_flux(&l, &r, n_f);
             let cen = central_face_flux(&l, &r, n_f);
@@ -2057,8 +2057,8 @@ impl OPCPFluidArray {
             // Continuity / momentum: deferred-correction dissipation
             // β·(KNP − central)·|Sf| (the pure KNP jump term). Energy is carried
             // implicitly by the continuity term (see `HybridDissipation`).
-            let d_cont = beta * (knp.cont - cen.cont) * area;
-            let d_mom = (knp.mom - cen.mom) * (beta * area);
+            let d_cont = beta * (knp.mass - cen.mass) * area;
+            let d_mom = (knp.momentum - cen.momentum) * (beta * area);
 
             // Continuity: add the dissipative mass flux to phi (owner→neighbour
             // positive, matching phi's sign convention).
