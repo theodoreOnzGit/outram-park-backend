@@ -71,6 +71,32 @@ pub enum TampinesSteamArrayError {
         /// The offending timestep, in seconds.
         seconds: f64,
     },
+    /// Under the guarded fixed step ([`super::TimeStepControl::Fixed`]) a
+    /// cell's **outflow Courant number** `dt·Σφ_out/(ρ_old·V)` exceeded 1:
+    /// the step would export more mass from the cell than it held at the start
+    /// of the step. The array is left in its start-of-step state; retry with a
+    /// smaller step or select [`super::TimeStepControl::AdaptiveCourant`].
+    ///
+    /// Added 2026-10-16 (gh:#900). It replaces, under the fixed control, the
+    /// drained-cell enthalpy hold that used to let such a step continue.
+    CourantViolation {
+        /// Index of the cell with the largest offending outflow Courant number.
+        cell: usize,
+        /// That cell's outflow Courant number (dimensionless, > 1, or NaN).
+        outflow_courant: f64,
+        /// The step that produced it, in seconds.
+        delta_t_seconds: f64,
+    },
+    /// A cell's `(p, h)` state left the IAPWS-IF97 `(p,h)` envelope during
+    /// [`super::TampinesSteamArray::correct_thermo`]. Reported from the checked
+    /// flash facade instead of the panic the unchecked flash raised before
+    /// 2026-10-16 (gh:#900).
+    ThermoOutOfRange {
+        /// Index of the first offending cell.
+        cell: usize,
+        /// The facade's description of which bound was broken, with values.
+        source: crate::interfaces::checked::SteamTablesError,
+    },
 }
 
 impl std::fmt::Display for TampinesSteamArrayError {
@@ -88,6 +114,18 @@ impl std::fmt::Display for TampinesSteamArrayError {
                 f,
                 "timestep must be a positive, finite duration; got {seconds} s"
             ),
+            Self::CourantViolation {
+                cell,
+                outflow_courant,
+                delta_t_seconds,
+            } => write!(
+                f,
+                "outflow Courant number {outflow_courant} > 1 in cell {cell} at a fixed \
+                 timestep of {delta_t_seconds} s: the step would drain the cell past empty"
+            ),
+            Self::ThermoOutOfRange { cell, source } => {
+                write!(f, "cell {cell}: (p,h) state outside the IAPWS-IF97 envelope: {source}")
+            }
         }
     }
 }
@@ -565,7 +603,7 @@ mod tests {
         arr.set_inlet_enthalpy(inlet_enthalpy);
         arr.set_outlet_pressure(outlet_pressure);
 
-        arr.run(200);
+        arr.run(200).unwrap();
 
         let all_finite = arr
             .u
@@ -651,7 +689,7 @@ mod tests {
         arr.set_outlet_pressure(outlet_pressure);
 
         for _ in 0..100 {
-            arr.step();
+            arr.step().unwrap();
             for (c, &pv) in arr.p.internal.as_slice().iter().enumerate() {
                 assert!(pv.is_finite(), "cell {c} pressure went non-finite");
                 assert!(
@@ -746,7 +784,7 @@ mod tests {
         for i in 0..30_000 {
             arr.lateral_link_new_power_vector(total_heat, q_fraction.clone())
                 .unwrap();
-            arr.step();
+            arr.step().unwrap();
             let x_out = x_ph_flash(arr.get_outlet_pressure(), arr.get_outlet_enthalpy());
             if x_out > 0.0 && x_out < 1.0 {
                 reached_two_phase = true;
@@ -837,7 +875,7 @@ mod tests {
         let fractions = vec![0.2; 5];
         arr.lateral_link_new_power_vector(Power::new::<watt>(100.0), fractions)
             .unwrap();
-        arr.step();
+        arr.step().unwrap();
         assert!(arr.q_vector.is_empty());
         assert!(arr.q_fraction_vector.is_empty());
         assert!(arr.lateral_adjacent_array_temperature_vector.is_empty());
@@ -1001,7 +1039,7 @@ mod tests {
                     inlet_enthalpy_j,
                 ));
                 arr.set_outlet_pressure(steam_pressure);
-                arr.step();
+                arr.step().unwrap();
             }
 
             let final_enthalpy = arr.he.internal[0];
@@ -1141,7 +1179,7 @@ mod tests {
         right.set_inlet_velocity(Velocity::new::<meter_per_second>(
             target / (rho_right * AREA_M2),
         ));
-        right.run(2000);
+        right.run(2000).unwrap();
         let m_right = actual_inlet_flow(&right);
 
         // 2. Velocity from a wrong density.
@@ -1150,14 +1188,14 @@ mod tests {
         wrong.set_inlet_velocity(Velocity::new::<meter_per_second>(
             target / (rho_wrong * AREA_M2),
         ));
-        wrong.run(2000);
+        wrong.run(2000).unwrap();
         let m_wrong = actual_inlet_flow(&wrong);
 
         // 3. Prescribed mass-flow inlet.
         let mut prescribed = build();
         prescribed.set_inlet_enthalpy(h_seed);
         prescribed.set_inlet_mass_flowrate(MassRate::new::<kilogram_per_second>(target));
-        prescribed.run(2000);
+        prescribed.run(2000).unwrap();
         let m_prescribed = actual_inlet_flow(&prescribed);
 
         println!(
@@ -1338,7 +1376,7 @@ mod tests {
         fwd.set_inlet_mass_flowrate(MassRate::new::<kilogram_per_second>(mdot));
         let mut forward_worst = 0.0_f64;
         for _ in 0..(FORWARD_STEPS + REVERSE_STEPS) {
-            fwd.step();
+            fwd.step().unwrap();
             forward_worst = forward_worst.max(excursion(&fwd));
         }
         println!(
@@ -1370,7 +1408,7 @@ mod tests {
             // Forward: fluid enters at the inlet terminal.
             arr.set_inlet_mass_flowrate(MassRate::new::<kilogram_per_second>(mdot));
             for _ in 0..FORWARD_STEPS {
-                arr.step();
+                arr.step().unwrap();
                 worst = worst.max(excursion(&arr));
             }
             let h_after_forward = mean_he(&arr);
@@ -1379,7 +1417,7 @@ mod tests {
             // upstream state is what governs.
             arr.set_inlet_mass_flowrate(MassRate::new::<kilogram_per_second>(-mdot));
             for _ in 0..REVERSE_STEPS {
-                arr.step();
+                arr.step().unwrap();
                 worst = worst.max(excursion(&arr));
             }
             let h_after_reverse = mean_he(&arr);
@@ -1617,7 +1655,7 @@ mod tests {
         let diffusivity = lambda / (rho_mean * cp);
 
         let a0 = amplitude(&arr);
-        arr.run(STEPS);
+        arr.run(STEPS).unwrap();
         let a1 = amplitude(&arr);
 
         let elapsed = STEPS as f64 * DT_S;
@@ -1762,7 +1800,7 @@ mod tests {
         for _ in 0..4000 {
             arr.lateral_link_new_power_vector(duty, q_fraction.clone())
                 .unwrap();
-            arr.step();
+            arr.step().unwrap();
         }
 
         let peclet: Vec<f64> = arr
@@ -1985,7 +2023,7 @@ mod tests {
             let stored_before = stored(&arr);
             arr.lateral_link_new_power_vector(source_w, q_fraction.clone())
                 .unwrap();
-            arr.step();
+            arr.step().unwrap();
             let stored_after = stored(&arr);
 
             // Solved boundary mass fluxes. The inlet normal is -x, so an
@@ -2010,7 +2048,7 @@ mod tests {
         let stored_before = stored(&arr);
         arr.lateral_link_new_power_vector(source_w, q_fraction.clone())
             .unwrap();
-        arr.step();
+        arr.step().unwrap();
         let storage_rate = (stored(&arr) - stored_before) / dt_s;
 
         let mdot_in = -arr.phi.boundary[INLET].values[0];

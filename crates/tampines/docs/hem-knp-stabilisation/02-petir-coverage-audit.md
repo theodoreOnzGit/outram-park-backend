@@ -372,8 +372,10 @@ copy is **textually identical but numerically different** from its source
 
 - **Edwards–O'Brien** has already shown that a ~1-ulp sweep can flip the run
   from pass to panic (`mathf.rs`, `golden/edwards_600ms_platform_libm.md`).
-- The current pins are plateau **359.0 psia** and GS-1 RMSE **42.8 psia**
-  (linear scheme, gh:#406). Every migration stage must re-run the full 600 ms
+- ~~The current pins are plateau **359.0 psia** and GS-1 RMSE **42.8 psia**
+  (linear scheme, gh:#406).~~ **CORRECTED 2026-10-16 (gh:#900):** with the
+  Phase A defaults the pins are plateau **360.5 psia** and GS-1 RMSE
+  **17.2 psia** (linear scheme); van Leer gives 358.3 / 19.9 psia. Every migration stage must re-run the full 600 ms
   case and record any movement, including unflattering movement.
 - Also re-measure:
   - tampines `verification_and_validation/generated/*.md` (6 reports;

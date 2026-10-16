@@ -211,12 +211,21 @@ cargo test --release -p tampines-steam-tables --test edwards_blowdown
 ```
 
 **KNOWN LIMITATION, not an endorsement (maintainer, 2026-09-29, gh:#406).**
-The Edwards numbers (plateau 359.0 psia, GS-1 RMSE 42.8 psia) are valid **only
+~~The Edwards numbers (plateau 359.0 psia, GS-1 RMSE 42.8 psia) are valid **only
 under the unbounded linear enthalpy scheme** (`EnergyConvectionScheme::Linear`,
 `Gauss linear`), which the array no longer uses by default. Under the bounded
 default (van Leer) the break cell over-drains to the IF97 273.15 K floor and the
 run panics; under upwind the hybrid-ringing check fails. The linear scheme
-likely **masks** the break-cell over-drain rather than resolving it. The pin is
+likely **masks** the break-cell over-drain rather than resolving it.~~
+**CORRECTED 2026-10-16 (gh:#900):** with the array's new defaults (implicit
+energy convection, kinetic-energy terms, `psi` once per outer corrector,
+guarded fixed Δt) the case runs the full 600 ms under **both** schemes:
+Linear plateau 360.5 psia / GS-1 RMSE 17.2 psia, van Leer 358.3 / 19.9 psia,
+0 pressure-bound events and 0 drained-cell holds in both. The old
+359.0 / 42.8 psia pins are reproduced only on the ablated pre-2026-10-16 path.
+The over-drain was caused mainly by rebuilding `psi` on every inner corrector,
+not by the scheme (`tests/edwards_blowdown.rs` header, rows 2–18). The test
+stays pinned to Linear until the maintainer decides otherwise. The pin is
 kept deliberately, as a save point. Future work: gh:#406.
 
 **Current status, measured 2026-08-11:** `--lib` gives **924 passed, 0 failed,
