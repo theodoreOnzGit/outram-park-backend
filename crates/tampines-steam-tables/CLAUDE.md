@@ -191,6 +191,17 @@ see the module `//!` docs and the v0.2.9 README changelog entry). `openfoam_algo
 OpenFOAM solver ports (rhoPimpleFoam, driftFluxFoam, etc.) intended for future
 transient two-phase coupling.
 
+`hem/` (added 2026-10-16, gh #902, maintainer decision D2 of epic #896) is the
+density-based HEM pipe solver `HemPipe`: KNP central-upwind on `[ρ, ρu, ρE]`
+(the shared basic-lib kernel), `petir::ssprk` time stepping, adaptive Courant
+Δt from upstream `rhoCentralFoam`, closed by the compile-time trait
+`HemEquationOfState` (`Iapws97Hem`, `IdealGasHem` here; `tampines` re-exports
+it as `tampines::hem` and adds CoolProp). It is separate from, and does not
+replace, the pressure-based `TampinesSteamArray`. Its V&V record, including
+two recorded misses (Sod velocity L2 5.56 % against a 5 % bar, and loss of
+positivity on Toro test 2 with van Leer), is
+`verification_and_validation/hem_pipe_vs_exact_riemann_and_edwards.md`.
+
 ## Choked flow (current focus)
 
 Multiphase critical-flow solvers (Homogeneous Equilibrium Model) live in

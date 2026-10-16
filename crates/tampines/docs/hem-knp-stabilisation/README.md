@@ -124,6 +124,18 @@ are now public: steam-tables `ph_flash_eqm::w_ph_eqm_hem` (and
 `flash::hem_sound_speed_ph`. `get_speed_of_sound` still returns the frozen
 speed, and its doc now says so.
 
+> **UPDATED 2026-10-16 (gh #902): B3–B6 are implemented, in the D2 layout.**
+> `tampines_steam_tables::hem` holds `HemPipe<E = Iapws97Hem>`, the trait
+> `HemEquationOfState` with `Iapws97Hem` and `IdealGasHem`, and the shared
+> `(ρ,e)` inversion `pressure_from_rho_e`. `tampines::hem` re-exports them and
+> adds `CoolPropHem` and the enum `HemEos { Iapws97, CoolProp(Fluid),
+> IdealGas(..) }`, with `tampines::hem::HemPipe = HemPipeOf<HemEos>`. No
+> dependency edge was added: Edwards-on-HEM is
+> `tampines-steam-tables/tests/hem_pipe_edwards.rs`. Results, including the
+> misses, are in
+> `crates/tampines-steam-tables/verification_and_validation/hem_pipe_vs_exact_riemann_and_edwards.md`.
+> The text of B3–B6 below is the plan as written before D2.
+
 **B3. `HemEquationOfState { Iapws97, CoolProp(..), IdealGas{..} }`** in
 `tampines`, with a `(ρ,e) → p` inversion. That inversion is one `petir::roots`
 Brent solve over each backend's `(p,h)` flash. No `(ρ,e)` flash exists anywhere
