@@ -6,8 +6,9 @@
 # match the code they describe (maintainer decision 2026-10-03: continuous
 # publishing, no snapshots). A failed build leaves the last good site live.
 #
-# What it builds: `scripts/build-pages.sh`, the tabbed main menu
-# (docs/site/), each deep-dive mdBook listed in docs/site/deep-dives.txt, and
+# What it builds: `scripts/build-pages.sh`, ~~the tabbed main menu~~ the
+# landing page, its three pathways and the search index (docs/site/; the
+# tabbed menu moved to docs/site/code/ on 2026-10-16, gh:#906), each deep-dive mdBook listed in docs/site/deep-dives.txt, and
 # rustdoc (release, no source pages) for the crates in
 # docs/site/lesson-crates.txt, i.e. only crates that have lessons, and the
 # browser demos (gh:#519): a wasm32 build plus the wasm-bindgen CLI, whose

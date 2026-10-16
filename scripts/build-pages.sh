@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Build the backend GitHub Pages site (gh:#509, #518): the tabbed main menu
-# (docs/site/), every deep-dive mdBook (docs/site/deep-dives.txt), rustdoc
+# Build the backend GitHub Pages site (gh:#509, #518): ~~the tabbed main menu~~
+# the landing page and its three pathways (docs/site/; since 2026-10-16,
+# gh:#906: the tabbed menu moved to docs/site/code/), the search index, every deep-dive mdBook (docs/site/deep-dives.txt), rustdoc
 # for the crates that have lessons (docs/site/lesson-crates.txt), without
 # source pages, the tutorial mdBooks (docs/site/tutorials.txt, gh:#520) and
 # the browser demos (gh:#519, #521, #530, #529, #540). The demos need the
@@ -16,7 +17,16 @@ DATE="$(date -u +%Y-%m-%d)"
 
 rm -rf "$OUT"
 mkdir -p "$OUT/deep-dives"
-cp docs/site/index.html docs/site/style.css docs/site/site-nav.js docs/site/code-map-bar.js "$OUT/"
+cp docs/site/index.html docs/site/style.css docs/site/site-nav.js docs/site/code-map-bar.js docs/site/search.js "$OUT/"
+# The three pathways of the landing page (gh:#906, #909): Learn the science,
+# Learn to code (the old front page, with the code map by domain) and the demo
+# library; then the search index over them and the books (search.js reads it).
+mkdir -p "$OUT/code" "$OUT/science/neutronics" "$OUT/demos"
+cp docs/site/code/index.html "$OUT/code/"
+cp docs/site/science/index.html "$OUT/science/"
+cp docs/site/science/neutronics/*.html docs/site/science/neutronics/*.js "$OUT/science/neutronics/"
+cp docs/site/demos/index.html "$OUT/demos/"
+bash scripts/build-search-index.sh "$OUT"
 
 # The code map (gh:#734): every crate placed by its [package.metadata.kovan]
 # tag, drawn from `cargo metadata` of THIS checkout by kovan-cli (no
@@ -132,7 +142,7 @@ done < <(cat docs/site/deep-dives.txt docs/site/tutorials.txt)
 # fails on a stale list or an unknown key; the fix is
 # `kovan-cli references --update --bib docs/site/references.bib <book>`.
 cargo run --release -q -p knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan --no-default-features --bin kovan-cli -- \
-  references --bib docs/site/references.bib "${walk_dirs[@]}" docs/site/index.html \
+  references --bib docs/site/references.bib "${walk_dirs[@]}" docs/site/code/index.html docs/site/science/neutronics/meet-the-neutron.html \
   crates/dhoby-ghaut/web/{monte_carlo,delta_tracking,nuclear_data,triso_atops,dem}/index.html
 
 # Deep-dive books.
@@ -249,6 +259,8 @@ done < <(find "$OUT" -mindepth 1 -type d -print0)
 
 # Every page must exist where the main menu points.
 for f in index.html site-nav.js code-map-bar.js code-map/index.html code-map/code_map.svg \
+  search.js search.json code/index.html science/index.html demos/index.html \
+  science/neutronics/meet-the-neutron.html \
   kovan-schema/index.html \
   code-map/code_map.json code-map/site_links.json \
   api/outram_mc_libs/index.html api/changi/index.html \
@@ -289,7 +301,7 @@ for m in $rung_mods; do
 done
 while read -r r; do
   grep -qx "$r" <<< "$rung_names" || { echo "a page links to demo rung '$r', not in the rung table" >&2; exit 1; }
-done < <(grep -rhoE 'demos/monte-carlo/\?rung=[a-z0-9_-]+' "$OUT" --include='*.html' | sed 's/.*rung=//' | sort -u)
+done < <(grep -rhoE '(demos/|")monte-carlo/\?rung=[a-z0-9_-]+' "$OUT" --include='*.html' | sed 's/.*rung=//' | sort -u)
 # Every tape a rung processes must have been published for the browser.
 for t in n-092_U_234-ENDF8.0.endf n-092_U_235-ENDF8.0.endf n-092_U_238.endf \
   n-006_C_012-ENDF8.0.endf n-006_C_013-ENDF8.0.endf tsl-crystalline-graphite.endf \
@@ -311,7 +323,7 @@ for l in $d_lessons; do
 done
 while read -r r; do
   grep -qx "$r" <<< "$d_names" || { echo "a page links to dispersion demo rung '$r', not in $dt" >&2; exit 1; }
-done < <(grep -rhoE 'demos/dispersion/\?rung=[a-z0-9_-]+' "$OUT" --include='*.html' | sed 's/.*rung=//' | sort -u)
+done < <(grep -rhoE '(demos/|")dispersion/\?rung=[a-z0-9_-]+' "$OUT" --include='*.html' | sed 's/.*rung=//' | sort -u)
 
 # The nuclear data demo's rung table (gh:#529), the same two checks
 # (examples/nuclear_data_web/rungs.rs, one `name:` and one `lesson:` line per
@@ -325,7 +337,7 @@ for l in $n_lessons; do
 done
 while read -r r; do
   grep -qx "$r" <<< "$n_names" || { echo "a page links to nuclear data demo rung '$r', not in $nt" >&2; exit 1; }
-done < <(grep -rhoE 'demos/nuclear-data/\?rung=[a-z0-9_-]+' "$OUT" --include='*.html' | sed 's/.*rung=//' | sort -u)
+done < <(grep -rhoE '(demos/|")nuclear-data/\?rung=[a-z0-9_-]+' "$OUT" --include='*.html' | sed 's/.*rung=//' | sort -u)
 for t in n-092_U_238.endf tsl-crystalline-graphite.endf tsl-HinH2O.endf; do
   [[ -f "$OUT/demos/nuclear-data/data/$t.zz" ]] || { echo "missing nuclear data demo tape $t" >&2; exit 1; }
 done
@@ -341,10 +353,11 @@ for l in $t_lessons; do
 done
 while read -r r; do
   grep -qx "$r" <<< "$t_names" || { echo "a page links to TRISO-ATOPS demo rung '$r', not in $tt" >&2; exit 1; }
-done < <(grep -rhoE 'demos/triso-atops/\?rung=[a-z0-9_-]+' "$OUT" --include='*.html' | sed 's/.*rung=//' | sort -u)
+done < <(grep -rhoE '(demos/|")triso-atops/\?rung=[a-z0-9_-]+' "$OUT" --include='*.html' | sed 's/.*rung=//' | sort -u)
 
-# Every relative link from the main menu, the deep dives and the tutorials must land on a
-# page in the site (a lesson link into the API 404s silently otherwise).
+# Every relative link from the main menu, the three pathway pages, the deep
+# dives and the tutorials must land on a page in the site (a lesson link into
+# the API 404s silently otherwise).
 # Anchors are not checked.
 bad=0
 while IFS= read -r -d '' page; do
@@ -358,7 +371,7 @@ while IFS= read -r -d '' page; do
     [[ -e "$p" ]] || { echo "broken link in ${page#"$OUT"/}: $href" >&2; bad=1; }
   done < <(grep -oE 'href="[^"]+"' "$page" | sed -E 's/^href="(.*)"$/\1/' \
              | grep -vE '^([a-z]+:|/|#)')
-done < <(find "$OUT/index.html" "$OUT/deep-dives" "$OUT/tutorials" -name '*.html' -print0)
+done < <(find "$OUT/index.html" "$OUT/code" "$OUT/science" "$OUT/demos/index.html" "$OUT/deep-dives" "$OUT/tutorials" -name '*.html' -print0)
 (( bad == 0 )) || exit 1
 
 echo "site built in $OUT ($(du -sh "$OUT" | cut -f1)), commit $SHORT"

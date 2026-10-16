@@ -3,10 +3,14 @@
 // 2026-10-05). `scripts/build-pages.sh` adds this script to every built HTML
 // page, so books, demos and the API reference need no per-page edits.
 //
-// Hierarchy:
-//   Home (index.html, opened at the page's track tab)
-//   `- tutorials/<track>/ | deep-dives/<track>/ | demos/<demo>/ | api/<crate>/
-//     `- any page inside it  (Up = that book's / demo's / crate's index)
+// Hierarchy (since 2026-10-16, gh:#906: the landing page has three pathways):
+//   Home (index.html)
+//   |- science/  Learn the science  `- science/<domain>/<lesson>.html, tutorials/<track>/
+//   |- code/     Learn to code      `- deep-dives/<track>/ (code/#<track>), api/<crate>/
+//   `- demos/    the demo library   `- demos/<demo>/
+//     `- any page inside a book, demo or crate  (Up = its index)
+// ~~Home (index.html, opened at the page's track tab)~~: the track tabs moved
+// to code/ with the rest of the old front page.
 //
 // On pages with a <main> (mdBook, rustdoc) the bar is the first thing in
 // <main>. On full-screen demos (a canvas, no <main>) it is a thin fixed bar
@@ -60,6 +64,8 @@
   }
 
   if (here.href.indexOf(root.href) !== 0) return;
+  // Embedded in a lesson (an iframe, gh:#906): the lesson page has the bar.
+  if (window.self !== window.top) return;
   var parts = here.pathname.slice(root.pathname.length).split("/");
   if (parts.length < 2) return; // the main menu itself
 
@@ -77,22 +83,44 @@
     "dispersion": "Gaussian plume & puff", "triso-atops": "TRISO-ATOPS"
   };
   var KIND = { "tutorials": "tutorial", "deep-dives": "deep dive", "demos": "demo", "api": "API" };
+  // The pathway each kind of page sits under, and its label.
+  var PATHWAY = { "tutorials": "science", "science": "science", "deep-dives": "code", "api": "code", "code": "code", "demos": "demos" };
+  var PATHWAY_NAME = { "science": "Learn the science", "code": "Learn to code", "demos": "Web demos" };
+  var SCIENCE_DOMAIN = { "neutronics": "Neutronics" };
 
   var kind = parts[0], name = parts[1] || "";
-  if (!KIND[kind] || !name) return;
+  if (name === "index.html") name = "";
+  if (!PATHWAY[kind]) return;
+  var home = new URL("index.html", root);
+  var path = PATHWAY[kind];
   var track = TRACK[name];
-  var home = new URL("index.html" + (track ? "#" + track : ""), root);
-  var sectionUrl = new URL(kind + "/" + name + "/", root);
-  var sectionLabel = kind === "api"
-    ? "API: " + name.replace(/_/g, "-")
-    : (TRACK_NAME[track] || name) + " " + KIND[kind];
-
-  // The section's own index is one level below Home; everything else is one
-  // level below its section.
+  // The pathway page; Learn to code opens at the track's tab.
+  var pathUrl = new URL(path + "/" + (path === "code" && track ? "#" + track : ""), root);
+  var pathLabel = PATHWAY_NAME[path];
   var rest = parts.slice(2).join("/");
-  var atSectionIndex = rest === "" || rest === "index.html";
-  var upUrl = atSectionIndex ? home : sectionUrl;
-  var upLabel = atSectionIndex ? "Home" : sectionLabel;
+  var sectionUrl, sectionLabel, atSectionIndex;
+  if (!name || kind === "code") {
+    // A pathway page itself: one level below Home.
+    sectionUrl = null;
+    atSectionIndex = true;
+  } else if (kind === "science") {
+    // A lesson: science/<domain>/<lesson>.html, Up to its domain on the
+    // science page.
+    sectionUrl = new URL("science/#" + name, root);
+    sectionLabel = SCIENCE_DOMAIN[name] || name;
+    atSectionIndex = false;
+  } else {
+    sectionUrl = new URL(kind + "/" + name + "/", root);
+    sectionLabel = kind === "api"
+      ? "API: " + name.replace(/_/g, "-")
+      : (TRACK_NAME[track] || name) + " " + KIND[kind];
+    atSectionIndex = rest === "" || rest === "index.html";
+  }
+
+  // A section's own index is one level below its pathway; everything else
+  // is one level below its section.
+  var upUrl = !sectionUrl ? home : atSectionIndex ? pathUrl : sectionUrl;
+  var upLabel = !sectionUrl ? "Home" : atSectionIndex ? pathLabel : sectionLabel;
 
   function a(href, text) {
     var el = document.createElement("a");
@@ -105,14 +133,19 @@
   bar.setAttribute("aria-label", "Site");
   var crumbs = document.createElement("span");
   crumbs.className = "op-crumbs";
+  function here_(text) {
+    var cur = document.createElement("span");
+    cur.textContent = text;
+    return cur;
+  }
   crumbs.appendChild(a(home.href, "\u2302 Home"));
   crumbs.appendChild(document.createTextNode(" \u203a "));
-  if (atSectionIndex) {
-    var cur = document.createElement("span");
-    cur.textContent = sectionLabel;
-    crumbs.appendChild(cur);
+  if (!sectionUrl) {
+    crumbs.appendChild(here_(pathLabel));
   } else {
-    crumbs.appendChild(a(sectionUrl.href, sectionLabel));
+    crumbs.appendChild(a(pathUrl.href, pathLabel));
+    crumbs.appendChild(document.createTextNode(" \u203a "));
+    crumbs.appendChild(atSectionIndex ? here_(sectionLabel) : a(sectionUrl.href, sectionLabel));
   }
   var up = a(upUrl.href, "\u2191 Up: " + upLabel);
   up.className = "op-up";
@@ -138,8 +171,10 @@
     if (main) {
       main.insertBefore(bar, main.firstChild);
       // The code map as a navbar under the breadcrumb (maintainer,
-      // 2026-10-06): lessons and API pages only, never a demo's screen.
-      if (kind !== "demos") {
+      // 2026-10-06): lessons and API pages only, never a demo's screen, and
+      // not on the pathway pages or the science lessons, which show no
+      // repository structure (gh:#906 spec §5).
+      if (kind !== "demos" && kind !== "science" && kind !== "code") {
         var cm = document.createElement("script");
         cm.src = new URL("code-map-bar.js", root).href;
         document.head.appendChild(cm);

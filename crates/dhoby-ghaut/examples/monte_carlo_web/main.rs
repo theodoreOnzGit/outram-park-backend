@@ -89,6 +89,7 @@ mod processed_cache;
 #[cfg(not(target_os = "android"))]
 rung_table! {
     godiva: Godiva,
+    natu: Natu,
     jemima: Jemima,
     hst009: Hst009,
     ugraphite: Ugraphite,
@@ -797,6 +798,43 @@ mod tests {
         }
         assert_eq!(n, 4);
         assert!(l.keff_finished());
+    }
+
+    /// **Methodology.** The `natu` rung (Lesson 1's random walk, gh:#911) on
+    /// Jemima's three ENDF/B-VIII.0 tapes at the Watch tier (tolerance 0.01):
+    /// 200 chained histories, each checked to start with a birth, end in a
+    /// leak, a capture or a fission, drop no state, and stay inside the bar.
+    /// The outcome counts are printed and recorded here, since the lesson
+    /// describes what a reader will see. A harness check, not V&V.
+    /// **Result (2026-10-16, on e9b5484608 plus the change adding the rung):**
+    /// all 200 ended properly inside the bar: 140 leaked, 37 captured, 23
+    /// fission; 12.6 scatters per history on average.
+    #[test]
+    fn the_natural_uranium_rung_tracks_whole_histories_inside_the_bar() {
+        use rungs::LoadedRung as _;
+        let mut l = match load_native(Rung::Natu, Tier::Loose, |_, _| {}).expect("load nuclear data") {
+            Loaded::Natu(l) => l,
+            _ => unreachable!(),
+        };
+        let eps = 1e-9;
+        let (mut leak, mut capture, mut fission, mut scatters) = (0, 0, 0, 0);
+        for _ in 0..200 {
+            let h = l.run_next();
+            assert_eq!(h.track.states[0].event, TrackEvent::Born);
+            assert_eq!(h.track.dropped_states, 0);
+            match h.outcome {
+                Some(TrackEvent::Leak) => leak += 1,
+                Some(TrackEvent::Absorption) => capture += 1,
+                Some(TrackEvent::Fission) => fission += 1,
+                o => panic!("history {}: {}", h.index, history::outcome_name(o)),
+            }
+            scatters += h.scatters;
+            for s in &h.track.states {
+                assert!(s.r.x.abs() <= natu::HALF_X + eps && s.r.y.abs() <= natu::HALF_YZ + eps && s.r.z.abs() <= natu::HALF_YZ + eps, "history {}: {:?}", h.index, s.r);
+            }
+        }
+        eprintln!("  natu, 200 histories: {leak} leaked, {capture} captured, {fission} fission; {:.1} scatters per history", scatters as f64 / 200.0);
+        assert!(leak > 0 && capture > 0 && fission > 0, "all three ends seen");
     }
 
     /// **Methodology.** The HEU-SOL-THERM-009 rung on its eleven tapes and

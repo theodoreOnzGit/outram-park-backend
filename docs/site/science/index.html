@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Learn the science</title>
+<meta name="description" content="The science behind OUTRAM PARK as an interactive textbook: physical intuition, a demo, the explanation, then the mathematics and the model.">
+<link rel="stylesheet" href="../style.css">
+<script src="../search.js" defer></script>
+</head>
+<body>
+<!-- Learn the Science (gh:#906 spec §5.1, maintainer 2026-10-16): domain
+     buttons and a science search, no curriculum list. A domain button opens
+     that domain's short list below it (CSS :target, no script). Each lesson
+     link marked data-kind="science" is a search entry
+     (scripts/build-search-index.sh): keep each on one line. -->
+<main>
+<header class="top">
+  <h1>Learn the science</h1>
+  <p class="lede">An interactive textbook: physical intuition first, then a demo you can run, the explanation, the mathematics and the model. The code comes later, from <a href="../code/">Learn to code</a>.</p>
+</header>
+  <h2 class="ask">What are you interested in?</h2>
+  <nav class="chips big" aria-label="Science domains">
+    <a class="chip" href="#neutronics">Neutronics</a>
+    <a class="chip" href="#nuclear-data">Nuclear data</a>
+    <a class="chip" href="#thermal-hydraulics">Thermal hydraulics</a>
+    <a class="chip" href="#cfd">Fluid mechanics &amp; CFD</a>
+    <a class="chip" href="#particle-mechanics">Particle mechanics</a>
+    <a class="chip" href="#fuel-materials">Fuel &amp; materials</a>
+    <a class="chip" href="#dispersion">Dispersion</a>
+    <a class="chip" href="#multiphysics">Multiphysics</a>
+  </nav>
+
+  <form class="site-search" data-scope="science" role="search">
+    <label class="visually-hidden" for="q">Search the science</label>
+    <input id="q" type="search" placeholder="Search the science…" autocomplete="off">
+    <button type="submit">Search</button>
+  </form>
+  <div class="search-results" aria-live="polite"></div>
+
+  <section class="domain" id="neutronics">
+    <h2>Neutronics</h2>
+    <p>How neutrons move through matter, and how a reactor keeps a chain reaction going.</p>
+    <div class="chips">
+      <a class="demo featured" href="neutronics/meet-the-neutron.html" data-kind="science" data-terms="neutron neutronics scattering absorption fission leakage random walk elastic collision de Broglie wavelength wave packet Heisenberg energy levels">Lesson 1 — Meet the neutron</a>
+      <a class="demo" href="../tutorials/monte-carlo/">Monte Carlo, one rung at a time</a>
+    </div>
+  </section>
+
+  <section class="domain" id="nuclear-data">
+    <h2>Nuclear data</h2>
+    <p>Where a cross section comes from: from the evaluator's resonance parameters to the table a transport code reads.</p>
+    <div class="chips">
+      <a class="demo" href="../deep-dives/nuclear-data/where-sigma-comes-from.html" data-kind="science" data-terms="cross section sigma(E) resonances ENDF evaluation">Where does &sigma;(E) come from?</a>
+    </div>
+  </section>
+
+  <section class="domain" id="thermal-hydraulics">
+    <h2>Thermal hydraulics</h2>
+    <p class="status">No lessons yet.</p>
+  </section>
+
+  <section class="domain" id="cfd">
+    <h2>Fluid mechanics &amp; CFD</h2>
+    <p class="status">No lessons yet.</p>
+  </section>
+
+  <section class="domain" id="particle-mechanics">
+    <h2>Particle mechanics</h2>
+    <p>How a pebble bed packs: pebbles poured and settled by the discrete element method.</p>
+    <div class="chips">
+      <a class="demo" href="../tutorials/monte-carlo/dem.html">Pouring the HTR-10 bed</a>
+    </div>
+  </section>
+
+  <section class="domain" id="fuel-materials">
+    <h2>Fuel &amp; materials</h2>
+    <p>The TRISO particle: how its layers hold fission products in, and what happens when they fail.</p>
+    <div class="chips">
+      <a class="demo" href="../tutorials/triso-atops/">TRISO fuel and fuel failure</a>
+    </div>
+  </section>
+
+  <section class="domain" id="dispersion">
+    <h2>Dispersion</h2>
+    <p>From a release to air concentration and dose downwind.</p>
+    <div class="chips">
+      <a class="demo" href="../deep-dives/dispersion/">Gaussian plume and puff</a>
+    </div>
+  </section>
+
+  <section class="domain" id="multiphysics">
+    <h2>Multiphysics</h2>
+    <p class="status">No lessons yet. The nearest is the dispersion capstone, where TRISO release feeds a dose calculation.</p>
+  </section>
+
+  <p class="status">Every lesson is an AI-assisted first draft until a human has reviewed it; each page states its review status. Research, education and V&amp;V only.</p>
+</main>
+</body>
+</html>

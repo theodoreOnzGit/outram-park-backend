@@ -71,3 +71,126 @@ footer { margin: 32px auto; color: var(--muted); font-size: 0.88rem; border-top:
 .codemap-preview h2 { font-size: 1.3rem; margin-bottom: 4px; }
 .codemap-img { display: block; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); padding: 6px; }
 .codemap-img img { display: block; width: 100%; height: auto; }
+
+/* The landing page and the three pathways (gh:#906, #909). Mobile first:
+   one column, finger-sized targets (at least 44 px), nothing on hover only;
+   a wide screen gets more room, not more on screen. */
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+body.landing { min-height: 100vh; display: flex; flex-direction: column; }
+.hero { flex: 1 0 auto; min-height: 88vh; display: flex; flex-direction: column; justify-content: center;
+  max-width: 680px; margin: 0 auto; padding: 24px 16px; width: 100%; }
+.wordmark { text-align: center; font-size: clamp(2rem, 9vw, 3.4rem); letter-spacing: 0.08em; margin: 0 0 6px; }
+.tagline { text-align: center; color: var(--muted); margin: 0 0 24px; }
+.site-search { display: flex; gap: 8px; margin: 12px 0 4px; }
+.site-search input { flex: 1 1 auto; min-width: 0; min-height: 48px; padding: 0 16px; font: inherit;
+  color: var(--fg); background: var(--panel); border: 1px solid var(--line); border-radius: 24px; }
+.site-search input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.site-search button { min-height: 48px; padding: 0 18px; font: inherit; font-weight: 600; border: 0; border-radius: 24px;
+  background: var(--accent); color: var(--accent-fg); cursor: pointer; }
+.search-results:empty { display: none; }
+.search-results { margin: 8px 0 16px; padding: 4px 16px 12px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; }
+.search-group h3 { font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 14px 0 4px; }
+.search-group .n { font-weight: 400; }
+.search-group ul { list-style: none; margin: 0; padding: 0; }
+.search-group li a { display: block; padding: 10px 2px; min-height: 44px; border-bottom: 1px solid var(--line); text-decoration: none; }
+.search-more { margin-top: 8px; min-height: 40px; padding: 0 14px; font: inherit; background: transparent; color: var(--accent);
+  border: 1px solid var(--accent); border-radius: 20px; cursor: pointer; }
+.search-none { color: var(--muted); }
+.pathways { display: grid; grid-template-columns: 1fr; gap: 12px; margin-top: 20px; }
+@media (min-width: 640px) { .pathways { grid-template-columns: repeat(3, 1fr); } }
+.pathway { display: flex; flex-direction: column; gap: 4px; padding: 16px 18px; min-height: 64px; border: 1px solid var(--line);
+  border-radius: 12px; background: var(--panel); text-decoration: none; color: var(--fg); }
+.pathway b { color: var(--accent); font-size: 1.1rem; }
+.pathway span { color: var(--muted); font-size: 0.92rem; }
+.pathway:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.landing-foot { max-width: 680px; margin: 0 auto; padding: 16px; color: var(--muted); font-size: 0.88rem; border-top: 1px solid var(--line); }
+
+/* Wrapping tap-target buttons: domain tabs, the demo library, contents. */
+.chips, .domains { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 16px; }
+.chip, .demo { display: inline-flex; align-items: center; min-height: 44px; padding: 8px 16px; border-radius: 22px;
+  text-decoration: none; font-weight: 600; line-height: 1.3; }
+.chip { border: 1px solid var(--accent); color: var(--accent); background: transparent; }
+.demo { background: var(--panel); color: var(--fg); border: 1px solid var(--line); }
+.demo.featured { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+.chips.big .chip { font-size: 1.05rem; padding: 10px 18px; }
+.contents h2, .ask { font-size: 1.15rem; margin: 20px 0 4px; }
+.lib { margin-top: 28px; scroll-margin-top: 48px; }
+.lib h2 { font-size: 1.6rem; margin: 0 0 4px; padding-bottom: 4px; border-bottom: 1px solid var(--line); }
+/* Learn the science: a domain's list shows when its button is followed. */
+.domain { display: none; margin-top: 20px; padding: 4px 16px 8px; background: var(--panel); border: 1px solid var(--line);
+  border-radius: 12px; scroll-margin-top: 48px; }
+.domain:target { display: block; }
+.domain h2 { font-size: 1.3rem; }
+
+/* Science lessons (gh:#906 spec §5, §16): one column of readable prose; on a
+   phone the reader meets one concept, one picture or one control at a time. */
+.lesson-body { max-width: 720px; margin: 0 auto; padding: 0 16px 32px; }
+.lesson-body h1 { font-size: 2rem; margin: 20px 0 0; }
+.kicker { color: var(--muted); margin: 2px 0 20px; text-transform: uppercase; letter-spacing: 0.06em; font-size: 0.85rem; }
+.lesson-body h2 { font-size: 1.4rem; margin-top: 36px; }
+.predict { border-left: 4px solid var(--accent); padding: 6px 12px; background: var(--panel); }
+.eq { font-family: "Cambria Math", "STIX Two Math", serif; white-space: nowrap; }
+.eq-block { font-family: "Cambria Math", "STIX Two Math", serif; font-size: 1.15rem; text-align: center; margin: 12px 0;
+  overflow-x: auto; }
+.widget-card { margin: 20px 0; padding: 4px 0; }
+.widget-card h3 { margin: 8px 0; }
+.legend-list { padding-left: 0; list-style: none; }
+.legend-list li { margin: 10px 0; padding-left: 30px; position: relative; }
+.mk { position: absolute; left: 4px; top: 6px; width: 14px; height: 14px; }
+.mk-scatter::before { content: ""; position: absolute; left: 5px; top: 5px; width: 4px; height: 4px; border-radius: 50%; background: var(--muted); }
+.mk-capture::before, .mk-capture::after { content: ""; position: absolute; left: 6px; top: -1px; width: 2.5px; height: 16px; background: #e04646; }
+.mk-capture::before { transform: rotate(45deg); } .mk-capture::after { transform: rotate(-45deg); }
+.mk-fission { border-radius: 50%; border: 1.5px solid #e0b800; }
+.mk-fission::before { content: ""; position: absolute; left: 3px; top: 3px; width: 5px; height: 5px; border-radius: 50%; background: #e0b800; }
+.mk-leak { border-radius: 50%; border: 2px solid #9a6cf0; }
+.two-q li { margin: 8px 0; }
+.summary-pair { display: grid; grid-template-columns: 1fr; gap: 8px; }
+@media (min-width: 640px) { .summary-pair { grid-template-columns: 1fr 1fr; } }
+.summary-pair p { margin: 0; padding: 10px 14px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; }
+.btn.disabled { opacity: 0.55; cursor: not-allowed; }
+.next-row { justify-content: flex-end; margin-top: 24px; }
+details.optional { margin: 16px 0; padding: 4px 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); }
+details.optional summary { cursor: pointer; font-weight: 600; min-height: 40px; line-height: 40px; }
+.lesson-foot { margin-top: 32px; color: var(--muted); font-size: 0.88rem; border-top: 1px solid var(--line); }
+.iframe-slot { border: 1px solid var(--line); border-radius: 8px; padding: 16px; background: var(--panel); text-align: center; }
+.iframe-slot.live { padding: 0; }
+.iframe-slot iframe { display: block; width: 100%; height: min(75vh, 640px); border: 0; border-radius: 8px; }
+.start-demo { min-height: 48px; padding: 0 22px; font: inherit; font-weight: 600; border: 0; border-radius: 24px;
+  background: var(--accent); color: var(--accent-fg); cursor: pointer; }
+
+/* The widget frame (science/neutronics/lesson1.js): the picture fills the
+   widget, + / − / Reset / full screen on it, controls in a folding panel. */
+.widget { position: relative; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); overflow: hidden; }
+.widget canvas { display: block; width: 100%; height: min(62vh, 420px); touch-action: manipulation; }
+.widget.full { position: fixed; inset: 0; z-index: 2000; border-radius: 0; border: 0; }
+.widget.full canvas { height: calc(100vh - 56px); }
+body.w-noscroll { overflow: hidden; }
+.w-bar { position: absolute; top: 6px; left: 6px; right: 6px; display: flex; justify-content: space-between; gap: 6px; pointer-events: none; }
+.w-bar > * { pointer-events: auto; }
+.w-right { display: flex; gap: 6px; margin-left: auto; }
+.w-btn { min-width: 40px; min-height: 40px; padding: 0 10px; font: inherit; font-weight: 600; color: var(--fg);
+  background: var(--bg); border: 1px solid var(--line); border-radius: 8px; cursor: pointer; opacity: 0.94; }
+.w-panel { position: absolute; top: 0; left: 0; bottom: 56px; width: min(300px, 88%); overflow-y: auto; padding: 8px 12px;
+  background: var(--bg); border-right: 1px solid var(--line); opacity: 0.97; }
+.widget.folded .w-panel { display: none; }
+.w-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+.w-group { display: block; margin: 10px 0; }
+.w-label { display: block; font-weight: 600; font-size: 0.92rem; }
+.w-val { float: right; color: var(--muted); font-size: 0.9rem; }
+.w-group input[type=range] { width: 100%; min-height: 36px; }
+.w-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.w-opt { min-height: 40px; padding: 0 12px; font: inherit; border: 1px solid var(--accent); border-radius: 20px;
+  background: transparent; color: var(--accent); cursor: pointer; }
+.w-opt.on { background: var(--accent); color: var(--accent-fg); }
+.w-opt.wide { width: 100%; margin-top: 6px; }
+.w-check { display: flex; align-items: center; gap: 8px; min-height: 40px; }
+.w-check input { width: 20px; height: 20px; }
+.w-note { color: var(--muted); font-size: 0.85rem; }
+.w-status { min-height: 56px; padding: 8px 12px; font-size: 0.9rem; border-top: 1px solid var(--line); background: var(--panel); }
+main > .top { padding: 0; }
+/* On a wide screen an open panel sits beside the picture, not over it. */
+@media (min-width: 700px) {
+  .widget:not(.folded) { padding-left: 300px; }
+  .widget:not(.folded) .w-panel { width: 300px; }
+  .widget:not(.folded) .w-bar { left: 306px; }
+}

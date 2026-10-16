@@ -59,6 +59,9 @@ a.big small { display:block; font-size:.8rem; font-weight:500; opacity:.9; word-
 #map.has-sel .edge:not(.hot-out):not(.hot-in) { stroke-opacity:.06; }
 #map.has-sel .card:not(.hot):not(.sel) { opacity:.3; }
 #map .card { cursor:pointer; }
+#map.has-domain:not(.has-sel) .card:not(.in-domain) { opacity:.22; }
+#map.has-domain:not(.has-sel) .edge { stroke-opacity:.08; }
+#map .card.in-domain .card-bg { stroke-width:3; }
 #map .card.sel .card-bg { stroke-width:4; }
 .key { display:inline-block; width:18px; height:3px; vertical-align:middle; margin-right:4px; }
 </style>
@@ -252,10 +255,10 @@ a.big small { display:block; font-size:.8rem; font-weight:500; opacity:.9; word-
     for (i = 0; i < edges.length; i++) edges[i].classList.remove("hot-out", "hot-in");
     mapEl.classList.toggle("has-sel", !!name);
     var det = document.getElementById("detail");
-    if (!name) { if (data) status.textContent = hint(); if (history.replaceState && location.hash) history.replaceState(null, "", location.pathname); det.innerHTML = "<p class='muted'>Tap a crate to see its tags, its dependencies and what depends on it.</p>"; return; }
+    if (!name) { if (data) status.textContent = hint(); if (history.replaceState && location.hash) history.replaceState(null, "", location.pathname + location.search); det.innerHTML = "<p class='muted'>Tap a crate to see its tags, its dependencies and what depends on it.</p>"; return; }
     var c = byName(name);
     if (!c) return;
-    if (history.replaceState) history.replaceState(null, "", "#" + encodeURIComponent(name));
+    if (history.replaceState) history.replaceState(null, "", location.search + "#" + encodeURIComponent(name));
     var deps = [], users = [];
     data.edges.forEach(function (e) { if (e.from === name) deps.push(e.to); if (e.to === name) users.push(e.from); });
     users.sort();
@@ -305,6 +308,25 @@ a.big small { display:block; font-size:.8rem; font-weight:500; opacity:.9; word-
     full = { x: v[0], y: v[1], w: v[2], h: v[3] };
     fit();
     status.textContent = hint();
+    // A domain from Learn to code (gh:#906 spec §3): ?topic=a,b highlights
+    // the crates tagged with those topics, ?crates=x,y those crates; the rest
+    // are dimmed until a crate is tapped.
+    var qs = new URLSearchParams(location.search);
+    var topics = (qs.get("topic") || "").split(",").filter(Boolean);
+    var named = (qs.get("crates") || "").split(",").filter(Boolean);
+    if (topics.length || named.length) {
+      var inDomain = data.crates.filter(function (c) {
+        return topics.indexOf(c.topic) >= 0 || named.indexOf(c.name) >= 0;
+      }).map(function (c) { return c.name; });
+      mapEl.querySelectorAll(".card").forEach(function (g) {
+        if (inDomain.indexOf(g.getAttribute("data-crate")) >= 0) g.classList.add("in-domain");
+      });
+      mapEl.classList.add("has-domain");
+      hint = (function (base) {
+        return function () { return inDomain.length + " crates in this domain (" + inDomain.join(", ") + "). " + base(); };
+      })(hint);
+      status.textContent = hint();
+    }
     // A link can open on a crate: code-map/#outram-mc-libs.
     var want = decodeURIComponent(location.hash.slice(1));
     if (want && byName(want)) { select(want); focus(want); }
