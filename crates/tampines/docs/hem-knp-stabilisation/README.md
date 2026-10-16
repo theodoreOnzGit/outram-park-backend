@@ -2,7 +2,29 @@
 
 > ⚠️ **Research, education and V&V only.** Not for nuclear facility operation, reactor control, licensing, or safety-critical decisions. See `RESPONSIBLE_USE.md`.
 
-**Date:** 2026-10-16. **Status: a plan, awaiting maintainer decisions D1–D4.** No solver code has been changed.
+**Date:** 2026-10-16. ~~**Status: a plan, awaiting maintainer decisions D1–D4.** No solver code has been changed.~~
+**Status, updated 2026-10-16: decided; implementation under way.**
+
+**Maintainer decisions, 2026-10-16** (also recorded on gh:#896):
+
+| | Decision |
+|---|---|
+| D1 | **Do both**: Phase A and Phase B. |
+| D2 | **No cyclic dependency, not even dev-only.** HEM lives in `tampines-steam-tables` (thermodynamics; Edwards is its critical-flow validation). The API is **re-exposed in `tampines`**. |
+| D3 | **Port** an SSP Runge–Kutta integrator, from OpenFOAM or another suitable upstream. |
+| D4 | **Yes**: try CoolProp (ρ,e) inside the dome. |
+| D5 | **Move the defaults**: implicit energy convection and `OncePerOuterCorrector`. Re-measure Edwards. |
+| D6 | **Yes**: extend petir `RealMath`. |
+
+**Consequence of D2 for the design below.** §B3/B4 originally placed `HemPipe` in
+`tampines`, with Edwards reaching it through a dev-dependency back-edge (B6).
+That is **superseded**:
+
+- `HemPipe`, and a compile-time `HemEos` trait, go in `tampines-steam-tables`.
+  IF97 and ideal-gas implementations live there.
+- `tampines` re-exports the solver, and supplies the CoolProp implementation,
+  because only `tampines` depends on both property crates.
+- No dependency edge is added.
 
 **Method.** A planning fleet of three slices. Each slice's full report sits here unedited:
 
