@@ -32,6 +32,7 @@ eval(fs.readFileSync(path.join(__dirname, "doppler-data.js"), "utf8"));
 window.Lesson.arrow = () => {};
 eval(fs.readFileSync(path.join(__dirname, "lattice.js"), "utf8"));
 eval(fs.readFileSync(path.join(__dirname, "manyphonons.js"), "utf8"));
+eval(fs.readFileSync(path.join(__dirname, "structure.js"), "utf8"));
 const M = window.Lesson.qscatterMath, SH = window.Lesson.shapesMath, AN = window.Lesson.anglesMath;
 let failed = 0;
 function check(name, value, limit) {
@@ -499,6 +500,29 @@ for (const [label, A, ap, E] of [["C-12, 10 eV", 11.89365, 6.146927, 10], ["U-23
   check("page 24: water low-energy slope in the prose vs the deck", Math.abs(num(/data-wslope>([^<]+)</) - slope(W)), 0.005);
   check("page 24: water's two lines in the prose vs the deck", Math.abs(num(/data-osc0>([^<]+)</) - W.osc[0][0]) + Math.abs(num(/data-osc1>([^<]+)</) - W.osc[1][0]), 1e-12);
   console.log(`     kicks vs rho L1 ${l1.toFixed(4)}; quartz slope ${slope(Q).toFixed(3)}, water ${slope(W).toFixed(3)}`);
+}
+
+// Page 25 (gh:#906 design, 2026-10-16): structure shapes rho (toy maths).
+{
+  const SM = window.Lesson.structureMath, LM = window.Lesson.latticeMath, BD = window.BOUND_DATA;
+  // With equal masses the checkerboard reproduces page 23's dispersion.
+  let miss = 0;
+  for (let i = 0; i < 64; i++) {
+    const qx = -Math.PI + (i % 8 + 0.3) * Math.PI / 4, qy = -Math.PI + (Math.floor(i / 8) + 0.6) * Math.PI / 4;
+    const m = SM.modes(qx, qy, SM.ISO, 1, 1), sx = Math.sin(qx / 2), sy = Math.sin(qy / 2);
+    for (const want of [4 * (LM.KL * sx * sx + LM.KT * sy * sy), 4 * (LM.KT * sx * sx + LM.KL * sy * sy)]) if (!m.some((u) => Math.abs(u - want) < 1e-9)) miss++;
+  }
+  check("page 25: equal masses reproduce page 23's frequencies (misses)", miss, 0);
+  const wmax = Math.sqrt(Math.max(...SM.modes(Math.PI, Math.PI, SM.ISO, 1, 1), ...SM.modes(0, 0, SM.ISO, 1, 3))) * 1.02;
+  const one = SM.dos(SM.ISO, 1, 1, wmax, 40), two = SM.dos(SM.ISO, 1, 3, wmax, 40);
+  check("page 25: each density of states sums to 1", Math.abs(one.reduce((a, b) => a + b) - 1) + Math.abs(two.reduce((a, b) => a + b) - 1), 1e-12);
+  const gap = two.slice(17, 27).every((v) => v === 0) && one.slice(17, 27).every((v) => v > 0);
+  check("page 25: two masses open a gap that one mass does not have", gap ? 0 : 1, 0);
+  const q = 0.6 * Math.PI;
+  check("page 25: the even lattice's frequency does not depend on direction here", Math.abs(SM.alongDir(0, q, SM.ISO) / SM.alongDir(Math.PI / 2, q, SM.ISO) - 1), 1e-12);
+  check("page 25: the layered toy is faster along its layers", SM.alongDir(0, q, SM.LAYER) / SM.alongDir(Math.PI / 2, q, SM.LAYER) > 2 ? 0 : 1, 0);
+  const h = fs.readFileSync(path.join(__dirname, "structure.html"), "utf8"), W = BD.decks["H in H2O"];
+  check("page 25: water's lines in the prose vs the deck", Math.abs(+h.match(/data-osc0>([^<]+)</)[1] - W.osc[0][0]) + Math.abs(+h.match(/data-osc1>([^<]+)</)[1] - W.osc[1][0]), 1e-12);
 }
 
 if (failed) { console.log(failed + " check(s) failed"); process.exit(1); }

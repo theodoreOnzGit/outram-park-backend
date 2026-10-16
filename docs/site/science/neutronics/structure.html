@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How does structure shape the phonons?</title>
+<meta name="description" content="Neutronics, page 25: a molecule's shape and bonds decide its few vibrations (water: three, sharp lines in its spectrum); a crystal's masses and springs decide its bands, so its density of states; and layered crystals like graphite vibrate differently along and across the layers. The data used in reactor calculations mostly average that direction-dependence away.">
+<link rel="stylesheet" href="../../style.css">
+<script src="lesson-kit.js" defer></script>
+<script src="lattice.js" defer></script>
+<script src="bound-data.js" defer></script>
+<script src="structure.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Neutronics lessons (gh:#906): page 25 of the design comment of 2026-10-16 (water molecule, then crystal, then anisotropy), with its [correctness] notes: "vibrational quantum" for a molecule, the liquid isotropic overall, graphite as the clear (not only) anisotropic crystal, and the honest last step: the evaluation's coherent elastic data use the cubic approximation (graphite MF=1). No graphite stiffness numbers (none cited). Checks in check-physics.js. -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response. <strong>Review status:</strong> AI-assisted first draft (2026-10-16), not yet reviewed by a human.</p>
+
+<h1>How does structure shape the phonons?</h1>
+<p class="kicker lesson-progress">Neutronics</p>
+<p>Page 24 ended on the density of states, the material's vibration fingerprint. What decides its shape? The structure: which atoms, how they are bonded, how they are arranged. Simplest first.</p>
+
+<section class="widget-card">
+  <h3>From a molecule to a layered crystal</h3>
+  <div class="widget" id="structure">
+    <canvas aria-label="A water molecule's three vibrations beside water's spectrum; a toy crystal's density of states with one or two masses; and a layered toy crystal's phonon frequency against direction"></canvas>
+  </div>
+  <p class="actions"><button type="button" class="btn" data-sstage="molecule">1 Molecule</button> <button type="button" class="btn ghost" data-sstage="crystal">2 Crystal</button> <button type="button" class="btn ghost" data-sstage="layers">3 Layers</button></p>
+  <p class="actions" data-for="molecule"><button type="button" class="btn" data-mmode="0">Stretch together</button> <button type="button" class="btn ghost" data-mmode="1">Stretch apart</button> <button type="button" class="btn ghost" data-mmode="2">Bend</button></p>
+  <p class="actions" data-for="crystal"><button type="button" class="btn" data-mass="1">One mass</button> <button type="button" class="btn ghost" data-mass="2">Two masses</button></p>
+  <label class="energy-control" data-for="layers"><span>Direction <b data-dir-out></b></span><input type="range" data-dir min="0" max="180" step="1" value="0" aria-label="Direction of the phonon, in degrees"></label>
+  <p class="note">Toys on page 23's lattice, except water's spectrum, read from the LEAPR input deck behind its ENDF/B-VIII.0 evaluation <a href="#ref-brown2018endf8">(Brown &amp; others, 2018)</a>.</p>
+</section>
+
+<h2>1. A molecule: water</h2>
+<p>Start with the smallest structure, one molecule. Its atoms are held by bonds, so it can vibrate only in its own fixed patterns. A molecule of N atoms that is not a straight line has 3N &minus; 6 of them, so water, H<sub>2</sub>O, has <b>3</b>: two stretches and a bend. Each one is quantised, a ladder of equal steps like page 23's mode (for one molecule we say a <b>vibrational quantum</b>; "phonon" is kept for a whole lattice). So water's internal vibrations show up as a few <b>sharp lines</b> in its fingerprint.</p>
+<p>In the liquid, each molecule also <b>rotates</b> (hindered by its neighbours) and <b>drifts</b>. These add a broad, continuous part. The ENDF/B-VIII.0 model of hydrogen in water has exactly that shape: a continuous spectrum from molecular dynamics, a drift (diffusion) term, and two discrete oscillators at <b data-osc0>0.205</b> and <b data-osc1>0.415</b> eV. The two stretches sit close together, and the model lumps the molecule's vibrations into those two lines.</p>
+<p><b>The structure, here the molecule's shape and bonds, decides which vibrations exist.</b> And a liquid's molecules point every which way, so on average it has no preferred direction: the simpler case first.</p>
+
+<h2>2. A crystal</h2>
+<p>Now many atoms in a repeating lattice. The vibrations belong to the <b>whole crystal</b>: collective modes, the phonons of pages 23&ndash;24, spread into <b>bands</b>. Change the structure and the bands change. In the toy, giving every other atom three times the mass splits one band into two, the acoustic and the optical, with a gap between them where the crystal has no vibration at all. Same springs, a completely different &rho;.</p>
+
+<h2>3. Layers: vibrations follow the structure</h2>
+<p>If the bonds differ by direction, the vibrations do too. <b>Graphite</b> is the clear example. It is layered: atoms are stiffly bonded within each layer and only weakly between layers. So vibrations along the layers and across them meet very different springs, and have very different frequencies and speeds. Graphite's phonons are <b>anisotropic</b>: they follow the crystal's structure. (It is the striking case, not the only one: even simple crystals vibrate a little differently in different directions.)</p>
+
+<h2>What the data actually do</h2>
+<p>The physics is anisotropic. The scattering laws used in reactor calculations mostly average that away:</p>
+<ul>
+  <li>Reactor graphite is <b>polycrystalline</b>: many small crystals at random angles, so the direction-dependence mostly averages out in the bulk.</li>
+  <li>ENDF/B-VIII.0's crystalline graphite describes "graphite (perfect single crystal)", but its MF=1 text says "the coherent elastic data were prepared using the cubic approximation in LEAPR/NJOY": a direction-averaged treatment.</li>
+</ul>
+<p>So the evaluated laws are, for the most part, direction-averaged approximations. That is a simplification, and a page like this one is where it shows.</p>
+
+<h2>Why is this so? Now the maths</h2>
+<p>We have the physics: phonons, how many, and what shapes them. How does a neutron's collision turn all this into numbers? That is the maths of the next pages, built up from page 2's collision one step at a time.</p>
+
+<nav class="lesson-nav" aria-label="Lessons" data-next-soon="Next: the maths, from the elastic collision up"></nav>
+
+<!-- references:begin -->
+<h2>References</h2>
+
+<p class="csl-entry" id="ref-brown2018endf8" style="padding-left: 2em; text-indent: -2em;">Brown, D. A. &#38; others. (2018). ENDF/B-VIII.0: The 8th Major Release of the Nuclear Reaction Data Library with CIELO-project Cross Sections, New Standards and Thermal Scattering Data. <i>Nuclear Data Sheets</i>, <i>148</i>, 1–142. https://doi.org/10.1016/j.nds.2018.02.001</p>
+
+<!-- references:end -->
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. GPL-3.0. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>

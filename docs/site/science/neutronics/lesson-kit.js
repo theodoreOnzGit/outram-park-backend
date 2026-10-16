@@ -225,7 +225,8 @@
     ["lattice-scattering.html", "What does lattice scattering depend on?"],
     ["doppler.html", "Doppler broadening: lone atoms, warm"],
     ["phonons.html", "What is a phonon?"],
-    ["many-phonons.html", "Can we have more than one phonon?"]
+    ["many-phonons.html", "Can we have more than one phonon?"],
+    ["structure.html", "How does structure shape the phonons?"]
   ];
   function lessonNav() {
     var here = location.pathname.split("/").pop() || LESSONS[0][0], i = -1;

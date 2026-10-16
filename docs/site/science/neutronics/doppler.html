@@ -57,6 +57,8 @@
 </div>
 <p class="note">ENDF/B-VIII.0 U-238, reconstructed by OUTRAM PARK's RECONR port at 0 K and broadened with its BROADR kernel (NJOY's SIGMA1). At 0 K the width is the level's own, &Gamma; = 24.2 meV (page 12).</p>
 <p>The rule of thumb holds very well here, and it has a condition: the manual warns that "contrary to 'popular knowledge', the area under a resonance does not remain unchanged unless E &#8811; kT/A" (§4.1). For U-238, kT/A is <b data-kta="293.6">1.1&times;10<sup>&minus;4</sup></b> eV at 293.6 K, so a resonance at 6.67 eV sits tens of thousands of times above it.</p>
+<div class="misconception" role="note"><b>Common misconception: "The area under a Doppler-broadened resonance is exactly conserved."</b>
+  <p>It is a rule of thumb, excellent for resonances far above kT/A, which in practice is all of them. Near kT/A it fails: each resonance grows a small 1/v tail (below).</p></div>
 <details class="optional">
   <summary>Deeper: when the area rule fails</summary>
   <p>Near kT/A, each resonance grows a small 1/v tail at low energy, and the area is no longer kept. A pure 1/v cross section is the special case that does not change at all: broadening keeps the reaction rate v&sigma;(v), and for 1/v that is a constant. Our BROADR kernel leaves a 1/v curve unchanged to <b data-onev>5&times;10<sup>&minus;5</sup></b> between 0.01 and 10 eV, about the accuracy of drawing it with straight lines between table points. And a constant cross section, such as elastic scattering, does the opposite: it grows a 1/v tail at low energy (§4.1).</p>

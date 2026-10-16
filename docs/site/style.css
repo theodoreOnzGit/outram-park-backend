@@ -147,6 +147,9 @@ body.landing { min-height: 100vh; display: flex; flex-direction: column; }
   .table-wrap td[data-label]::before { content: attr(data-label) ": "; color: var(--muted); font-weight: 600; }
   .table-wrap td:first-child::before { content: ""; }
 }
+/* A misconception a reader held (gh:#906 reader tests): always visible, never folded. */
+.misconception { border-left: 4px solid var(--warn-line); background: var(--warn-bg); border-radius: 0 6px 6px 0; padding: 8px 12px; margin: 16px 0; }
+.misconception > b:first-child { display: block; margin-bottom: 4px; }
 .widget-card { margin: 20px 0; padding: 4px 0; }
 .widget-card h3 { margin: 8px 0; }
 .legend-list { padding-left: 0; list-style: none; }
