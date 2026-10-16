@@ -96,7 +96,7 @@ impl McRung for Godiva {
         &[
             "Model: ICSBEP HEU-MET-FAST-001 (Godiva), a bare sphere of highly enriched uranium metal, r = 8.7407 cm, U-234/235/238 at the evaluation's atom densities, 293.6 K. The numbers are outram-mc-libs' `vv::godiva`, the model the recorded result was measured on.",
             "Data: ENDF/B-VIII.0, processed in this browser by OUTRAM PARK's NJOY port. Run k_eff and Watch both use NJOY's tolerance 0.001 (as the record), one load cached for both.",
-            "Run k_eff is true Monte Carlo: outram-mc-libs' single-thread reference power iteration, one generation at a time. Its counts (leaked, captured, fissioned) are tallied by that transport.",
+            "Run k_eff is true Monte Carlo on a pool of workers (since 2026-10-16, gh:#908): the sphere's CSG model through outram-mc-libs' `transport_csg::distributed`, which is `run_keff_csg_par` bit for bit whatever the number of workers, the driver of the recorded results. Its counts (leaked, captured, fissioned) are tallied by that transport, neutron by neutron. Before 2026-10-16 it ran the single-thread sphere power iteration, which Watch's whole-generations view still uses.",
             "Watch, one neutron at a time, is an illustration: each track is one real history (a one-particle fixed-source run), chained by hand. Tracks are 3D, drawn projected from above.",
             "Watch, whole generations, is the real power iteration started from a point at the centre, to show the source spreading.",
             "Animation speed is proportional to the neutron's real speed (classical kinetic energy, v proportional to √E).",
@@ -137,6 +137,12 @@ impl McRung for Godiva {
              shared among several workers (a fast desktop natively: about a minute; a browser or a phone: several). \
              Later visits read the processed data from this browser's cache.",
         )
+    }
+    /// Run k_eff on a pool of workers (gh:#908, maintainer 2026-10-16:
+    /// "add counts to the pool"). One worker's memory: Jemima's estimate
+    /// for the same three tapes, NOT measured (gh:#907's open item).
+    fn run_pool_mb() -> Option<f64> {
+        Some(150.0)
     }
     fn recorded_tracks() -> Option<&'static [u8]> {
         Some(RECORDED_TRACKS)

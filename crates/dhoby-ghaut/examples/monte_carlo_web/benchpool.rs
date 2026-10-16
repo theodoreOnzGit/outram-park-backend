@@ -168,8 +168,9 @@ impl BenchPool {
 }
 
 /// A pooled generation as the page's shared [`Generation`], the shape the
-/// serial run's console and plot read: no history counts (a CSG run reports
-/// none) and no source sites (Run mode draws its own neutrons).
+/// serial run's console and plot read: the neutrons' ends the workers
+/// counted (gh:#908; ~~no history counts, a CSG run reports none~~ until
+/// 2026-10-16) and no source sites (Run mode draws its own neutrons).
 pub fn generation(s: &GenSummary, cfg: KeffConfig) -> Generation {
     let g = &s.gen;
     Generation {
@@ -181,7 +182,7 @@ pub fn generation(s: &GenSummary, cfg: KeffConfig) -> Generation {
             k_mean: g.k_mean,
             bank_size: g.bank_size,
             production: g.k * cfg.n_particles as f64,
-            counts: HistoryCounts::default(),
+            counts: g.counts.ends,
         },
         sites: Vec::new(),
     }
@@ -204,9 +205,17 @@ mod tests {
     /// [`pooled`], with the run's wall time from its start to its last
     /// generation (the data loads excluded), s.
     fn pooled_timed(n: usize, cfg: KeffConfig) -> (Vec<f64>, Option<(f64, f64)>, f64) {
+        let (ks, mean, secs, _) = pooled_rung(Rung::Jemima, n, cfg);
+        (ks, mean, secs)
+    }
+
+    /// [`pooled_timed`] for any pooled rung, with the active generations'
+    /// summed neutron ends.
+    fn pooled_rung(rung: Rung, n: usize, cfg: KeffConfig) -> (Vec<f64>, Option<(f64, f64)>, f64, HistoryCounts) {
         let ctx = egui::Context::default();
         let plan = Plan { workers: n, reason: "test".into() };
-        let mut p = BenchPool::start(&ctx, plan, Rung::Jemima, Tier::Exact).expect("start");
+        let mut p = BenchPool::start(&ctx, plan, rung, Tier::Exact).expect("start");
+        let mut ends = HistoryCounts::default();
         let t0 = std::time::Instant::now();
         let mut ks = Vec::new();
         let mut mean = None;
@@ -218,10 +227,13 @@ mod tests {
                     Note::Generation(s) => {
                         ks.push(s.gen.k);
                         mean = s.gen.k_mean;
+                        if s.gen.active {
+                            ends.add(&s.gen.counts.ends);
+                        }
                     }
                     Note::RunDone => {
                         p.terminate();
-                        return (ks, mean, run_t0.elapsed().as_secs_f64());
+                        return (ks, mean, run_t0.elapsed().as_secs_f64(), ends);
                     }
                     _ => {}
                 }
@@ -298,5 +310,49 @@ mod tests {
         assert_eq!(k1, k4);
         eprintln!("  Jemima 4000 x [2 + 8]: 1 worker {t1:.1} s, 4 workers {t4:.1} s, speed-up {:.2}; k = {:?} both", t1 / t4, m1);
         assert_eq!(m1, m4);
+    }
+
+    /// **Methodology (gh:#908).** Godiva's Run k_eff on the pool, 2000
+    /// neutrons × [3 inactive + 10 active], seed 1, on 1 and on 2 native
+    /// workers, against the single-thread sphere `PowerIteration` the rung
+    /// ran before (its `keff_start` / `keff_step`), same settings. Pass: 1
+    /// and 2 workers agree bit for bit in `k` and in the neutrons' ends; the
+    /// ends balance (tracked = leaked + captured + fissioned); and the
+    /// leaked, captured and fissioned fractions agree with the serial run's
+    /// within 3 σ (binomial, both runs' counts). **Prediction, written
+    /// before the run:** they agree: the same physics on the same data
+    /// through two transport paths (a bare sphere, and its CSG model).
+    /// **Result (2026-10-16, i9-13900K, 133 s with the loads):** held. 1 and
+    /// 2 workers bit for bit; k = 0.99630 ± 0.00430; 20 048 neutrons ended,
+    /// leaked 0.5709 against 0.5626 serial (+1.7 σ), captured 0.0460 against
+    /// 0.0455 (+0.2 σ), fissioned 0.3831 against 0.3919 (−1.8 σ).
+    #[test]
+    fn godiva_runs_on_the_pool_with_the_lesson_counts() {
+        use crate::rungs::LoadedRung as _;
+        let cfg = KeffConfig { n_particles: 2000, n_inactive: 3, n_active: 10, seed: 1, point_source: false, want_sites: false };
+        let (k1, m1, _, e1) = pooled_rung(Rung::Godiva, 1, cfg);
+        let (k2, m2, _, e2) = pooled_rung(Rung::Godiva, 2, cfg);
+        assert_eq!(k1.iter().map(|x| x.to_bits()).collect::<Vec<_>>(), k2.iter().map(|x| x.to_bits()).collect::<Vec<_>>());
+        assert_eq!((m1, e1), (m2, e2));
+        assert_eq!(e1.tracked, e1.leaked + e1.captured + e1.fissions());
+        let mut l = match crate::load_native(Rung::Godiva, Tier::Exact, |_, _| {}).expect("load") {
+            Loaded::Godiva(l) => l,
+            _ => unreachable!(),
+        };
+        l.keff_start(cfg).expect("serial start");
+        let mut serial = HistoryCounts::default();
+        while let Some(g) = l.keff_step() {
+            if g.report.active {
+                serial.add(&g.report.counts);
+            }
+        }
+        let frac = |c: &HistoryCounts| [c.leaked, c.captured, c.fissions()].map(|x| x as f64 / c.tracked as f64);
+        let (p, q) = (frac(&e1), frac(&serial));
+        for (i, name) in ["leaked", "captured", "fissioned"].iter().enumerate() {
+            let s = (p[i] * (1.0 - p[i]) / e1.tracked as f64 + q[i] * (1.0 - q[i]) / serial.tracked as f64).sqrt();
+            eprintln!("  {name}: pool {:.4}, serial {:.4} ({:+.1} σ)", p[i], q[i], (p[i] - q[i]) / s);
+            assert!((p[i] - q[i]).abs() < 3.0 * s, "{name}: pool {} serial {}", p[i], q[i]);
+        }
+        eprintln!("  pooled k = {m1:?}; ends {e1:?}");
     }
 }

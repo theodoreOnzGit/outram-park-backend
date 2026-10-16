@@ -394,6 +394,25 @@ impl HistoryCounts {
         }
     }
 
+    /// One neutron ended by leaking (or by an end scored as a leak).
+    pub(crate) fn record_leak(&mut self) {
+        self.tracked += 1;
+        self.leaked += 1;
+    }
+
+    /// One neutron ended by capture (absorption without fission).
+    pub(crate) fn record_capture(&mut self) {
+        self.tracked += 1;
+        self.captured += 1;
+    }
+
+    /// One neutron ended in fission at incident energy `e_incident_ev`
+    /// (counted in `tracked` too).
+    pub(crate) fn record_fission_end(&mut self, e_incident_ev: f64) {
+        self.tracked += 1;
+        self.record_fission(e_incident_ev);
+    }
+
     fn record_fission(&mut self, e_incident_ev: f64) {
         let [lo, hi] = Self::FISSION_BIN_EDGES_EV;
         let bin = if e_incident_ev < lo { 0 } else if e_incident_ev < hi { 1 } else { 2 };

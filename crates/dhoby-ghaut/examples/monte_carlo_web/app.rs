@@ -1911,11 +1911,15 @@ impl McApp {
                 ui.weak(crate::keff::plan_line(cfg, it.measured_rate().or(it.rate)));
             }
         }
-        ui.weak(
+        ui.weak(if it.pooled {
+            "On a pool of this tab's background workers: outram-mc-libs' `transport_csg::distributed`, which is \
+             `run_keff_csg_par` bit for bit whatever the number of workers, on ENDF/B-VIII.0 processed at NJOY's \
+             tolerance (\"What this is\", below)."
+        } else {
             "Single-threaded, in this tab's background worker: outram-mc-libs' reference power iteration, one \
              generation at a time, on ENDF/B-VIII.0 processed at NJOY's tolerance (which iteration: \
-             \"What this is\", below).",
-        );
+             \"What this is\", below)."
+        });
         if it.active_counts.tracked > 0 {
             ui.separator();
             ui.strong("Active generations: how neutrons ended");

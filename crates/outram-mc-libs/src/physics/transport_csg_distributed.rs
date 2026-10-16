@@ -201,10 +201,14 @@ pub struct ChunkCounts {
     pub stuck_events: u64,
     pub leak_vacuum: u64,
     pub leak_infinity: u64,
+    /// How the chunk's neutrons ended: leaked, captured, fissioned by
+    /// incident energy (gh:#908; the serial runs' lesson table). Counting
+    /// only: adding them changed no random number and no `k`.
+    pub ends: crate::physics::keff::HistoryCounts,
 }
 
 impl ChunkCounts {
-    const WORDS: usize = 9;
+    const WORDS: usize = 15;
     fn add(&mut self, o: &ChunkCounts) {
         self.histories += o.histories;
         self.collisions += o.collisions;
@@ -215,6 +219,7 @@ impl ChunkCounts {
         self.stuck_events += o.stuck_events;
         self.leak_vacuum += o.leak_vacuum;
         self.leak_infinity += o.leak_infinity;
+        self.ends.add(&o.ends);
     }
     fn words(&self) -> [f64; Self::WORDS] {
         [
@@ -227,6 +232,12 @@ impl ChunkCounts {
             self.stuck_events as f64,
             self.leak_vacuum as f64,
             self.leak_infinity as f64,
+            self.ends.tracked as f64,
+            self.ends.leaked as f64,
+            self.ends.captured as f64,
+            self.ends.fissions_by_energy[0] as f64,
+            self.ends.fissions_by_energy[1] as f64,
+            self.ends.fissions_by_energy[2] as f64,
         ]
     }
     fn from_words(w: &[f64]) -> Self {
@@ -241,6 +252,7 @@ impl ChunkCounts {
             stuck_events: u(6),
             leak_vacuum: u(7),
             leak_infinity: u(8),
+            ends: crate::physics::keff::HistoryCounts { tracked: u(9), leaked: u(10), captured: u(11), fissions_by_energy: [u(12), u(13), u(14)] },
         }
     }
 }
@@ -457,6 +469,7 @@ pub fn transport_chunk(
             stuck_events: o.stuck_events,
             leak_vacuum: o.leak_vacuum,
             leak_infinity: o.leak_infinity,
+            ends: o.ends,
         });
         if let Some(t) = rec.and_then(|r| r.tracks.into_iter().next()) {
             tracks.push((hist_idx, t));
@@ -897,6 +910,41 @@ mod tests {
                 "{n_chunks} chunks: mean"
             );
             assert_eq!(traced, 2 * 6, "two traced histories per generation");
+        }
+    }
+
+    /// gh:#908: every neutron's end is counted once (tracked = leaked +
+    /// captured + fissioned, at least one per history), the counts do not
+    /// depend on the chunking, and they survive the trip as `f64`s.
+    #[test]
+    fn the_ends_balance_and_do_not_depend_on_the_chunking() {
+        let (geom, mats, nucs, maj) = model();
+        let s = settings();
+        let box_ = SourceBox {
+            lower: Position::new(-6.0, -6.0, -6.0),
+            upper: Position::new(6.0, 6.0, 6.0),
+        };
+        let (sites, seed) = DistributedPowerIteration::initial_source(&geom, &mats, &nucs, box_, &s);
+        let one_generation = |n_chunks: usize| {
+            let mut it = DistributedPowerIteration::from_initial_source(&s, &sites, seed);
+            let results = it
+                .chunks(n_chunks, 0)
+                .iter()
+                .map(|c| {
+                    let r = transport_chunk(&geom, &mats, &nucs, &maj, &s, c);
+                    ChunkResult::from_f64s(&r.to_f64s()).expect("result")
+                })
+                .collect();
+            it.finish_generation(results, None).expect("reduce").counts
+        };
+        let c = one_generation(1);
+        let e = c.ends;
+        assert_eq!(e.tracked, e.leaked + e.captured + e.fissions());
+        assert!(e.tracked >= c.histories && c.histories == s.n_particles as u64);
+        assert!(e.leaked > 0 && e.captured > 0 && e.fissions() > 0, "{e:?}");
+        assert_eq!(e.leaked, c.leak_vacuum + c.leak_infinity + c.delta_lost + c.lost_locate + c.stuck_events, "every leak-scored end");
+        for n in [3, 7] {
+            assert_eq!(one_generation(n), c, "{n} chunks");
         }
     }
 

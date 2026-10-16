@@ -1238,6 +1238,11 @@ fn score_leak(leak: &mut [f64], edges: &[f64], e: f64, w: f64) {
 /// Zero on a purely surface-tracked model.
 #[derive(Debug, Clone, Copy, Default)]
 pub(crate) struct HistoryOutcome {
+    /// How each neutron of the history ended: leaked (every end scored as
+    /// a leak), captured, or fissioned by incident energy (gh:#908, the
+    /// lesson tables). Analog ends only: a survival-biased run's roulette
+    /// kills are not counted.
+    pub ends: super::keff::HistoryCounts,
     /// Fission neutron production from this history.
     pub production: f64,
     /// Virtual collisions rejected inside delta regions.
@@ -1372,6 +1377,9 @@ pub(crate) fn transport_history_vr<O: FnMut(TraceEvent)>(
     let mut lost_locate: u64 = 0;
     let mut stuck_events: u64 = 0;
     let mut leak_vacuum: u64 = 0;
+    // How each neutron of the history ended (gh:#908): counting only, no
+    // random number, so `k` and the stream are untouched.
+    let mut ends = super::keff::HistoryCounts::default();
     let mut leak_infinity: u64 = 0;
     // Path length accumulated by histories that hit the event budget. A stuck
     // history that has travelled ~0 cm is OSCILLATING on a surface; one that has
@@ -1656,6 +1664,7 @@ pub(crate) fn transport_history_vr<O: FnMut(TraceEvent)>(
                 stuck_path_cm += path_cm;
                 stuck_last_e = e;
                 score_leak(leak_batch, leak_edges, e, w);
+                ends.record_leak();
                 track!(TrackEvent::Lost, usize::MAX, None);
                 break 'history;
             }
@@ -1665,6 +1674,7 @@ pub(crate) fn transport_history_vr<O: FnMut(TraceEvent)>(
                 // Lost the particle (numerical edge case) — treat as a leak at
                 // last-known energy, same reasoning as the MAX_EVENTS arm.
                 score_leak(leak_batch, leak_edges, e, w);
+                ends.record_leak();
                 track!(TrackEvent::Lost, usize::MAX, None);
                 break 'history;
             };
@@ -1754,6 +1764,7 @@ pub(crate) fn transport_history_vr<O: FnMut(TraceEvent)>(
                         // with no bound would silently bias, and falling back to
                         // surface tracking would silently change the method.
                         score_leak(leak_batch, leak_edges, e, w);
+                        ends.record_leak();
                         break 'history;
                     };
                     // Delta tracking inside the region, handed back at the
@@ -1793,6 +1804,7 @@ pub(crate) fn transport_history_vr<O: FnMut(TraceEvent)>(
                         RegionFlightEnd::Lost => {
                             delta_lost += 1;
                             score_leak(leak_batch, leak_edges, e, w);
+                            ends.record_leak();
                             break 'history;
                         }
                     }
@@ -2029,9 +2041,11 @@ pub(crate) fn transport_history_vr<O: FnMut(TraceEvent)>(
                                 .sample_delayed_group(e, &mut delayed_seed),
                         });
                     }
+                    ends.record_fission_end(e);
                     track!(TrackEvent::Fission, cell_idx, Some(m));
                     break 'history; // fission absorbs the incident neutron
                 } else if xi < x.absorption {
+                    ends.record_capture();
                     track!(TrackEvent::Absorption, cell_idx, Some(m));
                     break 'history; // capture
                 } else if xi < x.absorption + x.inelastic {
@@ -2372,6 +2386,7 @@ pub(crate) fn transport_history_vr<O: FnMut(TraceEvent)>(
                             // (unchanged since the last collision).
                             leak_vacuum += 1;
                             score_leak(leak_batch, leak_edges, e, w);
+                            ends.record_leak();
                             track!(TrackEvent::Leak, cell_idx, path.material);
                             break 'history;
                         }
@@ -2410,6 +2425,7 @@ pub(crate) fn transport_history_vr<O: FnMut(TraceEvent)>(
                         // Streamed to infinity — a leak at the true escape energy.
                         leak_infinity += 1;
                         score_leak(leak_batch, leak_edges, e, w);
+                        ends.record_leak();
                         track!(TrackEvent::Leak, cell_idx, path.material);
                         break 'history;
                     }
@@ -2422,6 +2438,7 @@ pub(crate) fn transport_history_vr<O: FnMut(TraceEvent)>(
     }
     HistoryOutcome {
         production,
+        ends,
         virtual_collisions,
         majorant_violations,
         delta_lost,

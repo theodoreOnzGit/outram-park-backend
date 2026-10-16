@@ -11,7 +11,11 @@
 //!   the next one starts at a uniformly random point in the sphere with a
 //!   1 MeV-incident fission spectrum. That chaining is the illustration; each
 //!   track is one real history.
-//! - **Watch, generations** and **Run k_eff** ([`Keff`]): outram-mc-libs'
+//! - **Run k_eff**, since 2026-10-16 (gh:#908): the sphere's CSG model on a
+//!   pool of workers ([`crate::rungs::LoadedRung::pool_source`] /
+//!   `pool_chunk`, `transport_csg::distributed`, `run_keff_csg_par` bit for
+//!   bit), the neutrons' ends counted by the transport for the lesson table.
+//! - **Watch, generations** ~~and **Run k_eff**~~ ([`Keff`]): outram-mc-libs'
 //!   [`PowerIteration`], the single-thread reference power iteration that
 //!   `run_keff` itself is (bit for bit, pinned by
 //!   `stepping_the_power_iteration_is_the_single_thread_run_bit_for_bit`),
@@ -237,4 +241,23 @@ impl crate::rungs::LoadedRung for Loaded {
     fn keff_finished(&self) -> bool {
         self.keff.as_ref().is_none_or(|k| k.finished())
     }
+    /// Run k_eff on the worker pool (gh:#908): the sphere's CSG model
+    /// through `transport_csg::distributed`, `run_keff_csg_par` bit for
+    /// bit, with the neutrons' ends counted for the lesson table. The
+    /// source box is the sphere's bounding box, as the entropy mesh's.
+    fn pool_source(&mut self, cfg: KeffConfig) -> Option<Result<crate::rungs::PoolSource, String>> {
+        let p = &self.phys;
+        let b = sphere_box();
+        Some(Ok(crate::csgrung::pool_source((&p.geometry, &p.materials, &p.data.nuclides), b, b, model::TEMPERATURE_K, cfg)))
+    }
+    fn pool_chunk(&mut self, cfg: KeffConfig, chunk: &[f64]) -> Option<Result<Vec<f64>, String>> {
+        let p = &self.phys;
+        Some(crate::csgrung::pool_chunk((&p.geometry, &p.materials, &p.data.nuclides), model::TEMPERATURE_K, cfg, chunk))
+    }
+}
+
+/// The sphere's bounding box: the pooled run's source and entropy box.
+fn sphere_box() -> outram_mc_libs::physics::transport_csg::SourceBox {
+    let r = model::RADIUS_CM;
+    outram_mc_libs::physics::transport_csg::SourceBox { lower: Position::new(-r, -r, -r), upper: Position::new(r, r, r) }
 }

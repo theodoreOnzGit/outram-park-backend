@@ -7,7 +7,8 @@
 //! reader chooses. Every
 //! neutron is transported by outram-mc-libs on real ENDF/B-VIII.0 data that
 //! the workspace's own NJOY port processes — in the browser, on the reader's
-//! machine. Single-threaded; runs natively and in the browser
+//! machine. Runs natively and in the browser, the long runs and the data
+//! processing on a pool of workers (gh:#905, #907, #908)
 //! (`web/monte_carlo/`, published at `demos/monte-carlo/`).
 //!
 //! ```text
@@ -29,9 +30,13 @@
 //! `triso_pebble_web` example; its URL `demos/triso-pebble/` now redirects
 //! here with `?rung=triso`.
 //!
-//! - **Physics**: outram-mc-libs continuous-energy transport, unmodified. The
-//!   Godiva Run k_eff is its single-thread reference power iteration
-//!   (`PowerIteration`, which `run_keff` is), stepped one generation at a time.
+//! - **Physics**: outram-mc-libs continuous-energy transport, unmodified.
+//!   ~~The Godiva Run k_eff is its single-thread reference power iteration
+//!   (`PowerIteration`, which `run_keff` is), stepped one generation at a
+//!   time.~~ **Since 2026-10-16 (gh:#907, #908)** every benchmark rung's Run
+//!   k_eff, Godiva's included, runs on a pool of workers through
+//!   `transport_csg::distributed` (`run_keff_csg_par` bit for bit); Watch's
+//!   whole generations still step the single-thread iteration.
 //! - **Data**: ENDF/B-VIII.0 tapes from `reference-data/endf/`, covariances
 //!   stripped, processed by the workspace's NJOY port (RECONR + BROADR). The
 //!   tier per rung and mode is in [`app`] (`tier_for`): ~~Godiva Run k_eff at
