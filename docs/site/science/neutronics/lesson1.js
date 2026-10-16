@@ -6,7 +6,8 @@
 // "Controls »") and starts folded on a narrow screen. Every computation here
 // takes well under a millisecond a frame, so nothing needs a worker; the one
 // heavy demo (the random walk) is the Monte Carlo demo itself, in an iframe
-// that loads only when asked.
+// that loads when it scrolls into view. Every demo starts when scrolled to
+// and the animated ones pause when scrolled away (maintainer, 2026-10-16).
 //
 // Physics guardrails (spec §14): lambda = h/p; the packet's envelope is
 // drawn separately from its carrier and is not lambda; the Heisenberg strip
@@ -97,8 +98,24 @@
     spec.panel(body, function () { self.redraw(); }, function () { self.play(); });
     this.running = false;
     this.last = 0;
+    this.visible = false;
     new ResizeObserver(function () { self.redraw(); }).observe(canvas);
     this.redraw();
+    // Start when scrolled into view, pause when scrolled out (maintainer,
+    // 2026-10-16: "Demos should start as soon as I scroll past them"). A
+    // paused widget costs no frames; spec.onSeen restarts it.
+    whenSeen(root, function (seen) {
+      self.visible = seen;
+      if (seen) { if (spec.onSeen) spec.onSeen(); self.play(); }
+    });
+  }
+  // Call back(true) when `node` is at least 30 % on screen and back(false)
+  // when it leaves; without IntersectionObserver, once with true.
+  function whenSeen(node, back) {
+    if (!("IntersectionObserver" in window)) { back(true); return; }
+    new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) { back(e.isIntersecting); });
+    }, { threshold: 0.3 }).observe(node);
   }
   Frame.prototype.redraw = function () {
     var c = this.canvas, dpr = window.devicePixelRatio || 1;
@@ -123,7 +140,7 @@
       self.last = now;
       var more = self.spec.tick(dt);
       self.redraw();
-      if (more) requestAnimationFrame(step); else self.running = false;
+      if (more && self.visible) requestAnimationFrame(step); else self.running = false;
     }
     requestAnimationFrame(step);
   };
@@ -201,6 +218,7 @@
     }
     return new Frame(root, {
       reset: function () { st.t = T0; },
+      onSeen: function () { st.t = T0; },
       tick: function (dt) { st.t += dt * 0.9; if (st.t >= T1) { st.t = T1; return false; } return true; },
       draw: function (ctx, w, h, zoom) {
         var k = kin(), s = Math.min(w / 12, h / 7) * zoom, cx = w / 2, cy = h / 2;
@@ -253,7 +271,7 @@
   // at v/2 and the envelope at v). p is relativistic, so λ = h/p holds at
   // every energy on the slider; the motion is the non-relativistic packet.
   function packet(root) {
-    var st = { lg: Math.log10(0.0253), sig: 0.4e-9, re: true, prob: true, heis: false, t: 0, anim: false };
+    var st = { lg: Math.log10(0.0253), sig: 0.4e-9, re: true, prob: true, heis: false, t: 0, anim: true };
     function phys() {
       var T = Math.pow(10, st.lg) * EV, mc2 = MN * C * C;
       var p = Math.sqrt(T * T + 2 * T * mc2) / C;
@@ -395,20 +413,24 @@
   }
 
   function start() {
-    var c = document.getElementById("collision"); if (c) collision(c).play();
+    var c = document.getElementById("collision"); if (c) collision(c);
     var p = document.getElementById("packet"); if (p) packet(p);
-    var l = document.getElementById("levels"); if (l) levels(l).play();
-    // The random-walk demo loads only when asked: it downloads and processes
-    // nuclear data, which a reader skimming the page should not pay for.
+    var l = document.getElementById("levels"); if (l) levels(l);
+    // The random-walk demo loads when it scrolls into view (maintainer,
+    // 2026-10-16), not with the page: it downloads and processes nuclear
+    // data, which a reader who never reaches it should not pay for. The
+    // button stays as a fallback. Once loaded it keeps running.
     document.querySelectorAll(".iframe-slot").forEach(function (slot) {
-      var b = slot.querySelector(".start-demo");
-      if (!b) return;
-      b.onclick = function () {
+      var load = function () {
+        if (slot.classList.contains("live")) return;
         var f = el("iframe", { src: slot.getAttribute("data-src"), title: "Neutron random-walk demo", allow: "fullscreen", loading: "eager" });
         slot.innerHTML = "";
         slot.append(f);
         slot.classList.add("live");
       };
+      var b = slot.querySelector(".start-demo");
+      if (b) b.onclick = load;
+      whenSeen(slot, function (seen) { if (seen) load(); });
     });
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);
