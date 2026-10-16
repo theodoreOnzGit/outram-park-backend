@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CIET loop demo · OUTRAM PARK</title>
+<meta name="description" content="The CIET Educational Simulator v2 in the browser: the Compact Integral Effects Test loop (heater, DHX, CTAH, DRACS and TCHX), computed by the desktop simulator's own physics on three Web Workers, in real time.">
+<style>
+  :root { --bg: #0e1014; --fg: #d8dce4; --dim: #8a93a3; --panel: #161a22; --line: #2a303c; --accent: #7aa7ff; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); color: var(--fg);
+               font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  #app { position: relative; display: flex; height: 100%; }
+  #panel { box-sizing: border-box; width: 340px; flex: none; height: 100%; overflow-y: auto; background: var(--panel);
+           border-right: 1px solid var(--line); padding: 12px 14px 32px; z-index: 5; }
+  #panel.folded { display: none; }
+  #stage { position: relative; flex: 1; min-width: 0; height: 100%; }
+  #view { display: block; width: 100%; height: 100%; touch-action: none; cursor: grab; }
+  @media (max-width: 699px) {
+    #panel { position: absolute; left: 0; top: 0; width: min(360px, 85vw); box-shadow: 4px 0 18px rgba(0,0,0,.5); }
+  }
+  h1 { font-size: 18px; margin: 0 0 4px; }
+  h2 { font-size: 14px; margin: 18px 0 6px; color: var(--accent); text-transform: uppercase; letter-spacing: .04em; }
+  p.note { color: var(--dim); font-size: 13px; margin: 6px 0; }
+  .row { margin: 8px 0; }
+  .row label { display: flex; justify-content: space-between; font-size: 14px; }
+  .row output { color: var(--accent); font-variant-numeric: tabular-nums; }
+  input[type=range] { width: 100%; height: 28px; }
+  .check { display: flex; align-items: center; gap: 8px; min-height: 36px; font-size: 14px; }
+  .check input { width: 20px; height: 20px; }
+  .btns { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+  button, select { font: inherit; font-size: 14px; min-height: 36px; padding: 0 12px; border-radius: 6px;
+                   border: 1px solid var(--line); background: #222836; color: var(--fg); }
+  button.on { background: #2d4a7c; border-color: var(--accent); }
+  #hide { float: right; }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; font-variant-numeric: tabular-nums; }
+  td { padding: 2px 4px; border-bottom: 1px solid var(--line); }
+  td:last-child { text-align: right; }
+  #zoom { position: absolute; top: 8px; right: 8px; display: flex; gap: 6px; z-index: 4; }
+  #zoom button { width: 36px; height: 36px; padding: 0; font-size: 18px; }
+  #reopen { position: absolute; left: 8px; bottom: 8px; z-index: 4; display: none; }
+  #reopen.shown { display: block; }
+  #status { position: absolute; left: 8px; top: 8px; right: 140px; z-index: 3; font-size: 13px; pointer-events: none;
+            text-shadow: 0 1px 2px #000; font-variant-numeric: tabular-nums; }
+  #status .big { font-size: 15px; font-weight: 600; }
+  #status .rt-yes { color: #7fe08a; } #status .rt-no { color: #ffb36b; }
+  #card { position: absolute; left: 8px; right: 8px; bottom: 54px; z-index: 3; font-size: 13px; display: none;
+          background: rgba(22,26,34,.88); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px;
+          font-variant-numeric: tabular-nums; pointer-events: none; }
+  #card.shown { display: block; }
+  #card b { color: #e8ecf3; }
+  #loading { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; text-align: center;
+             padding: 24px; background: var(--bg); z-index: 10; }
+  #loading .box { max-width: 34em; }
+  #loading .spin { width: 28px; height: 28px; margin: 0 auto 16px; border-radius: 50%; border: 3px solid #3a4150;
+                   border-top-color: var(--accent); animation: s 0.9s linear infinite; }
+  @keyframes s { to { transform: rotate(360deg); } }
+  .err { color: #ff8a8a; }
+  a { color: var(--accent); }
+</style>
+</head>
+<body>
+<div id="app">
+  <aside id="panel" aria-label="Controls">
+    <button id="hide" type="button">« Hide</button>
+    <h1>CIET loop</h1>
+    <p class="note">The Compact Integral Effects Test loop (UC Berkeley), a scaled thermal-hydraulic loop for
+      fluoride-salt-cooled reactors that uses Dowtherm A in place of the salt. The physics is the
+      <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/924">CIET Educational Simulator v2</a>'s own,
+      run in your browser.</p>
+
+    <h2>Heater and pump</h2>
+    <div class="row"><label for="heater_kw">Heater power <output id="heater_kw_v"></output></label>
+      <input id="heater_kw" type="range" min="0" max="10" step="0.1" value="0"></div>
+    <div class="row"><label for="pump_pa">CTAH pump pressure rise <output id="pump_pa_v"></output></label>
+      <input id="pump_pa" type="range" min="-15000" max="15000" step="100" value="0"></div>
+
+    <h2>Coolers (set points)</h2>
+    <div class="row"><label for="ctah_setpoint">CTAH outlet set point <output id="ctah_setpoint_v"></output></label>
+      <input id="ctah_setpoint" type="range" min="25" max="110" step="0.5" value="25"></div>
+    <div class="row"><label for="tchx_setpoint">TCHX outlet set point <output id="tchx_setpoint_v"></output></label>
+      <input id="tchx_setpoint" type="range" min="25" max="110" step="0.5" value="25"></div>
+
+    <h2>Valves and mesh</h2>
+    <label class="check"><input id="ctah_blocked" type="checkbox"> CTAH branch valve shut</label>
+    <label class="check"><input id="dhx_blocked" type="checkbox"> DHX branch valve shut</label>
+    <label class="check"><input id="coarse_heater" type="checkbox"> Coarse heater mesh (8 nodes, not 15)</label>
+
+    <h2>Run</h2>
+    <div class="btns" id="speeds">
+      <button type="button" data-speed="1">Real time</button>
+      <button type="button" data-speed="5">5×</button>
+      <button type="button" data-speed="20">20×</button>
+      <button type="button" data-speed="0">As fast as possible</button>
+    </div>
+    <div class="btns">
+      <button type="button" id="pause">Pause</button>
+      <button type="button" id="reset">Reset</button>
+    </div>
+    <div class="btns" id="modes">
+      <button type="button" data-mode="three">3 workers</button>
+      <button type="button" data-mode="one">1 worker</button>
+    </div>
+    <p class="note">3 workers is the desktop simulator's arrangement: a plant worker does each step's heat transfer
+      while a DRACS-flow worker and a primary-flow worker solve the flow rates, as v2 does on threads.
+      1 worker runs those solves one after another in the plant worker. The two give the same numbers
+      (tested). Your page only draws.</p>
+
+    <h2>Performance</h2>
+    <table id="perf"></table>
+
+    <h2>Plant</h2>
+    <table id="readout"></table>
+
+    <h2>About this model</h2>
+    <p class="note">Colours: fluid temperature, 20 °C (blue) to 100 °C (red), the desktop simulator's map. Arrows: flow
+      direction from the sign of each branch's flow; the DRACS solve returns a magnitude, drawn in the direction the
+      model assumes (up through the DHX tubes). Nothing moves on its own here: the simulator's state does not carry
+      the fluid inventory that a tracer's speed would need.</p>
+    <p class="note">The physics is a faithful port of the v1 simulator, whose model the maintainer validated; the
+      equivalence of v1 and v2 has not been verified. Calibrated parasitic heat losses and controller gains are v1's.
+      The heater trips at 150 °C at its inlet or outlet, 160 °C in its fluid or 350 °C in its shell, as on the desktop.</p>
+    <p class="note"><strong>Research, education and V&amp;V only.</strong> An offline demonstration: never connected to a
+      plant, not for reactor control, licensing or safety decisions.</p>
+  </aside>
+  <div id="stage">
+    <canvas id="view" aria-label="The CIET loop: heater, DHX and CTAH branches of the primary loop, and the DRACS loop with the TCHX, coloured by temperature"></canvas>
+    <div id="status"></div>
+    <div id="card" aria-live="off"></div>
+    <div id="zoom">
+      <button type="button" id="zin" aria-label="Zoom in">+</button>
+      <button type="button" id="zout" aria-label="Zoom out">−</button>
+      <button type="button" id="zfit" aria-label="Reset view">⟲</button>
+    </div>
+    <button type="button" id="reopen">Controls »</button>
+  </div>
+</div>
+<div id="loading">
+  <div class="box">
+    <div class="spin"></div>
+    <p><strong>Starting the CIET loop…</strong></p>
+    <p>The CIET Educational Simulator v2's physics, compiled to WebAssembly, on three background workers in this tab.</p>
+    <p>Research, education and V&amp;V only.</p>
+    <noscript><p class="err">This demo needs JavaScript and WebAssembly.</p></noscript>
+  </div>
+</div>
+<script type="module" src="./app.js"></script>
+</body>
+</html>

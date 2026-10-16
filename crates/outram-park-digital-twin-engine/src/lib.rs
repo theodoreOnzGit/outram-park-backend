@@ -76,10 +76,11 @@ pub mod animation;
 // `opcua_core` below it builds on Android/Termux with no target gate: the
 // headless Termux build of the simulator serves OPC-UA exactly as the desktop
 // one does.
-/// Not built for wasm: this module's OPC-UA / mDNS / networking stack has no
-/// browser equivalent (see the wasm target table in Cargo.toml). Android keeps
-/// it. Beads op-okqo.3, op-eeqw.2.
-#[cfg(not(target_arch = "wasm32"))]
+/// ~~Not built for wasm~~ **CHANGED 2026-10-17 (gh:#924):** on wasm only
+/// its `state` submodule is built (plain data, no networking), for the CIET
+/// browser demo; the OPC-UA / mDNS / networking parts stay off wasm, having
+/// no browser equivalent (see the wasm target table in Cargo.toml). Android
+/// keeps all of it. Beads op-okqo.3, op-eeqw.2.
 pub mod ciet_opcua;
 // `opcua_core` is the reactor-agnostic OPC-UA server layer `ciet_opcua` is built
 // on: transport, server thread, PKI, mDNS discovery and address-space

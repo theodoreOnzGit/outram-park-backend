@@ -7530,6 +7530,7 @@ dependencies = [
  "tokio",
  "tuas_boussinesq_solver",
  "uom",
+ "wasm-bindgen",
 ]
 
 [[package]]

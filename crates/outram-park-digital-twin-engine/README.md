@@ -192,8 +192,11 @@ cargo run --release --bin ciet_v2_opcua_client
 
 The shared interface between them is the `ciet_opcua` **library** module —
 `state`, `node_map`, `server`, `discovery`, `pki_paths`. It holds no physics and
-no GUI, so it compiles everywhere the workspace targets, including headless for
-`aarch64-linux-android`; `async-opcua` uses RustCrypto rather than `openssl-sys`
+no GUI, so it compiles ~~everywhere the workspace targets~~ on every native
+target, including headless for
+`aarch64-linux-android` (**CORRECTED 2026-10-17**: it was gated off `wasm32`
+entirely; since gh:#924 only its `state` submodule builds there, for the
+browser demo below); `async-opcua` uses RustCrypto rather than `openssl-sys`
 for exactly that reason. The address space is 36 variables (21 read-only
 signals, 8 writable continuous controls, 7 writable switches) at
 `opc.tcp://<host>:4840/ciet`, all derived from three enums in
@@ -226,6 +229,22 @@ uniqueness, clamping, `NaN` rejection, switch round-tripping, browse-name
 validity), which verify the contract and say nothing about the physics. Termux
 support is **unverified**: the `aarch64-linux-android` `cargo check` is only a
 proxy and no native on-device Termux build has been run.
+
+### In the browser (gh:#924)
+
+The same simulator runs on the Pages site at `demos/ciet/`: a plain-JS page that
+only draws, and the v2 physics compiled to wasm on three Web Workers, mirroring
+v2's threads (a plant worker for the heat transfer and real-time pacing, and a
+DRACS-flow and a primary-flow worker for the flow solves). One copy of the
+physics: the loop body moved into `full_simulation/stepper.rs` (`CietLoop`),
+which the desktop thread and `examples/ciet_web` both call. Build with
+`web/ciet/build.sh`; record and measurements in
+[`verification_and_validation/ciet_web/README.md`](verification_and_validation/ciet_web/README.md).
+
+```bash
+cargo run --release --example ciet_web -- --headless 600 10 8   # CSV trace, 8 kW
+crates/outram-park-digital-twin-engine/web/ciet/build.sh        # the browser demo
+```
 
 Documentation:
 

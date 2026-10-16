@@ -10,7 +10,9 @@
 //! `FluidComponentCollection` calls, same branch topology, same handling of the
 //! blocked-branch cases.
 //!
-//! **What v2 changed here: nothing but this header.** The `Arc<Mutex<MassRate>>`
+//! **What v2 changed here: this header, and (gh:#924) the two-branch solve
+//! is started with [`super::fork::fork`] instead of `thread::spawn`, so it
+//! runs inline on `wasm32`.** The `Arc<Mutex<MassRate>>`
 //! handles below are *internal* scratch space for the parallel branch solve, not
 //! the shared plant state, so they stay `Mutex` -- there is one writer and one
 //! reader per handle and nothing for an `RwLock` to relieve. `egui`-free, so this
@@ -25,7 +27,7 @@ use std::ops::Deref;
 use std::ops::DerefMut;
 use std::sync::Arc;
 use std::sync::Mutex;
-use std::thread;
+use super::fork::fork;
 
 use tuas_boussinesq_solver::pre_built_components::ciet_three_branch_plus_dracs::solver_functions::get_mass_flowrate_two_branches;
 use tuas_boussinesq_solver::pre_built_components::ciet_three_branch_plus_dracs::solver_functions::get_mass_flowrate_vector_for_dhx_heater_and_ctah_branches;
@@ -197,7 +199,7 @@ pub fn three_branch_pri_loop_flowrates_parallel_ver_4(
 
         // spawn a thread
 
-        let two_branch_flow_scenario_join_handle = thread::spawn(move || {
+        let two_branch_flow_scenario_join_handle = fork(move || {
             let (heater_flow_two_br, ctah_flow_two_br) =
                 get_mass_flowrate_two_branches(&pri_loop_ctah_and_heater_br);
 
@@ -233,7 +235,7 @@ pub fn three_branch_pri_loop_flowrates_parallel_ver_4(
         let flow_diode_block_flow: bool = dhx_flow < MassRate::ZERO;
 
         // load the two branch solution
-        two_branch_flow_scenario_join_handle.join().unwrap();
+        two_branch_flow_scenario_join_handle.join();
 
         if flow_diode_block_flow {
             let dhx_flow = MassRate::ZERO;

@@ -295,6 +295,17 @@ path = "src/bin/ciet_educational_simulator_v2/main.rs"
 name = "ciet_v2_opcua_client"
 path = "src/bin/ciet_v2_opcua_client/main.rs"
 
+# CIET Educational Simulator v2 in the browser (gh:#924): the v2 physics
+# stepper (`full_simulation::stepper`, included by path, so one copy of the
+# physics) compiled to wasm and driven from a Web Worker by a plain-JS page
+# (`web/ciet/`). Native builds carry its tests.
+[[example]]
+name = "ciet_web"
+path = "examples/ciet_web/main.rs"
+
+[target.'cfg(target_arch = "wasm32")'.dev-dependencies]
+wasm-bindgen = { workspace = true }
+
 # ── The OPC-UA / mDNS / filesystem stack: everywhere EXCEPT wasm ─────────────
 # None of this can work in a browser: async-opcua and tokio want sockets,
 # mdns-sd wants multicast UDP, directories wants XDG/AppData paths, and

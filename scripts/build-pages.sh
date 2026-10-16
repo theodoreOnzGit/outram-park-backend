@@ -188,6 +188,13 @@ bash crates/dhoby-ghaut/web/delta_tracking/build.sh "$OUT/demos/delta-tracking"
 for f in index.html worker.js delta_tracking_web_bg.wasm; do
   [[ -f "$OUT/demos/delta-tracking/$f" ]] || { echo "missing demos/delta-tracking/$f" >&2; exit 1; }
 done
+# The CIET Educational Simulator v2 in the browser (gh:#924): the desktop
+# simulator's own stepper as wasm, on three Web Workers (plant, DRACS flow,
+# primary flow) under a plain-JS page.
+bash crates/outram-park-digital-twin-engine/web/ciet/build.sh "$OUT/demos/ciet"
+for f in index.html app.js plant-worker.js flow-worker.js ciet_web.js ciet_web_bg.wasm; do
+  [[ -f "$OUT/demos/ciet/$f" ]] || { echo "missing demos/ciet/$f" >&2; exit 1; }
+done
 mkdir -p "$OUT/demos/triso-pebble/geometry"
 cp crates/dhoby-ghaut/web/monte_carlo/triso-pebble-redirect.html "$OUT/demos/triso-pebble/index.html"
 printf '%s\n' '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">' \
