@@ -133,8 +133,9 @@ impl McRung for Godiva {
     }
     fn loading_note(tier: Tier) -> Option<&'static str> {
         (tier == Tier::Exact).then_some(
-            "Run k_eff processes at NJOY's tolerance 0.001, like the recorded result, so it takes about three \
-             times longer than Watch mode (a fast desktop natively: about a minute; a browser or a phone: several).",
+            "Watch and Run k_eff share one load at NJOY's tolerance 0.001, like the recorded result, its tapes \
+             shared among several workers (a fast desktop natively: about a minute; a browser or a phone: several). \
+             Later visits read the processed data from this browser's cache.",
         )
     }
     fn recorded_tracks() -> Option<&'static [u8]> {
