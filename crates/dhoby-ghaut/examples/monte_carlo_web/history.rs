@@ -59,6 +59,23 @@ impl History {
     pub fn thermalised(&self) -> bool {
         self.min_energy_ev < THERMAL_CUTOFF_EV
     }
+
+    /// The state indices where a flight at a new energy starts: the birth
+    /// (state 0) and every scatter. A surface crossing (a reflective wall, a
+    /// cell boundary) changes neither the energy nor the flight, so it is
+    /// not one; the history's end (capture, fission, leak) starts nothing.
+    pub fn flight_starts(&self) -> Vec<usize> {
+        let st = &self.track.states;
+        (0..st.len()).filter(|&i| i == 0 || st[i].event == TrackEvent::Scatter).collect()
+    }
+
+    /// The energy the neutron flies at after each collision, eV: element 0 is
+    /// the birth energy, element `n` the energy after its `n`-th scatter
+    /// (each state carries the energy the neutron leaves it with). The σ(E)
+    /// panel's collision strip draws this series (gh:#906).
+    pub fn collision_energies(&self) -> Vec<f64> {
+        self.flight_starts().into_iter().map(|i| self.track.states[i].energy).collect()
+    }
 }
 
 /// Running totals over every history shown.
@@ -116,6 +133,50 @@ pub fn outcome_name(o: Option<TrackEvent>) -> &'static str {
         Some(TrackEvent::Rouletted) => "rouletted",
         Some(TrackEvent::Born) | Some(TrackEvent::SurfaceCrossing) | Some(TrackEvent::Scatter) => "unterminated",
         None => "empty",
+    }
+}
+
+#[cfg(test)]
+pub(crate) mod tests {
+    use super::*;
+    use outram_mc_libs::geometry::position::Direction;
+    use outram_mc_libs::physics::track_output::TrackState;
+
+    /// A toy capture history along x, one cm per state: born at 2 MeV, a
+    /// wall crossing (no energy change), scatters to 1 MeV and 1 keV, then
+    /// captured at 1 keV.
+    pub(crate) fn toy() -> History {
+        let s = |x: f64, e: f64, ev: TrackEvent| TrackState {
+            r: Position::new(x, 0.0, 0.0),
+            u: Direction::new(1.0, 0.0, 0.0),
+            energy: e,
+            time: x,
+            weight: 1.0,
+            cell: 0,
+            material: Some(0),
+            event: ev,
+        };
+        let track = Track {
+            states: vec![
+                s(0.0, 2.0e6, TrackEvent::Born),
+                s(1.0, 2.0e6, TrackEvent::SurfaceCrossing),
+                s(2.0, 1.0e6, TrackEvent::Scatter),
+                s(3.0, 1.0e3, TrackEvent::Scatter),
+                s(4.0, 1.0e3, TrackEvent::Absorption),
+            ],
+            dropped_states: 0,
+        };
+        History::from_track(0, Position::new(0.0, 0.0, 0.0), 2.0e6, false, track)
+    }
+
+    /// Flights start at the birth and at each scatter, never at a crossing or
+    /// at the end; the energies are the ones each flight is flown at.
+    #[test]
+    fn collision_energies_skip_crossings_and_the_end() {
+        let h = toy();
+        assert_eq!(h.flight_starts(), vec![0, 2, 3]);
+        assert_eq!(h.collision_energies(), vec![2.0e6, 1.0e6, 1.0e3]);
+        assert_eq!(h.scatters, h.collision_energies().len() - 1);
     }
 }
 
