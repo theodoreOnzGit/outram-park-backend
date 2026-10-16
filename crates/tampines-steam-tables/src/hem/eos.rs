@@ -22,6 +22,7 @@
 //! characteristics `u ± c` and its Courant number with it, so a frozen speed
 //! would put the waves of a flashing flow in the wrong place.
 
+use petir::mathf::RealMath;
 use petir::roots::{BracketingMethod, BracketingSolver};
 use uom::si::available_energy::joule_per_kilogram;
 use uom::si::f64::{
@@ -357,14 +358,14 @@ where
     // probes between two points the flash accepted.
     let (lo, hi) = if hi / lo > 2.0 {
         const N_GRID: usize = 48;
-        let r = (hi / lo).powf(1.0 / N_GRID as f64);
+        let r = (hi / lo).r_powf(1.0 / N_GRID as f64);
         let mut prev = (lo, g(lo));
         let mut found = None;
         for k in 1..=N_GRID {
             let pk = if k == N_GRID {
                 hi
             } else {
-                lo * r.powi(k as i32)
+                lo * r.r_powi(k as i32)
             };
             let gk = g(pk);
             if let (Some(a), Some(b)) = (prev.1, gk) {

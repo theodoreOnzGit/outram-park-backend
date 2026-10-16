@@ -60,6 +60,8 @@ const HOT_PATH_DIRS: &[&str] = &[
     "thermal_conductivity",
     "interfaces/functional_programming",
     "steam_turbine_equations/converging_diverging_nozzles",
+    // HemPipe (gh #902): its (rho,e) -> p bracket grid is on the solver path.
+    "hem",
 ];
 
 /// Raw `f64` methods (and their UFCS spellings) that reach the platform libm
