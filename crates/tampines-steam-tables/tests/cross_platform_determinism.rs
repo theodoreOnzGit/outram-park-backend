@@ -69,6 +69,14 @@
 //! hashes differ today. Turning this into a cross-target gate is S2's
 //! acceptance criterion, and the CI wiring is out of scope here (see below).
 //!
+//! **Golden history.** 2026-10-16: all Part B (`edw_*`) goldens were
+//! regenerated after gh:#900 changed `TampinesSteamArray`'s defaults to
+//! implicit energy convection, `PsiRefresh::OncePerOuterCorrector` and the K
+//! terms. The step-1 `he` hashes are unchanged; every `p`/`rho`/`U` hash moves
+//! from step 1. That is the expected physics change, not a determinism
+//! regression. Part A (IF97 sweep) did not move. The record is in
+//! `verification_and_validation/determinism_golden_moves.md`.
+//!
 //! When a golden moves for a legitimate reason, regenerate it with
 //! `DETERMINISM_PRINT=1` and record the move (old hash, new hash, cause) in a
 //! `verification_and_validation/` note. **Never update a golden to make a
@@ -255,54 +263,54 @@ const GOLDEN: &[(&str, usize, u64)] = &[
     ("powi_const", 7, 0x29117476631d81ac),
     ("powi_runtime", 2007, 0x2eecdc58aa489499),
     ("std_libm", 2500, 0xc001414e982af1cb),
-    ("edw_pimple_p_1", 24, 0x38437b90e3c059cc),
+    ("edw_pimple_p_1", 24, 0x5c438839a9588fe5),
     ("edw_pimple_he_1", 24, 0x99e80f2836e95484),
-    ("edw_pimple_rho_1", 24, 0x8dadf71b73128a23),
-    ("edw_pimple_U_1", 72, 0xff65cc3288393d31),
-    ("edw_pimple_p_10", 24, 0x2c53585084182609),
-    ("edw_pimple_he_10", 24, 0xb49279efc96f2847),
-    ("edw_pimple_rho_10", 24, 0x630c70f007ce06bb),
-    ("edw_pimple_U_10", 72, 0xc74a0b296b69d63d),
-    ("edw_pimple_p_50", 24, 0x26a4500911193019),
-    ("edw_pimple_he_50", 24, 0xa0aba80b946dbade),
-    ("edw_pimple_rho_50", 24, 0x24e34497cf21f9a2),
-    ("edw_pimple_U_50", 72, 0x2ecb5b0835693c4a),
-    ("edw_pimple_p_200", 24, 0xe9405e23a7130340),
-    ("edw_pimple_he_200", 24, 0x7373afaf261d31a5),
-    ("edw_pimple_rho_200", 24, 0xaa90a95e6fdd9089),
-    ("edw_pimple_U_200", 72, 0x06e5b250f95b820f),
-    ("edw_hybrid_p_1", 24, 0x38437b90e3c059cc),
+    ("edw_pimple_rho_1", 24, 0xbf05587125d7c7a4),
+    ("edw_pimple_U_1", 72, 0x60673c681d1e7655),
+    ("edw_pimple_p_10", 24, 0x2423d833a3f87c70),
+    ("edw_pimple_he_10", 24, 0x2745388edcf1211a),
+    ("edw_pimple_rho_10", 24, 0x5f784bec19fe3451),
+    ("edw_pimple_U_10", 72, 0xb409cf81ca9ef7ee),
+    ("edw_pimple_p_50", 24, 0x77a391f98be19cae),
+    ("edw_pimple_he_50", 24, 0x55a763f07d6ce4b7),
+    ("edw_pimple_rho_50", 24, 0x928380f00731e1bf),
+    ("edw_pimple_U_50", 72, 0x341470de4b9f6b88),
+    ("edw_pimple_p_200", 24, 0x3d1ebba98509e7e5),
+    ("edw_pimple_he_200", 24, 0x2efa2c88b9d4c55c),
+    ("edw_pimple_rho_200", 24, 0x4f9fe4a58a074f24),
+    ("edw_pimple_U_200", 72, 0xddc1daac10ff6f72),
+    ("edw_hybrid_p_1", 24, 0x5c438839a9588fe5),
     ("edw_hybrid_he_1", 24, 0x99e80f2836e95484),
-    ("edw_hybrid_rho_1", 24, 0x8dadf71b73128a23),
-    ("edw_hybrid_U_1", 72, 0xff65cc3288393d31),
-    ("edw_hybrid_p_10", 24, 0x2c53585084182609),
-    ("edw_hybrid_he_10", 24, 0xb49279efc96f2847),
-    ("edw_hybrid_rho_10", 24, 0x630c70f007ce06bb),
-    ("edw_hybrid_U_10", 72, 0xc74a0b296b69d63d),
-    ("edw_hybrid_p_50", 24, 0x26a4500911193019),
-    ("edw_hybrid_he_50", 24, 0xa0aba80b946dbade),
-    ("edw_hybrid_rho_50", 24, 0x24e34497cf21f9a2),
-    ("edw_hybrid_U_50", 72, 0x2ecb5b0835693c4a),
-    ("edw_hybrid_p_200", 24, 0xe9405e23a7130340),
-    ("edw_hybrid_he_200", 24, 0x7373afaf261d31a5),
-    ("edw_hybrid_rho_200", 24, 0xaa90a95e6fdd9089),
-    ("edw_hybrid_U_200", 72, 0x06e5b250f95b820f),
-    ("edw_knp_p_1", 24, 0x38437b90e3c059cc),
+    ("edw_hybrid_rho_1", 24, 0xbf05587125d7c7a4),
+    ("edw_hybrid_U_1", 72, 0x60673c681d1e7655),
+    ("edw_hybrid_p_10", 24, 0x2423d833a3f87c70),
+    ("edw_hybrid_he_10", 24, 0x2745388edcf1211a),
+    ("edw_hybrid_rho_10", 24, 0x5f784bec19fe3451),
+    ("edw_hybrid_U_10", 72, 0xb409cf81ca9ef7ee),
+    ("edw_hybrid_p_50", 24, 0x77a391f98be19cae),
+    ("edw_hybrid_he_50", 24, 0x55a763f07d6ce4b7),
+    ("edw_hybrid_rho_50", 24, 0x928380f00731e1bf),
+    ("edw_hybrid_U_50", 72, 0x341470de4b9f6b88),
+    ("edw_hybrid_p_200", 24, 0x7e798e8b5d233b86),
+    ("edw_hybrid_he_200", 24, 0x61f01a0010decae4),
+    ("edw_hybrid_rho_200", 24, 0x0708e41970983b30),
+    ("edw_hybrid_U_200", 72, 0x2e5772d11e359345),
+    ("edw_knp_p_1", 24, 0x5c438839a9588fe5),
     ("edw_knp_he_1", 24, 0x99e80f2836e95484),
-    ("edw_knp_rho_1", 24, 0x8dadf71b73128a23),
-    ("edw_knp_U_1", 72, 0x15908bf5e96cb484),
-    ("edw_knp_p_10", 24, 0x7609a6277c086f23),
-    ("edw_knp_he_10", 24, 0x0d11f1e122f488e4),
-    ("edw_knp_rho_10", 24, 0xe6fac87890d30a19),
-    ("edw_knp_U_10", 72, 0x9eb26c5e19725565),
-    ("edw_knp_p_50", 24, 0x49584a855a15f487),
-    ("edw_knp_he_50", 24, 0xb210182e2a69376f),
-    ("edw_knp_rho_50", 24, 0x05797a1e3c7308a8),
-    ("edw_knp_U_50", 72, 0xb31b9299f14ce952),
-    ("edw_knp_p_200", 24, 0xcae3762dd95f2608),
-    ("edw_knp_he_200", 24, 0xf024754f2f4e965f),
-    ("edw_knp_rho_200", 24, 0x18bc7d612a54dfd0),
-    ("edw_knp_U_200", 72, 0x2e016d3928d9a3e8),
+    ("edw_knp_rho_1", 24, 0xbf05587125d7c7a4),
+    ("edw_knp_U_1", 72, 0x60673c681d1e7655),
+    ("edw_knp_p_10", 24, 0xa643d9aec5a757b8),
+    ("edw_knp_he_10", 24, 0xbf54790b874b7bd0),
+    ("edw_knp_rho_10", 24, 0x2ff8eaf20ed3c9a7),
+    ("edw_knp_U_10", 72, 0xc654ec63ee49f4a4),
+    ("edw_knp_p_50", 24, 0x266e520da11febdc),
+    ("edw_knp_he_50", 24, 0x05e645504a7c869c),
+    ("edw_knp_rho_50", 24, 0xf6e9978e0247b71e),
+    ("edw_knp_U_50", 72, 0xb07c66134e97c683),
+    ("edw_knp_p_200", 24, 0x5fb76db72bd3d22a),
+    ("edw_knp_he_200", 24, 0x8e38f2d8b450e805),
+    ("edw_knp_rho_200", 24, 0x050e21e1a38ce416),
+    ("edw_knp_U_200", 72, 0xed748703af11b392),
     // GOLDEN-TABLE-END
 ];
 
@@ -628,7 +636,9 @@ fn edwards_slice(mode: SolverMode, blend: Option<(f64, f64)>, tag: &str) -> Vec<
         let c = n - 1;
         let u_face = choked_face_velocity(array.p.internal[c], array.he.internal[c], array.rho.internal[c], time_s);
         array.set_outlet_velocity(Velocity::new::<meter_per_second>(u_face));
-        array.step();
+        array
+            .step()
+            .expect("200-step Edwards slice must step without a solver error");
         time_s += dt_s;
         if [1, 10, 50, 200].contains(&step) {
             let mut hp = Fnv::new(&format!("{tag}_p_{step}"));

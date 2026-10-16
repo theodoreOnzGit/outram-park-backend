@@ -310,7 +310,8 @@ mod tests {
             a.he.internal[c] = 1.20e6 + 0.20e6 * s;
             a.u.internal[c] = Vector3::new(20.0 + 95.0 * s, 0.0, 0.0);
         }
-        a.correct_thermo();
+        a.correct_thermo()
+            .expect("test state lies inside the IF97 (p,h) range");
         a
     }
 
