@@ -28,6 +28,7 @@ eval(fs.readFileSync(path.join(__dirname, "bound-data.js"), "utf8"));
 eval(fs.readFileSync(path.join(__dirname, "bound.js"), "utf8"));
 Object.assign(window.Lesson, { H: 6.62607015e-34, MN: 1.67492749804e-27, EV: 1.602176634e-19 });
 eval(fs.readFileSync(path.join(__dirname, "bragg.js"), "utf8"));
+eval(fs.readFileSync(path.join(__dirname, "doppler-data.js"), "utf8"));
 const M = window.Lesson.qscatterMath, SH = window.Lesson.shapesMath, AN = window.Lesson.anglesMath;
 let failed = 0;
 function check(name, value, limit) {
@@ -435,6 +436,28 @@ for (const [label, A, ap, E] of [["C-12, 10 eV", 11.89365, 6.146927, 10], ["U-23
   q(/data-dmax>([^<]+)</g, () => lc / 2);
   q(/data-s01="(\d+)">([^<]+)</g, (m) => GM.sigmaCoh(BD.bragg[m[1]], 0.1));
   check("page 21: " + n + " numbers in the prose vs the data", bad, 0);
+}
+
+// Page 22 (gh:#906 design and amendments, 2026-10-16): Doppler broadening,
+// against doppler-data.js (examples/lesson_doppler.rs, the RECONR and BROADR
+// ports on U-238's 6.674 eV capture resonance).
+{
+  const DD = window.DOPPLER_DATA, U = DD.u238;
+  const h = fs.readFileSync(path.join(__dirname, "doppler.html"), "utf8");
+  const half = (t) => { const d = t.split(".")[1]; return 0.5 * Math.pow(10, -(d ? d.length : 0)) * (1 + 1e-9); };
+  let bad = 0, n = 0;
+  const q = (re, f) => { for (const m of h.matchAll(re)) { n++; const t = m[m.length - 1].replace(/ /g, ""), want = f(m); if (Math.abs(+t - want) > half(t)) { bad++; console.log("     mismatch", m[0], "want", want); } } };
+  q(/data-peak="([0-9.]+)">([^<]+)</g, (m) => U[m[1] === "0" ? "0" : m[1]].peak);
+  q(/data-fwhm="([0-9.]+)">([^<]+)</g, (m) => U[m[1]].fwhm * 1e3);
+  q(/data-area="([0-9.]+)">([^<]+)</g, (m) => U[m[1]].area);
+  check("page 22: " + n + " numbers in the prose vs the data", bad, 0);
+  // The physics the page states: lower, wider, area kept (E >> kT/A), 1/v unchanged.
+  check("Doppler: the peak falls and widens with temperature", U["293.6"].peak < U["0"].peak && U["1200"].peak < U["293.6"].peak && U["1200"].fwhm > U["293.6"].fwhm && U["293.6"].fwhm > U["0"].fwhm ? 0 : 1, 0);
+  check("Doppler: area under the 6.67 eV resonance, 1200 K vs 0 K (relative)", Math.abs(U["1200"].area / U["0"].area - 1), 2e-4);
+  check("Doppler: a 1/v cross section is unchanged (largest relative change)", Math.max(DD.onev["293.6"], DD.onev["1200"]), 1e-4);
+  const kta = 8.617333262e-5 * 293.6 / DD.awr;
+  check("page 22: kT/A for U-238 at 293.6 K is 1.1e-4 eV (relative)", Math.abs(kta / 1.1e-4 - 1), 0.05);
+  check("page 22: E_m = 16kT/A for U-235 at 300 K is 0.0017 eV (relative)", Math.abs(16 * 8.617333262e-5 * 300 / 233.0248 / 0.0017 - 1), 0.05);
 }
 
 if (failed) { console.log(failed + " check(s) failed"); process.exit(1); }

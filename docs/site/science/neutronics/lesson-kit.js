@@ -222,7 +222,8 @@
     ["unresolved.html", "The double whammy: unresolved resonances"],
     ["purr.html", "PURR: make up the resonances"],
     ["bound-atoms.html", "But the atoms are bound!"],
-    ["lattice-scattering.html", "What does lattice scattering depend on?"]
+    ["lattice-scattering.html", "What does lattice scattering depend on?"],
+    ["doppler.html", "Doppler broadening: lone atoms, warm"]
   ];
   function lessonNav() {
     var here = location.pathname.split("/").pop() || LESSONS[0][0], i = -1;
