@@ -1,0 +1,778 @@
+use super::*;
+
+use geo::algorithm::contains::Contains;
+use geo::{Polygon, LineString, Point, point, Closest};
+use geo::algorithm::closest_point::ClosestPoint;
+
+///Trait for a Geometry object - all forms of geometry must implement these traits to be used
+pub trait Geometry {
+
+    type InputFileFormat: InputFile + Clone;
+
+    fn new(input: &<<Self as Geometry>::InputFileFormat as GeometryInput>::GeometryInput) -> Self;
+    fn get_densities(&self,  x: f64, y: f64, z: f64) -> &Vec<f64>;
+    fn get_ck(&self,  x: f64, y: f64, z: f64) -> f64;
+    fn get_total_density(&self,  x: f64, y: f64, z: f64) -> f64;
+    fn get_concentrations(&self, x: f64, y: f64, z: f64) -> &Vec<f64>;
+    fn inside(&self, x: f64, y: f64, z: f64) -> bool;
+    fn inside_simulation_boundary(&self, x: f64, y: f64, z: f64) -> bool;
+    fn inside_energy_barrier(&self, x: f64, y: f64, z: f64) -> bool;
+    fn closest_point(&self, x: f64, y: f64, z: f64) -> (f64, f64, f64);
+}
+
+pub trait GeometryElement: Clone {
+    fn contains(&self, x: f64, y: f64, z: f64) -> bool;
+    fn distance_to(&self, x: f64, y: f64, z: f64) -> f64;
+    fn get_densities(&self) -> &Vec<f64>;
+    fn get_concentrations(&self) -> &Vec<f64>;
+    fn get_electronic_stopping_correction_factor(&self) -> f64;
+}
+
+#[derive(Deserialize, Clone)]
+pub struct Mesh0DInput {
+    pub length_unit: String,
+    pub densities: Vec<f64>,
+    pub electronic_stopping_correction_factor: f64,
+}
+
+#[derive(Clone)]
+pub struct Mesh0D {
+    pub densities: Vec<f64>,
+    pub concentrations: Vec<f64>,
+    pub electronic_stopping_correction_factor: f64,
+    pub energy_barrier_thickness: f64,
+}
+
+impl Geometry for Mesh0D {
+
+    type InputFileFormat = Input0D;
+
+    fn new(input: &<<Self as Geometry>::InputFileFormat as GeometryInput>::GeometryInput) -> Mesh0D {
+
+        let length_unit: f64 = match input.length_unit.as_str() {
+            "MICRON" => MICRON,
+            "CM" => CM,
+            "MM" => MM,
+            "ANGSTROM" => ANGSTROM,
+            "NM" => NM,
+            "M" => 1.,
+            _ => input.length_unit.parse()
+                .unwrap_or_else(|_| panic!("Input errror: could nor parse length unit {}. Use a valid float or one of ANGSTROM, NM, MICRON, CM, MM, M",
+                        &input.length_unit.as_str())),
+        };
+
+        let electronic_stopping_correction_factor = input.electronic_stopping_correction_factor;
+
+        let densities: Vec<f64> = input.densities.iter().map(|element| element/(length_unit).powi(3)).collect();
+        assert!(!densities.is_empty(), "Input Error: density list empty.");
+        
+        let total_density: f64 = densities.iter().sum();
+        assert!(total_density < MAX_DENSITY, "Input Error: total density {}/m^3 exceeds realistic values; check values or units.", total_density);
+
+        let energy_barrier_thickness = 1./total_density.cbrt()/SQRTPI*2.;
+
+        let concentrations: Vec<f64> = densities.iter().map(|&density| density/total_density).collect::<Vec<f64>>();
+
+        Mesh0D {
+            densities,
+            concentrations,
+            electronic_stopping_correction_factor,
+            energy_barrier_thickness
+        }
+    }
+
+    fn get_densities(&self,  x: f64, y: f64, z: f64) -> &Vec<f64> {
+        &self.densities
+    }
+    fn get_ck(&self,  x: f64, y: f64, z: f64) -> f64 {
+        self.electronic_stopping_correction_factor
+    }
+    fn get_total_density(&self,  x: f64, y: f64, z: f64) -> f64{
+        self.densities.iter().sum()
+    }
+    fn get_concentrations(&self, x: f64, y: f64, z: f64) -> &Vec<f64> {
+        &self.concentrations
+    }
+    fn inside(&self, x: f64, y: f64, z: f64) -> bool {
+        x > 0.0
+    }
+
+    fn inside_simulation_boundary(&self, x: f64, y: f64, z: f64) -> bool {
+        x > -10.*self.energy_barrier_thickness
+    }
+
+    fn inside_energy_barrier(&self, x: f64, y: f64, z: f64) -> bool {
+        x > -self.energy_barrier_thickness
+    }
+
+    fn closest_point(&self, x: f64, y: f64, z: f64) -> (f64, f64, f64) {
+        (0., y, z)
+    }
+}
+
+#[derive(Deserialize, Clone)]
+pub struct Mesh1DInput {
+    pub length_unit: String,
+    pub layer_thicknesses: Vec<f64>,
+    pub densities: Vec<Vec<f64>>,
+    pub electronic_stopping_correction_factors: Vec<f64>,
+}
+
+#[derive(Clone)]
+pub struct Mesh1D {
+    layers: Vec<Layer1D>,
+    top: f64,
+    bottom: f64,
+    pub top_energy_barrier_thickness: f64,
+    pub bottom_energy_barrier_thickness: f64,
+}
+
+impl Geometry for Mesh1D {
+
+    type InputFileFormat = input::Input1D;
+
+    fn new(geometry_input: &<<Self as Geometry>::InputFileFormat as GeometryInput>::GeometryInput) -> Self {
+
+        let layer_thicknesses = geometry_input.layer_thicknesses.clone();
+        let electronic_stopping_correction_factors = geometry_input.electronic_stopping_correction_factors.clone();
+        assert!(!electronic_stopping_correction_factors.is_empty(), "Input Error: Electronic stopping correction factor list empty.");
+        let n = layer_thicknesses.len();
+
+        let mut layers: Vec<Layer1D> =  Vec::with_capacity(n);
+
+        //Multiply all coordinates by value of geometry unit.
+        let length_unit: f64 = match geometry_input.length_unit.as_str() {
+            "MICRON" => MICRON,
+            "CM" => CM,
+            "MM" => MM,
+            "ANGSTROM" => ANGSTROM,
+            "NM" => NM,
+            "M" => 1.,
+            _ => geometry_input.length_unit.parse()
+                .unwrap_or_else(|_| panic!("Input errror: could nor parse length unit {}. Use a valid float or one of ANGSTROM, NM, MICRON, CM, MM, M", &geometry_input.length_unit.as_str())),
+        };
+
+        let densities: Vec<Vec<f64>> = geometry_input.densities
+            .iter()
+            .map( |row| row.iter().map(|element| element/(length_unit).powi(3)).collect() ).collect();
+    
+
+        //Assert all layer density lists are equal length
+        assert!(
+            densities.iter()
+            .all(|density_list| density_list.len() == densities[0].len()),
+            "Input error: all layer density lists must be the same size."
+        );
+        assert_eq!(layer_thicknesses.len(), densities.len(), "Input error: coordinates and data of unequal length.");
+
+        let mut layer_top = 0.;
+        let mut layer_bottom = 0.;
+        for ((layer_thickness, densities), ck) in layer_thicknesses.iter().zip(densities).zip(electronic_stopping_correction_factors) {
+
+            layer_bottom += layer_thickness*length_unit;
+
+            let total_density: f64 = densities.iter().sum();
+            assert!(total_density < MAX_DENSITY, "Input Error: total density {}/m^3 exceeds realistic values; check values or units.", total_density);
+            let concentrations: Vec<f64> = densities.iter().map(|&density| density/total_density).collect::<Vec<f64>>();
+
+            layers.push(Layer1D::new(layer_top, layer_bottom, densities, concentrations, ck));
+            layer_top = layer_bottom;
+        }
+
+        let top_energy_barrier_thickness = 1./layers[0].densities.iter().sum::<f64>().cbrt()/SQRTPI*2.;
+        let bottom_energy_barrier_thickness = 1./layers[layers.len() - 1].densities.iter().sum::<f64>().cbrt()/SQRTPI*2.;
+
+        Mesh1D {
+            layers,
+            top: 0.0,
+            bottom: layer_bottom,
+            top_energy_barrier_thickness,
+            bottom_energy_barrier_thickness,
+        }
+    }
+    fn get_densities(&self,  x: f64, y: f64, z: f64) -> &Vec<f64> {
+        if self.inside(x, y, z) {
+            for layer in &self.layers {
+                if layer.contains(x, y, z) {
+                    return &layer.densities
+                }
+            }
+            panic!("Geometry error: method inside() is returning true for points outside all layers. Check geometry.")
+        } else if x < self.top {
+            &self.layers[0].densities
+        } else {
+            &self.layers[self.layers.len() - 1].densities
+        }
+    }
+    fn get_ck(&self,  x: f64, y: f64, z: f64) -> f64 {
+        if self.inside(x, y, z) {
+            for layer in &self.layers {
+                if layer.contains(x, y, z) {
+                    return layer.electronic_stopping_correction_factor
+                }
+            }
+            panic!("Geometry error: method inside() is returning true for points outside all layers. Check geometry.")
+        } else if x < self.top {
+            self.layers[0].electronic_stopping_correction_factor
+        } else {
+            self.layers[self.layers.len() - 1].electronic_stopping_correction_factor
+        }
+    }
+    fn get_total_density(&self,  x: f64, y: f64, z: f64) -> f64 {
+        if self.inside(x, y, z) {
+            for layer in &self.layers {
+                if layer.contains(x, y, z) {
+                    return layer.densities.iter().sum()
+                }
+            }
+            panic!("Geometry error: method inside() is returning true for points outside all layers. Check geometry.")
+        } else if x < self.top {
+            self.layers[0].densities.iter().sum()
+        } else {
+            self.layers[self.layers.len() - 1].densities.iter().sum()
+        }
+    }
+    fn get_concentrations(&self, x: f64, y: f64, z: f64) -> &Vec<f64> {
+        if self.inside(x, y, z) {
+            for layer in &self.layers {
+                if layer.contains(x, y, z) {
+                    return &layer.concentrations
+                }
+            }
+            panic!("Geometry error: method inside() is returning true for points outside all layers. Check geometry.")
+        } else if x < self.top {
+            &self.layers[0].concentrations
+        } else {
+            &self.layers[self.layers.len() - 1].concentrations
+        }
+    }
+    fn inside(&self, x: f64, y: f64, z: f64) -> bool {
+        (x > self.top) & (x < self.bottom)
+    }
+    fn inside_simulation_boundary(&self, x: f64, y: f64, z: f64) -> bool {
+        (x > self.top - 10.*self.top_energy_barrier_thickness) & (x < self.bottom + 10.*self.bottom_energy_barrier_thickness)
+    }
+    fn inside_energy_barrier(&self, x: f64, y: f64, z: f64) -> bool {
+        (x > self.top - self.top_energy_barrier_thickness) & (x < self.bottom + self.bottom_energy_barrier_thickness)
+    }
+    fn closest_point(&self, x: f64, y: f64, z: f64) -> (f64, f64, f64) {
+        let distance_from_bottom = (x - self.bottom).abs();
+        let distance_from_top = (x - self.top).abs();
+        if distance_from_bottom < distance_from_top {
+            (self.bottom, y, z)
+        } else {
+            (self.top, y, z)
+        }
+    }
+}
+
+#[derive(Deserialize, Clone)]
+pub struct HomogeneousMesh2DInput {
+    pub length_unit: String,
+    pub points: Vec<(f64, f64)>,
+    pub simulation_boundary_points: Vec<(f64, f64)>,
+    pub densities: Vec<f64>,
+    pub electronic_stopping_correction_factor: f64
+}
+
+#[derive(Clone)]
+pub struct HomogeneousMesh2D {
+    pub boundary: Polygon<f64>,
+    pub simulation_boundary: Polygon<f64>,
+    pub energy_barrier_thickness: f64,
+    pub densities: Vec<f64>,
+    pub electronic_stopping_correction_factor: f64,
+    pub concentrations: Vec<f64>
+}
+
+impl Geometry for HomogeneousMesh2D {
+
+    type InputFileFormat = InputHomogeneous2D;
+
+    fn new(input: &<<Self as Geometry>::InputFileFormat as GeometryInput>::GeometryInput) -> Self {
+        let length_unit: f64 = match input.length_unit.as_str() {
+            "MICRON" => MICRON,
+            "CM" => CM,
+            "MM" => MM,
+            "ANGSTROM" => ANGSTROM,
+            "NM" => NM,
+            "M" => 1.,
+            _ => input.length_unit.parse()
+                .unwrap_or_else(|_| panic!("Input errror: could nor parse length unit {}. Use a valid float or one of ANGSTROM, NM, MICRON, CM, MM, M",
+                        &input.length_unit.as_str())),
+        };
+
+        let boundary_points_converted: Vec<(f64, f64)> = input.points.iter().map(|(x, y)| (x*length_unit, y*length_unit)).collect();
+
+        let simulation_boundary_points_converted: Vec<(f64, f64)> = input.simulation_boundary_points.iter().map(|(x, y)| (x*length_unit, y*length_unit)).collect();
+
+        let electronic_stopping_correction_factor = input.electronic_stopping_correction_factor;
+
+        let densities: Vec<f64> = input.densities.iter().map(|element| element/(length_unit).powi(3)).collect();
+
+        let total_density: f64 = densities.iter().sum();
+        assert!(total_density < MAX_DENSITY, "Input Error: total density {}/m^3 exceeds realistic values; check values or units.", total_density);
+
+        let energy_barrier_thickness = 1./total_density.cbrt()/SQRTPI*2.;
+
+        let concentrations: Vec<f64> = densities.iter().map(|&density| density/total_density).collect::<Vec<f64>>();
+
+        let boundary = Polygon::new(LineString::from(boundary_points_converted), vec![]);
+
+        let simulation_boundary =  Polygon::new(LineString::from(simulation_boundary_points_converted), vec![]);
+
+        HomogeneousMesh2D {
+            densities,
+            simulation_boundary,
+            boundary,
+            electronic_stopping_correction_factor,
+            energy_barrier_thickness,
+            concentrations
+        }
+    }
+
+    fn get_densities(&self,  x: f64, y: f64, z: f64) -> &Vec<f64> {
+        &self.densities
+    }
+
+    fn get_ck(&self,  x: f64, y: f64, z: f64) -> f64 {
+        self.electronic_stopping_correction_factor
+    }
+
+    fn get_total_density(&self,  x: f64, y: f64, z: f64) -> f64 {
+        self.densities.iter().sum::<f64>()
+    }
+
+    fn get_concentrations(&self, x: f64, y: f64, z: f64) -> &Vec<f64> {
+        &self.concentrations
+    }
+
+    fn inside(&self, x: f64, y: f64, z: f64) -> bool {
+        self.boundary.contains(&point!(x: x, y: y))
+    }
+
+    fn inside_simulation_boundary(&self, x: f64, y: f64, z: f64) -> bool {
+        self.simulation_boundary.contains(&point!(x: x, y: y))
+    }
+    fn inside_energy_barrier(&self, x: f64, y: f64, z: f64) -> bool {
+        if self.inside(x, y, z) {
+            true
+        } else if let Closest::SinglePoint(p) = self.boundary.closest_point(&point!(x: x, y: y)) {
+             let distance = ((x - p.x()).powi(2) +  (y - p.y()).powi(2)).sqrt();
+             distance < self.energy_barrier_thickness
+         } else if let Closest::Intersection(p) = self.boundary.closest_point(&point!(x: x, y: y)) {
+             true
+         } else {
+             panic!("Geometry error: closest point routine failed to find single closest point to ({}, {}, {}).", x, y, z);
+         }
+    }
+    fn closest_point(&self, x: f64, y: f64, z: f64) -> (f64, f64, f64) {
+        if let Closest::SinglePoint(p) = self.boundary.closest_point(&point!(x: x, y: y)) {
+            (p.x(), p.y(), z)
+        } else if let Closest::Intersection(p) = self.boundary.closest_point(&point!(x: x, y: y)) {
+            (p.x(), p.y(), z)
+        } else {
+            panic!("Geometry error: closest point routine failed to find single closest point to ({}, {}, {}).", x, y, z);
+        }
+    }
+}
+
+/// Object that contains raw mesh input data.
+#[derive(Deserialize, Clone)]
+pub struct Mesh2DInput {
+    pub length_unit: String,
+    pub triangles: Vec<(usize, usize, usize)>,
+    pub points: Vec<(f64, f64)>,
+    pub boundary: Vec<usize>,
+    pub simulation_boundary_points: Vec<(f64, f64)>,
+    pub densities: Vec<Vec<f64>>,
+    pub electronic_stopping_correction_factors: Vec<f64>,
+    pub energy_barrier_thickness: f64,
+}
+
+/// Triangular mesh for rustbca.
+#[derive(Clone)]
+pub struct Mesh2D {
+    mesh: Vec<Cell2D>,
+    pub boundary: Polygon<f64>,
+    pub simulation_boundary: Polygon<f64>,
+    pub energy_barrier_thickness: f64
+}
+
+impl Mesh2D {
+    /// Finds the cell that is nearest to (x, y).
+    fn nearest_to(&self, x: f64, y: f64, z: f64) -> &Cell2D {
+
+        let mut min_distance: f64 = f64::MAX;
+        let mut index: usize = 0;
+
+        for (cell_index, cell) in self.mesh.iter().enumerate() {
+            let distance_to = cell.distance_to(x, y, z);
+            if distance_to < min_distance {
+                min_distance = distance_to;
+                index = cell_index;
+            }
+        }
+
+        &self.mesh[index]
+    }
+}
+
+impl Geometry for Mesh2D {
+
+    type InputFileFormat = Input2D;
+
+    /// Constructor for Mesh2D object from geometry_input.
+    fn new(geometry_input: &<<Self as Geometry>::InputFileFormat as GeometryInput>::GeometryInput) -> Mesh2D {
+
+        let triangles = geometry_input.triangles.clone();
+        let points = geometry_input.points.clone();
+        let material_boundary_point_indices = geometry_input.boundary.clone();
+
+        let simulation_boundary_points = geometry_input.simulation_boundary_points.clone();
+        let electronic_stopping_correction_factors = geometry_input.electronic_stopping_correction_factors.clone();
+        assert!(!electronic_stopping_correction_factors.is_empty(), "Input Error: Electronic stopping correction factor list empty.");
+        let n = triangles.len();
+
+        let mut cells: Vec<Cell2D> =  Vec::with_capacity(n);
+
+        //Multiply all coordinates by value of geometry unit.
+        let length_unit: f64 = match geometry_input.length_unit.as_str() {
+            "MICRON" => MICRON,
+            "CM" => CM,
+            "MM" => MM,
+            "ANGSTROM" => ANGSTROM,
+            "NM" => NM,
+            "M" => 1.,
+            _ => geometry_input.length_unit.parse()
+                .unwrap_or_else(|_| panic!("Input errror: could nor parse length unit {}. Use a valid float or one of ANGSTROM, NM, MICRON, CM, MM, M", &geometry_input.length_unit.as_str())),
+        };
+
+        let densities: Vec<Vec<f64>> = geometry_input.densities
+            .iter()
+            .map( |row| row.iter().map(|element| element/(length_unit).powi(3)).collect() ).collect();
+
+        //Assert all triangle density lists are equal length
+        assert!(
+            densities.iter()
+            .all(|density_list| density_list.len() == densities[0].len()),
+            "Input error: all triangle density lists must be the same size."
+        );
+
+        assert_eq!(triangles.len(), densities.len(), "Input error: coordinates and data of unequal length.");
+
+
+        for ((triangle, densities), ck) in triangles.iter().zip(densities).zip(electronic_stopping_correction_factors) {
+
+            let x1 = points[triangle.0].0;
+            let x2 = points[triangle.1].0;
+            let x3 = points[triangle.2].0;
+            let y1 = points[triangle.0].1;
+            let y2 = points[triangle.1].1;
+            let y3 = points[triangle.2].1;
+
+            let coordinate_set_converted = (
+                x1*length_unit,
+                x2*length_unit,
+                x3*length_unit,
+                y1*length_unit,
+                y2*length_unit,
+                y3*length_unit,
+            );
+            let total_density: f64 = densities.iter().sum();
+            assert!(total_density < MAX_DENSITY, "Input Error: total density {}/m^3 exceeds realistic values; check values or units.", total_density);
+            let concentrations: Vec<f64> = densities.iter().map(|&density| density/total_density).collect::<Vec<f64>>();
+
+            cells.push(Cell2D::new(coordinate_set_converted, densities, concentrations, ck));
+        }
+
+        let mut boundary_points_converted = Vec::with_capacity(material_boundary_point_indices.len());
+        for index in material_boundary_point_indices.iter() {
+            boundary_points_converted.push((points[*index].0*length_unit, points[*index].1*length_unit));
+        }
+        let boundary: Polygon<f64> = Polygon::new(LineString::from(boundary_points_converted), vec![]);
+
+        let mut simulation_boundary_points_converted = Vec::with_capacity(simulation_boundary_points.len());
+        for (x, y) in simulation_boundary_points.iter() {
+            simulation_boundary_points_converted.push((x*length_unit, y*length_unit));
+        }
+        let simulation_boundary: Polygon<f64> = Polygon::new(LineString::from(simulation_boundary_points_converted), vec![]);
+
+        let energy_barrier_thickness = geometry_input.energy_barrier_thickness*length_unit;
+
+        Mesh2D {
+            mesh: cells,
+            boundary,
+            simulation_boundary,
+            energy_barrier_thickness,
+        }
+    }
+
+    fn inside_energy_barrier(&self, x: f64, y: f64, z: f64) -> bool {
+        if self.inside(x, y, z) {
+            true
+        } else {
+            let nearest_cell = self.nearest_to(x, y, z);
+            let distance = nearest_cell.distance_to(x, y, z);
+            distance < self.energy_barrier_thickness
+        }
+    }
+
+    fn inside_simulation_boundary(&self, x: f64, y: f64, z: f64) -> bool {
+        self.simulation_boundary.contains(&point!(x: x, y: y))
+    }
+
+    fn closest_point(&self, x: f64, y: f64, z: f64) -> (f64, f64, f64) {
+        if let Closest::SinglePoint(p) = self.boundary.closest_point(&point!(x: x, y: y)) {
+            (p.x(), p.y(), z)
+        } else if let Closest::Intersection(p) = self.boundary.closest_point(&point!(x: x, y: y)) {
+            (p.x(), p.y(), z)
+        } else {
+            panic!("Geometry error: closest point routine failed to find single closest point to ({}, {}, {}).", x, y, z);
+        }
+    }
+
+    /// Find the number densities of the triangle that contains or is nearest to (x, y).
+    fn get_densities(&self, x: f64, y: f64, z: f64) -> &Vec<f64> {
+        if self.inside(x, y, z) {
+            for cell in &self.mesh {
+                if cell.contains(x, y, z) {
+                    return &cell.densities;
+                }
+            }
+            panic!("Geometry error: point ({}, {}) not found in any cell of the mesh.", x, y);
+        } else {
+            self.nearest_to(x, y, z).get_densities()
+        }
+    }
+
+    /// Find the number densities of the triangle that contains or is nearest to (x, y).
+    fn get_ck(&self, x: f64, y: f64, z: f64) -> f64 {
+        if self.inside(x, y, z) {
+            for cell in &self.mesh {
+                if cell.contains(x, y, z) {
+                    return cell.electronic_stopping_correction_factor;
+                }
+            }
+            panic!("Geometry error: point ({}, {}) not found in any cell of the mesh.", x, y);
+        } else {
+            self.nearest_to(x, y, z).electronic_stopping_correction_factor
+        }
+    }
+
+    /// Determine the total number density of the triangle that contains or is nearest to (x, y).
+    fn get_total_density(&self, x: f64, y: f64, z: f64) -> f64 {
+        if self.inside(x, y, z) {
+            for cell in &self.mesh {
+                if cell.contains(x, y, z) {
+                    return cell.densities.iter().sum::<f64>();
+                }
+            }
+            panic!("Geometry error: point ({}, {}) not found in any cell of the mesh.", x, y);
+        } else {
+            self.nearest_to(x, y, z).densities.iter().sum::<f64>()
+        }
+    }
+
+    /// Find the concentrations of the triangle that contains or is nearest to (x, y).
+    fn get_concentrations(&self, x: f64, y: f64, z: f64) -> &Vec<f64> {
+        if self.inside(x, y, z) {
+            for cell in &self.mesh {
+                if cell.contains(x, y, z) {
+                    return &cell.concentrations;
+                }
+            }
+            panic!("Geometry error: method inside() is returning true for points outside all cells. Check boundary points.")
+        } else {
+            &self.nearest_to(x, y, z).concentrations
+        }
+    }
+
+    /// Determines whether the point (x, y) is inside the mesh.
+    fn inside(&self, x: f64, y: f64, z: f64) -> bool {
+        self.boundary.contains(&Point::new(x, y))
+    }
+}
+
+/// A mesh cell that contains a triangle and the local number densities and concentrations.
+#[derive(Clone)]
+pub struct Cell2D {
+    triangle: Triangle2D,
+    pub densities: Vec<f64>,
+    pub concentrations: Vec<f64>,
+    pub electronic_stopping_correction_factor: f64
+}
+impl Cell2D {
+    /// Constructor for Cell2D from a set of coordinates and a list of densities and concentrations.
+    pub fn new(coordinate_set: (f64, f64, f64, f64, f64, f64), densities: Vec<f64>, concentrations: Vec<f64>, electronic_stopping_correction_factor: f64) -> Cell2D {
+        Cell2D {
+            triangle: Triangle2D::new(coordinate_set),
+            densities,
+            concentrations,
+            electronic_stopping_correction_factor
+        }
+    }
+}
+
+impl GeometryElement for Cell2D {
+    /// Determines whether this cell contains the point (x, y).
+    fn contains(&self, x: f64, y: f64, z: f64) -> bool {
+        self.triangle.contains(x, y)
+    }
+
+    /// Computes the shortest distance between this cell and the point (x, y).
+    fn distance_to(&self, x: f64, y: f64, z: f64) -> f64 {
+        self.triangle.distance_to(x, y)
+    }
+
+    fn get_densities(&self) -> &Vec<f64> {
+        &self.densities
+    }
+
+    fn get_concentrations(&self) -> &Vec<f64> {
+        &self.concentrations
+    }
+
+    fn get_electronic_stopping_correction_factor(&self) -> f64 {
+        self.electronic_stopping_correction_factor
+    }
+}
+
+#[derive(Clone)]
+pub struct Layer1D {
+    top: f64,
+    bottom: f64,
+    densities: Vec<f64>,
+    concentrations: Vec<f64>,
+    electronic_stopping_correction_factor: f64
+}
+
+impl Layer1D {
+    pub fn new(top: f64, bottom: f64, densities: Vec<f64>, concentrations: Vec<f64>, electronic_stopping_correction_factor: f64) -> Layer1D {
+
+        assert!(top < bottom, "Layer cannot have negative thickness.");
+
+        Layer1D{
+            top,
+            bottom,
+            densities,
+            concentrations,
+            electronic_stopping_correction_factor
+        }
+    }
+}
+
+impl GeometryElement for Layer1D {
+    fn contains(&self, x: f64, y: f64, z: f64) -> bool {
+        (x > self.top) & (x <= self.bottom)
+    }
+    fn distance_to(&self, x: f64, y: f64, z: f64) -> f64 {
+        let distance_to_top = (x - self.top).abs();
+        let distance_to_bottom = (x - self.bottom).abs();
+        if distance_to_top < distance_to_bottom {
+            distance_to_top
+        } else {
+            distance_to_bottom
+        }
+    }
+    fn get_densities(&self) -> &Vec<f64> {
+        &self.densities
+    }
+    fn get_concentrations(&self) -> &Vec<f64> {
+        &self.concentrations
+    }
+    fn get_electronic_stopping_correction_factor(&self) -> f64 {
+        self.electronic_stopping_correction_factor
+    }
+}
+
+/// A triangle in 2D, with points (x1, y1), (x2, y2), (x3, y3), and the three line segments bewtween them.
+#[derive(Clone)]
+pub struct Triangle2D {
+    x1: f64,
+    x2: f64,
+    x3: f64,
+    y1: f64,
+    y2: f64,
+    y3: f64,
+    segments: Vec<(f64, f64, f64, f64)>
+}
+impl Triangle2D {
+    /// Constructor for a triangle from a list of coordinates (x1, x2, x3, y1, y2, y3).
+    pub fn new(coordinate_set: (f64, f64, f64, f64, f64, f64)) -> Triangle2D {
+
+        let x1 = coordinate_set.0;
+        let x2 = coordinate_set.1;
+        let x3 = coordinate_set.2;
+
+        let y1 = coordinate_set.3;
+        let y2 = coordinate_set.4;
+        let y3 = coordinate_set.5;
+
+        Triangle2D {
+            x1,
+            x2,
+            x3,
+            y1,
+            y2,
+            y3,
+            segments: vec![(x1, y1, x2, y2), (x2, y2, x3, y3), (x3, y3, x1, y1)]
+        }
+    }
+
+    /// Determines whether the point (x, y) is inside this triangle.
+    pub fn contains(&self, x: f64, y: f64) -> bool {
+        let x1 = self.x1;
+        let x2 = self.x2;
+        let x3 = self.x3;
+        let y1 = self.y1;
+        let y2 = self.y2;
+        let y3 = self.y3;
+
+        let a = ((y2 - y3)*(x - x3) + (x3 - x2)*(y - y3)) / ((y2 - y3)*(x1 - x3) + (x3 - x2)*(y1 - y3));
+        let b = ((y3 - y1)*(x - x3) + (x1 - x3)*(y - y3)) / ((y2 - y3)*(x1 - x3) + (x3 - x2)*(y1 - y3));
+        let c = 1. - a - b;
+
+         (0. ..=1.).contains(&a) & (0. ..=1.).contains(&b) & (0. ..=1.).contains(&c)
+    }
+
+    /// Returns a point (x, y) that is the centroid of the triangle.
+    pub fn centroid(&self) -> (f64, f64) {
+        ((self.x1 + self.x2 + self.x3)/3., (self.y1 + self.y2 + self.y3)/3.)
+    }
+
+    /// Calculates the shortest distance from this triangle to the point (x, y).
+    pub fn distance_to(&self, x: f64, y: f64) -> f64 {
+        let mut distance_to = f64::MAX;
+
+        for segment in &self.segments {
+            let length_2 = (segment.2 - segment.0)*(segment.2 - segment.0) + (segment.3 - segment.1)*(segment.3 - segment.1);
+
+            assert!(length_2 != 0., "Geometry error: mesh contains triangle with zero-length side. (x1, y1), (x2, y2) = ({}, {}) ({}, {})", segment.0, segment.2, segment.1, segment.3);
+
+            let u = ((x - segment.0)*(segment.2 - segment.0) + (y - segment.1)*(segment.3 - segment.1))/length_2;
+
+            let distance = if u < 0. {
+                ((x - segment.0)*(x - segment.0) + (y - segment.1)*(y - segment.1)).sqrt()
+            } else if u > 1. {
+                ((x - segment.2)*(x - segment.2) + (y - segment.3)*(y - segment.3)).sqrt()
+            } else {
+                let x_intersect = segment.0 + u*(segment.2 - segment.0);
+                let y_intersect = segment.1 + u*(segment.3 - segment.1);
+
+                ((x - x_intersect)*(x - x_intersect) + (y - y_intersect)*(y - y_intersect)).sqrt()
+            };
+
+            if distance < distance_to {
+                distance_to = distance;
+            }
+        }
+        distance_to
+    }
+
+    /// Calculates the distance between the center of this triangle and the point (x, y).
+    pub fn distance_to_center(&self, x: f64, y: f64) -> f64 {
+        let centroid = self.centroid();
+        ((x - centroid.0)*(x - centroid.0) + (y - centroid.1)*(y - centroid.1)).sqrt()
+    }
+}

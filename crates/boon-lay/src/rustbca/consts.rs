@@ -1,0 +1,49 @@
+use super::*;
+
+//Physical constants
+///Fundamental charge in Coulombs.
+pub const Q: f64 = 1.602176634E-19;
+/// One electron-volt in Joules.
+pub const EV: f64 = Q;
+/// One atomic mass unit in kilograms.
+pub const AMU: f64 = 1.66053906660E-27;
+/// One Angstrom in meters.
+pub const ANGSTROM: f64 = 1E-10;
+/// One micron in meters.
+pub const MICRON: f64 = 1E-6;
+/// One nanometer in meters.
+pub const NM: f64 = 1E-9;
+/// One centimeter in meters.
+pub const CM: f64 = 1E-2;
+/// One milimter in meters.
+pub const MM: f64 = 1E-3;
+/// Vacuum permitivity in Farads/meter.
+pub const EPS0: f64 = 8.8541878128E-12;
+/// Bohr radius in meters.
+pub const A0: f64 = 5.29177210903E-11;
+/// Electron mass in kilograms.
+pub const ME: f64 = 9.1093837015E-31;
+/// sqrt(pi).
+pub const SQRTPI: f64 = 2. / FRAC_2_SQRT_PI;
+/// sqrt(2 * pi).
+pub const SQRT2PI: f64 = 2. * SQRT_2 / FRAC_2_SQRT_PI;
+/// Speed of light in meters/second.
+pub const C: f64 = 299792458.;
+/// Bethe-Bloch electronic stopping prefactor, in SI units.
+pub const BETHE_BLOCH_PREFACTOR: f64 = 4.*PI*(Q*Q/(4.*PI*EPS0))*(Q*Q/(4.*PI*EPS0))/ME/C/C;
+/// Lindhard-Scharff electronic stopping prefactor, in SI units.
+pub const LINDHARD_SCHARFF_PREFACTOR: f64 = 1.212*ANGSTROM*ANGSTROM*Q;
+/// Lindhard reduced energy prefactor, in SI units.
+pub const LINDHARD_REDUCED_ENERGY_PREFACTOR: f64 = 4.*PI*EPS0/Q/Q;
+/// Maximum atomic number in RustBCA.
+pub const Z_MAX: usize = 120;
+//https://math.stackexchange.com/questions/2388887/
+//num elements in a triangular NxN matrix (including diag)
+/// LUT size; triangular matrix of size Z_MAX * Z_MAX
+pub const TABLE_SIZE: usize = Z_MAX*(Z_MAX + 1)/2;
+/// Gauss-Legendre Points
+pub const GL_X: [f64; 5] = [0./2. + 1./2., -0.538469/2. + 1./2., 0.538469/2. + 1./2., -0.90618/2. + 1./2., 0.90618/2. + 1./2.];
+/// Gauss-Legendre Weights
+pub const GL_W: [f64; 5] = [0.568889/2., 0.478629/2., 0.478629/2., 0.236927/2., 0.236927/2.];
+/// Enforced maximum number density
+pub const MAX_DENSITY: f64 = 1e32;
