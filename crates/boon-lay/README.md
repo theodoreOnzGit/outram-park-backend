@@ -65,6 +65,22 @@ term, each with its validity range and a flag when it is left:
 Both are transcriptions checked against an independent hand evaluation. They
 are not validated against any accident.
 
+## Charged particles: a copy of RustBCA (added 2026-10-16, GitHub #876)
+
+**`rustbca` is a copy of RustBCA, not boon-lay's own code, and boon-lay
+re-exports it** as `boon_lay::rustbca`. It is copied from `lcpp-org/RustBCA`
+v3.0.0 (`a356280d`, GPL-3.0, Jon Drobny and Davide Curreli) and made `no_std` +
+`alloc`. Attribution and every local change are listed in
+[`src/rustbca/README.md`](src/rustbca/README.md) and in the module docs.
+
+It is a binary-collision Monte Carlo for fission fragments, alphas and recoil
+knock-ons. **Fragment results are illustrative until they are V&V'd.**
+
+`examples/rustbca_cascades.rs` prices one full cascade in an HTR-10 kernel and
+its coatings. A fission fragment costs 1.5–2 s on one desktop core. Results
+are in
+[`verification_and_validation/rustbca_cascades/`](verification_and_validation/rustbca_cascades/README.md).
+
 ## Where it sits
 
 `boon-lay` supplies the release physics for the offsite chain. `sembawang`
@@ -74,8 +90,9 @@ orchestrates it and hands the result to `changi`:
 boon-lay (TRISO release)  ->  sembawang (source term)  ->  changi (dispersion, deposition)
 ```
 
-It depends on `outram-mc-libs` for random numbers. Decay data are ENDF/B-VIII.0,
-via the `openmc-endf-8-depletion-lib-b` crate.
+It depends on `outram-mc-libs` for random numbers. The exception is the
+RustBCA copy, which keeps upstream's `rand` ChaCha8 generator. Decay data are
+ENDF/B-VIII.0, via the `openmc-endf-8-depletion-lib-b` crate.
 
 ## Verification status
 

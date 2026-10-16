@@ -1,5 +1,19 @@
+// SPDX-License-Identifier: GPL-3.0
+//
+// RustBCA copy — provenance
+// -------------------------
+// Upstream project : RustBCA — https://github.com/lcpp-org/RustBCA
+// Upstream version : v3.0.0, commit a356280d564bbdfbe74b97f32db0776444da58a5
+// Upstream source  : src/interactions.rs
+// Authors          : Jon Drobny <drobny2@illinois.edu>, Jon Drobny
+//                    <jdrobny@tae.com> (upstream Cargo.toml); no copyright line upstream
+// Original license : GNU GPL v3 (upstream LICENSE copied beside this file)
+// Local changes    : libm routing (Real::); the three LazyLock tables replaced by
+//                    direct, bit-identical evaluation (table_pair,
+//                    coulomb_constant_lookup); coulomb_constant made pub(super)
+//                    (full list: module docs in mod.rs)
+
 use super::*;
-use std::sync::LazyLock;
 use math::triangular_index;
 
 /// Analytic solutions to outermost root of the interaction potential.
@@ -7,7 +21,7 @@ pub fn crossing_point_doca(interaction_potential: InteractionPotential) -> f64 {
 
     match interaction_potential {
         InteractionPotential::LENNARD_JONES_12_6{sigma, ..} | InteractionPotential::LENNARD_JONES_65_6{sigma, ..} => sigma,
-        InteractionPotential::MORSE{D, alpha, r0} => (alpha*r0 - (2.0_f64).ln())/alpha,
+        InteractionPotential::MORSE{D, alpha, r0} => (alpha*r0 - Real::ln(2.0_f64))/alpha,
         InteractionPotential::WW => 50.*ANGSTROM,
         _ => 10.*ANGSTROM,
     }
@@ -161,25 +175,25 @@ pub fn distance_of_closest_approach_function_singularity_free(r: f64, a: f64, Za
 pub fn scaling_function(r: f64, a: f64, interaction_potential: InteractionPotential) -> f64 {
     match interaction_potential {
         InteractionPotential::MOLIERE | InteractionPotential::KR_C | InteractionPotential::LENZ_JENSEN | InteractionPotential::ZBL | InteractionPotential::TRIDYN => {
-            1./(1. + (r/a).powi(2))
+            1./(1. + Real::powi(r/a, 2))
         },
         InteractionPotential::LENNARD_JONES_12_6{sigma, ..} => {
-            1./(1. + (r/sigma).powi(11))
+            1./(1. + Real::powi(r/sigma, 11))
         },
         InteractionPotential::LENNARD_JONES_65_6{sigma, ..} => {
-            1./(1. + (r/sigma).powi(6))
+            1./(1. + Real::powi(r/sigma, 6))
         },
         InteractionPotential::FOUR_EIGHT{alpha, beta} => {
-            1./(1. + r.powi(8)/beta)
+            1./(1. + Real::powi(r, 8)/beta)
         }
         InteractionPotential::MORSE{D, alpha, r0} => {
-            1./(1. + (r*alpha).powi(2))
+            1./(1. + Real::powi(r*alpha, 2))
         }
         InteractionPotential::WW => {
             1.
         },
         InteractionPotential::KRC_MORSE{D, alpha, r0, k, x0} => {
-            1./(1. + (r*alpha).powi(2))
+            1./(1. + Real::powi(r*alpha, 2))
         }
         InteractionPotential::COULOMB{..} => panic!("Coulombic potential cannot be used with rootfinder.")
     }
@@ -221,37 +235,45 @@ pub fn diff_distance_of_closest_approach_function_singularity_free(r: f64, a: f6
     }
 }
 
-static COULOMB_CONSTANT_TABLE: LazyLock<[f64; TABLE_SIZE]> = LazyLock::new(
-    ||
-    {
-        let mut array = [0.0; TABLE_SIZE];
-        for i in 0..Z_MAX {
-            for j in 0..=i {
-                let index = (i * (i + 1))/2 + j;
-                array[index] = coulomb_constant(i as f64, j as f64);
-            }
-        }
-        array
-    }
-);
+// boon-lay local change (no_std, gh:#876 item 7): upstream caches the three
+// tables below (COULOMB_CONSTANT_TABLE, LINDHARD_SCREENING_LENGTH_TABLE,
+// ZBL_SCREENING_LENGTH_TABLE) in `std::sync::LazyLock` statics, which do not
+// exist in `core`. Each lookup now evaluates the same function on the same
+// truncated, ordered integer pair (i >= j, the triangular-index order) that
+// upstream's table builder used, so every value is bit-identical to the table
+// entry (pinned by `local_change_tests::lazylock_replacements_match_upstream_tables`). An
+// atomic number at or above Z_MAX still panics, as upstream's out-of-bounds
+// index did. Cost: one function evaluation per lookup instead of an array
+// read; upstream's comment credits the tables with "~10% speedup" (not
+// re-measured here).
+/// The ordered, truncated table index pair `(i, j)`, `i >= j`, upstream's
+/// lookup tables were keyed by, with upstream's out-of-range panic.
+pub(super) fn table_pair(Za: f64, Zb: f64) -> (usize, usize) {
+    let mut i = Za as usize;
+    let mut j = Zb as usize;
+    let index = triangular_index(&mut i, &mut j);
+    assert!(index < TABLE_SIZE, "index out of bounds: the len is {} but the index is {}", TABLE_SIZE, index);
+    (i, j)
+}
 
-fn coulomb_constant(Za: f64, Zb: f64) -> f64 {
+/// Replaces upstream's `COULOMB_CONSTANT_TABLE[triangular_index(Za, Zb)]`.
+pub(super) fn coulomb_constant_lookup(Za: f64, Zb: f64) -> f64 {
+    let (i, j) = table_pair(Za, Zb);
+    coulomb_constant(i as f64, j as f64)
+}
+
+pub(super) fn coulomb_constant(Za: f64, Zb: f64) -> f64 {
     Za*Zb*Q*Q/4./PI/EPS0
 }
 
 /// Screened coulomb interaction potential.
 pub fn screened_coulomb(r: f64, a: f64, Za: f64, Zb: f64, interaction_potential: InteractionPotential) -> f64 {
-    let mut i = Za as usize;
-    let mut j = Zb as usize;
-    let index = triangular_index(&mut i, &mut j);
-    COULOMB_CONSTANT_TABLE[index]/r*phi(r/a, interaction_potential)
+    coulomb_constant_lookup(Za, Zb)/r*phi(r/a, interaction_potential)
 }
 
 /// Coulombic interaction potential.
 pub fn coulomb(r: f64, Za: f64, Zb: f64) -> f64 {
-    let mut i = Za as usize;
-    let mut j = Zb as usize;
-    COULOMB_CONSTANT_TABLE[triangular_index(&mut i, &mut j)]/r
+    coulomb_constant_lookup(Za, Zb)/r
 }
 
 /// Screening functions for screened-coulomb interaction potentials.
@@ -294,58 +316,25 @@ pub fn screening_length(Za: f64, Zb: f64, interaction_potential: InteractionPote
 }
 
 // It turns out it's faster (~10% speedup) to just generate every possible screening length as a lookup table
-// LazyLock is a thread-safe value that is initialized whenever it is first accessed
-// It will block other threads while it runs, but it should run extremely quickly and only once
-
-static LINDHARD_SCREENING_LENGTH_TABLE: LazyLock<[f64; TABLE_SIZE]> = LazyLock::new(
-    ||
-    {
-        let mut array = [0.0; TABLE_SIZE];
-        for i in 0..Z_MAX {
-            for j in 0..=i {
-                let index = (i * (i + 1))/2 + j;
-                array[index] = lindhard_screening_length(i as f64, j as f64);
-            }
-        }
-        array
-    }
-);
+// (boon-lay: no longer a table; see the local-change note above COULOMB's lookup.)
 #[inline]
 pub fn lindhard_screening_length_lookup(Za: u64, Zb: u64) -> f64 {
-    let mut i = Za as usize;
-    let mut j = Zb as usize;
-    
-    LINDHARD_SCREENING_LENGTH_TABLE[triangular_index(&mut i, &mut j)]
+    let (i, j) = table_pair(Za as f64, Zb as f64);
+    lindhard_screening_length(i as f64, j as f64)
 }
 
-static ZBL_SCREENING_LENGTH_TABLE: LazyLock<[f64; TABLE_SIZE]> = LazyLock::new(
-    ||
-    {
-        let mut array = [0.0; TABLE_SIZE];
-        for i in 0..Z_MAX {
-            for j in 0..=i {
-                let index = (i * (i + 1))/2 + j;
-                array[index] = zbl_screening_length(i as f64, j as f64);
-            }
-        }
-        array
-    }
-);
-
 pub fn zbl_screening_length(Za: f64, Zb: f64) -> f64{
-    0.88534*A0/(Za.powf(0.23) + Zb.powf(0.23))
+    0.88534*A0/(Real::powf(Za, 0.23) + Real::powf(Zb, 0.23))
 }
 
 pub fn lindhard_screening_length(Za: f64, Zb: f64) -> f64 {
-    0.8853*A0*(Za.sqrt() + Zb.sqrt()).powf(-2./3.)
+    0.8853*A0*Real::powf(Za.sqrt() + Zb.sqrt(), -2./3.)
 }
 
 #[inline]
 pub fn zbl_screening_length_lookup(Za: u64, Zb: u64) -> f64{
-    let mut i = Za as usize;
-    let mut j = Zb as usize;
-
-    ZBL_SCREENING_LENGTH_TABLE[triangular_index(&mut i, &mut j)]
+    let (i, j) = table_pair(Za as f64, Zb as f64);
+    zbl_screening_length(i as f64, j as f64)
 }
 
 /// Coefficients of inverse-polynomial interaction potentials.
@@ -355,20 +344,20 @@ pub fn polynomial_coefficients(relative_energy: f64, impact_parameter: f64, inte
         InteractionPotential::LENNARD_JONES_12_6{sigma, epsilon} => {
             let epsilon_ev = epsilon/EV;
             let relative_energy_ev = relative_energy/EV;
-            vec![1.0, -impact_parameter.powi(2), 0.0, 4.*epsilon_ev*sigma.powi(6)/relative_energy_ev, 0.0, 0.0, -4.*epsilon_ev*sigma.powi(12)/relative_energy_ev]
+            vec![1.0, -Real::powi(impact_parameter, 2), 0.0, 4.*epsilon_ev*Real::powi(sigma, 6)/relative_energy_ev, 0.0, 0.0, -4.*epsilon_ev*Real::powi(sigma, 12)/relative_energy_ev]
         },
         InteractionPotential::LENNARD_JONES_65_6{sigma, epsilon} => {
             let epsilon_ev = epsilon/EV;
             let relative_energy_ev = relative_energy/EV;
-            vec![1., 0., 0., 0., -impact_parameter.powi(2), 0., 0., 0., 0., 0., 0., 0., 4.*epsilon_ev*sigma.powi(6)/relative_energy_ev, -4.*epsilon_ev*sigma.powf(6.5)/relative_energy_ev]
+            vec![1., 0., 0., 0., -Real::powi(impact_parameter, 2), 0., 0., 0., 0., 0., 0., 0., 4.*epsilon_ev*Real::powi(sigma, 6)/relative_energy_ev, -4.*epsilon_ev*Real::powf(sigma, 6.5)/relative_energy_ev]
         },
         InteractionPotential::FOUR_EIGHT{alpha, beta} => {
             //Note: I've transformed to angstroms here to help the rootfinder with numerical issues.
             //The units on alpha [m^4 J] and beta [m^8 J] make them unreasonably small to use numerically.
-            let alpha_angstroms4_joule = alpha/ANGSTROM.powi(4);
-            let beta_angstroms8_joule = beta/ANGSTROM.powi(8);
+            let alpha_angstroms4_joule = alpha/Real::powi(ANGSTROM, 4);
+            let beta_angstroms8_joule = beta/Real::powi(ANGSTROM, 8);
             let impact_parameteter_angstroms = impact_parameter/ANGSTROM;
-            vec![1., -(impact_parameteter_angstroms).powi(2), alpha_angstroms4_joule/relative_energy, 0., -beta_angstroms8_joule/relative_energy,]
+            vec![1., -Real::powi(impact_parameteter_angstroms, 2), alpha_angstroms4_joule/relative_energy, 0., -beta_angstroms8_joule/relative_energy,]
         }
         _ => panic!("Input error: non-polynomial interaction potential used with polynomial root-finder.")
     }
@@ -394,24 +383,24 @@ pub fn inverse_transform(x: f64, interaction_potential: InteractionPotential) ->
 
 /// Four-Eight potential (Born repulsion)
 pub fn four_eight(r: f64, alpha: f64, beta: f64) -> f64 {
-    let a = alpha.powf(1./4.);
-    let b = beta.powf(1./8.);
-    -(a/r).powi(4) + (b/r).powi(8)
+    let a = Real::powf(alpha, 1./4.);
+    let b = Real::powf(beta, 1./8.);
+    -Real::powi(a/r, 4) + Real::powi(b/r, 8)
 }
 
 /// Lennard-Jones 12-6
 pub fn lennard_jones(r: f64, sigma: f64, epsilon: f64) -> f64 {
-    4.*epsilon*((sigma/r).powi(12) - (sigma/r).powi(6))
+    4.*epsilon*(Real::powi(sigma/r, 12) - Real::powi(sigma/r, 6))
 }
 
 /// Lennard-Jones 6.5-6
 pub fn lennard_jones_65_6(r: f64, sigma: f64, epsilon: f64) -> f64 {
-    4.*epsilon*((sigma/r).powf(6.5) - (sigma/r).powi(6))
+    4.*epsilon*(Real::powf(sigma/r, 6.5) - Real::powi(sigma/r, 6))
 }
 
 /// Morse potential
 pub fn morse(r: f64, D: f64, alpha: f64, r0: f64) -> f64 {
-    D*((-2.*alpha*(r - r0)).exp() - 2.*(-alpha*(r - r0)).exp())
+    D*(Real::exp(-2.*alpha*(r - r0)) - 2.*Real::exp(-alpha*(r - r0)))
 }
 
 /// Kr-C + Morse potential with smootherstep interpolation at crossing point of two potentials
@@ -421,40 +410,40 @@ pub fn krc_morse(r: f64, a: f64, Za: f64, Zb: f64, D: f64, alpha: f64, r0: f64, 
 
 /// Distance of closest approach function for four-eight potential (Born repulsion)
 pub fn doca_four_eight(r: f64, impact_parameter: f64, relative_energy: f64, alpha: f64, beta: f64) -> f64 {
-    let a = alpha.powf(1./4.);
-    let b = beta.powf(1./8.);
+    let a = Real::powf(alpha, 1./4.);
+    let b = Real::powf(beta, 1./8.);
     let b4 = beta.sqrt();
-    (r/b).powi(8) - (-(a*r/b/b) + 1.)/relative_energy - (impact_parameter*r.powi(3)/b4)
+    Real::powi(r/b, 8) - (-(a*r/b/b) + 1.)/relative_energy - (impact_parameter*Real::powi(r, 3)/b4)
 }
 
 /// Distance of closest approach function for Morse potential.
 pub fn doca_morse(r: f64, impact_parameter: f64, relative_energy: f64, D: f64, alpha: f64, r0: f64) -> f64 {
-    (r*alpha).powi(2) - (r*alpha).powi(2)*D/relative_energy*((-2.*alpha*(r - r0)).exp() - 2.*(-alpha*(r - r0)).exp()) - (impact_parameter*alpha).powi(2)
+    Real::powi(r*alpha, 2) - Real::powi(r*alpha, 2)*D/relative_energy*(Real::exp(-2.*alpha*(r - r0)) - 2.*Real::exp(-alpha*(r - r0))) - Real::powi(impact_parameter*alpha, 2)
 }
 
 /// Distance of closest approach function for Morse potential.
 pub fn doca_krc_morse(r: f64, impact_parameter: f64, relative_energy: f64, a: f64, Za: f64, Zb: f64, D: f64, alpha: f64, r0: f64, k: f64, x0: f64) -> f64 {
-    (r*alpha).powi(2) - (r*alpha).powi(2)/relative_energy*krc_morse(r, a, Za, Zb, D, alpha, r0, k, x0) - (impact_parameter*alpha).powi(2)
+    Real::powi(r*alpha, 2) - Real::powi(r*alpha, 2)/relative_energy*krc_morse(r, a, Za, Zb, D, alpha, r0, k, x0) - Real::powi(impact_parameter*alpha, 2)
 }
 
 /// Distance of closest approach function for LJ 6.5-6 potential.
 pub fn doca_lennard_jones_65_6(r: f64, p: f64, relative_energy: f64, sigma: f64, epsilon: f64) -> f64 {
-    (r/sigma).powf(6.5) - 4.*epsilon/relative_energy*(1. - (r/sigma).powf(0.5)) - (p/sigma).powi(2)*(r/sigma).powf(4.5)
+    Real::powf(r/sigma, 6.5) - 4.*epsilon/relative_energy*(1. - Real::powf(r/sigma, 0.5)) - Real::powi(p/sigma, 2)*Real::powf(r/sigma, 4.5)
 }
 
 /// Distance of closest approach function for LJ 12-6 potential.
 pub fn doca_lennard_jones(r: f64, p: f64, relative_energy: f64, sigma: f64, epsilon: f64) -> f64 {
-    (r/sigma).powi(12) - 4.*epsilon/relative_energy*(1. - (r/sigma).powi(6)) - p.powi(2)*r.powi(10)/sigma.powi(12)
+    Real::powi(r/sigma, 12) - 4.*epsilon/relative_energy*(1. - Real::powi(r/sigma, 6)) - Real::powi(p, 2)*Real::powi(r, 10)/Real::powi(sigma, 12)
 }
 
 /// First derivative w.r.t. `r` of the distance of closest approach function for LJ 12-6 potential.
 pub fn diff_doca_lennard_jones(r: f64, p: f64, relative_energy: f64, sigma: f64, epsilon: f64) -> f64 {
-    12.*(r/sigma).powi(11)/sigma + 4.*epsilon/relative_energy*6.*(r/sigma).powi(5)/sigma - 10.*p.powi(2)*r.powi(9)/sigma.powi(12)
+    12.*Real::powi(r/sigma, 11)/sigma + 4.*epsilon/relative_energy*6.*Real::powi(r/sigma, 5)/sigma - 10.*Real::powi(p, 2)*Real::powi(r, 9)/Real::powi(sigma, 12)
 }
 
 /// First derivative w.r.t. `r` of the distance of closest approach function for LJ 6.5-6 potential.
 pub fn diff_doca_lennard_jones_65_6(r: f64, p: f64, relative_energy: f64, sigma: f64, epsilon: f64) -> f64 {
-    6.5*(r/sigma).powf(5.5)/sigma + 4.*epsilon/relative_energy*0.5/(sigma*r).sqrt() - (p/sigma).powi(2)*4.5*(r/sigma).powf(3.5)/sigma
+    6.5*Real::powf(r/sigma, 5.5)/sigma + 4.*epsilon/relative_energy*0.5/(sigma*r).sqrt() - Real::powi(p/sigma, 2)*4.5*Real::powf(r/sigma, 3.5)/sigma
 }
 
 /// W-W cublic spline potential from Bjorkas et al.
@@ -478,7 +467,7 @@ pub fn tungsten_tungsten_cubic_spline(r: f64) -> f64 {
             0.495516793802426E4,
             -0.050264585985867E4];
 
-        (a[0] + a[1]*x + a[2]*x.powi(2) + a[3]*x.powi(3) + a[4]*x.powi(4) + a[5]*x.powi(5))*EV
+        (a[0] + a[1]*x + a[2]*Real::powi(x, 2) + a[3]*Real::powi(x, 3) + a[4]*Real::powi(x, 4) + a[5]*Real::powi(x, 5))*EV
 
     } else {
 
@@ -506,7 +495,7 @@ pub fn tungsten_tungsten_cubic_spline(r: f64) -> f64 {
             2.466_99,
         ];
 
-        a.iter().zip(delta).map(|(&a_i, delta_i)| EV*a_i*(delta_i - x).powi(3)*heaviside(delta_i - x)).sum::<f64>()
+        a.iter().zip(delta).map(|(&a_i, delta_i)| EV*a_i*Real::powi(delta_i - x, 3)*heaviside(delta_i - x)).sum::<f64>()
     }
 }
 
@@ -521,7 +510,7 @@ pub fn doca_tungsten_tungsten_cubic_spline(r: f64, p: f64, relative_energy: f64)
         let a = screening_length(74., 74., InteractionPotential::ZBL);
         distance_of_closest_approach_function_singularity_free(r, a, 74., 74., relative_energy, p, InteractionPotential::ZBL)
     } else {
-        (r/ANGSTROM).powi(2) - (r/ANGSTROM).powi(2)*tungsten_tungsten_cubic_spline(r)/relative_energy - p.powi(2)/ANGSTROM.powi(2)
+        Real::powi(r/ANGSTROM, 2) - Real::powi(r/ANGSTROM, 2)*tungsten_tungsten_cubic_spline(r)/relative_energy - Real::powi(p, 2)/Real::powi(ANGSTROM, 2)
     }
 }
 
@@ -534,35 +523,35 @@ fn heaviside(x: f64) -> f64 {
 }
 
 fn moliere(xi: f64) -> f64 {
-    0.35*(-0.3*xi).exp() + 0.55*(-1.2*xi).exp() + 0.10*(-6.0*xi).exp()
+    0.35*Real::exp(-0.3*xi) + 0.55*Real::exp(-1.2*xi) + 0.10*Real::exp(-6.0*xi)
 }
 
 fn kr_c(xi: f64) -> f64 {
-    0.190945*(-0.278544*xi).exp() + 0.473674*(-0.637174*xi).exp() + 0.335381*(-1.919249*xi).exp()
+    0.190945*Real::exp(-0.278544*xi) + 0.473674*Real::exp(-0.637174*xi) + 0.335381*Real::exp(-1.919249*xi)
 }
 
 fn zbl(xi: f64) -> f64 {
-    0.02817*(-0.20162*xi).exp() + 0.28022*(-0.40290*xi).exp() + 0.50986*(-0.94229*xi).exp() + 0.18175*(-3.1998*xi).exp()
+    0.02817*Real::exp(-0.20162*xi) + 0.28022*Real::exp(-0.40290*xi) + 0.50986*Real::exp(-0.94229*xi) + 0.18175*Real::exp(-3.1998*xi)
 }
 
 fn lenz_jensen(xi: f64) -> f64 {
-    0.01018*(-0.206*xi).exp() + 0.24330*(-0.3876*xi).exp() + 0.7466*(-1.038*xi).exp()
+    0.01018*Real::exp(-0.206*xi) + 0.24330*Real::exp(-0.3876*xi) + 0.7466*Real::exp(-1.038*xi)
 }
 
 fn diff_moliere(xi: f64) -> f64 {
-    -0.35*0.3*(-0.3*xi).exp() -0.55*1.2*(-1.2*xi).exp() -0.10*6.0*(-6.0*xi).exp()
+    -0.35*0.3*Real::exp(-0.3*xi) -0.55*1.2*Real::exp(-1.2*xi) -0.10*6.0*Real::exp(-6.0*xi)
 }
 
 fn diff_kr_c(xi: f64) -> f64 {
-    -0.278544*0.190945*(-0.278544*xi).exp() - 0.637174*0.473674*(-0.637174*xi).exp() - 0.335381*1.919249*(-1.919249*xi).exp()
+    -0.278544*0.190945*Real::exp(-0.278544*xi) - 0.637174*0.473674*Real::exp(-0.637174*xi) - 0.335381*1.919249*Real::exp(-1.919249*xi)
 }
 
 fn diff_zbl(xi: f64) -> f64 {
-    -0.20162*0.02817*(-0.20162*xi).exp() -0.40290*0.28022*(-0.40290*xi).exp() -0.94229*0.50986*(-0.94229*xi).exp() -3.1998*0.18175*(-3.1998*xi).exp()
+    -0.20162*0.02817*Real::exp(-0.20162*xi) -0.40290*0.28022*Real::exp(-0.40290*xi) -0.94229*0.50986*Real::exp(-0.94229*xi) -3.1998*0.18175*Real::exp(-3.1998*xi)
 }
 
 fn diff_lenz_jensen(xi: f64) -> f64 {
-     -0.206*0.01018*(-0.206*xi).exp() -0.3876*0.24330*(-0.3876*xi).exp() -1.038*0.7466*(-1.038*xi).exp()
+     -0.206*0.01018*Real::exp(-0.206*xi) -0.3876*0.24330*Real::exp(-0.3876*xi) -1.038*0.7466*Real::exp(-1.038*xi)
 }
 
 /// Normalized first screening radius. Used in Oen-Robinson electronic stopping.

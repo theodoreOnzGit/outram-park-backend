@@ -1,8 +1,26 @@
+// SPDX-License-Identifier: GPL-3.0
+//
+// RustBCA copy — provenance
+// -------------------------
+// Upstream project : RustBCA — https://github.com/lcpp-org/RustBCA
+// Upstream version : v3.0.0, commit a356280d564bbdfbe74b97f32db0776444da58a5
+// Upstream source  : src/input.rs
+// Authors          : Jon Drobny <drobny2@illinois.edu>, Jon Drobny
+//                    <jdrobny@tae.com> (upstream Cargo.toml); no copyright line upstream
+// Original license : GNU GPL v3 (upstream LICENSE copied beside this file)
+// Local changes    : InputFile::new (TOML) gated on rustbca-std; Input2D and
+//                    InputHomogeneous2D gated on any(test, rustbca-std); the
+//                    `distributions` Options variant removed; read_input_file and
+//                    input gated on rustbca-std; seed < 0 calls entropy_seed();
+//                    the cpr_rootfinder input check made unconditional
+//                    (full list: module docs in mod.rs)
+
 use super::*;
 use rand::distr::{Uniform};
 use rand_distr::{Normal, Distribution};
 
 pub trait InputFile: GeometryInput {
+    #[cfg(feature = "rustbca-std")]
     fn new(string: &str) -> Self;
     fn get_options(&self) -> &Options;
     fn get_material_parameters(&self) -> &material::MaterialParameters;
@@ -14,6 +32,7 @@ pub trait GeometryInput {
     type GeometryInput;
 }
 
+#[cfg(any(test, feature = "rustbca-std"))]
 /// Rustbca's internal representation of an input file.
 #[derive(Deserialize, Clone)]
 pub struct Input2D {
@@ -23,12 +42,15 @@ pub struct Input2D {
     pub geometry_input: geometry::Mesh2DInput,
 }
 
+#[cfg(any(test, feature = "rustbca-std"))]
 impl GeometryInput for Input2D {
     type GeometryInput = geometry::Mesh2DInput;
 }
 
+#[cfg(any(test, feature = "rustbca-std"))]
 impl InputFile for Input2D {
 
+    #[cfg(feature = "rustbca-std")]
     fn new(string: &str) -> Input2D {
         toml::from_str(string).context(
             "Could not parse TOML file. Be sure you are using the correct input file mode (e.g.,
@@ -50,6 +72,7 @@ impl InputFile for Input2D {
     }
 }
 
+#[cfg(any(test, feature = "rustbca-std"))]
 /// Rustbca's internal representation of an input file for homogeneous 2D meshes.
 #[derive(Deserialize, Clone)]
 pub struct InputHomogeneous2D {
@@ -59,12 +82,15 @@ pub struct InputHomogeneous2D {
     pub geometry_input: geometry::HomogeneousMesh2DInput,
 }
 
+#[cfg(any(test, feature = "rustbca-std"))]
 impl GeometryInput for InputHomogeneous2D {
     type GeometryInput = geometry::HomogeneousMesh2DInput;
 }
 
+#[cfg(any(test, feature = "rustbca-std"))]
 impl InputFile for InputHomogeneous2D {
 
+    #[cfg(feature = "rustbca-std")]
     fn new(string: &str) -> InputHomogeneous2D {
         toml::from_str(string).context(
             "Could not parse TOML file. Be sure you are using the correct input file mode (e.g.,
@@ -100,6 +126,7 @@ impl GeometryInput for Input0D {
 
 impl InputFile for Input0D {
 
+    #[cfg(feature = "rustbca-std")]
     fn new(string: &str) -> Input0D {
         toml::from_str(string).context(
             "Could not parse TOML file. Be sure you are using the correct input file mode
@@ -135,6 +162,7 @@ impl GeometryInput for Input1D {
 
 impl InputFile for Input1D {
 
+    #[cfg(feature = "rustbca-std")]
     fn new(string: &str) -> Input1D {
         toml::from_str(string).context("Could not parse TOML file. Be sure you are using the correct input file mode (e.g., ./RustBCA SPHERE sphere.toml or RustBCA.exe 0D mesh_0d.toml).").unwrap()
     }
@@ -213,7 +241,6 @@ fn default_rootfinder() -> Vec<Vec<Rootfinder>> {
 }
 
 /// Rustbca's internal representation of the simulation-level options.
-#[cfg(not(feature = "distributions"))]
 #[derive(Deserialize, Clone)]
 pub struct Options {
     pub name: String,
@@ -253,7 +280,6 @@ pub struct Options {
     pub seed: i32
 }
 
-#[cfg(not(feature = "distributions"))]
 impl Options {
     pub fn default_options(track_recoils: bool) -> Options {
         Options {
@@ -279,102 +305,7 @@ impl Options {
     }
 }
 
-#[cfg(feature = "distributions")]
-#[derive(Deserialize, Clone)]
-pub struct Options {
-    pub name: String,
-    #[serde(default = "default_false")]
-    pub track_trajectories: bool,
-    #[serde(default = "default_true")]
-    pub track_recoils: bool,
-    #[serde(default = "default_false")]
-    pub track_recoil_trajectories: bool,
-    #[serde(default = "default_buffer_size")]
-    pub write_buffer_size: usize,
-    #[serde(default = "zero_usize")]
-    pub weak_collision_order: usize,
-    #[serde(default = "default_false")]
-    pub suppress_deep_recoils: bool,
-    #[serde(default = "default_false")]
-    pub high_energy_free_flight_paths: bool,
-    #[serde(default = "default_electronic_stopping_mode")]
-    pub electronic_stopping_mode: ElectronicStoppingMode,
-    #[serde(default = "default_mean_free_path_model")]
-    pub mean_free_path_model: MeanFreePathModel,
-    #[serde(default = "default_interaction_potential")]
-    pub interaction_potential: Vec<Vec<InteractionPotential>>,
-    #[serde(default = "default_scattering_integral")]
-    pub scattering_integral: Vec<Vec<ScatteringIntegral>>,
-    #[serde(default = "default_rootfinder")]
-    pub root_finder: Vec<Vec<Rootfinder>>,
-    #[serde(default = "one_usize")]
-    pub num_threads: usize,
-    #[serde(default = "one_u64")]
-    pub num_chunks: u64,
-    #[serde(default = "default_false")]
-    pub track_displacements: bool,
-    #[serde(default = "default_false")]
-    pub track_energy_losses: bool,
-    pub energy_min: f64,
-    pub energy_max: f64,
-    pub energy_num: usize,
-    pub angle_min: f64,
-    pub angle_max: f64,
-    pub angle_num: usize,
-    pub x_min: f64,
-    pub y_min: f64,
-    pub z_min: f64,
-    pub x_max: f64,
-    pub y_max: f64,
-    pub z_max: f64,
-    pub x_num: usize,
-    pub y_num: usize,
-    pub z_num: usize,
-    #[serde(default = "default_seed")]
-    pub seed: i32
-}
-
-#[cfg(feature = "distributions")]
-impl Options {
-    pub fn default_options(track_recoils: bool) -> Options {
-        Options {
-            name: "default".to_string(),
-            track_trajectories: track_recoils,
-            track_recoils: false,
-            track_recoil_trajectories: false,
-            write_buffer_size: default_buffer_size(),
-            weak_collision_order: zero_usize(),
-            suppress_deep_recoils: false,
-            high_energy_free_flight_paths: false,
-            electronic_stopping_mode: default_electronic_stopping_mode(),
-            mean_free_path_model: default_mean_free_path_model(),
-            interaction_potential: default_interaction_potential(),
-            scattering_integral: default_scattering_integral(),
-            root_finder: default_rootfinder(),
-            num_threads: 1,
-            num_chunks: 1,
-            track_displacements: false,
-            track_energy_losses: false,
-            energy_min: 0.0,
-            energy_max: 0.0,
-            energy_num: 0,
-            angle_min: 0.0,
-            angle_max: 0.0,
-            angle_num: 0,
-            x_min: 0.0,
-            y_min: 0.0,
-            z_min: 0.0,
-            x_max: 0.0,
-            y_max: 0.0,
-            z_max: 0.0,
-            x_num: 0,
-            y_num: 0,
-            z_num: 0,
-            seed: default_seed()
-        }
-    }
-}
-
+#[cfg(feature = "rustbca-std")]
 pub fn read_input_file<T: Geometry>(input_file: String) -> <T as Geometry>::InputFileFormat {
     //Read input file, convert to string, and open with toml
     let mut input_toml = String::new();
@@ -389,6 +320,7 @@ pub fn read_input_file<T: Geometry>(input_file: String) -> <T as Geometry>::Inpu
     InputFile::new(&input_toml)
 }
 
+#[cfg(feature = "rustbca-std")]
 pub fn input<T: Geometry>(input_file: String) -> (Vec<particle::ParticleInput>, material::Material<T>, Options, OutputUnits)
 where <T as Geometry>::InputFileFormat: Deserialize<'static> + 'static {
 
@@ -408,7 +340,7 @@ pub fn process_input_file<T: Geometry>(input: <T as Geometry>::InputFileFormat) 
 
     // Initialize RNG
     let mut rng = if options.seed < 0 {
-            ChaCha8Rng::seed_from_u64(rand::random())
+            ChaCha8Rng::seed_from_u64(entropy_seed())
     } else {
             ChaCha8Rng::seed_from_u64(u64::try_from(options.seed).expect("Value Error: seed not u64."))
     };
@@ -465,14 +397,12 @@ pub fn process_input_file<T: Geometry>(input: <T as Geometry>::InputFileFormat) 
     for ((interaction_potentials, scattering_integrals), root_finders) in options.interaction_potential.iter().zip(options.scattering_integral.clone()).zip(options.root_finder.clone()) {
         for ((interaction_potential, scattering_integral), root_finder) in interaction_potentials.iter().zip(scattering_integrals).zip(root_finders) {
 
-            if cfg!(not(feature="cpr_rootfinder")) {
-                assert!( match root_finder {
-                    Rootfinder::POLYNOMIAL{..} => false,
-                    Rootfinder::CPR{..} => false,
-                    _ => true,
-                },
-                "Input error: CPR rootfinder not enabled. Build with --features cpr_rootfinder");
-            }
+            assert!( match root_finder {
+                Rootfinder::POLYNOMIAL{..} => false,
+                Rootfinder::CPR{..} => false,
+                _ => true,
+            },
+            "Input error: CPR rootfinder not enabled. The CPR and POLYNOMIAL root-finders (upstream feature cpr_rootfinder) are not carried in boon-lay's copy");
 
             assert!(
                 match (interaction_potential, root_finder) {

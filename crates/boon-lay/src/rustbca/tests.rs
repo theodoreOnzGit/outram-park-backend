@@ -1,344 +1,23 @@
+// SPDX-License-Identifier: GPL-3.0
+//
+// RustBCA copy — provenance
+// -------------------------
+// Upstream project : RustBCA — https://github.com/lcpp-org/RustBCA
+// Upstream version : v3.0.0, commit a356280d564bbdfbe74b97f32db0776444da58a5
+// Upstream source  : src/tests.rs
+// Authors          : Jon Drobny <drobny2@illinois.edu>, Jon Drobny
+//                    <jdrobny@tae.com> (upstream Cargo.toml); no copyright line upstream
+// Original license : GNU GPL v3 (upstream LICENSE copied beside this file)
+// Local changes    : libm routing (Real::); tests and branches for the cpr_rootfinder,
+//                    parry3d and distributions features removed
+//                    (full list: module docs in mod.rs)
+
 #[cfg(test)]
 use super::*;
 #[cfg(test)]
 use float_cmp::*;
 #[cfg(test)]
 use rand::RngExt;
-
-#[test]
-#[cfg(feature = "cpr_rootfinder")]
-fn test_polynom() {
-    use rcpr::chebyshev::*;
-    let interaction_potential = InteractionPotential::FOUR_EIGHT{alpha: 1., beta: 1.};
-    let coefficients = interactions::polynomial_coefficients(1., 1., interaction_potential);
-    let roots = real_polynomial_roots(coefficients.clone(), 1e-9).unwrap();
-
-    let max_root = roots.iter().cloned().fold(f64::NAN, f64::max);
-    println!("{}", max_root);
-    let inverse_transformed_root = interactions::inverse_transform(max_root, interaction_potential);
-}
-
-#[test]
-#[cfg(feature = "parry3d")]
-fn test_parry_cuboid() {
-    let mass = 1.;
-    let Z = 1.;
-    let E = 10.*EV;
-    let Ec = 1.*EV;
-    let Es = 5.76*EV;
-    let x = 0.;
-    let y = 0.;
-    let z = 0.;
-    let cosx = 1./(2.0_f64).sqrt();
-    let cosy = 1./(2.0_f64).sqrt();
-    let cosz = 0.;
-    let particle_1 = particle::Particle::new(mass, Z, E, Ec, Es, 0.0, x, y, z, cosx, cosy, cosz, false, false, 0);
-
-    let material_parameters = material::MaterialParameters{
-        energy_unit: "EV".to_string(),
-        mass_unit: "AMU".to_string(),
-        Eb: vec![0.0, 0.0],
-        Es: vec![2.0, 4.0],
-        Ec: vec![1.0, 1.0],
-        Ed: vec![0.0, 0.0],
-        Z: vec![29., 1.],
-        m: vec![63.54, 1.0008],
-        interaction_index: vec![0, 0],
-        surface_binding_model: SurfaceBindingModel::PLANAR{calculation: SurfaceBindingCalculation::TARGET},
-        bulk_binding_model: BulkBindingModel::INDIVIDUAL,
-    };
-
-    let radius = 1000.*ANGSTROM;
-
-    //cuboid centered at (0, 0, 0) with l=w=h=1 Angstrom
-    let geometry_input = parry::ParryTriMeshInput {
-        length_unit: "ANGSTROM".to_string(),
-        densities: vec![0.03, 0.03],
-        electronic_stopping_correction_factor: 1.0,
-        vertices: vec![
-            [-0.5, -0.5, 0.5],
-            [0.5, -0.5, 0.5],
-            [-0.5, 0.5, 0.5],
-            [0.5, 0.5, 0.5],
-            [-0.5, 0.5, -0.5],
-            [0.5, 0.5, -0.5],
-            [-0.5, -0.5, -0.5],
-            [0.5, -0.5, -0.5],
-        ],
-        indices: vec![
-            [0, 1, 3],
-            [0, 3, 2],
-            [2, 3, 5],
-            [2, 5, 4],
-            [4, 5, 7],
-            [4, 7, 6],
-            [6, 7, 1],
-            [6, 1, 0],
-            [1, 7, 5],
-            [1, 5, 3],
-            [6, 0, 2],
-            [6, 2, 4]
-        ]
-    };
-
-    let mut material_cuboid: material::Material<parry::ParryTriMesh> = material::Material::<parry::ParryTriMesh>::new(&material_parameters, &geometry_input);
-    material_cuboid.geometry.energy_barrier_thickness = 10.*ANGSTROM;
-
-    let surface_binding_energy = material_cuboid.actual_surface_binding_energy(&particle_1, particle_1.pos.x, particle_1.pos.y, particle_1.pos.z);
-    assert!(approx_eq!(f64, surface_binding_energy/EV, (2. + 4.)/2., epsilon=1E-24));
-
-    //Test origin is inside
-    assert!(material_cuboid.geometry.inside(0., 0., 0.));
-
-    //Test all outside areas for containment
-    assert!(!material_cuboid.geometry.inside(0., 1., 0.));
-    assert!(!material_cuboid.geometry.inside(0., -1., 0.));
-    assert!(!material_cuboid.geometry.inside(1., 0., 0.));
-    assert!(!material_cuboid.geometry.inside(-1., 0., 0.));
-    assert!(!material_cuboid.geometry.inside(0., 0., -1.));
-    assert!(!material_cuboid.geometry.inside(0., 0., -1.));
-
-    //distance to origin
-    let (x, y, z) = material_cuboid.geometry.closest_point(0., 0., 0.);
-    assert!(approx_eq!(f64, (x.powi(2) + y.powi(2) + z.powi(2)).sqrt(), 0.5*ANGSTROM, epsilon=1E-24));
-
-    //distance to wall should be zero at wall
-    let (x, y, z) = material_cuboid.geometry.closest_point(0.5*ANGSTROM, 0., 0.);
-    assert!(approx_eq!(f64, ((x - 0.5*ANGSTROM).powi(2) + y.powi(2) + z.powi(2)).sqrt(), 0.0, epsilon=1E-24));
-}
-
-#[test]
-#[cfg(feature = "parry3d")]
-fn test_parry_sphere() {
-    let mass = 1.;
-    let Z = 1.;
-    let E = 10.*EV;
-    let Ec = 1.*EV;
-    let Es = 5.76*EV;
-    let x = 0.;
-    let y = 0.;
-    let z = 0.;
-    let cosx = 1./(2.0_f64).sqrt();
-    let cosy = 1./(2.0_f64).sqrt();
-    let cosz = 0.;
-    let mut particle_1 = particle::Particle::new(mass, Z, E, Ec, Es, 0.0, x, y, z, cosx, cosy, cosz, false, false, 0);
-
-    let material_parameters = material::MaterialParameters{
-        energy_unit: "EV".to_string(),
-        mass_unit: "AMU".to_string(),
-        Eb: vec![0.0, 0.0],
-        Es: vec![2.0, 4.0],
-        Ec: vec![1.0, 1.0],
-        Ed: vec![0.0, 0.0],
-        Z: vec![29., 1.],
-        m: vec![63.54, 1.0008],
-        interaction_index: vec![0, 0],
-        surface_binding_model: SurfaceBindingModel::PLANAR{calculation: SurfaceBindingCalculation::TARGET},
-        bulk_binding_model: BulkBindingModel::INDIVIDUAL,
-    };
-
-    let radius = 1000.*ANGSTROM;
-
-    let geometry_input_sphere = parry::ParryBallInput {
-        length_unit: "ANGSTROM".to_string(),
-        radius: 1000.0,
-        densities: vec![0.03, 0.03],
-        electronic_stopping_correction_factor: 1.0
-    };
-
-    let mut material_sphere: material::Material<parry::ParryBall> = material::Material::<parry::ParryBall>::new(&material_parameters, &geometry_input_sphere);
-    material_sphere.geometry.energy_barrier_thickness = 10.*ANGSTROM;
-
-    particle_1.pos.x = 500.*ANGSTROM;
-    particle_1.pos.y = 0.;
-
-    particle_1.pos_old.x = -1500.*ANGSTROM;
-    particle_1.pos_old.y = 0.;
-
-    let inside_sphere = material_sphere.inside(particle_1.pos.x, particle_1.pos.y, particle_1.pos.z);
-    let inside_old_sphere = material_sphere.inside(particle_1.pos_old.x, particle_1.pos_old.y, particle_1.pos_old.z);
-
-    //println!("{} {}", inside, inside_old);
-    assert!(inside_sphere);
-    assert!(!inside_old_sphere);
-
-    //Test concentration-dependent surface binding energy
-    let surface_binding_energy = material_sphere.actual_surface_binding_energy(&particle_1, particle_1.pos.x, particle_1.pos.y, particle_1.pos.z);
-    assert!(approx_eq!(f64, surface_binding_energy/EV, (2. + 4.)/2., epsilon=1E-24));
-
-    assert!(material_sphere.inside_energy_barrier(0., 0., 0.));
-    assert!(material_sphere.inside_simulation_boundary(0., 0., 0.));
-    assert!(material_sphere.inside(0., 0., 0.));
-
-    let ux = 1214.0*ANGSTROM;
-    let uy = 123123.0*ANGSTROM;
-    let uz = 1239.0*ANGSTROM;
-    let r = (ux.powi(2) + uy.powi(2) + uz.powi(2)).sqrt();
-    let R = 1001.0*ANGSTROM;
-    let u = (ux/r*R, uy/r*R, uz/r*R);
-    assert!(!material_sphere.inside(u.0, u.1, u.2));
-    assert!(material_sphere.inside_energy_barrier(u.0, u.1, u.2));
-    assert!(material_sphere.inside_simulation_boundary(u.0, u.1, u.2));
-
-    assert!(material_sphere.inside_energy_barrier(0., 0., 0.));
-    assert!(material_sphere.inside_simulation_boundary(0., 0., 0.));
-    assert!(material_sphere.inside(0., 0., 0.));
-
-    assert!(material_sphere.inside_energy_barrier(-1000.0*ANGSTROM - 1.0*ANGSTROM, 0., 0.));
-    assert!(!material_sphere.inside_energy_barrier(-1000.0*ANGSTROM - 11.0*ANGSTROM, 0., 0.));
-
-    assert!(material_sphere.inside_energy_barrier(0., -1000.0*ANGSTROM - 1.0*ANGSTROM, 0.));
-    assert!(!material_sphere.inside_energy_barrier(0., -1000.0*ANGSTROM - 11.0*ANGSTROM, 0.));
-
-    assert!(material_sphere.inside_energy_barrier(0., 0., -1000.0*ANGSTROM - 1.0*ANGSTROM));
-    assert!(!material_sphere.inside_energy_barrier(0., 0., -1000.0*ANGSTROM - 11.0*ANGSTROM));
-
-    assert!(material_sphere.inside(-1000.0*ANGSTROM + 1.0*ANGSTROM, 0., 0.));
-    assert!(!material_sphere.inside(-1000.0*ANGSTROM - 1.0*ANGSTROM, 0., 0.));
-
-    assert!(material_sphere.inside(0., -1000.0*ANGSTROM + 1.0*ANGSTROM, 0.));
-    assert!(!material_sphere.inside(0., -1000.0*ANGSTROM - 1.0*ANGSTROM, 0.));
-
-    assert!(material_sphere.inside(0., 0., -1000.0*ANGSTROM + 1.0*ANGSTROM));
-    assert!(!material_sphere.inside(0., 0., -1000.0*ANGSTROM - 1.0*ANGSTROM));
-
-    assert!(approx_eq!(f64, material_sphere.closest_point(-2000.*ANGSTROM, 0., 0.).0, (-1000.*ANGSTROM, 0., 0.).0, epsilon=1E-12));
-    assert!(approx_eq!(f64, material_sphere.closest_point(0., -2000.*ANGSTROM, 0.).1, (0., -1000.*ANGSTROM, 0.).1, epsilon=1E-12));
-    assert!(approx_eq!(f64, material_sphere.closest_point(0., 0., -2000.*ANGSTROM).2, (0., 0., -1000.*ANGSTROM).2, epsilon=1E-12));
-}
-
-#[test]
-#[cfg(feature = "distributions")]
-fn test_distributions() {
-
-    let options = Options {
-        name: "test".to_string(),
-        track_trajectories: false,
-        track_recoils: false,
-        track_recoil_trajectories: false,
-        write_buffer_size: 8000,
-        weak_collision_order: 0,
-        suppress_deep_recoils: false,
-        high_energy_free_flight_paths: false,
-        electronic_stopping_mode: ElectronicStoppingMode::INTERPOLATED,
-        mean_free_path_model: MeanFreePathModel::LIQUID,
-        interaction_potential: vec![vec![InteractionPotential::KR_C]],
-        scattering_integral: vec![vec![ScatteringIntegral::MENDENHALL_WELLER]],
-        num_threads: 1,
-        num_chunks: 1,
-        root_finder: vec![vec![Rootfinder::NEWTON{max_iterations: 100, tolerance: 1E-3}]],
-        track_displacements: false,
-        track_energy_losses: true,
-        seed: 0,
-        energy_min: 0.0,
-        energy_max: 10.0,
-        energy_num: 11,
-        angle_min: 0.0,
-        angle_max: 90.0,
-        angle_num: 11,
-        x_min: 0.0,
-        y_min: -10.0,
-        z_min: -10.0,
-        x_max: 10.0,
-        y_max: 10.0,
-        z_max: 10.0,
-        x_num: 11,
-        y_num: 11,
-        z_num: 11,
-    };
-
-    let output_units = OutputUnits {
-        length_unit: 1.0,
-        energy_unit: 1.0,
-        mass_unit: 1.0,
-    };
-
-    let mass = 1.0;
-    let Z = 1.0;
-    let E = 1.5;
-    let Ec = 0.0;
-    let Es = 0.0;
-    let x = 0.0;
-    let y = 0.0;
-    let z = 0.0;
-    let cosx = 0.0;
-    let cosy = 0.0;
-    let cosz = 0.0;
-    let mut particle = particle::Particle::new(mass, Z, E, Ec, Es, 0.0, x, y, z, cosx, cosy, cosz, false, false, 0);
-
-    let mut distributions = output::Distributions::new(&options);
-    assert_eq!(distributions.x_range[0], 0.);
-    assert_eq!(distributions.x_range[distributions.x_range.len() - 1], 10.);
-    assert_eq!(distributions.y_range[0], -10.);
-    assert_eq!(distributions.y_range[distributions.y_range.len() - 1], 10.);
-    assert_eq!(distributions.z_range[0], -10.);
-    assert_eq!(distributions.z_range[distributions.z_range.len() - 1], 10.);
-    assert_eq!(distributions.x_range.len(), 11);
-    assert_eq!(distributions.y_range.len(), 11);
-    assert_eq!(distributions.z_range.len(), 11);
-
-    particle.incident = true;
-    particle.stopped = true;
-    particle.pos.x = 0.0;
-    distributions.update(&particle, &output_units, &options, 1);
-    assert_eq!(distributions.implanted_x[0], 1);
-
-    particle.pos.x = 10.0;
-    distributions.update(&particle, &output_units, &options, 1);
-    assert_eq!(distributions.implanted_x[10], 1);
-
-    distributions.update(&particle, &output_units, &options, 1);
-    assert_eq!(distributions.implanted_y[5], 3);
-    assert_eq!(distributions.implanted_z[5], 3);
-
-    particle.incident = false;
-    particle.stopped = false;
-    particle.left = true;
-    particle.E = 0.0;
-    particle.dir.x = -0.999;
-    particle.dir.y = 0.001;
-    particle.dir.z = 0.0;
-    particle.dir.normalize();
-
-    distributions.update(&particle, &output_units, &options, 1);
-    assert_eq!(distributions.sputtered_ead[[0, 0]], 1);
-
-    particle.E = -0.1;
-    distributions.update(&particle, &output_units, &options, 1);
-    assert_eq!(distributions.sputtered_ead[[0, 0]], 1);
-
-    particle.E = 10.0;
-    distributions.update(&particle, &output_units, &options, 1);
-    assert_eq!(distributions.sputtered_ead[[10, 0]], 1);
-
-    particle.dir = Vector::new(-0.707, 0.707, 0.0);
-    particle.dir.normalize();
-    distributions.update(&particle, &output_units, &options, 1);
-    assert_eq!(distributions.sputtered_ead[[10, 5]], 1);
-
-    particle.incident = true;
-    particle.E = 0.0;
-    particle.dir.x = -0.999;
-    particle.dir.y = 0.001;
-    particle.dir.z = 0.0;
-    particle.dir.normalize();
-
-    distributions.update(&particle, &output_units, &options, 1);
-    assert_eq!(distributions.reflected_ead[[0, 0]], 1);
-
-    particle.E = -0.1;
-    distributions.update(&particle, &output_units, &options, 1);
-    assert_eq!(distributions.reflected_ead[[0, 0]], 1);
-
-    particle.E = 10.0;
-    distributions.update(&particle, &output_units, &options, 1);
-    assert_eq!(distributions.reflected_ead[[10, 0]], 1);
-
-    particle.dir = Vector::new(-0.707, 0.707, 0.0);
-    particle.dir.normalize();
-    distributions.update(&particle, &output_units, &options, 1);
-    assert_eq!(distributions.reflected_ead[[10, 5]], 1);
-}
 
 #[test]
 fn test_spherical_geometry() {
@@ -405,7 +84,7 @@ fn test_spherical_geometry() {
     let ux = 1214.0*ANGSTROM;
     let uy = 123123.0*ANGSTROM;
     let uz = 1239.0*ANGSTROM;
-    let r = (ux.powi(2) + uy.powi(2) + uz.powi(2)).sqrt();
+    let r = (Real::powi(ux, 2) + Real::powi(uy, 2) + Real::powi(uz, 2)).sqrt();
     let R = 1001.0*ANGSTROM;
     let u = (ux/r*R, uy/r*R, uz/r*R);
     assert!(!material_sphere.inside(u.0, u.1, u.2));
@@ -763,7 +442,6 @@ fn test_surface_refraction() {
 fn test_momentum_conservation() {
 
 
-    #[cfg(not(feature = "cpr_rootfinder"))]
     let potentials = vec![
         InteractionPotential::KR_C,
         InteractionPotential::MOLIERE,
@@ -771,34 +449,10 @@ fn test_momentum_conservation() {
         InteractionPotential::LENZ_JENSEN
     ];
 
-    #[cfg(feature = "cpr_rootfinder")]
-    let potentials = vec![
-        InteractionPotential::KR_C,
-        InteractionPotential::MOLIERE,
-        InteractionPotential::ZBL,
-        InteractionPotential::LENZ_JENSEN,
-        InteractionPotential::MORSE{D: 5.4971E-20, r0: 2.782E-10, alpha: 1.4198E10}
-    ];
     
-    #[cfg(feature = "cpr_rootfinder")]
-    let mut rootfinders = vec![Rootfinder::NEWTON{max_iterations: 100, tolerance: 1E-3}; 4];
-    #[cfg(not(feature = "cpr_rootfinder"))]
     let  rootfinders = vec![Rootfinder::NEWTON{max_iterations: 100, tolerance: 1E-3}; 4];
 
     //[[{"CPR"={n0=2, nmax=100, epsilon=1E-9, complex_threshold=1E-3, truncation_threshold=1E-9, far_from_zero=1E9, interval_limit=1E-12, derivative_free=true}}]]
-    #[cfg(feature = "cpr_rootfinder")]
-    rootfinders.push(
-        Rootfinder::CPR{
-            n0: 2,
-            nmax: 100,
-            epsilon: 1e-9,
-            complex_threshold: 1e-3,
-            truncation_threshold: 1e-9,
-            far_from_zero: 1e9,
-            interval_limit:1e-12,
-            derivative_free: true
-        }
-    );
 
     for direction in vec![(1.0, 0.0, 0.0), (0.0, 1.0, 0.0), (0.0, 0.0, 1.0), (-1.0, 0.0, 0.0), (0.0, -1.0, 0.0), (0.0, 0.0, -1.0)] {
         for energy_eV in vec![1., 10., 100., 1000., 1000.] {
@@ -865,7 +519,6 @@ fn test_momentum_conservation() {
 
                         let mut particle_1 = particle::Particle::new(m1, Z1, E1, Ec1, Es1, 0.0, x1, y1, z1, cosx, cosy, cosz, false, false, 0);
 
-                        #[cfg(not(feature = "distributions"))]
                         let options = Options {
                             name: "test".to_string(),
                             track_trajectories: false,
@@ -887,42 +540,6 @@ fn test_momentum_conservation() {
                             seed: 0,
                         };
 
-                        #[cfg(feature = "distributions")]
-                        let options = Options {
-                            name: "test".to_string(),
-                            track_trajectories: false,
-                            track_recoils: true,
-                            track_recoil_trajectories: false,
-                            write_buffer_size: 8000,
-                            weak_collision_order: 0,
-                            suppress_deep_recoils: false,
-                            high_energy_free_flight_paths: high_energy_free_flight_paths,
-                            electronic_stopping_mode: ElectronicStoppingMode::INTERPOLATED,
-                            mean_free_path_model: MeanFreePathModel::LIQUID,
-                            interaction_potential: vec![vec![*potential]],
-                            scattering_integral: vec![vec![scattering_integral]],
-                            num_threads: 1,
-                            num_chunks: 1,
-                            root_finder: vec![vec![root_finder]],
-                            track_displacements: false,
-                            track_energy_losses: false,
-                            seed: 0,
-                            energy_min: 0.0,
-                            energy_max: 10.0,
-                            energy_num: 11,
-                            angle_min: 0.0,
-                            angle_max: 90.0,
-                            angle_num: 11,
-                            x_min: 0.0,
-                            y_min: -10.0,
-                            z_min: -10.0,
-                            x_max: 10.0,
-                            y_max: 10.0,
-                            z_max: 10.0,
-                            x_num: 11,
-                            y_num: 11,
-                            z_num: 11,
-                        };
 
                         static SEED: u64 = 0;
                         let mut rng = ChaCha8Rng::seed_from_u64(SEED);
@@ -1056,9 +673,9 @@ fn test_rotate() {
         assert!(approx_eq!(f64, particle_5.dir.dot(&particle_6.dir), 0.0, epsilon=1e-9), "dir_1 dot dir_2 = {}; should be orthogonal.", particle_5.dir.dot(&particle_6.dir));
 
         //Check that particle direction vector remains normalized following rotations
-        assert!(approx_eq!(f64, particle_4.dir.x.powi(2) + particle_4.dir.y.powi(2) + particle_4.dir.z.powi(2), 1.), "Particle direction not normalized.");
-        assert!(approx_eq!(f64, particle_5.dir.x.powi(2) + particle_5.dir.y.powi(2) + particle_5.dir.z.powi(2), 1.), "Particle direction not normalized.");
-        assert!(approx_eq!(f64, particle_6.dir.x.powi(2) + particle_6.dir.y.powi(2) + particle_6.dir.z.powi(2), 1.), "Particle direction not normalized.");
+        assert!(approx_eq!(f64, Real::powi(particle_4.dir.x, 2) + Real::powi(particle_4.dir.y, 2) + Real::powi(particle_4.dir.z, 2), 1.), "Particle direction not normalized.");
+        assert!(approx_eq!(f64, Real::powi(particle_5.dir.x, 2) + Real::powi(particle_5.dir.y, 2) + Real::powi(particle_5.dir.z, 2), 1.), "Particle direction not normalized.");
+        assert!(approx_eq!(f64, Real::powi(particle_6.dir.x, 2) + Real::powi(particle_6.dir.y, 2) + Real::powi(particle_6.dir.z, 2), 1.), "Particle direction not normalized.");
     }
 }
 
@@ -1073,8 +690,8 @@ fn test_particle_advance() {
     let x = 0.;
     let y = 0.;
     let z = 0.;
-    let cosx = (PI/4.).cos();
-    let cosy = (PI/4.).sin();
+    let cosx = Real::cos(PI/4.);
+    let cosy = Real::sin(PI/4.);
     let cosz = 0.;
     let mfp = 1.;
     let asymptotic_deflection = 0.5;
@@ -1099,7 +716,6 @@ fn test_quadrature() {
     let p = 1.*ANGSTROM;
     let a = interactions::screening_length(Za, Zb, InteractionPotential::KR_C);
 
-    #[cfg(not(feature = "distributions"))]
     let options = Options {
         name: "test".to_string(),
         track_trajectories: false,
@@ -1121,53 +737,13 @@ fn test_quadrature() {
         seed: 0,
     };
 
-    #[cfg(feature = "distributions")]
-    let options = Options {
-        name: "test".to_string(),
-        track_trajectories: false,
-        track_recoils: true,
-        track_recoil_trajectories: false,
-        write_buffer_size: 8000,
-        weak_collision_order: 0,
-        suppress_deep_recoils: false,
-        high_energy_free_flight_paths: false,
-        electronic_stopping_mode: ElectronicStoppingMode::INTERPOLATED,
-        mean_free_path_model: MeanFreePathModel::LIQUID,
-        interaction_potential:  vec![vec![InteractionPotential::KR_C]],
-        scattering_integral: vec![vec![ScatteringIntegral::MENDENHALL_WELLER]],
-        num_threads: 1,
-        num_chunks: 1,
-        root_finder: vec![vec![Rootfinder::NEWTON{max_iterations: 100, tolerance: 1E-14}]],
-        track_displacements: false,
-        track_energy_losses: false,
-        seed: 0,
-        energy_min: 0.0,
-        energy_max: 10.0,
-        energy_num: 11,
-        angle_min: 0.0,
-        angle_max: 90.0,
-        angle_num: 11,
-        x_min: 0.0,
-        y_min: -10.0,
-        z_min: -10.0,
-        x_max: 10.0,
-        y_max: 10.0,
-        z_max: 10.0,
-        x_num: 11,
-        y_num: 11,
-        z_num: 11,
-    };
 
     let interaction_potential = InteractionPotential::KR_C;
 
     let x0_newton = bca::newton_rootfinder(Za, Zb, Ma, Mb, E0, p, interaction_potential, 100, 1E-12).unwrap();
 
     //If cpr_rootfinder is enabled, compare Newton to CPR - they should be nearly identical
-    #[cfg(feature = "cpr_rootfinder")]
-    if let Ok(x0_cpr) = bca::cpr_rootfinder(Za, Zb, Ma, Mb, E0, p, interaction_potential, 2, 10000, 1E-6, 1E-6, 1E-9, 1E9, 1E-13, true) {
-        println!("CPR: {} Newton: {}", x0_cpr, x0_newton);
-        assert!(approx_eq!(f64, x0_newton, x0_cpr, epsilon=1E-3));
-    };
+    // (boon-lay: that comparison is dropped with the cpr_rootfinder feature.)
 
     let a = interactions::screening_length(Za, Zb, interaction_potential);
 

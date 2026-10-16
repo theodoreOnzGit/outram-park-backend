@@ -71,8 +71,26 @@ ones (neutrons, and photons once ported).
   header on every file and a list of local changes. Its `no_std` + `alloc`
   build is re-exported from here (gh:#876, item 7). It covers fission
   fragments, alphas and recoil knock-ons, all of which are in scope.
-- **Nothing is ported yet.** A headless example that measures the cost of one
-  cascade comes first.
+- ~~**Nothing is ported yet.** A headless example that measures the cost of one
+  cascade comes first.~~ **CORRECTED 2026-10-16:** **`src/rustbca/` is a copy
+  of RustBCA, and boon-lay re-exports it** (`boon_lay::rustbca`). Attribution
+  and every local change are in `src/rustbca/mod.rs` and
+  `src/rustbca/README.md`. The std-only layer (TOML input, file output,
+  rayon/indicatif driver, entropy seeding, `geo` 2D meshes) sits behind the
+  `rustbca-std` feature, which is off by default. Floats go through
+  `petir::real::Real`, written FULLY QUALIFIED (`Real::exp(x)`): method
+  syntax would hit `std`'s inherent method in this std crate.
+  `scripts/check-rustbca-no-std.sh` compiles the tree as `#![no_std]`.
+  `local_change_tests::no_transcendental_method_calls_remain` catches method
+  syntax creeping back in. The cost probe `examples/rustbca_cascades.rs` was
+  run on 2026-10-16; its record is in
+  `verification_and_validation/rustbca_cascades/`. A fragment cascade costs
+  1.5–2 s on one desktop core.
+- **Keep the copy a copy.** Make changes to RustBCA itself in `src/rustbca/`
+  only when they are needed (no_std, a bug), and record each one in the module
+  docs' numbered list. Physics boon-lay adds on top, such as a layered-sphere
+  `Geometry`, fragment-pair sampling, or the demo track type, goes OUTSIDE
+  `src/rustbca/`, by the same rule as `triso_atops_extensions`.
 - Fragment tracks are illustrative until they pass V&V against uncalibrated
   range data, because RustBCA's Bethe term uses the bare Za².
 
@@ -100,7 +118,8 @@ Covers:
 | ~~`oorandom`~~ | ~~Simple fast RNG for decay-chain sampling~~ **CORRECTED 2026-10-04 (gh:#531):** not a dependency (`Cargo.toml` has none); `OoRng64` in `central_limit_theorem/oorandom_rng.rs` is a local wrapper, and decay chains use `outram_mc_libs::rng::lcg::Lcg64` |
 | `serde_json` | reading upstream / GUI-written TRISO-ATOPS run files (`run_file::upstream`) |
 | `rayon` (not on wasm), `wgpu` (not on Android or wasm) | parallel ensembles; the optional, unverified GPU kernel |
-| `outram-mc-libs` | RNG (LCG + Normal + Exp distributions) — replaces `oorandom`, `rand`, `rand_core`, `rand_distr` |
+| `outram-mc-libs` | RNG (LCG + Normal + Exp distributions) — replaces `oorandom`, `rand`, `rand_core`, `rand_distr` **for boon-lay's own code**. **CORRECTED 2026-10-16:** `rand` 0.10 and `rand_distr` 0.6 are dependencies again, but only for the RustBCA copy (`src/rustbca/`), which keeps upstream's ChaCha8 RNG |
+| `petir` | `real::Real`, the libm-backed float shim for the `no_std` RustBCA copy (added 2026-10-16) |
 | `serde` / `serde-xml-rs` | Deserialise the ENDF-8 XML into `SerdeNuclideData` structs |
 | `anyhow` | Error propagation in XML parsing |
 
@@ -162,6 +181,7 @@ src/
     removal_rates.rs                      ← RemovalRates: k_plate / k_clean per transport group or per element (Z); ::upstream reproduces upstream's routing; per-cycle conversions; liu_cao_2002_htr10 table
     normal_operation.rs                   ← normal_operation_node_with_rates: the ported chain with the rates from a RemovalRates; bit-for-bit equal to the port under ::upstream (336 cases)
   chemistry/                              ← cited rate laws: graphite_air, graphite_steam, kernel_hydrolysis (gh:#401). Added to this map 2026-10-04 (gh:#531)
+  rustbca/                                ← **A COPY of RustBCA** v3.0.0 (lcpp-org, a356280d, GPL-3.0), no_std + alloc, re-exported by boon-lay (gh:#876 item 7). mod.rs holds the attribution and the numbered local-change list; tests.rs is upstream's; local_change_tests.rs is boon-lay's. Added 2026-10-16
   compute.rs                              ← ComputeType / ThreadCount backend selector (CPU single, CPU rayon, wgpu). Added 2026-10-04
   gpu.rs                                  ← optional wgpu Walk-on-Spheres kernel, off Android and wasm; UNVERIFIED (CPU fallback only). Added 2026-10-04
   wasm_par.rs                             ← serial rayon stand-ins on wasm32. Added 2026-10-04

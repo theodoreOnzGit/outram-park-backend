@@ -1,7 +1,24 @@
+// SPDX-License-Identifier: GPL-3.0
+//
+// RustBCA copy — provenance
+// -------------------------
+// Upstream project : RustBCA — https://github.com/lcpp-org/RustBCA
+// Upstream version : v3.0.0, commit a356280d564bbdfbe74b97f32db0776444da58a5
+// Upstream source  : src/geometry.rs
+// Authors          : Jon Drobny <drobny2@illinois.edu>, Jon Drobny
+//                    <jdrobny@tae.com> (upstream Cargo.toml); no copyright line upstream
+// Original license : GNU GPL v3 (upstream LICENSE copied beside this file)
+// Local changes    : libm routing (Real::); geo imports, Mesh2D, HomogeneousMesh2D and
+//                    their inputs gated on any(test, feature = "rustbca-std")
+//                    (full list: module docs in mod.rs)
+
 use super::*;
 
+#[cfg(any(test, feature = "rustbca-std"))]
 use geo::algorithm::contains::Contains;
+#[cfg(any(test, feature = "rustbca-std"))]
 use geo::{Polygon, LineString, Point, point, Closest};
+#[cfg(any(test, feature = "rustbca-std"))]
 use geo::algorithm::closest_point::ClosestPoint;
 
 ///Trait for a Geometry object - all forms of geometry must implement these traits to be used
@@ -63,13 +80,13 @@ impl Geometry for Mesh0D {
 
         let electronic_stopping_correction_factor = input.electronic_stopping_correction_factor;
 
-        let densities: Vec<f64> = input.densities.iter().map(|element| element/(length_unit).powi(3)).collect();
+        let densities: Vec<f64> = input.densities.iter().map(|element| element/Real::powi(length_unit, 3)).collect();
         assert!(!densities.is_empty(), "Input Error: density list empty.");
         
         let total_density: f64 = densities.iter().sum();
         assert!(total_density < MAX_DENSITY, "Input Error: total density {}/m^3 exceeds realistic values; check values or units.", total_density);
 
-        let energy_barrier_thickness = 1./total_density.cbrt()/SQRTPI*2.;
+        let energy_barrier_thickness = 1./Real::cbrt(total_density)/SQRTPI*2.;
 
         let concentrations: Vec<f64> = densities.iter().map(|&density| density/total_density).collect::<Vec<f64>>();
 
@@ -154,7 +171,7 @@ impl Geometry for Mesh1D {
 
         let densities: Vec<Vec<f64>> = geometry_input.densities
             .iter()
-            .map( |row| row.iter().map(|element| element/(length_unit).powi(3)).collect() ).collect();
+            .map( |row| row.iter().map(|element| element/Real::powi(length_unit, 3)).collect() ).collect();
     
 
         //Assert all layer density lists are equal length
@@ -179,8 +196,8 @@ impl Geometry for Mesh1D {
             layer_top = layer_bottom;
         }
 
-        let top_energy_barrier_thickness = 1./layers[0].densities.iter().sum::<f64>().cbrt()/SQRTPI*2.;
-        let bottom_energy_barrier_thickness = 1./layers[layers.len() - 1].densities.iter().sum::<f64>().cbrt()/SQRTPI*2.;
+        let top_energy_barrier_thickness = 1./Real::cbrt(layers[0].densities.iter().sum::<f64>())/SQRTPI*2.;
+        let bottom_energy_barrier_thickness = 1./Real::cbrt(layers[layers.len() - 1].densities.iter().sum::<f64>())/SQRTPI*2.;
 
         Mesh1D {
             layers,
@@ -266,6 +283,7 @@ impl Geometry for Mesh1D {
     }
 }
 
+#[cfg(any(test, feature = "rustbca-std"))]
 #[derive(Deserialize, Clone)]
 pub struct HomogeneousMesh2DInput {
     pub length_unit: String,
@@ -275,6 +293,7 @@ pub struct HomogeneousMesh2DInput {
     pub electronic_stopping_correction_factor: f64
 }
 
+#[cfg(any(test, feature = "rustbca-std"))]
 #[derive(Clone)]
 pub struct HomogeneousMesh2D {
     pub boundary: Polygon<f64>,
@@ -285,6 +304,7 @@ pub struct HomogeneousMesh2D {
     pub concentrations: Vec<f64>
 }
 
+#[cfg(any(test, feature = "rustbca-std"))]
 impl Geometry for HomogeneousMesh2D {
 
     type InputFileFormat = InputHomogeneous2D;
@@ -308,12 +328,12 @@ impl Geometry for HomogeneousMesh2D {
 
         let electronic_stopping_correction_factor = input.electronic_stopping_correction_factor;
 
-        let densities: Vec<f64> = input.densities.iter().map(|element| element/(length_unit).powi(3)).collect();
+        let densities: Vec<f64> = input.densities.iter().map(|element| element/Real::powi(length_unit, 3)).collect();
 
         let total_density: f64 = densities.iter().sum();
         assert!(total_density < MAX_DENSITY, "Input Error: total density {}/m^3 exceeds realistic values; check values or units.", total_density);
 
-        let energy_barrier_thickness = 1./total_density.cbrt()/SQRTPI*2.;
+        let energy_barrier_thickness = 1./Real::cbrt(total_density)/SQRTPI*2.;
 
         let concentrations: Vec<f64> = densities.iter().map(|&density| density/total_density).collect::<Vec<f64>>();
 
@@ -358,7 +378,7 @@ impl Geometry for HomogeneousMesh2D {
         if self.inside(x, y, z) {
             true
         } else if let Closest::SinglePoint(p) = self.boundary.closest_point(&point!(x: x, y: y)) {
-             let distance = ((x - p.x()).powi(2) +  (y - p.y()).powi(2)).sqrt();
+             let distance = (Real::powi(x - p.x(), 2) +  Real::powi(y - p.y(), 2)).sqrt();
              distance < self.energy_barrier_thickness
          } else if let Closest::Intersection(p) = self.boundary.closest_point(&point!(x: x, y: y)) {
              true
@@ -378,6 +398,7 @@ impl Geometry for HomogeneousMesh2D {
 }
 
 /// Object that contains raw mesh input data.
+#[cfg(any(test, feature = "rustbca-std"))]
 #[derive(Deserialize, Clone)]
 pub struct Mesh2DInput {
     pub length_unit: String,
@@ -391,6 +412,7 @@ pub struct Mesh2DInput {
 }
 
 /// Triangular mesh for rustbca.
+#[cfg(any(test, feature = "rustbca-std"))]
 #[derive(Clone)]
 pub struct Mesh2D {
     mesh: Vec<Cell2D>,
@@ -399,6 +421,7 @@ pub struct Mesh2D {
     pub energy_barrier_thickness: f64
 }
 
+#[cfg(any(test, feature = "rustbca-std"))]
 impl Mesh2D {
     /// Finds the cell that is nearest to (x, y).
     fn nearest_to(&self, x: f64, y: f64, z: f64) -> &Cell2D {
@@ -418,6 +441,7 @@ impl Mesh2D {
     }
 }
 
+#[cfg(any(test, feature = "rustbca-std"))]
 impl Geometry for Mesh2D {
 
     type InputFileFormat = Input2D;
@@ -450,7 +474,7 @@ impl Geometry for Mesh2D {
 
         let densities: Vec<Vec<f64>> = geometry_input.densities
             .iter()
-            .map( |row| row.iter().map(|element| element/(length_unit).powi(3)).collect() ).collect();
+            .map( |row| row.iter().map(|element| element/Real::powi(length_unit, 3)).collect() ).collect();
 
         //Assert all triangle density lists are equal length
         assert!(

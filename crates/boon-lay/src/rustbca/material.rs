@@ -1,6 +1,19 @@
+// SPDX-License-Identifier: GPL-3.0
+//
+// RustBCA copy — provenance
+// -------------------------
+// Upstream project : RustBCA — https://github.com/lcpp-org/RustBCA
+// Upstream version : v3.0.0, commit a356280d564bbdfbe74b97f32db0776444da58a5
+// Upstream source  : src/material.rs
+// Authors          : Jon Drobny <drobny2@illinois.edu>, Jon Drobny
+//                    <jdrobny@tae.com> (upstream Cargo.toml); no copyright line upstream
+// Original license : GNU GPL v3 (upstream LICENSE copied beside this file)
+// Local changes    : libm routing (Real::); the two LazyLock tables replaced by
+//                    direct, bit-identical evaluation; their builder fns pub(super)
+//                    (full list: module docs in mod.rs)
+
 use super::*;
 use rand::RngExt;
-use std::sync::LazyLock;
 
 ///This helper function is a workaround to issue #368 in serde
 fn default_surface_binding_model() -> SurfaceBindingModel {
@@ -119,7 +132,7 @@ impl <T: Geometry> Material<T> {
 
     /// Determines the local mean free path from the formula sum(n(x, y))^(-1/3)
     pub fn mfp(&self, x: f64, y: f64, z: f64) -> f64 {
-        1./self.total_number_density(x, y, z).cbrt()
+        1./Real::cbrt(self.total_number_density(x, y, z))
     }
 
     /// Total number density of triangle that contains or is nearest to (x, y).
@@ -290,7 +303,7 @@ impl <T: Geometry> Material<T> {
                     let S_high = bethe_bloch_stopping_power_cross_section(Za, *Zb, E, Ma);
                     
                     // ck correction applied only to LS component
-                    (S_high.powf(-ci) + (S_low*ck).powf(-ci)).powf(-1./ci)
+                    Real::powf(Real::powf(S_high, -ci) + Real::powf(S_low*ck, -ci), -1./ci)
                 },
                 
             };
@@ -300,44 +313,47 @@ impl <T: Geometry> Material<T> {
     }
 }
 
-static LS_STOPPING_CONSTANT_TABLE: LazyLock<[f64; Z_MAX*Z_MAX]> = LazyLock::new(
-    ||
-    std::array::from_fn(
-        |i| {
-            let Za = i / Z_MAX;
-            let Zb = i % Z_MAX;
-            lindhard_scharff_stopping_power_constant(Za as f64, Zb as f64)
-        }
-    )
-);
+// boon-lay local change (no_std, gh:#876 item 7): upstream caches the
+// Lindhard-Scharff constant and the Biersack-Varelas mean ionisation potential
+// in two `std::sync::LazyLock` tables (LS_STOPPING_CONSTANT_TABLE,
+// BV_EMPIRICAL_MEAN_IONIZATON_POT_TABLE). Each lookup now evaluates the
+// table-builder's own expression at the same flat index, so every value is
+// bit-identical to the table entry (pinned by
+// `local_change_tests::lazylock_replacements_match_upstream_tables`), and an index past the
+// end still panics as upstream's did.
 
-fn lindhard_scharff_stopping_power_constant(Za: f64, Zb: f64) -> f64 {
-    LINDHARD_SCHARFF_PREFACTOR*(Za*Za.cbrt().sqrt()*Zb)/(Za.cbrt().powi(2) + Zb.cbrt().powi(2)).powi(3).sqrt()*(AMU/Q).sqrt()
+/// Replaces upstream's `LS_STOPPING_CONSTANT_TABLE[Za as usize * Z_MAX + Zb as usize]`.
+pub(super) fn ls_stopping_constant_lookup(Za: f64, Zb: f64) -> f64 {
+    let index = Za as usize * Z_MAX + Zb as usize;
+    assert!(index < Z_MAX*Z_MAX, "index out of bounds: the len is {} but the index is {}", Z_MAX*Z_MAX, index);
+    lindhard_scharff_stopping_power_constant((index / Z_MAX) as f64, (index % Z_MAX) as f64)
+}
+
+/// Replaces upstream's `BV_EMPIRICAL_MEAN_IONIZATON_POT_TABLE[Zb as usize]`.
+pub(super) fn bv_empirical_mean_ionization_potential_lookup(Zb: f64) -> f64 {
+    let Zb = Zb as usize;
+    assert!(Zb < Z_MAX, "index out of bounds: the len is {} but the index is {}", Z_MAX, Zb);
+    let I0 = if (Zb as f64) < 13. {
+        12. + 7./ Zb as f64
+    } else {
+        9.76 + 58.5*Real::powf(Zb as f64, -1.19)
+    };
+    (Zb as f64)*I0*Q
+}
+
+pub(super) fn lindhard_scharff_stopping_power_constant(Za: f64, Zb: f64) -> f64 {
+    LINDHARD_SCHARFF_PREFACTOR*(Za*Real::cbrt(Za).sqrt()*Zb)/Real::powi(Real::powi(Real::cbrt(Za), 2) + Real::powi(Real::cbrt(Zb), 2), 3).sqrt()*(AMU/Q).sqrt()
 }
 #[inline]
 pub fn lindhard_scharff_stopping_power_cross_section(Za: f64, Zb: f64, E: f64, Ma: f64) -> f64 {
-    LS_STOPPING_CONSTANT_TABLE[Za as usize * Z_MAX + Zb as usize]*(E/Ma).sqrt()
+    ls_stopping_constant_lookup(Za, Zb)*(E/Ma).sqrt()
 }
 
-static BV_EMPIRICAL_MEAN_IONIZATON_POT_TABLE: LazyLock<[f64; Z_MAX]> = LazyLock::new(
-    ||
-    std::array::from_fn(
-        |Zb| {
-            let I0 = if (Zb as f64) < 13. {
-                12. + 7./ Zb as f64
-            } else {
-                9.76 + 58.5*(Zb as f64).powf(-1.19)
-            };
-            (Zb as f64)*I0*Q
-        }
-    )
-);
-
 pub fn bethe_bloch_stopping_power_cross_section(Za: f64, Zb: f64, E: f64, Ma: f64) -> f64 {
-    let beta = (1. - 1./(1. + E/Ma/C.powi(2)).powi(2)).sqrt();
+    let beta = (1. - 1./Real::powi(1. + E/Ma/Real::powi(C, 2), 2)).sqrt();
     let v = beta*C;
 
-    let I = BV_EMPIRICAL_MEAN_IONIZATON_POT_TABLE[Zb as usize];
+    let I = bv_empirical_mean_ionization_potential_lookup(Zb);
 
     //See Biersack and Haggmark - this looks like an empirical shell correction
     let B = if Zb < 3. {
@@ -348,7 +364,7 @@ pub fn bethe_bloch_stopping_power_cross_section(Za: f64, Zb: f64, E: f64, Ma: f6
 
     let prefactor = BETHE_BLOCH_PREFACTOR*Zb*Za*Za/beta/beta;
     let eb = 2.*ME*v*v/I;
-    prefactor*(eb + 1. + B/eb).ln()
+    prefactor*Real::ln(eb + 1. + B/eb)
 }
 
 /// Calculate the effects of the planar surface binding potential of a material on a particle.

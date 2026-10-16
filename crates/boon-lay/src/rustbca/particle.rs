@@ -1,3 +1,16 @@
+// SPDX-License-Identifier: GPL-3.0
+//
+// RustBCA copy — provenance
+// -------------------------
+// Upstream project : RustBCA — https://github.com/lcpp-org/RustBCA
+// Upstream version : v3.0.0, commit a356280d564bbdfbe74b97f32db0776444da58a5
+// Upstream source  : src/particle.rs
+// Authors          : Jon Drobny <drobny2@illinois.edu>, Jon Drobny
+//                    <jdrobny@tae.com> (upstream Cargo.toml); no copyright line upstream
+// Original license : GNU GPL v3 (upstream LICENSE copied beside this file)
+// Local changes    : libm routing (Real::)
+//                    (full list: module docs in mod.rs)
+
 use super::*;
 
 fn default_vec_zero() -> Vec<usize> {
@@ -213,8 +226,8 @@ impl Particle {
         let cosy: f64 = self.dir.y;
         let cosz: f64 = self.dir.z;
         // PI rotation here enforces particle deflection in opposite direction of recoil location
-        let (sinphi, cosphi) = (phi + PI).sin_cos();
-        let (sinpsi, cospsi) = psi.sin_cos();
+        let (sinphi, cosphi) = Real::sin_cos(phi + PI);
+        let (sinpsi, cospsi) = Real::sin_cos(psi);
 
         let (e1, e2) = math::duff_orthonormal_basis(self.dir);
         self.dir.x = cospsi*cosx - sinpsi*(cosphi*e1.x + sinphi*e2.x);
@@ -258,9 +271,9 @@ pub fn surface_refraction(particle: &mut Particle, normal: Vector, Es: f64) {
 
     let costheta = particle.dir.dot(&normal);
 
-    let u1x = (E/(E + Es)).sqrt()*particle.dir.x + ((-(E).sqrt()*costheta + (E*costheta.powi(2) + Es).sqrt())/(E + Es).sqrt())*normal.x;
-    let u1y = (E/(E + Es)).sqrt()*particle.dir.y + ((-(E).sqrt()*costheta + (E*costheta.powi(2) + Es).sqrt())/(E + Es).sqrt())*normal.y;
-    let u1z = (E/(E + Es)).sqrt()*particle.dir.z + ((-(E).sqrt()*costheta + (E*costheta.powi(2) + Es).sqrt())/(E + Es).sqrt())*normal.z;
+    let u1x = (E/(E + Es)).sqrt()*particle.dir.x + ((-(E).sqrt()*costheta + (E*Real::powi(costheta, 2) + Es).sqrt())/(E + Es).sqrt())*normal.x;
+    let u1y = (E/(E + Es)).sqrt()*particle.dir.y + ((-(E).sqrt()*costheta + (E*Real::powi(costheta, 2) + Es).sqrt())/(E + Es).sqrt())*normal.y;
+    let u1z = (E/(E + Es)).sqrt()*particle.dir.z + ((-(E).sqrt()*costheta + (E*Real::powi(costheta, 2) + Es).sqrt())/(E + Es).sqrt())*normal.z;
     particle.dir.x = u1x;
     particle.dir.y = u1y;
     particle.dir.z = u1z;

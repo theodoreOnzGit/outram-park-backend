@@ -1,8 +1,20 @@
+// SPDX-License-Identifier: GPL-3.0
+//
+// RustBCA copy — provenance
+// -------------------------
+// Upstream project : RustBCA — https://github.com/lcpp-org/RustBCA
+// Upstream version : v3.0.0, commit a356280d564bbdfbe74b97f32db0776444da58a5
+// Upstream source  : src/bca.rs
+// Authors          : Jon Drobny <drobny2@illinois.edu>, Jon Drobny
+//                    <jdrobny@tae.com> (upstream Cargo.toml); no copyright line upstream
+// Original license : GNU GPL v3 (upstream LICENSE copied beside this file)
+// Local changes    : libm routing (Real::); the cpr_rootfinder feature's code (rcpr import,
+//                    polynomial_rootfinder, cpr_rootfinder, its match arm) removed
+//                    and the panic message that named it reworded
+//                    (full list: module docs in mod.rs)
+
 use super::*;
 use rand::RngExt;
-
-#[cfg(feature = "cpr_rootfinder")]
-use rcpr::chebyshev::*;
 
 /// Geometrical quantities of binary collision.
 pub struct BinaryCollisionGeometry {
@@ -155,7 +167,7 @@ pub fn single_ion_bca<T: Geometry>(particle: particle::Particle, material: &mate
                         //We just need the lindhard screening length here, so the particular potential is not important
                         let a: f64 = interactions::lindhard_screening_length_lookup(Za as u64, Zb as u64);
                         let reduced_energy: f64 = LINDHARD_REDUCED_ENERGY_PREFACTOR*a*Mb/(Ma+Mb)/Za/Zb*E;
-                        let estimated_range_of_recoils = (reduced_energy.powf(0.3) + 0.1).powi(3)/n/a/a;
+                        let estimated_range_of_recoils = Real::powi(Real::powf(reduced_energy, 0.3) + 0.1, 3)/n/a/a;
 
                         let (x2, y2, z2) = material.closest_point(particle_2.pos.x, particle_2.pos.y, particle_2.pos.z);
                         let dx = x2 - particle_2.pos.x;
@@ -233,7 +245,7 @@ pub fn determine_mfp_phi_impact_parameter<T: Geometry>(particle_1: &mut particle
 
         //Free flight path formulation here described in SRIM textbook chapter 7, and Eckstein 1991 7.5.2
         let ep = (reduced_energy*reduced_energy_min).sqrt();
-        let mut pmax = a/(ep + ep.sqrt() + 0.125*ep.powf(0.1));
+        let mut pmax = a/(ep + ep.sqrt() + 0.125*Real::powf(ep, 0.1));
         let mut ffp = 1./(material.total_number_density(x, y, z)*pmax*pmax*PI);
         let stopping_powers = material.electronic_stopping_cross_sections(particle_1, ElectronicStoppingMode::INTERPOLATED);
 
@@ -265,11 +277,11 @@ pub fn determine_mfp_phi_impact_parameter<T: Geometry>(particle_1: &mut particle
             }
 
             ffp *= match options.mean_free_path_model {
-                MeanFreePathModel::GASEOUS => -rng.random::<f64>().ln(),
+                MeanFreePathModel::GASEOUS => -Real::ln(rng.random::<f64>()),
                 MeanFreePathModel::LIQUID => 1.0,
                 MeanFreePathModel::THRESHOLD{density} => {
                     if material.geometry.get_densities(x, y, z).iter().sum::<f64>() < density {
-                        -rng.random::<f64>().ln()
+                        -Real::ln(rng.random::<f64>())
                     } else {
                         1.0
                     }
@@ -287,7 +299,7 @@ pub fn determine_mfp_phi_impact_parameter<T: Geometry>(particle_1: &mut particle
             //And Eckstein 1991
             let mut impact_parameter = Vec::with_capacity(1);
             let random_number = rng.random::<f64>();
-            let p = pmax*(-random_number.ln()).sqrt();
+            let p = pmax*(-Real::ln(random_number)).sqrt();
             impact_parameter.push(p);
 
             //Atomically rough surface - scatter initial collisions using mfp near interface
@@ -297,7 +309,7 @@ pub fn determine_mfp_phi_impact_parameter<T: Geometry>(particle_1: &mut particle
             }
 
             if options.mean_free_path_model == MeanFreePathModel::GASEOUS {
-                ffp *= -rng.random::<f64>().ln();
+                ffp *= -Real::ln(rng.random::<f64>());
             }
 
             binary_collision_geometries.push(BinaryCollisionGeometry::new(phis_azimuthal[0], impact_parameter[0], ffp));
@@ -324,7 +336,7 @@ pub fn determine_mfp_phi_impact_parameter<T: Geometry>(particle_1: &mut particle
         }
 
         if options.mean_free_path_model == MeanFreePathModel::GASEOUS {
-            mfp *= -rng.random::<f64>().ln();
+            mfp *= -Real::ln(rng.random::<f64>());
         }
 
 
@@ -350,7 +362,7 @@ pub fn choose_collision_partner<T: Geometry>(particle_1: &particle::Particle, ma
     let cosx: f64 = particle_1.dir.x;
     let cosy: f64 = particle_1.dir.y;
     let cosz: f64 = particle_1.dir.z;
-    let (sinphi, cosphi) = phi_azimuthal.sin_cos();
+    let (sinphi, cosphi) = Real::sin_cos(phi_azimuthal);
 
     let (e1, e2) = math::duff_orthonormal_basis(particle_1.dir);
     let x_recoil = x + mfp*cosx - impact_parameter*(e1.x*cosphi + e2.x*sinphi);
@@ -387,30 +399,12 @@ fn distance_of_closest_approach(particle_1: &particle::Particle, particle_2: &pa
     let interaction_potential = options.interaction_potential[particle_1.interaction_index][particle_2.interaction_index];
 
     if let InteractionPotential::COULOMB{Za: Z1, Zb: Z2} = interaction_potential {
-        let doca = Z1*Z2*Q*Q/relative_energy/PI/EPS0/8. + (64.*(relative_energy*PI*p*EPS0).powi(2) + (Z1*Z2*Q*Q).powi(2)).sqrt()/relative_energy/PI/EPS0/8.;
+        let doca = Z1*Z2*Q*Q/relative_energy/PI/EPS0/8. + (64.*Real::powi(relative_energy*PI*p*EPS0, 2) + Real::powi(Z1*Z2*Q*Q, 2)).sqrt()/relative_energy/PI/EPS0/8.;
         return doca/interactions::screening_length(Z1, Z2, interaction_potential);
     }
 
     let root_finder = options.root_finder[particle_1.interaction_index][particle_2.interaction_index];
 
-    #[cfg(feature = "cpr_rootfinder")]
-    match root_finder {
-        Rootfinder::POLYNOMIAL{complex_threshold} => polynomial_rootfinder(Za, Zb, Ma, Mb, E0, p, interaction_potential, complex_threshold)
-            .with_context(|| format!("Numerical error: Polynomial rootfinder failed for {} at {} eV with p = {} A.", interaction_potential, E0/EV, p/ANGSTROM))
-            .unwrap(),
-        Rootfinder::CPR{n0, nmax, epsilon, complex_threshold, truncation_threshold, far_from_zero, interval_limit, derivative_free} =>
-            cpr_rootfinder(Za, Zb, Ma, Mb, E0, p, interaction_potential, n0, nmax, epsilon, complex_threshold, truncation_threshold, far_from_zero, interval_limit, derivative_free)
-            .with_context(|| format!("Numerical error: CPR rootfinder failed for {} at {} eV with p = {} A.", interaction_potential, E0/EV, p/ANGSTROM))
-            .unwrap(),
-        Rootfinder::NEWTON{max_iterations, tolerance} => newton_rootfinder(Za, Zb, Ma, Mb, E0, p, interaction_potential, max_iterations, tolerance)
-            .with_context(|| format!("Numerical error: Newton rootfinder failed for {} at {} eV with p = {} A.", interaction_potential, E0/EV, p/ANGSTROM))
-            .unwrap(),
-        Rootfinder::DEFAULTNEWTON => newton_rootfinder(Za, Zb, Ma, Mb, E0, p, interaction_potential, 100, 1E-6)
-            .with_context(|| format!("Numerical error: Newton rootfinder failed for {} at {} eV with p = {} A.", interaction_potential, E0/EV, p/ANGSTROM))
-            .unwrap(),
-    }
-
-    #[cfg(not(feature = "cpr_rootfinder"))]
     match root_finder {
         Rootfinder::NEWTON{max_iterations, tolerance} => newton_rootfinder(Za, Zb, Ma, Mb, E0, p, interaction_potential, max_iterations, tolerance)
             .with_context(|| format!("Numerical error: Newton rootfinder failed for {} at {} eV with p = {} A.", interaction_potential, E0/EV, p/ANGSTROM))
@@ -418,7 +412,7 @@ fn distance_of_closest_approach(particle_1: &particle::Particle, particle_2: &pa
         Rootfinder::DEFAULTNEWTON => newton_rootfinder(Za, Zb, Ma, Mb, E0, p, interaction_potential, 100, 1E-6)
             .with_context(|| format!("Numerical error: Newton rootfinder failed for {} at {} eV with p = {} A.", interaction_potential, E0/EV, p/ANGSTROM))
             .unwrap(),
-        _ => panic!("Input error: unimplemented root-finder. Choose NEWTON or build with cpr_rootfinder to enable CPR and POLYNOMIAL")
+        _ => panic!("Input error: unimplemented root-finder. Choose NEWTON; the CPR and POLYNOMIAL root-finders (upstream feature cpr_rootfinder) are not carried in boon-lay's copy")
     }
 }
 
@@ -482,8 +476,8 @@ pub fn calculate_binary_collision(particle_1: &particle::Particle, particle_2: &
         ScatteringIntegral::MAGIC => magic(Za, Zb, Ma, Mb, E0, binary_collision_geometry.impact_parameter, x0, a, interaction_potential),
     };
 
-    let (sin_theta, cos_theta) = theta.sin_cos();
-    let sin_2_theta = (theta/2.).sin();
+    let (sin_theta, cos_theta) = Real::sin_cos(theta);
+    let sin_2_theta = Real::sin(theta/2.);
 
     //See Eckstein 1991 for details on center of mass and lab frame angles
     let asymptotic_deflection = match interaction_potential {
@@ -491,9 +485,9 @@ pub fn calculate_binary_collision(particle_1: &particle::Particle, particle_2: &
         _ => x0*a*sin_2_theta
     };
     
-    let psi = sin_theta.atan2(Ma/Mb + cos_theta);
-    let psi_recoil = sin_theta.atan2(1. - cos_theta);
-    let recoil_energy = 4.*(Ma*Mb)/(Ma + Mb).powi(2)*E0*sin_2_theta.powi(2);
+    let psi = Real::atan2(sin_theta, Ma/Mb + cos_theta);
+    let psi_recoil = Real::atan2(sin_theta, 1. - cos_theta);
+    let recoil_energy = 4.*(Ma*Mb)/Real::powi(Ma + Mb, 2)*E0*Real::powi(sin_2_theta, 2);
 
     Ok(BinaryCollisionResult::new(theta, psi, psi_recoil, recoil_energy, asymptotic_deflection, x0))
 }
@@ -509,7 +503,7 @@ fn scattering_integral_mw(x: f64, beta: f64, reduced_energy: f64, interaction_po
 fn scattering_function_gl<F>(u: f64, impact_parameter: f64, r0: f64, relative_energy: f64, interaction_potential: F) -> Result<f64, anyhow::Error> 
     where F: Fn(f64) -> f64
 {
-    let result = 4.*impact_parameter*u/(r0*(1. - interaction_potential(r0/(1. - u*u))/relative_energy - impact_parameter*impact_parameter*(1. - u*u).powi(2)/r0/r0).sqrt());
+    let result = 4.*impact_parameter*u/(r0*(1. - interaction_potential(r0/(1. - u*u))/relative_energy - impact_parameter*impact_parameter*Real::powi(1. - u*u, 2)/r0/r0).sqrt());
 
     if result.is_nan() {
         Err(anyhow!("Numerical error: Gauss-Legendre scattering integrand complex. Likely incorrect distance of closest approach Er = {}, r0 = {} A, p = {} A - check root-finder.",
@@ -523,7 +517,7 @@ fn scattering_function_gl<F>(u: f64, impact_parameter: f64, r0: f64, relative_en
 fn scattering_function_gm<F>(u: f64, impact_parameter: f64, r0: f64, relative_energy: f64, interaction_potential: F) -> Result<f64, anyhow::Error> 
     where F: Fn(f64) -> f64    
 {
-    let result = impact_parameter/r0/(1. - interaction_potential(r0/u)/relative_energy - (impact_parameter*u/r0).powi(2)).sqrt();
+    let result = impact_parameter/r0/(1. - interaction_potential(r0/u)/relative_energy - Real::powi(impact_parameter*u/r0, 2)).sqrt();
 
     if result.is_nan() {
         Err(anyhow!("Numerical error: Gauss-Mehler scattering integrand complex. Likely incorrect distance of closest approach Er = {} eV r0 = {} A, p = {} A - check root-finder.",
@@ -539,8 +533,8 @@ fn scattering_integral_gauss_mehler<F>(impact_parameter: f64, relative_energy: f
 {
     PI - (1..=n_points).map(
         |i| {
-            let x = ((2.*i as f64 - 1.)/4./n_points as f64*PI).cos();
-            let w = PI/n_points as f64*((2.*i as f64 - 1.)/4./n_points as f64*PI).sin();
+            let x = Real::cos((2.*i as f64 - 1.)/4./n_points as f64*PI);
+            let w = PI/n_points as f64*Real::sin((2.*i as f64 - 1.)/4./n_points as f64*PI);
             (x, w)
         }
     ).map(
@@ -560,92 +554,6 @@ fn scattering_integral_gauss_legendre<F>(impact_parameter: f64, relative_energy:
         .map(|(&x, w)| w*scattering_function_gl(x, impact_parameter, r0, relative_energy, interaction_potential.clone())
         .with_context(|| format!("Numerical error: NaN in Gauss-Legendre scattering integral at x = {} with Er = {} eV and p = {} A.", x, relative_energy/EV, impact_parameter/ANGSTROM))
         .unwrap()).sum::<f64>()
-}
-
-#[cfg(feature = "cpr_rootfinder")]
-/// Computes the distance of closest approach of two particles with atomic numbers `Za`, `Zb` and masses `Ma`, `Mb` for an inverse-polynomial interaction potential (e.g., Lennard-Jones) for a given impact parameter and incident energy `E0`.
-/// Slightly complex roots with an imaginary part smaller than `polynom_complex_threshold` are considered real roots.
-pub fn polynomial_rootfinder(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_parameter: f64,
-    interaction_potential: InteractionPotential, polynom_complex_threshold: f64) -> Result<f64, anyhow::Error> {
-
-    let a: f64 = interactions::screening_length(Za, Zb, interaction_potential);
-    let reduced_energy: f64 = LINDHARD_REDUCED_ENERGY_PREFACTOR*a*Mb/(Ma+Mb)/Za/Zb*E0;
-    let relative_energy = E0*Mb/(Ma + Mb);
-
-    let coefficients = interactions::polynomial_coefficients(relative_energy, impact_parameter, interaction_potential);
-    let roots = real_polynomial_roots(coefficients.clone(), polynom_complex_threshold).unwrap();
-
-    let max_root = roots.iter().cloned().fold(f64::NAN, f64::max);
-
-    let inverse_transformed_root = interactions::inverse_transform(max_root, interaction_potential);
-
-    if roots.is_empty() || inverse_transformed_root.is_nan() {
-        return Err(anyhow!("Numerical error: polynomial rootfinder failed to find root with coefficients {:?}",
-            coefficients))
-    } else {
-        return Ok(inverse_transformed_root/a)
-    }
-}
-
-#[cfg(feature = "cpr_rootfinder")]
-/// Computes the distance of closest approach of two particles with atomic numbers `Za`, `Zb` and masses `Ma`, `Mb` for an arbitrary interaction potential (e.g., Morse) for a given impact parameter and incident energy `E0` using the Chebyshev-Proxy Root-Finder method.
-///
-/// # Args:
-///
-/// `Za`, `Zb`, `Ma`, `Mb`: atomic numbers and masses of the two particles
-/// `E0`: incident energy of particle a in the lab frame.
-/// `impact_parameter`: the impact parameter between particles a and b.
-/// `interaction_potentaial`: the interaction potential between particles a and b.
-/// `n0`: initial degree of Chebyshev interpolants.
-/// `nmax`: maximum degree of Chebyshev interpolants.
-/// `epsilon`: absolute tolerance of Chebyshev interpolant.
-/// `complex_threshold`: slightly-complex roots with an imaginary part below this value are considered real.
-/// `far_from_zero`: if the distance of closest approach function, evaluated over an interval [a, b] on the Lobatto grid, is always greater than this value, it is assumed that there are no roots in the interval [a, b].
-/// `truncation_threshold`: trailing terms of the Chebyshev interpolant with coefficients smaller than this value are ignored.
-/// `interval_limit`: if subdivision produces an interval smaller than this value, the root-finder will panic.
-/// `derivative_free`: if false, use Newton's method to polish roots from the CPR. If true, use the secant method.
-///
-/// # Returns
-/// Returns the distance of closest approach or an error if the root-finder failed.
-pub fn cpr_rootfinder(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_parameter: f64,
-    interaction_potential: InteractionPotential, n0: usize, nmax: usize, epsilon: f64,
-    complex_threshold: f64, truncation_threshold: f64, far_from_zero: f64,
-    interval_limit: f64, derivative_free: bool) -> Result <f64, anyhow::Error> {
-
-    //Lindhard screening length and reduced energy
-    let a = interactions::screening_length(Za, Zb, interaction_potential);
-    let reduced_energy = LINDHARD_REDUCED_ENERGY_PREFACTOR*a*Mb/(Ma+Mb)/Za/Zb*E0;
-    let relative_energy = E0*Mb/(Ma + Mb);
-    let p = impact_parameter;
-
-    let f = |r: f64| -> f64 {interactions::distance_of_closest_approach_function(r, a, Za, Zb, relative_energy, impact_parameter, interaction_potential)};
-    let g = |r: f64| -> f64 {interactions::distance_of_closest_approach_function_singularity_free(r, a, Za, Zb, relative_energy, impact_parameter, interaction_potential)*
-        interactions::scaling_function(r, impact_parameter, interaction_potential)};
-
-    let upper_bound = impact_parameter + interactions::crossing_point_doca(interaction_potential);
-
-    let roots = match derivative_free {
-        true => find_roots_with_secant_polishing(&g, &f, 1e-15, upper_bound,
-            n0, epsilon, nmax, complex_threshold,
-            truncation_threshold, interval_limit, far_from_zero),
-
-        false => {
-            let df = |r: f64| -> f64 {interactions::diff_distance_of_closest_approach_function(r, a, Za, Zb, relative_energy, impact_parameter, interaction_potential)};
-            find_roots_with_newton_polishing(&g, &f, &df, 1e-15, upper_bound,
-            n0, epsilon, nmax, complex_threshold,
-            truncation_threshold, interval_limit, far_from_zero)
-        }
-    }.with_context(|| format!("Numerical error: CPR Rootfinder failed to converge when calculating distance of closest approach for Er = {} eV p = {} A using {}.",
-        relative_energy/EV, impact_parameter/ANGSTROM, interaction_potential))
-    .unwrap();
-
-    let max_root = roots.iter().cloned().fold(f64::NAN, f64::max)/a;
-
-    if roots.is_empty() || max_root.is_nan() {
-        return Err(anyhow!("Numerical error: CPR rootfinder failed to find root. x0: {}, F(a): {}, F(b): {};", max_root, g(0.), g(upper_bound)));
-    } else {
-        return Ok(max_root);
-    }
 }
 
 /// Use Newton's method to find the distance of closest approach between two particles a and b.
@@ -721,11 +629,11 @@ pub fn magic(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_parameter: f64,
     let V = V0*a/r0*interactions::phi(x0, interaction_potential);
     let dV = -V/r0 + V0/r0*interactions::dphi(x0, interaction_potential);
     let rho = -2.0*(relative_energy - V)/dV;
-    let D = 2.0*(1.0 + C_[0]/reduced_energy.sqrt())*reduced_energy*beta.powf((C_[1] + reduced_energy.sqrt())/(C_[2] + reduced_energy.sqrt()));
+    let D = 2.0*(1.0 + C_[0]/reduced_energy.sqrt())*reduced_energy*Real::powf(beta, (C_[1] + reduced_energy.sqrt())/(C_[2] + reduced_energy.sqrt()));
     let G = (C_[4] + reduced_energy)/(C_[3] + reduced_energy)*((1. + D*D).sqrt() - D);
     let delta =  D*G/(1.0 + G)*(x0 - beta);
     let ctheta2 = (beta + rho/a + delta)/(x0 + rho/a);
-    2.*((beta + rho/a + delta)/(x0 + rho/a)).acos()
+    2.*Real::acos((beta + rho/a + delta)/(x0 + rho/a))
 }
 
 /// Mendenhall-Weller quadrature.
@@ -747,5 +655,5 @@ fn oen_robinson_loss(Za: f64, Zb: f64, Se: f64, x0: f64, interaction_potential: 
 
     //d1 is the first (smallest) interior constant of the screening function
     let d1 = interactions::first_screening_radius(interaction_potential);
-    d1*d1/2./PI*Se*(-d1*x0).exp()/a/a
+    d1*d1/2./PI*Se*Real::exp(-d1*x0)/a/a
 }

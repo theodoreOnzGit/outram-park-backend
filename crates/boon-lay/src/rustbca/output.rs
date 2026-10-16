@@ -1,4 +1,19 @@
+// SPDX-License-Identifier: GPL-3.0
+//
+// RustBCA copy — provenance
+// -------------------------
+// Upstream project : RustBCA — https://github.com/lcpp-org/RustBCA
+// Upstream version : v3.0.0, commit a356280d564bbdfbe74b97f32db0776444da58a5
+// Upstream source  : src/output.rs
+// Authors          : Jon Drobny <drobny2@illinois.edu>, Jon Drobny
+//                    <jdrobny@tae.com> (upstream Cargo.toml); no copyright line upstream
+// Original license : GNU GPL v3 (upstream LICENSE copied beside this file)
+// Local changes    : libm routing (Real::); `distributions` feature code removed; file
+//                    output types and functions gated on rustbca-std
+//                    (full list: module docs in mod.rs)
+
 use super::*;
+#[cfg(feature = "rustbca-std")]
 use std::fs::File;
 
 #[derive(Clone, Debug)]
@@ -15,145 +30,13 @@ pub fn energy_angle_from_particle(particle: &particle::Particle, units: &OutputU
     let uy = particle.dir.y;
     let uz = particle.dir.z;
 
-    let vyz = ((uy).powi(2) + (uz).powi(2)).sqrt();
-    let angle = vyz.atan2(-ux) * 180.0 / PI;
+    let vyz = (Real::powi(uy, 2) + Real::powi(uz, 2)).sqrt();
+    let angle = Real::atan2(vyz, -ux) * 180.0 / PI;
 
     (energy, angle)
 }
 
-#[cfg(feature = "distributions")]
-extern crate ndarray;
-
-#[cfg(feature = "distributions")]
-use ndarray::prelude::*;
-
-/// Distribution tracker for tracking EADs and implantation distributions
-#[derive(Serialize)]
-#[cfg(feature = "distributions")]
-pub struct Distributions {
-    pub energies: Array1<f64>,
-    pub angles: Array1<f64>,
-    pub x_range: Array1<f64>,
-    pub y_range: Array1<f64>,
-    pub z_range: Array1<f64>,
-    pub reflected_ead: Array2<usize>,
-    pub sputtered_ead: Array2<usize>,
-    pub implanted_x: Array1<usize>,
-    pub implanted_y: Array1<usize>,
-    pub implanted_z: Array1<usize>,
-    pub electronic_energy_loss_x: Array1<f64>,
-    pub nuclear_energy_loss_x: Array1<f64>,
-}
-
-#[cfg(feature = "distributions")]
-impl Distributions {
-    pub fn new(options: &Options) -> Distributions {
-        Distributions {
-            energies: Array::linspace(options.energy_min, options.energy_max, options.energy_num),
-            angles: Array::linspace(options.angle_min, options.angle_max, options.angle_num),
-            x_range: Array::linspace(options.x_min, options.x_max, options.x_num),
-            y_range: Array::linspace(options.y_min, options.y_max, options.y_num),
-            z_range: Array::linspace(options.z_min, options.z_max, options.z_num),
-            reflected_ead: Array::zeros((options.energy_num, options.angle_num)),
-            sputtered_ead: Array::zeros((options.energy_num, options.angle_num)),
-            implanted_x: Array::zeros(options.x_num),
-            implanted_y: Array::zeros(options.y_num),
-            implanted_z: Array::zeros(options.z_num),
-            electronic_energy_loss_x: Array::zeros(options.x_num),
-            nuclear_energy_loss_x: Array::zeros(options.x_num),
-        }
-    }
-
-    /// Write distributions to toml
-    pub fn print(&self, options: &Options) {
-
-        let distribution_output_file = OpenOptions::new()
-            .write(true)
-            .create(true)
-            .truncate(true)
-            .open(format!("{}{}", options.name, "distributions.toml"))
-            .context("Could not open distributions output file.")
-            .unwrap();
-        let mut distribution_file_stream = BufWriter::with_capacity(8000, distribution_output_file);
-        let toml = toml::to_string(&self).unwrap();
-        writeln!(distribution_file_stream, "{}", toml).unwrap();
-
-    }
-
-    /// Updates distributions with a single particle
-    pub fn update(&mut self, particle: &particle::Particle, units: &OutputUnits, options: &Options, num_incident: usize) {
-        let (energy, angle) = energy_angle_from_particle(particle, units);
-
-        let delta_energy = self.energies[1] - self.energies[0];
-        let energy_index_left: i32 = ((energy - self.energies[0])/delta_energy).floor() as i32;
-
-        let delta_angle = self.angles[1] - self.angles[0];
-        let angle_index_left: i32 = ((angle - self.angles[0])/delta_angle).floor() as i32;
-
-        let inside_energy = (energy_index_left >= 0) & (energy_index_left < self.energies.len() as i32);
-        let inside_angle = (angle_index_left >= 0) & (angle_index_left < self.angles.len() as i32);
-
-        if particle.incident & particle.left {
-            if inside_energy & inside_angle {
-                self.reflected_ead[[energy_index_left as usize, angle_index_left as usize]] += 1;
-            }
-        }
-
-        if !particle.incident & particle.left {
-            if inside_energy & inside_angle {
-                self.sputtered_ead[[energy_index_left as usize, angle_index_left as usize]] += 1;
-            }
-        }
-
-        if particle.incident & particle.stopped {
-            let x = particle.pos.x/units.length_unit;
-            let y = particle.pos.y/units.length_unit;
-            let z = particle.pos.z/units.length_unit;
-
-            let delta_x = self.x_range[1] - self.x_range[0];
-            let delta_y = self.y_range[1] - self.y_range[0];
-            let delta_z = self.z_range[1] - self.z_range[0];
-
-            let x_index_left: i32 = ((x - self.x_range[0])/delta_x) as i32;
-            let y_index_left: i32 = ((y - self.y_range[0])/delta_y) as i32;
-            let z_index_left: i32 = ((z - self.z_range[0])/delta_z) as i32;
-
-            let inside_x = (x_index_left >= 0) & (x_index_left < self.x_range.len() as i32);
-            let inside_y = (y_index_left >= 0) & (y_index_left < self.y_range.len() as i32);
-            let inside_z = (z_index_left >= 0) & (z_index_left < self.z_range.len() as i32);
-
-            if inside_x {
-                self.implanted_x[x_index_left as usize] += 1;
-            }
-            if inside_y {
-                self.implanted_y[y_index_left as usize] += 1;
-            }
-            if inside_z {
-                self.implanted_z[z_index_left as usize] += 1;
-            }
-        }
-
-        if options.track_energy_losses & particle.incident {
-
-            for energy_loss in particle.energies.iter() {
-                let x = energy_loss.x/units.length_unit;
-                let delta_x = self.x_range[1] - self.x_range[0];
-
-                let electronic_energy_loss = energy_loss.Ee/units.energy_unit/(num_incident as f64)/delta_x;
-                let nuclear_energy_loss = energy_loss.En/units.energy_unit/(num_incident as f64)/delta_x;
-
-                let x_index_left: i32 = ((x - self.x_range[0])/delta_x) as i32;
-                let inside_x = (x_index_left >= 0) & (x_index_left < self.x_range.len() as i32);
-
-                if inside_x {
-                    self.electronic_energy_loss_x[x_index_left as usize] += electronic_energy_loss;
-                    self.nuclear_energy_loss_x[x_index_left as usize] += nuclear_energy_loss;
-                }
-            }
-        }
-    }
-}
-
+#[cfg(feature = "rustbca-std")]
 /// File streams for list output
 pub struct OutputListStreams {
     reflected_file_stream: BufWriter<File>,
@@ -192,6 +75,7 @@ impl Summary {
     }
 }
 
+#[cfg(feature = "rustbca-std")]
 pub struct SummaryPerSpecies {
     pub m: Vec<f64>,
     pub sputtered: Vec<usize>,
@@ -200,6 +84,7 @@ pub struct SummaryPerSpecies {
     pub summary_stream_file: BufWriter<File>,
 }
 
+#[cfg(feature = "rustbca-std")]
 impl SummaryPerSpecies {
     pub fn new(options: &Options) -> SummaryPerSpecies {
 
@@ -257,6 +142,7 @@ impl SummaryPerSpecies {
     }
 }
 
+#[cfg(feature = "rustbca-std")]
 /// Open list output files for streaming write
 pub fn open_output_lists(options: &Options) -> OutputListStreams {
     //Open output files for streaming output
@@ -334,6 +220,7 @@ pub fn open_output_lists(options: &Options) -> OutputListStreams {
     }
 }
 
+#[cfg(feature = "rustbca-std")]
 /// Write output lists
 pub fn output_lists(output_list_streams: &mut OutputListStreams, particle: particle::Particle, options: &Options, output_units: &OutputUnits) {
 
@@ -409,6 +296,7 @@ pub fn output_lists(output_list_streams: &mut OutputListStreams, particle: parti
     }
 }
 
+#[cfg(feature = "rustbca-std")]
 /// Flush output list streams
 pub fn output_list_flush(output_list_streams: &mut OutputListStreams) {
     output_list_streams.displacements_file_stream.flush().unwrap();

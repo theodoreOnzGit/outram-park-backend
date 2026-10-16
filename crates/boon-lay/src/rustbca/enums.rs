@@ -1,14 +1,26 @@
+// SPDX-License-Identifier: GPL-3.0
+//
+// RustBCA copy — provenance
+// -------------------------
+// Upstream project : RustBCA — https://github.com/lcpp-org/RustBCA
+// Upstream version : v3.0.0, commit a356280d564bbdfbe74b97f32db0776444da58a5
+// Upstream source  : src/enums.rs
+// Authors          : Jon Drobny <drobny2@illinois.edu>, Jon Drobny
+//                    <jdrobny@tae.com> (upstream Cargo.toml); no copyright line upstream
+// Original license : GNU GPL v3 (upstream LICENSE copied beside this file)
+// Local changes    : parry3d variants removed; MESH2D / HOMOGENEOUS2D MaterialType
+//                    variants gated on any(test, feature = "rustbca-std")
+//                    (full list: module docs in mod.rs)
+
 use super::*;
 
 pub enum MaterialType {
     MESH0D(material::Material<geometry::Mesh0D>),
     MESH1D(material::Material<geometry::Mesh1D>),
+    #[cfg(any(test, feature = "rustbca-std"))]
     MESH2D(material::Material<geometry::Mesh2D>),
     SPHERE(material::Material<sphere::Sphere>),
-    #[cfg(feature = "parry3d")]
-    BALL(material::Material<parry::ParryBall>),
-    #[cfg(feature = "parry3d")]
-    TRIMESH(material::Material<parry::ParryTriMesh>),
+    #[cfg(any(test, feature = "rustbca-std"))]
     HOMOGENEOUS2D(material::Material<geometry::HomogeneousMesh2D>)
 }
 
@@ -26,10 +38,6 @@ pub enum GeometryType {
     MESH1D,
     MESH2D,
     SPHERE,
-    #[cfg(feature = "parry3d")]
-    BALL,
-    #[cfg(feature = "parry3d")]
-    TRIMESH,
     HOMOGENEOUS2D,
 }
 

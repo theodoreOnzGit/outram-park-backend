@@ -17,6 +17,7 @@ include = [
     "/src/**/*.rs",
     "/src/**/*.wgsl",
     "/src/**/README.md",
+    "/src/rustbca/LICENSE",
     "/README.md",
     "/LICENSE",
     "/LICENSE.triso-atops",
@@ -55,6 +56,17 @@ anyhow          = { workspace = true }
 outram-mc-libs     = { workspace = true }
 fission-yields-data               = { workspace = true }
 openmc-endf-8-depletion-lib-b     = { workspace = true }
+# ── RustBCA copy (src/rustbca/, gh:#876 item 7) ─────────────────────────────
+# The no_std + alloc core needs only these. petir supplies the libm-backed
+# `real::Real` float shim (the workspace's one no_std shim).
+petir           = { workspace = true }
+rand            = { workspace = true, features = ["chacha", "alloc"] }
+rand_distr      = { workspace = true, features = ["alloc"] }
+# std-only parts of the copy, all behind the `rustbca-std` feature.
+toml            = { workspace = true, optional = true }
+geo             = { workspace = true, optional = true }
+indicatif       = { workspace = true, optional = true, features = ["rayon"] }
+itertools       = { workspace = true, optional = true }
 # Data parallelism across independent Lagrangian histories. Pure-Rust and
 # Android/Termux-safe, so it stays an unconditional dependency.
 # rayon: see the wasm target table at the end of this manifest.
@@ -68,6 +80,11 @@ wgpu = { workspace = true }
 
 [dev-dependencies]
 approx          = { workspace = true }
+# RustBCA's own unit tests (src/rustbca/tests.rs): float-cmp for their
+# assertions, geo because they build Mesh2D geometries (compiled under
+# cfg(test) as well as under `rustbca-std`).
+float-cmp       = { workspace = true }
+geo             = { workspace = true }
 # ~~JSON only for the run-file round-trip test; the library stays
 # format-agnostic.~~ UPDATED 2026-09-30 (#449): serde_json is now a library
 # dependency, because reading upstream's own run file (run_file::upstream) is
@@ -111,6 +128,20 @@ name = "triso_cell_slice"
 # through the walker's own coefficient lookup (gh:#531). Pure std.
 [[example]]
 name = "layer_diffusion_table"
+
+[features]
+# The std-only layer of the RustBCA copy (src/rustbca/): TOML input files,
+# file output, the rayon/indicatif batch driver (native only), entropy
+# seeding, simple_bca, and the geo-backed Mesh2D / HomogeneousMesh2D. OFF by
+# default: boon-lay re-exports the no_std + alloc core (maintainer decision,
+# gh:#876 item 7). Not for wasm32-unknown-unknown: getrandom 0.4 (from
+# rand's thread_rng) needs its wasm_js feature there, which nothing enables.
+rustbca-std = ["dep:toml", "dep:geo", "dep:indicatif", "dep:itertools", "rand/thread_rng"]
+
+# Headless cost probe for RustBCA cascades in a UO2 kernel and its TRISO
+# coatings (gh:#876 item 7). Pure Rust, no GUI; runs on every target.
+[[example]]
+name = "rustbca_cascades"
 
 # ── rayon: native + Android only ─────────────────────────────────────────────
 # rayon-core does not build for wasm32-unknown-unknown (no OS threads;

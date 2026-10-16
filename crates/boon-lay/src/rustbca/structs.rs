@@ -1,3 +1,21 @@
+// SPDX-License-Identifier: GPL-3.0
+//
+// RustBCA copy — provenance
+// -------------------------
+// Upstream project : RustBCA — https://github.com/lcpp-org/RustBCA
+// Upstream version : v3.0.0, commit a356280d564bbdfbe74b97f32db0776444da58a5
+// Upstream source  : src/structs.rs
+// Authors          : Jon Drobny <drobny2@illinois.edu>, Jon Drobny
+//                    <jdrobny@tae.com> (upstream Cargo.toml); no copyright line upstream
+// Original license : GNU GPL v3 (upstream LICENSE copied beside this file)
+// Local changes    : `use super::Real` added so .sqrt() resolves in a no_std build
+//                    (full list: module docs in mod.rs)
+
+// boon-lay: brings `Real` into scope so `.sqrt()` resolves in a no_std build
+// (the std build uses the inherent method; both are correctly rounded).
+#[allow(unused_imports)]
+use super::Real;
+
 /// 3D vector.
 #[derive(Clone, Copy)]
 pub struct Vector {

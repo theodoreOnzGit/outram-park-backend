@@ -1,3 +1,16 @@
+// SPDX-License-Identifier: GPL-3.0
+//
+// RustBCA copy — provenance
+// -------------------------
+// Upstream project : RustBCA — https://github.com/lcpp-org/RustBCA
+// Upstream version : v3.0.0, commit a356280d564bbdfbe74b97f32db0776444da58a5
+// Upstream source  : src/sphere.rs
+// Authors          : Jon Drobny <drobny2@illinois.edu>, Jon Drobny
+//                    <jdrobny@tae.com> (upstream Cargo.toml); no copyright line upstream
+// Original license : GNU GPL v3 (upstream LICENSE copied beside this file)
+// Local changes    : libm routing (Real::); InputFile::new (TOML) gated on rustbca-std
+//                    (full list: module docs in mod.rs)
+
 use super::*;
 
 #[derive(Deserialize, Clone)]
@@ -10,6 +23,7 @@ pub struct InputSphere {
 
 impl InputFile for InputSphere {
 
+    #[cfg(feature = "rustbca-std")]
     fn new(string: &str) -> InputSphere {
         toml::from_str(string).context("Could not parse TOML file. Be sure you are using the correct input file mode (e.g., ./RustBCA SPHERE sphere.toml or RustBCA.exe 0D mesh_0d.toml).").unwrap()
     }
@@ -68,10 +82,10 @@ impl Geometry for Sphere {
         };
 
         let electronic_stopping_correction_factor = input.electronic_stopping_correction_factor;
-        let densities: Vec<f64> = input.densities.iter().map(|element| element/(length_unit).powi(3)).collect();
+        let densities: Vec<f64> = input.densities.iter().map(|element| element/Real::powi(length_unit, 3)).collect();
         let total_density: f64 = densities.iter().sum();
         assert!(total_density < MAX_DENSITY, "Input Error: total density {}/m^3 exceeds realistic values; check values or units.", total_density);
-        let energy_barrier_thickness = total_density.powf(-1./3.)/SQRTPI*2.;
+        let energy_barrier_thickness = Real::powf(total_density, -1./3.)/SQRTPI*2.;
         let concentrations: Vec<f64> = densities.iter().map(|&density| density/total_density).collect::<Vec<f64>>();
         let radius = input.radius*length_unit;
 
@@ -97,22 +111,22 @@ impl Geometry for Sphere {
         &self.concentrations
     }
     fn inside(&self, x: f64, y: f64, z: f64) -> bool {
-        let r = (x.powi(2) + y.powi(2) + z.powi(2)).sqrt();
+        let r = (Real::powi(x, 2) + Real::powi(y, 2) + Real::powi(z, 2)).sqrt();
         r < self.radius
     }
 
     fn inside_simulation_boundary(&self, x: f64, y: f64, z: f64) -> bool {
-        let r = (x.powi(2) + y.powi(2) + z.powi(2)).sqrt();
+        let r = (Real::powi(x, 2) + Real::powi(y, 2) + Real::powi(z, 2)).sqrt();
         r < (10.*self.energy_barrier_thickness + self.radius)
     }
 
     fn inside_energy_barrier(&self, x: f64, y: f64, z: f64) -> bool {
-        let r = (x.powi(2) + y.powi(2) + z.powi(2)).sqrt();
+        let r = (Real::powi(x, 2) + Real::powi(y, 2) + Real::powi(z, 2)).sqrt();
         r < (self.energy_barrier_thickness + self.radius)
     }
 
     fn closest_point(&self, x: f64, y: f64, z: f64) -> (f64, f64, f64) {
-        let r = (x.powi(2) + y.powi(2) + z.powi(2)).sqrt();
+        let r = (Real::powi(x, 2) + Real::powi(y, 2) + Real::powi(z, 2)).sqrt();
         let R = self.radius;
         let ux = x/r;
         let uy = y/r;

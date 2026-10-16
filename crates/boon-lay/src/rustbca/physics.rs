@@ -1,7 +1,25 @@
+// SPDX-License-Identifier: GPL-3.0
+//
+// RustBCA copy — provenance
+// -------------------------
+// Upstream project : RustBCA — https://github.com/lcpp-org/RustBCA
+// Upstream version : v3.0.0, commit a356280d564bbdfbe74b97f32db0776444da58a5
+// Upstream source  : src/physics.rs
+// Authors          : Jon Drobny <drobny2@illinois.edu>, Jon Drobny
+//                    <jdrobny@tae.com> (upstream Cargo.toml); no copyright line upstream
+// Original license : GNU GPL v3 (upstream LICENSE copied beside this file)
+// Local changes    : indicatif/rayon imports, physics_loop and silent_physics_loop gated
+//                    on rustbca-std and not wasm32; `distributions` and
+//                    `no_list_output` cfgs removed (list output always on)
+//                    (full list: module docs in mod.rs)
+
 use super::*;
+#[cfg(all(feature = "rustbca-std", not(target_arch = "wasm32")))]
 use indicatif::{ProgressBar, ProgressStyle};
+#[cfg(all(feature = "rustbca-std", not(target_arch = "wasm32")))]
 use rayon::iter::{IndexedParallelIterator, ParallelExtend, IntoParallelIterator, ParallelIterator};
 
+#[cfg(all(feature = "rustbca-std", not(target_arch = "wasm32")))]
 pub fn silent_physics_loop<T: Geometry + Sync>(particle_input_array: Vec<particle::ParticleInput>, material: material::Material<T>, options: Options, output_units: OutputUnits) -> Vec<particle::Particle> {
 
     let mut finished_particles: Vec<particle::Particle> = Vec::new();
@@ -81,18 +99,15 @@ pub fn process_finished_particles_to_arrays(finished_particles: Vec<particle::Pa
     finished_particles_container
 }
 
+#[cfg(all(feature = "rustbca-std", not(target_arch = "wasm32")))]
 pub fn physics_loop<T: Geometry + Sync>(particle_input_array: Vec<particle::ParticleInput>, material: material::Material<T>, options: Options, output_units: OutputUnits) {
 
         let total_count: u64 = particle_input_array.len() as u64;
         assert!(total_count/options.num_chunks > 0, "Input error: chunk size == 0 - reduce num_chunks or increase particle count.");
 
-        #[cfg(not(feature = "no_list_output"))]
         let mut output_list_streams = output::open_output_lists(&options);
 
         let mut summary = output::SummaryPerSpecies::new(&options);
-
-        #[cfg(feature = "distributions")]
-        let mut distributions = output::Distributions::new(&options);
 
         //Create and configure progress bar
         let bar: ProgressBar = ProgressBar::new(total_count);
@@ -130,23 +145,14 @@ pub fn physics_loop<T: Geometry + Sync>(particle_input_array: Vec<particle::Part
 
                 summary.update(&particle);
 
-                #[cfg(feature = "distributions")]
-                distributions.update(&particle, &output_units, &options, total_count as usize);
-
-                #[cfg(not(feature = "no_list_output"))]
                 output::output_lists(&mut output_list_streams, particle, &options, &output_units);
 
             }
             //Flush all file streams before dropping to ensure all data is written
-            #[cfg(not(feature = "no_list_output"))]
             output::output_list_flush(&mut output_list_streams);
         }
 
         summary.print(&options, &output_units);
-
-        //Write distributions to file
-        #[cfg(feature = "distributions")]
-        distributions.print(&options);
 
         bar.finish();
         println!("Finished!");
