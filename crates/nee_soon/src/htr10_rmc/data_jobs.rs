@@ -76,6 +76,8 @@ impl ProcessingJob {
             Self::Law(ThermalLaw::Graphite { file, .. }) => Some(Tape::endf(file)),
             Self::Law(ThermalLaw::CInSiC) => Some(Tape::endf("tsl-CinSiC.endf")),
             Self::Law(ThermalLaw::SiInSiC) => Some(Tape::endf("tsl-SiinSiC.endf")),
+            // Always LEAPR (see `data::load_slots_with_progress`).
+            Self::Law(ThermalLaw::IronMetal | ThermalLaw::AluminumMetal) => None,
             Self::Law(ThermalLaw::UInUO2 | ThermalLaw::OInUO2) => match cfg.uo2_laws {
                 Uo2Laws::GeneratedFromLeapr => None,
                 Uo2Laws::Tapes(_) => {
@@ -212,6 +214,14 @@ pub fn process_job(
             }
             ThermalLaw::OInUO2 => {
                 ThermalScattering::from_leapr(SabMaterial::OInUO2, t_k, "O_UO2").map_err(fail)?
+            }
+            ThermalLaw::IronMetal => {
+                ThermalScattering::from_leapr(SabMaterial::IronMetal, t_k, "Fe_metal")
+                    .map_err(fail)?
+            }
+            ThermalLaw::AluminumMetal => {
+                ThermalScattering::from_leapr(SabMaterial::AluminumMetal, t_k, "Al_metal")
+                    .map_err(fail)?
             }
         }),
     })

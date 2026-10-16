@@ -156,6 +156,23 @@ balls are not part of a design; `core_design`'s module docs list them.
 Tapes can be read from a chosen folder, flat or an extracted library, found
 by MAT and NSUB (`data::TapeSource::Folder`, gh:#581).
 
+**HTTR start-up core (gh epic #888, 2026-10-16).** `httr` builds the IRPhEP
+HTTR-GCR-RESR-001 fully-loaded core (R1: INL/EXT-08-14767 Rev. 2) with every
+TRISO particle, delta-tracked in the compacts as HTR-10's bed is
+(`httr::assemble_httr`, `httr::compact_majorant`). Every dimension is in
+`httr::spec`, every composition in `httr::materials`, each with its R1 table
+or deck card; R1's text and deck disagree in three places and the deck is
+followed (listed in `httr`'s module docs). It reads its 48 nuclides through
+HTR-10's loader, generalised to any slot list
+(`htr10_rmc::data::load_slots_with_progress`). Drawn by
+`examples/httr_geometry_images.rs`; run by `examples/httr_keff.rs`; record in
+`verification_and_validation/httr_startup_core/README.md`. First results
+(2026-10-16, uncalibrated): critical k = 1.02400 ± 0.00049, i.e. +2150 pcm
+vs the benchmark, which is R1's known Monte Carlo bias, and +110 pcm vs
+MCNP5 VII.0. Rod worth is 3.4 % low after the graphite-law ablation (gh
+#919, open). **AI first build; the maintainer called it "a good first
+draft" (#888), not a line-by-line review.**
+
 **Do not add physics kernels here** — only orchestration / facade /
 cross-crate glue belongs in this crate.
 

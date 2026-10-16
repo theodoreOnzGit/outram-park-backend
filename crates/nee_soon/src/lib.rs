@@ -88,6 +88,7 @@ pub use teh_o_prke::teh_o_prke_error::TehOPrkeError;
 use uom::si::f64::{HeatCapacity, Power, Ratio, TemperatureCoefficient, ThermodynamicTemperature, Time};
 
 pub mod htr10_rmc;
+pub mod httr;
 pub mod mgxs;
 /// HTR-10 MGXS generation cases: a registry of named runs, the runner, and
 /// the record each run writes (gh:#845).

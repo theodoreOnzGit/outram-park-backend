@@ -75,6 +75,26 @@ Evaluation: LANL, EVAL-FEB05 (Young, Chadwick, MacFarlane et al.).
 |---|---|---|---|---|---|---|
 | `n-092_U_236-ENDF8.0.endf` | U-236 | ENDF/B-VIII.0 (neutron) | 9231 | 1.4 MB | [NNDC ENDF/B-VIII.0](https://www.nndc.bnl.gov/endf-b8.0/download.html) | 2026-10-15 |
 
+#### HTTR start-up core (added 2026-10-16)
+
+The IRPhEP HTTR evaluation (HTTR-GCR-RESR-001, INL/EXT-08-14767 Rev. 2,
+App. A.1.8) specifies O-17 in the UO2 kernels and P and S in the Alloy 800H
+control-rod cladding (R1 Table 3.8). None of these was held. Copied from the
+maintainer's local mirror of the NNDC ENDF/B-VIII.0 neutron sublibrary
+(`~/Documents/research/endf_8/ENDF-B-VIII.0_neutrons/`), each byte-identical
+to the same file in a second local copy of NNDC's `ENDF-B-VIII.0.zip`; the
+mirror's `n-008_O_016.endf` is byte-identical to `n-008_O_016-ENDF8.0.endf`
+above, so these are the same release. Used by `nee_soon::httr`.
+
+| File | Nuclide | Library | MAT | Size | Source | Date accessed |
+|---|---|---|---|---|---|---|
+| `n-008_O_017-ENDF8.0.endf` | O-17 | ENDF/B-VIII.0 (neutron) | 828 | 80 KB | [NNDC ENDF/B-VIII.0](https://www.nndc.bnl.gov/endf-b8.0/download.html) | 2026-10-16 |
+| `n-015_P_031-ENDF8.0.endf` | P-31 | ENDF/B-VIII.0 (neutron) | 1525 | 1.0 MB | [NNDC ENDF/B-VIII.0](https://www.nndc.bnl.gov/endf-b8.0/download.html) | 2026-10-16 |
+| `n-016_S_032-ENDF8.0.endf` | S-32 | ENDF/B-VIII.0 (neutron) | 1625 | 284 KB | [NNDC ENDF/B-VIII.0](https://www.nndc.bnl.gov/endf-b8.0/download.html) | 2026-10-16 |
+| `n-016_S_033-ENDF8.0.endf` | S-33 | ENDF/B-VIII.0 (neutron) | 1628 | 288 KB | [NNDC ENDF/B-VIII.0](https://www.nndc.bnl.gov/endf-b8.0/download.html) | 2026-10-16 |
+| `n-016_S_034-ENDF8.0.endf` | S-34 | ENDF/B-VIII.0 (neutron) | 1631 | 244 KB | [NNDC ENDF/B-VIII.0](https://www.nndc.bnl.gov/endf-b8.0/download.html) | 2026-10-16 |
+| `n-016_S_036-ENDF8.0.endf` | S-36 | ENDF/B-VIII.0 (neutron) | 1637 | 208 KB | [NNDC ENDF/B-VIII.0](https://www.nndc.bnl.gov/endf-b8.0/download.html) | 2026-10-16 |
+
 Graphite and SiC S(α,β): `tsl-crystalline-graphite.endf` /
 `tsl-reactor-graphite-10P.endf` / `-30P.endf` and `tsl-CinSiC.endf` /
 `tsl-SiinSiC.endf` are already present (rows above).

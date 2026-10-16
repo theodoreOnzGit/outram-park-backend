@@ -420,32 +420,32 @@ pub const FIG_4_10_BOXES: &[Fig410Box] = &[
 
 /// A CSG region as a postfix token stream (the convention `Cell` evaluates).
 #[derive(Debug, Clone)]
-pub(super) struct Rgn(pub Vec<RegionToken>);
+pub(crate) struct Rgn(pub Vec<RegionToken>);
 
 impl Rgn {
-    pub(super) fn ins(i: usize) -> Self {
+    pub(crate) fn ins(i: usize) -> Self {
         Self(vec![RegionToken::HalfSpace {
             surface_idx: i,
             sense: HalfSpaceSense::Inside,
         }])
     }
-    pub(super) fn out(i: usize) -> Self {
+    pub(crate) fn out(i: usize) -> Self {
         Self(vec![RegionToken::HalfSpace {
             surface_idx: i,
             sense: HalfSpaceSense::Outside,
         }])
     }
-    pub(super) fn and(mut self, o: Self) -> Self {
+    pub(crate) fn and(mut self, o: Self) -> Self {
         self.0.extend(o.0);
         self.0.push(RegionToken::Intersection);
         self
     }
-    pub(super) fn or(mut self, o: Self) -> Self {
+    pub(crate) fn or(mut self, o: Self) -> Self {
         self.0.extend(o.0);
         self.0.push(RegionToken::Union);
         self
     }
-    pub(super) fn not(mut self) -> Self {
+    pub(crate) fn not(mut self) -> Self {
         self.0.push(RegionToken::Complement);
         self
     }
