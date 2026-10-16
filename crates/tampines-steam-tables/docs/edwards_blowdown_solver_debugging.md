@@ -11,6 +11,11 @@ in-line derivation comments are the source of truth (see
 
 The work described spans three sessions of debugging, captured tersely in
 `collaboration/edwards_tampines_regen/{debug_log,hybrid_debug_log,hybrid_stability_debug_log}.md`
+(**NOT IN THIS REPOSITORY, checked 2026-10-16:** no `collaboration/` folder
+exists and `git log --all` has never tracked one, so these logs predate the
+consolidation into this workspace or were never committed. The same paths are
+cited in `src/openfoam_algorithms/rhoPimpleFoam/mod.rs` and
+`tests/edwards_blowdown.rs`.)
 and released as README changelog entries **v0.2.3** and **v0.2.4**. The
 corresponding beads are `op-21g.14` (the plateau fix), `op-21g.15` (the all-Mach
 hybrid), and `op-21g.15.7` (the stability fix).

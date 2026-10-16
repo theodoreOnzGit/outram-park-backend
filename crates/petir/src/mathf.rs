@@ -89,10 +89,17 @@
 //! rather than getting it by importing a trait.
 //!
 //! Nor does it cover `sqrt`, `abs`, `floor`, `ceil`, `round` or `powi`.
-//! IEEE-754 requires `sqrt` to be correctly rounded and the others are exact,
-//! so they are **already** bit-identical on every platform. Routing them would
-//! buy nothing and cost real time — `libm::sqrt` benchmarks 3.73x slower than
-//! the hardware instruction.
+//! IEEE-754 requires `sqrt` to be correctly rounded and ~~the others are exact,
+//! so they are **already** bit-identical on every platform~~ `abs`, `floor`,
+//! `ceil` and `round` are exact, so those are **already** bit-identical on every
+//! platform. Routing them would buy nothing and cost real time — `libm::sqrt`
+//! benchmarks 3.73x slower than the hardware instruction.
+//!
+//! **CORRECTED 2026-10-16 — `powi` is NOT exact.** `f64::powi` is lowered by
+//! each target's backend and its last bit differs on `x86_64-pc-windows-msvc`
+//! (measured; see [`crate::real::powi`]). Use [`crate::real::powi`] where the
+//! bits must match across platforms. Whether `RealMath` should gain an `r_powi`
+//! is open (gh:#896).
 //!
 //! # The bits move once
 //!

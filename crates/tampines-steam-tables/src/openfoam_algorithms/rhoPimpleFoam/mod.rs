@@ -559,26 +559,6 @@ use central_upwind::{
     FaceState, C_MIN_MPS,
 };
 
-/// Selects the flux discretisation used by [`TampinesSteamArray::step`].
-///
-/// This is an **opt-in** switch (enum dispatch — no trait objects, per the
-/// workspace design rules). The default [`SolverMode::Pimple`] runs the
-/// pressure-based compressible PIMPLE algorithm exactly as before, bit-for-bit
-/// (the recent Edwards flashing-plateau fix and every existing test are
-/// preserved by construction). [`SolverMode::HybridAllMach`] additionally
-/// injects a **Mach-weighted KNP central-upwind dissipation** (see the
-/// `central_upwind` module) as a deferred-correction flux, active only on
-/// near-sonic faces (`β(Ma) > 0`), to damp the ringing at a near-sonic flashing
-/// front while leaving subsonic regions untouched.
-///
-/// [`SolverMode::HybridAllMach`] damps the near-sonic ringing (~55 % less excess
-/// total variation over 0–0.15 s) while retaining the Edwards flashing plateau
-/// (≈ 388 psia). It is **stable over the full 600 ms transient**: the earlier
-/// late-time instability (an emptying-pipe near-sonic cell driven across the
-/// `(p,h)` 273.15 K validity edge past t ≈ 0.18 s, bug `op-21g.15.7`) is fixed by
-/// the rarefied-tail density taper on the KNP dissipation — see
-/// [`TampinesSteamArray::assemble_hybrid_dissipation`]. The default
-/// [`SolverMode::Pimple`] remains bit-for-bit the historical validated path.
 /// How often `psi = d(rho)/dp|_h` is rebuilt inside the PIMPLE loop.
 ///
 /// `psi` is the compressibility that forms the pressure equation's diagonal.
@@ -715,6 +695,26 @@ pub enum KnpFaceClosure {
     EosConsistentPressure,
 }
 
+/// Selects the flux discretisation used by [`TampinesSteamArray::step`].
+///
+/// This is an **opt-in** switch (enum dispatch — no trait objects, per the
+/// workspace design rules). The default [`SolverMode::Pimple`] runs the
+/// pressure-based compressible PIMPLE algorithm exactly as before, bit-for-bit
+/// (the recent Edwards flashing-plateau fix and every existing test are
+/// preserved by construction). [`SolverMode::HybridAllMach`] additionally
+/// injects a **Mach-weighted KNP central-upwind dissipation** (see the
+/// `central_upwind` module) as a deferred-correction flux, active only on
+/// near-sonic faces (`β(Ma) > 0`), to damp the ringing at a near-sonic flashing
+/// front while leaving subsonic regions untouched.
+///
+/// [`SolverMode::HybridAllMach`] damps the near-sonic ringing (~55 % less excess
+/// total variation over 0–0.15 s) while retaining the Edwards flashing plateau
+/// (≈ 388 psia). It is **stable over the full 600 ms transient**: the earlier
+/// late-time instability (an emptying-pipe near-sonic cell driven across the
+/// `(p,h)` 273.15 K validity edge past t ≈ 0.18 s, bug `op-21g.15.7`) is fixed by
+/// the rarefied-tail density taper on the KNP dissipation — see
+/// [`TampinesSteamArray::assemble_hybrid_dissipation`]. The default
+/// [`SolverMode::Pimple`] remains bit-for-bit the historical validated path.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub enum SolverMode {
     /// Pressure-based compressible **HEM-closed PIMPLE** — the historical,
@@ -2834,24 +2834,6 @@ impl TampinesSteamArray {
         self.ma_blend_hi = hi;
     }
 
-    /// Assemble the Mach-weighted KNP central-upwind dissipation from the
-    /// **current** primitive state (`ρ, U, he, p` after the inner PISO loop's
-    /// `correct_thermo`).
-    ///
-    /// Per internal face: the per-cell HEM equilibrium sound speed
-    /// ([`hem_sound_speed_ph`]) gives the cell Mach numbers; the face blend
-    /// weight is `β(Ma_face)` with `Ma_face = min(Ma_owner, Ma_neighbour)` — the
-    /// low-Mach scaling that keeps a liquid/two-phase interface stable (the
-    /// liquid side is subsonic so `β = 0` there; dissipation activates only where
-    /// *both* sides are near-sonic — see the `min` rationale at the call site).
-    /// van-Leer MUSCL owner/neighbour reconstructions of `ρ, U, he, p, c` build
-    /// the left/right [`FaceState`]s, and the deferred-correction dissipation is
-    /// `β·(knp − central)·|Sf|` — the pure KNP jump term, identically zero on a
-    /// subsonic face. Continuity dissipation is returned as a face mass flux to
-    /// fold into `phi`; momentum dissipation as an owner-loses / neighbour-gains
-    /// per-cell source. There is no separate energy source — the enthalpy
-    /// shock-capturing rides on the continuity flux through the EEqn's `∇·(φh)`
-    /// (see [`HybridDissipation`]).
     /// Pressure and sound speed for one side of a KNP face.
     ///
     /// Returns the reconstructed pair unchanged under
@@ -2903,6 +2885,24 @@ impl TampinesSteamArray {
         }
     }
 
+    /// Assemble the Mach-weighted KNP central-upwind dissipation from the
+    /// **current** primitive state (`ρ, U, he, p` after the inner PISO loop's
+    /// `correct_thermo`).
+    ///
+    /// Per internal face: the per-cell HEM equilibrium sound speed
+    /// ([`hem_sound_speed_ph`]) gives the cell Mach numbers; the face blend
+    /// weight is `β(Ma_face)` with `Ma_face = min(Ma_owner, Ma_neighbour)` — the
+    /// low-Mach scaling that keeps a liquid/two-phase interface stable (the
+    /// liquid side is subsonic so `β = 0` there; dissipation activates only where
+    /// *both* sides are near-sonic — see the `min` rationale at the call site).
+    /// van-Leer MUSCL owner/neighbour reconstructions of `ρ, U, he, p, c` build
+    /// the left/right [`FaceState`]s, and the deferred-correction dissipation is
+    /// `β·(knp − central)·|Sf|` — the pure KNP jump term, identically zero on a
+    /// subsonic face. Continuity dissipation is returned as a face mass flux to
+    /// fold into `phi`; momentum dissipation as an owner-loses / neighbour-gains
+    /// per-cell source. There is no separate energy source — the enthalpy
+    /// shock-capturing rides on the continuity flux through the EEqn's `∇·(φh)`
+    /// (see [`HybridDissipation`]).
     fn assemble_hybrid_dissipation(&self) -> HybridDissipation {
         let mesh = self.mesh.clone();
         let n = mesh.n_cells;
