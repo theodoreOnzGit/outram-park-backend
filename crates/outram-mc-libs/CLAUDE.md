@@ -786,11 +786,20 @@ but only `Neutron` transport is implemented.
 - **`boon-lay`:** every charged particle. That covers fission fragments,
   alphas, recoil knock-ons and electrons, starting with the RustBCA copy
   (gh:#876, item 7).
-- **Electrons are the seam.** OpenMC handles the electrons and positrons that
-  photons produce with its thick-target bremsstrahlung approximation, in
-  `photon.cpp` and `bremsstrahlung.cpp`, without transporting them. Whether a
-  photon port here keeps that local approximation, or hands every electron to
-  `boon-lay`, is **not yet decided**. Ask the maintainer before porting it.
+- ~~**Electrons are the seam.** … Whether a photon port here keeps that local
+  approximation, or hands every electron to `boon-lay`, is **not yet decided**.
+  Ask the maintainer before porting it.~~ **DECIDED 2026-10-16 (maintainer):
+  this crate carries its upstream.** A photon port brings OpenMC's
+  thick-target bremsstrahlung (TTB) treatment with it (`photon.cpp`,
+  `bremsstrahlung.cpp`). Electrons and positrons produced by photons are
+  **not transported**. Their kinetic energy is deposited where they are born,
+  and they emit only bremsstrahlung photons. A positron annihilates at its
+  birth point into two 0.511 MeV photons. This is local deposition plus
+  secondary-photon production, not charged-particle transport, so it does not
+  break the split. It holds because a MeV electron's range (millimetres in
+  graphite, a fraction of a millimetre in UO2) is short against photon mean
+  free paths of centimetres. If electron tracks themselves are ever needed
+  (dose at an interface, a thin detector), they go to `boon-lay`.
 
 ### Parallelism: per-particle RNG streams
 OpenMC's reproducibility guarantee relies on each particle having a completely
