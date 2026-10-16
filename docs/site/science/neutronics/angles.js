@@ -83,24 +83,22 @@
     });
   }
 
-  // ─── Rebuild a real distribution, see what ACE stores, sample it ───────
+  // ─── Rebuild a real distribution, and see what ACE stores ──────────────
+  // (Sampling is its own widget below, #sampler: maintainer review
+  // 2026-10-16, "I can't even see an angular sampling demo".)
   function rebuild(root) {
     var D = window.ANGULAR_DATA;
-    var st = { nuc: "U-238", ei: 2, upto: 1, terms: true, ace: false, samples: [], rnd: 2463 };
+    var st = { nuc: "U-238", ei: 2, upto: 1, terms: true, ace: false };
     var termsLabel = null;
     function rec() { return D[st.nuc][st.ei]; }
-    function rand() {
-      st.rnd ^= st.rnd << 13; st.rnd ^= st.rnd >>> 17; st.rnd ^= st.rnd << 5;
-      return (st.rnd >>> 0) / 4294967296;
-    }
     function setTerms() {
       if (termsLabel) termsLabel.textContent = "Legendre terms: P₀ … P" + sub(st.upto) + " (the evaluation has P₀ … P" + sub(rec().a.length) + ")";
     }
     return new Frame(root, {
-      reset: function () { st.samples = []; },
+      reset: function () {},
       tick: function () { return false; },
       draw: function (ctx, w, h, zoom) {
-        var fg = css("--fg", "#1d2125"), acc = css("--accent", "#1f6f78"), mut = css("--muted", "#5b636b"), brown = "#b85c38";
+        var fg = css("--fg", "#1d2125"), acc = css("--accent", "#1f6f78"), mut = css("--muted", "#5b636b");
         var R = rec(), NL = R.a.length, N = 241, full = new Float64Array(N), part = new Float64Array(N);
         var lo = 0, hi = 0, i, mu;
         for (i = 0; i < N; i++) {
@@ -137,20 +135,7 @@
           ctx.fillStyle = fg;
           for (i = 0; i < R.mu.length; i++) { ctx.beginPath(); ctx.arc(X(R.mu[i]), Y(R.pdf[i]), 2.5, 0, 2 * Math.PI); ctx.fill(); }
         }
-        // Sampled cosines: a rug along the axis, the last one as a line.
-        for (i = 0; i < st.samples.length; i++) {
-          var last = i === st.samples.length - 1, xs = X(st.samples[i]);
-          ctx.strokeStyle = last ? brown : "rgba(184, 92, 56, 0.4)"; ctx.lineWidth = last ? 2.5 : 1;
-          ctx.beginPath(); ctx.moveTo(xs, last ? y0 : Y(0) - 8); ctx.lineTo(xs, Y(0) + 8); ctx.stroke();
-        }
         ctx.restore();
-        // The sampled direction, as the neutron leaves (top right inset).
-        if (st.samples.length) {
-          var ms = st.samples[st.samples.length - 1], th = Math.acos(ms), r = Math.min(54, w * 0.12), cx = w - r - 16, cy = y0 + r + 4;
-          arrow(ctx, cx - r, cy, cx - 6, cy, mut);
-          ctx.fillStyle = brown; ctx.beginPath(); ctx.arc(cx, cy, 5, 0, 2 * Math.PI); ctx.fill();
-          arrow(ctx, cx, cy, cx + r * Math.cos(th), cy - r * Math.sin(th), brown);
-        }
         ctx.font = "13px system-ui, sans-serif"; ctx.fillStyle = mut;
         ctx.fillText("μ = −1 back", x0, h - 8);
         var e1 = "forward μ = +1"; ctx.fillText(e1, x0 + pw - ctx.measureText(e1).width, h - 8);
@@ -160,17 +145,10 @@
         var s = st.nuc + " elastic at " + fmtE(R.e) + ": the evaluation stores " + NL + " coefficients. With P₀ … P" + sub(st.upto) +
           ", worst error " + (100 * worst / pk).toFixed(1) + " % of the peak" + (lo < 0 ? "; this partial sum goes negative, which no probability can" : "") + ".";
         if (st.ace) s += " ACE stores " + R.mu.length + " points (μ, density, cumulative), not the coefficients.";
-        if (st.samples.length) {
-          var ml = st.samples[st.samples.length - 1], mean = 0;
-          for (i = 0; i < st.samples.length; i++) mean += st.samples[i];
-          mean /= st.samples.length;
-          s += " Last sample μ = " + ml.toFixed(3) + " (θ = " + (Math.acos(ml) * 180 / Math.PI).toFixed(1) + "°). Mean of " + st.samples.length +
-            " samples " + mean.toFixed(3) + "; the exact mean cosine is a₁ = " + R.a[0].toFixed(3) + ".";
-        }
         return s;
       },
       panel: function (body, redraw) {
-        var reset = function () { st.samples = []; st.upto = Math.min(st.upto, rec().a.length); setTerms(); redraw(); };
+        var reset = function () { st.upto = Math.min(st.upto, rec().a.length); setTerms(); redraw(); };
         buttons(body, "Nucleus", [["C-12", "C-12"], ["U-238", "U-238"]], st.nuc, function (v) { st.nuc = v; reset(); });
         buttons(body, "Neutron energy", D["U-238"].map(function (r, k) { return [k, ["0.1", "0.5", "1", "2", "5"][k] + " MeV"]; }), st.ei, function (v) { st.ei = v; reset(); });
         termsLabel = el("span", { "class": "w-label" });
@@ -182,17 +160,104 @@
         row.append(minus, plus, all); g.append(termsLabel, row); body.append(g); setTerms();
         toggle(body, "Show each scaled Legendre shape", st.terms, function (v) { st.terms = v; redraw(); });
         toggle(body, "Show what ACE stores (the ACER table)", st.ace, function (v) { st.ace = v; redraw(); });
-        var b = el("button", { type: "button", "class": "w-opt wide" }, "Sample scattering angle");
-        b.onclick = function () { st.samples.push(sampleTabular(rec().mu, rec().pdf, rec().cdf, rand())); if (st.samples.length > 400) st.samples.shift(); redraw(); };
-        var b10 = el("button", { type: "button", "class": "w-opt wide" }, "Sample 100 more");
-        b10.onclick = function () { for (var k = 0; k < 100; k++) st.samples.push(sampleTabular(rec().mu, rec().pdf, rec().cdf, rand())); while (st.samples.length > 400) st.samples.shift(); redraw(); };
-        body.append(b, b10);
-        body.append(el("p", { "class": "w-note" }, "Grey: the evaluation's full Legendre series. Teal: the sum of the terms so far. Brown, faint: each scaled shape. Black dots: ACER's table, which the sampling uses. Centre-of-mass frame."));
+        body.append(el("p", { "class": "w-note" }, "Grey: the evaluation's full Legendre series. Teal: the sum of the terms so far. Brown, faint: each scaled shape. Black dots: ACER's table, which a Monte Carlo code samples. Centre-of-mass frame."));
       }
     });
   }
 
+  // ─── Sample an outgoing direction from the ACE table ──────────────────
+  // Its own widget (maintainer review 2026-10-16): the table's curve with
+  // the sampled cosines as a rug below, and above it, large, the neutron
+  // coming in and leaving at the sampled angle, with the last 100 directions
+  // as a fan. The Sample buttons sit under the picture, outside the folding
+  // panel, so they are there when the reader reaches the heading on a phone.
+  function sampler(root) {
+    var D = window.ANGULAR_DATA;
+    var st = { nuc: "U-238", ei: 2, samples: [], rnd: 2463 };
+    function rec() { return D[st.nuc][st.ei]; }
+    function rand() {
+      st.rnd ^= st.rnd << 13; st.rnd ^= st.rnd >>> 17; st.rnd ^= st.rnd << 5;
+      return (st.rnd >>> 0) / 4294967296;
+    }
+    function draw1() { st.samples.push(sampleTabular(rec().mu, rec().pdf, rec().cdf, rand())); }
+    function trim() { while (st.samples.length > 400) st.samples.shift(); }
+    var frame = new Frame(root, {
+      reset: function () { st.samples = []; },
+      tick: function () { return false; },
+      draw: function (ctx, w, h, zoom) {
+        var fg = css("--fg", "#1d2125"), mut = css("--muted", "#5b636b"), brown = "#b85c38";
+        var R = rec(), n = st.samples.length, i;
+        // Top: the direction picture.
+        // Directions fill the upper half-plane (θ from 0 to 180°, drawn in
+        // one plane), so the nucleus sits at the bottom of this area.
+        var top = 54, split = Math.round(h * 0.56), r = Math.min(split - top - 34, w * 0.42) * Math.min(zoom, 1.6);
+        var cx = w / 2, cy = split - 26;
+        ctx.strokeStyle = mut; ctx.setLineDash([4, 4]); ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(cx - r * 1.1, cy); ctx.lineTo(cx + r * 1.1, cy); ctx.stroke(); ctx.setLineDash([]);
+        for (i = Math.max(0, n - 101); i < n - 1; i++) {
+          var t = Math.acos(st.samples[i]);
+          ctx.strokeStyle = "rgba(184, 92, 56, 0.22)"; ctx.lineWidth = 1.5;
+          ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + 0.8 * r * Math.cos(t), cy - 0.8 * r * Math.sin(t)); ctx.stroke();
+        }
+        arrow(ctx, cx - r, cy, cx - 9, cy, fg);
+        ctx.fillStyle = mut; ctx.beginPath(); ctx.arc(cx, cy, 7, 0, 2 * Math.PI); ctx.fill();
+        ctx.font = "13px system-ui, sans-serif"; ctx.fillStyle = mut;
+        ctx.fillText("neutron in", cx - r, cy + 18);
+        ctx.fillText(st.nuc, cx - 16, cy + 22);
+        if (n) {
+          var th = Math.acos(st.samples[n - 1]);
+          ctx.lineWidth = 3; arrow(ctx, cx, cy, cx + r * Math.cos(th), cy - r * Math.sin(th), brown);
+          ctx.strokeStyle = brown; ctx.lineWidth = 1.5;
+          ctx.beginPath(); ctx.arc(cx, cy, r * 0.28, -th, 0); ctx.stroke();
+          ctx.fillStyle = brown; ctx.font = "bold 15px system-ui, sans-serif";
+          ctx.fillText("θ = " + (th * 180 / Math.PI).toFixed(1) + "°", cx + r * 0.32 * Math.cos(th / 2) + 4, cy - r * 0.32 * Math.sin(th / 2) - 4);
+        } else {
+          ctx.fillStyle = fg; ctx.font = "15px system-ui, sans-serif";
+          var hint = "Press Sample scattering angle, below";
+          ctx.fillText(hint, (w - ctx.measureText(hint).width) / 2, cy - r * 0.6);
+        }
+        // Bottom: the ACE table's density and the rug of sampled cosines.
+        var x0 = 10, pw = w - 20, y0 = split + 10, ph = h - y0 - 30, hi = 0;
+        for (i = 0; i < R.pdf.length; i++) hi = Math.max(hi, R.pdf[i]);
+        hi *= 1.08;
+        var X = function (m) { return x0 + (m + 1) / 2 * pw; }, Y = function (v) { return y0 + (hi - v) / hi * (ph - 12); };
+        ctx.strokeStyle = mut; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x0, Y(0)); ctx.lineTo(x0 + pw, Y(0)); ctx.stroke();
+        ctx.strokeStyle = fg; ctx.lineWidth = 2; ctx.beginPath();
+        for (i = 0; i < R.mu.length; i++) { if (i) ctx.lineTo(X(R.mu[i]), Y(R.pdf[i])); else ctx.moveTo(X(R.mu[i]), Y(R.pdf[i])); }
+        ctx.stroke();
+        for (i = 0; i < n; i++) {
+          var last = i === n - 1, xs = X(st.samples[i]);
+          ctx.strokeStyle = last ? brown : "rgba(184, 92, 56, 0.4)"; ctx.lineWidth = last ? 3 : 1;
+          ctx.beginPath(); ctx.moveTo(xs, last ? y0 : Y(0) - 2); ctx.lineTo(xs, Y(0) + 10); ctx.stroke();
+        }
+        ctx.font = "13px system-ui, sans-serif"; ctx.fillStyle = mut;
+        ctx.fillText("μ = −1 back", x0, h - 8);
+        var e1 = "forward μ = +1"; ctx.fillText(e1, x0 + pw - ctx.measureText(e1).width, h - 8);
+        var s = st.nuc + " elastic at " + fmtE(R.e) + ": the ACE table ACER made, " + R.mu.length + " points.";
+        if (n) {
+          var mean = 0;
+          for (i = 0; i < n; i++) mean += st.samples[i];
+          mean /= n;
+          s += " Last μ = " + st.samples[n - 1].toFixed(3) + " (θ = " + (Math.acos(st.samples[n - 1]) * 180 / Math.PI).toFixed(1) + "°). Mean of " + n +
+            " samples " + mean.toFixed(3) + "; the evaluation's mean cosine a₁ = " + R.a[0].toFixed(3) + ".";
+        }
+        return s;
+      },
+      panel: function (body, redraw) {
+        var reset = function () { st.samples = []; redraw(); };
+        buttons(body, "Nucleus", [["C-12", "C-12"], ["U-238", "U-238"]], st.nuc, function (v) { st.nuc = v; reset(); });
+        buttons(body, "Neutron energy", D["U-238"].map(function (r, k) { return [k, ["0.1", "0.5", "1", "2", "5"][k] + " MeV"]; }), st.ei, function (v) { st.ei = v; reset(); });
+        body.append(el("p", { "class": "w-note" }, "Black: ACER's (μ, density) table. Brown: the sampled cosines, the last one tall; above, the directions they mean, centre-of-mass frame."));
+      }
+    });
+    var card = root.parentNode, one = card.querySelector("[data-sample='1']"), many = card.querySelector("[data-sample='100']");
+    if (one) one.onclick = function () { draw1(); trim(); frame.redraw(); };
+    if (many) many.onclick = function () { for (var k = 0; k < 100; k++) draw1(); trim(); frame.redraw(); };
+    return frame;
+  }
+
   L.widget("pshapes", pshapes);
   L.widget("rebuild", rebuild);
+  L.widget("sampler", sampler);
   L.anglesMath = { legendre: legendre, density: density, sampleTabular: sampleTabular };
 })();

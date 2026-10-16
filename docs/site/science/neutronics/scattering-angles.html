@@ -46,7 +46,7 @@
 <section class="widget-card">
   <h3>Add Legendre terms, one at a time</h3>
   <div class="widget" id="rebuild">
-    <canvas aria-label="An evaluated elastic angular distribution against the scattering cosine, rebuilt from its Legendre coefficients term by term, with the ACE table and sampled cosines"></canvas>
+    <canvas aria-label="An evaluated elastic angular distribution against the scattering cosine, rebuilt from its Legendre coefficients term by term, with the ACE table"></canvas>
   </div>
   <p class="note">Elastic scattering of C-12 and U-238 from their ENDF/B-VIII.0 evaluations <a href="#ref-brown2018endf8">(Brown &amp; others, 2018)</a>, file MF=4, in the centre-of-mass frame, at the evaluation's energy nearest each button (U-238's "2 MeV" is 1.945 MeV). The coefficients are the evaluation's own, unchanged.</p>
 </section>
@@ -60,18 +60,23 @@
 <p class="note">The tables here come straight from OUTRAM PARK's own port of ACER, run on the evaluation.</p>
 
 <h2>Sampling the result</h2>
-<p>Press <b>Sample scattering angle</b>. The program draws a random number, finds where it falls on the table's cumulative probability, and reads off one cosine &mu;: the neutron leaves at &theta; = arccos &mu; (the arrow in the corner), and the transport continues from there. That is the step OutramMC takes at every elastic collision, and it is part of what made the paths zig-zag in the <a href="meet-the-neutron.html">first demo</a>.</p>
+<section class="widget-card">
+  <h3>Sample an outgoing direction</h3>
+  <div class="widget" id="sampler">
+    <canvas aria-label="A neutron arriving at a nucleus and leaving at a sampled scattering angle, above the ACE table's angular density with the sampled cosines marked on it"></canvas>
+  </div>
+  <p class="actions sample-actions"><button type="button" class="btn" data-sample="1">Sample scattering angle</button> <button type="button" class="btn ghost" data-sample="100">Sample 100 more</button></p>
+</section>
+<p>Each press draws a random number, finds where it falls on the table's cumulative probability, and reads off one cosine &mu;: the neutron leaves at &theta; = arccos &mu;, and the transport continues from there. That is the step OutramMC takes at every elastic collision, and it is part of what made the paths zig-zag in the <a href="meet-the-neutron.html">first demo</a>.</p>
 <p class="chain">stored nuclear data &rarr; probability distribution &rarr; random number &rarr; sampled direction &rarr; the neutron continues</p>
 <p>Press <b>Sample 100 more</b> a few times: the samples crowd where the curve is high, and their average cosine closes in on a<sub>1</sub>.</p>
 <p><b>We now know how nuclear data can store the shape of a scattering angular distribution, and how a Monte Carlo code can sample an outgoing direction from it.</b></p>
 
 <h2>But remember our neutron matter wave?</h2>
 <p>When we changed the neutron's momentum, its de Broglie wavelength changed (<a href="matter-waves.html">page 4</a>), and on <a href="quantum-scattering.html">page 5</a> the whole angular pattern changed with it. The nuclear interaction is strongly dependent on the neutron's energy; the evaluation shows it too, keeping a different set of coefficients at every energy.</p>
-<p>So far we have answered: <b>if the neutron scatters, where can it go?</b> But nuclear data must also say how the interaction changes as the incoming energy changes.</p>
-<p><b>How do we represent nuclear data that depends on neutron energy?</b></p>
-<p class="status">That lesson is the next to be designed, with the maintainer, one question at a time (<a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/906">#906</a>).</p>
+<p><b>Why is this so?</b></p>
 
-<nav class="lesson-nav" aria-label="Lessons" data-next-soon="Next: energy-dependent nuclear data"></nav>
+<nav class="lesson-nav" aria-label="Lessons" data-next-soon="Next: why does the neutron's energy matter?"></nav>
 
 <!-- references:begin -->
 <h2>References</h2>
