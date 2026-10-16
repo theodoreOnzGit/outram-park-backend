@@ -12,6 +12,9 @@ eval(fs.readFileSync(path.join(__dirname, "angular-data.js"), "utf8"));
 eval(fs.readFileSync(path.join(__dirname, "angles.js"), "utf8"));
 eval(fs.readFileSync(path.join(__dirname, "xs-data.js"), "utf8"));
 eval(fs.readFileSync(path.join(__dirname, "energy.js"), "utf8"));
+eval(fs.readFileSync(path.join(__dirname, "reaction-data.js"), "utf8"));
+window.Lesson.fmtE = (e) => e + " eV";
+eval(fs.readFileSync(path.join(__dirname, "reactions.js"), "utf8"));
 const M = window.Lesson.qscatterMath, SH = window.Lesson.shapesMath, AN = window.Lesson.anglesMath;
 let failed = 0;
 function check(name, value, limit) {
@@ -172,6 +175,28 @@ for (const [label, A, ap, E] of [["C-12, 10 eV", 11.89365, 6.146927, 10], ["U-23
   let he = [0, 0]; X["He-4"].e.forEach((e, i) => { if (e > 3e5 && e < 3e6 && X["He-4"].s[i] > he[1]) he = [e, X["He-4"].s[i]]; });
   check("He-4's broad maximum lies 0.8-1.5 MeV (MeV off)", he[0] > 8e5 && he[0] < 1.5e6 ? 0 : Math.abs(he[0] / 1e6 - 1.1), 0);
   console.log(`     peaks He-4 ${pk[0]}, Mn-55 ${pk[1]}, U-238 ${pk[2]}; He-4 max ${he[1].toFixed(2)} b at ${(he[0] / 1e6).toFixed(3)} MeV`);
+}
+
+// Pages 10-11 (gh:#906 design, 2026-10-16): the Q-values the design quotes,
+// as read from the tapes into reaction-data.js; the 2 MeV U-238 predict
+// answer; U-238's fission onset; and page 11's prose numbers against the data.
+{
+  const RD = window.REACTION_DATA, RX = window.Lesson.reactionsMath;
+  const Q = (n, mt, f) => RD[n].channels.find((c) => c.mt === mt)[f];
+  const want = [["U-238", 51, "qi", -4.4916e4], ["C-12", 51, "qi", -4.4389e6], ["U-238", 102, "qm", 4.806e6], ["C-12", 102, "qm", 4.946e6],
+    ["B-10", 107, "qm", 2.789e6], ["C-12", 107, "qm", -5.702e6], ["U-238", 16, "qm", -6.153e6], ["U-235", 102, "qm", 6.544e6]];
+  let wq = 0;
+  for (const [n, mt, f, v] of want) wq = Math.max(wq, Math.abs(Q(n, mt, f) / v - 1));
+  check("Q-values vs the design's (relative)", wq, 2e-4);
+  const open = RX.channels(RD["U-238"], 2e6).filter((c) => c.open).map((c) => c.mt).sort((a, b) => a - b).join(",");
+  check("2 MeV on U-238: open = elastic, inelastic, fission, capture; (n,2n) closed", open === "2,18,51,102" ? 0 : 1, 0);
+  const on = RD["U-238"].sf.onset;
+  check("U-238 fission onset within 1-1.5 MeV (MeV off)", on > 1e6 && on < 1.5e6 ? 0 : Math.abs(on / 1e6 - 1.25), 0);
+  check("U-235 is fissile (sigma_f at 0.0253 eV over 100 b)", RD["U-235"].sf.thermal > 100 ? 0 : 1, 0);
+  const html = fs.readFileSync(path.join(__dirname, "fission.html"), "utf8");
+  let wp = 0;
+  for (const m of html.matchAll(/data-q="(U-23[58])">([0-9.]+) MeV/g)) wp = Math.max(wp, Math.abs(+m[2] - Q(m[1], 102, "qm") / 1e6));
+  check("page 11's capture Q in the prose vs the data (MeV)", wp, 0.006);
 }
 
 if (failed) { console.log(failed + " check(s) failed"); process.exit(1); }

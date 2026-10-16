@@ -210,7 +210,9 @@
     ["storing-shapes.html", "How do we store a shape?"],
     ["scattering-angles.html", "How are scattering angles stored?"],
     ["why-energy-matters.html", "Why does the neutron's energy matter?"],
-    ["nuclear-levels.html", "Why are nuclear levels so complicated?"]
+    ["nuclear-levels.html", "Why are nuclear levels so complicated?"],
+    ["what-can-happen.html", "What can happen in a nucleus?"],
+    ["fission.html", "Fission: fissile and fissionable"]
   ];
   function lessonNav() {
     var here = location.pathname.split("/").pop() || LESSONS[0][0], i = -1;
