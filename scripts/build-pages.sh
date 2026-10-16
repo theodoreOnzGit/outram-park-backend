@@ -17,7 +17,7 @@ DATE="$(date -u +%Y-%m-%d)"
 
 rm -rf "$OUT"
 mkdir -p "$OUT/deep-dives"
-cp docs/site/index.html docs/site/style.css docs/site/site-nav.js docs/site/code-map-bar.js docs/site/search.js "$OUT/"
+cp docs/site/index.html docs/site/style.css docs/site/site-nav.js docs/site/code-map-bar.js docs/site/search.js docs/site/sw.js "$OUT/"
 # The three pathways of the landing page (gh:#906, #909): Learn the science,
 # Learn to code (the old front page, with the code map by domain) and the demo
 # library; then the search index over them and the books (search.js reads it).
@@ -388,5 +388,12 @@ while IFS= read -r -d '' page; do
              | grep -vE '^([a-z]+:|/|#)')
 done < <(find "$OUT/index.html" "$OUT/code" "$OUT/science" "$OUT/demos/index.html" "$OUT/deep-dives" "$OUT/tutorials" -name '*.html' -print0)
 (( bad == 0 )) || exit 1
+
+# The content-hashed file cache (gh:#923): every non-HTML file by its SHA-256,
+# read by sw.js. Written last, over the finished site. check-sw.js runs the
+# service worker's cache logic under node first.
+node docs/site/check-sw.js
+node docs/site/check-sw.js --manifest "$OUT"
+[[ -s "$OUT/asset-manifest.json" ]] || { echo "asset-manifest.json was not written" >&2; exit 1; }
 
 echo "site built in $OUT ($(du -sh "$OUT" | cut -f1)), commit $SHORT"

@@ -33,6 +33,12 @@
   var here = new URL(location.href);
   var demos = new URL("demos/", root);
 
+  // The content-hashed file cache (gh:#923; see sw.js): an unchanged wasm or
+  // tape is never downloaded twice, across deploys and across demos.
+  if ("serviceWorker" in navigator && location.protocol !== "file:") {
+    navigator.serviceWorker.register(new URL("sw.js", root).href, { scope: root.href }).catch(function () {});
+  }
+
   // The demo a URL is inside ("monte-carlo" for demos/monte-carlo/...), or "".
   function demoOf(url) {
     if (url.origin !== demos.origin || url.pathname.indexOf(demos.pathname) !== 0) return "";
