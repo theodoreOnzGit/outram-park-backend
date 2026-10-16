@@ -218,7 +218,8 @@
     ["reich-moore.html", "Can we skip the gamma paths?"],
     ["mlbw.html", "Can we drop the matrix?"],
     ["adler-adler.html", "Cheaper still: fit the curves?"],
-    ["log-scales.html", "Why are cross sections drawn on log scales?"]
+    ["log-scales.html", "Why are cross sections drawn on log scales?"],
+    ["unresolved.html", "The double whammy: unresolved resonances"]
   ];
   function lessonNav() {
     var here = location.pathname.split("/").pop() || LESSONS[0][0], i = -1;

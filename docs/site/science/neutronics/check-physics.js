@@ -20,6 +20,8 @@ eval(fs.readFileSync(path.join(__dirname, "resonance.js"), "utf8"));
 eval(fs.readFileSync(path.join(__dirname, "kinematics.js"), "utf8"));
 eval(fs.readFileSync(path.join(__dirname, "slowing-data.js"), "utf8"));
 eval(fs.readFileSync(path.join(__dirname, "slowing.js"), "utf8"));
+eval(fs.readFileSync(path.join(__dirname, "unresolved-data.js"), "utf8"));
+eval(fs.readFileSync(path.join(__dirname, "unresolved.js"), "utf8"));
 const M = window.Lesson.qscatterMath, SH = window.Lesson.shapesMath, AN = window.Lesson.anglesMath;
 let failed = 0;
 function check(name, value, limit) {
@@ -332,6 +334,30 @@ for (const [label, A, ap, E] of [["C-12, 10 eV", 11.89365, 6.146927, 10], ["U-23
   q(/data-range="eh(1|2)">([^<]+)</g, (m) => SD.u238.ranges[+m[1] - 1].eh / 1e3, 0.005);
   check("page 17: " + nq + " numbers in the prose vs the data", wp, 0);
   console.log(`     B-10 (n,alpha) slope ${fit.slope.toFixed(5)} over ${fit.n} points; C-12 sampled <ln E/E'> ${mean.toFixed(5)} vs xi ${SM.xi(A).toFixed(5)}`);
+}
+
+// Page 18 (gh:#906 design, addenda and amendments, 2026-10-16): the
+// unresolved range, against unresolved-data.js (examples/lesson_unresolved.rs).
+{
+  const UM = window.Lesson.unresolvedMath, UD = window.UNRESOLVED_DATA, U = UD["U-238"];
+  const h = fs.readFileSync(path.join(__dirname, "unresolved.html"), "utf8");
+  const seq = (j) => U.seqs.find((s) => s.j === j);
+  const sn = window.REACTION_DATA["U-238"].channels.find((c) => c.mt === 102).qm, A = window.SLOWING_DATA.awr["U-238"];
+  const half = (t) => { const d = t.split(".")[1]; return 0.5 * Math.pow(10, -(d ? d.length : 0)) * (1 + 1e-9); };
+  let bad = 0, n = 0;
+  const q = (re, f) => { for (const m of h.matchAll(re)) { n++; const t = m[m.length - 1], want = f(m); if (Math.abs(+t - want) > half(t)) { bad++; console.log("     mismatch", m[0], "want", want); } } };
+  q(/data-ur="(el|eh)">([^<]+)</g, (m) => U[m[1]] / 1e3);
+  q(/data-d="([0-9.]+),([0-9.]+)">([0-9.]+) eV</g, (m) => UM.spacing(seq(+m[1]), +m[2]));
+  q(/data-dshrink>([^<]+)</g, () => 100 * (1 - UM.spacing(seq(0.5), U.eh) / UM.spacing(seq(0.5), U.el)));
+  q(/data-estar="([0-9.]+)">([^<]+)</g, (m) => (sn + +m[1] * A / (A + 1)) / 1e6);
+  q(/data-meet="lo">([^<]+)</g, () => UM.avgAt(U, U.el / 1.06).s);
+  q(/data-meet="hi">([^<]+)</g, () => UM.avgAt(U, U.el * 1.08).s);
+  check("page 18: " + n + " numbers in the prose vs the data", bad, 0);
+  // Smearing is continuous across U-238's boundary: the resolved forest's
+  // average just below 20 keV against the evaluator's dilute File 3 just above.
+  const lo = UM.avgAt(U, U.el / 1.06).s, hi = UM.avgAt(U, U.el * 1.08).s;
+  check("U-238: smeared forest vs File 3 average across 20 keV (relative)", Math.abs(hi / lo - 1), 0.02);
+  check("U-238 is LSSF = 1, U-234 LSSF = 0", Math.abs(U.lssf - 1) + Math.abs(UD["U-234"].lssf), 0);
 }
 
 if (failed) { console.log(failed + " check(s) failed"); process.exit(1); }
