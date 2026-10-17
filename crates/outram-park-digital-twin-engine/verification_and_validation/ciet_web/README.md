@@ -65,7 +65,11 @@ Desktop Chromium, 1280 x 800, heater 8 kW from a cold start (21 degC):
   the DRACS is still at rest (DRACS flow 0.0009 kg/s at 125 s). A fourth worker
   for v2's two-branch solve (forked inside the primary solve) would shorten the
   critical path; not done.
-- **Not measured: a phone.** Chromium's CPU throttle (`Emulation.setCPUThrottlingRate`,
+- **On a phone (maintainer, 2026-10-17): runs in real time on a Google Pixel
+  10a**, on the published page (`demos/ciet/`, commit `5140ea45b2`). Reported
+  as a pass; no per-step figures were taken on the phone.
+- ~~**Not measured: a phone.**~~ **CORRECTED 2026-10-17**, see the line above.
+  Why this record could not measure it itself: Chromium's CPU throttle (`Emulation.setCPUThrottlingRate`,
   4x and 8x tried) slows the page's main thread and not Web Workers: both gave
   the same 15 ms per step as no throttle. So this record has no phone figure.
   The page shows its step cost and "behind the clock" live, so opening it on a
