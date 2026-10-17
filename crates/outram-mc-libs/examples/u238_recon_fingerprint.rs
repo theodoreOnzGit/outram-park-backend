@@ -37,7 +37,7 @@ fn main() {
     let path = Path::new("reference-data/endf/n-092_U_238.endf");
     let t0 = std::time::Instant::now();
     let u238 =
-        Nuclide::from_endf_file(path, "U238", 600.0, 1e-3).expect("U-238 reconstruction failed");
+        Nuclide::from_endf_file(path, "U238", uom::si::f64::ThermodynamicTemperature::new::<uom::si::thermodynamic_temperature::kelvin>(600.0), 1e-3).expect("U-238 reconstruction failed");
     let elapsed = t0.elapsed();
 
     // Grid size across the whole range, and within the resolved-resonance band

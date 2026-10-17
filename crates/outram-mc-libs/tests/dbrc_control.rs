@@ -47,7 +47,7 @@ const RESONANCE_EV: f64 = 6.67;
 
 fn u238() -> Option<Nuclide> {
     let p = reference_endf_or_skip("n-092_U_238.endf", "U-238 (DBRC control)")?;
-    Some(Nuclide::from_endf_file(&p, "U238", TEMP_K, 1.0e-3).expect("U-238 reconstructs"))
+    Some(Nuclide::from_endf_file(&p, "U238", uom::si::f64::ThermodynamicTemperature::new::<uom::si::thermodynamic_temperature::kelvin>(TEMP_K), 1.0e-3).expect("U-238 reconstructs"))
 }
 
 /// The table is built, covers the resonance region, and carries real structure.

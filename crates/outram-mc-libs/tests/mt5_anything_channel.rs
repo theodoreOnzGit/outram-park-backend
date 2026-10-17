@@ -93,7 +93,7 @@ fn mt5_has_a_law_a_tabulated_multiplicity_and_no_reach_below_5_mev() {
     ) else {
         return;
     };
-    let nuc = Nuclide::from_endf_file(&tape, "U235", TEMP_K, 1.0e-3).expect("U-235 reconstructs");
+    let nuc = Nuclide::from_endf_file(&tape, "U235", uom::si::f64::ThermodynamicTemperature::new::<uom::si::thermodynamic_temperature::kelvin>(TEMP_K), 1.0e-3).expect("U-235 reconstructs");
 
     // 1. The law is read.
     let law = nuc.continuum_law(5).expect(

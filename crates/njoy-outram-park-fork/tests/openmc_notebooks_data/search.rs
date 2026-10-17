@@ -24,7 +24,6 @@ use std::path::PathBuf;
 use njoy_outram_park_fork::interface::NuclearDataLibrary;
 use uom::si::{area::barn, energy::electronvolt, f64::Energy};
 
-const U235_MAT: i32 = 9228;
 
 fn u235_path() -> PathBuf {
     let p = njoy_outram_park_fork::reference_data::reference_endf_dir()
@@ -36,7 +35,7 @@ fn u235_path() -> PathBuf {
 /// sections are available and physical. (The search loop itself is transport.)
 #[test]
 fn fuel_cross_sections_available_for_search() {
-    let lib = NuclearDataLibrary::from_file(u235_path(), U235_MAT)
+    let lib = NuclearDataLibrary::from_file(u235_path())
         .expect("load U-235 ENDF")
         .reconstruct(0.001)
         .expect("RECONR U-235");

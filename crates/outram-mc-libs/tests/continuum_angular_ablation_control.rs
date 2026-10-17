@@ -271,7 +271,7 @@ fn u238_continuum_angular_law_is_read_and_has_the_evaluated_energy_profile() {
         return;
     };
 
-    let nuc = Nuclide::from_endf_file(&tape, "U238", TEMP_K, 1.0e-3).expect("U-238 reconstructs");
+    let nuc = Nuclide::from_endf_file(&tape, "U238", uom::si::f64::ThermodynamicTemperature::new::<uom::si::thermodynamic_temperature::kelvin>(TEMP_K), 1.0e-3).expect("U-238 reconstructs");
     let law = nuc
         .continuum_law(MT_91)
         .expect("U-238 carries an MF=6 LAW=1 law for MT=91");
@@ -405,7 +405,7 @@ fn u238_continuum_angular_ablation_changes_angles_and_nothing_else() {
         return;
     };
 
-    let nuc = Nuclide::from_endf_file(&tape, "U238", TEMP_K, 1.0e-3).expect("U-238 reconstructs");
+    let nuc = Nuclide::from_endf_file(&tape, "U238", uom::si::f64::ThermodynamicTemperature::new::<uom::si::thermodynamic_temperature::kelvin>(TEMP_K), 1.0e-3).expect("U-238 reconstructs");
     let law = nuc.continuum_law(MT_91).expect("U-238 carries MT=91 MF=6");
 
     println!("U-238 MT=91 continuum angular ablation, {DRAWS} draws per arm:");
@@ -534,7 +534,7 @@ fn f19_continuum_is_isotropic_so_the_ablation_is_a_no_op() {
         return;
     };
 
-    let nuc = Nuclide::from_endf_file(&tape, "F19", TEMP_K, 1.0e-3).expect("F-19 reconstructs");
+    let nuc = Nuclide::from_endf_file(&tape, "F19", uom::si::f64::ThermodynamicTemperature::new::<uom::si::thermodynamic_temperature::kelvin>(TEMP_K), 1.0e-3).expect("F-19 reconstructs");
     let law = nuc
         .continuum_law(MT_91)
         .expect("F-19 carries an MF=6 LAW=1 law for MT=91");

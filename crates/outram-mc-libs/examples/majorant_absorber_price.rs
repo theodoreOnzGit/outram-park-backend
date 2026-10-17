@@ -120,7 +120,7 @@ fn nuclides() -> Option<Vec<Nuclide>> {
         let path = reference_endf(file)?;
         eprint!("  reconstructing {name:<6} from {file} … ");
         let t0 = Instant::now();
-        let n = Nuclide::from_endf_file(&path, name, TEMP_K, 1.0e-3).ok()?;
+        let n = Nuclide::from_endf_file(&path, name, uom::si::f64::ThermodynamicTemperature::new::<uom::si::thermodynamic_temperature::kelvin>(TEMP_K), 1.0e-3).ok()?;
         eprintln!("{:.1?}", t0.elapsed());
         Some(n)
     };

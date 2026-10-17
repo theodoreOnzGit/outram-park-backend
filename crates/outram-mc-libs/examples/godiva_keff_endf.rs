@@ -212,7 +212,7 @@ fn main() {
                     );
                     std::process::exit(1);
                 };
-                let n = Nuclide::from_endf_file(&path, name, temp_k, 1.0e-3)
+                let n = Nuclide::from_endf_file(&path, name, uom::si::f64::ThermodynamicTemperature::new::<uom::si::thermodynamic_temperature::kelvin>(temp_k), 1.0e-3)
                     .unwrap_or_else(|e| panic!("from_endf_file({}): {e}", path.display()));
                 println!(
                     "  {name}: reconstructed from {local_file} in {:.1} s",

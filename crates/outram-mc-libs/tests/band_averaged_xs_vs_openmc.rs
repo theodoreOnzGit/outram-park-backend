@@ -104,7 +104,7 @@ fn band_average(lo: f64, hi: f64, f: impl Fn(f64) -> f64) -> f64 {
 
 fn check(file: &str, name: &str, oracle: &[[f64; 5]]) -> Option<(f64, f64, f64)> {
     let tape = reference_file_or_skip("endf", file, "band-averaged xs")?;
-    let nuc = Nuclide::from_endf_file(&tape, name, TEMP_K, 1.0e-3).ok()?;
+    let nuc = Nuclide::from_endf_file(&tape, name, uom::si::f64::ThermodynamicTemperature::new::<uom::si::thermodynamic_temperature::kelvin>(TEMP_K), 1.0e-3).ok()?;
 
     println!("\n{name}: band-averaged sigma (barn), ours vs OpenMC");
     println!(

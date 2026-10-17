@@ -63,7 +63,7 @@ fn main() {
     let path = Path::new("reference-data/endf/n-092_U_238.endf");
     eprintln!("reconstructing U-238 from {} ...", path.display());
     let u238 =
-        Nuclide::from_endf_file(path, "U238", 600.0, 1e-3).expect("U-238 reconstruction failed");
+        Nuclide::from_endf_file(path, "U238", uom::si::f64::ThermodynamicTemperature::new::<uom::si::thermodynamic_temperature::kelvin>(600.0), 1e-3).expect("U-238 reconstruction failed");
     eprintln!("done.\n");
 
     // MF=3/MT=102 infinite-dilute capture, read straight off the tape.

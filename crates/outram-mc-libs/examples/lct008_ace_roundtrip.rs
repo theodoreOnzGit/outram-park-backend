@@ -224,7 +224,7 @@ fn main() {
 
         // ── Route A: straight from ENDF ────────────────────────────────────
         let t = Instant::now();
-        let n_endf = Nuclide::from_endf_file(&path, name, TEMP_K, 1.0e-3)
+        let n_endf = Nuclide::from_endf_file(&path, name, uom::si::f64::ThermodynamicTemperature::new::<uom::si::thermodynamic_temperature::kelvin>(TEMP_K), 1.0e-3)
             .unwrap_or_else(|e| panic!("from_endf_file({name}): {e}"));
         st.endf_direct += t.elapsed();
         via_endf.push(n_endf);

@@ -167,7 +167,7 @@ fn ordinary_constructors_default_to_the_exact_fast_tier() {
         eprintln!("SKIP: F-19 absent");
         return;
     };
-    let n = Nuclide::from_endf_file(&p, "F19", TEMP_K, 1.0e-3).expect("F19");
+    let n = Nuclide::from_endf_file(&p, "F19", uom::si::f64::ThermodynamicTemperature::new::<uom::si::thermodynamic_temperature::kelvin>(TEMP_K), 1.0e-3).expect("F19");
     assert_eq!(n.speed(), SpeedTier::Fast);
     assert!(n.speed().is_exact());
 }

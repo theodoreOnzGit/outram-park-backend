@@ -20,7 +20,7 @@ fn main() {
     let load = |n: &str, f: &str| -> Option<Nuclide> {
         let p = base.join(f);
         p.exists().then_some(())?;
-        Nuclide::from_endf_file(&p, n, TEMP_K, 1.0e-3).ok()
+        Nuclide::from_endf_file(&p, n, uom::si::f64::ThermodynamicTemperature::new::<uom::si::thermodynamic_temperature::kelvin>(TEMP_K), 1.0e-3).ok()
     };
     let Some(sab) = ThermalScattering::from_endf_file(
         base.join("tsl-crystalline-graphite.endf").to_str().unwrap(),

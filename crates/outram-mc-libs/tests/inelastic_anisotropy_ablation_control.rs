@@ -92,7 +92,7 @@ fn inelastic_levels_are_anisotropic_and_the_ablation_removes_exactly_that() {
     };
 
     let evaluated =
-        Nuclide::from_endf_file(&tape, "U238", TEMP_K, 1.0e-3).expect("U-238 reconstructs");
+        Nuclide::from_endf_file(&tape, "U238", uom::si::f64::ThermodynamicTemperature::new::<uom::si::thermodynamic_temperature::kelvin>(TEMP_K), 1.0e-3).expect("U-238 reconstructs");
     let ablated = evaluated.clone().with_isotropic_inelastic_scattering();
 
     // 1: the evaluated nuclide really carries MT=51 angular data.
@@ -182,7 +182,7 @@ fn the_two_ablations_are_independent() {
     ) else {
         return;
     };
-    let nuc = Nuclide::from_endf_file(&tape, "U238", TEMP_K, 1.0e-3).expect("U-238 reconstructs");
+    let nuc = Nuclide::from_endf_file(&tape, "U238", uom::si::f64::ThermodynamicTemperature::new::<uom::si::thermodynamic_temperature::kelvin>(TEMP_K), 1.0e-3).expect("U-238 reconstructs");
 
     // Ablating inelastic must leave elastic alone…
     let inel_gone = nuc.clone().with_isotropic_inelastic_scattering();

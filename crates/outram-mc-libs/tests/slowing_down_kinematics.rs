@@ -72,7 +72,7 @@ fn load(name: &str, file: &str) -> Option<Nuclide> {
         println!("[{name}] SKIP: {file} not in reference-data/endf/");
         return None;
     };
-    Nuclide::from_endf_file(&path, name, TEMP, 1.0e-3).ok()
+    Nuclide::from_endf_file(&path, name, uom::si::f64::ThermodynamicTemperature::new::<uom::si::thermodynamic_temperature::kelvin>(TEMP), 1.0e-3).ok()
 }
 
 /// **Isotropic-CM elastic scattering off a target at rest reproduces the

@@ -97,7 +97,7 @@ fn main() {
     let (name, file, mat) = ("U238", "n-092_U_238.endf", 9237_i32);
     let p = reference_endf(file).expect("tape");
 
-    let n_endf = Nuclide::from_endf_file(&p, name, T, 1.0e-3).expect("endf");
+    let n_endf = Nuclide::from_endf_file(&p, name, uom::si::f64::ThermodynamicTemperature::new::<uom::si::thermodynamic_temperature::kelvin>(T), 1.0e-3).expect("endf");
     let tape = Tape::read_file(&p).unwrap();
     let recon0 = reconr(&tape, &ReconrConfig { mat, tolerance: 1.0e-3, temperature: 0.0 }).unwrap();
     let recon = broaden_result(&recon0, T);

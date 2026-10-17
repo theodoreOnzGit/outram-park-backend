@@ -165,7 +165,7 @@ mod desktop {
                 return;
             };
             moving.push(
-                Nuclide::from_endf_file(&p, name, TEMP_K, 1.0e-3)
+                Nuclide::from_endf_file(&p, name, uom::si::f64::ThermodynamicTemperature::new::<uom::si::thermodynamic_temperature::kelvin>(TEMP_K), 1.0e-3)
                     .unwrap_or_else(|e| panic!("from_endf_file({}): {e}", p.display())),
             );
         }

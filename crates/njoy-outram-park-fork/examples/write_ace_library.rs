@@ -8,10 +8,29 @@
 //! # Layout written
 //!
 //! ```text
-//! <out>/293.6K/<name>.ace   RECONR(0 K, tol) -> BROADR(T) -> PURR -> ACER   (build_full_with_purr)
-//! <out>/0K/<name>.ace       RECONR(0 K, tol) -> ACER                        (build_full, kT = 0)
+//! <out>/293.6K/<name>.ace   RECONR(0 K, tol) -> BROADR(T) -> HEATR -> PURR -> ACER
+//! <out>/0K/<name>.ace       RECONR(0 K, tol) -> HEATR -> ACER                (kT = 0)
 //! <out>/293.6K/HinH2O.ace   THERMR/ACER port on a thermal tape (thermal_from_mf7), optional
 //! ```
+//!
+//! **Both fast tables come from `process`** (GitHub #930): one
+//! `process::reconstruct`, then `process::cross_sections_at(..).to_ace()` at
+//! 0 K and at `--temp`, which is `process::ace` with RECONR shared. ~~They
+//! were made by `acer::build_full_with_purr` (hot) and `acer::build_full`
+//! (`0K/`).~~ **CHANGED 2026-10-17:** the A/B diff below shows the switch is
+//! a no-op. Both old calls end in the same `acer::assemble` as `process`.
+//!
+//! **A/B, 2026-10-17** (`--temp 293.6`, default `--tol`, `--thermal-leapr
+//! HinH2O`): this example built before the switch and
+//! after it wrote the library for the 13 five-route nuclides (U-234/235/236/
+//! 238, F-19, O-16, H-1, Al-27, Si-28/29/30, Mn-55, B-10) plus Zn-70, and
+//! the two were compared with `cmp`. **All 29 Type-1 files are identical
+//! byte for byte** (14 at 293.6 K, 14 in `0K/`, and H in H₂O), 1 008 622 911 bytes in
+//! all. With `OUTRAM_ACE_TYPE2_ALSO=1` the six Type-2 files of U-234, Zn-70
+//! and B-10 are identical too, so the doubles agree to the bit, not only to
+//! 12 printed figures. Wall time is unchanged (U-235 85.0 s before, 85.4 s
+//! after; i9-13900K, one thread each, two runs side by side). The tape's MAT
+//! is now checked against the one given on `--nuclide`.
 //!
 //! The `0K/` sibling is where `Nuclide::from_ace_file` looks for the
 //! unbroadened elastic that DBRC needs (`zero_kelvin_companion_candidates`),
@@ -76,14 +95,15 @@ use std::path::{Path, PathBuf};
 use std::time::Instant;
 
 use njoy_outram_park_fork::acer::thermal::{ace_incident_grid, nxs as tnxs, jxs as tjxs, IncidentPendf, InelasticForm, ThermalAceOptions};
-use njoy_outram_park_fork::acer::{build_full, build_full_with_purr, AceTable};
+use njoy_outram_park_fork::acer::AceTable;
 use njoy_outram_park_fork::broadr::broaden_result;
 use njoy_outram_park_fork::endf::tape::Tape;
+use njoy_outram_park_fork::process::{self, CrossSectionSettings, Reconstruction};
 use njoy_outram_park_fork::reconr::{reconr, ReconrConfig};
 use njoy_outram_park_fork::reference_data::reference_endf_dir;
 use njoy_outram_park_fork::thermr::mf7::parse_mf7_at_temperature;
+use njoy_outram_park_fork::NjoyError;
 
-const K_B_MEV_PER_K: f64 = 8.617_333_262e-11;
 const PURR_NBIN: usize = 20;
 const PURR_NLADR: usize = 64;
 const PURR_NSAMP: usize = 10_000;
@@ -112,7 +132,11 @@ fn main() {
     let cold_dir = out.join("0K");
     std::fs::create_dir_all(&hot_dir).expect("create hot dir");
     std::fs::create_dir_all(&cold_dir).expect("create 0K dir");
-    let kt_mev = K_B_MEV_PER_K * temp_k;
+    // The fast tables' deck: process's defaults (HEATR on, ZAID `.00c`) with
+    // RECONR at `--tol` and PURR at this library's 20 / 64 / 10 000.
+    let settings = CrossSectionSettings::default()
+        .with_reconr_tolerance(tol)
+        .with_purr(PURR_NBIN, PURR_NLADR, PURR_NSAMP);
 
     for spec in flags(&args, "--nuclide") {
         let parts: Vec<&str> = spec.split(':').collect();
@@ -129,26 +153,20 @@ fn main() {
         let t0 = Instant::now();
         let tape = Tape::read_file(&reference_endf_dir().join(file))
             .unwrap_or_else(|e| panic!("read {file}: {e}"));
-        let recon0 = reconr(
-            &tape,
-            &ReconrConfig {
-                mat,
-                tolerance: tol,
-                temperature: 0.0,
-            },
-        )
-        .unwrap_or_else(|e| panic!("RECONR {name}: {e}"));
+        // The tape's own MAT must be the one the caller named: a wrong MAT
+        // would otherwise label the table with another nuclide's number.
+        let tape_mat = process::single_material(&tape).unwrap_or_else(|e| panic!("{file}: {e}"));
+        assert_eq!(tape_mat, mat, "{file} holds MAT {tape_mat}, not the {mat} given for {name}");
+        // One RECONR (process::reconstruct) serves both tables (GitHub #930).
+        let recon0 = process::reconstruct(&tape, &settings)
+            .unwrap_or_else(|e| panic!("RECONR {name}: {e}"));
         if !cold.is_file() {
-            let t = build_full(&tape, mat, &recon0, 0.0, 0)
-                .unwrap_or_else(|e| panic!("ACER 0 K {name}: {e}"));
+            let t = ace_at(&recon0, 0.0, &settings).unwrap_or_else(|e| panic!("ACER 0 K {name}: {e}"));
             write(&t, &cold);
         }
         if !hot.is_file() {
-            let recon = broaden_result(&recon0, temp_k);
-            let t = build_full_with_purr(
-                &tape, mat, &recon, kt_mev, 0, PURR_NBIN, PURR_NLADR, PURR_NSAMP,
-            )
-            .unwrap_or_else(|e| panic!("ACER {temp_k} K {name}: {e}"));
+            let t = ace_at(&recon0, temp_k, &settings)
+                .unwrap_or_else(|e| panic!("ACER {temp_k} K {name}: {e}"));
             write(&t, &hot);
         }
         eprintln!(
@@ -318,6 +336,16 @@ fn thermal_from_leapr(spec: &str, hot_dir: &Path, temp_k: f64) {
         "  {name}: thermal table from the {deck_key} LEAPR deck at {temp_k} K on {itape} (64 x 16, iwt = 1) in {:.1} s",
         t0.elapsed().as_secs_f64()
     );
+}
+
+/// The fast table at `temp_k` from the held RECONR: `process::cross_sections_at`
+/// then ACER, i.e. `process::ace` without repeating RECONR. At 0 K that is
+/// NJOY's `RECONR -> (HEATR) -> ACER` deck (no BROADR, no PURR); above it
+/// `RECONR -> BROADR -> HEATR -> PURR -> ACER`.
+fn ace_at(recon0: &Reconstruction, temp_k: f64, settings: &CrossSectionSettings) -> Result<AceTable, NjoyError> {
+    use njoy_outram_park_fork::units::Temperature;
+    use uom::si::thermodynamic_temperature::kelvin;
+    process::cross_sections_at(recon0, Temperature::new::<kelvin>(temp_k), settings)?.to_ace()
 }
 
 /// Write to a temporary name and rename, so an interrupted write never leaves a

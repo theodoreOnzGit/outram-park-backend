@@ -60,7 +60,7 @@ fn ev(e: f64) -> Energy {
 /// channels at the 2200 m/s point; the accepted thermal values anchor the check.
 #[test]
 fn read_cross_sections_by_mt() {
-    let lib = NuclearDataLibrary::from_file(u235_path(), U235_MAT)
+    let lib = NuclearDataLibrary::from_file(u235_path())
         .expect("load U-235 ENDF")
         .reconstruct(0.001)
         .expect("RECONR U-235");
@@ -89,7 +89,7 @@ fn read_cross_sections_by_mt() {
 /// non-negative, and thermal fission must dominate the fast-region point.
 #[test]
 fn cross_sections_over_energy_array() {
-    let lib = NuclearDataLibrary::from_file(u235_path(), U235_MAT)
+    let lib = NuclearDataLibrary::from_file(u235_path())
         .expect("load U-235 ENDF")
         .reconstruct(0.001)
         .expect("RECONR U-235");

@@ -408,6 +408,53 @@ pub const DBRC_GRID_MAX_EV: f64 = 2.5e4;
 /// grid ends.
 pub const DBRC_DEFAULT_E_MAX_EV: f64 = 1.0e3;
 
+/// Refuse a nuclide `name` that names another nuclide than `za` (`1000 Z + A`,
+/// from an evaluation's MF=1/MT=451). GitHub #672 / #934: labelling a U-238
+/// tape `"U235"` must fail rather than transport U-238 under U-235's name.
+///
+/// A name that reads as element symbol + mass number
+/// ([`njoy_outram_park_fork::acquire::parse_nuclide`]: `"U235"`, `"H1"`,
+/// `"C0"`) must match `za`'s Z and A; `A = 0` is an elemental evaluation. A
+/// name that does not read as one (`"Cnat"`, `"U235_hot"`, `"Am242m"`) is a
+/// free label: `Ok`, unchecked.
+///
+/// # Errors
+/// [`NjoyError::InvalidInput`] naming both nuclides.
+pub fn check_name_against_za(name: &str, za: f64) -> Result<(), NjoyError> {
+    let Ok((z, a, sym)) = njoy_outram_park_fork::acquire::parse_nuclide(name) else {
+        return Ok(());
+    };
+    let za_i = za.round() as i64;
+    let (tz, ta) = (za_i / 1000, za_i % 1000);
+    if i64::from(z) == tz && i64::from(a) == ta {
+        Ok(())
+    } else {
+        let tape_sym = njoy_outram_park_fork::acquire::symbol_for_z(tz as u32).unwrap_or("?");
+        Err(NjoyError::InvalidInput(format!(
+            "the name {name:?} is {sym}-{a}, but the tape is {tape_sym}-{ta} (ZA {za_i}); \
+             pass the tape's own nuclide, or a label that is not a nuclide name"
+        )))
+    }
+}
+
+/// [`check_name_against_za`] with the ZA of `mat`'s MF=1/MT=451 HEAD record.
+///
+/// # Errors
+/// As [`check_name_against_za`]; [`NjoyError::SectionNotFound`] without the
+/// MF=1/MT=451 section.
+fn check_name_against_tape(
+    tape: &njoy_outram_park_fork::endf::tape::Tape,
+    mat: i32,
+    name: &str,
+) -> Result<(), NjoyError> {
+    let za = tape
+        .section(mat, 1, 451)
+        .and_then(|s| s.rows.first())
+        .map(|r| r[0])
+        .ok_or(NjoyError::SectionNotFound { mat, mf: 1, mt: 451 })?;
+    check_name_against_za(name, za)
+}
+
 /// The 0 K elastic `(E, sigma)` pairs an ACE table can supply, or empty.
 ///
 /// **An ACE table's ESZ elastic column is at the table's own temperature.** So
@@ -1630,26 +1677,40 @@ impl Nuclide {
     /// ```no_run
     /// use outram_mc_libs::material::nuclide::Nuclide;
     /// use std::path::Path;
+    /// use uom::si::{f64::ThermodynamicTemperature, thermodynamic_temperature::kelvin};
     ///
     /// let u235 = Nuclide::from_endf_file(
     ///     Path::new("reference-data/endf/n-092_U_235-ENDF8.0.endf"),
     ///     "U235",
-    ///     293.6,   // K
-    ///     1e-3,    // RECONR tolerance
+    ///     ThermodynamicTemperature::new::<kelvin>(293.6),
+    ///     1e-3, // RECONR tolerance (fractional)
     /// )?;
     /// # Ok::<(), outram_mc_libs::NjoyError>(())
     /// ```
     ///
+    /// `temperature` is a `uom` temperature and `tolerance` RECONR's
+    /// fractional tolerance, so the two can no longer be swapped by accident
+    /// (GitHub #672 / #934; until 2026-10-17 both were bare `f64`).
+    ///
+    /// **The name is checked against the tape** (GitHub #934): a name that
+    /// reads as a nuclide (`"U235"`, `"H1"`, `"C0"` for an elemental tape)
+    /// must have the Z and A of the tape's MF=1/MT=451 ZA, so a U-238 tape
+    /// labelled `"U235"` is refused ([`check_name_against_za`]). A name that
+    /// does not read as one (`"Cnat"`, `"fuel-U"`) is a free label and is not
+    /// checked.
+    ///
     /// # Errors
     ///
     /// [`NjoyError`] if the file cannot be read or parsed, if it holds no
-    /// material, or for any reason [`Self::from_tape`] reports.
+    /// material, if `name` names another nuclide, or for any reason
+    /// [`Self::from_tape`] reports.
     pub fn from_endf_file(
         path: &std::path::Path,
         name: &str,
-        temp_k: f64,
+        temperature: uom::si::f64::ThermodynamicTemperature,
         tolerance: f64,
     ) -> Result<Self, NjoyError> {
+        use uom::si::thermodynamic_temperature::kelvin;
         let tape = njoy_outram_park_fork::endf::tape::Tape::read_file(path)?;
         // The tape knows its own MAT; making the caller supply one they would
         // have to look up is the kind of avoidable step that turns a two-line
@@ -1657,7 +1718,8 @@ impl Nuclide {
         let mat = tape.materials().first().copied().ok_or_else(|| {
             NjoyError::Download(format!("{} contains no ENDF material", path.display()))
         })?;
-        Self::from_tape(&tape, mat, name, temp_k, tolerance)
+        check_name_against_tape(&tape, mat, name)?;
+        Self::from_tape(&tape, mat, name, temperature.get::<kelvin>(), tolerance)
     }
 
     /// Build a nuclide from a **continuous-energy ACE table**.
@@ -2435,6 +2497,8 @@ impl Nuclide {
         let mat = tape.materials().first().copied().ok_or_else(|| {
             NjoyError::Download(format!("{} contains no ENDF material", path.display()))
         })?;
+        // The same name check as `from_endf_file` (GitHub #934).
+        check_name_against_tape(&tape, mat, name)?;
         Self::from_tape_with_speed(&tape, mat, name, temp_k, speed)
     }
 

@@ -3972,7 +3972,7 @@ pub struct Nuclide {
   This nuclide's microscopic cross sections at `e` \[eV\] and `temp_k`
 
 - ```rust
-  pub fn from_endf_file(path: &std::path::Path, name: &str, temp_k: f64, tolerance: f64) -> Result<Self, NjoyError> { /* ... */ }
+  pub fn from_endf_file(path: &std::path::Path, name: &str, temperature: uom::si::f64::ThermodynamicTemperature, tolerance: f64) -> Result<Self, NjoyError> { /* ... */ }
   ```
   Build a nuclide from an ENDF file **on disk** — the ordinary case.
 
@@ -4726,6 +4726,25 @@ pub struct DelayedData {
 - **WasmNotSendSync**
 - **WasmNotSync**
 ### Functions
+
+#### Function `check_name_against_za`
+
+Refuse a nuclide `name` that names another nuclide than `za` (`1000 Z + A`,
+from an evaluation's MF=1/MT=451). GitHub #672 / #934: labelling a U-238
+tape `"U235"` must fail rather than transport U-238 under U-235's name.
+
+A name that reads as element symbol + mass number
+([`njoy_outram_park_fork::acquire::parse_nuclide`]: `"U235"`, `"H1"`,
+`"C0"`) must match `za`'s Z and A; `A = 0` is an elemental evaluation. A
+name that does not read as one (`"Cnat"`, `"U235_hot"`, `"Am242m"`) is a
+free label: `Ok`, unchecked.
+
+# Errors
+[`NjoyError::InvalidInput`] naming both nuclides.
+
+```rust
+pub fn check_name_against_za(name: &str, za: f64) -> Result<(), njoy_outram_park_fork::NjoyError> { /* ... */ }
+```
 
 #### Function `zero_kelvin_companion_candidates`
 
@@ -6260,7 +6279,7 @@ pub struct ThermalScattering {
   The inverse of [`Self::to_f64s`].
 
 - ```rust
-  pub fn from_endf_file(path: &str, mat: i32, temperature_k: f64, name: &str) -> Result<Self, NjoyError> { /* ... */ }
+  pub fn from_endf_file<P: AsRef<std::path::Path>>(path: P, mat: i32, temperature_k: f64, name: &str) -> Result<Self, NjoyError> { /* ... */ }
   ```
   Build the pre-tabulated bound-atom thermal treatment — inelastic **and**
 

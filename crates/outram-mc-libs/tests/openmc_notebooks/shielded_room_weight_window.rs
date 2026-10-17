@@ -154,7 +154,7 @@ fn load_nuclides() -> Option<Vec<Nuclide>> {
             eprintln!("SKIP: {} not in this checkout", p.display());
             return None;
         }
-        out.push(Nuclide::from_endf_file(&p, name, TEMP, RECON_TOL).ok()?);
+        out.push(Nuclide::from_endf_file(&p, name, uom::si::f64::ThermodynamicTemperature::new::<uom::si::thermodynamic_temperature::kelvin>(TEMP), RECON_TOL).ok()?);
     }
     Some(out)
 }

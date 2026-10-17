@@ -198,7 +198,7 @@ fn elastic_mean_cosine_matches_openmc() {
     ) else {
         return;
     };
-    let nuc = Nuclide::from_endf_file(&tape, "U235", TEMP_K, 1.0e-3).expect("U-235 reconstructs");
+    let nuc = Nuclide::from_endf_file(&tape, "U235", uom::si::f64::ThermodynamicTemperature::new::<uom::si::thermodynamic_temperature::kelvin>(TEMP_K), 1.0e-3).expect("U-235 reconstructs");
 
     // The same MF=4 section the nuclide was built from, so the like-for-like
     // quadrature below runs on identical data.
