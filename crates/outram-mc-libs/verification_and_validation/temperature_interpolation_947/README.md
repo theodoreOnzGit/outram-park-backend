@@ -210,6 +210,15 @@ copied from it.
   are converged at 1e-4 (p moves 2e-5). Production libraries (1e-3) carry a
   −0.02 % shift in p from thinning alone.
 
+  **ADDED 2026-10-18 (#948, `../wmp_local_temperature_948/README.md` §5.4):**
+  this floor varies BROADR only. RECONR's tolerance (1e-3 in every arm
+  here) is a larger floor: on U-238 ENDF/B-VII.0 at 900 K, RECONR/BROADR
+  1e-3/1e-4 (this study's exact arm) is **−0.030 %** in p against
+  1e-5/1e-5, and production 1e-3/1e-3 is **−0.050 %**. The differences
+  reported below are between tables from one reconstruction, which share
+  most of it, so they stand; the absolute "exact" arm is not converged to
+  2e-5.
+
 ### 3.1 U-238 pointwise, stochastic arms (expected σ against exact)
 
 Worst bracket over [300, 1500] K, test T = bracket midpoint in T.

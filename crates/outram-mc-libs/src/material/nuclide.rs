@@ -378,7 +378,17 @@ pub struct Nuclide {
     /// The default tier (`Fast`, exact) unless built or set otherwise, with
     /// [`Nuclide::from_endf_file_with_speed`] or [`Nuclide::with_speed`].
     speed: SpeedTier,
+    /// Windowed-multipole data evaluated at the **lookup temperature** inside
+    /// its `[e_min, e_max]`, on a pointwise nuclide (GitHub #948, upstream
+    /// `src/nuclide.cpp:620-680`). `None` (every constructor) keeps the
+    /// tables at their build temperature. Attached only through the checked
+    /// [`Nuclide::with_multipole`], which refuses data of another evaluation.
+    /// Always `None` on the LOW (`Core`) tier, whose WMP is its `XsSource`.
+    multipole: Option<std::sync::Arc<WindowedMultipole>>,
 }
+
+mod multipole;
+pub use multipole::{MultipoleAttachError, MultipoleConsistency, MULTIPOLE_EVALUATION_TOLERANCE};
 
 /// PURR's table settings for every nuclide, `(nbin, nladr, nsamp)`: 20
 /// probability bins from 16 ladders of 2000 samples
@@ -613,6 +623,7 @@ impl Nuclide {
             delayed: None,
             prompt_only: false,
             speed: SpeedTier::default(),
+            multipole: None,
         })
     }
 
@@ -879,15 +890,19 @@ impl Nuclide {
     /// DBRC) use in a collision whose cross sections are looked up at
     /// `lookup_temp_k` \[K\].
     ///
-    /// As OpenMC (`src/physics.cpp:697`,
+    /// As OpenMC (~~`src/physics.cpp:697`~~ `src/physics.cpp:734` at
+    /// `d7d3284a1`, re-read 2026-10-18,
     /// `kT = nuc->multipole_ ? p.sqrtkT()^2 : nuc->kTs_[i_temp]`):
     ///
     /// - a **pointwise** nuclide (ACE or ENDF route) uses the temperature its
     ///   data were broadened to ([`Nuclide::data_kt_ev`]), whatever
     ///   `lookup_temp_k` is, so the target motion is always consistent with
     ///   the Doppler broadening already in the table;
-    /// - a **multipole** (`Core`) nuclide uses `k_B * lookup_temp_k`, the
-    ///   temperature its cross sections are evaluated at.
+    /// - a **multipole** nuclide uses `k_B * lookup_temp_k`, the temperature
+    ///   its cross sections are evaluated at: the LOW (`Core`) tier, and since
+    ///   GitHub #948 a pointwise nuclide with WMP attached
+    ///   ([`Nuclide::with_multipole`]), **at every energy**, as upstream's
+    ///   test is on the nuclide, not on the energy.
     ///
     /// ~~Normally `K_BOLTZMANN_EV_PER_K * temp_k`, with transport passing the
     /// run-wide `KeffSettings::temperature_k`~~ **CORRECTED 2026-09-30
@@ -906,6 +921,10 @@ impl Nuclide {
     pub fn free_gas_kt(&self, lookup_temp_k: f64) -> f64 {
         if self.target_at_rest {
             0.0
+        } else if self.multipole.is_some() {
+            // Upstream `src/physics.cpp:734`: a nuclide with multipole data
+            // takes the local kT at every energy (GitHub #948).
+            crate::physics::scatter::K_BOLTZMANN_EV_PER_K * lookup_temp_k
         } else if let Some(kt) = self.data_kt_ev {
             kt
         } else {
@@ -1260,7 +1279,9 @@ impl Nuclide {
     /// reason. Consulting this first means a run with no tables is bit-identical
     /// to one from before probability tables existed.
     pub fn needs_urr_draw(&self, e: f64) -> bool {
-        self.urr.as_ref().is_some_and(|t| t.covers(e))
+        // Inside a multipole range the tables are not read (upstream
+        // `src/nuclide.cpp:826`, `&& !use_mp`), GitHub #948.
+        self.urr.as_ref().is_some_and(|t| t.covers(e)) && self.multipole_at(e).is_none()
     }
 
     /// The total cross section \[b\] this nuclide presents to a neutron at
@@ -1291,7 +1312,7 @@ impl Nuclide {
     pub fn total_upper_bound(&self, e: f64, temp_k: f64) -> f64 {
         let smooth = self.total_at_energy(e, temp_k);
         match &self.urr {
-            Some(t) if t.covers(e) => t
+            Some(t) if t.covers(e) && self.multipole_at(e).is_none() => t
                 .band_representatives(e)
                 .into_iter()
                 .map(|xi| self.xs_at_energy_urr(e, temp_k, xi).total)
@@ -1581,6 +1602,9 @@ impl Nuclide {
     /// elastic, as in OpenMC. Negative partials are clamped to zero, as upstream.
     pub fn xs_at_energy_urr(&self, e: f64, temp_k: f64, xi: f64) -> MicroXS {
         let base = self.xs_at_energy(e, temp_k);
+        if self.multipole_at(e).is_some() {
+            return base; // no URR inside a multipole range (GitHub #948)
+        }
         let Some(sample) = self.sample_urr(e, xi) else {
             return base;
         };
@@ -2391,6 +2415,7 @@ impl Nuclide {
             // every non-fissionable nuclide.
             delayed: DelayedData::from_ace(table)?,
             speed: SpeedTier::default(),
+            multipole: None,
         }
         // **Default ON, matching the ENDF route.** `with_dbrc` is a no-op when
         // `elastic_0k` is empty (a broadened table), so this is correct for
@@ -2823,6 +2848,7 @@ impl Nuclide {
             delayed: DelayedData::from_tape(tape, mat)?,
             prompt_only: false,
             speed: SpeedTier::default(),
+            multipole: None,
         };
 
         // CORRECT PHYSICS IS THE DEFAULT (workspace hard rule, 2026-09-20).
@@ -2867,7 +2893,9 @@ impl Nuclide {
     ///   lookup takes over (temperature-independent — the fast range is smooth).
     /// - **HIGH (`Pointwise`):** a direct pointwise lookup on the reconstructed
     ///   σ(E). The data was already Doppler-broadened to its target temperature at
-    ///   construction, so `temp_k` is ignored here.
+    ///   construction, so `temp_k` is ignored here, **except** inside the range
+    ///   of WMP data attached with [`Self::with_multipole`] (GitHub #948), where
+    ///   the windowed multipole is evaluated at `temp_k`.
     ///
     /// In both tiers the transport kernel partitions on `total`/`fission`/
     /// `absorption`; `elastic` is reported for completeness but the kernel treats
@@ -3303,6 +3331,9 @@ impl Nuclide {
                 return x.absorption + x.inelastic + x.n2n + sab;
             }
         }
+        if let Some(w) = self.multipole_at(e) {
+            return w.evaluate(e, temp_k).total();
+        }
         match &self.xs {
             XsSource::Pointwise { recon, index, .. } if self.speed.indexed_lookup() => {
                 eval_at(recon, index.mt1, e)
@@ -3338,6 +3369,19 @@ impl Nuclide {
     //
     // (helper below the impl: `absorption_mt27`)
     fn base_xs_at_energy(&self, e: f64, temp_k: f64) -> MicroXS {
+        // GitHub #948: a pointwise nuclide with multipole data answers from it
+        // inside its range at the lookup temperature, as upstream's
+        // `Nuclide::calculate_xs` (`src/nuclide.cpp:620-650`).
+        if let Some(w) = self.multipole_at(e) {
+            return self.multipole_micro(w, e, temp_k);
+        }
+        self.table_xs_at_energy(e, temp_k)
+    }
+
+    /// The cross-section tables' own answer (the LOW tier's WMP + fast
+    /// groups, or the pointwise sections), bypassing any attached multipole
+    /// set: [`Self::base_xs_at_energy`] without the GitHub #948 branch.
+    fn table_xs_at_energy(&self, e: f64, temp_k: f64) -> MicroXS {
         match &self.xs {
             XsSource::Core { e_max, wmp, fast } => {
                 if e <= *e_max {
@@ -4141,7 +4185,8 @@ impl Nuclide {
     /// [`Self::total_upper_bound`] changes form, unsorted and possibly with
     /// duplicates: [`Self::native_energy_grid`] (the pointwise section grids,
     /// or the WMP window edges and group bounds), the WMP pole peak energies
-    /// `Re(p)^2` on the LOW tier, plus the S(alpha,beta)
+    /// `Re(p)^2` on the LOW tier, the range ends, window edges and pole peaks
+    /// of WMP attached to a pointwise nuclide (GitHub #948), plus the S(alpha,beta)
     /// [`ThermalScattering::breakpoints`] and the URR table energies and range
     /// ends.
     ///
@@ -4162,6 +4207,9 @@ impl Nuclide {
         // is not piecewise linear, so this narrows the sampling gap rather
         // than closing it; the sampled envelope in `Majorant::bounding` and
         // its margin cover the rest, and `Majorant::audit` checks it.
+        if let Some(w) = &self.multipole {
+            v.extend(multipole::structural_nodes(w));
+        }
         if let XsSource::Core { wmp, .. } = &self.xs {
             v.extend(
                 wmp.poles

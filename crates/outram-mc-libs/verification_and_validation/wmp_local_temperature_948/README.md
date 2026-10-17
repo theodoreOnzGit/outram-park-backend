@@ -7,8 +7,10 @@ step 2 (method B) of [#945](https://github.com/theodoreOnzGit/outram-park-backen
 reuses so the two are comparable.
 
 **Status:** upstream reading, the probe of the data (§2) and the
-predictions (§4) were written 2026-10-18 **before any run at T > 0**.
-Results are in §5 onwards.
+predictions (§4) were written 2026-10-18 **before any run at T > 0**
+(commit `7b6a33747e`). Two methodology amendments made after the first
+look, and why, are in §5.0. Results are in §5 onwards; the decision
+asked of the maintainer is §7.
 
 **This is a measurement and a wiring, not a default change** unless §4.4's
 pre-registered criterion is met (it is stated before the runs).
@@ -120,6 +122,14 @@ The `broaden_poly` windows are the lowest ones (U-238: 1e-5 to 14 eV).
 | O-16 vs VII.0 (elastic) | 2.7e-5 | — | — |
 | O-16 vs VIII.0 (elastic) | 1.5e-2 | — | — |
 
+**What this table does and does not show (added after §5.0).** Both
+integrals are trapezoids **on RECONR's own grid**, so they say that WMP
+passes through RECONR's nodes, not that the integrals of the two smooth
+functions agree to 1e-5: RECONR's linearisation (tolerance 1e-3) biases
+the table's own integral by up to ~1e-3, and that bias is shared here.
+It is the right instrument for *which evaluation* (the question of this
+section), not for *how accurate*.
+
 **So the CORE WMP reproduces ENDF/B-VII.0's resolved range (identical to
 VII.1's for these nuclides, to the precision measured) and is a different
 evaluation from the ENDF/B-VIII.0 tapes this workspace uses by default.**
@@ -137,7 +147,8 @@ nuclide's own (§3).
   `n-092_U_235-ENDF7.0.endf`. CORE WMP `U238`, `U235`.
 - **Moderator** for the slowing-down instrument: C-12 ENDF/B-VIII.0 at 300 K
   in every arm, exactly as #947 (only U-238's representation differs).
-- **Exact arm**: `process::reconstruct` once (RECONR 1e-3), then
+- **Exact arm**: `process::reconstruct` once (~~RECONR 1e-3~~ **RECONR
+  1e-4**, amended after the first look, §5.0), then
   `process::cross_sections_at(T)` (BROADR at **errthn 1e-4**, PURR and HEATR
   off), through `Nuclide::from_processed`, read by `Nuclide::xs_at_energy`.
 - **WMP arm**: the *same* nuclide object with the CORE WMP attached
@@ -216,3 +227,287 @@ accurate as the tables at the measured temperatures. The criterion:
 If 1 holds and 2 does not, the wiring is kept **opt-in** (a checked
 builder that refuses a mismatched evaluation), and the choice goes to the
 maintainer with the numbers.
+
+## 5. Results (run 2026-10-18)
+
+Hardware for every timing below: `CPU only for transport, 3 cores
+(taskset 0-2 or 3 threads), linux, 13th Gen Intel(R) Core(TM) i9-13900K,
+62.5 GiB RAM`, shared machine (other agents building). All numbers are
+`WMP/exact − 1` in % unless marked.
+
+### 5.0 Two amendments after the first look (recorded, not hidden)
+
+1. **The exact arm's RECONR tolerance, 1e-3 → 1e-4.** The first `mismatch`
+   run refused U-238 **VII.0** — CORE's own evaluation — because its
+   absorption band integral over 10–20 keV at 900 K differed by
+   **−1.17e-3**, where 0 K had shown 3e-6. The first hypothesis was that the
+   gated thing (WMP) was wrong. The `seam` stage tested it: the difference
+   is **the same at 293.6, 900 and 2500 K** (−1.04e-3 to −1.10e-3 at
+   10–15 keV), so it is not a Doppler effect, and it **shrinks 7.7×** when
+   only RECONR's tolerance is tightened to 1e-4 (−1.35e-4). It is RECONR's
+   linearisation, which BROADR integrates exactly and carries into every
+   broadened table; WMP, evaluated pointwise, does not share it. The 0 K
+   probe (§2) could not see it because both arms were integrated on
+   RECONR's nodes. The exact arm is therefore made at RECONR 1e-4 /
+   BROADR 1e-4, and the ladder (§5.4) measures what is left.
+2. **The evaluation check measures each channel against the band's table
+   total** (not absorption against absorption). With the first form, O-16
+   VII.0 — CORE's evaluation, total agreeing to 8e-5 — was refused on an
+   absorption of microbarns (+4067× relative), and U-238 VII.0 on the
+   linearisation above. The absorption *fraction* is what transport sees.
+   The tolerance stayed at 1e-3. Measured at 900 K with production
+   processing (RECONR/BROADR 1e-3, the `mismatch` stage):
+
+   | tape | verdict | worst band (channel, relative to the table total) |
+   |---|---|---|
+   | U-238 ENDF/B-VII.0 | accepted | total −2.1e-4 (10–20 keV) |
+   | U-238 ENDF/B-VIII.0 | refused | total −8.6e-3 (1–10 eV) |
+   | U-235 ENDF/B-VII.0 | accepted | total −1.4e-4 (1–2.25 keV) |
+   | U-235 ENDF/B-VIII.0 | refused | absorption +3.5e-2 (1–2.25 keV) |
+   | O-16 ENDF/B-VII.0 | accepted | total −7.7e-5 (1–2.36 MeV) |
+   | O-16 ENDF/B-VIII.0 | refused | total +1.6e-2 (10–100 keV) |
+
+   The gap is ≥ 4.7× on the accepting side and ≥ 8.6× on the refusing
+   side. The check costs 0.13–0.17 s for a uranium isotope.
+
+### 5.1 Instrument checks
+
+- Rebuilt slowing-down grid against the library's own: p = 0.1732812311
+  both (293.6 K, σ_b = 100 b).
+- 0 K floor on the RECONR 1e-4 grid (1.28 M points U-238, 0.61 M U-235):
+  pointwise capture +0.51 / −0.52 % (U-238), +0.61 / −0.91 % (U-235, both at
+  the 283.7 eV doublet); NR capture σ₀ = 100 b −0.0001 % / +0.0001 %.
+
+### 5.2 U-238 pointwise (ENDF/B-VII.0, exact arm RECONR 1e-4 / BROADR 1e-4)
+
+Largest over / under, %:
+
+| T K | capture 1e-5–1 eV | capture 1 eV–1 keV | capture 1–20 keV | total 1 eV–20 keV |
+|---|---|---|---|---|
+| 293.6 | +0.009 / −0.017 | +0.082 / −0.200 | +0.304 / −87.5 @ 20 keV | +0.116 / −66.3 @ 20 keV |
+| 600 | +0.008 / −0.021 | +0.077 / −0.205 | +0.300 / −87.3 @ 20 keV | +0.102 / −75.9 @ 20 keV |
+| 900 | +0.008 / −0.025 | +0.078 / −0.221 | +0.295 / −86.0 @ 20 keV | +0.098 / −74.8 @ 20 keV |
+| 1200 | +0.008 / −0.030 | +0.073 / −0.179 | +0.288 / −84.7 @ 20 keV | +0.094 / −71.4 @ 20 keV |
+| 1500 | +0.008 / −0.034 | +0.057 / −0.194 | +0.278 / −83.3 @ 20 keV | +0.090 / −68.0 @ 20 keV |
+| 2500 | +0.007 / −0.048 | +0.058 / −0.217 | +0.250 / −77.1 @ 20 keV | +0.091 / −59.7 @ 20 keV |
+
+**The −60 to −87 % is one point, E = 20 000 eV exactly**, the step where
+ENDF's resolved range meets the unresolved range: the table there holds
+the URR-side value (0.279 b capture at 0 K), WMP the resolved-side value
+(0.030 b), because upstream's range test `E <= E_max` is inclusive
+(`nuclide.cpp:623`) and U-238's E_max is 19999.99 eV. Excluding that
+point, every pointwise error is ≤ 0.30 % (capture) and ≤ 0.12 % (total),
+**at every temperature including 2500 K**, and it does not grow with T.
+
+### 5.3 U-238 integrals, and U-235
+
+| T K | capture band integrals (worst of 5) | total band (worst) | NR RI σ₀ = 10 | 100 | 1000 b | **p, σ_b = 100 b** | p, σ_b = 1000 b |
+|---|---|---|---|---|---|---|---|
+| 293.6 | −0.0079 | −0.0123 | −0.0052 | −0.0037 | −0.0019 | **+0.0063** | +0.0010 |
+| 600 | −0.0086 | −0.0044 | −0.0054 | −0.0037 | −0.0016 | **+0.0065** | +0.0009 |
+| 900 | −0.0091 | −0.0035 | −0.0056 | −0.0037 | −0.0015 | **+0.0067** | +0.0009 |
+| 1200 | −0.0096 | −0.0038 | −0.0058 | −0.0037 | −0.0015 | **+0.0070** | +0.0009 |
+| 1500 | −0.0102 | −0.0041 | −0.0061 | −0.0038 | −0.0015 | **+0.0074** | +0.0010 |
+| 2500 | −0.0125 | −0.0048 | −0.0070 | −0.0042 | −0.0015 | **+0.0087** | +0.0011 |
+
+(p itself: 0.173281 at 293.6 K to 0.091237 at 2500 K.) §5.4 shows that
+about half of each number is the exact arm's own processing error.
+
+U-235 (ENDF/B-VII.0), 1 eV – 2.25 keV, %:
+
+| T K | capture RI σ₀ = 10 / 100 / 1000 | fission RI σ₀ = 10 / 100 / 1000 | pointwise capture | pointwise fission | fission 1e-5–1 eV |
+|---|---|---|---|---|---|
+| 293.6 | −0.0047 / −0.0046 / −0.0039 | −0.0015 / −0.0028 / −0.0029 | +0.25 / −35.4 @ 2250 | +91.2 @ 2250 / −0.11 | +0.043 / −0.036 |
+| 600 | −0.0068 / −0.0068 / −0.0061 | −0.0018 / −0.0038 / −0.0043 | +0.16 / −19.3 @ 2250 | +73.4 @ 2249.9 / −0.10 | +0.038 / −0.034 |
+| 900 | −0.0088 / −0.0089 / −0.0083 | −0.0022 / −0.0048 / −0.0058 | +0.15 / −17.6 @ 2250 | +61.2 @ 2249.9 / −0.09 | +0.033 / −0.033 |
+| 1200 | −0.0107 / −0.0111 / −0.0106 | −0.0026 / −0.0060 / −0.0075 | +2.1 / −17.4 @ 2250 | +52.6 @ 2249.8 / −0.09 | +0.028 / −0.031 |
+| 1500 | −0.0126 / −0.0133 / −0.0129 | −0.0031 / −0.0071 / −0.0091 | +12.7 / −16.9 @ 2250 | +46.1 / −3.3 @ 2250 | +0.023 / −0.030 |
+| 2500 | −0.0191 / −0.0209 / −0.0212 | −0.0046 / −0.0112 / −0.0151 | +19.1 / −17.7 @ 2250 | +32.7 / −6.1 @ 2250 | +0.022 / −0.040 |
+
+Away from the top fraction of an eV of the range, U-235's pointwise errors
+are ≤ 0.25 % (capture) and ≤ 0.11 % (fission). **The edge is the one WMP
+limit this study resolves:** within a few Doppler widths of E_max
+(ΔE ≈ 2√(E·kT/A) ≈ 1 eV at 2.25 keV, 900 K) WMP lacks the broadened tail
+of whatever lies above its range, while BROADR broadened the table across
+it. Its weight in the integrals is what the RI columns show, and it grows
+with T, as the U-235 RIs do (−0.005 % at 293.6 K, −0.021 % at 2500 K).
+
+### 5.4 The processing ladder at 900 K: who is closer to the truth
+
+U-238, against RECONR 1e-5 / BROADR 1e-5 (3.85 M-point reconstruction;
+1321 s for the ladder, one thread), %:
+
+| arm | p σ_b = 100 b | RI σ₀ = 10 b | RI σ₀ = 100 b | worst capture band |
+|---|---|---|---|---|
+| RECONR 1e-3 / BROADR 1e-3 (**production**, NJOY defaults) | −0.0496 | +0.0353 | +0.0254 | +0.0527 |
+| RECONR 1e-3 / BROADR 1e-4 (#947's exact arm) | −0.0301 | +0.0228 | +0.0159 | +0.0504 |
+| RECONR 1e-4 / BROADR 1e-4 (this study's exact arm) | −0.0049 | +0.0036 | +0.0025 | +0.0062 |
+| RECONR 1e-4 / BROADR 1e-5 | −0.0030 | +0.0023 | +0.0016 | +0.0058 |
+| **WMP** | **+0.0018** | **−0.0021** | **−0.0011** | **+0.0032** |
+
+**WMP at 900 K is closer to converged NJOY processing than any table
+measured, and ~25× closer than the production table** on p. The §5.3
+WMP-against-exact numbers (+0.0067 % on p at 900 K) are mostly the exact
+arm's own error (−0.0049 %). For #947 this means its "exact" arm carried
+−0.03 % in p and +0.016 % in the RI. #947's differences are between tables
+made from one reconstruction, which share most of that, so its
+interpolation errors stand; but its absolute floor is this one, not the
+2e-5 its §3.0 recorded (it varied BROADR only).
+
+### 5.5 The delta-tracking majorant
+
+`tests/wmp_local_temperature_948.rs`, U-238 VII.0 (tables at 900 K, WMP at
+the material temperature), `Majorant::bounding(1e-5, 2e7, 1024 bins × 8)`,
+then `audit` (2000 log points plus every breakpoint, its ulp neighbours and
+interval midpoints; 525 592 energies):
+
+| material T K | margin 0: worst Σ_t/Σ_maj (at E) | margin 0.05 (the crate's other WMP pins) |
+|---|---|---|
+| 293.6 | **1.00269** (11.40 keV) | 0.95494 |
+| 900 | **1.00074** (3.437 keV) | 0.95308 |
+| 1500 | **1.00056** (1.245 keV) | 0.95291 |
+| 2500 | **1.00032** (8.713 keV) | 0.95268 |
+| control: built at 293.6 K, audited at 1500 K | 3.28 (1.661 keV) | — |
+
+With no margin the WMP pole nodes leave the narrowest (coldest) peaks up to
+0.27 % above the bound: the node `Re(p)²` is not the exact maximum of a
+broadened, interfering line. That is the gap `Majorant::bounding`'s doc
+already names for WMP ("between them the shape is only sampled") and
+covers with its margin; the crate's existing WMP pins use 0.05, which
+bounds at every temperature here with 4.5 % to spare. The control shows
+the audit sees temperature: a cold-built majorant is 3.3× under at
+1500 K. **A majorant must be built at the temperature it is used at**, as
+the majorant module doc says; the continuous-in-T cover is #945's.
+
+### 5.6 Cost
+
+U-238 at 900 K, 10⁶ log-uniform energies in 1 eV–20 keV, one thread:
+
+| lookup | tables | WMP | ratio |
+|---|---|---|---|
+| `xs_at_energy` (all channels) | 332 ns | 501 ns | 1.5 |
+| `total_at_energy` (flight distance) | 33 ns | 500 ns | 15.3 |
+
+In transport (§5.7) the WMP arm ran 3.6× slower (3 threads) and 2.8×
+(2 threads) on a graphite-moderated U case. `total_at_energy` evaluates
+the full WMP form to read one channel, which is where the cost is.
+
+### 5.7 Transport: k with WMP against the tables at 900 K
+
+U(3 at.%, ENDF/B-VII.0 U-235 and U-238) + C-nat (ENDF/B-VII.0, free gas,
+no S(α,β)), C/U = 300, N_C = 0.08 /(b·cm), bare sphere of radius 200 cm,
+all tables RECONR/BROADR 1e-3 at 900 K, `Material::temperature` = run
+temperature = 900 K; the WMP arm attaches CORE `U235` and `U238`
+(`with_core_multipole`, accepted). `run_keff`, CPU multi-thread
+(3 threads), independent seeds (11, 23):
+
+| arm | k | histories | wall |
+|---|---|---|---|
+| tables at 900 K | 0.91088 ± 0.00041 | 40 000 × [20 + 200] | 328 s |
+| WMP at 900 K | 0.91078 ± 0.00047 | 40 000 × [20 + 200] | 1191 s |
+| **WMP − tables** | **−10 ± 63 pcm (−0.16σ)** | | **3.6× slower** |
+
+A first, shorter pair (10 000 × [20 + 100], 2 threads) gave −121 ± 174 pcm
+(−0.69σ) at 2.8× the cost. #948's acceptance 2 holds: no difference is
+resolved. A 63 pcm σ cannot see the ~2–5 pcm the integrals of §5.3–5.4
+imply, so this checks the wiring (flight, selection, collision,
+kinematics on one consistent set), not the accuracy.
+
+The majorant on this material (`majorant` stage, margin 0, 1024 log bins ×
+8 → 221 143 nodes, ~1.2 s each, audit at 773 880 energies):
+
+| material T K | 293.6 | 600 | 900 | 1200 | 1500 | 2500 |
+|---|---|---|---|---|---|---|
+| worst Σ_t/Σ_maj, margin 0 | 1.000252 | 1.000146 | 1.000067 | 1.000046 | 1.000046 | 1.000027 |
+
+Control (built at 293.6 K, audited at 1500 K): 1.1685 at 6.52 eV. Diluted
+in carbon the WMP deficit at margin 0 is 0.025 % at most; any margin above
+it bounds.
+
+### 5.8 Predictions against results
+
+| # | predicted | measured | verdict |
+|---|---|---|---|
+| P1 | pointwise capture 1 eV–1 keV ≤ 1 % (≤ 2 % at 2500 K) | ≤ 0.22 % at every T | held |
+| P2 | 1–20 keV ≤ 3 % (≤ 5 % at 2500 K) | ≤ 0.30 % except the one point at E_max (−87 %, the RRR/URR step) | held away from the seam; the seam was not predicted |
+| P3 | thermal ≤ 0.1 % (≤ 0.5 % at 2500 K) | ≤ 0.034 % (0.048 % at 2500 K) | held |
+| P4 | band integrals ≤ 1e-4 at every T | capture ≤ 1.0e-4 to 1500 K, 1.25e-4 at 2500 K; total 1.23e-4 at 293.6 K | **marginally refuted** (half is the exact arm's own error, §5.4) |
+| P5 | RI ≤ 0.02 %, no trend in T to 1500 K | ≤ 0.0061 % (σ₀ = 10 b), ≤ 0.0042 % (100 b); a slow trend (−0.0052 → −0.0061 %, σ₀ = 10 b) | magnitude held; "no trend" refuted |
+| P6 | p ≤ 0.02 % to 1500 K, ≤ 0.05 % at 2500 K | +0.0063 … +0.0074 %; +0.0087 % at 2500 K | held |
+| P7 | thinning floor at 900 K ≤ 3e-5 in p | exact arm −4.9e-5 against the finest processing; production −5.0e-4 | **refuted** (RECONR, not BROADR, dominates) |
+| P8 | U-235 RI ≤ 0.05 % | ≤ 0.013 % to 1500 K, 0.021 % at 2500 K | held |
+| P9 | k: 0 within 2σ | −10 ± 63 pcm (−0.16σ) | held |
+| P10 | majorant ≤ 1 with pole nodes, margin 0 | 1.0027 at 293.6 K, margin 0 | **refuted**; ≤ 0.955 with the crate's margin 0.05 |
+| P11 | WMP 5–20× the table per lookup | 15× for the total, 1.5× for the full lookup | held for the total only |
+
+### 5.9 What #947 is compared with
+
+On the quantity both studies quote (p, σ_b = 100 b, strongly shielded
+U-238 + C-12), the worst error of each route over 293.6–1500 K:
+
+| route | error in p |
+|---|---|
+| upstream stochastic interpolation, 17 tables (Δ = 75 K) | +0.037 % (#947) |
+| upstream stochastic, 5 tables (Δ = 300 K) | +0.40 % (#947) |
+| Chebyshev fit in √T, 5 tables | −0.010 % (#947) |
+| **WMP at the local T** | **+0.0074 % against RECONR/BROADR 1e-4; +0.0018 % against 1e-5 (900 K)** |
+| a production table processed exactly at T | −0.050 % (900 K, §5.4) |
+
+The evaluations differ (#947 used ENDF/B-VIII.0 U-238, this study VII.0,
+because the CORE WMP is VII.0's); relative errors on the same instrument
+are comparable, absolute p is not.
+
+## 6. What was wired, and what differs from upstream
+
+- `Nuclide::with_multipole(wmp) -> Result<Self, MultipoleAttachError>`,
+  `with_core_multipole()`, `without_multipole()` (the ablation),
+  `multipole()`, `multipole_consistency(&wmp)`, and
+  `MULTIPOLE_EVALUATION_TOLERANCE` (`src/material/nuclide/multipole.rs`).
+- Inside `[e_min, e_max]` of the attached set (both ends inclusive, as
+  upstream): `xs_at_energy` and `total_at_energy`, and so flight, nuclide
+  selection, the collision and `Material::macro_xs*`, read
+  `WindowedMultipole::evaluate(E, Material::temperature)`; inelastic,
+  (n,xn), MT=5 and the other channels are zero there; no URR band is drawn
+  (`needs_urr_draw`, `xs_at_energy_urr`, `total_upper_bound`); S(α,β)
+  still replaces elastic below its cutoff.
+- `free_gas_kt` uses the lookup temperature at **every** energy for a
+  nuclide with WMP attached (upstream `physics.cpp:734`).
+- `majorant_breakpoints` adds the set's range ends, window edges and pole
+  peaks.
+- **Kept different from upstream, documented:** the partial-fission
+  spectrum weights and `reaction_xs(mt, e)` (per-MT tallies, depletion
+  rates) still read the tables at their build temperature inside the WMP
+  range, where upstream uses the first fission reaction and `σ_a − σ_f`.
+  Upstream refuses nothing; this port refuses another evaluation.
+- Tests: `tests/wmp_local_temperature_948.rs` (3) and
+  `material::nuclide::multipole::tests` (1).
+
+## 7. Default ON or opt-in: **opt-in**, by the pre-registered criterion
+
+Criterion 1 (accuracy) **holds**: WMP's error in p and the RI is below the
+exact table's own processing error at every T to 1500 K (§5.3–5.4), and
+far below a production table's. Criterion 2 (same evaluation) **fails on
+the default data**: every ENDF/B-VIII.0 tape checked is refused, because
+the CORE WMP is ENDF/B-VII.0's resolved range. So no constructor attaches
+it, and §4.4 sends the choice here.
+
+**For the maintainer to decide:**
+1. Whether constructors should attach CORE WMP *automatically where the
+   check accepts it* (today: ENDF/B-VII.0 tapes only). That would be
+   default-ON physics wherever it is the same evaluation, at about 3.6×
+   transport cost, and it changes nothing for ENDF/B-VIII.0.
+2. Whether to make WMP for ENDF/B-VIII.0. That is a fitting job
+   (upstream's generator, `openmc/data/multipole.py`: vector fitting, then
+   windowing designed to 3000 K); nothing in this workspace does it.
+3. Whether the seam at E_max (§5.2–5.3) should stay inclusive, as
+   upstream, or hand the last few Doppler widths back to the tables.
+
+## 8. Limitations
+
+- Two nuclides (U-238, U-235), one evaluation (ENDF/B-VII.0). The CORE
+  library's own design temperature range is not documented in anything this
+  workspace holds (§1); it was measured to 2500 K only.
+- The p instrument is #947's: isotropic-CM scattering off a target at
+  rest, infinite medium, 1 eV–10 keV.
+- 2500 K is beyond any solid-fuel operating range, run as an extreme only.
+- Per-MT tallies and depletion rates inside the WMP range read tables (§6).
