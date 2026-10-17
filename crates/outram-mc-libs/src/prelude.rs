@@ -160,3 +160,18 @@ pub use crate::stats::learned_importance::{
 };
 pub use crate::stats::uq::{DirectPerturbation, UncertainInput, UqDesign, UqReport};
 pub use crate::stats::sweep::{SurrogatePrediction, SweepRun, SweepSurrogate};
+
+// The beginner API (epic GitHub #925: #937 materials, #938 geometry, #939
+// the model and the k_eff run). Its `Material`, `Sphere` and `KeffSettings`
+// share names with the lower-level types above, so they are NOT re-exported
+// here: reach them through `outram_mc_libs::model::prelude::*` (or
+// `model::Material` etc.). Everything else of it is re-exported under its
+// own name.
+pub use crate::model::{
+    atoms_per_barn_cm, to_atoms_per_barn_cm, AssembledModel, AtomDensity, AtomicMasses, Basis, Component,
+    Contaminant, Convergence, CustomRun, DataError, Diagnostics, Element, Enrichment, FissileUranium, FuelForm,
+    GeometryProblem, GraphiteKind, HeavyMetal, Isotope, IsotopeError, Keff, KeffRun, MCSettings, MassSource,
+    MaterialError, MaterialReport, Model, ModelError, Moderator, NormalityCheck, NuclearData, NuclideKey,
+    NuclidePhysics, NumberDensityComparison, Placement, PpmOf, PuVector, ReactivityTolerance, ResolvedMaterial,
+    RunError, RunProvenance, SaltCarrier, Shape, Species, Temperature,
+};
