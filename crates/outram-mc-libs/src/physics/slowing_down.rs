@@ -549,6 +549,34 @@ impl InfiniteMediumMc {
         band: SlowingDownBand,
         temp_k: f64,
     ) -> SlowingDownResult {
+        // The fixed choice draws no random number, so this is bit for bit the
+        // walk as it was before `run_with_tables` existed.
+        self.run_with_tables(nuclides, mix, band, temp_k, |i, _, _| mix[i].nuclide_idx)
+    }
+
+    /// [`Self::run`] with the table each component uses chosen **per
+    /// collision** by `select(component, e, seed)`, which returns an index
+    /// into `nuclides` and may draw from the history's random stream.
+    ///
+    /// This is how OpenMC's stochastic temperature interpolation reaches a
+    /// walk (GitHub #947): a component holds one [`Nuclide`] per tabulated
+    /// temperature, and `select` is
+    /// [`TemperatureTables::pick`](crate::material::temperature_interpolation::TemperatureTables::pick),
+    /// one draw per nuclide per lookup, as `Nuclide::calculate_xs` draws
+    /// (`src/nuclide.cpp:705-707`). The picked table supplies that
+    /// collision's cross sections, reaction and scattering kinematics, as
+    /// upstream's `micro.index_temp` does.
+    pub fn run_with_tables<S>(
+        &self,
+        nuclides: &[Nuclide],
+        mix: &[MixComponent],
+        band: SlowingDownBand,
+        temp_k: f64,
+        mut select: S,
+    ) -> SlowingDownResult
+    where
+        S: FnMut(usize, f64, &mut u64) -> usize,
+    {
         let n_mix = mix.len();
         let mut absorbed_by = vec![0.0_f64; n_mix];
         let mut escaped = 0.0_f64;
@@ -567,9 +595,10 @@ impl InfiniteMediumMc {
                     self.max_collisions
                 );
 
-                let xs: Vec<_> = mix
+                let picks: Vec<usize> = (0..n_mix).map(|i| select(i, e, &mut seed)).collect();
+                let xs: Vec<_> = picks
                     .iter()
-                    .map(|m| nuclides[m.nuclide_idx].xs_at_energy(e, temp_k))
+                    .map(|&k| nuclides[k].xs_at_energy(e, temp_k))
                     .collect();
                 let mut sigma_t = 0.0;
                 for (m, x) in mix.iter().zip(&xs) {
@@ -588,7 +617,7 @@ impl InfiniteMediumMc {
                     }
                     pick -= w;
                 }
-                let nuc = &nuclides[mix[i].nuclide_idx];
+                let nuc = &nuclides[picks[i]];
                 let x = &xs[i];
 
                 // Which channel: the same partition as
