@@ -21,8 +21,16 @@ decision without implementing the feature.
 
 ## Method
 
-Upstream's `temperature_method = 'interpolation'` is linear in `sqrt(T)`. For a
-target `T` bracketed by tabulated `T1 < T < T2`:
+~~Upstream's `temperature_method = 'interpolation'` is linear in `sqrt(T)`.~~
+**CORRECTED 2026-10-17 (GitHub #947):** OpenMC's interpolation is linear in
+`kT`, i.e. in `T`: `f = (kT - kT_i)/(kT_{i+1} - kT_i)` and the upper table is
+used with probability `f` (`src/nuclide.cpp:704-707` and
+`src/thermal.cpp:208-211`, OpenMC `d7d3284a`). What this page measures is a
+`sqrt(T)` interpolant, which is **not** upstream's scheme; the numbers below
+stand as a measurement of that interpolant. The comparison of `T`, `sqrt(T)`
+and `log T` against NJOY-processed data is in
+`crates/outram-mc-libs/verification_and_validation/temperature_interpolation_947/`.
+For a target `T` bracketed by tabulated `T1 < T < T2`, this page used:
 
 ```text
     f     = (sqrt(T) - sqrt(T1)) / (sqrt(T2) - sqrt(T1))

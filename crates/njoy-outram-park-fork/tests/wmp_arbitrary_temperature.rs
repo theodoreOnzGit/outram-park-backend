@@ -227,9 +227,14 @@ fn two_temperatures_coexist_in_one_process() {
 ///
 /// # Method
 ///
-/// Upstream interpolates linearly in `sqrt(T)`
-/// (`temperature_method = 'interpolation'`). For a target `T` bracketed by
-/// tabulated `T1 < T < T2`:
+/// ~~Upstream interpolates linearly in `sqrt(T)`
+/// (`temperature_method = 'interpolation'`).~~ **CORRECTED 2026-10-17
+/// (GitHub #947):** OpenMC's interpolation is linear in `kT`
+/// (`src/nuclide.cpp:704-707`, OpenMC `d7d3284a`); this test measures a
+/// `sqrt(T)` interpolant, which is not upstream's. The comparison of `T`,
+/// `sqrt(T)` and `log T` against NJOY-processed data is
+/// `outram-mc-libs/verification_and_validation/temperature_interpolation_947/`.
+/// For a target `T` bracketed by tabulated `T1 < T < T2`:
 ///
 /// ```text
 ///     f     = (sqrt(T) - sqrt(T1)) / (sqrt(T2) - sqrt(T1))
@@ -264,7 +269,7 @@ fn the_sqrt_t_interpolation_error_is_measured_not_assumed() {
     };
     let e_wing = 6.424_f64;
 
-    // Linear-in-sqrt(T) interpolation, as upstream does it.
+    // Linear-in-sqrt(T) interpolation (not upstream's, which is linear in kT; #947).
     let interp = |t1: f64, t2: f64, t: f64, s1: f64, s2: f64| -> f64 {
         let f = (t.sqrt() - t1.sqrt()) / (t2.sqrt() - t1.sqrt());
         (1.0 - f) * s1 + f * s2
