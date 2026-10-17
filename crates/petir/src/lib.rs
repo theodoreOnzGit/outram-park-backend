@@ -195,6 +195,7 @@ mod zip;
 
 pub mod cheb;
 pub mod cheb_slice;
+pub mod depletion;
 pub mod deriv;
 pub mod error;
 pub mod expint;
