@@ -677,46 +677,23 @@ pub fn deplete_with(
     initial: &[(String, f64)],
     settings: &BurnupSettings,
 ) -> BurnupResult {
-    let names: Vec<&str> = chain.nuclide_names();
+    // Reported flux is the begin-of-step one, which is what
+    // `deplete_predictor` has always recorded; the integrator's internal
+    // stages evaluate their own. Since gh:#950 the integrator is PETIR's,
+    // through `integrators::OneGroupOperator`.
     let xs = one_group_cross_sections(chain, settings);
-
-    let mut densities = vec![0.0_f64; names.len()];
-    for (name, dens) in initial {
-        if let Some(idx) = chain.index_of(name) {
-            densities[idx] = *dens;
-        }
+    match super::integrators::run_one_group(
+        integrator,
+        chain,
+        initial,
+        settings,
+        xs,
+        super::integrators::RecordedFlux::BeginningOfStep,
+    ) {
+        Ok(result) => result,
+        // `xs` comes from this chain, so its length always matches.
+        Err(e) => panic!("deplete_with: {e}"),
     }
-
-    let record = |step: usize, time_days: f64, flux: f64, densities: &[f64]| BurnupStep {
-        step,
-        time_days,
-        flux,
-        k_inf: k_inf(densities, &xs),
-        densities: names
-            .iter()
-            .zip(densities)
-            .map(|(n, d)| (n.to_string(), *d))
-            .collect(),
-    };
-
-    let mut steps = Vec::with_capacity(settings.n_steps + 1);
-    steps.push(record(0, 0.0, 0.0, &densities));
-
-    let dt_seconds = settings.step_days * SECONDS_PER_DAY;
-    for step in 1..=settings.n_steps {
-        // Reported flux is the begin-of-step one, which is what
-        // `deplete_predictor` has always recorded; the integrator's internal
-        // stages rebuild their own.
-        let flux0 = flux_for_power(&names, &densities, &xs, settings);
-        densities = integrator.step(&densities, dt_seconds, |n| {
-            let flux = flux_for_power(&names, n, &xs, settings);
-            chain.build_matrix(&reaction_rates(&names, flux, &xs))
-        });
-        let time_days = step as f64 * settings.step_days;
-        steps.push(record(step, time_days, flux0, &densities));
-    }
-
-    BurnupResult { steps }
 }
 
 pub fn deplete_predictor(

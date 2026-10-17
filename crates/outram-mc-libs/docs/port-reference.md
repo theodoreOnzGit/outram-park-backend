@@ -75,8 +75,9 @@ of `src/geometry.cpp` stays in this crate as `src/geometry/crossing/`.
 | Rust file | C++ / Python source |
 |---|---|
 | `src/depletion/chain.rs` | `src/chain.cpp`, `openmc/deplete/chain.py` — decay/transmutation chain |
-| `src/depletion/cram.rs` | `openmc/deplete/cram.py` — CRAM `exp(A·dt)` matrix-exponential solver |
-| `src/depletion/matrix.rs` | `openmc/deplete/` — sparse burnup matrix assembly |
+| `src/depletion/cram.rs` | `openmc/deplete/cram.py` — CRAM `exp(A·dt)` matrix-exponential solver. **Moved 2026-10-17 to `petir::depletion::cram` (gh:#950)**; this file re-exports it and keeps the panicking `cram16`/`cram48` wrappers |
+| `src/depletion/integrators.rs` | `openmc/deplete/integrators.py`, `abc.py` — the eight integrators **live in `petir::depletion::integrators` (gh:#950)**; this file keeps the one-group operator (`OneGroupOperator`), `MicroXs`, `deplete_independent` and transfer rates |
+| `src/depletion/matrix.rs` | ~~`openmc/deplete/` — sparse burnup matrix assembly~~ **CORRECTED 2026-10-17**: a dense matrix type (never sparse), moved to `petir::depletion::matrix` (gh:#950) and re-exported here; the assembly is `chain.rs`'s `build_matrix` |
 | `src/depletion/operator.rs` | `openmc/deplete/coupled_operator.py` — one-group depletion operator |
 
 ### Pebble beds (new work — doubly-heterogeneous specialization, absent upstream)

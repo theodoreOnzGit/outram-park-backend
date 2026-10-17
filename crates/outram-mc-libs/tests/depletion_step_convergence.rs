@@ -279,10 +279,26 @@ fn xe135_needs_the_step_to_resolve_its_half_life() {
 /// | CeCm | 2 | **1.95** | 3.61e-8 |
 /// | Cf4 | 4 | **1.94** | 1.08e-7 |
 ///
-/// **Cf4 does not achieve its nominal 4th order here and CeCm beats it at half
+/// ~~**Cf4 does not achieve its nominal 4th order here and CeCm beats it at half
 /// the cost.** Leading explanation (reasoned, not measured): CF4 assumes a
 /// linear non-autonomous `dn/dt = A(t) n`, but `flux_for_power` renormalises the
-/// flux every stage, making `A` a function of `n`. See
+/// flux every stage, making `A` a function of `n`.~~ **CORRECTED 2026-10-17
+/// (gh:#950)** — that explanation was wrong. The pre-move CF4 applied its last
+/// two exponentials in the order upstream's *docstring* implies; upstream's
+/// *code* applies them the other way (`integrators.py:180-183`), and the
+/// docstring order loses the commutator term and is second order (2.000
+/// measured on PETIR's exact problem). With the integrators moved to PETIR
+/// and following upstream's code, re-measured on this same history:
+///
+/// | method | nominal | observed | `\|err\|` at h = 0.0156 d |
+/// |---|---|---|---|
+/// | Predictor | 1 | 0.77, rising | 1.49e-6 |
+/// | CeCm | 2 | **1.947** | 7.23e-8 |
+/// | Cf4 | 4 | **3.930** | 4.27e-11 |
+///
+/// (reference = the new Cf4 at h = 0.0078 d, `k_inf = 1.781684744358`;
+/// `examples/depletion_integrator_order_scan.rs` prints all eight.) CF4 is now
+/// 1700x more accurate than CeCm at h = 0.0156 d for twice the solves. See
 /// `verification_and_validation/depletion/step_convergence_2026_09_24.md`.
 #[test]
 fn the_integrator_orders_are_what_was_measured() {
@@ -303,7 +319,8 @@ fn the_integrator_orders_are_what_was_measured() {
     let hs = [0.0625_f64, 0.03125, 0.015625];
     for (integrator, want_p, tol) in [
         (Integrator::CeCm, 1.947_f64, 0.08_f64),
-        (Integrator::Cf4, 1.941, 0.08),
+        // 1.941 before gh:#950 (the docstring-order defect); re-measured 3.930.
+        (Integrator::Cf4, 3.930, 0.08),
     ] {
         let k: Vec<f64> = hs.iter().map(|&h| eol(integrator, h)).collect();
         let p = observed_order(k[0], k[1], k[2]);

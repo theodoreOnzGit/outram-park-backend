@@ -1,4 +1,8 @@
 //! Measure the observed order of every integrator on ONE real burnup history.
+//!
+//! Since gh:#950 the integrators are PETIR's eight ports of OpenMC's (all of
+//! them are scanned); "operator calls" is `Integrator::operator_calls` for a
+//! step after the first, with upstream's default 10 SI iterations.
 use outram_mc_libs::depletion::chain::DepletionChain;
 use outram_mc_libs::depletion::integrators::Integrator;
 use outram_mc_libs::depletion::operator::{deplete_with, BurnupSettings, OneGroupWeighting};
@@ -69,10 +73,10 @@ fn main() {
     for (label, hs) in [("COARSE (step > Xe-135 half-life)", &coarse[..]),
                         ("FINE (step < Xe-135 half-life)", &fine[..])] {
         println!("===== {label} =====");
-        for i in [Integrator::Predictor, Integrator::CeCm, Integrator::Cf4] {
+        for i in Integrator::ALL {
             let ks: Vec<f64> = hs.iter().map(|&h| eol(i, h)).collect();
-            print!("{i:?} (nominal {}, {} solves/step):",
-                   i.nominal_order(), i.solves_per_step());
+            print!("{i:?} (predicted order {}, {} operator calls/step):",
+                   i.predicted_order(), i.operator_calls(1, 10));
             println!();
             for (j, &h) in hs.iter().enumerate() {
                 let err = (ks[j] - reference).abs();
@@ -88,7 +92,7 @@ fn main() {
             let m_err = (ks[0] - reference).abs();
             if m_err > 0.0 {
                 println!("   at h={:.6} d this is {:.1}x the predictor's accuracy for {}x the solves",
-                         hs[0], p_err / m_err, i.solves_per_step());
+                         hs[0], p_err / m_err, i.operator_calls(1, 10));
             }
             println!();
         }

@@ -16,17 +16,26 @@
 //!
 //! ## What belongs here / what does not
 //!
-//! * [`matrix`] — the dense burnup matrix `A` (`dN/dt = A N`, units `1/s`).
-//! * [`cram`] — the **Chebyshev Rational Approximation Method** matrix-exponential
-//!   solver `N(t+dt) = exp(A dt) N(t)`, the numerically sound scheme OpenMC uses
-//!   for the stiff decay/transmutation system.
+//! **Since 2026-10-17 the depletion MATH lives in `petir::depletion`** (gh:#950,
+//! maintainer direction "All math moved to petir"): the burnup matrix type,
+//! IPF CRAM and OpenMC's eight time integrators. This crate keeps the physics
+//! and the operator, and re-exports the moved items at their old paths.
+//!
+//! * [`matrix`] — re-export of PETIR's dense burnup matrix `A`
+//!   (`dN/dt = A N`, units `1/s`).
+//! * [`cram`] — re-export of PETIR's **Chebyshev Rational Approximation
+//!   Method** solver `N(t+dt) = exp(A dt) N(t)`, plus this crate's
+//!   panicking-signature `cram16` / `cram48` wrappers.
 //! * [`chain`] — the [`DepletionChain`](chain::DepletionChain): decay constants,
 //!   branching, neutron-reaction targets, and fission yields, assembled into a
 //!   [`DepletionMatrix`](matrix::DepletionMatrix). Consumes external open data
 //!   (OpenMC ENDF/B-8 depletion-chain decay data and ENDF/B-VIII.0 fission
-//!   yields) rather than rebuilding it.
-//! * [`operator`] — the burnup loop (predictor / forward-Euler integrator)
-//!   coupling transport to the transmutation step.
+//!   yields) rather than rebuilding it. Stays here.
+//! * [`integrators`] — PETIR's [`Integrator`](integrators::Integrator)
+//!   (re-exported), this crate's [`OneGroupOperator`](integrators::OneGroupOperator)
+//!   implementing PETIR's `TransportOperator`, and transfer rates.
+//! * [`operator`] — the burnup loops coupling transport to the transmutation
+//!   step. Stays here.
 //!
 //! Nuclear-data *parsing* does **not** belong here — decay data and fission
 //! yields arrive pre-parsed from their data crates; cross sections arrive from

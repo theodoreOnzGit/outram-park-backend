@@ -35,7 +35,7 @@ When you do port, the doc comment names the **upstream file and line**, and the
 NOTICE names the copyright holder for that module — GSL's holders differ per
 file, so re-read each header rather than copying one across.
 
-### Four non-GSL ports exist, and they were maintainer-directed (two more follow below)
+### Four non-GSL ports exist, and they were maintainer-directed (three more follow below)
 
 Added 2026-09-15 at the maintainer's direction — "port select code from roots
 and peroxide to complement petir's capabilities, credit the author's
@@ -121,6 +121,53 @@ binds future work as follows:
 - **One documented deviation:** the first stage uses `L` directly, where
   upstream uses `(dt*L)/dt`, its cached `dq_dt`. The two are identical at a
   power-of-two `dt`, and were identical on every case measured.
+
+### A seventh non-GSL port: OpenMC's depletion numerics (2026-10-17)
+
+`src/depletion/` ports OpenMC's `openmc/deplete/` (commit `d7d3284a1`, MIT):
+all eight integrators (`integrators.py`), the special matrices
+(`_matrix_funcs.py`), the `Integrator` / `SIIntegrator` drivers (`abc.py`),
+`deplete` (`pool.py`) and IPF CRAM with substeps (`cram.py`). **Maintainer
+direction on gh:#950, 2026-10-17: "Integrators can go in PETIR", then "All
+math moved to petir"** (confirmed: depletion's math only, nothing else
+moves; OpenFOAM's matrices and Krylov solvers stay in
+`outram-foam-basic-lib`), and **"match upstream as much as possible, and flag
+every simplification made for compute speed"**. That is the approval this
+section requires for a non-GSL source. CRAM and the dense matrix were
+**moved in** from `outram-mc-libs`, where they were first ported; the chain,
+the matrix entries and the operators stay there. It binds future work as
+follows:
+
+- **The integrator logic is pinned bit for bit against OpenMC's own running
+  `integrate()`.** `tests/depletion_vs_openmc.rs` compares 40 records against
+  `verification_and_validation/depletion/openmc_inputs/integrators_reference.txt`
+  (the Python that made it is beside it). Do not reorder the matrix
+  combinations, the LE/QI coefficient expressions or the SI average
+  (`1/j * new + (1 - 1/j) * bar`); a reassociation changes the rounding and
+  fails that test.
+- **CRAM's arithmetic is pinned against the pre-move code.**
+  `outram-mc-libs/tests/depletion_move_fingerprints.rs` holds fingerprints
+  printed before the move. Every seed-free depletion number in that crate
+  depends on it.
+- **CF4 follows upstream's CODE, not its docstring.** The two disagree on the
+  order of the last two exponentials; the docstring order is second order
+  (measured 2.000) and is what the pre-move `outram-mc-libs` CF4 did. Do not
+  "fix" it back to the docstring.
+- **Simplifications for speed: none.** Upstream's own redundant work is kept
+  (LE/QI re-evaluates the operator at the beginning of each step after the
+  first; every special matrix re-forms its operands). Any future speed
+  simplification is flagged `**SIMPLIFICATION (speed):**` where it is made,
+  with its measured effect on results and run time, and listed here and in
+  the module docs; one that changes results beyond round-off is the
+  maintainer's decision.
+- **The deviations** (all flagged `**DEVIATION:**` where made, and listed in
+  `src/depletion/mod.rs`): dense matrix and dense elimination instead of
+  scipy sparse / SuperLU (measured ≤ 5.9e-15 relative against upstream's
+  CRAM48); CRAM's early return for `dt == 0` or an all-zero matrix; a
+  singular pivot is an error; `dt ** 2` as `dt * dt`; `-0.0` kept by the
+  clip; `k`'s SI standard deviation by the independent-sum formula; and the
+  scope cuts (no restart, transfer rates, external sources, MPI, results
+  file or unit conversion).
 
 **`peroxide` as a DEPENDENCY remains ruled out** (it pulls
 `blas`/`lapack`/`netcdf`/`arrow`, which the "Dependencies" section below

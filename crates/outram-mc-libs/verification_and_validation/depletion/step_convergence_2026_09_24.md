@@ -104,9 +104,54 @@ point.
    accurate than the predictor at the same finest step. ✔
 3. **Observed order as a measured number** — Predictor **0.77 and rising towards
    its nominal 1**; CeCm **1.947 against a nominal 2** ✔; Cf4 **1.941 against a
-   nominal 4** ✘.
+   nominal 4** ✘ (2026-09-24; **3.930 ✔ since 2026-10-17**, see the correction below).
 
-## The finding: CF4 does not achieve 4th order here, and CeCm beats it
+## CORRECTED 2026-10-17 (gh:#950): the cause was a defect in the CF4 port, and CF4 is 4th order here
+
+**What was wrong.** Upstream's `CF4Integrator` docstring writes the final
+update as `exp(A1/4 + A2/6 + A3/6 - A4/12) exp(-A1/12 + A2/6 + A3/6 + A4/4) n`;
+read as an operator product it applies the second factor first, and this
+crate's CF4 did exactly that. Upstream's **code** applies the first factor
+first (`openmc/deplete/integrators.py:180-183`, `cf4_f3` then `cf4_f4`).
+Swapping the pair flips the sign of the commutator term the pair is built to
+reproduce, which costs two orders. The port also skipped upstream's clip of the
+first stage (`abc.py:765-766`).
+
+**How it was established.** The integrators moved to PETIR and now follow
+upstream's code; PETIR's integrator logic is bit-identical to OpenMC's own
+running `integrate()` on a fixed-rate problem
+(`crates/petir/tests/depletion_vs_openmc.rs`). On PETIR's exact test problem
+(composition-dependent flux, non-commuting matrices, closed-form answer) the
+docstring order measures **2.000** and the code order **3.98**
+(`crates/petir/verification_and_validation/depletion/petir_integrators_2026_10_17.md`).
+`tests/depletion_move_fingerprints.rs` replays the removed CF4 verbatim on the
+moved CRAM and reproduces its old fingerprint exactly, so nothing else changed.
+
+**Re-measured on this history, 2026-10-17** (reference: the new Cf4 at
+h = 0.0078 d, `k_inf = 1.781684744358`), fine band:
+
+| h [d] | Predictor `\|err\|` | p | CeCm `\|err\|` | p | Cf4 `\|err\|` | p |
+|---|---|---|---|---|---|---|
+| 0.2500 | 1.309e-5 | 0.472 | 1.186e-5 | 1.435 | 1.401e-6 | 3.190 |
+| 0.1250 | 8.460e-6 | 0.543 | 4.015e-6 | 1.808 | 1.483e-7 | 3.740 |
+| 0.0625 | 5.124e-6 | 0.768 | 1.115e-6 | **1.947** | 1.100e-8 | **3.930** |
+| 0.0313 | 2.833e-6 | | 2.870e-7 | | 7.174e-10 | |
+| 0.0156 | 1.488e-6 | | 7.228e-8 | | **4.267e-11** | |
+
+Cf4 is **1700×** more accurate than CeCm at the finest step, for twice the
+solves. The predicted outcome ("well above 2, toward 4") was written down
+before this run, in the PETIR record's section 1. The CeCm and predictor
+columns are unchanged in method; their errors moved only because the
+reference did. `examples/depletion_integrator_order_scan.rs` now prints all
+eight integrators; on this history CE/LI, LE/QI, SI-CE/LI and SI-LE/QI also
+come out near 4 on `k_inf` (3.78 to 4.00 at h = 0.0625 d) and EPC-RK4 at 1.95.
+That is a measurement on one functional of one history, **not** a statement of
+their orders; their orders were measured on PETIR's exact problem (2, 3, 2, 3
+and 2 respectively).
+
+The struck section below is kept because it shaped the 2026-09-24 record.
+
+## ~~The finding: CF4 does not achieve 4th order here, and CeCm beats it~~ (superseded, see above)
 
 Cf4's observed order is **1.94**, not 4, and CeCm — half the cost — is **3×
 more accurate** at the finest step. That is a measured result and it is reported
@@ -135,9 +180,12 @@ confirmed cause, and the explanation above is a hypothesis.
    stiffest timescale, which would move the regime boundary.
 2. **`k_inf` only.** The order is measured on the end-of-life eigenvalue. Xe-135
    density is reported by the test but not order-analysed in the fine band.
-3. **Five of eight integrators are absent** — CELI, EPCRK4, LEQI, SICELI,
+3. ~~**Five of eight integrators are absent**~~ **CORRECTED 2026-10-17:
+   all eight are present (PETIR, gh:#950)** — CELI, EPCRK4, LEQI, SICELI,
    SILEQI. Nothing here says what they would be worth.
-4. **The CF4 cause is unconfirmed**, as stated above.
+4. ~~**The CF4 cause is unconfirmed**, as stated above.~~ **CORRECTED
+   2026-10-17:** confirmed and fixed — the docstring exponential order (see
+   the correction at the top of the finding).
 5. **No transfer-rate convergence study.** `TransferRate` and
    `apply_transfer_rates` exist with unit tests (including a pebble-recirculation
    case), but their interaction with step size is not measured here.

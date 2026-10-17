@@ -71,8 +71,9 @@ general machinery below is now implemented, not stubbed:
 - `material::{nuclide, reaction, thermal, material}` — implemented, incl.
   `Nuclide::from_core` (embedded WMP data) and S(α,β) thermal-scatter tables.
 - `material::thermal::ThermalScattering` — implemented.
-- `depletion` — one-group CRAM burnup (`chain.rs`, `cram.rs`, `matrix.rs`,
-  `operator.rs`), live for inventory & k_inf trends.
+- `depletion` — one-group CRAM burnup (`chain.rs`, `operator.rs`; CRAM, the
+  matrix and the integrators in `petir::depletion` since 2026-10-17, gh:#950;
+  re-exported here), live for inventory & k_inf trends.
 - `pebble_beds` (`delta_tracking`, `stochastic_media` packing) — assembled into
   the live TRISO doubly-heterogeneous k∞ case.
 

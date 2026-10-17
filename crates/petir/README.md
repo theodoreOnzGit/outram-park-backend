@@ -58,6 +58,7 @@ that drifts from its origin fails the build rather than rotting quietly.
 | Module | Lineage | Covers |
 |---|---|---|
 | `cheb`, `cheb_slice` | ported | **The whole of GSL's `cheb/`** — interpolation at the Gauss nodes, least-squares fitting at arbitrary points, Clenshaw evaluation with an error estimate, precision-mode evaluation, series derivative and integral, and borrowed-slice evaluators for both coefficient conventions |
+| `depletion` | ported (OpenMC, not GSL) | **Depletion numerics** (`openmc/deplete/`, MIT): all eight time integrators (Predictor, CE/CM, CF4, CE/LI, EPC-RK4, LE/QI, SI-CE/LI, SI-LE/QI) generic over a `TransportOperator` trait, upstream's `integrate()` drivers, IPF CRAM16/48 with substeps, and the dense burnup matrix. CRAM and the matrix **moved here from `outram-mc-libs` 2026-10-17**, bit-identical (gh:#950). Integrator logic bit-identical to OpenMC's own running code on all 40 records of a fixed-rate reference (`tests/depletion_vs_openmc.rs`); observed orders 0.99 / 2.00 / 3.98 / 2.01 / 2.00 / 3.01 / 2.00 / 2.99 against predicted 1 / 2 / 4 / 2 / 2 / 3 / 2 / 3 (`tests/depletion_integrator_orders.rs`). Every deviation is flagged in the module docs |
 | `deriv` | ported | Numerical differentiation: central, forward and backward rules with automatic step refinement and an error estimate |
 | `integration` | ported | Adaptive Gauss-Kronrod quadrature (QUADPACK): six rules, the `qag` adaptive driver and the extrapolating `qags` (GSL); plus non-adaptive **Gauss-Legendre** to order 30 and **Newton-Cotes** (`peroxide`) |
 | `interp` | ported | Interpolation of tabulated data: linear and natural cubic spline, with derivatives |
@@ -261,7 +262,9 @@ both crates were early to this in Rust when the ecosystem was still thin.
 
 A further non-GSL port, `src/ssprk.rs` from **Clawpack / PyClaw** (BSD-3-Clause,
 Clawpack Developers), was added on 2026-10-16 at the maintainer's direction; see
-`NOTICE` and the crate `CLAUDE.md`.
+`NOTICE` and the crate `CLAUDE.md`. Another, `src/depletion/` from **OpenMC**
+(`openmc/deplete/`, MIT), was added on 2026-10-17 at the maintainer's
+direction (gh:#950).
 
 All were ported on 2026-09-15, with the full upstream notice and
 copyright kept in each file's header where source redistribution requires them.

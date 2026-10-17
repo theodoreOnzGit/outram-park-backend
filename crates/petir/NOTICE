@@ -155,6 +155,52 @@ them.
   GPL-3.0-compatible; the flow is ONE-WAY.
 
 ================================================================================
+DERIVED WORK — OpenMC (depletion: integrators, CRAM, burnup matrix)
+================================================================================
+
+`src/depletion/` ports OpenMC's `openmc/deplete/integrators.py` (all eight
+integrators), `openmc/deplete/_matrix_funcs.py`, the time-integration
+drivers of `openmc/deplete/abc.py` (`Integrator`, `SIIntegrator`,
+`DepSystemSolver`), the single-material path of `openmc/deplete/pool.py`
+(`deplete`) and `openmc/deplete/cram.py` (`IPFCramSolver`, with the Pusa
+2016 coefficients it embeds). `cram.rs` and `matrix.rs` were first ported in
+`outram-mc-libs` and moved here on 2026-10-17 (gh:#950); the attribution
+moved with them. Ported at the maintainer's direction recorded on gh:#950.
+
+  Project    : OpenMC
+  Upstream   : https://github.com/openmc-dev/openmc
+  Commit     : d7d3284a1b13d7cae020e0d8fea9f1e60d91b18b (2026-09-05)
+  Licence    : MIT
+
+      Copyright (c) 2011-2026 Massachusetts Institute of Technology, UChicago
+      Argonne LLC, and OpenMC contributors
+
+  followed by the standard MIT permission notice (reproduced below, as MIT
+  requires the notice to accompany substantial portions):
+
+      Permission is hereby granted, free of charge, to any person obtaining a
+      copy of this software and associated documentation files (the
+      "Software"), to deal in the Software without restriction, including
+      without limitation the rights to use, copy, modify, merge, publish,
+      distribute, sublicense, and/or sell copies of the Software, and to
+      permit persons to whom the Software is furnished to do so, subject to
+      the following conditions:
+
+      The above copyright notice and this permission notice shall be included
+      in all copies or substantial portions of the Software.
+
+      THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+      OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+      MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+      IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+      CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+      TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+      SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+  MIT flows ONE-WAY into GPL-3.0-only. This is an OUTRAM PARK translation,
+  not official OpenMC.
+
+================================================================================
 DERIVED WORK — Clawpack / PyClaw (SSP Runge-Kutta time integrators)
 ================================================================================
 
