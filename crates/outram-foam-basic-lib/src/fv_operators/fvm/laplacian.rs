@@ -147,12 +147,17 @@ fn boundary_delta(mode: DeltaCoeff, sf: Vector3, d: Vector3, area: f64) -> f64 {
 /// ## Sign convention (matches OpenFOAM)
 ///
 /// The returned matrix has **positive** diagonal and **negative** off-diagonals,
-/// so the matrix–vector product `A·φ` approximates `−∇·(Γ∇φ)`.  Use the matrix
-/// with a minus sign in the PDE to add the diffusion term:
+/// so the matrix–vector product `A·φ` approximates `−∇·(Γ∇φ)`.  ~~Use the matrix
+/// with a minus sign in the PDE to add the diffusion term~~ **CORRECTED
+/// 2026-10-17 (gh:#949)**: because the matrix already *is* `−∇·(Γ∇φ)` and
+/// [`FvMatrix::solve`](crate::ldu_matrix::FvMatrix::solve) solves `A·φ = source`,
+/// the diffusion term is **added**. The old example subtracted it, which
+/// assembles anti-diffusion (checked against `fvm::ddt`, whose diagonal is
+/// also positive):
 ///
 /// ```text
 /// // ∂φ/∂t − ∇·(Γ∇φ) = S
-/// let eqn = fvm::ddt(&phi, &phi_old, dt) - fvm::laplacian(&gamma_f, &phi);
+/// let eqn = fvm::ddt(&phi, &phi_old, dt) + fvm::laplacian(&gamma_f, &phi) - fvm::su(&s, &phi);
 /// ```
 ///
 /// ## Boundary conditions

@@ -32,10 +32,14 @@ use crate::mesh::fv_mesh::{FvMesh, PatchKind};
 /// Assembles the same LDU coefficients as the scalar `fvm::laplacian`,
 /// but with a vector source (for Dirichlet boundary conditions on U).
 ///
-/// OpenFOAM convention (positive sign convention):
+/// ~~OpenFOAM convention (positive sign convention):
 /// `laplacian_vec(gamma, U)` represents `∇·(γ ∇U)` (note: positive,
 /// matching the momentum diffusion term; subtract when assembling
-/// `fvm::ddt(U) - fvm::laplacian(nu, U)`).
+/// `fvm::ddt(U) - fvm::laplacian(nu, U)`).~~ **CORRECTED 2026-10-17
+/// (gh:#949)**: the code assembles a positive diagonal and negative
+/// off-diagonals, the same as the scalar [`laplacian`](super::laplacian), so
+/// the matrix is `−∇·(γ ∇U)` and the diffusion term is **added**:
+/// `fvm::ddt_vec(..) + fvm::laplacian_vec(nu, U, mesh)`.
 pub fn laplacian_vec(
     gamma: &VolScalarField,
     u: &VolVectorField,

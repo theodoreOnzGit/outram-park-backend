@@ -147,6 +147,13 @@ pub use crate::krylov::{
 // But I want some functions that can help construct and use them
 pub use crate::interface;
 
+// Steady heat conduction with an energy balance (gh:#949)
+pub use crate::steady_conduction::{
+    radial_mesh, voxel_mesh, ConductionMesh, EnergyBalance, PatchCondition, RadialClosedForm,
+    RadialGeometry, RadialLayer, RadialShell, SteadyConductionError, SteadyConductionProblem,
+    SteadyConductionSettings, SteadyConductionSolution, ThermalBoundary, VoxelGrid, VoxelMesh,
+};
+
 // TVD flux limiters (translated from OpenFOAM limitedSchemes)
 pub use crate::limiters::FluxLimiter;
 
