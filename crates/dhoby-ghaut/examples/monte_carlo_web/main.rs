@@ -650,6 +650,12 @@ mod tests {
         assert!(cleared.is_some_and(|m| m.ends_with("empty")));
     }
 
+    /// The TRISO rung's first 40 Watch histories, pinned. **Re-blessed
+    /// 2026-10-18 (gh:#932)** when the demos' data moved onto njoy's
+    /// `process`: histories 0-3 are unchanged, history 4 differs first in
+    /// the 7th figure of its path length (2.708451e2 -> 2.708453e2 cm) and
+    /// the chain decorrelates after it (40 histories: 25 fissions / 15
+    /// captures before, 20 / 20 after, a draw, not a trend).
     #[test]
     fn the_headless_run_matches_the_committed_fixture() {
         let got = triso::sim::headless_csv(physics(), FIXTURE_N, FIXTURE_SEED);

@@ -342,9 +342,12 @@ mod tests {
         let recs = product_records(&[i], 1).expect("records");
         assert_eq!(recs.len(), 1);
         assert!(recs[0].0.contains("|pe|") && recs[0].0.ends_with("|purr=20,64,10000|heatr=1|e0k=1"), "{}", recs[0].0);
+        // `run_job`'s words are a `JobProduct`: a kind word (0 = nuclide),
+        // then the product the store saves.
         let words = run_job(i, Some(&bytes)).expect("job").to_vec();
-        assert_eq!(recs[0].2, words.len());
-        assert_eq!(recs[0].3, dhoby_ghaut::web_demo::data_cache::words_sha256(&words));
+        assert_eq!(words.first(), Some(&0.0));
+        assert_eq!(recs[0].2, words.len() - 1);
+        assert_eq!(recs[0].3, dhoby_ghaut::web_demo::data_cache::words_sha256(&words[1..]));
     }
 
     /// The whole native pipeline at a tiny size: the pool's jobs on two
