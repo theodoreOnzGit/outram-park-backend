@@ -152,15 +152,19 @@ Data and decks:
 
 | term | OpenMC (1, 2) | outram-mc ENDF (4) | outram-mc ACE (3, 5) |
 |---|---|---|---|
-| URR probability tables | on, from the UNR block | on, built at load (PURR 20 bins / 16 ladders / 2000 samples) | on, from the UNR block |
+| URR probability tables | on, from the UNR block | on, built at load (PURR 20 bins / ~~16 ladders / 2000 samples~~ **64 ladders / 10 000 samples after HEATR, by njoy's `process`, since 2026-10-17, gh:#931**) | on, from the UNR block |
 | resonance elastic scattering | `dbrc`, 1e-5 eV to 1 keV, all nuclides | DBRC, E ≤ 1 keV, all nuclides | DBRC, E ≤ 1 keV, 0 K companion paired |
 | S(α,β) H in H₂O (hst009, lct008) | ACE table, IFENG = 0 | this crate's ENDF kernel | ACE table, IFENG = 0 |
 | k in the `k` column | combined estimator (`k_alt` holds the generation mean) | generation mean | generation mean |
 
 **Known asymmetries:**
 
-- **URR ladders.** The ENDF route builds its tables with 16 ladders and 2000
-  samples; the ACE libraries used 64.
+- ~~**URR ladders.** The ENDF route builds its tables with 16 ladders and 2000
+  samples; the ACE libraries used 64.~~ **CLOSED 2026-10-17 (gh:#931):** the
+  ENDF route now runs `process` at 20 / 64 / 10 000 after HEATR, the Rust
+  ACE library's settings. Every route-4 row recorded before that date is
+  the old 16 / 2000 data (now the ablation `--route4-data pre931`); the
+  re-measure is in `../route4_process_931/README.md`.
 - **S(α,β) discretisation.** The ENDF route uses its own discretisation.
 - **DBRC lower bound.** OpenMC's DBRC starts at 1e-5 eV because its API refuses
   0; outram-mc has no lower bound.
