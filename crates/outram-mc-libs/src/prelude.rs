@@ -182,3 +182,10 @@ pub use crate::model::{
     NuclidePhysics, NumberDensityComparison, Placement, PpmOf, PuVector, ReactivityTolerance, ResolvedMaterial,
     RunError, RunProvenance, SaltCarrier, Shape, Species, Temperature,
 };
+
+// The radionuclide inventory handed from depletion to a source-term
+// calculation (gh:#951; consumed by `sembawang`).
+pub use crate::inventory::{
+    za, zai, Amount, InventoryError, InventoryPoint, InventorySource, NuclideEntry,
+    RadionuclideInventory, Regions,
+};

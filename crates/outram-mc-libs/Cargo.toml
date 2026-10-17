@@ -111,8 +111,13 @@ outram-foam-basic-lib = { workspace = true }
 # crate. No features. Pure Rust, Android- and wasm-clean (it is in
 # scripts/check-wasm.sh's scope).
 tampines-steam-tables = { workspace = true }
-# Used ONLY at the njoy nuclear-data boundary (S(α,β) thermal scattering import in
-# `material::thermal`), which speaks dimensioned `uom` types. The transport hot
+# ~~Used ONLY at the njoy nuclear-data boundary (S(α,β) thermal scattering import in
+# `material::thermal`), which speaks dimensioned `uom` types.~~ CORRECTED
+# 2026-10-17 (gh:#951, checked by grep over src/): `uom` is used at every
+# public boundary that is not the transport loop -- the njoy data boundary
+# (`material::thermal`, `material::nuclide`, `plotter::xs`), the beginner
+# `model` API, `thermal_profile`, `pebble_beds::dem_bed`, and the
+# `inventory::RadionuclideInventory` handoff to sembawang. The transport hot
 # loop stays raw `f64` — see this crate's CLAUDE.md "Units" note.
 uom = { workspace = true }
 # Depletion / transmutation data — CONSUMED, not rebuilt. All pure-Rust
