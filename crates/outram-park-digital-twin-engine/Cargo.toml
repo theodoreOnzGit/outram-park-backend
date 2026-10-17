@@ -243,7 +243,8 @@ buangkok = { workspace = true }
 # `sembawang::lwr_comparison::bounding_comparison` -- the SAME function the
 # #452 example calls, so the map cannot drift from it. DEV-dependency,
 # example-only, like buangkok. Direction: sembawang -> boon-lay, changi,
-# buangkok, uom; nothing in sembawang depends on this crate, so no cycle.
+# buangkok, uom (and outram-mc-libs since 2026-10-17, gh:#951, already a
+# dependency here); nothing in sembawang depends on this crate, so no cycle.
 sembawang = { workspace = true }
 
 # htgr_sim_v1's `physics::reactor_model::coarse_mesh_genfoam` placeholder cites

@@ -78,6 +78,39 @@ pub enum Error {
          or Venting::Prescribed"
     )]
     NoVentingTransport,
+
+    /// The inventory could not be built (empty, a ring count that disagrees,
+    /// a negative or non-finite amount, a nuclide twice). See
+    /// `outram_mc_libs::inventory::InventoryError` (GitHub #951).
+    #[error(transparent)]
+    Inventory(#[from] outram_mc_libs::inventory::InventoryError),
+
+    /// The inventory is over named regions (components, depletion zones), and
+    /// this crate needs radial rings. State the mapping with
+    /// `RadionuclideInventory::with_regions`; this crate does not guess it.
+    #[error(
+        "the inventory is over named regions {0:?}, not radial rings; map them with with_regions"
+    )]
+    InventoryNotInRings(Vec<String>),
+
+    /// The inventory and the temperature transient disagree on the number of
+    /// radial rings. ~~A panic~~ An error since GitHub #951.
+    #[error("the inventory has {inventory} radial rings and the transient {transient}")]
+    InventoryRingMismatch {
+        /// Rings in the inventory.
+        inventory: usize,
+        /// Rings in the transient.
+        transient: usize,
+    },
+
+    /// A ring index past the inventory's last ring.
+    #[error("ring {ring} asked of an inventory with {rings} rings")]
+    InventoryRingOutOfRange {
+        /// The ring asked for.
+        ring: usize,
+        /// Rings in the inventory.
+        rings: usize,
+    },
 }
 
 /// This crate's result type.

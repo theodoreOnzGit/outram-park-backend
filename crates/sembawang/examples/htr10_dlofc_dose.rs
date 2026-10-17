@@ -81,7 +81,7 @@ use changi::activity::inventory::htr10_equilibrium_core;
 use changi::activity::primary_helium::htr10_primary_helium_end_of_life;
 use sembawang::accident::release::accident_release;
 use sembawang::htr10::{self, DlofcShape, Htr10Geometry};
-use sembawang::inventory::{CoreInventory, NuclideInventory};
+use sembawang::inventory::{self, RadionuclideInventory};
 use uom::si::f64::{Length, Radioactivity, Time};
 use uom::si::length::meter;
 use uom::si::radioactivity::becquerel;
@@ -116,13 +116,13 @@ fn htr10_geometry() -> Htr10Geometry {
     }
 }
 
-fn htr10_inventory() -> CoreInventory {
+fn htr10_inventory() -> RadionuclideInventory {
     let kept = htr10_equilibrium_core()
         .into_iter()
         .filter(|e| find_nuclide(e.nuclide).is_some())
-        .map(|e| NuclideInventory::uniform(e.nuclide, e.activity, N_RADIAL))
+        .map(|e| (e.nuclide, vec![e.activity; N_RADIAL]))
         .collect();
-    CoreInventory::new(kept, N_RADIAL, N_AXIAL)
+    inventory::prescribed(kept, N_RADIAL, "Liu and Cao (2002), NED 218, 81-90, Table 1").expect("the published table is valid")
 }
 
 fn max_chi_over_q(x_m: f64, geometry: PlumeGeometry) -> (StabilityClass, f64) {

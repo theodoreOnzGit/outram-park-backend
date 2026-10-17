@@ -59,7 +59,7 @@ use sembawang::accident::release::{
     accident_release_with_venting, NodeTemperatures, NormalOperation, PlantParameters,
     PrimaryCircuitPools, Venting,
 };
-use sembawang::inventory::{CoreInventory, NuclideInventory};
+use sembawang::inventory::{self, RadionuclideInventory};
 use sembawang::scenario::TemperatureTransient;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -170,17 +170,19 @@ fn plant(k_plate: Option<f64>) -> PlantParameters {
     }
 }
 
-fn inventory() -> CoreInventory {
+fn inventory() -> RadionuclideInventory {
     let nuclides = table("table06_case_a_inventory_ci.csv")
         .iter()
-        .map(|r| NuclideInventory {
-            name: r["nuclide"].clone(),
-            per_ring: (1..=N_RADIAL)
-                .map(|i| Radioactivity::new::<curie>(f(r, &format!("ring{i}_ci"))))
-                .collect(),
+        .map(|r| {
+            (
+                r["nuclide"].clone(),
+                (1..=N_RADIAL)
+                    .map(|i| Radioactivity::new::<curie>(f(r, &format!("ring{i}_ci"))))
+                    .collect(),
+            )
         })
         .collect();
-    CoreInventory::new(nuclides, N_RADIAL, N_AXIAL)
+    inventory::prescribed(nuclides, N_RADIAL, "Stoyer et al. 2026 Case A, table06_case_a_inventory_ci.csv").unwrap()
 }
 
 fn transient(curve: &[(f64, f64)]) -> TemperatureTransient {

@@ -49,6 +49,15 @@ changi    = { workspace = true }
 # pathways at the end of the offsite chain. buangkok depends on changi and
 # petir only, so the edge sembawang -> buangkok introduces no cycle.
 buangkok  = { workspace = true }
+# The inventory type (GitHub #951; maintainer decision 2026-10-17): the core
+# radionuclide inventory is outram-mc's `inventory::RadionuclideInventory`, the
+# one inventory type in the workspace, which depletion produces and this crate
+# consumes. No cycle and no new crate in the tree: outram-mc-libs was already a
+# normal dependency of boon-lay, and so of this crate, before this edge was
+# added (`cargo tree -p sembawang -i outram-mc-libs -e normal`, 2026-10-17).
+# outram-mc-libs must never depend on this crate. Default features only
+# (`long-tests` gates its own slow tests and costs a dependent nothing).
+outram-mc-libs = { workspace = true }
 uom       = { workspace = true }
 thiserror = { workspace = true }
 

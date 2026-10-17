@@ -627,7 +627,7 @@ pub fn isothermal_failure(
 mod tests {
     use super::*;
     use crate::accident::release::accident_release;
-    use crate::inventory::{CoreInventory, NuclideInventory};
+    use crate::inventory::{self, RadionuclideInventory};
     use boon_lay::triso_atops_fork::nuclide_model::nuclide_database::find_nuclide;
     use changi::activity::inventory::htr10_equilibrium_core;
     use uom::si::radioactivity::becquerel;
@@ -652,13 +652,19 @@ mod tests {
     }
 
     /// The published inventory, restricted to what TRISO-ATOPS models.
-    fn inventory() -> CoreInventory {
-        let kept: Vec<NuclideInventory> = htr10_equilibrium_core()
+    fn inventory() -> RadionuclideInventory {
+        let kept: Vec<_> = htr10_equilibrium_core()
             .into_iter()
             .filter(|e| find_nuclide(e.nuclide).is_some())
-            .map(|e| NuclideInventory::uniform(e.nuclide, e.activity, 1))
+            .map(|e| (e.nuclide, vec![e.activity]))
             .collect();
-        CoreInventory::new(kept, 1, 1)
+        inventory::prescribed(kept, 1, "Liu and Cao (2002) Table 1").expect("the published table is valid")
+    }
+
+    /// One published nuclide, on one ring.
+    fn one(entry: &changi::activity::inventory::InventoryEntry) -> RadionuclideInventory {
+        inventory::prescribed(vec![(entry.nuclide, vec![entry.activity])], 1, "Liu and Cao (2002) Table 1")
+            .expect("a published nuclide is valid")
     }
 
     /// **The geometry this case runs on is HTR-10's published geometry.**
@@ -1139,11 +1145,7 @@ mod tests {
             if find_nuclide(entry.nuclide).is_none() {
                 continue;
             }
-            let one = CoreInventory::new(
-                vec![NuclideInventory::uniform(entry.nuclide, entry.activity, 1)],
-                1,
-                1,
-            );
+            let one = one(&entry);
             if let Ok(out) = accident_release(&one, &transient, &with_pools) {
                 if out.screened_out.is_empty() && out.caveats.negative_atom_count_seen {
                     flagged_default.push(entry.nuclide);
@@ -1162,11 +1164,7 @@ mod tests {
             if find_nuclide(entry.nuclide).is_none() {
                 continue;
             }
-            let one = CoreInventory::new(
-                vec![NuclideInventory::uniform(entry.nuclide, entry.activity, 1)],
-                1,
-                1,
-            );
+            let one = one(&entry);
             // A nuclide screened out by the half-life test yields no release at
             // all, so it is not evidence either way and is skipped.
             let Ok(out) = accident_release(&one, &transient, &plant) else {
@@ -1222,7 +1220,7 @@ mod tests {
             vec!["H-3", "Xe-135m", "Rb-88"],
             "the unmodelled set is recorded so a change to either table is visible"
         );
-        assert_eq!(inventory().nuclides.len(), 19);
+        assert_eq!(inventory().nuclides().len(), 19);
     }
 
     /// **One plant-parameter source (#469 item 3):** [`plant_parameters`]

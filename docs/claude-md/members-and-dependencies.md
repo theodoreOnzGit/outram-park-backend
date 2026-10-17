@@ -122,6 +122,14 @@ worth knowing: `teh-o-prke → {tuas (dev), chem-eng (real)}`; `tuas` dev-deps �
 `{chem-eng, teh-o-prke}`; `nee_soon → teh-o-prke`;
 `outram-park-digital-twin-engine → {nee_soon, outram-mc-libs, njoy-outram-park-fork}` (the last two direct since 2026-09-29, for the CI smoke set);
 `dover → outram-park-fork-dwsim-libs` (2026-09-30);
+`sembawang → {boon-lay, changi, buangkok, outram-mc-libs}`, the last direct
+since 2026-10-17 (GitHub #951) for the one inventory type in the workspace,
+`outram_mc_libs::inventory::RadionuclideInventory` (depletion produces it,
+sembawang consumes it). No cycle and no new crate in sembawang's tree:
+`outram-mc-libs` was already there through `boon-lay`
+(`cargo tree -p sembawang -i outram-mc-libs -e normal`), and `sembawang` is not
+in `outram-mc-libs`'s tree. **`outram-mc-libs` must never depend on
+`sembawang`;**
 `{tampines-steam-tables, outram-park-fork-coolprop} → outram-foam-basic-lib`
 (2026-10-03, GitHub #492: their `FvMesh`, `MeshError`, 1-D mesher and tensor
 primitives were code-identical copies and are now re-exports; the rest of

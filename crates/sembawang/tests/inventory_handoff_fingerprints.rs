@@ -35,13 +35,19 @@
 //! # Results
 //!
 //! Pre-change pins printed 2026-10-17 on `21a93d9460` (x86_64 Linux, glibc);
-//! see the table under `PINS` for the post-change outcome.
+//! committed as `5d4811f35e` before any code changed.
+//!
+//! **Result (2026-10-17): all five cases are bit-identical after the change**
+//! (table under `PINS`). Independently, the stdout of all seven sembawang
+//! examples, including the human-audited
+//! `htr10_air_ingress_human_audited_example`, was captured before and after
+//! and is byte-identical (`diff -r`, no output).
 
 use sembawang::accident::release::{
     accident_release, accident_release_with_venting, AccidentRelease, PlantParameters, Venting,
 };
 use sembawang::htr10::Htr10Geometry;
-use sembawang::inventory::{CoreInventory, NuclideInventory};
+use sembawang::inventory;
 use sembawang::lwr_comparison::htr10_air_ingress_bound;
 use sembawang::scenario::TemperatureTransient;
 use sembawang::units;
@@ -131,7 +137,7 @@ fn cases() -> Vec<(&'static str, u64)> {
     let mut out = Vec::new();
 
     // inventory construction
-    let unit_2x3 = CoreInventory::unit(&NUCLIDES, 2, 3);
+    let unit_2x3 = inventory::unit(&NUCLIDES, 2).unwrap();
     let r = accident_release(&unit_2x3, &ramp(2, 3), &plant()).unwrap();
     out.push(("unit_2x3_pools", fold_release(&r)));
 
@@ -144,27 +150,33 @@ fn cases() -> Vec<(&'static str, u64)> {
     out.push(("unit_2x3_no_pools", fold_release(&r)));
 
     // inventory construction
-    let rings = CoreInventory::new(
+    let rings = inventory::prescribed(
         NUCLIDES
             .iter()
             .enumerate()
-            .map(|(i, n)| NuclideInventory {
-                name: (*n).to_string(),
-                per_ring: (0..3)
-                    .map(|r| units::from_curies(1.0e3 * (1.0 + i as f64) * (1.0 + 0.37 * r as f64)))
-                    .collect(),
+            .map(|(i, n)| {
+                (
+                    *n,
+                    (0..3)
+                        .map(|r| {
+                            units::from_curies(1.0e3 * (1.0 + i as f64) * (1.0 + 0.37 * r as f64))
+                        })
+                        .collect(),
+                )
             })
             .collect(),
         3,
-        2,
-    );
+        "fingerprint: distinct activity per ring and nuclide",
+    )
+    .unwrap();
     let r = accident_release(&rings, &ramp(3, 2), &plant()).unwrap();
     out.push(("rings_3x2_nonuniform", fold_release(&r)));
 
     // inventory construction
-    let unit_1x2 = CoreInventory::unit(&NUCLIDES, 1, 2);
-    let r = accident_release_with_venting(&unit_1x2, &ramp(1, 2), &plant(), &Venting::FullFlowThrough)
-        .unwrap();
+    let unit_1x2 = inventory::unit(&NUCLIDES, 1).unwrap();
+    let r =
+        accident_release_with_venting(&unit_1x2, &ramp(1, 2), &plant(), &Venting::FullFlowThrough)
+            .unwrap();
     out.push(("unit_1x2_flow", fold_release(&r)));
 
     let rel = htr10_air_ingress_bound(htr10_geometry(), Time::new::<hour>(140.0)).unwrap();
@@ -182,11 +194,11 @@ fn cases() -> Vec<(&'static str, u64)> {
 ///
 /// | case | pre-change | post-change |
 /// |---|---|---|
-/// | `unit_2x3_pools` | `0xcf21dcf2a24fa6db` | pending |
-/// | `unit_2x3_no_pools` | `0x33eae7072bbb9ca6` | pending |
-/// | `rings_3x2_nonuniform` | `0x85d901d637b3e2d7` | pending |
-/// | `unit_1x2_flow` | `0x5c5b31f88b4ba69f` | pending |
-/// | `htr10_air_ingress_bound_140h` | `0x0e5be9eeeaccdfe1` | pending |
+/// | `unit_2x3_pools` | `0xcf21dcf2a24fa6db` | identical |
+/// | `unit_2x3_no_pools` | `0x33eae7072bbb9ca6` | identical |
+/// | `rings_3x2_nonuniform` | `0x85d901d637b3e2d7` | identical |
+/// | `unit_1x2_flow` | `0x5c5b31f88b4ba69f` | identical |
+/// | `htr10_air_ingress_bound_140h` | `0x0e5be9eeeaccdfe1` | identical |
 const PINS: &[(&str, u64)] = &[
     ("unit_2x3_pools", 0xcf21_dcf2_a24f_a6db),
     ("unit_2x3_no_pools", 0x33ea_e707_2bbb_9ca6),
@@ -206,6 +218,9 @@ fn every_inventory_handoff_case_is_bit_identical() {
     assert_eq!(got.len(), PINS.len(), "one pin per case");
     for ((name, h), (pin_name, pin)) in got.iter().zip(PINS) {
         assert_eq!(name, pin_name);
-        assert_eq!(*h, *pin, "{name}: fingerprint moved (0x{h:016x} vs pinned 0x{pin:016x})");
+        assert_eq!(
+            *h, *pin,
+            "{name}: fingerprint moved (0x{h:016x} vs pinned 0x{pin:016x})"
+        );
     }
 }
