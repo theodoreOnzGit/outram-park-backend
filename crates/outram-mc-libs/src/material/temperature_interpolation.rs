@@ -183,10 +183,17 @@ pub fn bracket(
         )));
     }
     let (lo, hi) = (temps_k[0], temps_k[temps_k.len() - 1]);
-    let out = || NjoyError::TemperatureOutOfRange { requested_k: t_k, min_k: lo, max_k: hi };
+    let out = || NjoyError::TemperatureOutOfRange {
+        requested_k: t_k,
+        min_k: lo,
+        max_k: hi,
+    };
     if temps_k.len() == 1 {
         return if ((t_k - lo) / lo).abs() <= 1.0e-9 {
-            Ok(TableBracket { lower: 0, upper_probability: 0.0 })
+            Ok(TableBracket {
+                lower: 0,
+                upper_probability: 0.0,
+            })
         } else {
             Err(out())
         };
@@ -205,7 +212,10 @@ pub fn bracket(
         variable.coordinate(t_k),
     );
     let f = ((x - x0) / (x1 - x0)).clamp(0.0, 1.0);
-    Ok(TableBracket { lower: i, upper_probability: f })
+    Ok(TableBracket {
+        lower: i,
+        upper_probability: f,
+    })
 }
 
 fn check_ascending(temps_k: &[f64]) -> Result<(), NjoyError> {
@@ -246,7 +256,11 @@ impl<D> TemperatureTables<D> {
     ///
     /// [`NjoyError::InvalidInput`] if the lengths differ or the temperatures
     /// are not positive, finite and strictly ascending.
-    pub fn new(temps_k: Vec<f64>, tables: Vec<D>, variable: InterpolationVariable) -> Result<Self, NjoyError> {
+    pub fn new(
+        temps_k: Vec<f64>,
+        tables: Vec<D>,
+        variable: InterpolationVariable,
+    ) -> Result<Self, NjoyError> {
         check_ascending(&temps_k)?;
         if temps_k.len() != tables.len() {
             return Err(NjoyError::InvalidInput(format!(
@@ -255,7 +269,11 @@ impl<D> TemperatureTables<D> {
                 tables.len()
             )));
         }
-        Ok(Self { temps_k, tables, variable })
+        Ok(Self {
+            temps_k,
+            tables,
+            variable,
+        })
     }
 
     /// The tabulated temperatures \[K\], ascending.
@@ -397,7 +415,11 @@ pub fn chebyshev_value(
 ) -> Result<f64, NjoyError> {
     let nodes = chebyshev_nodes_k(values.len(), t_lo_k, t_hi_k, variable)?;
     if !(t_k >= t_lo_k && t_k <= t_hi_k) {
-        return Err(NjoyError::TemperatureOutOfRange { requested_k: t_k, min_k: t_lo_k, max_k: t_hi_k });
+        return Err(NjoyError::TemperatureOutOfRange {
+            requested_k: t_k,
+            min_k: t_lo_k,
+            max_k: t_hi_k,
+        });
     }
     let (a, b) = (variable.coordinate(t_lo_k), variable.coordinate(t_hi_k));
     let xs: Vec<f64> = nodes.iter().map(|&t| variable.coordinate(t)).collect();
@@ -412,6 +434,30 @@ pub fn chebyshev_value(
     })
     .map_err(|e| NjoyError::InvalidInput(format!("Chebyshev series: {e:?}")))?;
     Ok(series.eval(variable.coordinate(t_k)))
+}
+
+/// The weights `w_k` with `chebyshev_value(values, ..) = Σ_k w_k values[k]`
+/// at `t_k` \[K\], for `n` nodes: the interpolant is linear in the node
+/// values, so the weights are its values on the unit vectors. Compute them
+/// once per temperature and apply them to every energy point.
+///
+/// # Errors
+///
+/// As [`chebyshev_value`].
+pub fn chebyshev_weights(
+    n: usize,
+    t_lo_k: f64,
+    t_hi_k: f64,
+    variable: InterpolationVariable,
+    t_k: f64,
+) -> Result<Vec<f64>, NjoyError> {
+    (0..n)
+        .map(|k| {
+            let mut unit = vec![0.0; n];
+            unit[k] = 1.0;
+            chebyshev_value(&unit, t_lo_k, t_hi_k, variable, t_k)
+        })
+        .collect()
 }
 
 #[cfg(test)]
@@ -446,8 +492,12 @@ mod tests {
         }
         // sqrt and log are concave, so the midpoint in T lies past the
         // midpoint in either: f > 0.5, and more so in log T.
-        let fs = bracket(&TEMPS, t, InterpolationVariable::SqrtT).unwrap().upper_probability;
-        let fl = bracket(&TEMPS, t, InterpolationVariable::LogT).unwrap().upper_probability;
+        let fs = bracket(&TEMPS, t, InterpolationVariable::SqrtT)
+            .unwrap()
+            .upper_probability;
+        let fl = bracket(&TEMPS, t, InterpolationVariable::LogT)
+            .unwrap()
+            .upper_probability;
         assert!(fs > 0.5 && fl > fs);
     }
 
@@ -455,22 +505,41 @@ mod tests {
     fn tabulated_points_pick_their_own_table() {
         // Interior: thermal.cpp's (j-1, f=1) and nuclide.cpp's (j, 0) agree.
         let b = bracket(&TEMPS, 600.0, InterpolationVariable::Kt).unwrap();
-        assert_eq!(b, TableBracket { lower: 0, upper_probability: 1.0 });
+        assert_eq!(
+            b,
+            TableBracket {
+                lower: 0,
+                upper_probability: 1.0
+            }
+        );
         for xi in [0.0, 0.5, 0.999_999] {
             assert_eq!(b.pick(xi), 1);
         }
         // Ends: the bottom is (0, 0); the top (n-2, 1), not upstream's
         // out-of-bounds read.
-        assert_eq!(bracket(&TEMPS, 300.0, InterpolationVariable::Kt).unwrap().pick(0.0), 0);
+        assert_eq!(
+            bracket(&TEMPS, 300.0, InterpolationVariable::Kt)
+                .unwrap()
+                .pick(0.0),
+            0
+        );
         let top = bracket(&TEMPS, 1200.0, InterpolationVariable::Kt).unwrap();
-        assert_eq!(top, TableBracket { lower: 2, upper_probability: 1.0 });
+        assert_eq!(
+            top,
+            TableBracket {
+                lower: 2,
+                upper_probability: 1.0
+            }
+        );
     }
 
     #[test]
     fn outside_the_range_is_refused_not_snapped() {
         for t in [299.0, 1201.0] {
             match bracket(&TEMPS, t, InterpolationVariable::Kt) {
-                Err(NjoyError::TemperatureOutOfRange { requested_k, .. }) => assert_eq!(requested_k, t),
+                Err(NjoyError::TemperatureOutOfRange { requested_k, .. }) => {
+                    assert_eq!(requested_k, t)
+                }
                 other => panic!("expected out-of-range at {t} K, got {other:?}"),
             }
         }
@@ -483,7 +552,12 @@ mod tests {
 
     #[test]
     fn tables_pick_and_expectation() {
-        let t = TemperatureTables::new(TEMPS.to_vec(), vec![1.0, 2.0, 4.0, 8.0], InterpolationVariable::Kt).unwrap();
+        let t = TemperatureTables::new(
+            TEMPS.to_vec(),
+            vec![1.0, 2.0, 4.0, 8.0],
+            InterpolationVariable::Kt,
+        )
+        .unwrap();
         assert_eq!(t.temperatures_k(), &TEMPS);
         assert_eq!(t.tables().len(), 4);
         assert_eq!(t.variable(), InterpolationVariable::Kt);
@@ -499,8 +573,13 @@ mod tests {
             .sum::<f64>()
             / n as f64;
         let want = t.expectation(700.0, |x| *x).unwrap();
-        assert!((mean - want).abs() < 4.0 * 1.0 / (n as f64).sqrt(), "{mean} vs {want}");
-        assert!(TemperatureTables::new(vec![300.0], vec![1.0, 2.0], InterpolationVariable::Kt).is_err());
+        assert!(
+            (mean - want).abs() < 4.0 * 1.0 / (n as f64).sqrt(),
+            "{mean} vs {want}"
+        );
+        assert!(
+            TemperatureTables::new(vec![300.0], vec![1.0, 2.0], InterpolationVariable::Kt).is_err()
+        );
     }
 
     #[test]
@@ -524,6 +603,11 @@ mod tests {
             assert!(rel.abs() < 1e-3, "{t} K: {rel:e}");
         }
         assert!(chebyshev_value(&vals, lo, hi, v, 1600.0).is_err());
+        // The weights reproduce the value, and sum to one (constants are exact).
+        let w = chebyshev_weights(5, lo, hi, v, 700.0).unwrap();
+        let dot: f64 = w.iter().zip(&vals).map(|(a, b)| a * b).sum();
+        assert!((dot - chebyshev_value(&vals, lo, hi, v, 700.0).unwrap()).abs() < 1e-14);
+        assert!((w.iter().sum::<f64>() - 1.0).abs() < 1e-12);
         assert!(chebyshev_nodes_k(0, lo, hi, v).is_err());
         assert!(chebyshev_nodes_k(3, hi, lo, v).is_err());
     }

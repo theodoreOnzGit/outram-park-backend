@@ -183,10 +183,291 @@ concave one, below. Errors of a linear interpolant scale as Δ².
   two temperatures' tables is smooth in T; it is checked by the
   zero-spacing case (a table against itself, 0) and by the Δ² scaling.
 
-## 3. Results
+## 3. Results (run 2026-10-17/18, commit of this change)
 
-_Not yet run._
+All numbers are `(approx/exact − 1)` in %, unless marked absolute. Raw
+output of every stage is reproduced by the example; the tables below are
+copied from it.
 
-## 4. Hardware
+### 3.0 Instrument checks (all passed)
 
-Every timing below is from: _to be filled from the run_.
+- Rebuilt slowing-down grid against the library's own `slowing_down_grid`:
+  `p = 0.1749516501` both, difference **3.3e-16**.
+- `E[σ]` at a tabulated temperature (600 K between 300/600/900) against
+  that table: **0** at every point.
+- **Thinning floor (P14):**
+
+| errthn pair (600 K) | channel | pointwise 1e-5–1 eV | pointwise 1–20 keV (over / under) | band integrals (5 bands) | p σ_b = 100 b |
+|---|---|---|---|---|---|
+| 1e-3 vs 1e-4 | capture | +0.096 | +1.29 @ 5.13 keV / −1.18 @ 18.7 keV | ≤ 0.011 | −0.020 |
+| 1e-4 vs 1e-5 | capture | +0.001 | +0.97 @ 19.0 keV / −1.25 @ 13.0 keV | ≤ 0.0009 | −0.0020 |
+| 1e-3 vs 1e-4 | total | +0.006 | +0.26 / −0.12 | ≤ 0.010 | — |
+
+  **P14 refuted, and it matters for reading §3.1.** BROADR's thinning
+  bounds the *total*; capture in the keV valleys between resonances moves by
+  ~1 % even between 1e-4 and 1e-5. So **pointwise capture maxima above
+  ~1 keV are not resolved below ~1 %** at any practical tolerance. Integrals
+  are converged at 1e-4 (p moves 2e-5). Production libraries (1e-3) carry a
+  −0.02 % shift in p from thinning alone.
+
+### 3.1 U-238 pointwise, stochastic arms (expected σ against exact)
+
+Worst bracket over [300, 1500] K, test T = bracket midpoint in T.
+
+| Δ K | arm | capture 1 eV–20 keV: max over @ E / max under | capture 1 eV–1 keV | capture 1e-5–1 eV | total 1 eV–20 keV max abs |
+|---|---|---|---|---|---|
+| 600 | T | +119.7 @ 4.27 keV / −17.4 | +96.1 / −17.0 (763–778 eV) | 0.0012 | 65.0 |
+| 600 | √T | +143.9 @ 4.27 keV / −12.7 | +115.3 / −12.4 | 0.0007 | 80.3 |
+| 600 | log T | +167.8 @ 4.27 keV / −9.1 | +134.3 / −8.9 | 0.0013 | 95.9 |
+| 300 | T | +56.3 @ 6.41 keV / −7.9 | +43.5 / −7.7 (777 eV) | 0.0005 | 29.6 |
+| 300 | √T | +64.8 / −5.7 | +50.8 / −5.5 | 0.0002 | 36.0 |
+| 300 | log T | +73.3 / −4.1 | +58.1 / −3.9 | 0.0004 | 42.6 |
+| 150 | T | +20.5 @ 9.30 keV / −2.9 | +15.8 / −2.8 (778 eV) | 0.0002 | 10.7 |
+| 150 | √T | +23.7 / −2.1 | +18.5 / −2.0 | 0.0001 | 13.0 |
+| 150 | log T | +26.9 / −1.5 | +21.2 / −1.4 | 0.0001 | 15.4 |
+| 75 | T | +6.2 @ 5.14 keV / −0.9 | +4.8 / −0.9 (778 eV) | 0.0000 | 3.4 |
+| 75 | √T | +7.2 / −0.7 | +5.6 / −0.6 | 0.0001 | 4.1 |
+| 75 | log T | +8.1 / −0.5 | +6.4 / −0.5 | 0.0001 | 4.8 |
+
+All maxima sit at the lowest bracket (300 K to 300+Δ) and in the
+**interference valleys** between resonances (≈ 777 eV below 1 keV, 4–10 keV
+above), where σ_c is milli-barns and changes by large factors
+with T. They are an order of magnitude above P1's prediction, which was
+reasoned from resonance peaks. In those valleys the largest positive error
+**grows** from T to √T to log T (P2's ordering was for peaks). Thermal
+(1e-5–1 eV) is unaffected (≤ 1.3e-5).
+
+### 3.2 U-238 integrals: what a neutron sees
+
+Worst signed error over all brackets (which is always the lowest bracket).
+
+| Δ K | arm | capture band integral (any of 5 bands) | NR RI σ₀ = 10 b | σ₀ = 100 b | σ₀ = 1000 b | **p, σ_b = 100 b** | p, σ_b = 1000 b |
+|---|---|---|---|---|---|---|---|
+| 600 | T (upstream) | +0.0017 | −0.41 | −0.56 | −1.29 | **+1.16** | +0.87 |
+| 600 | √T | +0.0008 | −0.05 | +0.13 | −0.14 | **−0.32** | +0.13 |
+| 600 | log T | +0.0015 | +0.31 | +0.80 | +1.01 | **−1.77** | −0.60 |
+| 600 | plug-in E[σ] (T) | +0.0017 | +0.14 | +0.63 | +0.32 | **−1.58** | −0.19 |
+| 300 | T (upstream) | +0.0005 | −0.16 | −0.21 | −0.47 | **+0.40** | +0.30 |
+| 300 | √T | +0.0002 | −0.02 | +0.05 | −0.04 | **−0.12** | +0.03 |
+| 300 | log T | +0.0004 | +0.11 | +0.30 | +0.42 | **−0.63** | −0.24 |
+| 300 | plug-in E[σ] (T) | +0.0005 | +0.06 | +0.23 | +0.17 | **−0.56** | −0.10 |
+| 150 | T (upstream) | +0.0002 | −0.053 | −0.067 | −0.151 | **+0.127** | +0.091 |
+| 150 | √T | +0.0003 | −0.008 | +0.014 | −0.009 | **−0.036** | +0.009 |
+| 150 | log T | +0.0003 | +0.036 | +0.094 | +0.147 | **−0.198** | −0.083 |
+| 150 | plug-in E[σ] (T) | +0.0002 | +0.018 | +0.071 | +0.065 | **−0.169** | −0.038 |
+| 75 | T (upstream) | +0.0002 | −0.016 | −0.020 | −0.043 | **+0.037** | +0.026 |
+| 75 | √T | +0.0002 | −0.003 | +0.004 | −0.002 | **−0.010** | +0.002 |
+| 75 | log T | +0.0002 | +0.011 | +0.027 | +0.045 | **−0.057** | −0.025 |
+| 75 | plug-in E[σ] (T) | +0.0002 | +0.005 | +0.020 | +0.020 | **−0.046** | −0.012 |
+
+The **top** bracket (1500 K end) is 3.5–6× smaller than the bottom at every
+spacing (e.g. Δ = 300, T: p +0.107 % at [1200, 1500] against +0.403 % at
+[300, 600]). Errors scale close to Δ² (T arm, p: 1.16 → 0.40 → 0.127 → 0.037,
+ratios 2.9, 3.2, 3.5).
+
+**Plug-in ≠ stochastic.** The deterministic `E[σ]` arm and the stochastic
+draw between the same two tables give errors of **opposite sign** and similar
+size. Interpolating σ is not what the stochastic scheme does to a
+self-shielded rate; anyone checking the scheme against a σ interpolant checks
+the wrong thing.
+
+### 3.3 Monte Carlo check of the stochastic arm (P9)
+
+U-238 + C-12, σ_b = 100 b, 900 K from tables {300, 1500} K, T variable,
+`IsotropicCmAtRest`, per-collision draw as upstream.
+
+| arm | deterministic p | MC p ± 1σ | histories |
+|---|---|---|---|
+| exact 900 K | 0.139911 | 0.140029 ± 0.000174 | 4 × 10⁶ |
+| stochastic | 0.144174 | 0.144073 ± 0.000124 | 8 × 10⁶ (two seeds) |
+
+Stochastic − exact: deterministic **+0.004263 (+3.05 %)**, MC
+**+0.004044 ± 0.000213 (19.0σ)**. MC against deterministic: stochastic arm
+−0.8σ, exact arm +0.7σ. **The deterministic "mixture of collision fractions"
+is what a per-collision draw produces in transport**, so §3.2's p column is a
+transport result, not a model of one.
+
+### 3.4 Chebyshev fit in temperature (the fourth arm)
+
+Tables at the n Chebyshev nodes of [300, 1500] K; the degree-(n−1)
+interpolant at every point of the 37.5 K grid; worst over T.
+
+| variable | n | capture 1–20 keV max abs | capture 1 eV–1 keV max abs | min fitted capture (b) | RI σ₀ = 100 b | **p σ_b = 100 b** | p σ_b = 1000 b |
+|---|---|---|---|---|---|---|---|
+| √T | 3 | 112.6 | 86.7 | **−1.5e-3 (negative)** | +0.147 | **−0.384** | +0.269 |
+| √T | 4 | 56.0 | 37.6 | 1.0e-3 | −0.042 | **+0.108** | −0.017 |
+| √T | 5 | 14.8 | 10.2 | 1.0e-3 | +0.0038 | **−0.0097** | +0.0062 |
+| √T | 6 | 4.9 | 3.0 | 1.0e-3 | −0.0010 | **+0.0027** | −0.0012 |
+| T | 3 | 218.8 | 154.1 | **−5.3e-2 (negative)** | −0.363 | **+0.866** | +0.254 |
+| T | 4 | 48.9 | 35.9 | 1.0e-3 | −0.039 | **+0.085** | +0.082 |
+| T | 5 | 23.0 | 15.5 | 1.0e-3 | −0.0054 | **+0.016** | +0.019 |
+| T | 6 | 9.4 | 6.1 | 1.0e-3 | −0.0019 | **+0.0059** | +0.0034 |
+
+Worst point is always 300 K (the range's low end). **At equal table count
+the fit is far ahead of stochastic interpolation on the transport quantity:**
+5 tables, p at σ_b = 100 b: stochastic T **+0.40 %**, stochastic √T
+−0.12 %, fit in √T **−0.010 %** (40× better than upstream's scheme). At
+n = 3 the fit goes **negative** in capture valleys; n ≥ 4 does not.
+
+What the fit arm would need to become a transport path (not built): all n
+tables on one union energy grid (memory ≈ n tables, the same as stochastic);
+per lookup an n-term dot product instead of one draw; a floor or a check
+against negative values at low n; and, for #945's majorant, a **continuous**
+bound in T over a region's range — the finite "largest tabulated value"
+bound that stochastic interpolation allows (#945 note 3) no longer holds,
+so it would need the same machinery as WMP (#948).
+
+### 3.5 URR (U-238, 20–149 keV, 81 interior PURR energies)
+
+PURR 20/64/10 000 at each of the 75 K grid temperatures. Worst over energies
+and brackets. For scale: σ_c,eff at σ₀ = 10 b moves by at most **4.98 %**
+between 300 and 1500 K.
+
+| Δ K | arm | σ_c,eff σ₀ = 10 b | σ₀ = 100 b | σ₀ = 1000 b | σ_c inf. dilute | σ_t,eff σ₀ = 10 b | group σ_c,eff σ₀ = 10 b |
+|---|---|---|---|---|---|---|---|
+| 600 | T | −0.66 | −0.18 | −0.023 | 0.0000 | −0.41 | −0.37 |
+| 600 | √T | −0.42 | −0.12 | −0.015 | 0.0000 | −0.23 | −0.24 |
+| 600 | log T | −0.18 | −0.055 | −0.007 | 0.0000 | −0.069 | −0.12 |
+| 300 | T | −0.29 | −0.080 | −0.010 | 0.0000 | −0.17 | −0.16 |
+| 300 | √T | −0.19 | −0.052 | −0.007 | 0.0000 | −0.096 | −0.11 |
+| 300 | log T | −0.081 | −0.025 | −0.003 | 0.0000 | −0.028 | −0.051 |
+| 150 | T | −0.11 | −0.029 | −0.004 | 0.0000 | −0.059 | −0.060 |
+| 150 | √T | −0.070 | −0.020 | −0.003 | 0.0000 | −0.034 | −0.039 |
+| 150 | log T | −0.032 | −0.010 | −0.001 | 0.0000 | −0.012 | −0.018 |
+
+Always negative, smooth in Δ (PURR's shared seed keeps its noise out of the
+difference, as §2.1 expected), and **log T is best here**, unlike the
+resolved range.
+
+### 3.6 H in H₂O, S(α,β) from the LEAPR deck
+
+σ_sab per H against the deck block run at the target temperature
+(comparison grid: the 13 tables' breakpoints plus 4000 log points,
+1e-5 eV to the 10 eV cutoff). Selected rows; T arm unless noted:
+
+| bracket → T | Δ K | pointwise (over / under) | band 1e-5–0.01 eV | 0.01–0.1 | 0.1–1 | 1–10 |
+|---|---|---|---|---|---|---|
+| [300, 350] → 323.6 | 50 | +0.49 / −0.02 | +0.29 | +0.042 | +0.006 | +0.021 |
+| [500, 550] → 523.6 | 50 | +0.10 / −0.54 | −0.45 | +0.068 | +0.004 | −0.009 |
+| [300, 400] → 350 | 100 | +2.19 / −0.10 | +1.35 | +0.059 | +0.012 | −0.015 |
+| [400, 500] → 450 | 100 | +0.27 / −1.14 | −0.91 | +0.157 | +0.017 | +0.019 |
+| [300, 500] → 400 | 200 | +2.08 / −0.08 | +1.17 | +0.383 | +0.058 | −0.003 |
+| [400, 600] → 500 | 200 | +0.42 / −3.55 | −2.80 | +0.195 | +0.026 | +0.006 |
+| [300, 600] → 450 | 300 | +1.45 / −3.78 | −3.22 | +0.735 | +0.100 | +0.022 |
+| [350, 650] → 500 | 300 | +1.12 / −7.39 | −5.96 | +0.577 | +0.057 | +0.016 |
+| [400, 800] → 600 | 400 | +2.33 / −14.10 | −11.76 | +1.557 | +0.118 | +0.057 |
+
+The pointwise extreme is always at the lowest energy (1e-5 eV), as predicted,
+but its **sign changes with the bracket** (positive below ~450 K, negative
+above) and no variable is best everywhere (√T and log T are worse than T in
+the low brackets, better in the high ones). The deck re-specifies its
+frequency spectrum at each temperature, so σ_sab(T) is not one smooth
+function; brackets that straddle a spectrum change are worse than their Δ
+alone suggests.
+
+**Transport (Pu-239 absorbed fraction, infinite H₂O + Pu-239,
+N_Pu/N_H₂O = 6.5e-4, source 4 eV, `Production` kernel, T arm):**
+
+| bracket → T | Δ K | exact | stochastic | difference (absolute) | relative |
+|---|---|---|---|---|---|
+| [300, 400] → 350 | 100 | 0.548717 ± 0.000249 | 0.550276 ± 0.000176 | **+0.00156 ± 0.00031 (5.1σ)** | +0.28 % |
+| [300, 600] → 450 | 300 | 0.579713 ± 0.000247 | 0.590890 ± 0.000174 | **+0.01118 ± 0.00030 (37σ)** | +1.93 % |
+| [400, 800] → 600 | 400 | 0.638515 ± 0.000480 | 0.641734 ± 0.000339 | **+0.00322 ± 0.00059 (5.5σ)** | +0.50 % |
+
+4 × 10⁶ histories per arm (Δ = 400: 10⁶). The error is **not monotone in
+Δ**: [300, 600] is 4× worse than the wider [400, 800], the same signature as
+the σ_sab table.
+
+### 3.7 Predictions against results
+
+| # | predicted | measured | verdict |
+|---|---|---|---|
+| P1 | pointwise T, lowest bracket: 5–20 / 2–6 / 0.5–1.5 / 0.15–0.4 % | 1–20 keV: +120 / +56 / +21 / +6.2 %; 1 eV–1 keV: +96 / +44 / +16 / +4.8 % (both in valleys) | **refuted** (10×, located in valleys, not peaks) |
+| P2 | log T < √T < T at peaks; √T best overall | in the keV valleys T < √T < log T on the positive side | **refuted** for the valley maxima |
+| P3 | band integrals ≤ 1e-4 (Δ ≤ 300) | ≤ 5e-6 (Δ ≤ 300), 1.7e-5 (Δ = 600) | held |
+| P4 | RI σ₀ = 100, T: −0.5…−0.8 / −0.2…−0.3 / ≈ −0.02 % | −0.56 / −0.21 / −0.020 % | **held** |
+| P5 | √T < 1/10 of T; log T positive ≈ T | √T +0.045 (≈ 1/5, other sign); log T +0.30 | log T held; √T 2× outside |
+| P6 | plug-in RI larger than stochastic | +0.23 vs −0.21 % | held |
+| P7 | p σ_b = 100, T: +0.3…+0.5 / +0.02…+0.03 %; σ_b = 1000 3–5× smaller | +0.40 / +0.037 %; σ_b = 1000 only 1.3× smaller | Δ = 300 held; Δ = 75 slightly over; dilution ratio **refuted** |
+| P8 | √T ≤ 1/5 of T; log T opposite sign | √T 0.29 of T (opposite sign); log T opposite sign | log T held; √T marginal |
+| P9 | +1.5…+3 %, > 5σ, MC within 2σ | +3.05 % det., +2.89 ± 0.15 % MC (19σ), agreement −0.8σ | held (at the top edge) |
+| P10 | √T n = 3/5 pointwise ≤ 2 / 0.1 %; p ≤ 0.01 % at n = 5; T fit 10× worse; no negatives | 113 / 15 % (valleys); p −0.0097 %; T fit 1.7× worse; **negative at n = 3** | p held; pointwise, ratio and negativity refuted |
+| P11 | URR T: Δ = 300 ≤ 0.1 %, Δ = 150 ≤ 0.03 %, negative; inf. dil. ≤ 1e-4 | −0.29 / −0.11 %, negative; 0 | magnitude **refuted** (3×); sign held |
+| P12 | σ_sab ≤ 0.3 / 1 / 3 / 8 % | 0.54 / 2.2 / 3.5 / 14.1 % | **refuted** (≈ 2×), sign irregular |
+| P13 | Pu-239 fraction unresolved, \|Δ\| < 1e-3 | +0.0032 ± 0.0006 (5.5σ) | **refuted** |
+| P14 | thinning floor ≈ 1e-3 pointwise, ≤ 1e-5 integrals | 1.3 % pointwise capture, 1.1e-4 band integrals | **refuted** |
+
+### 3.8 Error budget, and which numbers to quote
+
+**Quote the p column (σ_b = 100 b) and the RI at σ₀ = 100 b of §3.2, lowest
+bracket**, as decided in §2.4; §3.3 shows they are transport results. The
+pointwise maxima (§3.1) are reported but are valley- and floor-dominated.
+
+U-238 resolved range, worst (lowest) bracket, p at σ_b = 100 b (≈ Δk/k for
+this strongly self-shielded instrument; a real LWR lattice, with
+−ln p ≈ 0.3 against 1.7 here, would see roughly a fifth):
+
+| tables over 300–1500 K | upstream stochastic, T | stochastic, √T | stochastic, log T | Chebyshev fit, √T |
+|---|---|---|---|---|
+| 3 (Δ = 600) | +1.16 % | −0.32 % | −1.77 % | −0.38 % (negative σ) |
+| 5 (Δ = 300) | +0.40 % | −0.12 % | −0.63 % | **−0.010 %** |
+| 9 (Δ = 150) | +0.127 % | −0.036 % | −0.198 % | — |
+| 17 (Δ = 75) | +0.037 % | −0.010 % | −0.057 % | — |
+
+Unresolved range (σ_c,eff, σ₀ = 10 b): upstream T −0.29 % at Δ = 300,
+−0.11 % at Δ = 150. S(α,β): +0.28 % in a spectrum-sensitive absorption
+fraction at Δ = 100 K, +1.9 % at Δ = 300 K.
+
+## 4. Recommendation (not a decision)
+
+1. **If upstream's scheme (stochastic, T) is kept, the resolved-range error
+   sets the grid.** For ≤ 0.1 % on a strongly shielded p it needs Δ ≈ 130 K
+   at the cold end (300–600 K); the hot end tolerates ~2× that, since the
+   error falls 3.5–6× from the bottom to the top bracket. A grid uniform in
+   √T or geometric in T matches that shape better than a uniform one.
+2. **√T as the selection variable is worth ~3.5× on p and ~4–13× on the RI**
+   at every spacing, at no cost, but it is a departure from upstream and it is
+   *worse* in the URR and in the keV valleys pointwise. Measured, not
+   recommended outright.
+3. **The Chebyshev fit is the most accurate per table by a wide margin**
+   (5 tables in √T: 0.01 % on p), but it is deterministic, needs n ≥ 4 to stay
+   positive, and loses the finite majorant property; it belongs with WMP
+   (#948) and the continuous-in-T majorant (#945), not as a drop-in for A.
+4. **S(α,β) should use the deck's own temperatures (≈ 25–50 K apart for H in
+   H₂O) and nothing coarser.** Even Δ = 100 K is resolved in transport, and
+   the error is not monotone in spacing because the deck changes its spectrum
+   with temperature.
+5. **A production library at errthn = 1e-3 carries a −0.02 % thinning shift
+   in p by itself**; spacing errors below that are not worth buying.
+
+## 5. Limitations
+
+- One resolved nuclide (U-238), one moderator for the slowing-down
+  instrument (C-12 at 300 K), isotropic-CM scattering off a target at rest in
+  the p instrument (the MC check uses the same kernel). Thermal-range U-238
+  effects are not in the p instrument (band 1 eV–10 keV).
+- The U-238 test temperatures are bracket **midpoints in T**; the worst point
+  for √T and log T lies elsewhere in the bracket and is not mapped.
+- S(α,β): exact data only exist at deck temperatures, so the brackets are
+  irregular; the transport instrument (Pu-239, JENDL-3.3) is chosen for
+  spectral sensitivity, not as a reactor case.
+- No k_eff of a real lattice was run; p and the Pu-239 fraction stand in
+  for it.
+- The port is not on a transport path; #945 stage 2 wires it.
+
+## 6. Hardware and timings
+
+All runs: `CPU only, 3 cores (taskset 0-2), linux, 13th Gen Intel(R)
+Core(TM) i9-13900K, 62.5 GiB RAM`, 3 threads, shared machine (other agents
+building concurrently).
+
+| stage | wall |
+|---|---|
+| RECONR U-238 (tol 1e-3) | 9.6–12.5 s |
+| BROADR U-238 at 300 K, errthn 1e-4 | 23–30 s |
+| 69 temperatures (17 with PURR 20/64/10 000), 3 threads | 1258 s |
+| whole `pointwise --urr` stage | 1400 s |
+| `pointwise` re-run without PURR (added the 1 eV–1 keV column; every integral reproduced to the printed digit) | 1271 s |
+| MC check, 3 × (4 × 10⁶) histories | 362 s |
+| LEAPR + bake, H in H₂O, 13 temperatures | 100 s |
+| Pu-239 MC, 3 × (4 × 10⁶) histories | 274–297 s |

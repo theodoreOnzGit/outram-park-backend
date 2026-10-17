@@ -54,8 +54,20 @@ impl PointwiseError {
 
 /// Pointwise relative error over `[e_lo, e_hi]` \[eV\]; points where `exact`
 /// is not positive are skipped (a relative error is undefined there).
-pub fn pointwise(grid: &[f64], approx: &[f64], exact: &[f64], e_lo: f64, e_hi: f64) -> PointwiseError {
-    let mut out = PointwiseError { max_over: 0.0, e_over: f64::NAN, max_under: 0.0, e_under: f64::NAN, points: 0 };
+pub fn pointwise(
+    grid: &[f64],
+    approx: &[f64],
+    exact: &[f64],
+    e_lo: f64,
+    e_hi: f64,
+) -> PointwiseError {
+    let mut out = PointwiseError {
+        max_over: 0.0,
+        e_over: f64::NAN,
+        max_under: 0.0,
+        e_under: f64::NAN,
+        points: 0,
+    };
     for ((&e, &a), &x) in grid.iter().zip(approx).zip(exact) {
         if e < e_lo || e > e_hi || x <= 0.0 {
             continue;
@@ -105,10 +117,24 @@ pub struct ShieldedIntegrals {
 
 impl ShieldedIntegrals {
     /// The integrals of one table (or of a plugged-in σ) over `[e_lo, e_hi]`.
-    pub fn of(grid: &[f64], sigma_x: &[f64], sigma_t: &[f64], sigma0: f64, e_lo: f64, e_hi: f64) -> Self {
-        let num: Vec<f64> = sigma_x.iter().zip(sigma_t).map(|(x, t)| x / (t + sigma0)).collect();
+    pub fn of(
+        grid: &[f64],
+        sigma_x: &[f64],
+        sigma_t: &[f64],
+        sigma0: f64,
+        e_lo: f64,
+        e_hi: f64,
+    ) -> Self {
+        let num: Vec<f64> = sigma_x
+            .iter()
+            .zip(sigma_t)
+            .map(|(x, t)| x / (t + sigma0))
+            .collect();
         let den: Vec<f64> = sigma_t.iter().map(|t| 1.0 / (t + sigma0)).collect();
-        Self { n: lethargy_integral(grid, &num, e_lo, e_hi), d: lethargy_integral(grid, &den, e_lo, e_hi) }
+        Self {
+            n: lethargy_integral(grid, &num, e_lo, e_hi),
+            d: lethargy_integral(grid, &den, e_lo, e_hi),
+        }
     }
 
     /// What a per-lookup draw between tables gives: each integral is linear
@@ -151,7 +177,10 @@ pub fn mix_slowing_down_grids(parts: &[(&SlowingDownGrid, f64)]) -> SlowingDownG
     let mut scatter_frac = vec![vec![0.0; n]; n_mix];
     let mut absorb_frac = vec![vec![0.0; n]; n_mix];
     for (g, w) in parts {
-        assert_eq!(g.lethargy, first.lethargy, "grids must share lethargy points");
+        assert_eq!(
+            g.lethargy, first.lethargy,
+            "grids must share lethargy points"
+        );
         assert_eq!(g.alpha, first.alpha, "grids must share the mixture");
         for i in 0..n_mix {
             for j in 0..n {
@@ -160,30 +189,45 @@ pub fn mix_slowing_down_grids(parts: &[(&SlowingDownGrid, f64)]) -> SlowingDownG
             }
         }
     }
-    SlowingDownGrid { lethargy: first.lethargy.clone(), scatter_frac, absorb_frac, alpha: first.alpha.clone() }
+    SlowingDownGrid {
+        lethargy: first.lethargy.clone(),
+        scatter_frac,
+        absorb_frac,
+        alpha: first.alpha.clone(),
+    }
 }
 
 /// The slowing-down grid on `lethargy` (from a grid already built, with
 /// source energy `e_top` \[eV\]) when each component's macroscopic
-/// `(Σ_scatter, Σ_absorb)` \[1/cm\] at energy E is `sigma(E)[i]`. For arms
+/// `(Σ_scatter, Σ_absorb)` \[1/cm\] at grid point j, energy E, is `sigma(j, E)[i]`. For arms
 /// whose cross sections are not one table's (a plugged-in mixture, a fit).
-pub fn slowing_down_grid_from<F>(lethargy: &[f64], e_top: f64, alpha: &[f64], mut sigma: F) -> SlowingDownGrid
+pub fn slowing_down_grid_from<F>(
+    lethargy: &[f64],
+    e_top: f64,
+    alpha: &[f64],
+    mut sigma: F,
+) -> SlowingDownGrid
 where
-    F: FnMut(f64) -> Vec<(f64, f64)>,
+    F: FnMut(usize, f64) -> Vec<(f64, f64)>,
 {
     let n_mix = alpha.len();
     let n = lethargy.len();
     let mut scatter_frac = vec![vec![0.0; n]; n_mix];
     let mut absorb_frac = vec![vec![0.0; n]; n_mix];
     for (j, &u) in lethargy.iter().enumerate() {
-        let s = sigma(e_top * (-u).exp());
+        let s = sigma(j, e_top * (-u).exp());
         let tot: f64 = s.iter().map(|(a, b)| a + b).sum();
         for (i, (sc, ab)) in s.iter().enumerate().take(n_mix) {
             scatter_frac[i][j] = sc / tot;
             absorb_frac[i][j] = ab / tot;
         }
     }
-    SlowingDownGrid { lethargy: lethargy.to_vec(), scatter_frac, absorb_frac, alpha: alpha.to_vec() }
+    SlowingDownGrid {
+        lethargy: lethargy.to_vec(),
+        scatter_frac,
+        absorb_frac,
+        alpha: alpha.to_vec(),
+    }
 }
 
 /// The URR band intervals behind
@@ -203,7 +247,11 @@ pub fn urr_band_weights(reps: &[f64]) -> Option<Vec<(f64, f64)>> {
     let mut out = Vec::with_capacity(r.len() / 2);
     for k in 0..r.len() / 2 {
         let (cut, mid) = (r[2 * k], r[2 * k + 1]);
-        let next = if 2 * k + 2 < r.len() { r[2 * k + 2] } else { 1.0 };
+        let next = if 2 * k + 2 < r.len() {
+            r[2 * k + 2]
+        } else {
+            1.0
+        };
         if (mid - 0.5 * (cut + next)).abs() > 1e-12 {
             return None;
         }
@@ -240,10 +288,19 @@ mod tests {
     fn shielded_integrals_mix_linearly_and_differ_from_plug_in() {
         let g: Vec<f64> = (0..=200).map(|k| 1.0 + k as f64 * 0.01).collect();
         // Two "tables": a tall narrow line and a broad low one, same area.
-        let a: Vec<f64> = g.iter().map(|e| 10.0 + 1000.0 * (-((e - 2.0) / 0.02f64).powi(2)).exp()).collect();
-        let b: Vec<f64> = g.iter().map(|e| 10.0 + 500.0 * (-((e - 2.0) / 0.04f64).powi(2)).exp()).collect();
+        let a: Vec<f64> = g
+            .iter()
+            .map(|e| 10.0 + 1000.0 * (-((e - 2.0) / 0.02f64).powi(2)).exp())
+            .collect();
+        let b: Vec<f64> = g
+            .iter()
+            .map(|e| 10.0 + 500.0 * (-((e - 2.0) / 0.04f64).powi(2)).exp())
+            .collect();
         let s0 = 50.0;
-        let (ia, ib) = (ShieldedIntegrals::of(&g, &a, &a, s0, 1.0, 3.0), ShieldedIntegrals::of(&g, &b, &b, s0, 1.0, 3.0));
+        let (ia, ib) = (
+            ShieldedIntegrals::of(&g, &a, &a, s0, 1.0, 3.0),
+            ShieldedIntegrals::of(&g, &b, &b, s0, 1.0, 3.0),
+        );
         let m = ShieldedIntegrals::mix(&[(ia, 0.5), (ib, 0.5)]);
         assert!((m.n - 0.5 * (ia.n + ib.n)).abs() < 1e-14);
         // Plugging the mixed σ in is NOT the mixture: g(σ) = σ/(σ+σ0) is
@@ -258,8 +315,8 @@ mod tests {
     fn slowing_down_grids_mix_and_rebuild() {
         let lethargy = vec![0.0, 0.01, 0.02];
         let alpha = vec![0.5];
-        let g1 = slowing_down_grid_from(&lethargy, 10.0, &alpha, |_| vec![(3.0, 1.0)]);
-        let g2 = slowing_down_grid_from(&lethargy, 10.0, &alpha, |_| vec![(1.0, 1.0)]);
+        let g1 = slowing_down_grid_from(&lethargy, 10.0, &alpha, |_, _| vec![(3.0, 1.0)]);
+        let g2 = slowing_down_grid_from(&lethargy, 10.0, &alpha, |_, _| vec![(1.0, 1.0)]);
         assert!((g1.absorb_frac[0][1] - 0.25).abs() < 1e-15);
         let m = mix_slowing_down_grids(&[(&g1, 0.5), (&g2, 0.5)]);
         assert!((m.absorb_frac[0][2] - 0.375).abs() < 1e-15);

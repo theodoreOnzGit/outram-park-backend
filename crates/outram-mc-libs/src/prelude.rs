@@ -28,6 +28,7 @@ pub use crate::material::material::{MacroXs, Material, NuclideComponent};
 pub use crate::material::nuclide::{MicroXS, Nuclide};
 pub use crate::material::processed::ProcessedEvaluation;
 pub use crate::material::speed::SpeedTier;
+pub use crate::material::temperature_interpolation::{InterpolationVariable, TableBracket, TemperatureTables};
 pub use crate::material::thermal::{
     CoherentElasticTable, IncoherentElasticTable, ThermalElastic, ThermalScattering,
 };
