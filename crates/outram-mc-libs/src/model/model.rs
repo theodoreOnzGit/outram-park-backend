@@ -628,14 +628,47 @@ impl AssembledModel {
     /// # Errors
     /// The first nuclide that is missing or fails to process.
     pub fn load_nuclides(&self, data: &NuclearData) -> Result<Vec<Nuclide>, DataError> {
+        self.load_nuclides_with(data, super::run::Progress::Silent)
+    }
+
+    /// [`Self::load_nuclides`], printing each nuclide as its data finishes
+    /// processing when `progress` is [`super::run::Progress::Print`]
+    /// (nuclides process in parallel, so they finish in any order).
+    pub fn load_nuclides_with(
+        &self,
+        data: &NuclearData,
+        progress: super::run::Progress,
+    ) -> Result<Vec<Nuclide>, DataError> {
         #[cfg(not(target_arch = "wasm32"))]
         use rayon::prelude::*;
         #[cfg(target_arch = "wasm32")]
         use crate::wasm_par::prelude::*;
         let t = self.temperature_k;
+        let print = progress == super::run::Progress::Print;
+        if print {
+            println!(
+                " processing {} nuclides at {t} K (correct physics on)",
+                self.nuclides.len()
+            );
+        }
         self.nuclides
             .par_iter()
-            .map(|k| data.load_nuclide(k.isotope, t, k.law))
+            .map(|k| {
+                #[cfg(not(target_arch = "wasm32"))]
+                let clock = std::time::Instant::now();
+                let n = data.load_nuclide(k.isotope, t, k.law);
+                if print {
+                    #[cfg(not(target_arch = "wasm32"))]
+                    println!(
+                        "   {} ready in {:.1} s",
+                        k.isotope.name(),
+                        clock.elapsed().as_secs_f64()
+                    );
+                    #[cfg(target_arch = "wasm32")]
+                    println!("   {} ready", k.isotope.name());
+                }
+                n
+            })
             .collect()
     }
 }
