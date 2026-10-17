@@ -95,8 +95,17 @@ impl Isotope {
     }
 
     /// The element this isotope belongs to.
+    ///
+    /// ~~Fell back to hydrogen for `Z > 94`~~ **CORRECTED 2026-10-17**
+    /// (found by another agent, fixed in gh #940's wave): `Am241.element()`
+    /// returned `Hydrogen`, because [`Element`] stopped at plutonium. It now
+    /// lists all 118 elements, and every [`Isotope`] has `1 <= Z <= 118`
+    /// (checked by its constructors), so the lookup cannot miss; the
+    /// `expect` states that invariant and
+    /// `every_isotope_z_has_its_element` pins it.
     pub fn element(self) -> Element {
-        Element::from_z(self.z).unwrap_or(Element::Hydrogen)
+        Element::from_z(self.z)
+            .expect("an Isotope's Z is 1..=118 and Element lists all 118 elements")
     }
 
     /// Heavy metal in the fuel sense: actinides (`Z >= 89`).
@@ -142,8 +151,8 @@ macro_rules! elements {
         }
 
         impl Element {
-            /// The element with proton number `z`, if it is one of the 94
-            /// listed (hydrogen to plutonium).
+            /// The element with proton number `z` (1..=118, hydrogen to
+            /// oganesson); `None` outside that range.
             pub fn from_z(z: u8) -> Option<Self> {
                 match z {
                     $( $z => Some(Self::$name), )*
@@ -185,7 +194,14 @@ elements! {
     Thallium = 81, "Tl"; Lead = 82, "Pb"; Bismuth = 83, "Bi"; Polonium = 84, "Po";
     Astatine = 85, "At"; Radon = 86, "Rn"; Francium = 87, "Fr"; Radium = 88, "Ra";
     Actinium = 89, "Ac"; Thorium = 90, "Th"; Protactinium = 91, "Pa"; Uranium = 92, "U";
-    Neptunium = 93, "Np"; Plutonium = 94, "Pu";
+    Neptunium = 93, "Np"; Plutonium = 94, "Pu"; Americium = 95, "Am"; Curium = 96, "Cm";
+    Berkelium = 97, "Bk"; Californium = 98, "Cf"; Einsteinium = 99, "Es"; Fermium = 100, "Fm";
+    Mendelevium = 101, "Md"; Nobelium = 102, "No"; Lawrencium = 103, "Lr";
+    Rutherfordium = 104, "Rf"; Dubnium = 105, "Db"; Seaborgium = 106, "Sg"; Bohrium = 107, "Bh";
+    Hassium = 108, "Hs"; Meitnerium = 109, "Mt"; Darmstadtium = 110, "Ds";
+    Roentgenium = 111, "Rg"; Copernicium = 112, "Cn"; Nihonium = 113, "Nh";
+    Flerovium = 114, "Fl"; Moscovium = 115, "Mc"; Livermorium = 116, "Lv";
+    Tennessine = 117, "Ts"; Oganesson = 118, "Og";
 }
 
 impl Element {
@@ -299,5 +315,24 @@ mod tests {
         assert_eq!(Species::from(U234).to_string(), "U234");
         assert_eq!(Element::Boron.natural().to_string(), "natural B");
         assert_eq!(format!("{}", Isotope::new(6, 0).unwrap()), "C0");
+    }
+
+    /// **Every Z an Isotope can have names its own element**: no fallback
+    /// (`Am241.element()` used to be `Hydrogen`), and the symbol matches the
+    /// one the isotope's own name carries.
+    #[test]
+    fn every_isotope_z_has_its_element() {
+        assert_eq!(Am241.element(), Element::Americium);
+        assert_eq!(Isotope::new(96, 244).unwrap().element(), Element::Curium);
+        assert_eq!(Isotope::new(98, 252).unwrap().element(), Element::Californium);
+        for z in 1..=118u8 {
+            let e = Element::from_z(z).expect("all 118 elements listed");
+            assert_eq!(e.z(), z);
+            let i = Isotope::new(z, 0).unwrap();
+            assert_eq!(i.element(), e);
+            assert_eq!(i.name(), format!("{}0", e.symbol()));
+        }
+        assert_eq!(Element::from_z(0), None);
+        assert_eq!(Element::from_z(119), None);
     }
 }

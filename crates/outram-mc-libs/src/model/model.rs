@@ -641,7 +641,7 @@ impl AssembledModel {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::super::isotope::isotopes::*;
     use super::super::material::atoms_per_barn_cm;
     use super::super::material::Moderator;

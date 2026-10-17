@@ -48,7 +48,12 @@
 use raffles::estimators::autocorrelation::CorrelatedMean;
 use raffles::estimators::mean_and_stderr;
 
+use super::collect::{
+    Collector, Ealf, Kinetics, Leakage, MCDiagnosticResult, MeshMap, NeutronBalance, RunContext,
+    RunHealth, SixFactors, Spectrum,
+};
 use super::data::DataError;
+use super::diagnostics::{DiagnosticError, Diagnostics, MCDiagnostic, Region};
 use super::model::{AssembledModel, Model, ModelError};
 use crate::material::nuclide::Nuclide;
 use crate::physics::keff::KeffSettings as LowLevelKeffSettings;
@@ -171,25 +176,17 @@ pub enum MCSettings {
     Custom(CustomRun),
 }
 
-/// **High-level outputs to collect** (six factors, spectrum, ...).
-///
-/// **Not yet implemented** (gh #940). This type has no values, so the only
-/// thing [`KeffSettings::new`] accepts for it today is `None` (k_eff only);
-/// the signature is the decided one so code written now keeps compiling when
-/// #940 lands.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Diagnostics {}
-
 /// **What to run**: a run size and the diagnostics to collect.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct KeffSettings {
     mc: MCSettings,
     diagnostics: Option<Diagnostics>,
 }
 
 impl KeffSettings {
-    /// `KeffSettings::new(MCSettings::Auto, None)`: `None` means k_eff only
-    /// (the only choice until #940 lands).
+    /// `KeffSettings::new(MCSettings::Auto, None)`: `None` means k_eff
+    /// only; `Some(Diagnostics::default())` collects the "wanted by
+    /// everyone" set ([`Diagnostics`]).
     pub fn new(mc: MCSettings, diagnostics: Option<Diagnostics>) -> Self {
         Self { mc, diagnostics }
     }
@@ -199,9 +196,9 @@ impl KeffSettings {
         self.mc
     }
 
-    /// The diagnostics requested (always `None` until #940).
-    pub fn diagnostics(&self) -> Option<Diagnostics> {
-        self.diagnostics
+    /// The diagnostics requested.
+    pub fn diagnostics(&self) -> Option<&Diagnostics> {
+        self.diagnostics.as_ref()
     }
 }
 
@@ -236,6 +233,9 @@ pub enum RunError {
     /// The neutron population died out.
     #[error("the neutron population died out at generation {0}")]
     PopulationDied(usize),
+    /// A diagnostic could not be planned or assembled.
+    #[error(transparent)]
+    Diagnostic(#[from] DiagnosticError),
 }
 
 /// **The normality half of the watcher's criterion.** Needs a raffles
@@ -335,6 +335,10 @@ pub struct RunProvenance {
     /// Statements every reader should see (smoke test, unjustified
     /// thresholds, what is not counted).
     pub notes: Vec<String>,
+    /// **Physics switched off on purpose** through [`super::advanced`]
+    /// (`without_dbrc`, ...). Empty for every ordinary run: correct physics
+    /// is on and hidden (#942).
+    pub ablations: Vec<String>,
 }
 
 /// k_eff and its 1σ standard error over the active cycles.
@@ -367,12 +371,164 @@ pub struct KeffRun {
     pub particles_by_cycle: Vec<usize>,
     /// How it was made.
     pub provenance: RunProvenance,
+    /// Each requested diagnostic with its result, in request order (empty
+    /// for `None`).
+    pub diagnostics: Vec<(MCDiagnostic, MCDiagnosticResult)>,
+}
+
+/// The first result of variant `$v`, or the "not requested" error.
+macro_rules! first_result {
+    ($self:ident, $v:ident, $how:expr) => {
+        $self
+            .diagnostics
+            .iter()
+            .find_map(|(_, r)| match r {
+                MCDiagnosticResult::$v(x) => Some(x),
+                _ => None,
+            })
+            .ok_or(DiagnosticError::NotRequested {
+                variant: stringify!($v),
+                how: $how,
+            })
+    };
 }
 
 impl KeffRun {
     /// k_eff ± σ.
     pub fn keff(&self) -> Keff {
         self.keff
+    }
+
+    /// **The six factors** (the first `SixFactors` requested).
+    ///
+    /// # Errors
+    /// Not requested.
+    pub fn six_factors(&self) -> Result<&SixFactors, DiagnosticError> {
+        first_result!(
+            self,
+            SixFactors,
+            "Diagnostics::default(), or MCDiagnostic::six_factors(..)"
+        )
+    }
+
+    /// The six factors split at exactly these edges.
+    ///
+    /// # Errors
+    /// No `SixFactors` at those edges was requested.
+    pub fn six_factors_with_edges(
+        &self,
+        thermal_edge: uom::si::f64::Energy,
+        fast_edge: uom::si::f64::Energy,
+    ) -> Result<&SixFactors, DiagnosticError> {
+        self.diagnostics
+            .iter()
+            .find_map(|(d, r)| match (d, r) {
+                (
+                    MCDiagnostic::SixFactors {
+                        thermal_edge: t,
+                        fast_edge: f,
+                    },
+                    MCDiagnosticResult::SixFactors(x),
+                ) if *t == thermal_edge && *f == fast_edge => Some(x),
+                _ => None,
+            })
+            .ok_or(DiagnosticError::NotRequested {
+                variant: "SixFactors",
+                how: "MCDiagnostic::six_factors(thermal_edge, fast_edge) with these edges",
+            })
+    }
+
+    /// **The spectrum in `region`** (the first one requested there).
+    ///
+    /// # Errors
+    /// No spectrum was requested in that region.
+    pub fn spectrum(&self, region: Region) -> Result<&Spectrum, DiagnosticError> {
+        self.diagnostics
+            .iter()
+            .find_map(|(_, r)| match r {
+                MCDiagnosticResult::Spectrum(s) if s.region == region => Some(s),
+                _ => None,
+            })
+            .ok_or(DiagnosticError::NotRequested {
+                variant: "Spectrum",
+                how: "Diagnostics::default() for the whole model, .with_spectrum_per_component(..) for components",
+            })
+    }
+
+    /// Run health.
+    ///
+    /// # Errors
+    /// Not requested.
+    pub fn run_health(&self) -> Result<&RunHealth, DiagnosticError> {
+        first_result!(
+            self,
+            RunHealth,
+            "Diagnostics::default(), or MCDiagnostic::run_health()"
+        )
+    }
+
+    /// The neutron balance (the first requested).
+    ///
+    /// # Errors
+    /// Not requested.
+    pub fn neutron_balance(&self) -> Result<&NeutronBalance, DiagnosticError> {
+        first_result!(
+            self,
+            NeutronBalance,
+            "Diagnostics::default(), or MCDiagnostic::neutron_balance(..)"
+        )
+    }
+
+    /// EALF.
+    ///
+    /// # Errors
+    /// Not requested.
+    pub fn ealf(&self) -> Result<&Ealf, DiagnosticError> {
+        first_result!(
+            self,
+            Ealf,
+            "Diagnostics::default(), or MCDiagnostic::ealf()"
+        )
+    }
+
+    /// Leakage (the first requested).
+    ///
+    /// # Errors
+    /// Not requested.
+    pub fn leakage(&self) -> Result<&Leakage, DiagnosticError> {
+        first_result!(
+            self,
+            Leakage,
+            "Diagnostics::default(), or MCDiagnostic::leakage(..)"
+        )
+    }
+
+    /// Kinetics (β_eff, Λ by IFP).
+    ///
+    /// # Errors
+    /// Not requested.
+    pub fn kinetics(&self) -> Result<&Kinetics, DiagnosticError> {
+        first_result!(
+            self,
+            Kinetics,
+            "Diagnostics::reactor_physics(), or MCDiagnostic::kinetics(..)"
+        )
+    }
+
+    /// The fission map (the first requested).
+    ///
+    /// # Errors
+    /// Not requested.
+    pub fn fission_map(&self) -> Result<&MeshMap, DiagnosticError> {
+        first_result!(self, FissionMap, "Diagnostics::reactor_physics()")
+    }
+
+    /// The flux map (the first requested).
+    ///
+    /// # Errors
+    /// Not requested.
+    pub fn flux_map(&self) -> Result<&MeshMap, DiagnosticError> {
+        first_result!(self, FluxMap, "Diagnostics::reactor_physics()")
     }
 }
 
@@ -420,6 +576,9 @@ impl std::fmt::Display for KeffRun {
                 "  physics {}: URR tables {urr}, DBRC {dbrc}, thermal {law}",
                 n.nuclide
             )?;
+        }
+        for a in &p.ablations {
+            writeln!(f, "  ABLATED: {a}")?;
         }
         for n in &p.notes {
             writeln!(f, "  note: {n}")?;
@@ -535,6 +694,17 @@ impl AssembledModel {
         nuclides: &[Nuclide],
         settings: &KeffSettings,
     ) -> Result<KeffRun, RunError> {
+        self.keff_with_ablations(nuclides, settings, Vec::new())
+    }
+
+    /// [`Self::keff_with`], recording `ablations` (the physics an
+    /// [`super::advanced`] run switched off) in the provenance.
+    pub(crate) fn keff_with_ablations(
+        &self,
+        nuclides: &[Nuclide],
+        settings: &KeffSettings,
+        ablations: Vec<String>,
+    ) -> Result<KeffRun, RunError> {
         if nuclides.len() != self.nuclides.len() {
             return Err(RunError::NuclideCount {
                 got: nuclides.len(),
@@ -560,7 +730,16 @@ impl AssembledModel {
             ..LowLevelKeffSettings::default()
         };
         let (g, m) = (&self.geometry, &self.materials);
+        let mut collector = match settings.diagnostics() {
+            Some(d) => Some(Collector::new(d.items(), self)?),
+            None => None,
+        };
         let mut it = CsgPowerIteration::new(g, m, nuclides, self.source_box, &low);
+        if let Some(s) = collector.as_ref().and_then(Collector::ifp) {
+            it.enable_ifp(s).map_err(RunError::InvalidSettings)?;
+        }
+        #[cfg(not(target_arch = "wasm32"))]
+        let clock = std::time::Instant::now();
         let placed = it.source_positions().len();
         if placed < p.start_particles {
             return Err(RunError::SourceUnderfilled {
@@ -570,11 +749,26 @@ impl AssembledModel {
         }
         let mesh = self.entropy_mesh();
         let mut tr = Traces::default();
-        let step = |it: &mut CsgPowerIteration, tr: &mut Traces| -> Result<(), RunError> {
+        // Inactive cycles discard their scores; active ones keep them. With
+        // no diagnostics this is exactly `step` (wave 1, bit for bit).
+        let step = |it: &mut CsgPowerIteration,
+                    tr: &mut Traces,
+                    c: &mut Option<Collector>,
+                    active: bool|
+         -> Result<(), RunError> {
             let n = it.population();
-            let r = it
-                .step(g, m, nuclides)
-                .ok_or(RunError::PopulationDied(tr.k.len()))?;
+            let r = match c.as_mut() {
+                None => it.step(g, m, nuclides),
+                Some(c) => it.step_scored(g, m, nuclides, &mut c.extra).map(|(r, t)| {
+                    if active {
+                        c.active(&t, n, r.k);
+                    } else {
+                        c.inactive(&t);
+                    }
+                    r
+                }),
+            }
+            .ok_or(RunError::PopulationDied(tr.k.len()))?;
             if r.bank_size == 0 {
                 return Err(RunError::PopulationDied(tr.k.len()));
             }
@@ -592,7 +786,7 @@ impl AssembledModel {
             // and one production window under the cap.
             let low_cap = MAX_INACTIVE_CYCLES - SETTLE_CYCLES - WATCH_WINDOW_CYCLES;
             while tr.k.len() < low_cap {
-                step(&mut it, &mut tr)?;
+                step(&mut it, &mut tr, &mut collector, false)?;
                 let c = tr.k.len();
                 if c >= WATCH_WINDOW_CYCLES && c % WATCH_EVERY_CYCLES == 0 {
                     if let Some((k, h)) = tr.window(c - WATCH_WINDOW_CYCLES) {
@@ -606,12 +800,12 @@ impl AssembledModel {
             // Phase 2: raise the population, discard the transition.
             it.set_population(p.production_particles);
             for _ in 0..SETTLE_CYCLES {
-                step(&mut it, &mut tr)?;
+                step(&mut it, &mut tr, &mut collector, false)?;
             }
             // Phase 3: re-confirm at the production population.
             let start = tr.k.len();
             while tr.k.len() < MAX_INACTIVE_CYCLES {
-                step(&mut it, &mut tr)?;
+                step(&mut it, &mut tr, &mut collector, false)?;
                 let c = tr.k.len() - start;
                 if c >= WATCH_WINDOW_CYCLES && c % WATCH_EVERY_CYCLES == 0 {
                     if let Some((k, h)) = tr.window(tr.k.len() - WATCH_WINDOW_CYCLES) {
@@ -624,7 +818,7 @@ impl AssembledModel {
             }
         } else {
             for _ in 0..p.fixed_inactive {
-                step(&mut it, &mut tr)?;
+                step(&mut it, &mut tr, &mut collector, false)?;
             }
         }
         let n_inactive = tr.k.len();
@@ -632,7 +826,7 @@ impl AssembledModel {
         // ── Active cycles ────────────────────────────────────────────────
         let mut tol_reached = None;
         loop {
-            step(&mut it, &mut tr)?;
+            step(&mut it, &mut tr, &mut collector, true)?;
             let active = &tr.k[n_inactive..];
             match p.active {
                 Active::Fixed(n) if active.len() >= n => break,
@@ -683,7 +877,23 @@ impl AssembledModel {
             temperature_k: self.temperature_k,
             backend: "CsgPowerIteration, CPU single thread (bit for bit run_keff_csg at a fixed population)",
             notes: notes(settings.mc(), &p),
+            ablations,
             convergence,
+        };
+        #[cfg(not(target_arch = "wasm32"))]
+        let transport_seconds = Some(clock.elapsed().as_secs_f64());
+        #[cfg(target_arch = "wasm32")]
+        let transport_seconds = None;
+        let diagnostics = match collector {
+            None => Vec::new(),
+            Some(c) => c.finish(&RunContext {
+                k_by_cycle: tr.k.clone(),
+                entropy_by_cycle: tr.h.clone(),
+                particles_by_cycle: tr.n.clone(),
+                inactive_cycles: n_inactive,
+                converged: provenance.convergence.converged(),
+                transport_seconds,
+            })?,
         };
         Ok(KeffRun {
             keff: Keff { mean, std },
@@ -691,6 +901,7 @@ impl AssembledModel {
             entropy_by_cycle: tr.h,
             particles_by_cycle: tr.n,
             provenance,
+            diagnostics,
         })
     }
 
@@ -795,6 +1006,8 @@ mod tests {
         assert!(plan(MCSettings::Custom(CustomRun { particles: 0, ..c })).is_err());
         let s = KeffSettings::new(MCSettings::Fast, None);
         assert_eq!((s.mc(), s.diagnostics()), (MCSettings::Fast, None));
+        let s = KeffSettings::new(MCSettings::Fast, Some(Diagnostics::default()));
+        assert_eq!(s.diagnostics().map(|d| d.items().len()), Some(6));
         assert!(notes(MCSettings::Fast, &plan(MCSettings::Fast).unwrap())[0].contains("SMOKE TEST"));
         assert_eq!(ReactivityTolerance::pcm(30.0).in_pcm(), 30.0);
         assert_eq!(

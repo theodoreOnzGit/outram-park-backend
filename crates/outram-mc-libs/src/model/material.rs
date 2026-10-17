@@ -28,7 +28,7 @@
 //! Thermal scattering is attached from the material's description
 //! ([`Material::bound_in`]), never named by the user. Nothing here switches
 //! physics off; ablation is reserved for an explicit `advanced` entry (gh
-//! #942, not yet built).
+//! #942, ~~not yet built~~ built 2026-10-17: `super::advanced`).
 //!
 //! The numbers are turned into atom densities only when the material meets
 //! a nuclear-data library (see [`super::resolve`]), because weight bases need

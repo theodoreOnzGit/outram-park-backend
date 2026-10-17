@@ -954,6 +954,35 @@ the maintainer, 2026-10-03; protocols in
   both readings on both libraries (LOO RMSE 352 / 330 pcm against rms σ
   107 / 106 pcm); see `stats_epic_493/499_surrogate_sweeps.md`.
 
+### Beginner API diagnostics, report and `advanced` (2026-10-17, gh #940-#942)
+
+`model::Diagnostics` (a `Vec<MCDiagnostic>`, presets `default()` and
+`reactor_physics()`) **orchestrates existing tallies**; it adds no physics.
+Read these before touching it:
+
+- **Several tallies on one run** go through
+  `transport_csg::ExtraScoring` and `CsgPowerIteration::step_scored`;
+  scoring draws no random number, so k is the k of a run without them, and a
+  diagnostic alone equals itself beside others **bit for bit**
+  (`tests/model_diagnostics.rs`). Extras are scored under surface tracking
+  only (the power iteration has no majorants).
+- **IFP** (`physics::ifp`) is wired into `CsgPowerIteration::enable_ifp`
+  (lineage beside the source, combed with it). Λ is OpenMC's
+  `time / (denominator × k)`; `IfpTallies::generation_time` alone is the
+  lifetime (doc corrected).
+- **The six factors are undefined for a fast system** (no thermal
+  absorption): NaN with `undefined_because`, never zeros.
+- **Godiva against OpenMC** (β_eff, Λ, EALF, three-group rates, leakage):
+  `verification_and_validation/diagnostics/README.md`, deck committed.
+  Diagnostics cost 3.5× transport time on Godiva (measured, not optimised).
+- **The report** (`report.md` + CSV + PNG in a zip) is built in memory; the
+  zip writer is `model::report::zip` over `miniz_oxide`, the PNGs are
+  outram-blender's encoder and 5×7 font. `examples/diagnostics_report_in_memory.rs`
+  runs on `wasm32-wasip1`.
+- **Physics ablation only through `model.advanced()`** (`without_dbrc`,
+  `without_urr`, `without_thermal_scattering`); the run's
+  `provenance.ablations` names each.
+
 ### DEM pebble beds: `pebble_beds::dem_bed` (2026-10-02)
 
 `outram-park-fork-liggghts` is a dependency (with none of its default

@@ -182,3 +182,11 @@ pub use crate::model::{
     NuclidePhysics, NumberDensityComparison, Placement, PpmOf, PuVector, ReactivityTolerance, ResolvedMaterial,
     RunError, RunProvenance, SaltCarrier, Shape, Species, Temperature,
 };
+// Wave 2 (gh #940, #941, #942). `SixFactors`, `Spectrum`, `Region`, `Mesh`,
+// `Leakage` and `Kinetics` of the beginner API are generic names (one,
+// `SixFactors`, already names the low-level reactor-physics result), so they
+// stay in `outram_mc_libs::model::prelude`.
+pub use crate::model::{
+    AdvancedModel, BalanceBy, BalanceRow, DiagnosticError, DiagnosticsReport, Ealf, EnergyGrid,
+    MCDiagnostic, MCDiagnosticResult, MeshBounds, MeshMap, NeutronBalance, OutputFile, RunHealth,
+};
