@@ -75078,6 +75078,13 @@ pub fn atoms_per_barn_cm(value: f64) -> AtomDensity { /* ... */ }
 
 An [`AtomDensity`] in atoms per barn·cm.
 
+**Not always bit-exact against the number given**: `AtomDensity` stores
+per m³, and atoms per barn·cm → per m³ (×1e30) is not one-to-one on
+`f64`, so two inputs one ulp apart can become the same density. Measured
+on HEU-SOL-THERM-009's 14 densities (gh #943): 3 come back one ulp off,
+and F-19's neighbour maps to the same density, so no inverse can recover
+it. Pinned by `atom_density_round_trip_is_within_one_ulp`.
+
 ```rust
 pub fn to_atoms_per_barn_cm(density: AtomDensity) -> f64 { /* ... */ }
 ```

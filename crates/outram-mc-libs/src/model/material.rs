@@ -52,6 +52,13 @@ pub fn atoms_per_barn_cm(value: f64) -> AtomDensity {
 }
 
 /// An [`AtomDensity`] in atoms per barn·cm.
+///
+/// **Not always bit-exact against the number given**: `AtomDensity` stores
+/// per m³, and atoms per barn·cm → per m³ (×1e30) is not one-to-one on
+/// `f64`, so two inputs one ulp apart can become the same density. Measured
+/// on HEU-SOL-THERM-009's 14 densities (gh #943): 3 come back one ulp off,
+/// and F-19's neighbour maps to the same density, so no inverse can recover
+/// it. Pinned by `atom_density_round_trip_is_within_one_ulp`.
 pub fn to_atoms_per_barn_cm(density: AtomDensity) -> f64 {
     density.get::<per_cubic_centimeter>() * BARN_CM_PER_CUBIC_CM
 }
@@ -663,9 +670,37 @@ mod tests {
             ("uo2", Some(Moderator::LightWater), 1)
         );
         assert!((to_atoms_per_barn_cm(atoms_per_barn_cm(4.4994e-2)) - 4.4994e-2).abs() < 1e-17);
+        assert_eq!(to_atoms_per_barn_cm(atoms_per_barn_cm(0.0)), 0.0);
         assert_eq!(
             Material::aluminium_1100().name(),
             "1100 aluminium (HEU-SOL-THERM-009 model)"
         );
+    }
+
+    /// **Atoms per barn·cm through `AtomDensity` and back are within one
+    /// ulp, not always bit for bit** (gh #943): every density of
+    /// HEU-SOL-THERM-009 (`vv::hst009`) and Godiva (`vv::godiva`). Measured
+    /// 2026-10-18: 3 of the 14 HST-009 values (U-236, F-19, Mn-55) come back
+    /// one ulp off, Godiva's 3 exactly; F-19's input and its lower
+    /// neighbour map to the same `AtomDensity` (the conversion is not
+    /// one-to-one), so no inverse could recover it.
+    #[test]
+    fn atom_density_round_trip_is_within_one_ulp() {
+        let spec: Vec<f64> = crate::vv::hst009::MATERIALS
+            .iter()
+            .flat_map(|(_, rows)| rows.iter().map(|(_, d)| *d))
+            .chain(crate::vv::godiva::NUCLIDES.iter().map(|n| n.2))
+            .collect();
+        let mut off = 0;
+        for v in &spec {
+            let back = to_atoms_per_barn_cm(atoms_per_barn_cm(*v));
+            let ulps = (back.to_bits() as i64 - v.to_bits() as i64).abs();
+            assert!(ulps <= 1, "{v:e}: {ulps} ulp");
+            off += usize::from(ulps != 0);
+        }
+        assert_eq!(off, 3, "the measured count; a change here is a finding");
+        let f19 = 3.5663e-3_f64;
+        let below = f64::from_bits(f19.to_bits() - 1);
+        assert_eq!(atoms_per_barn_cm(f19), atoms_per_barn_cm(below));
     }
 }

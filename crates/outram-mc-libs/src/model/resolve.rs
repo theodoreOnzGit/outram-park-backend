@@ -158,7 +158,7 @@ impl ResolvedMaterial {
             .iter()
             .filter(|(i, _)| *i == isotope)
             .map(|(_, d)| to_atoms_per_barn_cm(*d))
-            .sum()
+            .fold(0.0, |a, b| a + b) // `sum()` of nothing is -0.0, printed "-0"
     }
 
     /// A side-by-side table of this material's and `other`'s atom densities,
