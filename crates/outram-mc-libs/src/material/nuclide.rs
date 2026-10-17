@@ -383,7 +383,10 @@ pub struct Nuclide {
 /// PURR's table settings of the pre-gh:#931 chain, `(nbin, nladr, nsamp)`:
 /// 20 probability bins from 16 ladders of 2000 samples
 /// ([`Nuclide::urr_tables`], [`Nuclide::process_evaluation_pre_931`]). A web
-/// demo's cache key names them; the browser demos stay on them until gh:#932.
+/// ~~demo's cache key names them; the browser demos stay on them until gh:#932.~~
+/// demo's cache key named them until gh:#932 (2026-10-18), which moved the
+/// browser demos onto `process` (20 / 64 / 10 000 after HEATR); nothing in a
+/// demo uses these settings now.
 ///
 /// ~~PURR's table settings for every nuclide~~ **CORRECTED 2026-10-17
 /// (gh:#931):** route 4 ([`Nuclide::process_evaluation`], and so
@@ -2636,10 +2639,12 @@ impl Nuclide {
     /// [`Self::process_from_stages`] (BROADR; the raw 0 K elastic up to
     /// [`DBRC_GRID_MAX_EV`]).
     ///
-    /// Not route 4 any more: [`Self::process_evaluation`] is. Its other
+    /// Not route 4 any more: [`Self::process_evaluation`] is. ~~Its other
     /// user is the browser demos' cache (`dhoby-ghaut`'s
     /// `processed_cache.rs`), which stores these stages separately and stays
-    /// on this chain until gh:#932 moves it.
+    /// on this chain until gh:#932 moves it.~~ **CHANGED 2026-10-18
+    /// (gh:#932):** the browser demos' cache is on `process` too; its tests
+    /// call this only to show the move changed the products.
     ///
     /// # Errors
     ///

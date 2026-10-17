@@ -351,13 +351,14 @@ const N_SI30: usize = 11;
 
 /// A nuclide straight from the tape, no cache: the reference the
 /// covariance-stripping test of `monte_carlo_web` compares against
-/// (`delta_tracking_web`, which shares this file, does not use it). The
-/// demos' pre-gh:#931 chain (`processed_cache::pre931_nuclide`), as
-/// [`DataBuilder::step`] builds it, until gh:#932.
+/// (`delta_tracking_web`, which shares this file, does not use it).
+/// `Nuclide::from_tape_with_speed` (route 4, njoy's `process`), which
+/// [`DataBuilder::step`]'s store equals bit for bit since gh:#932
+/// (~~the demos' pre-gh:#931 chain, `processed_cache::pre931_nuclide`~~).
 #[allow(dead_code)]
 pub fn nuclide_from_bytes(bytes: &[u8], name: &str) -> Result<Nuclide, String> {
     let (tape, mat) = read_tape(bytes, name)?;
-    crate::processed_cache::pre931_nuclide(&tape, mat, name, TEMPERATURE_K, SPEED)
+    Nuclide::from_tape_with_speed(&tape, mat, name, TEMPERATURE_K, SPEED).map_err(|e| format!("{name}: {e}"))
 }
 
 

@@ -41,15 +41,23 @@ pub const BROADR_IN: (f64, f64) = (0.5, 600.0);
 pub const BROADR_SHOWN: (f64, f64) = (1.0, 300.0);
 
 /// PURR's probability bins on the PURR rung: 20, as every nuclide in the
-/// Monte Carlo demos (`outram_mc_libs::material::nuclide::URR_TABLE_SETTINGS`),
-/// so the rung at 16 ladders x 2000 samples reads their tables (gh:#923).
+/// Monte Carlo demos (`processed_cache::demo_purr`, `process`'s default), so
+/// the rung reads their tables when asked for their ladders and samples
+/// (gh:#923, #932).
 pub const PURR_NBIN: usize = 20;
 
-/// The PURR rung's ladders when it opens: the Monte Carlo demos' 16
+/// The PURR rung's ladders when it opens: 16. ~~The Monte Carlo demos' 16
 /// (`URR_TABLE_SETTINGS`), so the rung opens on tables a Monte Carlo rung at
 /// the same temperature (Godiva, 293.6 K) may already have made (gh:#923,
-/// maintainer 2026-10-17; was 8). The slider still goes from 2 to 32.
-pub const PURR_LADDERS: usize = outram_mc_libs::material::nuclide::URR_TABLE_SETTINGS.1;
+/// maintainer 2026-10-17; was 8).~~ **CHANGED 2026-10-18 (gh:#932):** the
+/// Monte Carlo demos now make their nuclides through njoy's `process`, PURR
+/// at 20 bands x 64 ladders x 10 000 samples (`processed_cache::demo_purr`),
+/// which the rung's slider (2 to 32 ladders, 2000 samples) cannot reach, so
+/// it no longer opens on their tables. The number is kept as it was (the UI
+/// is the maintainer's); whether the rung should open at 64 x 10 000 is an
+/// open question on gh:#932. The sharing itself still works for a request
+/// at `demo_purr` (tested in `main.rs`).
+pub const PURR_LADDERS: usize = 16;
 
 /// GROUPR rung energy range, eV.
 pub const GROUPR_RANGE: (f64, f64) = (1.0, 1.0e4);
@@ -198,7 +206,7 @@ impl NdEngine {
             Request::Broadr { .. } | Request::Groupr { .. } if self.base.is_none() => vec![reconstruction_key(&sha, mat, BASE_TOL)],
             Request::Purr { temp_k, nladr, nsamp, .. } => {
                 let mut k = vec![urr_key(&sha, mat, temp_k, (PURR_NBIN, nladr, nsamp))];
-                if (PURR_NBIN, nladr, nsamp) == outram_mc_libs::material::nuclide::URR_TABLE_SETTINGS {
+                if (PURR_NBIN, nladr, nsamp) == crate::processed_cache::demo_purr() {
                     // A Monte Carlo product at this temperature holds them.
                     k.push(crate::processed_cache::evaluation_prefix(&sha, mat, temp_k));
                 }
@@ -213,7 +221,7 @@ impl NdEngine {
     fn reconstruction(&mut self, tol: f64) -> Result<(ReconrResult, String), String> {
         let sha = self.tape_sha(U238)?;
         let (tape, mat) = self.tapes.iter().find(|(n, ..)| n == U238).map(|(_, t, m, _)| (t, *m)).ok_or("U-238 is not loaded")?;
-        let r = self.store.reconstruction(&sha, tape, mat, tol, "U-238")?;
+        let r = self.store.reconstruction(&sha, tape, mat, tol, "U-238")?.reconr;
         Ok((r, self.stage_source()))
     }
 

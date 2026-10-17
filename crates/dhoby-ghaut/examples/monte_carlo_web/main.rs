@@ -20,6 +20,7 @@
 //! (~~`--loose`, the 0.01 tier~~: removed 2026-10-16, gh:#876 item 3; every
 //! load is NJOY's 0.001.)
 //! cargo run -p dhoby-ghaut --example monte_carlo_web --release -- --bake-tracks <rung> [n]
+//! cargo run -p dhoby-ghaut --example monte_carlo_web --release -- --htr10-product-shas [threads]
 //! cargo run -p dhoby-ghaut --example monte_carlo_web --release -- --render-geometry <dir>
 //! cargo run -p dhoby-ghaut --example monte_carlo_web --release -- --prepare-web-data <dir>
 //! cargo test -p dhoby-ghaut --example monte_carlo_web --release
@@ -227,6 +228,7 @@ fn main() -> Result<(), String> {
             godiva::render::render_all(dir)
         }
         Some("--bake-htr10-core") => htr10::core::bake::bake_cli(&args),
+        Some("--htr10-product-shas") => htr10::core::bake::product_shas_cli(&args),
         Some("--bake-tracks") => {
             // The tracks a rung ships with the page (gh:#859, `recorded.rs`).
             let name = arg(1).ok_or("--bake-tracks needs a rung name")?;

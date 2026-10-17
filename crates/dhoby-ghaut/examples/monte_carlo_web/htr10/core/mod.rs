@@ -353,20 +353,11 @@ pub fn run_job(i: usize, tape: Option<&[u8]>) -> Result<Floats, String> {
         ),
         None => None,
     };
-    // A tape job is the demos' pre-gh:#931 chain, as `run_job_cached`'s
-    // store makes it (`processed_cache`); `nee_soon`'s `process_job` is
-    // route 4 (njoy's `process`) since gh:#931. gh:#932 moves the demos.
-    let p = match (job, t.as_ref()) {
-        (ProcessingJob::Tape { .. }, Some(t)) => {
-            let mat = *t.materials().first().ok_or_else(|| format!("{}: no material on the tape", job.label()))?;
-            let t_k = Htr10DataConfig::default().temperature.get::<uom::si::thermodynamic_temperature::kelvin>();
-            JobProduct::Nuclide(
-                outram_mc_libs::material::nuclide::Nuclide::process_evaluation_pre_931(t, mat, t_k, TOLERANCE, TOLERANCE)
-                    .map_err(|e| format!("{}: {e}", job.label()))?,
-            )
-        }
-        _ => process_job(job, &Htr10DataConfig::default(), t.as_ref()).map_err(|e| e.to_string())?,
-    };
+    // `nee_soon`'s `process_job`: a tape job is route 4,
+    // `Nuclide::process_evaluation`, i.e. njoy's `process` (gh:#931), which
+    // `run_job_cached`'s store makes too since gh:#932. ~~A tape job is the
+    // demos' pre-gh:#931 chain~~ (gh:#932).
+    let p = process_job(job, &Htr10DataConfig::default(), t.as_ref()).map_err(|e| e.to_string())?;
     Ok(Floats::from_vec(p.to_f64s()))
 }
 
