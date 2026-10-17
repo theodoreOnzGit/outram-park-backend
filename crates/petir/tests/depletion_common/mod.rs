@@ -60,11 +60,21 @@ impl TransportOperator for FixedRate {
     type Rates = Vec<f64>;
     type Error = ();
 
-    fn evaluate(&mut self, n: &[Vec<f64>], _source_rate: f64) -> Result<OperatorResult<Vec<f64>>, ()> {
+    fn evaluate(
+        &mut self,
+        n: &[Vec<f64>],
+        _source_rate: f64,
+    ) -> Result<OperatorResult<Vec<f64>>, ()> {
         self.calls += 1;
         let (n_a, n_b) = (n[0][0], n[0][1]);
         let k = (2.4 * n_a) / (1.5 * n_a + 0.8 * n_b);
-        Ok(OperatorResult { k: Keff { value: k, std_dev: 1.0e-3 * k }, rates: rates_at(n_a) })
+        Ok(OperatorResult {
+            k: Keff {
+                value: k,
+                std_dev: 1.0e-3 * k,
+            },
+            rates: rates_at(n_a),
+        })
     }
 
     fn form_matrix(&self, rates: &Vec<f64>, _material: usize) -> Result<DepletionMatrix, ()> {

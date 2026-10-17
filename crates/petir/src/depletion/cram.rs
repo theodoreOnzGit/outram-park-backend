@@ -248,11 +248,17 @@ fn back_substitute(m: &[Vec<Complex64>], b: &[Complex64]) -> Result<Vec<Complex6
 
 fn check_square(m: &[Vec<Complex64>], n: usize) -> Result<()> {
     if m.len() != n {
-        return Err(PetirError::LengthMismatch { expected: n, found: m.len() });
+        return Err(PetirError::LengthMismatch {
+            expected: n,
+            found: m.len(),
+        });
     }
     for r in m {
         if r.len() != n {
-            return Err(PetirError::LengthMismatch { expected: n, found: r.len() });
+            return Err(PetirError::LengthMismatch {
+                expected: n,
+                found: r.len(),
+            });
         }
     }
     Ok(())
@@ -319,7 +325,10 @@ impl LuFactor {
     pub fn solve(&self, mut b: Vec<Complex64>) -> Result<Vec<Complex64>> {
         let n = self.lu.len();
         if b.len() != n {
-            return Err(PetirError::LengthMismatch { expected: n, found: b.len() });
+            return Err(PetirError::LengthMismatch {
+                expected: n,
+                found: b.len(),
+            });
         }
         // Apply every row interchange first, then forward-substitute with the
         // final multipliers (LAPACK `getrs` order). Each multiplier moved
@@ -383,7 +392,10 @@ pub fn ipf_cram(
         return Err(PetirError::Invalid);
     }
     if n0.len() != n {
-        return Err(PetirError::LengthMismatch { expected: n, found: n0.len() });
+        return Err(PetirError::LengthMismatch {
+            expected: n,
+            found: n0.len(),
+        });
     }
 
     // DEVIATION (see module docs): exp(A*dt) = I when there is nothing to evolve.
@@ -397,8 +409,15 @@ pub fn ipf_cram(
 
     // cram.py:90-91 -- `step_dt = dt if substeps == 1 else dt / substeps`,
     // `A = step_dt * A`.
-    let step_dt = if substeps == 1 { dt } else { dt / substeps as f64 };
-    let scaled: Vec<Complex64> = raw.iter().map(|&v| Complex64::from_real(v * step_dt)).collect();
+    let step_dt = if substeps == 1 {
+        dt
+    } else {
+        dt / substeps as f64
+    };
+    let scaled: Vec<Complex64> = raw
+        .iter()
+        .map(|&v| Complex64::from_real(v * step_dt))
+        .collect();
 
     // y starts real and stays real (2*Re(...) additions); carry it as f64.
     let mut y: Vec<f64> = n0.to_vec();
@@ -500,8 +519,24 @@ pub enum CramSolver {
 impl DepSystemSolver for CramSolver {
     fn solve(&self, a: &DepletionMatrix, n0: &[f64], dt: f64, substeps: usize) -> Result<Vec<f64>> {
         match self {
-            CramSolver::Cram16 => ipf_cram(a, n0, dt, &CRAM16_ALPHA, &CRAM16_THETA, CRAM16_ALPHA0, substeps),
-            CramSolver::Cram48 => ipf_cram(a, n0, dt, &CRAM48_ALPHA, &CRAM48_THETA, CRAM48_ALPHA0, substeps),
+            CramSolver::Cram16 => ipf_cram(
+                a,
+                n0,
+                dt,
+                &CRAM16_ALPHA,
+                &CRAM16_THETA,
+                CRAM16_ALPHA0,
+                substeps,
+            ),
+            CramSolver::Cram48 => ipf_cram(
+                a,
+                n0,
+                dt,
+                &CRAM48_ALPHA,
+                &CRAM48_THETA,
+                CRAM48_ALPHA0,
+                substeps,
+            ),
         }
     }
 }
@@ -790,7 +825,6 @@ const CRAM48_ALPHA: [Complex64; 24] = [
 /// Order-48 limit at infinity `c48_alpha0` (cram.py:199).
 const CRAM48_ALPHA0: f64 = 2.258038182743983e-47;
 
-
 #[cfg(test)]
 mod tests {
     //! The first six tests moved with the solver from `outram-mc-libs`
@@ -873,7 +907,10 @@ mod tests {
         let t = 100.0_f64;
         let na = (-la * t).exp();
         let nb = la / (lb - la) * ((-la * t).exp() - (-lb * t).exp());
-        for n in [cram16(&a, &[1.0, 0.0], t).unwrap(), cram48(&a, &[1.0, 0.0], t).unwrap()] {
+        for n in [
+            cram16(&a, &[1.0, 0.0], t).unwrap(),
+            cram48(&a, &[1.0, 0.0], t).unwrap(),
+        ] {
             assert!((n[0] - na).abs() / na < 1e-5);
             assert!((n[1] - nb).abs() / nb < 1e-5);
         }
@@ -887,7 +924,9 @@ mod tests {
         let (l1, l2, l3) = (1.0 / 500.0_f64, 1.0 / 1500.0_f64, 1.0 / 4000.0_f64);
         let a = matrix_from(
             4,
-            &[-l1, 0.0, 0.0, 0.0, l1, -l2, 0.0, 0.0, 0.0, l2, -l3, 0.0, 0.0, 0.0, l3, 0.0],
+            &[
+                -l1, 0.0, 0.0, 0.0, l1, -l2, 0.0, 0.0, 0.0, l2, -l3, 0.0, 0.0, 0.0, l3, 0.0,
+            ],
         );
         let n = cram16(&a, &[1.0, 0.0, 0.0, 0.0], 2.0e4).unwrap();
         let total: f64 = n.iter().sum();
@@ -904,13 +943,25 @@ mod tests {
         let a = matrix_from(2, &[-1.0, 0.0, 1.0, -2.0]);
         let n0 = [3.0_f64, 4.0];
         assert_eq!(cram16(&a, &n0, 0.0).unwrap(), n0.to_vec());
-        assert_eq!(cram16(&DepletionMatrix::zeros(2), &n0, 1.0e3).unwrap(), n0.to_vec());
-        assert_eq!(cram16(&DepletionMatrix::zeros(0), &[], 5.0).unwrap(), Vec::<f64>::new());
+        assert_eq!(
+            cram16(&DepletionMatrix::zeros(2), &n0, 1.0e3).unwrap(),
+            n0.to_vec()
+        );
+        assert_eq!(
+            cram16(&DepletionMatrix::zeros(0), &[], 5.0).unwrap(),
+            Vec::<f64>::new()
+        );
         assert_eq!(
             cram48(&a, &[1.0], 1.0),
-            Err(PetirError::LengthMismatch { expected: 2, found: 1 })
+            Err(PetirError::LengthMismatch {
+                expected: 2,
+                found: 1
+            })
         );
-        assert_eq!(CramSolver::Cram16.solve(&a, &n0, 1.0, 0), Err(PetirError::Invalid));
+        assert_eq!(
+            CramSolver::Cram16.solve(&a, &n0, 1.0, 0),
+            Err(PetirError::Invalid)
+        );
         assert_eq!(
             ipf_cram(&a, &n0, 1.0, &CRAM16_ALPHA, &CRAM48_THETA, CRAM16_ALPHA0, 1),
             Err(PetirError::Invalid)
@@ -922,7 +973,10 @@ mod tests {
             Err(PetirError::Singular { col: 0 })
         );
         assert_eq!(LuFactor::new(z), Err(PetirError::Singular { col: 0 }));
-        assert!(LuFactor::new(vec![vec![Complex64::from_real(1.0)]]).unwrap().solve(vec![]).is_err());
+        assert!(LuFactor::new(vec![vec![Complex64::from_real(1.0)]])
+            .unwrap()
+            .solve(vec![])
+            .is_err());
     }
 
     /// The enum dispatches to the same arithmetic as the free functions.
@@ -930,8 +984,14 @@ mod tests {
     fn solver_enum_is_the_free_functions() {
         let a = matrix_from(2, &[-1.0e-3, 0.0, 1.0e-3, -2.0e-4]);
         let n0 = [1.0, 0.5];
-        assert_eq!(CramSolver::Cram16.solve(&a, &n0, 900.0, 1).unwrap(), cram16(&a, &n0, 900.0).unwrap());
-        assert_eq!(CramSolver::Cram48.solve(&a, &n0, 900.0, 1).unwrap(), cram48(&a, &n0, 900.0).unwrap());
+        assert_eq!(
+            CramSolver::Cram16.solve(&a, &n0, 900.0, 1).unwrap(),
+            cram16(&a, &n0, 900.0).unwrap()
+        );
+        assert_eq!(
+            CramSolver::Cram48.solve(&a, &n0, 900.0, 1).unwrap(),
+            cram48(&a, &n0, 900.0).unwrap()
+        );
         assert_eq!(CramSolver::default(), CramSolver::Cram48);
     }
 
@@ -956,14 +1016,27 @@ mod tests {
             .map(|(i, r)| {
                 r.iter()
                     .enumerate()
-                    .map(|(j, &v)| if i == j { Complex64::from_real(v).sub(theta) } else { Complex64::from_real(v) })
+                    .map(|(j, &v)| {
+                        if i == j {
+                            Complex64::from_real(v).sub(theta)
+                        } else {
+                            Complex64::from_real(v)
+                        }
+                    })
                     .collect()
             })
             .collect();
-        let b: Vec<Complex64> = [1.0, -0.5, 2.0, 0.125].iter().map(|&v| Complex64::from_real(v)).collect();
+        let b: Vec<Complex64> = [1.0, -0.5, 2.0, 0.125]
+            .iter()
+            .map(|&v| Complex64::from_real(v))
+            .collect();
         let direct = solve_complex(m.clone(), b.clone()).unwrap();
         let lu = LuFactor::new(m).unwrap();
-        assert!(lu.piv.iter().enumerate().filter(|(c, p)| *c != **p).count() >= 2, "{:?}", lu.piv);
+        assert!(
+            lu.piv.iter().enumerate().filter(|(c, p)| *c != **p).count() >= 2,
+            "{:?}",
+            lu.piv
+        );
         let replay = lu.solve(b).unwrap();
         for (x, y) in direct.iter().zip(&replay) {
             assert_eq!(x.re.to_bits(), y.re.to_bits());
@@ -1006,13 +1079,21 @@ mod tests {
                 let ea = (n[0] - na).abs() / na;
                 let eb = (n[1] - nb).abs() / nb;
                 let abs_a = (n[0] - na).abs();
-                std::println!("{solver:?} substeps {s}: rel err A {ea:.2e}, B {eb:.2e}, abs A {abs_a:.2e}");
+                std::println!(
+                    "{solver:?} substeps {s}: rel err A {ea:.2e}, B {eb:.2e}, abs A {abs_a:.2e}"
+                );
                 assert!(abs_a < 1e-15, "{solver:?} {s}: abs {abs_a:e}");
                 assert!(eb < 1e-13, "{solver:?} {s}: B rel {eb:e}");
                 if solver == CramSolver::Cram48 {
-                    assert!(ea < 1e-13 && eb < 1e-13, "{solver:?} substeps {s}: {ea:e} {eb:e}");
+                    assert!(
+                        ea < 1e-13 && eb < 1e-13,
+                        "{solver:?} substeps {s}: {ea:e} {eb:e}"
+                    );
                 } else {
-                    assert!(ea < last16, "CRAM16 did not improve at {s} substeps: {ea:e} vs {last16:e}");
+                    assert!(
+                        ea < last16,
+                        "CRAM16 did not improve at {s} substeps: {ea:e} vs {last16:e}"
+                    );
                     last16 = ea;
                 }
             }

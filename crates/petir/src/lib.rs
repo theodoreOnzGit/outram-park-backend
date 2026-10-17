@@ -117,6 +117,7 @@
 //! | [`cheb_slice`] | ported | Adapter between GSL's and `tampines`' Chebyshev coefficient conventions, plus 2-D tensor-product evaluators |
 //! | [`expint`] | ported | Exponential integral `E_1` and its scaled form |
 //! | [`gamma_inc`] | ported | Regularised lower incomplete gamma, GSL's branch structure (see also the OpenFOAM-lifted `specfunc::inc_gamma`) |
+//! | [`depletion`] | ported (OpenMC, not GSL) | OpenMC's eight depletion time integrators, IPF CRAM and the dense burnup matrix; CRAM and the matrix moved here from `outram-mc-libs` 2026-10-17 |
 //! | [`deriv`] | ported | Numerical differentiation: central, forward and backward rules with automatic step refinement and an error estimate |
 //! | [`integration`] | ported | Adaptive Gauss-Kronrod quadrature (QUADPACK): six rules, `qag` adaptive driver, extrapolating `qags` |
 //! | [`interp`] | ported | Interpolation of tabulated data: linear and natural cubic spline, with derivatives |

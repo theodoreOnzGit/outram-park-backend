@@ -79,7 +79,11 @@ pub fn cf4_f3(
 ) -> Result<DepletionMatrix> {
     lincomb(
         (1.0 / 4.0, m0),
-        &[(Sign::Plus, 1.0 / 6.0, m1), (Sign::Plus, 1.0 / 6.0, m2), (Sign::Minus, 1.0 / 12.0, m3)],
+        &[
+            (Sign::Plus, 1.0 / 6.0, m1),
+            (Sign::Plus, 1.0 / 6.0, m2),
+            (Sign::Minus, 1.0 / 12.0, m3),
+        ],
     )
 }
 
@@ -97,7 +101,11 @@ pub fn cf4_f4(
 ) -> Result<DepletionMatrix> {
     lincomb(
         (-1.0 / 12.0, m0),
-        &[(Sign::Plus, 1.0 / 6.0, m1), (Sign::Plus, 1.0 / 6.0, m2), (Sign::Plus, 1.0 / 4.0, m3)],
+        &[
+            (Sign::Plus, 1.0 / 6.0, m1),
+            (Sign::Plus, 1.0 / 6.0, m2),
+            (Sign::Plus, 1.0 / 4.0, m3),
+        ],
     )
 }
 
@@ -120,7 +128,11 @@ pub fn rk4_f4(
 ) -> Result<DepletionMatrix> {
     lincomb(
         (1.0 / 6.0, m0),
-        &[(Sign::Plus, 1.0 / 3.0, m1), (Sign::Plus, 1.0 / 3.0, m2), (Sign::Plus, 1.0 / 6.0, m3)],
+        &[
+            (Sign::Plus, 1.0 / 3.0, m1),
+            (Sign::Plus, 1.0 / 3.0, m2),
+            (Sign::Plus, 1.0 / 6.0, m3),
+        ],
     )
 }
 
@@ -130,7 +142,12 @@ pub fn rk4_f4(
 /// # Errors
 ///
 /// Matrices of different order.
-pub fn leqi_f1(f1: &DepletionMatrix, f2: &DepletionMatrix, dt_l: f64, dt: f64) -> Result<DepletionMatrix> {
+pub fn leqi_f1(
+    f1: &DepletionMatrix,
+    f2: &DepletionMatrix,
+    dt_l: f64,
+    dt: f64,
+) -> Result<DepletionMatrix> {
     let c1 = -dt / (12.0 * dt_l);
     let c2 = (dt + 6.0 * dt_l) / (12.0 * dt_l);
     lincomb((c1, f1), &[(Sign::Plus, c2, f2)])
@@ -142,7 +159,12 @@ pub fn leqi_f1(f1: &DepletionMatrix, f2: &DepletionMatrix, dt_l: f64, dt: f64) -
 /// # Errors
 ///
 /// Matrices of different order.
-pub fn leqi_f2(f1: &DepletionMatrix, f2: &DepletionMatrix, dt_l: f64, dt: f64) -> Result<DepletionMatrix> {
+pub fn leqi_f2(
+    f1: &DepletionMatrix,
+    f2: &DepletionMatrix,
+    dt_l: f64,
+    dt: f64,
+) -> Result<DepletionMatrix> {
     let c1 = -5.0 * dt / (12.0 * dt_l);
     let c2 = (5.0 * dt + 6.0 * dt_l) / (12.0 * dt_l);
     lincomb((c1, f1), &[(Sign::Plus, c2, f2)])
@@ -224,8 +246,13 @@ mod tests {
         assert_eq!(rk4_f1(&m).get(0, 0), 0.5);
         assert_eq!(s(cf4_f2(&m, &m)), 0.5);
         for (dt_l, dt) in [(1.0, 1.0), (2.0, 0.5), (0.3, 7.0)] {
-            assert!((s(leqi_f1(&m, &m, dt_l, dt)) + s(leqi_f2(&m, &m, dt_l, dt)) - 1.0).abs() < 1e-14);
-            assert!((s(leqi_f3(&m, &m, &m, dt_l, dt)) + s(leqi_f4(&m, &m, &m, dt_l, dt)) - 1.0).abs() < 1e-14);
+            assert!(
+                (s(leqi_f1(&m, &m, dt_l, dt)) + s(leqi_f2(&m, &m, dt_l, dt)) - 1.0).abs() < 1e-14
+            );
+            assert!(
+                (s(leqi_f3(&m, &m, &m, dt_l, dt)) + s(leqi_f4(&m, &m, &m, dt_l, dt)) - 1.0).abs()
+                    < 1e-14
+            );
         }
         assert!(celi_f1(&m, &DepletionMatrix::zeros(2)).is_err());
     }

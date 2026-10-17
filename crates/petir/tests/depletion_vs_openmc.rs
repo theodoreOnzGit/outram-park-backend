@@ -43,8 +43,9 @@ mod depletion_common;
 use depletion_common::{FixedRate, N0, SOURCE};
 use petir::depletion::{CramSolver, DepletionIntegrator, Integrator};
 
-const REFERENCE: &str =
-    include_str!("../verification_and_validation/depletion/openmc_inputs/integrators_reference.txt");
+const REFERENCE: &str = include_str!(
+    "../verification_and_validation/depletion/openmc_inputs/integrators_reference.txt"
+);
 const TIMESTEPS: [f64; 4] = [0.1, 0.25, 0.2, 0.45];
 
 /// One reference line: `(solver, integrator, step, values, total calls)`.
@@ -54,8 +55,17 @@ fn rows() -> Vec<(String, String, usize, Vec<f64>, usize)> {
         .filter(|l| !l.starts_with('#') && !l.trim().is_empty())
         .map(|l| {
             let f: Vec<&str> = l.split_whitespace().collect();
-            let vals = f[3..f.len() - 1].iter().map(|v| v.parse::<f64>().unwrap()).collect();
-            (f[0].to_string(), f[1].to_string(), f[2].parse().unwrap(), vals, f[f.len() - 1].parse().unwrap())
+            let vals = f[3..f.len() - 1]
+                .iter()
+                .map(|v| v.parse::<f64>().unwrap())
+                .collect();
+            (
+                f[0].to_string(),
+                f[1].to_string(),
+                f[2].parse().unwrap(),
+                vals,
+                f[f.len() - 1].parse().unwrap(),
+            )
         })
         .collect()
 }
@@ -63,8 +73,13 @@ fn rows() -> Vec<(String, String, usize, Vec<f64>, usize)> {
 /// Our records in the reference's column order (minus k_std, which is last).
 fn ours(method: Integrator) -> (Vec<(Vec<f64>, f64)>, usize) {
     let mut op = FixedRate::default();
-    let mut integ =
-        DepletionIntegrator::new(method, CramSolver::Cram48, TIMESTEPS.to_vec(), vec![SOURCE; 4]).unwrap();
+    let mut integ = DepletionIntegrator::new(
+        method,
+        CramSolver::Cram48,
+        TIMESTEPS.to_vec(),
+        vec![SOURCE; 4],
+    )
+    .unwrap();
     let recs = integ.integrate(&mut op, vec![N0.to_vec()], true).unwrap();
     let out = recs
         .iter()
@@ -88,8 +103,10 @@ fn integrators_match_openmc_running_code() {
     for method in Integrator::ALL {
         let (mine, calls) = ours(method);
         for (solver, exact) in [("dense_ipf48", true), ("openmc_cram48", false)] {
-            let refs: Vec<_> =
-                reference.iter().filter(|r| r.0 == solver && r.1 == method.name()).collect();
+            let refs: Vec<_> = reference
+                .iter()
+                .filter(|r| r.0 == solver && r.1 == method.name())
+                .collect();
             assert_eq!(refs.len(), mine.len(), "{method:?} {solver}: record count");
             let mut worst = 0.0_f64;
             for (r, (m, k_std)) in refs.iter().zip(&mine) {
@@ -112,24 +129,36 @@ fn integrators_match_openmc_running_code() {
                     }
                 } else {
                     for (a, b) in m[3..6].iter().zip(&want[3..6]) {
-                        let rel = if *b == 0.0 { a.abs() } else { ((a - b) / b).abs() };
+                        let rel = if *b == 0.0 {
+                            a.abs()
+                        } else {
+                            ((a - b) / b).abs()
+                        };
                         worst = worst.max(rel);
                     }
                 }
             }
             if !exact {
-                println!("{method:?}: worst density difference vs OpenMC CRAM48 (SuperLU) {worst:.3e}");
+                println!(
+                    "{method:?}: worst density difference vs OpenMC CRAM48 (SuperLU) {worst:.3e}"
+                );
                 worst_upstream = worst_upstream.max(worst);
             }
         }
     }
-    println!("k std-dev bit-identical in {} of {} records", k_std_bits.0, k_std_bits.1);
+    println!(
+        "k std-dev bit-identical in {} of {} records",
+        k_std_bits.0, k_std_bits.1
+    );
     assert!(
         bit_failures.is_empty(),
         "integrator logic differs from OpenMC's running code:\n{}",
         bit_failures.join("\n")
     );
-    assert!(worst_upstream < 1.0e-10, "solver deviation {worst_upstream:e} exceeds round-off");
+    assert!(
+        worst_upstream < 1.0e-10,
+        "solver deviation {worst_upstream:e} exceeds round-off"
+    );
 }
 
 /// The reference's own record of `pow(dt, 2) != dt * dt` (`matrix_funcs.rs`

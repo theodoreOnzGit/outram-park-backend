@@ -789,10 +789,10 @@ impl DepletionChain {
             if lambda != 0.0 {
                 for branch in &nuc.decays {
                     if let Some(t) = branch.target.as_deref().and_then(|n| self.index_of(n)) {
-                        a.add(t, j, branch.branching * lambda);
+                        accumulate(&mut a, t, j, branch.branching * lambda);
                     }
                 }
-                a.add(j, j, -lambda);
+                accumulate(&mut a, j, j, -lambda);
             }
 
             // --- Neutron reactions (only channels the chain declares for j) ---
@@ -807,10 +807,10 @@ impl DepletionChain {
                         if g == 0.0 {
                             continue;
                         }
-                        a.add(j, j, -g);
+                        accumulate(&mut a, j, j, -g);
                         if let Some(target) = &reaction.target {
                             if let Some(t) = self.index_of(target) {
-                                a.add(t, j, g);
+                                accumulate(&mut a, t, j, g);
                             }
                         }
                     }
@@ -819,10 +819,10 @@ impl DepletionChain {
                         if f == 0.0 {
                             continue;
                         }
-                        a.add(j, j, -f);
+                        accumulate(&mut a, j, j, -f);
                         for (product, yld) in &nuc.fission_yields {
                             if let Some(p) = self.index_of(product) {
-                                a.add(p, j, f * yld);
+                                accumulate(&mut a, p, j, f * yld);
                             }
                         }
                     }
@@ -831,10 +831,10 @@ impl DepletionChain {
                         if r == 0.0 {
                             continue;
                         }
-                        a.add(j, j, -r);
+                        accumulate(&mut a, j, j, -r);
                         if let Some(target) = &reaction.target {
                             if let Some(t) = self.index_of(target) {
-                                a.add(t, j, r);
+                                accumulate(&mut a, t, j, r);
                             }
                         }
                     }
@@ -854,6 +854,24 @@ impl DepletionChain {
     pub fn decay_matrix(&self) -> DepletionMatrix {
         self.build_matrix(&ReactionRates::zero())
     }
+}
+
+/// `a.add(row, col, v)` for an index pair this chain produced itself.
+///
+/// [`DepletionMatrix::add`] returns a `Result` since the matrix moved to PETIR
+/// (gh:#950); before the move it panicked out of range. Every caller in
+/// [`DepletionChain::build_matrix`] passes `j` from enumerating
+/// `self.nuclides` and a target from `self.index_of`, both `< n` for the
+/// `n x n` matrix built there.
+///
+/// # Panics
+///
+/// Only on an out-of-range index, which would be a programming error in this
+/// file rather than a runtime condition — the same contract as before the
+/// move.
+fn accumulate(a: &mut DepletionMatrix, row: usize, col: usize, v: f64) {
+    a.add(row, col, v)
+        .expect("burnup-matrix index taken from the chain's own nuclide list");
 }
 
 /// Find `name` in a decay-library `SerdeNuclideVec` and return its half-life in

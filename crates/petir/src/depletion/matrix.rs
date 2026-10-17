@@ -218,7 +218,10 @@ pub enum Sign {
 ///
 /// [`PetirError::Invalid`] for an empty list, and
 /// [`PetirError::LengthMismatch`] if the matrices differ in order.
-pub fn lincomb(first: (f64, &DepletionMatrix), rest: &[(Sign, f64, &DepletionMatrix)]) -> Result<DepletionMatrix> {
+pub fn lincomb(
+    first: (f64, &DepletionMatrix),
+    rest: &[(Sign, f64, &DepletionMatrix)],
+) -> Result<DepletionMatrix> {
     let (c0, m0) = first;
     let mut out = m0.scaled(c0);
     for &(sign, c, m) in rest {
@@ -251,13 +254,19 @@ mod tests {
         assert_eq!(m.try_get(3, 0), Err(PetirError::Domain));
         assert_eq!(
             m.mat_vec(&[1.0]),
-            Err(PetirError::LengthMismatch { expected: 2, found: 1 })
+            Err(PetirError::LengthMismatch {
+                expected: 2,
+                found: 1
+            })
         );
         m.set(1, 0, 2.0).unwrap();
         m.add(1, 0, 0.5).unwrap();
         assert_eq!(m.get(1, 0), 2.5);
         assert_eq!(m.mat_vec(&[2.0, 7.0]).unwrap(), vec![0.0, 5.0]);
-        assert_eq!(DepletionMatrix::zeros(0).mat_vec(&[]).unwrap(), Vec::<f64>::new());
+        assert_eq!(
+            DepletionMatrix::zeros(0).mat_vec(&[]).unwrap(),
+            Vec::<f64>::new()
+        );
         m.as_mut_slice()[0] = -1.0;
         assert_eq!(m.as_slice()[0], -1.0);
     }
@@ -269,7 +278,11 @@ mod tests {
         a.set(0, 0, 3.0).unwrap();
         let mut b = DepletionMatrix::zeros(1);
         b.set(0, 0, 0.1).unwrap();
-        let m = lincomb((1.0 / 4.0, &a), &[(Sign::Plus, 1.0 / 6.0, &b), (Sign::Minus, 1.0 / 12.0, &a)]).unwrap();
+        let m = lincomb(
+            (1.0 / 4.0, &a),
+            &[(Sign::Plus, 1.0 / 6.0, &b), (Sign::Minus, 1.0 / 12.0, &a)],
+        )
+        .unwrap();
         let want: f64 = ((1.0 / 4.0) * 3.0 + (1.0 / 6.0) * 0.1) - (1.0 / 12.0) * 3.0;
         assert_eq!(m.get(0, 0).to_bits(), want.to_bits());
         let c = DepletionMatrix::zeros(2);

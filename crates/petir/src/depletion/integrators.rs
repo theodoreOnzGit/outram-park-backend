@@ -355,7 +355,12 @@ impl<S: DepSystemSolver, R: Clone + AverageRates> DepletionIntegrator<S, R> {
     /// [`PetirError::LengthMismatch`] if `timesteps` and `source_rates`
     /// differ in length — upstream's `_normalize_timesteps` broadcasts a
     /// scalar source rate; pass one per step here.
-    pub fn new(method: Integrator, solver: S, timesteps: Vec<f64>, source_rates: Vec<f64>) -> Result<Self, PetirError> {
+    pub fn new(
+        method: Integrator,
+        solver: S,
+        timesteps: Vec<f64>,
+        source_rates: Vec<f64>,
+    ) -> Result<Self, PetirError> {
         if timesteps.len() != source_rates.len() {
             return Err(PetirError::LengthMismatch {
                 expected: timesteps.len(),
@@ -377,7 +382,13 @@ impl<S: DepSystemSolver, R: Clone + AverageRates> DepletionIntegrator<S, R> {
     /// (`abc.py:758-769`), through `pool.deplete`'s per-material loop
     /// (`pool.py:122-126`, `:233-239`): form material `m`'s matrix with
     /// `matrix(op, m)`, solve, clip.
-    fn deplete<O, F>(&self, op: &O, n: &[Vec<f64>], dt: f64, mut matrix: F) -> Result<Vec<Vec<f64>>, DepletionError<O::Error>>
+    fn deplete<O, F>(
+        &self,
+        op: &O,
+        n: &[Vec<f64>],
+        dt: f64,
+        mut matrix: F,
+    ) -> Result<Vec<Vec<f64>>, DepletionError<O::Error>>
     where
         O: TransportOperator<Rates = R>,
         F: FnMut(&O, usize) -> Result<DepletionMatrix, DepletionError<O::Error>>,
@@ -416,7 +427,10 @@ impl<S: DepSystemSolver, R: Clone + AverageRates> DepletionIntegrator<S, R> {
     where
         O: TransportOperator<Rates = R>,
     {
-        let plain = |n_end| StepOutcome { n_end, res_end: None };
+        let plain = |n_end| StepOutcome {
+            n_end,
+            res_end: None,
+        };
         match self.method {
             Integrator::Predictor => self.predictor(op, n, rates, dt).map(plain),
             Integrator::CeCm => self.cecm(op, n, rates, dt, source_rate).map(plain),
@@ -430,16 +444,31 @@ impl<S: DepSystemSolver, R: Clone + AverageRates> DepletionIntegrator<S, R> {
     }
 
     /// `PredictorIntegrator.__call__` (`integrators.py:28-54`).
-    fn predictor<O>(&self, op: &O, n: &[Vec<f64>], rates: &R, dt: f64) -> Result<Vec<Vec<f64>>, DepletionError<O::Error>>
+    fn predictor<O>(
+        &self,
+        op: &O,
+        n: &[Vec<f64>],
+        rates: &R,
+        dt: f64,
+    ) -> Result<Vec<Vec<f64>>, DepletionError<O::Error>>
     where
         O: TransportOperator<Rates = R>,
     {
         // :53
-        self.deplete(op, n, dt, |op, m| op.form_matrix(rates, m).map_err(DepletionError::Operator))
+        self.deplete(op, n, dt, |op, m| {
+            op.form_matrix(rates, m).map_err(DepletionError::Operator)
+        })
     }
 
     /// `CECMIntegrator.__call__` (`integrators.py:77-109`).
-    fn cecm<O>(&self, op: &mut O, n: &[Vec<f64>], rates: &R, dt: f64, source_rate: f64) -> Result<Vec<Vec<f64>>, DepletionError<O::Error>>
+    fn cecm<O>(
+        &self,
+        op: &mut O,
+        n: &[Vec<f64>],
+        rates: &R,
+        dt: f64,
+        source_rate: f64,
+    ) -> Result<Vec<Vec<f64>>, DepletionError<O::Error>>
     where
         O: TransportOperator<Rates = R>,
     {
@@ -447,10 +476,13 @@ impl<S: DepSystemSolver, R: Clone + AverageRates> DepletionIntegrator<S, R> {
         let n_middle = self.deplete(op, n, dt / 2.0, |op, m| {
             op.form_matrix(rates, m).map_err(DepletionError::Operator)
         })?;
-        let res_middle = op.evaluate(&n_middle, source_rate).map_err(DepletionError::Operator)?;
+        let res_middle = op
+            .evaluate(&n_middle, source_rate)
+            .map_err(DepletionError::Operator)?;
         // :107 -- entire interval with BOS concentrations, MOS reaction rates
         self.deplete(op, n, dt, |op, m| {
-            op.form_matrix(&res_middle.rates, m).map_err(DepletionError::Operator)
+            op.form_matrix(&res_middle.rates, m)
+                .map_err(DepletionError::Operator)
         })
     }
 
@@ -462,25 +494,43 @@ impl<S: DepSystemSolver, R: Clone + AverageRates> DepletionIntegrator<S, R> {
     /// right-to-left applies `f4` first; the pre-move `outram-mc-libs` CF4
     /// followed the docstring. See the module docs and the V&V record for
     /// the measured consequence.
-    fn cf4<O>(&self, op: &mut O, n_bos: &[Vec<f64>], bos_rates: &R, dt: f64, source_rate: f64) -> Result<Vec<Vec<f64>>, DepletionError<O::Error>>
+    fn cf4<O>(
+        &self,
+        op: &mut O,
+        n_bos: &[Vec<f64>],
+        bos_rates: &R,
+        dt: f64,
+        source_rate: f64,
+    ) -> Result<Vec<Vec<f64>>, DepletionError<O::Error>>
     where
         O: TransportOperator<Rates = R>,
     {
         let fm = |op: &O, r: &R, m| op.form_matrix(r, m).map_err(DepletionError::Operator);
         // :163-165 -- Step 1: deplete with matrix 1/2*A(y0)
         let n_eos1 = self.deplete(op, n_bos, dt, |op, m| Ok(cf4_f1(&fm(op, bos_rates, m)?)))?;
-        let res1 = op.evaluate(&n_eos1, source_rate).map_err(DepletionError::Operator)?;
+        let res1 = op
+            .evaluate(&n_eos1, source_rate)
+            .map_err(DepletionError::Operator)?;
         // :168-170 -- Step 2: deplete with matrix 1/2*A(y1)
         let n_eos2 = self.deplete(op, n_bos, dt, |op, m| Ok(cf4_f1(&fm(op, &res1.rates, m)?)))?;
-        let res2 = op.evaluate(&n_eos2, source_rate).map_err(DepletionError::Operator)?;
+        let res2 = op
+            .evaluate(&n_eos2, source_rate)
+            .map_err(DepletionError::Operator)?;
         // :173-176 -- Step 3: deplete with matrix -1/2*A(y0)+A(y2)
         let n_eos3 = self.deplete(op, &n_eos1, dt, |op, m| {
             Ok(cf4_f2(&fm(op, bos_rates, m)?, &fm(op, &res2.rates, m)?)?)
         })?;
-        let res3 = op.evaluate(&n_eos3, source_rate).map_err(DepletionError::Operator)?;
+        let res3 = op
+            .evaluate(&n_eos3, source_rate)
+            .map_err(DepletionError::Operator)?;
         // :179-183 -- Step 4: deplete with two matrix exponentials
         let four = |op: &O, m| -> Result<[DepletionMatrix; 4], DepletionError<O::Error>> {
-            Ok([fm(op, bos_rates, m)?, fm(op, &res1.rates, m)?, fm(op, &res2.rates, m)?, fm(op, &res3.rates, m)?])
+            Ok([
+                fm(op, bos_rates, m)?,
+                fm(op, &res1.rates, m)?,
+                fm(op, &res2.rates, m)?,
+                fm(op, &res3.rates, m)?,
+            ])
         };
         let n_inter = self.deplete(op, n_bos, dt, |op, m| {
             let [a, b, c, d] = four(op, m)?;
@@ -493,47 +543,85 @@ impl<S: DepSystemSolver, R: Clone + AverageRates> DepletionIntegrator<S, R> {
     }
 
     /// `CELIIntegrator.__call__` (`integrators.py:210-247`).
-    fn celi<O>(&self, op: &mut O, n_bos: &[Vec<f64>], rates: &R, dt: f64, source_rate: f64) -> Result<Vec<Vec<f64>>, DepletionError<O::Error>>
+    fn celi<O>(
+        &self,
+        op: &mut O,
+        n_bos: &[Vec<f64>],
+        rates: &R,
+        dt: f64,
+        source_rate: f64,
+    ) -> Result<Vec<Vec<f64>>, DepletionError<O::Error>>
     where
         O: TransportOperator<Rates = R>,
     {
         let fm = |op: &O, r: &R, m| op.form_matrix(r, m).map_err(DepletionError::Operator);
         // :235-236 -- deplete to end using BOS rates
         let n_ce = self.deplete(op, n_bos, dt, |op, m| fm(op, rates, m))?;
-        let res_ce = op.evaluate(&n_ce, source_rate).map_err(DepletionError::Operator)?;
+        let res_ce = op
+            .evaluate(&n_ce, source_rate)
+            .map_err(DepletionError::Operator)?;
         // :239-245 -- deplete using two matrix exponentials
         self.celi_corrector(op, n_bos, rates, &res_ce.rates, dt)
     }
 
     /// The two CE/LI corrector exponentials, `celi_f1` then `celi_f2`
     /// (`integrators.py:241-245`, `:467-471`).
-    fn celi_corrector<O>(&self, op: &O, n_bos: &[Vec<f64>], r0: &R, r1: &R, dt: f64) -> Result<Vec<Vec<f64>>, DepletionError<O::Error>>
+    fn celi_corrector<O>(
+        &self,
+        op: &O,
+        n_bos: &[Vec<f64>],
+        r0: &R,
+        r1: &R,
+        dt: f64,
+    ) -> Result<Vec<Vec<f64>>, DepletionError<O::Error>>
     where
         O: TransportOperator<Rates = R>,
     {
         let fm = |op: &O, r: &R, m| op.form_matrix(r, m).map_err(DepletionError::Operator);
-        let n_inter = self.deplete(op, n_bos, dt, |op, m| Ok(celi_f1(&fm(op, r0, m)?, &fm(op, r1, m)?)?))?;
-        self.deplete(op, &n_inter, dt, |op, m| Ok(celi_f2(&fm(op, r0, m)?, &fm(op, r1, m)?)?))
+        let n_inter = self.deplete(op, n_bos, dt, |op, m| {
+            Ok(celi_f1(&fm(op, r0, m)?, &fm(op, r1, m)?)?)
+        })?;
+        self.deplete(op, &n_inter, dt, |op, m| {
+            Ok(celi_f2(&fm(op, r0, m)?, &fm(op, r1, m)?)?)
+        })
     }
 
     /// `EPCRK4Integrator.__call__` (`integrators.py:272-313`).
-    fn epc_rk4<O>(&self, op: &mut O, n: &[Vec<f64>], rates: &R, dt: f64, source_rate: f64) -> Result<Vec<Vec<f64>>, DepletionError<O::Error>>
+    fn epc_rk4<O>(
+        &self,
+        op: &mut O,
+        n: &[Vec<f64>],
+        rates: &R,
+        dt: f64,
+        source_rate: f64,
+    ) -> Result<Vec<Vec<f64>>, DepletionError<O::Error>>
     where
         O: TransportOperator<Rates = R>,
     {
         let fm = |op: &O, r: &R, m| op.form_matrix(r, m).map_err(DepletionError::Operator);
         // :298-299 -- Step 1: deplete with matrix A(y0) / 2
         let n1 = self.deplete(op, n, dt, |op, m| Ok(rk4_f1(&fm(op, rates, m)?)))?;
-        let res1 = op.evaluate(&n1, source_rate).map_err(DepletionError::Operator)?;
+        let res1 = op
+            .evaluate(&n1, source_rate)
+            .map_err(DepletionError::Operator)?;
         // :302-303 -- Step 2: deplete with matrix A(y1) / 2
         let n2 = self.deplete(op, n, dt, |op, m| Ok(rk4_f1(&fm(op, &res1.rates, m)?)))?;
-        let res2 = op.evaluate(&n2, source_rate).map_err(DepletionError::Operator)?;
+        let res2 = op
+            .evaluate(&n2, source_rate)
+            .map_err(DepletionError::Operator)?;
         // :306-307 -- Step 3: deplete with matrix A(y2)
         let n3 = self.deplete(op, n, dt, |op, m| fm(op, &res2.rates, m))?;
-        let res3 = op.evaluate(&n3, source_rate).map_err(DepletionError::Operator)?;
+        let res3 = op
+            .evaluate(&n3, source_rate)
+            .map_err(DepletionError::Operator)?;
         // :310-311 -- Step 4: deplete with matrix built from weighted rates
         self.deplete(op, n, dt, |op, m| {
-            Ok(rk4_f4(&fm(op, rates, m)?, &fm(op, &res1.rates, m)?, &fm(op, &res2.rates, m)?, &fm(op, &res3.rates, m)?)?)
+            Ok(rk4_f4(
+                &fm(op, rates, m)?,
+                &fm(op, &res1.rates, m)?,
+                &fm(op, &res2.rates, m)?,
+                &fm(op, &res3.rates, m)?,
+            )?)
         })
     }
 
@@ -545,7 +633,10 @@ impl<S: DepSystemSolver, R: Clone + AverageRates> DepletionIntegrator<S, R> {
             .and_then(|j| self.timesteps.get(j))
             .copied()
             .ok_or(DepletionError::Numeric(PetirError::Invalid))?;
-        let prev = self.prev_rates.clone().ok_or(DepletionError::Numeric(PetirError::Invalid))?;
+        let prev = self
+            .prev_rates
+            .clone()
+            .ok_or(DepletionError::Numeric(PetirError::Invalid))?;
         Ok((prev_dt, prev))
     }
 
@@ -555,7 +646,15 @@ impl<S: DepSystemSolver, R: Clone + AverageRates> DepletionIntegrator<S, R> {
     /// results (`:379-381`, `self._i_res >= 1`) is not ported: this crate
     /// keeps no results file, so `_i_res` is always 0 and step 0 is always
     /// CE/LI (`:375-378`).
-    fn leqi<O>(&mut self, op: &mut O, n_bos: &[Vec<f64>], bos_rates: &R, dt: f64, source_rate: f64, i: usize) -> Result<Vec<Vec<f64>>, DepletionError<O::Error>>
+    fn leqi<O>(
+        &mut self,
+        op: &mut O,
+        n_bos: &[Vec<f64>],
+        bos_rates: &R,
+        dt: f64,
+        source_rate: f64,
+        i: usize,
+    ) -> Result<Vec<Vec<f64>>, DepletionError<O::Error>>
     where
         O: TransportOperator<Rates = R>,
     {
@@ -567,20 +666,42 @@ impl<S: DepSystemSolver, R: Clone + AverageRates> DepletionIntegrator<S, R> {
         let (prev_dt, prev) = self.leqi_history(i)?;
 
         // :386 -- Remaining LE/QI (re-evaluates the operator at BOS)
-        let bos_res = op.evaluate(n_bos, source_rate).map_err(DepletionError::Operator)?;
+        let bos_res = op
+            .evaluate(n_bos, source_rate)
+            .map_err(DepletionError::Operator)?;
 
         let fm = |op: &O, r: &R, m| op.form_matrix(r, m).map_err(DepletionError::Operator);
         // :388-394
         let n_inter = self.deplete(op, n_bos, dt, |op, m| {
-            Ok(leqi_f1(&fm(op, &prev, m)?, &fm(op, &bos_res.rates, m)?, prev_dt, dt)?)
+            Ok(leqi_f1(
+                &fm(op, &prev, m)?,
+                &fm(op, &bos_res.rates, m)?,
+                prev_dt,
+                dt,
+            )?)
         })?;
         let n_eos0 = self.deplete(op, &n_inter, dt, |op, m| {
-            Ok(leqi_f2(&fm(op, &prev, m)?, &fm(op, &bos_res.rates, m)?, prev_dt, dt)?)
+            Ok(leqi_f2(
+                &fm(op, &prev, m)?,
+                &fm(op, &bos_res.rates, m)?,
+                prev_dt,
+                dt,
+            )?)
         })?;
         // :396
-        let res_inter = op.evaluate(&n_eos0, source_rate).map_err(DepletionError::Operator)?;
+        let res_inter = op
+            .evaluate(&n_eos0, source_rate)
+            .map_err(DepletionError::Operator)?;
         // :398-405
-        let n_eos1 = self.leqi_corrector(op, n_bos, &prev, &bos_res.rates, &res_inter.rates, prev_dt, dt)?;
+        let n_eos1 = self.leqi_corrector(
+            op,
+            n_bos,
+            &prev,
+            &bos_res.rates,
+            &res_inter.rates,
+            prev_dt,
+            dt,
+        )?;
         // :408 -- store updated rates
         self.prev_rates = Some(bos_res.rates);
         Ok(n_eos1)
@@ -589,16 +710,37 @@ impl<S: DepSystemSolver, R: Clone + AverageRates> DepletionIntegrator<S, R> {
     /// The two LE/QI corrector exponentials, `leqi_f3` then `leqi_f4`
     /// (`integrators.py:398-405`, `:551-556`).
     #[allow(clippy::too_many_arguments)]
-    fn leqi_corrector<O>(&self, op: &O, n_bos: &[Vec<f64>], r_prev: &R, r_bos: &R, r_eos: &R, prev_dt: f64, dt: f64) -> Result<Vec<Vec<f64>>, DepletionError<O::Error>>
+    fn leqi_corrector<O>(
+        &self,
+        op: &O,
+        n_bos: &[Vec<f64>],
+        r_prev: &R,
+        r_bos: &R,
+        r_eos: &R,
+        prev_dt: f64,
+        dt: f64,
+    ) -> Result<Vec<Vec<f64>>, DepletionError<O::Error>>
     where
         O: TransportOperator<Rates = R>,
     {
         let fm = |op: &O, r: &R, m| op.form_matrix(r, m).map_err(DepletionError::Operator);
         let n_inter = self.deplete(op, n_bos, dt, |op, m| {
-            Ok(leqi_f3(&fm(op, r_prev, m)?, &fm(op, r_bos, m)?, &fm(op, r_eos, m)?, prev_dt, dt)?)
+            Ok(leqi_f3(
+                &fm(op, r_prev, m)?,
+                &fm(op, r_bos, m)?,
+                &fm(op, r_eos, m)?,
+                prev_dt,
+                dt,
+            )?)
         })?;
         self.deplete(op, &n_inter, dt, |op, m| {
-            Ok(leqi_f4(&fm(op, r_prev, m)?, &fm(op, r_bos, m)?, &fm(op, r_eos, m)?, prev_dt, dt)?)
+            Ok(leqi_f4(
+                &fm(op, r_prev, m)?,
+                &fm(op, r_bos, m)?,
+                &fm(op, r_eos, m)?,
+                prev_dt,
+                dt,
+            )?)
         })
     }
 
@@ -612,7 +754,11 @@ impl<S: DepSystemSolver, R: Clone + AverageRates> DepletionIntegrator<S, R> {
     /// exact propagation is `sqrt((a*s_new)^2 + (b*s_bar)^2)`, which this
     /// computes; the nominal value is upstream's arithmetic exactly. The
     /// standard deviation may differ from `uncertainties`' in the last bits.
-    fn si_average(j: usize, inter: OperatorResult<R>, bar: Option<OperatorResult<R>>) -> OperatorResult<R> {
+    fn si_average(
+        j: usize,
+        inter: OperatorResult<R>,
+        bar: Option<OperatorResult<R>>,
+    ) -> OperatorResult<R> {
         match bar {
             Some(bar) if j > 1 => {
                 let jf = j as f64;
@@ -624,14 +770,24 @@ impl<S: DepSystemSolver, R: Clone + AverageRates> DepletionIntegrator<S, R> {
                 #[allow(unused_imports)]
                 use crate::real::Real;
                 let std_dev = Real::sqrt(sa * sa + sb * sb);
-                OperatorResult { k: Keff { value, std_dev }, rates }
+                OperatorResult {
+                    k: Keff { value, std_dev },
+                    rates,
+                }
             }
             _ => inter,
         }
     }
 
     /// `SICELIIntegrator.__call__` (`integrators.py:426-475`).
-    fn si_celi<O>(&self, op: &mut O, n_bos: &[Vec<f64>], bos_rates: &R, dt: f64, source_rate: f64) -> Result<StepOutcome<R>, DepletionError<O::Error>>
+    fn si_celi<O>(
+        &self,
+        op: &mut O,
+        n_bos: &[Vec<f64>],
+        bos_rates: &R,
+        dt: f64,
+        source_rate: f64,
+    ) -> Result<StepOutcome<R>, DepletionError<O::Error>>
     where
         O: TransportOperator<Rates = R>,
     {
@@ -641,18 +797,31 @@ impl<S: DepSystemSolver, R: Clone + AverageRates> DepletionIntegrator<S, R> {
         let mut res_bar: Option<OperatorResult<R>> = None;
         // :457-472 -- Begin iteration
         for j in 0..=self.n_steps {
-            let inter_res = op.evaluate(&n_inter, source_rate).map_err(DepletionError::Operator)?;
+            let inter_res = op
+                .evaluate(&n_inter, source_rate)
+                .map_err(DepletionError::Operator)?;
             let bar = Self::si_average(j, inter_res, res_bar.take());
             n_inter = self.celi_corrector(op, n_bos, bos_rates, &bar.rates, dt)?;
             res_bar = Some(bar);
         }
-        Ok(StepOutcome { n_end: n_inter, res_end: res_bar })
+        Ok(StepOutcome {
+            n_end: n_inter,
+            res_end: res_bar,
+        })
     }
 
     /// `SILEQIIntegrator.__call__` (`integrators.py:491-562`).
     ///
     /// **DEVIATION (restart):** as [`Self::leqi`]; step 0 is always SI-CE/LI.
-    fn si_leqi<O>(&mut self, op: &mut O, n_bos: &[Vec<f64>], bos_rates: &R, dt: f64, source_rate: f64, i: usize) -> Result<StepOutcome<R>, DepletionError<O::Error>>
+    fn si_leqi<O>(
+        &mut self,
+        op: &mut O,
+        n_bos: &[Vec<f64>],
+        bos_rates: &R,
+        dt: f64,
+        source_rate: f64,
+        i: usize,
+    ) -> Result<StepOutcome<R>, DepletionError<O::Error>>
     where
         O: TransportOperator<Rates = R>,
     {
@@ -665,22 +834,37 @@ impl<S: DepSystemSolver, R: Clone + AverageRates> DepletionIntegrator<S, R> {
         let fm = |op: &O, r: &R, m| op.form_matrix(r, m).map_err(DepletionError::Operator);
         // :531-536 -- Perform remaining LE/QI
         let n_inter = self.deplete(op, n_bos, dt, |op, m| {
-            Ok(leqi_f1(&fm(op, &prev, m)?, &fm(op, bos_rates, m)?, prev_dt, dt)?)
+            Ok(leqi_f1(
+                &fm(op, &prev, m)?,
+                &fm(op, bos_rates, m)?,
+                prev_dt,
+                dt,
+            )?)
         })?;
         let mut n_inter = self.deplete(op, &n_inter, dt, |op, m| {
-            Ok(leqi_f2(&fm(op, &prev, m)?, &fm(op, bos_rates, m)?, prev_dt, dt)?)
+            Ok(leqi_f2(
+                &fm(op, &prev, m)?,
+                &fm(op, bos_rates, m)?,
+                prev_dt,
+                dt,
+            )?)
         })?;
         let mut res_bar: Option<OperatorResult<R>> = None;
         // :541-557
         for j in 0..=self.n_steps {
-            let inter_res = op.evaluate(&n_inter, source_rate).map_err(DepletionError::Operator)?;
+            let inter_res = op
+                .evaluate(&n_inter, source_rate)
+                .map_err(DepletionError::Operator)?;
             let bar = Self::si_average(j, inter_res, res_bar.take());
             n_inter = self.leqi_corrector(op, n_bos, &prev, bos_rates, &bar.rates, prev_dt, dt)?;
             res_bar = Some(bar);
         }
         // :560 -- Store updated rates for next step
         self.prev_rates = Some(bos_rates.clone());
-        Ok(StepOutcome { n_end: n_inter, res_end: res_bar })
+        Ok(StepOutcome {
+            n_end: n_inter,
+            res_end: res_bar,
+        })
     }
 
     /// Perform the entire depletion — `Integrator.integrate`
@@ -705,7 +889,12 @@ impl<S: DepSystemSolver, R: Clone + AverageRates> DepletionIntegrator<S, R> {
     ///
     /// [`PetirError::Invalid`] for no timesteps (upstream would fail on the
     /// unbound loop variable at `abc.py:981`); otherwise as [`Self::step`].
-    pub fn integrate<O>(&mut self, op: &mut O, n0: Vec<Vec<f64>>, final_step: bool) -> Result<Vec<StepRecord<R>>, DepletionError<O::Error>>
+    pub fn integrate<O>(
+        &mut self,
+        op: &mut O,
+        n0: Vec<Vec<f64>>,
+        final_step: bool,
+    ) -> Result<Vec<StepRecord<R>>, DepletionError<O::Error>>
     where
         O: TransportOperator<Rates = R>,
     {
@@ -719,7 +908,12 @@ impl<S: DepSystemSolver, R: Clone + AverageRates> DepletionIntegrator<S, R> {
         let mut n = n0;
         let mut t = 0.0;
         let mut source_rate = 0.0;
-        let grid: Vec<(f64, f64)> = self.timesteps.iter().copied().zip(self.source_rates.iter().copied()).collect();
+        let grid: Vec<(f64, f64)> = self
+            .timesteps
+            .iter()
+            .copied()
+            .zip(self.source_rates.iter().copied())
+            .collect();
         for (i, (dt, sr)) in grid.into_iter().enumerate() {
             source_rate = sr;
             // abc.py:950 -> _get_bos_data_from_operator (:819-825)
@@ -727,7 +921,14 @@ impl<S: DepSystemSolver, R: Clone + AverageRates> DepletionIntegrator<S, R> {
             // :953
             let out = self.step(op, &n, &res.rates, dt, sr, i)?;
             // :955-966
-            records.push(StepRecord { index: i, n, k: res.k, rates: res.rates, time: [t, t + dt], source_rate: sr });
+            records.push(StepRecord {
+                index: i,
+                n,
+                k: res.k,
+                rates: res.rates,
+                time: [t, t + dt],
+                source_rate: sr,
+            });
             // :969-970
             n = out.n_end;
             t += dt;
@@ -748,7 +949,11 @@ impl<S: DepSystemSolver, R: Clone + AverageRates> DepletionIntegrator<S, R> {
     }
 
     /// `SIIntegrator.integrate` (`abc.py:1370-1440`).
-    fn integrate_si<O>(&mut self, op: &mut O, n0: Vec<Vec<f64>>) -> Result<Vec<StepRecord<R>>, DepletionError<O::Error>>
+    fn integrate_si<O>(
+        &mut self,
+        op: &mut O,
+        n0: Vec<Vec<f64>>,
+    ) -> Result<Vec<StepRecord<R>>, DepletionError<O::Error>>
     where
         O: TransportOperator<Rates = R>,
     {
@@ -757,7 +962,12 @@ impl<S: DepSystemSolver, R: Clone + AverageRates> DepletionIntegrator<S, R> {
         let mut t = 0.0;
         let mut p = 0.0;
         let mut res: Option<OperatorResult<R>> = None;
-        let grid: Vec<(f64, f64)> = self.timesteps.iter().copied().zip(self.source_rates.iter().copied()).collect();
+        let grid: Vec<(f64, f64)> = self
+            .timesteps
+            .iter()
+            .copied()
+            .zip(self.source_rates.iter().copied())
+            .collect();
         for (i, (dt, sr)) in grid.into_iter().enumerate() {
             p = sr;
             if i == 0 {
@@ -767,11 +977,20 @@ impl<S: DepSystemSolver, R: Clone + AverageRates> DepletionIntegrator<S, R> {
                 op.end_si_initial_solve(self.n_steps);
                 res = Some(r.map_err(DepletionError::Operator)?);
             }
-            let bos = res.take().ok_or(DepletionError::Numeric(PetirError::Invalid))?;
+            let bos = res
+                .take()
+                .ok_or(DepletionError::Numeric(PetirError::Invalid))?;
             // :1413
             let out = self.step(op, &n, &bos.rates, dt, sr, i)?;
             // :1415-1424
-            records.push(StepRecord { index: i, n, k: bos.k, rates: bos.rates, time: [t, t + dt], source_rate: sr });
+            records.push(StepRecord {
+                index: i,
+                n,
+                k: bos.k,
+                rates: bos.rates,
+                time: [t, t + dt],
+                source_rate: sr,
+            });
             // :1427-1429
             n = out.n_end;
             res = out.res_end;
@@ -788,5 +1007,231 @@ impl<S: DepSystemSolver, R: Clone + AverageRates> DepletionIntegrator<S, R> {
             source_rate: p,
         });
         Ok(records)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::depletion::cram::CramSolver;
+    use std::vec;
+
+    /// Single-nuclide materials whose removal rate depends on their own
+    /// density (`l0 * (1 + n)`), or is constant.
+    struct Toy {
+        calls: usize,
+        constant: bool,
+        fail_at: Option<usize>,
+    }
+
+    impl TransportOperator for Toy {
+        type Rates = Vec<f64>;
+        type Error = &'static str;
+
+        fn evaluate(
+            &mut self,
+            n: &[Vec<f64>],
+            _s: f64,
+        ) -> core::result::Result<OperatorResult<Vec<f64>>, &'static str> {
+            self.calls += 1;
+            if self.fail_at == Some(self.calls) {
+                return Err("transport failed");
+            }
+            let rates = n
+                .iter()
+                .map(|m| {
+                    if self.constant {
+                        1.0e-2
+                    } else {
+                        1.0e-2 * (1.0 + m[0])
+                    }
+                })
+                .collect();
+            Ok(OperatorResult {
+                k: Keff {
+                    value: 1.0,
+                    std_dev: 0.0,
+                },
+                rates,
+            })
+        }
+
+        fn form_matrix(
+            &self,
+            rates: &Vec<f64>,
+            material: usize,
+        ) -> core::result::Result<DepletionMatrix, &'static str> {
+            let mut a = DepletionMatrix::zeros(1);
+            a.set(0, 0, -*rates.get(material).ok_or("no such material")?)
+                .map_err(|_| "set")?;
+            Ok(a)
+        }
+    }
+
+    fn run(method: Integrator, constant: bool, steps: usize) -> (Vec<StepRecord<Vec<f64>>>, usize) {
+        let mut op = Toy {
+            calls: 0,
+            constant,
+            fail_at: None,
+        };
+        let mut integ = DepletionIntegrator::new(
+            method,
+            CramSolver::Cram48,
+            vec![10.0; steps],
+            vec![1.0; steps],
+        )
+        .unwrap();
+        integ.n_steps = 3;
+        let recs = integ
+            .integrate(&mut op, vec![vec![1.0], vec![0.5]], true)
+            .unwrap();
+        (recs, op.calls)
+    }
+
+    /// `operator_calls` is what `integrate` actually does, step by step.
+    #[test]
+    fn operator_call_counts() {
+        for method in Integrator::ALL {
+            let mut expected = 0;
+            for steps in 1..=3 {
+                expected += method.operator_calls(steps - 1, 3);
+                let (_, calls) = run(method, false, steps);
+                let final_call = usize::from(!method.is_stochastic_implicit());
+                assert_eq!(calls, expected + final_call, "{method:?}, {steps} steps");
+            }
+        }
+    }
+
+    /// Every method is exact (to CRAM48) when the matrix does not depend on
+    /// the composition, for every material.
+    #[test]
+    fn exact_on_a_constant_matrix() {
+        for method in Integrator::ALL {
+            let (recs, _) = run(method, true, 3);
+            let last = recs.last().unwrap();
+            assert_eq!(recs.len(), 4);
+            assert_eq!(last.time, [30.0, 30.0]);
+            for (n, n0) in last.n.iter().zip([1.0, 0.5]) {
+                let want = n0 * (-0.3_f64).exp();
+                assert!(
+                    ((n[0] - want) / want).abs() < 1e-13,
+                    "{method:?}: {} vs {want}",
+                    n[0]
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn names_round_trip() {
+        for m in Integrator::ALL {
+            assert_eq!(Integrator::by_name(m.name()), Some(m));
+            assert!(m.num_stages() >= 1 && m.predicted_order() >= 1);
+        }
+        assert_eq!(Integrator::by_name("rk45"), None);
+    }
+
+    /// Failures are returned, never panicked.
+    #[test]
+    fn errors_are_reported() {
+        assert!(DepletionIntegrator::<CramSolver, Vec<f64>>::new(
+            Integrator::Cf4,
+            CramSolver::Cram16,
+            vec![1.0],
+            vec![]
+        )
+        .is_err());
+        let mut empty = DepletionIntegrator::<CramSolver, Vec<f64>>::new(
+            Integrator::Predictor,
+            CramSolver::Cram48,
+            vec![],
+            vec![],
+        )
+        .unwrap();
+        let mut op = Toy {
+            calls: 0,
+            constant: true,
+            fail_at: None,
+        };
+        assert_eq!(
+            empty.integrate(&mut op, vec![vec![1.0]], true),
+            Err(DepletionError::Numeric(PetirError::Invalid))
+        );
+        // LE/QI at i > 0 with no history.
+        for method in [Integrator::LeQi, Integrator::SiLeQi] {
+            let mut integ = DepletionIntegrator::new(
+                method,
+                CramSolver::Cram48,
+                vec![1.0, 1.0],
+                vec![1.0, 1.0],
+            )
+            .unwrap();
+            let r = integ.step(&mut op, &[vec![1.0]], &vec![0.1], 1.0, 1.0, 1);
+            assert_eq!(r, Err(DepletionError::Numeric(PetirError::Invalid)));
+        }
+        // An operator failure mid-step propagates.
+        for method in Integrator::ALL {
+            let mut bad = Toy {
+                calls: 0,
+                constant: false,
+                fail_at: Some(2),
+            };
+            let mut integ =
+                DepletionIntegrator::new(method, CramSolver::Cram48, vec![1.0; 2], vec![1.0; 2])
+                    .unwrap();
+            integ.n_steps = 1;
+            assert_eq!(
+                integ.integrate(&mut bad, vec![vec![1.0]], true),
+                Err(DepletionError::Operator("transport failed")),
+                "{method:?}"
+            );
+        }
+        // form_matrix failing (material 1 has no rate) propagates too.
+        let mut integ = DepletionIntegrator::new(
+            Integrator::Predictor,
+            CramSolver::Cram48,
+            vec![1.0],
+            vec![1.0],
+        )
+        .unwrap();
+        let r = integ.step(&mut op, &[vec![1.0], vec![1.0]], &vec![0.1], 1.0, 1.0, 0);
+        assert_eq!(r, Err(DepletionError::Operator("no such material")));
+        assert_eq!(
+            DepletionError::<()>::from(PetirError::Domain),
+            DepletionError::Numeric(PetirError::Domain)
+        );
+    }
+
+    /// The SI running average follows upstream's weights and propagates k's
+    /// standard deviation as an independent sum.
+    #[test]
+    fn si_average_weights() {
+        let r = |v: f64, s: f64| OperatorResult {
+            k: Keff {
+                value: v,
+                std_dev: s,
+            },
+            rates: vec![v],
+        };
+        type I = DepletionIntegrator<CramSolver, Vec<f64>>;
+        assert_eq!(
+            I::si_average(0, r(2.0, 0.1), Some(r(5.0, 0.1))).rates,
+            vec![2.0]
+        );
+        assert_eq!(
+            I::si_average(1, r(2.0, 0.1), Some(r(5.0, 0.1))).rates,
+            vec![2.0]
+        );
+        let avg = I::si_average(4, r(2.0, 0.4), Some(r(6.0, 0.0)));
+        assert_eq!(avg.rates, vec![0.25 * 2.0 + 0.75 * 6.0]);
+        assert_eq!(avg.k.value, 0.25 * 2.0 + 0.75 * 6.0);
+        assert!((avg.k.std_dev - 0.1).abs() < 1e-15);
+        let m = DepletionMatrix::zeros(1);
+        let mut one = DepletionMatrix::zeros(1);
+        one.set(0, 0, 4.0).unwrap();
+        assert_eq!(
+            DepletionMatrix::weighted_sum(0.5, &one, 0.5, &m).get(0, 0),
+            2.0
+        );
     }
 }

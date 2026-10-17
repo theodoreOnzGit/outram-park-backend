@@ -76,4 +76,59 @@ against upstream `CRAM48` on every density; equal operator-call totals.
 
 ## 3. Measured orders of convergence
 
-(filled in by section 3's run; see below)
+*Methodology* — `tests/depletion_integrator_orders.rs`: the problem of
+section 1, `T = 1 s`, `N = 4 ... 1024` uniform steps, CRAM48,
+`DepletionIntegrator::integrate`, SI `n_steps = 10`. Error = largest relative
+error of the three densities at `T` against the closed form; observed order
+`log2(e(N)/e(2N))`.
+
+*Criterion, fixed with the predictions* — the order between `N = 128` and
+`N = 256` within 0.1 of the predicted order, for each integrator and for the
+docstring-order CF4.
+
+*Results (2026-10-17, first run)* — every prediction held.
+
+| integrator | predicted | observed order, N = 4→8 … 512→1024 | at 128→256 | error at N = 256 |
+|---|---|---|---|---|
+| Predictor | 1 | 0.850, 0.912, 0.952, 0.974, 0.987, 0.993, 0.997, 0.998 | 0.993 | 3.89e-3 |
+| CE/CM | 2 | 1.815, 1.913, 1.959, 1.981, 1.991, 1.995, 1.998, 1.999 | 1.995 | 9.30e-6 |
+| CF4 | 4 | 3.629, 3.835, 3.924, 3.964, 3.982, 3.981, 3.640, −0.913 | 3.981 | 1.67e-11 |
+| CE/LI | 2 | 2.126, 2.126, 2.087, 2.051, 2.027, 2.014, 2.007, 2.004 | 2.014 | 1.34e-6 |
+| EPC-RK4 | 2 | 1.976, 1.993, 1.998, 2.000, 2.000, 2.000, 2.000, 2.000 | 2.000 | 3.00e-6 |
+| LE/QI | 3 | 2.960, 3.037, 3.041, 3.028, 3.016, 3.009, 3.005, 3.007 | 3.009 | 8.44e-9 |
+| SI-CE/LI | 2 | 2.014, 1.999, 1.997, 1.998, 1.999, 1.999, 2.000, 2.000 | 1.999 | 6.46e-6 |
+| SI-LE/QI | 3 | 2.753, 2.847, 2.915, 2.956, 2.977, 2.989, 2.994, 3.001 | 2.989 | 5.85e-8 |
+| CF4, docstring order (ablation) | 2 | 1.976, 1.994, 1.998, 2.000, 2.000, 2.000, 2.000, 2.000 | 2.000 | 6.01e-6 |
+
+*Interpretation*
+
+- **CF4 is fourth order** until its error reaches a round-off floor of
+  ~1.3e-12 at `N = 512` (2560 CRAM48 solves of a 3x3 system); the last two
+  "orders" are that floor, not the method. The gate pair 128→256 sits above it.
+- **The CF4 docstring order is second order.** The sign of the commutator
+  term matters exactly as predicted. The pre-move `outram-mc-libs` CF4 used
+  that order, which is why it measured 1.94 on its own burnup history; with
+  the port it measures **3.930** there (prediction "well above 2, toward 4"
+  held; `crates/outram-mc-libs/tests/depletion_step_convergence.rs`).
+- EPC-RK4 is the clearest case of an integrator whose name overstates its
+  order on a non-commuting problem: four transport solves per step for second
+  order, the same as CE/CM's two.
+- The CF4 by-hand harness used for the ablation reproduces
+  `Integrator::Cf4` bit for bit in the code order, so the ablation differs
+  from the integrator only in the exponential order.
+
+*Limitations* — one problem, one functional (densities at `T`), uniform
+steps for the orders (the code-to-code run covers unequal steps). The problem
+has no stiffness of note; on a stiff chain the asymptotic range starts at
+smaller steps (outram-mc's Xe-135 record). A deterministic operator: the SI
+methods' purpose, averaging Monte Carlo noise, is not exercised here.
+
+## 4. Bit-identity of the move (outram-mc-libs)
+
+`crates/outram-mc-libs/tests/depletion_move_fingerprints.rs`, pins printed on
+the pre-move code (`357033acbe`): CRAM16/48, `mat_vec`, `combine`, the
+notebook predictor case, `deplete_with` and `deplete_independent` with
+Predictor and CE/CM, and `deplete_coupled` — **all bit-identical after the
+move**. The two CF4 cases changed, deliberately; a verbatim replay of the
+removed CF4 on the moved CRAM reproduces the old CF4 pin exactly, so the
+change is the algorithm alone.
