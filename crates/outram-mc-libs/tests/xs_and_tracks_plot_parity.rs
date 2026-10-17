@@ -560,7 +560,7 @@ fn regenerate_c12_ace() {
     use njoy_outram_park_fork::interface::NuclearDataLibrary;
     let endf = njoy_outram_park_fork::reference_data::reference_endf("n-006_C_012-ENDF8.0.endf")
         .expect("C-12 tape");
-    let lib = NuclearDataLibrary::from_file(&endf, 625)
+    let lib = NuclearDataLibrary::from_file(&endf)
         .unwrap()
         .reconstruct(0.001)
         .unwrap()
