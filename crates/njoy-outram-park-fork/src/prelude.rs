@@ -35,3 +35,13 @@ pub use crate::process::{
     ace, cross_sections, thermal_ace, thermal_scattering, CrossSectionSettings, NuclearCrossSections,
     PurrSettings, ThermalScatteringLaw, ThermalSettings,
 };
+
+// ── A whole library from a folder, zip or upload; ACE files by header; zip
+// archives in memory (GitHub #935, #936) ───────────────────────────────────────
+pub use crate::acer::ace_set::{AceLookupError, AceSet, AceSetTable};
+pub use crate::archive::{write_zip, ZipArchive, ZipEntry, ZipMethod};
+pub use crate::endf_library::{
+    fuzzy_score, generate_ace, generate_thermal_ace, suggest_thermal_partner, AceRequest,
+    EndfHeader, EndfLibraryIndex, GeneratedAce, IndexedTape, LibraryLayout, LibrarySource,
+    LookupError, SubLibrary,
+};

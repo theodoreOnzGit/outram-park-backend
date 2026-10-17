@@ -241,6 +241,15 @@ path = "src/bin/outram-mc-tui/main.rs"
 [[example]]
 name = "fhr_pebble_quickstart"
 
+# Nuclear-data loading probe (gh #935, #936): a cdylib whose plain `extern "C"`
+# exports a web page drives in headless Chromium, to show the folder/zip/ACE
+# loaders RUN in a browser and give the native fingerprints. See
+# verification_and_validation/nuclear_data_loading_web/.
+[[example]]
+name = "nd_wasm_probe"
+path = "examples/nd_wasm_probe/lib.rs"
+crate-type = ["cdylib"]
+
 # Gated V&V example — see the `endf-pebble-cases` feature above.
 [[example]]
 name = "fhr_ring_rpt_endf"

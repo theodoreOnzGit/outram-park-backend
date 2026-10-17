@@ -3,9 +3,13 @@
 //! day so the wasm page can use it, `kovan::fuzzy` re-exports it).
 //!
 //! Ported from `fuzzy_score` in
-//! `crates/njoy-outram-park-fork/src/bin/njoy-tui/nuclides.rs` (the njoy TUI's
+//! ~~`crates/njoy-outram-park-fork/src/bin/njoy-tui/nuclides.rs` (the njoy TUI's
 //! nuclide finder), which lives in another crate's binary and so cannot be
-//! depended on. Same algorithm, same constants; keep the two in step. Hand
+//! depended on.~~ **MOVED 2026-10-17 (gh #936):** that function is now
+//! `njoy_outram_park_fork::endf_library::fuzzy_score` (this file's version,
+//! lowercasing included), which the njoy TUI and the browser's ACE picker
+//! call; kovan does not depend on njoy, so this copy stays. Same algorithm,
+//! same constants; keep the two in step. Hand
 //! rolled, as there, rather than a new fuzzy-matching dependency.
 
 /// Score how well `query` matches `candidate`, or `None` if it does not.

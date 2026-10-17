@@ -13,6 +13,8 @@
 //! itself.
 
 pub mod njoy_golden;
+/// Instruments for the temperature-interpolation error study (GitHub #947).
+pub mod temperature_interpolation_947;
 /// The uranium-graphite compositions of tutorial rungs 2 and 3 (GitHub #524,
 /// #525), shared by their examples and the web demo's rungs.
 pub mod ugraphite;

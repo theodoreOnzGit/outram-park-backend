@@ -10,6 +10,8 @@
 //! - [`reaction`]: reaction identifiers used across the above.
 //! - [`speed`]: [`SpeedTier`](speed::SpeedTier), trading accuracy for speed in
 //!   nuclear-data processing and cross-section lookup.
+//! - [`temperature_interpolation`]: OpenMC's stochastic choice between tables
+//!   at bracketing temperatures (GitHub #947). Not on a transport path yet.
 //!
 //! Geometry, sources and tallies live in their own modules; transport itself
 //! is in [`crate::physics`].
@@ -18,4 +20,5 @@ pub mod nuclide;
 pub mod processed;
 pub mod reaction;
 pub mod speed;
+pub mod temperature_interpolation;
 pub mod thermal;
