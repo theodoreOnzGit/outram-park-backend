@@ -1012,6 +1012,25 @@ Read these before touching it:
   `without_urr`, `without_thermal_scattering`); the run's
   `provenance.ablations` names each.
 
+### Beginner repeated structures (2026-10-18, gh #926)
+
+`model::{Cube, Cuboid, Boundary, Lattice, Census}` are a **shell over the
+existing CSG**: a TRISO particle is concentric `Sphere`s, a unit cell a
+`Cube` containing it (`.boundary(Boundary::Reflective)` on the outermost
+shape only), a `Lattice` lowers each distinct tile once to a universe plus a
+CSG `RectLattice` (lowering in `model/lower.rs`). Row order is named by the
+constructor (`from_rows_top_down` vs `from_natural_order`).
+
+- **Bit for bit** against `build_triso_particle` + `homogeneous_cube`'s
+  planes + a hand-built `RectLattice`: `tests/model_repeated_structures.rs`
+  (structure and per-generation k). Keep it passing on any lowering change.
+- **Count from the assembled geometry**: `AssembledModel::census()` walks the
+  universe/lattice graph (`DistribcellOffsets`, plus each lattice's `outer`
+  once per placement). Never report a particle count from a constant (gh:#316).
+- **Not yet**: a lattice in a sphere (whole-particle rejection), random
+  packing and `DhRegion` (tutorial 5), hex lattices, per-lattice delta
+  tracking (the beginner run carries no majorants).
+
 ### DEM pebble beds: `pebble_beds::dem_bed` (2026-10-02)
 
 `outram-park-fork-liggghts` is a dependency (with none of its default

@@ -168,11 +168,23 @@ fn assert_same_geometry(ours: &Geometry, hand: &Geometry) {
     for (i, (a, b)) in ours.cells.iter().zip(&hand.cells).enumerate() {
         assert_eq!(a.region, b.region, "cell {i} region");
         assert_eq!(a.fill, b.fill, "cell {i} fill");
-        assert_eq!(a.temperature.to_bits(), b.temperature.to_bits(), "cell {i} T");
-        assert_eq!(format!("{:?}", a.translation), format!("{:?}", b.translation));
+        assert_eq!(
+            a.temperature.to_bits(),
+            b.temperature.to_bits(),
+            "cell {i} T"
+        );
+        assert_eq!(
+            format!("{:?}", a.translation),
+            format!("{:?}", b.translation)
+        );
         assert_eq!(a.tracking, b.tracking, "cell {i} tracking");
     }
-    let lists = |g: &Geometry| g.universes.iter().map(|u| u.cell_indices.clone()).collect::<Vec<_>>();
+    let lists = |g: &Geometry| {
+        g.universes
+            .iter()
+            .map(|u| u.cell_indices.clone())
+            .collect::<Vec<_>>()
+    };
     assert_eq!(lists(ours), lists(hand), "universe cell lists");
     assert_eq!(ours.root_universe, hand.root_universe, "root");
     assert_eq!(ours.lattices.len(), hand.lattices.len(), "lattice count");
@@ -249,7 +261,9 @@ fn assert_same_k(a: &AssembledModel, hand: &Geometry) -> f64 {
 fn model_with(shape: Shape) -> Model {
     let mut m = Model::new(header_only_library());
     m.add(shape);
-    m.set_temperature(Temperature::Uniform(ThermodynamicTemperature::new::<kelvin>(T)));
+    m.set_temperature(Temperature::Uniform(
+        ThermodynamicTemperature::new::<kelvin>(T),
+    ));
     m
 }
 
@@ -303,7 +317,11 @@ fn unit_cell_lowers_to_build_triso_particle_in_a_reflective_cube() {
         SurfaceKind::XPlane(p) if p.bc == BoundaryType::Reflective
     ) || matches!(s, SurfaceKind::YPlane(p) if p.bc == BoundaryType::Reflective)
         || matches!(s, SurfaceKind::ZPlane(p) if p.bc == BoundaryType::Reflective)));
-    assert_eq!(assembled.materials.len(), 5, "IPyC and OPyC share one material");
+    assert_eq!(
+        assembled.materials.len(),
+        5,
+        "IPyC and OPyC share one material"
+    );
     assert_same_k(&assembled, &hand);
 
     // Counted from the geometry: one particle, at exactly the packing
@@ -361,7 +379,12 @@ fn triso_lattice_lowers_to_a_hand_built_rect_lattice() {
         HAND_MATS.matrix,
         T,
     ));
-    cells.push(Cell::fill(8, cube_region, CellFill::Lattice(0), Position::ZERO));
+    cells.push(Cell::fill(
+        8,
+        cube_region,
+        CellFill::Lattice(0),
+        Position::ZERO,
+    ));
     let hand = Geometry {
         surfaces,
         cells,
@@ -393,7 +416,10 @@ fn triso_lattice_lowers_to_a_hand_built_rect_lattice() {
     let census = assembled.census().expect("census");
     println!("{census}");
     assert_eq!(census.rows[0].copies, 27, "27 kernels placed");
-    assert_eq!(census.rows[6].copies, 1, "the outer universe is reached once");
+    assert_eq!(
+        census.rows[6].copies, 1,
+        "the outer universe is reached once"
+    );
     assert!(census.rows[6].volume_each.get::<cubic_centimeter>().abs() < 1e-15);
     let total = census.total_volume().get::<cubic_centimeter>();
     assert!((total / (27.0 * a.powi(3)) - 1.0).abs() < 1e-13);
@@ -465,7 +491,8 @@ fn rows_top_down_place_tiles_where_the_picture_shows_them() {
         .containing(particle(&m));
     let empty_tile = Cube::side(cm(0.2)).filled_with(m.buffer.clone());
     // Fuel top-left only.
-    let lattice = Lattice::from_rows_top_down(vec![fuel_tile, empty_tile], vec![vec![0, 1], vec![1, 1]]);
+    let lattice =
+        Lattice::from_rows_top_down(vec![fuel_tile, empty_tile], vec![vec![0, 1], vec![1, 1]]);
     let block = Cuboid::sides(cm(0.4), cm(0.4), cm(0.2))
         .filled_with(m.matrix.clone())
         .containing_lattice(lattice);
@@ -481,7 +508,11 @@ fn rows_top_down_place_tiles_where_the_picture_shows_them() {
     };
     let names: Vec<&str> = a.resolved.iter().map(|r| r.name.as_str()).collect();
     let at = |x, y| mat(x, y).map(|i| names[i]);
-    assert_eq!(at(-0.1, 0.1), Some("UO2"), "top-left tile holds the particle");
+    assert_eq!(
+        at(-0.1, 0.1),
+        Some("UO2"),
+        "top-left tile holds the particle"
+    );
     assert_eq!(at(0.1, 0.1), Some("buffer"));
     assert_eq!(at(-0.1, -0.1), Some("buffer"));
     assert_eq!(at(-0.1 + 0.08, 0.1), Some("matrix"), "outside the particle");
@@ -493,6 +524,9 @@ fn rows_top_down_place_tiles_where_the_picture_shows_them() {
         .map(|r| r.copies)
         .sum();
     assert_eq!(fuel_copies, 1);
-    let empty = census.rows.iter().find(|r| r.material == "buffer" && r.copies == 3);
+    let empty = census
+        .rows
+        .iter()
+        .find(|r| r.material == "buffer" && r.copies == 3);
     assert!(empty.is_some(), "three empty tiles: {census}");
 }

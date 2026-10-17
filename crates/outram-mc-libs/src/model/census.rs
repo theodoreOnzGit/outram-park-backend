@@ -161,7 +161,8 @@ impl AssembledModel {
                 cell: i,
                 material: self.resolved[m].name.clone(),
                 component,
-                component_label: component.and_then(|c| self.component_labels.get(c.index).cloned()),
+                component_label: component
+                    .and_then(|c| self.component_labels.get(c.index).cloned()),
                 copies,
                 volume_each: Volume::new::<cubic_centimeter>(
                     self.cell_volumes_cm3[i].unwrap_or(f64::NAN),

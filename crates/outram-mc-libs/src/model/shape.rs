@@ -529,11 +529,15 @@ mod tests {
         assert!(!unit.encloses(&Solid::Sphere(Sphere::radius(cm(1.5)))));
         assert!(unit.encloses(&Solid::Cuboid(Cube::side(cm(1.1)))));
         assert!(!unit.encloses(&Solid::Cuboid(Cube::side(cm(1.2)))));
-        assert!(Solid::Cuboid(Cube::side(cm(2.0))).encloses(&unit), "touching faces");
+        assert!(
+            Solid::Cuboid(Cube::side(cm(2.0))).encloses(&unit),
+            "touching faces"
+        );
         assert!(!Solid::Cuboid(Cube::side(cm(1.9))).encloses(&unit));
         assert!(Solid::Cuboid(Cube::side(cm(2.0))).encloses(&Solid::Cuboid(Cube::side(cm(2.0)))));
         // Overlaps: touching is not overlapping.
-        let at = |x: f64| Solid::Sphere(Sphere::radius(cm(1.0)).centred_at(cm(x), cm(0.0), cm(0.0)));
+        let at =
+            |x: f64| Solid::Sphere(Sphere::radius(cm(1.0)).centred_at(cm(x), cm(0.0), cm(0.0)));
         assert!(!unit.overlaps(&at(2.0)) && unit.overlaps(&at(1.9)));
         let box_at =
             |x: f64| Solid::Cuboid(Cube::side(cm(2.0)).centred_at(cm(x), cm(0.0), cm(0.0)));

@@ -172,7 +172,11 @@ impl Lowering {
     }
 
     fn note_heavy_metal(&mut self, m: usize, solid: &Solid) {
-        if !self.resolved[m].nuclides.iter().any(|(i, _)| i.is_heavy_metal()) {
+        if !self.resolved[m]
+            .nuclides
+            .iter()
+            .any(|(i, _)| i.is_heavy_metal())
+        {
             return;
         }
         self.note_heavy_metal_bounds(solid);
@@ -198,7 +202,8 @@ impl Lowering {
         let (inside, outside, surfaces) = self.solid_surfaces(&s.solid);
         let m = self.material_index(&s.material, t, masses)?;
         self.note_heavy_metal(m, &s.solid);
-        let volume = s.solid.volume_cm3() - s.children.iter().map(|c| c.solid.volume_cm3()).sum::<f64>();
+        let volume =
+            s.solid.volume_cm3() - s.children.iter().map(|c| c.solid.volume_cm3()).sum::<f64>();
         let id = self.cells.len() as i32 + 1;
         self.push_cell(
             Cell::material(id, combine(&inside, &children), m, t),
@@ -211,7 +216,12 @@ impl Lowering {
 
     /// One lattice tile: a universe of its children and its background, the
     /// background bounded only by the lattice. Returns the universe index.
-    fn lower_tile(&mut self, tile: &Shape, t: f64, masses: &AtomicMasses) -> Result<usize, ModelError> {
+    fn lower_tile(
+        &mut self,
+        tile: &Shape,
+        t: f64,
+        masses: &AtomicMasses,
+    ) -> Result<usize, ModelError> {
         let mut cells_of = Vec::new();
         let children: Vec<Vec<RegionToken>> = tile
             .children
@@ -225,10 +235,19 @@ impl Lowering {
         };
         let m = self.material_index(&tile.material, t, masses)?;
         self.note_heavy_metal(m, &tile.solid);
-        let volume =
-            tile.solid.volume_cm3() - tile.children.iter().map(|c| c.solid.volume_cm3()).sum::<f64>();
+        let volume = tile.solid.volume_cm3()
+            - tile
+                .children
+                .iter()
+                .map(|c| c.solid.volume_cm3())
+                .sum::<f64>();
         let id = self.cells.len() as i32 + 1;
-        self.push_cell(Cell::material(id, region, m, t), &mut cells_of, tile.component, Some(volume));
+        self.push_cell(
+            Cell::material(id, region, m, t),
+            &mut cells_of,
+            tile.component,
+            Some(volume),
+        );
         self.universes.push(Universe {
             id: self.universes.len() as i32,
             cell_indices: cells_of,
@@ -291,7 +310,11 @@ impl Lowering {
             n,
             lower_left: Position::new(lower[0], lower[1], lower[2]),
             pitch,
-            universes: lattice.pattern().iter().map(|&k| tile_universes[k]).collect(),
+            universes: lattice
+                .pattern()
+                .iter()
+                .map(|&k| tile_universes[k])
+                .collect(),
             outer: Some(outer),
         }));
         let li = self.lattices.len() - 1;

@@ -141,7 +141,10 @@ impl Lattice {
     /// [`super::Model::assemble`].
     pub(crate) fn problem(&self) -> Option<String> {
         if self.n.contains(&0) {
-            return Some(format!("a lattice needs at least one tile per axis, not {:?}", self.n));
+            return Some(format!(
+                "a lattice needs at least one tile per axis, not {:?}",
+                self.n
+            ));
         }
         if self.tiles.is_empty() {
             return Some("a lattice needs at least one tile".into());
@@ -175,14 +178,14 @@ impl Lattice {
                         pitch
                     ))
                 }
-                Solid::Cuboid(_) => {
-                    return Some(
-                        "a lattice tile is centred on its own origin; do not move it with centred_at"
-                            .into(),
-                    )
-                }
+                Solid::Cuboid(_) => return Some(
+                    "a lattice tile is centred on its own origin; do not move it with centred_at"
+                        .into(),
+                ),
                 Solid::Sphere(_) => {
-                    return Some("a lattice tile must be a box (Cube::side or Cuboid::sides)".into())
+                    return Some(
+                        "a lattice tile must be a box (Cube::side or Cuboid::sides)".into(),
+                    )
                 }
             }
             if t.boundary.is_some() {
@@ -198,7 +201,8 @@ impl Lattice {
     /// The tile centres \[cm\] when the lattice is centred on `centre`, in
     /// natural order, and the lower-left corner.
     pub(crate) fn layout(&self, pitch: [f64; 3], centre: [f64; 3]) -> ([f64; 3], Vec<[f64; 3]>) {
-        let lower: [f64; 3] = std::array::from_fn(|i| centre[i] - 0.5 * self.n[i] as f64 * pitch[i]);
+        let lower: [f64; 3] =
+            std::array::from_fn(|i| centre[i] - 0.5 * self.n[i] as f64 * pitch[i]);
         let mut centres = Vec::with_capacity(self.pattern.len());
         for iz in 0..self.n[2] {
             for iy in 0..self.n[1] {
@@ -232,8 +236,10 @@ mod tests {
         let t = Cube::side(cm(1.0)).filled_with(g);
         if fuel {
             t.containing(
-                Sphere::radius(cm(0.3))
-                    .filled_with(Material::from_atom_densities([(U235, atoms_per_barn_cm(0.04))])),
+                Sphere::radius(cm(0.3)).filled_with(Material::from_atom_densities([(
+                    U235,
+                    atoms_per_barn_cm(0.04),
+                )])),
             )
         } else {
             t
@@ -279,10 +285,12 @@ mod tests {
             .problem()
             .unwrap()
             .contains("at least one tile"));
-        assert!(Lattice::from_natural_order(vec![tile(false)], [1, 1, 1], vec![3])
-            .problem()
-            .unwrap()
-            .contains("names tile 3"));
+        assert!(
+            Lattice::from_natural_order(vec![tile(false)], [1, 1, 1], vec![3])
+                .problem()
+                .unwrap()
+                .contains("names tile 3")
+        );
         let g = || Material::from_atom_densities([(C12, atoms_per_barn_cm(0.08))]);
         let ball = Sphere::radius(cm(0.5)).filled_with(g());
         assert!(Lattice::copies_of(ball, [1, 1, 1])
@@ -290,10 +298,12 @@ mod tests {
             .unwrap()
             .contains("must be a box"));
         let other = Cuboid::sides(cm(1.0), cm(1.0), cm(2.0)).filled_with(g());
-        assert!(Lattice::from_natural_order(vec![tile(false), other], [2, 1, 1], vec![0, 1])
-            .problem()
-            .unwrap()
-            .contains("same sides"));
+        assert!(
+            Lattice::from_natural_order(vec![tile(false), other], [2, 1, 1], vec![0, 1])
+                .problem()
+                .unwrap()
+                .contains("same sides")
+        );
         let moved = Cube::side(cm(1.0))
             .centred_at(cm(1.0), cm(0.0), cm(0.0))
             .filled_with(g());
