@@ -48242,17 +48242,26 @@ updated densities feed the next transport solve.
 
 ## What belongs here / what does not
 
-* [`matrix`] — the dense burnup matrix `A` (`dN/dt = A N`, units `1/s`).
-* [`cram`] — the **Chebyshev Rational Approximation Method** matrix-exponential
-  solver `N(t+dt) = exp(A dt) N(t)`, the numerically sound scheme OpenMC uses
-  for the stiff decay/transmutation system.
+**Since 2026-10-17 the depletion MATH lives in `petir::depletion`** (gh:#950,
+maintainer direction "All math moved to petir"): the burnup matrix type,
+IPF CRAM and OpenMC's eight time integrators. This crate keeps the physics
+and the operator, and re-exports the moved items at their old paths.
+
+* [`matrix`] — re-export of PETIR's dense burnup matrix `A`
+  (`dN/dt = A N`, units `1/s`).
+* [`cram`] — re-export of PETIR's **Chebyshev Rational Approximation
+  Method** solver `N(t+dt) = exp(A dt) N(t)`, plus this crate's
+  panicking-signature `cram16` / `cram48` wrappers.
 * [`chain`] — the [`DepletionChain`](chain::DepletionChain): decay constants,
   branching, neutron-reaction targets, and fission yields, assembled into a
   [`DepletionMatrix`](matrix::DepletionMatrix). Consumes external open data
   (OpenMC ENDF/B-8 depletion-chain decay data and ENDF/B-VIII.0 fission
-  yields) rather than rebuilding it.
-* [`operator`] — the burnup loop (predictor / forward-Euler integrator)
-  coupling transport to the transmutation step.
+  yields) rather than rebuilding it. Stays here.
+* [`integrators`] — PETIR's [`Integrator`](integrators::Integrator)
+  (re-exported), this crate's [`OneGroupOperator`](integrators::OneGroupOperator)
+  implementing PETIR's `TransportOperator`, and transfer rates.
+* [`operator`] — the burnup loops coupling transport to the transmutation
+  step. Stays here.
 
 Nuclear-data *parsing* does **not** belong here — decay data and fission
 yields arrive pre-parsed from their data crates; cross sections arrive from
@@ -48291,38 +48300,50 @@ pub mod depletion { /* ... */ }
 
 ## Module `integrators`
 
-**Higher-order depletion integrators and transfer rates** — GitHub #266
-scope items 2, 3 and 4.
+**Depletion integrators (from PETIR), this crate's one-group operator,
+and transfer rates** — GitHub #266 scope items 2, 3 and 4; gh:#950.
 
-Ported in structure from `openmc/deplete/integrators.py` and
-`openmc/deplete/transfer_rates.py` at OpenMC `afa7a14`.
+# The integrators live in PETIR (2026-10-17, gh:#950)
 
-# Why the order matters, and what #266 already measured
+The maintainer's direction on #950 is that **all depletion math** goes to
+`petir`, while this crate keeps the operator: the chain, the reaction
+rates and the burnup-matrix entries. So:
 
-The predictor integrator this crate had is **first order** in the step
-size. #266's scope item 1 measured that convergence on the existing
-operator, and the finding was sharper than "the error is small": **Xe-135
-is not in the asymptotic regime at practical step sizes at all.** Its
-Richardson-observed order came out **negative (−3.70) at 5-day steps** and
-only climbed through 1 once the step fell below its ~9.14 h half-life.
+* [`Integrator`] is `petir::depletion::Integrator`, re-exported at its old
+  path. It now has all **eight** of OpenMC's integrators
+  (`openmc/deplete/integrators.py`): Predictor, CE/CM, CF4, CE/LI,
+  EPC-RK4, LE/QI, SI-CE/LI and SI-LE/QI. Before the move this crate had
+  three, written here in structure from upstream.
+* [`OneGroupOperator`] is this crate's side: it implements
+  `petir::depletion::TransportOperator` from the one-group cross
+  sections, holding the requested power by renormalising the flux at every
+  evaluation, and forms the matrix with
+  [`DepletionChain::build_matrix`].
+* [`deplete_with`](super::operator::deplete_with) and
+  [`deplete_independent`] drive PETIR's integrators through it.
 
-That is the context these integrators land in. A fourth-order method is
-fourth order *in its asymptotic regime*; on a nuclide whose own time
-constant is shorter than the step, it is not obviously better than first
-order, and [`Integrator::observed_order`] is provided so that claim is
-measured per problem rather than assumed from the method's name.
+The old `Integrator::step(n, dt, rebuild)` closure API is gone; nothing
+outside this module called it.
 
-# What each method costs
+# What changed in the numbers, and why
 
-| method | transport solves per step | order |
-|---|---|---|
-| [`Integrator::Predictor`] | 1 | 1 |
-| [`Integrator::CeCm`] | 2 | 2 |
-| [`Integrator::Cf4`] | 4 | 4 |
+Predictor and CE/CM are **bit-identical** to before the move
+(`tests/depletion_move_fingerprints.rs`). **CF4 is not, deliberately**:
+the pre-move CF4 applied its last two exponentials in the order upstream's
+*docstring* implies, while upstream's *code* applies them the other way
+round (`integrators.py:180-183`), and it skipped upstream's clip of the
+first stage (`abc.py:765-766`). PETIR follows the code. On PETIR's exact
+test problem the docstring order converges at **order 2.000** and the
+code order at **3.98**
+(`crates/petir/verification_and_validation/depletion/petir_integrators_2026_10_17.md`),
+which is why `tests/depletion_step_convergence.rs` measured CF4 at 1.94
+on this crate's chain before the move.
 
-"Transport solves" is the expensive part — each one is a full eigenvalue
-calculation in a coupled run. CF4 is four times the cost of predictor per
-step, so it only pays if it lets the step grow by more than 4x.
+# Solver: CRAM16, as before
+
+The drivers here use `CramSolver::Cram16`, this crate's choice since the
+burnup loop was first written, so the recorded results do not move.
+Upstream's default is CRAM48 (`abc.py:643`).
 
 ```rust
 pub mod integrators { /* ... */ }
@@ -48330,189 +48351,6 @@ pub mod integrators { /* ... */ }
 
 ### Types
 
-#### Enum `Integrator`
-
-Which time integrator to advance the inventory with.
-
-```rust
-pub enum Integrator {
-    Predictor,
-    CeCm,
-    Cf4,
-}
-```
-
-##### Variants
-
-###### `Predictor`
-
-Explicit predictor — `PredictorIntegrator`. First order, one solve.
-
-###### `CeCm`
-
-Constant-extrapolation / constant-midpoint — `CECMIntegrator`.
-Second order, two solves.
-
-###### `Cf4`
-
-Commutator-free fourth order — `CF4Integrator`. Upstream's usual
-production default. Four solves.
-
-##### Implementations
-
-###### Methods
-
-- ```rust
-  pub fn solves_per_step(self: Self) -> usize { /* ... */ }
-  ```
-  Transport solves this method needs per step.
-
-- ```rust
-  pub fn nominal_order(self: Self) -> u32 { /* ... */ }
-  ```
-  The method's **nominal** order — what it converges at in its asymptotic
-
-- ```rust
-  pub fn step<F>(self: Self, n: &[f64], dt_seconds: f64, rebuild: F) -> Vec<f64>
-where
-    F: FnMut(&[f64]) -> DepletionMatrix { /* ... */ }
-  ```
-  Advance `n` by one step of `dt_seconds`.
-
-###### Trait Implementations
-
-- **Any**
-  - ```rust
-    fn type_id(self: &Self) -> TypeId { /* ... */ }
-    ```
-
-- **Boilerplate**
-- **Borrow**
-  - ```rust
-    fn borrow(self: &Self) -> &T { /* ... */ }
-    ```
-
-- **BorrowMut**
-  - ```rust
-    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
-    ```
-
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
-- **CastableFrom**
-- **Clone**
-  - ```rust
-    fn clone(self: &Self) -> Integrator { /* ... */ }
-    ```
-
-- **CloneToUninit**
-  - ```rust
-    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
-    ```
-
-- **Copy**
-- **Debug**
-  - ```rust
-    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
-    ```
-
-- **DistributionExt**
-- **Downcast**
-  - ```rust
-    fn downcast(self: &Self) -> &T { /* ... */ }
-    ```
-
-- **Eq**
-- **Equivalent**
-  - ```rust
-    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
-    ```
-
-  - ```rust
-    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
-    ```
-
-- **Freeze**
-- **From**
-  - ```rust
-    fn from(t: T) -> T { /* ... */ }
-    ```
-    Returns the argument unchanged.
-
-- **Imply**
-- **Into**
-  - ```rust
-    fn into(self: Self) -> U { /* ... */ }
-    ```
-    Calls `U::from(self)`.
-
-- **IntoEither**
-- **PartialEq**
-  - ```rust
-    fn eq(self: &Self, other: &Integrator) -> bool { /* ... */ }
-    ```
-
-- **Pointable**
-  - ```rust
-    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn drop(ptr: usize) { /* ... */ }
-    ```
-
-- **Read**
-- **RefUnwindSafe**
-- **Same**
-- **Send**
-- **StructuralPartialEq**
-- **Sync**
-- **ToOwned**
-  - ```rust
-    fn to_owned(self: &Self) -> T { /* ... */ }
-    ```
-
-  - ```rust
-    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
-    ```
-
-- **TryFrom**
-  - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
-    ```
-
-- **TryInto**
-  - ```rust
-    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
-    ```
-
-- **Unpin**
-- **UnsafeUnpin**
-- **UnwindSafe**
-- **Upcast**
-  - ```rust
-    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
-    ```
-
-- **WasmNotSend**
-- **WasmNotSendSync**
-- **WasmNotSync**
 #### Struct `TransferRate`
 
 Continuous removal or feed of a nuclide during depletion —
@@ -48655,6 +48493,170 @@ pub struct TransferRate {
 
   - ```rust
     fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `OneGroupOperator`
+
+This crate's one-group, single-material depletion operator, for PETIR's
+integrators — the role of OpenMC's `IndependentOperator`
+(`openmc/deplete/independent_operator.py`) with the chain's
+`form_matrix`.
+
+Each evaluation renormalises the flux so the fission power in
+`settings.fuel_volume_cm3` equals `settings.power_watts`
+([`flux_for_power`]) and returns the flux-multiplied one-group rates;
+[`TransportOperator::form_matrix`] assembles them with
+[`DepletionChain::build_matrix`]. The cross sections `xs` are held fixed.
+The reported `k` is the one-group [`k_inf`] with no uncertainty.
+
+It owns a copy of the chain (the workspace rules forbid borrowed fields).
+
+```rust
+pub struct OneGroupOperator {
+    pub last_flux: f64,
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `last_flux` | `f64` | The flux of the most recent evaluation, `neutrons/(cm²·s)`. |
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(chain: &DepletionChain, xs: Vec<OneGroupXs>, settings: &BurnupSettings) -> Result<Self, String> { /* ... */ }
+  ```
+  An operator over `chain` with fixed one-group cross sections `xs`
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> OneGroupOperator { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TransportOperator**
+  - ```rust
+    fn evaluate(self: &mut Self, n: &[Vec<f64>], _source_rate: f64) -> Result<OperatorResult<ReactionRates>, Infallible> { /* ... */ }
+    ```
+
+  - ```rust
+    fn form_matrix(self: &Self, rates: &ReactionRates, _material: usize) -> Result<DepletionMatrix, Infallible> { /* ... */ }
     ```
 
 - **TryFrom**
@@ -48855,16 +48857,18 @@ pub struct MicroXs {
 
 #### Function `combine`
 
-A weighted sum of burnup matrices, `sum_i c_i A_i`.
+A weighted sum of burnup matrices, `sum_i c_i A_i`, accumulated from zero
+and skipping zero entries.
 
-Used by CF4, whose stages are exponentials of linear combinations of the
-stage matrices rather than of the matrices themselves — that is what makes
-it *commutator-free*.
+Written for the pre-move CF4 and kept for callers; PETIR's integrators use
+`petir::depletion::lincomb`, which evaluates upstream's expressions left
+to right instead (`_matrix_funcs.py`).
 
 # Panics
 
-Matrices of different order. That is a programmer error (the chain does not
-change between stages of one step), not a runtime condition.
+An empty list, or matrices of different order. That is a programmer error
+(the chain does not change between stages of one step), not a runtime
+condition.
 
 ```rust
 pub fn combine(terms: &[(&crate::depletion::matrix::DepletionMatrix, f64)]) -> crate::depletion::matrix::DepletionMatrix { /* ... */ }
@@ -48942,7 +48946,9 @@ Deplete with **frozen** cross sections — `openmc.deplete.IndependentOperator`.
 
 No transport solve at any step: the burnup matrix is rebuilt only because
 the flux changes with the inventory (to hold the requested power), while
-the microscopic cross sections stay as given.
+the microscopic cross sections stay as given. Any of PETIR's eight
+integrators may be used. The flux recorded against each step is that of
+the step's **last** operator evaluation, as before the move.
 
 # Errors
 
@@ -48962,299 +48968,114 @@ Seconds in a day, matching `operator.rs`.
 pub const SECONDS_PER_DAY: f64 = 86_400.0;
 ```
 
+### Re-exports
+
+#### Re-export `AverageRates`
+
+```rust
+pub use petir::depletion::AverageRates;
+```
+
+#### Re-export `CramSolver`
+
+```rust
+pub use petir::depletion::CramSolver;
+```
+
+#### Re-export `DepletionError`
+
+```rust
+pub use petir::depletion::DepletionError;
+```
+
+#### Re-export `DepletionIntegrator`
+
+```rust
+pub use petir::depletion::DepletionIntegrator;
+```
+
+#### Re-export `Integrator`
+
+```rust
+pub use petir::depletion::Integrator;
+```
+
+#### Re-export `Keff`
+
+```rust
+pub use petir::depletion::Keff;
+```
+
+#### Re-export `OperatorResult`
+
+```rust
+pub use petir::depletion::OperatorResult;
+```
+
+#### Re-export `TransportOperator`
+
+```rust
+pub use petir::depletion::TransportOperator;
+```
+
 ## Module `matrix`
 
 Dense depletion (burnup) matrix `A` with units of inverse seconds.
 
-# What this represents
+**MOVED 2026-10-17 to `petir::depletion::matrix` (gh:#950, maintainer
+direction "All math moved to petir").** This module re-exports it so every
+`outram_mc_libs::depletion::matrix::DepletionMatrix` path keeps working.
+The storage and arithmetic are unchanged
+(`tests/depletion_move_fingerprints.rs`); what changed is that `set`,
+`add` and `mat_vec` return a `Result` instead of panicking out of range,
+and `get` returns `NaN` out of range (PETIR's no-panic rule).
 
-The nuclide-inventory evolution under combined radioactive decay and
-neutron-induced transmutation is the linear ODE system
-
-```text
-    dN/dt = A N,          N(t) = exp(A t) N(0)
-```
-
-where `N` is the vector of nuclide number densities and `A` is the
-**burnup matrix** (also called the transmutation or Bateman matrix). This
-is the object OpenMC assembles in `openmc/deplete/` before handing it to a
-matrix-exponential solver; see the `cram` module for the solver that
-consumes it.
-
-# Sign / index convention (read before using `set`/`add`)
-
-`A` is indexed `A[row][col]`, and the ODE is `dN[row]/dt = sum_col A[row][col] * N[col]`:
-
-* **Off-diagonal** `A[i][j]` (`i != j`) is the **production** rate coefficient
-  of nuclide `i` from nuclide `j` — units `1/s`, always `>= 0`. For a decay
-  `j -> i` with decay constant `lambda_j` and branching `b`, this is
-  `+b * lambda_j`. For a neutron reaction `j -> i` with one-group microscopic
-  reaction rate `r_j` (`1/s`), this is `+r_j`.
-* **Diagonal** `A[j][j]` is the **total removal** rate coefficient of nuclide
-  `j` — units `1/s`, always `<= 0`. It is the negative sum of every decay
-  constant and every neutron-absorption rate that destroys `j`.
-
-Assembling `A` so that each column `j`'s entries sum to zero (for a pure
-rearrangement with no net loss to species outside the tracked set) makes
-total-atom conservation exact; the `cram` tests exploit this.
-
-# Units
-
-Every stored coefficient is `1/s`. Number densities passed to [`DepletionMatrix::mat_vec`]
-may be in any consistent unit (atoms, atoms/(barn·cm), …) — the matrix is
-linear, so the unit of `N` simply carries through to `dN/dt`.
+The sign and index convention (`dN[row]/dt = sum_col A[row][col] N[col]`,
+production off the diagonal, total removal on it) is documented at the
+PETIR type. Assembling the entries — decay constants, branching, reaction
+rates, fission yields — stays in this crate, in
+[`DepletionChain::build_matrix`](super::chain::DepletionChain::build_matrix).
 
 ```rust
 pub mod matrix { /* ... */ }
 ```
 
-### Types
+### Re-exports
 
-#### Struct `DepletionMatrix`
-
-A dense `n x n` depletion (burnup) matrix `A` in units of inverse seconds,
-defining the linear system `dN/dt = A N`.
-
-Stored row-major (`A[row][col] == data[row * n + col]`). The matrix is
-typically sparse in practice (each nuclide feeds only a handful of
-daughters), but depletion chains handled by this crate are small (tens of
-nuclides), so a dense store is simplest and keeps the CRAM linear solves
-straightforward. See the module docs for the sign/index convention.
+#### Re-export `lincomb`
 
 ```rust
-pub struct DepletionMatrix {
-    // Some fields omitted
-}
+pub use petir::depletion::matrix::lincomb;
 ```
 
-##### Fields
+#### Re-export `DepletionMatrix`
 
-| Name | Type | Documentation |
-|------|------|---------------|
-| *private fields* | ... | *Some fields have been omitted* |
+```rust
+pub use petir::depletion::matrix::DepletionMatrix;
+```
 
-##### Implementations
+#### Re-export `Sign`
 
-###### Methods
+```rust
+pub use petir::depletion::matrix::Sign;
+```
 
-- ```rust
-  pub fn zeros(order: usize) -> Self { /* ... */ }
-  ```
-  A zero `order x order` matrix (no decay, no transmutation).
-
-- ```rust
-  pub fn order(self: &Self) -> usize { /* ... */ }
-  ```
-  The matrix order `n` — the number of tracked nuclides.
-
-- ```rust
-  pub fn get(self: &Self, row: usize, col: usize) -> f64 { /* ... */ }
-  ```
-  The coefficient `A[row][col]` in `1/s`.
-
-- ```rust
-  pub fn set(self: &mut Self, row: usize, col: usize, val: f64) { /* ... */ }
-  ```
-  Overwrite the coefficient `A[row][col]` (`1/s`).
-
-- ```rust
-  pub fn add(self: &mut Self, row: usize, col: usize, val: f64) { /* ... */ }
-  ```
-  Accumulate `val` (`1/s`) into `A[row][col]`.
-
-- ```rust
-  pub fn mat_vec(self: &Self, n_vec: &[f64]) -> Vec<f64> { /* ... */ }
-  ```
-  The right-hand side `dN/dt = A N` for a number-density vector `n_vec`.
-
-- ```rust
-  pub fn as_slice(self: &Self) -> &[f64] { /* ... */ }
-  ```
-  Read-only view of the row-major coefficient buffer (`1/s`), length `n*n`.
-
-###### Trait Implementations
-
-- **Any**
-  - ```rust
-    fn type_id(self: &Self) -> TypeId { /* ... */ }
-    ```
-
-- **Borrow**
-  - ```rust
-    fn borrow(self: &Self) -> &T { /* ... */ }
-    ```
-
-- **BorrowMut**
-  - ```rust
-    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
-    ```
-
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
-- **CastableFrom**
-- **Clone**
-  - ```rust
-    fn clone(self: &Self) -> DepletionMatrix { /* ... */ }
-    ```
-
-- **CloneToUninit**
-  - ```rust
-    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
-    ```
-
-- **Debug**
-  - ```rust
-    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
-    ```
-
-- **DistributionExt**
-- **Downcast**
-  - ```rust
-    fn downcast(self: &Self) -> &T { /* ... */ }
-    ```
-
-- **Freeze**
-- **From**
-  - ```rust
-    fn from(t: T) -> T { /* ... */ }
-    ```
-    Returns the argument unchanged.
-
-- **Imply**
-- **Into**
-  - ```rust
-    fn into(self: Self) -> U { /* ... */ }
-    ```
-    Calls `U::from(self)`.
-
-- **IntoEither**
-- **PartialEq**
-  - ```rust
-    fn eq(self: &Self, other: &DepletionMatrix) -> bool { /* ... */ }
-    ```
-
-- **Pointable**
-  - ```rust
-    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn drop(ptr: usize) { /* ... */ }
-    ```
-
-- **Read**
-- **RefUnwindSafe**
-- **Same**
-- **Send**
-- **StructuralPartialEq**
-- **Sync**
-- **ToOwned**
-  - ```rust
-    fn to_owned(self: &Self) -> T { /* ... */ }
-    ```
-
-  - ```rust
-    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
-    ```
-
-- **TryFrom**
-  - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
-    ```
-
-- **TryInto**
-  - ```rust
-    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
-    ```
-
-- **Unpin**
-- **UnsafeUnpin**
-- **UnwindSafe**
-- **Upcast**
-  - ```rust
-    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
-    ```
-
-- **WasmNotSend**
-- **WasmNotSendSync**
-- **WasmNotSync**
 ## Module `cram`
 
 Chebyshev Rational Approximation Method (CRAM) matrix-exponential solver.
 
-Computes the depletion (Bateman) update `N(t + dt) = exp(A * dt) * N(t)`,
-where `A` is the burnup matrix (`1/s`) assembled by [`DepletionMatrix`] and
-`N` is the vector of nuclide number densities. CRAM is the numerically-sound
-scheme for the stiff decay + transmutation system: it approximates the matrix
-exponential by a rational function whose poles cluster near the negative real
-axis, where the eigenvalues of a physical burnup matrix live.
+**MOVED 2026-10-17 to `petir::depletion::cram` (gh:#950, maintainer
+direction "All math moved to petir").** The solver, its OpenMC provenance
+(`openmc/deplete/cram.py`, MIT), the Pusa (2016) coefficients and the
+analytic tests all live there now, together with upstream's `substeps`
+option, which this crate's copy lacked.
 
-# Method — Incomplete Partial Factorization (IPF) CRAM
-
-This is a direct port of OpenMC's incomplete-partial-factorization CRAM
-solver, `openmc/deplete/cram.py` (MIT-licensed), class `IPFCramSolver`. The
-rational approximation of order `2k` is written as a sum over `k` complex
-conjugate pole pairs:
-
-```text
-    exp(A*dt) N0  ~=  alpha0 * prod over poles [ ... ]   (IPF form)
-```
-
-evaluated by the sequential loop (`cram.py:100-105`):
-
-```text
-    A := dt * A
-    y := N0
-    for each pole i in 0..k:
-        y += 2 * Re( alpha_i * solve( (A - theta_i * I), y ) )
-    y *= alpha0
-```
-
-The IPF form is **sequential**: each pole's linear solve operates on the `y`
-that the previous pole already mutated, and a single final scale by `alpha0`
-closes the sweep. This is *not* the parallel-sum ("partial fraction") form —
-the two are algebraically distinct approximations, and this module replicates
-the IPF one exactly, as OpenMC does.
-
-Because `y` starts real and each pole adds `2 * Re(complex)`, `y` stays real
-throughout — the imaginary parts of conjugate pole pairs cancel by
-construction, so only the `k` poles with positive imaginary part are stored.
-
-The order-16 and order-48 coefficient sets are the Pusa (2016) values
-embedded verbatim in `cram.py` (lines ~109-131 for order 16, ~139-201 for
-order 48): M. Pusa, "Higher-Order Chebyshev Rational Approximation Method and
-Application to Burnup Equations," Nucl. Sci. Eng. 182:3, 297-318 (2016),
-<https://doi.org/10.13182/NSE15-26>.
-
-# Provenance / license
-
-Ported from OpenMC `openmc/deplete/cram.py` (MIT). The coefficients are the
-Pusa (2016) values as embedded in that file. This is an OUTRAM PARK GPL-3.0
-translation for education / research / V&V use — **not** official OpenMC, and
-not for facility operation or licensing decisions.
-
-# Units
-
-* `a` — burnup matrix, every coefficient `1/s`.
-* `dt_seconds` — step length, seconds.
-* `n0` / return value — number densities in any consistent unit (atoms,
-  atoms/(barn·cm), …); the map is linear so the unit carries through.
+What stays here is the signature callers in this crate use: [`cram16`] and
+[`cram48`] return the evolved densities directly and **panic** on a
+length mismatch, exactly as before the move. PETIR's versions return a
+`Result`. The arithmetic is the same, bit for bit:
+`tests/depletion_move_fingerprints.rs` pins it against fingerprints printed
+on the pre-move code.
 
 ```rust
 pub mod cram { /* ... */ }
@@ -49264,43 +49085,18 @@ pub mod cram { /* ... */ }
 
 #### Function `cram16`
 
-Order-16 IPF CRAM approximation of `N(t + dt) = exp(A * dt) * N(t)`.
+Order-16 IPF CRAM, `N(t + dt) = exp(A dt) N(t)` — see
+`petir::depletion::cram16`.
 
-# What it computes
+Units: `a` in `1/s`, `dt_seconds` in seconds, `n0` in any consistent
+density unit. `dt_seconds == 0`, a zero-order or an all-zero matrix return
+`n0` unchanged.
 
-Evolves the nuclide number densities `n0` forward by `dt_seconds` under the
-burnup matrix `a` (radioactive decay + neutron transmutation), using the
-order-16 (8 complex pole-pairs) Chebyshev rational approximation of the
-matrix exponential in incomplete-partial-factorization form.
+# Panics
 
-# Units
-
-* `a` — burnup matrix, coefficients `1/s`. Sign convention: off-diagonal
-  `A[i][j] >= 0` (production of `i` from `j`), diagonal `A[j][j] <= 0` (total
-  removal of `j`); see [`DepletionMatrix`].
-* `n0` — initial densities (atoms or atoms/(barn·cm), any consistent unit);
-  `n0.len()` must equal `a.order()`.
-* `dt_seconds` — step length in seconds, `>= 0`.
-
-Returns the evolved densities as a fresh `Vec<f64>` of length `a.order()`.
-
-# Accuracy
-
-Order-16 CRAM reproduces the matrix exponential of a physical burnup matrix
-to roughly 1e-5 relative even for stiff systems (eigenvalues spanning many
-orders of magnitude); the tests in this module measure the errors actually
-achieved. For very high accuracy use [`cram48`].
-
-# Degenerate inputs
-
-`dt_seconds == 0`, a zero-order matrix, or an all-zero matrix return `n0`
-unchanged (`exp(0) = I`).
-
-# Provenance
-
-Ported from OpenMC `openmc/deplete/cram.py` (MIT), `IPFCramSolver.__call__`
-(lines ~65-105) with the `c16_alpha` / `c16_theta` / `c16_alpha0`
-coefficients (lines ~109-131). GPL-3.0 translation; not official OpenMC.
+If `n0.len() != a.order()` (the pre-move contract, kept so callers in this
+crate are unchanged), or if a pivot is exactly zero (PETIR reports it;
+before the move it produced non-finite densities silently).
 
 ```rust
 pub fn cram16(a: &super::matrix::DepletionMatrix, n0: &[f64], dt_seconds: f64) -> Vec<f64> { /* ... */ }
@@ -49308,21 +49104,47 @@ pub fn cram16(a: &super::matrix::DepletionMatrix, n0: &[f64], dt_seconds: f64) -
 
 #### Function `cram48`
 
-Order-48 IPF CRAM approximation of `N(t + dt) = exp(A * dt) * N(t)`.
+Order-48 IPF CRAM — see `petir::depletion::cram48`. Same contract as
+[`cram16`].
 
-Same contract, units, and degenerate-input handling as [`cram16`], but uses
-the order-48 (24 complex pole-pairs) coefficient set, which reproduces the
-matrix exponential to near machine precision (relative error ~1e-14 for the
-analytic chains in the tests). Costs 3x the linear solves of [`cram16`].
+# Panics
 
-# Provenance
-
-Ported from OpenMC `openmc/deplete/cram.py` (MIT), `IPFCramSolver.__call__`
-with the `c48_theta` / `c48_alpha` / `c48_alpha0` coefficients (lines
-~139-201). GPL-3.0 translation; not official OpenMC.
+As [`cram16`].
 
 ```rust
 pub fn cram48(a: &super::matrix::DepletionMatrix, n0: &[f64], dt_seconds: f64) -> Vec<f64> { /* ... */ }
+```
+
+### Re-exports
+
+#### Re-export `ipf_cram`
+
+```rust
+pub use petir::depletion::cram::ipf_cram;
+```
+
+#### Re-export `Complex64`
+
+```rust
+pub use petir::depletion::cram::Complex64;
+```
+
+#### Re-export `CramSolver`
+
+```rust
+pub use petir::depletion::cram::CramSolver;
+```
+
+#### Re-export `DepSystemSolver`
+
+```rust
+pub use petir::depletion::cram::DepSystemSolver;
+```
+
+#### Re-export `LuFactor`
+
+```rust
+pub use petir::depletion::cram::LuFactor;
 ```
 
 ## Module `chain`
@@ -52020,6 +51842,11 @@ pub struct ReactionRates {
 - **Any**
   - ```rust
     fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **AverageRates**
+  - ```rust
+    fn weighted_sum(a: f64, x: &Self, b: f64, y: &Self) -> Self { /* ... */ }
     ```
 
 - **Borrow**
