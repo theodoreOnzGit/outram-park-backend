@@ -51,6 +51,10 @@ pub mod acer;
 ///
 /// See [`acquire`] and `docs/data-acquisition.md`.
 pub mod acquire;
+/// **ZIP archives in memory**, read and written over `miniz_oxide` (gh #935):
+/// a whole ENDF library arrives as a zip, natively or as a browser upload.
+/// See [`archive`].
+pub mod archive;
 pub mod broadr;
 pub mod common;
 pub mod endf;
@@ -58,6 +62,11 @@ pub mod endf;
 /// folders: list it, and find a tape in it by MAT and NSUB rather than by
 /// file name (gh:#581). See [`endf_folder`].
 pub mod endf_folder;
+/// **A whole ENDF library** from a folder, a zip or uploaded files: one index
+/// for all three, layout read from the names, identity from each tape's
+/// header (gh #935); ACE generation from it for the browser (gh #936). See
+/// [`endf_library`].
+pub mod endf_library;
 /// `GASPR` — gas-production cross sections (ENDF MT=203–207: H1/H2/H3/He3/He4)
 /// from a reconstructed evaluation. Informational (depletion/swelling), not a
 /// transport-path quantity — see [`gaspr`] module docs.

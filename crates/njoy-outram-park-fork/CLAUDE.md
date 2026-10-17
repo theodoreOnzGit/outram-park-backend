@@ -753,6 +753,27 @@ HEATR, THERMR 0.001 with 16 cosines, `natom`/`emax` from the law's
   `generate_tape` does and matches NJOY's test-22 tape
   (`tests/leapr_run_at_temperature.rs`).
 
+## A whole library from a folder, zip or upload (2026-10-17, GitHub #935, #936)
+
+- **`endf_library::EndfLibraryIndex`** is the one index for a folder
+  (native), a zip as bytes, or uploaded files (browser). `LibraryLayout`
+  (flat, `neutrons/` sub-library folders, NNDC's `ENDF-B-VIII.0_neutrons/`
+  archives, IAEA per-nuclide zips) is read from the names and decides which
+  files are opened; each tape's identity and library come from its own
+  MF1/MT451 header, the library from the `HSUB` line (`LREL` does not
+  separate VII.0 from VII.1 on the reference tapes). A lookup uses the
+  library most incident-neutron tapes belong to and names the others.
+- **`archive`** reads and writes zips over `miniz_oxide` (no new dependency;
+  the `zip` crate stays behind `net-fetch`). Malformed input is an error,
+  never a panic (`archive::tests` cuts and flips every byte).
+- **`acer::ace_set::AceSet`** indexes ACE files by ZAID, class and kT
+  (relative 1e-4, the Type-1 header's print precision with margin).
+- **`endf_library::generate_ace`** (+ 0 K companion by default) and
+  `generate_thermal_ace` (compiled-in LEAPR deck, #870) are the browser's
+  generation calls; `fuzzy_score` moved here from the njoy TUI binary.
+- Verified natively and in headless Chromium to the same fingerprints:
+  `crates/outram-mc-libs/verification_and_validation/nuclear_data_loading_web/`.
+
 ## The five-route library is NJOY2016's in every word (2026-10-14, GitHub #872)
 
 **UPDATE, later 2026-10-14 (LCT-008's full nuclide list, 36 tapes + F-19):**

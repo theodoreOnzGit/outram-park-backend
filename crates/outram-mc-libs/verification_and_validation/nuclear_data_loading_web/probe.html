@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nuclear data loading probe</title>
+<style>
+  :root { --bg: #fff; --fg: #111; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #111; --fg: #eee; } }
+  body { background: var(--bg); color: var(--fg); font: 14px/1.4 monospace; margin: 16px; }
+  pre { white-space: pre-wrap; word-break: break-all; }
+</style>
+</head>
+<body>
+<!-- A TEST HARNESS, not a demo: research, education and V&V only. It runs the
+     nuclear-data loaders of gh #935/#936 in this browser on files served from the
+     repository and prints fingerprints for run_headless.mjs to compare with the
+     native run (tests/nd_wasm_probe_native.rs). Same file names and order as there. -->
+<h1>Nuclear data loading probe</h1>
+<pre id="log">loading...
+</pre>
+<script type="module">
+import init from './pkg/nd_wasm_probe.js';
+
+const ENDF = [
+  ['ENDF-B-VIII.0_neutrons/CHANGELOG.txt', 'reference-data/endf/README.md'],
+  ['ENDF-B-VIII.0_neutrons/n-009_F_019.endf', 'reference-data/endf/n-009_F_019-ENDF8.0.endf'],
+  ['ENDF-B-VIII.0_neutrons/n-092_U_234.endf', 'reference-data/endf/n-092_U_234-ENDF8.0.endf'],
+  ['ENDF-B-VIII.0_neutrons/n-092_U_235.endf', 'reference-data/endf/n-092_U_235-ENDF8.0.endf'],
+  ['ENDF-B-VIII.0_neutrons/n-092_U_238.endf', 'reference-data/endf/n-092_U_238.endf'],
+];
+const ACE = ['293.6K/U234.ace.gz', 'reference-data/ace/reference-njoy/endf-b-viii.0/293.6K/U234.ace.gz'];
+
+const params = new URLSearchParams(location.search);
+const ROOT = params.get('root') || '/';
+const state = { done: false, error: null, tasks: {}, userAgent: navigator.userAgent };
+window.__probe = state;
+const logEl = document.getElementById('log');
+const log = (s) => { logEl.textContent += s + '\n'; console.log(s); };
+const pause = () => new Promise((r) => setTimeout(r, 0));
+
+async function main() {
+  const t0 = performance.now();
+  const wasm = await init();
+  log(`wasm ready in ${((performance.now() - t0) / 1000).toFixed(2)} s`);
+  const enc = new TextEncoder();
+  const stage = (bytes) => {
+    const p = wasm.probe_alloc(bytes.length);
+    new Uint8Array(wasm.memory.buffer, p, bytes.length).set(bytes); // view made after alloc: memory may have grown
+  };
+  const add = async (name, path) => {
+    const r = await fetch(ROOT + path);
+    if (!r.ok) throw new Error(`${path}: HTTP ${r.status}`);
+    const b = new Uint8Array(await r.arrayBuffer());
+    stage(enc.encode(name));
+    stage(b);
+    if (wasm.probe_add_file() !== 0) throw new Error('probe_add_file');
+  };
+  const out = () => new TextDecoder().decode(new Uint8Array(wasm.memory.buffer, wasm.probe_out_ptr(), wasm.probe_out_len()));
+  const task = async (n) => {
+    await pause();
+    const s = performance.now();
+    const code = wasm.probe_run(n);
+    const seconds = (performance.now() - s) / 1000;
+    const text = out();
+    state.tasks[n] = { code, seconds, text };
+    log(`task ${n} (${seconds.toFixed(1)} s, code ${code}):\n${text}`);
+    if (code !== 0) throw new Error(text);
+  };
+  for (const [name, path] of ENDF) await add(name, path);
+  await task(1);
+  await task(2);
+  if (!params.has('skip-godiva')) await task(3);
+  wasm.probe_clear();
+  await add(ACE[0], ACE[1]);
+  await task(4);
+  state.wasmMemoryBytes = wasm.memory.buffer.byteLength;
+  state.totalSeconds = (performance.now() - t0) / 1000;
+}
+
+main().then(() => { state.done = true; log('done'); })
+  .catch((e) => { state.error = String(e); state.done = true; log('ERROR ' + e); });
+</script>
+</body>
+</html>
