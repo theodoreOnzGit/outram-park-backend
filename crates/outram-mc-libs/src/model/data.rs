@@ -1,18 +1,30 @@
 //! **Where the nuclear data comes from**: one small handle,
-//! [`NuclearData`], over today's loading path.
+//! [`NuclearData`], over the ways data can come in.
 //!
 //! # What this is, and what it deliberately does not settle
 //!
 //! The njoy → outram-mc contract is **open on epic #925**: (a) one
 //! njoy-owned processed object, (b) ACE as the interchange format, or (c)
-//! both with one master copy; and the library-from-a-zip loader is #935.
-//! This handle does not choose. It wraps the path the crate's recorded
-//! benchmarks use today, so it can be swapped later without touching a
-//! model:
+//! both with one master copy. This handle does not choose; it offers both
+//! ways in behind one type, so a model never sees which one fed it:
+//!
+//! | constructor | data | what happens at [`NuclearData::load_nuclide`] |
+//! |---|---|---|
+//! | [`NuclearData::workspace_reference`] | `reference-data/endf` (ENDF/B-VIII only) | ENDF processed at the model temperature |
+//! | [`NuclearData::from_folder`] (native) | a whole library folder (#935) | the same |
+//! | [`NuclearData::from_zip_bytes`] | the library's zip, as bytes (#935) | the same |
+//! | [`NuclearData::from_files`] | uploaded files or a folder upload (#935) | the same |
+//! | [`NuclearData::endf_folder`], [`NuclearData::from_endf_bytes`] | loose tapes, every one counted | the same |
+//! | [`NuclearData::from_ace_files`] | ACE files as bytes (#936) | **read only**: temperature, nuclide and law fixed by the files |
+//!
+//! The ENDF ways:
 //!
 //! - each needed nuclide's ENDF tape is found **by the identity in its own
 //!   header** (Z, A and `LISO` from the MF1/MT451 HEAD records, sub-library
-//!   `NSUB = 10`), never by file name;
+//!   `NSUB = 10`), never by file name. A whole library (folder, zip, upload)
+//!   is indexed by `njoy_outram_park_fork::endf_library`: the layout comes
+//!   from the names, and only the tapes of the library most of them belong
+//!   to (each tape's `HSUB` line) are used;
 //! - it is processed by [`Nuclide::from_tape_with_speed`] at the model's
 //!   temperature with the default (exact) [`SpeedTier::Fast`]: RECONR +
 //!   BROADR at NJOY's 0.001, with URR probability tables and DBRC **on**, as
@@ -21,19 +33,23 @@
 //!   compiled into njoy ([`ThermalScattering::from_embedded_leapr_deck`];
 //!   LEAPR always, the `tsl-*` tapes are oracles, maintainer 2026-10-14).
 //!
+//! The ACE way (#936) processes nothing; see [`NuclearData::from_ace_files`]
+//! for how tables are matched, DBRC's 0 K companion, and thermal tables.
+//!
 //! # Native and browser
 //!
-//! [`NuclearData::endf_folder`] and [`NuclearData::workspace_reference`]
-//! read files and are **native only** (`std::fs` compiles on
-//! `wasm32-unknown-unknown` and then fails at run time).
-//! [`NuclearData::from_endf_bytes`] takes tapes as bytes and touches no
-//! file: the in-memory path a browser upload would use.
+//! [`NuclearData::endf_folder`], [`NuclearData::from_folder`] and
+//! [`NuclearData::workspace_reference`] read files and are **native only**
+//! (`std::fs` compiles on `wasm32-unknown-unknown` and then fails at run
+//! time). Every `from_*_bytes` / `from_*files` constructor takes bytes and
+//! touches no file: the path a browser upload uses, run in headless Chromium
+//! by `verification_and_validation/nuclear_data_loading_web/`.
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use njoy_outram_park_fork::endf::parse::parse_endf_float;
 use njoy_outram_park_fork::endf::tape::Tape;
+use njoy_outram_park_fork::endf_library::{EndfHeader, EndfLibraryIndex, SubLibrary};
 use njoy_outram_park_fork::leapr::decks::SabMaterial;
 use njoy_outram_park_fork::NjoyError;
 
@@ -42,6 +58,8 @@ use super::masses::AtomicMasses;
 use crate::material::nuclide::Nuclide;
 use crate::material::speed::SpeedTier;
 use crate::material::thermal::ThermalScattering;
+
+mod ace;
 
 /// Why nuclear data could not be found or processed.
 #[derive(Debug, thiserror::Error)]
@@ -78,6 +96,18 @@ pub enum DataError {
         #[source]
         source: NjoyError,
     },
+    /// The ACE files hold no usable table for a nuclide or law at the
+    /// model's temperature: none at all, only at other temperatures (a
+    /// mismatch is refused, never accepted), or several.
+    #[error("the ACE files '{library}' cannot supply {what}: {reason}")]
+    Ace {
+        /// The ACE set.
+        library: String,
+        /// The nuclide or law, and the temperature asked for.
+        what: String,
+        /// Why.
+        reason: String,
+    },
 }
 
 /// Where one tape is.
@@ -85,6 +115,8 @@ pub enum DataError {
 enum TapeLocation {
     File(PathBuf),
     Bytes(Arc<Vec<u8>>),
+    /// Tape `usize` of an indexed library (folder, zip or upload).
+    Library(Arc<EndfLibraryIndex>, usize),
 }
 
 /// One indexed incident-neutron tape.
@@ -116,6 +148,9 @@ pub struct NuclearData {
     label: String,
     tapes: Vec<TapeEntry>,
     preference: Preference,
+    /// `Some` for the ACE way in ([`Self::from_ace_files`]): `tapes` is then
+    /// empty and every lookup goes to the ACE set.
+    ace: Option<Arc<ace::AceData>>,
 }
 
 /// Header fields read from the first lines of an ENDF tape.
@@ -126,36 +161,30 @@ struct Header {
     nver: Option<i64>,
 }
 
-/// Read `(Z, A, LISO, AWR, NLIB, NSUB, NVER)` from the TPID line and the
-/// first three MF1/MT451 records (ENDF-102 section 1.1). `None` when this is
-/// not an incident-neutron tape (`NSUB != 10`) or is unreadable.
+/// The identity fields of an incident-neutron tape's header, read by
+/// `njoy_outram_park_fork::endf_library::EndfHeader` (the one MF1/MT451
+/// parser the library index also uses). `None` when this is not an
+/// incident-neutron tape (`NSUB != 10`) or is unreadable.
 fn read_header(text: &str) -> Option<Header> {
-    let lines: Vec<&str> = text.lines().take(4).collect();
-    fn field(l: &str, i: usize) -> &str {
-        l.get(11 * i..(11 * i + 11).min(l.len())).unwrap_or("")
-    }
-    let int = |s: &str| s.trim().parse::<i64>().ok();
-    let head = lines.get(1)?;
-    let za = parse_endf_float(field(head, 0)).ok()?;
-    let awr = parse_endf_float(field(head, 1)).ok()?;
-    let nlib = int(field(head, 4));
-    let liso = lines.get(2).and_then(|l| int(field(l, 3))).unwrap_or(0);
-    let l4 = lines.get(3)?;
-    if int(field(l4, 4)) != Some(10) {
+    let h = EndfHeader::parse(text)?;
+    if h.sub_library() != SubLibrary::IncidentNeutron {
         return None;
     }
-    let nver = int(field(l4, 5));
-    let za = za.round() as i64;
-    let (z, a) = (
-        u8::try_from(za / 1000).ok()?,
-        u16::try_from(za % 1000).ok()?,
-    );
-    let isotope = Isotope::metastable(z, a, u8::try_from(liso).ok()?).ok()?;
-    (awr > 0.0).then_some(Header {
+    header_of(&h)
+}
+
+fn header_of(h: &EndfHeader) -> Option<Header> {
+    let isotope = Isotope::metastable(
+        u8::try_from(h.z()).ok()?,
+        u16::try_from(h.a()).ok()?,
+        h.liso,
+    )
+    .ok()?;
+    Some(Header {
         isotope,
-        awr,
-        nlib,
-        nver,
+        awr: h.awr,
+        nlib: Some(h.nlib),
+        nver: h.nver,
     })
 }
 
@@ -183,6 +212,7 @@ impl NuclearData {
             label,
             tapes,
             preference,
+            ace: None,
         }
     }
 
@@ -268,6 +298,141 @@ impl NuclearData {
         Ok(data)
     }
 
+    /// **A whole ENDF library from a folder** (#935): the extracted archive
+    /// (`ENDF-B-VIII.0/neutrons/...`), NNDC's per-sub-library folder
+    /// (`ENDF-B-VIII.0_neutrons/`), the IAEA per-nuclide zips, or any flat
+    /// folder of tapes. The layout is read from the names; each tape is
+    /// identified by its header; the tapes of the library most of them belong
+    /// to are used, and any other library's tapes are left out (the label
+    /// says how many). Native only.
+    ///
+    /// # Errors
+    /// The folder cannot be read; [`DataError::NoTapes`] when it holds no
+    /// incident-neutron tape.
+    pub fn from_folder(dir: &Path) -> Result<Self, DataError> {
+        let index = EndfLibraryIndex::from_folder(dir).map_err(|source| DataError::Njoy {
+            what: format!("the folder {}", dir.display()),
+            source,
+        })?;
+        Self::from_library(index)
+    }
+
+    /// **A whole ENDF library from its zip, as bytes** (#935): the same as
+    /// [`Self::from_folder`] on the folder the zip holds, touching no file,
+    /// so a browser runs it on an uploaded zip. `label` names the zip in the
+    /// run's provenance.
+    ///
+    /// # Errors
+    /// The bytes are not a readable zip; [`DataError::NoTapes`].
+    pub fn from_zip_bytes(label: &str, bytes: Vec<u8>) -> Result<Self, DataError> {
+        let index = EndfLibraryIndex::from_zip_bytes(bytes).map_err(|source| DataError::Njoy {
+            what: format!("the zip {label}"),
+            source,
+        })?;
+        Self::from_library(index).map(|d| d.relabelled(label))
+    }
+
+    /// **A library uploaded as files** (`(path, contents)`, paths relative to
+    /// the chosen folder): a browser folder upload, several dropped tapes, or
+    /// a dropped zip (opened). The same index as [`Self::from_folder`].
+    ///
+    /// # Errors
+    /// [`DataError::NoTapes`].
+    pub fn from_files(label: &str, files: Vec<(String, Vec<u8>)>) -> Result<Self, DataError> {
+        let index = EndfLibraryIndex::from_files(files).map_err(|source| DataError::Njoy {
+            what: format!("the files {label}"),
+            source,
+        })?;
+        Self::from_library(index).map(|d| d.relabelled(label))
+    }
+
+    /// The library index's main library's incident-neutron tapes.
+    fn from_library(index: EndfLibraryIndex) -> Result<Self, DataError> {
+        let index = Arc::new(index);
+        let main = index
+            .main_library()
+            .ok_or_else(|| DataError::NoTapes(index.summary()))?;
+        let tapes: Vec<TapeEntry> = index
+            .tapes()
+            .iter()
+            .enumerate()
+            .filter(|(_, t)| {
+                t.header.sub_library() == SubLibrary::IncidentNeutron && t.header.library() == main
+            })
+            .filter_map(|(i, t)| {
+                let h = header_of(&t.header)?;
+                Some(TapeEntry {
+                    isotope: h.isotope,
+                    awr: h.awr,
+                    nlib: h.nlib,
+                    nver: h.nver,
+                    file: t.path.clone(),
+                    location: TapeLocation::Library(index.clone(), i),
+                })
+            })
+            .collect();
+        Ok(Self {
+            label: index.summary(),
+            tapes,
+            preference: Preference::None,
+            ace: None,
+        })
+    }
+
+    fn relabelled(mut self, name: &str) -> Self {
+        self.label = format!("{name}: {}", self.label);
+        self
+    }
+
+    /// **The ACE way in** (#936): nuclides read from ACE files **as they
+    /// are**, with nothing processed. Each file (Type 1 or 2, gzipped or
+    /// not, one or several tables, or a zip of them) is indexed by its
+    /// header: ZAID, class and kT, never by its name
+    /// (`njoy_outram_park_fork::acer::ace_set`).
+    ///
+    /// At [`Self::load_nuclide`]:
+    ///
+    /// - **The temperature is the file's.** The model's temperature must
+    ///   match a table's kT (relative 1e-4, the header's print precision with
+    ///   margin); a mismatch is a [`DataError::Ace`] listing the temperatures
+    ///   the files have, never a silent use of another temperature.
+    /// - **DBRC** takes its 0 K elastic from a 0 K table of the same ZA in
+    ///   the files (generate one with each table, or drop the library's `0K/`
+    ///   folder too). Without one the nuclide carries DBRC **off**, and the
+    ///   run's provenance says so for that nuclide; it is never silent.
+    /// - **Thermal laws** are thermal (`t`) tables. An ACE header does not
+    ///   say which law it is, only a ZAID name, so the name is matched: the
+    ///   name njoy's generator gives a law (`tsl` + the LEAPR deck's MAT,
+    ///   e.g. `tsl1` for H in H2O), or one bound by hand with
+    ///   [`Self::with_thermal_table`] (`hh2o`, `lwtr`, ...).
+    ///
+    /// # Errors
+    /// [`DataError::NoTapes`] when no file holds a continuous-energy neutron
+    /// table; the label lists the files skipped.
+    pub fn from_ace_files(label: &str, files: Vec<(String, Vec<u8>)>) -> Result<Self, DataError> {
+        ace::AceData::new(label, files).map(|a| Self {
+            label: a.label(),
+            tapes: Vec::new(),
+            preference: Preference::None,
+            ace: Some(Arc::new(a)),
+        })
+    }
+
+    /// **Bind a thermal table to a law** by its ZAID name (`stem`, the part
+    /// before the `.`: `hh2o` for NJOY's `hh2o.00t`), for ACE files made
+    /// elsewhere. Only meaningful for [`Self::from_ace_files`]; on ENDF data
+    /// the law is always regenerated by LEAPR and this does nothing.
+    #[must_use]
+    pub fn with_thermal_table(mut self, law: SabMaterial, stem: &str) -> Self {
+        if let Some(a) = self.ace.take() {
+            let mut a = (*a).clone();
+            a.bind(law, stem);
+            self.label = a.label();
+            self.ace = Some(Arc::new(a));
+        }
+        self
+    }
+
     /// **Tapes given as bytes** (`(file name, contents)`), for a browser
     /// upload or any caller that already holds them. Touches no file. Tapes
     /// that are not incident-neutron ENDF are ignored.
@@ -339,6 +504,9 @@ impl NuclearData {
     /// # Errors
     /// [`DataError::NotInLibrary`] or [`DataError::Ambiguous`].
     pub fn tape_file(&self, isotope: Isotope) -> Result<&str, DataError> {
+        if let Some(a) = &self.ace {
+            return a.file_of(isotope);
+        }
         self.entry(isotope).map(|t| t.file.as_str())
     }
 
@@ -347,6 +515,9 @@ impl NuclearData {
     /// needs. A nuclide with two equally preferred tapes is left out, so a
     /// material needing it fails to resolve rather than using either.
     pub fn atomic_masses(&self) -> AtomicMasses {
+        if let Some(a) = &self.ace {
+            return a.atomic_masses();
+        }
         let mut seen: Vec<Isotope> = self.tapes.iter().map(|t| t.isotope).collect();
         seen.sort();
         seen.dedup();
@@ -369,6 +540,9 @@ impl NuclearData {
         temperature_k: f64,
         law: Option<SabMaterial>,
     ) -> Result<Nuclide, DataError> {
+        if let Some(a) = &self.ace {
+            return a.load_nuclide(isotope, temperature_k, law);
+        }
         let t = self.entry(isotope)?;
         let what = format!("{isotope} from {}", t.file);
         let wrap = |source| DataError::Njoy {
@@ -379,6 +553,12 @@ impl NuclearData {
             TapeLocation::File(p) => Tape::read_file(p).map_err(wrap)?,
             TapeLocation::Bytes(b) => {
                 Tape::read(std::io::Cursor::new(b.as_slice())).map_err(wrap)?
+            }
+            TapeLocation::Library(index, i) => {
+                let entry = index.tapes().get(*i).ok_or_else(|| {
+                    wrap(NjoyError::InvalidInput("tape index out of range".into()))
+                })?;
+                index.read_tape(entry).map_err(wrap)?
             }
         };
         let mat = tape
@@ -486,6 +666,123 @@ mod tests {
             Err(DataError::Njoy { .. })
         ));
         assert!(NuclearData::endf_folder(Path::new("/nonexistent-outram-dir")).is_err());
+    }
+
+    /// **A library as files or as a zip** (#935) indexes by header and uses
+    /// the library most tapes belong to: a lone tape of another version is
+    /// left out, not mixed in; junk is an error, never a panic.
+    #[test]
+    fn uploaded_libraries_use_their_main_library() {
+        let files = vec![
+            (
+                "lib/a.endf".to_string(),
+                fake_tape("9.223500+4", "2.330248+2", 0, 0, 10, 8),
+            ),
+            (
+                "lib/b.endf".to_string(),
+                fake_tape("9.223800+4", "2.360058+2", 0, 0, 10, 8),
+            ),
+            (
+                "lib/old.endf".to_string(),
+                fake_tape("9.223400+4", "2.320304+2", 0, 0, 10, 7),
+            ),
+        ];
+        let d = NuclearData::from_files("upload", files.clone()).unwrap();
+        assert!(d.label().starts_with("upload: "), "{}", d.label());
+        assert_eq!(d.tape_file(U235).unwrap(), "lib/a.endf");
+        assert!(matches!(
+            d.tape_file(U234),
+            Err(DataError::NotInLibrary { .. })
+        ));
+        let zip = njoy_outram_park_fork::archive::write_zip(&files).unwrap();
+        let z = NuclearData::from_zip_bytes("lib.zip", zip).unwrap();
+        assert_eq!(z.tape_file(U238).unwrap(), "lib/b.endf");
+        assert!(z.atomic_masses().contains(U238));
+        assert!(matches!(
+            z.load_nuclide(U235, 293.6, None),
+            Err(DataError::Njoy { .. })
+        ));
+        assert!(NuclearData::from_zip_bytes("bad", b"PK\x03\x04".to_vec()).is_err());
+        assert!(matches!(
+            NuclearData::from_files("none", vec![("x".into(), b"text".to_vec())]),
+            Err(DataError::NoTapes(_))
+        ));
+        assert!(NuclearData::from_folder(Path::new("/nonexistent-outram-dir")).is_err());
+        // Binding a thermal table does nothing on ENDF data.
+        let same = z.clone().with_thermal_table(SabMaterial::HInH2O, "hh2o");
+        assert_eq!(same.label(), z.label());
+    }
+
+    /// A one-word Type-1 ACE table: enough to be indexed by header, not to
+    /// decode as a nuclide.
+    fn fake_ace(zaid: &str, kt: &str) -> Vec<u8> {
+        let mut s = format!("{zaid:>10}{:>12}{kt:>12} 10/17/26\n", "233.024800");
+        s.push_str(&format!("{:<70}{:>10}\n", "fixture", "mat9228"));
+        for _ in 0..4 {
+            s.push_str(
+                "      0         0.      0         0.      0         0.      0         0.\n",
+            );
+        }
+        s.push_str("       1       0       0       0       0       0       0       0\n");
+        for _ in 0..5 {
+            s.push_str("       0       0       0       0       0       0       0       0\n");
+        }
+        s.push_str(" 1.000000000000E+00\n");
+        s.into_bytes()
+    }
+
+    /// **The ACE way in** (#936), its refusals: a temperature the files do
+    /// not have, a metastable target, a missing law, and files with no
+    /// neutron table; masses come from the tables' AWR; the label lists every
+    /// table with its file and temperature.
+    #[test]
+    fn ace_files_refuse_what_they_cannot_supply() {
+        let d = NuclearData::from_ace_files(
+            "drop",
+            vec![
+                ("x/u235.ace".into(), fake_ace("92235.00c", "2.5300E-08")),
+                ("notes.txt".into(), b"notes".to_vec()),
+            ],
+        )
+        .unwrap();
+        assert!(
+            d.label().contains("92235.00c (x/u235.ace, 293.6 K)"),
+            "{}",
+            d.label()
+        );
+        assert!(d.label().contains("1 files not ACE"));
+        assert_eq!(d.tape_file(U235).unwrap(), "x/u235.ace");
+        assert!(matches!(d.tape_file(U238), Err(DataError::Ace { .. })));
+        let m = d.atomic_masses();
+        assert!(
+            (m.mass_u(U235).unwrap() - 233.0248 * super::super::masses::NEUTRON_MASS_U).abs()
+                < 1e-9
+        );
+        match d.load_nuclide(U235, 600.0, None) {
+            Err(DataError::Ace { reason, .. }) => assert!(reason.contains("293"), "{reason}"),
+            other => panic!("{other:?}"),
+        }
+        assert!(matches!(
+            d.load_nuclide(U235, 293.6, None),
+            Err(DataError::Njoy { .. })
+        ));
+        assert!(matches!(
+            d.load_nuclide(Isotope::metastable(95, 242, 1).unwrap(), 293.6, None),
+            Err(DataError::Ace { .. })
+        ));
+        assert!(matches!(
+            d.tape_file(Isotope::metastable(95, 242, 1).unwrap()),
+            Err(DataError::Ace { .. })
+        ));
+        let bound = d.with_thermal_table(SabMaterial::HInH2O, "hh2o");
+        assert!(bound.label().contains("HInH2O bound to 'hh2o'"));
+        assert!(matches!(
+            NuclearData::from_ace_files(
+                "none",
+                vec![("t.ace".into(), fake_ace("tsl1.00t", "2.5300E-08"))]
+            ),
+            Err(DataError::NoTapes(_))
+        ));
     }
 
     /// The workspace reference library resolves the Godiva nuclides to the
