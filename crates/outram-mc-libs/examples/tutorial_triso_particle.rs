@@ -30,6 +30,7 @@
 //! cargo run --release -p outram-mc-libs --example tutorial_triso_particle -- --fast  # smoke test
 //! cargo run --release -p outram-mc-libs --example tutorial_triso_particle -- --seeds 8  # + 8 pooled seeds
 //! cargo run --release -p outram-mc-libs --example tutorial_triso_particle -- --geometry-only  # draw and count only
+//! cargo run --release -p outram-mc-libs --example tutorial_triso_particle -- --seeds-only 8  # 8 seeds in parallel, no diagnostics
 //! ```
 //!
 //! (Tutorials refactor existing examples where one fits (#943). None does
@@ -440,6 +441,56 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let t = Instant::now();
     let nuclides = assembled.load_nuclides(model.data())?;
     let data_s = t.elapsed().as_secs_f64();
+    println!(
+        "  data {data_s:.1} s ({} nuclides, processed in parallel)",
+        nuclides.len()
+    );
+
+    // The beginner run is single-threaded (bit for bit `run_keff_csg`), and
+    // this tiny mirrored cube makes each thermal history cross or reflect
+    // off its faces thousands of times: the Fast run with diagnostics took
+    // 3884 s (i9-13900K). On several cores the cheap way to more
+    // statistics is independent seeds side by side, without diagnostics:
+    // `--seeds-only N` (Fast's size, 5000 per cycle, 100 inactive fixed,
+    // 120 active; a stated size, not the watcher's).
+    if let Some(n) = arg("--seeds-only").and_then(|s| s.parse::<usize>().ok()) {
+        let workers = arg("--workers")
+            .and_then(|s| s.parse().ok())
+            .unwrap_or_else(default_workers);
+        let t = Instant::now();
+        let ks = run_seeds(&consecutive_seeds(n), workers, |seed| {
+            let r = assembled
+                .keff_with(
+                    &nuclides,
+                    &KeffSettings::new(
+                        MCSettings::Custom(CustomRun {
+                            particles: 5000,
+                            inactive: 100,
+                            active: 120,
+                            seed,
+                        }),
+                        None,
+                    ),
+                )
+                .expect("a seed run");
+            (r.keff().mean, r.keff().std)
+        });
+        let rep = EnsembleReport::from_runs(ks);
+        println!(
+            "\n{n} seeds x Custom {{ 5000 per cycle, 100 inactive, 120 active }}, no diagnostics ({:.0} s on {workers} workers; {}):",
+            t.elapsed().as_secs_f64(),
+            HardwareInfo::detect().headline()
+        );
+        println!(
+            "  k_inf = {:.5} ± {:.5} (sd per run {:.0} pcm)",
+            rep.mean,
+            rep.sem,
+            rep.sd * 1e5
+        );
+        print!("{}", rep.consistency_summary("k"));
+        return Ok(());
+    }
+
     let t = Instant::now();
     let run = assembled.keff_with(
         &nuclides,
