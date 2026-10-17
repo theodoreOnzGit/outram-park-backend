@@ -48,11 +48,22 @@ pub struct CrossSectionSettings {
     pub heatr: bool,
     /// ACER only: the ZAID suffix, `0` for `.00c`, `80` for `.80c`.
     pub ace_suffix: u32,
+    /// Whether the result carries the 0 K elastic cross section DBRC needs
+    /// ([`super::NuclearCrossSections::elastic_0k`]). On by default; it does
+    /// not change the ACE table.
+    pub elastic_0k: bool,
 }
 
 impl Default for CrossSectionSettings {
     fn default() -> Self {
-        Self { reconr_tolerance: 1.0e-3, broadr_tolerance: 1.0e-3, purr: Some(PurrSettings::default()), heatr: true, ace_suffix: 0 }
+        Self {
+            reconr_tolerance: 1.0e-3,
+            broadr_tolerance: 1.0e-3,
+            purr: Some(PurrSettings::default()),
+            heatr: true,
+            ace_suffix: 0,
+            elastic_0k: true,
+        }
     }
 }
 
@@ -72,6 +83,14 @@ impl CrossSectionSettings {
     /// Ablate HEATR: the ACE heating column is written as zero.
     pub fn without_heatr(mut self) -> Self {
         self.heatr = false;
+        self
+    }
+
+    /// Ablate the 0 K elastic: the result carries no
+    /// [`super::NuclearCrossSections::elastic_0k`], so a transport code built
+    /// on it has no DBRC. Only to measure what DBRC is worth.
+    pub fn without_elastic_0k(mut self) -> Self {
+        self.elastic_0k = false;
         self
     }
 
@@ -218,8 +237,8 @@ impl ThermalSettings {
     }
 
     /// The incident PENDF's settings: RECONR and BROADR only. THERMR reads
-    /// the elastic cross section, MAT, AWR and ZA from it, so PURR and HEATR
-    /// could not change the thermal table and are not run.
+    /// the elastic cross section, MAT, AWR and ZA from it, so PURR, HEATR and
+    /// the 0 K elastic could not change the thermal table and are not made.
     pub(crate) fn incident(&self) -> super::CrossSectionSettings {
         super::CrossSectionSettings {
             reconr_tolerance: self.reconr_tolerance,
@@ -227,6 +246,7 @@ impl ThermalSettings {
             purr: None,
             heatr: false,
             ace_suffix: 0,
+            elastic_0k: false,
         }
     }
 
@@ -247,6 +267,8 @@ mod tests {
         let d = CrossSectionSettings::default();
         assert_eq!((d.reconr_tolerance, d.broadr_tolerance, d.heatr, d.ace_suffix), (1e-3, 1e-3, true, 0));
         assert_eq!(d.purr, Some(PurrSettings { bands: 20, ladders: 64, samples: 10_000 }));
+        assert!(d.elastic_0k, "the 0 K elastic DBRC needs is on by default");
+        assert!(!d.clone().without_elastic_0k().elastic_0k);
         let s = d
             .clone()
             .with_purr(10, 32, 100)
