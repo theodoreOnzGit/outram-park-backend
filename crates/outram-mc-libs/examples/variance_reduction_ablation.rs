@@ -57,7 +57,7 @@ fn heu() -> Option<Vec<Nuclide>> {
     let load = |name: &str, f: &str| -> Option<Nuclide> {
         let p = base.join(f);
         p.exists().then_some(())?;
-        Nuclide::from_endf_file(&p, name, TEMP, 1.0e-3).ok()
+        Nuclide::from_endf_file(&p, name, uom::si::f64::ThermodynamicTemperature::new::<uom::si::thermodynamic_temperature::kelvin>(TEMP), 1.0e-3).ok()
     };
     Some(vec![
         load("U235", "n-092_U_235-ENDF8.0.endf")?,

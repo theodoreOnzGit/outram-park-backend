@@ -282,5 +282,5 @@ fn vv_gate(sweep: &[(f64, f64, [f64; 3], f64)]) {
 
 fn load(name: &str, file: &str) -> Nuclide {
     let p = reference_endf(file).unwrap_or_else(|| panic!("missing {file}"));
-    Nuclide::from_endf_file(&p, name, TEMP, 1.0e-3).expect("reconstruct")
+    Nuclide::from_endf_file(&p, name, uom::si::f64::ThermodynamicTemperature::new::<uom::si::thermodynamic_temperature::kelvin>(TEMP), 1.0e-3).expect("reconstruct")
 }

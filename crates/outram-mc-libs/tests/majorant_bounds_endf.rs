@@ -83,7 +83,7 @@ const AUDIT_N: usize = 2_000_000;
 fn load(file: &str, name: &str, temp_k: f64) -> Option<Nuclide> {
     let p = reference_endf(file)?;
     Some(
-        Nuclide::from_endf_file(&p, name, temp_k, 1.0e-3)
+        Nuclide::from_endf_file(&p, name, uom::si::f64::ThermodynamicTemperature::new::<uom::si::thermodynamic_temperature::kelvin>(temp_k), 1.0e-3)
             .unwrap_or_else(|e| panic!("from_endf_file({file}): {e}")),
     )
 }

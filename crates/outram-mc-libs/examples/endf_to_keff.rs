@@ -97,11 +97,11 @@ fn main() {
 
     println!("\nReconstructing nuclides from ENDF (RECONR + BROADR @ {temp_k} K)…\n");
 
-    let u235 = Nuclide::from_endf_file(&u235_path, "U235", temp_k, 1.0e-3)
+    let u235 = Nuclide::from_endf_file(&u235_path, "U235", uom::si::f64::ThermodynamicTemperature::new::<uom::si::thermodynamic_temperature::kelvin>(temp_k), 1.0e-3)
         .expect("Could not read U-235 ENDF file");
     println!("  U-235: ✓");
 
-    let u238 = Nuclide::from_endf_file(&u238_path, "U238", temp_k, 1.0e-3)
+    let u238 = Nuclide::from_endf_file(&u238_path, "U238", uom::si::f64::ThermodynamicTemperature::new::<uom::si::thermodynamic_temperature::kelvin>(temp_k), 1.0e-3)
         .expect("Could not read U-238 ENDF file");
     println!("  U-238: ✓\n");
 

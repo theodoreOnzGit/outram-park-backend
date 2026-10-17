@@ -136,7 +136,7 @@ fn u238() -> Option<Nuclide> {
         "n-092_U_238.endf",
         "U-238 evaluation (ablation hook controls)",
     )?;
-    Some(Nuclide::from_endf_file(&tape, "U238", TEMP_K, 1.0e-3).expect("U-238 reconstructs"))
+    Some(Nuclide::from_endf_file(&tape, "U238", uom::si::f64::ThermodynamicTemperature::new::<uom::si::thermodynamic_temperature::kelvin>(TEMP_K), 1.0e-3).expect("U-238 reconstructs"))
 }
 
 /// Sample one inelastic outcome's outgoing energy, or `None` when the nuclide
@@ -603,7 +603,7 @@ fn u235() -> Option<Nuclide> {
         "n-092_U_235-ENDF8.0.endf",
         "U-235 evaluation (fission-source ablation controls)",
     )?;
-    Some(Nuclide::from_endf_file(&tape, "U235", TEMP_K, 1.0e-3).expect("U-235 reconstructs"))
+    Some(Nuclide::from_endf_file(&tape, "U235", uom::si::f64::ThermodynamicTemperature::new::<uom::si::thermodynamic_temperature::kelvin>(TEMP_K), 1.0e-3).expect("U-235 reconstructs"))
 }
 
 /// Thermal end of the nu-bar table, used as the frozen reference so the
@@ -727,7 +727,7 @@ fn the_fission_spectrum_hook_freezes_exactly_the_incident_energy() {
     };
     let tape = Tape::read_file(&path).expect("U-235 tape parses");
     let mat = tape.materials()[0];
-    let evaluated = Nuclide::from_endf_file(&path, "U235", TEMP_K, 1.0e-3).expect("U-235");
+    let evaluated = Nuclide::from_endf_file(&path, "U235", uom::si::f64::ThermodynamicTemperature::new::<uom::si::thermodynamic_temperature::kelvin>(TEMP_K), 1.0e-3).expect("U-235");
 
     /// Trapezoidal mean `∫E' g(E') dE'` of one tabulated outgoing-energy row —
     /// the distribution's own first moment, read straight off the tape and
@@ -1079,7 +1079,7 @@ fn the_n2n_multiplicity_hook_reaches_the_transport_kernel() {
     ) else {
         return;
     };
-    let evaluated = Nuclide::from_endf_file(&path, "U235", TEMP_K, 1.0e-3).expect("U-235");
+    let evaluated = Nuclide::from_endf_file(&path, "U235", uom::si::f64::ThermodynamicTemperature::new::<uom::si::thermodynamic_temperature::kelvin>(TEMP_K), 1.0e-3).expect("U-235");
     assert!(
         evaluated.xs_at_energy(N2N_PROBE_EV, TEMP_K).n2n > 0.0,
         "U-235 has no (n,2n) channel at {N2N_PROBE_EV:.1e} eV; this test would be vacuous."

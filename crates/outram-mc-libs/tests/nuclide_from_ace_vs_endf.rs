@@ -152,7 +152,7 @@ fn ace_and_endf_routes_agree_on_the_same_evaluation() {
             println!("[ace-vs-endf/{nuclide}] SKIP: no ENDF tape {tape}");
             continue;
         };
-        let endf = Nuclide::from_endf_file(&path, nuclide, TEMP_K, 1.0e-3)
+        let endf = Nuclide::from_endf_file(&path, nuclide, uom::si::f64::ThermodynamicTemperature::new::<uom::si::thermodynamic_temperature::kelvin>(TEMP_K), 1.0e-3)
             .unwrap_or_else(|e| panic!("from_endf_file {nuclide}: {e}"));
 
         println!("\n{nuclide}: ACE (NJOY2016) vs ENDF (this port's RECONR+BROADR)");

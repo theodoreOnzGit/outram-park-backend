@@ -367,7 +367,7 @@ fn endf(name: &str, file: &str) -> Option<Nuclide> {
         std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../reference-data/endf");
     let p = base.join(file);
     p.exists().then_some(())?;
-    Nuclide::from_endf_file(&p, name, TEMP, 1.0e-3).ok()
+    Nuclide::from_endf_file(&p, name, uom::si::f64::ThermodynamicTemperature::new::<uom::si::thermodynamic_temperature::kelvin>(TEMP), 1.0e-3).ok()
 }
 
 /// A reflective cube of side `a` holding one BCC cell: a sphere at the centre

@@ -129,7 +129,7 @@ fn endf_route_carries_f19_histogram_yield() {
         println!("F-19 tape absent: skipping");
         return;
     };
-    let nuc = Nuclide::from_endf_file(&p, "F19", 293.6, 1.0e-3).expect("F-19 loads");
+    let nuc = Nuclide::from_endf_file(&p, "F19", uom::si::f64::ThermodynamicTemperature::new::<uom::si::thermodynamic_temperature::kelvin>(293.6), 1.0e-3).expect("F-19 loads");
     let law = nuc.continuum_law(91).expect("MT=91 law");
     let r = &law.branches[0].yield_interp;
     println!("F-19 MT=91 yield regions {r:?}");

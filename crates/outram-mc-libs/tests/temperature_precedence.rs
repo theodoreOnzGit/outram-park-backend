@@ -94,7 +94,7 @@ fn nuclides_with_h1_at(h1_t: f64) -> Option<Vec<Nuclide>> {
     // energy (the at-rest gate needs `awr > 1`), so its collisions always use
     // its data temperature (GitHub #313). See "Protocol fixed 2026-09-30".
     let h = njoy_outram_park_fork::reference_data::reference_endf("n-001_H_001-ENDF8.0-Beta6.endf")?;
-    let h1 = Nuclide::from_endf_file(&h, "H1", h1_t, 1.0e-3).expect("H-1 reconstructs");
+    let h1 = Nuclide::from_endf_file(&h, "H1", uom::si::f64::ThermodynamicTemperature::new::<uom::si::thermodynamic_temperature::kelvin>(h1_t), 1.0e-3).expect("H-1 reconstructs");
     Some(vec![load("U235")?, load("U238")?, h1])
 }
 

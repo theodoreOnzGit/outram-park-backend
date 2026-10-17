@@ -40,7 +40,7 @@ const T: f64 = 293.6;
 fn main() {
     let load = |name: &str, file: &str| {
         let p = reference_endf(file).unwrap_or_else(|| panic!("missing {file}"));
-        Nuclide::from_endf_file(&p, name, T, 1.0e-3).expect("reconstruct")
+        Nuclide::from_endf_file(&p, name, uom::si::f64::ThermodynamicTemperature::new::<uom::si::thermodynamic_temperature::kelvin>(T), 1.0e-3).expect("reconstruct")
     };
     let b10 = load("B10", "n-005_B_010-ENDF8.0.endf");
     let h1 = load("H1", "n-001_H_001-ENDF8.0-Beta6.endf");

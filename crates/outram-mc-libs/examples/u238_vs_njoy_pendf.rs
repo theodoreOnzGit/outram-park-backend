@@ -99,7 +99,7 @@ fn main() {
 
     let tape_for_gate = reference_endf(&tape_name).expect("ENDF tape");
     if nuc_name == "U238" {
-        let ours_for_gate = Nuclide::from_endf_file(&tape_for_gate, &nuc_name, TEMP, 1.0e-3)
+        let ours_for_gate = Nuclide::from_endf_file(&tape_for_gate, &nuc_name, uom::si::f64::ThermodynamicTemperature::new::<uom::si::thermodynamic_temperature::kelvin>(TEMP), 1.0e-3)
             .expect("reconstruction");
         golden_gate(&ours_for_gate, TEMP);
     } else {
@@ -127,7 +127,7 @@ fn main() {
 
     let tape = reference_endf(&tape_name).expect("ENDF tape");
     eprintln!("reconstructing {nuc_name} (MAT {mat}) with this crate @ {TEMP} K, tol 1e-3 ...");
-    let ours = Nuclide::from_endf_file(&tape, &nuc_name, TEMP, 1.0e-3).expect("reconstruction");
+    let ours = Nuclide::from_endf_file(&tape, &nuc_name, uom::si::f64::ThermodynamicTemperature::new::<uom::si::thermodynamic_temperature::kelvin>(TEMP), 1.0e-3).expect("reconstruction");
     eprintln!("done.\n");
 
     // (MT, label, how to pull it out of our MicroXS)

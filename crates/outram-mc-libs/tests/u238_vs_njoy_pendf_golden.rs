@@ -61,7 +61,7 @@ fn u238_or_skip() -> Option<Nuclide> {
         println!("SKIP: n-092_U_238.endf not in reference-data/endf/");
         return None;
     };
-    match Nuclide::from_endf_file(&path, "U238", TEMP, 1.0e-3) {
+    match Nuclide::from_endf_file(&path, "U238", uom::si::f64::ThermodynamicTemperature::new::<uom::si::thermodynamic_temperature::kelvin>(TEMP), 1.0e-3) {
         Ok(n) => Some(n),
         Err(e) => {
             println!("SKIP: {e}");

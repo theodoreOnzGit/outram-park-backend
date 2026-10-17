@@ -346,7 +346,7 @@ fn nuclides() -> Vec<Nuclide> {
             .unwrap_or_else(|| panic!("missing reference tape {file} in reference-data/endf/"));
         eprint!("  reconstructing {name:<6} from {file} … ");
         let t0 = Instant::now();
-        let n = Nuclide::from_endf_file(&path, name, TEMP_K, 1.0e-3)
+        let n = Nuclide::from_endf_file(&path, name, uom::si::f64::ThermodynamicTemperature::new::<uom::si::thermodynamic_temperature::kelvin>(TEMP_K), 1.0e-3)
             .unwrap_or_else(|e| panic!("from_endf_file({}): {e}", path.display()));
         eprintln!("{:.1?}", t0.elapsed());
         n

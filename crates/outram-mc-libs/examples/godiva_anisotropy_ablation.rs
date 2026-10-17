@@ -147,7 +147,7 @@ mod desktop {
             .iter()
             .map(|(f, n, _)| {
                 let p = reference_endf(f).unwrap_or_else(|| panic!("missing tape {f}"));
-                Nuclide::from_endf_file(&p, n, TEMP_K, 1.0e-3)
+                Nuclide::from_endf_file(&p, n, uom::si::f64::ThermodynamicTemperature::new::<uom::si::thermodynamic_temperature::kelvin>(TEMP_K), 1.0e-3)
                     .unwrap_or_else(|e| panic!("from_endf_file: {e}"))
             })
             .collect()

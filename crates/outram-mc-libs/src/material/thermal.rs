@@ -603,7 +603,10 @@ impl ThermalScattering {
     ///
     /// # Parameters
     /// - `path` — the ENDF `tsl-*` file (e.g. ENDF/B-VIII.0 `tsl-HinH2O.endf`
-    ///   or `tsl-crystalline-graphite.endf`).
+    ///   or `tsl-crystalline-graphite.endf`): a `&Path` like
+    ///   [`Nuclide::from_endf_file`](crate::material::nuclide::Nuclide::from_endf_file)'s,
+    ///   or anything else that is `AsRef<Path>` (a `&str` still works).
+    ///   ~~`&str` only~~ until 2026-10-17 (GitHub #934). Plain or gzipped.
     /// - `mat` — the ENDF material number of the thermal evaluation (`1` for
     ///   `tsl-HinH2O`; `30`/`31`/`32` for crystalline / 10 %-porous /
     ///   30 %-porous reactor graphite).
@@ -636,15 +639,15 @@ impl ThermalScattering {
     /// Propagates [`NjoyError`] if the file cannot be read, `mat` has no
     /// MF=7/MT=4 incoherent-inelastic data, `temperature_k` is outside the
     /// tabulated range of *either* channel, or a record is malformed.
-    pub fn from_endf_file(
-        path: &str,
+    pub fn from_endf_file<P: AsRef<std::path::Path>>(
+        path: P,
         mat: i32,
         temperature_k: f64,
         name: &str,
     ) -> Result<Self, NjoyError> {
         use njoy_outram_park_fork::endf::tape::Tape;
 
-        let tape = Tape::read(std::fs::File::open(path).map_err(NjoyError::Io)?)?;
+        let tape = Tape::read_file(path.as_ref())?;
         Self::from_tape(&tape, mat, temperature_k, name)
     }
 

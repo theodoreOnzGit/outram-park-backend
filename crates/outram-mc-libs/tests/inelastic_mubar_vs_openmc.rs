@@ -187,7 +187,7 @@ fn check(nuclide: &str, file: &str, oracle: &[(i32, [f64; 4])]) -> f64 {
         return -1.0;
     };
     let nuc =
-        Nuclide::from_endf_file(&tape, nuclide, TEMP_K, 1.0e-3).expect("nuclide reconstructs");
+        Nuclide::from_endf_file(&tape, nuclide, uom::si::f64::ThermodynamicTemperature::new::<uom::si::thermodynamic_temperature::kelvin>(TEMP_K), 1.0e-3).expect("nuclide reconstructs");
     // The same MF=4 sections the nuclide was built from, so the like-for-like
     // quadrature runs on identical data.
     let parsed = Tape::read_file(&tape).expect("tape parses");
@@ -264,8 +264,8 @@ fn the_two_nuclides_differ_in_anisotropy_the_way_the_evaluation_says() {
     ) else {
         return;
     };
-    let u238 = Nuclide::from_endf_file(&t8, "U238", TEMP_K, 1.0e-3).expect("U-238 reconstructs");
-    let u235 = Nuclide::from_endf_file(&t5, "U235", TEMP_K, 1.0e-3).expect("U-235 reconstructs");
+    let u238 = Nuclide::from_endf_file(&t8, "U238", uom::si::f64::ThermodynamicTemperature::new::<uom::si::thermodynamic_temperature::kelvin>(TEMP_K), 1.0e-3).expect("U-238 reconstructs");
+    let u235 = Nuclide::from_endf_file(&t5, "U235", uom::si::f64::ThermodynamicTemperature::new::<uom::si::thermodynamic_temperature::kelvin>(TEMP_K), 1.0e-3).expect("U-235 reconstructs");
 
     let e = 5.0e6;
     let a8 = u238.inelastic_mubar_cm(51, e);

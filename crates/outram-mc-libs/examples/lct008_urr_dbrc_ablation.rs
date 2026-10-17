@@ -176,7 +176,7 @@ fn main() {
             println!("SKIP: reference tape {file} is not present");
             return;
         };
-        let n = Nuclide::from_endf_file(&path, name, TEMP_K, 1.0e-3)
+        let n = Nuclide::from_endf_file(&path, name, uom::si::f64::ThermodynamicTemperature::new::<uom::si::thermodynamic_temperature::kelvin>(TEMP_K), 1.0e-3)
             .unwrap_or_else(|e| panic!("from_endf_file({name}): {e}"));
         full.push(n);
     }

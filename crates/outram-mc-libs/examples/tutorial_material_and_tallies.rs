@@ -100,12 +100,12 @@ fn main() {
     println!("  RECONR + BROADR @ {} K ...", temp_k);
 
     // Load U-235 from ENDF
-    let u235 = Nuclide::from_endf_file(&u235_path, "U235", temp_k, 1.0e-3)
+    let u235 = Nuclide::from_endf_file(&u235_path, "U235", uom::si::f64::ThermodynamicTemperature::new::<uom::si::thermodynamic_temperature::kelvin>(temp_k), 1.0e-3)
         .expect("Failed to read U-235 ENDF file");
     println!("    U-235 ✓ (fissile isotope, ~0.7% natural, 93% in HEU)");
 
     // Load U-238 from ENDF
-    let u238 = Nuclide::from_endf_file(&u238_path, "U238", temp_k, 1.0e-3)
+    let u238 = Nuclide::from_endf_file(&u238_path, "U238", uom::si::f64::ThermodynamicTemperature::new::<uom::si::thermodynamic_temperature::kelvin>(temp_k), 1.0e-3)
         .expect("Failed to read U-238 ENDF file");
     println!("    U-238 ✓ (fertile isotope, absorbs neutrons, enables (n,2n))\n");
 

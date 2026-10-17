@@ -577,7 +577,7 @@ fn nuclide_or_skip(
         );
         return None;
     };
-    match Nuclide::from_endf_file(&path, name, temp_k, 1.0e-3) {
+    match Nuclide::from_endf_file(&path, name, uom::si::f64::ThermodynamicTemperature::new::<uom::si::thermodynamic_temperature::kelvin>(temp_k), 1.0e-3) {
         Ok(n) => Some(n),
         Err(e) => {
             println!("[{name}] SKIP: reconstruction failed: {e}");
