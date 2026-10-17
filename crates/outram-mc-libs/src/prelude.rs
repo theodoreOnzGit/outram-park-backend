@@ -160,3 +160,10 @@ pub use crate::stats::learned_importance::{
 };
 pub use crate::stats::uq::{DirectPerturbation, UncertainInput, UqDesign, UqReport};
 pub use crate::stats::sweep::{SurrogatePrediction, SweepRun, SweepSurrogate};
+
+// Beginner thermal profile (gh:#949): coarse steady conduction on any CSG
+// shape with ballpark heat-removal presets and an energy balance.
+pub use crate::thermal_profile::{
+    HeatRemoval, ProfileKind, ThermalMaterial, ThermalMesh, ThermalProblem, ThermalProfile,
+    ThermalProfileError, ThermalRegion,
+};

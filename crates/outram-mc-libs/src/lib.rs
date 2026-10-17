@@ -44,6 +44,10 @@ pub mod pebble_beds;
 pub mod stochastic;
 pub mod depletion;
 pub mod plotter;
+/// Beginner thermal profile: a coarse steady conduction solve on any CSG
+/// shape (outram-foam-basic-lib), from a stated power and a ballpark
+/// heat-removal preset, with an energy balance (gh:#949).
+pub mod thermal_profile;
 /// Optional headless GPU compute (wgpu) for embarrassingly-parallel MC kernels.
 /// Desktop gets the real path; Android gets a CPU-only shim. GPU is acceleration
 /// only — the CPU raw-`f64` path stays the trusted, deterministic reference.

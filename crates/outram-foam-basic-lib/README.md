@@ -234,6 +234,15 @@ dominance exactly where the coefficient is largest; two tests in
 | `SolidThermo` | Trait for solid region CHT: `rho_cp`, `kappa`, `T` |
 | `ConstSolidThermo` | Constant-property solid thermo |
 
+### Small solver — steady heat conduction (`steady_conduction`, gh:#949)
+
+| Module | Rust type / fn | C++ source | Notes |
+|---|---|---|---|
+| `steady_conduction` | `SteadyConductionProblem::solve` | `laplacianFoam.C` (steady `TEqn`) | `-div(k(T) grad T) = q'''` with per-zone source and caller-supplied `k(T)` (Picard). Faces use series-resistance `k` (OpenFOAM `harmonic`). Reports an `EnergyBalance` recomputed from each boundary face's own condition. |
+| `steady_conduction` | `ThermalBoundary`, `PatchCondition` | `externalWallHeatFluxTemperatureFvPatchScalarField.C` | Adiabatic, fixed temperature, or convective (`valueFraction = h/(h + k/d)`, no radiation), with an optional per-face film-area fraction for staircase surfaces. |
+| `steady_conduction::mesh` | `radial_mesh`, `voxel_mesh` | new | Nested slab/cylinder/sphere shells with true areas and volumes; cubic voxels of any body given a `zone_at(point)` function. |
+| `steady_conduction::closed_form` | `RadialClosedForm` | new | Exact solution for uniform `q'''` in nested shells, the verification reference. Measured 2026-10-17: single-layer error is the predicted uniform `q dr^2/(8(m+1)k)` offset to 1e-9 K; nested shells converge at order 2.000; a voxel sphere converges only with the film-area fraction. |
+
 ## Limitations
 
 Read this before depending on the crate. Every item below is grounded in the
