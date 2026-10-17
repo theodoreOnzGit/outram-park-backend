@@ -242,7 +242,12 @@ fn every_mf6_continuum_section_yields_an_evaluated_law() {
     //   first pin. All nine build a law. Found by the 57-tape ACE parity sweep,
     //   which independently identified this same MF=4/5 population as the
     //   dominant cause of this port's NXS(5) undercount against NJOY2016.
-    const MF45_SECTIONS: usize = 20;
+    // 2026-10-17: 32. The census had gone stale on `develop`: the twelve new
+    //   sections are O-17 MT=16/91, P-31 MT=16/91 and S-32/33/34/36 MT=16/91,
+    //   tapes added since the last pin (the HTTR work, `e96d647027`, is the
+    //   latest commit to touch `reference-data/endf/`). All twelve build a
+    //   law (the loop above). Found by the full njoy suite on the #925 branch.
+    const MF45_SECTIONS: usize = 32;
     assert_eq!(
         mf45.len(),
         MF45_SECTIONS,
