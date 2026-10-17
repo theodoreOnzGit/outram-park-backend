@@ -176,11 +176,30 @@ pub enum MCSettings {
     Custom(CustomRun),
 }
 
-/// **What to run**: a run size and the diagnostics to collect.
+/// **What to run**: a run size, the diagnostics to collect, and whether to
+/// print progress while it runs.
 #[derive(Debug, Clone, PartialEq)]
 pub struct KeffSettings {
     mc: MCSettings,
     diagnostics: Option<Diagnostics>,
+    progress: Progress,
+}
+
+/// **Progress printed while a run goes** (maintainer direction, 2026-10-18:
+/// "by default as keff runs, should print statistics like OpenMC").
+///
+/// [`Progress::Print`] is the default: each nuclide as its data is
+/// processed, then one line per generation in OpenMC's layout (generation,
+/// population, k, Shannon entropy, and, in the active cycles, the running
+/// average k ± σ), plus a line whenever the Auto watcher changes phase. It
+/// goes to standard output, so a long run can be watched with `tail -f`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Progress {
+    /// Print as the run goes (the default).
+    #[default]
+    Print,
+    /// Print nothing.
+    Silent,
 }
 
 impl KeffSettings {
@@ -188,7 +207,23 @@ impl KeffSettings {
     /// only; `Some(Diagnostics::default())` collects the "wanted by
     /// everyone" set ([`Diagnostics`]).
     pub fn new(mc: MCSettings, diagnostics: Option<Diagnostics>) -> Self {
-        Self { mc, diagnostics }
+        Self {
+            mc,
+            diagnostics,
+            progress: Progress::Print,
+        }
+    }
+
+    /// The same settings, printing nothing while the run goes
+    /// ([`Progress::Silent`]).
+    pub fn silent(mut self) -> Self {
+        self.progress = Progress::Silent;
+        self
+    }
+
+    /// Whether progress is printed.
+    pub fn progress(&self) -> Progress {
+        self.progress
     }
 
     /// The run size.
@@ -660,6 +695,8 @@ struct Traces {
     k: Vec<f64>,
     h: Vec<Option<f64>>,
     n: Vec<usize>,
+    /// The first active cycle, once the active cycles have begun.
+    first_active: Option<usize>,
 }
 
 impl Traces {
@@ -749,6 +786,7 @@ impl AssembledModel {
         }
         let mesh = self.entropy_mesh();
         let mut tr = Traces::default();
+        let print = settings.progress() == Progress::Print;
         // Inactive cycles discard their scores; active ones keep them. With
         // no diagnostics this is exactly `step` (wave 1, bit for bit).
         let step = |it: &mut CsgPowerIteration,
@@ -772,11 +810,27 @@ impl AssembledModel {
             if r.bank_size == 0 {
                 return Err(RunError::PopulationDied(tr.k.len()));
             }
+            if active && tr.first_active.is_none() {
+                tr.first_active = Some(tr.k.len());
+            }
             tr.k.push(r.k);
             tr.h.push(it.source_entropy(&mesh));
             tr.n.push(n);
+            if print {
+                let average = tr.first_active.map(|a| &tr.k[a..]);
+                println!(
+                    "{}",
+                    generation_line(tr.k.len(), n, r.k, tr.h[tr.h.len() - 1], average)
+                );
+            }
             Ok(())
         };
+        let say = |line: String| {
+            if print {
+                println!("{line}");
+            }
+        };
+        say(GENERATION_HEADER.to_string());
 
         // ── Inactive cycles ──────────────────────────────────────────────
         let mut low_passed = None;
@@ -792,12 +846,25 @@ impl AssembledModel {
                     if let Some((k, h)) = tr.window(c - WATCH_WINDOW_CYCLES) {
                         if window_passes(&k, &h) {
                             low_passed = Some(c);
+                            say(format!(
+                                " watcher: k and entropy stationary at {} per cycle, cycle {c}",
+                                p.start_particles
+                            ));
                             break;
                         }
                     }
                 }
             }
+            if low_passed.is_none() {
+                say(format!(
+                    " watcher: not stationary by cycle {low_cap}; going on"
+                ));
+            }
             // Phase 2: raise the population, discard the transition.
+            say(format!(
+                " watcher: population raised to {}; {SETTLE_CYCLES} cycles discarded to settle",
+                p.production_particles
+            ));
             it.set_population(p.production_particles);
             for _ in 0..SETTLE_CYCLES {
                 step(&mut it, &mut tr, &mut collector, false)?;
@@ -811,6 +878,11 @@ impl AssembledModel {
                     if let Some((k, h)) = tr.window(tr.k.len() - WATCH_WINDOW_CYCLES) {
                         if window_passes(&k, &h) {
                             production_passed = Some(tr.k.len());
+                            say(format!(
+                                " watcher: stationary again at {} per cycle, cycle {}",
+                                p.production_particles,
+                                tr.k.len()
+                            ));
                             break;
                         }
                     }
@@ -822,6 +894,7 @@ impl AssembledModel {
             }
         }
         let n_inactive = tr.k.len();
+        say(format!(" active cycles begin after {n_inactive} inactive"));
 
         // ── Active cycles ────────────────────────────────────────────────
         let mut tol_reached = None;
@@ -845,6 +918,14 @@ impl AssembledModel {
         }
         let active = &tr.k[n_inactive..];
         let (mean, std) = mean_and_stderr(active);
+        say(format!(
+            " k = {mean:.5} +/- {std:.5} over {} active cycles{}",
+            active.len(),
+            match tol_reached {
+                Some(false) => " (tolerance NOT reached)",
+                _ => "",
+            }
+        ));
         let convergence = if p.watch {
             Convergence::Watched {
                 low_population_passed_at: low_passed,
@@ -922,6 +1003,31 @@ impl AssembledModel {
     }
 }
 
+/// The column heads [`generation_line`] fills, as OpenMC prints them.
+const GENERATION_HEADER: &str = " Bat./Gen.  particles        k   Entropy       Average k\n \
+     =========  =========  =======  ========  ==================";
+
+/// One generation's progress line: its number, population, k, Shannon
+/// entropy and, once the active cycles have begun (`average` holds them so
+/// far), the running mean ± standard error, as OpenMC prints it.
+fn generation_line(
+    generation: usize,
+    particles: usize,
+    k: f64,
+    entropy: Option<f64>,
+    average: Option<&[f64]>,
+) -> String {
+    let h = entropy.map_or_else(|| "       -".to_string(), |h| format!("{h:8.5}"));
+    let avg = match average {
+        Some(a) if a.len() >= 2 => {
+            let (m, s) = mean_and_stderr(a);
+            format!("  {m:.5} +/- {s:.5}")
+        }
+        _ => String::new(),
+    };
+    format!(" {generation:>9}  {particles:>9}  {k:.5}  {h}{avg}")
+}
+
 /// The batch-means σ when at least two batches fit, else the naive one,
 /// never smaller than the naive one.
 fn correlated_sigma(x: &[f64]) -> f64 {
@@ -958,7 +1064,7 @@ impl Model {
     /// process, or the run cannot proceed.
     pub fn keff(&self, settings: KeffSettings) -> Result<KeffRun, RunError> {
         let a = self.assemble()?;
-        let nuclides = a.load_nuclides(self.data())?;
+        let nuclides = a.load_nuclides_with(self.data(), settings.progress())?;
         a.keff_with(&nuclides, &settings)
     }
 }
@@ -966,6 +1072,21 @@ impl Model {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The progress line carries OpenMC's columns, and the running average
+    /// appears only once two active cycles exist; progress prints by default.
+    #[test]
+    fn progress_lines_carry_openmc_columns_and_print_by_default() {
+        let s = KeffSettings::new(MCSettings::Auto, None);
+        assert_eq!(s.progress(), Progress::Print);
+        assert_eq!(s.silent().progress(), Progress::Silent);
+        let inactive = generation_line(3, 1_000, 1.01234, Some(4.5), None);
+        assert_eq!(inactive, "         3       1000  1.01234   4.50000");
+        let one = generation_line(4, 1_000, 1.0, None, Some(&[1.0]));
+        assert!(one.ends_with("       -"), "{one}");
+        let two = generation_line(5, 10_000, 1.0, Some(4.5), Some(&[1.0, 1.02]));
+        assert!(two.ends_with("1.01000 +/- 0.01000"), "{two}");
+    }
 
     /// Presets expand to the decided numbers; invalid sizes are refused.
     #[test]

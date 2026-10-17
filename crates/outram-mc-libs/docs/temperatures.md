@@ -10,7 +10,7 @@ controls nothing. Checked 2026-09-27 by reading `physics/transport_csg.rs`,
 |---|---|---|---|---|
 | **Nuclide build temperature** | `Nuclide::from_endf_file(path, name, T, tol)`; an ACE table's own temperature | Doppler broadening baked into the pointwise table, **and** (since 2026-09-30, GitHub #313) the free-gas and DBRC target-motion kT, as OpenMC | **This one wins**, for the cross sections and the kinematics | not used for the resolved range |
 | **S(α,β) table temperature** | `ThermalScattering::from_endf_file(.., T, ..)` / `from_leapr(.., T, ..)` | Which bound-scattering table is used (nearest tabulated, reported by `selected_temperature_k`) | used | used |
-| **`Material::temperature`** | the material | Passed to every cross-section lookup (flight distance and collision), and the free-gas kT of a multipole nuclide | **ignored** | **this one wins** (WMP Doppler evaluator and target motion) |
+| **`Material::temperature`** | the material | Passed to every cross-section lookup (flight distance and collision), and the free-gas kT of a multipole nuclide | **ignored**, unless WMP is attached (`Nuclide::with_multipole`, GitHub #948, opt-in): then it wins inside the WMP range and for the kinematics at every energy | **this one wins** (WMP Doppler evaluator and target motion) |
 | **`KeffSettings::temperature_k`** | the run | CSG drivers: ~~free-gas elastic target motion (`free_gas_kt`) only~~ **nothing** since 2026-09-30 (GitHub #313). Simple drivers in `keff.rs`: the lookup temperature, and the multipole free-gas temperature | not read (CSG) | not read (CSG); lookup and kinematics in the simple drivers |
 | **`Cell::temperature`** | the cell | **Nothing in transport** | not read | not read |
 
@@ -74,7 +74,8 @@ not change.
 **To run a model at temperature T, build (or read) the nuclides at T, load the
 S(α,β) tables at T, and set `KeffSettings::temperature_k = T`.** Set
 `Material::temperature = T` as well, which matters only for multipole
-nuclides. `Cell::temperature` is descriptive only. (In the CSG drivers the
+nuclides (the LOW tier, and since 2026-10-18 a pointwise nuclide with WMP
+attached by `Nuclide::with_multipole`, GitHub #948). `Cell::temperature` is descriptive only. (In the CSG drivers the
 run temperature is no longer read; setting it keeps the simple drivers of
 `keff.rs` consistent.)
 
@@ -92,3 +93,16 @@ multi-temperature treatment.
 (27 °C, as Li, Yu & Wei 2014 state) and sets the run temperature to the same.
 The geometry's cells say 293.6 K, which is inert by the table above. The model
 is consistent at 300.15 K.
+
+## WMP on a pointwise nuclide (2026-10-18, GitHub #948)
+
+`Nuclide::with_multipole` (or `with_core_multipole`) attaches windowed
+multipole data to a pointwise nuclide, as OpenMC's `temperature_multipole`
+does (`src/nuclide.cpp:620-680`). Inside the WMP range the cross sections
+are then evaluated at `Material::temperature`, the URR tables are not read
+there, and the free-gas and DBRC kinematics take the material temperature at
+every energy (`src/physics.cpp:734`). Outside the range the tables answer at
+their build temperature. It is **opt-in**, and it refuses WMP data of
+another evaluation: the embedded CORE set is ENDF/B-VII.0's resolved range,
+not ENDF/B-VIII.0's. Methodology and measurements:
+`verification_and_validation/wmp_local_temperature_948/README.md`.
