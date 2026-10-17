@@ -94,6 +94,14 @@ raffles = { workspace = true }
 # false`, so blender's `gpu` (wgpu) feature is not pulled; this crate has its
 # own GPU path. outram-blender must never depend on this crate.
 outram-blender = { workspace = true }
+# Coarse-mesh steady conduction + energy balance for the beginner thermal
+# profile (maintainer decision, gh:#949; see also gh:#945, epic #925). Edge
+# ADDED 2026-10-17 with no code using it yet. No cycle: outram-foam-basic-lib
+# depends only on petir (checked with `cargo tree -i`), and no outram-foam-*
+# crate depends on this crate. Features: the crate's defaults are EMPTY, so
+# `parallel` (rayon) and `gpu` (wgpu) stay off and nothing is pulled in that
+# this tree did not already carry; no `default-features = false` is needed.
+outram-foam-basic-lib = { workspace = true }
 # Used ONLY at the njoy nuclear-data boundary (S(α,β) thermal scattering import in
 # `material::thermal`), which speaks dimensioned `uom` types. The transport hot
 # loop stays raw `f64` — see this crate's CLAUDE.md "Units" note.

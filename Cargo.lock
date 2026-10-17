@@ -7481,6 +7481,7 @@ dependencies = [
  "openmc-endf-8-depletion-lib-a",
  "openmc-endf-8-depletion-lib-b",
  "outram-blender",
+ "outram-foam-basic-lib",
  "outram-park-fork-liggghts",
  "petir",
  "raffles",
