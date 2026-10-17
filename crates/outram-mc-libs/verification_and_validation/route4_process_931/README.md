@@ -74,8 +74,133 @@ transport run of the new data's *mean*.
 
 ## Methodology
 
-(Filled in with the runs.)
+- **Instrument:** the campaign's own driver,
+  `examples/icsbep_five_route_keff.rs --route endf`, with the new
+  `--route4-data` switch:
+  - `process` is route 4, and is the default;
+  - `pre931` is the old chain;
+  - `process-without-heatr` is the HEATR ablation.
+  
+  Every other setting is the campaign's (`run_all.sh` defaults): ENDF/B-VIII.0, 293.6 K, tolerance 1e-3,
+  Godiva / Jemima / HST-009 at 5000 × [40 + 120], LCT-008 (35 nuclides,
+  label `lct008-full`) at 10 000 × [40 + 120], DBRC ≤ 1 keV, S(α,β) H in
+  H₂O from LEAPR.
+- **Code:** worktree at `27213c16e6` (develop `21a93d9460` plus this
+  change); the first arms ran from the same tree before the commit
+  (labelled `21a93d9460+wip`, identical code).
+- **Seeds:**
+  - Godiva: 512 per arm.
+  - Jemima: 128 per arm.
+  - HST-009: 96 per arm.
+  - LCT-008: 32 new, against the record's 32.
 
-## Results
+  For seeds 1–32 the old arm is the 2026-10-15 campaign record
+  (`icsbep/five_route_keff/data/per_seed_keff.csv`, label `route4`), after
+  checking that `pre931` reproduces it (below). Seeds above 32 were run on
+  both arms here.
+- **Statistics:** the sem of the per-seed k (sd/√n). The difference new −
+  old is quoted **unpaired** (σ = √(sem₁² + sem₂²)). Pairs decorrelate at
+  the first URR collision (P3), so the paired σ is given only alongside.
+- **Control for the mechanism:** route 4's data with only the URR tables
+  rebuilt at 16 / 2000 (`--urr-ladders 16 --urr-samples 2000`; same PURR
+  routine, no HEATR). If everything except PURR's ladder and sample counts
+  is transport-identical, this arm must give the old k to the bit.
+- **Hardware:** 13th Gen Intel Core i9-13900K, 2 of 32 logical CPUs
+  (`taskset -c 14-15`, 2 threads), 62.5 GiB, Linux 7.2.9, CPU only, shared
+  with other agents.
+- **Data:** every row is in `per_seed_keff_2026_10_18.csv`. The `route`
+  column is `route4` (new), `route4-pre931`, `route4-no-heatr` or
+  `route4-urr16x2000`.
 
-(Filled in with the runs.)
+## Results (2026-10-18)
+
+**Reproduction (P4, held).** `pre931` reproduces the recorded route-4 k to
+every printed digit on every seed tried: Godiva 32/32, Jemima 32/32,
+HST-009 seed 1, LCT-008 seed 1. So the record is the old arm.
+
+**HEATR (P2, held).** `process-without-heatr` gives route 4's k **bit for
+bit**: Godiva seeds 1–4 and HEU-SOL-THERM-009 seeds 1–2 (k and its
+internal σ identical in every printed digit). The table-level test shows
+why: HEATR changes only PURR's heating column, which transport does not
+read.
+
+**Mechanism control (held).** Route 4's data with 16 / 2000 URR tables give
+HEU-SOL-THERM-009 seeds 1 and 2 as 0.998204 and 1.001943. The record has
+the same values, digit for digit. So the PENDF rounding, the whole-range
+0 K elastic and HEATR together move no history. **Every difference below
+is PURR's ladder and sample counts.**
+
+**Route 4, old → new** (k ± sem; Δ in pcm):
+
+| case | seeds (old / new) | old route 4 (record, 32 seeds) | old arm, all seeds | new route 4 | new − old (same seeds) | new − route 1 | new − benchmark | P1 (≪ 5 pcm) |
+|---|---|---|---|---|---|---|---|---|
+| Godiva | 512 / 512 | 0.99970 ± 0.00028 | 1.00001 ± 0.00008 | **1.00001 ± 0.00008** | **−0.2 ± 11.2** (paired ± 8.8) | −15 ± 22 (was −47 ± 35) | +1 ± 8 (bench ± 100) | holds: bounded \|Δ\| < 34 at 3σ |
+| Jemima | 128 / 128 | 0.99609 ± 0.00027 | 0.99638 ± 0.00016 | **0.99624 ± 0.00017** | **−13.7 ± 23.3** (paired ± 19.4) | +31 ± 24 (was +15 ± 32) | −376 ± 17 (bench ± 300) | consistent (0.6σ) |
+| HEU-SOL-THERM-009 | 96 / 96 | 1.00072 ± 0.00021 | 1.00116 ± 0.00015 | **1.00076 ± 0.00014** | **−39.6 ± 20.6** (paired ± 16.7) | −48 ± 32 (was −52 ± 36) | +176 ± 14 (bench ± 430) | **in tension: 1.9σ** |
+| LCT-008 (35 nuclides) | 32 / 32 | 1.00159 ± 0.00021 | (the record) | **1.00135 ± 0.00023** | **−24.7 ± 31.1** | −26 ± 26 (was −1 ± 25) | +65 ± 23 (bench ± 160) | consistent (0.8σ) |
+
+Benchmarks: Godiva 1.0000 ± 0.0010, Jemima 1.0000 ± 0.0030,
+HEU-SOL-THERM-009 case 1 0.9990 ± 0.0043, LEU-COMP-THERM-008 case 1
+1.0007 ± 0.0016 (cited in the five-route record). Route 1 is the
+2026-10-15 OpenMC-on-NJOY2016 row, 32 seeds.
+
+**Which numbers to quote.**
+- **Route 4's k:** use the "new route 4" column. Its seed counts are 512,
+  128, 96 and 32. The record's 32-seed route-4 values are now the
+  `pre931` ablation's.
+- **The size of the move:** use "new − old (same seeds)". "Old route 4
+  (record)" against "new route 4" mixes seed sets, so it is not a
+  measurement of the change.
+  - Godiva: the 32-seed record sat −31 pcm below its own 512-seed mean.
+    That was a low draw, as #546 found before.
+  - HST-009: the record sat −44 pcm below its own 96-seed mean.
+
+**Interpretation.**
+- **Godiva:** the move onto `process` changes route 4 by −0.2 ± 11 pcm,
+  bounded below 34 pcm at 3σ. P1 holds. Route 4 is now +1 ± 8 pcm from
+  the benchmark and −15 ± 22 pcm from route 1.
+- **Jemima and LCT-008:** consistent with zero (0.6σ and 0.8σ), bounded
+  below ~84 and ~118 pcm at 3σ.
+- **HEU-SOL-THERM-009: −40 ± 21 pcm, 1.9σ (paired 2.4σ), against a
+  prediction of ≪ 5 pcm.** This is not resolved, and it is the
+  unflattering cell.
+  - The three non-Godiva cases all moved down. Weighted together they give
+    −28 ± 14 pcm (2.0σ).
+  - With four cases tested, one 2σ cell is not unusual. But all three
+    pointing the same way is a hint, and it would refute P1's magnitude if
+    it held.
+  - The table data argue against an effect this size. The measured table
+    shift is ≤ 0.06 % in the shielded factors. To give −40 pcm, HEU-SOL-THERM-009
+    (a thermal solution, URR flux small) would need a sensitivity tens of
+    times larger than any metal case shows.
+  - The mechanism control rules out everything except the PURR counts.
+  - **Not resolved here.** Settling it needs about 4× the HEU-SOL-THERM-009 seeds
+    (~400 per arm, ~8 h at 2 cores), or a per-nuclide split with
+    `--urr-ladders` on one nuclide at a time. Neither was run; filed as
+    an open question on #931.
+- **Against route 1 (the five-route criterion, |Δ| within 2σ):** every new
+  route-4 cell is inside it. Godiva −0.7σ, Jemima +1.3σ, HEU-SOL-THERM-009 −1.5σ,
+  LCT-008 −1.0σ.
+- **Load time** (PURR at 64 × 10 000 plus HEATR). Each pair is old → new
+  for the same case, 2 cores, shared machine:
+  - Godiva: 76–99 s → 151–169 s.
+  - Jemima: 71 s → 375 s.
+  - HEU-SOL-THERM-009: 90–152 s → 191–303 s.
+  - LCT-008: 102 s → 260 s.
+
+  Per nuclide: U-235 42 → 90 s, U-238 39 → 69 s. The ranges are two runs
+  of one case under different machine load. Transport time per seed is
+  unchanged.
+
+## Tests that pin this
+
+- `tests/route4_is_process.rs`: route 4 equals `process::cross_sections`
+  (20 / 64 / 10 000, HEATR) bit for bit on U-234. That covers 285 041
+  section words, 45 977 0 K elastic pairs and 3180 PURR words. Without
+  HEATR only the 520 heating words change. The pre-931 tables differ in
+  2574 of 2660 non-heating words. 42 s.
+- `tests/wasm_route4_runtime.rs`: U-234 route 4 plus `from_processed`
+  fingerprint `0x871cdd4d51d206f2` natively, and the **same** under
+  wasm32-wasip1 (Node 26.11.1 WASI, 12.6 s). Headless Chromium was not run.
+- `examples/route4_purr_table_shift.rs`: the data table above, with a
+  hand-checked unit test.
