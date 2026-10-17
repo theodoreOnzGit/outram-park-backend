@@ -138,7 +138,9 @@ outram-blender (CSG and tally-mesh description, GitHub #486, 2026-10-02;
 `default-features = false`, so no wgpu, but blender's mesh authoring and faer
 are always compiled — maintainer decision), outram-foam-basic-lib (coarse-mesh
 steady conduction for the beginner thermal profile, GitHub #949, 2026-10-17;
-no features, no cycle since it depends only on `petir`)}`;
+no features, no cycle since it depends only on `petir`), tampines-steam-tables
+(IAPWS-IF97 density for the beginner `model::Material::water(T, p)`, GitHub
+#937, 2026-10-17; no features; its own deps are already in this tree)}`;
 `raffles → petir` (the RNG) — ~~`raffles → outram-mc-libs`~~ **REMOVED
 2026-10-02**: it closed the cycle `outram-mc-libs → liggghts → raffles →
 outram-mc-libs`; the LCG moved to `petir::rng` and the CSG graph adapter to

@@ -68,6 +68,11 @@ pub mod vv;
 /// learned weight windows, UQ and surrogate sweeps. Report-only or opt-in;
 /// no driver calls it. See [`stats`].
 pub mod stats;
+/// **The beginner API** (epic GitHub #925): materials described as an
+/// engineer or a benchmark describes them, shapes filled with materials, a
+/// `Model` and a k_eff run sized by one `MCSettings` word, lowered onto the
+/// transport below. Start at [`model::prelude`].
+pub mod model;
 pub mod prelude;
 
 /// Serial stand-ins for the `rayon` surface this crate uses, on `wasm32` where

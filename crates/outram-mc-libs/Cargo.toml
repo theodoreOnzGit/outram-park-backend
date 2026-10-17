@@ -102,6 +102,15 @@ outram-blender = { workspace = true }
 # `parallel` (rayon) and `gpu` (wgpu) stay off and nothing is pulled in that
 # this tree did not already carry; no `default-features = false` is needed.
 outram-foam-basic-lib = { workspace = true }
+# IAPWS-IF97 water density for the beginner `model::Material::water(T, p)`
+# (maintainer decision on gh #925, 2026-10-17: "using existing helps"; water
+# from the existing steam tables, as OpenMC's `borated_water` takes T and p).
+# Edge ADDED 2026-10-17 (gh #937). No cycle: tampines-steam-tables depends on
+# approx, petir, ndarray, thiserror, uom and outram-foam-basic-lib, all
+# already in this crate's tree, and nothing it depends on depends on this
+# crate. No features. Pure Rust, Android- and wasm-clean (it is in
+# scripts/check-wasm.sh's scope).
+tampines-steam-tables = { workspace = true }
 # Used ONLY at the njoy nuclear-data boundary (S(α,β) thermal scattering import in
 # `material::thermal`), which speaks dimensioned `uom` types. The transport hot
 # loop stays raw `f64` — see this crate's CLAUDE.md "Units" note.

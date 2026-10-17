@@ -7487,6 +7487,7 @@ dependencies = [
  "raffles",
  "ratatui",
  "rayon",
+ "tampines-steam-tables",
  "thiserror 2.0.18",
  "uom",
  "wgpu",

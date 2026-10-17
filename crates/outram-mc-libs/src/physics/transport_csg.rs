@@ -2945,3 +2945,31 @@ impl CsgPowerIteration {
         raffles::estimators::shannon_entropy_bits(&counts)
     }
 }
+
+// At the end of the file for the same reason (2026-10-17, GitHub #939).
+impl CsgPowerIteration {
+    /// **Change the number of neutrons per generation** from the next
+    /// generation on: the current source is resampled to `n` sites by the
+    /// same uniform comb every generation uses ([`resample`], OpenMC's
+    /// `synchronize_bank`), on this iteration's own random stream, and each
+    /// later generation transports `n` histories and divides its production
+    /// by `n`.
+    ///
+    /// For the beginner `MCSettings` presets (gh:#939): the source is
+    /// converged cheaply at ~1000 neutrons per generation, then raised to the
+    /// production population. A run that never calls this draws exactly what
+    /// it drew before. `n = 0`, the current population, or an empty source
+    /// does nothing.
+    pub fn set_population(&mut self, n: usize) {
+        if n == 0 || self.source.is_empty() || n == self.settings.n_particles {
+            return;
+        }
+        self.source = resample(&self.source, n, &mut self.seed);
+        self.settings.n_particles = n;
+    }
+
+    /// Neutrons per generation the next [`Self::step`] transports.
+    pub fn population(&self) -> usize {
+        self.settings.n_particles
+    }
+}
