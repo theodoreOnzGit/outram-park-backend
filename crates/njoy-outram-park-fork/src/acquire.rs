@@ -107,10 +107,15 @@ pub enum EndfLibrary {
     /// ENDF/B-VIII.0 (2018, CSEWG/NNDC) — the US general-purpose library with the
     /// CIELO ¹H/¹⁶O/⁵⁶Fe/²³⁵U/²³⁸U/²³⁹Pu evaluations. The default reference here.
     ///
-    /// Note: several VIII.0 actinides use the LRF=7 R-Matrix-Limited resonance
+    /// ~~Note: several VIII.0 actinides use the LRF=7 R-Matrix-Limited resonance
     /// format, which this port does not yet reconstruct — [`reconr`] returns
     /// [`NjoyError::NotPorted`] for those. Use [`EndfLibrary::EndfBVII1`]
-    /// (Reich-Moore, LRF=3) for a full-reconstruction demo of U/Pu today.
+    /// (Reich-Moore, LRF=3) for a full-reconstruction demo of U/Pu today.~~
+    /// **CORRECTED 2026-10-17** (flagged on GitHub #925): RECONR dispatches
+    /// LRF=7 to `crate::samm` (`src/reconr/rml.rs`); the only resonance
+    /// format its docs list as [`NjoyError::NotPorted`] is LRF=4
+    /// (Adler-Adler). The five-route U-234/235/236/238 ENDF/B-VIII.0 tables are
+    /// NJOY2016's word for word (this crate's `CLAUDE.md`).
     EndfBVIII0,
     /// ENDF/B-VII.1 (2011) — the prior US release; matches the CORE WMP blob's
     /// evaluation vintage, and its U/Pu use Reich-Moore (LRF=3), which this port
