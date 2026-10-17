@@ -20,7 +20,7 @@ spells the loop out step by step, ported in structure from OpenMC's
 The surface branch of that choice is short:
 
 ```rust,ignore
-{{#include ../../../src/physics/transport_csg.rs:1487:1495}}
+{{#include ../../../src/physics/transport_csg.rs:surface_arm}}
 ```
 
 ## Standing on a surface is the hard part

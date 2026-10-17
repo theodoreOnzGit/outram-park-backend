@@ -371,10 +371,11 @@ pub struct ReactorPhysicsReport {
 /// Why [`run_keff_reactor_physics`] could not produce a report.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ReactorPhysicsError {
-    /// No material contains a nuclide whose name starts with `"U23"`, so the
-    /// fuel cannot be identified and the thermal-utilisation factor f is
-    /// undefined. (Mirrors the reference `_fuel_materials`; MOX/Pu fuel and
-    /// U-233 are not detected.)
+    /// No material contains a fissionable nuclide, so the fuel cannot be
+    /// identified and the thermal-utilisation factor f is undefined.
+    /// (~~a nuclide whose name starts with `"U23"`; MOX/Pu fuel and U-233
+    /// are not detected~~ CORRECTED 2026-10-17, gh #940: any nuclide with
+    /// `Nuclide::is_fissionable`, so Pu and Th fuels are found.)
     NoFuelMaterial,
     /// The energy grid is ill-posed:
     /// `energy_min_ev < thermal_cutoff_ev < resonance_upper_ev < energy_max_ev`
@@ -387,7 +388,7 @@ impl std::fmt::Display for ReactorPhysicsError {
         match self {
             Self::NoFuelMaterial => write!(
                 fmt,
-                "no uranium-bearing material found (need a nuclide named 'U23*'); \
+                "no material holds a fissionable nuclide; \
                  cannot identify the fuel for the thermal-utilisation factor f"
             ),
             Self::BadEnergyGrid => write!(
@@ -405,7 +406,7 @@ impl std::error::Error for ReactorPhysicsError {}
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// `n`-bin log-spaced grid from `e_lo` to `e_hi` \[eV\] (`n + 1` ascending edges).
-fn log_energy_grid(e_lo: f64, e_hi: f64, n: usize) -> Vec<f64> {
+pub(crate) fn log_energy_grid(e_lo: f64, e_hi: f64, n: usize) -> Vec<f64> {
     let (l0, l1) = (e_lo.r_ln(), e_hi.r_ln());
     (0..=n)
         .map(|i| (l0 + (l1 - l0) * i as f64 / n as f64).r_exp())
@@ -566,7 +567,8 @@ fn bin_estimate(bin: &TallyBin, n: u64, per_source: f64) -> Estimate {
 /// `nuclides` is the global nuclide array the materials index into.
 ///
 /// # Errors
-/// - [`ReactorPhysicsError::NoFuelMaterial`] — no `U23*` material is present.
+/// - [`ReactorPhysicsError::NoFuelMaterial`] — no material holds a
+///   fissionable nuclide.
 /// - [`ReactorPhysicsError::BadEnergyGrid`] — the energy grid is ill-posed.
 ///
 /// # Caveats
@@ -578,14 +580,19 @@ pub fn run_keff_reactor_physics(
     nuclides: &[Nuclide],
     config: &ReactorPhysicsConfig,
 ) -> Result<ReactorPhysicsReport, ReactorPhysicsError> {
-    // ── Fuel materials (any nuclide named "U23*") ─────────────────────────────
+    // ── Fuel materials: any fissionable nuclide ──────────────────────────────
+    // ~~any nuclide named "U23*"~~ CORRECTED 2026-10-17 (gh #940): a name
+    // test missed plutonium and thorium fuels, so eta and f came out wrong
+    // for them. A material is fuel when it holds a nuclide that can fission
+    // (`Nuclide::is_fissionable`, nu-bar > 0). Unchanged for every uranium
+    // case recorded so far: their fuels are the materials holding U23x.
     let fuel_mask: Vec<bool> = materials
         .iter()
         .map(|m| {
             m.components.iter().any(|c| {
                 nuclides
                     .get(c.nuclide_idx)
-                    .map(|n| n.name.starts_with("U23"))
+                    .map(Nuclide::is_fissionable)
                     .unwrap_or(false)
             })
         })

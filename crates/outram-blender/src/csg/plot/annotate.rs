@@ -164,8 +164,9 @@ fn fill_rect(img: &mut ImageData, x0: usize, y0: usize, w: usize, h: usize, c: R
 }
 
 /// A "nice" tick step (1, 2 or 5 times a power of ten) giving at most
-/// `max_ticks` intervals over `span`.
-fn nice_step(span: f64, max_ticks: usize) -> f64 {
+/// `max_ticks` intervals over `span`. Public since 2026-10-17 for the
+/// outram-mc diagnostics line plots (gh #941).
+pub fn nice_step(span: f64, max_ticks: usize) -> f64 {
     let raw = span / max_ticks.max(1) as f64;
     let mag = 10f64.powf(raw.log10().floor());
     for m in [1.0, 2.0, 5.0, 10.0] {
@@ -176,7 +177,9 @@ fn nice_step(span: f64, max_ticks: usize) -> f64 {
     10.0 * mag
 }
 
-fn fmt_tick(v: f64, step: f64) -> String {
+/// A tick label for `v` on an axis stepped by `step`: as many decimals as the
+/// step needs, and an exact `0` for a value within rounding of zero.
+pub fn fmt_tick(v: f64, step: f64) -> String {
     let decimals = if step >= 1.0 {
         0
     } else {

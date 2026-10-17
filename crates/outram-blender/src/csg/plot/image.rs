@@ -158,7 +158,12 @@ const fn crc_table() -> [u32; 256] {
 
 static CRC_TABLE: [u32; 256] = crc_table();
 
-fn crc32(chunks: &[&[u8]]) -> u32 {
+/// **CRC-32** (ISO-HDLC: polynomial `0xEDB88320`, reflected, initial and
+/// final XOR `0xFFFFFFFF`) over the concatenation of `chunks`. The checksum
+/// PNG chunks carry (PNG spec §5.5) and the one ZIP entries carry (PKWARE
+/// APPNOTE §4.4.7); public since 2026-10-17 so the outram-mc diagnostics
+/// zip (gh #941) reuses it instead of holding a second copy.
+pub fn crc32(chunks: &[&[u8]]) -> u32 {
     let mut c = 0xFFFF_FFFFu32;
     for bytes in chunks {
         for &b in *bytes {

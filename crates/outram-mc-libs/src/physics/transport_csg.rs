@@ -134,6 +134,14 @@ pub(crate) struct Site {
     /// it is the same chain of descent, and the quantity is "which precursor did
     /// this lineage come from", not "was this particular emission delayed".
     pub(crate) delayed_group: Option<usize>,
+    /// **The parent's lifetime at the fission that banked this site** \[s\]:
+    /// the particle clock of the neutron that fissioned, read at the
+    /// fission (gh #940). `0.0` for a source neutron, which has no parent.
+    ///
+    /// Only IFP's generation time reads it (OpenMC's `p.lifetime()` pushed
+    /// onto the lineage by `ifp()`, `src/ifp.cpp:24`). Recording it draws no
+    /// random number, so every eigenvalue is unchanged.
+    pub(crate) parent_lifetime_s: f64,
 }
 
 /// Flight time over `d` cm at energy `e` eV \[s\].
@@ -164,6 +172,7 @@ impl Site {
             u,
             e,
             delayed_group: None,
+            parent_lifetime_s: 0.0,
         }
     }
 
@@ -179,6 +188,7 @@ impl Site {
             u,
             e,
             delayed_group,
+            parent_lifetime_s: 0.0,
         }
     }
 }
@@ -347,6 +357,7 @@ pub fn trace_csg_history<O: FnMut(TraceEvent)>(
         &mut batch,
         &[],
         &mut leak_batch,
+        None,
         &VarianceReduction::default(),
         DeltaTallyEstimator::default(),
         None,
@@ -733,6 +744,7 @@ pub fn run_keff_csg_seq_progress<G: FnMut(GenerationProgress) + Send>(
                     &mut batch,
                     leak_edges_gen,
                     &mut leak_batch,
+                    None,
                     &settings.variance_reduction,
                     settings.delta_tally_estimator,
                     None,
@@ -834,6 +846,9 @@ pub struct CsgPowerIteration {
     active_k: Vec<f64>,
     generation: usize,
     finished: bool,
+    /// IFP lineage of each source site, aligned with `source` (gh #940);
+    /// `None` unless [`Self::enable_ifp`] was called.
+    ifp: Option<(crate::physics::ifp::IfpSettings, Vec<crate::physics::ifp::IfpLineage>)>,
 }
 
 impl CsgPowerIteration {
@@ -864,6 +879,7 @@ impl CsgPowerIteration {
             k_running: 1.0,
             active_k: Vec::with_capacity(settings.n_active),
             generation: 0,
+            ifp: None,
         }
     }
 
@@ -886,59 +902,8 @@ impl CsgPowerIteration {
         nuclides: &[Nuclide],
         mut observe: O,
     ) -> Option<CsgGenerationReport> {
-        if self.finished {
-            return None;
-        }
-        let gen = self.generation;
-        let n = self.settings.n_particles;
-        let active = gen >= self.settings.n_inactive;
-        let mut next_bank: Vec<Site> = Vec::with_capacity(n);
-        let mut production = 0.0_f64;
-        let (mut batch, mut leak_batch) = (Vec::new(), Vec::new());
-        for site in &self.source {
-            let outcome = transport_history_vr(
-                *site,
-                geom,
-                materials,
-                nuclides,
-                &[],
-                self.k_running,
-                &mut next_bank,
-                &mut self.seed,
-                None,
-                &mut batch,
-                &[],
-                &mut leak_batch,
-                &self.settings.variance_reduction,
-                self.settings.delta_tally_estimator,
-                None,
-                None,
-                None,
-                1.0,
-                &mut observe,
-            );
-            production += outcome.production;
-        }
-        let k_gen = production / n as f64;
-        self.k_running = k_gen.max(1.0e-6);
-        if active {
-            self.active_k.push(k_gen);
-        }
-        self.generation += 1;
-        let bank_size = next_bank.len();
-        if self.generation == self.settings.n_inactive + self.settings.n_active || next_bank.is_empty() {
-            self.finished = true;
-        }
-        if !next_bank.is_empty() && !self.finished {
-            self.source = resample(&next_bank, n, &mut self.seed);
-        }
-        Some(CsgGenerationReport {
-            index: gen,
-            active,
-            k: k_gen,
-            k_mean: active.then(|| mean_and_stderr(&self.active_k)),
-            bank_size,
-        })
+        self.step_inner(geom, materials, nuclides, &mut observe, None)
+            .map(|(report, _)| report)
     }
 
     /// Whether every generation has run (or the population died out).
@@ -1107,6 +1072,7 @@ pub fn run_keff_csg_par_progress<G: FnMut(GenerationProgress) + Send>(
                             &mut local_batch,
                             leak_edges_gen,
                             &mut local_leak,
+                            None,
                             &settings.variance_reduction,
                             settings.delta_tally_estimator,
                             None,
@@ -1332,6 +1298,12 @@ pub(crate) fn transport_history_vr<O: FnMut(TraceEvent)>(
     batch: &mut [f64],
     leak_edges: &[f64],
     leak_batch: &mut [f64],
+    // More tallies and leakage grids beside `tally` (gh #940), scored on the
+    // same events. Only [`CsgPowerIteration::step_scored`] passes `Some`,
+    // and it runs surface tracking only (no majorants), so the
+    // delta-tracking estimators never see them. Scoring draws no random
+    // number, so a run with extras is the run without them bit for bit.
+    mut extra: Option<&mut ExtraScoring>,
     vr: &VarianceReduction,
     // Tally estimator inside delta-tracked regions (gh:#598). Draws no
     // randomness: the histories are the same whichever is chosen.
@@ -1630,6 +1602,7 @@ pub(crate) fn transport_history_vr<O: FnMut(TraceEvent)>(
                                             u,
                                             e,
                                             delayed_group: my_group,
+                                            parent_lifetime_s: 0.0,
                                         },
                                         weight,
                                         Some(child_seed),
@@ -1664,6 +1637,9 @@ pub(crate) fn transport_history_vr<O: FnMut(TraceEvent)>(
                 stuck_path_cm += path_cm;
                 stuck_last_e = e;
                 score_leak(leak_batch, leak_edges, e, w);
+                if let Some(x) = extra.as_deref_mut() {
+                    x.leak(e, w);
+                }
                 ends.record_leak();
                 track!(TrackEvent::Lost, usize::MAX, None);
                 break 'history;
@@ -1674,6 +1650,9 @@ pub(crate) fn transport_history_vr<O: FnMut(TraceEvent)>(
                 // Lost the particle (numerical edge case) — treat as a leak at
                 // last-known energy, same reasoning as the MAX_EVENTS arm.
                 score_leak(leak_batch, leak_edges, e, w);
+                if let Some(x) = extra.as_deref_mut() {
+                    x.leak(e, w);
+                }
                 ends.record_leak();
                 track!(TrackEvent::Lost, usize::MAX, None);
                 break 'history;
@@ -1737,6 +1716,7 @@ pub(crate) fn transport_history_vr<O: FnMut(TraceEvent)>(
             // single `prn` in the same order. Every existing model is therefore
             // bit-identical across this change, which is how it is verified.
             let (d_col, col_material) = match path.tracking {
+                // ANCHOR: surface_arm (mdBook include, lessons/surface-tracking.md)
                 TrackingMethod::Surface => {
                     // The variate is kept only to report it (gh:#784); the
                     // draw and the distance are the same bits as before.
@@ -1757,6 +1737,8 @@ pub(crate) fn transport_history_vr<O: FnMut(TraceEvent)>(
                     });
                     (d, path.material)
                 }
+                // ANCHOR_END: surface_arm
+                // ANCHOR: delta_arm (mdBook include, lessons/delta-tracking.md)
                 TrackingMethod::Delta { majorant } => {
                     let Some(maj) = majorants.get(majorant) else {
                         // A region declared a majorant index the caller did not
@@ -1764,6 +1746,9 @@ pub(crate) fn transport_history_vr<O: FnMut(TraceEvent)>(
                         // with no bound would silently bias, and falling back to
                         // surface tracking would silently change the method.
                         score_leak(leak_batch, leak_edges, e, w);
+                        if let Some(x) = extra.as_deref_mut() {
+                            x.leak(e, w);
+                        }
                         ends.record_leak();
                         break 'history;
                     };
@@ -1793,6 +1778,7 @@ pub(crate) fn transport_history_vr<O: FnMut(TraceEvent)>(
                         seed,
                         urr_seed,
                     );
+                    // ANCHOR_END: delta_arm
                     virtual_collisions += u64::from(flight.virtual_collisions);
                     majorant_violations += u64::from(flight.majorant_violations);
                     match flight.end {
@@ -1804,6 +1790,9 @@ pub(crate) fn transport_history_vr<O: FnMut(TraceEvent)>(
                         RegionFlightEnd::Lost => {
                             delta_lost += 1;
                             score_leak(leak_batch, leak_edges, e, w);
+                            if let Some(x) = extra.as_deref_mut() {
+                                x.leak(e, w);
+                            }
                             ends.record_leak();
                             break 'history;
                         }
@@ -1818,7 +1807,7 @@ pub(crate) fn transport_history_vr<O: FnMut(TraceEvent)>(
             // collision changes `e` or the crossing changes the cell. `seg` is
             // finite even in a void (d_col = ∞ ⇒ seg = the boundary distance);
             // there `macro_xs` is `None`, so only the flux score deposits.
-            if let Some(t) = tally {
+            if tally.is_some() || extra.as_deref().is_some_and(ExtraScoring::has_tallies) {
                 match path.tracking {
                     // ── Surface tracking: TRACK-LENGTH estimator ───────────
                     // The flight is bounded by the nearest surface, so it
@@ -1833,14 +1822,24 @@ pub(crate) fn transport_history_vr<O: FnMut(TraceEvent)>(
                         // representative point of the free flight (constant
                         // energy, single cell over the segment).
                         let mid = stream(r, u, 0.5 * seg);
-                        score_track_length(
-                            batch, t, cell_idx, mat_idx, leaf.universe, e, seg, mid,
-                            mxs.as_ref(), w, cell_instance,
-                            // Clock at the START of this segment: the flight
-                            // has not been added yet at this point.
-                            time_s,
-                            u,
-                        );
+                        if let Some(t) = tally {
+                            score_track_length(
+                                batch, t, cell_idx, mat_idx, leaf.universe, e, seg, mid,
+                                mxs.as_ref(), w, cell_instance,
+                                // Clock at the START of this segment: the flight
+                                // has not been added yet at this point.
+                                time_s,
+                                u,
+                            );
+                        }
+                        if let Some(x) = extra.as_deref_mut() {
+                            x.each_tally(|t, batch| {
+                                score_track_length(
+                                    batch, t, cell_idx, mat_idx, leaf.universe, e, seg, mid,
+                                    mxs.as_ref(), w, cell_instance, time_s, u,
+                                );
+                            });
+                        }
                     }
                     // ── Delta tracking: no track length exists here ────────
                     // The tentative-collision estimator (the default) was
@@ -1848,9 +1847,11 @@ pub(crate) fn transport_history_vr<O: FnMut(TraceEvent)>(
                     // is scored here. Both, and the history of this
                     // estimator: `physics::delta_tracking::handoff`.
                     TrackingMethod::Delta { .. } => {
-                        if delta_estimator == DeltaTallyEstimator::RealCollision
-                            && d_col < d_bound.distance
-                        {
+                        if let (Some(t), true) = (
+                            tally,
+                            delta_estimator == DeltaTallyEstimator::RealCollision
+                                && d_col < d_bound.distance,
+                        ) {
                             if let Some(m) = col_material {
                                 score_real_collision(
                                     t,
@@ -1956,12 +1957,20 @@ pub(crate) fn transport_history_vr<O: FnMut(TraceEvent)>(
                                     batch, t, cell_idx, m, leaf.universe, e, e_born, r, w,
                                 );
                             }
+                            if let Some(x) = extra.as_deref_mut() {
+                                x.each_tally(|t, batch| {
+                                score_fission_birth(
+                                    batch, t, cell_idx, m, leaf.universe, e, e_born, r, w,
+                                );
+                            });
+                            }
                             next_bank.push(Site {
                                 r,
                                 u: Direction::new(dx, dy, dz),
                                 e: e_born,
                                 delayed_group: nuc
                                     .sample_delayed_group(e, &mut delayed_seed),
+                                parent_lifetime_s: time_s,
                             });
                         }
                     }
@@ -2033,12 +2042,28 @@ pub(crate) fn transport_history_vr<O: FnMut(TraceEvent)>(
                                 w,
                             );
                         }
+                        if let Some(x) = extra.as_deref_mut() {
+                            x.each_tally(|t, batch| {
+                            score_fission_birth(
+                                batch,
+                                t,
+                                cell_idx,
+                                m,
+                                leaf.universe,
+                                e,
+                                e_born,
+                                r,
+                                w,
+                            );
+                        });
+                        }
                         next_bank.push(Site {
                             r,
                             u: Direction::new(dx, dy, dz),
                             e: e_born,
                             delayed_group: nuc
                                 .sample_delayed_group(e, &mut delayed_seed),
+                            parent_lifetime_s: time_s,
                         });
                     }
                     ends.record_fission_end(e);
@@ -2074,6 +2099,11 @@ pub(crate) fn transport_history_vr<O: FnMut(TraceEvent)>(
                     if let Some(t) = tally {
                         score_scatter_matrix(batch, t, cell_idx, m, leaf.universe, e, e2, r, w, ScatterEmission::Primary);
                     }
+                    if let Some(x) = extra.as_deref_mut() {
+                        x.each_tally(|t, batch| {
+                        score_scatter_matrix(batch, t, cell_idx, m, leaf.universe, e, e2, r, w, ScatterEmission::Primary);
+                    });
+                    }
                     e = e2;
                     u = u2;
                 } else if xi < x.absorption + x.inelastic + x.n2n {
@@ -2107,6 +2137,7 @@ pub(crate) fn transport_history_vr<O: FnMut(TraceEvent)>(
                                 u: sec_u2,
                                 e: sec_e2,
                                 delayed_group: my_group,
+                                parent_lifetime_s: 0.0,
                             },
                             w,
                             None,
@@ -2135,6 +2166,25 @@ pub(crate) fn transport_history_vr<O: FnMut(TraceEvent)>(
                                 ScatterEmission::Secondary,
                             );
                         }
+                    }
+                    if let Some(x) = extra.as_deref_mut() {
+                        x.each_tally(|t, batch| {
+                        score_scatter_matrix(batch, t, cell_idx, m, leaf.universe, e, e2, r, w, ScatterEmission::Primary);
+                        if nuc.emits_n2n_secondary() {
+                            score_scatter_matrix(
+                                batch,
+                                t,
+                                cell_idx,
+                                m,
+                                leaf.universe,
+                                e,
+                                sec_e2,
+                                r,
+                                w,
+                                ScatterEmission::Secondary,
+                            );
+                        }
+                    });
                     }
                     e = e2;
                     u = u2;
@@ -2166,6 +2216,7 @@ pub(crate) fn transport_history_vr<O: FnMut(TraceEvent)>(
                                     u: su,
                                     e: se,
                                     delayed_group: my_group,
+                                    parent_lifetime_s: 0.0,
                                 },
                                 w,
                                 None,
@@ -2186,10 +2237,31 @@ pub(crate) fn transport_history_vr<O: FnMut(TraceEvent)>(
                                     ScatterEmission::Secondary,
                                 );
                             }
+                            if let Some(x) = extra.as_deref_mut() {
+                                x.each_tally(|t, batch| {
+                                score_scatter_matrix(
+                                    batch,
+                                    t,
+                                    cell_idx,
+                                    m,
+                                    leaf.universe,
+                                    e,
+                                    se,
+                                    r,
+                                    w,
+                                    ScatterEmission::Secondary,
+                                );
+                            });
+                            }
                         }
                     }
                     if let Some(t) = tally {
                         score_scatter_matrix(batch, t, cell_idx, m, leaf.universe, e, e2, r, w, ScatterEmission::Primary);
+                    }
+                    if let Some(x) = extra.as_deref_mut() {
+                        x.each_tally(|t, batch| {
+                        score_scatter_matrix(batch, t, cell_idx, m, leaf.universe, e, e2, r, w, ScatterEmission::Primary);
+                    });
                     }
                     e = e2;
                     u = u2;
@@ -2226,6 +2298,7 @@ pub(crate) fn transport_history_vr<O: FnMut(TraceEvent)>(
                                 u: *su,
                                 e: *se,
                                 delayed_group: my_group,
+                                parent_lifetime_s: 0.0,
                             },
                             w,
                             None,
@@ -2246,9 +2319,30 @@ pub(crate) fn transport_history_vr<O: FnMut(TraceEvent)>(
                                 ScatterEmission::Secondary,
                             );
                         }
+                        if let Some(x) = extra.as_deref_mut() {
+                            x.each_tally(|t, batch| {
+                            score_scatter_matrix(
+                                batch,
+                                t,
+                                cell_idx,
+                                m,
+                                leaf.universe,
+                                e,
+                                *se,
+                                r,
+                                w,
+                                ScatterEmission::Secondary,
+                            );
+                        });
+                        }
                     }
                     if let Some(t) = tally {
                         score_scatter_matrix(batch, t, cell_idx, m, leaf.universe, e, e2, r, w, ScatterEmission::Primary);
+                    }
+                    if let Some(x) = extra.as_deref_mut() {
+                        x.each_tally(|t, batch| {
+                        score_scatter_matrix(batch, t, cell_idx, m, leaf.universe, e, e2, r, w, ScatterEmission::Primary);
+                    });
                     }
                     e = e2;
                     u = u2;
@@ -2268,6 +2362,7 @@ pub(crate) fn transport_history_vr<O: FnMut(TraceEvent)>(
                                 u: *su,
                                 e: *se,
                                 delayed_group: my_group,
+                                parent_lifetime_s: 0.0,
                             },
                             w,
                             None,
@@ -2277,9 +2372,19 @@ pub(crate) fn transport_history_vr<O: FnMut(TraceEvent)>(
                         if let Some(t) = tally {
                             score_scatter_matrix(batch, t, cell_idx, m, leaf.universe, e, *se, r, w, ScatterEmission::Secondary);
                         }
+                        if let Some(x) = extra.as_deref_mut() {
+                            x.each_tally(|t, batch| {
+                            score_scatter_matrix(batch, t, cell_idx, m, leaf.universe, e, *se, r, w, ScatterEmission::Secondary);
+                        });
+                        }
                     }
                     if let Some(t) = tally {
                         score_scatter_matrix(batch, t, cell_idx, m, leaf.universe, e, o.e, r, w, ScatterEmission::Primary);
+                    }
+                    if let Some(x) = extra.as_deref_mut() {
+                        x.each_tally(|t, batch| {
+                        score_scatter_matrix(batch, t, cell_idx, m, leaf.universe, e, o.e, r, w, ScatterEmission::Primary);
+                    });
                     }
                     e = o.e;
                     u = o.u;
@@ -2330,6 +2435,11 @@ pub(crate) fn transport_history_vr<O: FnMut(TraceEvent)>(
                     // `score_scatter_matrix`).
                     if let Some(t) = tally {
                         score_scatter_matrix(batch, t, cell_idx, m, leaf.universe, e, e2, r, w, ScatterEmission::Primary);
+                    }
+                    if let Some(x) = extra.as_deref_mut() {
+                        x.each_tally(|t, batch| {
+                        score_scatter_matrix(batch, t, cell_idx, m, leaf.universe, e, e2, r, w, ScatterEmission::Primary);
+                    });
                     }
                     e = e2;
                     u = u2;
@@ -2386,6 +2496,9 @@ pub(crate) fn transport_history_vr<O: FnMut(TraceEvent)>(
                             // (unchanged since the last collision).
                             leak_vacuum += 1;
                             score_leak(leak_batch, leak_edges, e, w);
+                            if let Some(x) = extra.as_deref_mut() {
+                                x.leak(e, w);
+                            }
                             ends.record_leak();
                             track!(TrackEvent::Leak, cell_idx, path.material);
                             break 'history;
@@ -2425,6 +2538,9 @@ pub(crate) fn transport_history_vr<O: FnMut(TraceEvent)>(
                         // Streamed to infinity — a leak at the true escape energy.
                         leak_infinity += 1;
                         score_leak(leak_batch, leak_edges, e, w);
+                        if let Some(x) = extra.as_deref_mut() {
+                            x.leak(e, w);
+                        }
                         ends.record_leak();
                         track!(TrackEvent::Leak, cell_idx, path.material);
                         break 'history;
@@ -2526,6 +2642,7 @@ fn sample_box_source(
                 // The synthetic first-generation source is prompt: it has no
                 // fission ancestor to have come from.
                 delayed_group: None,
+                parent_lifetime_s: 0.0,
             });
         }
     }
@@ -2964,12 +3081,492 @@ impl CsgPowerIteration {
         if n == 0 || self.source.is_empty() || n == self.settings.n_particles {
             return;
         }
-        self.source = resample(&self.source, n, &mut self.seed);
+        self.comb_source(n);
         self.settings.n_particles = n;
     }
 
     /// Neutrons per generation the next [`Self::step`] transports.
     pub fn population(&self) -> usize {
         self.settings.n_particles
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Scored stepping: extra tallies, per-generation totals and IFP (gh #940).
+// At the end of the file for the same reason as the blocks above.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// **More tallies and leakage grids, scored on one run beside each other**
+/// (gh #940, the beginner `Diagnostics`).
+///
+/// The transport kernel takes one tally; a run that answers several
+/// questions at once (a six-factor split, a fine spectrum, a mesh map) needs
+/// several, each with its own filters. Each tally here gets its own
+/// per-generation batch, and each leakage grid its own per-generation
+/// accumulator; [`CsgPowerIteration::step_scored`] fills them, and the caller
+/// either [`Self::flush`]es a generation into the persistent bins as one
+/// realization (an active generation) or [`Self::discard`]s it (an inactive
+/// one).
+///
+/// **Scoring draws no random number**, so adding or removing a tally changes
+/// no history: every tally sees exactly the events it would see alone, and
+/// gives the same numbers bit for bit (pinned by
+/// `extra_scoring_changes_nothing_and_matches_a_lone_tally`).
+///
+/// Only surface tracking scores extras: [`CsgPowerIteration`] runs without
+/// majorants, so the delta-tracking estimators never apply.
+#[derive(Debug, Clone, Default)]
+pub struct ExtraScoring {
+    tallies: Vec<Tally>,
+    batches: Vec<Vec<f64>>,
+    leak_edges: Vec<Vec<f64>>,
+    leak_bins: Vec<Vec<TallyBin>>,
+    leak_batches: Vec<Vec<f64>>,
+}
+
+impl ExtraScoring {
+    /// Nothing to score yet.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Add a tally (its bins are reset); returns its index.
+    pub fn add_tally(&mut self, mut tally: Tally) -> usize {
+        let n = tally.n_bins();
+        tally.bins = vec![TallyBin::default(); n];
+        self.tallies.push(tally);
+        self.batches.push(vec![0.0; n]);
+        self.tallies.len() - 1
+    }
+
+    /// Add a leakage grid: ascending energy edges \[eV\], `edges.len() - 1`
+    /// bins, each counting the weight of neutrons that leak at an energy in
+    /// it (the tail-drop convention of `EnergyFilter`). Returns its index.
+    pub fn add_leak_grid(&mut self, edges: Vec<f64>) -> usize {
+        let n = edges.len().saturating_sub(1);
+        self.leak_edges.push(edges);
+        self.leak_bins.push(vec![TallyBin::default(); n]);
+        self.leak_batches.push(vec![0.0; n]);
+        self.leak_edges.len() - 1
+    }
+
+    /// Every tally, in the order added.
+    pub fn tallies(&self) -> &[Tally] {
+        &self.tallies
+    }
+
+    /// Every leakage grid's edges, in the order added.
+    pub fn leak_grids(&self) -> &[Vec<f64>] {
+        &self.leak_edges
+    }
+
+    /// Tally `i`, with its persistent (flushed) bins.
+    pub fn tally(&self, i: usize) -> &Tally {
+        &self.tallies[i]
+    }
+
+    /// Tally `i`'s scores of the generation just stepped, not yet flushed.
+    pub fn batch(&self, i: usize) -> &[f64] {
+        &self.batches[i]
+    }
+
+    /// Leakage grid `i`'s edges \[eV\].
+    pub fn leak_edges(&self, i: usize) -> &[f64] {
+        &self.leak_edges[i]
+    }
+
+    /// Leakage grid `i`'s persistent bins.
+    pub fn leak_bins(&self, i: usize) -> &[TallyBin] {
+        &self.leak_bins[i]
+    }
+
+    /// Leakage grid `i`'s counts of the generation just stepped.
+    pub fn leak_batch(&self, i: usize) -> &[f64] {
+        &self.leak_batches[i]
+    }
+
+    /// Close the generation as one realization of every tally and grid.
+    pub fn flush(&mut self) {
+        for (t, b) in self.tallies.iter_mut().zip(self.batches.iter_mut()) {
+            flush_batch(t, b);
+        }
+        for (l, b) in self.leak_bins.iter_mut().zip(self.leak_batches.iter_mut()) {
+            flush_bins(l, b);
+        }
+    }
+
+    /// Drop the generation's scores (an inactive generation).
+    pub fn discard(&mut self) {
+        for b in self.batches.iter_mut().chain(self.leak_batches.iter_mut()) {
+            b.iter_mut().for_each(|x| *x = 0.0);
+        }
+    }
+
+    pub(crate) fn has_tallies(&self) -> bool {
+        !self.tallies.is_empty()
+    }
+
+    /// Run `f` on every tally with its batch.
+    #[inline]
+    pub(crate) fn each_tally<F: FnMut(&Tally, &mut [f64])>(&mut self, mut f: F) {
+        for (t, b) in self.tallies.iter().zip(self.batches.iter_mut()) {
+            f(t, b);
+        }
+    }
+
+    /// Score one leaked neutron on every grid.
+    #[inline]
+    pub(crate) fn leak(&mut self, e: f64, w: f64) {
+        for (edges, b) in self.leak_edges.iter().zip(self.leak_batches.iter_mut()) {
+            score_leak(b, edges, e, w);
+        }
+    }
+}
+
+/// **What one generation's histories did**, beside `k` (gh #940): how each
+/// neutron ended, the run-health counters, and (with IFP on) the IFP
+/// scores of this generation.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct GenerationTotals {
+    /// Source histories transported.
+    pub histories: u64,
+    /// How every neutron ended: leaked, captured, fissioned (analog ends;
+    /// see [`crate::physics::keff::HistoryCounts`]).
+    pub ends: crate::physics::keff::HistoryCounts,
+    /// Real collisions.
+    pub collisions: u64,
+    /// Histories ended because no cell held the particle (scored as leaks).
+    pub lost_locate: u64,
+    /// Histories ended by the event cap (scored as leaks).
+    pub stuck_events: u64,
+    /// Escapes through a vacuum surface (the genuine leaks).
+    pub leak_vacuum: u64,
+    /// Escapes with no surface ahead (a geometry not closed by vacuum).
+    pub leak_infinity: u64,
+    /// Negative distances to a boundary.
+    pub neg_dist: u64,
+    /// This generation's IFP scores; all zero with IFP off.
+    pub ifp: crate::physics::ifp::IfpTallies,
+}
+
+impl CsgPowerIteration {
+    /// **Carry IFP lineage** from now on (OpenMC's `ifp_n_generation` and
+    /// friends, `src/ifp.cpp`), so [`Self::step_scored`] scores the three
+    /// `SCORE_IFP_*` quantities for adjoint-weighted `β_eff` and `Λ`
+    /// (gh #262 item 4, gh #940).
+    ///
+    /// The lineage of a banked site is its parent's source lineage extended
+    /// by the site's own delayed group (0 = prompt, 1.. = precursor group)
+    /// and the parent's lifetime at the fission (`ifp()`,
+    /// `src/ifp.cpp:13-26`); the fissions of a history score against that
+    /// history's source lineage, at the weight of the fissioning neutron
+    /// (`SCORE_IFP_*`, `src/tallies/tally_scoring.cpp:943-1000`, OpenMC
+    /// `d7d3284a1`). The source in hand when this is called starts with
+    /// empty lineages, so nothing scores for the first `n_generation`
+    /// generations after it.
+    ///
+    /// Lineage is bookkeeping beside the transport and draws no random
+    /// number: `k` is unchanged bit for bit.
+    ///
+    /// # Errors
+    /// The run is not analog (survival biasing or weight windows): the
+    /// fission count used as the analog fission score would be wrong.
+    pub fn enable_ifp(
+        &mut self,
+        settings: crate::physics::ifp::IfpSettings,
+    ) -> Result<(), String> {
+        if !self.settings.variance_reduction.is_analog() {
+            return Err("IFP here scores analog fissions; it needs an analog run \
+                        (no survival biasing, no weight windows)"
+                .into());
+        }
+        self.ifp = Some((
+            settings,
+            vec![crate::physics::ifp::IfpLineage::default(); self.source.len()],
+        ));
+        Ok(())
+    }
+
+    /// **One generation, scoring `extra` and returning its totals**
+    /// ([`GenerationTotals`]), with IFP when [`Self::enable_ifp`] was called.
+    /// It draws exactly what [`Self::step`] draws, so `k` and the next
+    /// source are bit for bit the same. The caller then flushes or discards
+    /// `extra`'s batches.
+    pub fn step_scored(
+        &mut self,
+        geom: &Geometry,
+        materials: &[Material],
+        nuclides: &[Nuclide],
+        extra: &mut ExtraScoring,
+    ) -> Option<(CsgGenerationReport, GenerationTotals)> {
+        self.step_inner(geom, materials, nuclides, &mut no_trace, Some(extra))
+    }
+
+    /// The common generation of [`Self::step_traced`] and [`Self::step_scored`].
+    fn step_inner<O: FnMut(TraceEvent)>(
+        &mut self,
+        geom: &Geometry,
+        materials: &[Material],
+        nuclides: &[Nuclide],
+        observe: &mut O,
+        mut extra: Option<&mut ExtraScoring>,
+    ) -> Option<(CsgGenerationReport, GenerationTotals)> {
+        use crate::physics::ifp::{IfpLineage, IfpTallies};
+        if self.finished {
+            return None;
+        }
+        let gen = self.generation;
+        let n = self.settings.n_particles;
+        let active = gen >= self.settings.n_inactive;
+        let mut next_bank: Vec<Site> = Vec::with_capacity(n);
+        let mut next_lineage: Vec<IfpLineage> = Vec::new();
+        let mut production = 0.0_f64;
+        let (mut batch, mut leak_batch) = (Vec::new(), Vec::new());
+        let mut totals = GenerationTotals::default();
+        let mut ifp_scores = IfpTallies::default();
+        for (i, site) in self.source.iter().enumerate() {
+            let before = next_bank.len();
+            let outcome = transport_history_vr(
+                *site,
+                geom,
+                materials,
+                nuclides,
+                &[],
+                self.k_running,
+                &mut next_bank,
+                &mut self.seed,
+                None,
+                &mut batch,
+                &[],
+                &mut leak_batch,
+                extra.as_deref_mut(),
+                &self.settings.variance_reduction,
+                self.settings.delta_tally_estimator,
+                None,
+                None,
+                None,
+                1.0,
+                observe,
+            );
+            production += outcome.production;
+            totals.histories += 1;
+            totals.ends.add(&outcome.ends);
+            totals.collisions += outcome.collisions;
+            totals.lost_locate += outcome.lost_locate;
+            totals.stuck_events += outcome.stuck_events;
+            totals.leak_vacuum += outcome.leak_vacuum;
+            totals.leak_infinity += outcome.leak_infinity;
+            totals.neg_dist += outcome.neg_dist;
+            if let Some((settings, lineage)) = &self.ifp {
+                let parent = &lineage[i];
+                // Analog: every fission ends a neutron of weight 1.
+                for _ in 0..outcome.ends.fissions() {
+                    ifp_scores.score_fission(settings, parent, 1.0);
+                }
+                for s in &next_bank[before..] {
+                    let group = s.delayed_group.map_or(0, |g| g + 1);
+                    next_lineage.push(parent.push(settings, group, s.parent_lifetime_s));
+                }
+            }
+        }
+        totals.ifp = ifp_scores;
+        let k_gen = production / n as f64;
+        self.k_running = k_gen.max(1.0e-6);
+        if active {
+            self.active_k.push(k_gen);
+        }
+        self.generation += 1;
+        let bank_size = next_bank.len();
+        if self.generation == self.settings.n_inactive + self.settings.n_active
+            || next_bank.is_empty()
+        {
+            self.finished = true;
+        }
+        if !next_bank.is_empty() && !self.finished {
+            self.source = next_bank;
+            if let Some((_, l)) = self.ifp.as_mut() {
+                *l = next_lineage;
+            }
+            self.comb_source(n);
+        }
+        Some((
+            CsgGenerationReport {
+                index: gen,
+                active,
+                k: k_gen,
+                k_mean: active.then(|| mean_and_stderr(&self.active_k)),
+                bank_size,
+            },
+            totals,
+        ))
+    }
+
+    /// Comb `self.source` (and the IFP lineage with it) to `n` sites. The
+    /// comb draws one variate whatever it combs
+    /// ([`crate::physics::fission::comb_resample`]), so combing indices and
+    /// gathering is the same draw as combing the sites.
+    fn comb_source(&mut self, n: usize) {
+        match self.ifp.as_mut() {
+            None => self.source = resample(&self.source, n, &mut self.seed),
+            Some((_, lineage)) => {
+                let idx: Vec<usize> = (0..self.source.len()).collect();
+                let picked = crate::physics::fission::comb_resample(&idx, n, &mut self.seed);
+                self.source = picked.iter().map(|&i| self.source[i]).collect();
+                *lineage = picked.iter().map(|&i| lineage[i].clone()).collect();
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod scored_step_tests {
+    use super::*;
+    use crate::geometry::cell::{Cell, HalfSpaceSense, RegionToken};
+    use crate::geometry::surface::{Sphere, SurfaceKind};
+    use crate::geometry::universe::Universe;
+    use crate::material::material::NuclideComponent;
+    use crate::physics::ifp::IfpSettings;
+    use crate::tally::filter::{EnergyFilter, FilterKind, MaterialFilter};
+    use crate::tally::tally::ScoreType;
+
+    fn godiva_core() -> (Geometry, Vec<Material>, Vec<Nuclide>) {
+        let g = Geometry {
+            surfaces: vec![SurfaceKind::Sphere(Sphere {
+                x0: 0.0,
+                y0: 0.0,
+                z0: 0.0,
+                r: 8.7407,
+                bc: BoundaryType::Vacuum,
+            })],
+            cells: vec![Cell::material(
+                1,
+                vec![RegionToken::HalfSpace {
+                    surface_idx: 0,
+                    sense: HalfSpaceSense::Inside,
+                }],
+                0,
+                293.6,
+            )],
+            universes: vec![Universe {
+                id: 0,
+                cell_indices: vec![0],
+            }],
+            lattices: vec![],
+            root_universe: 0,
+        };
+        let m = Material {
+            id: 1,
+            name: "HEU".into(),
+            temperature: 293.6,
+            components: vec![
+                NuclideComponent {
+                    nuclide_idx: 0,
+                    atom_density: 4.4994e-2,
+                },
+                NuclideComponent {
+                    nuclide_idx: 1,
+                    atom_density: 2.4984e-3,
+                },
+            ],
+        };
+        let n = vec![
+            Nuclide::from_core("U235").unwrap(),
+            Nuclide::from_core("U238").unwrap(),
+        ];
+        (g, vec![m], n)
+    }
+
+    fn tally(edges: Vec<f64>) -> Tally {
+        Tally {
+            id: 0,
+            name: "t".into(),
+            filters: vec![
+                FilterKind::Energy(EnergyFilter { bins: edges }),
+                FilterKind::Material(MaterialFilter {
+                    material_indices: vec![0],
+                }),
+            ],
+            scores: vec![ScoreType::Flux, ScoreType::NuFission],
+            bins: vec![],
+        }
+    }
+
+    /// **Extras change nothing, and a tally gives the same bits alone as
+    /// beside others**: the same seed with no extras, with one tally, and
+    /// with that tally plus another tally and two leak grids gives the same
+    /// `k` every generation (across a population change), and the shared
+    /// tally's bins are equal bit for bit. IFP lineage also leaves `k`
+    /// unchanged, and scores once lineages are deep enough.
+    #[test]
+    fn extra_scoring_changes_nothing_and_matches_a_lone_tally() {
+        let (g, m, n) = godiva_core();
+        let s = KeffSettings {
+            n_particles: 300,
+            n_inactive: 0,
+            n_active: 8,
+            seed: 7,
+            ..KeffSettings::default()
+        };
+        let sb = SourceBox {
+            lower: Position::new(-8.7, -8.7, -8.7),
+            upper: Position::new(8.7, 8.7, 8.7),
+        };
+        let mut plain = CsgPowerIteration::new(&g, &m, &n, sb, &s);
+        let mut ks = Vec::new();
+        while let Some(r) = plain.step(&g, &m, &n) {
+            ks.push(r.k);
+            if r.index == 3 {
+                plain.set_population(400);
+            }
+        }
+        let run = |extra: &mut ExtraScoring, ifp: bool| {
+            let mut it = CsgPowerIteration::new(&g, &m, &n, sb, &s);
+            if ifp {
+                it.enable_ifp(IfpSettings {
+                    n_generation: 2,
+                    ..IfpSettings::default()
+                })
+                .unwrap();
+            }
+            let mut k = Vec::new();
+            let mut ifp_denominator = 0.0;
+            let mut tracked = 0;
+            while let Some((r, t)) = it.step_scored(&g, &m, &n, extra) {
+                extra.flush();
+                k.push(r.k);
+                ifp_denominator += t.ifp.denominator;
+                tracked += t.ends.tracked;
+                if r.index == 3 {
+                    it.set_population(400);
+                }
+            }
+            (k, ifp_denominator, tracked)
+        };
+        let mut lone = ExtraScoring::new();
+        lone.add_tally(tally(vec![0.0, 0.625, 1.0e5, 2.0e7]));
+        let (k1, d1, t1) = run(&mut lone, false);
+        let mut both = ExtraScoring::new();
+        both.add_tally(tally(vec![1.0, 1.0e3, 1.0e6, 2.0e7]));
+        both.add_leak_grid(vec![0.0, 1.0e5, 2.0e7]);
+        let i = both.add_tally(tally(vec![0.0, 0.625, 1.0e5, 2.0e7]));
+        both.add_leak_grid(vec![0.0, 2.0e7]);
+        let (k2, _, _) = run(&mut both, false);
+        let (k3, d3, _) = run(&mut ExtraScoring::new(), true);
+        assert_eq!(ks, k1);
+        assert_eq!(ks, k2);
+        assert_eq!(ks, k3, "IFP lineage must not change k");
+        assert_eq!(lone.tally(0).bins, both.tally(i).bins);
+        assert!(lone.tally(0).bins.iter().any(|b| b.sum > 0.0));
+        assert_eq!(d1, 0.0, "IFP off scores nothing");
+        assert!(d3 > 0.0, "IFP scores once lineages are 2 deep");
+        assert!(t1 >= 300 * 8, "every source neutron ends somewhere");
+        // The one-bin grid holds every leak the finer grid splits.
+        let fine: f64 = both.leak_bins(0).iter().map(|b| b.sum).sum();
+        assert_eq!(fine, both.leak_bins(1)[0].sum);
+        assert!(fine > 0.0);
+        assert_eq!(both.leak_edges(1), &[0.0, 2.0e7]);
+        assert!(both.batch(0).iter().all(|&x| x == 0.0));
+        assert!(both.leak_batch(0).iter().all(|&x| x == 0.0));
+        both.discard();
     }
 }

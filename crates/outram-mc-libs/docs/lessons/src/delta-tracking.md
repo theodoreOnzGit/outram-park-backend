@@ -70,17 +70,27 @@ In the CSG history loop, surface and delta tracking differ in **one place**: how
 far to the next real collision, and in which material.
 [`transport_csg.rs`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L1474-L1562)
 matches on the tracking method. The delta arm asks for the distance out of **the
-region that chose delta tracking**, not the nearest surface:
+region that chose delta tracking**, ~~not the nearest surface:~~ **CORRECTED
+2026-10-17** (gh #940 session; the line-number include here showed the history
+stack, not this arm, so it is now a named anchor): and **also** for the nearest
+surface over every level. `fly_delta_region` samples the flight to the region's
+own exit, but the particle advances at most to the nearest surface, `d_bound`; a
+real collision past it is discarded and re-sampled from that surface, which is
+memoryless and so unbiased (`physics::delta_tracking::handoff`, gh:#599):
 
 ```rust,ignore
-{{#include ../../../src/physics/transport_csg.rs:1496:1507}}
+{{#include ../../../src/physics/transport_csg.rs:delta_arm}}
 ```
 
 That distance is a new query,
 [`distance_out_of_level`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/geometry/crossing/mod.rs#L250-L280),
-also new work. The ordinary `distance_to_boundary` takes the minimum over every
-nesting level, so inside a bed it returns the next TRISO surface, which is exactly
-what a delta tracker exists to ignore.
+also new work, called inside `fly_delta_region`. The ordinary
+`distance_to_boundary` takes the minimum over every nesting level, so inside a bed
+it returns the next TRISO surface, ~~which is exactly what a delta tracker exists
+to ignore~~ **CORRECTED 2026-10-17:** and since gh:#599 the tracker stops there
+too rather than ignoring it, so internal surfaces are not skipped: correct, and
+measured 2.5× slower than surface tracking on a three-shell sphere (the
+`run_keff_csg_hybrid` doc comment).
 
 ## Case study: the right estimator for the method
 

@@ -325,6 +325,7 @@ pub fn run_fixed_source_traced(
                     // tally, a separate feature. Pass the disabled sink.
                     &[],
                     &mut [],
+                    None,
                     &settings.variance_reduction,
                     // No delta regions here (`&[]` above); the default.
                     crate::physics::transport_csg::DeltaTallyEstimator::default(),

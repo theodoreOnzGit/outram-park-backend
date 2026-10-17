@@ -85,6 +85,9 @@ impl SourceSite {
             },
             e: self.e,
             delayed_group: self.delayed_group,
+            // Not carried across ranks: only IFP reads it, and the
+            // distributed driver does not run IFP.
+            parent_lifetime_s: 0.0,
         }
     }
 
@@ -450,6 +453,7 @@ pub fn transport_chunk(
             &mut batch,
             &[],
             &mut leak_batch,
+            None,
             &settings.variance_reduction,
             settings.delta_tally_estimator,
             rec.as_mut(),

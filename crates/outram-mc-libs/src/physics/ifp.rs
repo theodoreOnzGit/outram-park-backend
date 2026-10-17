@@ -248,7 +248,12 @@ impl IfpTallies {
         Ok(self.beta_numerator / self.denominator)
     }
 
-    /// Adjoint-weighted generation time `Λ` \[s\].
+    /// ~~Adjoint-weighted generation time `Λ` \[s\].~~ **CORRECTED
+    /// 2026-10-17 (gh #940):** the adjoint-weighted **lifetime**
+    /// `time numerator / denominator` \[s\]. OpenMC's `Λ_eff` divides that by
+    /// k as well (`docs/source/usersguide/kinetics.rst`, eq. `lambda_eff`;
+    /// `openmc/statepoint.py`, `ifp_results`); [`Self::generation_time_with_k`]
+    /// does. The two differ by `1/k`, about 0 near critical, not in general.
     ///
     /// # Errors
     ///
@@ -270,6 +275,20 @@ impl IfpTallies {
             ));
         }
         Ok(self.time_numerator / self.denominator)
+    }
+
+    /// **Adjoint-weighted generation time `Λ_eff` \[s\]** as OpenMC defines it:
+    /// `time numerator / (denominator × k_eff)` (`kinetics.rst`, eq.
+    /// `lambda_eff`).
+    ///
+    /// # Errors
+    ///
+    /// As [`Self::generation_time`], or a non-positive `k_eff`.
+    pub fn generation_time_with_k(&self, settings: &IfpSettings, k_eff: f64) -> Result<f64, String> {
+        if !(k_eff > 0.0 && k_eff.is_finite()) {
+            return Err(format!("k_eff must be positive and finite, not {k_eff}"));
+        }
+        Ok(self.generation_time(settings)? / k_eff)
     }
 
     /// Fraction of fissions that actually scored.
@@ -399,6 +418,9 @@ mod tests {
         // (3*4 + 1*8) / 4 = 5 us.
         let l = t.generation_time(&s).unwrap();
         assert!((l - 5.0e-6).abs() < 1e-12, "Lambda = {l}");
+        let lk = t.generation_time_with_k(&s, 1.25).unwrap();
+        assert!((lk - 4.0e-6).abs() < 1e-12, "Lambda/k = {lk}");
+        assert!(t.generation_time_with_k(&s, 0.0).is_err());
     }
 
     /// Turning IFP off makes every score a no-op, including the skip counter —
