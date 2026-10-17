@@ -25,10 +25,14 @@
 //! # Physics carried, per route — the same default-on set everywhere it can be
 //!
 //! - **URR probability tables.** ENDF route: built at construction
-//!   (`with_urr_probability_tables(.., 20, 16, 2000)`, the crate default). ACE
-//!   routes: read from the table's UNR block — NJOY2016's `purr 20/64` or the
-//!   port's `build_full_with_purr(20, 64, 10000)`. Same bins, **different ladder
-//!   and sample counts**; stated, not hidden.
+//!   ~~(`with_urr_probability_tables(.., 20, 16, 2000)`, the crate default)~~
+//!   **CHANGED 2026-10-17 (gh:#931):** by njoy's `process` at its defaults,
+//!   PURR 20 bins / 64 ladders / 10 000 samples after HEATR (the old
+//!   20 / 16 / 2000 is `--route4-data pre931`). ACE routes: read from the
+//!   table's UNR block — NJOY2016's `purr 20/64` or the port's
+//!   `build_full_with_purr(20, 64, 10000)`. ~~Same bins, **different ladder
+//!   and sample counts**; stated, not hidden.~~ Same bins, ladders and
+//!   samples on every route since gh:#931.
 //! - **DBRC, E <= 1 keV, every nuclide with 0 K elastic.** ENDF route: from
 //!   RECONR's 0 K grid. ACE routes: from the `0K/` companion table next to each
 //!   `293.6K/` table, paired by `Nuclide::from_ace_file`.
@@ -439,7 +443,38 @@ fn flag(args: &[String], name: &str) -> Option<String> {
         .cloned()
 }
 
-fn load_endf(name: &str) -> Nuclide {
+/// How route 4 makes its nuclear data (gh:#931), chosen by `--route4-data`.
+/// The campaign never passes the flag: `Process` is route 4.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Route4Data {
+    /// Route 4: `Nuclide::from_endf_file_with_speed`, whose data are njoy's
+    /// `process` at its defaults (PURR 20 / 64 / 10 000 after HEATR, the 0 K
+    /// elastic PENDF-rounded) since gh:#931.
+    Process,
+    /// ABLATION `process-without-heatr`: the same `process` call with
+    /// `without_heatr()`. Isolates HEATR, which transport never reads, so
+    /// it must give route 4's `k` to the bit (gh:#931).
+    ProcessWithoutHeatr,
+    /// ABLATION `pre931`: route 4 as recorded before gh:#931,
+    /// `Nuclide::process_evaluation_pre_931` (PURR 20 / 16 / 2000, no HEATR,
+    /// the raw 0 K elastic to 25 keV). The paired baseline the re-measure
+    /// is taken against.
+    Pre931,
+}
+
+impl Route4Data {
+    /// `--route4-data` value; `None` for one this driver does not know.
+    fn parse(v: &str) -> Option<Self> {
+        match v {
+            "process" => Some(Self::Process),
+            "process-without-heatr" => Some(Self::ProcessWithoutHeatr),
+            "pre931" => Some(Self::Pre931),
+            _ => None,
+        }
+    }
+}
+
+fn load_endf(name: &str, data: Route4Data) -> Nuclide {
     // The lattice's full tier (`--full-nuclides`, GitHub #533) names nuclides
     // this study's own table does not carry; they come from the LCT-008 model's
     // full tape list, the one `lct008_keff.rs` loads by default.
@@ -450,8 +485,35 @@ fn load_endf(name: &str) -> Nuclide {
         .expect("known nuclide")
         .1;
     let p = reference_endf(file).unwrap_or_else(|| panic!("missing reference tape {file}"));
-    Nuclide::from_endf_file_with_speed(&p, name, TEMP_K, outram_mc_libs::vv::bench_speed())
-        .unwrap_or_else(|e| panic!("from_endf_file_with_speed({name}): {e}"))
+    let speed = outram_mc_libs::vv::bench_speed();
+    if data == Route4Data::Process {
+        return Nuclide::from_endf_file_with_speed(&p, name, TEMP_K, speed)
+            .unwrap_or_else(|e| panic!("from_endf_file_with_speed({name}): {e}"));
+    }
+    // The ablations: the same two halves `from_tape_with_speed` runs, with
+    // the first half swapped (gh:#931).
+    let tape = njoy_outram_park_fork::endf::tape::Tape::read_file(&p).expect("tape");
+    let mat = tape.materials()[0];
+    let tol = speed.data_tolerance();
+    let processed = match data {
+        Route4Data::ProcessWithoutHeatr => {
+            use uom::si::thermodynamic_temperature::kelvin;
+            let s = njoy_outram_park_fork::process::CrossSectionSettings::default()
+                .with_reconr_tolerance(tol)
+                .with_broadr_tolerance(tol)
+                .without_heatr();
+            let t = uom::si::f64::ThermodynamicTemperature::new::<kelvin>(TEMP_K);
+            Nuclide::process_evaluation_with(&tape, mat, t, &s)
+        }
+        // `Process` returned above.
+        Route4Data::Pre931 | Route4Data::Process => {
+            Nuclide::process_evaluation_pre_931(&tape, mat, TEMP_K, tol, tol)
+        }
+    }
+    .unwrap_or_else(|e| panic!("{name}: {e}"));
+    Nuclide::from_processed(&tape, mat, name, TEMP_K, processed)
+        .unwrap_or_else(|e| panic!("{name}: {e}"))
+        .with_speed(speed)
 }
 
 fn load_ace(dir: &Path, name: &str) -> Nuclide {
@@ -658,12 +720,22 @@ fn main() {
     let ace_dir = flag(&args, "--ace-dir").map(PathBuf::from);
     let (mut nuclides, sab): (Vec<Nuclide>, Option<ThermalScattering>) = match route.as_str() {
         "endf" => {
-            let mut n: Vec<Nuclide> = names.iter().map(|n| load_endf(n)).collect();
+            // `--route4-data process|process-without-heatr|pre931` (gh:#931):
+            // explicit, named ablations of how route 4 makes its data. The
+            // campaign never passes it; the default is route 4.
+            let data = flag(&args, "--route4-data").map_or(Route4Data::Process, |v| {
+                Route4Data::parse(&v).unwrap_or_else(|| panic!("unknown --route4-data {v}"))
+            });
+            if data != Route4Data::Process {
+                eprintln!("  ABLATION: route 4 data {data:?} (--route4-data)");
+            }
+            let mut n: Vec<Nuclide> = names.iter().map(|n| load_endf(n, data)).collect();
             // `--urr-ladders N [--urr-samples M]` (diagnostic A/B): rebuild the
-            // ENDF route's PURR tables with the ACE libraries' ladder/sample
-            // counts (20 bins / 64 ladders / 10 000 samples) instead of the
-            // construction default (20 / 16 / 2000). Same routine, same bins;
-            // only the Monte Carlo resolution of the tables changes.
+            // ENDF route's PURR tables with N ladders and M samples (no
+            // HEATR). ~~instead of the construction default (20 / 16 / 2000)~~
+            // CORRECTED 2026-10-17 (gh:#931): the construction default is now
+            // `process`'s 20 / 64 / 10 000, the ACE libraries' counts; use
+            // `--route4-data pre931` for the old route 4.
             if let Some(nl) = flag(&args, "--urr-ladders") {
                 let nl: usize = nl.parse().expect("--urr-ladders");
                 let ns: usize = flag(&args, "--urr-samples")
@@ -729,7 +801,7 @@ fn main() {
                 .map(|n| {
                     if from_endf.iter().any(|m| m == n) {
                         eprintln!("    {n}: from ENDF (--endf-nuclides)");
-                        load_endf(n)
+                        load_endf(n, Route4Data::Process)
                     } else {
                         load_ace(&dir, n)
                     }

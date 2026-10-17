@@ -21,12 +21,20 @@
 //! [`ProcessedEvaluation::to_f64s`] (RECONR + BROADR + PURR, and the 0 K
 //! elastic grid DBRC needs) and [`ThermalScattering::to_f64s`] (THERMR or
 //! LEAPR). The cheap half, `Nuclide::from_processed`, is always run, from the
-//! tape the demo downloads anyway. `Nuclide::from_tape_with_speed` is exactly
-//! `process_evaluation` (at the tier's tolerance for RECONR and BROADR) then
-//! `from_processed` then `with_speed`, which is what [`DataStore::nuclide`]
-//! does, so a nuclide from the cache is the nuclide from the tape, bit for
-//! bit; `tests::a_cached_nuclide_is_the_processed_nuclide_bit_for_bit` pins
-//! it.
+//! tape the demo downloads anyway. [`DataStore::nuclide`] is
+//! `Nuclide::process_evaluation_pre_931` (at the tier's tolerance for RECONR
+//! and BROADR) then `from_processed` then `with_speed` ([`pre931_nuclide`]),
+//! so a nuclide from the cache is the nuclide from the tape, bit for bit;
+//! `tests::a_cached_nuclide_is_the_processed_nuclide_bit_for_bit` pins it.
+//!
+//! **Not route 4 since gh:#931.** ~~`Nuclide::from_tape_with_speed` is exactly
+//! `process_evaluation` ... then `from_processed` then `with_speed`, which is
+//! what [`DataStore::nuclide`] does~~ (CORRECTED 2026-10-17):
+//! `Nuclide::process_evaluation`, and so `from_tape_with_speed`, is now njoy's
+//! `process` (PURR 20 / 64 / 10 000 after HEATR). The demos keep the
+//! pre-#931 chain (`process_evaluation_pre_931`: PURR 20 / 16 / 2000, no
+//! HEATR), whose stages this store keeps separately, until gh:#932 moves
+//! them; the keys and [`CODE`] are unchanged.
 //!
 //! **The key holds everything the product depends on**: the SHA-256 of the
 //! (covariance-stripped) tape bytes, the material number, the temperature
@@ -63,8 +71,9 @@ pub const CODE: &str = "nd-2026-10-15.1";
 /// Version of the key layout itself.
 const KEYS: &str = "nd1";
 
-/// PURR's table settings in `Nuclide::process_evaluation`
+/// PURR's table settings in `Nuclide::process_evaluation_pre_931`
 /// (`UrrProbabilityTables::from_endf(tape, mat, temp_k, 20, 16, 2000)`).
+/// ~~in `Nuclide::process_evaluation`~~ (CORRECTED 2026-10-17, gh:#931).
 const PURR: &str = "purr=20,16,2000";
 
 /// A float in a key: readable, and exact (its bits).
@@ -114,6 +123,21 @@ pub fn reconstruction_key(tape_sha: &str, mat: i32, tolerance: f64) -> String {
 pub fn urr_key(tape_sha: &str, mat: i32, temp_k: f64, settings: (usize, usize, usize)) -> String {
     let (nbin, nladr, nsamp) = settings;
     format!("{}urr|mat={mat}|T={}|purr={nbin},{nladr},{nsamp}|", tape_prefix(tape_sha), exact(temp_k))
+}
+
+/// The nuclide the demos build from a tape, with no cache: the pre-gh:#931
+/// chain (`Nuclide::process_evaluation_pre_931` at `speed`'s tolerance for
+/// RECONR and BROADR, then `from_processed`, then `with_speed`). What
+/// [`DataStore::nuclide`] equals bit for bit, until gh:#932 moves the demos
+/// onto `process`.
+///
+/// # Errors
+///
+/// Processing or assembly failed.
+pub fn pre931_nuclide(tape: &Tape, mat: i32, name: &str, temp_k: f64, speed: SpeedTier) -> Result<Nuclide, String> {
+    let tol = speed.data_tolerance();
+    let p = Nuclide::process_evaluation_pre_931(tape, mat, temp_k, tol, tol).map_err(|e| format!("{name}: {e}"))?;
+    Ok(Nuclide::from_processed(tape, mat, name, temp_k, p).map_err(|e| format!("{name}: {e}"))?.with_speed(speed))
 }
 
 /// The synchronous side of the cache that a data builder sees.
@@ -361,7 +385,7 @@ impl DataStore {
     ) -> Result<ProcessedEvaluation, String> {
         if !self.enabled {
             self.sources.push((label.to_string(), Source::Processed));
-            return Nuclide::process_evaluation(tape, mat, temp_k, tolerance, errthn)
+            return Nuclide::process_evaluation_pre_931(tape, mat, temp_k, tolerance, errthn)
                 .map_err(|e| format!("{label}: {e}"));
         }
         let key = evaluation_key(&self.sha_of(bytes), mat, temp_k, tolerance, errthn);
@@ -381,7 +405,8 @@ impl DataStore {
         }
         // A miss: the product from its two stages, each from the cache when
         // it is there (another temperature, another demo), so this is
-        // `Nuclide::process_evaluation` with the slow parts kept (gh:#923).
+        // `Nuclide::process_evaluation_pre_931` with the slow parts kept
+        // (gh:#923).
         let sha = self.sha_of(bytes);
         let t0 = (self.now_ms)();
         let first = self.stages.len();
@@ -500,8 +525,9 @@ impl DataStore {
         Ok(t)
     }
 
-    /// A nuclide at a [`SpeedTier`]: `Nuclide::from_tape_with_speed`, with
-    /// its expensive half from the cache when it is there.
+    /// A nuclide at a [`SpeedTier`]: [`pre931_nuclide`] (~~`Nuclide::from_tape_with_speed`~~,
+    /// route 4 since gh:#931), with its expensive half from the cache when it
+    /// is there.
     ///
     /// # Errors
     ///
@@ -737,7 +763,7 @@ mod tests {
         let (tape, mat) = read(&bytes);
         let temp = 300.15;
         for speed in [SpeedTier::Fast, SpeedTier::VeryFast] {
-            let direct = Nuclide::from_tape_with_speed(&tape, mat, "U234", temp, speed).expect("direct");
+            let direct = pre931_nuclide(&tape, mat, "U234", temp, speed).expect("direct");
             let want = fingerprint(&direct, temp);
             let mut first = DataStore::browser();
             first.begin_tape(&bytes);
@@ -835,7 +861,7 @@ mod tests {
         let cached = |s: &[(String, Source)], i: usize| matches!(s[i].1, Source::Cached { .. });
 
         // (a) both stages from the cache.
-        let want = fingerprint(&Nuclide::from_tape_with_speed(&tape, mat, "U234", 300.15, speed).expect("direct"), 300.15);
+        let want = fingerprint(&pre931_nuclide(&tape, mat, "U234", 300.15, speed).expect("direct"), 300.15);
         let mut a = DataStore::browser();
         a.begin_tape(&bytes);
         a.offer(stages.clone());
@@ -847,7 +873,7 @@ mod tests {
 
         // (b) another temperature: RECONR from the cache, PURR made.
         let rc: Vec<Record> = stages.iter().filter(|r| r.key.contains("|rc0|")).cloned().collect();
-        let want600 = fingerprint(&Nuclide::from_tape_with_speed(&tape, mat, "U234", 600.0, speed).expect("direct"), 600.0);
+        let want600 = fingerprint(&pre931_nuclide(&tape, mat, "U234", 600.0, speed).expect("direct"), 600.0);
         let mut b = DataStore::browser();
         b.begin_tape(&bytes);
         b.offer(rc);
@@ -904,7 +930,7 @@ mod tests {
                 continue;
             };
             let (tape, mat) = read(&bytes);
-            let p = Nuclide::process_evaluation(&tape, mat, 300.15, 1e-3, 1e-3).expect("process");
+            let p = Nuclide::process_evaluation_pre_931(&tape, mat, 300.15, 1e-3, 1e-3).expect("process");
             let sha = dhoby_ghaut::web_demo::data_cache::words_sha256(&p.to_f64s());
             got.push(format!("{file}: {sha}"));
             assert_eq!(

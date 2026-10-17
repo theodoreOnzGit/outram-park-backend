@@ -7,7 +7,8 @@
 //! For each nuclide, RECONR runs once at 0 K (tolerance 0.001) and both
 //! routes are built from that one result, so RECONR cannot differ:
 //!
-//! - **route 4** as transport builds it today:
+//! - **route 4** as transport built it on 2026-10-17 before gh:#931 (since
+//!   then route 4 *is* `process`; this chain is `process_evaluation_pre_931`):
 //!   `Nuclide::process_from_stages(&recon0, None, 293.6, 0.001)`, i.e.
 //!   `broaden_result_with_tolerance` plus the raw 0 K MT=2 below
 //!   `DBRC_GRID_MAX_EV` (25 keV) for DBRC;
