@@ -125,6 +125,18 @@ pub enum EndfLibrary {
     Jeff33,
     /// JENDL-5 (2021) — the Japanese evaluated library.
     Jendl5,
+    /// ENDF/B-VIII.1 (2024) — added 2026-10-17 (gh #935) so a library loaded
+    /// from a folder or zip can be named. Its tapes' `HSUB` line reads
+    /// `ENDF/B-VIII.1` (checked on `reference-data/endf/n-038_Sr_088-ENDF8.1.endf`).
+    /// The IAEA directory name follows the pattern of the others and **has not
+    /// been fetched from this (offline) host**.
+    EndfBVIII1,
+    /// ENDF/B-VII.0 (2006) — added 2026-10-17 (gh #935). Its tapes' `HSUB`
+    /// line reads `ENDF/B-VII`, with no `.0` (checked on the workspace's
+    /// `*-ENDF7.0.endf` tapes), and its `LREL` does not separate it from
+    /// VII.1 (B-10 carries `LREL = 1`). The IAEA directory name **has not been
+    /// fetched from this host**.
+    EndfBVII0,
 }
 
 impl EndfLibrary {
@@ -137,6 +149,8 @@ impl EndfLibrary {
             EndfLibrary::EndfBVII1 => "ENDF-B-VII.1",
             EndfLibrary::Jeff33 => "JEFF-3.3",
             EndfLibrary::Jendl5 => "JENDL-5",
+            EndfLibrary::EndfBVIII1 => "ENDF-B-VIII.1",
+            EndfLibrary::EndfBVII0 => "ENDF-B-VII.0",
         }
     }
 
@@ -148,17 +162,42 @@ impl EndfLibrary {
             EndfLibrary::EndfBVII1 => "ENDF/B-VII.1",
             EndfLibrary::Jeff33 => "JEFF-3.3",
             EndfLibrary::Jendl5 => "JENDL-5",
+            EndfLibrary::EndfBVIII1 => "ENDF/B-VIII.1",
+            EndfLibrary::EndfBVII0 => "ENDF/B-VII.0",
         }
     }
 
     /// Every library variant, for iterating over the supported set.
-    pub const fn all() -> [EndfLibrary; 4] {
+    pub const fn all() -> [EndfLibrary; 6] {
         [
             EndfLibrary::EndfBVIII0,
             EndfLibrary::EndfBVII1,
             EndfLibrary::Jeff33,
             EndfLibrary::Jendl5,
+            EndfLibrary::EndfBVIII1,
+            EndfLibrary::EndfBVII0,
         ]
+    }
+
+    /// **The library a tape's `HSUB` line names** (ENDF-102 section 1.1; the
+    /// third text line of MF=1/MT=451, `----ENDF/B-VIII.0  MATERIAL 9228`),
+    /// as [`crate::endf_library::EndfHeader::library_text`] holds it. Checked
+    /// against the workspace's reference tapes for `ENDF/B-VIII.0`,
+    /// `ENDF/B-VIII.1`, `ENDF/B-VII.1` and `ENDF/B-VII` (VII.0). The JEFF-3.3
+    /// and JENDL-5 spellings follow the same pattern and are **not checked**
+    /// (no tape of either is in the workspace). `None` for any other text: the
+    /// library is then known by that text alone, which indexes the same.
+    #[must_use]
+    pub fn from_hsub(text: &str) -> Option<EndfLibrary> {
+        match text.trim() {
+            "ENDF/B-VIII.0" => Some(EndfLibrary::EndfBVIII0),
+            "ENDF/B-VIII.1" => Some(EndfLibrary::EndfBVIII1),
+            "ENDF/B-VII.1" => Some(EndfLibrary::EndfBVII1),
+            "ENDF/B-VII" | "ENDF/B-VII.0" => Some(EndfLibrary::EndfBVII0),
+            "JEFF-3.3" => Some(EndfLibrary::Jeff33),
+            "JENDL-5" | "JENDL-5.0" => Some(EndfLibrary::Jendl5),
+            _ => None,
+        }
     }
 
     /// The full hardcoded download URL for a neutron-sublibrary nuclide.
