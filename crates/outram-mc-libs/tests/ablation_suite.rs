@@ -165,7 +165,7 @@ fn build() -> Option<Vec<Nuclide>> {
     let mut v = Vec::new();
     for &(file, name, _) in NUCLIDES {
         let tape = reference_file_or_skip("endf", file, "ICSBEP nuclide (ablation suite)")?;
-        v.push(Nuclide::from_endf_file(&tape, name, TEMP_K, 1.0e-3).expect("reconstructs"));
+        v.push(Nuclide::from_endf_file(&tape, name, uom::si::f64::ThermodynamicTemperature::new::<uom::si::thermodynamic_temperature::kelvin>(TEMP_K), 1.0e-3).expect("reconstructs"));
     }
     Some(v)
 }
@@ -417,7 +417,7 @@ fn ablating_the_mf6_continuum_law_hardens_the_secondary_spectrum() {
         return;
     };
     let evaluated =
-        Nuclide::from_endf_file(&tape, "U238", TEMP_K, 1.0e-3).expect("U-238 reconstructs");
+        Nuclide::from_endf_file(&tape, "U238", uom::si::f64::ThermodynamicTemperature::new::<uom::si::thermodynamic_temperature::kelvin>(TEMP_K), 1.0e-3).expect("U-238 reconstructs");
     assert!(
         evaluated.has_evaluated_continuum(),
         "U-238 carries an MF=6 LAW=1 continuum law in ENDF/B-VIII.0; if this fires, the law is \

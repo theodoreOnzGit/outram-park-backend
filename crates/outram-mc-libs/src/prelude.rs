@@ -190,3 +190,10 @@ pub use crate::model::{
     AdvancedModel, BalanceBy, BalanceRow, DiagnosticError, DiagnosticsReport, Ealf, EnergyGrid,
     MCDiagnostic, MCDiagnosticResult, MeshBounds, MeshMap, NeutronBalance, OutputFile, RunHealth,
 };
+
+// The radionuclide inventory handed from depletion to a source-term
+// calculation (gh:#951; consumed by `sembawang`).
+pub use crate::inventory::{
+    za, zai, Amount, InventoryError, InventoryPoint, InventorySource, NuclideEntry,
+    RadionuclideInventory, Regions,
+};

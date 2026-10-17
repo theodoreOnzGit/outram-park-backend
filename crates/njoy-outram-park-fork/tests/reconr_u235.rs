@@ -284,14 +284,14 @@ fn reconr_resonance_peaks_above_thermal() {
 
 #[test]
 fn library_reconstructs_and_reports_fissile_xs() {
-    let lib = NuclearDataLibrary::from_file(u235_path(), MAT)
+    let lib = NuclearDataLibrary::from_file(u235_path())
         .expect("from_file failed")
         .reconstruct(0.001)
         .expect("reconstruct failed");
 
     assert_eq!(lib.mat(), MAT);
     assert!(
-        (lib.za().unwrap() - 92235.0).abs() < 0.1,
+        (lib.za() - 92235.0).abs() < 0.1,
         "ZA={:?}",
         lib.za()
     );

@@ -30,7 +30,7 @@ use changi::puff::simulate::{
 use changi::puff::stability::StabilityClass;
 use sembawang::accident::release::{accident_release, PlantParameters};
 use sembawang::chain::pad_for_dispersion;
-use sembawang::inventory::{CoreInventory, NuclideInventory};
+use sembawang::inventory::{self, RadionuclideInventory};
 use sembawang::scenario::TemperatureTransient;
 use sembawang::units;
 use uom::si::f64::{Frequency, Length, ThermodynamicTemperature, Time, Velocity};
@@ -64,15 +64,16 @@ fn transient() -> TemperatureTransient {
     .unwrap()
 }
 
-fn inventory(curies_per_ring: f64) -> CoreInventory {
-    CoreInventory::new(
+fn inventory(curies_per_ring: f64) -> RadionuclideInventory {
+    inventory::prescribed(
         NUCLIDES
             .iter()
-            .map(|n| NuclideInventory::uniform(n, units::from_curies(curies_per_ring), 2))
+            .map(|n| (*n, vec![units::from_curies(curies_per_ring); 2]))
             .collect(),
         2,
-        3,
+        "shakedown: a uniform activity per ring",
     )
+    .unwrap()
 }
 
 /// Release -> pad -> dilution factors -> survey, the same path as the

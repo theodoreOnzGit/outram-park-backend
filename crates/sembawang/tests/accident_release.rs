@@ -18,7 +18,7 @@
 
 use changi::activity::deposition::DepositionGroup;
 use sembawang::accident::release::{accident_release, PlantParameters};
-use sembawang::inventory::CoreInventory;
+use sembawang::inventory;
 use sembawang::scenario::TemperatureTransient;
 use sembawang::units;
 use uom::si::f64::{ThermodynamicTemperature, Time};
@@ -55,7 +55,7 @@ fn heating_transient(samples: usize) -> TemperatureTransient {
 
 #[test]
 fn the_chain_runs_and_produces_a_well_formed_source_term() {
-    let inv = CoreInventory::unit(&NUCLIDES, 2, 3);
+    let inv = inventory::unit(&NUCLIDES, 2).unwrap();
     let out = accident_release(&inv, &heating_transient(51), &plant()).unwrap();
 
     // SourceTerm::new validates on construction, so reaching here already
@@ -103,7 +103,7 @@ fn the_chain_runs_and_produces_a_well_formed_source_term() {
 /// transport grouping — Te is the case that distinguishes them.
 #[test]
 fn tellurium_is_classified_as_a_depositing_aerosol_not_a_halogen() {
-    let inv = CoreInventory::unit(&NUCLIDES, 2, 3);
+    let inv = inventory::unit(&NUCLIDES, 2).unwrap();
     let out = accident_release(&inv, &heating_transient(51), &plant()).unwrap();
 
     let find = |label: &str| {
@@ -134,18 +134,18 @@ fn tellurium_is_classified_as_a_depositing_aerosol_not_a_halogen() {
 
 /// The release is linear in the inventory, so scaling every nuclide by the
 /// same factor must scale every window's release by it too. This is what makes
-/// `CoreInventory::unit` useful as a shakedown: a real run differs from it by
+/// `inventory::unit` useful as a shakedown: a real run differs from it by
 /// a per-nuclide scale factor and nothing else.
 #[test]
 fn the_release_is_linear_in_the_inventory() {
     let transient = heating_transient(41);
-    let one = CoreInventory::unit(&NUCLIDES, 2, 3);
-    let mut ten = one.clone();
-    for n in &mut ten.nuclides {
-        for a in &mut n.per_ring {
-            *a = units::from_curies(10.0);
-        }
-    }
+    let one = inventory::unit(&NUCLIDES, 2).unwrap();
+    let ten = inventory::prescribed(
+        NUCLIDES.iter().map(|n| (*n, vec![units::from_curies(10.0); 2])).collect(),
+        2,
+        "ten curies per ring",
+    )
+    .unwrap();
 
     let a = accident_release(&one, &transient, &plant()).unwrap();
     let b = accident_release(&ten, &transient, &plant()).unwrap();
@@ -184,7 +184,7 @@ fn the_half_life_screen_reports_what_it_drops() {
     // Kr-89's half-life is 189 s. Against a 1e5 s accident that is 1.9e-3,
     // well under the 0.04 threshold, so it should be screened out.
     let names = ["Kr-85", "Kr-89", "Cs-137"];
-    let inv = CoreInventory::unit(&names, 2, 3);
+    let inv = inventory::unit(&names, 2).unwrap();
     let out = accident_release(&inv, &heating_transient(41), &plant()).unwrap();
 
     let kept: Vec<&str> = out
@@ -229,7 +229,7 @@ fn a_heat_cool_reheat_transient_is_flagged_as_incomparable_with_upstream() {
     let temps = vec![profile.iter().map(|t| vec![c(*t); 3]).collect::<Vec<_>>(); 2];
     let transient = TemperatureTransient::from_nodes(times, temps).unwrap();
 
-    let inv = CoreInventory::unit(&["Cs-137", "Kr-85"], 2, 3);
+    let inv = inventory::unit(&["Cs-137", "Kr-85"], 2).unwrap();
     let out = accident_release(&inv, &transient, &plant()).unwrap();
 
     assert!(
@@ -253,7 +253,7 @@ fn a_heat_cool_reheat_transient_is_flagged_as_incomparable_with_upstream() {
 /// something a reader can re-run rather than by a claim.
 ///
 /// # Methodology
-/// `CoreInventory::unit` (1 Ci per nuclide per ring, 2 rings x 3 axial nodes),
+/// `inventory::unit` (1 Ci per nuclide per ring, 2 rings x 3 axial nodes),
 /// NP-MHTGR reference geometry, accident-phase fractions 1e-4 / 1e-4,
 /// `x_liftoff` 0. Transient: 600 C to 1600 C over 1e4 s, held to 1e5 s, 51
 /// samples, uniform across all nodes. Released fraction is the total released
@@ -268,7 +268,7 @@ fn a_heat_cool_reheat_transient_is_flagged_as_incomparable_with_upstream() {
 /// This is a harness check on a shakedown inventory, **not physics V&V**.
 #[test]
 fn the_released_fractions_are_physical_and_are_reported() {
-    let inv = CoreInventory::unit(&NUCLIDES, 2, 3);
+    let inv = inventory::unit(&NUCLIDES, 2).unwrap();
     let out = accident_release(&inv, &heating_transient(51), &plant()).unwrap();
 
     println!("\nreleased fraction of a 6 Ci core inventory, per nuclide");
@@ -358,7 +358,7 @@ fn the_released_fractions_are_physical_and_are_reported() {
 #[test]
 fn nuclides_sharing_a_diffusion_bucket_release_identically() {
     let transient = heating_transient(51);
-    let inv = CoreInventory::unit(&NUCLIDES, 2, 3);
+    let inv = inventory::unit(&NUCLIDES, 2).unwrap();
     let out = accident_release(&inv, &transient, &plant().without_normal_operation_pools()).unwrap();
 
     let released = |label: &str| {
@@ -408,7 +408,7 @@ fn nuclides_sharing_a_diffusion_bucket_release_identically() {
 #[test]
 fn the_defect_pathway_carries_the_magnitude_of_the_release() {
     let transient = heating_transient(51);
-    let inv = CoreInventory::unit(&NUCLIDES, 2, 3);
+    let inv = inventory::unit(&NUCLIDES, 2).unwrap();
 
     let released = |out: &sembawang::accident::release::AccidentRelease, label: &str| {
         out.source_term
@@ -469,7 +469,7 @@ fn a_cooler_shorter_transient_does_not_differentiate_them_either() {
         3,
     )
     .unwrap();
-    let inv = CoreInventory::unit(&["Kr-85", "I-131", "Cs-137"], 2, 3);
+    let inv = inventory::unit(&["Kr-85", "I-131", "Cs-137"], 2).unwrap();
     let out = accident_release(&inv, &cool, &plant().without_normal_operation_pools()).unwrap();
 
     let released = |label: &str| {

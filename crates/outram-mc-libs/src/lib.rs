@@ -43,6 +43,11 @@ pub mod dh_universe;
 pub mod pebble_beds;
 pub mod stochastic;
 pub mod depletion;
+/// The radionuclide inventory a depletion run hands to a source-term
+/// calculation (`sembawang`), or that a caller prescribes: nuclides by
+/// Z/A/metastable state, `uom` amounts by region, the time point and who
+/// produced it (gh:#951).
+pub mod inventory;
 pub mod plotter;
 /// Beginner thermal profile: a coarse steady conduction solve on any CSG
 /// shape (outram-foam-basic-lib), from a stated power and a ballpark

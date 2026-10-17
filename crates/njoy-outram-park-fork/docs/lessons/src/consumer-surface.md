@@ -20,7 +20,7 @@ offer a caller, and how is it held together?**
 
 | module | what it is for | entry points |
 |---|---|---|
-| `interface` | the "builder" API: file → RECONR → BROADR → query, with `uom` units | `NuclearDataLibrary::from_file(path, mat)?.reconstruct(0.001)?.broaden(T)?`, then `total_xs(E)`, `elastic_xs`, `fission_xs`, `capture_xs`, `xs_for_reaction(mt, E)`; `write_ace`, `write_ace_type2`, `to_continuous_energy_data` |
+| `interface` | the "builder" API: file → RECONR → BROADR → query, with `uom` units; since 2026-10-17 (#933) each method is a thin `#[inline]` call into `process` | ~~`NuclearDataLibrary::from_file(path, mat)?`~~ `NuclearDataLibrary::from_file(path)?.reconstruct(0.001)?.broaden(T)?` (MAT read from the tape, **CORRECTED 2026-10-17**), then `total_xs(E)`, `elastic_xs`, `fission_xs`, `capture_xs`, `xs_for_reaction(mt, E)`; `write_ace`, `write_ace_type2`, `to_continuous_energy_data` |
 | `prelude` | one `use` for the common pipeline, **including the multigroup collapse** (added after an API dog-food run could not find it, gh #58) | `use njoy_outram_park_fork::prelude::*;` |
 | `nuclear_data` | what transport crates call per collision: `XsProvider` (WMP or MGXS), `MicroXs`; ν̄, χ, delayed-neutron data (`secondary`, `delayed`, `delayed_mgxs`), weighting spectra | `XsProvider::micro(E, T)`, `NuBar::from_endf`, `FissionSpectrum::from_endf_mf5` |
 | `photon` | photon production energy (MF=12/13/15), the term HEATR's energy-balance method subtracts; ENDF MT=442 | `PhotonProduction::from_endf(tape, mat, &recon)`, `eval(E, &recon)` |
@@ -45,9 +45,9 @@ offer a caller, and how is it held together?**
 | hop | function | what it does | resolved (kopitiam pass, 2026-10-04) |
 |---|---|---|---|
 | 0 | [`NuclearDataLibrary::reconstruct`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/interface.rs#@@L:crates/njoy-outram-park-fork/src/interface.rs:fn=reconstruct@@) | runs RECONR at the given tolerance | entry point |
-| 1 | `reconr::reconr` | rung 2 | kopitiam |
-| 0 | [`NuclearDataLibrary::broaden`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/interface.rs#@@L:crates/njoy-outram-park-fork/src/interface.rs:fn=broaden@@) | BROADR to T | entry point |
-| 1 | `broadr::broaden_result` → `broaden_result_with_tolerance` → `joint::broadr_joint` | rung 3 | kopitiam |
+| 1 | `reconr::reconr` (through `process::reconstruct` since 2026-10-17) | rung 2 | kopitiam |
+| 0 | [`NuclearDataLibrary::broaden`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/interface.rs#@@L:crates/njoy-outram-park-fork/src/interface.rs:fn=broaden@@) | BROADR to T (~~only~~ **CORRECTED 2026-10-17**: and PURR, HEATR, the 0 K elastic, via `process::cross_sections_at`) | entry point |
+| 1 | ~~`broadr::broaden_result` →~~ `process::cross_sections_at` → `broaden_result_with_tolerance` → `joint::broadr_joint` | rung 3 | kopitiam |
 | 0 | `total_xs(E)` etc. → `eval_lin_lin` on the section | lin-lin lookup, the only interpolation a PENDF needs | filled by hand |
 
 

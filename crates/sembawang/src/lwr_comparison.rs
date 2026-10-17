@@ -111,7 +111,7 @@ use uom::si::time::hour;
 
 use crate::accident::release::{accident_release_with_venting, Venting};
 use crate::htr10::{self, Htr10Geometry};
-use crate::inventory::{CoreInventory, NuclideInventory};
+use crate::inventory;
 use crate::scenario::TemperatureTransient;
 use crate::Error as SembawangError;
 
@@ -327,12 +327,12 @@ fn air_ingress_release_over(
     fractions: AccidentFractions,
     transient: &TemperatureTransient,
 ) -> Result<Releases, SembawangError> {
-    let kept: Vec<NuclideInventory> = htr10_equilibrium_core()
+    let kept: Vec<(&str, Vec<uom::si::f64::Radioactivity>)> = htr10_equilibrium_core()
         .iter()
         .filter(|e| find_nuclide(e.nuclide).is_some())
-        .map(|e| NuclideInventory::uniform(e.nuclide, e.activity, 1))
+        .map(|e| (e.nuclide, vec![e.activity]))
         .collect();
-    let inventory = CoreInventory::new(kept, 1, 1);
+    let inventory = inventory::prescribed(kept, 1, "Liu and Cao (2002), NED 218, 81-90, Table 1: HTR-10 equilibrium core, restricted to TRISO-ATOPS nuclides")?;
     let plant = htr10::plant_parameters(geometry, fractions);
     let out = accident_release_with_venting(&inventory, transient, &plant, &AIR_INGRESS_VENTING)?;
     let circulating = htr10_primary_helium_end_of_life();

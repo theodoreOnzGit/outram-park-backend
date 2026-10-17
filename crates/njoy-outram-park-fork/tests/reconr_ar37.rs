@@ -303,14 +303,14 @@ fn reconr_capture_peak_at_resonance() {
 
 #[test]
 fn library_from_file_and_reconstruct() {
-    let lib = NuclearDataLibrary::from_file(ar37_path(), MAT)
+    let lib = NuclearDataLibrary::from_file(ar37_path())
         .expect("from_file failed")
         .reconstruct(0.001)
         .expect("reconstruct failed");
 
     assert_eq!(lib.mat(), MAT);
     assert!(
-        (lib.za().unwrap() - 18037.0).abs() < 0.1,
+        (lib.za() - 18037.0).abs() < 0.1,
         "ZA={:?}",
         lib.za()
     );
@@ -318,7 +318,7 @@ fn library_from_file_and_reconstruct() {
 
 #[test]
 fn library_elastic_xs_uom_typed() {
-    let lib = NuclearDataLibrary::from_file(ar37_path(), MAT)
+    let lib = NuclearDataLibrary::from_file(ar37_path())
         .expect("from_file")
         .reconstruct(0.001)
         .expect("reconstruct");
@@ -337,7 +337,7 @@ fn library_elastic_xs_uom_typed() {
 #[test]
 fn library_fission_xs_is_zero() {
     // Ar-37 is non-fissile
-    let lib = NuclearDataLibrary::from_file(ar37_path(), MAT)
+    let lib = NuclearDataLibrary::from_file(ar37_path())
         .expect("from_file")
         .reconstruct(0.001)
         .expect("reconstruct");
@@ -355,7 +355,7 @@ fn library_fission_xs_is_zero() {
 fn library_broaden_records_temperature() {
     use uom::si::thermodynamic_temperature::kelvin;
 
-    let lib = NuclearDataLibrary::from_file(ar37_path(), MAT)
+    let lib = NuclearDataLibrary::from_file(ar37_path())
         .expect("from_file")
         .reconstruct(0.001)
         .expect("reconstruct")
@@ -367,7 +367,7 @@ fn library_broaden_records_temperature() {
 
 #[test]
 fn library_to_continuous_energy_data() {
-    let lib = NuclearDataLibrary::from_file(ar37_path(), MAT)
+    let lib = NuclearDataLibrary::from_file(ar37_path())
         .expect("from_file")
         .reconstruct(0.001)
         .expect("reconstruct");

@@ -31,9 +31,14 @@
 //!
 //! Before #449, the unknown names were reported as "screened out" and
 //! `cs137` failed the exact-name inventory lookup.
+//!
+//! 2026-10-17 (gh:#951, the inventory became outram-mc's
+//! `RadionuclideInventory`): still all 10 agree. A name that does not become
+//! an `Isotope` is now refused when the inventory is **built**, one that does
+//! but is not in the table by the release; the criterion (`Err`) is unchanged.
 
 use sembawang::accident::release::{accident_release, PlantParameters};
-use sembawang::inventory::CoreInventory;
+use sembawang::inventory;
 use sembawang::scenario::TemperatureTransient;
 use serde_json::Value;
 use uom::si::f64::{ThermodynamicTemperature, Time};
@@ -58,7 +63,10 @@ fn nuclide_names_are_handled_as_upstream_does() {
     let plant = PlantParameters::np_mhtgr_reference(1e-4, 1e-4, 0.0);
     let mut n = 0;
     for (name, up) in probe.as_object().unwrap() {
-        let out = accident_release(&CoreInventory::unit(&[name.as_str()], 1, 1), &transient, &plant);
+        // Since gh:#951 a name that does not parse is refused when the
+        // inventory is BUILT (it must become an Isotope); one that parses but
+        // is not in the table still fails in the release. Both are `Err`.
+        let out = inventory::unit(&[name.as_str()], 1).and_then(|inv| accident_release(&inv, &transient, &plant));
         match up["outcome"].as_str().unwrap() {
             "kept" => {
                 let canonical = up["canonical"][0].as_str().unwrap();

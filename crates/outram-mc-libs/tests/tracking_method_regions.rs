@@ -232,7 +232,7 @@ fn boron() -> Option<Vec<Nuclide>> {
     let p = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../../reference-data/endf/n-005_B_010-ENDF8.0.endf");
     p.exists().then(|| ())?;
-    Nuclide::from_endf_file(&p, "B10", 293.6, 1.0e-3)
+    Nuclide::from_endf_file(&p, "B10", uom::si::f64::ThermodynamicTemperature::new::<uom::si::thermodynamic_temperature::kelvin>(293.6), 1.0e-3)
         .ok()
         .map(|n| vec![n])
 }

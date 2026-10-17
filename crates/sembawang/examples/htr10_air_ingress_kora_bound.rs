@@ -186,7 +186,7 @@ use changi::activity::inventory::htr10_equilibrium_core;
 use changi::activity::primary_helium::htr10_primary_helium_end_of_life;
 use sembawang::accident::release::{accident_release, accident_release_with_venting, Venting};
 use sembawang::htr10::{self, Htr10Geometry};
-use sembawang::inventory::{CoreInventory, NuclideInventory};
+use sembawang::inventory::{self, RadionuclideInventory};
 use sembawang::scenario::TemperatureTransient;
 use uom::si::f64::{Length, Radioactivity, ThermodynamicTemperature, Time};
 use uom::si::length::{kilometer, meter};
@@ -279,17 +279,17 @@ fn htr10_geometry() -> Htr10Geometry {
 
 /// Liu & Cao Table 1, kept where TRISO-ATOPS supports the nuclide. Returns the
 /// inventory and the (nuclide, Bq) pairs dropped.
-fn htr10_inventory() -> (CoreInventory, Vec<(String, f64)>) {
+fn htr10_inventory() -> (RadionuclideInventory, Vec<(String, f64)>) {
     let mut kept = Vec::new();
     let mut dropped = Vec::new();
     for entry in htr10_equilibrium_core() {
         if find_nuclide(entry.nuclide).is_some() {
-            kept.push(NuclideInventory::uniform(entry.nuclide, entry.activity, N_RADIAL));
+            kept.push((entry.nuclide, vec![entry.activity; N_RADIAL]));
         } else {
             dropped.push((entry.nuclide.to_string(), entry.activity.get::<becquerel>()));
         }
     }
-    (CoreInventory::new(kept, N_RADIAL, N_AXIAL), dropped)
+    (inventory::prescribed(kept, N_RADIAL, "Liu and Cao (2002), NED 218, 81-90, Table 1").expect("the published table is valid"), dropped)
 }
 
 /// A flat `HOLD_CELSIUS` history over `DOSE_PERIOD_HOURS` (the release

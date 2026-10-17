@@ -52,7 +52,7 @@ fn ablation_removes_the_evaluated_cosine_and_nothing_else() {
     };
 
     let evaluated =
-        Nuclide::from_endf_file(&tape, "U234", TEMP_K, 1.0e-3).expect("U-234 reconstructs");
+        Nuclide::from_endf_file(&tape, "U234", uom::si::f64::ThermodynamicTemperature::new::<uom::si::thermodynamic_temperature::kelvin>(TEMP_K), 1.0e-3).expect("U-234 reconstructs");
     let ablated = evaluated.clone().with_isotropic_elastic_scattering();
 
     // 1 + 2: the control actually controls.

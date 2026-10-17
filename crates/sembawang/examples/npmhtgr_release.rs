@@ -15,7 +15,7 @@
 //! **Research and education only.** No dose quantity is computed. Every input
 //! below is prescribed, and two of them are not physical:
 //!
-//! - **Inventory:** [`CoreInventory::unit`], exactly 1 Ci of each nuclide per
+//! - **Inventory:** [`inventory::unit`], exactly 1 Ci of each nuclide per
 //!   radial ring. The released *fraction* is the meaningful output; the
 //!   absolute Bq/Ci columns scale linearly with whatever real inventory is put
 //!   in its place.
@@ -32,7 +32,7 @@
 //! example for that half.
 
 use sembawang::accident::release::{accident_release, PlantParameters};
-use sembawang::inventory::CoreInventory;
+use sembawang::inventory;
 use sembawang::scenario::TemperatureTransient;
 use uom::si::f64::{ThermodynamicTemperature, Time};
 use uom::si::radioactivity::{becquerel, curie};
@@ -54,7 +54,7 @@ const TOTAL_S: f64 = 1.0e5;
 const SAMPLES: usize = 51;
 
 fn main() {
-    let inventory = CoreInventory::unit(&NUCLIDES, N_RADIAL, N_AXIAL);
+    let inventory = inventory::unit(&NUCLIDES, N_RADIAL).expect("valid nuclide names");
     let transient = TemperatureTransient::from_ramp(
         ThermodynamicTemperature::new::<degree_celsius>(START_C),
         ThermodynamicTemperature::new::<degree_celsius>(PEAK_C),
@@ -89,10 +89,10 @@ fn main() {
     for n in &term.nuclides {
         let q = n.total_released();
         let inv_ci = inventory
-            .nuclides
+            .nuclides()
             .iter()
-            .find(|i| i.name == n.label)
-            .map_or(f64::NAN, |i| i.total().get::<curie>());
+            .find(|i| inventory::triso_atops_name(i.isotope()) == n.label)
+            .map_or(f64::NAN, |i| i.total_activity().get::<curie>());
         println!(
             "  {:<7}  {:>10.3}  {:>12.4e}  {:>12.4e}  {:>12.4e}  {:>10}",
             n.label,

@@ -352,7 +352,7 @@ fn check_mt91_transfer(case: &Mt91Case) {
     ) else {
         return;
     };
-    let nuc = Nuclide::from_endf_file(&tape_path, label, TEMP_K, 1.0e-3).expect("evaluation");
+    let nuc = Nuclide::from_endf_file(&tape_path, label, uom::si::f64::ThermodynamicTemperature::new::<uom::si::thermodynamic_temperature::kelvin>(TEMP_K), 1.0e-3).expect("evaluation");
     let law = nuc
         .continuum_law(91)
         .unwrap_or_else(|| panic!("{label} carries an MF=6 LAW=1 MT=91 emission law"));
@@ -516,7 +516,7 @@ fn mt91_offgrid_sampling_reproduces_openmcs_unit_base_construction() {
     ) else {
         return;
     };
-    let nuc = Nuclide::from_endf_file(&tape_path, "U238", TEMP_K, 1.0e-3).expect("U-238");
+    let nuc = Nuclide::from_endf_file(&tape_path, "U238", uom::si::f64::ThermodynamicTemperature::new::<uom::si::thermodynamic_temperature::kelvin>(TEMP_K), 1.0e-3).expect("U-238");
     let law = nuc.continuum_law(91).expect("U-238 MT=91 law");
     let chi = &law.branches[0].spectrum;
 

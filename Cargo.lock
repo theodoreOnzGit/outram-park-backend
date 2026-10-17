@@ -9079,6 +9079,7 @@ dependencies = [
  "boon-lay",
  "buangkok",
  "changi",
+ "outram-mc-libs",
  "serde_json",
  "tampines",
  "thiserror 2.0.18",

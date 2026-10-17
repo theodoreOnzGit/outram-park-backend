@@ -103,7 +103,7 @@ const FAST_PROBE_EV: f64 = 2.0e6;
 fn u238_dilute() -> Option<(Tape, Nuclide)> {
     let p = reference_endf_or_skip("n-092_U_238.endf", "U-238 (URR ptable control)")?;
     let tape = Tape::read_file(&p).expect("U-238 tape parses");
-    let nuc = Nuclide::from_endf_file(&p, "U238", TEMP_K, 1.0e-3)
+    let nuc = Nuclide::from_endf_file(&p, "U238", uom::si::f64::ThermodynamicTemperature::new::<uom::si::thermodynamic_temperature::kelvin>(TEMP_K), 1.0e-3)
         .expect("U-238 reconstructs")
         // Correct physics is the default (gh: the 2026-09-20 direction), so the
         // dilute arm has to say so out loud.

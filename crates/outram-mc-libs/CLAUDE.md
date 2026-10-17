@@ -749,6 +749,35 @@ Documented unit conventions (enforced by naming, not types):
 | Temperature | eV (1 eV ≈ 11604 K) |
 | Particle weight | dimensionless (1.0 = fully weighted) |
 
+**Public handoff types are `uom` (2026-10-17, gh:#951).** The raw-`f64`
+rule is for the transport loop. A type that crosses into another crate and is
+not on a hot path carries `uom` quantities, per the workspace rule: the
+beginner `model` API, `thermal_profile`, and `inventory::RadionuclideInventory`
+(activity as `Radioactivity`, atoms as `AmountOfSubstance` in `particle`s,
+time and burnup).
+
+### Radionuclide inventory: the handoff to `sembawang` (2026-10-17, gh:#951)
+
+**Maintainer decision:** the inventory type comes **from outram-mc and goes to
+sembawang**, and it is the one inventory type in the workspace.
+`src/inventory/` holds `RadionuclideInventory`: nuclides by
+`model::Isotope` (Z, A, metastable state; `zai`/`za` integers), amounts per
+region (`Regions::{WholeCore, RadialRings, Named}`), the point
+(`InventoryPoint`: step, time, burnup) and provenance (`InventorySource`:
+prescribed with a reference, or depletion with code and run).
+
+- **Not a port.** OpenMC has no single equivalent (its `deplete.Results`
+  carries atoms per material); this is new work, and says so.
+- **From depletion:** `from_burnup_step` / `from_burnup_result` turn a
+  `BurnupStep`'s densities into atoms (`N * 1e24 * V`) and activities
+  (`lambda * N`, `lambda` from the same chain). Every chain nuclide is kept,
+  stable ones at zero activity; a negative density is refused, not clipped.
+- **Dependency direction:** `sembawang -> outram-mc-libs`. **This crate must
+  never depend on `sembawang`.**
+- `sembawang` reads it in TRISO-ATOPS terms (`sembawang::inventory`), and
+  `sembawang/tests/inventory_handoff_fingerprints.rs` pins that the type change
+  moved none of its numbers.
+
 ### No HDF5 dependency in this crate
 Cross-section data is loaded externally and passed in by value or reference.
 This crate is pure algorithmic: no file I/O, no XML, no HDF5.

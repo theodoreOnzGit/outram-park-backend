@@ -356,7 +356,7 @@ fn load(name: &str, file: &str, dir: &std::path::Path, temp: f64) -> Nuclide {
     let p = dir.join(file);
     eprint!("  reconstructing {name:<6} … ");
     let t0 = std::time::Instant::now();
-    let n = Nuclide::from_endf_file(&p, name, temp, 1.0e-3)
+    let n = Nuclide::from_endf_file(&p, name, uom::si::f64::ThermodynamicTemperature::new::<uom::si::thermodynamic_temperature::kelvin>(temp), 1.0e-3)
         .unwrap_or_else(|e| panic!("from_endf_file({}): {e}", p.display()));
     eprintln!("{:.1?}", t0.elapsed());
     n

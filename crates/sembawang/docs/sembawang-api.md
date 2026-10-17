@@ -295,6 +295,11 @@ pub struct PlantParameters {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Clone**
   - ```rust
@@ -311,6 +316,7 @@ pub struct PlantParameters {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -323,6 +329,7 @@ pub struct PlantParameters {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -383,6 +390,11 @@ pub struct PlantParameters {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -449,6 +461,11 @@ nuclide-dependent.
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Clone**
   - ```rust
@@ -465,6 +482,7 @@ nuclide-dependent.
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -477,6 +495,7 @@ nuclide-dependent.
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -539,6 +558,11 @@ nuclide-dependent.
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -595,6 +619,11 @@ pub struct NormalOperation {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Clone**
   - ```rust
@@ -611,6 +640,7 @@ pub struct NormalOperation {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -623,6 +653,7 @@ pub struct NormalOperation {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -683,6 +714,11 @@ pub struct NormalOperation {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -748,6 +784,11 @@ Fields:
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Clone**
   - ```rust
@@ -764,6 +805,7 @@ Fields:
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -776,6 +818,7 @@ Fields:
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -838,6 +881,11 @@ Fields:
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -884,6 +932,11 @@ pub struct AccidentRelease {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Clone**
   - ```rust
@@ -900,6 +953,7 @@ pub struct AccidentRelease {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -912,6 +966,7 @@ pub struct AccidentRelease {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -972,6 +1027,11 @@ pub struct AccidentRelease {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -1110,6 +1170,11 @@ Fields:
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Clone**
   - ```rust
@@ -1126,6 +1191,7 @@ Fields:
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -1138,6 +1204,7 @@ Fields:
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -1198,6 +1265,11 @@ Fields:
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -1266,8 +1338,9 @@ pub fn deposition_group_of(nuclide: &boon_lay::triso_atops_fork::TrisoAtopsNucli
 Run the accident release and assemble a source term.
 
 # Arguments
-- `inventory` — the prescribed core inventory. Its `n_radial`/`n_axial` must
-  match `transient`'s.
+- `inventory` — the core inventory, prescribed or from depletion
+  ([`RadionuclideInventory`], GitHub #951). Its radial rings must match
+  `transient`'s; the axial split follows `transient`'s `n_axial`.
 - `transient` — the prescribed temperature history.
 - `plant` — geometry, failure fractions and plant constants.
 
@@ -1286,13 +1359,13 @@ upstream does. ~~(only when no nuclide survives)~~ **CORRECTED 2026-09-30
 (#449)**: unknown names were previously listed in `screened_out`;
 [`Error::TransientTooShort`] if the venting calculation has too little to
 work with; [`Error::VentingTimeNotOnAxis`] if the venting selection cannot
-be reconciled with the time axis.
-
-# Panics
-Panics if `inventory` and `transient` disagree on the node counts.
+be reconciled with the time axis; [`Error::InventoryRingMismatch`]
+(~~a panic~~ an error since GitHub #951) if the inventory and `transient`
+disagree on the radial ring count, and [`Error::InventoryNotInRings`] for
+an inventory over named regions.
 
 ```rust
-pub fn accident_release(inventory: &crate::inventory::CoreInventory, transient: &crate::scenario::TemperatureTransient, plant: &PlantParameters) -> crate::error::Result<AccidentRelease> { /* ... */ }
+pub fn accident_release(inventory: &crate::inventory::RadionuclideInventory, transient: &crate::scenario::TemperatureTransient, plant: &PlantParameters) -> crate::error::Result<AccidentRelease> { /* ... */ }
 ```
 
 #### Function `accident_release_with_venting`
@@ -1305,11 +1378,8 @@ explicitly; see [`Venting`]. [`accident_release`] is this with
 As [`accident_release`], plus [`Error::VentingLengthMismatch`] and
 [`Error::VentingFractionOutOfRange`] for a bad [`Venting::Prescribed`].
 
-# Panics
-As [`accident_release`].
-
 ```rust
-pub fn accident_release_with_venting(inventory: &crate::inventory::CoreInventory, transient: &crate::scenario::TemperatureTransient, plant: &PlantParameters, venting_mode: &Venting) -> crate::error::Result<AccidentRelease> { /* ... */ }
+pub fn accident_release_with_venting(inventory: &crate::inventory::RadionuclideInventory, transient: &crate::scenario::TemperatureTransient, plant: &PlantParameters, venting_mode: &Venting) -> crate::error::Result<AccidentRelease> { /* ... */ }
 ```
 
 #### Function `temperature_is_inside_the_fitted_range`
@@ -1512,6 +1582,11 @@ pub struct VentingWindow {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Clone**
   - ```rust
@@ -1528,6 +1603,7 @@ pub struct VentingWindow {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -1540,6 +1616,7 @@ pub struct VentingWindow {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -1600,6 +1677,11 @@ pub struct VentingWindow {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -1805,6 +1887,11 @@ pub struct GroupCurve {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Clone**
   - ```rust
@@ -1821,6 +1908,7 @@ pub struct GroupCurve {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -1833,6 +1921,7 @@ pub struct GroupCurve {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -1895,6 +1984,11 @@ pub struct GroupCurve {
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -1937,6 +2031,11 @@ pub struct TotalTed {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Clone**
   - ```rust
@@ -1953,6 +2052,7 @@ pub struct TotalTed {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -1965,6 +2065,7 @@ pub struct TotalTed {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -2025,6 +2126,11 @@ pub struct TotalTed {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -2254,6 +2360,16 @@ pub enum Error {
         value: f64,
     },
     NoVentingTransport,
+    Inventory(outram_mc_libs::inventory::InventoryError),
+    InventoryNotInRings(Vec<String>),
+    InventoryRingMismatch {
+        inventory: usize,
+        transient: usize,
+    },
+    InventoryRingOutOfRange {
+        ring: usize,
+        rings: usize,
+    },
 }
 ```
 
@@ -2335,6 +2451,53 @@ port used to return a silent 0 Bq. TRISO-ATOPS transports activity only
 by heat-up expansion, which is zero here, but a real core still leaks,
 convects and is ventilated.
 
+###### `Inventory`
+
+The inventory could not be built (empty, a ring count that disagrees,
+a negative or non-finite amount, a nuclide twice). See
+`outram_mc_libs::inventory::InventoryError` (GitHub #951).
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `outram_mc_libs::inventory::InventoryError` |  |
+
+###### `InventoryNotInRings`
+
+The inventory is over named regions (components, depletion zones), and
+this crate needs radial rings. State the mapping with
+`RadionuclideInventory::with_regions`; this crate does not guess it.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `Vec<String>` |  |
+
+###### `InventoryRingMismatch`
+
+The inventory and the temperature transient disagree on the number of
+radial rings. ~~A panic~~ An error since GitHub #951.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `inventory` | `usize` | Rings in the inventory. |
+| `transient` | `usize` | Rings in the transient. |
+
+###### `InventoryRingOutOfRange`
+
+A ring index past the inventory's last ring.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `ring` | `usize` | The ring asked for. |
+| `rings` | `usize` | Rings in the inventory. |
+
 ##### Implementations
 
 ###### Trait Implementations
@@ -2352,6 +2515,11 @@ convects and is ventilated.
 - **BorrowMut**
   - ```rust
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
     ```
 
 - **CastableFrom**
@@ -2375,12 +2543,17 @@ convects and is ventilated.
     fn fmt(self: &Self, __formatter: &mut ::core::fmt::Formatter<''_>) -> ::core::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
     ```
 
 - **Error**
+  - ```rust
+    fn source(self: &Self) -> ::core::option::Option<&dyn ::thiserror::__private18::Error + ''static> { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -2388,6 +2561,11 @@ convects and is ventilated.
     ```
     Returns the argument unchanged.
 
+  - ```rust
+    fn from(source: outram_mc_libs::inventory::InventoryError) -> Self { /* ... */ }
+    ```
+
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -2455,6 +2633,11 @@ convects and is ventilated.
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -2516,6 +2699,7 @@ pub struct Caveats {
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
+- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -2524,6 +2708,11 @@ pub struct Caveats {
 - **BorrowMut**
   - ```rust
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
     ```
 
 - **CastableFrom**
@@ -2548,6 +2737,7 @@ pub struct Caveats {
     fn default() -> Caveats { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -2570,6 +2760,7 @@ pub struct Caveats {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -2630,6 +2821,11 @@ pub struct Caveats {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -2821,6 +3017,7 @@ pub struct DlofcShape {
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
+- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -2829,6 +3026,11 @@ pub struct DlofcShape {
 - **BorrowMut**
   - ```rust
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
     ```
 
 - **CastableFrom**
@@ -2848,6 +3050,7 @@ pub struct DlofcShape {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -2860,6 +3063,7 @@ pub struct DlofcShape {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -2922,6 +3126,11 @@ pub struct DlofcShape {
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -2975,6 +3184,11 @@ pub struct PanamaOverTransient {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Clone**
   - ```rust
@@ -2991,6 +3205,7 @@ pub struct PanamaOverTransient {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -3003,6 +3218,7 @@ pub struct PanamaOverTransient {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -3065,6 +3281,11 @@ pub struct PanamaOverTransient {
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -3104,6 +3325,7 @@ pub struct Htr10Geometry {
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
+- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -3112,6 +3334,11 @@ pub struct Htr10Geometry {
 - **BorrowMut**
   - ```rust
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
     ```
 
 - **CastableFrom**
@@ -3131,6 +3358,7 @@ pub struct Htr10Geometry {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -3143,6 +3371,7 @@ pub struct Htr10Geometry {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -3203,6 +3432,11 @@ pub struct Htr10Geometry {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -3539,14 +3773,36 @@ pub const OPERATING_HISTORY_S: f64 = _;
 
 ## Module `inventory`
 
-The core radionuclide inventory, prescribed.
+The core radionuclide inventory: outram-mc's [`RadionuclideInventory`],
+read in TRISO-ATOPS's terms.
 
-# This is an INPUT, and this crate does not compute it
+# One inventory type (GitHub #951)
+
+~~This crate's own `CoreInventory` / `NuclideInventory`~~ **REPLACED
+2026-10-17 (maintainer: "Change sembawang to use RadionuclideInventory
+instead"):** the inventory is `outram_mc_libs::inventory::RadionuclideInventory`,
+the type a depletion run produces, re-exported here. What changed and what
+did not:
+
+| `CoreInventory` held | Now |
+|---|---|
+| `name: String` per nuclide, a TRISO-ATOPS spelling | an [`Isotope`] (Z, A, metastable state). [`prescribed`] parses names through upstream's own normaliser, so `cs137` is still accepted; [`triso_atops_name`] spells it back (`Ag-110m`) |
+| `per_ring: Vec<Radioactivity>` | one [`Amount`] per region, whose activity is the same `Radioactivity` value, untouched |
+| `n_radial` | [`Regions::RadialRings`]; [`Regions::WholeCore`] reads as one ring |
+| `n_axial` | **dropped**: it duplicated the temperature transient's `n_axial`, which is what the axial split has always used. The axial split itself is still upstream's `distribute_inventory_axially`, in [`axial_curies`] |
+
+So every number this crate produced before the change is reproduced bit
+for bit (`tests/inventory_handoff_fingerprints.rs`). A non-canonical
+spelling now comes back canonical in `AccidentRelease::screened_out`
+(`cs137` is reported as `Cs-137`).
+
+# A prescribed inventory is still an INPUT, and this crate does not compute it
 
 Nothing here derives an inventory from power history, burnup or fission
-yields. It is supplied by the caller, and the reason is worth stating
-because the obvious shortcut is wrong in a way that does not announce
-itself:
+yields. A caller prescribes one ([`prescribed`], [`unit()`]) or hands over
+one a depletion code produced (`RadionuclideInventory::from_burnup_step`
+in outram-mc, then [`restrict_to_triso_atops`]). The reason the obvious
+shortcut is wrong is worth keeping, because it does not announce itself:
 
 **Do not build one from `fission-yields-data`.** That crate exposes
 **independent** fission yields — the yield *directly* from fission, before
@@ -3556,319 +3812,198 @@ magnitude** below its cumulative yield, because Cs-137 is reached down the
 A = 137 isobaric chain (Xe-137 to Cs-137) rather than produced directly.
 Using independent yields naively gives a silently ~100x low inventory for
 most consequence-dominant species — low, so it looks reassuring, and with
-no error anywhere.
-
-Getting a cumulative yield right needs a decay-chain walk over the
-evaluation. That is real work and is deliberately out of scope here.
+no error anywhere. A depletion run that walks the decay chain does not
+have this problem; that is the outram-mc path.
 
 # Radial and axial distribution
 
-An inventory is given **per radial ring**, and spread over the axial nodes
-by `boon-lay`'s `distribute_inventory_axially`, which is upstream's own
-distribution. This crate does not invent a shape.
+An inventory is given **per radial ring**, innermost first, and spread over
+the axial nodes by `boon-lay`'s `distribute_inventory_axially`, which is
+upstream's own distribution. This crate does not invent a shape. An
+inventory over **named** regions (components, depletion zones) is refused
+until the caller states the ring mapping with
+`RadionuclideInventory::with_regions`.
 
 ```rust
 pub mod inventory { /* ... */ }
 ```
 
-### Types
+### Functions
 
-#### Struct `NuclideInventory`
+#### Function `triso_atops_name`
 
-One nuclide's core inventory, before the accident starts.
+**Attributes:**
 
-```rust
-pub struct NuclideInventory {
-    pub name: String,
-    pub per_ring: Vec<uom::si::f64::Radioactivity>,
-}
-```
+- `MustUse { reason: None }`
 
-##### Fields
-
-| Name | Type | Documentation |
-|------|------|---------------|
-| `name` | `String` | TRISO-ATOPS nuclide name, e.g. `"Cs-137"`. Must be one of the 84 in<br>`boon_lay::triso_atops_fork::nuclide_model::nuclide_database`. |
-| `per_ring` | `Vec<uom::si::f64::Radioactivity>` | Activity in each radial ring, innermost first. Length sets `n_radial`. |
-
-##### Implementations
-
-###### Methods
-
-- ```rust
-  pub fn uniform(name: &str, per_ring: Radioactivity, n_radial: usize) -> Self { /* ... */ }
-  ```
-  Every ring carrying the same activity.
-
-- ```rust
-  pub fn total(self: &Self) -> Radioactivity { /* ... */ }
-  ```
-  This nuclide's total across every ring.
-
-- ```rust
-  pub fn axial_curies(self: &Self, ring: usize, n_axial: usize) -> Vec<f64> { /* ... */ }
-  ```
-  This nuclide's inventory in one ring, spread over the axial nodes.
-
-###### Trait Implementations
-
-- **Any**
-  - ```rust
-    fn type_id(self: &Self) -> TypeId { /* ... */ }
-    ```
-
-- **Borrow**
-  - ```rust
-    fn borrow(self: &Self) -> &T { /* ... */ }
-    ```
-
-- **BorrowMut**
-  - ```rust
-    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
-    ```
-
-- **CastableFrom**
-- **Clone**
-  - ```rust
-    fn clone(self: &Self) -> NuclideInventory { /* ... */ }
-    ```
-
-- **CloneToUninit**
-  - ```rust
-    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
-    ```
-
-- **Debug**
-  - ```rust
-    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
-    ```
-
-- **Downcast**
-  - ```rust
-    fn downcast(self: &Self) -> &T { /* ... */ }
-    ```
-
-- **Freeze**
-- **From**
-  - ```rust
-    fn from(t: T) -> T { /* ... */ }
-    ```
-    Returns the argument unchanged.
-
-- **Into**
-  - ```rust
-    fn into(self: Self) -> U { /* ... */ }
-    ```
-    Calls `U::from(self)`.
-
-- **IntoEither**
-- **PartialEq**
-  - ```rust
-    fn eq(self: &Self, other: &NuclideInventory) -> bool { /* ... */ }
-    ```
-
-- **Pointable**
-  - ```rust
-    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn drop(ptr: usize) { /* ... */ }
-    ```
-
-- **Read**
-- **RefUnwindSafe**
-- **Same**
-- **Send**
-- **StructuralPartialEq**
-- **Sync**
-- **ToOwned**
-  - ```rust
-    fn to_owned(self: &Self) -> T { /* ... */ }
-    ```
-
-  - ```rust
-    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
-    ```
-
-- **TryFrom**
-  - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
-    ```
-
-- **TryInto**
-  - ```rust
-    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
-    ```
-
-- **Unpin**
-- **UnsafeUnpin**
-- **UnwindSafe**
-- **Upcast**
-  - ```rust
-    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **WasmNotSend**
-- **WasmNotSendSync**
-- **WasmNotSync**
-#### Struct `CoreInventory`
-
-The whole core's inventory: every nuclide, resolved by radial ring.
+The TRISO-ATOPS spelling of `isotope`: `Cs-137`, `Ag-110m` (first isomer
+`m`). A second or higher isomer is spelled `m2`, ...; no TRISO-ATOPS
+nuclide is one and upstream's name parser does not accept that spelling,
+so such a nuclide is refused by the release as unknown (reported, never
+dropped).
 
 ```rust
-pub struct CoreInventory {
-    pub nuclides: Vec<NuclideInventory>,
-    pub n_radial: usize,
-    pub n_axial: usize,
-}
+pub fn triso_atops_name(isotope: Isotope) -> String { /* ... */ }
 ```
 
-##### Fields
+#### Function `isotope_from_triso_atops_name`
 
-| Name | Type | Documentation |
-|------|------|---------------|
-| `nuclides` | `Vec<NuclideInventory>` | One entry per nuclide. |
-| `n_radial` | `usize` | Number of radial rings. Every nuclide must supply this many. |
-| `n_axial` | `usize` | Number of axial nodes each ring is split into. |
+Parse a nuclide name the way upstream's `nuclide_import_accident` does
+(`cs137`, `CS-137` and `Cs-137` are one nuclide), into an [`Isotope`].
 
-##### Implementations
+# Errors
+[`Error::UnknownNuclide`] when the name does not parse or names no nuclide.
 
-###### Methods
+```rust
+pub fn isotope_from_triso_atops_name(name: &str) -> crate::error::Result<Isotope> { /* ... */ }
+```
 
-- ```rust
-  pub fn new(nuclides: Vec<NuclideInventory>, n_radial: usize, n_axial: usize) -> Self { /* ... */ }
-  ```
-  Build and validate.
+#### Function `prescribed`
 
-- ```rust
-  pub fn unit(names: &[&str], n_radial: usize, n_axial: usize) -> Self { /* ... */ }
-  ```
-  **A shakedown inventory: exactly one curie of each nuclide, per ring.**
+**A prescribed inventory**: activity per radial ring, innermost first, by
+nuclide name, in the given order (a parent must precede its daughter for
+the normal-operation solve to see its pools). `reference` says where the
+numbers come from.
 
-- ```rust
-  pub fn names(self: &Self) -> Vec<&str> { /* ... */ }
-  ```
-  The nuclide names, in order, for handing to
+# Errors
+[`Error::UnknownNuclide`] for a name that does not parse, and
+[`Error::Inventory`] for an empty list, a ring count that disagrees with
+`n_radial`, a negative or non-finite activity, or a nuclide given twice.
 
-###### Trait Implementations
+```rust
+pub fn prescribed<S: AsRef<str>>(entries: Vec<(S, Vec<uom::si::f64::Radioactivity>)>, n_radial: usize, reference: &str) -> crate::error::Result<RadionuclideInventory> { /* ... */ }
+```
 
-- **Any**
-  - ```rust
-    fn type_id(self: &Self) -> TypeId { /* ... */ }
-    ```
+#### Function `unit`
 
-- **Borrow**
-  - ```rust
-    fn borrow(self: &Self) -> &T { /* ... */ }
-    ```
+**A shakedown inventory: exactly one curie of each nuclide, per ring.**
 
-- **BorrowMut**
-  - ```rust
-    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
-    ```
+Not a physical inventory and not intended to be one. It exists so the
+chain can be run and its *shape* checked — the arithmetic is linear in
+the inventory, so a run with this and a run with a real one differ only
+by a per-nuclide scale factor. Anything reported from it is a
+demonstration, never a result.
 
-- **CastableFrom**
-- **Clone**
-  - ```rust
-    fn clone(self: &Self) -> CoreInventory { /* ... */ }
-    ```
+Use it to answer "does the plumbing work", never "how much comes out".
 
-- **CloneToUninit**
-  - ```rust
-    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
-    ```
+# Errors
+As [`prescribed`].
 
-- **Debug**
-  - ```rust
-    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
-    ```
+```rust
+pub fn unit(names: &[&str], n_radial: usize) -> crate::error::Result<RadionuclideInventory> { /* ... */ }
+```
 
-- **Downcast**
-  - ```rust
-    fn downcast(self: &Self) -> &T { /* ... */ }
-    ```
+#### Function `n_rings`
 
-- **Freeze**
-- **From**
-  - ```rust
-    fn from(t: T) -> T { /* ... */ }
-    ```
-    Returns the argument unchanged.
+The number of radial rings `inventory` is resolved into.
 
-- **Into**
-  - ```rust
-    fn into(self: Self) -> U { /* ... */ }
-    ```
-    Calls `U::from(self)`.
+# Errors
+[`Error::InventoryNotInRings`] for [`Regions::Named`]: which ring a
+component is in is the caller's statement to make
+(`RadionuclideInventory::with_regions`), not this crate's guess.
 
-- **IntoEither**
-- **PartialEq**
-  - ```rust
-    fn eq(self: &Self, other: &CoreInventory) -> bool { /* ... */ }
-    ```
+```rust
+pub fn n_rings(inventory: &RadionuclideInventory) -> crate::error::Result<usize> { /* ... */ }
+```
 
-- **Pointable**
-  - ```rust
-    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
-    ```
+#### Function `names`
 
-  - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
-    ```
+**Attributes:**
 
-  - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
-    ```
+- `MustUse { reason: None }`
 
-  - ```rust
-    unsafe fn drop(ptr: usize) { /* ... */ }
-    ```
+The TRISO-ATOPS names of every nuclide, in order, for handing to
+`select_nuclides_accident`.
 
-- **Read**
-- **RefUnwindSafe**
-- **Same**
-- **Send**
-- **StructuralPartialEq**
-- **Sync**
-- **ToOwned**
-  - ```rust
-    fn to_owned(self: &Self) -> T { /* ... */ }
-    ```
+```rust
+pub fn names(inventory: &RadionuclideInventory) -> Vec<String> { /* ... */ }
+```
 
-  - ```rust
-    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
-    ```
+#### Function `axial_curies`
 
-- **TryFrom**
-  - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
-    ```
+One nuclide's inventory in one ring, spread over `n_axial` nodes.
 
-- **TryInto**
-  - ```rust
-    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
-    ```
+Delegates to upstream's `distribute_inventory_axially`; the returned
+values are in **curies**, which is the unit TRISO-ATOPS works in
+internally.
 
-- **Unpin**
-- **UnsafeUnpin**
-- **UnwindSafe**
-- **Upcast**
-  - ```rust
-    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
+# Errors
+[`Error::InventoryRingOutOfRange`] if `ring` is past the last region.
 
-- **WasmNotSend**
-- **WasmNotSendSync**
-- **WasmNotSync**
+```rust
+pub fn axial_curies(entry: &NuclideEntry, ring: usize, n_axial: usize) -> crate::error::Result<Vec<f64>> { /* ... */ }
+```
+
+#### Function `restrict_to_triso_atops`
+
+Keep the nuclides TRISO-ATOPS models (its 84-entry table), in order, and
+**report** the rest rather than dropping them silently: the path for an
+inventory from depletion, which carries every chain nuclide, stable ones
+included.
+
+# Errors
+[`Error::Inventory`] if no nuclide is left.
+
+```rust
+pub fn restrict_to_triso_atops(inventory: &RadionuclideInventory) -> crate::error::Result<(RadionuclideInventory, Vec<Isotope>)> { /* ... */ }
+```
+
+### Re-exports
+
+#### Re-export `zai`
+
+```rust
+pub use outram_mc_libs::inventory::zai;
+```
+
+#### Re-export `Amount`
+
+```rust
+pub use outram_mc_libs::inventory::Amount;
+```
+
+#### Re-export `InventoryError`
+
+```rust
+pub use outram_mc_libs::inventory::InventoryError;
+```
+
+#### Re-export `InventoryPoint`
+
+```rust
+pub use outram_mc_libs::inventory::InventoryPoint;
+```
+
+#### Re-export `InventorySource`
+
+```rust
+pub use outram_mc_libs::inventory::InventorySource;
+```
+
+#### Re-export `NuclideEntry`
+
+```rust
+pub use outram_mc_libs::inventory::NuclideEntry;
+```
+
+#### Re-export `RadionuclideInventory`
+
+```rust
+pub use outram_mc_libs::inventory::RadionuclideInventory;
+```
+
+#### Re-export `Regions`
+
+```rust
+pub use outram_mc_libs::inventory::Regions;
+```
+
+#### Re-export `Isotope`
+
+```rust
+pub use outram_mc_libs::model::Isotope;
+```
+
 ## Module `lwr_comparison`
 
 # HTR-10 against an equivalent-power LWR (GitHub #450, #452, #453, #464)
@@ -4102,6 +4237,11 @@ pub struct HeatingTest {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Clone**
   - ```rust
@@ -4118,6 +4258,7 @@ pub struct HeatingTest {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -4130,6 +4271,7 @@ pub struct HeatingTest {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -4190,6 +4332,11 @@ pub struct HeatingTest {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -4344,6 +4491,7 @@ All four phases (gap, early in-vessel, ex-vessel, late in-vessel).
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
+- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -4352,6 +4500,11 @@ All four phases (gap, early in-vessel, ex-vessel, late in-vessel).
 - **BorrowMut**
   - ```rust
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
     ```
 
 - **CastableFrom**
@@ -4371,6 +4524,7 @@ All four phases (gap, early in-vessel, ex-vessel, late in-vessel).
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -4393,6 +4547,7 @@ All four phases (gap, early in-vessel, ex-vessel, late in-vessel).
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -4455,6 +4610,11 @@ All four phases (gap, early in-vessel, ex-vessel, late in-vessel).
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -4495,6 +4655,11 @@ pub struct Leakage {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Clone**
   - ```rust
@@ -4511,6 +4676,7 @@ pub struct Leakage {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -4523,6 +4689,7 @@ pub struct Leakage {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -4579,6 +4746,11 @@ pub struct Leakage {
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -4613,6 +4785,7 @@ pub struct ReleasePhase {
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
+- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -4621,6 +4794,11 @@ pub struct ReleasePhase {
 - **BorrowMut**
   - ```rust
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
     ```
 
 - **CastableFrom**
@@ -4640,6 +4818,7 @@ pub struct ReleasePhase {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -4652,6 +4831,7 @@ pub struct ReleasePhase {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -4714,6 +4894,11 @@ pub struct ReleasePhase {
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -4753,6 +4938,7 @@ pub struct NaturalDeposition {
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
+- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -4761,6 +4947,11 @@ pub struct NaturalDeposition {
 - **BorrowMut**
   - ```rust
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
     ```
 
 - **CastableFrom**
@@ -4780,6 +4971,7 @@ pub struct NaturalDeposition {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -4792,6 +4984,7 @@ pub struct NaturalDeposition {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -4854,6 +5047,11 @@ pub struct NaturalDeposition {
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -4898,6 +5096,11 @@ pub struct LwrContainedRelease {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Clone**
   - ```rust
@@ -4914,6 +5117,7 @@ pub struct LwrContainedRelease {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -4926,6 +5130,7 @@ pub struct LwrContainedRelease {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -4986,6 +5191,11 @@ pub struct LwrContainedRelease {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -5066,6 +5276,7 @@ Everything else (noble metals, lanthanides, cerium, Mo).
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
+- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -5074,6 +5285,11 @@ Everything else (noble metals, lanthanides, cerium, Mo).
 - **BorrowMut**
   - ```rust
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
     ```
 
 - **CastableFrom**
@@ -5093,6 +5309,7 @@ Everything else (noble metals, lanthanides, cerium, Mo).
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -5115,6 +5332,7 @@ Everything else (noble metals, lanthanides, cerium, Mo).
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -5177,6 +5395,11 @@ Everything else (noble metals, lanthanides, cerium, Mo).
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -5229,6 +5452,11 @@ pub struct DoseAssumptions {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Clone**
   - ```rust
@@ -5246,6 +5474,7 @@ pub struct DoseAssumptions {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -5258,6 +5487,7 @@ pub struct DoseAssumptions {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -5312,6 +5542,11 @@ pub struct DoseAssumptions {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -5360,6 +5595,11 @@ pub struct Dose {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Clone**
   - ```rust
@@ -5376,6 +5616,7 @@ pub struct Dose {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -5388,6 +5629,7 @@ pub struct Dose {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -5444,6 +5686,11 @@ pub struct Dose {
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -5489,6 +5736,11 @@ pub struct Table9Check {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Clone**
   - ```rust
@@ -5505,6 +5757,7 @@ pub struct Table9Check {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -5517,6 +5770,7 @@ pub struct Table9Check {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -5579,6 +5833,11 @@ pub struct Table9Check {
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -5627,6 +5886,7 @@ WASH-1400 PWR 8: context only.
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
+- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -5635,6 +5895,11 @@ WASH-1400 PWR 8: context only.
 - **BorrowMut**
   - ```rust
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
     ```
 
 - **CastableFrom**
@@ -5654,6 +5919,7 @@ WASH-1400 PWR 8: context only.
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -5676,6 +5942,7 @@ WASH-1400 PWR 8: context only.
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -5738,6 +6005,11 @@ WASH-1400 PWR 8: context only.
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -5770,6 +6042,7 @@ pub struct ArmColumn {
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
+- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -5778,6 +6051,11 @@ pub struct ArmColumn {
 - **BorrowMut**
   - ```rust
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
     ```
 
 - **CastableFrom**
@@ -5797,6 +6075,7 @@ pub struct ArmColumn {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -5819,6 +6098,7 @@ pub struct ArmColumn {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -5879,6 +6159,11 @@ pub struct ArmColumn {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -5953,6 +6238,11 @@ pub struct ComparisonRow {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Clone**
   - ```rust
@@ -5969,6 +6259,7 @@ pub struct ComparisonRow {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -5981,6 +6272,7 @@ pub struct ComparisonRow {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -6043,6 +6335,11 @@ pub struct ComparisonRow {
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -6081,6 +6378,7 @@ pub struct IncompleteShares {
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
+- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -6089,6 +6387,11 @@ pub struct IncompleteShares {
 - **BorrowMut**
   - ```rust
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
     ```
 
 - **CastableFrom**
@@ -6108,6 +6411,7 @@ pub struct IncompleteShares {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -6120,6 +6424,7 @@ pub struct IncompleteShares {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -6182,6 +6487,11 @@ pub struct IncompleteShares {
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -6223,6 +6533,11 @@ pub struct BoundingComparison {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Clone**
   - ```rust
@@ -6239,6 +6554,7 @@ pub struct BoundingComparison {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -6251,6 +6567,7 @@ pub struct BoundingComparison {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -6311,6 +6628,11 @@ pub struct BoundingComparison {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -6821,6 +7143,11 @@ pub struct TemperatureTransient {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Clone**
   - ```rust
@@ -6837,6 +7164,7 @@ pub struct TemperatureTransient {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -6849,6 +7177,7 @@ pub struct TemperatureTransient {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -6909,6 +7238,11 @@ pub struct TemperatureTransient {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**

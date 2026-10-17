@@ -42,7 +42,7 @@ fn nuclide(file: &str, name: &str) -> Option<Nuclide> {
         file,
         &format!("{name} (delayed-group sampling)"),
     )?;
-    Some(Nuclide::from_endf_file(&p, name, TEMP, 5.0e-3).expect("reconstructs"))
+    Some(Nuclide::from_endf_file(&p, name, uom::si::f64::ThermodynamicTemperature::new::<uom::si::thermodynamic_temperature::kelvin>(TEMP), 5.0e-3).expect("reconstructs"))
 }
 
 /// **The delayed fraction the sampler realises is the evaluation's own

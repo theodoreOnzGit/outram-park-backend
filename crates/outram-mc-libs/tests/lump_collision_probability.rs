@@ -310,7 +310,7 @@ fn nuclide_or_skip(name: &str, file: &str) -> Option<outram_mc_libs::prelude::Nu
         println!("[{name}] SKIP: {file} not in reference-data/endf/ (set OUTRAM_PARK_ENDF_DIR)");
         return None;
     };
-    match Nuclide::from_endf_file(&path, name, TEMP_K, 1.0e-3) {
+    match Nuclide::from_endf_file(&path, name, uom::si::f64::ThermodynamicTemperature::new::<uom::si::thermodynamic_temperature::kelvin>(TEMP_K), 1.0e-3) {
         Ok(n) => Some(n),
         Err(e) => {
             println!("[{name}] SKIP: reconstruction failed: {e}");

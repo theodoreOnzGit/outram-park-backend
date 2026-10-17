@@ -737,6 +737,17 @@ HEATR, THERMR 0.001 with 16 cosines, `natom`/`emax` from the law's
   H-in-H₂O deck cut to 293.6 K with H-1 is NJOY2016's
   `leapr → reconr → broadr → thermr → acer` table in every word (deck and
   table in `reference-data/acer/thermal_decks/`).
+- **2026-10-17 (epic #925):** `NuclearCrossSections::elastic_0k` carries the
+  0 K elastic DBRC needs, on by default (`without_elastic_0k` ablates; #928).
+  `cross_sections` is `reconstruct` (RECONR, 0 K) + `cross_sections_at`
+  (BROADR, PURR, HEATR), so one RECONR serves many temperatures
+  (`cross_sections_at_temperatures`, #934). `interface::NuclearDataLibrary`
+  is the OOP shell over these: each method a thin `#[inline]` call into
+  `process`, pinned bit for bit by `tests/nuclear_data_library_is_process.rs`
+  (#933); MAT, ZA and AWR come from the tape, and `write_pendf` writes the
+  pointwise PENDF content. `write_ace_library` builds its fast tables this
+  way, byte for byte the old library (#930). `tests/wasm_process_runtime.rs`
+  gives the native fingerprint under wasm32-wasip1.
 - **Fixed on the way:** `run_deck` wrote a cold H₂/D₂ deck as a symmetric law
   (`isym = isabt`, `coldh`'s positive half dropped); it now builds `isym` as
   `generate_tape` does and matches NJOY's test-22 tape

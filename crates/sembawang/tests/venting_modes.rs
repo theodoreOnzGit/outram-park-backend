@@ -31,7 +31,7 @@ use sembawang::accident::release::{
 };
 use sembawang::error::Error;
 use uom::si::time::hour;
-use sembawang::inventory::CoreInventory;
+use sembawang::inventory::{self, RadionuclideInventory};
 use sembawang::scenario::TemperatureTransient;
 use uom::si::f64::{ThermodynamicTemperature, Time};
 use uom::si::radioactivity::becquerel;
@@ -50,8 +50,8 @@ fn plant() -> PlantParameters {
     PlantParameters::np_mhtgr_reference(1.0e-4, 1.0e-4, 0.0)
 }
 
-fn inventory() -> CoreInventory {
-    CoreInventory::unit(&NUCLIDES, 1, 1)
+fn inventory() -> RadionuclideInventory {
+    inventory::unit(&NUCLIDES, 1).unwrap()
 }
 
 /// 1400 °C everywhere, for 1e5 s.
@@ -178,7 +178,7 @@ fn a_non_uniform_isothermal_field_is_an_error_not_a_silent_zero() {
     // Two axial nodes held at different constant temperatures.
     let field = vec![vec![vec![c(1400.0), c(900.0)]; SAMPLES]];
     let t = TemperatureTransient::from_nodes(times, field).unwrap();
-    let inv = CoreInventory::unit(&NUCLIDES, 1, 2);
+    let inv = inventory::unit(&NUCLIDES, 1).unwrap();
     let out = accident_release(&inv, &t, &plant());
     assert_eq!(out.unwrap_err(), Error::NoVentingTransport);
     // An explicit transport works on the same field.

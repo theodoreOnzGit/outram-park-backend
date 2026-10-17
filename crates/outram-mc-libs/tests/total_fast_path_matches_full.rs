@@ -86,7 +86,7 @@ fn u235_fast_total_matches_the_full_evaluation() {
         eprintln!("SKIP u235_fast_total: reference tape absent");
         return;
     };
-    let n = Nuclide::from_endf_file(&p, "U235", TEMP_K, 1.0e-3).expect("U235");
+    let n = Nuclide::from_endf_file(&p, "U235", uom::si::f64::ThermodynamicTemperature::new::<uom::si::thermodynamic_temperature::kelvin>(TEMP_K), 1.0e-3).expect("U235");
     check(&n, "U235");
 }
 
@@ -97,7 +97,7 @@ fn u238_fast_total_matches_the_full_evaluation() {
         eprintln!("SKIP u238_fast_total: reference tape absent");
         return;
     };
-    let n = Nuclide::from_endf_file(&p, "U238", TEMP_K, 1.0e-3).expect("U238");
+    let n = Nuclide::from_endf_file(&p, "U238", uom::si::f64::ThermodynamicTemperature::new::<uom::si::thermodynamic_temperature::kelvin>(TEMP_K), 1.0e-3).expect("U238");
     check(&n, "U238");
 }
 
@@ -110,7 +110,7 @@ fn h1_with_thermal_scattering_matches_through_the_sab_cutoff() {
         eprintln!("SKIP h1_fast_total: reference tape absent");
         return;
     };
-    let plain = Nuclide::from_endf_file(&p, "H1", TEMP_K, 1.0e-3).expect("H1");
+    let plain = Nuclide::from_endf_file(&p, "H1", uom::si::f64::ThermodynamicTemperature::new::<uom::si::thermodynamic_temperature::kelvin>(TEMP_K), 1.0e-3).expect("H1");
     check(&plain, "H1 (free gas)");
 
     // And again with the bound-atom law attached, which is how LCT-008 and

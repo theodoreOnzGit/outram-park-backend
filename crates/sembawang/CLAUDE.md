@@ -46,3 +46,27 @@ against `openmc --plot`
 `render_material_slice` draws a material-coloured slice with a legend and cm
 axes in one call; `crates/nee_soon/examples/htr10_geometry_images.rs` is the
 worked example. For meshes, plot the mesh itself (cells, patches, zones).
+
+## The inventory is outram-mc's `RadionuclideInventory` (2026-10-17, GitHub #951)
+
+**Maintainer direction:** "Change sembawang to use RadionuclideInventory
+instead." There is one inventory type in the workspace,
+`outram_mc_libs::inventory::RadionuclideInventory`, re-exported from
+`sembawang::inventory`; this crate's own `CoreInventory` / `NuclideInventory`
+are gone.
+
+- **Build one** with `inventory::prescribed(entries, n_radial, reference)`
+  (published tables; names parsed through upstream's normaliser) or
+  `inventory::unit(names, n_radial)` (the 1 Ci shakedown). From depletion:
+  `RadionuclideInventory::from_burnup_step` in outram-mc, then
+  `inventory::restrict_to_triso_atops`, which **reports** the nuclides
+  TRISO-ATOPS does not model.
+- **Rings, not components.** The release needs radial rings
+  (`Regions::RadialRings`, or `WholeCore` as one ring). An inventory over named
+  regions is an error until the caller maps it with `with_regions`.
+- **No axial count on the inventory.** The axial split uses the transient's
+  `n_axial`, as it always did.
+- **Bit-identity gate:** `tests/inventory_handoff_fingerprints.rs` (pins
+  printed on the pre-change code). Any later change to the inventory path must
+  keep it passing or record why it moved.
+- **Dependency:** `sembawang -> outram-mc-libs`, never the reverse.

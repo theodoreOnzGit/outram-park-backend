@@ -150,7 +150,7 @@ fn multiplicity_closes_the_infinite_medium_eigenvalue() {
         Nuclide::from_core("U234").expect("U234"),
         Nuclide::from_core("U235").expect("U235"),
         Nuclide::from_core("U238").expect("U238"),
-        Nuclide::from_endf_file(&be9, "Be9", 293.6, 1.0e-3).expect("Be-9 processes"),
+        Nuclide::from_endf_file(&be9, "Be9", uom::si::f64::ThermodynamicTemperature::new::<uom::si::thermodynamic_temperature::kelvin>(293.6), 1.0e-3).expect("Be-9 processes"),
     ];
     let comp = |i: usize, n: f64| NuclideComponent {
         nuclide_idx: i,

@@ -207,10 +207,10 @@ fn measured_xi_matches_analytic_for_h1_and_o16() {
         "lowest probe {} eV is not well above the S(a,b) cutoff {cutoff} eV",
         PROBE_EV[0]
     );
-    let h1 = Nuclide::from_endf_file(&h_path, "H1", TEMP_K, 1.0e-3)
+    let h1 = Nuclide::from_endf_file(&h_path, "H1", uom::si::f64::ThermodynamicTemperature::new::<uom::si::thermodynamic_temperature::kelvin>(TEMP_K), 1.0e-3)
         .expect("H-1 reconstructs")
         .with_thermal_scattering(sab);
-    let o16 = Nuclide::from_endf_file(&o_path, "O16", TEMP_K, 1.0e-3).expect("O-16 reconstructs");
+    let o16 = Nuclide::from_endf_file(&o_path, "O16", uom::si::f64::ThermodynamicTemperature::new::<uom::si::thermodynamic_temperature::kelvin>(TEMP_K), 1.0e-3).expect("O-16 reconstructs");
     assert!(h1.has_dbrc() && o16.has_dbrc(), "the ordinary constructor attaches DBRC");
     let h1_no_dbrc = h1.clone().without_dbrc();
     let kt = h1.free_gas_kt(TEMP_K);

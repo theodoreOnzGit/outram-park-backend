@@ -64,8 +64,6 @@ use uom::si::energy::electronvolt;
 use uom::si::f64::{Energy, ThermodynamicTemperature};
 use uom::si::thermodynamic_temperature::kelvin;
 
-/// ENDF material number for U-238 (ENDF/B-VIII.0).
-const U238_MAT: i32 = 9237;
 /// RECONR reconstruction tolerance (NJOY default 0.1%).
 const RECONR_TOL: f64 = 0.001;
 /// Upper energy [eV] of U-238's resolved resonance region (LRF=3). The hard
@@ -114,9 +112,16 @@ fn read_reference(temp_k: u32) -> Vec<(f64, f64)> {
 }
 
 /// Reconstruct U-238 from ENDF and Doppler-broaden to `temp_k` [K].
+///
+/// PURR and HEATR are ablated: since GitHub #933 `broaden` runs them by
+/// default, and they only add tables beside the PENDF sections (they do not
+/// change MT=102, the one section this test reads). Running PURR on U-238 at
+/// every temperature would add ~45 s each for nothing this test checks.
 fn rust_broadened(temp_k: f64) -> NuclearDataLibrary {
-    NuclearDataLibrary::from_file(endf_path(), U238_MAT)
+    NuclearDataLibrary::from_file(endf_path())
         .expect("load U-238 ENDF")
+        .without_purr()
+        .without_heatr()
         .reconstruct(RECONR_TOL)
         .expect("RECONR U-238")
         .broaden(ThermodynamicTemperature::new::<kelvin>(temp_k))
@@ -131,7 +136,7 @@ fn rust_broadened(temp_k: f64) -> NuclearDataLibrary {
 #[test]
 fn capture_pipeline_is_physical() {
     let ev = |e: f64| Energy::new::<electronvolt>(e);
-    let lib0 = NuclearDataLibrary::from_file(endf_path(), U238_MAT)
+    let lib0 = NuclearDataLibrary::from_file(endf_path())
         .expect("load")
         .reconstruct(RECONR_TOL)
         .expect("RECONR");

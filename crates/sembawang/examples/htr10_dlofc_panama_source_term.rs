@@ -48,7 +48,7 @@ use sembawang::htr10::{
     DLOFC_TABLE_44_NOMINAL_CELSIUS, DLOFC_TIME_TO_PEAK_HOURS, REPORTING_WINDOW_HOURS,
     STAND_IN_IRRADIATION_CELSIUS,
 };
-use sembawang::inventory::{CoreInventory, NuclideInventory};
+use sembawang::inventory::{self, RadionuclideInventory};
 use uom::si::f64::{ThermodynamicTemperature, Time};
 use uom::si::radioactivity::becquerel;
 use uom::si::thermodynamic_temperature::degree_celsius;
@@ -83,22 +83,18 @@ fn htr10_geometry() -> Htr10Geometry {
 
 /// The published HTR-10 inventory, restricted to the nuclides TRISO-ATOPS
 /// models. Returns the inventory and the names it had to drop.
-fn htr10_inventory() -> (CoreInventory, Vec<(String, f64)>) {
+fn htr10_inventory() -> (RadionuclideInventory, Vec<(String, f64)>) {
     let mut kept = Vec::new();
     let mut dropped = Vec::new();
     for entry in htr10_equilibrium_core() {
         let bq = entry.activity.get::<becquerel>();
         if find_nuclide(entry.nuclide).is_some() {
-            kept.push(NuclideInventory::uniform(
-                entry.nuclide,
-                entry.activity,
-                N_RADIAL,
-            ));
+            kept.push((entry.nuclide, vec![entry.activity; N_RADIAL]));
         } else {
             dropped.push((entry.nuclide.to_string(), bq));
         }
     }
-    (CoreInventory::new(kept, N_RADIAL, N_AXIAL), dropped)
+    (inventory::prescribed(kept, N_RADIAL, "Liu and Cao (2002), NED 218, 81-90, Table 1").expect("the published table is valid"), dropped)
 }
 
 /// Total released activity per nuclide \[Bq\], summed over the release windows.
@@ -198,7 +194,7 @@ fn main() {
     println!("-- INVENTORY ---------------------------------------------------");
     println!(
         "  {} of 22 published nuclides are modelled by TRISO-ATOPS.",
-        inventory.nuclides.len()
+        inventory.nuclides().len()
     );
     if !dropped.is_empty() {
         println!("  Dropped, NOT in TRISO-ATOPS's 84-nuclide table:");

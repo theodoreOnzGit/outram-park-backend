@@ -106,7 +106,7 @@ fn main() {
 
     let tape = reference_endf(&tape_name).expect("ENDF tape");
     eprintln!("reconstructing {nuc_name} (MAT {mat}) @ {TEMP} K, tol 1e-3 ...");
-    let ours = Nuclide::from_endf_file(&tape, &nuc_name, TEMP, 1.0e-3).expect("reconstruction");
+    let ours = Nuclide::from_endf_file(&tape, &nuc_name, uom::si::f64::ThermodynamicTemperature::new::<uom::si::thermodynamic_temperature::kelvin>(TEMP), 1.0e-3).expect("reconstruction");
     eprintln!("done.\n");
 
     // NJOY's own PENDF, if one was supplied.

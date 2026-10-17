@@ -79,7 +79,7 @@ fn from_endf_file_applies_urr_and_dbrc_by_default() {
         eprintln!("SKIP: reference tape not present");
         return;
     };
-    let n = Nuclide::from_endf_file(&p, "U238", 293.6, 1.0e-3).expect("construct U238");
+    let n = Nuclide::from_endf_file(&p, "U238", uom::si::f64::ThermodynamicTemperature::new::<uom::si::thermodynamic_temperature::kelvin>(293.6), 1.0e-3).expect("construct U238");
 
     assert!(
         n.has_urr_probability_tables(),
@@ -197,7 +197,7 @@ fn other_neutron_channels_are_applied_by_default() {
         eprintln!("SKIP: reference tape not present");
         return;
     };
-    let n = Nuclide::from_endf_file(&p, "O16", 293.6, 1.0e-3).expect("O-16");
+    let n = Nuclide::from_endf_file(&p, "O16", uom::si::f64::ThermodynamicTemperature::new::<uom::si::thermodynamic_temperature::kelvin>(293.6), 1.0e-3).expect("O-16");
     assert!(
         n.applies_other_neutron_channels(),
         "O-16's (n,n alpha), (n,np), ... must be transported by default; the off \

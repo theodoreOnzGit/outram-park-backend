@@ -169,7 +169,7 @@ fn env_usize(key: &str, default: usize) -> usize {
 fn nuclides() -> Option<Vec<Nuclide>> {
     let dir =
         std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../reference-data/endf");
-    let load = |n: &str, f: &str| Nuclide::from_endf_file(&dir.join(f), n, TEMP_K, 1.0e-3).ok();
+    let load = |n: &str, f: &str| Nuclide::from_endf_file(&dir.join(f), n, uom::si::f64::ThermodynamicTemperature::new::<uom::si::thermodynamic_temperature::kelvin>(TEMP_K), 1.0e-3).ok();
     let sab = ThermalScattering::from_endf_file(
         dir.join("tsl-crystalline-graphite.endf").to_str()?,
         30,

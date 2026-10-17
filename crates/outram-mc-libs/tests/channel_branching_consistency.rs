@@ -112,7 +112,7 @@ const TEMP_K: f64 = 293.6;
 
 fn load(file: &str, name: &str) -> Option<Nuclide> {
     let tape = reference_file_or_skip("endf", file, "channel branching")?;
-    Nuclide::from_endf_file(&tape, name, TEMP_K, 1.0e-3).ok()
+    Nuclide::from_endf_file(&tape, name, uom::si::f64::ThermodynamicTemperature::new::<uom::si::thermodynamic_temperature::kelvin>(TEMP_K), 1.0e-3).ok()
 }
 
 #[test]

@@ -10,7 +10,7 @@ const B10_OF_NATURAL: f64 = 0.199;
 fn main() {
     let dir =
         std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../reference-data/endf");
-    let l = |n: &str, f: &str| Nuclide::from_endf_file(&dir.join(f), n, 293.6, 1.0e-3).ok();
+    let l = |n: &str, f: &str| Nuclide::from_endf_file(&dir.join(f), n, uom::si::f64::ThermodynamicTemperature::new::<uom::si::thermodynamic_temperature::kelvin>(293.6), 1.0e-3).ok();
     let sab = ThermalScattering::from_endf_file(
         dir.join("tsl-crystalline-graphite.endf").to_str().unwrap(),
         30,

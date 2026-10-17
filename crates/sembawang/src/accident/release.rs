@@ -78,7 +78,7 @@ use uom::si::thermodynamic_temperature::degree_celsius;
 use uom::si::time::second;
 
 use crate::error::{Caveats, Error, Result};
-use crate::inventory::CoreInventory;
+use crate::inventory::{self, RadionuclideInventory};
 use crate::scenario::TemperatureTransient;
 use crate::units;
 
@@ -358,12 +358,13 @@ pub fn zero_pools() -> boon_lay::triso_atops_fork::normal_operation::NodalActivi
 ///   a parent must precede its daughter for the daughter to see its pools;
 /// - the HPS applied iff [`PlantParameters::clean_up_fitted`].
 fn normal_operation_pools(
-    inventory: &CoreInventory,
+    inventory: &RadionuclideInventory,
     transient: &TemperatureTransient,
     plant: &PlantParameters,
     op: &NormalOperation,
-) -> HashMap<String, Vec<NodalActivities>> {
-    let names = inventory.names();
+) -> Result<HashMap<String, Vec<NodalActivities>>> {
+    let owned = inventory::names(inventory);
+    let names: Vec<&str> = owned.iter().map(String::as_str).collect();
     let (selected, _unknown) =
         select_nuclides(&names, op.irradiation_time, None, ParentDecayPolicy::UpstreamTableDefault);
     let constants = PlantConstants {
@@ -386,9 +387,9 @@ fn normal_operation_pools(
     let mut out: HashMap<String, Vec<NodalActivities>> = HashMap::new();
     for s in &selected {
         let Some(inv) = inventory
-            .nuclides
+            .nuclides()
             .iter()
-            .find(|n| normalise_nuclide_name(&n.name).is_ok_and(|c| c == s.nuclide.name))
+            .find(|n| inventory::triso_atops_name(n.isotope()) == s.nuclide.name)
         else {
             continue;
         };
@@ -399,7 +400,7 @@ fn normal_operation_pools(
             .cloned();
         let mut nodes = Vec::with_capacity(transient.n_radial * transient.n_axial);
         for r in 0..transient.n_radial {
-            let axial = inv.axial_curies(r, transient.n_axial);
+            let axial = inventory::axial_curies(inv, r, transient.n_axial)?;
             for (k, curies) in axial.iter().enumerate().take(transient.n_axial) {
                 let pools = parent
                     .as_ref()
@@ -418,7 +419,7 @@ fn normal_operation_pools(
         }
         out.insert(s.nuclide.name.to_string(), nodes);
     }
-    out
+    Ok(out)
 }
 
 /// Bridge `normal_operation_node`'s six channels to `release_activity`'s seven.
@@ -459,8 +460,9 @@ pub fn deposition_group_of(nuclide: &TrisoAtopsNuclide) -> DepositionGroup {
 /// Run the accident release and assemble a source term.
 ///
 /// # Arguments
-/// - `inventory` — the prescribed core inventory. Its `n_radial`/`n_axial` must
-///   match `transient`'s.
+/// - `inventory` — the core inventory, prescribed or from depletion
+///   ([`RadionuclideInventory`], GitHub #951). Its radial rings must match
+///   `transient`'s; the axial split follows `transient`'s `n_axial`.
 /// - `transient` — the prescribed temperature history.
 /// - `plant` — geometry, failure fractions and plant constants.
 ///
@@ -479,12 +481,12 @@ pub fn deposition_group_of(nuclide: &TrisoAtopsNuclide) -> DepositionGroup {
 /// (#449)**: unknown names were previously listed in `screened_out`;
 /// [`Error::TransientTooShort`] if the venting calculation has too little to
 /// work with; [`Error::VentingTimeNotOnAxis`] if the venting selection cannot
-/// be reconciled with the time axis.
-///
-/// # Panics
-/// Panics if `inventory` and `transient` disagree on the node counts.
+/// be reconciled with the time axis; [`Error::InventoryRingMismatch`]
+/// (~~a panic~~ an error since GitHub #951) if the inventory and `transient`
+/// disagree on the radial ring count, and [`Error::InventoryNotInRings`] for
+/// an inventory over named regions.
 pub fn accident_release(
-    inventory: &CoreInventory,
+    inventory: &RadionuclideInventory,
     transient: &TemperatureTransient,
     plant: &PlantParameters,
 ) -> Result<AccidentRelease> {
@@ -619,23 +621,22 @@ impl TemperatureTransient {
 /// # Errors
 /// As [`accident_release`], plus [`Error::VentingLengthMismatch`] and
 /// [`Error::VentingFractionOutOfRange`] for a bad [`Venting::Prescribed`].
-///
-/// # Panics
-/// As [`accident_release`].
 pub fn accident_release_with_venting(
-    inventory: &CoreInventory,
+    inventory: &RadionuclideInventory,
     transient: &TemperatureTransient,
     plant: &PlantParameters,
     venting_mode: &Venting,
 ) -> Result<AccidentRelease> {
-    assert_eq!(
-        inventory.n_radial, transient.n_radial,
-        "inventory and transient disagree on the radial node count"
-    );
-    assert_eq!(
-        inventory.n_axial, transient.n_axial,
-        "inventory and transient disagree on the axial node count"
-    );
+    // ~~Two asserts, on n_radial and n_axial~~ (GitHub #951): the ring count
+    // is checked as an error; the inventory no longer carries an axial count,
+    // and the transient's is the one the axial split has always used.
+    let rings = inventory::n_rings(inventory)?;
+    if rings != transient.n_radial {
+        return Err(Error::InventoryRingMismatch {
+            inventory: rings,
+            transient: transient.n_radial,
+        });
+    }
     if transient.len() < 2 {
         return Err(Error::TransientTooShort(transient.len()));
     }
@@ -650,7 +651,8 @@ pub fn accident_release_with_venting(
     }
 
     // -- which nuclides survive the half-life screen
-    let names = inventory.names();
+    let owned = inventory::names(inventory);
+    let names: Vec<&str> = owned.iter().map(String::as_str).collect();
     // Names are normalised as upstream's `nuclide_import_accident` does
     // ("cs137" -> "Cs-137"). A name that is NOT in the TRISO-ATOPS table, or
     // does not parse, is an ERROR (#449). Upstream raises `KeyError` for the
@@ -742,7 +744,7 @@ pub fn accident_release_with_venting(
     // -- the normal-operation pools the accident starts from (#448)
     let normal_pools: Option<HashMap<String, Vec<NodalActivities>>> = match &plant.pools {
         PrimaryCircuitPools::FromNormalOperation(op) => {
-            Some(normal_operation_pools(inventory, transient, plant, op))
+            Some(normal_operation_pools(inventory, transient, plant, op)?)
         }
         PrimaryCircuitPools::EmptyAblation => None,
     };
@@ -757,9 +759,9 @@ pub fn accident_release_with_venting(
         let lam_hz = lambda.get::<uom::si::frequency::hertz>();
 
         let inv = inventory
-            .nuclides
+            .nuclides()
             .iter()
-            .find(|n| normalise_nuclide_name(&n.name).is_ok_and(|c| c == nuclide.name))
+            .find(|n| inventory::triso_atops_name(n.isotope()) == nuclide.name)
             .ok_or_else(|| Error::UnknownNuclide(nuclide.name.to_string()))?;
 
         let mut kernel_curies = vec![0.0_f64; n_keep];
@@ -770,7 +772,7 @@ pub fn accident_release_with_venting(
         let node_pools = normal_pools.as_ref().and_then(|m| m.get(nuclide.name));
 
         for r in 0..transient.n_radial {
-            let axial = inv.axial_curies(r, transient.n_axial);
+            let axial = inventory::axial_curies(inv, r, transient.n_axial)?;
             for k in 0..transient.n_axial {
                 // The node's temperature history, GATHERED at the venting
                 // samples -- never a prefix. This is the whole point of

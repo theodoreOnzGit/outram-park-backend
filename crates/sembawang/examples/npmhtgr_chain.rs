@@ -22,7 +22,7 @@
 //! **Research and education only. No dose quantity is computed.** Every input
 //! is prescribed:
 //!
-//! - **Inventory:** [`CoreInventory::unit`], 1 Ci of each nuclide per radial
+//! - **Inventory:** [`inventory::unit`], 1 Ci of each nuclide per radial
 //!   ring. Not a physical inventory. Every number printed is linear in it.
 //! - **Accident-phase failure fractions:** `1e-4` / `1e-4`, a shakedown choice,
 //!   **not cited**.
@@ -73,7 +73,7 @@ use changi::puff::simulate::{
 use changi::puff::stability::StabilityClass;
 use sembawang::accident::release::{accident_release, PlantParameters};
 use sembawang::chain::pad_for_dispersion;
-use sembawang::inventory::CoreInventory;
+use sembawang::inventory;
 use sembawang::scenario::TemperatureTransient;
 use uom::si::f64::{Length, ThermodynamicTemperature, Time, Velocity};
 use uom::si::length::meter;
@@ -110,7 +110,7 @@ const PUFF_LIFETIME_S: f64 = 2500.0;
 
 fn main() {
     // ---- release: sembawang over boon-lay's TRISO-ATOPS fork ----
-    let inventory = CoreInventory::unit(&NUCLIDES, N_RADIAL, N_AXIAL);
+    let inventory = inventory::unit(&NUCLIDES, N_RADIAL).expect("valid nuclide names");
     let transient = TemperatureTransient::from_ramp(
         ThermodynamicTemperature::new::<degree_celsius>(START_C),
         ThermodynamicTemperature::new::<degree_celsius>(PEAK_C),
@@ -203,10 +203,10 @@ fn main() {
     for n in &term.nuclides {
         let q = n.total_released();
         let inv_ci = inventory
-            .nuclides
+            .nuclides()
             .iter()
-            .find(|i| i.name == n.label)
-            .map_or(f64::NAN, |i| i.total().get::<curie>());
+            .find(|i| inventory::triso_atops_name(i.isotope()) == n.label)
+            .map_or(f64::NAN, |i| i.total_activity().get::<curie>());
         println!(
             "  {:<7}  {:>12.4e}  {:>12.4e}  {:>12.4e}  {:>10}",
             n.label,
