@@ -1,0 +1,19 @@
+# Theory: fission-product transport in TRISO fuel, from the fewest
+# assumptions to the cheapest models (maintainer direction 2026-10-18). Built
+# by scripts/build-pages.sh (docs/site/tutorials.txt) under
+# tutorials/fp-transport-theory/. Sibling books: docs/tutorial/ (the
+# TRISO-ATOPS rungs) and docs/lessons/ (deep dives).
+#
+# How the pages are written: docs/lessons/lesson-philosophy.md.
+[book]
+title = "Fission products in TRISO fuel: the theory, one simplification at a time"
+authors = ["OUTRAM PARK contributors"]
+language = "en"
+src = "src"
+
+[output.html]
+git-repository-url = "https://github.com/theodoreOnzGit/outram-park-backend/tree/develop/crates/boon-lay"
+edit-url-template = "https://github.com/theodoreOnzGit/outram-park-backend/edit/develop/crates/boon-lay/docs/theory/{path}"
+site-url = "/outram-park-backend/tutorials/fp-transport-theory/"
+mathjax-support = true
+additional-js = ["mathjax-dollars.js"]
