@@ -155,7 +155,7 @@ src/
         movement_within_triso_particle/
         release_fraction_crp_6_case_1a_1b/  ← CRP-6 benchmark
       temperature_dependent_collisions/
-        diffusion_coeffs/                 ← ~~Cs, Ag, Sr diffusion coefficients in SiC/PyC~~ **CORRECTED 2026-10-04:** Ag, Cs, Sr, Kr (Jiang 2023) for kernel, buffer, PyC, SiC; other elements fall back to Ag; graphite is todo!() (gh:#541)
+        diffusion_coeffs/                 ← ~~Cs, Ag, Sr diffusion coefficients in SiC/PyC~~ **CORRECTED 2026-10-04:** Ag, Cs, Sr, Kr (Jiang 2023) for kernel, buffer, PyC, SiC; other elements fall back to Ag; graphite is todo!() (gh:#541). **CORRECTED 2026-10-18:** except Kr in the buffer, where `get_d1_for_kr` is still `todo!()` (checked in `diffusion_coeffs/mod.rs`; `docs/tutorial/src/layers.md` was right)
     tests/
   lagrangian_transmutation_and_fission_simulator/
     mod.rs                                ← ~~empty stub (future work)~~ **CORRECTED 2026-09-21**: implemented in `lagrangian_diffusion::first_passage::depletion`; this `mod.rs` is the map

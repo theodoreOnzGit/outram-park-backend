@@ -52,24 +52,40 @@
 //! - [`advanced`]: physics ablation (`model.advanced().without_dbrc()`) and
 //!   maps on your own mesh. The only place either lives.
 //!
+//! ## Repeated structures (#926)
+//!
+//! A TRISO particle is concentric spheres, one `.containing` per statement;
+//! a unit cell is a [`Cube`] of matrix containing it, with
+//! `.boundary(Boundary::Reflective)` for a k-infinity; a [`Lattice`]
+//! repeats tiles, its row order named by its constructor; and
+//! [`AssembledModel::census`] counts the copies the assembled geometry
+//! places (never from constants).
+//!
 //! ## Not yet here
 //!
-//! Repeated structures (#926), position-dependent temperature (#945), and
+//! ~~Repeated structures (#926)~~ (lattices and unit cells landed
+//! 2026-10-18; still to come on #926: random packing and the
+//! double-heterogeneity region `DhRegion` of tutorial 5, lattices in a
+//! sphere with whole-particle rejection, hex lattices), position-dependent
+//! temperature (#945), and
 //! the njoy → outram-mc data contract, which is open on #925
 //! ([`NuclearData`] wraps today's path so it can be swapped).
 //!
 //! ## Names shared with the lower level
 //!
-//! `Material`, `Sphere` and `KeffSettings` also name lower-level types in
+//! `Material`, `Sphere`, `Lattice` and `KeffSettings` also name lower-level types in
 //! `outram_mc_libs::prelude`. Use `outram_mc_libs::model::prelude::*` for
 //! this API; the crate prelude re-exports the rest of it under its own
 //! names.
 
 pub mod advanced;
+pub mod census;
 pub mod collect;
 pub mod data;
 pub mod diagnostics;
 pub mod isotope;
+pub mod lattice;
+mod lower;
 pub mod masses;
 pub mod material;
 #[allow(clippy::module_inception)]
@@ -103,7 +119,9 @@ pub use run::{
     Convergence, CustomRun, Keff, KeffRun, KeffSettings, MCSettings, NormalityCheck, Progress,
     NuclidePhysics, ReactivityTolerance, RunError, RunProvenance,
 };
-pub use shape::{Component, Shape, Sphere};
+pub use census::{Census, CensusRow};
+pub use lattice::Lattice;
+pub use shape::{Boundary, Component, Cube, Cuboid, Shape, Solid, Sphere};
 
 /// **Everything a beginner model needs, in one `use`**:
 /// `use outram_mc_libs::model::prelude::*;` brings the types above and the
@@ -112,7 +130,7 @@ pub mod prelude {
     pub use super::isotopes::*;
     pub use super::{
         atoms_per_barn_cm, to_atoms_per_barn_cm, AdvancedModel, AssembledModel, AtomDensity,
-        BalanceBy, Basis, Component, Contaminant, Convergence, CustomRun, DataError,
+        BalanceBy, Basis, Boundary, Census, CensusRow, Component, Cube, Cuboid, Lattice, Solid, Contaminant, Convergence, CustomRun, DataError,
         DiagnosticError, Diagnostics, DiagnosticsReport, EnergyGrid, Element, Enrichment,
         FissileUranium, FuelForm, GraphiteKind, HeavyMetal, Isotope, Keff, KeffRun, KeffSettings,
         MCDiagnostic, MCSettings, Material, MaterialError, Model, ModelError, Moderator,

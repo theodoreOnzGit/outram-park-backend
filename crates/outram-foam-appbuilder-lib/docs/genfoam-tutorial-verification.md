@@ -82,7 +82,10 @@ meaningless.
 | | `k_eff` | vs upstream as shipped |
 |---|---|---|
 | upstream, as shipped (`liquidFuel true`) | 0.960312 | — |
-| **port, per-cell state + precursor drift** | **0.960314** | **+0.2 pcm** |
+| **port, per-cell state + precursor drift** | ~~**0.960314**~~ **0.960315** | ~~**+0.2 pcm**~~ **+0.3 pcm** |
+
+**CORRECTED 2026-10-18 (gh:#952)**: the precursor diffusion term was subtracted (anti-diffusion); now added. Re-run with upstream present: 0.960314 -> 0.960315.
+
 | port, drift off | 0.962032 | +179.1 pcm |
 | upstream, `liquidFuel false` | 0.962019 | — |
 

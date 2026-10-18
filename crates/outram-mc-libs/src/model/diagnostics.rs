@@ -533,18 +533,15 @@ impl Diagnostics {
     /// `grid` (the helper decided on #925: per component, not per cell).
     pub fn with_spectrum_per_component(mut self, model: &Model, grid: EnergyGrid) -> Self {
         let mut seen: Vec<Component> = Vec::new();
-        fn walk(s: &Shape, seen: &mut Vec<Component>) {
-            for c in &s.children {
-                walk(c, seen);
-            }
-            if let Some(c) = s.component {
-                if !seen.contains(&c) {
-                    seen.push(c);
-                }
-            }
-        }
+        // Every shape, lattice tiles and what they contain included.
         for s in model.shapes() {
-            walk(s, &mut seen);
+            s.visit(&mut |s: &Shape| {
+                if let Some(c) = s.component {
+                    if !seen.contains(&c) {
+                        seen.push(c);
+                    }
+                }
+            });
         }
         seen.sort_by_key(|c| c.index);
         for c in seen {
