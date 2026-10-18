@@ -7,6 +7,7 @@
 //! | preset | inactive | active |
 //! |---|---|---|
 //! | [`MCSettings::Auto`] | watcher at 1 000 / cycle, then settle and re-confirm at 10 000 | 250 cycles × 10 000 |
+//! | [`MCSettings::Smoke`] | the same watcher, all at 1 000 | 50 cycles × 1 000 (**does it run at all**) |
 //! | [`MCSettings::Fast`] | the same watcher, re-confirm at 5 000 | 120 cycles × 5 000 (**a smoke test**) |
 //! | [`MCSettings::Pcm`] | the same watcher, re-confirm at 10 000 | 10 000 / cycle until the correlation-aware σ reaches the tolerance |
 //! | [`MCSettings::High`] | the same watcher, re-confirm at 50 000 | 1 500 cycles × 50 000 |
@@ -100,6 +101,12 @@ pub const AUTO_PARTICLES: usize = 10_000;
 /// Auto's active cycles (maintainer decision, 2026-10-17; Brown: "a few
 /// hundred").
 pub const AUTO_ACTIVE_CYCLES: usize = 250;
+/// Smoke's population (maintainer direction, 2026-10-18: "1000 particles
+/// per batch"); Brown's trial-run size, a fifth of his production minimum.
+pub const SMOKE_PARTICLES: usize = 1_000;
+/// Smoke's active cycles: with the watched inactive cycles, about Brown's
+/// ~100-cycle trial run (LA-UR-08-06558, Conclusions). Chosen, not measured.
+pub const SMOKE_ACTIVE_CYCLES: usize = 50;
 /// Fast's population (meets Brown's 5000 minimum).
 pub const FAST_PARTICLES: usize = 5_000;
 /// Fast's active cycles (short of Brown's "a few hundred").
@@ -158,6 +165,12 @@ pub enum MCSettings {
     /// active cycles at 10 000. The watcher's thresholds are not yet
     /// justified (#927, #944); see the module docs.
     Auto,
+    /// **Does it run at all**: [`SMOKE_PARTICLES`] per cycle throughout and
+    /// [`SMOKE_ACTIVE_CYCLES`] active cycles, about Brown's trial run
+    /// (LA-UR-08-06558, Conclusions). For checking a model builds and
+    /// transports, and for tutorials' first look; k carries a large σ and
+    /// is **not a result to quote**. The result says so.
+    Smoke,
     /// **A smoke test**: a quick check that the model builds, runs and gives
     /// a plausible k_eff, **not a result to quote**. In the spirit of
     /// Brown's recommended trial run (LA-UR-08-06558, Conclusions), not his
@@ -648,6 +661,7 @@ fn plan(mc: MCSettings) -> Result<Plan, RunError> {
     };
     Ok(match mc {
         MCSettings::Auto => preset(AUTO_PARTICLES, Active::Fixed(AUTO_ACTIVE_CYCLES)),
+        MCSettings::Smoke => preset(SMOKE_PARTICLES, Active::Fixed(SMOKE_ACTIVE_CYCLES)),
         MCSettings::Fast => preset(FAST_PARTICLES, Active::Fixed(FAST_ACTIVE_CYCLES)),
         MCSettings::High => preset(HIGH_PARTICLES, Active::Fixed(HIGH_ACTIVE_CYCLES)),
         MCSettings::Pcm(t) => {
@@ -1037,6 +1051,13 @@ fn correlated_sigma(x: &[f64]) -> f64 {
 
 fn notes(mc: MCSettings, p: &Plan) -> Vec<String> {
     let mut v = Vec::new();
+    if let MCSettings::Smoke = mc {
+        v.push(format!(
+            "SMOKE RUN, not a result to quote: {SMOKE_PARTICLES} per cycle is Brown's trial-run size, a fifth of his \
+             production minimum of 5000, and {SMOKE_ACTIVE_CYCLES} active cycles fall far short of his \"a few hundred\" \
+             (LA-UR-08-06558, Conclusions)."
+        ));
+    }
     if let MCSettings::Fast = mc {
         v.push(format!(
             "SMOKE TEST, not a result to quote: {FAST_ACTIVE_CYCLES} active cycles fall short of Brown's \"a few hundred\" \
@@ -1097,6 +1118,13 @@ mod tests {
             (1, 1_000, 10_000, true)
         );
         assert!(matches!(p.active, Active::Fixed(250)));
+        let smoke = plan(MCSettings::Smoke).unwrap();
+        assert_eq!(
+            (smoke.start_particles, smoke.production_particles),
+            (1_000, 1_000)
+        );
+        assert!(matches!(smoke.active, Active::Fixed(50)));
+        assert!(notes(MCSettings::Smoke, &smoke)[0].contains("SMOKE RUN"));
         assert!(matches!(
             plan(MCSettings::Fast).unwrap().active,
             Active::Fixed(120)
