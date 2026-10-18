@@ -184,6 +184,30 @@
 //!
 //! The smaller `k_std` is one draw and is not evidence of lower variance.
 //!
+//! ## Re-recorded 2026-10-18: route 4's data now come from njoy's `process` (GitHub #931)
+//!
+//! `Nuclide::from_endf_file` now builds its data with `process`. PURR runs at
+//! 20 bands / 64 ladders / 10 000 samples after HEATR, where it ran at
+//! 20 / 16 / 2000 without HEATR. That is a data change, not a transport
+//! change. As with #325, the **first generation is unchanged to the bit**,
+//! and the streams split at the first unresolved-range collision.
+//!
+//! **Cause proved:** with `heu()` building the nuclides through
+//! `Nuclide::process_evaluation_pre_931` + `from_processed` (everything else
+//! as it now is), the test reproduces the previous row **bit for bit**, all
+//! four values (2026-10-18, release, i9-13900K, 67.7 s).
+//!
+//! | quantity | #460 comb (superseded) | #931 `process` data |
+//! |---|---|---|
+//! | `k_mean` | ~~`9.88088405842273865e-1`~~ | `9.87289394503252482e-1` |
+//! | `k_std` | ~~`3.74932273347360848e-3`~~ | `4.03421054981321567e-3` |
+//! | first generation | `9.35484563494561105e-1` | `9.35484563494561105e-1` (unchanged) |
+//! | last generation | ~~`1.00328075246550052e0`~~ | `9.83194544269015980e-1` |
+//!
+//! This is one 2000-history draw. The paired worth on Godiva's route 4 is
+//! −0.2 ± 11 pcm over 512 seeds
+//! (`verification_and_validation/route4_process_931/README.md`).
+//!
 //! **What this means for the next failure.** An analog-path regression and a
 //! data correction look the same to this test. When it fails, bisect before
 //! re-recording, and re-record only when the first bad commit changes data
@@ -215,13 +239,14 @@ use outram_mc_libs::physics::variance_reduction::VarianceReduction;
 const R_FUEL: f64 = 8.7407;
 const TEMP: f64 = 293.6;
 
-/// The pre-#258 analog path on the data as of #325 (`3f141992e`). Exact, not
+/// The pre-#258 analog path on the data as of #931 (`process`, 2026-10-18;
+/// re-recorded, see the module docs). Exact, not
 /// approximate. The values measured on `9b861a861` itself are kept in the
 /// module docs; see "Re-recorded 2026-09-27" there for why these differ.
-const K_MEAN_PRE_258: f64 = 9.880_884_058_422_738_65e-1;
-const K_STD_PRE_258: f64 = 3.749_322_733_473_608_48e-3;
+const K_MEAN_PRE_258: f64 = 9.872_893_945_032_524_82e-1;
+const K_STD_PRE_258: f64 = 4.034_210_549_813_215_67e-3;
 const K_GEN_FIRST_PRE_258: f64 = 9.354_845_634_945_611_05e-1;
-const K_GEN_LAST_PRE_258: f64 = 1.003_280_752_465_500_52e0;
+const K_GEN_LAST_PRE_258: f64 = 9.831_945_442_690_159_80e-1;
 
 fn heu() -> Option<Vec<Nuclide>> {
     let base =
