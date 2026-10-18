@@ -62,9 +62,30 @@
 //!
 //! ## Results
 //!
-//! See the tutorial page `docs/tutorial/src/tutorial7-seker-layer.md` and the
-//! comment on gh #943 for the run of record; this file prints every number.
-//! Hardware for any timing: `HardwareInfo::headline()` is printed with it.
+//! 2026-10-18, ENDF/B-VIII.0 from `reference-data/endf/`, 300.15 K,
+//! `MCSettings::Smoke` (seed 1: 100 inactive + 50 active cycles of 1000).
+//! Hardware: Intel i9-13900K, 8 logical cores used, 62.5 GiB RAM, Linux, CPU
+//! only, machine shared with other jobs.
+//!
+//! | check | result |
+//! |---|---|
+//! | 1. census | 7 fuel + 6 moderator balls, 58 345 particles, packing 0.644836 (Şeker 0.6448) |
+//! | 2. surfaces | 23 ball surfaces, 8 container planes |
+//! | k, 7 : 6 (default) | **1.74096 ± 0.00496** (batch means 0.00565): -748 pcm (-1.28 sigma) from nee_soon's pilot 1.74844 ± 0.00309 |
+//! | k, 8 : 5 (`--fuel-balls 8`) | 1.74716 ± 0.00518 (0.00543): -128 pcm (-0.21 sigma); 8 : 5 minus 7 : 6 = +620 ± 717 pcm, not resolved |
+//! | time | data 78.5 s, transport 297.5 s (8 : 5: 79.1 s, 326.4 s) |
+//!
+//! - **SMOKE RUN, not a result to quote**: sigma is about 500 pcm and the
+//!   run's own check says the source is not converged at this size.
+//! - The pilot is not a record and holds a different fuel inventory (13 fuel
+//!   + 10 moderator pieces, 0.576 by volume, against 7 + 6 balls, 0.538).
+//! - k_inf is above the lone pebble (1.68517) and the 20-layer core (1.160).
+//! - **A defect found by this run** (fixed): a delta-tracked fuel zone cut by
+//!   the layer's own reflective faces lost its histories (k = 0.005, the
+//!   population died); see `tests/model_seker_layer.rs`
+//!   `a_delta_zone_cut_by_the_layer_faces_does_not_lose_histories`.
+//! - The page `docs/tutorial/src/tutorial7-seker-layer.md` carries the
+//!   predictions, the simplifications and the pictures' checks.
 
 use std::path::{Path, PathBuf};
 use std::time::Instant;

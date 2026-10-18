@@ -13,3 +13,4 @@
 - [Tutorial 3 — HEU-SOL-THERM-009: a thermal system, through the beginner API](./tutorial3-hst009.md)
 - [Tutorial 4 — One HTR-10 TRISO particle, and the k-infinity of its cell](./tutorial4-triso-particle.md)
 - [Tutorial 6 — LEU-COMP-THERM-008: a rectangular pin lattice, and a fast way to run it](./tutorial6-lct008.md)
+- [Tutorial 7 — One Şeker layer of the HTR-10 bed: a hexagonal lattice of pebbles, stacked without end](./tutorial7-seker-layer.md)

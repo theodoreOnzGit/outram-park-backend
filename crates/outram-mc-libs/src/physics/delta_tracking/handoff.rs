@@ -244,7 +244,9 @@ pub(crate) fn fly_delta_region(
         if !(d < d_surface) {
             return;
         }
-        let mxs = site.material.map(|m| materials[m].macro_xs_urr(e, nuclides, urr_seed));
+        let mxs = site
+            .material
+            .map(|m| materials[m].macro_xs_urr(e, nuclides, urr_seed));
         score_collision_point(
             batch,
             t,
@@ -269,6 +271,14 @@ pub(crate) fn fly_delta_region(
         // a lost history~~ until gh:#719 (2026-10-06): every neutron that
         // sampled a site in a void cell was scored as a leak.
         material_at: |q: Position| match geom.locate(q, u, SurfaceToken::NONE) {
+            // A site the geometry cannot place is a lost history, unless it
+            // lies past the nearest surface: then no collision there can
+            // matter (one past `d_surface` is discarded below) and the
+            // history must not be lost for it. A region cut by the model's
+            // own boundary, as a pebble cut by a reflective face of a
+            // hexagonal layer is (tutorial 7), has such sites; before this
+            // they were scored as leaks (gh:#943).
+            None if travelled(r, u, q) >= d_surface => SiteContent::Void,
             None => SiteContent::Lost,
             Some(located) => located
                 .material

@@ -727,3 +727,48 @@ fn the_triso_layer_counts_what_the_paper_counts_and_matches_the_site_table() {
     );
     assert!(tested > 120_000 && zone_points > 5_000 && shell_points > 20_000);
 }
+
+/// **A delta-tracked zone cut by the layer's own faces loses no history**
+/// (found 2026-10-18 writing tutorial 7). The flower balls are cut through
+/// their centres by the reflective top and bottom, and the balls that cross a
+/// side face are cut by it, so the fuel zone of such a ball extends past the
+/// model. `fly_delta_region` sampled virtual-collision sites along the whole
+/// flight, found none placeable past the face and scored the history a leak:
+/// k came out 0.005 and the population died in the third generation (real
+/// data, Smoke). Sites past the nearest surface cannot matter (a collision
+/// there is discarded) and are now treated as void. Pinned here on the LOW
+/// tier with the TRISO fuel ball: every generation keeps its population and k
+/// is of order 1 rather than of order 0.01.
+#[test]
+fn a_delta_zone_cut_by_the_layer_faces_does_not_lose_histories() {
+    let (mats, _) = small_materials();
+    let fuel = seker::fuel_flags(seker::FUEL_BALL_FRACTION);
+    let layer = seker::build(
+        header_only_library(),
+        &mats,
+        &seker::FuelBall::Triso,
+        &fuel,
+        T,
+    );
+    let a = layer.model.assemble().expect("assembles");
+    assert!(!a.delta_regions().is_empty());
+    let nuclides = low_tier(&a);
+    let custom = KeffSettings::new(
+        MCSettings::Custom(CustomRun {
+            particles: 400,
+            inactive: 3,
+            active: 5,
+            seed: 7,
+        }),
+        None,
+    );
+    let run = a
+        .keff_with(&nuclides, &custom)
+        .expect("the population lives");
+    println!("k per generation: {:?}", run.k_by_cycle);
+    assert!(
+        run.k_by_cycle.iter().all(|k| *k > 0.3),
+        "{:?}",
+        run.k_by_cycle
+    );
+}
