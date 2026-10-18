@@ -20,6 +20,13 @@
 //! `tests/model_repeated_structures.rs` still pins it. A lattice's `outer`
 //! is counted once per placement of the lattice, as before.
 //!
+//! **A ball that crosses a hexagonal tile's face** (`Lattice::hex`, tutorial
+//! 7) is one ball with a piece in each tile it touches. The census counts the
+//! ball once, in the tile that holds its centre, with its whole volume; the
+//! pieces the lattice shows from the neighbouring tiles (and their particles)
+//! are left out, so a count of balls is a count of balls and the volumes add
+//! up to the periodic cell's inventory.
+//!
 //! **Pooled volumes.** The matrix cells of a sphere filled with whole
 //! particles (a lattice in a sphere, a `DhRegion`) are clipped by the
 //! sphere, so none has an exact volume of its own. Their rows say
@@ -295,33 +302,44 @@ fn universe_placements(g: &Geometry) -> Result<Vec<usize>, ModelError> {
             ];
             match c.fill {
                 CellFill::Universe(v) => stack.push((v, o, 0)),
-                CellFill::Lattice(li) => {
-                    match &g.lattices[li] {
-                        CsgLattice::Rect(l) => {
-                            for iz in 0..l.n[2] {
-                                for iy in 0..l.n[1] {
-                                    for ix in 0..l.n[0] {
-                                        let flat = l.n[0] * l.n[1] * iz + l.n[0] * iy + ix;
-                                        let t = l.tile_center([ix as i32, iy as i32, iz as i32]);
-                                        stack.push((
-                                            l.universes[flat],
-                                            [o[0] + t.x, o[1] + t.y, o[2] + t.z],
-                                            0,
-                                        ));
-                                    }
+                CellFill::Lattice(li) => match &g.lattices[li] {
+                    CsgLattice::Rect(l) => {
+                        for iz in 0..l.n[2] {
+                            for iy in 0..l.n[1] {
+                                for ix in 0..l.n[0] {
+                                    let flat = l.n[0] * l.n[1] * iz + l.n[0] * iy + ix;
+                                    let t = l.tile_center([ix as i32, iy as i32, iz as i32]);
+                                    stack.push((
+                                        l.universes[flat],
+                                        [o[0] + t.x, o[1] + t.y, o[2] + t.z],
+                                        0,
+                                    ));
                                 }
                             }
-                            if let Some(out) = l.outer {
-                                stack.push((out, o, 1 + li));
+                        }
+                        if let Some(out) = l.outer {
+                            stack.push((out, o, 1 + li));
+                        }
+                    }
+                    CsgLattice::Hex(l) => {
+                        for iz in 0..l.n_axial {
+                            for iy in 0..l.n_side() {
+                                for ix in 0..l.n_side() {
+                                    let i = [ix as i32, iy as i32, iz as i32];
+                                    if !l.are_valid_indices(i) {
+                                        continue;
+                                    }
+                                    let Some(u) = l.universe_at(i) else { continue };
+                                    let t = l.tile_center(i);
+                                    stack.push((u, [o[0] + t.x, o[1] + t.y, o[2] + t.z], 0));
+                                }
                             }
                         }
-                        CsgLattice::Hex(_) => return Err(ModelError::BadValue(
-                            "the census does not count hex lattices yet (the beginner API makes \
-                             none)"
-                                .into(),
-                        )),
+                        if let Some(out) = l.outer {
+                            stack.push((out, o, 1 + li));
+                        }
                     }
-                }
+                },
                 CellFill::Material(_) | CellFill::Void => {}
             }
         }
@@ -337,8 +355,7 @@ impl AssembledModel {
     /// # Errors
     /// [`ModelError::BadValue`] if the geometry's universe graph cannot be
     /// walked (an index out of range; an assembled model never has one, so
-    /// this is a defect if seen), or holds a hex lattice (the beginner API
-    /// makes none).
+    /// this is a defect if seen).
     pub fn census(&self) -> Result<Census, ModelError> {
         let placed = universe_placements(&self.geometry)?;
         let mut universe_of = vec![usize::MAX; self.geometry.cells.len()];
@@ -355,6 +372,10 @@ impl AssembledModel {
             let CellFill::Material(m) = cell.fill else {
                 continue;
             };
+            // The other piece of a ball already counted (a hexagonal tile).
+            if self.cell_images.get(i).copied().unwrap_or(false) {
+                continue;
+            }
             let (kind, each) = match self.cell_pools.get(i).copied().flatten() {
                 Some(p) => (
                     RowKind::Pooled {
@@ -376,7 +397,10 @@ impl AssembledModel {
             });
         }
         let mut packings = Vec::new();
-        for p in &self.pools {
+        for (pi, p) in self.pools.iter().enumerate() {
+            if self.pool_images.get(pi).copied().unwrap_or(false) {
+                continue;
+            }
             let placements = copies(p.fill_cell);
             rows.push(CensusRow {
                 cell: p.fill_cell,

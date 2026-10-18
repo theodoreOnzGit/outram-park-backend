@@ -23,7 +23,7 @@ use super::model::{ModelError, NuclideKey};
 use super::resolve::ResolvedMaterial;
 use super::shape::{Component, Shape, Solid};
 use crate::geometry::cell::{Cell, CellFill, HalfSpaceSense, RegionToken};
-use crate::geometry::lattice::{Lattice as CsgLattice, RectLattice};
+use crate::geometry::lattice::{HexLattice, Lattice as CsgLattice, RectLattice};
 use crate::geometry::position::Position;
 use crate::geometry::surface::{BoundaryType, SurfaceKind, XPlane, YPlane, ZCylinder, ZPlane};
 use crate::geometry::universe::Universe;
@@ -79,6 +79,13 @@ pub(crate) struct Lowering {
     /// is extruded through (its container's), which a rod and a tile take
     /// for their own when their volume is counted.
     pub(crate) extrusion: Option<f64>,
+    /// While lowering the copies of balls a hexagonal tile shows from its
+    /// neighbours (`Lattice::hex`): the cells and pools made then are the
+    /// other pieces of balls already counted, and carry no volume of their
+    /// own in the census.
+    pub(crate) in_image: bool,
+    pub(crate) image_cells: Vec<std::ops::Range<usize>>,
+    pub(crate) image_pools: Vec<std::ops::Range<usize>>,
     far_plane: Option<usize>,
 }
 
@@ -152,6 +159,40 @@ impl Lowering {
                 outside.push(RegionToken::Complement);
                 (inside, outside, (i0..i0 + 6).collect())
             }
+            Solid::HexPrism(h) => {
+                // Six side planes `n . x = d`, inside on the negative side,
+                // then the two z-planes.
+                let i0 = self.surfaces.len();
+                for k in 0..6 {
+                    let (n, d) = h.face_plane(k);
+                    self.surfaces
+                        .push(SurfaceKind::Plane(crate::geometry::surface::Plane {
+                            a: n[0],
+                            b: n[1],
+                            c: 0.0,
+                            d,
+                            bc,
+                        }));
+                }
+                let (lo, hi) = h.z_range();
+                self.surfaces.extend([
+                    SurfaceKind::ZPlane(ZPlane { z0: lo, bc }),
+                    SurfaceKind::ZPlane(ZPlane { z0: hi, bc }),
+                ]);
+                let (o, i) = (HalfSpaceSense::Outside, HalfSpaceSense::Inside);
+                let mut inside = vec![half(i0, i), half(i0 + 1, i), RegionToken::Intersection];
+                for k in 2..6 {
+                    inside.push(half(i0 + k, i));
+                    inside.push(RegionToken::Intersection);
+                }
+                inside.push(half(i0 + 6, o));
+                inside.push(RegionToken::Intersection);
+                inside.push(half(i0 + 7, i));
+                inside.push(RegionToken::Intersection);
+                let mut outside = inside.clone();
+                outside.push(RegionToken::Complement);
+                (inside, outside, (i0..i0 + 8).collect())
+            }
             Solid::Cylinder(c) => {
                 let ctr = c.centre_cm();
                 let cylinder = SurfaceKind::ZCylinder(ZCylinder {
@@ -217,6 +258,12 @@ impl Lowering {
         component: Option<Component>,
         volume: Option<f64>,
     ) {
+        // The other piece of a ball already counted: no volume of its own.
+        let volume = if self.in_image {
+            volume.map(|_| 0.0)
+        } else {
+            volume
+        };
         cells_of.push(self.cells.len());
         self.cells.push(cell);
         self.cell_components.push(component);
@@ -251,6 +298,9 @@ impl Lowering {
         if let Some(lattice) = &s.lattice {
             if let Solid::Sphere(zone) = s.solid {
                 return self.lower_lattice_in_sphere(s, zone, lattice, t, masses, cells_of);
+            }
+            if lattice.is_hex() {
+                return self.lower_hex_container(s, lattice, t, masses, cells_of);
             }
             return self.lower_lattice_container(s, lattice, t, masses, cells_of);
         }
@@ -473,6 +523,144 @@ impl Lowering {
         }));
         let li = self.lattices.len() - 1;
         Ok((li, tiles_hold_heavy_metal, lowered))
+    }
+
+    /// **A hexagonal lattice in its prism** (`Lattice::hex`, tutorial 7):
+    /// the one tile as a universe (its own balls, then the pieces of balls
+    /// the lattice shows from its neighbours), a one-ring CSG `HexLattice`
+    /// centred on the container, and the container's fill cell. Checked by
+    /// `Model::check_hex_lattice` first.
+    fn lower_hex_container(
+        &mut self,
+        s: &Shape,
+        lattice: &super::lattice::Lattice,
+        t: f64,
+        masses: &AtomicMasses,
+        cells_of: &mut Vec<usize>,
+    ) -> Result<Lowered, ModelError> {
+        let bad = |m: &str| ModelError::BadValue(m.to_string());
+        let prism = lattice
+            .hex_prism()
+            .ok_or_else(|| bad("a hexagonal lattice's tile must be a HexPrism"))?;
+        let images = lattice.hex_images().map_err(ModelError::BadValue)?;
+        let tile = &lattice.tiles()[0];
+        let was = (self.in_tile, self.tile_has_heavy_metal);
+        self.in_tile = true;
+        self.tile_has_heavy_metal = false;
+        let tile_universe = self.lower_hex_tile(tile, &images, t, masses);
+        let tiles_hold_heavy_metal = self.tile_has_heavy_metal;
+        self.in_tile = was.0;
+        self.tile_has_heavy_metal = was.1 || tiles_hold_heavy_metal;
+        let tile_universe = tile_universe?;
+
+        let (inside, outside, surfaces) = self.solid_surfaces(&s.solid);
+        // The outer universe: the container's material, never reached (the
+        // tile is the container).
+        let m = self.material_index(&s.material, t, masses)?;
+        let everywhere = vec![
+            half(surfaces[0], HalfSpaceSense::Inside),
+            half(surfaces[0], HalfSpaceSense::Outside),
+            RegionToken::Union,
+        ];
+        let mut outer_cells = Vec::new();
+        let id = self.cells.len() as i32 + 1;
+        self.push_cell(
+            Cell::material(id, everywhere, m, t),
+            &mut outer_cells,
+            s.component,
+            Some(0.0),
+        );
+        self.universes.push(Universe {
+            id: self.universes.len() as i32,
+            cell_indices: outer_cells,
+        });
+        let outer = self.universes.len() - 1;
+
+        let c = s.solid.centre_cm();
+        self.lattices.push(CsgLattice::Hex(HexLattice::from_rings(
+            self.lattices.len() as i32 + 1,
+            prism.faces_kind().orientation(),
+            Position::new(c[0], c[1], c[2]),
+            prism.pitch_cm(),
+            &[vec![tile_universe]],
+            Some(outer),
+        )));
+        let li = self.lattices.len() - 1;
+        if tiles_hold_heavy_metal {
+            self.note_heavy_metal_bounds(&s.solid);
+        }
+        let id = self.cells.len() as i32 + 1;
+        self.push_cell(
+            Cell::fill(id, inside, CellFill::Lattice(li), Position::ZERO),
+            cells_of,
+            s.component,
+            None,
+        );
+        Ok(Lowered { outside, surfaces })
+    }
+
+    /// The universe of a hexagonal tile: its balls (whole, with the volume of
+    /// a whole ball), the pieces of balls entering it (the same balls seen
+    /// from another tile, no volume of their own), and the background
+    /// outside all of them, bounded only by the lattice.
+    fn lower_hex_tile(
+        &mut self,
+        tile: &Shape,
+        images: &[Shape],
+        t: f64,
+        masses: &AtomicMasses,
+    ) -> Result<usize, ModelError> {
+        let t = self.temperature_of(tile, t);
+        let mut cells_of = Vec::new();
+        let mut children: Vec<Vec<RegionToken>> = Vec::new();
+        for c in &tile.children {
+            children.push(self.lower(c, t, masses, &mut cells_of)?.outside);
+        }
+        let (cells0, pools0) = (self.cells.len(), self.pools.len());
+        self.in_image = true;
+        let mut lowered = Ok(());
+        for c in images {
+            match self.lower(c, t, masses, &mut cells_of) {
+                Ok(l) => children.push(l.outside),
+                Err(e) => {
+                    lowered = Err(e);
+                    break;
+                }
+            }
+        }
+        self.in_image = false;
+        lowered?;
+        if self.cells.len() > cells0 {
+            self.image_cells.push(cells0..self.cells.len());
+        }
+        if self.pools.len() > pools0 {
+            self.image_pools.push(pools0..self.pools.len());
+        }
+        let region = if children.is_empty() {
+            self.everywhere()
+        } else {
+            combine(&[], &children)
+        };
+        let m = self.material_index(&tile.material, t, masses)?;
+        self.note_heavy_metal(m, &tile.solid);
+        let volume = tile.solid.volume_cm3()
+            - tile
+                .children
+                .iter()
+                .map(|c| c.solid.volume_cm3())
+                .sum::<f64>();
+        let id = self.cells.len() as i32 + 1;
+        self.push_cell(
+            Cell::material(id, region, m, t),
+            &mut cells_of,
+            tile.component,
+            Some(volume),
+        );
+        self.universes.push(Universe {
+            id: self.universes.len() as i32,
+            cell_indices: cells_of,
+        });
+        Ok(self.universes.len() - 1)
     }
 
     fn lower_lattice_container(

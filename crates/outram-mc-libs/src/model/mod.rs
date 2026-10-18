@@ -70,7 +70,9 @@
 //! 2026-10-18; ~~still to come on #926: random packing and the
 //! double-heterogeneity region `DhRegion` of tutorial 5, lattices in a
 //! sphere with whole-particle rejection,~~ landed the same day: `DhRegion`,
-//! `Packing`, `Lattice::covering`; still to come: hex lattices, the
+//! `Packing`, `Lattice::covering`; ~~hex lattices~~ **landed 2026-10-18
+//! (tutorial 7: [`HexPrism`], [`Lattice::hex`], one tile repeated without
+//! end)**; still to come: the
 //! chord-length tracking and the `ring_rpt()` / `naive_homogenisation()`
 //! conversions of #943), temperature varying inside a region (#945
 //! stages 2-3; ~~position-dependent temperature~~ **stage 1 landed
@@ -94,6 +96,7 @@ pub mod collect;
 pub mod data;
 pub mod diagnostics;
 pub mod dh_region;
+pub mod hex;
 pub mod isotope;
 pub mod lattice;
 mod lower;
@@ -136,6 +139,7 @@ pub use run::{
 };
 pub use census::{Arrangement, Census, CensusRow, PackingRow, RowKind};
 pub use dh_region::{DhRegion, Packing};
+pub use hex::{HexFaces, HexPrism};
 pub use lattice::Lattice;
 pub use shape::{Boundary, Component, Cube, Cuboid, Cylinder, Shape, Solid, Sphere};
 
@@ -149,10 +153,10 @@ pub mod prelude {
         BalanceBy, Basis, Boundary, Census, CensusRow, Component, Cube, Cuboid, Cylinder, DhRegion,
         Lattice, Packing, Solid, Contaminant, Convergence, CustomRun, DataError, DiagnosticError,
         Diagnostics, DiagnosticsReport, EnergyGrid, Element, Enrichment, FissileUranium, FuelForm,
-        GraphiteKind, HeavyMetal, Isotope, Keff, KeffRun, KeffSettings, MCDiagnostic, MCSettings,
-        Material, MaterialError, Model, ModelError, Moderator, NuclearData, Placement, PpmOf,
-        PuVector, ReactivityTolerance, Region, RunBackend, RunError, Shape, Species, Sphere,
-        Temperature,
+        GraphiteKind, HeavyMetal, HexFaces, HexPrism, Isotope, Keff, KeffRun, KeffSettings,
+        MCDiagnostic, MCSettings, Material, MaterialError, Model, ModelError, Moderator,
+        NuclearData, Placement, PpmOf, PuVector, ReactivityTolerance, Region, RunBackend, RunError,
+        Shape, Species, Sphere, Temperature,
     };
     pub use super::{
         advanced, BalanceRow, Ealf, Kinetics, Leakage, MCDiagnosticResult, Mesh, MeshBounds,

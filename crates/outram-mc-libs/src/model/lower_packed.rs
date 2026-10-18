@@ -105,6 +105,10 @@ pub(crate) fn whole_in_sphere(zone: &Sphere, child: &Solid, at: [f64; 3]) -> boo
                 .sum();
             d2 <= rz * rz
         }
+        Solid::HexPrism(h) => h
+            .vertices()
+            .iter()
+            .all(|v| (0..3).map(|k| (at[k] + v[k] - c[k]).powi(2)).sum::<f64>() <= rz * rz),
         Solid::Cylinder(cy) => {
             // A rod has no ends and so is never whole in a sphere; a finite
             // cylinder's farthest point is on the rim of its farther end.

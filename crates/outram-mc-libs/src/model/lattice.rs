@@ -18,11 +18,17 @@
 //! of the lattice is drawn, and as OpenMC's input reads) or
 //! [`Lattice::from_natural_order`] (lower-left first, x fastest).
 //!
+//! **A hexagonal lattice** (tutorial 7, [`Lattice::hex`]) is one
+//! [`HexPrism`] tile repeated without end, the periodic cell of an infinite
+//! hexagonal lattice; a ball may cross the tile's faces (see
+//! [`Lattice::hex`]).
+//!
 //! Tracking is surface tracking (the default for every region, decided on
 //! #938/#943). The optional per-lattice override (`.tracking(..)`, e.g.
 //! delta tracking over a dense lattice) needs majorants the beginner run
 //! does not carry yet, so it is not offered; see #926.
 
+use super::hex::HexPrism;
 use super::shape::{Shape, Solid};
 
 /// **A rectangular lattice of tiles.** Build it with one of the named
@@ -54,6 +60,9 @@ pub struct Lattice {
     /// `Some(offset)` for a [`Lattice::covering`] lattice: the grid is
     /// sized when assembled, to cover its container.
     covering: Option<[f64; 3]>,
+    /// `true` for a [`Lattice::hex`] lattice: one hexagonal tile, repeated
+    /// without end.
+    hex: bool,
 }
 
 impl Lattice {
@@ -67,6 +76,7 @@ impl Lattice {
             n,
             pattern: vec![0; count],
             covering: None,
+            hex: false,
         }
     }
 
@@ -113,7 +123,129 @@ impl Lattice {
             n: [0; 3],
             pattern: Vec::new(),
             covering: Some(offset),
+            hex: false,
         }
+    }
+
+    /// **An infinite hexagonal lattice of one tile** (tutorial 7): the tile
+    /// is a [`HexPrism`], repeated in the plane without end and, in z,
+    /// without end too. It is held by a [`HexPrism`] container of the same
+    /// size with `.boundary(Boundary::Reflective)`, and lowers to the CSG
+    /// `HexLattice` (one ring).
+    ///
+    /// **A ball may cross the tile's faces.** List every ball once, in the
+    /// tile that holds its centre. The lattice shows the piece that sticks
+    /// into a neighbour in that neighbour too: it translates each ball by
+    /// the six lattice vectors and by plus and minus one tile height, and
+    /// keeps the copies that overlap the tile. (Şeker & Çolak's cell
+    /// holds 13 balls and so draws pieces of 23 in each tile.) A ball is
+    /// never cut: the pieces in two tiles are one ball, and a model whose
+    /// pieces overlap, or whose tile content is not mirror-symmetric about
+    /// the top and bottom faces (which a reflective top and bottom needs to
+    /// be an exact infinite stack), is refused by
+    /// [`super::Model::assemble`].
+    ///
+    /// Lateral faces: a **reflective** boundary mirrors a neutron at a face
+    /// where a truly periodic one would carry it to the opposite face and
+    /// leave its direction alone. The two agree only where the tile is
+    /// mirror-symmetric across that face. The transport has no periodic
+    /// boundary yet (gh:#259), so reflective it is, and its error is not
+    /// bounded here.
+    ///
+    /// ```
+    /// use outram_mc_libs::model::prelude::*;
+    /// use uom::si::{f64::Length, length::centimeter};
+    /// let cm = Length::new::<centimeter>;
+    /// let graphite = Material::from_atom_densities([(C12, atoms_per_barn_cm(0.08))]);
+    /// let helium = Material::from_atom_densities([(He4, atoms_per_barn_cm(2.4e-5))]);
+    /// let ball = Sphere::radius(cm(3.0)).filled_with(graphite);
+    /// let tile = HexPrism::flat_to_flat(cm(16.392), cm(9.798))
+    ///     .filled_with(helium.clone())
+    ///     .containing(ball);
+    /// let lattice = Lattice::hex(tile);
+    /// assert!(lattice.is_hex());
+    /// let layer = HexPrism::flat_to_flat(cm(16.392), cm(9.798))
+    ///     .filled_with(helium)
+    ///     .containing_lattice(lattice)
+    ///     .boundary(Boundary::Reflective);
+    /// ```
+    pub fn hex(tile: Shape) -> Self {
+        Self {
+            tiles: vec![tile],
+            n: [1, 1, 1],
+            pattern: vec![0],
+            covering: None,
+            hex: true,
+        }
+    }
+
+    /// Whether this is a [`Lattice::hex`] lattice.
+    pub fn is_hex(&self) -> bool {
+        self.hex
+    }
+
+    /// The hexagonal prism of a [`Lattice::hex`] tile, if it is one.
+    pub fn hex_prism(&self) -> Option<HexPrism> {
+        match self.tiles.first().map(|t| &t.solid) {
+            Some(Solid::HexPrism(h)) if self.hex => Some(*h),
+            _ => None,
+        }
+    }
+
+    /// **The pieces of balls that enter a [`Lattice::hex`] tile from its
+    /// neighbours**, and from the layers above and below: each of the tile's
+    /// balls translated by the six lattice vectors and by `+-` one tile
+    /// height (and both together), kept where the copy overlaps the tile.
+    /// In the order found (neighbour vectors outer, heights inner, balls
+    /// innermost).
+    ///
+    /// # Errors
+    /// A ball that is not a sphere, or whose centre is outside the tile.
+    pub(crate) fn hex_images(&self) -> Result<Vec<Shape>, String> {
+        let Some(prism) = self.hex_prism() else {
+            return Ok(Vec::new());
+        };
+        let tile = &self.tiles[0];
+        let tol = 1.0e-12 * prism.pitch_cm().max(prism.height_cm());
+        for (i, c) in tile.children.iter().enumerate() {
+            let Solid::Sphere(s) = c.solid else {
+                return Err(format!(
+                    "a ball in a hexagonal tile must be a sphere; child {i} is {}",
+                    c.solid.describe()
+                ));
+            };
+            let centre = s.centre_cm();
+            if prism.signed_lateral(centre) > tol
+                || (centre[2] - prism.centre_cm()[2]).abs() > 0.5 * prism.height_cm() + tol
+            {
+                return Err(format!(
+                    "the ball at ({:.6}, {:.6}, {:.6}) cm has its centre outside the tile: list \
+                     every ball once, in the tile that holds its centre",
+                    centre[0], centre[1], centre[2]
+                ));
+            }
+        }
+        let h = prism.height_cm();
+        let mut shifts: Vec<[f64; 3]> = Vec::new();
+        let mut lateral: Vec<[f64; 2]> = vec![[0.0, 0.0]];
+        lateral.extend(prism.neighbour_vectors());
+        for v in lateral {
+            for dz in [-h, 0.0, h] {
+                if v != [0.0, 0.0] || dz != 0.0 {
+                    shifts.push([v[0], v[1], dz]);
+                }
+            }
+        }
+        let mut images = Vec::new();
+        for d in shifts {
+            for c in &tile.children {
+                let moved = c.translated(d);
+                if Solid::HexPrism(prism).overlaps(&moved.solid) {
+                    images.push(moved);
+                }
+            }
+        }
+        Ok(images)
     }
 
     /// The offset of a [`Self::covering`] lattice, in pitches; `None` for a
@@ -132,6 +264,7 @@ impl Lattice {
             n,
             pattern,
             covering: None,
+            hex: false,
         }
     }
 
@@ -163,6 +296,7 @@ impl Lattice {
             n: [nx, ny, 1],
             pattern,
             covering: None,
+            hex: false,
         }
     }
 
@@ -203,6 +337,9 @@ impl Lattice {
     /// **Why this lattice cannot be built**, or `None`. Checked by
     /// [`super::Model::assemble`].
     pub(crate) fn problem(&self) -> Option<String> {
+        if self.hex {
+            return self.hex_problem();
+        }
         if let Some(off) = self.covering {
             if !off.iter().all(|o| o.is_finite()) {
                 return Some(format!(
@@ -259,7 +396,7 @@ impl Lattice {
                     "a lattice tile is centred on its own origin; do not move it with centred_at"
                         .into(),
                 ),
-                Solid::Sphere(_) | Solid::Cylinder(_) => {
+                Solid::Sphere(_) | Solid::Cylinder(_) | Solid::HexPrism(_) => {
                     return Some(
                         "a lattice tile must be a box (Cube::side or Cuboid::sides)".into(),
                     )
@@ -271,6 +408,34 @@ impl Lattice {
                         .into(),
                 );
             }
+        }
+        None
+    }
+
+    /// Why a [`Lattice::hex`] lattice cannot be built.
+    fn hex_problem(&self) -> Option<String> {
+        let tile = self.tiles.first()?;
+        let Solid::HexPrism(h) = tile.solid else {
+            return Some("a hexagonal lattice's tile must be a HexPrism".into());
+        };
+        if h.centre_cm() != [0.0; 3] {
+            return Some(
+                "a lattice tile is centred on its own origin; do not move it with centred_at"
+                    .into(),
+            );
+        }
+        if tile.boundary.is_some() {
+            return Some(
+                "a lattice tile cannot carry a boundary condition; set it on the outermost shape"
+                    .into(),
+            );
+        }
+        if tile.lattice.is_some() || tile.dh.is_some() {
+            return Some(
+                "a hexagonal tile holds balls, not a lattice or a double-heterogeneity region of \
+                 its own"
+                    .into(),
+            );
         }
         None
     }

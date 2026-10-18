@@ -219,6 +219,12 @@ pub struct AssembledModel {
     pub(crate) cell_pools: Vec<Option<usize>>,
     /// The pools, one per sphere filled with whole particles.
     pub(crate) pools: Vec<super::lower_packed::Pool>,
+    /// Per cell: whether it is another piece of a ball already counted (a
+    /// ball crossing a hexagonal tile's face, seen from the neighbouring
+    /// tile; `Lattice::hex`). The census leaves these out.
+    pub(crate) cell_images: Vec<bool>,
+    /// Per pool: the same.
+    pub(crate) pool_images: Vec<bool>,
     /// Per delta-tracked region (a [`super::DhRegion`]): the material
     /// indices its majorant must bound. Cell `tracking` indexes this list.
     pub(crate) delta_regions: Vec<Vec<usize>>,
@@ -464,6 +470,14 @@ impl Model {
             }
         }
         let fissile_bounds = lw.fissile_bounds.unwrap_or((lower, upper));
+        let mut cell_images = vec![false; lw.cells.len()];
+        for r in &lw.image_cells {
+            cell_images[r.clone()].iter_mut().for_each(|b| *b = true);
+        }
+        let mut pool_images = vec![false; lw.pools.len()];
+        for r in &lw.image_pools {
+            pool_images[r.clone()].iter_mut().for_each(|b| *b = true);
+        }
         lw.universes.push(Universe {
             id: lw.universes.len() as i32,
             cell_indices: root_cells,
@@ -497,6 +511,8 @@ impl Model {
             cell_volumes_cm3: lw.cell_volumes,
             cell_pools: lw.cell_pools,
             pools: lw.pools,
+            cell_images,
+            pool_images,
             delta_regions: lw.delta_regions,
             component_labels: self.components.clone(),
             data_label: self.data.label().to_string(),
@@ -505,6 +521,19 @@ impl Model {
     }
 
     fn check_shape(&self, s: &Shape, outermost: bool, in_tile: bool) -> Result<(), ModelError> {
+        self.check_shape_with(s, outermost, in_tile, false)
+    }
+
+    /// [`Self::check_shape`]; `crossing_ok` lets the direct children of `s`
+    /// cross its faces (the balls of a hexagonal tile, whose pieces the
+    /// lattice shows in the neighbouring tiles).
+    fn check_shape_with(
+        &self,
+        s: &Shape,
+        outermost: bool,
+        in_tile: bool,
+        crossing_ok: bool,
+    ) -> Result<(), ModelError> {
         if s.solid.is_rod() && !in_tile {
             return Err(ModelError::BadValue(
                 "a cylinder without a height runs through whatever holds it, which only a \
@@ -534,7 +563,7 @@ impl Model {
         }
         for child in &s.children {
             self.check_shape(child, false, in_tile)?;
-            if !s.solid.encloses(&child.solid) {
+            if !crossing_ok && !s.solid.encloses(&child.solid) {
                 return Err(ModelError::Geometry(problem(
                     &s.solid,
                     &child.solid,
@@ -575,6 +604,9 @@ impl Model {
                 "a shape filled with a lattice holds nothing else; put other shapes in the tiles"
                     .into(),
             ));
+        }
+        if lattice.is_hex() {
+            return self.check_hex_lattice(s, lattice);
         }
         for tile in lattice.tiles() {
             self.check_shape(tile, false, true)?;
@@ -621,6 +653,71 @@ impl Model {
         if n[2] == 1 {
             let (lo, hi) = s.solid.bounds();
             check_one_layer(c[2], hi[2] - lo[2], pitch[2])?;
+        }
+        Ok(())
+    }
+    /// **A hexagonal lattice** ([`Lattice::hex`]) must sit in a hexagonal
+    /// prism of its tile's own size, centred at `z = 0`; its balls may cross
+    /// the tile's faces, but their pieces (the balls and the copies the
+    /// lattice shows in the neighbours) must not overlap, the tile must be
+    /// mirror-symmetric about its top and bottom faces (so that reflective
+    /// ends make an exact infinite stack), and the container must be
+    /// reflective whenever any ball crosses a face (a vacuum face would cut
+    /// it).
+    fn check_hex_lattice(&self, s: &Shape, lattice: &Lattice) -> Result<(), ModelError> {
+        let bad = |m: String| Err(ModelError::BadValue(m));
+        let Some(prism) = lattice.hex_prism() else {
+            return bad("a hexagonal lattice's tile must be a HexPrism".into());
+        };
+        let tile = &lattice.tiles()[0];
+        self.check_shape_with(tile, false, true, true)?;
+        let Solid::HexPrism(container) = s.solid else {
+            return bad(format!(
+                "a hexagonal lattice fills a hexagonal prism of its tile's size, not {}",
+                s.solid.describe()
+            ));
+        };
+        let tol = 1.0e-12 * prism.pitch_cm().max(prism.height_cm());
+        let same = (container.pitch_cm() - prism.pitch_cm()).abs() <= tol
+            && (container.height_cm() - prism.height_cm()).abs() <= tol
+            && container.faces_kind() == prism.faces_kind();
+        if !same {
+            return bad(format!(
+                "the container of a hexagonal lattice is one tile: {} with its faces turned the \
+                 same way, not {}",
+                prism.describe(),
+                container.describe()
+            ));
+        }
+        if container.centre_cm()[2].abs() > tol {
+            return bad(format!(
+                "a hexagonal lattice is one layer, so its tiles sit at z = 0: centre the \
+                 container at z = 0 (it is at {} cm)",
+                container.centre_cm()[2]
+            ));
+        }
+        let images = lattice.hex_images().map_err(ModelError::BadValue)?;
+        let mut pieces: Vec<Shape> = tile.children.clone();
+        pieces.extend(images.iter().cloned());
+        check_disjoint(&pieces)?;
+        if !images.is_empty() && s.boundary != Some(Boundary::Reflective) {
+            return bad(format!(
+                "{} ball piece(s) cross the tile's faces, and a vacuum boundary would cut them: \
+                 set .boundary(Boundary::Reflective) on the container",
+                images.len()
+            ));
+        }
+        let mirrored_ok = pieces.iter().all(|a| {
+            let m = a.mirrored_z();
+            pieces.iter().any(|b| b.congruent(&m, tol.max(1.0e-9)))
+        });
+        if !mirrored_ok {
+            return bad(
+                "the tile is not mirror-symmetric about its top and bottom faces, so reflective \
+                 ends would not be an infinite stack of it: every ball needs a mirror twin at -z \
+                 (counting the copies of the balls that cross the faces)"
+                    .into(),
+            );
         }
         Ok(())
     }
@@ -826,6 +923,7 @@ fn set_bc(s: &mut SurfaceKind, bc: BoundaryType) {
         SurfaceKind::XPlane(p) => p.bc = bc,
         SurfaceKind::YPlane(p) => p.bc = bc,
         SurfaceKind::ZPlane(p) => p.bc = bc,
+        SurfaceKind::Plane(p) => p.bc = bc,
         SurfaceKind::ZCylinder(p) => p.bc = bc,
         _ => {}
     }
@@ -1609,5 +1707,282 @@ pub(crate) mod tests {
                 .containing_lattice(stack),
         )
         .expect("a two-layer stack covers the cylinder");
+    }
+    /// **A hexagonal lattice (tutorial 7)**: a ball that crosses the tile's
+    /// faces is drawn in the neighbour too; the pieces are one ball in the
+    /// census; and every way to get it wrong is named.
+    #[test]
+    fn a_hex_lattice_shows_crossing_balls_in_the_neighbour_and_refuses_what_it_should() {
+        use super::super::hex::{HexFaces, HexPrism};
+        use super::super::lattice::Lattice;
+        use super::super::shape::{Boundary, Cube};
+        use crate::geometry::cell::SurfaceToken;
+        use crate::geometry::lattice::Lattice as CsgLattice;
+        use crate::geometry::position::Direction;
+        use uom::si::volume::cubic_centimeter;
+        // Şeker & Çolak's cell for 6 cm balls: apothem d cos 30 + d/2, height
+        // 2 d sqrt(2/3) (exact, so the flower balls are exactly tangent).
+        let pitch = 2.0 * (6.0 * (std::f64::consts::PI / 6.0).cos() + 3.0);
+        let height = 2.0 * 6.0 * (2.0_f64 / 3.0).sqrt();
+        let gas = || Material::from_atom_densities([(H1, atoms_per_barn_cm(1.0e-5))]).named("gas");
+        let ball = || {
+            Sphere::radius(cm(3.0)).filled_with(
+                Material::from_atom_densities([(U235, atoms_per_barn_cm(0.04))]).named("ball"),
+            )
+        };
+        let at = |x: f64, y: f64, z: f64| {
+            let mut b = ball();
+            b.solid = Solid::Sphere(Sphere::radius(cm(3.0)).centred_at(cm(x), cm(y), cm(z)));
+            b
+        };
+        let prism = || HexPrism::flat_to_flat(cm(pitch), cm(height));
+        let layer = |tile: Shape, boundary: Option<Boundary>| {
+            let mut c = prism()
+                .filled_with(gas())
+                .containing_lattice(Lattice::hex(tile));
+            if let Some(b) = boundary {
+                c = c.boundary(b);
+            }
+            c
+        };
+        let build = |s: Shape| {
+            let mut m = Model::new(fake_data());
+            m.set_temperature(t());
+            m.add(s);
+            m.assemble()
+        };
+        // Three balls: one whole at the centre, one on the plane z = -h/2
+        // (a flower), one 1.27 cm inside the face at -y (it crosses it by
+        // 1.73 cm into the neighbour below).
+        let apothem = 0.5 * pitch;
+        let near_face = apothem - 1.27;
+        let tile = || {
+            prism()
+                .filled_with(gas())
+                .containing(at(0.0, 0.0, 0.0))
+                .containing(at(6.0, 0.0, -0.5 * height))
+                .containing(at(0.0, -near_face, 0.0))
+        };
+        let lattice = Lattice::hex(tile());
+        assert!(lattice.is_hex() && lattice.problem().is_none());
+        let images = lattice.hex_images().expect("images");
+        assert_eq!(
+            images.len(),
+            2,
+            "one from the layer above, one from the neighbour"
+        );
+        // The neighbour above (+y) owns the same ball; seen from here it sits
+        // 1.27 cm inside our +y face. The layer above owns the flower at
+        // z = +h/2 - h/2 ... seen from here at +h/2.
+        let centres: Vec<[f64; 3]> = images.iter().map(|i| i.solid.centre_cm()).collect();
+        assert!(centres
+            .iter()
+            .any(|c| (c[1] - (pitch - near_face)).abs() < 1e-9));
+        assert!(centres
+            .iter()
+            .any(|c| (c[2] - 0.5 * height).abs() < 1e-9 && c[0] == 6.0));
+        // Mirror symmetry about the faces needs a twin at -z for the central
+        // ball (itself) and the flower (its image): holds.
+        let layer_ok = layer(tile(), Some(Boundary::Reflective));
+        let a = build(layer_ok.clone()).expect("assembles");
+        // 3 own balls + 2 pieces = 5 spheres, 8 prism planes.
+        let spheres = a
+            .geometry
+            .surfaces
+            .iter()
+            .filter(|s| matches!(s, SurfaceKind::Sphere(_)))
+            .count();
+        assert_eq!(spheres, 5);
+        assert_eq!(a.geometry.surfaces.len(), 5 + 8);
+        assert!(matches!(a.geometry.lattices[0], CsgLattice::Hex(_)));
+        let reflective = a
+            .geometry
+            .surfaces
+            .iter()
+            .filter(|s| match s {
+                SurfaceKind::Plane(p) => p.bc == BoundaryType::Reflective,
+                SurfaceKind::ZPlane(p) => p.bc == BoundaryType::Reflective,
+                _ => false,
+            })
+            .count();
+        assert_eq!(reflective, 8, "the container's six faces and two ends");
+        // The census counts three balls (the pieces are not balls).
+        let census = a.census().expect("census");
+        let ball_rows: Vec<_> = census
+            .rows
+            .iter()
+            .filter(|r| r.material == "ball")
+            .collect();
+        assert_eq!(ball_rows.len(), 3, "one row per ball, none per piece");
+        assert_eq!(ball_rows.iter().map(|r| r.copies).sum::<usize>(), 3);
+        let v_ball = 4.0 / 3.0 * std::f64::consts::PI * 27.0;
+        let v_tile = 2.0 * 3.0_f64.sqrt() * apothem * apothem * height;
+        let got = census.total_volume().get::<cubic_centimeter>();
+        assert!(
+            (got - v_tile).abs() < 1e-9 * v_tile,
+            "{got} against {v_tile}"
+        );
+        let balls_v: f64 = census
+            .rows
+            .iter()
+            .filter(|r| r.material == "ball")
+            .map(|r| r.volume().get::<cubic_centimeter>())
+            .sum();
+        assert!((balls_v - 3.0 * v_ball).abs() < 1e-9 * v_ball);
+        // A neutron in the neighbour's piece of the crossing ball: just
+        // inside our +y face, at x = 0.
+        let locate = |x: f64, y: f64, z: f64| {
+            a.geometry
+                .locate(
+                    Position::new(x, y, z),
+                    Direction::new(1.0, 0.0, 0.0),
+                    SurfaceToken::NONE,
+                )
+                .and_then(|p| p.material)
+                .map(|m| a.materials[m].name.clone())
+        };
+        assert_eq!(locate(0.0, apothem - 0.5, 0.0).as_deref(), Some("ball"));
+        assert_eq!(locate(0.0, 0.5 * apothem, 0.0).as_deref(), Some("gas"));
+        assert_eq!(
+            locate(6.0, 0.0, 0.5 * height - 0.1).as_deref(),
+            Some("ball")
+        );
+        assert_eq!(locate(100.0, 0.0, 0.0), None, "outside the layer");
+
+        let refused = |s: Shape, words: &str| match build(s) {
+            Err(ModelError::BadValue(m)) => assert!(m.contains(words), "{m}"),
+            other => panic!("{words}: {other:?}"),
+        };
+        refused(layer(tile(), None), "vacuum boundary would cut them");
+        refused(
+            Cube::side(cm(40.0))
+                .filled_with(gas())
+                .containing_lattice(Lattice::hex(tile())),
+            "hexagonal prism of its tile's size",
+        );
+        refused(
+            HexPrism::flat_to_flat(cm(pitch), cm(2.0 * height))
+                .filled_with(gas())
+                .containing_lattice(Lattice::hex(tile()))
+                .boundary(Boundary::Reflective),
+            "the container of a hexagonal lattice is one tile",
+        );
+        refused(
+            HexPrism::flat_to_flat(cm(pitch), cm(height))
+                .faces(HexFaces::NormalToX)
+                .filled_with(gas())
+                .containing_lattice(Lattice::hex(tile()))
+                .boundary(Boundary::Reflective),
+            "the container of a hexagonal lattice is one tile",
+        );
+        refused(
+            HexPrism::flat_to_flat(cm(pitch), cm(height))
+                .centred_at(cm(0.0), cm(0.0), cm(1.0))
+                .filled_with(gas())
+                .containing_lattice(Lattice::hex(
+                    HexPrism::flat_to_flat(cm(pitch), cm(height)).filled_with(gas()),
+                ))
+                .boundary(Boundary::Reflective),
+            "centre the container at z = 0",
+        );
+        // A ball off the mid-plane with no mirror twin: not an infinite stack.
+        refused(
+            layer(
+                prism().filled_with(gas()).containing(at(0.0, 0.0, 1.0)),
+                Some(Boundary::Reflective),
+            ),
+            "mirror-symmetric",
+        );
+        // Two balls on top of each other; a centre outside; a non-sphere.
+        match build(layer(
+            prism()
+                .filled_with(gas())
+                .containing(at(0.0, 0.0, 0.0))
+                .containing(at(1.0, 0.0, 0.0)),
+            Some(Boundary::Reflective),
+        )) {
+            Err(ModelError::Geometry(p)) => assert!(p.message.contains("overlap")),
+            other => panic!("{:?}", other.map(|_| ())),
+        }
+        // A piece from the neighbour overlapping a ball here is drawn too: a
+        // ball 0.5 cm inside the +y face meets the crossing ball's copy.
+        match build(layer(
+            prism()
+                .filled_with(gas())
+                .containing(at(0.0, -near_face, 0.0))
+                .containing(at(0.0, near_face - 1.0, 0.0)),
+            Some(Boundary::Reflective),
+        )) {
+            Err(ModelError::Geometry(p)) => assert!(p.message.contains("overlap")),
+            other => panic!("{:?}", other.map(|_| ())),
+        }
+        refused(
+            layer(
+                prism().filled_with(gas()).containing(at(20.0, 0.0, 0.0)),
+                Some(Boundary::Reflective),
+            ),
+            "centre outside the tile",
+        );
+        refused(
+            layer(
+                prism()
+                    .filled_with(gas())
+                    .containing(
+                        Cube::side(cm(2.0)).filled_with(Material::from_atom_densities([(
+                            U235,
+                            atoms_per_barn_cm(0.04),
+                        )])),
+                    ),
+                Some(Boundary::Reflective),
+            ),
+            "must be a sphere",
+        );
+        // The tile itself: centred on its own origin, no boundary, a
+        // HexPrism, no lattice inside.
+        let moved = prism()
+            .centred_at(cm(1.0), cm(0.0), cm(0.0))
+            .filled_with(gas());
+        assert!(Lattice::hex(moved)
+            .problem()
+            .unwrap()
+            .contains("centred on its own origin"));
+        assert!(
+            Lattice::hex(prism().filled_with(gas()).boundary(Boundary::Reflective))
+                .problem()
+                .unwrap()
+                .contains("boundary")
+        );
+        assert!(Lattice::hex(Cube::side(cm(1.0)).filled_with(gas()))
+            .problem()
+            .unwrap()
+            .contains("HexPrism"));
+        assert!(Lattice::hex(
+            prism()
+                .filled_with(gas())
+                .containing_lattice(Lattice::copies_of(
+                    Cube::side(cm(1.0)).filled_with(gas()),
+                    [1, 1, 1]
+                ))
+        )
+        .problem()
+        .unwrap()
+        .contains("holds balls"));
+        // A hex tile is not a rectangular tile.
+        assert!(Lattice::copies_of(prism().filled_with(gas()), [1, 1, 1])
+            .problem()
+            .unwrap()
+            .contains("must be a box"));
+        assert_eq!(
+            Lattice::copies_of(Cube::side(cm(1.0)).filled_with(gas()), [1, 1, 1])
+                .hex_images()
+                .unwrap()
+                .len(),
+            0
+        );
+        assert!(
+            Lattice::copies_of(Cube::side(cm(1.0)).filled_with(gas()), [1, 1, 1])
+                .hex_prism()
+                .is_none()
+        );
     }
 }

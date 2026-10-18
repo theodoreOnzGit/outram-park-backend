@@ -11,10 +11,12 @@
 //! [`super::Model::assemble`] lowers it all to today's CSG
 //! [`Geometry`](crate::geometry::geometry::Geometry).
 //!
-//! Three solids today: [`Sphere`], [`Cuboid`] (a box; [`Cube`] makes one
-//! with equal sides) and [`Cylinder`] (axis along z: a finite cylinder with
+//! ~~Three solids today~~ **Four solids (tutorial 7, 2026-10-18)**: [`Sphere`],
+//! [`Cuboid`] (a box; [`Cube`] makes one
+//! with equal sides), [`Cylinder`] (axis along z: a finite cylinder with
 //! a height, or a **rod** without one that runs through whatever holds it,
-//! a pin in a lattice tile). **Repeated structures** (#926) are a [`Lattice`] of
+//! a pin in a lattice tile) and [`HexPrism`](super::HexPrism) (the tile of a
+//! hexagonal lattice). **Repeated structures** (#926) are a [`Lattice`] of
 //! tiles, each tile an ordinary shape (a cube of matrix containing a TRISO
 //! particle, say), placed in a container with [`Shape::containing_lattice`].
 //! A TRISO particle itself needs nothing new: it is concentric spheres, one
@@ -25,6 +27,7 @@ use uom::si::length::centimeter;
 use uom::si::ratio::ratio;
 
 use super::dh_region::DhSpec;
+use super::hex::{distance_to_polygon, polygons_overlap, prism_holds_all, HexPrism};
 use super::lattice::Lattice;
 use super::material::Material;
 use super::model::{ModelError, Temperature};
@@ -428,8 +431,8 @@ impl Cube {
     }
 }
 
-/// **The solid a [`Shape`] occupies**: a [`Sphere`], a [`Cuboid`] or a
-/// [`Cylinder`]. Enum dispatch (workspace rule: no trait objects).
+/// **The solid a [`Shape`] occupies**: a [`Sphere`], a [`Cuboid`], a
+/// [`Cylinder`] or a [`HexPrism`]. Enum dispatch (workspace rule: no trait objects).
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Solid {
     /// A sphere.
@@ -438,6 +441,8 @@ pub enum Solid {
     Cuboid(Cuboid),
     /// A cylinder along z, finite or a rod.
     Cylinder(Cylinder),
+    /// A hexagonal prism along z: the tile of a hexagonal lattice.
+    HexPrism(HexPrism),
 }
 
 impl Solid {
@@ -448,6 +453,7 @@ impl Solid {
             Solid::Sphere(s) => 4.0 / 3.0 * std::f64::consts::PI * s.radius_cm.powi(3),
             Solid::Cuboid(b) => b.volume_cm3(),
             Solid::Cylinder(c) => c.volume_cm3().unwrap_or(f64::INFINITY),
+            Solid::HexPrism(h) => h.volume_cm3(),
         }
     }
 
@@ -473,6 +479,7 @@ impl Solid {
             Solid::Sphere(s) => s.centre_cm,
             Solid::Cuboid(b) => b.centre_cm,
             Solid::Cylinder(c) => c.centre_cm,
+            Solid::HexPrism(h) => h.centre_cm(),
         }
     }
 
@@ -483,6 +490,7 @@ impl Solid {
             Solid::Sphere(s) => s.bounds(),
             Solid::Cuboid(b) => b.bounds(),
             Solid::Cylinder(c) => c.bounds(),
+            Solid::HexPrism(h) => h.bounds(),
         }
     }
 
@@ -495,6 +503,7 @@ impl Solid {
                 (0..3).all(|i| p[i] > l[i] && p[i] < u[i])
             }
             Solid::Cylinder(c) => c.holds(p),
+            Solid::HexPrism(h) => h.holds(p),
         }
     }
 
@@ -504,6 +513,7 @@ impl Solid {
             Solid::Sphere(s) => s.radius_cm,
             Solid::Cuboid(b) => b.sides_cm.iter().fold(0.0_f64, |m, x| m.max(*x)),
             Solid::Cylinder(c) => c.radius_cm.max(c.height_cm.unwrap_or(0.0)),
+            Solid::HexPrism(h) => h.pitch_cm().max(h.height_cm()),
         }
     }
 
@@ -520,6 +530,7 @@ impl Solid {
                     && c.height_cm.is_none_or(ok)
                     && c.centre_cm.iter().all(|x| x.is_finite())
             }
+            Solid::HexPrism(h) => h.is_valid(),
         }
     }
 
@@ -538,6 +549,65 @@ impl Solid {
                 ),
                 None => format!("a rod of radius {:.6} cm", c.radius_cm),
             },
+            Solid::HexPrism(h) => h.describe(),
+        }
+    }
+
+    /// This solid shifted by `d` \[cm\].
+    pub(crate) fn translated(&self, d: [f64; 3]) -> Solid {
+        let shift = |c: [f64; 3]| -> [f64; 3] { std::array::from_fn(|i| c[i] + d[i]) };
+        match *self {
+            Solid::Sphere(mut s) => {
+                s.centre_cm = shift(s.centre_cm);
+                Solid::Sphere(s)
+            }
+            Solid::Cuboid(mut b) => {
+                b.centre_cm = shift(b.centre_cm);
+                Solid::Cuboid(b)
+            }
+            Solid::Cylinder(mut c) => {
+                c.centre_cm = shift(c.centre_cm);
+                Solid::Cylinder(c)
+            }
+            Solid::HexPrism(h) => Solid::HexPrism(h.translated(d)),
+        }
+    }
+
+    /// The mirror image in the plane `z = 0`.
+    pub(crate) fn mirrored_z(&self) -> Solid {
+        let c = self.centre_cm();
+        self.translated([0.0, 0.0, -2.0 * c[2]])
+    }
+
+    /// Whether `other` is this solid to within `tol` \[cm\]: the same kind,
+    /// size and place.
+    pub(crate) fn congruent(&self, other: &Solid, tol: f64) -> bool {
+        let near = |a: f64, b: f64| (a - b).abs() <= tol;
+        let same_centre = |a: [f64; 3], b: [f64; 3]| (0..3).all(|i| near(a[i], b[i]));
+        match (self, other) {
+            (Solid::Sphere(a), Solid::Sphere(b)) => {
+                same_centre(a.centre_cm, b.centre_cm) && near(a.radius_cm, b.radius_cm)
+            }
+            (Solid::Cuboid(a), Solid::Cuboid(b)) => {
+                same_centre(a.centre_cm, b.centre_cm)
+                    && (0..3).all(|i| near(a.sides_cm[i], b.sides_cm[i]))
+            }
+            (Solid::Cylinder(a), Solid::Cylinder(b)) => {
+                same_centre(a.centre_cm, b.centre_cm)
+                    && near(a.radius_cm, b.radius_cm)
+                    && match (a.height_cm, b.height_cm) {
+                        (Some(x), Some(y)) => near(x, y),
+                        (None, None) => true,
+                        _ => false,
+                    }
+            }
+            (Solid::HexPrism(a), Solid::HexPrism(b)) => {
+                same_centre(a.centre_cm(), b.centre_cm())
+                    && near(a.pitch_cm(), b.pitch_cm())
+                    && near(a.height_cm(), b.height_cm())
+                    && a.faces_kind() == b.faces_kind()
+            }
+            _ => false,
         }
     }
 
@@ -550,6 +620,44 @@ impl Solid {
     pub(crate) fn encloses(&self, inner: &Solid) -> bool {
         let tol = 1.0e-12 * self.scale_cm();
         match (self, inner) {
+            (Solid::HexPrism(o), _) => {
+                let (lo, hi) = o.z_range();
+                match inner {
+                    Solid::Sphere(i) => {
+                        o.signed_lateral(i.centre_cm) + i.radius_cm <= tol
+                            && i.centre_cm[2] - i.radius_cm >= lo - tol
+                            && i.centre_cm[2] + i.radius_cm <= hi + tol
+                    }
+                    Solid::Cuboid(i) => {
+                        let (l, u) = i.bounds();
+                        let corners: Vec<[f64; 3]> = (0..8)
+                            .map(|k| {
+                                std::array::from_fn(|d| if (k >> d) & 1 == 0 { l[d] } else { u[d] })
+                            })
+                            .collect();
+                        prism_holds_all(o, &corners, tol)
+                    }
+                    Solid::Cylinder(i) => {
+                        let (zl, zh) = i.z_range();
+                        o.signed_lateral(i.centre_cm) + i.radius_cm <= tol
+                            && (i.is_rod() || (zl >= lo - tol && zh <= hi + tol))
+                    }
+                    Solid::HexPrism(i) => prism_holds_all(o, &i.vertices(), tol),
+                }
+            }
+            (Solid::Sphere(o), Solid::HexPrism(i)) => i.vertices().iter().all(|v| {
+                (0..3)
+                    .map(|k| (v[k] - o.centre_cm[k]).powi(2))
+                    .sum::<f64>()
+                    .sqrt()
+                    <= o.radius_cm + tol
+            }),
+            (Solid::Cylinder(o), Solid::HexPrism(i)) => {
+                let (lo, hi) = o.z_range();
+                i.vertices().iter().all(|v| {
+                    o.radial_cm(*v) <= o.radius_cm + tol && v[2] >= lo - tol && v[2] <= hi + tol
+                })
+            }
             (Solid::Sphere(o), Solid::Sphere(i)) => {
                 o.distance_cm(i) + i.radius_cm <= o.radius_cm + tol
             }
@@ -621,6 +729,7 @@ impl Solid {
     pub(crate) fn overlaps(&self, other: &Solid) -> bool {
         let tol = 1.0e-12 * self.scale_cm().max(other.scale_cm());
         match (self, other) {
+            (Solid::HexPrism(h), o) | (o, Solid::HexPrism(h)) => hex_overlaps(h, o, tol),
             (Solid::Sphere(a), Solid::Sphere(b)) => {
                 a.distance_cm(b) < a.radius_cm + b.radius_cm - tol
             }
@@ -665,6 +774,38 @@ impl Solid {
     }
 }
 
+/// **Whether a hexagonal prism and another solid share volume** (touching is
+/// not sharing, to `tol`). Every solid here is an extrusion along z, so the
+/// x-y shapes are tested as convex polygons or discs and the z extents as
+/// intervals; a sphere is the one solid that couples the two.
+fn hex_overlaps(h: &HexPrism, other: &Solid, tol: f64) -> bool {
+    let (hlo, hhi) = h.z_range();
+    let poly = h.polygon();
+    let gap = |lo: f64, hi: f64| (hlo - hi).max(lo - hhi).max(0.0);
+    match other {
+        Solid::Sphere(s) => {
+            let dz = gap(s.centre_cm[2], s.centre_cm[2]);
+            distance_to_polygon([s.centre_cm[0], s.centre_cm[1]], &poly).hypot(dz)
+                < s.radius_cm - tol
+        }
+        Solid::Cuboid(b) => {
+            let (l, u) = b.bounds();
+            let rect = [[l[0], l[1]], [u[0], l[1]], [u[0], u[1]], [l[0], u[1]]];
+            polygons_overlap(&poly, &rect, tol) && l[2] < hhi - tol && hlo < u[2] - tol
+        }
+        Solid::Cylinder(c) => {
+            let (lo, hi) = c.z_range();
+            distance_to_polygon([c.centre_cm[0], c.centre_cm[1]], &poly) < c.radius_cm - tol
+                && lo < hhi - tol
+                && hlo < hi - tol
+        }
+        Solid::HexPrism(g) => {
+            let (glo, ghi) = g.z_range();
+            polygons_overlap(&poly, &g.polygon(), tol) && glo < hhi - tol && hlo < ghi - tol
+        }
+    }
+}
+
 /// **A shape filled with a material**, possibly containing other shapes or
 /// a lattice, belonging to a [`Component`], and (outermost only) with a
 /// [`Boundary`].
@@ -685,7 +826,7 @@ pub struct Shape {
 }
 
 impl Shape {
-    fn new(solid: Solid, material: Material) -> Self {
+    pub(crate) fn new(solid: Solid, material: Material) -> Self {
         Self {
             solid,
             material,
@@ -696,6 +837,44 @@ impl Shape {
             dh: None,
             temperature: None,
         }
+    }
+
+    /// A copy of this shape, and everything inside it, shifted by `d`
+    /// \[cm\]. A lattice inside keeps its own frame; a packed particle is
+    /// placed by its region's centre, so it moves with it.
+    pub(crate) fn translated(&self, d: [f64; 3]) -> Shape {
+        let mut s = self.clone();
+        s.solid = s.solid.translated(d);
+        s.children = s.children.iter().map(|c| c.translated(d)).collect();
+        s
+    }
+
+    /// A copy mirrored in the plane `z = 0` (centres only; every shape here
+    /// is its own mirror image about its own centre).
+    pub(crate) fn mirrored_z(&self) -> Shape {
+        let mut s = self.clone();
+        s.solid = s.solid.mirrored_z();
+        s.children = s.children.iter().map(Shape::mirrored_z).collect();
+        s
+    }
+
+    /// Whether `other` is this shape to within `tol` \[cm\]: congruent
+    /// solids, equal materials, components, temperatures and contents, in
+    /// the same order.
+    pub(crate) fn congruent(&self, other: &Shape, tol: f64) -> bool {
+        self.solid.congruent(&other.solid, tol)
+            && self.material == other.material
+            && self.component == other.component
+            && self.temperature == other.temperature
+            && self.boundary == other.boundary
+            && self.dh == other.dh
+            && self.lattice == other.lattice
+            && self.children.len() == other.children.len()
+            && self
+                .children
+                .iter()
+                .zip(&other.children)
+                .all(|(a, b)| a.congruent(b, tol))
     }
 
     /// **Give this shape its own temperature** (gh #945, stage 1: one fixed
