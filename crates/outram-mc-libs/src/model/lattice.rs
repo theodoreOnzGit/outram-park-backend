@@ -51,6 +51,9 @@ pub struct Lattice {
     /// Per grid position, in natural order (`nx*ny*iz + nx*iy + ix`), the
     /// tile index.
     pattern: Vec<usize>,
+    /// `Some(offset)` for a [`Lattice::covering`] lattice: the grid is
+    /// sized when assembled, to cover its container.
+    covering: Option<[f64; 3]>,
 }
 
 impl Lattice {
@@ -63,7 +66,60 @@ impl Lattice {
             tiles: vec![tile],
             n,
             pattern: vec![0; count],
+            covering: None,
         }
+    }
+
+    /// **As many copies of one tile as cover the sphere that holds it**
+    /// (#926, the pebble's fuel zone), with **whole-particle rejection**: a
+    /// tile whose contents would poke out of the sphere is left out, and the
+    /// sphere's material fills its place. Nothing is ever cut.
+    ///
+    /// `offset` places the grid: one tile centre sits at `offset[i]` pitches
+    /// from the sphere's centre along axis `i` (`[0.0; 3]` puts a tile at the
+    /// centre, `[0.5; 3]` puts eight tile corners there). The count of whole
+    /// tiles moves in symmetry shells as the pitch changes, and a generic
+    /// offset breaks the symmetry; see
+    /// [`crate::pebble_beds::sphere_packing::cubic_array_in_ball`], whose
+    /// convention this is, and [`super::Cube::for_whole_particles_in_sphere`]
+    /// to choose the pitch for a particle count.
+    ///
+    /// The grid size is chosen when the model is assembled, by the covering
+    /// rule `nee_soon::htr10_rmc::core_shell::TrisoBuild` uses for HTR-10's
+    /// fuel zone (the grid must cover the sphere; a grid that stops short
+    /// left a shell inside the cell but outside the lattice and gave
+    /// negative distances to boundary there, gh:#316 history), so
+    /// [`Self::dimensions`] is `[0, 0, 0]` until then; the census and the
+    /// assembled geometry hold the built grid. Only a [`super::Sphere`] can
+    /// hold one; a box refuses it.
+    ///
+    /// ```
+    /// use outram_mc_libs::model::prelude::*;
+    /// use uom::si::{f64::Length, length::centimeter};
+    /// let cm = Length::new::<centimeter>;
+    /// let graphite = Material::from_atom_densities([(C12, atoms_per_barn_cm(0.08))]);
+    /// let fuel = Material::from_atom_densities([(U235, atoms_per_barn_cm(0.04))]);
+    /// let tile = Cube::side(cm(0.5))
+    ///     .filled_with(graphite.clone())
+    ///     .containing(Sphere::radius(cm(0.1)).filled_with(fuel));
+    /// let zone = Sphere::radius(cm(2.0))
+    ///     .filled_with(graphite)
+    ///     .containing_lattice(Lattice::covering(tile, [0.13, 0.37, 0.71]));
+    /// assert_eq!(zone.contained_lattice().unwrap().covering_offset(), Some([0.13, 0.37, 0.71]));
+    /// ```
+    pub fn covering(tile: Shape, offset: [f64; 3]) -> Self {
+        Self {
+            tiles: vec![tile],
+            n: [0; 3],
+            pattern: Vec::new(),
+            covering: Some(offset),
+        }
+    }
+
+    /// The offset of a [`Self::covering`] lattice, in pitches; `None` for a
+    /// lattice of given size.
+    pub fn covering_offset(&self) -> Option<[f64; 3]> {
+        self.covering
     }
 
     /// **Tiles in natural order**: `pattern[nx*ny*iz + nx*iy + ix]` is the
@@ -71,7 +127,12 @@ impl Lattice {
     /// **lower-left** (smallest x, y, z), x fastest. This is the CSG
     /// lattice's own order (`geometry::lattice::RectLattice::universes`).
     pub fn from_natural_order(tiles: Vec<Shape>, n: [usize; 3], pattern: Vec<usize>) -> Self {
-        Self { tiles, n, pattern }
+        Self {
+            tiles,
+            n,
+            pattern,
+            covering: None,
+        }
     }
 
     /// **One layer of tiles, written as you would draw it: the first row is
@@ -101,10 +162,12 @@ impl Lattice {
             tiles,
             n: [nx, ny, 1],
             pattern,
+            covering: None,
         }
     }
 
-    /// Tiles per axis.
+    /// Tiles per axis (`[0, 0, 0]` for a [`Self::covering`] lattice before
+    /// it is assembled).
     pub fn dimensions(&self) -> [usize; 3] {
         self.n
     }
@@ -140,7 +203,14 @@ impl Lattice {
     /// **Why this lattice cannot be built**, or `None`. Checked by
     /// [`super::Model::assemble`].
     pub(crate) fn problem(&self) -> Option<String> {
-        if self.n.contains(&0) {
+        if let Some(off) = self.covering {
+            if !off.iter().all(|o| o.is_finite()) {
+                return Some(format!("a covering lattice's offset must be finite, not {off:?}"));
+            }
+            if self.tiles.len() != 1 {
+                return Some("a covering lattice repeats exactly one tile".into());
+            }
+        } else if self.n.contains(&0) {
             return Some(format!(
                 "a lattice needs at least one tile per axis, not {:?}",
                 self.n
@@ -150,7 +220,7 @@ impl Lattice {
             return Some("a lattice needs at least one tile".into());
         }
         let count = self.n[0] * self.n[1] * self.n[2];
-        if self.pattern.len() != count {
+        if self.covering.is_none() && self.pattern.len() != count {
             return Some(format!(
                 "a {}x{}x{} lattice needs {count} pattern entries, not {} (rows of different lengths?)",
                 self.n[0],
@@ -159,7 +229,12 @@ impl Lattice {
                 self.pattern.len()
             ));
         }
-        if let Some(bad) = self.pattern.iter().find(|&&t| t >= self.tiles.len()) {
+        if let Some(bad) = self
+            .pattern
+            .iter()
+            .find(|&&t| t >= self.tiles.len())
+            .filter(|_| self.covering.is_none())
+        {
             return Some(format!(
                 "the lattice pattern names tile {bad}, but only {} tiles were given",
                 self.tiles.len()
@@ -215,6 +290,31 @@ impl Lattice {
             }
         }
         (lower, centres)
+    }
+
+    /// **The grid of a [`Self::covering`] lattice** over a sphere of radius
+    /// `radius` centred at `centre`: tiles per axis and the lower-left
+    /// corner. Per axis, the tiles whose centres sit at `(k + offset) *
+    /// pitch` and together cover `[-radius, radius]`. Ported from
+    /// `nee_soon::htr10_rmc::core_shell::TrisoBuild::new`'s `triso_axis`
+    /// (the HTR-10 core's TRISO lattice, gh:#316/#430), expression for
+    /// expression, so the two give the same bits.
+    pub(crate) fn covering_grid(
+        radius: f64,
+        pitch: [f64; 3],
+        offset: [f64; 3],
+        centre: [f64; 3],
+    ) -> ([usize; 3], [f64; 3]) {
+        let axis = |p: f64, off: f64| -> (usize, f64) {
+            let k_lo = (-radius / p - off + 0.5).floor();
+            let k_hi = (radius / p - off - 0.5).ceil();
+            ((k_hi - k_lo) as usize + 1, (k_lo + off - 0.5) * p)
+        };
+        let a: [(usize, f64); 3] = std::array::from_fn(|i| axis(pitch[i], offset[i]));
+        (
+            a.map(|(n, _)| n),
+            std::array::from_fn(|i| a[i].1 + centre[i]),
+        )
     }
 }
 

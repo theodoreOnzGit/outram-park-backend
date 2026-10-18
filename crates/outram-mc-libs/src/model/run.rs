@@ -45,6 +45,8 @@
 //! ([`CsgPowerIteration`]), bit for bit `run_keff_csg` with
 //! `ComputeType::CpuSingleThread` when the population is not changed. Lost
 //! histories are not counted on this path (gh #699); the result says so.
+//! A model with a delta-tracked `DhRegion` (gh #926) passes its majorants
+//! ([`AssembledModel::majorants`]), which makes it `run_keff_csg_hybrid`.
 
 use raffles::estimators::autocorrelation::CorrelatedMean;
 use raffles::estimators::mean_and_stderr;
@@ -785,7 +787,8 @@ impl AssembledModel {
             Some(d) => Some(Collector::new(d.items(), self)?),
             None => None,
         };
-        let mut it = CsgPowerIteration::new(g, m, nuclides, self.source_box, &low);
+        let mut it = CsgPowerIteration::new(g, m, nuclides, self.source_box, &low)
+            .with_majorants(self.majorants(nuclides));
         if let Some(s) = collector.as_ref().and_then(Collector::ifp) {
             it.enable_ifp(s).map_err(RunError::InvalidSettings)?;
         }
@@ -970,7 +973,11 @@ impl AssembledModel {
             physics: self.physics(nuclides),
             data_library: self.data_label.clone(),
             temperature_k: self.temperature_k,
-            backend: "CsgPowerIteration, CPU single thread (bit for bit run_keff_csg at a fixed population)",
+            backend: if self.delta_regions().is_empty() {
+                "CsgPowerIteration, CPU single thread (bit for bit run_keff_csg at a fixed population)"
+            } else {
+                "CsgPowerIteration with delta-tracked regions, CPU single thread (bit for bit run_keff_csg_hybrid at a fixed population)"
+            },
             notes: notes(settings.mc(), &p),
             ablations,
             convergence,

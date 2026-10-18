@@ -22,8 +22,10 @@ use uom::si::f64::{Length, Ratio};
 use uom::si::length::centimeter;
 use uom::si::ratio::ratio;
 
+use super::dh_region::DhSpec;
 use super::lattice::Lattice;
 use super::material::Material;
+use super::model::ModelError;
 
 /// **A labelled group of shapes**, made by the model it belongs to
 /// ([`super::Model::component`]): the core, the reflector, all the control
@@ -236,6 +238,65 @@ impl Cube {
         let l = Length::new::<centimeter>(a);
         Cuboid::sides(l, l, l)
     }
+
+    /// **The tile of a simple-cubic lattice that places exactly `count`
+    /// whole `particle`s in `zone`** (a sphere), with one tile centre at
+    /// `offset` pitches from the zone's centre and whole-particle rejection
+    /// (a particle is kept when it lies wholly inside). Use the cube with
+    /// [`super::Lattice::covering`] and the same `offset`.
+    ///
+    /// The pitch is searched over +/-3 % of the continuum estimate by
+    /// [`crate::pebble_beds::sphere_packing::cubic_pitch_for_count`] (the
+    /// search the HTR-10 core's lattice uses, `nee_soon`'s `TrisoBuild`);
+    /// this function is that search, not a copy of it.
+    ///
+    /// # Errors
+    /// [`ModelError::BadValue`] when the particle is not a sphere centred
+    /// at its origin, when it does not fit in the zone, or when **no pitch
+    /// in the search gives exactly `count`**: the count moves in symmetry
+    /// shells, and the message names the nearest count reached so the
+    /// reader can pick another offset (a generic one such as `[0.13, 0.37,
+    /// 0.71]` breaks the symmetry; gh:#430).
+    ///
+    /// ```
+    /// use outram_mc_libs::model::prelude::*;
+    /// use uom::si::{f64::Length, length::centimeter};
+    /// let cm = Length::new::<centimeter>;
+    /// let fuel = Material::from_atom_densities([(U235, atoms_per_barn_cm(0.04))]);
+    /// let particle = Sphere::radius(cm(0.0455)).filled_with(fuel);
+    /// let tile = Cube::for_whole_particles_in_sphere(
+    ///     &particle, Sphere::radius(cm(2.5)), 8335, [0.13, 0.37, 0.71])?;
+    /// assert!((tile.sides_cm()[0] - 0.1951235).abs() < 1e-6);
+    /// # Ok::<(), ModelError>(())
+    /// ```
+    pub fn for_whole_particles_in_sphere(
+        particle: &Shape,
+        zone: Sphere,
+        count: usize,
+        offset: [f64; 3],
+    ) -> Result<Cuboid, ModelError> {
+        let r = particle.packed_radius_cm()?;
+        if !(r < zone.radius_cm) {
+            return Err(ModelError::BadValue(format!(
+                "a particle of radius {r} cm does not fit in a zone of radius {} cm",
+                zone.radius_cm
+            )));
+        }
+        let (pitch, got) = crate::pebble_beds::sphere_packing::cubic_pitch_for_count(
+            r,
+            zone.radius_cm,
+            count,
+            offset,
+        );
+        if got != count {
+            return Err(ModelError::BadValue(format!(
+                "no pitch places exactly {count} whole particles at offset {offset:?}; the \
+                 nearest is {got} (pitch {pitch:.7} cm). The count moves in symmetry shells: \
+                 try a generic offset such as [0.13, 0.37, 0.71]"
+            )));
+        }
+        Ok(Cube::side(Length::new::<centimeter>(pitch)))
+    }
 }
 
 /// **The solid a [`Shape`] occupies**: a [`Sphere`] or a [`Cuboid`]. Enum
@@ -381,6 +442,9 @@ pub struct Shape {
     pub(crate) children: Vec<Shape>,
     pub(crate) lattice: Option<Lattice>,
     pub(crate) boundary: Option<Boundary>,
+    /// Set when this shape is a [`super::DhRegion`]: its particles, their
+    /// packing and its tracking.
+    pub(crate) dh: Option<DhSpec>,
 }
 
 impl Shape {
@@ -392,6 +456,22 @@ impl Shape {
             children: Vec::new(),
             lattice: None,
             boundary: None,
+            dh: None,
+        }
+    }
+
+    /// The radius of a particle to be packed: its solid must be a sphere
+    /// centred at its own origin (the packing places it).
+    pub(crate) fn packed_radius_cm(&self) -> Result<f64, ModelError> {
+        match self.solid {
+            Solid::Sphere(s) if s.centre_cm == [0.0; 3] && self.solid.is_valid() => {
+                Ok(s.radius_cm)
+            }
+            _ => Err(ModelError::BadValue(format!(
+                "a packed particle must be a sphere centred at its own origin (the packing \
+                 places it), not {}",
+                self.solid.describe()
+            ))),
         }
     }
 
@@ -406,18 +486,23 @@ impl Shape {
     /// wholly inside, and contained shapes must not overlap each other;
     /// [`super::Model::assemble`] refuses either, with a picture. Write one
     /// `.containing` per statement, inside out (#943).
-    pub fn containing(mut self, inner: Shape) -> Self {
-        self.children.push(inner);
+    ///
+    /// `inner` may also be a [`super::DhRegion`] (a pebble's fuel zone).
+    pub fn containing(mut self, inner: impl Into<Shape>) -> Self {
+        self.children.push(inner.into());
         self
     }
 
     /// **Fill this shape with a [`Lattice`]** of tiles (#926). The lattice is
     /// centred on this shape; this shape's material fills whatever of it the
-    /// lattice does not cover (OpenMC's lattice `outer`). Today the
-    /// container must be a [`Cuboid`] the lattice fits inside, and it holds
-    /// nothing else; [`super::Model::assemble`] refuses otherwise. (A
-    /// lattice clipped by a sphere, with whole-particle rejection, is the
-    /// pebble's fuel zone: #926's follow-up.)
+    /// lattice does not cover (OpenMC's lattice `outer`). The container
+    /// holds nothing else, and is either a [`Cuboid`] the lattice fits
+    /// inside, or a [`Sphere`] the lattice covers: then **whole-particle
+    /// rejection** applies (a tile whose contents would poke out of the
+    /// sphere is left out and the sphere's material fills its place;
+    /// nothing is cut), and the tiles' own material must be the sphere's.
+    /// [`super::Lattice::covering`] sizes the grid for a sphere.
+    /// [`super::Model::assemble`] refuses anything else.
     pub fn containing_lattice(mut self, lattice: Lattice) -> Self {
         self.lattice = Some(lattice);
         self
@@ -472,6 +557,9 @@ impl Shape {
             for t in l.tiles() {
                 t.visit(f);
             }
+        }
+        if let Some(p) = self.dh.as_ref().and_then(DhSpec::particle) {
+            p.visit(f);
         }
         f(self);
     }
