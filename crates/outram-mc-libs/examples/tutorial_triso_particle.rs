@@ -26,8 +26,8 @@
 //!   model reported 8340, gh:#316, +353 pcm).
 //!
 //! ```text
-//! cargo run --release -p outram-mc-libs --example tutorial_triso_particle            # MCSettings::Auto
-//! cargo run --release -p outram-mc-libs --example tutorial_triso_particle -- --fast  # smoke test
+//! cargo run --release -p outram-mc-libs --example tutorial_triso_particle            # MCSettings::Fast (smoke test)
+//! cargo run --release -p outram-mc-libs --example tutorial_triso_particle -- --auto  # MCSettings::Auto (hours)
 //! cargo run --release -p outram-mc-libs --example tutorial_triso_particle -- --seeds 8  # + 8 pooled seeds
 //! cargo run --release -p outram-mc-libs --example tutorial_triso_particle -- --geometry-only  # draw and count only
 //! cargo run --release -p outram-mc-libs --example tutorial_triso_particle -- --seeds-only 8  # 8 seeds in parallel, no diagnostics
@@ -105,7 +105,36 @@
 //!
 //! ## Results
 //!
-//! RESULTS_PLACEHOLDER
+//! 2026-10-18, ENDF/B-VIII.0 from `reference-data/endf/`. Hardware: Intel
+//! i9-13900K (32 logical cores, shared with other jobs; these runs pinned
+//! to 4 of them), 62.5 GiB RAM, Linux, CPU only.
+//!
+//! | check | result |
+//! |---|---|
+//! | 1. lowering | the five shells identical to `build_triso_particle(TrisoRadii::HTR10)` |
+//! | 2. census | 1 particle; packing fraction 5.024811 % as asked; kernel 0.83350 % of the volume. Stacked 3 x 3 x 3: 27 particles, same fraction |
+//! | 3. leakage | P_FNL = P_TNL = 1.00000 ± 0.00000 |
+//! | 4. six factors | product 1.56197 ± 0.00093 against k: −186 ± 193 pcm (−0.96σ) |
+//! | **Fast (the default), seed 1** | **`k_inf = 1.56384 ± 0.00169`** (batch means 0.00137): a **SMOKE TEST**, not a result to quote (120 active cycles fall short of Brown's "a few hundred"; the run's own note says so). 95 inactive cycles (watcher: stationary at 1000 per cycle by cycle 30, at 5000 by cycle 95) + 120 active of 5000. Two runs gave the same bits |
+//!
+//! - **Six factors (Fast):** η 2.0244, f 0.9777, p 0.6596, ε 1.1964.
+//!   Thermal (below 0.625 eV) flux is 18.5 % in the kernel, 18.9 % in
+//!   the matrix, peaking per lethargy near 0.08 to 0.10 eV (a Maxwellian
+//!   hardened by absorption).
+//! - **No recorded value exists for this cell** (see above), so k is
+//!   reported, not compared. Nothing was tuned.
+//! - **Why Fast is the default** (maintainer, 2026-10-18: "do fast lah
+//!   not auto"). Data 64 to 69 s (13 nuclides, 3 LEAPR laws, parallel).
+//!   Transport with diagnostics on Fast: **3764 to 3884 s
+//!   single-threaded**, about 5.5 s per generation of 1000 and 27 s per
+//!   generation of 5000 (roughly 5 ms per history):
+//!   in a 0.199 cm mirrored cube a thermal neutron, whose mean free path in
+//!   graphite is a few cm, crosses or reflects off the faces thousands of
+//!   times per history. Auto (250 × 10 000 active) would be about 3.8 h at
+//!   that rate on one core (`--auto`); a first Auto run was stopped at
+//!   1 h 38 min and gave no number. Independent seeds on several cores,
+//!   without diagnostics (`--seeds-only N`), are the cheaper route to
+//!   more statistics; not run for this record.
 
 use std::path::PathBuf;
 use std::time::Instant;
@@ -132,7 +161,7 @@ const T_K: f64 = 293.6;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = std::env::args().collect();
-    let fast = args.iter().any(|a| a == "--fast");
+    let auto = args.iter().any(|a| a == "--auto");
     let geometry_only = args.iter().any(|a| a == "--geometry-only");
     let arg = |name: &str| {
         args.iter()
@@ -433,10 +462,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // ── 7. Run k-infinity, with diagnostics ─────────────────────────────────
     let diagnostics =
         Diagnostics::default().with_spectrum_per_component(&model, EnergyGrid::default_spectrum());
-    let preset = if fast {
-        MCSettings::Fast
-    } else {
+    // Fast by default (maintainer, 2026-10-18: "do fast lah not auto"):
+    // a SMOKE TEST, 120 active cycles of 5000, which the result's own notes
+    // say falls short of Brown's "a few hundred". Auto (250 x 10 000) is
+    // about 3.8 h on one core for this cell; ask for it with --auto.
+    let preset = if auto {
         MCSettings::Auto
+    } else {
+        MCSettings::Fast
     };
     let t = Instant::now();
     let nuclides = assembled.load_nuclides(model.data())?;
@@ -620,7 +653,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             t.elapsed().as_secs_f64()
         );
         println!(
-            "  k_inf = {:.5} ± {:.5} (sd per run {:.0} pcm); the Auto run is {:+.2} sigma from it",
+            "  k_inf = {:.5} ± {:.5} (sd per run {:.0} pcm); the single run is {:+.2} sigma from it",
             rep.mean,
             rep.sem,
             rep.sd * 1e5,
