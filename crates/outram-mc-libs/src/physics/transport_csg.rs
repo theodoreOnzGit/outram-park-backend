@@ -1817,7 +1817,7 @@ pub(crate) fn transport_history_vr<O: FnMut(TraceEvent)>(
                     // material the whole segment traversed.
                     TrackingMethod::Surface => {
                         let seg = d_col.min(d_bound.distance);
-                        let mxs = path.material.map(|m| materials[m].macro_xs(e, nuclides));
+                        let mxs = path.material.map(|m| materials[m].macro_xs_urr(e, nuclides, urr_seed));
                         let mat_idx = path.material.unwrap_or(usize::MAX);
                         // Spatial filters (mesh / Legendre) bin on the segment
                         // midpoint `r + 0.5·seg·u` — the track-length-
@@ -1868,6 +1868,7 @@ pub(crate) fn transport_history_vr<O: FnMut(TraceEvent)>(
                                     },
                                     d_col,
                                     m,
+                                    urr_seed,
                                 );
                             }
                         }

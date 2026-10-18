@@ -244,7 +244,7 @@ pub(crate) fn fly_delta_region(
         if !(d < d_surface) {
             return;
         }
-        let mxs = site.material.map(|m| materials[m].macro_xs(e, nuclides));
+        let mxs = site.material.map(|m| materials[m].macro_xs_urr(e, nuclides, urr_seed));
         score_collision_point(
             batch,
             t,
@@ -343,9 +343,10 @@ pub(crate) fn score_real_collision(
     bins: StartBins,
     distance: f64,
     material: usize,
+    urr_seed: u64,
 ) {
     let FlightStart { r, u, e, w, time_s } = p;
-    let mxs = materials[material].macro_xs(e, nuclides);
+    let mxs = materials[material].macro_xs_urr(e, nuclides, urr_seed);
     if mxs.total > 0.0 {
         score_collision_point(
             batch,
