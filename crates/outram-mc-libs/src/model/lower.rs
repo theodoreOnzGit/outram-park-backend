@@ -28,6 +28,8 @@ use crate::geometry::position::Position;
 use crate::geometry::surface::{BoundaryType, SurfaceKind, XPlane, YPlane, ZPlane};
 use crate::geometry::universe::Universe;
 use crate::material::material::NuclideComponent;
+use uom::si::f64::ThermodynamicTemperature;
+use uom::si::thermodynamic_temperature::kelvin;
 
 /// One lowered shape: the tokens a parent uses to subtract it, and its own
 /// surfaces (for the boundary condition of an outermost shape).
@@ -63,6 +65,9 @@ pub(crate) struct Lowering {
     pub(crate) nuclides: Vec<NuclideKey>,
     /// Bounds of the shapes holding heavy metal, in the root frame.
     pub(crate) fissile_bounds: Option<([f64; 3], [f64; 3])>,
+    /// Per component (by index): its own temperature \[K\], when the model
+    /// gives it one (gh #945).
+    pub(crate) component_temperatures: Vec<Option<f64>>,
     /// While lowering a lattice tile, positions are tile-local: heavy metal
     /// is noted here instead of in `fissile_bounds`.
     pub(crate) in_tile: bool,
@@ -202,6 +207,7 @@ impl Lowering {
         masses: &AtomicMasses,
         cells_of: &mut Vec<usize>,
     ) -> Result<Lowered, ModelError> {
+        let t = self.temperature_of(s, t);
         if let Some(spec) = &s.dh {
             return self.lower_dh(s, spec, t, masses, cells_of);
         }
@@ -253,6 +259,7 @@ impl Lowering {
         masses: &AtomicMasses,
         pool: Option<usize>,
     ) -> Result<(usize, Vec<(usize, f64)>), ModelError> {
+        let t = self.temperature_of(tile, t);
         let mut cells_of = Vec::new();
         let mut child_cells = Vec::new();
         let mut children: Vec<Vec<RegionToken>> = Vec::new();
@@ -380,16 +387,35 @@ impl Lowering {
         }
     }
 
-    /// The low-level material index of `m`, resolving it on first use
-    /// (equal materials share one entry; nuclides are keyed by nuclide and
-    /// thermal law).
+    /// **The temperature \[K\] of shape `s`** whose container is at
+    /// `inherited` (gh #945): its own, else its component's, else
+    /// `inherited`. Checked positive and finite by `Model::assemble`.
+    pub(crate) fn temperature_of(&self, s: &Shape, inherited: f64) -> f64 {
+        if let Some(t) = s.temperature {
+            return t.kelvin();
+        }
+        s.component
+            .and_then(|c| self.component_temperatures.get(c.index).copied().flatten())
+            .unwrap_or(inherited)
+    }
+
+    /// The low-level material index of `m` at temperature `t` \[K\],
+    /// resolving it on first use (equal materials at the same temperature
+    /// share one entry; nuclides are keyed by nuclide, thermal law and
+    /// temperature, so each is processed once per temperature it is present
+    /// at, gh #945).
     pub(crate) fn material_index(
         &mut self,
         m: &Material,
         t: f64,
         masses: &AtomicMasses,
     ) -> Result<usize, ModelError> {
-        if let Some(i) = self.descriptions.iter().position(|d| d == m) {
+        if let Some(i) = self
+            .descriptions
+            .iter()
+            .zip(&self.materials)
+            .position(|(d, low)| d == m && low.temperature.to_bits() == t.to_bits())
+        {
             return Ok(i);
         }
         let r = m.resolve(masses)?;
@@ -398,6 +424,7 @@ impl Lowering {
             let key = NuclideKey {
                 isotope,
                 law: r.moderator.and_then(|md| md.law_for(isotope)),
+                temperature: ThermodynamicTemperature::new::<kelvin>(t),
             };
             let idx = match self.nuclides.iter().position(|k| *k == key) {
                 Some(i) => i,

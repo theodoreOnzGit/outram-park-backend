@@ -25,7 +25,7 @@ use uom::si::ratio::ratio;
 use super::dh_region::DhSpec;
 use super::lattice::Lattice;
 use super::material::Material;
-use super::model::ModelError;
+use super::model::{ModelError, Temperature};
 
 /// **A labelled group of shapes**, made by the model it belongs to
 /// ([`super::Model::component`]): the core, the reflector, all the control
@@ -445,6 +445,9 @@ pub struct Shape {
     /// Set when this shape is a [`super::DhRegion`]: its particles, their
     /// packing and its tracking.
     pub(crate) dh: Option<DhSpec>,
+    /// This shape's own temperature (gh #945), for it and everything it
+    /// contains that sets none of its own.
+    pub(crate) temperature: Option<Temperature>,
 }
 
 impl Shape {
@@ -457,7 +460,30 @@ impl Shape {
             lattice: None,
             boundary: None,
             dh: None,
+            temperature: None,
         }
+    }
+
+    /// **Give this shape its own temperature** (gh #945, stage 1: one fixed
+    /// temperature per region). It applies to this shape and to every shape,
+    /// lattice tile and packed particle inside it that sets none of its own,
+    /// as a fill cell's temperature does in OpenMC (`openmc/cell.py`,
+    /// `Cell.temperature` setter). Unlike OpenMC's setter, an inner shape's
+    /// own temperature always wins, whichever was written first.
+    ///
+    /// Which temperature a shape takes, first match wins: this; its
+    /// component's ([`super::Model::set_component_temperature`]); its
+    /// container's; the model's ([`super::Model::set_temperature`]). The
+    /// nuclides of the shape's material are processed at it, exactly (no
+    /// interpolation between tabulated temperatures; that is stage 2).
+    pub fn at_temperature(mut self, temperature: Temperature) -> Self {
+        self.temperature = Some(temperature);
+        self
+    }
+
+    /// This shape's own temperature, if one was set.
+    pub fn own_temperature(&self) -> Option<Temperature> {
+        self.temperature
     }
 
     /// The radius of a particle to be packed: its solid must be a sphere

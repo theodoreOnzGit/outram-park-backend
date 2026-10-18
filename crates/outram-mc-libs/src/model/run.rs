@@ -339,6 +339,24 @@ pub enum RunError {
         /// Needed.
         wanted: usize,
     },
+    /// A nuclide's data were processed at another temperature than the
+    /// regions using it are at (gh #945). Its cross sections, and the
+    /// majorant of any delta-tracked region holding it, would be at the
+    /// wrong temperature; the run refuses rather than transport on them.
+    #[error(
+        "nuclide {index} ({nuclide}) holds data at {got_k} K, but the model needs it at {wanted_k} K; \
+         load the nuclides with AssembledModel::load_nuclides"
+    )]
+    NuclideTemperature {
+        /// Index into [`AssembledModel::nuclides`].
+        index: usize,
+        /// Its name.
+        nuclide: String,
+        /// The temperature of the data given \[K\].
+        got_k: f64,
+        /// The temperature its key asks for \[K\].
+        wanted_k: f64,
+    },
     /// The neutron population died out.
     #[error("the neutron population died out at generation {0}")]
     PopulationDied(usize),
@@ -399,10 +417,16 @@ impl Convergence {
 
 /// The physics one transport nuclide carried (always on in this API; this
 /// records it so a reader can check).
-#[derive(Debug, Clone, PartialEq, Eq)]
+///
+/// ~~`Eq`~~ **CHANGED 2026-10-18 (gh #945)**: the temperature made it
+/// `PartialEq` only.
+#[derive(Debug, Clone, PartialEq)]
 pub struct NuclidePhysics {
     /// Nuclide name.
     pub nuclide: String,
+    /// The temperature its data were processed at \[K\] (gh #945: one entry
+    /// per nuclide and temperature present).
+    pub temperature_k: f64,
     /// Unresolved-resonance probability tables attached.
     pub urr_probability_tables: bool,
     /// DBRC attached; when not, why.
@@ -437,8 +461,13 @@ pub struct RunProvenance {
     pub physics: Vec<NuclidePhysics>,
     /// The nuclear-data library.
     pub data_library: String,
-    /// The temperature every nuclide was processed at \[K\].
+    /// The model's temperature \[K\]: every region that set none of its own.
+    /// ~~The temperature every nuclide was processed at~~ until gh #945
+    /// (2026-10-18); [`Self::temperatures_k`] lists them all.
     pub temperature_k: f64,
+    /// Every temperature the data were processed at \[K\], ascending (gh
+    /// #945): `[temperature_k]` when no region sets its own.
+    pub temperatures_k: Vec<f64>,
     /// What ran it.
     pub backend: &'static str,
     /// Threads the run's histories were spread over: rayon's current pool
@@ -671,11 +700,20 @@ impl std::fmt::Display for KeffRun {
         if let Some(r) = p.pcm_tolerance_reached {
             writeln!(f, "  pcm tolerance reached: {r}")?;
         }
+        let at = if p.temperatures_k.len() > 1 {
+            let each: Vec<String> = p.temperatures_k.iter().map(|t| t.to_string()).collect();
+            format!(
+                "{} K by region (model {} K)",
+                each.join(", "),
+                p.temperature_k
+            )
+        } else {
+            format!("{} K", p.temperature_k)
+        };
         writeln!(
             f,
-            "  data: {} at {} K; {} ({} thread{})",
+            "  data: {} at {at}; {} ({} thread{})",
             p.data_library,
-            p.temperature_k,
             p.backend,
             p.threads,
             if p.threads == 1 { "" } else { "s" }
@@ -690,8 +728,8 @@ impl std::fmt::Display for KeffRun {
             let law = n.thermal_law.as_deref().unwrap_or("free gas");
             writeln!(
                 f,
-                "  physics {}: URR tables {urr}, DBRC {dbrc}, thermal {law}",
-                n.nuclide
+                "  physics {} at {} K: URR tables {urr}, DBRC {dbrc}, thermal {law}",
+                n.nuclide, n.temperature_k
             )?;
         }
         for a in &p.ablations {
@@ -831,6 +869,7 @@ impl AssembledModel {
                 wanted: self.nuclides.len(),
             });
         }
+        self.check_nuclide_temperatures(nuclides)?;
         let p = plan(settings.mc())?;
         let max_active = match p.active {
             Active::Fixed(n) => n,
@@ -1059,6 +1098,7 @@ impl AssembledModel {
             physics: self.physics(nuclides),
             data_library: self.data_label.clone(),
             temperature_k: self.temperature_k,
+            temperatures_k: self.temperatures_k(),
             backend: match (settings.backend(), self.delta_regions().is_empty()) {
                 (RunBackend::MultiThread, true) => {
                     "CsgPowerIteration::step_par, CPU multi-thread on rayon's current pool \
@@ -1112,12 +1152,40 @@ impl AssembledModel {
         })
     }
 
+    /// **The data of each nuclide are at its key's temperature** (gh #945).
+    /// A pointwise nuclide carries the kT its data were broadened to
+    /// ([`Nuclide::data_kt_ev`]); it must match the key's temperature to a
+    /// relative 1e-4 (the ACE header's print precision with margin, as
+    /// `NuclearData::from_ace_files` matches a table). A multipole (LOW
+    /// tier) nuclide carries none: it is broadened at lookup, at the
+    /// material's temperature, and passes.
+    pub(crate) fn check_nuclide_temperatures(&self, nuclides: &[Nuclide]) -> Result<(), RunError> {
+        use uom::si::thermodynamic_temperature::kelvin;
+        for (index, (k, n)) in self.nuclides.iter().zip(nuclides).enumerate() {
+            let Some(kt) = n.data_kt_ev() else { continue };
+            let got_k = kt / crate::physics::scatter::K_BOLTZMANN_EV_PER_K;
+            let wanted_k = k.temperature.get::<kelvin>();
+            if (got_k - wanted_k).abs() > 1.0e-4 * wanted_k {
+                return Err(RunError::NuclideTemperature {
+                    index,
+                    nuclide: k.isotope.name(),
+                    got_k,
+                    wanted_k,
+                });
+            }
+        }
+        Ok(())
+    }
+
     fn physics(&self, nuclides: &[Nuclide]) -> Vec<NuclidePhysics> {
         self.nuclides
             .iter()
             .zip(nuclides)
             .map(|(k, n)| NuclidePhysics {
                 nuclide: k.isotope.name(),
+                temperature_k: k
+                    .temperature
+                    .get::<uom::si::thermodynamic_temperature::kelvin>(),
                 urr_probability_tables: n.has_urr_probability_tables(),
                 dbrc: match n.dbrc_unavailable_reason() {
                     None => Ok(()),

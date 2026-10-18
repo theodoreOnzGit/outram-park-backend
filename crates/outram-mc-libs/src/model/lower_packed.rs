@@ -151,6 +151,9 @@ pub(crate) fn dh_lattice(s: &Shape, spec: &DhSpec) -> Result<Option<Lattice>, Mo
         .filled_with(s.material.clone())
         .containing((**particle).clone());
     tile.component = s.component;
+    // The zone's own temperature, so the tile resolves to the zone's (it
+    // shares the zone's component; gh #945).
+    tile.temperature = s.temperature;
     Ok(Some(Lattice::covering(tile, offset)))
 }
 
@@ -475,6 +478,9 @@ impl Lowering {
             lattice: None,
             boundary: None,
             dh: None,
+            // The zone's own temperature, so the carrier resolves to the
+            // zone's (it shares the zone's component; gh #945).
+            temperature: s.temperature,
         };
         let was = (self.in_tile, self.tile_has_heavy_metal);
         self.in_tile = true;

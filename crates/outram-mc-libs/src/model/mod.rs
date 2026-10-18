@@ -69,8 +69,12 @@
 //! sphere with whole-particle rejection,~~ landed the same day: `DhRegion`,
 //! `Packing`, `Lattice::covering`; still to come: hex lattices, the
 //! chord-length tracking and the `ring_rpt()` / `naive_homogenisation()`
-//! conversions of #943), position-dependent
-//! temperature (#945), and
+//! conversions of #943), temperature varying inside a region (#945
+//! stages 2-3; ~~position-dependent temperature~~ **stage 1 landed
+//! 2026-10-18**: one fixed temperature per region,
+//! `Shape::at_temperature`, `Model::set_component_temperature` and
+//! `Model::take_temperatures_from` a `ThermalProfile`, each nuclide
+//! processed exactly at each temperature present), and
 //! the njoy → outram-mc data contract, which is open on #925
 //! ([`NuclearData`] wraps today's path so it can be swapped).
 //!
@@ -95,6 +99,8 @@ pub mod masses;
 pub mod material;
 #[allow(clippy::module_inception)]
 pub mod model;
+#[cfg(test)]
+mod region_temperature_tests;
 pub mod report;
 pub mod resolve;
 pub mod run;

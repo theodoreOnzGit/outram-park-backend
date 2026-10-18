@@ -50,15 +50,39 @@ use crate::material::nuclide::Nuclide;
 use crate::physics::transport_csg::SourceBox;
 use njoy_outram_park_fork::leapr::decks::SabMaterial;
 
-/// **The temperature of the model**, set on the geometry only (maintainer
-/// decision, #937/#938, 2026-10-17). One variant today: one temperature
-/// everywhere. Position-dependent temperature (fields, fixed points) is
-/// #945.
+/// **A temperature, set on the geometry only** (maintainer decision,
+/// #937/#938, 2026-10-17): on the whole model
+/// ([`Model::set_temperature`]), on one shape and what it contains
+/// ([`Shape::at_temperature`]), or on a component
+/// ([`Model::set_component_temperature`],
+/// [`Model::take_temperatures_from`]). One variant today: one temperature
+/// over what it is set on. Temperature varying inside a region (fields,
+/// fixed points) is a later stage of #945.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Temperature {
-    /// The same temperature in every shape. Every nuclide is processed at
-    /// it.
+    /// The same temperature everywhere it is set. Every nuclide there is
+    /// processed at it.
     Uniform(ThermodynamicTemperature),
+}
+
+impl Temperature {
+    /// The temperature \[K\].
+    pub(crate) fn kelvin(self) -> f64 {
+        match self {
+            Temperature::Uniform(t) => t.get::<kelvin>(),
+        }
+    }
+}
+
+/// A temperature \[K\] the data can be processed at: positive and finite.
+pub(crate) fn check_temperature(t_k: f64, what: &str) -> Result<f64, ModelError> {
+    if t_k > 0.0 && t_k.is_finite() {
+        Ok(t_k)
+    } else {
+        Err(ModelError::BadValue(format!(
+            "{what} temperature {t_k} K must be positive"
+        )))
+    }
 }
 
 /// Why a model could not be assembled. Geometry problems carry a picture.
@@ -139,15 +163,27 @@ pub struct Model {
     components: Vec<String>,
     shapes: Vec<Shape>,
     temperature: Option<Temperature>,
+    /// Components given their own temperature
+    /// ([`Model::set_component_temperature`]), latest setting per component.
+    component_temperatures: Vec<(Component, Temperature)>,
 }
 
-/// One transport nuclide: which nuclide, and the thermal law it carries.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// One transport nuclide: which nuclide, the thermal law it carries, and
+/// the temperature its data are processed at (gh #945: one entry per
+/// distinct temperature the nuclide is present at, so each nuclide x
+/// temperature is processed once).
+///
+/// ~~`Eq`~~ **CHANGED 2026-10-18 (gh #945)**: the temperature made the key
+/// `PartialEq` only.
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct NuclideKey {
     /// The nuclide.
     pub isotope: Isotope,
     /// The bound-atom law, when its material's [`super::Moderator`] gives one.
     pub law: Option<SabMaterial>,
+    /// The temperature the data are processed at: the temperature of every
+    /// region whose materials index this entry.
+    pub temperature: ThermodynamicTemperature,
 }
 
 /// **A model lowered to the transport's own types**, before nuclear data is
@@ -166,7 +202,9 @@ pub struct AssembledModel {
     /// material holds heavy metal (all shapes if none does). The sampler keeps
     /// only points in fissionable material, so the start is uniform over it.
     pub source_box: SourceBox,
-    /// The temperature every nuclide is processed at \[K\].
+    /// The model's temperature \[K\]: every region that sets none of its
+    /// own (gh #945). [`Self::temperatures_k`] lists every temperature the
+    /// data are processed at.
     pub temperature_k: f64,
     /// Per cell: the component of the shape it came from.
     pub cell_components: Vec<Option<Component>>,
@@ -201,6 +239,7 @@ impl Model {
             components: Vec::new(),
             shapes: Vec::new(),
             temperature: None,
+            component_temperatures: Vec::new(),
         }
     }
 
@@ -226,9 +265,100 @@ impl Model {
         self.shapes.push(shape);
     }
 
-    /// **Set the temperature** (on the geometry; materials carry none).
+    /// **Set the temperature** (on the geometry; materials carry none). It
+    /// is the default: a shape or component given its own temperature keeps
+    /// it.
     pub fn set_temperature(&mut self, temperature: Temperature) {
         self.temperature = Some(temperature);
+    }
+
+    /// **Give every shape in `component` its own temperature** (gh #945,
+    /// stage 1: one fixed temperature per region). The nuclides of those
+    /// shapes are processed at it; a later call for the same component
+    /// replaces it.
+    ///
+    /// Which temperature a shape takes, first match wins: its own
+    /// [`Shape::at_temperature`]; its component's (this); its container's;
+    /// the model's ([`Self::set_temperature`]). A component made by another
+    /// model is refused at [`Self::assemble`].
+    pub fn set_component_temperature(&mut self, component: Component, temperature: Temperature) {
+        self.component_temperatures.retain(|(c, _)| *c != component);
+        self.component_temperatures.push((component, temperature));
+    }
+
+    /// The temperature set on `component`, if any.
+    pub fn component_temperature(&self, component: Component) -> Option<Temperature> {
+        self.component_temperatures
+            .iter()
+            .find(|(c, _)| *c == component)
+            .map(|(_, t)| *t)
+    }
+
+    /// **Take each component's temperature from a solved thermal profile**
+    /// (gh #949 -> #945, stage 1: one fixed temperature per region). Each
+    /// voxel of `profile` is located in this model's assembled geometry by
+    /// its centre; the component of the cell it lands in gets the
+    /// volume-mean temperature of its voxels
+    /// ([`ThermalProfile::mean_temperature_by`]), set as
+    /// [`Self::set_component_temperature`] would. Returns what was set, in
+    /// component order.
+    ///
+    /// A component no voxel lands in (outside the conducting body, thinner
+    /// than a voxel, or in a cell with no component) keeps what it had: its
+    /// own setting, its container's, or the model's temperature. Within a
+    /// component the temperature is one number; a gradient inside it is a
+    /// later stage of #945.
+    ///
+    /// # Errors
+    /// [`ModelError`] when the model does not assemble (its temperature
+    /// must be set: it is the default for what the profile does not cover),
+    /// or [`ModelError::BadValue`] when no voxel lands in any component.
+    ///
+    /// [`ThermalProfile::mean_temperature_by`]: crate::thermal_profile::ThermalProfile::mean_temperature_by
+    pub fn take_temperatures_from(
+        &mut self,
+        profile: &crate::thermal_profile::ThermalProfile,
+    ) -> Result<Vec<(Component, ThermodynamicTemperature)>, ModelError> {
+        use crate::geometry::cell::SurfaceToken;
+        use crate::geometry::position::Direction;
+        let a = self.assemble()?;
+        let means = profile.mean_temperature_by(self.components.len(), |r| {
+            let path = a
+                .geometry
+                .locate(r, Direction::new(1.0, 0.0, 0.0), SurfaceToken::NONE)?;
+            let cell = path.levels.last()?.cell;
+            a.cell_components
+                .get(cell)
+                .copied()
+                .flatten()
+                .map(|c| c.index)
+        });
+        let taken: Vec<(Component, ThermodynamicTemperature)> = means
+            .into_iter()
+            .enumerate()
+            .filter_map(|(index, m)| {
+                m.map(|(t, _)| {
+                    (
+                        Component {
+                            model: self.id,
+                            index,
+                        },
+                        t,
+                    )
+                })
+            })
+            .collect();
+        if taken.is_empty() {
+            return Err(ModelError::BadValue(
+                "no voxel of the thermal profile lies in a shape with a component; put the \
+                 heated shapes in components (.in_component(..))"
+                    .into(),
+            ));
+        }
+        for &(c, t) in &taken {
+            self.set_component_temperature(c, Temperature::Uniform(t));
+        }
+        Ok(taken)
     }
 
     /// The nuclear-data library.
@@ -255,14 +385,19 @@ impl Model {
         if self.shapes.is_empty() {
             return Err(ModelError::Empty);
         }
-        let Some(Temperature::Uniform(t)) = self.temperature else {
+        let Some(t) = self.temperature else {
             return Err(ModelError::NoTemperature);
         };
-        let temperature_k = t.get::<kelvin>();
-        if !(temperature_k > 0.0 && temperature_k.is_finite()) {
-            return Err(ModelError::BadValue(format!(
-                "temperature {temperature_k} K must be positive"
-            )));
+        let temperature_k = check_temperature(t.kelvin(), "the model's")?;
+        let mut component_temperatures = vec![None; self.components.len()];
+        for (c, t) in &self.component_temperatures {
+            if c.model != self.id {
+                return Err(ModelError::ForeignComponent);
+            }
+            component_temperatures[c.index] = Some(check_temperature(
+                t.kelvin(),
+                &format!("component {}'s", self.components[c.index]),
+            )?);
         }
         for s in &self.shapes {
             self.check_shape(s, true)?;
@@ -278,6 +413,7 @@ impl Model {
 
         let masses = self.data.atomic_masses();
         let mut lw = Lowering::default();
+        lw.component_temperatures = component_temperatures;
         let mut root_cells = Vec::new();
         let top: Vec<Lowered> = self
             .shapes
@@ -379,6 +515,9 @@ impl Model {
             if c.model != self.id {
                 return Err(ModelError::ForeignComponent);
             }
+        }
+        if let Some(t) = s.temperature {
+            check_temperature(t.kelvin(), &format!("{}'s", s.solid.describe()))?;
         }
         if !outermost && s.boundary.is_some() {
             return Err(ModelError::BadValue(
@@ -648,17 +787,46 @@ impl AssembledModel {
         title: &str,
     ) -> ImageData {
         let plot = SlicePlot::new(basis, centre, width_cm, [pixels, pixels]);
-        let names: Vec<&str> = self.resolved.iter().map(|r| r.name.as_str()).collect();
+        // With regions at several temperatures (gh #945) a material appears
+        // once per temperature; the legend names the temperature.
+        let by_temperature = self.temperatures_k().len() > 1;
+        let names: Vec<String> = self
+            .resolved
+            .iter()
+            .zip(&self.materials)
+            .map(|(r, m)| {
+                if by_temperature {
+                    format!("{} {} K", r.name, m.temperature)
+                } else {
+                    r.name.clone()
+                }
+            })
+            .collect();
         let palette: Vec<(Rgb, &str)> = names
             .iter()
             .enumerate()
-            .map(|(i, n)| (PALETTE[i % PALETTE.len()], *n))
+            .map(|(i, n)| (PALETTE[i % PALETTE.len()], n.as_str()))
             .collect();
         render_material_slice(&self.geometry, &plot, &palette, title).1
     }
 
-    /// **Process every nuclide** this model needs from `data` at its
-    /// temperature, in [`Self::nuclides`] order. On native targets the
+    /// **Every temperature the data are processed at** \[K\], ascending and
+    /// distinct: the model's, and each region's own (gh #945). One entry
+    /// when no region sets its own.
+    pub fn temperatures_k(&self) -> Vec<f64> {
+        let mut t: Vec<f64> = self.materials.iter().map(|m| m.temperature).collect();
+        if t.is_empty() {
+            t.push(self.temperature_k);
+        }
+        t.sort_by(f64::total_cmp);
+        t.dedup();
+        t
+    }
+
+    /// **Process every nuclide** this model needs from `data`, each at the
+    /// temperature of its [`NuclideKey`] (the temperature of the regions
+    /// that use it; gh #945), in [`Self::nuclides`] order. Each nuclide x
+    /// law x temperature is one entry, processed once. On native targets the
     /// nuclides are processed in parallel (each processing call is
     /// single-threaded and independent, so the data are the same as a serial
     /// run's); on `wasm32` serially.
@@ -681,12 +849,17 @@ impl AssembledModel {
         use rayon::prelude::*;
         #[cfg(target_arch = "wasm32")]
         use crate::wasm_par::prelude::*;
-        let t = self.temperature_k;
         let print = progress == super::run::Progress::Print;
         if print {
+            let temperatures: Vec<String> = self
+                .temperatures_k()
+                .iter()
+                .map(|t| format!("{t} K"))
+                .collect();
             println!(
-                " processing {} nuclides at {t} K (correct physics on)",
-                self.nuclides.len()
+                " processing {} nuclides at {} (correct physics on)",
+                self.nuclides.len(),
+                temperatures.join(", ")
             );
         }
         self.nuclides
@@ -694,16 +867,17 @@ impl AssembledModel {
             .map(|k| {
                 #[cfg(not(target_arch = "wasm32"))]
                 let clock = std::time::Instant::now();
+                let t = k.temperature.get::<kelvin>();
                 let n = data.load_nuclide(k.isotope, t, k.law);
                 if print {
                     #[cfg(not(target_arch = "wasm32"))]
                     println!(
-                        "   {} ready in {:.1} s",
+                        "   {} at {t} K ready in {:.1} s",
                         k.isotope.name(),
                         clock.elapsed().as_secs_f64()
                     );
                     #[cfg(target_arch = "wasm32")]
-                    println!("   {} ready", k.isotope.name());
+                    println!("   {} at {t} K ready", k.isotope.name());
                 }
                 n
             })

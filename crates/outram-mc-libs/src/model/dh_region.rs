@@ -54,7 +54,7 @@ use std::sync::Arc;
 use uom::si::f64::{Length, Ratio};
 
 use super::material::Material;
-use super::model::AssembledModel;
+use super::model::{AssembledModel, Temperature};
 use super::shape::{Component, Shape, Sphere};
 use crate::material::material::Material as LowMaterial;
 use crate::material::nuclide::Nuclide;
@@ -132,6 +132,7 @@ pub struct DhRegion {
     matrix: Material,
     component: Option<Component>,
     spec: DhSpec,
+    temperature: Option<Temperature>,
 }
 
 impl DhRegion {
@@ -141,6 +142,7 @@ impl DhRegion {
             zone,
             matrix,
             component: None,
+            temperature: None,
             spec: DhSpec {
                 particles: None,
                 tracking: None,
@@ -174,6 +176,17 @@ impl DhRegion {
         self
     }
 
+    /// **Give the region its own temperature** (gh #945, stage 1): the
+    /// matrix and every particle that sets none of its own
+    /// ([`Shape::at_temperature`] on the particle). The region's majorant
+    /// ([`AssembledModel::majorants`]) is built over its materials at the
+    /// temperatures they are processed at, so it bounds every temperature in
+    /// the region.
+    pub fn at_temperature(mut self, temperature: Temperature) -> Self {
+        self.temperature = Some(temperature);
+        self
+    }
+
     /// The zone.
     pub fn zone(&self) -> Sphere {
         self.zone
@@ -190,6 +203,7 @@ impl From<DhRegion> for Shape {
         let mut s = r.zone.filled_with(r.matrix);
         s.component = r.component;
         s.dh = Some(r.spec);
+        s.temperature = r.temperature;
         s
     }
 }
@@ -209,6 +223,17 @@ impl AssembledModel {
     /// every nuclide breakpoint since gh:#585). Over the region only, so a
     /// strong absorber elsewhere costs nothing here (`TrackingMethod`'s
     /// docs). Empty when the model has no delta-tracked region.
+    ///
+    /// **Temperature (gh #945, stage 1).** A material placed at two
+    /// temperatures is two entries of [`AssembledModel::materials`], each
+    /// with its own temperature and its own nuclides processed at it, so the
+    /// majorant is the largest `Σ_t` over every temperature present in the
+    /// region, at every energy. It is rebuilt on every run from the
+    /// materials and the nuclides passed; no majorant outlives the
+    /// temperatures it was built at, and the run refuses nuclides processed
+    /// at another temperature than their key's (`RunError::NuclideTemperature`).
+    /// Pinned by `tests/region_temperature.rs` (an audit at 1200 K, and the
+    /// 293.6 K control that is under).
     pub fn majorants(&self, nuclides: &[Nuclide]) -> Vec<Majorant> {
         self.delta_regions
             .iter()

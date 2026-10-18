@@ -356,7 +356,12 @@ impl Builder {
         ]);
         t.row(vec![
             "temperature".into(),
-            format!("{}", p.temperature_k),
+            if p.temperatures_k.len() > 1 {
+                let each: Vec<String> = p.temperatures_k.iter().map(|t| t.to_string()).collect();
+                format!("{} by region (model {})", each.join(", "), p.temperature_k)
+            } else {
+                format!("{}", p.temperature_k)
+            },
             "".into(),
             "K".into(),
             "".into(),
@@ -370,7 +375,7 @@ impl Builder {
         ]);
         for n in &p.physics {
             t.row(vec![
-                format!("physics {}", n.nuclide),
+                format!("physics {} at {} K", n.nuclide, n.temperature_k),
                 format!(
                     "URR {}, DBRC {}, thermal {}",
                     if n.urr_probability_tables {

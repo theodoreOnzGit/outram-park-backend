@@ -479,4 +479,39 @@ impl ThermalProfile {
     pub fn n_voxels(&self) -> usize {
         self.solution.n_cells()
     }
+
+    /// **Volume-mean temperature per key** (gh #945, stage 1: one fixed
+    /// temperature per region). `key_of` maps a voxel centre (cm) to a key
+    /// below `n_keys`, or `None` to leave the voxel out. Returns, per key,
+    /// the volume-weighted mean voxel temperature and the number of voxels
+    /// averaged, or `None` when no voxel centre maps to the key.
+    ///
+    /// A voxel counts whole for the key at its centre: a region thinner
+    /// than a voxel may get none (`None`), and a voxel straddling two
+    /// regions is averaged into one of them only.
+    #[must_use]
+    pub fn mean_temperature_by<F>(
+        &self,
+        n_keys: usize,
+        key_of: F,
+    ) -> Vec<Option<(ThermodynamicTemperature, usize)>>
+    where
+        F: Fn(Position) -> Option<usize>,
+    {
+        let fv = &self.mesh.conduction.mesh;
+        let mut sum = vec![(0.0_f64, 0.0_f64, 0_usize); n_keys];
+        for c in 0..self.solution.n_cells() {
+            let centre = to_position(self.mesh.grid.centre(self.mesh.cell_voxel[c]));
+            let Some(k) = key_of(centre).filter(|&k| k < n_keys) else {
+                continue;
+            };
+            let v = fv.cell_volumes[c];
+            sum[k].0 += v * self.solution.temperature(c).get::<kelvin>();
+            sum[k].1 += v;
+            sum[k].2 += 1;
+        }
+        sum.into_iter()
+            .map(|(tv, v, n)| (n > 0).then(|| (ThermodynamicTemperature::new::<kelvin>(tv / v), n)))
+            .collect()
+    }
 }
