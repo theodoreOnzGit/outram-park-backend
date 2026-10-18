@@ -45,6 +45,16 @@ pub(crate) struct Lowering {
     /// Per cell: the exact volume of one placed copy \[cm³\]; `None` for a
     /// fill cell.
     pub(crate) cell_volumes: Vec<Option<f64>>,
+    /// Per cell: the pool its volume is counted in (the matrix of a sphere
+    /// filled with whole particles, whose cells are clipped by the sphere
+    /// and so have no exact volume each); `None` otherwise.
+    pub(crate) cell_pools: Vec<Option<usize>>,
+    /// The pools, one per sphere filled with particles (see
+    /// `super::lower_packed`).
+    pub(crate) pools: Vec<super::lower_packed::Pool>,
+    /// Per delta-tracked region: the material indices it can present (its
+    /// majorant must bound them all).
+    pub(crate) delta_regions: Vec<Vec<usize>>,
     pub(crate) universes: Vec<Universe>,
     pub(crate) lattices: Vec<CsgLattice>,
     descriptions: Vec<Material>,
@@ -55,8 +65,8 @@ pub(crate) struct Lowering {
     pub(crate) fissile_bounds: Option<([f64; 3], [f64; 3])>,
     /// While lowering a lattice tile, positions are tile-local: heavy metal
     /// is noted here instead of in `fissile_bounds`.
-    in_tile: bool,
-    tile_has_heavy_metal: bool,
+    pub(crate) in_tile: bool,
+    pub(crate) tile_has_heavy_metal: bool,
     far_plane: Option<usize>,
 }
 
@@ -89,7 +99,7 @@ pub(crate) fn combine(inside: &[RegionToken], children: &[Vec<RegionToken>]) -> 
 impl Lowering {
     /// Push `solid`'s surfaces (transmissive) and return `(inside tokens,
     /// outside tokens, surface indices)`.
-    fn solid_surfaces(
+    pub(crate) fn solid_surfaces(
         &mut self,
         solid: &Solid,
     ) -> (Vec<RegionToken>, Vec<RegionToken>, Vec<usize>) {
@@ -139,7 +149,7 @@ impl Lowering {
     /// A region holding every point: `-p ∪ +p` on a transmissive plane far
     /// outside any model (`x = 1e30` cm), made once. For an empty lattice
     /// tile, whose background has no child to be the outside of.
-    fn everywhere(&mut self) -> Vec<RegionToken> {
+    pub(crate) fn everywhere(&mut self) -> Vec<RegionToken> {
         let p = match self.far_plane {
             Some(p) => p,
             None => {
@@ -158,7 +168,7 @@ impl Lowering {
         ]
     }
 
-    fn push_cell(
+    pub(crate) fn push_cell(
         &mut self,
         cell: Cell,
         cells_of: &mut Vec<usize>,
@@ -169,6 +179,7 @@ impl Lowering {
         self.cells.push(cell);
         self.cell_components.push(component);
         self.cell_volumes.push(volume);
+        self.cell_pools.push(None);
     }
 
     fn note_heavy_metal(&mut self, m: usize, solid: &Solid) {
@@ -191,7 +202,13 @@ impl Lowering {
         masses: &AtomicMasses,
         cells_of: &mut Vec<usize>,
     ) -> Result<Lowered, ModelError> {
+        if let Some(spec) = &s.dh {
+            return self.lower_dh(s, spec, t, masses, cells_of);
+        }
         if let Some(lattice) = &s.lattice {
+            if let Solid::Sphere(zone) = s.solid {
+                return self.lower_lattice_in_sphere(s, zone, lattice, t, masses, cells_of);
+            }
             return self.lower_lattice_container(s, lattice, t, masses, cells_of);
         }
         let children: Vec<Vec<RegionToken>> = s
@@ -216,18 +233,33 @@ impl Lowering {
 
     /// One lattice tile: a universe of its children and its background, the
     /// background bounded only by the lattice. Returns the universe index.
-    fn lower_tile(
+    pub(crate) fn lower_tile(
         &mut self,
         tile: &Shape,
         t: f64,
         masses: &AtomicMasses,
     ) -> Result<usize, ModelError> {
+        self.lower_tile_pooled(tile, t, masses, None)
+            .map(|(u, _)| u)
+    }
+
+    /// [`Self::lower_tile`], with the background's volume counted in `pool`
+    /// when given (a tile clipped by a sphere). Also returns each child's
+    /// own cell (its outermost layer) and the child's volume.
+    pub(crate) fn lower_tile_pooled(
+        &mut self,
+        tile: &Shape,
+        t: f64,
+        masses: &AtomicMasses,
+        pool: Option<usize>,
+    ) -> Result<(usize, Vec<(usize, f64)>), ModelError> {
         let mut cells_of = Vec::new();
-        let children: Vec<Vec<RegionToken>> = tile
-            .children
-            .iter()
-            .map(|c| self.lower(c, t, masses, &mut cells_of).map(|l| l.outside))
-            .collect::<Result<_, _>>()?;
+        let mut child_cells = Vec::new();
+        let mut children: Vec<Vec<RegionToken>> = Vec::new();
+        for c in &tile.children {
+            children.push(self.lower(c, t, masses, &mut cells_of)?.outside);
+            child_cells.push((self.cells.len() - 1, c.solid.volume_cm3()));
+        }
         let region = if children.is_empty() {
             self.everywhere()
         } else {
@@ -246,13 +278,16 @@ impl Lowering {
             Cell::material(id, region, m, t),
             &mut cells_of,
             tile.component,
-            Some(volume),
+            pool.is_none().then_some(volume),
         );
+        if let Some(p) = self.cell_pools.last_mut() {
+            *p = pool;
+        }
         self.universes.push(Universe {
             id: self.universes.len() as i32,
             cell_indices: cells_of,
         });
-        Ok(self.universes.len() - 1)
+        Ok((self.universes.len() - 1, child_cells))
     }
 
     fn lower_lattice_container(
@@ -332,7 +367,7 @@ impl Lowering {
         Ok(Lowered { outside, surfaces })
     }
 
-    fn note_heavy_metal_bounds(&mut self, solid: &Solid) {
+    pub(crate) fn note_heavy_metal_bounds(&mut self, solid: &Solid) {
         if self.in_tile {
             self.tile_has_heavy_metal = true;
             return;

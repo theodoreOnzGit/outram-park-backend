@@ -849,6 +849,11 @@ pub struct CsgPowerIteration {
     /// IFP lineage of each source site, aligned with `source` (gh #940);
     /// `None` unless [`Self::enable_ifp`] was called.
     ifp: Option<(crate::physics::ifp::IfpSettings, Vec<crate::physics::ifp::IfpLineage>)>,
+    /// Majorants indexed by the cells' `TrackingMethod::Delta`, as
+    /// [`run_keff_csg_hybrid`] takes them. Empty unless
+    /// [`Self::with_majorants`] was called, which is every run before
+    /// gh #926 and keeps them bit for bit.
+    majorants: Vec<Majorant>,
 }
 
 impl CsgPowerIteration {
@@ -880,7 +885,19 @@ impl CsgPowerIteration {
             active_k: Vec::with_capacity(settings.n_active),
             generation: 0,
             ifp: None,
+            majorants: Vec::new(),
         }
+    }
+
+    /// **Delta-track the regions that ask for it** (gh #926, the beginner
+    /// `DhRegion`): `majorants[i]` bounds `Σ_t` over every material a cell
+    /// declaring `TrackingMethod::Delta { majorant: i }` can present, as in
+    /// [`run_keff_csg_hybrid`]. An empty list changes nothing: with no delta
+    /// region declared the history draws exactly what it drew before. Extra
+    /// tallies ([`Self::step_scored`]) are not scored inside a delta region.
+    pub fn with_majorants(mut self, majorants: Vec<Majorant>) -> Self {
+        self.majorants = majorants;
+        self
     }
 
     /// Transport one generation and resample its fission bank into the next
@@ -3113,8 +3130,12 @@ impl CsgPowerIteration {
 /// gives the same numbers bit for bit (pinned by
 /// `extra_scoring_changes_nothing_and_matches_a_lone_tally`).
 ///
-/// Only surface tracking scores extras: [`CsgPowerIteration`] runs without
-/// majorants, so the delta-tracking estimators never apply.
+/// Only surface tracking scores extras. ~~[`CsgPowerIteration`] runs without
+/// majorants, so the delta-tracking estimators never apply.~~ **CORRECTED
+/// 2026-10-18 (gh #926):** it carries majorants when given
+/// [`CsgPowerIteration::with_majorants`]; extras are still not scored inside
+/// a delta-tracked region, so the beginner run refuses diagnostics on a
+/// model that has one.
 #[derive(Debug, Clone, Default)]
 pub struct ExtraScoring {
     tallies: Vec<Tally>,
@@ -3331,7 +3352,7 @@ impl CsgPowerIteration {
                 geom,
                 materials,
                 nuclides,
-                &[],
+                &self.majorants,
                 self.k_running,
                 &mut next_bank,
                 &mut self.seed,
