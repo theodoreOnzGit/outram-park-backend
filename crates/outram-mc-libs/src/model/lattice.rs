@@ -28,7 +28,12 @@
 //! delta tracking over a dense lattice) needs majorants the beginner run
 //! does not carry yet, so it is not offered; see #926.
 
-use super::hex::HexPrism;
+use uom::si::f64::{Length, Ratio};
+use uom::si::length::centimeter;
+use uom::si::ratio::ratio;
+
+use super::bed::PieceGeom;
+use super::hex::{HexFaces, HexPrism};
 use super::shape::{Shape, Solid};
 
 /// **A rectangular lattice of tiles.** Build it with one of the named
@@ -63,6 +68,18 @@ pub struct Lattice {
     /// `true` for a [`Lattice::hex`] lattice: one hexagonal tile, repeated
     /// without end.
     hex: bool,
+    /// `Some` for a [`Lattice::hex_bed`] lattice: the same tile stacked in a
+    /// container that is not a box.
+    bed: Option<BedSpec>,
+}
+
+/// What a [`Lattice::hex_bed`] adds to its tile: the fuel fraction and the
+/// height the bed is loaded to. (The moderator ball is the lattice's second
+/// tile.)
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct BedSpec {
+    pub(crate) fuel_fraction: f64,
+    pub(crate) bed_top_cm: f64,
 }
 
 impl Lattice {
@@ -77,6 +94,7 @@ impl Lattice {
             pattern: vec![0; count],
             covering: None,
             hex: false,
+            bed: None,
         }
     }
 
@@ -124,6 +142,7 @@ impl Lattice {
             pattern: Vec::new(),
             covering: Some(offset),
             hex: false,
+            bed: None,
         }
     }
 
@@ -176,12 +195,102 @@ impl Lattice {
             pattern: vec![0],
             covering: None,
             hex: true,
+            bed: None,
         }
     }
 
-    /// Whether this is a [`Lattice::hex`] lattice.
+    /// **A hexagonal lattice stacked in a container that is not a box**
+    /// (tutorial 8): the tile of [`Lattice::hex`] repeated in the plane and
+    /// in height, with **whole-ball rejection**. It fills a [`super::Hopper`]
+    /// (a cylinder narrowing through a cone into a tube): the lattice is laid
+    /// out to cover the hopper, and a ball is **kept only if it lies wholly
+    /// inside the hopper, filled up to `bed_top`**; a ball that would cross
+    /// the side wall, the cone, the tube or the top of the bed is **rejected,
+    /// never cut** (a cut pebble is wrong physics). Where a ball is rejected
+    /// its space is the tile's background, so nothing is cut off a neighbour
+    /// either.
+    ///
+    /// - `tile`: a [`HexPrism`] (faces normal to y) filled with the
+    ///   background (helium), whose children are the **fuel balls** of the
+    ///   cell, each a sphere centred at its site with its own contents (a
+    ///   fuel zone of particles, say). Every ball is the same ball, at its
+    ///   own site; list each once, in the tile that holds its centre, as in
+    ///   [`Lattice::hex`] (Şeker & Çolak's cell owns 13 balls and draws
+    ///   pieces of 23).
+    /// - `moderator`: the ball that takes a site where the rule says
+    ///   moderator: a sphere of the **same radius**, centred anywhere (it is
+    ///   moved to the site).
+    /// - `fuel_fraction`: of the kept balls centred **above the hopper's
+    ///   floor**, the share that is fuel, handed out by the low-discrepancy
+    ///   rule of `nee_soon`'s `SekerBed::assign` (by layer, then distance
+    ///   from the axis, then angle). Every ball below the floor, in the cone
+    ///   and the tube, is moderator.
+    /// - `bed_top`: the height the bed is loaded to; balls whose tops would
+    ///   pass it are rejected.
+    ///
+    /// The lowest plane of ball centres sits one radius above the hopper's
+    /// floor, so the ball nearest the floor rests on it (Şeker & Çolak's
+    /// layout). The container is a [`super::Hopper`]; the lattice has no
+    /// boundary condition of its own.
+    ///
+    /// ```
+    /// use outram_mc_libs::model::prelude::*;
+    /// use uom::si::{f64::{Length, Ratio}, length::centimeter, ratio::ratio};
+    /// let cm = Length::new::<centimeter>;
+    /// let graphite = Material::from_atom_densities([(C12, atoms_per_barn_cm(0.08))]);
+    /// let helium = Material::from_atom_densities([(He4, atoms_per_barn_cm(2.4e-5))]);
+    /// let fuel = Material::from_atom_densities([(U235, atoms_per_barn_cm(0.04))]);
+    /// let ball = |m: Material, x: f64, y: f64, z: f64| {
+    ///     Sphere::radius(cm(3.0)).centred_at(cm(x), cm(y), cm(z)).filled_with(m)
+    /// };
+    /// let tile = HexPrism::flat_to_flat(cm(16.392), cm(9.798))
+    ///     .filled_with(helium.clone())
+    ///     .containing(ball(fuel, 0.0, 0.0, 0.0));
+    /// let bed = Lattice::hex_bed(
+    ///     tile,
+    ///     ball(graphite, 0.0, 0.0, 0.0),
+    ///     Ratio::new::<ratio>(0.57),
+    ///     cm(30.0),
+    /// );
+    /// assert!(bed.is_hex_bed());
+    /// let cavity = Hopper::new(cm(40.0), cm(60.0))
+    ///     .conical_floor(cm(20.0), cm(12.0))
+    ///     .filled_with(helium)
+    ///     .containing_lattice(bed);
+    /// ```
+    pub fn hex_bed(tile: Shape, moderator: Shape, fuel_fraction: Ratio, bed_top: Length) -> Self {
+        Self {
+            tiles: vec![tile, moderator],
+            n: [1, 1, 1],
+            pattern: vec![0],
+            covering: None,
+            hex: true,
+            bed: Some(BedSpec {
+                fuel_fraction: fuel_fraction.get::<ratio>(),
+                bed_top_cm: bed_top.get::<centimeter>(),
+            }),
+        }
+    }
+
+    /// Whether this is a [`Lattice::hex`] lattice (a [`Lattice::hex_bed`] is
+    /// one too, stacked).
     pub fn is_hex(&self) -> bool {
         self.hex
+    }
+
+    /// Whether this is a [`Lattice::hex_bed`] lattice.
+    pub fn is_hex_bed(&self) -> bool {
+        self.bed.is_some()
+    }
+
+    /// The moderator ball of a [`Lattice::hex_bed`] (its second tile).
+    pub(crate) fn bed_moderator(&self) -> Option<&Shape> {
+        self.bed.as_ref().and_then(|_| self.tiles.get(1))
+    }
+
+    /// What a [`Lattice::hex_bed`] adds to its tile.
+    pub(crate) fn bed_spec(&self) -> Option<&BedSpec> {
+        self.bed.as_ref()
     }
 
     /// The hexagonal prism of a [`Lattice::hex`] tile, if it is one.
@@ -202,11 +311,27 @@ impl Lattice {
     /// # Errors
     /// A ball that is not a sphere, or whose centre is outside the tile.
     pub(crate) fn hex_images(&self) -> Result<Vec<Shape>, String> {
+        let (_, images) = self.hex_pieces()?;
+        Ok(images.into_iter().map(|(shape, _)| shape).collect())
+    }
+
+    /// **The tile's own balls and the pieces it draws of the neighbours'**,
+    /// each with where its owner sits (for a stacked bed, which names the
+    /// ball): the images of [`Self::hex_images`], in the same order, with
+    /// the owner as `(da, db, dlevel)` relative to this tile and the index of
+    /// the owner's ball. The owner's skewed coordinates are those of a
+    /// lattice with faces normal to y.
+    ///
+    /// # Errors
+    /// As [`Self::hex_images`].
+    #[allow(clippy::type_complexity)]
+    pub(crate) fn hex_pieces(&self) -> Result<(Vec<PieceGeom>, Vec<(Shape, PieceGeom)>), String> {
         let Some(prism) = self.hex_prism() else {
-            return Ok(Vec::new());
+            return Ok((Vec::new(), Vec::new()));
         };
         let tile = &self.tiles[0];
         let tol = 1.0e-12 * prism.pitch_cm().max(prism.height_cm());
+        let mut owned = Vec::new();
         for (i, c) in tile.children.iter().enumerate() {
             let Solid::Sphere(s) = c.solid else {
                 return Err(format!(
@@ -224,28 +349,56 @@ impl Lattice {
                     centre[0], centre[1], centre[2]
                 ));
             }
+            owned.push(PieceGeom {
+                local: centre,
+                owner: [0, 0, 0],
+                ball: i,
+            });
         }
         let h = prism.height_cm();
-        let mut shifts: Vec<[f64; 3]> = Vec::new();
-        let mut lateral: Vec<[f64; 2]> = vec![[0.0, 0.0]];
-        lateral.extend(prism.neighbour_vectors());
-        for v in lateral {
-            for dz in [-h, 0.0, h] {
+        let p = prism.pitch_cm();
+        // The skewed coordinates `(a, b)` of a neighbour vector, for faces
+        // normal to y: tile `(a, b)` sits at `[sqrt(3)/2 a p, (b + a/2) p]`.
+        let skew = |v: [f64; 2]| -> (i32, i32) {
+            let a = (v[0] / (0.5 * 3.0_f64.sqrt() * p)).round();
+            let b = (v[1] / p - 0.5 * a).round();
+            (a as i32, b as i32)
+        };
+        let mut shifts: Vec<([f64; 3], [i32; 3])> = Vec::new();
+        let mut lateral: Vec<([f64; 2], (i32, i32))> = vec![([0.0, 0.0], (0, 0))];
+        for v in prism.neighbour_vectors() {
+            let (da, db) = if prism.faces_kind() == HexFaces::NormalToY {
+                skew(v)
+            } else {
+                (0, 0)
+            };
+            lateral.push((v, (da, db)));
+        }
+        for (v, (da, db)) in lateral {
+            for (dz, dl) in [(-h, -1), (0.0, 0), (h, 1)] {
                 if v != [0.0, 0.0] || dz != 0.0 {
-                    shifts.push([v[0], v[1], dz]);
+                    shifts.push(([v[0], v[1], dz], [da, db, dl]));
                 }
             }
         }
         let mut images = Vec::new();
-        for d in shifts {
-            for c in &tile.children {
+        for (d, owner) in shifts {
+            for (j, c) in tile.children.iter().enumerate() {
                 let moved = c.translated(d);
                 if Solid::HexPrism(prism).overlaps(&moved.solid) {
-                    images.push(moved);
+                    let Solid::Sphere(s) = moved.solid else {
+                        continue;
+                    };
+                    let piece = PieceGeom {
+                        local: s.centre_cm(),
+                        owner,
+                        ball: j,
+                    };
+                    images.push((moved, piece));
                 }
             }
         }
-        Ok(images)
+        Ok((owned, images))
     }
 
     /// The offset of a [`Self::covering`] lattice, in pitches; `None` for a
@@ -265,6 +418,7 @@ impl Lattice {
             pattern,
             covering: None,
             hex: false,
+            bed: None,
         }
     }
 
@@ -297,6 +451,7 @@ impl Lattice {
             pattern,
             covering: None,
             hex: false,
+            bed: None,
         }
     }
 
@@ -396,7 +551,7 @@ impl Lattice {
                     "a lattice tile is centred on its own origin; do not move it with centred_at"
                         .into(),
                 ),
-                Solid::Sphere(_) | Solid::Cylinder(_) | Solid::HexPrism(_) => {
+                Solid::Sphere(_) | Solid::Cylinder(_) | Solid::HexPrism(_) | Solid::Hopper(_) => {
                     return Some(
                         "a lattice tile must be a box (Cube::side or Cuboid::sides)".into(),
                     )

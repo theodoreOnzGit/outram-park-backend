@@ -225,6 +225,9 @@ pub struct AssembledModel {
     pub(crate) cell_images: Vec<bool>,
     /// Per pool: the same.
     pub(crate) pool_images: Vec<bool>,
+    /// The census of each stacked bed (`Lattice::hex_bed`), in the order
+    /// they were lowered.
+    pub(crate) beds: Vec<super::bed::BedCensus>,
     /// Per delta-tracked region (a [`super::DhRegion`]): the material
     /// indices its majorant must bound. Cell `tracking` indexes this list.
     pub(crate) delta_regions: Vec<Vec<usize>>,
@@ -513,6 +516,7 @@ impl Model {
             pools: lw.pools,
             cell_images,
             pool_images,
+            beds: lw.beds,
             delta_regions: lw.delta_regions,
             component_labels: self.components.clone(),
             data_label: self.data.label().to_string(),
@@ -520,14 +524,14 @@ impl Model {
         })
     }
 
-    fn check_shape(&self, s: &Shape, outermost: bool, in_tile: bool) -> Result<(), ModelError> {
+    pub(crate) fn check_shape(&self, s: &Shape, outermost: bool, in_tile: bool) -> Result<(), ModelError> {
         self.check_shape_with(s, outermost, in_tile, false)
     }
 
     /// [`Self::check_shape`]; `crossing_ok` lets the direct children of `s`
     /// cross its faces (the balls of a hexagonal tile, whose pieces the
     /// lattice shows in the neighbouring tiles).
-    fn check_shape_with(
+    pub(crate) fn check_shape_with(
         &self,
         s: &Shape,
         outermost: bool,
@@ -604,6 +608,9 @@ impl Model {
                 "a shape filled with a lattice holds nothing else; put other shapes in the tiles"
                     .into(),
             ));
+        }
+        if lattice.is_hex_bed() {
+            return super::lower_bed::check_hex_bed(self, s, lattice);
         }
         if lattice.is_hex() {
             return self.check_hex_lattice(s, lattice);
@@ -859,7 +866,7 @@ fn check_lattice_in_sphere(s: &Shape, zone: Sphere, lattice: &Lattice) -> Result
 }
 
 /// Siblings must not overlap.
-fn check_disjoint(shapes: &[Shape]) -> Result<(), ModelError> {
+pub(crate) fn check_disjoint(shapes: &[Shape]) -> Result<(), ModelError> {
     for (i, a) in shapes.iter().enumerate() {
         for b in &shapes[i + 1..] {
             if a.solid.overlaps(&b.solid) {
@@ -925,12 +932,15 @@ fn set_bc(s: &mut SurfaceKind, bc: BoundaryType) {
         SurfaceKind::ZPlane(p) => p.bc = bc,
         SurfaceKind::Plane(p) => p.bc = bc,
         SurfaceKind::ZCylinder(p) => p.bc = bc,
+        SurfaceKind::ZCone(p) => p.bc = bc,
         _ => {}
     }
 }
 
-/// Fixed palette for the beginner plots (materials in first-use order).
-const PALETTE: [Rgb; 8] = [
+/// Fixed palette for the beginner plots (materials in first-use order; a
+/// model with more materials than colours reuses them, twelve now that a
+/// reactor core has ten or more).
+const PALETTE: [Rgb; 12] = [
     Rgb {
         r: 214,
         g: 96,
@@ -970,6 +980,26 @@ const PALETTE: [Rgb; 8] = [
         r: 80,
         g: 190,
         b: 190,
+    },
+    Rgb {
+        r: 160,
+        g: 82,
+        b: 45,
+    },
+    Rgb {
+        r: 20,
+        g: 60,
+        b: 110,
+    },
+    Rgb {
+        r: 190,
+        g: 190,
+        b: 40,
+    },
+    Rgb {
+        r: 30,
+        g: 100,
+        b: 60,
     },
 ];
 

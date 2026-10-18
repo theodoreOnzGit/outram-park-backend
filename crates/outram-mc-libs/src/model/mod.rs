@@ -62,7 +62,11 @@
 //! places (never from constants). A [`Cylinder`] (finite, or a *rod* that
 //! runs through its lattice tile) and a lattice as a tile of a lattice
 //! build LCT-008's core, a 7 x 7 lattice of 15 x 15 pin lattices cut by a
-//! cylinder (tutorial 6).
+//! cylinder (tutorial 6). A [`HexPrism`] tile repeated by [`Lattice::hex`]
+//! is Şeker's layer (tutorial 7); [`Lattice::hex_bed`] stacks it in a
+//! [`Hopper`] (a cylinder, a cone and a tube) with **whole-ball rejection**,
+//! and [`AssembledModel::bed_census`] counts the balls kept and rejected
+//! (tutorial 8).
 //!
 //! ## Not yet here
 //!
@@ -96,10 +100,13 @@ pub mod collect;
 pub mod data;
 pub mod diagnostics;
 pub mod dh_region;
+pub mod bed;
 pub mod hex;
+pub mod hopper;
 pub mod isotope;
 pub mod lattice;
 mod lower;
+mod lower_bed;
 mod lower_packed;
 pub mod masses;
 pub mod material;
@@ -140,6 +147,8 @@ pub use run::{
 pub use census::{Arrangement, Census, CensusRow, PackingRow, RowKind};
 pub use dh_region::{DhRegion, Packing};
 pub use hex::{HexFaces, HexPrism};
+pub use hopper::{Hopper, Wall};
+pub use bed::{BedCensus, KeptBall, RejectedBall};
 pub use lattice::Lattice;
 pub use shape::{Boundary, Component, Cube, Cuboid, Cylinder, Shape, Solid, Sphere};
 
@@ -150,10 +159,10 @@ pub mod prelude {
     pub use super::isotopes::*;
     pub use super::{
         atoms_per_barn_cm, to_atoms_per_barn_cm, AdvancedModel, AssembledModel, AtomDensity,
-        BalanceBy, Basis, Boundary, Census, CensusRow, Component, Cube, Cuboid, Cylinder, DhRegion,
+        BalanceBy, BedCensus, Basis, Boundary, Census, CensusRow, Component, Cube, Cuboid, Cylinder, DhRegion,
         Lattice, Packing, Solid, Contaminant, Convergence, CustomRun, DataError, DiagnosticError,
         Diagnostics, DiagnosticsReport, EnergyGrid, Element, Enrichment, FissileUranium, FuelForm,
-        GraphiteKind, HeavyMetal, HexFaces, HexPrism, Isotope, Keff, KeffRun, KeffSettings,
+        GraphiteKind, HeavyMetal, HexFaces, HexPrism, Hopper, Isotope, Keff, KeffRun, KeffSettings,
         MCDiagnostic, MCSettings, Material, MaterialError, Model, ModelError, Moderator,
         NuclearData, Placement, PpmOf, PuVector, ReactivityTolerance, Region, RunBackend, RunError,
         Shape, Species, Sphere, Temperature,

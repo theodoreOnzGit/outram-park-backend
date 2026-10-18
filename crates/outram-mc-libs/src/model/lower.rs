@@ -86,6 +86,8 @@ pub(crate) struct Lowering {
     pub(crate) in_image: bool,
     pub(crate) image_cells: Vec<std::ops::Range<usize>>,
     pub(crate) image_pools: Vec<std::ops::Range<usize>>,
+    /// The census of each stacked bed lowered (`Lattice::hex_bed`).
+    pub(crate) beds: Vec<super::bed::BedCensus>,
     far_plane: Option<usize>,
 }
 
@@ -210,23 +212,103 @@ impl Lowering {
                         vec![i],
                     );
                 }
-                // `+z0 ∩ -z1 ∩ -cylinder`, as an OpenMC card writes it.
+                // `+z0 ∩ -z1 ∩ -cylinder`, as an OpenMC card writes it. The two
+                // planes are shared with an identical plane already made (a
+                // coaxial cylinder of the same height inside or around this
+                // one), so two shapes meeting at a plane meet at one surface.
                 let (lo, hi) = c.z_range();
-                let i0 = self.surfaces.len();
-                self.surfaces.extend([
-                    SurfaceKind::ZPlane(ZPlane { z0: lo, bc }),
-                    SurfaceKind::ZPlane(ZPlane { z0: hi, bc }),
-                    cylinder,
-                ]);
+                let (zl, zh) = (self.zplane(lo), self.zplane(hi));
+                self.surfaces.push(cylinder);
+                let ci = self.surfaces.len() - 1;
                 let (o, i) = (HalfSpaceSense::Outside, HalfSpaceSense::Inside);
-                let mut inside = vec![half(i0, o), half(i0 + 1, i), RegionToken::Intersection];
-                inside.push(half(i0 + 2, i));
+                let mut inside = vec![half(zl, o), half(zh, i), RegionToken::Intersection];
+                inside.push(half(ci, i));
                 inside.push(RegionToken::Intersection);
                 let mut outside = inside.clone();
                 outside.push(RegionToken::Complement);
-                (inside, outside, (i0..i0 + 3).collect())
+                (inside, outside, vec![zl, zh, ci])
+            }
+            Solid::Hopper(h) => self.hopper_surfaces(h),
+        }
+    }
+
+    /// **A z-plane at `z`**, the existing one when an identical (bit-equal)
+    /// plane was already made. Two shapes that meet at a plane (a coaxial
+    /// reflector built of two cylinders of one height, a hopper's outlet
+    /// ending where the model does) then share one surface instead of two
+    /// coincident ones, which a neutron on the plane could be lost between.
+    /// The boundary condition of an outermost shape is set on the shared
+    /// surface, which is the same plane.
+    pub(crate) fn zplane(&mut self, z: f64) -> usize {
+        let found = self.surfaces.iter().position(|s| {
+            matches!(s, SurfaceKind::ZPlane(p) if p.z0.to_bits() == z.to_bits()
+                && p.bc == BoundaryType::Transmissive)
+        });
+        found.unwrap_or_else(|| {
+            self.surfaces.push(SurfaceKind::ZPlane(ZPlane {
+                z0: z,
+                bc: BoundaryType::Transmissive,
+            }));
+            self.surfaces.len() - 1
+        })
+    }
+
+    /// **A hopper's surfaces and regions** (tutorial 8): the cylinder, the
+    /// floor plane, the top plane, the cone, the cone's bottom plane, the
+    /// outlet cylinder and the tube's bottom plane, as `nee_soon`'s bed
+    /// cells write them (`core_shell.rs`): the inside is the union of the
+    /// cylinder part (`-cylinder ∩ +floor ∩ -top`), the cone part (`-cone ∩
+    /// -floor ∩ +cone_bottom`) and the tube part (`-outlet ∩ -cone_bottom ∩
+    /// +tube_bottom`).
+    fn hopper_surfaces(&mut self, h: &super::hopper::Hopper) -> SolidTokens {
+        use crate::geometry::surface::ZCone;
+        let bc = BoundaryType::Transmissive;
+        let (o, i) = (HalfSpaceSense::Outside, HalfSpaceSense::Inside);
+        let x = RegionToken::Intersection;
+        let zf = self.zplane(h.floor_z_cm());
+        let zt = self.zplane(h.top_z_cm());
+        self.surfaces.push(SurfaceKind::ZCylinder(ZCylinder {
+            x0: 0.0,
+            y0: 0.0,
+            r: h.radius_cm(),
+            bc,
+        }));
+        let cyl = self.surfaces.len() - 1;
+        let mut surfaces = vec![cyl, zf, zt];
+        // The cylinder part: -cylinder, above the floor, below the top.
+        let mut inside = vec![half(cyl, i), half(zf, o), x, half(zt, i), x];
+        if h.has_cone() {
+            let slope = h.slope();
+            let apex = h.floor_z_cm() - h.radius_cm() / slope;
+            self.surfaces.push(SurfaceKind::ZCone(ZCone {
+                x0: 0.0,
+                y0: 0.0,
+                z0: apex,
+                r_sq: slope * slope,
+                bc,
+            }));
+            let cone = self.surfaces.len() - 1;
+            let zc = self.zplane(h.cone_bottom_z_cm());
+            surfaces.extend([cone, zc]);
+            inside.extend([half(cone, i), half(zf, i), x, half(zc, o), x]);
+            inside.push(RegionToken::Union);
+            if h.tube_depth_cm() > 0.0 {
+                self.surfaces.push(SurfaceKind::ZCylinder(ZCylinder {
+                    x0: 0.0,
+                    y0: 0.0,
+                    r: h.outlet_radius_cm(),
+                    bc,
+                }));
+                let tube = self.surfaces.len() - 1;
+                let zb = self.zplane(h.bottom_z_cm());
+                surfaces.extend([tube, zb]);
+                inside.extend([half(tube, i), half(zc, i), x, half(zb, o), x]);
+                inside.push(RegionToken::Union);
             }
         }
+        let mut outside = inside.clone();
+        outside.push(RegionToken::Complement);
+        (inside, outside, surfaces)
     }
 
     /// A region holding every point: `-p ∪ +p` on a transmissive plane far
@@ -298,6 +380,9 @@ impl Lowering {
         if let Some(lattice) = &s.lattice {
             if let Solid::Sphere(zone) = s.solid {
                 return self.lower_lattice_in_sphere(s, zone, lattice, t, masses, cells_of);
+            }
+            if lattice.is_hex_bed() {
+                return self.lower_hex_bed(s, lattice, t, masses, cells_of);
             }
             if lattice.is_hex() {
                 return self.lower_hex_container(s, lattice, t, masses, cells_of);

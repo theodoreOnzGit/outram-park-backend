@@ -28,6 +28,7 @@ use uom::si::ratio::ratio;
 
 use super::dh_region::DhSpec;
 use super::hex::{distance_to_polygon, polygons_overlap, prism_holds_all, HexPrism};
+use super::hopper::{distance_to_profile, Hopper};
 use super::lattice::Lattice;
 use super::material::Material;
 use super::model::{ModelError, Temperature};
@@ -443,6 +444,9 @@ pub enum Solid {
     Cylinder(Cylinder),
     /// A hexagonal prism along z: the tile of a hexagonal lattice.
     HexPrism(HexPrism),
+    /// A cylinder narrowing through a cone into a tube: the container of a
+    /// pebble bed (tutorial 8).
+    Hopper(Hopper),
 }
 
 impl Solid {
@@ -454,6 +458,7 @@ impl Solid {
             Solid::Cuboid(b) => b.volume_cm3(),
             Solid::Cylinder(c) => c.volume_cm3().unwrap_or(f64::INFINITY),
             Solid::HexPrism(h) => h.volume_cm3(),
+            Solid::Hopper(h) => h.volume_cm3(),
         }
     }
 
@@ -480,6 +485,7 @@ impl Solid {
             Solid::Cuboid(b) => b.centre_cm,
             Solid::Cylinder(c) => c.centre_cm,
             Solid::HexPrism(h) => h.centre_cm(),
+            Solid::Hopper(h) => [0.0, 0.0, h.floor_z_cm()],
         }
     }
 
@@ -491,6 +497,7 @@ impl Solid {
             Solid::Cuboid(b) => b.bounds(),
             Solid::Cylinder(c) => c.bounds(),
             Solid::HexPrism(h) => h.bounds(),
+            Solid::Hopper(h) => h.bounds(),
         }
     }
 
@@ -504,6 +511,7 @@ impl Solid {
             }
             Solid::Cylinder(c) => c.holds(p),
             Solid::HexPrism(h) => h.holds(p),
+            Solid::Hopper(h) => h.holds(p),
         }
     }
 
@@ -514,6 +522,7 @@ impl Solid {
             Solid::Cuboid(b) => b.sides_cm.iter().fold(0.0_f64, |m, x| m.max(*x)),
             Solid::Cylinder(c) => c.radius_cm.max(c.height_cm.unwrap_or(0.0)),
             Solid::HexPrism(h) => h.pitch_cm().max(h.height_cm()),
+            Solid::Hopper(h) => h.radius_cm().max(h.top_z_cm() - h.bottom_z_cm()),
         }
     }
 
@@ -531,6 +540,7 @@ impl Solid {
                     && c.centre_cm.iter().all(|x| x.is_finite())
             }
             Solid::HexPrism(h) => h.is_valid(),
+            Solid::Hopper(h) => h.is_valid(),
         }
     }
 
@@ -550,6 +560,7 @@ impl Solid {
                 None => format!("a rod of radius {:.6} cm", c.radius_cm),
             },
             Solid::HexPrism(h) => h.describe(),
+            Solid::Hopper(h) => h.describe(),
         }
     }
 
@@ -570,6 +581,7 @@ impl Solid {
                 Solid::Cylinder(c)
             }
             Solid::HexPrism(h) => Solid::HexPrism(h.translated(d)),
+            Solid::Hopper(h) => Solid::Hopper(h.translated(d)),
         }
     }
 
@@ -607,6 +619,14 @@ impl Solid {
                     && near(a.height_cm(), b.height_cm())
                     && a.faces_kind() == b.faces_kind()
             }
+            (Solid::Hopper(a), Solid::Hopper(b)) => {
+                near(a.radius_cm(), b.radius_cm())
+                    && near(a.height_cm(), b.height_cm())
+                    && near(a.cone_height_cm(), b.cone_height_cm())
+                    && near(a.outlet_radius_cm(), b.outlet_radius_cm())
+                    && near(a.tube_depth_cm(), b.tube_depth_cm())
+                    && near(a.floor_z_cm(), b.floor_z_cm())
+            }
             _ => false,
         }
     }
@@ -620,6 +640,49 @@ impl Solid {
     pub(crate) fn encloses(&self, inner: &Solid) -> bool {
         let tol = 1.0e-12 * self.scale_cm();
         match (self, inner) {
+            // A hopper holds a sphere exactly (the whole-ball test of a
+            // pebble bed); anything else it is asked to hold is judged by its
+            // bounding box against the hopper's widest radius and its z range,
+            // which can only refuse a legitimate shape, never accept a bad one.
+            (Solid::Hopper(o), Solid::Sphere(i)) => {
+                o.contains_ball(i.centre_cm, i.radius_cm, o.top_z_cm()).whole
+            }
+            (Solid::Hopper(o), Solid::Hopper(i)) => {
+                i.radius_cm() <= o.radius_cm() + tol
+                    && i.bottom_z_cm() >= o.floor_z_cm() - tol
+                    && i.top_z_cm() <= o.top_z_cm() + tol
+                    && !i.has_cone()
+            }
+            (Solid::Hopper(o), _) => {
+                let (l, u) = inner.bounds();
+                // Inside the cylinder part only, so the cone cannot cut it.
+                l[2] >= o.floor_z_cm() - tol
+                    && u[2] <= o.top_z_cm() + tol
+                    && (0..4).all(|k| {
+                        let (x, y) = (if k & 1 == 0 { l[0] } else { u[0] }, if k & 2 == 0 { l[1] } else { u[1] });
+                        x.hypot(y) <= o.radius_cm() + tol
+                    })
+            }
+            (Solid::Cylinder(o), Solid::Hopper(i)) => {
+                let (lo, hi) = o.z_range();
+                i.radius_cm() <= o.radius_cm() + tol
+                    && i.bottom_z_cm() >= lo - tol
+                    && i.top_z_cm() <= hi + tol
+            }
+            (Solid::Sphere(_) | Solid::HexPrism(_), Solid::Hopper(i)) => {
+                let (l, u) = i.bounds();
+                let corners: Vec<[f64; 3]> = (0..8)
+                    .map(|k| std::array::from_fn(|d| if (k >> d) & 1 == 0 { l[d] } else { u[d] }))
+                    .collect();
+                match self {
+                    Solid::Sphere(o) => corners.iter().all(|v| {
+                        (0..3).map(|k| (v[k] - o.centre_cm[k]).powi(2)).sum::<f64>().sqrt()
+                            <= o.radius_cm + tol
+                    }),
+                    Solid::HexPrism(o) => prism_holds_all(o, &corners, tol),
+                    _ => false,
+                }
+            }
             (Solid::HexPrism(o), _) => {
                 let (lo, hi) = o.z_range();
                 match inner {
@@ -643,6 +706,7 @@ impl Solid {
                             && (i.is_rod() || (zl >= lo - tol && zh <= hi + tol))
                     }
                     Solid::HexPrism(i) => prism_holds_all(o, &i.vertices(), tol),
+                    Solid::Hopper(_) => false, // handled above
                 }
             }
             (Solid::Sphere(o), Solid::HexPrism(i)) => i.vertices().iter().all(|v| {
@@ -729,6 +793,20 @@ impl Solid {
     pub(crate) fn overlaps(&self, other: &Solid) -> bool {
         let tol = 1.0e-12 * self.scale_cm().max(other.scale_cm());
         match (self, other) {
+            (Solid::Hopper(a), Solid::Sphere(s)) | (Solid::Sphere(s), Solid::Hopper(a)) => {
+                // The nearest point of a solid of revolution to a centre lies
+                // in the centre's own meridional half-plane.
+                distance_to_profile(a, s.centre_cm[0].hypot(s.centre_cm[1]), s.centre_cm[2])
+                    < s.radius_cm - tol
+            }
+            // Any other pair with a hopper: the bounding boxes, which can only
+            // refuse a legitimate model (two shapes that do not overlap but
+            // whose boxes do), never accept an overlapping one.
+            (Solid::Hopper(h), o) | (o, Solid::Hopper(h)) => {
+                let (la, ua) = Solid::Hopper(*h).bounds();
+                let (lb, ub) = o.bounds();
+                (0..3).all(|k| la[k] < ub[k] - tol && lb[k] < ua[k] - tol)
+            }
             (Solid::HexPrism(h), o) | (o, Solid::HexPrism(h)) => hex_overlaps(h, o, tol),
             (Solid::Sphere(a), Solid::Sphere(b)) => {
                 a.distance_cm(b) < a.radius_cm + b.radius_cm - tol
@@ -803,6 +881,8 @@ fn hex_overlaps(h: &HexPrism, other: &Solid, tol: f64) -> bool {
             let (glo, ghi) = g.z_range();
             polygons_overlap(&poly, &g.polygon(), tol) && glo < hhi - tol && hlo < ghi - tol
         }
+        // Handled before this is called (a hopper is judged by its box).
+        Solid::Hopper(_) => true,
     }
 }
 

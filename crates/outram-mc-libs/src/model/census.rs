@@ -117,6 +117,18 @@ pub enum Arrangement {
         /// The tracking grid.
         grid: [usize; 3],
     },
+    /// Balls on a stacked hexagonal lattice with whole-ball rejection
+    /// (`Lattice::hex_bed`, tutorial 8).
+    HexBed {
+        /// The tile's flat-to-flat pitch \[cm\].
+        pitch_cm: f64,
+        /// The tile's height \[cm\].
+        height_cm: f64,
+        /// Hexagonal rings of tiles.
+        rings: usize,
+        /// Axial levels of tiles.
+        levels: usize,
+    },
 }
 
 /// **A sphere filled with whole particles**: what the geometry holds,
@@ -243,6 +255,15 @@ impl std::fmt::Display for Census {
                     pitch_cm[0], grid[0], grid[1], grid[2]
                 ),
                 Arrangement::Random { seed, .. } => format!("random (RSA), seed {seed}"),
+                Arrangement::HexBed {
+                    pitch_cm,
+                    height_cm,
+                    rings,
+                    levels,
+                } => format!(
+                    "hexagonal bed of balls, whole-ball rejection, tile {pitch_cm:.4} x \
+                     {height_cm:.4} cm, {rings} rings x {levels} levels"
+                ),
             };
             write!(
                 f,
@@ -267,32 +288,55 @@ impl std::fmt::Display for Census {
 /// closer than this are one copy.
 const SAME_PLACE_CM: f64 = 1.0e-9;
 
+/// A coordinate within this fraction of a grid line of [`SAME_PLACE_CM`] is
+/// also looked up on the other side of the line: two copies of one place,
+/// reached along different paths, differ by rounding (a few `1e-13` cm), a
+/// few thousandths of the grid, and could round to neighbouring cells.
+const NEAR_GRID_LINE: f64 = 0.01;
+
 /// **Distinct placements of every universe** of `g` (see the module docs).
+///
+/// One lookup per placement, two to eight when a coordinate lies within
+/// [`NEAR_GRID_LINE`] of a grid line. (Until 2026-10-18 every placement
+/// looked up all 27 neighbouring cells; the Şeker bed's 79 million TRISO
+/// particle placements then took 341 s, i9-13900K, shared.)
 fn universe_placements(g: &Geometry) -> Result<Vec<usize>, ModelError> {
     type Key = (i64, i64, i64, usize);
-    let q = |o: [f64; 3]| -> [i64; 3] { o.map(|x| (x / SAME_PLACE_CM).round() as i64) };
+    // Per axis: the nearest grid cell, and the cell across the nearest grid
+    // line when the coordinate is within `NEAR_GRID_LINE` of it.
+    let axis = |x: f64| -> (i64, Option<i64>) {
+        let t = x / SAME_PLACE_CM;
+        let r = t.round();
+        let frac = t - r;
+        let near = (frac.abs() > 0.5 - NEAR_GRID_LINE).then(|| r as i64 + frac.signum() as i64);
+        (r as i64, near)
+    };
+    let shared = universes_with_several_owners(g);
     let mut seen: Vec<HashSet<Key>> = vec![HashSet::new(); g.universes.len()];
+    let mut placed = vec![0_usize; g.universes.len()];
     let mut stack = vec![(g.root_universe, [0.0_f64; 3], 0_usize)];
     while let Some((u, origin, tag)) = stack.pop() {
         let set = seen
             .get(u)
             .ok_or_else(|| ModelError::BadValue(format!("universe {u} out of range (a defect)")))?;
-        let k = q(origin);
-        let mut known = false;
-        'near: for dx in -1..=1 {
-            for dy in -1..=1 {
-                for dz in -1..=1 {
-                    if set.contains(&(k[0] + dx, k[1] + dy, k[2] + dz, tag)) {
-                        known = true;
-                        break 'near;
-                    }
-                }
+        if shared[u] {
+            let [(rx, nx), (ry, ny), (rz, nz)] = origin.map(axis);
+            let known = [Some(rx), nx].into_iter().flatten().any(|x| {
+                [Some(ry), ny].into_iter().flatten().any(|y| {
+                    [Some(rz), nz]
+                        .into_iter()
+                        .flatten()
+                        .any(|z| set.contains(&(x, y, z, tag)))
+                })
+            });
+            if known {
+                continue;
             }
+            seen[u].insert((rx, ry, rz, tag));
+        } else {
+            // One owner: its placements are distinct, so are this one's.
+            placed[u] += 1;
         }
-        if known {
-            continue;
-        }
-        seen[u].insert((k[0], k[1], k[2], tag));
         for &ci in &g.universes[u].cell_indices {
             let c = &g.cells[ci];
             let o = [
@@ -344,10 +388,92 @@ fn universe_placements(g: &Geometry) -> Result<Vec<usize>, ModelError> {
             }
         }
     }
-    Ok(seen.iter().map(HashSet::len).collect())
+    Ok((0..g.universes.len())
+        .map(|u| if shared[u] { seen[u].len() } else { placed[u] })
+        .collect())
+}
+
+/// **Which universes are referenced from more than one place**: from more
+/// than one cell (or lattice), or from a cell and as a lattice's `outer`.
+/// Only those can be reached at the same place along two paths (a random
+/// packing's particle drawn in two tracking tiles; a ball drawn in each tile
+/// it crosses), so only those are checked for repeats.
+///
+/// A universe with one owner (a cell filled with it, or one lattice's tiles)
+/// has a distinct placement for each distinct placement of its parent, and
+/// the tiles of one lattice are at distinct offsets, so its placements are
+/// counted without being remembered. That is what makes counting 79 million
+/// TRISO particles in a pebble bed take seconds and a few hundred
+/// megabytes, rather than a minute and ten gigabytes. (It assumes that a
+/// universe holding a lattice is not itself placed twice at offsets that
+/// differ by a lattice vector, which would be two overlapping copies of it.)
+fn universes_with_several_owners(g: &Geometry) -> Vec<bool> {
+    // The owner of a reference: the cell that makes it, and 0 for a tile or
+    // a fill universe, 1 for a lattice's outer.
+    let mut owner: Vec<Option<(usize, usize)>> = vec![None; g.universes.len()];
+    let mut several = vec![false; g.universes.len()];
+    let mut refer = |v: usize, ci: usize, outer: usize| match owner[v] {
+        None => owner[v] = Some((ci, outer)),
+        Some(o) if o != (ci, outer) => several[v] = true,
+        Some(_) => {}
+    };
+    for uni in &g.universes {
+        for &ci in &uni.cell_indices {
+            match g.cells[ci].fill {
+                CellFill::Universe(v) => refer(v, ci, 0),
+                CellFill::Lattice(li) => match &g.lattices[li] {
+                    CsgLattice::Rect(l) => {
+                        l.universes.iter().for_each(|&v| refer(v, ci, 0));
+                        l.outer.into_iter().for_each(|v| refer(v, ci, 1));
+                    }
+                    CsgLattice::Hex(l) => {
+                        for iz in 0..l.n_axial {
+                            for iy in 0..l.n_side() {
+                                for ix in 0..l.n_side() {
+                                    let i = [ix as i32, iy as i32, iz as i32];
+                                    if l.are_valid_indices(i) {
+                                        if let Some(v) = l.universe_at(i) {
+                                            refer(v, ci, 0);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        l.outer.into_iter().for_each(|v| refer(v, ci, 1));
+                    }
+                },
+                CellFill::Material(_) | CellFill::Void => {}
+            }
+        }
+    }
+    // A universe referenced as a tile and as an outer, or by two cells.
+    several
 }
 
 impl AssembledModel {
+    /// **What the stacked bed holds** (`Lattice::hex_bed`, tutorial 8): the
+    /// balls kept, the balls rejected and at which wall, the fuel and
+    /// moderator split, the bed's height as Şeker & Çolak define it, the
+    /// filling fraction. Counted from the same lattice the geometry was
+    /// lowered from (the balls kept are the balls drawn), beside
+    /// [`Self::census`], which counts the balls and particles from the
+    /// geometry itself.
+    ///
+    /// # Errors
+    /// [`ModelError::BadValue`] when the model has no stacked bed.
+    pub fn bed_census(&self) -> Result<super::bed::BedCensus, ModelError> {
+        self.beds.first().cloned().ok_or_else(|| {
+            ModelError::BadValue(
+                "the model has no stacked bed: fill a Hopper with Lattice::hex_bed(..)".into(),
+            )
+        })
+    }
+
+    /// Every stacked bed's census, in the order the beds were lowered.
+    pub fn bed_censuses(&self) -> &[super::bed::BedCensus] {
+        &self.beds
+    }
+
     /// **Count and measure what the assembled geometry holds** (see the
     /// module docs for why it is counted from the geometry, and what a copy
     /// is).

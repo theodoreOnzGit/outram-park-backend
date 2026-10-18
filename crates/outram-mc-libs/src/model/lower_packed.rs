@@ -121,6 +121,17 @@ pub(crate) fn whole_in_sphere(zone: &Sphere, child: &Solid, at: [f64; 3]) -> boo
             let dz = (at[2] + lo - c[2]).abs().max((at[2] + hi - c[2]).abs());
             rim.hypot(dz) <= rz
         }
+        // A hopper is never a packed particle; its bounding box's corners
+        // decide (which can only refuse).
+        Solid::Hopper(h) => {
+            let (l, u) = h.bounds();
+            (0..8).all(|k| {
+                (0..3)
+                    .map(|d| (at[d] + if (k >> d) & 1 == 0 { l[d] } else { u[d] } - c[d]).powi(2))
+                    .sum::<f64>()
+                    <= rz * rz
+            })
+        }
     }
 }
 

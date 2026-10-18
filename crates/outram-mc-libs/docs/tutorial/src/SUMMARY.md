@@ -14,3 +14,4 @@
 - [Tutorial 4 — One HTR-10 TRISO particle, and the k-infinity of its cell](./tutorial4-triso-particle.md)
 - [Tutorial 6 — LEU-COMP-THERM-008: a rectangular pin lattice, and a fast way to run it](./tutorial6-lct008.md)
 - [Tutorial 7 — One Şeker layer of the HTR-10 bed: a hexagonal lattice of pebbles, stacked without end](./tutorial7-seker-layer.md)
+- [Tutorial 8 — The full Şeker bed of HTR-10: the tile stacked in a cylinder, cone and tube, whole balls only](./tutorial8-seker-bed.md)

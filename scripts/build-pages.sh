@@ -301,6 +301,7 @@ for f in index.html site-nav.js code-map-bar.js code-map/index.html code-map/cod
   tutorials/monte-carlo/benchmarks.html \
   tutorials/monte-carlo/tutorial3-hst009.html tutorials/monte-carlo/tutorial4-triso-particle.html \
   tutorials/monte-carlo/tutorial6-lct008.html tutorials/monte-carlo/tutorial7-seker-layer.html \
+  tutorials/monte-carlo/tutorial8-seker-bed.html \
   tutorials/fp-transport-theory/index.html tutorials/fp-transport-theory/20-htgr-sim-v1-chain.html; do
   [[ -f "$OUT/$f" ]] || { echo "missing $OUT/$f" >&2; exit 1; }
 done
