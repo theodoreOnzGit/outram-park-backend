@@ -242,7 +242,11 @@
     ["width.html", "Maths 5f: what sets the width?"],
     ["one-spring-check.html", "Maths 5g: checking it, one spring then a crystal"],
     ["coherent.html", "Maths 5h: do the waves add up?"],
-    ["spin.html", "Maths 5i: why does each hydrogen scatter differently?"]
+    ["spin.html", "Maths 5i: why does each hydrogen scatter differently?"],
+    ["which-nucleus.html", "Which nucleus did the neutron hit?"],
+    ["dbrc.html", "DBRC: let the resonance choose the partner"],
+    ["ace-files.html", "How is each ACE file put together?"],
+    ["two-files.html", "Free gas or bound atom?"]
   ];
   function lessonNav() {
     var here = location.pathname.split("/").pop() || LESSONS[0][0], i = -1;

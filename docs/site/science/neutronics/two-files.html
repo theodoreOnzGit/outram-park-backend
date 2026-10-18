@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Free gas or bound atom?</title>
+<meta name="description" content="Neutronics, page 45, the capstone of the data lessons: how the transport code combines a continuous-energy ACE file with a thermal ACE file. Below the thermal file's last energy the bound-atom cross section and S(alpha,beta) kernel replace the free-gas elastic; above it the free gas takes over; capture always comes from the continuous-energy file. Hydrogen in water and carbon in graphite, from OUTRAM PARK's own tables.">
+<link rel="stylesheet" href="../../style.css">
+<script src="lesson-kit.js" defer></script>
+<script src="dbrc-data.js" defer></script>
+<script src="dbrc.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Neutronics lessons (gh:#906), maintainer's arc of 2026-10-18: the capstone of the NJOY-port theory. Code read: crates/outram-mc-libs/src/material/nuclide.rs (xs_at_energy :3366-3376 and total_at_energy :3430-3440: the thermal total replaces the elastic channel and the total is rebuilt; sample_thermal :3742; with_thermal_scattering :677, per nuclide entry), src/material/thermal.rs (cutoff_ev, total_xs, sample :1128; from_ace cutoff = last ITIE energy :789), src/physics/transport_csg.rs:2397 (the fork: sample_thermal first, free_gas_elastic_scatter_dbrc otherwise). Upstream OpenMC (checkout of ~/Documents/research/openmc, commit d7d3284a1 per the crate's records; the lines below were read there 2026-10-18): material.cpp:852-867 (per-material attachment, E > energy_max_ switches it off), nuclide.cpp:835-860 (thermal replaces elastic, total corrected), physics.cpp:726-750 (elastic prob = elastic - thermal, then sab_scatter). Widget: dbrc.js "handoff" on dbrc-data.js. -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response. <strong>Review status:</strong> AI-assisted first draft (2026-10-18), not yet reviewed by a human.</p>
+
+<h1>Free gas or bound atom?</h1>
+<p class="kicker lesson-progress">Neutronics</p>
+<p>The transport code holds, for hydrogen in water, two files: H-1's continuous-energy file (free gas, page 22 and 42&ndash;43) and the thermal file for H in H<sub>2</sub>O (bound atom, page 44). A neutron at some energy is about to scatter off a hydrogen nucleus. Which file speaks?</p>
+<p class="predict"><b>Predict first:</b> at the energy where the thermal file ends, does the scattering cross section jump? And what about the capture cross section on either side?</p>
+
+<h2>The rule, in our code</h2>
+<ol>
+  <li><b>The thermal file belongs to a nuclide.</b> A moderator nuclide is given its S(&alpha;,&beta;) table when the model is built (<code>Nuclide::with_thermal_scattering</code>, <code>nuclide.rs:677</code>): H-1 gets H-in-H<sub>2</sub>O, carbon gets graphite. Everything else about that nuclide still comes from its continuous-energy file.</li>
+  <li><b>Below the table's last energy</b> (its <i>cutoff</i>: 10&nbsp;eV for water, 4.9&nbsp;eV for graphite here, the last energy of the file's inelastic grid, <code>thermal.rs:789</code>) the bound-atom cross section <b>replaces the free-gas elastic channel</b> and the total is rebuilt around it: &sigma;<sub>total</sub> = &sigma;<sub>absorption</sub> + &sigma;<sub>inelastic</sub> + &sigma;<sub>(n,2n)</sub> + &sigma;<sub>bound</sub> (<code>Nuclide::xs_at_energy</code>, <code>nuclide.rs:3366-3376</code>). The bound cross section is the thermal file's incoherent inelastic plus, for graphite, its coherent (Bragg) elastic; it is zero at and above the cutoff (<code>ThermalScattering::total_xs</code>).</li>
+  <li><b>Capture, fission and the other reactions are untouched.</b> They are read from the continuous-energy file at every energy, below the cutoff as above. The thermal file has none.</li>
+  <li><b>When the neutron scatters,</b> the code first asks the thermal table. Below the cutoff it answers: it picks elastic or inelastic in proportion to their cross sections, and returns the outgoing energy and the scattering cosine <i>in the laboratory frame</i>, from S(&alpha;,&beta;) (<code>transport_csg.rs:2397</code>, <code>ThermalScattering::sample</code>). <b>Only when it declines</b> (the neutron is above the cutoff) does the free-gas kernel run, with its target sampling and, for a nuclide with a 0&nbsp;K table, DBRC (page 43). So below the cutoff neither free-gas target sampling nor DBRC is used for that nuclide.</li>
+</ol>
+<p>This is the same arrangement as OpenMC's <a href="#ref-romano2015openmc">(Romano et al., 2015)</a>, which the code ports. There the thermal table is attached to a material, not to a nuclide (<code>material.cpp:852-867</code>), is switched off for a neutron above its <code>energy_max</code> (<code>material.cpp:866</code>), replaces the elastic cross section and corrects the total (<code>nuclide.cpp:835-860</code>), and sends the share of elastic scattering that belongs to the bound table to <code>sab_scatter</code> (<code>physics.cpp:726-750</code>). OpenMC can give a table a <i>fraction</i> of a nuclide, so that a material holding the same isotope both bound and free works; ours has no fraction, and a model that needs both holds two nuclide entries, one with the table and one without (<code>nuclide.rs:677</code>). OpenMC switches off at <code>E &gt; energy_max</code>; ours at <code>E &#8805; cutoff</code>, which differ on a single point.</p>
+
+<section class="widget-card">
+  <h3>Which file supplies the scattering?</h3>
+  <div class="widget" id="handoff">
+    <canvas aria-label="Scattering cross section against neutron energy on linear axes: the bound-atom cross section from the thermal file below its cutoff, and the free-gas elastic cross section from the continuous-energy file, with the cutoff marked"></canvas>
+  </div>
+  <p class="note">Both curves are decoded from the ACE files OUTRAM PARK's port wrote (page 44), at 293.6&nbsp;K. The blue shading marks where the thermal file supplies the scattering and the orange where the continuous-energy file does; the dashed orange curve continues the free-gas elastic below the cutoff, where it is <i>not</i> used. Cross sections are per hydrogen or per carbon atom. Energy windows: a thermal window, the stretch around the cutoff, and the whole 0.001&ndash;20&nbsp;eV. Axes are linear.</p>
+</section>
+
+<h2>What the numbers show</h2>
+<ul>
+  <li><b>Down in the thermal range the two disagree wildly.</b> At 0.0253&nbsp;eV hydrogen in water scatters with <b data-xs="H in H2O,0.0253,bound">51.7</b>&nbsp;b per hydrogen in the thermal file, where the free gas would give <b data-xs="H-1,0.0253,free">30.1</b>&nbsp;b. Chemical binding raises the cross section and, above all, changes where the neutron goes afterwards (up-scattering off the molecule's motion is what builds the thermal spectrum).</li>
+  <li><b>Graphite is subtler.</b> At 0.0253&nbsp;eV the bound total is <b data-xs="graphite,0.0253,bound">5.04</b>&nbsp;b against <b data-xs="C-12,0.0253,free">4.95</b>&nbsp;b free: a near tie in the total, though <b data-coh>4.56</b>&nbsp;b of it is coherent Bragg scattering, which changes the neutron's direction and not its energy. The sawtooth of Bragg edges is visible in the thermal window.</li>
+  <li><b>At the cutoff the cross section hardly jumps.</b> For water the thermal file gives <b data-xs="H in H2O,cut-,bound">20.5377</b>&nbsp;b just below 10&nbsp;eV and the free gas <b data-xs="H-1,cut+,free">20.4606</b>&nbsp;b just above; for graphite <b data-xs="graphite,cut-,bound">4.7396</b>&nbsp;b against <b data-xs="C-12,cut+,free">4.7492</b>&nbsp;b. That is the design: far above kT a bound atom scatters like a free one, and the cutoff is placed where that is true. What <i>can</i> change there is not the cross section but the outgoing energy and angle, which switch from the S(&alpha;,&beta;) tables to the free-gas kernel.</li>
+</ul>
+<p>So the prediction answer: at the cutoff the scattering cross section moves by a few tenths of a percent, and capture does not move at all, because it never left the continuous-energy file.</p>
+<div class="misconception" role="note"><b>Common misconception: "S(&alpha;,&beta;) and Doppler broadening are applied one on top of the other."</b>
+  <p>They are alternatives for the elastic scattering of a bound nuclide, split by energy. Below the cutoff the S(&alpha;,&beta;) table is used and the broadened free-gas elastic is not (it is still tabulated in the other file, but the code replaces it). Above the cutoff the broadened free-gas elastic is used and the S(&alpha;,&beta;) table is not.</p></div>
+
+<h2>The whole picture of the data</h2>
+<p>For one moderated nuclide the code uses, in order of energy: the thermal file (S(&alpha;,&beta;), up to its cutoff); then the continuous-energy file, free gas with the target moving (BROADR's rate, the sampled target velocity of page 42, DBRC for a heavy resonant nuclide up to 1&nbsp;keV, page 43); then the same file with the target at rest; and in the unresolved range PURR's tables (pages 18&ndash;19). Every one of those was made by a module of the NJOY port, from an ENDF evaluation or a LEAPR deck, and every one is checked against NJOY2016's own output where such a comparison exists. The transport lessons that follow use these files without opening them again.</p>
+
+<nav class="lesson-nav" aria-label="Lessons"></nav>
+
+<!-- references:begin -->
+<h2>References</h2>
+
+<p class="csl-entry" id="ref-romano2015openmc" style="padding-left: 2em; text-indent: -2em;">Romano, P. K., Horelik, N. E., Herman, B. R., Nelson, A. G., Forget, B., &#38; Smith, K. (2015). OpenMC: A state-of-the-art Monte Carlo code for research and development. <i>Annals of Nuclear Energy</i>, <i>82</i>, 90–97.</p>
+
+<!-- references:end -->
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. GPL-3.0. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>

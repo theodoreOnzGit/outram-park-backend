@@ -29,6 +29,7 @@ eval(fs.readFileSync(path.join(__dirname, "bound.js"), "utf8"));
 Object.assign(window.Lesson, { H: 6.62607015e-34, MN: 1.67492749804e-27, EV: 1.602176634e-19 });
 eval(fs.readFileSync(path.join(__dirname, "bragg.js"), "utf8"));
 eval(fs.readFileSync(path.join(__dirname, "doppler-data.js"), "utf8"));
+eval(fs.readFileSync(path.join(__dirname, "dbrc-data.js"), "utf8"));
 window.Lesson.arrow = () => {};
 eval(fs.readFileSync(path.join(__dirname, "lattice.js"), "utf8"));
 eval(fs.readFileSync(path.join(__dirname, "manyphonons.js"), "utf8"));
@@ -36,6 +37,7 @@ eval(fs.readFileSync(path.join(__dirname, "structure.js"), "utf8"));
 eval(fs.readFileSync(path.join(__dirname, "leapr-data.js"), "utf8"));
 eval(fs.readFileSync(path.join(__dirname, "spin-data.js"), "utf8"));
 eval(fs.readFileSync(path.join(__dirname, "mathtrack.js"), "utf8"));
+eval(fs.readFileSync(path.join(__dirname, "dbrc.js"), "utf8"));
 const M = window.Lesson.qscatterMath, SH = window.Lesson.shapesMath, AN = window.Lesson.anglesMath;
 let failed = 0;
 function check(name, value, limit) {
@@ -465,6 +467,159 @@ for (const [label, A, ap, E] of [["C-12, 10 eV", 11.89365, 6.146927, 10], ["U-23
   const kta = 8.617333262e-5 * 293.6 / DD.awr;
   check("page 22: kT/A for U-238 at 293.6 K is 1.1e-4 eV (relative)", Math.abs(kta / 1.1e-4 - 1), 0.05);
   check("page 22: E_m = 16kT/A for U-235 at 300 K is 0.0017 eV (relative)", Math.abs(16 * 8.617333262e-5 * 300 / 233.0248 / 0.0017 - 1), 0.05);
+}
+
+
+// Pages 42-45 (gh:#906, maintainer's arc of 2026-10-18): free-gas target
+// sampling, DBRC, and the hand-over between the two ACE files. Maths in
+// dbrc.js (a port of outram-mc-libs scatter.rs sample_cxs_target and
+// sample_target_velocity_dbrc), data in dbrc-data.js (examples/lesson_dbrc.rs).
+{
+  const DM = window.Lesson.dbrcMath, DB = window.DBRC_DATA, U8 = DB.u238, A = U8.awr, kT = DM.KB * 293.6;
+  const tab = DM.table(U8.el0k.e, U8.el0k.s);
+  // Two-sample chi-square per degree of freedom between two sample sets, bins of at least 10 pooled counts.
+  const chi2 = (xa, xb, lo, hi, nb) => {
+    const a = new Array(nb).fill(0), b = new Array(nb).fill(0);
+    for (const x of xa) { const k = Math.floor((x - lo) / (hi - lo) * nb); if (k >= 0 && k < nb) a[k]++; }
+    for (const x of xb) { const k = Math.floor((x - lo) / (hi - lo) * nb); if (k >= 0 && k < nb) b[k]++; }
+    let c = 0, n = 0;
+    for (let k = 0; k < nb; k++) if (a[k] + b[k] >= 10) { c += (a[k] - b[k]) ** 2 / (a[k] + b[k]); n++; }
+    return c / (n - 1);
+  };
+  const N = 200000, E = 6.5, w = DM.window(E, A, kT);
+  // 1. With a flat cross section the rejection accepts every target, so DBRC
+  //    must reproduce plain sampling statistically (independent random
+  //    streams). 2026-10-18: chi2/dof 0.8-1.2 over 40 bins (see the log line).
+  const flat = DM.table([0, 1e3], [3, 3]), rA = DM.rng(1), rB = DM.rng(2);
+  const pa = [], pb = [];
+  for (let i = 0; i < N; i++) { pa.push(DM.encounter(E, A, kT, rA, null).erel); pb.push(DM.encounter(E, A, kT, rB, flat).erel); }
+  const cflat = chi2(pa, pb, E - 0.3, E + 0.3, 40);
+  check("DBRC with a flat cross section vs plain sampling: chi2 per dof", cflat, 1.6);
+  // 2. The plain sampler against an independent integral: the mean encounter
+  //    energy of the density y^2 e^{-y^2}|v - V|, by quadrature over y and mu.
+  let s1 = 0, s2 = 0; for (const x of pa) { s1 += x; s2 += x * x; }
+  const mP = s1 / N, seP = Math.sqrt((s2 / N - mP * mP) / N), qP = DM.quadMeanErel(E, A, kT, null, 1400, 2000);
+  check("plain sampler: mean E_rel vs quadrature, in standard errors", Math.abs(mP - qP) / seP, 4);
+  // 3. The DBRC sampler against quadrature of the density with sigma_0K(E_rel) in it, on the real data.
+  const rD = DM.rng(3), pd = []; for (let i = 0; i < N; i++) pd.push(DM.encounter(E, A, kT, rD, tab).erel);
+  let d1 = 0, d2 = 0; for (const x of pd) { d1 += x; d2 += x * x; }
+  const mD = d1 / N, seD = Math.sqrt((d2 / N - mD * mD) / N), qD = DM.quadMeanErel(E, A, kT, (e) => tab.at(e), 1400, 6000);
+  check("DBRC sampler on U-238's 0 K elastic: mean E_rel vs quadrature, in standard errors", Math.abs(mD - qD) / seD, 4);
+  // 4. The correction does what the page says: it moves the encounters toward the peak (6.675 eV).
+  check("DBRC moves the mean encounter energy toward the 6.67 eV peak", mD > mP + 5 * seP ? 0 : 1, 0);
+  // 5. The target-speed density of the targets hit: y^2 e^{-y^2} <|v - V|>, against the sampler.
+  { const yn = w.yn, nb = 50, ymax = 5, r = DM.rng(5), al = 1 / (1 + Math.sqrt(Math.PI) * yn / 2), cnt = new Array(nb).fill(0), M = 200000;
+    for (let i = 0; i < M; i++) { const c = DM.sampleCxs(yn, al, r), k = Math.floor(Math.sqrt(c[0]) / ymax * nb); if (k < nb) cnt[k]++; }
+    const pr = new Array(nb).fill(0); let z = 0;
+    for (let k = 0; k < nb; k++) { for (let j = 0; j < 40; j++) { const y = (k + (j + 0.5) / 40) * ymax / nb; pr[k] += y * y * Math.exp(-y * y) * DM.relSpeedAvg(y, yn); } z += pr[k]; }
+    let tot = 0; cnt.forEach((c) => tot += c);
+    let c2 = 0, n = 0; for (let k = 0; k < nb; k++) { const ex = tot * pr[k] / z; if (ex >= 10) { c2 += (cnt[k] - ex) ** 2 / ex; n++; } }
+    check("sampled target speeds vs y^2 e^{-y^2}<|v-V|>: chi2 per dof", c2 / (n - 1), 1.6);
+    // relSpeedAvg is the mu-average it claims to be.
+    let q = 0; const y = 1.7; for (let j = 0; j < 20000; j++) { const mu = -1 + (j + 0.5) * 2 / 20000; q += Math.sqrt(yn * yn + y * y - 2 * yn * y * mu) / 20000; }
+    check("relSpeedAvg vs numerical mean of |v-V| over mu (relative)", Math.abs(q / DM.relSpeedAvg(y, yn) - 1), 1e-6);
+  }
+  // 6. The widget's noise-free density against the two samplers, bin by bin (z-scores), and its acceptance
+  //    against the sampler's own acceptance (candidates per accepted target).
+  { const lo = E - 0.3, hi = E + 0.3, nb = 40, d = DM.encounterDensity(E, A, kT, tab, lo, hi, nb, 500, 1000), bw = (hi - lo) / nb;
+    const cnt = (xs) => { const c = new Array(nb).fill(0); for (const x of xs) { const k = Math.floor((x - lo) / bw); if (k >= 0 && k < nb) c[k]++; } return c; };
+    const cp = cnt(pa), cd = cnt(pd);
+    let wz = 0, wzd = 0;
+    for (let k = 0; k < nb; k++) {
+      const ep = N * d.plain[k] * bw, ed = N * d.dbrc[k] * bw;
+      if (ep >= 25) wz = Math.max(wz, Math.abs(cp[k] - ep) / Math.sqrt(ep));
+      if (ed >= 25) wzd = Math.max(wzd, Math.abs(cd[k] - ed) / Math.sqrt(ed));
+    }
+    check("encounter density vs plain sampler, worst bin z-score", wz, 4.5);
+    check("encounter density vs DBRC sampler, worst bin z-score", wzd, 4.5);
+    const r = DM.rng(11); let tries = 0; const M = 4000; for (let i = 0; i < M; i++) tries += DM.encounter(E, A, kT, r, tab).tries;
+    const accS = M / tries, se = accS * Math.sqrt((1 - accS) / M);
+    check("DBRC acceptance: quadrature vs the sampler's candidates per accepted target, in standard errors", Math.abs(accS - d.accept) / se, 4);
+    console.log(`     DBRC acceptance at ${E} eV, 293.6 K: quadrature ${d.accept.toExponential(2)}, sampled ${accS.toExponential(2)}`);
+  }
+  // 7. DBRC acceptance never exceeds 1: sigma_max really bounds the window.
+  { let over = 0; for (let k = 0; k <= 4000; k++) { const e = w.lo + (w.up - w.lo) * k / 4000; if (tab.at(e) > tab.maxOver(w.lo, w.up) * (1 + 1e-12)) over++; }
+    check("sigma_max bounds sigma_0K over the window (points above it)", over, 0); }
+  // 8. The data file. Structure, and the same resonance as page 22's capture data.
+  check("0 K elastic grid is strictly ascending", U8.el0k.e.some((e, i) => i && e <= U8.el0k.e[i - 1]) ? 1 : 0, 0);
+  let pk = 0, pe = 0; U8.el0k.e.forEach((e, i) => { if (U8.el0k.s[i] > pk) { pk = U8.el0k.s[i]; pe = e; } });
+  check("0 K elastic peak sits at page 22's capture peak energy (eV)", Math.abs(pe - window.DOPPLER_DATA.u238["0"].ep), 5e-3);
+  // Single-level formula from the tape's own parameters (resonance-data.js, ENDF MF=2) vs the RECONR 0 K elastic
+  // at the peak and on its flanks. Not a gate on the whole curve: other levels add a smooth background.
+  { const RS = window.Lesson.resonanceMath, R = window.RES_DATA.u238, lvl = [[R.er, R.aj, R.gn + R.gg, R.gn, R.gg, 0]];
+    let worstRel = 0;
+    for (const dE of [-0.02, -0.01, 0, 0.01, 0.02]) {
+      const e = R.er + dE, sl = RS.slbw(e, lvl, 0, R.spi, R.ap, R.awri, R.ra).el;
+      worstRel = Math.max(worstRel, Math.abs(tab.at(e) / sl - 1));
+    }
+    check("0 K elastic data vs the lone-level formula from the tape's parameters, peak +- 0.02 eV (relative)", worstRel, 0.05);
+    // 2026-10-18: 0.1 % at the peak, 3.3 % at -0.02 eV. Further out the other levels (and the interference
+    // dip, 0.05 b at 6.518 eV) make the lone-level formula wrong by a factor of two, which is why the gate is the peak region only.
+    console.log(`     lone-level vs RECONR 0 K elastic, worst relative gap over peak +- 0.02 eV ${(100 * worstRel).toFixed(2)} %`);
+  }
+  // 9. The thermal and continuous-energy tables: the hand-over the page states.
+  const H = DB.th["H in H2O"], G = DB.th["graphite"];
+  check("H in H2O thermal table: cutoff is its last inelastic energy (eV)", Math.abs(H.cutoff - H.einel[H.einel.length - 1]), 0);
+  check("thermal tables: the bound cross section is zero at and above the cutoff", DM.boundXs(H, H.cutoff) + DM.boundXs(G, G.cutoff + 1) === 0 ? 0 : 1, 0);
+  check("graphite: coherent elastic from the Bragg edges is the S/E form (b, at 0.01 eV vs table)", Math.abs(DM.sigmaCoh(G.edges, G.cum, 0.01) - G.cum[G.edges.filter((e) => e <= 0.01).length - 1] / 0.01), 1e-12);
+  const gc = DM.boundXs(G, 0.0253), gi = G.sinel.length ? G.sinel : [];
+  console.log(`     graphite at 0.0253 eV: bound ${gc.toFixed(3)} b per atom (coherent ${DM.sigmaCoh(G.edges, G.cum, 0.0253).toFixed(3)} b); H in H2O ${DM.boundXs(H, 0.0253).toFixed(2)} b per H`);
+  console.log(`     DBRC on U-238 at ${E} eV, 293.6 K: mean E_rel ${mP.toFixed(4)} -> ${mD.toFixed(4)} eV (quadrature ${qP.toFixed(4)} -> ${qD.toFixed(4)}); flat-sigma chi2/dof ${cflat.toFixed(2)}`);
+}
+
+// Pages 42-45, the prose numbers: every data-* number on the four new pages
+// against the data or against a recomputation, to the digits printed.
+{
+  const DM = window.Lesson.dbrcMath, DB = window.DBRC_DATA, U8 = DB.u238, A = U8.awr, kT = DM.KB * 293.6;
+  const tab = DM.table(U8.el0k.e, U8.el0k.s);
+  const rd = (f) => fs.readFileSync(path.join(__dirname, f), "utf8");
+  const half = (t) => { const d = t.split(".")[1]; return 0.5 * Math.pow(10, -(d ? d.length : 0)) * (1 + 1e-9); };
+  let bad = 0, n = 0;
+  const q = (h, re, f) => { for (const m of h.matchAll(re)) { n++; const t = m[m.length - 1].replace(/ /g, ""), want = f(m); if (!(Math.abs(+t - want) <= half(t))) { bad++; console.log("     mismatch", m[0], "want", want); } } };
+  // dbrc.html: the U-238 0 K elastic peak and dip, and the exact mean encounter energies.
+  { const h = rd("dbrc.html");
+    let pk = 0, pe = 0, dp = 1e9, de = 0;
+    U8.el0k.e.forEach((e, i) => { const s = U8.el0k.s[i]; if (s > pk) { pk = s; pe = e; } if (e > 6.3 && e < 6.67 && s < dp) { dp = s; de = e; } });
+    q(h, /data-pk0>([^<]+)</g, () => pk); q(h, /data-pke0>([^<]+)</g, () => pe); q(h, /data-dip>([^<]+)</g, () => dp); q(h, /data-dipe>([^<]+)</g, () => de);
+    q(h, /data-acc>([^<]+)</g, () => 1e4 * DM.encounterDensity(6.5, A, kT, tab, 6.2, 6.8, 40, 500, 1000).accept);
+    q(h, /data-mp>([^<]+)</g, () => DM.quadMeanErel(6.5, A, kT, null, 1400, 2000));
+    q(h, /data-md>([^<]+)</g, () => DM.quadMeanErel(6.5, A, kT, (e) => tab.at(e), 1400, 6000));
+  }
+  // which-nucleus.html: the share of hit targets moving toward the neutron, 40 000 draws, seed 2026 (the widget's).
+  { const h = rd("which-nucleus.html"), M = { h1: 0.9991673, c12: 11.89365, u238: 236.0058 };
+    for (const m of h.matchAll(/data-toward="([a-z0-9]+),([0-9.]+)">([^<]+)</g)) {
+      n++; const w = DM.window(+m[2], M[m[1]], kT), al = 1 / (1 + Math.sqrt(Math.PI) * w.yn / 2), r = DM.rng(2026); let t = 0;
+      for (let i = 0; i < 40000; i++) if (DM.sampleCxs(w.yn, al, r)[1] < 0) t++;
+      const got = 100 * t / 40000;
+      if (Math.abs(got - +m[3]) > 0.05) { bad++; console.log("     toward mismatch", m[0], "got", got.toFixed(2)); }
+    }
+  }
+  // ace-files.html: counts in the two tables against dbrc-data.js.
+  { const h = rd("ace-files.html"), ce = DB.ce, th = DB.th;
+    q(h, /data-nes="([^"]+)">([^<]+)</g, (m) => ce[m[1]].nes); q(h, /data-ntr="([^"]+)">([^<]+)</g, (m) => ce[m[1]].ntr);
+    for (const m of h.matchAll(/data-xss="([^"]+)">([^<]+)</g)) { n++; const want = (ce[m[1]] || th[m[1]]).xss; if (+m[2] !== want) { bad++; console.log("     xss mismatch", m[0], want); } }
+    q(h, /data-nin="([^"]+)">([^<]+)</g, (m) => th[m[1]].einel.length); q(h, /data-cut="([^"]+)">([^<]+)</g, (m) => th[m[1]].cutoff);
+    q(h, /data-edges="([^"]+)">([^<]+)</g, (m) => th[m[1]].edges.length);
+    check("page 44: H-1 has a reaction block besides elastic and total and an AND block", ce["H-1"].ntr >= 1 && ce["H-1"].and > 0 ? 0 : 1, 0);
+    check("page 44: the thermal tables are IFENG 0, 16 outgoing energies, 16 cosines", [th["H in H2O"], th["graphite"]].every((t) => t.ifeng === 0 && t.nieb === 16 && t.nil === 15) ? 0 : 1, 0);
+    check("page 44: water has no thermal elastic (IDPNC 0), graphite coherent (IDPNC 4)", th["H in H2O"].idpnc === 0 && th["graphite"].idpnc === 4 ? 0 : 1, 0);
+  }
+  // two-files.html: bound and free cross sections at the stated energies.
+  { const h = rd("two-files.html"), th = DB.th, ce = DB.ce;
+    const interp = (e, s, x) => { let lo = 0, hi = e.length - 1; if (x <= e[0]) return s[0]; if (x >= e[hi]) return s[hi]; while (hi - lo > 1) { const m = (lo + hi) >> 1; if (e[m] <= x) lo = m; else hi = m; } return s[lo] + (s[hi] - s[lo]) * (x - e[lo]) / (e[hi] - e[lo]); };
+    const cutOf = { "H in H2O": th["H in H2O"].cutoff, "graphite": th["graphite"].cutoff, "H-1": th["H in H2O"].cutoff, "C-12": th["graphite"].cutoff };
+    q(h, /data-xs="([^,]+),([^,]+),([^"]+)">([^<]+)</g, (m) => {
+      const E = m[2] === "cut-" ? cutOf[m[1]] - 1e-6 : m[2] === "cut+" ? cutOf[m[1]] + 1e-6 : +m[2];
+      return m[3] === "bound" ? DM.boundXs(th[m[1]], E) : interp(ce[m[1]].elastic.e, ce[m[1]].elastic.s, E);
+    });
+    q(h, /data-coh>([^<]+)</g, () => DM.sigmaCoh(th.graphite.edges, th.graphite.cum, 0.0253));
+    // The hand-over, stated as a check: the cross section moves by well under 1 % across the cutoff.
+    for (const [mat, nuc] of [["H in H2O", "H-1"], ["graphite", "C-12"]]) {
+      const T = th[mat], b = DM.boundXs(T, T.cutoff - 1e-6), f = interp(ce[nuc].elastic.e, ce[nuc].elastic.s, T.cutoff + 1e-6);
+      check("page 45: " + mat + " scattering cross section across the cutoff, relative step", Math.abs(b / f - 1), 0.01);
+    }
+  }
+  check("pages 42-45: " + n + " numbers in the prose vs the data", bad, 0);
 }
 
 // Page 23 (gh:#906 designs, 2026-10-16): the toy phonon rules.
