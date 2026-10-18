@@ -236,6 +236,26 @@ Do not read the tiny normal-operation values of $\varphi_1$ as an in-service
 failure fraction. In-service failure is a defect population, which the
 equations take as an input. That would answer a different question.
 
+**CORRECTED 2026-10-18** (Step 20 review of `htgr_sim_v1`): the digital twin evaluates $\varphi_1$ at end of irradiation with $T_B = T_{kernel} - 75$ K, adds it on top of the $5 \times 10^{-4}$ design $f_{inc}$, and does not route $\varphi_2$; see [Step 20](./20-htgr-sim-v1-chain.md) section 4.
+
+## Why each simplification is allowed
+
+**Kinds of justification used below.** (a) negligible effect, with an estimate; (b) computationally too expensive to be practical; (c) bounding or conservative, with the side it errs on; (d) data not available. **Open** means this page cannot justify it.
+
+Each simplification above carries a justification, collected here. The
+judgement text on the page above is the argument. This table names its kind.
+
+| Simplification | Kind | Note |
+|---|---|---|
+| Whole particle becomes one SiC shell | (b) and (d) | FEM too costly per particle; PyC laws absent. Error against FEM unmeasured: **open** |
+| Weibull strength over the population | (b) | Per-particle flaws cannot be known, and tracking them is impractical |
+| Irradiated strength from the report's fit | (d) | No microscopic model or data in the repo; HTR-10 inputs are borrowed |
+| Ideal gas, closed-form release | (d), and **open** for size | Real-gas error not estimated |
+| Decomposition as an Arrhenius action integral | (d) | $\alpha$, $\beta$ are calibrated by the report; nothing in the report checks Eqs (11) to (14b) |
+| Mechanisms independent, combined by survival | **Open** | Correlation between mechanisms is not examined |
+| Applying the model to HTR-10 | (d) | An extrapolation, reported as one |
+| Keeping the PANAMA-I conservative choices | (c) | The qualification record calls PANAMA-I a conservative design model that over-predicts failure |
+
 ## What we assumed
 
 - The SiC alone carries the pressure, as a thin shell.

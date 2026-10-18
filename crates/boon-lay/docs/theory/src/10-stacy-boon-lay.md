@@ -130,8 +130,10 @@ An honest list, from the crate's own limitations page and CLAUDE.md:
   atom's identity as given; fission with yield sampling is not implemented, so
   generation at the source is not yet part of the walk.
 - **A full multilayer CRP-6 release record.** The benchmark is single-layer.
-- **Graphite diffusion coefficients.** The graphite lookups are `todo!()`,
-  and elements other than Ag, Cs, Sr and Kr fall back to silver (gh:#541).
+- **Graphite and buffer-krypton diffusion coefficients.** The graphite
+  lookups are `todo!()`, and so is Kr in the buffer (`get_d1_for_kr`; the
+  crate's `CLAUDE.md` was corrected on 2026-10-18 to say so). Elements other
+  than Ag, Cs, Sr and Kr fall back to silver (gh:#541).
 - **A first-principles stress model.** There is no finite-element particle
   model in `farrer-park` today ([Step 8](./08-pressure-stress.md)). The PyC
   creep and swelling are not in the failure chain.
@@ -142,6 +144,16 @@ An honest list, from the crate's own limitations page and CLAUDE.md:
 - **A description of STACY and HCP in this book** (the placeholders above).
 - **Accident release beyond venting.** An isothermal hold releases exactly
   0 Bq in the TRISO-ATOPS accident path (gh:#446).
+
+## Why each simplification is allowed
+
+**Kinds of justification used below.** (a) negligible effect, with an estimate; (b) computationally too expensive to be practical; (c) bounding or conservative, with the side it errs on; (d) data not available. **Open** means this page cannot justify it.
+
+| Simplification | Kind | Justification |
+|---|---|---|
+| Transmutation not modelled in transit with real data | (d) | Per-nuclide cross sections and flux maps are not wired in. Size of the effect on release is **open**: no estimate exists in the repo |
+| One `(n,gamma)` channel only | (d) | As above |
+| Building and filters not credited at the hand-off | (c) | Errs high on release (Step 16) |
 
 ## What we assumed
 

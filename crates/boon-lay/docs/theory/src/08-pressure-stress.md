@@ -153,8 +153,11 @@ maintainer to supply].
 
 **The cost.** A mesh, a nonlinear solve at every time step, a history of
 irradiation for every layer. It is the right way to ask "does this particle
-fail?" and the wrong way to ask it for the 10$^{4}$ to 10$^{5}$ particles in a
-core.
+fail?" and the wrong way to ask it for every particle in a core. The repo records
+27 000 fuel elements for HTR-10 (`nee_soon`, from the paper's body text) and
+about 8 300 particles per element (8340 counted, 8240 built, gh:#316), so
+$27000 \times 8300 \approx 2.2 \times 10^{8}$ particles. That is an order of
+magnitude from the recorded counts.
 
 ### What `farrer-park` has today
 
@@ -208,6 +211,18 @@ This is a list of requirements read from the table above. It is not a plan.
 
 Until then, the only particle-scale stress in this workspace is the thin-shell
 formula of [Step 9](./09-panama.md).
+
+## Why each simplification is allowed
+
+**Kinds of justification used below.** (a) negligible effect, with an estimate; (b) computationally too expensive to be practical; (c) bounding or conservative, with the side it errs on; (d) data not available. **Open** means this page cannot justify it.
+
+| Simplification | Kind | Justification |
+|---|---|---|
+| Ideal-gas law | (d), and **open** | The repo has no real-gas equation of state or data. The size of the error is not estimated here, so it is not called negligible |
+| Free volume is 50 % of the buffer | (d) | The value is the report's, taken as printed |
+| Single temperature over the free volume | **Open** | No estimate of temperature variation across the buffer in the repo |
+| FEM replaced by a thin shell (Step 9) | (b), partly | Per-particle FEM times the number of particles in a core is too costly to run by default (about $2 \times 10^{8}$ particles for HTR-10, from the repo's counts above). Its accuracy against FEM is **not measured**, as `farrer-park` has no TRISO model |
+| PyC creep and swelling omitted from the failure chain | (d) | The laws and parameters are not in the repo |
 
 ## What we assumed
 

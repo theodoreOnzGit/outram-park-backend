@@ -71,7 +71,7 @@ The CRP-6 benchmark particle is a little smaller (212.5 to 427.5 µm); see
 [rung 1](../../tutorials/triso-atops/triso.html) for both. The buffer is
 "about 50 % voids" in that page's words; the exact porosity is not needed here.
 
-## The map of the ten steps
+## The map of the twenty steps
 
 ```text
  INSIDE THE PARTICLE
@@ -87,6 +87,17 @@ The CRP-6 benchmark particle is a little smaller (212.5 to 427.5 µm); see
    8  Pressure, stress   first principles (farrer-park)
    9  PANAMA          its simplification, and ours
   10  STACY in HCP    what comes after, and what boon-lay aims for
+ OUT OF THE PARTICLE
+  11  Coolant         fission products, tramp uranium and dust
+  12  Removal         purification, leak, plate-out and lift-off
+  13  Brute force     CFD for every species
+  14  TRISO-ATOPS     the cheap model
+  15  DLOFC           a loss-of-cooling accident, and what is left out
+  16  Building        outside the vessel, and bounding assumptions
+  17  Dispersion      how a release travels, and what it costs to compute
+  18  Puff and plume  the Gaussian puff, then the Gaussian plume
+  19  Fidelity        levels of fidelity
+  20  htgr_sim_v1     the whole chain in one worked example, and a review route
 ```
 
 | Step | The question it answers | Fewest-assumptions model | Cheaper model |
@@ -101,6 +112,16 @@ The CRP-6 benchmark particle is a little smaller (212.5 to 427.5 µm); see
 | 8 | What does the gas do to the shell? | finite elements | thin-shell membrane stress |
 | 9 | How did PANAMA simplify? | | PANAMA-I formulas |
 | 10 | What comes next? | | |
+| 11 | What is in the coolant, and where from? | transport equation per species | groups, tramp-uranium fraction |
+| 12 | How does it leave the coolant? | wall sorption and flow physics | first-order rates per group |
+| 13 | What would solving it directly take? | CFD for every species | (the cost argument) |
+| 14 | What is the cheap model? | | TRISO-ATOPS lumped pools |
+| 15 | What happens in a loss-of-cooling accident? | compressible blowdown with chemistry | venting fraction and lift-off fraction |
+| 16 | What is outside the vessel? | flow and aerosol per cavity | one well-mixed volume, or no credit |
+| 17 | How does a release travel? | weather-driven CFD or particles | (the cost argument) |
+| 18 | What is the cheapest cloud model? | | Gaussian puff, then plume |
+| 19 | What is the pattern? | | levels of fidelity, and bounds |
+| 20 | Which rung does one real chain stand on? | | the htgr_sim_v1 chain, with a review route |
 
 ## One thing to keep in mind throughout
 
