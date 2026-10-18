@@ -18,8 +18,10 @@ posted on gh:#818 before any of this was measured: [`PREDICTION.md`](PREDICTION.
   The key is the SHA-256 of the covariance-stripped tape, the material, the
   temperature and tolerances to the bit, PURR's table settings, the law's
   label, and the processing-code version `CODE`
-  (`examples/common/processed_cache.rs`, ~~`nd-2026-10-09.1`~~ `nd-2026-10-15.1` since
-  2026-10-15, after `50911476b` changed U-234's processed output). Each record
+  (`examples/common/processed_cache.rs`, ~~`nd-2026-10-09.1`~~ ~~`nd-2026-10-15.1` since
+  2026-10-15, after `50911476b` changed U-234's processed output~~
+  `nd-2026-10-18.1` since gh:#932, when the products became njoy
+  `process`'s). Each record
   carries a SHA-256 of its words; a record with another key or code, a bad
   checksum or words that do not decode is a visible miss and is processed
   again.
@@ -127,14 +129,20 @@ U-238's product is 24.7 MB, well under the U-235-sized guess.
 pools) and `delta_tracking_web` already shared it. `nuclear_data_web`
 included the module but never called it. Now:
 
-- `Nuclide::process_evaluation` (outram-mc-libs) is three public calls in a
+- ~~`Nuclide::process_evaluation` (outram-mc-libs) is three public calls in a
   row: `reconstruct_0k` (RECONR at 0 K), `urr_tables` (PURR at
   `URR_TABLE_SETTINGS` = 20 bins, 16 ladders, 2000 samples), and
-  `process_from_stages` (the 0 K elastic slice for DBRC, and BROADR).
+  `process_from_stages` (the 0 K elastic slice for DBRC, and BROADR).~~
+  **CHANGED 2026-10-18 (gh:#931, #932):** that chain is now
+  `Nuclide::process_evaluation_pre_931`; the demos use njoy's `process`
+  (see the gh:#932 section below).
 - The two slow stages have keys of their own (`reconstruction_key`,
   `urr_key`), under the tape's prefix, so a Monte Carlo load's prefix query
-  reads them too. A product missing from the cache is made from whatever
-  stages are cached, so a held RECONR leaves only PURR and BROADR to run.
+  reads them too. ~~A product missing from the cache is made from whatever
+  stages are cached, so a held RECONR leaves only PURR and BROADR to run.~~
+  **CHANGED 2026-10-18 (gh:#932):** a product is made from a cached RECONR
+  only; PURR runs inside `process::cross_sections_at` (after HEATR), and the
+  `urr_key` stage is the PURR rung's alone.
 - `nuclear_data_web`'s RECONR rung, its BROADR/GROUPR base (0.001) and its
   PURR rung go through the same store. Its worker reads the keys a step may
   use (`NdEngine::cache_keys`) from IndexedDB before the step and saves what
@@ -206,14 +214,124 @@ IndexedDB; times from the worker log lines `processed_cache` writes):
   product's tables (natively tested above). ~~The rung opens at 8 ladders and
   the Monte Carlo settings are 16, so it reads them only once a reader moves
   the slider to 16.~~ **CHANGED 2026-10-17 (maintainer):** the rung opens at
-  16 ladders (`engine::PURR_LADDERS`, tied to `URR_TABLE_SETTINGS`), so after
-  Godiva (293.6 K) it opens on Godiva's U-238 tables.
+  16 ladders (`engine::PURR_LADDERS`, tied to `URR_TABLE_SETTINGS`), ~~so after
+  Godiva (293.6 K) it opens on Godiva's U-238 tables.~~ **CHANGED 2026-10-18
+  (gh:#932):** the Monte Carlo products now hold PURR at 64 ladders x 10 000
+  samples, which the rung's slider (2-32 ladders, 2000 samples) cannot reach,
+  so it no longer opens on Godiva's tables. `PURR_LADDERS` is now a plain 16
+  (UI unchanged); the open question is on gh:#932.
 - **CHANGED 2026-10-17 (maintainer): only RECONR at 0.001 is saved.** The
   coarser sweep steps are processed and shown but leave no record
   (`DataStore::keeping_stages(BASE_TOL)`), so the rung's storage is the
   50.3 MB of the 0.001 stage measured above, not 126 MB. Gated natively by
   step 3 of `the_nuclear_data_demo_and_the_monte_carlo_demos_share_their_products`
   (13/13 pass, release); the browser figure is not re-measured.
+
+## The pool on njoy's `process` path (gh:#932, epic #925 E, 2026-10-18)
+
+**Change.** The store's product is `process::reconstruct` then
+`process::cross_sections_at` at `demo_settings` (NJOY's defaults: PURR 20
+bands / 64 ladders / 10 000 samples after HEATR, the PENDF-rounded 0 K
+elastic over the whole range), carried over by
+`ProcessedEvaluation::from_cross_sections`. That is route 4
+(`Nuclide::process_evaluation`, gh:#931) and the CLI's path. Retired from the
+demos: the pre-#931 chain (`process_evaluation_pre_931`: `reconstruct_0k`,
+`urr_tables` at 20 / 16 / 2000 without HEATR, `process_from_stages`) and
+`pre931_nuclide`. RECONR at 0 K remains a cached stage; PURR is no longer a
+product stage. `CODE` is `nd-2026-10-18.1`; the key names the settings
+(`|purr=20,64,10000|heatr=1|e0k=1`), so no browser reuses a pre-#932
+product.
+
+**Methodology.**
+
+- **Native identity** (release, i9-13900K): `processed_cache::tests::
+  the_store_is_route_4_and_process_bit_for_bit`: He-4 and U-234 at 293.6 K,
+  tolerance 1e-3, product words from the store, from route 4 and from
+  `process::cross_sections`, compared bit for bit; the pre-#931 chain must
+  differ. The cache tests (`a_cached_nuclide_…`, `a_nuclide_made_from_cached_stages_…`)
+  compare against `Nuclide::from_tape_with_speed` again.
+- **Browser against native, every product.** The demo built by
+  `web/monte_carlo/build.sh` (wasm-bindgen 0.2.127), served by
+  `python3 -m http.server`, page `?rung=htr10&mode=watch&view=core&autostart`
+  (the 36 jobs of the whole HTR-10 core, then 1000 × [5 + 20], seed
+  20260917), headless Chromium 154 driven by `run_headless_932.mjs`, the
+  browser pinned to 3 logical CPUs (`taskset -c 13-15`; the page chose 2
+  workers). At the end the script reads every IndexedDB record and
+  recomputes its SHA-256 in the page from the stored words. Native: the
+  same jobs through `run_job_cached` with a fresh browser store
+  (`monte_carlo_web --htr10-product-shas`, `bake::product_records`). Pass:
+  every key present on both sides with the same word count and SHA-256.
+- **Demo numbers before and after**: the same page built from this commit's
+  parent (the pre-#931 chain) and from this commit, each on a fresh profile,
+  same settings. Browser and native transport are not bit-identical
+  (`htr10_full_core_web` P8: wasm uses Rust's libm), so k is compared
+  browser against browser and native against native.
+- **No-lag check**: `PerformanceObserver('longtask')` and
+  `requestAnimationFrame` gaps on the page; every 2 s the script sends a
+  mouse-wheel zoom over the view and times a round trip to the main thread.
+  Desktop 1280 × 800 and phone 390 × 844 (device emulation, touch).
+
+**Results.**
+
+| check | result |
+|---|---|
+| store = route 4 = `process::cross_sections` | He-4 3 228 words, U-234 380 182 words identical; pre-#931 chain another length (2 840, 379 196: its 0 K elastic stops at 25 keV) |
+| cached = processed nuclide (U-234, Fast / VeryFast) | 106 654 values identical each; refused records reprocessed |
+| HTR-10 core products, browser vs native | **36 of 36 identical** (key, words, SHA-256; stored = recomputed), on the desktop first load, the cached reload and the phone load |
+| HTR-10 cached reload | 36 of 36 from the cache, data ready in 27 s, k identical in all 25 generations to the first load |
+| phone first load | 36 of 36 identical; first 5 generations identical to the desktop run |
+
+| HTR-10 core, browser, 3 CPUs | before (pre-#931 chain) | after (`process`) |
+|---|---|---|
+| data ready, first load | 196 s | **337 s** |
+| U-235 / U-238 processed in | 68.8 s / 53.4 s | 143.1 s / 82.1 s |
+| wasm memory per worker (page's report) | up to 547 MB | up to 752 MB |
+| cache size, 36 products | 131.6 MB | 139.7 MB |
+| k, 1000 × [5 + 20] | 0.98895 ± 0.01004 | 0.99381 ± 0.00985 |
+
+Native (bake, 1000 × 25 generations, 3 threads, i9-13900K, the machine
+shared with other agents' runs): data 68.3 → 97.6 s; k over generations
+6–25 0.98980 ± 0.00824 → 1.00193 ± 0.01004. Godiva rung, native
+`--headless-keff` defaults: 0.99689 ± 0.00178 → 1.00144 ± 0.00160.
+
+**Interpretation.**
+
+- **The pool's data are the `process` path's, bit for bit**, in the browser
+  as natively. This is the acceptance criterion of gh:#932.
+- **The k changes are statistics, not physics.** The tables differ (PURR at
+  64 × 10 000 instead of 16 × 2000, HEATR's heating column, the 0 K elastic
+  over the whole range), so every history decorrelates from generation 0:
+  browser +486 ± 1406 pcm (0.3 σ), native HTR-10 +1213 ± 1299 pcm (0.9 σ),
+  Godiva +455 ± 239 pcm (1.9 σ, one seed, not paired). gh:#931 predicted
+  |Δk| well under 5 pcm from the table change and measured HST-009 at
+  −37 ± 32 pcm over 32 seeds; nothing here resolves an effect, and the
+  Godiva 1.9 σ single draw should be read against gh:#931's paired-seed
+  ensemble, not on its own. **The `process` numbers are the reference**
+  (route 4 and the CLI); the old ones came from a chain no other path uses.
+- **Cost.** PURR at 64 × 10 000 is about 20 times the Monte Carlo work; the
+  first load is 1.7 times longer in the browser (U-235 2.1×) and the
+  processing peak 1.4 times the memory. A cached reload is unaffected.
+- **Responsiveness.** Compute stays in workers. Main-thread long tasks
+  (> 50 ms) and their maximum:
+
+  | run | data phase | run phase | probe round trip, median / max |
+  |---|---|---|---|
+  | desktop before, first | 1116, max 208 ms | 2840, max 219 ms | 461 / 651 ms (data), 216 / 739 ms (run) |
+  | desktop after, first | 474, max 212 ms | 1624, max 288 ms | 146 / 711 ms, 172 / 932 ms |
+  | desktop after, cached | 19, max 82 ms | 2368, max 74 ms | 132 / 199 ms, 160 / 231 ms |
+  | phone after, first | 2465, max 255 ms | 346, max 190 ms | 328 / 573 ms, 388 / 539 ms |
+
+  No regression from this change: the before and after builds show the same
+  pattern. **But neither meets the no-lag rule strictly on this setup**:
+  with the browser held to 3 CPUs, 2 workers busy and software rendering
+  (SwiftShader), the main thread runs tasks of 150–290 ms throughout,
+  where the 2026-10-09 record (4 CPUs) saw one at page start only. The page
+  never froze (every probe answered within 0.93 s), but frames of up to
+  ~0.25 s are visible lag. Not investigated here (GUI work is the
+  maintainer's); noted on gh:#932.
+- **Not re-baked:** `htr10/data/core_tracks.bin.z` and the rungs' recorded
+  tracks were made on the old data. They are playback only (the recorded
+  tracks the view opens on); a re-bake gives other histories.
 
 ## Not checked
 

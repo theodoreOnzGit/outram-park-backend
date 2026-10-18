@@ -210,10 +210,13 @@ mod tests {
     ///    (`DataStore::evaluation`, what every rung loader calls) makes
     ///    U-238's product, handed back as a browser saves it to IndexedDB.
     ///    This engine is offered it, as its worker reads the keys of
-    ///    [`NdEngine::cache_keys`], and serves the PURR rung at 293.6 K, 16
-    ///    ladders x 2000 samples (the Monte Carlo settings). Pass: the note
-    ///    says read from the cache; the curves equal, value for value, those
-    ///    of an engine with an empty store that runs PURR.
+    ///    [`NdEngine::cache_keys`], and serves the PURR rung at 293.6 K at the
+    ///    Monte Carlo settings, ~~16 ladders x 2000 samples~~ 64 ladders x
+    ///    10 000 samples since gh:#932 (`processed_cache::demo_purr`, njoy
+    ///    `process`'s defaults). Pass: the note says read from the cache; the
+    ///    curves equal, value for value, those of an engine with an empty
+    ///    store that runs PURR (the curves are the total factor, which HEATR,
+    ///    run before PURR on the Monte Carlo route, does not touch).
     /// 2. **This demo to Monte Carlo.** The RECONR rung at 0.001 is
     ///    processed here and saved as a stage record. A Monte Carlo store
     ///    offered that record (and no product) makes U-238's product at
@@ -222,11 +225,14 @@ mod tests {
     ///
     /// 3. **Only 0.001 is saved** (maintainer, 2026-10-17). The RECONR
     ///    rung's coarse step, 0.3, is processed and shown but leaves no
-    ///    record. The rung opens at [`engine::PURR_LADDERS`], the Monte Carlo
+    ///    record. ~~The rung opens at [`engine::PURR_LADDERS`], the Monte Carlo
     ///    setting, so step 1 is what a reader gets without touching the
-    ///    slider.
+    ///    slider.~~ **CHANGED 2026-10-18 (gh:#932):** the rung opens at 16 x
+    ///    2000, no longer the Monte Carlo setting; step 1 sends the request
+    ///    at `demo_purr` directly (open question on gh:#932).
     ///
     /// Results, 2026-10-16 (release): as stated. Step 3 added 2026-10-17.
+    /// Re-run 2026-10-18 on the `process` path (gh:#932): RESULTS_932_ND
     #[test]
     fn the_nuclear_data_demo_and_the_monte_carlo_demos_share_their_products() {
         let Some(path) = njoy_outram_park_fork::reference_data::reference_endf(rungs::U238) else {
@@ -252,8 +258,9 @@ mod tests {
             out.expect("a result")
         };
         let load = |e: &mut NdEngine| e.handle(Request::Load { id: 1, rung: rungs::Rung::Reconr }, &mut |_| {});
-        assert_eq!((engine::PURR_NBIN, engine::PURR_LADDERS, 2000), outram_mc_libs::material::nuclide::URR_TABLE_SETTINGS);
-        let purr = || Request::Purr { job: 2, temp_k: 293.6, nladr: engine::PURR_LADDERS, nsamp: 2000 };
+        let (nbin, nladr, nsamp) = processed_cache::demo_purr();
+        assert_eq!(nbin, engine::PURR_NBIN);
+        let purr = || Request::Purr { job: 2, temp_k: 293.6, nladr, nsamp };
         let bits = |c: &Vec<Vec<[f64; 2]>>| c.iter().flatten().flat_map(|p| [p[0].to_bits(), p[1].to_bits()]).collect::<Vec<_>>();
 
         // 1. Monte Carlo to this demo: PURR from the product.

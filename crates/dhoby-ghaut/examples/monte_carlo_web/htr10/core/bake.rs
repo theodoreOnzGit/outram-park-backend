@@ -208,6 +208,65 @@ pub fn run(
     Ok((tracks, ks))
 }
 
+/// **The records a browser saves for the core's jobs, made natively**
+/// (gh:#932): each job in `indices` through [`super::run_job_cached`] with a
+/// fresh browser store, as a page worker runs it, on `threads` threads.
+/// Returns `(key, label, words, SHA-256 of the words)` per record, in job
+/// order: what `run_headless_932.mjs` reads back from IndexedDB, so the two
+/// can be compared key by key.
+///
+/// # Errors
+///
+/// A tape that is not in this checkout, or processing failed.
+pub fn product_records(indices: &[usize], threads: usize) -> Result<Vec<(String, String, usize, String)>, String> {
+    let all = jobs()?;
+    let cfg = Htr10DataConfig::default();
+    let next = AtomicUsize::new(0);
+    let done: Mutex<Vec<(usize, Result<Vec<dhoby_ghaut::web_demo::data_cache::Record>, String>)>> = Mutex::new(Vec::new());
+    std::thread::scope(|s| {
+        for _ in 0..threads.max(1) {
+            s.spawn(|| loop {
+                let n = next.fetch_add(1, Ordering::SeqCst);
+                let Some(&i) = indices.get(n) else { break };
+                let r = all
+                    .get(i)
+                    .ok_or_else(|| format!("no job {i}"))
+                    .and_then(|job| job.tape(&cfg).map_err(|e| e.to_string()))
+                    .and_then(|tape| tape.map(|t| native_tape(&t)).transpose())
+                    .and_then(|bytes| {
+                        let mut store = crate::processed_cache::DataStore::browser();
+                        super::run_job_cached(i, bytes.as_deref(), &mut store)?;
+                        Ok(store.take_fresh())
+                    });
+                if let Ok(mut d) = done.lock() {
+                    d.push((i, r));
+                }
+            });
+        }
+    });
+    let mut done = done.into_inner().map_err(|_| "poisoned")?;
+    done.sort_by_key(|d| d.0);
+    let mut out = Vec::new();
+    for (_, r) in done {
+        for rec in r? {
+            out.push((rec.key, rec.label, rec.words.len(), rec.sha256));
+        }
+    }
+    Ok(out)
+}
+
+/// `--htr10-product-shas [threads]`: [`product_records`] for every job,
+/// one tab-separated line each (key, label, words, SHA-256). CLI glue (the
+/// rule's exception); [`product_records`] itself is tested.
+pub fn product_shas_cli(args: &[String]) -> Result<(), String> {
+    let threads = args.get(1).map_or(Ok(3), |s| s.parse::<usize>().map_err(|e| e.to_string()))?;
+    let n = jobs()?.len();
+    for (key, label, words, sha) in product_records(&(0..n).collect::<Vec<_>>(), threads)? {
+        println!("{key}\t{label}\t{words}\t{sha}");
+    }
+    Ok(())
+}
+
 /// `--bake-htr10-core [particles generations threads]`.
 pub fn bake_cli(args: &[String]) -> Result<(), String> {
     let num = |i: usize, d: usize| {
@@ -262,6 +321,34 @@ pub fn bake_cli(args: &[String]) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// [`product_records`] gives what a browser saves: for He-4 (a cheap
+    /// tape job), one record under the evaluation key whose SHA-256 is that
+    /// of [`super::super::run_job`]'s words (the route-4 product, gh:#932).
+    #[test]
+    fn product_records_are_the_records_a_browser_saves() {
+        let all = jobs().expect("jobs");
+        let Some(i) = all.iter().position(|j| j.label() == "He4") else {
+            panic!("no He4 job");
+        };
+        let Ok(Some(t)) = all[i].tape(&Htr10DataConfig::default()) else {
+            eprintln!("SKIP: He-4 tape not present");
+            return;
+        };
+        let Ok(bytes) = native_tape(&t) else {
+            eprintln!("SKIP: He-4 tape not present");
+            return;
+        };
+        let recs = product_records(&[i], 1).expect("records");
+        assert_eq!(recs.len(), 1);
+        assert!(recs[0].0.contains("|pe|") && recs[0].0.ends_with("|purr=20,64,10000|heatr=1|e0k=1"), "{}", recs[0].0);
+        // `run_job`'s words are a `JobProduct`: a kind word (0 = nuclide),
+        // then the product the store saves.
+        let words = run_job(i, Some(&bytes)).expect("job").to_vec();
+        assert_eq!(words.first(), Some(&0.0));
+        assert_eq!(recs[0].2, words.len() - 1);
+        assert_eq!(recs[0].3, dhoby_ghaut::web_demo::data_cache::words_sha256(&words[1..]));
+    }
 
     /// The whole native pipeline at a tiny size: the pool's jobs on two
     /// threads, one worker's assembly, two generations of 40 neutrons on two
