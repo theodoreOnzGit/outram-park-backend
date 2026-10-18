@@ -888,7 +888,9 @@ fn judge_window(k: &[f64], h: &[f64]) -> WindowVerdict {
     }
 }
 
-/// Window criterion as a yes/no: stationary and not rejected as normal.
+/// Window criterion as a yes/no: stationary and not rejected as normal
+/// (the run itself uses [`judge_window`]; this shorthand is for the tests).
+#[cfg(test)]
 fn window_passes(k: &[f64], h: &[f64]) -> bool {
     judge_window(k, h).passes()
 }

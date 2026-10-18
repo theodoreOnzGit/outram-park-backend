@@ -116,7 +116,9 @@ for H in H2O and crystalline graphite.
 
 ## 3. Pictures (drawn from the assembled geometry)
 
-Written by `the_test_geometries_draw` with `OUTRAM_945_IMAGES` set.
+Written by `the_test_geometries_draw` with `OUTRAM_945_IMAGES` set. The images are
+not committed (gitignored here); they are posted on gh #945, by the maintainer's
+rule that V&V images go on the issue.
 
 - `leu_cell_xy.png`: the LEU cell, x-y through the centre. Checked: the
   sphere is centred and inside the cube; two materials, each labelled with
