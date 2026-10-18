@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Delta tracking: stop looking at surfaces</title>
+<meta name="description" content="Transport, page 8: Woodcock (delta) tracking flies the neutron on a majorant cross section that bounds every material it can meet, and accepts each tentative collision as real with probability sigma_t(local)/sigma_majorant, else treats it as virtual. It is unbiased for any valid majorant. How OUTRAM PARK does it, what it costs, and what a too-small majorant does.">
+<link rel="stylesheet" href="../../style.css">
+<script src="../neutronics/lesson-kit.js" defer></script>
+<script src="transport.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Transport lessons (gh:#906), the maintainer's second task of 2026-10-18: neutron tracking step by step, up to Godiva and the HTR-10. Widget: transport.js woodcock (1-D sketch; the real code on real geometry is the embedded ../../demos/delta-tracking/ demo). Code: crates/outram-mc-libs/src/physics/delta_tracking/{mod,flight,handoff,majorant}.rs; transport_csg.rs delta_arm :1741-1781; numbers quoted from the tutorial triso.md and the deep dive delta-tracking.md. Woodcock et al., ANL-7050 (1965), is credited in prose and not in the bib (authors' initials not verified). Numbers in the prose are data-* attributes checked by check-transport.js. -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response. <strong>Review status:</strong> AI-assisted first draft (2026-10-18), not yet reviewed by a human.</p>
+
+<h1>Delta tracking: stop looking at surfaces</h1>
+<p class="kicker lesson-progress">Transport</p>
+
+<p>Delta tracking was introduced by Woodcock and co-workers in the 1960s for the GEM code (Woodcock et al., ANL-7050, 1965) and is the standard way Serpent moves neutrons through complicated geometry <a href="#ref-leppanen2010delta">(Leppänen, 2010)</a>. The idea fits in four lines.</p>
+
+<h2>The idea</h2>
+<p>Choose a <b>majorant</b> &Sigma;<sub>maj</sub>(E) that is at least as large as the total cross section of every material the neutron could be in. Then:</p>
+<ol>
+  <li>sample the flight on the majorant, s&nbsp;=&nbsp;&minus;ln&thinsp;&xi;<sub>1</sub>/&Sigma;<sub>maj</sub> (page 1), and move there <b>without looking for any surface</b>;</li>
+  <li>look up the material at the landing point (a point query: which cell am I in?) and its true &Sigma;<sub>t</sub>;</li>
+  <li>with probability &Sigma;<sub>t</sub>/&Sigma;<sub>maj</sub> the collision is <b>real</b>: handle it as on page 5. Otherwise it is <b>virtual</b>: nothing happens, and the flight simply continues from there.</li>
+</ol>
+<p>A virtual collision is a fictitious reaction that makes the medium look uniform: a region with a smaller &Sigma;<sub>t</sub> is topped up to &Sigma;<sub>maj</sub> with collisions that change nothing. The real collisions then have exactly the distribution surface tracking would give (this is the theorem; the page's widget and check confirm it numerically), so the method is <b>unbiased for any valid majorant</b>. A loose majorant costs only time, more virtual collisions; the neutron never has to find a surface.</p>
+<p class="predict"><b>Predict first:</b> in a slab with a thin strong absorber next to a thick weak medium, delta tracking flies on the strong value everywhere. Which costs more flights per neutron, and does the distribution of real collisions change?</p>
+
+<section class="widget-card">
+  <h3>Two ways to the same collisions</h3>
+  <div class="widget" id="woodcock">
+    <canvas aria-label="Histograms of where the first real collision happens, by surface tracking and by delta tracking, on linear axes"></canvas>
+  </div>
+  <p class="note">A one-dimensional sketch of the algorithm of <code>physics/delta_tracking/flight.rs</code>: two regions, a source at the left, vacuum at the right, 20&thinsp;000 neutrons each way. The two histograms estimate the same distribution; the check on this page compares both with the closed-form fractions (collision in A, in B, leak) to within four standard errors. The text below the plot counts the flights, boundary stops and virtual collisions. The real code, on real geometry, is the demo further down.</p>
+</section>
+
+<h2>Our implementation</h2>
+<ul>
+  <li><b>New work, not a port.</b> OpenMC is pure surface tracking; a search of its tree for "delta tracking", "woodcock" and "majorant" finds nothing (<code>delta_tracking/mod.rs</code>). The code is therefore verified differently: against surface tracking on the same problem.</li>
+  <li><b>Per region.</b> A cell is declared delta-tracked (<code>Cell::delta_tracked</code>, <code>TrackingMethod::Delta</code>) with its own majorant; everything else stays surface-tracked. It matters, because one strong absorber raises the majorant everywhere it is used: adding one B<sub>4</sub>C control rod to a globally bounded material set cost <b>26.3&times;</b> in tracking steps at the thermal peak (<code>examples/majorant_absorber_price.rs</code>, 2026-09-17).</li>
+  <li><b>The majorant is energy-dependent and must bound.</b> <code>Majorant::bounding</code> tabulates &Sigma;<sub>maj</sub>(E) on every nuclide's own energy points, with a 10&nbsp;% margin in the demos. A majorant that is too <i>small</i> is the dangerous direction. On ENDF/B-VIII.0 an earlier version sampled bins and left the HTR-10 kernel 18&nbsp;% above the majorant at 1.689&nbsp;MeV, which is why it is a bound by construction now (gh:#585).</li>
+  <li><b>It still stops at the nearest surface.</b> Inside a delta region each flight is sampled on the majorant but the neutron advances at most to the nearest surface (<code>handoff</code>, gh:#599); a collision beyond it is discarded and re-drawn from the surface, which is exact because the flight is memoryless. So internal surfaces are not skipped; the cost on a three-shell sphere was measured at 2.5&times; the wall time of surface tracking, at equal k (gh:#599 audit, 2026-10-06, i9-13900K, one thread, machine loaded).</li>
+  <li><b>Tallies change.</b> There is no single material along a delta flight, so the track-length estimator would attribute the path to the wrong cross sections; the code scores at the real collision point (<code>score_collision_point</code>). Scoring the start-of-flight material put the tallied k<sub>&infin;</sub> of the HTR-10 bed 4175&nbsp;pcm below what the run's own balance implies, until the collision estimator was used (as Serpent does in such regions <a href="#ref-leppanen2017delta">(Leppänen, 2017)</a>).</li>
+</ul>
+
+<h2>What was measured</h2>
+<p>Timings carry their hardware: Intel i9-13900K, 16 logical cores, 62&nbsp;GB, Linux, CPU only, one thread per run, shared with other builds, as recorded in the tutorial (the ratios are meaningful on that one machine only). All of these are quoted from the Monte Carlo tutorial's rung 5 (the delta-tracking demo's cell, the 2D TRISO analogue, 1000 neutrons &times; [10 + 40] per method, seed 784, 2026-10-07); they were not re-run for this page.</p>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Method</th><th>k<sub>&infin;</sub></th><th>Time per neutron</th><th>Stops per neutron</th></tr></thead>
+  <tbody>
+    <tr><td data-label="Method">surface tracking</td><td data-label="k">1.55197 &plusmn; 0.00653</td><td data-label="Time">6.6&nbsp;ms</td><td data-label="Stops">1201 (1096 crossings)</td></tr>
+    <tr><td data-label="Method">delta tracking</td><td data-label="k">1.55864 &plusmn; 0.00631</td><td data-label="Time">1.1&nbsp;ms</td><td data-label="Stops">1282 (1177 virtual)</td></tr>
+    <tr><td data-label="Method">delta, majorant &times; 0.25 (too small)</td><td data-label="k">1.57265 &plusmn; 0.00623</td><td data-label="Time">0.69&nbsp;ms</td><td data-label="Stops">477</td></tr>
+  </tbody>
+</table>
+</div>
+<ul>
+  <li><b>Unbiased:</b> delta &minus; surface = +668 &plusmn; 908 pcm (+0.74&sigma;): not resolved, as it should be.</li>
+  <li><b>About six times faster</b> here, at about the same number of stops: a surface stop costs more than a virtual one in this flat 763-cell model. Quote the ratio for this model only.</li>
+  <li><b>A too-small majorant is silent.</b> At 0.25 times the bound k went <b>up</b> by +2068 &plusmn; 902 pcm (+2.3&sigma;) and nothing printed a warning: the lost collisions are where &Sigma;<sub>t</sub> is largest, the U-238 resonances, so capture was under-counted. Only a count of sites where &Sigma;<sub>t</sub> exceeds &Sigma;<sub>maj</sub> shows it.</li>
+</ul>
+
+<h2>See it in the real code</h2>
+<p>The delta-tracking demo runs the same neutron through the same 2D TRISO cell both ways in your browser, one step per tap, and "Run many" gives k<sub>&infin;</sub> by both methods and the cost per history; it has a "majorant too low" arm.</p>
+<div class="iframe-slot" data-title="Delta versus surface tracking, TRISO cell" data-src="../../demos/delta-tracking/">
+  <button type="button" class="start-demo">Start the demo</button>
+  <p class="note">This is OUTRAM PARK's own transport code running in your browser (the Monte Carlo demo of the <code>dhoby-ghaut</code> crate, compiled to WebAssembly) on ENDF/B-VIII.0 nuclear data <a href="#ref-brown2018endf8">(Brown &amp; others, 2018)</a> that your browser downloads and processes first; allow about a minute the first time. This demo processes the data and builds the majorant first, which takes a minute or two. The page stays responsive meanwhile.</p>
+</div>
+
+<h2>Next question</h2>
+<p>Whichever way the neutron moves, the fission neutrons it makes must be started somewhere. <b>Where do the next neutrons come from, and how is k read off?</b></p>
+
+<nav class="lesson-nav" aria-label="Lessons"></nav>
+
+<!-- references:begin -->
+<h2>References</h2>
+
+<p class="csl-entry" id="ref-brown2018endf8" style="padding-left: 2em; text-indent: -2em;">Brown, D. A. &#38; others. (2018). ENDF/B-VIII.0: The 8th Major Release of the Nuclear Reaction Data Library with CIELO-project Cross Sections, New Standards and Thermal Scattering Data. <i>Nuclear Data Sheets</i>, <i>148</i>, 1–142. https://doi.org/10.1016/j.nds.2018.02.001</p>
+
+<p class="csl-entry" id="ref-leppanen2010delta" style="padding-left: 2em; text-indent: -2em;">Leppänen, J. (2010). Performance of Woodcock Delta-Tracking in Lattice Physics Applications Using the Serpent Monte Carlo Reactor Physics Burnup Calculation Code. <i>Annals of Nuclear Energy</i>, <i>37</i>(5), 715–722. https://doi.org/10.1016/j.anucene.2010.01.011</p>
+
+<p class="csl-entry" id="ref-leppanen2017delta" style="padding-left: 2em; text-indent: -2em;">Leppänen, J. (2017). On the Use of Delta-Tracking and the Collision Flux Estimator in the Serpent 2 Monte Carlo Particle Transport Code. <i>Annals of Nuclear Energy</i>, <i>105</i>, 161–167. https://doi.org/10.1016/j.anucene.2017.03.006</p>
+
+<!-- references:end -->
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. GPL-3.0. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>

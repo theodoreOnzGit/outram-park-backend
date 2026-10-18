@@ -21,10 +21,11 @@ cp docs/site/index.html docs/site/style.css docs/site/site-nav.js docs/site/code
 # The three pathways of the landing page (gh:#906, #909): Learn the science,
 # Learn to code (the old front page, with the code map by domain) and the demo
 # library; then the search index over them and the books (search.js reads it).
-mkdir -p "$OUT/code" "$OUT/science/neutronics" "$OUT/demos"
+mkdir -p "$OUT/code" "$OUT/science/neutronics" "$OUT/science/transport" "$OUT/demos"
 cp docs/site/code/index.html "$OUT/code/"
 cp docs/site/science/index.html "$OUT/science/"
 cp docs/site/science/neutronics/*.html docs/site/science/neutronics/*.js "$OUT/science/neutronics/"
+cp docs/site/science/transport/*.html docs/site/science/transport/*.js "$OUT/science/transport/"
 cp docs/site/demos/index.html "$OUT/demos/"
 bash scripts/build-search-index.sh "$OUT"
 
@@ -32,6 +33,7 @@ bash scripts/build-search-index.sh "$OUT"
 # cross-section routes, the boundary condition. A failed check fails the
 # build, before anything is deployed.
 node docs/site/science/neutronics/check-physics.js
+node docs/site/science/transport/check-transport.js
 
 # The code map (gh:#734): every crate placed by its [package.metadata.kovan]
 # tag, drawn from `cargo metadata` of THIS checkout by kovan-cli (no
@@ -147,7 +149,7 @@ done < <(cat docs/site/deep-dives.txt docs/site/tutorials.txt)
 # fails on a stale list or an unknown key; the fix is
 # `kovan-cli references --update --bib docs/site/references.bib <book>`.
 cargo run --release -q -p knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan --no-default-features --bin kovan-cli -- \
-  references --bib docs/site/references.bib "${walk_dirs[@]}" docs/site/code/index.html docs/site/science/neutronics/*.html \
+  references --bib docs/site/references.bib "${walk_dirs[@]}" docs/site/code/index.html docs/site/science/neutronics/*.html docs/site/science/transport/*.html \
   crates/dhoby-ghaut/web/{monte_carlo,delta_tracking,nuclear_data,triso_atops,dem}/index.html
 
 # Deep-dive books.
@@ -274,6 +276,8 @@ for f in index.html site-nav.js code-map-bar.js code-map/index.html code-map/cod
   search.js search.json code/index.html science/index.html demos/index.html \
   science/neutronics/{meet-the-neutron,why-it-scatters,moving-nuclei,matter-waves,quantum-scattering,storing-shapes,scattering-angles}.html \
   science/neutronics/{lesson-kit,kinematics,waves,qscatter,shapes,angles,angular-data}.js \
+  science/transport/{free-flight,moving,surfaces,random-numbers,at-a-collision,a-history,triso-problem,delta-tracking,fission-bank,why-statistics,whole-picture}.html \
+  science/transport/{transport,collision-data}.js \
   kovan-schema/index.html \
   code-map/code_map.json code-map/site_links.json \
   api/outram_mc_libs/index.html api/changi/index.html \

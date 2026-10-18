@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TRISO: too many surfaces</title>
+<meta name="description" content="Transport, page 7: an HTR-10 fuel pebble holds 8335 TRISO particles of five layers each, and a core holds thousands of pebbles. Surface tracking must find the nearest of all those surfaces at every flight, and stops the neutron at every shell: measured, it spends over a thousand stops per neutron.">
+<link rel="stylesheet" href="../../style.css">
+<script src="../neutronics/lesson-kit.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Transport lessons (gh:#906), the maintainer's second task of 2026-10-18: neutron tracking step by step, up to Godiva and the HTR-10. Real demo: ../../demos/monte-carlo/?rung=triso&mode=watch. Numbers quoted from crates/outram-mc-libs/docs/tutorial/src/triso.md (the particle: Li et al. 2014 Table 2, 8335 per pebble; the stops per neutron: the table of 2026-10-07 under 'Delta tracking') and crates/outram-mc-libs/docs/lessons/src/delta-tracking.md; not re-run for this page. Numbers in the prose are data-* attributes checked by check-transport.js. -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response. <strong>Review status:</strong> AI-assisted first draft (2026-10-18), not yet reviewed by a human.</p>
+
+<h1>TRISO: too many surfaces</h1>
+<p class="kicker lesson-progress">Transport</p>
+
+<p>Surface tracking (page 3) is exact and simple, and it is slow where a geometry has very many surfaces. HTR-10 fuel is the extreme case.</p>
+
+<h2>What a TRISO particle is</h2>
+<p>A TRISO particle is a grain of uranium oxide, the <b>kernel</b>, about half a millimetre across, wrapped in four coatings that keep the fission products in. In the HTR-10 the kernel has a radius of 250&nbsp;&micro;m and is surrounded by a porous carbon buffer (90&nbsp;&micro;m), an inner pyrolytic carbon layer (40&nbsp;&micro;m), silicon carbide (35&nbsp;&micro;m) and an outer pyrolytic carbon layer (40&nbsp;&micro;m): <b>five concentric spheres</b> per particle <a href="#ref-li2014htr10rmc">(Li et al., 2014)</a>. A fuel pebble is a 6&nbsp;cm graphite ball whose inner 5&nbsp;cm hold <b>8335</b> of them in graphite matrix, and the core is a heap of such pebbles (a core model in the records has 16&thinsp;681 balls) (numbers as recorded in the Monte Carlo tutorial, rung 5).</p>
+<p class="predict"><b>Predict first:</b> a neutron crosses one fuel zone and meets a few of these particles on its way. How many surfaces does the tracker stop it at before the neutron's first collision?</p>
+
+<h2>Why surface tracking struggles</h2>
+<p>Two things multiply. At every flight, <code>distance_to_boundary</code> takes the nearest surface over <i>every nesting level</i>, so inside the fuel zone it returns the next TRISO shell. And every shell it reaches stops the neutron, which then asks where it is (<code>locate</code>) and starts a new flight. Since the kernel is tiny and the carbon around it is nearly transparent, <b>most stops are not collisions</b>.</p>
+<p>The measurement, in the tutorial's delta-tracking demo, whose cell is the same two-dimensional TRISO analogue (particles as rods; a flat universe of 763 cells; 1000 neutrons &times; [10 inactive + 40 active], 2026-10-07, Loose data tier; Intel i9-13900K, 16 logical cores, 62&nbsp;GB, Linux, CPU only, one thread per run, shared with other builds): surface tracking made <b>1201 stops per neutron, 1096 of them crossings</b>, against only <b>105</b> real collisions, and took 6.6&nbsp;ms per neutron. (Quote the ratio for this model only: a surface tracker with a lattice or a grid could close some of the gap, as the tutorial says.)</p>
+
+<div class="iframe-slot" data-title="A TRISO pebble, neutron tracks" data-src="../../demos/monte-carlo/?rung=triso&amp;mode=watch">
+  <button type="button" class="start-demo">Start the demo</button>
+  <p class="note">This is OUTRAM PARK's own transport code running in your browser (the Monte Carlo demo of the <code>dhoby-ghaut</code> crate, compiled to WebAssembly) on ENDF/B-VIII.0 nuclear data <a href="#ref-brown2018endf8">(Brown &amp; others, 2018)</a> that your browser downloads and processes first; allow about a minute the first time. It opens on recorded tracks, labelled as recorded, and switches to live ones when the data are ready. The page stays responsive meanwhile.</p>
+</div>
+
+<p>Zoom into one of the specks in the demo: it is a TRISO particle drawn as a rod, and the orange dot at its centre is the kernel. Count the track's segments near the fuel: most are tiny hops across shells. (The demo is the 2D analogue, with five shells per particle, as above.)</p>
+
+<h2>Next question</h2>
+<p>The neutron does not <i>need</i> to know about every shell. It only needs to know what it is made of where it collides. <b>Can we stop asking where the surfaces are?</b></p>
+
+<nav class="lesson-nav" aria-label="Lessons"></nav>
+
+<!-- references:begin -->
+<h2>References</h2>
+
+<p class="csl-entry" id="ref-brown2018endf8" style="padding-left: 2em; text-indent: -2em;">Brown, D. A. &#38; others. (2018). ENDF/B-VIII.0: The 8th Major Release of the Nuclear Reaction Data Library with CIELO-project Cross Sections, New Standards and Thermal Scattering Data. <i>Nuclear Data Sheets</i>, <i>148</i>, 1–142. https://doi.org/10.1016/j.nds.2018.02.001</p>
+
+<p class="csl-entry" id="ref-li2014htr10rmc" style="padding-left: 2em; text-indent: -2em;">Li, W., Yu, G., &#38; Wei, C. (2014, October). Research on Benchmark Calculation and Analysis of HTR-10 with RMC Code. <i>7th International Topical Meeting on High Temperature Reactor Technology (HTR 2014)</i>.</p>
+
+<!-- references:end -->
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. GPL-3.0. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>

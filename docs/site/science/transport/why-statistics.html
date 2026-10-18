@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Why can the error bar be trusted?</title>
+<meta name="description" content="Transport, page 10: once the fission source has converged, generations can be treated as approximately independent samples, so the central limit theorem gives a confidence interval. But generations are correlated, which makes the naive error bar too small; what our code records about it, including 1024 seeds of Godiva, and what has not been measured.">
+<link rel="stylesheet" href="../../style.css">
+<script src="../neutronics/lesson-kit.js" defer></script>
+<script src="transport.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Transport lessons (gh:#906), the maintainer's second task of 2026-10-18: neutron tracking step by step, up to Godiva and the HTR-10. Widget: transport.js correlated (an AR(1) illustration, NOT a measurement of OutramMC; labelled so). Records quoted: crates/outram-mc-libs/examples/godiva_keff_ensemble.rs doc comment (1024 seeds 2026-10-05, 512 seeds re-check), crates/raffles/src/estimators/seed_consistency.rs, docs/lessons/src/power-iteration.md. Literature: Lux & Koblinger 1991 (book), Brown 2006 (PHYSOR; reference details written from memory and flagged for the maintainer to verify). Numbers in the prose are data-* attributes checked by check-transport.js. -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response. <strong>Review status:</strong> AI-assisted first draft (2026-10-18), not yet reviewed by a human.</p>
+
+<h1>Why can the error bar be trusted?</h1>
+<p class="kicker lesson-progress">Transport</p>
+
+<p>A k_eff run ends with a line such as "k = 0.99994 &plusmn; 0.00050". What justifies the second number?</p>
+
+<h2>The argument</h2>
+<ol>
+  <li>Each active generation gives an estimate k<sub>gen</sub> (page 9), which is itself an average over thousands of histories, so it is the sum of many small contributions. By the <b>central limit theorem</b> it is close to normally distributed (the same argument that gives any Monte Carlo estimate an error bar; for the general theory of Monte Carlo estimates and their errors in transport see <a href="#ref-lux1991monte">(Lux &amp; Koblinger, 1991)</a>).</li>
+  <li>Once the source has converged (the entropy has stopped drifting, page 9), every active generation starts from a source of the <i>same</i> shape, so the k<sub>gen</sub> are identically distributed.</li>
+  <li>If they were also <b>independent</b>, the mean of the n active ones would have standard error s/&radic;n, with s their sample standard deviation. That is what the code reports (<code>mean_and_stderr</code> over the active generations).</li>
+</ol>
+<p>Step 3 is the weak link, and the code's own documentation says so: <b>the generations are not independent</b>, because each generation's source is built from the one before. The correlation <b>usually makes the naive error bar too small</b>. The statistics module (<code>stats</code>) computes batch means and an integrated autocorrelation time <i>beside</i> the run's own error, never replacing it, and by the maintainer's decision of 2026-10-03 every gate on it is still recorded as <b>not yet measured</b> (<code>CLAUDE.md</code> of <code>outram-mc-libs</code>, "Statistics on top of RAFFLES"). There is therefore no measured value of our code's inter-generation correlation to quote on this page.</p>
+<p class="predict"><b>Predict first:</b> if neighbouring generations are positively correlated at 0.5, by what factor is the error bar that assumes independence too small?</p>
+
+<section class="widget-card">
+  <h3>What ignoring correlation costs</h3>
+  <div class="widget" id="correlated">
+    <canvas aria-label="Histogram of the means of many correlated runs, with the error bar a run would quote and the actual scatter marked, on a linear axis"></canvas>
+  </div>
+  <p class="note">An illustration of the arithmetic, <b>not a measurement of OutramMC</b>: generation-to-generation correlation is modelled by an AR(1) sequence whose correlation you set. For lag-one correlation &rho; the actual scatter of a long run&rsquo;s mean exceeds the error bar that assumes independence by about &radic;((1+&rho;)/(1&minus;&rho;)); <code>check-transport.js</code> simulates 1500 runs at &rho;&nbsp;=&nbsp;0.5 and finds a ratio of 1.76 against 1.73 (2026-10-18).</p>
+</section>
+
+<p>The answer: at a correlation of 0.5 the actual scatter is about 1.7 times the quoted error. Note the direction: a positive correlation is the usual case, and it makes the quoted &plusmn; <b>optimistic</b>.</p>
+
+<h2>What the repository has measured instead: many seeds</h2>
+<p>The honest check is empirical: run the same case with many independent seeds and compare the scatter of their k with the error each run quoted. The Godiva example does this and reports a <b>seed-consistency</b> statistic (internal error against seed-to-seed scatter, gh:#494: the <code>spread_ratio</code> is the seed-to-seed standard deviation divided by the rms internal error, and is about 1 when the internal error is honest). Its record, at 5000 neutrons &times; [40 inactive + 120 active] (<code>examples/godiva_keff_ensemble.rs</code>):</p>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Ensemble</th><th>Mean offset from the benchmark</th><th>One run scatters by</th><th>&chi;<sup>2</sup>/dof of internal error against scatter</th></tr></thead>
+  <tbody>
+    <tr><td data-label="Ensemble">1024 seeds, 2026-10-05, <code>6faff1ed8</code> (the current record)</td><td data-label="Mean">&minus;6 &plusmn; 5 pcm</td><td data-label="Scatter">165 pcm</td><td data-label="chi2">0.97 (dof 1023; 95&nbsp;% band 0.92 to 1.09): consistent</td></tr>
+    <tr><td data-label="Ensemble">512 seeds, same day, after a source fix (gh:#527)</td><td data-label="Mean">&minus;7 &plusmn; 8 pcm</td><td data-label="Scatter">179 pcm</td><td data-label="chi2">1.17 (dof 511; band 0.88 to 1.13): <b>flagged over-dispersed</b></td></tr>
+  </tbody>
+</table>
+</div>
+<p>Read it both ways. On 1024 seeds the quoted errors are consistent with the real scatter, which is what an honest error bar looks like. On the 512-seed re-run they are slightly <i>too small</i> (1.17 is outside its band). The record states that this is unexplained: the fix only touches the inactive generations, so it is not an expected consequence, and whether it is a 1-in-200 draw or something in how the shared machine ran is not resolved. And the known aliasing of random-number streams (page 4, gh:#700) is a candidate source of correlation <b>that has not been measured</b>.</p>
+
+<h2>What to take away</h2>
+<ul>
+  <li>The &plusmn; of one run is a good first guide, and for Godiva at these settings the 1024-seed record supports it.</li>
+  <li>It is derived assuming independent generations, which is not true; the direction of the error is optimistic.</li>
+  <li>The remedy that does not depend on any assumption is many independent seeds, pooled: the &plusmn; of a pooled mean is the seed-to-seed standard deviation over &radic;N. That is what every V&amp;V number in this repository that carries a seed count is.</li>
+</ul>
+
+<h2>Next question</h2>
+<p>Now every piece is on the table. <b>What does a whole run of Godiva, of a TRISO pebble, of the HTR-10 core, use?</b></p>
+
+<nav class="lesson-nav" aria-label="Lessons"></nav>
+
+<!-- references:begin -->
+<h2>References</h2>
+
+<p class="csl-entry" id="ref-lux1991monte" style="padding-left: 2em; text-indent: -2em;">Lux, I., &#38; Koblinger, L. (1991). <i>Monte Carlo Particle Transport Methods: Neutron and Photon Calculations</i>. CRC Press.</p>
+
+<!-- references:end -->
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. GPL-3.0. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>
