@@ -536,6 +536,16 @@ fn component_label(a: &AssembledModel, c: Component) -> String {
 impl Collector {
     /// Plan every diagnostic on the assembled model.
     pub(crate) fn new(items: &[MCDiagnostic], a: &AssembledModel) -> Result<Self, DiagnosticError> {
+        if !items.is_empty() && !a.delta_regions().is_empty() {
+            // The extra tallies are scored on surface-tracked flights only
+            // (`transport_csg::ExtraScoring`); inside a delta-tracked region
+            // they would silently miss every collision (gh #926).
+            return Err(DiagnosticError::Invalid(
+                "this model has a delta-tracked region (a DhRegion), and diagnostics are scored \
+                 under surface tracking only: run k without diagnostics (KeffSettings::new(.., None))"
+                    .into(),
+            ));
+        }
         let mut extra = ExtraScoring::new();
         let mut plans = Vec::with_capacity(items.len());
         let mut ifp: Option<IfpSettings> = None;

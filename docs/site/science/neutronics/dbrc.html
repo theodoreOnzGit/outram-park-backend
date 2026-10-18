@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DBRC: let the resonance choose the partner</title>
+<meta name="description" content="Neutronics, page 43: next to a sharp resonance of a heavy nucleus the elastic cross section is nowhere near flat across the spread of relative energies, so the constant cross-section sampling of the target velocity is wrong. DBRC adds a rejection step weighted by the 0 K elastic cross section. U-238's 6.67 eV resonance, with and without it, and what it is worth.">
+<link rel="stylesheet" href="../../style.css">
+<script src="lesson-kit.js" defer></script>
+<script src="dbrc-data.js" defer></script>
+<script src="dbrc.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Neutronics lessons (gh:#906), maintainer's arc of 2026-10-18. Widget: dbrc.js "dbrc" (port of scatter.rs sample_target_velocity_dbrc, scatter.rs:500-565, and OpenMC ResScatMethod::dbrc, physics.cpp:870-965) on dbrc-data.js (examples/lesson_dbrc.rs: process::cross_sections().elastic_0k of U-238, and the BROADR-broadened MT=2). Numbers in the prose are checked by check-physics.js (data-* attributes). Never says BROADR does DBRC; never says S(a,b) and BROADR are applied together. -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response. <strong>Review status:</strong> AI-assisted first draft (2026-10-18), not yet reviewed by a human.</p>
+
+<h1>DBRC: let the resonance choose the partner</h1>
+<p class="kicker lesson-progress">Neutronics</p>
+<p>The last page drew the target's velocity from |<b>v</b>&minus;<b>V</b>|&nbsp;&middot;&nbsp;M(<b>V</b>), assuming the scattering cross section is the same whichever target the neutron meets. When is that wrong?</p>
+
+<h2>A cross section that is anything but flat</h2>
+<p>Take U-238's 6.67&nbsp;eV resonance (page 12) and look at the <b>elastic</b> cross section, which is what decides the outgoing neutron of a scattering collision. Our RECONR port at 0&nbsp;K gives, from the ENDF/B-VIII.0 evaluation <a href="#ref-brown2018endf8">(Brown &amp; others, 2018)</a>:</p>
+<ul>
+  <li>a peak of <b data-pk0>1512</b>&nbsp;b at <b data-pke0>6.675</b>&nbsp;eV,</li>
+  <li>and, just below it, an <b>interference dip</b> where it falls to <b data-dip>0.048</b>&nbsp;b at <b data-dipe>6.518</b>&nbsp;eV, more than four orders of magnitude lower.</li>
+</ul>
+<p>A neutron of energy 6.5&nbsp;eV can meet a nucleus at relative energies spread over a window of about &plusmn;0.2&nbsp;eV about its own (at 293.6&nbsp;K, U-238; the widget shades it). The nuclei that put the encounter on the peak are rare in the gas, but the cross section is thousands of times larger there. <b>They should be chosen far more often than the crowd-and-relative-speed rule says.</b></p>
+<p class="predict"><b>Predict first:</b> the neutron sits at 6.5&nbsp;eV, just under the peak, where the 0&nbsp;K elastic cross section is tiny. Does the correct draw move the typical encounter energy up toward the peak, or down away from it? By a lot, or a little?</p>
+
+<h2>The correction: accept in proportion to &sigma;<sub>s</sub> at 0&nbsp;K</h2>
+<p>The right density for the target, given that the neutron scatters, is</p>
+<p class="eq-block">p(<b>V</b>) &prop; |<b>v</b> &minus; <b>V</b>| &middot; M(<b>V</b>) &middot; &sigma;<sub>s</sub><sup>0&nbsp;K</sup>(E<sub>rel</sub>)</p>
+<p>with E<sub>rel</sub> the encounter energy of page 3. <b>Doppler Broadening Rejection Correction</b> (DBRC) gets it by rejection: draw a target as on the last page, work out its E<sub>rel</sub>, and accept it with probability &sigma;<sub>s</sub><sup>0&nbsp;K</sup>(E<sub>rel</sub>)/&sigma;<sub>max</sub>, where &sigma;<sub>max</sub> is the largest 0&nbsp;K value over the window of relative energies the gas can reach. A rejected target is redrawn.</p>
+<p>Two points that are easy to get wrong:</p>
+<ul>
+  <li><b>It is the 0&nbsp;K cross section on purpose.</b> The target's motion is now being sampled explicitly; putting the broadened cross section here would count the Doppler broadening twice.</li>
+  <li><b>The rate still comes from the broadened table.</b> BROADR fixed how often the neutron scatters (pages 22 and 42). DBRC only changes <i>which nucleus</i> that scatter was off, and therefore the neutron's outgoing energy. It is transport physics, not NJOY processing, and it needs the 0&nbsp;K elastic data kept alongside the broadened table.</li>
+</ul>
+
+<section class="widget-card">
+  <h3>U-238 at 6.67 eV, with and without DBRC</h3>
+  <div class="widget" id="dbrc">
+    <canvas aria-label="Top: U-238's elastic cross section at 0 K and broadened, with the window of relative energies shaded. Bottom: histograms of the encounter energy for plain target sampling and with the DBRC rejection, on linear axes"></canvas>
+  </div>
+  <p class="note">Top: RECONR's 0&nbsp;K elastic cross section (orange; what DBRC reads) and the same reaction broadened to 293.6&nbsp;K (grey, dashed; the rate), both from OUTRAM PARK's own processing of U-238, ENDF/B-VIII.0 <a href="#ref-brown2018endf8">(Brown &amp; others, 2018)</a>. Bottom: the density of encounter energies that each sampler draws from, grey for plain sampling and orange with the rejection, by numerical integration (next to the peak the rejection accepts so few candidates that sampling enough of them would stall a phone; the check on this page confirms the real samplers land on these densities bin by bin). Dashed vertical lines mark the means. Axes are linear.</p>
+</section>
+
+<p>At 6.5&nbsp;eV and 293.6&nbsp;K the mean encounter energy moves from <b data-mp>6.5003</b> to <b data-md>6.5271</b>&nbsp;eV, a shift of 27&nbsp;meV up toward the peak. Those two means are numerical integrals of the two densities; the check on this page confirms that 200&thinsp;000 sampled targets of each kind land on them within the sampling error. The size of the shift is small beside the eV scale, but the 6.67&nbsp;eV peak is only 24&nbsp;meV wide at 0&nbsp;K (page 22), so it is large beside the resonance. Move the neutron closer to the peak or heat the material and watch the orange histogram grow a tail toward it.</p>
+<p>The price is paid in rejections. At 6.5&nbsp;eV and 293.6&nbsp;K only <b data-acc>4.2</b> candidates in 10&thinsp;000 are accepted, because &sigma;<sub>max</sub> is the 0&nbsp;K peak and the typical target sits in the dip. The transport code needs one target per collision, and its loop is unbounded, as upstream: it terminates with probability one whenever &sigma;<sub>0&nbsp;K</sub> is positive in the window. Right on the peak (6.67&nbsp;eV) it is about three in ten.
+<div class="misconception" role="note"><b>Common misconception: "DBRC is Doppler broadening done again."</b>
+  <p>No. BROADR averages the cross section over the target motion to give the <i>rate</i>. DBRC leaves the rate alone and corrects the <i>draw of the target</i> that makes the collision's kinematics. Neither replaces the other, and neither belongs to S(&alpha;,&beta;), which is a different treatment for a different energy range (page 45).</p></div>
+
+<h2>What our code does</h2>
+<ul>
+  <li><b>On by default.</b> A nuclide built from an ENDF tape carries the 0&nbsp;K elastic table and applies DBRC unless a caller removes it with <code>without_dbrc</code> (<code>nuclide.rs</code>; pinned by <code>tests/correct_physics_is_default.rs</code>). OpenMC, whose algorithm this is, treats resonance scattering as an option that a user switches on <a href="#ref-romano2015openmc">(Romano et al., 2015)</a>.</li>
+  <li><b>The window.</b> E<sub>rel</sub> is limited to E<sub>up</sub> = (&radic;(AE/kT)&nbsp;+&nbsp;4)<sup>2</sup>&nbsp;kT/A, four thermal speeds above the neutron's; candidates above it are redrawn; &sigma;<sub>max</sub> is taken over [E<sub>low</sub>,&nbsp;E<sub>up</sub>]. The rejection loop is unbounded, as upstream (<code>scatter.rs:500-565</code>; OpenMC <code>physics.cpp:870-965</code>).</li>
+  <li><b>The energy range.</b> Applied from 0.01&nbsp;eV up to 1&nbsp;keV by default (<code>DBRC_DEFAULT_E_MAX_EV = 1000</code>); above 1&nbsp;keV a nuclide with a table is treated as at rest. Nuclides with no 0&nbsp;K table follow the 400&thinsp;kT rule of page 42.</li>
+  <li><b>Where the 0&nbsp;K data comes from.</b> On the ENDF route, from RECONR at 0&nbsp;K (<code>process::cross_sections</code> keeps it as <code>elastic_0k</code>, on by default). A continuous-energy ACE file made at a temperature carries only the broadened elastic column, so on the ACE route the 0&nbsp;K data must come from a companion 0&nbsp;K ACE file of the same nuclide (<code>Nuclide::with_elastic_0k_from_ace</code>), and a hot table alone leaves DBRC off.</li>
+</ul>
+<details class="optional">
+  <summary>Deeper: two defects the checks have already caught in this sampler</summary>
+  <p>Both are recorded in the crate's own history. Until 2026-09-29 the sampler tested the 400&thinsp;kT rule first, so DBRC never acted above 10.1&nbsp;eV and U-238's 20.9 and 36.7&nbsp;eV resonances were scattered off nuclei at rest; and its window was about half as wide as upstream's (<code>verification_and_validation/ace_route_physics/urr_dbrc_sab_as_openmc_2026-09-29.md</code>). Until 2026-09-30 the rejection loop was capped at 4096 trials and returned an unaccepted candidate when the cap was hit, which undid most of the correction next to a resonance; a single-scatter test at 20.5&nbsp;eV against OpenMC gave &chi;<sup>2</sup>/&nu; = 2625/59 on that version. The importance-weighting test that now guards the sampler (DBRC density equals the plain density times &sigma;<sub>0&nbsp;K</sub>) has a worst |z| of 2.65 over 30 bins.</p>
+</details>
+
+<h2>Does it matter for k<sub>eff</sub>?</h2>
+<p>The physical effect is the one in the widget: more encounters on the resonance means more up-scattering into the resonance's energy range, more capture in U-238, and a slightly lower k<sub>eff</sub>. How big the effect is in our code is <b>not well resolved</b>, and this is everything that is recorded:</p>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Case</th><th>What was measured</th><th>Result</th><th>Source</th></tr></thead>
+  <tbody>
+    <tr><td data-label="Case">LCT-008 (water-moderated pin lattice)</td><td data-label="Measured">k<sub>eff</sub> residual against the benchmark, before and after turning on DBRC and URR together</td><td data-label="Result">+165 pcm &rarr; +139 pcm; the shift is <b>not resolved</b> (0.7&nbsp;&sigma;)</td><td data-label="Source"><code>outram-mc-libs/verification_and_validation/icsbep/README.md</code>, lines 20 and 185</td></tr>
+    <tr><td data-label="Case">Homogenised LCT-008, 12 seeds</td><td data-label="Measured">k<sub>eff</sub> with URR and DBRC removed together, against with both</td><td data-label="Result"><b>|worth| &lt; 154 pcm at 2&nbsp;&sigma;</b>; the predicted +100 to +300 pcm was not supported</td><td data-label="Source"><code>ace_route_physics/urr_dbrc_worth_2026_09_25.md</code></td></tr>
+    <tr><td data-label="Case">Pin lattice, OpenMC with DBRC cut at 10.12&nbsp;eV</td><td data-label="Measured">the #407 upstream survey ran OpenMC with DBRC cut at 10.12&nbsp;eV and "got &minus;14 &plusmn; 12 pcm on the lattice" (quoted; what the number is a difference of is not stated there)</td><td data-label="Result">&minus;14 &plusmn; 12 pcm</td><td data-label="Source">doc comment of <code>Nuclide::with_dbrc</code>, <code>nuclide.rs</code>; not re-checked here</td></tr>
+  </tbody>
+</table>
+</div>
+<p>Read these honestly. The first moves two physics terms at once and was measured on a PURR grid that the same README (dated 2026-09-26) flags as defective for U-235, saying how far the numbers moved was not yet measured; the second is a bound, not a measurement, and its own record says not to quote the central value; the third is quoted from a comment. <b>None of them isolates DBRC on a case where it was resolved.</b> The code's comments also mention a literature value of order 100 to 200 pcm for a light-water pin cell; that value is not cited anywhere in this repository, so this page does not rely on it.</p>
+
+<h2>Next question</h2>
+<p>Everything so far is the free gas, applied to every nuclide. But hydrogen in water is not a gas of lone atoms at thermal energies, and carbon in graphite is a crystal. <b>How are the two kinds of data files made, and what does the code do when it holds both?</b></p>
+
+<nav class="lesson-nav" aria-label="Lessons"></nav>
+
+<!-- references:begin -->
+<h2>References</h2>
+
+<p class="csl-entry" id="ref-brown2018endf8" style="padding-left: 2em; text-indent: -2em;">Brown, D. A. &#38; others. (2018). ENDF/B-VIII.0: The 8th Major Release of the Nuclear Reaction Data Library with CIELO-project Cross Sections, New Standards and Thermal Scattering Data. <i>Nuclear Data Sheets</i>, <i>148</i>, 1–142. https://doi.org/10.1016/j.nds.2018.02.001</p>
+
+<p class="csl-entry" id="ref-romano2015openmc" style="padding-left: 2em; text-indent: -2em;">Romano, P. K., Horelik, N. E., Herman, B. R., Nelson, A. G., Forget, B., &#38; Smith, K. (2015). OpenMC: A state-of-the-art Monte Carlo code for research and development. <i>Annals of Nuclear Energy</i>, <i>82</i>, 90–97.</p>
+
+<!-- references:end -->
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. GPL-3.0. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>

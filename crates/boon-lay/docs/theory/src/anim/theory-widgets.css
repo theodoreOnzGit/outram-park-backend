@@ -1,0 +1,63 @@
+/* Small in-page illustrations for the boon-lay lessons (gh:#531).
+   Mobile-first: the canvas fills the column, controls wrap, targets >= 36 px. */
+.bl-anim {
+  margin: 1.2em 0;
+  padding: 0.6em;
+  border: 1px solid var(--quote-border, #ccc);
+  border-radius: 6px;
+  background: var(--quote-bg, transparent);
+  max-width: 100%;
+  box-sizing: border-box;
+}
+.bl-anim .bl-label {
+  font-size: 0.8em;
+  opacity: 0.8;
+  margin: 0 0 0.4em 0;
+}
+.bl-anim canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  touch-action: manipulation;
+  border-radius: 4px;
+}
+.bl-anim .bl-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5em 0.8em;
+  align-items: center;
+  margin-top: 0.5em;
+}
+.bl-anim button {
+  min-height: 36px;
+  min-width: 44px;
+  padding: 0 0.8em;
+  font-size: 0.95em;
+  border-radius: 4px;
+  border: 1px solid var(--quote-border, #888);
+  background: var(--bg, #fff);
+  color: var(--fg, #000);
+  cursor: pointer;
+}
+.bl-anim button.bl-on {
+  background: var(--links, #2e86c1);
+  color: var(--bg, #fff);
+}
+.bl-anim label {
+  display: flex;
+  flex-direction: column;
+  font-size: 0.85em;
+  flex: 1 1 12em;
+  min-width: 10em;
+}
+.bl-anim input[type="range"] {
+  width: 100%;
+  min-height: 36px;
+}
+.bl-anim .bl-readout {
+  font-family: var(--mono-font, monospace);
+  font-size: 0.85em;
+  margin-top: 0.4em;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

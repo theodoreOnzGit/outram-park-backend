@@ -269,3 +269,85 @@ fn drift_lowers_k_eff_and_the_effect_grows_with_the_flow() {
         "k_eff should fall monotonically as the fuel circulates faster, got {ks:?}"
     );
 }
+
+/// **Sign of the diffusion term (gh:#952).** Pure steady diffusion–decay of a
+/// cosine source must be *smoothed* by diffusion, not amplified.
+///
+/// ## Methodology
+///
+/// `solve_group` assembles upstream's `precEq.H` without the `ddt` term:
+/// `lambda alpha C* + div(phi, C*) - laplacian(D, C*) = S`, where upstream's
+/// `fvm::laplacian` is the NEGATIVE operator `+div(D grad)` (so
+/// `- fvm::laplacian` is physical diffusion). This workspace's
+/// `fvm::laplacian_with_delta` assembles the POSITIVE operator
+/// `-div(D grad)`, so the port must ADD it. On a closed 1-D slab (zero-gradient
+/// ends, `phi = 0`) the source `S = cos(pi x / L)` is an exact eigenmode of the
+/// cell-centred operator with eigenvalue `mu/dx^2`, `mu = 2 - 2 cos(pi/N)`, so
+///
+/// ```text
+///   C* = S / (lambda + D mu / dx^2)          (physical diffusion)
+///   C* = S / (lambda - D mu / dx^2)          (anti-diffusion)
+/// ```
+///
+/// Inputs: `L = 1`, `N = 40`, `lambda = 0.08`, `D` chosen so `D mu/dx^2 =
+/// 0.5 lambda`. Pass criterion: the solved amplitude equals the physical
+/// closed form to 1e-5 relative (linear-solver tolerance 1e-7 on the
+/// normalised residual).
+///
+/// ## Prediction (written before the run)
+///
+/// With the subtraction in place the solved amplitude is `1/(1 - 0.5) = 2.0`
+/// times `S/lambda`, against the physical `1/(1 + 0.5) = 0.667`. The test
+/// therefore fails with the current code (ratio 3x too large).
+///
+/// ## Results
+///
+/// Recorded in the gh:#952 comment and the commit message (measured
+/// 2026-10-18, before and after the sign change).
+#[test]
+fn precursor_diffusion_smooths_a_cosine_source_instead_of_amplifying_it() {
+    use outram_foam_basic_lib::prelude::{Field, SolverSettings, VolScalarField};
+
+    let n = 40usize;
+    let mesh = slab_mesh(n as i64);
+    let dx = 1.0 / n as f64;
+    let mu = 2.0 - 2.0 * (PI / n as f64).cos();
+    let eig = mu / (dx * dx);
+    let lambda = 0.08;
+    let d = 0.5 * lambda / eig;
+
+    let tr = transport(&mesh, 0.0, d);
+    let lambda_alpha = VolScalarField::uniform("lambda_alpha", mesh.clone(), lambda);
+    let s: Vec<f64> = (0..n)
+        .map(|i| (PI * (i as f64 + 0.5) / n as f64).cos())
+        .collect();
+    let mut source = VolScalarField::uniform("src", mesh.clone(), 0.0);
+    source.internal = Field::new(s.clone());
+    let c0 = VolScalarField::uniform("c0", mesh.clone(), 0.0);
+    let face = tr.diffusivity_face();
+
+    let sol = super::solve_group(
+        &c0,
+        &lambda_alpha,
+        &tr,
+        &face,
+        &source,
+        SolverSettings::default(),
+        outram_foam_basic_lib::prelude::fvm::DeltaCoeff::Orthogonal,
+    );
+
+    // Project onto the eigenmode: amplitude = sum(C cos)/sum(cos^2).
+    let num: f64 = sol.iter().zip(&s).map(|(c, m)| c * m).sum();
+    let den: f64 = s.iter().map(|m| m * m).sum();
+    let amp = num / den;
+    let physical = 1.0 / (lambda + d * eig);
+    let anti = 1.0 / (lambda - d * eig);
+    eprintln!(
+        "amplitude {amp:.9e}; physical closed form {physical:.9e}; anti-diffusion {anti:.9e}"
+    );
+    assert!(
+        ((amp - physical) / physical).abs() < 1e-5,
+        "solved amplitude {amp:e} vs physical diffusion {physical:e} \
+         (anti-diffusion would give {anti:e}) — the laplacian sign is wrong"
+    );
+}

@@ -64,9 +64,12 @@
 //! ## Not yet here
 //!
 //! ~~Repeated structures (#926)~~ (lattices and unit cells landed
-//! 2026-10-18; still to come on #926: random packing and the
+//! 2026-10-18; ~~still to come on #926: random packing and the
 //! double-heterogeneity region `DhRegion` of tutorial 5, lattices in a
-//! sphere with whole-particle rejection, hex lattices), position-dependent
+//! sphere with whole-particle rejection,~~ landed the same day: `DhRegion`,
+//! `Packing`, `Lattice::covering`; still to come: hex lattices, the
+//! chord-length tracking and the `ring_rpt()` / `naive_homogenisation()`
+//! conversions of #943), position-dependent
 //! temperature (#945), and
 //! the njoy → outram-mc data contract, which is open on #925
 //! ([`NuclearData`] wraps today's path so it can be swapped).
@@ -83,9 +86,11 @@ pub mod census;
 pub mod collect;
 pub mod data;
 pub mod diagnostics;
+pub mod dh_region;
 pub mod isotope;
 pub mod lattice;
 mod lower;
+mod lower_packed;
 pub mod masses;
 pub mod material;
 #[allow(clippy::module_inception)]
@@ -119,7 +124,8 @@ pub use run::{
     Convergence, CustomRun, Keff, KeffRun, KeffSettings, MCSettings, NormalityCheck, Progress,
     NuclidePhysics, ReactivityTolerance, RunBackend, RunError, RunProvenance,
 };
-pub use census::{Census, CensusRow};
+pub use census::{Arrangement, Census, CensusRow, PackingRow, RowKind};
+pub use dh_region::{DhRegion, Packing};
 pub use lattice::Lattice;
 pub use shape::{Boundary, Component, Cube, Cuboid, Shape, Solid, Sphere};
 
@@ -130,7 +136,7 @@ pub mod prelude {
     pub use super::isotopes::*;
     pub use super::{
         atoms_per_barn_cm, to_atoms_per_barn_cm, AdvancedModel, AssembledModel, AtomDensity,
-        BalanceBy, Basis, Boundary, Census, CensusRow, Component, Cube, Cuboid, Lattice, Solid, Contaminant, Convergence, CustomRun, DataError,
+        BalanceBy, Basis, Boundary, Census, CensusRow, Component, Cube, Cuboid, DhRegion, Lattice, Packing, Solid, Contaminant, Convergence, CustomRun, DataError,
         DiagnosticError, Diagnostics, DiagnosticsReport, EnergyGrid, Element, Enrichment,
         FissileUranium, FuelForm, GraphiteKind, HeavyMetal, Isotope, Keff, KeffRun, KeffSettings,
         MCDiagnostic, MCSettings, Material, MaterialError, Model, ModelError, Moderator,

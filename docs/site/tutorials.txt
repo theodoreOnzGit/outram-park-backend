@@ -3,3 +3,4 @@
 # <url-name> <mdBook directory>
 monte-carlo crates/outram-mc-libs/docs/tutorial
 triso-atops crates/boon-lay/docs/tutorial
+fp-transport-theory crates/boon-lay/docs/theory

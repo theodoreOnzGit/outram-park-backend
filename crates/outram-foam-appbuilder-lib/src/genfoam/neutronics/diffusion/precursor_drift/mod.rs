@@ -54,6 +54,9 @@
 //!
 //! ```text
 //!   lambda_k alpha C*_k  +  div(phi, C*_k)  -  laplacian(D_C, C*_k)
+//!   (laplacian = OpenFOAM's NEGATIVE operator div(D grad); this workspace's
+//!    `fvm::laplacian` is the POSITIVE -div(D grad), so the code ADDS it --
+//!    CORRECTED 2026-10-18, gh:#952: it used to subtract, i.e. anti-diffusion)
 //!     = S_n Beta_k / k_eff
 //!
 //!   C_k = C*_k alpha                       (precursors per TOTAL volume)
@@ -266,8 +269,11 @@ pub(super) fn solve_group(
     settings: outram_foam_basic_lib::prelude::SolverSettings,
     delta_coeff: fvm::DeltaCoeff,
 ) -> Vec<f64> {
-    let eqn = fvm::sp(lambda_alpha, c_star) + fvm::div(&transport.phi, c_star)
-        - fvm::laplacian_with_delta(diffusivity_face, c_star, delta_coeff)
+    // Sign (gh:#952): `fvm::laplacian*` here is the POSITIVE -div(D grad), so it
+    // is ADDED; upstream's `- fvm::laplacian` uses OpenFOAM's negative operator.
+    let eqn = fvm::sp(lambda_alpha, c_star)
+        + fvm::div(&transport.phi, c_star)
+        + fvm::laplacian_with_delta(diffusivity_face, c_star, delta_coeff)
         - fvm::su(source, c_star);
     let (sol, _perf) = eqn.solve_bicgstab_with_guess(
         "precStar".to_string(),

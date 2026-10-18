@@ -83,9 +83,37 @@ impl Material {
     /// `nuclides` is the global nuclide array; each component indexes into it.
     /// Uses the material temperature for Doppler-broadened lookups.
     pub fn macro_xs(&self, e: f64, nuclides: &[Nuclide]) -> MacroXs {
+        self.macro_xs_with(e, nuclides, |nuc, _idx| nuc.xs_at_energy(e, self.temperature))
+    }
+
+    /// [`Self::macro_xs`] as a neutron carrying the URR stream seed `urr_seed`
+    /// sees it: every nuclide inside its unresolved range contributes its
+    /// **sampled-band** cross sections ([`Nuclide::xs_at_energy_urr`], band
+    /// variate [`urr_xi`]) instead of the infinitely dilute ones. This is the
+    /// set the flight ([`Self::macro_xs_total_urr`]) and the collision used, so
+    /// a tally multiplying by it scores what transport followed. OpenMC does
+    /// the same by reading the micro cross sections `calculate_urr_xs` cached
+    /// (`src/nuclide.cpp:826-865`; `get_nuclide_xs`, `src/tallies/
+    /// tally_scoring.cpp`). Outside the unresolved range, or with the tables
+    /// ablated, it equals [`Self::macro_xs`] bit for bit and draws nothing
+    /// (GitHub #953).
+    pub fn macro_xs_urr(&self, e: f64, nuclides: &[Nuclide], urr_seed: u64) -> MacroXs {
+        self.macro_xs_with(e, nuclides, |nuc, idx| {
+            if nuc.needs_urr_draw(e) {
+                nuc.xs_at_energy_urr(e, self.temperature, urr_xi(idx, urr_seed))
+            } else {
+                nuc.xs_at_energy(e, self.temperature)
+            }
+        })
+    }
+
+    fn macro_xs_with<F>(&self, e: f64, nuclides: &[Nuclide], micro: F) -> MacroXs
+    where
+        F: Fn(&Nuclide, usize) -> crate::material::nuclide::MicroXS,
+    {
         let mut m = MacroXs::default();
         for c in &self.components {
-            let x = nuclides[c.nuclide_idx].xs_at_energy(e, self.temperature);
+            let x = micro(&nuclides[c.nuclide_idx], c.nuclide_idx);
             m.total += c.atom_density * x.total;
             m.elastic += c.atom_density * x.elastic;
             m.fission += c.atom_density * x.fission;

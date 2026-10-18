@@ -70,6 +70,11 @@
 //! count either. [`RunProvenance::backend`] and [`RunProvenance::threads`]
 //! record which ran. Lost histories are not counted on either path
 //! (gh #699); the result says so.
+//!
+//! A model with a delta-tracked `DhRegion` (gh #926) passes its majorants
+//! ([`AssembledModel::majorants`]) on both backends, which makes it
+//! `run_keff_csg_hybrid` (multi-thread: its `CpuMultiThread` route; one
+//! thread: its `CpuSingleThread` route).
 
 use raffles::estimators::autocorrelation::CorrelatedMean;
 use raffles::estimators::mean_and_stderr;
@@ -849,7 +854,8 @@ impl AssembledModel {
             Some(d) => Some(Collector::new(d.items(), self)?),
             None => None,
         };
-        let mut it = CsgPowerIteration::new(g, m, nuclides, self.source_box, &low);
+        let mut it = CsgPowerIteration::new(g, m, nuclides, self.source_box, &low)
+            .with_majorants(self.majorants(nuclides));
         if let Some(s) = collector.as_ref().and_then(Collector::ifp) {
             it.enable_ifp(s).map_err(RunError::InvalidSettings)?;
         }
@@ -1053,15 +1059,24 @@ impl AssembledModel {
             physics: self.physics(nuclides),
             data_library: self.data_label.clone(),
             temperature_k: self.temperature_k,
-            backend: match settings.backend() {
-                RunBackend::MultiThread => {
+            backend: match (settings.backend(), self.delta_regions().is_empty()) {
+                (RunBackend::MultiThread, true) => {
                     "CsgPowerIteration::step_par, CPU multi-thread on rayon's current pool \
                      (k independent of the thread count; bit for bit run_keff_csg \
                      CpuMultiThread at a fixed population)"
                 }
-                RunBackend::SingleThread => {
+                (RunBackend::MultiThread, false) => {
+                    "CsgPowerIteration::step_par with delta-tracked regions, CPU multi-thread \
+                     on rayon's current pool (k independent of the thread count; bit for bit \
+                     run_keff_csg_hybrid CpuMultiThread at a fixed population)"
+                }
+                (RunBackend::SingleThread, true) => {
                     "CsgPowerIteration, CPU single thread (bit for bit run_keff_csg \
                      CpuSingleThread at a fixed population)"
+                }
+                (RunBackend::SingleThread, false) => {
+                    "CsgPowerIteration with delta-tracked regions, CPU single thread (bit for \
+                     bit run_keff_csg_hybrid CpuSingleThread at a fixed population)"
                 }
             },
             threads: match settings.backend() {

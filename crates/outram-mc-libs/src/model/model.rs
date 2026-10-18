@@ -39,7 +39,7 @@ use super::isotope::Isotope;
 use super::resolve::{MaterialError, ResolvedMaterial};
 use super::lattice::Lattice;
 use super::lower::{combine, half, Lowered, Lowering};
-use super::shape::{Boundary, Component, Cuboid, Shape, Solid};
+use super::shape::{Boundary, Component, Cuboid, Shape, Solid, Sphere};
 use crate::geometry::cell::{Cell, CellFill, HalfSpaceSense, RegionToken};
 use crate::geometry::geometry::Geometry;
 use crate::geometry::plot::{render_material_slice, ImageData, PlotBasis, Rgb, SlicePlot};
@@ -176,6 +176,14 @@ pub struct AssembledModel {
     /// the copies the geometry places gives a total
     /// ([`AssembledModel::census`]).
     pub cell_volumes_cm3: Vec<Option<f64>>,
+    /// Per cell: the pool its volume is counted in (a matrix cell of a
+    /// sphere filled with whole particles), see [`super::census`].
+    pub(crate) cell_pools: Vec<Option<usize>>,
+    /// The pools, one per sphere filled with whole particles.
+    pub(crate) pools: Vec<super::lower_packed::Pool>,
+    /// Per delta-tracked region (a [`super::DhRegion`]): the material
+    /// indices its majorant must bound. Cell `tracking` indexes this list.
+    pub(crate) delta_regions: Vec<Vec<usize>>,
     /// Component labels, by component index.
     pub component_labels: Vec<String>,
     /// The library's label (for provenance).
@@ -313,6 +321,7 @@ impl Model {
                 .push(Cell::fill(id, region, CellFill::Void, Position::ZERO));
             lw.cell_components.push(None);
             lw.cell_volumes.push(None);
+            lw.cell_pools.push(None);
             for i in 0..3 {
                 lower[i] = c[i] - r;
                 upper[i] = c[i] + r;
@@ -350,6 +359,9 @@ impl Model {
             temperature_k,
             cell_components: lw.cell_components,
             cell_volumes_cm3: lw.cell_volumes,
+            cell_pools: lw.cell_pools,
+            pools: lw.pools,
+            delta_regions: lw.delta_regions,
             component_labels: self.components.clone(),
             data_label: self.data.label().to_string(),
             bounds: (lower, upper),
@@ -391,6 +403,17 @@ impl Model {
         if let Some(lattice) = &s.lattice {
             self.check_lattice(s, lattice)?;
         }
+        if let Some(spec) = &s.dh {
+            let lattice = super::lower_packed::check_dh(s, spec)?;
+            if let Some(particle) = spec.particle() {
+                self.check_shape(particle, false)?;
+            }
+            if let Some(lattice) = lattice {
+                for tile in lattice.tiles() {
+                    self.check_shape(tile, false)?;
+                }
+            }
+        }
         Ok(())
     }
 
@@ -406,15 +429,18 @@ impl Model {
                     .into(),
             ));
         }
-        let Solid::Cuboid(_) = s.solid else {
-            return Err(ModelError::BadValue(
-                "a lattice goes in a box today (Cube::side or Cuboid::sides); a lattice in a sphere, \
-                 with whole-particle rejection, is #926's follow-up"
-                    .into(),
-            ));
-        };
         for tile in lattice.tiles() {
             self.check_shape(tile, false)?;
+        }
+        if let Solid::Sphere(zone) = s.solid {
+            return check_lattice_in_sphere(s, zone, lattice);
+        }
+        if lattice.covering_offset().is_some() {
+            return Err(ModelError::BadValue(
+                "Lattice::covering fills a sphere (with whole-particle rejection); in a box, give \
+                 the grid with Lattice::copies_of or the row constructors"
+                    .into(),
+            ));
         }
         let pitch = lattice.pitch_cm().unwrap_or([0.0; 3]);
         let n = lattice.dimensions();
@@ -444,6 +470,39 @@ impl Model {
         }
         Ok(())
     }
+}
+
+/// A lattice in a sphere: the tiles' material must be the sphere's (a
+/// rejected tile becomes the sphere's material, and the matrix volume is
+/// counted as one), and a grid of given size must cover the sphere (a grid
+/// that stops short leaves a shell inside the cell but outside the lattice;
+/// on HTR-10 that gave negative distances to boundary, nee_soon's
+/// `TrisoBuild` notes).
+fn check_lattice_in_sphere(s: &Shape, zone: Sphere, lattice: &Lattice) -> Result<(), ModelError> {
+    if let Some(t) = lattice.tiles().iter().find(|t| t.material != s.material) {
+        return Err(ModelError::BadValue(format!(
+            "a lattice in a sphere needs tiles of the sphere's own material ({}), not {}: a tile \
+             left out by whole-particle rejection becomes the sphere's material",
+            s.material.name(),
+            t.material.name()
+        )));
+    }
+    if lattice.covering_offset().is_none() {
+        let pitch = lattice.pitch_cm().unwrap_or([0.0; 3]);
+        let n = lattice.dimensions();
+        if (0..3).any(|i| 0.5 * n[i] as f64 * pitch[i] < zone.radius_cm()) {
+            return Err(ModelError::BadValue(format!(
+                "a {}x{}x{} lattice of pitch {:?} cm does not cover the sphere of radius {} cm it \
+                 fills; use Lattice::covering(tile, offset)",
+                n[0],
+                n[1],
+                n[2],
+                pitch,
+                zone.radius_cm()
+            )));
+        }
+    }
+    Ok(())
 }
 
 /// Siblings must not overlap.
@@ -948,7 +1007,9 @@ pub(crate) mod tests {
             Sphere::radius(cm(3.0))
                 .filled_with(heu())
                 .containing_lattice(Lattice::copies_of(tile(), [1, 1, 1])),
-            "a lattice goes in a box",
+            // Since #926's tutorial 5 a lattice may fill a sphere; a tile of
+            // another material than the sphere's is refused.
+            "sphere's own material",
         );
         refused(
             Cube::side(cm(3.0))

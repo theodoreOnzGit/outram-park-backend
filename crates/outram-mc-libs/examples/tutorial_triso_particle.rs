@@ -135,6 +135,27 @@
 //!   1 h 38 min and gave no number. Independent seeds on several cores,
 //!   without diagnostics (`--seeds-only N`), are the cheaper route to
 //!   more statistics; not run for this record.
+//! - ~~single-threaded~~ **Re-measured 2026-10-18 after the beginner run
+//!   became multi-threaded by default (gh #955).** Same host (i9-13900K,
+//!   62.5 GiB, Linux, CPU only, shared with other jobs), runs one after
+//!   another, pinned with `taskset` to logical CPUs 4-9, which are **three
+//!   physical P-cores with their hyperthread siblings**; `RAYON_NUM_THREADS`
+//!   set the pool. Wall time per generation from timestamped progress lines:
+//!
+//!   | threads (CPUs) | s / gen of 1000 | s / gen of 5000 | transport, Fast | vs 1 thread |
+//!   |---|---|---|---|---|
+//!   | 1 (CPU 4) | 3.77 | 18.79 | not run to the end (60 generations) | 1 |
+//!   | 4 (CPUs 4-7, 2 physical cores) | 1.65 | 8.12 | 1390 s | 2.3× |
+//!   | 6 (CPUs 4-9, 3 physical cores) | 1.33 | 5.58 | 961 s | 3.4× |
+//!
+//!   **k is the same on every thread count**: `k_inf = 1.56433 ± 0.00139`
+//!   at 4 and 6 threads, every printed generation (k, entropy) identical,
+//!   and the 1-thread run identical over the 60 generations it ran. It is
+//!   a different random-stream set from the single-thread record above
+//!   (`1.56384 ± 0.00169`): the two differ by 49 pcm, 0.2σ combined.
+//!   Eight threads were not measured (outside the 6-CPU budget). The
+//!   single-thread rate measured here (18.8 s per 5000) is below the
+//!   earlier ~27 s; the host's other load differed and is not recorded.
 
 use std::path::PathBuf;
 use std::time::Instant;
