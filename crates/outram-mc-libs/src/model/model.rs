@@ -6,8 +6,12 @@
 //! [`Material`](crate::material::material::Material)s and nuclide list a
 //! hand-written model would, and the run goes through
 //! [`CsgPowerIteration`](crate::physics::transport_csg::CsgPowerIteration),
-//! the single-thread CSG power iteration that is bit for bit
-//! `run_keff_csg` (gh:#549).
+//! ~~the single-thread CSG power iteration that is bit for bit
+//! `run_keff_csg` (gh:#549)~~ **CORRECTED 2026-10-18 (gh #955)**: the CSG
+//! power iteration stepped in parallel by default (bit for bit
+//! `run_keff_csg` with `ComputeType::CpuMultiThread`, the same k on any
+//! number of threads), or on one thread when asked (bit for bit
+//! `ComputeType::CpuSingleThread`); see `run`'s "Run backend".
 //!
 //! # Lowering (what the user never sees)
 //!

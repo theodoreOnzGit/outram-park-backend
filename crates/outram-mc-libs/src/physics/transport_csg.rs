@@ -976,10 +976,6 @@ pub fn run_keff_csg_par_progress<G: FnMut(GenerationProgress) + Send>(
     thread_count: ThreadCount,
     on_generation: &mut G,
 ) -> KeffResult {
-    #[cfg(not(target_arch = "wasm32"))]
-    use rayon::prelude::*;
-    #[cfg(target_arch = "wasm32")]
-    use crate::wasm_par::prelude::*;
     #[cfg(target_arch = "wasm32")]
     use crate::wasm_par as rayon;
 
@@ -1024,66 +1020,30 @@ pub fn run_keff_csg_par_progress<G: FnMut(GenerationProgress) + Send>(
     pool.install(|| {
         for gen in 0..n_gen {
             let active = gen >= settings.n_inactive;
-            // Base seed for this generation's per-history sub-streams.
-            let gen_base_seed = future_seed((gen as u64).wrapping_mul(GEN_STRIDE), settings.seed);
-
-            // Transport every history in parallel. `into_par_iter().map(...).collect()`
-            // on an indexed iterator preserves input order, so the reduction below
-            // is deterministic regardless of thread count. `tally_def` is an
-            // immutable view scoped to this block so the mutable flush below is free
-            // to borrow `tally` again.
+            // Transport every history in parallel (`transport_generation_par`,
+            // shared with `CsgPowerIteration::step_par` since 2026-10-18,
+            // gh #955). It returns the histories in index order, so the
+            // reduction below is deterministic regardless of thread count.
+            // `tally_def` is an immutable view scoped to this block so the
+            // mutable flush below is free to borrow `tally` again.
             let leak_this_gen = active && leak_enabled;
-            let results: Vec<(HistoryOutcome, Vec<Site>, Vec<f64>, Vec<f64>)> = {
+            let chunks: Vec<ParChunk> = {
                 let tally_def: Option<&Tally> = if active { tally.as_deref() } else { None };
                 let leak_edges_gen: &[f64] = if leak_this_gen { leak_edges } else { &[] };
-                (0..source.len())
-                    .into_par_iter()
-                    .map(|hist_idx| {
-                        // Independent, deterministic sub-stream for this history;
-                        // owned locally — never shared across threads.
-                        let mut seed =
-                            future_seed((hist_idx as u64).wrapping_mul(HIST_STRIDE), gen_base_seed);
-                        let mut local_bank: Vec<Site> = Vec::new();
-                        let mut local_batch: Vec<f64> = if tally_def.is_some() {
-                            vec![0.0; n_bins]
-                        } else {
-                            Vec::new()
-                        };
-                        let mut local_leak: Vec<f64> = if leak_this_gen {
-                            vec![0.0; n_leak]
-                        } else {
-                            Vec::new()
-                        };
-                        // The run's own variance reduction, as the sequential
-                        // path (GitHub #461). ~~`transport_history`, which
-                        // hard-coded analog~~ until 2026-09-30: survival
-                        // biasing and weight windows were silently dropped
-                        // under `CpuMultiThread`.
-                        let outcome = transport_history_vr(
-                            source[hist_idx],
-                            geom,
-                            materials,
-                            nuclides,
-                            majorants,
-                            k_running,
-                            &mut local_bank,
-                            &mut seed,
-                            tally_def,
-                            &mut local_batch,
-                            leak_edges_gen,
-                            &mut local_leak,
-                            None,
-                            &settings.variance_reduction,
-                            settings.delta_tally_estimator,
-                            None,
-                            None,
-                            None,
-                            1.0,
-                            &mut no_trace,
-                        );
-                        (outcome, local_bank, local_batch, local_leak)
-                    })
-                    .collect()
+                transport_generation_par(
+                    &source,
+                    geom,
+                    materials,
+                    nuclides,
+                    majorants,
+                    k_running,
+                    settings.seed,
+                    gen,
+                    settings,
+                    tally_def,
+                    leak_edges_gen,
+                    None,
+                )
             };
 
             // Deterministic sequential reduction: sum productions, concatenate
@@ -1101,7 +1061,13 @@ pub fn run_keff_csg_par_progress<G: FnMut(GenerationProgress) + Send>(
             } else {
                 Vec::new()
             };
-            for (outcome, bank, local_batch, local_leak) in results {
+            for ParHistory {
+                outcome,
+                bank,
+                batch: local_batch,
+                leak: local_leak,
+            } in chunks.into_iter().flat_map(|c| c.histories)
+            {
                 production += outcome.production;
                 totals.absorb(&outcome);
                 next_bank.extend(bank);
@@ -1164,6 +1130,135 @@ pub fn run_keff_csg_par_progress<G: FnMut(GenerationProgress) + Send>(
 
     let (k_mean, k_std) = mean_and_stderr(&active_k);
     totals.into_result(k_mean, k_std, k_by_generation, entropy)
+}
+
+/// Histories per task of [`transport_generation_par`]: a **fixed** number,
+/// never derived from the thread count, so the per-chunk sums of
+/// [`ExtraScoring`] batches are added in the same grouping and order on any
+/// number of threads (gh #955). 32 histories keeps a 1000-neutron
+/// generation at 32 tasks, enough to balance 8 threads.
+pub(crate) const PAR_CHUNK: usize = 32;
+
+/// One history of [`transport_generation_par`]: what it did, the sites it
+/// banked, and its private tally and leakage batches (empty when not scored).
+pub(crate) struct ParHistory {
+    pub(crate) outcome: HistoryOutcome,
+    pub(crate) bank: Vec<Site>,
+    pub(crate) batch: Vec<f64>,
+    pub(crate) leak: Vec<f64>,
+}
+
+/// [`PAR_CHUNK`] consecutive histories of [`transport_generation_par`], with
+/// the chunk's own [`ExtraScoring`] scratch when extras were asked for.
+pub(crate) struct ParChunk {
+    pub(crate) histories: Vec<ParHistory>,
+    pub(crate) extra: Option<ExtraScoring>,
+}
+
+/// **The parallel history loop of one generation**, shared by
+/// [`run_keff_csg_par_progress`] and [`CsgPowerIteration::step_par`]
+/// (factored out of the former on 2026-10-18, gh #955, so there is one
+/// parallel loop, not two).
+///
+/// History `i` of generation `generation` runs on its own stream,
+/// `future_seed(i * HIST_STRIDE, future_seed(generation * GEN_STRIDE,
+/// run_seed))`, exactly as before the factoring, so `run_keff_csg_par` is
+/// unchanged bit for bit. Histories go to rayon's **current** pool (the
+/// caller's `install`, or the global pool) in fixed chunks of
+/// [`PAR_CHUNK`]; the chunks come back in history order. Nothing here
+/// depends on the number of threads.
+///
+/// `extra`, when given, is the run's [`ExtraScoring`]: each chunk scores
+/// into a zeroed scratch copy of it ([`ExtraScoring::scratch`]), which the
+/// caller adds back in chunk order ([`ExtraScoring::absorb`]).
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn transport_generation_par(
+    source: &[Site],
+    geom: &Geometry,
+    materials: &[Material],
+    nuclides: &[Nuclide],
+    majorants: &[Majorant],
+    k_running: f64,
+    run_seed: u64,
+    generation: usize,
+    settings: &KeffSettings,
+    tally_def: Option<&Tally>,
+    leak_edges_gen: &[f64],
+    extra: Option<&ExtraScoring>,
+) -> Vec<ParChunk> {
+    #[cfg(not(target_arch = "wasm32"))]
+    use rayon::prelude::*;
+    #[cfg(target_arch = "wasm32")]
+    use crate::wasm_par::prelude::*;
+
+    let gen_base_seed = future_seed((generation as u64).wrapping_mul(GEN_STRIDE), run_seed);
+    let n_bins = tally_def.map_or(0, Tally::n_bins);
+    let n_leak = leak_edges_gen.len().saturating_sub(1);
+    let n_chunks = source.len().div_ceil(PAR_CHUNK);
+    (0..n_chunks)
+        .into_par_iter()
+        .map(|c| {
+            let lo = c * PAR_CHUNK;
+            let hi = (lo + PAR_CHUNK).min(source.len());
+            let mut scratch = extra.map(ExtraScoring::scratch);
+            let histories = (lo..hi)
+                .map(|hist_idx| {
+                    // Independent, deterministic sub-stream for this history;
+                    // owned locally — never shared across threads.
+                    let mut seed =
+                        future_seed((hist_idx as u64).wrapping_mul(HIST_STRIDE), gen_base_seed);
+                    let mut bank: Vec<Site> = Vec::new();
+                    let mut batch: Vec<f64> = if tally_def.is_some() {
+                        vec![0.0; n_bins]
+                    } else {
+                        Vec::new()
+                    };
+                    let mut leak: Vec<f64> = if leak_edges_gen.is_empty() {
+                        Vec::new()
+                    } else {
+                        vec![0.0; n_leak]
+                    };
+                    // The run's own variance reduction, as the sequential
+                    // path (GitHub #461). ~~`transport_history`, which
+                    // hard-coded analog~~ until 2026-09-30: survival
+                    // biasing and weight windows were silently dropped
+                    // under `CpuMultiThread`.
+                    let outcome = transport_history_vr(
+                        source[hist_idx],
+                        geom,
+                        materials,
+                        nuclides,
+                        majorants,
+                        k_running,
+                        &mut bank,
+                        &mut seed,
+                        tally_def,
+                        &mut batch,
+                        leak_edges_gen,
+                        &mut leak,
+                        scratch.as_mut(),
+                        &settings.variance_reduction,
+                        settings.delta_tally_estimator,
+                        None,
+                        None,
+                        None,
+                        1.0,
+                        &mut no_trace,
+                    );
+                    ParHistory {
+                        outcome,
+                        bank,
+                        batch,
+                        leak,
+                    }
+                })
+                .collect();
+            ParChunk {
+                histories,
+                extra: scratch,
+            }
+        })
+        .collect()
 }
 
 /// Bin one leaked neutron of weight `w` into the per-generation leakage
@@ -3206,6 +3301,47 @@ impl ExtraScoring {
         !self.tallies.is_empty()
     }
 
+    /// A zeroed copy to score one parallel chunk into (gh #955): the same
+    /// tallies (filters and scores, **no persistent bins**: scoring writes
+    /// only the batches) and leakage grids, every batch zero.
+    pub(crate) fn scratch(&self) -> Self {
+        Self {
+            tallies: self
+                .tallies
+                .iter()
+                .map(|t| Tally {
+                    id: t.id,
+                    name: t.name.clone(),
+                    filters: t.filters.clone(),
+                    scores: t.scores.clone(),
+                    bins: Vec::new(),
+                })
+                .collect(),
+            batches: self.batches.iter().map(|b| vec![0.0; b.len()]).collect(),
+            leak_edges: self.leak_edges.clone(),
+            leak_bins: Vec::new(),
+            leak_batches: self
+                .leak_batches
+                .iter()
+                .map(|b| vec![0.0; b.len()])
+                .collect(),
+        }
+    }
+
+    /// Add a [`Self::scratch`]'s batches into this generation's batches.
+    pub(crate) fn absorb(&mut self, chunk: &Self) {
+        for (b, c) in self.batches.iter_mut().zip(&chunk.batches) {
+            for (x, y) in b.iter_mut().zip(c) {
+                *x += y;
+            }
+        }
+        for (b, c) in self.leak_batches.iter_mut().zip(&chunk.leak_batches) {
+            for (x, y) in b.iter_mut().zip(c) {
+                *x += y;
+            }
+        }
+    }
+
     /// Run `f` on every tally with its batch.
     #[inline]
     pub(crate) fn each_tally<F: FnMut(&Tally, &mut [f64])>(&mut self, mut f: F) {
@@ -3315,9 +3451,7 @@ impl CsgPowerIteration {
         if self.finished {
             return None;
         }
-        let gen = self.generation;
         let n = self.settings.n_particles;
-        let active = gen >= self.settings.n_inactive;
         let mut next_bank: Vec<Site> = Vec::with_capacity(n);
         let mut next_lineage: Vec<IfpLineage> = Vec::new();
         let mut production = 0.0_f64;
@@ -3349,27 +3483,115 @@ impl CsgPowerIteration {
                 observe,
             );
             production += outcome.production;
-            totals.histories += 1;
-            totals.ends.add(&outcome.ends);
-            totals.collisions += outcome.collisions;
-            totals.lost_locate += outcome.lost_locate;
-            totals.stuck_events += outcome.stuck_events;
-            totals.leak_vacuum += outcome.leak_vacuum;
-            totals.leak_infinity += outcome.leak_infinity;
-            totals.neg_dist += outcome.neg_dist;
-            if let Some((settings, lineage)) = &self.ifp {
-                let parent = &lineage[i];
-                // Analog: every fission ends a neutron of weight 1.
-                for _ in 0..outcome.ends.fissions() {
-                    ifp_scores.score_fission(settings, parent, 1.0);
-                }
-                for s in &next_bank[before..] {
-                    let group = s.delayed_group.map_or(0, |g| g + 1);
-                    next_lineage.push(parent.push(settings, group, s.parent_lifetime_s));
-                }
+            account_history(
+                &self.ifp,
+                i,
+                &outcome,
+                &next_bank[before..],
+                &mut totals,
+                &mut ifp_scores,
+                &mut next_lineage,
+            );
+        }
+        totals.ifp = ifp_scores;
+        Some(self.close_generation(production, next_bank, next_lineage, totals))
+    }
+
+    /// **[`Self::step_scored`] with the histories run in parallel** on
+    /// rayon's current pool (gh #955): the global pool, sized by
+    /// `RAYON_NUM_THREADS`, or the pool the caller `install`s. On `wasm32`
+    /// it runs serially (`crate::wasm_par`), with the same answer.
+    ///
+    /// The histories are those of [`run_keff_csg_par`]
+    /// ([`ComputeType::CpuMultiThread`]): history `i` of generation `g`
+    /// runs on its own stream derived from `(settings.seed, g, i)`, and the
+    /// source is sampled and combed on this iteration's sequential stream.
+    /// So:
+    ///
+    /// - **`k` does not depend on the number of threads, bit for bit**: every
+    ///   history draws the same numbers and the generation is reduced in
+    ///   history order (productions summed, banks concatenated, IFP lineage
+    ///   extended) on any pool;
+    /// - at a fixed population it is **`run_keff_csg_par`'s `k` bit for
+    ///   bit** (pinned by `step_par_matches_run_keff_csg_par_on_any_pool`);
+    /// - it is **not** [`Self::step`]'s `k`: a different, statistically
+    ///   equivalent set of random streams.
+    ///
+    /// `extra` is scored in fixed chunks of [`PAR_CHUNK`] histories, each
+    /// into its own scratch, added back in chunk order: its sums too are
+    /// independent of the thread count. Scoring and IFP lineage draw no
+    /// random number, so `k` is the `k` of `step_par(.., None)`.
+    ///
+    /// Use one of `step`/`step_par` for a whole run; mixing them is
+    /// deterministic but matches neither reference.
+    pub fn step_par(
+        &mut self,
+        geom: &Geometry,
+        materials: &[Material],
+        nuclides: &[Nuclide],
+        mut extra: Option<&mut ExtraScoring>,
+    ) -> Option<(CsgGenerationReport, GenerationTotals)> {
+        use crate::physics::ifp::{IfpLineage, IfpTallies};
+        if self.finished {
+            return None;
+        }
+        let chunks = transport_generation_par(
+            &self.source,
+            geom,
+            materials,
+            nuclides,
+            &[],
+            self.k_running,
+            self.settings.seed,
+            self.generation,
+            &self.settings,
+            None,
+            &[],
+            extra.as_deref(),
+        );
+        let mut next_bank: Vec<Site> = Vec::with_capacity(self.settings.n_particles);
+        let mut next_lineage: Vec<IfpLineage> = Vec::new();
+        let mut production = 0.0_f64;
+        let mut totals = GenerationTotals::default();
+        let mut ifp_scores = IfpTallies::default();
+        let mut i = 0;
+        for chunk in chunks {
+            for h in chunk.histories {
+                production += h.outcome.production;
+                let before = next_bank.len();
+                next_bank.extend(h.bank);
+                account_history(
+                    &self.ifp,
+                    i,
+                    &h.outcome,
+                    &next_bank[before..],
+                    &mut totals,
+                    &mut ifp_scores,
+                    &mut next_lineage,
+                );
+                i += 1;
+            }
+            if let (Some(x), Some(c)) = (extra.as_deref_mut(), chunk.extra.as_ref()) {
+                x.absorb(c);
             }
         }
         totals.ifp = ifp_scores;
+        Some(self.close_generation(production, next_bank, next_lineage, totals))
+    }
+
+    /// The end of every generation, serial or parallel: `k`, the active
+    /// list, the finish test, and the comb of the bank into the next source
+    /// (with its IFP lineage) on this iteration's own stream.
+    fn close_generation(
+        &mut self,
+        production: f64,
+        next_bank: Vec<Site>,
+        next_lineage: Vec<crate::physics::ifp::IfpLineage>,
+        totals: GenerationTotals,
+    ) -> (CsgGenerationReport, GenerationTotals) {
+        let gen = self.generation;
+        let n = self.settings.n_particles;
+        let active = gen >= self.settings.n_inactive;
         let k_gen = production / n as f64;
         self.k_running = k_gen.max(1.0e-6);
         if active {
@@ -3389,7 +3611,7 @@ impl CsgPowerIteration {
             }
             self.comb_source(n);
         }
-        Some((
+        (
             CsgGenerationReport {
                 index: gen,
                 active,
@@ -3398,7 +3620,7 @@ impl CsgPowerIteration {
                 bank_size,
             },
             totals,
-        ))
+        )
     }
 
     /// Comb `self.source` (and the IFP lineage with it) to `n` sites. The
@@ -3414,6 +3636,43 @@ impl CsgPowerIteration {
                 self.source = picked.iter().map(|&i| self.source[i]).collect();
                 *lineage = picked.iter().map(|&i| lineage[i].clone()).collect();
             }
+        }
+    }
+}
+
+/// Fold one history into its generation's [`GenerationTotals`] and, with
+/// IFP on, score its fissions against its source lineage and extend the
+/// lineage to the sites it banked (`banked`). Shared by the serial and the
+/// parallel step so the two count the same way.
+fn account_history(
+    ifp: &Option<(
+        crate::physics::ifp::IfpSettings,
+        Vec<crate::physics::ifp::IfpLineage>,
+    )>,
+    i: usize,
+    outcome: &HistoryOutcome,
+    banked: &[Site],
+    totals: &mut GenerationTotals,
+    ifp_scores: &mut crate::physics::ifp::IfpTallies,
+    next_lineage: &mut Vec<crate::physics::ifp::IfpLineage>,
+) {
+    totals.histories += 1;
+    totals.ends.add(&outcome.ends);
+    totals.collisions += outcome.collisions;
+    totals.lost_locate += outcome.lost_locate;
+    totals.stuck_events += outcome.stuck_events;
+    totals.leak_vacuum += outcome.leak_vacuum;
+    totals.leak_infinity += outcome.leak_infinity;
+    totals.neg_dist += outcome.neg_dist;
+    if let Some((settings, lineage)) = ifp {
+        let parent = &lineage[i];
+        // Analog: every fission ends a neutron of weight 1.
+        for _ in 0..outcome.ends.fissions() {
+            ifp_scores.score_fission(settings, parent, 1.0);
+        }
+        for s in banked {
+            let group = s.delayed_group.map_or(0, |g| g + 1);
+            next_lineage.push(parent.push(settings, group, s.parent_lifetime_s));
         }
     }
 }
@@ -3568,5 +3827,108 @@ mod scored_step_tests {
         assert!(both.batch(0).iter().all(|&x| x == 0.0));
         assert!(both.leak_batch(0).iter().all(|&x| x == 0.0));
         both.discard();
+    }
+
+    /// **`step_par` is `run_keff_csg_par`, on any pool** (gh #955): at a
+    /// fixed population its per-generation `k` equals `run_keff_csg_par`'s
+    /// bit for bit, on pools of 1, 2 and 4 threads; with a tally, two leak
+    /// grids and IFP attached, `k` is unchanged and every tally bin, leak
+    /// bin and IFP score is equal bit for bit between 1 and 4 threads. A
+    /// population change mid-run is also thread-count independent.
+    #[cfg(not(target_arch = "wasm32"))]
+    #[test]
+    fn step_par_matches_run_keff_csg_par_on_any_pool() {
+        let (g, m, n) = godiva_core();
+        let s = KeffSettings {
+            n_particles: 300,
+            n_inactive: 2,
+            n_active: 6,
+            seed: 7,
+            ..KeffSettings::default()
+        };
+        let sb = SourceBox {
+            lower: Position::new(-8.7, -8.7, -8.7),
+            upper: Position::new(8.7, 8.7, 8.7),
+        };
+        let reference = run_keff_csg_par(
+            &g,
+            &m,
+            &n,
+            &[],
+            None,
+            sb,
+            &s,
+            None,
+            &[],
+            None,
+            ThreadCount::Fixed(3),
+        );
+        let pool = |t: usize| {
+            rayon::ThreadPoolBuilder::new()
+                .num_threads(t)
+                .build()
+                .unwrap()
+        };
+        for t in [1, 2, 4] {
+            let k = pool(t).install(|| {
+                let mut it = CsgPowerIteration::new(&g, &m, &n, sb, &s);
+                let mut k = Vec::new();
+                while let Some((r, _)) = it.step_par(&g, &m, &n, None) {
+                    k.push(r.k);
+                }
+                k
+            });
+            assert_eq!(k, reference.k_by_generation, "{t} threads");
+        }
+        // Not the single-thread streams: a different estimate.
+        let mut seq = CsgPowerIteration::new(&g, &m, &n, sb, &s);
+        let k_seq: Vec<f64> = std::iter::from_fn(|| seq.step(&g, &m, &n).map(|r| r.k)).collect();
+        assert_ne!(k_seq, reference.k_by_generation);
+
+        // Diagnostics and a population change, 1 against 4 threads.
+        let scored = |t: usize| {
+            pool(t).install(|| {
+                let mut extra = ExtraScoring::new();
+                extra.add_tally(tally(vec![0.0, 0.625, 1.0e5, 2.0e7]));
+                extra.add_leak_grid(vec![0.0, 1.0e5, 2.0e7]);
+                extra.add_leak_grid(vec![0.0, 2.0e7]);
+                let mut it = CsgPowerIteration::new(&g, &m, &n, sb, &s);
+                it.enable_ifp(IfpSettings {
+                    n_generation: 2,
+                    ..IfpSettings::default()
+                })
+                .unwrap();
+                let (mut k, mut ifp, mut totals) = (Vec::new(), Vec::new(), Vec::new());
+                while let Some((r, tot)) = it.step_par(&g, &m, &n, Some(&mut extra)) {
+                    extra.flush();
+                    k.push(r.k);
+                    ifp.push(tot.ifp.clone());
+                    totals.push(tot);
+                    if r.index == 3 {
+                        it.set_population(450);
+                    }
+                }
+                (k, ifp, totals, extra)
+            })
+        };
+        let (k1, ifp1, tot1, x1) = scored(1);
+        let (k4, ifp4, tot4, x4) = scored(4);
+        assert_eq!(k1, k4);
+        assert_eq!(
+            &k1[..4],
+            &reference.k_by_generation[..4],
+            "extras + IFP draw nothing"
+        );
+        assert_eq!(ifp1, ifp4);
+        assert_eq!(tot1, tot4);
+        assert!(ifp1.iter().any(|i| i.denominator > 0.0), "IFP scored");
+        assert_eq!(x1.tally(0).bins, x4.tally(0).bins);
+        assert_eq!(x1.leak_bins(0), x4.leak_bins(0));
+        assert_eq!(x1.leak_bins(1), x4.leak_bins(1));
+        assert!(x1.tally(0).bins.iter().any(|b| b.sum > 0.0));
+        assert_eq!(
+            tot1.iter().map(|t| t.histories).sum::<u64>(),
+            300 * 4 + 450 * 4
+        );
     }
 }

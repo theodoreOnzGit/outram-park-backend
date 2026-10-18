@@ -6,7 +6,10 @@
 //!    through `model::Model` and run with `MCSettings::Custom` gives the
 //!    same `k` per generation, to the last bit, as the hand-built CSG model
 //!    (one vacuum sphere, `vv::godiva::material()`) through `run_keff_csg` on
-//!    the single-thread backend at the same seed. Data: the embedded LOW
+//!    ~~the single-thread backend~~ the matching backend (**since
+//!    2026-10-18, gh #955**: the default multi-thread run against
+//!    `ComputeType::CpuMultiThread`, and `.single_thread()` against
+//!    `ComputeType::CpuSingleThread`) at the same seed. Data: the embedded LOW
 //!    tier (`Nuclide::from_core`), so it runs anywhere; the data are the same
 //!    on both sides, which is all this test is about.
 //! 2. **The preset path runs.** `MCSettings::Fast` on the same model: the
@@ -37,7 +40,7 @@ use outram_mc_libs::geometry::surface::{BoundaryType, Sphere as SphereSurface, S
 use outram_mc_libs::geometry::universe::Universe;
 use outram_mc_libs::material::nuclide::Nuclide;
 use outram_mc_libs::model::prelude::*;
-use outram_mc_libs::physics::keff::KeffSettings as LowKeffSettings;
+use outram_mc_libs::physics::keff::{ComputeType, KeffSettings as LowKeffSettings, ThreadCount};
 use outram_mc_libs::physics::transport_csg::{run_keff_csg, SourceBox};
 use outram_mc_libs::vv::godiva;
 use uom::si::f64::{Length, ThermodynamicTemperature};
@@ -132,24 +135,27 @@ fn godiva_through_the_model_matches_the_hand_built_csg_bit_for_bit() {
         lower: Position::new(-r, -r, -r),
         upper: Position::new(r, r, r),
     };
-    let reference = run_keff_csg(&hand, &[godiva::material()], &nuclides, src, &low, None);
+    let reference_seq = run_keff_csg(&hand, &[godiva::material()], &nuclides, src, &low, None);
+    let low_par = LowKeffSettings {
+        compute: ComputeType::CpuMultiThread(ThreadCount::Fixed(3)),
+        ..low.clone()
+    };
+    let reference = run_keff_csg(&hand, &[godiva::material()], &nuclides, src, &low_par, None);
 
     let assembled = godiva_model(header_only_library())
         .assemble()
         .expect("Godiva assembles");
+    let custom = KeffSettings::new(
+        MCSettings::Custom(CustomRun {
+            particles: n,
+            inactive,
+            active,
+            seed,
+        }),
+        None,
+    );
     let run = assembled
-        .keff_with(
-            &nuclides,
-            &KeffSettings::new(
-                MCSettings::Custom(CustomRun {
-                    particles: n,
-                    inactive,
-                    active,
-                    seed,
-                }),
-                None,
-            ),
-        )
+        .keff_with(&nuclides, &custom)
         .expect("Godiva runs");
     assert_eq!(
         run.k_by_cycle, reference.k_by_generation,
@@ -157,6 +163,15 @@ fn godiva_through_the_model_matches_the_hand_built_csg_bit_for_bit() {
     );
     assert_eq!(run.keff().mean.to_bits(), reference.k_mean.to_bits());
     assert_eq!(run.keff().std.to_bits(), reference.k_std.to_bits());
+    assert!(run.provenance.backend.contains("multi-thread"));
+    // The single-thread choice is the single-thread reference, bit for bit.
+    let single = assembled
+        .keff_with(&nuclides, &custom.clone().single_thread())
+        .expect("Godiva runs on one thread");
+    assert_eq!(single.k_by_cycle, reference_seq.k_by_generation);
+    assert_eq!(single.keff().std.to_bits(), reference_seq.k_std.to_bits());
+    assert_eq!(single.provenance.threads, 1);
+    assert!(single.provenance.backend.contains("single thread"));
     assert_eq!(run.provenance.active_cycles, active);
     assert_eq!(run.provenance.inactive_cycles, inactive);
     assert!(matches!(

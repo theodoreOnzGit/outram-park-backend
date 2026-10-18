@@ -124,16 +124,22 @@ pub fn godiva_from_zip(zip: &[u8]) -> Result<String, String> {
     m.set_temperature(Temperature::Uniform(
         ThermodynamicTemperature::new::<kelvin>(godiva::TEMPERATURE_K),
     ));
+    // One thread, explicitly (gh #955): the pinned fingerprint and the
+    // browser record were made on the single-thread random streams, before
+    // the beginner run became multi-threaded by default.
     let run = m
-        .keff(KeffSettings::new(
-            MCSettings::Custom(CustomRun {
-                particles: 200,
-                inactive: 2,
-                active: 3,
-                seed: 5,
-            }),
-            None,
-        ))
+        .keff(
+            KeffSettings::new(
+                MCSettings::Custom(CustomRun {
+                    particles: 200,
+                    inactive: 2,
+                    active: 3,
+                    seed: 5,
+                }),
+                None,
+            )
+            .single_thread(),
+        )
         .map_err(|e| e.to_string())?;
     let mut h = FNV0;
     for k in &run.k_by_cycle {

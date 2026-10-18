@@ -41,10 +41,35 @@
 //!
 //! # Run backend
 //!
-//! The single-thread CSG power iteration
+//! ~~The single-thread CSG power iteration
 //! ([`CsgPowerIteration`]), bit for bit `run_keff_csg` with
-//! `ComputeType::CpuSingleThread` when the population is not changed. Lost
-//! histories are not counted on this path (gh #699); the result says so.
+//! `ComputeType::CpuSingleThread` when the population is not changed.~~
+//! **CORRECTED 2026-10-18 (gh #955):** the run is **multi-threaded by
+//! default** ([`RunBackend::MultiThread`]): the CSG power iteration
+//! ([`CsgPowerIteration::step_par`]) transports each generation's histories
+//! on rayon's **current** pool, the global one (sized by
+//! `RAYON_NUM_THREADS`, else every logical core) or the one the caller
+//! `install`s. It reuses the parallel history loop of `run_keff_csg_par`
+//! (`transport_csg::transport_generation_par`), so:
+//!
+//! - **the same seed gives the same k on any number of threads, bit for
+//!   bit**: history `i` of generation `g` runs on its own random stream
+//!   derived from `(seed, g, i)`, and every generation is reduced in history
+//!   order; `tests/model_repeated_structures.rs` pins it at 1, 2 and 4 threads
+//!   with every reactor-physics diagnostic on;
+//! - at a fixed population (`Custom`) it is `run_keff_csg` with
+//!   `ComputeType::CpuMultiThread` bit for bit;
+//! - it is **not** the single-thread k: a different, statistically
+//!   equivalent set of random streams. [`RunBackend::SingleThread`]
+//!   ([`KeffSettings::single_thread`]) keeps the old path, bit for bit
+//!   `run_keff_csg` with `ComputeType::CpuSingleThread`.
+//!
+//! Diagnostics (extra tallies, leakage grids, IFP kinetics) run on both
+//! backends; in parallel each chunk of histories scores into its own copy,
+//! added back in a fixed order, so their sums do not depend on the thread
+//! count either. [`RunProvenance::backend`] and [`RunProvenance::threads`]
+//! record which ran. Lost histories are not counted on either path
+//! (gh #699); the result says so.
 
 use raffles::estimators::autocorrelation::CorrelatedMean;
 use raffles::estimators::mean_and_stderr;
@@ -58,7 +83,7 @@ use super::diagnostics::{DiagnosticError, Diagnostics, MCDiagnostic, Region};
 use super::model::{AssembledModel, Model, ModelError};
 use crate::material::nuclide::Nuclide;
 use crate::physics::keff::KeffSettings as LowLevelKeffSettings;
-use crate::physics::transport_csg::CsgPowerIteration;
+use crate::physics::transport_csg::{CsgGenerationReport, CsgPowerIteration, GenerationTotals};
 use crate::stats::convergence::{SourceConvergence, TraceDiagnosis};
 use crate::tally::mesh::RegularMesh;
 
@@ -196,6 +221,24 @@ pub struct KeffSettings {
     mc: MCSettings,
     diagnostics: Option<Diagnostics>,
     progress: Progress,
+    backend: RunBackend,
+}
+
+/// **How the histories of a generation are run** (gh #955).
+///
+/// The answer for a given seed does not depend on the number of threads
+/// (module docs, "Run backend"); it does depend on the backend, since the
+/// two draw their random numbers in different streams.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum RunBackend {
+    /// Histories in parallel on rayon's current pool (the default): the
+    /// global pool, sized by `RAYON_NUM_THREADS` (else every logical core),
+    /// or a pool the caller `install`s around the run.
+    #[default]
+    MultiThread,
+    /// One thread, one random stream: bit for bit `run_keff_csg` with
+    /// `ComputeType::CpuSingleThread`.
+    SingleThread,
 }
 
 /// **Progress printed while a run goes** (maintainer direction, 2026-10-18:
@@ -224,7 +267,20 @@ impl KeffSettings {
             mc,
             diagnostics,
             progress: Progress::Print,
+            backend: RunBackend::MultiThread,
         }
+    }
+
+    /// The same settings, run on **one thread** ([`RunBackend::SingleThread`]),
+    /// the reference path every recorded single-thread number was made on.
+    pub fn single_thread(mut self) -> Self {
+        self.backend = RunBackend::SingleThread;
+        self
+    }
+
+    /// The backend the run uses.
+    pub fn backend(&self) -> RunBackend {
+        self.backend
     }
 
     /// The same settings, printing nothing while the run goes
@@ -380,6 +436,10 @@ pub struct RunProvenance {
     pub temperature_k: f64,
     /// What ran it.
     pub backend: &'static str,
+    /// Threads the run's histories were spread over: rayon's current pool
+    /// for [`RunBackend::MultiThread`] (1 on `wasm32`), 1 for
+    /// [`RunBackend::SingleThread`]. k does not depend on it.
+    pub threads: usize,
     /// Statements every reader should see (smoke test, unjustified
     /// thresholds, what is not counted).
     pub notes: Vec<String>,
@@ -608,8 +668,12 @@ impl std::fmt::Display for KeffRun {
         }
         writeln!(
             f,
-            "  data: {} at {} K; {}",
-            p.data_library, p.temperature_k, p.backend
+            "  data: {} at {} K; {} ({} thread{})",
+            p.data_library,
+            p.temperature_k,
+            p.backend,
+            p.threads,
+            if p.threads == 1 { "" } else { "s" }
         )?;
         for n in &p.physics {
             let dbrc = if n.dbrc.is_ok() { "on" } else { "OFF" };
@@ -802,16 +866,35 @@ impl AssembledModel {
         let mut tr = Traces::default();
         let print = settings.progress() == Progress::Print;
         // Inactive cycles discard their scores; active ones keep them. With
-        // no diagnostics this is exactly `step` (wave 1, bit for bit).
+        // no diagnostics on one thread this is exactly `step` (wave 1, bit
+        // for bit); in parallel, `step_par` (gh #955).
+        let backend = settings.backend();
         let step = |it: &mut CsgPowerIteration,
                     tr: &mut Traces,
                     c: &mut Option<Collector>,
                     active: bool|
          -> Result<(), RunError> {
             let n = it.population();
+            let run = |it: &mut CsgPowerIteration,
+                       extra: Option<&mut crate::physics::transport_csg::ExtraScoring>|
+             -> Option<(CsgGenerationReport, Option<GenerationTotals>)> {
+                match (backend, extra) {
+                    (RunBackend::SingleThread, None) => it.step(g, m, nuclides).map(|r| (r, None)),
+                    (RunBackend::SingleThread, Some(x)) => {
+                        it.step_scored(g, m, nuclides, x).map(|(r, t)| (r, Some(t)))
+                    }
+                    (RunBackend::MultiThread, None) => {
+                        it.step_par(g, m, nuclides, None).map(|(r, _)| (r, None))
+                    }
+                    (RunBackend::MultiThread, Some(x)) => it
+                        .step_par(g, m, nuclides, Some(x))
+                        .map(|(r, t)| (r, Some(t))),
+                }
+            };
             let r = match c.as_mut() {
-                None => it.step(g, m, nuclides),
-                Some(c) => it.step_scored(g, m, nuclides, &mut c.extra).map(|(r, t)| {
+                None => run(it, None).map(|(r, _)| r),
+                Some(c) => run(it, Some(&mut c.extra)).map(|(r, t)| {
+                    let t = t.unwrap_or_default();
                     if active {
                         c.active(&t, n, r.k);
                     } else {
@@ -970,7 +1053,21 @@ impl AssembledModel {
             physics: self.physics(nuclides),
             data_library: self.data_label.clone(),
             temperature_k: self.temperature_k,
-            backend: "CsgPowerIteration, CPU single thread (bit for bit run_keff_csg at a fixed population)",
+            backend: match settings.backend() {
+                RunBackend::MultiThread => {
+                    "CsgPowerIteration::step_par, CPU multi-thread on rayon's current pool \
+                     (k independent of the thread count; bit for bit run_keff_csg \
+                     CpuMultiThread at a fixed population)"
+                }
+                RunBackend::SingleThread => {
+                    "CsgPowerIteration, CPU single thread (bit for bit run_keff_csg \
+                     CpuSingleThread at a fixed population)"
+                }
+            },
+            threads: match settings.backend() {
+                RunBackend::MultiThread => current_threads(),
+                RunBackend::SingleThread => 1,
+            },
             notes: notes(settings.mc(), &p),
             ablations,
             convergence,
@@ -1014,6 +1111,19 @@ impl AssembledModel {
                 thermal_law: k.law.map(|l| format!("{l:?} (LEAPR, ENDF/B-VIII.0 deck)")),
             })
             .collect()
+    }
+}
+
+/// Threads in rayon's current pool (1 on `wasm32`, where the parallel
+/// adapters run serially).
+fn current_threads() -> usize {
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        rayon::current_num_threads()
+    }
+    #[cfg(target_arch = "wasm32")]
+    {
+        1
     }
 }
 

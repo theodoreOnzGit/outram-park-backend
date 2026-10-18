@@ -117,7 +117,7 @@ pub use model::{AssembledModel, GeometryProblem, Model, ModelError, NuclideKey, 
 pub use resolve::{MaterialError, MaterialReport, NumberDensityComparison, ResolvedMaterial};
 pub use run::{
     Convergence, CustomRun, Keff, KeffRun, KeffSettings, MCSettings, NormalityCheck, Progress,
-    NuclidePhysics, ReactivityTolerance, RunError, RunProvenance,
+    NuclidePhysics, ReactivityTolerance, RunBackend, RunError, RunProvenance,
 };
 pub use census::{Census, CensusRow};
 pub use lattice::Lattice;
@@ -134,7 +134,7 @@ pub mod prelude {
         DiagnosticError, Diagnostics, DiagnosticsReport, EnergyGrid, Element, Enrichment,
         FissileUranium, FuelForm, GraphiteKind, HeavyMetal, Isotope, Keff, KeffRun, KeffSettings,
         MCDiagnostic, MCSettings, Material, MaterialError, Model, ModelError, Moderator,
-        NuclearData, Placement, PpmOf, PuVector, ReactivityTolerance, Region, RunError, Shape,
+        NuclearData, Placement, PpmOf, PuVector, ReactivityTolerance, Region, RunBackend, RunError, Shape,
         Species, Sphere, Temperature,
     };
     pub use super::{

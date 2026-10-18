@@ -479,13 +479,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         nuclides.len()
     );
 
-    // The beginner run is single-threaded (bit for bit `run_keff_csg`), and
-    // this tiny mirrored cube makes each thermal history cross or reflect
-    // off its faces thousands of times: the Fast run with diagnostics took
-    // 3884 s (i9-13900K). On several cores the cheap way to more
-    // statistics is independent seeds side by side, without diagnostics:
-    // `--seeds-only N` (Fast's size, 5000 per cycle, 100 inactive fixed,
-    // 120 active; a stated size, not the watcher's).
+    // ~~The beginner run is single-threaded (bit for bit `run_keff_csg`)~~
+    // CORRECTED 2026-10-18 (gh #955): the beginner run is multi-threaded on
+    // rayon's pool (RAYON_NUM_THREADS sets its size; k is the same on any
+    // number of threads). This tiny mirrored cube makes each thermal
+    // history cross or reflect off its faces thousands of times: the Fast
+    // run with diagnostics took 3884 s on one thread (i9-13900K).
+    // Independent seeds side by side, without diagnostics, are another
+    // route to more statistics: `--seeds-only N` (Fast's size, 5000 per
+    // cycle, 100 inactive fixed, 120 active; a stated size, not the
+    // watcher's), each seed on one thread (`single_thread`).
     if let Some(n) = arg("--seeds-only").and_then(|s| s.parse::<usize>().ok()) {
         let workers = arg("--workers")
             .and_then(|s| s.parse().ok())
@@ -503,7 +506,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                             seed,
                         }),
                         None,
-                    ),
+                    )
+                    .single_thread(),
                 )
                 .expect("a seed run");
             (r.keff().mean, r.keff().std)
@@ -532,8 +536,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let run_s = t.elapsed().as_secs_f64();
     println!("\n{run}");
     println!(
-        "  wall time: data {data_s:.1} s ({} nuclides, processed in parallel), transport with diagnostics {run_s:.1} s single-threaded\n  hardware: {}",
+        "  wall time: data {data_s:.1} s ({} nuclides, processed in parallel), transport with diagnostics {run_s:.1} s on {} thread(s)\n  hardware: {}",
         nuclides.len(),
+        run.provenance.threads,
         HardwareInfo::detect().headline()
     );
 

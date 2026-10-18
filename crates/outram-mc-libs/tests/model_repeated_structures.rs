@@ -17,10 +17,13 @@
 //!    cell list, the lattice (grid, lower-left, pitch, tile universes,
 //!    outer) and the root are compared for equality. Only the integer cell
 //!    and universe ids (labels, read by no transport code) are not compared.
-//! 2. **Transport**: the single-thread CSG power iteration on the
-//!    hand-built geometry (`run_keff_csg`) and the beginner run on the
-//!    assembled model (`keff_with`, `MCSettings::Custom`) at the same seed
-//!    must give the same `k` in every generation, to the last bit. Data:
+//! 2. **Transport**: the CSG power iteration on the hand-built geometry
+//!    (`run_keff_csg`) and the beginner run on the assembled model
+//!    (`keff_with`, `MCSettings::Custom`) at the same seed must give the same
+//!    `k` in every generation, to the last bit, on both backends (**since
+//!    2026-10-18, gh #955**: the default multi-thread run against
+//!    `ComputeType::CpuMultiThread`, `.single_thread()` against
+//!    `ComputeType::CpuSingleThread`; ~~single-thread only~~ before). Data:
 //!    the embedded LOW tier (`Nuclide::from_core`) on both sides, so this
 //!    runs anywhere; it tests the geometry, not the data.
 //! 3. **Counting from the geometry** (gh:#316: a lattice held 8240 TRISO
@@ -49,7 +52,7 @@ use outram_mc_libs::geometry::volume_calc::{BoundingBox, VolumeCalculation, Volu
 use outram_mc_libs::material::nuclide::Nuclide;
 use outram_mc_libs::model::prelude::*;
 use outram_mc_libs::pebble_beds::fhr_pebble::homogeneous_cube;
-use outram_mc_libs::physics::keff::KeffSettings as LowKeffSettings;
+use outram_mc_libs::physics::keff::{ComputeType, KeffSettings as LowKeffSettings, ThreadCount};
 use outram_mc_libs::physics::transport_csg::run_keff_csg;
 use uom::si::f64::{Length, Ratio, ThermodynamicTemperature};
 use uom::si::length::centimeter;
@@ -229,26 +232,34 @@ fn assert_same_k(a: &AssembledModel, hand: &Geometry) -> f64 {
         seed,
         ..LowKeffSettings::default()
     };
-    let reference = run_keff_csg(hand, &a.materials, &nuclides, a.source_box, &low, None);
-    let run = a
-        .keff_with(
-            &nuclides,
-            &KeffSettings::new(
-                MCSettings::Custom(CustomRun {
-                    particles: n,
-                    inactive,
-                    active,
-                    seed,
-                }),
-                None,
-            ),
-        )
-        .expect("runs");
+    let reference_seq = run_keff_csg(hand, &a.materials, &nuclides, a.source_box, &low, None);
+    let low_par = LowKeffSettings {
+        compute: ComputeType::CpuMultiThread(ThreadCount::Fixed(3)),
+        ..low.clone()
+    };
+    let reference = run_keff_csg(hand, &a.materials, &nuclides, a.source_box, &low_par, None);
+    let custom = KeffSettings::new(
+        MCSettings::Custom(CustomRun {
+            particles: n,
+            inactive,
+            active,
+            seed,
+        }),
+        None,
+    );
+    let run = a.keff_with(&nuclides, &custom).expect("runs");
     assert_eq!(
         run.k_by_cycle, reference.k_by_generation,
         "per-generation k must be identical bit for bit"
     );
     assert_eq!(run.keff().mean.to_bits(), reference.k_mean.to_bits());
+    let single = a
+        .keff_with(&nuclides, &custom.clone().single_thread())
+        .expect("runs on one thread");
+    assert_eq!(
+        single.k_by_cycle, reference_seq.k_by_generation,
+        "single thread: per-generation k must be identical bit for bit"
+    );
     println!(
         "bit for bit: model {} vs hand-built {:.5} ± {:.5}",
         run.keff(),
@@ -529,4 +540,80 @@ fn rows_top_down_place_tiles_where_the_picture_shows_them() {
         .iter()
         .find(|r| r.material == "buffer" && r.copies == 3);
     assert!(empty.is_some(), "three empty tiles: {census}");
+}
+
+/// **The default run is multi-threaded, and its answer does not depend on
+/// the number of threads** (gh #955). Tutorial 4's unit cell, run through
+/// the beginner API with the reactor-physics diagnostics (extra tallies,
+/// leakage grids, IFP kinetics, mesh maps) inside rayon pools of 1, 2 and 4
+/// threads: the per-generation k and entropy, and every diagnostic except
+/// the wall time, are equal bit for bit; the provenance records the pool
+/// size. The single-thread run is a different (statistically equivalent)
+/// estimate, recorded as such.
+#[test]
+fn the_run_gives_the_same_k_and_diagnostics_on_any_number_of_threads() {
+    let m = mats();
+    let p = particle(&m);
+    let cell = Cube::with_packing_fraction(&p, Ratio::new::<ratio>(htr10_pf()))
+        .filled_with(m.matrix.clone())
+        .containing(p)
+        .boundary(Boundary::Reflective);
+    let a = model_with(cell).assemble().unwrap();
+    let nuclides = low_tier(&a);
+    let settings = KeffSettings::new(
+        MCSettings::Custom(CustomRun {
+            particles: 300,
+            inactive: 4,
+            active: 12,
+            seed: 955,
+        }),
+        Some(Diagnostics::reactor_physics()),
+    )
+    .silent();
+    let on = |threads: usize| {
+        let pool = rayon::ThreadPoolBuilder::new()
+            .num_threads(threads)
+            .build()
+            .unwrap();
+        let mut run = pool.install(|| a.keff_with(&nuclides, &settings)).unwrap();
+        assert_eq!(run.provenance.threads, threads);
+        assert!(run.provenance.backend.contains("multi-thread"));
+        for (_, r) in run.diagnostics.iter_mut() {
+            if let MCDiagnosticResult::RunHealth(h) = r {
+                assert!(h.transport_seconds.is_some());
+                h.transport_seconds = None;
+            }
+        }
+        run
+    };
+    let one = on(1);
+    for t in [2, 4] {
+        let other = on(t);
+        assert_eq!(one.k_by_cycle, other.k_by_cycle, "{t} threads: k");
+        assert_eq!(
+            one.entropy_by_cycle, other.entropy_by_cycle,
+            "{t} threads: H"
+        );
+        assert_eq!(
+            one.diagnostics, other.diagnostics,
+            "{t} threads: diagnostics"
+        );
+    }
+    assert!(one.kinetics().is_ok(), "IFP ran in parallel");
+    let single = a
+        .keff_with(&nuclides, &settings.clone().single_thread())
+        .unwrap();
+    assert_eq!(single.provenance.threads, 1);
+    assert_ne!(
+        single.k_by_cycle, one.k_by_cycle,
+        "different random streams"
+    );
+    let z = (single.keff().mean - one.keff().mean)
+        / (single.keff().std.powi(2) + one.keff().std.powi(2)).sqrt();
+    println!(
+        "threads: k {} (any pool) vs {} (single thread), {z:+.2} sigma",
+        one.keff(),
+        single.keff()
+    );
+    assert!(z.abs() < 5.0, "{z}");
 }
