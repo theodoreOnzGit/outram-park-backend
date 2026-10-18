@@ -77,8 +77,14 @@
 //! | case | port | upstream | difference |
 //! |---|---|---|---|
 //! | ESFR, upstream's converged state | 0.937442 | 0.936873 | **+60.7 pcm** |
-//! | **MSFR, as the tutorial ships it** | **0.960314** | **0.960312** | **+0.2 pcm** |
+//! | **MSFR, as the tutorial ships it** | ~~**0.960314**~~ **0.960315** | **0.960312** | ~~**+0.2 pcm**~~ **+0.3 pcm** |
+//!
 //! | MSFR, precursor drift suppressed on both sides | 0.962032 | 0.962019 | +1.4 pcm |
+//!
+//! **CORRECTED 2026-10-18 (gh:#952)**: the precursor-diffusion term was
+//! subtracted (anti-diffusion) and is now added; the port moved from 0.960314
+//! to 0.960315 (+0.2 to +0.3 pcm), well inside the 1 pcm gate. Diffusivity is
+//! small on this case, which is why the error was invisible.
 //!
 //! The MSFR case was **+787.8 pcm** adrift before 2026-09-15. Bisecting it
 //! against upstream — by disabling, one at a time and in upstream itself, the

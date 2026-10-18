@@ -268,8 +268,10 @@ impl HrmFoam {
         let dt = self.control.delta_t;
         let conv_y = fvc::div(&self.phi, &self.y);
         let d_f = fvc::interpolate(&self.gas_diffusivity);
+        // Diffusion is ADDED: this workspace's fvm::laplacian is the positive
+        // -div(D grad) (upstream's `- fvm::laplacian` is OpenFOAM's negative one).
         let mut y_eqn =
-            fvm::ddt_coeff(&self.rho, &self.y, y_old, dt) - fvm::laplacian(&d_f, &self.y);
+            fvm::ddt_coeff(&self.rho, &self.y, y_old, dt) + fvm::laplacian(&d_f, &self.y);
         {
             let conv_sl = conv_y.internal.as_slice();
             for c in 0..n {
@@ -406,7 +408,7 @@ impl HrmFoam {
                     fvc::div(&phiv, &self.p) - self.p.clone() * fvc::div_flux(&phiv);
 
                 let mut h_eqn = fvm::ddt_coeff(&self.rho, &self.h, &h_old, dt)
-                    - fvm::laplacian(&alpha_h_f, &self.h);
+                    + fvm::laplacian(&alpha_h_f, &self.h);
                 {
                     let conv_sl = conv_h.internal.as_slice();
                     let dpdt_sl = dp_dt.internal.as_slice();
@@ -424,7 +426,7 @@ impl HrmFoam {
             // ── UEqn: ∂(ρU)/∂t + ∇·(ρUU) − ∇·(μ∇U) = −∇p ─────────────────
             let mut u_eqn = fvm::ddt_coeff_vec(&self.rho, &self.u, &u_old, dt, mesh.clone())
                 + fvm::div_vec(&self.phi, &self.u, mesh.clone())
-                - fvm::laplacian_vec(&self.mu, &self.u, mesh.clone());
+                + fvm::laplacian_vec(&self.mu, &self.u, mesh.clone());
 
             let a = u_eqn.a_field();
             let rau = {
@@ -600,5 +602,171 @@ mod tests {
         };
 
         assert_eq!(config.relaxation_time(1.0, 0.0), 1.0e-3);
+    }
+
+    // ── Diffusion sign (gh:#952) ──────────────────────────────────────────
+    //
+    // Upstream HRMFoam writes `fvm::ddt(rho,y) + fvm::div(phi,y) -
+    // fvm::laplacian(D,y)` (yEqn.H) and `... == ... + fvm::laplacian(alphaMix,h)`
+    // (hEqn.H), and the momentum diffusion through `divDevRhoReff`
+    // (`- fvm::laplacian(muEff, U)`). OpenFOAM's `fvm::laplacian` is the NEGATIVE
+    // operator `+div(G grad)`, so every one of those is physical diffusion.
+    // This workspace's `fvm::laplacian` is the POSITIVE operator `-div(G grad)`,
+    // so a literal transcription (`ddt - laplacian`) is anti-diffusion.
+    //
+    // Methodology: closed 1-D slab (L = 1, N = 20 cells, zero-gradient ends),
+    // u = 0, uniform p, so `step()` reduces to pure diffusion. The cell-centred
+    // Neumann operator has the exact eigenvector cos(m pi (i + 1/2) / N) with
+    // eigenvalue mu_m/dx^2, mu_m = 2 - 2 cos(m pi / N); with rho = 1, G = 1 and
+    // dt chosen so G dt / (rho dx^2) = 0.2, one backward-Euler step multiplies
+    // the mode amplitude by f = 1 / (1 + 0.2 mu_m) = 0.895 (m = 5), against
+    // 1 / (1 - 0.2 mu_m) = 1.133 for anti-diffusion.
+    //
+    // Prediction (before the run): with `ddt - laplacian` the amplitude GROWS by
+    // ~13 % in one step for y and h. Pass criterion: amplitude equals the
+    // physical factor to 1e-5 relative (solver tolerance 1e-7).
+
+    use outram_foam_basic_lib::interface::one_dimensional_meshing::create_one_d_mesh;
+    use uom::si::area::square_meter;
+    use uom::si::f64::{Area, Length};
+    use uom::si::length::meter;
+
+    const N: usize = 20;
+    const MODE: usize = 5;
+    /// `G dt / (rho dx^2)`; below 0.25 so that the anti-diffusion matrix stays
+    /// positive definite and the wrong sign shows as GROWTH rather than NaN.
+    const RATIO: f64 = 0.2;
+
+    fn mode(i: usize) -> f64 {
+        (MODE as f64 * std::f64::consts::PI * (i as f64 + 0.5) / N as f64).cos()
+    }
+
+    fn mu_m() -> f64 {
+        2.0 - 2.0 * (MODE as f64 * std::f64::consts::PI / N as f64).cos()
+    }
+
+    fn amplitude(values: &[f64], base: f64) -> f64 {
+        let num: f64 = values
+            .iter()
+            .enumerate()
+            .map(|(i, v)| (v - base) * mode(i))
+            .sum();
+        let den: f64 = (0..N).map(|i| mode(i) * mode(i)).sum();
+        num / den
+    }
+
+    fn solver() -> HrmFoam {
+        let mesh = Arc::new(
+            create_one_d_mesh(
+                Length::new::<meter>(1.0),
+                Area::new::<square_meter>(1.0),
+                N as i64,
+            )
+            .expect("mesh"),
+        );
+        let dx = 1.0 / N as f64;
+        let control = ControlDict {
+            delta_t: RATIO * dx * dx,
+            ..ControlDict::default()
+        };
+        let model = HrmModelConfig {
+            solve_gas_fraction: false,
+            adiabatic: true,
+            ..HrmModelConfig::default()
+        };
+        let mut s = HrmFoam::with_model_config(
+            mesh.clone(),
+            control,
+            FvSchemes::default(),
+            FvSolution::default(),
+            model,
+        );
+        s.rho = VolScalarField::uniform("rho", mesh.clone(), 1.0);
+        s.mu = VolScalarField::uniform("mu", mesh.clone(), 1.0);
+        s.alpha_h = VolScalarField::uniform("alphaEff", mesh.clone(), 1.0);
+        s.gas_diffusivity = VolScalarField::uniform("D", mesh, 1.0);
+        s
+    }
+
+    #[test]
+    fn gas_fraction_diffusion_decays_at_the_analytic_rate() {
+        let mut s = solver();
+        s.model.solve_gas_fraction = true;
+        for i in 0..N {
+            s.y.internal[i] = 0.5 + 0.2 * mode(i);
+        }
+        s.step().expect("step");
+        let a = amplitude(s.y.internal.as_slice(), 0.5) / 0.2;
+        let f = 1.0 / (1.0 + RATIO * mu_m());
+        eprintln!(
+            "y: amplitude factor {a:.9}, physical {f:.9}, anti-diffusion {:.9}",
+            1.0 / (1.0 - RATIO * mu_m())
+        );
+        assert!(
+            a.is_finite() && ((a - f) / f).abs() < 1e-5,
+            "y factor {a} vs physical {f}"
+        );
+    }
+
+    #[test]
+    fn enthalpy_diffusion_decays_at_the_analytic_rate() {
+        let mut s = solver();
+        s.model.adiabatic = false;
+        for i in 0..N {
+            s.h.internal[i] = 1.0e5 + 1.0e3 * mode(i);
+        }
+        s.step().expect("step");
+        let a = amplitude(s.h.internal.as_slice(), 1.0e5) / 1.0e3;
+        let f = 1.0 / (1.0 + RATIO * mu_m());
+        eprintln!(
+            "h: amplitude factor {a:.9}, physical {f:.9}, anti-diffusion {:.9}",
+            1.0 / (1.0 - RATIO * mu_m())
+        );
+        assert!(
+            a.is_finite() && ((a - f) / f).abs() < 1e-5,
+            "h factor {a} vs physical {f}"
+        );
+    }
+
+    /// Momentum: a transverse shear mode u = (0, cos, 0) carries no face flux, so
+    /// p stays uniform and the step's final `u` is `HbyA = H(U*)/A`, with `U*`
+    /// the implicit predictor. Expected, cell by cell: `U* = f v` (f as above),
+    /// `H_c = R u_old_c + c sum_nb U*_nb`, `A_c = R + n_nb c`, where `R = rho V/dt`
+    /// and `c = mu |S|/dx`. Anti-diffusion flips the sign of `c` in both `A`
+    /// and `H` and makes `|u|` grow.
+    #[test]
+    fn momentum_diffusion_follows_the_hbya_closed_form() {
+        use outram_foam_basic_lib::primitives::Vector3;
+        let mut s = solver();
+        for i in 0..N {
+            s.u.internal[i] = Vector3::new(0.0, mode(i), 0.0);
+        }
+        s.step().expect("step");
+        let dx = 1.0 / N as f64;
+        let dt = s.control.delta_t;
+        let r = dx / dt; // rho = 1, V = dx (unit area)
+        let c = 1.0 / dx; // mu = 1, |S| = 1
+        let f = 1.0 / (1.0 + RATIO * mu_m());
+        let mut worst: f64 = 0.0;
+        for i in 0..N {
+            let mut h = r * mode(i);
+            let mut a = r;
+            for nb in [i.checked_sub(1), (i + 1 < N).then_some(i + 1)]
+                .into_iter()
+                .flatten()
+            {
+                h += c * f * mode(nb);
+                a += c;
+            }
+            let expect = h / a;
+            let got = s.u.internal[i].y;
+            assert!(got.is_finite(), "u_y[{i}] is {got}");
+            worst = worst.max((got - expect).abs());
+        }
+        eprintln!("U: worst |u_y - HbyA closed form| = {worst:.3e}");
+        assert!(
+            worst < 1e-5,
+            "momentum diffusion departs from the closed form by {worst}"
+        );
     }
 }
