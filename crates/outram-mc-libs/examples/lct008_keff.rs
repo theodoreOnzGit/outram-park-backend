@@ -782,7 +782,9 @@ fn arg_usize(args: &[String], flag: &str) -> Option<usize> {
 /// difference is attributable to the flag alone.~~ **CORRECTED 2026-10-04:**
 /// the *flags* default to off, but the *physics* does not. `load()` builds
 /// every nuclide through `Nuclide::from_endf_file_with_speed`, whose
-/// constructor ends in `with_urr_probability_tables(.., 20, 16, 2000)` and
+/// constructor ends in ~~`with_urr_probability_tables(.., 20, 16, 2000)`~~
+/// URR tables made by njoy's `process` (20 / 64 / 10 000 after HEATR, since
+/// gh:#931; CORRECTED 2026-10-17) and
 /// `with_dbrc(DBRC_DEFAULT_E_MAX_EV)` (`src/material/nuclide.rs`,
 /// `from_tape_with_broadr_tolerance`), so a run without flags already carries
 /// both and the flags only rebuild them. A no-flag run is NOT the pre-2026-09-16
@@ -902,7 +904,8 @@ fn load_nuclides(
                 let mat = tape.materials()[0];
                 let t0 = Instant::now();
                 n = n
-                    .with_urr_probability_tables(&tape, mat, TEMP_K, 20, 16, 2000)
+                    // PURR at route 4's settings since gh:#931 (`process`'s 20 / 64 / 10 000; was 20 / 16 / 2000).
+                    .with_urr_probability_tables(&tape, mat, TEMP_K, 20, 64, 10_000)
                     .expect("PURR");
                 if let Some((lo, hi)) = n.urr_range_ev() {
                     eprintln!(

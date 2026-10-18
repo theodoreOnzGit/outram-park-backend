@@ -115,3 +115,8 @@ nothing); (c) keep route 4's PURR settings through
 `CrossSectionSettings::with_purr(20, 16, 2000)` (and perhaps
 `without_heatr()`) so #931 moves nothing. **Not checked:** whether (c)
 reproduces route 4's PURR tables bit for bit.
+
+**Decided 2026-10-17 (maintainer, on #929/#931): option (a).** Route 4 now
+runs `process` at its defaults; the hand-built chain measured above as
+"route 4" is kept as `Nuclide::process_evaluation_pre_931`. The re-measure
+is in `../route4_process_931/README.md`.

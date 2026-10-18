@@ -152,15 +152,19 @@ Data and decks:
 
 | term | OpenMC (1, 2) | outram-mc ENDF (4) | outram-mc ACE (3, 5) |
 |---|---|---|---|
-| URR probability tables | on, from the UNR block | on, built at load (PURR 20 bins / 16 ladders / 2000 samples) | on, from the UNR block |
+| URR probability tables | on, from the UNR block | on, built at load (PURR 20 bins / ~~16 ladders / 2000 samples~~ **64 ladders / 10 000 samples after HEATR, by njoy's `process`, since 2026-10-17, gh:#931**) | on, from the UNR block |
 | resonance elastic scattering | `dbrc`, 1e-5 eV to 1 keV, all nuclides | DBRC, E ≤ 1 keV, all nuclides | DBRC, E ≤ 1 keV, 0 K companion paired |
 | S(α,β) H in H₂O (hst009, lct008) | ACE table, IFENG = 0 | this crate's ENDF kernel | ACE table, IFENG = 0 |
 | k in the `k` column | combined estimator (`k_alt` holds the generation mean) | generation mean | generation mean |
 
 **Known asymmetries:**
 
-- **URR ladders.** The ENDF route builds its tables with 16 ladders and 2000
-  samples; the ACE libraries used 64.
+- ~~**URR ladders.** The ENDF route builds its tables with 16 ladders and 2000
+  samples; the ACE libraries used 64.~~ **CLOSED 2026-10-17 (gh:#931):** the
+  ENDF route now runs `process` at 20 / 64 / 10 000 after HEATR, the Rust
+  ACE library's settings. Every route-4 row recorded before that date is
+  the old 16 / 2000 data (now the ablation `--route4-data pre931`); the
+  re-measure is in `../route4_process_931/README.md`.
 - **S(α,β) discretisation.** The ENDF route uses its own discretisation.
 - **DBRC lower bound.** OpenMC's DBRC starts at 1e-5 eV because its API refuses
   0; outram-mc has no lower bound.
@@ -301,13 +305,27 @@ not converged.
 
 | case | route 1 k | Δ vs benchmark [pcm] | route 2 | route 3 | route 4 | route 5 |
 |---|---|---|---|---|---|---|
-| Godiva | 1.00016 ± 0.00021 | +16 ± 21 | +0 ± 29 | −7 ± 36 | −47 ± 35 (−1.3σ) | −7 ± 36 |
-| Jemima | 0.99594 ± 0.00017 | −406 ± 17 | +0 ± 25 | +0 ± 31 | +15 ± 32 | +0 ± 31 |
-| HST-009 (with U-236) | 1.00124 ± 0.00029 | +224 ± 29 | +0 ± 41 | −48 ± 41 | −52 ± 36 (−1.5σ) | −48 ± 41 |
-| LCT-008 (35 nuclides) | 1.00161 ± 0.00013 | +91 ± 13 | −32 ± 21 (−1.6σ) | −9 ± 23 | −1 ± 25 | −25 ± 25 |
+| Godiva | 1.00016 ± 0.00021 | +16 ± 21 | +0 ± 29 | −7 ± 36 | ~~−47 ± 35 (−1.3σ)~~ **−15 ± 22** (2026-10-18, 512 seeds) | −7 ± 36 |
+| Jemima | 0.99594 ± 0.00017 | −406 ± 17 | +0 ± 25 | +0 ± 31 | ~~+15 ± 32~~ **+31 ± 24** (2026-10-18, 128 seeds) | +0 ± 31 |
+| HST-009 (with U-236) | 1.00124 ± 0.00029 | +224 ± 29 | +0 ± 41 | −48 ± 41 | ~~−52 ± 36 (−1.5σ)~~ **−48 ± 32** (−1.5σ; 2026-10-18, 96 seeds) | −48 ± 41 |
+| LCT-008 (35 nuclides) | 1.00161 ± 0.00013 | +91 ± 13 | −32 ± 21 (−1.6σ) | −9 ± 23 | ~~−1 ± 25~~ **−26 ± 26** (2026-10-18, 32 seeds) | −25 ± 25 |
 
 The route columns are Δ vs route 1 in pcm. The full table, with every route's
 k and seed sd, is `data/summary_keff.md`.
+
+**Route 4 re-measured 2026-10-18 (gh:#931).** Route 4 now makes its data
+with njoy's `process` (PURR 20 / 64 / 10 000 after HEATR; it was 20 / 16 /
+2000 without HEATR). The struck values above are the old data, kept as the
+ablation `--route4-data pre931`, which reproduces them seed for seed. The
+new route-4 k values are Godiva 1.00001 ± 0.00008, Jemima 0.99624 ±
+0.00017, HEU-SOL-THERM-009 1.00076 ± 0.00014 and LCT-008 1.00135 ± 0.00023.
+The move on the same seeds is −0.2 ± 11, −14 ± 23, −40 ± 21 (1.9σ, not
+resolved) and −25 ± 31 pcm. Every cell is still within 2σ of route 1.
+Methodology, controls (HEATR bit for bit; only the PURR counts move k) and
+the per-seed rows are in `../route4_process_931/README.md`.
+`data/summary_keff.*` and the figure still carry the old route-4 rows.
+They were not regenerated, because that would mix seed counts across
+routes.
 
 **What it says.**
 - **Every case and route is within 2σ of route 1.**

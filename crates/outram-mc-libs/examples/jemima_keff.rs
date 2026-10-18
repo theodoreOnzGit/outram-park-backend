@@ -165,7 +165,8 @@ fn main() {
                 let tape = njoy_outram_park_fork::endf::tape::Tape::read_file(&p).expect("tape");
                 let mat = tape.materials()[0];
                 let n = n
-                    .with_urr_probability_tables(&tape, mat, TEMP_K, 20, 16, 2000)
+                    // PURR at route 4's settings since gh:#931 (`process`'s 20 / 64 / 10 000; was 20 / 16 / 2000).
+                    .with_urr_probability_tables(&tape, mat, TEMP_K, 20, 64, 10_000)
                     .expect("PURR");
                 if let Some((lo, hi)) = n.urr_range_ev() {
                     eprintln!("    URR tables over [{lo:.3e}, {hi:.3e}] eV");

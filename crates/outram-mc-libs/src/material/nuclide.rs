@@ -390,9 +390,15 @@ pub struct Nuclide {
 mod multipole;
 pub use multipole::{MultipoleAttachError, MultipoleConsistency, MULTIPOLE_EVALUATION_TOLERANCE};
 
-/// PURR's table settings for every nuclide, `(nbin, nladr, nsamp)`: 20
-/// probability bins from 16 ladders of 2000 samples
-/// ([`Nuclide::urr_tables`]). A web demo's cache key names them.
+/// PURR's table settings of the pre-gh:#931 chain, `(nbin, nladr, nsamp)`:
+/// 20 probability bins from 16 ladders of 2000 samples
+/// ([`Nuclide::urr_tables`], [`Nuclide::process_evaluation_pre_931`]). A web
+/// demo's cache key names them; the browser demos stay on them until gh:#932.
+///
+/// ~~PURR's table settings for every nuclide~~ **CORRECTED 2026-10-17
+/// (gh:#931):** route 4 ([`Nuclide::process_evaluation`], and so
+/// [`Nuclide::from_tape`] and [`Nuclide::from_endf_file`]) now takes
+/// `process`'s defaults, 20 / 64 / 10 000 with HEATR first.
 pub const URR_TABLE_SETTINGS: (usize, usize, usize) = (20, 16, 2000);
 
 /// Upper energy \[eV\] of the 0 K elastic grid retained for DBRC.
@@ -2561,11 +2567,24 @@ impl Nuclide {
         Self::from_processed(tape, mat, name, temp_k, processed)
     }
 
-    /// **The expensive half of [`Self::from_tape`]**: RECONR at 0 K, the 0 K
-    /// elastic grid DBRC needs, BROADR to `temp_k`, and PURR's URR
-    /// probability tables. Most of a nuclide's construction time is here
-    /// (U-235 and U-238: tens of seconds); [`Self::from_processed`] does the
-    /// rest from the tape in a fraction of that.
+    /// **The expensive half of [`Self::from_tape`]**: RECONR at 0 K, BROADR
+    /// to `temp_k`, HEATR, PURR's URR probability tables and the 0 K elastic
+    /// DBRC needs. Most of a nuclide's construction time is here (U-235 and
+    /// U-238: tens of seconds); [`Self::from_processed`] does the rest from
+    /// the tape in a fraction of that.
+    ///
+    /// **A thin call into njoy's `process` (gh:#931):** exactly
+    /// [`Self::process_evaluation_with`] at
+    /// `CrossSectionSettings::default()` with RECONR's tolerance `tolerance`
+    /// and BROADR's `broadr_errthn`, i.e. `process::reconstruct` then
+    /// `process::cross_sections_at` at NJOY's deck defaults: PURR with 20
+    /// bands, 64 ladders and 10 000 samples, HEATR before PURR, the PENDF
+    /// text rounding, and the whole-range 0 K elastic (maintainer decision
+    /// 2026-10-17, #929/#931). No processing logic is written here.
+    /// `tests/route4_is_process.rs` pins it bit for bit against
+    /// `process::cross_sections`. Before gh:#931 this was a hand-built chain
+    /// at 20 / 16 / 2000 without HEATR; that chain is kept as the named
+    /// ablation [`Self::process_evaluation_pre_931`].
     ///
     /// Split out (gh:#786) so the work can be shared: one process or Web
     /// Worker runs this, ships the result as `f64`s
@@ -2578,10 +2597,79 @@ impl Nuclide {
     /// `tolerance` is RECONR's, `broadr_errthn` BROADR's thinning tolerance
     /// (both dimensionless); `temp_k` in K.
     ///
+    /// **Cost.** PURR at 64 ladders x 10 000 samples is 20 times the Monte
+    /// Carlo work of the pre-#931 16 x 2000; the load times are measured in
+    /// the gh:#931 V&V record (`verification_and_validation/route4_process_931/`).
+    ///
     /// # Errors
     ///
-    /// As [`Self::from_tape`]: RECONR or PURR refusing the evaluation.
+    /// As [`Self::process_evaluation_with`].
     pub fn process_evaluation(
+        tape: &njoy_outram_park_fork::endf::tape::Tape,
+        mat: i32,
+        temp_k: f64,
+        tolerance: f64,
+        broadr_errthn: f64,
+    ) -> Result<crate::material::processed::ProcessedEvaluation, NjoyError> {
+        use uom::si::thermodynamic_temperature::kelvin;
+        let settings = njoy_outram_park_fork::process::CrossSectionSettings::default()
+            .with_reconr_tolerance(tolerance)
+            .with_broadr_tolerance(broadr_errthn);
+        let t = uom::si::f64::ThermodynamicTemperature::new::<kelvin>(temp_k);
+        Self::process_evaluation_with(tape, mat, t, &settings)
+    }
+
+    /// [`Self::process_evaluation`] with any `process` settings: one
+    /// `process::reconstruct` (RECONR at 0 K) and one
+    /// `process::cross_sections_at` at `temperature`, the result carried
+    /// over field for field
+    /// ([`ProcessedEvaluation::from_cross_sections`](crate::material::processed::ProcessedEvaluation::from_cross_sections)).
+    /// The ablations are `process`'s own `without_*` builders (e.g.
+    /// `CrossSectionSettings::default().without_heatr()`), so this layer
+    /// cannot switch physics off quietly.
+    ///
+    /// # Errors
+    ///
+    /// [`NjoyError::InvalidInput`] when the tape does not hold exactly one
+    /// material, or that material is not `mat` (`process` reads the MAT from
+    /// the tape); otherwise those of `process::reconstruct` and
+    /// `process::cross_sections_at` (RECONR, PURR or HEATR refusing the
+    /// evaluation, a negative temperature, a non-positive tolerance).
+    pub fn process_evaluation_with(
+        tape: &njoy_outram_park_fork::endf::tape::Tape,
+        mat: i32,
+        temperature: uom::si::f64::ThermodynamicTemperature,
+        settings: &njoy_outram_park_fork::process::CrossSectionSettings,
+    ) -> Result<crate::material::processed::ProcessedEvaluation, NjoyError> {
+        use njoy_outram_park_fork::process;
+        let on_tape = process::single_material(tape)?;
+        if on_tape != mat {
+            return Err(NjoyError::InvalidInput(format!(
+                "asked to process MAT {mat}, but the tape holds MAT {on_tape}"
+            )));
+        }
+        let recon = process::reconstruct(tape, settings)?;
+        let xs = process::cross_sections_at(&recon, temperature, settings)?;
+        Ok(crate::material::processed::ProcessedEvaluation::from_cross_sections(xs))
+    }
+
+    /// **Ablation: route 4's data as made before gh:#931**, kept so the move
+    /// onto `process` can be measured against it (root `CLAUDE.md`: an
+    /// ablation is an explicit, named act). The hand-built chain
+    /// [`Self::reconstruct_0k`] -> [`Self::urr_tables`] (PURR at
+    /// [`URR_TABLE_SETTINGS`], 20 / 16 / 2000, no HEATR) ->
+    /// [`Self::process_from_stages`] (BROADR; the raw 0 K elastic up to
+    /// [`DBRC_GRID_MAX_EV`]).
+    ///
+    /// Not route 4 any more: [`Self::process_evaluation`] is. Its other
+    /// user is the browser demos' cache (`dhoby-ghaut`'s
+    /// `processed_cache.rs`), which stores these stages separately and stays
+    /// on this chain until gh:#932 moves it.
+    ///
+    /// # Errors
+    ///
+    /// RECONR or PURR refusing the evaluation.
+    pub fn process_evaluation_pre_931(
         tape: &njoy_outram_park_fork::endf::tape::Tape,
         mat: i32,
         temp_k: f64,
@@ -2593,7 +2681,7 @@ impl Nuclide {
         Ok(Self::process_from_stages(&recon0, urr, temp_k, broadr_errthn))
     }
 
-    /// **Stage 1 of [`Self::process_evaluation`]**: RECONR at 0 K, at
+    /// **Stage 1 of [`Self::process_evaluation_pre_931`]**: RECONR at 0 K, at
     /// RECONR's `tolerance`. Split out (gh:#923) so the web demos can keep
     /// it by itself: it does not depend on the temperature, so one
     /// reconstruction serves every temperature a nuclide is broadened to,
@@ -2619,7 +2707,7 @@ impl Nuclide {
         )
     }
 
-    /// **Stage 2 of [`Self::process_evaluation`]**: PURR's URR probability
+    /// **Stage 2 of [`Self::process_evaluation_pre_931`]**: PURR's URR probability
     /// tables at `temp_k`, with the settings every nuclide uses
     /// ([`URR_TABLE_SETTINGS`]: 20 bins, 16 ladders, 2000 samples). `None`
     /// for an evaluation with no unresolved range. They depend on the tape
@@ -2639,7 +2727,7 @@ impl Nuclide {
         UrrProbabilityTables::from_endf(tape, mat, temp_k, nbin, nladr, nsamp)
     }
 
-    /// **The rest of [`Self::process_evaluation`]**, from its two stages: the
+    /// **The rest of [`Self::process_evaluation_pre_931`]**, from its two stages: the
     /// 0 K elastic grid DBRC needs, and BROADR of `recon0` to `temp_k` at
     /// thinning tolerance `broadr_errthn`. `urr` must be
     /// [`Self::urr_tables`] at the same `temp_k`. Cheap next to the stages
@@ -2703,6 +2791,13 @@ impl Nuclide {
             )));
         }
         let crate::material::processed::ProcessedEvaluation { recon, elastic_0k, urr, .. } = processed;
+        // The nuclide keeps the 0 K elastic up to `DBRC_GRID_MAX_EV`, on every
+        // route (the ACE route filters the same way). `process` hands over the
+        // whole range (gh:#931); DBRC applies below 1 keV by default and can
+        // never be asked for above the cap (`with_dbrc` clamps to it), so
+        // nothing transport reads is dropped.
+        let elastic_0k: Vec<(f64, f64)> =
+            elastic_0k.into_iter().filter(|&(e, _)| e <= DBRC_GRID_MAX_EV).collect();
         let awr = recon.material.awr;
 
         // 4. Real energy-dependent ν̄ from MF=1/452 (falls back to ν̄≡0 for a
@@ -2877,9 +2972,12 @@ impl Nuclide {
         // an error, so `?` here propagates only a genuine parse failure --
         // which a transport code must not silently swallow.
         //
-        // Since gh:#786 the tables are built in `process_evaluation` (step 8,
-        // `UrrProbabilityTables::from_endf` with the same 20 / 16 / 2000) and
-        // attached here; `with_urr_probability_tables` is that same call.
+        // Since gh:#786 the tables are built in `process_evaluation` and
+        // attached here. ~~(step 8, `UrrProbabilityTables::from_endf` with the
+        // same 20 / 16 / 2000); `with_urr_probability_tables` is that same
+        // call.~~ CORRECTED 2026-10-17 (gh:#931): `process_evaluation` is now
+        // `process`, PURR at 20 / 64 / 10 000 after HEATR; the 20 / 16 / 2000
+        // chain is `process_evaluation_pre_931`.
         let mut built = built;
         built.urr = urr;
         Ok(built.with_dbrc(DBRC_DEFAULT_E_MAX_EV))

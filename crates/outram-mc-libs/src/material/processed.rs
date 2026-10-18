@@ -2,7 +2,8 @@
 //!
 //! [`Nuclide::from_tape`](crate::material::nuclide::Nuclide::from_tape) is two
 //! halves: [`Nuclide::process_evaluation`](crate::material::nuclide::Nuclide::process_evaluation)
-//! (RECONR, BROADR and PURR, which is nearly all the time) and
+//! (RECONR, BROADR, HEATR and PURR, through njoy's `process` since gh:#931,
+//! which is nearly all the time) and
 //! [`Nuclide::from_processed`](crate::material::nuclide::Nuclide::from_processed)
 //! (everything else, read off the tape). [`ProcessedEvaluation`] is what
 //! passes between them, and [`ProcessedEvaluation::to_f64s`] /
@@ -28,9 +29,15 @@ use njoy_outram_park_fork::NjoyError;
 pub struct ProcessedEvaluation {
     /// RECONR's sections, Doppler-broadened to [`Self::temp_k`] by BROADR.
     pub recon: ReconrResult,
-    /// The 0 K elastic cross section up to
-    /// [`DBRC_GRID_MAX_EV`](crate::material::nuclide::DBRC_GRID_MAX_EV),
-    /// `(E [eV], σ [b])`, kept for DBRC.
+    /// The 0 K elastic cross section, `(E [eV], σ [b])`, kept for DBRC.
+    /// From [`Nuclide::process_evaluation`](crate::material::nuclide::Nuclide::process_evaluation)
+    /// it is `process`'s: the whole energy range, through the PENDF text
+    /// field (gh:#931). ~~up to `DBRC_GRID_MAX_EV`~~ **CORRECTED 2026-10-17**:
+    /// that cap holds only for
+    /// [`Nuclide::process_evaluation_pre_931`](crate::material::nuclide::Nuclide::process_evaluation_pre_931),
+    /// which keeps RECONR's raw values up to
+    /// [`DBRC_GRID_MAX_EV`](crate::material::nuclide::DBRC_GRID_MAX_EV);
+    /// `from_processed` applies it in either case. Empty without an MT=2.
     pub elastic_0k: Vec<(f64, f64)>,
     /// PURR's unresolved-resonance probability tables, `None` for an
     /// evaluation with no unresolved range.
@@ -45,6 +52,22 @@ const MAGIC: f64 = 786.0;
 const VERSION: f64 = 1.0;
 
 impl ProcessedEvaluation {
+    /// What [`Nuclide::from_processed`](crate::material::nuclide::Nuclide::from_processed)
+    /// needs from `process`'s result, field for field and unchanged
+    /// (gh:#931): the PENDF sections, the 0 K elastic (empty when `process`
+    /// carried none), PURR's tables, and the temperature in K. HEATR's KERMA
+    /// is dropped: transport does not read heating. Its effect on PURR's
+    /// tables (their heating column) stays inside [`Self::urr`].
+    pub fn from_cross_sections(xs: njoy_outram_park_fork::process::NuclearCrossSections) -> Self {
+        use uom::si::thermodynamic_temperature::kelvin;
+        Self {
+            temp_k: xs.temperature.get::<kelvin>(),
+            recon: xs.pendf,
+            elastic_0k: xs.elastic_0k.unwrap_or_default(),
+            urr: xs.urr,
+        }
+    }
+
     /// Every field as `f64`s. Layout: `[MAGIC, VERSION, temp_k]`, the eight
     /// fields of the material header, `resonance_upper_limit` (`NaN` for
     /// none), the sections (`n`, then per section `[mt, lr, qi, n_pairs,

@@ -291,7 +291,8 @@ mod desktop {
             let nuc = if std::env::var("OUTRAM_URR").is_ok() {
                 let tape = njoy_outram_park_fork::endf::tape::Tape::read_file(&p).expect("tape");
                 let mat = tape.materials()[0];
-                nuc.with_urr_probability_tables(&tape, mat, TEMP_K, 20, 16, 2000)
+                // PURR at route 4's settings since gh:#931 (`process`'s 20 / 64 / 10 000; was 20 / 16 / 2000).
+                nuc.with_urr_probability_tables(&tape, mat, TEMP_K, 20, 64, 10_000)
                     .expect("PURR")
             } else {
                 nuc
