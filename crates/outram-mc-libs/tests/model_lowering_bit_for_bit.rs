@@ -208,6 +208,7 @@ fn the_fast_preset_runs_the_watcher_and_says_it_is_a_smoke_test() {
         "{}",
         p.inactive_cycles
     );
+    eprintln!("INACTIVE_CYCLES {}", p.inactive_cycles);
     assert_eq!(run.k_by_cycle.len(), p.inactive_cycles + p.active_cycles);
     assert!(run
         .entropy_by_cycle
@@ -216,10 +217,14 @@ fn the_fast_preset_runs_the_watcher_and_says_it_is_a_smoke_test() {
     assert!(p.notes.iter().any(|n| n.contains("SMOKE TEST")));
     assert!(p.notes.iter().any(|n| n.contains("#927")));
     match &p.convergence {
-        Convergence::Watched { normality, .. } => assert_eq!(
-            *normality,
-            outram_mc_libs::model::NormalityCheck::NotYetAvailable
-        ),
+        Convergence::Watched { normality, .. } => match normality {
+            outram_mc_libs::model::NormalityCheck::Tested(r) => {
+                assert_eq!(r.n, outram_mc_libs::model::run::WATCH_WINDOW_CYCLES);
+                assert!(r.p_value.is_finite() && r.k2.is_finite());
+                eprintln!("deciding window normality: {r:?}");
+            }
+            other => panic!("a watched run must carry a normality test: {other:?}"),
+        },
         other => panic!("{other:?}"),
     }
     assert_eq!(p.seed, outram_mc_libs::model::run::PRESET_SEED);

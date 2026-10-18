@@ -32,12 +32,33 @@
 //! is implemented with **named constants whose values have no measured
 //! justification yet**: the experiments that are to justify them, against
 //! standard practice (10 000 neutrons per inactive cycle until k and H
-//! converge), are gh #927, and the **normality** half of the criterion
+//! converge), are gh #927. ~~the **normality** half of the criterion
 //! (skewness and kurtosis on the window) needs a raffles estimator that does
 //! not exist yet (gh #944). Until then the watcher applies the
-//! **stationarity** half only (MSER-5 and Geweke on k and H over the window,
-//! `stats::convergence`), and every result says so
-//! ([`NormalityCheck::NotYetAvailable`]). **Auto is not validated.**
+//! **stationarity** half only ... every result says so
+//! ([`NormalityCheck::NotYetAvailable`]).~~ **CORRECTED 2026-10-18 (gh #944):**
+//! the raffles D'Agostino-Pearson test exists
+//! (`raffles::estimators::normality`), and a window now passes only when
+//! **both** hold: k and H are stationary (MSER-5 and Geweke,
+//! `stats::convergence`) **and** the k window is not rejected as normal at
+//! [`WATCH_NORMALITY_ALPHA`]. Every result carries the deciding window's
+//! statistic, p-value and size ([`NormalityCheck::Tested`]).
+//!
+//! **What the normality gate can and cannot see at 30 cycles** (measured
+//! 2026-10-18, 20 000 windows per cell, n = 30, alpha = 0.05, AR(1)
+//! autocorrelation rho in {0, 0.3, 0.5} on the trace): rejection rate on
+//! normal data 0.057 / 0.055 / 0.055 (the test is mildly liberal, as the
+//! raffles docs say); on Student t5 0.30 / 0.26 / 0.21; t3 0.51 / 0.45 /
+//! 0.37; lognormal (sigma 0.5) 0.60 / 0.52 / 0.39; a 90/10 scale mixture
+//! 0.62 / 0.57 / 0.47; a symmetric bimodal (+-1.5, sd 0.5) 0.96 / 0.74 /
+//! 0.16. So the test has real power against gross skew and heavy tails and
+//! is **weak against mild departures and against autocorrelated bimodality**:
+//! it is a gate on gross non-normality, and a pass means "no evidence
+//! against", never "is Gaussian". It also refuses a stationary, normal window
+//! about 5.5 % of the time, which only delays the pass to the next check
+//! (every [`WATCH_EVERY_CYCLES`]). The raw trace is autocorrelated, which the
+//! test assumes away (raffles docs); the sizes above show the effect on the
+//! rejection rate is small for rho up to 0.5.
 //!
 //! # Run backend
 //!
@@ -77,6 +98,7 @@
 //! thread: its `CpuSingleThread` route).
 
 use raffles::estimators::autocorrelation::CorrelatedMean;
+use raffles::estimators::normality::dagostino_pearson;
 use raffles::estimators::mean_and_stderr;
 
 use super::collect::{
@@ -108,6 +130,13 @@ pub const WATCH_WINDOW_CYCLES: usize = 30;
 
 /// The watcher looks every this many cycles. **Not yet justified** (#927).
 pub const WATCH_EVERY_CYCLES: usize = 5;
+
+/// Significance level of the watcher's normality gate on the k window: the
+/// window is refused when the D'Agostino-Pearson p-value is below this.
+/// The test is mildly liberal (about 0.057 actual at a nominal 0.05, n = 30).
+/// **Not yet justified** (#927): 0.05 is the conventional value, chosen
+/// before any measurement of how often it delays or refuses real runs.
+pub const WATCH_NORMALITY_ALPHA: f64 = 0.05;
 
 /// Cycles discarded right after raising the population, before the
 /// watcher re-confirms convergence at the production size (maintainer
@@ -365,13 +394,33 @@ pub enum RunError {
     Diagnostic(#[from] DiagnosticError),
 }
 
-/// **The normality half of the watcher's criterion.** Needs a raffles
-/// skewness/kurtosis estimator and normality test (gh #944), which does not
-/// exist yet.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// The D'Agostino-Pearson normality test on one k window
+/// (`raffles::estimators::normality`, gh #944).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct NormalityResult {
+    /// Cycles in the window.
+    pub n: usize,
+    /// The omnibus statistic K^2 (chi-squared, 2 d.o.f. under normality).
+    pub k2: f64,
+    /// Upper-tail p-value, `exp(-K^2/2)`.
+    pub p_value: f64,
+    /// The significance level the window was judged at
+    /// ([`WATCH_NORMALITY_ALPHA`]).
+    pub alpha: f64,
+    /// `true` when normality is **not** rejected (`p >= alpha`): "no evidence
+    /// against", never "is Gaussian".
+    pub consistent_with_normal: bool,
+}
+
+/// **The normality half of the watcher's criterion** (gh #944, 2026-10-18):
+/// the test on the deciding k window.
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum NormalityCheck {
-    /// Not applied: #944 not yet built. Only stationarity was checked.
-    NotYetAvailable,
+    /// No window could be tested (none reached full size, or k was constant).
+    NotTested,
+    /// The deciding window: the one that passed, else the last one examined
+    /// (at the production population if any was, else at the low one).
+    Tested(NormalityResult),
 }
 
 /// **Was the fission source converged before tallying started?**
@@ -386,7 +435,7 @@ pub enum Convergence {
         /// population; `None` = **not converged** (the cap was reached and
         /// active cycles started on an unconfirmed source).
         production_passed_at: Option<usize>,
-        /// The normality check (not yet available, #944).
+        /// The normality test on the deciding k window (gh #944).
         normality: NormalityCheck,
     },
     /// `Custom`: no watcher; report-only analysis of the whole run
@@ -805,9 +854,47 @@ fn plan(mc: MCSettings) -> Result<Plan, RunError> {
     })
 }
 
-/// Stationarity of k and H over a window (the watcher's criterion today).
+/// The watcher's judgement of one window.
+struct WindowVerdict {
+    /// k and H both stationary (MSER-5 and Geweke).
+    stationary: bool,
+    /// The normality test on the k window; `None` when it could not be run.
+    normality: Option<NormalityResult>,
+}
+
+impl WindowVerdict {
+    /// Stationary **and** k not rejected as normal.
+    fn passes(&self) -> bool {
+        self.stationary && self.normality.is_some_and(|n| n.consistent_with_normal)
+    }
+}
+
+/// Judge a window: stationarity of k and H, and normality of k at
+/// [`WATCH_NORMALITY_ALPHA`] (gh #944). A window whose normality cannot be
+/// tested (too short, constant) does not pass.
+fn judge_window(k: &[f64], h: &[f64]) -> WindowVerdict {
+    let stationary = TraceDiagnosis::analyse("k", k).converged()
+        && TraceDiagnosis::analyse("entropy", h).converged();
+    let normality = dagostino_pearson(k).ok().map(|t| NormalityResult {
+        n: t.n,
+        k2: t.k2,
+        p_value: t.p_value,
+        alpha: WATCH_NORMALITY_ALPHA,
+        consistent_with_normal: t.p_value >= WATCH_NORMALITY_ALPHA,
+    });
+    WindowVerdict {
+        stationary,
+        normality,
+    }
+}
+
+/// Window criterion as a yes/no: stationary and not rejected as normal.
 fn window_passes(k: &[f64], h: &[f64]) -> bool {
-    TraceDiagnosis::analyse("k", k).converged() && TraceDiagnosis::analyse("entropy", h).converged()
+    judge_window(k, h).passes()
+}
+
+fn check_of(last: Option<NormalityResult>) -> NormalityCheck {
+    last.map_or(NormalityCheck::NotTested, NormalityCheck::Tested)
 }
 
 /// The traces of one run.
@@ -977,6 +1064,7 @@ impl AssembledModel {
         // ── Inactive cycles ──────────────────────────────────────────────
         let mut low_passed = None;
         let mut production_passed = None;
+        let mut last_normality: Option<NormalityResult> = None;
         if p.watch {
             // Phase 1: judge at the low population. Leave room for settling
             // and one production window under the cap.
@@ -986,7 +1074,9 @@ impl AssembledModel {
                 let c = tr.k.len();
                 if c >= WATCH_WINDOW_CYCLES && c % WATCH_EVERY_CYCLES == 0 {
                     if let Some((k, h)) = tr.window(c - WATCH_WINDOW_CYCLES) {
-                        if window_passes(&k, &h) {
+                        let v = judge_window(&k, &h);
+                        last_normality = v.normality.or(last_normality);
+                        if v.passes() {
                             low_passed = Some(c);
                             say(format!(
                                 " watcher: k and entropy stationary at {} per cycle, cycle {c}",
@@ -1011,14 +1101,18 @@ impl AssembledModel {
             for _ in 0..SETTLE_CYCLES {
                 step(&mut it, &mut tr, &mut collector, false)?;
             }
-            // Phase 3: re-confirm at the production population.
+            // Phase 3: re-confirm at the production population. The deciding
+            // normality result is now the production one.
+            let low_normality = last_normality.take();
             let start = tr.k.len();
             while tr.k.len() < MAX_INACTIVE_CYCLES {
                 step(&mut it, &mut tr, &mut collector, false)?;
                 let c = tr.k.len() - start;
                 if c >= WATCH_WINDOW_CYCLES && c % WATCH_EVERY_CYCLES == 0 {
                     if let Some((k, h)) = tr.window(tr.k.len() - WATCH_WINDOW_CYCLES) {
-                        if window_passes(&k, &h) {
+                        let v = judge_window(&k, &h);
+                        last_normality = v.normality.or(last_normality);
+                        if v.passes() {
                             production_passed = Some(tr.k.len());
                             say(format!(
                                 " watcher: stationary again at {} per cycle, cycle {}",
@@ -1029,6 +1123,9 @@ impl AssembledModel {
                         }
                     }
                 }
+            }
+            if last_normality.is_none() {
+                last_normality = low_normality;
             }
         } else {
             for _ in 0..p.fixed_inactive {
@@ -1072,7 +1169,7 @@ impl AssembledModel {
             Convergence::Watched {
                 low_population_passed_at: low_passed,
                 production_passed_at: production_passed,
-                normality: NormalityCheck::NotYetAvailable,
+                normality: check_of(last_normality),
             }
         } else {
             let h: Vec<f64> = tr.h.iter().map(|x| x.unwrap_or(f64::NAN)).collect();
@@ -1123,7 +1220,11 @@ impl AssembledModel {
                 RunBackend::MultiThread => current_threads(),
                 RunBackend::SingleThread => 1,
             },
-            notes: notes(settings.mc(), &p),
+            notes: {
+                let mut v = notes(settings.mc(), &p);
+                v.extend(normality_note(&convergence));
+                v
+            },
             ablations,
             convergence,
         };
@@ -1242,6 +1343,27 @@ fn correlated_sigma(x: &[f64]) -> f64 {
     c.batch.map_or(c.naive_sem, |b| b.sem.max(c.naive_sem))
 }
 
+/// The provenance line for the deciding normality window (watched runs only).
+fn normality_note(c: &Convergence) -> Option<String> {
+    let Convergence::Watched { normality, .. } = c else {
+        return None;
+    };
+    Some(match normality {
+        NormalityCheck::NotTested => {
+            "normality of the k window was never tested (no full window, or k constant).".into()
+        }
+        NormalityCheck::Tested(r) => format!(
+            "normality of the deciding k window (D'Agostino-Pearson, n = {}): K2 = {:.3}, p = {:.4} at alpha {} -> {}; \
+             a pass is no evidence against normality, not proof; the test is weak at n = 30 against mild departures.",
+            r.n,
+            r.k2,
+            r.p_value,
+            r.alpha,
+            if r.consistent_with_normal { "consistent with normal" } else { "REJECTED" }
+        ),
+    })
+}
+
 fn notes(mc: MCSettings, p: &Plan) -> Vec<String> {
     let mut v = Vec::new();
     if let MCSettings::Smoke = mc {
@@ -1261,7 +1383,8 @@ fn notes(mc: MCSettings, p: &Plan) -> Vec<String> {
         v.push(format!(
             "watcher thresholds (window {WATCH_WINDOW_CYCLES}, every {WATCH_EVERY_CYCLES}, settle {SETTLE_CYCLES}, \
              entropy mesh {ENTROPY_MESH_DIVISIONS}^3, {WATCH_PARTICLES} per inactive cycle) are not yet justified (#927); \
-             only stationarity was checked, normality needs #944."
+             a window passes only if k and entropy are stationary and the k window is not rejected as normal \
+             at alpha {WATCH_NORMALITY_ALPHA} (D'Agostino-Pearson, gh #944; alpha not yet justified, #927)."
         ));
     }
     v.push("lost histories are not counted on this run path (#699).".into());
@@ -1367,7 +1490,7 @@ mod tests {
         assert!(!Convergence::Watched {
             low_population_passed_at: Some(30),
             production_passed_at: None,
-            normality: NormalityCheck::NotYetAvailable
+            normality: NormalityCheck::NotTested
         }
         .converged());
     }
@@ -1386,8 +1509,88 @@ mod tests {
         let flat: Vec<f64> = (0..300).map(|_| 1.0 + 0.01 * (u() - 0.5)).collect();
         assert!(correlated_sigma(&flat) >= mean_and_stderr(&flat).1);
         let h: Vec<f64> = (0..30).map(|_| 6.0 + 0.01 * (u() - 0.5)).collect();
-        assert!(window_passes(&flat[..30], &h));
+        // The uniform-noise window is stationary but NOT Gaussian (kurtosis
+        // -1.2), so since gh #944 it is judged on stationarity alone here; the
+        // joint criterion on a Gaussian window is in
+        // `normality_gate_refuses_gross_non_normality_and_passes_normal`.
+        assert!(judge_window(&flat[..30], &h).stationary);
         let drift: Vec<f64> = (0..30).map(|i| 0.5 + 0.02 * i as f64).collect();
         assert!(!window_passes(&drift, &h));
+    }
+
+    /// Gate behaviour of the normality half (gh #944): a stationary window
+    /// of Gaussian noise passes; stationary but bimodal and skewed windows
+    /// are refused; the verdict carries n, K2 and p.
+    ///
+    /// Methodology: deterministic LCG + Box-Muller traces of 30 cycles about
+    /// k = 1 (the watcher window), nearly flat entropy. Fixed seed, so the
+    /// verdicts are reproducible; rejection RATES (power) are in the module
+    /// docs, not asserted here. The non-normal traces are alternating (so no
+    /// drift for MSER/Geweke) with periodic excursions.
+    #[test]
+    fn normality_gate_refuses_gross_non_normality_and_passes_normal() {
+        let mut s = 99u64;
+        let mut u = || {
+            s = s
+                .wrapping_mul(6_364_136_223_846_793_005)
+                .wrapping_add(1_442_695_040_888_963_407);
+            ((s >> 11) as f64 + 0.5) / (1u64 << 53) as f64
+        };
+        let gauss = |u: &mut dyn FnMut() -> f64| {
+            (-2.0 * u().ln()).sqrt() * (2.0 * std::f64::consts::PI * u()).cos()
+        };
+        let h: Vec<f64> = (0..30).map(|_| 6.0 + 1e-4 * (u() - 0.5)).collect();
+        let normal: Vec<f64> = (0..30).map(|_| 1.0 + 0.01 * gauss(&mut u)).collect();
+        let v = judge_window(&normal, &h);
+        let r = v.normality.expect("30 cycles are testable");
+        assert_eq!(r.n, 30);
+        assert!(
+            r.consistent_with_normal && r.p_value >= WATCH_NORMALITY_ALPHA,
+            "{r:?}"
+        );
+        assert!(v.stationary && v.passes());
+
+        let bimodal: Vec<f64> = (0..30)
+            .map(|i| 1.0 + 0.03 * if i % 2 == 0 { 1.0 } else { -1.0 } + 0.003 * gauss(&mut u))
+            .collect();
+        let vb = judge_window(&bimodal, &h);
+        let rb = vb.normality.unwrap();
+        assert!(!rb.consistent_with_normal, "{rb:?}");
+        assert!(!vb.passes());
+
+        let skew: Vec<f64> = (0..30)
+            .map(|i| 1.0 + 0.002 * gauss(&mut u) + if i % 10 == 3 { 0.04 } else { 0.0 })
+            .collect();
+        let vs = judge_window(&skew, &h);
+        let rs = vs.normality.unwrap();
+        assert!(!rs.consistent_with_normal, "{rs:?}");
+        assert!(!vs.passes());
+
+        let flat = vec![1.0; 30];
+        assert!(judge_window(&flat, &h).normality.is_none());
+        assert!(!window_passes(&flat, &h));
+    }
+
+    /// The provenance note carries the statistic, p-value and n.
+    #[test]
+    fn normality_note_states_the_deciding_window() {
+        let r = NormalityResult {
+            n: 30,
+            k2: 1.234,
+            p_value: 0.5395,
+            alpha: WATCH_NORMALITY_ALPHA,
+            consistent_with_normal: true,
+        };
+        let c = Convergence::Watched {
+            low_population_passed_at: Some(30),
+            production_passed_at: Some(55),
+            normality: NormalityCheck::Tested(r),
+        };
+        let n = normality_note(&c).unwrap();
+        assert!(n.contains("n = 30") && n.contains("K2 = 1.234") && n.contains("p = 0.5395"));
+        let none = Convergence::NotWatched {
+            inactive_sufficient: None,
+        };
+        assert!(normality_note(&none).is_none());
     }
 }

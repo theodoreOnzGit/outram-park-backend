@@ -127,7 +127,7 @@ pub use material::{
 pub use model::{AssembledModel, GeometryProblem, Model, ModelError, NuclideKey, Temperature};
 pub use resolve::{MaterialError, MaterialReport, NumberDensityComparison, ResolvedMaterial};
 pub use run::{
-    Convergence, CustomRun, Keff, KeffRun, KeffSettings, MCSettings, NormalityCheck, Progress,
+    Convergence, CustomRun, Keff, KeffRun, KeffSettings, MCSettings, NormalityCheck, NormalityResult, Progress,
     NuclidePhysics, ReactivityTolerance, RunBackend, RunError, RunProvenance,
 };
 pub use census::{Arrangement, Census, CensusRow, PackingRow, RowKind};
