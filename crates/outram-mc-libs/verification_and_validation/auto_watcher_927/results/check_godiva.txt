@@ -1,0 +1,1 @@
+check godiva: Auto inactive 100 (low Some(60), production None); emulator inactive 100 (low Some(60), production None); k_by_cycle identical: true; entropy identical over the inactive cycles: true; Auto k 1.00037 ± 0.00086 ; emulator mean 1.00037
