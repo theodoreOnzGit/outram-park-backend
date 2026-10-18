@@ -596,7 +596,7 @@ fn hand_built(a: &AssembledModel, hand: &Hand, fuel_ball_is_smeared: bool) -> Ge
     let everywhere = vec![half(0, inside), half(0, outside), RegionToken::Union];
     let mut cells: Vec<Cell> = Vec::new();
     let mut universes: Vec<Universe> = Vec::new();
-    let mut add_cell = |cells: &mut Vec<Cell>, mk: &dyn Fn(i32) -> Cell| -> usize {
+    let add_cell = |cells: &mut Vec<Cell>, mk: &dyn Fn(i32) -> Cell| -> usize {
         cells.push(mk(cells.len() as i32 + 1));
         cells.len() - 1
     };
