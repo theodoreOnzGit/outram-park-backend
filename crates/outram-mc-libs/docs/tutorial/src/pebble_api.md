@@ -124,7 +124,7 @@ of the crate's nearest record (nee_soon's `DhUniverse` HTR-10 pebble,
 against `DhUniverse` on the *same* particles consistent with zero.
 
 **Measured** (2026-10-18, `MCSettings::Smoke`, a smoke run, not a result to
-quote; Intel i9-13900K, one thread for transport, shared machine):
+quote; Intel i9-13900K, one thread for transport (before gh:#955 made the run multi-threaded), shared machine):
 
 | arm | k-infinity | against 1.68517 |
 |---|---|---|

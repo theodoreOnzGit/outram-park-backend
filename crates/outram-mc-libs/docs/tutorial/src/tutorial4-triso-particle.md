@@ -217,7 +217,7 @@ Read them in this order.
 | item | measured |
 |---|---|
 | data processing | 64 to 69 s (13 nuclides, 3 LEAPR laws, in parallel) |
-| transport with diagnostics, Fast, one core | **3764 to 3884 s** |
+| transport with diagnostics, Fast, one core (before #955) | **3764 to 3884 s** |
 | per generation | about 5.5 s at 1 000 neutrons, 27 s at 5 000 |
 | per history | roughly 5 ms |
 | Auto (`--auto`) | about 3.8 h at that rate; a first Auto run was stopped at 1 h 38 min and gave no number |
@@ -226,9 +226,16 @@ The reason is geometric. A neutron in graphite has a mean free path of a few
 cm; the cube is 0.199 cm wide, with mirrors. In about 115 collisions to
 thermalise in carbon, a history **crosses or reflects off the faces thousands of
 times**. Each crossing is a surface event, and the cost is in the surfaces,
-not in the physics. (The beginner run is single-threaded, gh:#955.) The
+not in the physics. ~~(The beginner run is single-threaded, gh:#955.) The
 cheaper route to more statistics is independent seeds on several cores, without
-diagnostics: `--seeds-only N`. That was not run for this record.
+diagnostics: `--seeds-only N`. That was not run for this record.~~
+**CORRECTED 2026-10-18 (gh:#955):** the beginner run is now multi-threaded by
+default, and the same seed gives the same k on any number of threads, bit for
+bit (the per-history random stream depends only on seed, generation and
+history). Measured on this cell, Fast with diagnostics: 1390 s on 4 threads
+(2.3×) and 961 s on 6 threads (3.4×), against about 3800 s on one; k_inf =
+1.56433 ± 0.00139, 49 pcm (0.2σ) from the single-thread record, because the
+random streams differ. `KeffSettings::single_thread()` keeps the old path.
 
 ## Every simplification
 
