@@ -59,7 +59,10 @@
 //! `.boundary(Boundary::Reflective)` for a k-infinity; a [`Lattice`]
 //! repeats tiles, its row order named by its constructor; and
 //! [`AssembledModel::census`] counts the copies the assembled geometry
-//! places (never from constants).
+//! places (never from constants). A [`Cylinder`] (finite, or a *rod* that
+//! runs through its lattice tile) and a lattice as a tile of a lattice
+//! build LCT-008's core, a 7 x 7 lattice of 15 x 15 pin lattices cut by a
+//! cylinder (tutorial 6).
 //!
 //! ## Not yet here
 //!
@@ -127,13 +130,14 @@ pub use material::{
 pub use model::{AssembledModel, GeometryProblem, Model, ModelError, NuclideKey, Temperature};
 pub use resolve::{MaterialError, MaterialReport, NumberDensityComparison, ResolvedMaterial};
 pub use run::{
-    Convergence, CustomRun, Keff, KeffRun, KeffSettings, MCSettings, NormalityCheck, NormalityResult, Progress,
-    NuclidePhysics, ReactivityTolerance, RunBackend, RunError, RunProvenance,
+    Convergence, CustomRun, Keff, KeffRun, KeffSettings, MCSettings, NormalityCheck,
+    NormalityResult, Progress, NuclidePhysics, ReactivityTolerance, RunBackend, RunError,
+    RunProvenance,
 };
 pub use census::{Arrangement, Census, CensusRow, PackingRow, RowKind};
 pub use dh_region::{DhRegion, Packing};
 pub use lattice::Lattice;
-pub use shape::{Boundary, Component, Cube, Cuboid, Shape, Solid, Sphere};
+pub use shape::{Boundary, Component, Cube, Cuboid, Cylinder, Shape, Solid, Sphere};
 
 /// **Everything a beginner model needs, in one `use`**:
 /// `use outram_mc_libs::model::prelude::*;` brings the types above and the
@@ -142,12 +146,13 @@ pub mod prelude {
     pub use super::isotopes::*;
     pub use super::{
         atoms_per_barn_cm, to_atoms_per_barn_cm, AdvancedModel, AssembledModel, AtomDensity,
-        BalanceBy, Basis, Boundary, Census, CensusRow, Component, Cube, Cuboid, DhRegion, Lattice, Packing, Solid, Contaminant, Convergence, CustomRun, DataError,
-        DiagnosticError, Diagnostics, DiagnosticsReport, EnergyGrid, Element, Enrichment,
-        FissileUranium, FuelForm, GraphiteKind, HeavyMetal, Isotope, Keff, KeffRun, KeffSettings,
-        MCDiagnostic, MCSettings, Material, MaterialError, Model, ModelError, Moderator,
-        NuclearData, Placement, PpmOf, PuVector, ReactivityTolerance, Region, RunBackend, RunError, Shape,
-        Species, Sphere, Temperature,
+        BalanceBy, Basis, Boundary, Census, CensusRow, Component, Cube, Cuboid, Cylinder, DhRegion,
+        Lattice, Packing, Solid, Contaminant, Convergence, CustomRun, DataError, DiagnosticError,
+        Diagnostics, DiagnosticsReport, EnergyGrid, Element, Enrichment, FissileUranium, FuelForm,
+        GraphiteKind, HeavyMetal, Isotope, Keff, KeffRun, KeffSettings, MCDiagnostic, MCSettings,
+        Material, MaterialError, Model, ModelError, Moderator, NuclearData, Placement, PpmOf,
+        PuVector, ReactivityTolerance, Region, RunBackend, RunError, Shape, Species, Sphere,
+        Temperature,
     };
     pub use super::{
         advanced, BalanceRow, Ealf, Kinetics, Leakage, MCDiagnosticResult, Mesh, MeshBounds,

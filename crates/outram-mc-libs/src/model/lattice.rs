@@ -205,7 +205,9 @@ impl Lattice {
     pub(crate) fn problem(&self) -> Option<String> {
         if let Some(off) = self.covering {
             if !off.iter().all(|o| o.is_finite()) {
-                return Some(format!("a covering lattice's offset must be finite, not {off:?}"));
+                return Some(format!(
+                    "a covering lattice's offset must be finite, not {off:?}"
+                ));
             }
             if self.tiles.len() != 1 {
                 return Some("a covering lattice repeats exactly one tile".into());
@@ -257,7 +259,7 @@ impl Lattice {
                     "a lattice tile is centred on its own origin; do not move it with centred_at"
                         .into(),
                 ),
-                Solid::Sphere(_) => {
+                Solid::Sphere(_) | Solid::Cylinder(_) => {
                     return Some(
                         "a lattice tile must be a box (Cube::side or Cuboid::sides)".into(),
                     )

@@ -39,7 +39,7 @@ use super::isotope::Isotope;
 use super::resolve::{MaterialError, ResolvedMaterial};
 use super::lattice::Lattice;
 use super::lower::{combine, half, Lowered, Lowering};
-use super::shape::{Boundary, Component, Cuboid, Shape, Solid, Sphere};
+use super::shape::{Boundary, Component, Cuboid, Cylinder, Shape, Solid, Sphere};
 use crate::geometry::cell::{Cell, CellFill, HalfSpaceSense, RegionToken};
 use crate::geometry::geometry::Geometry;
 use crate::geometry::plot::{render_material_slice, ImageData, PlotBasis, Rgb, SlicePlot};
@@ -400,7 +400,7 @@ impl Model {
             )?);
         }
         for s in &self.shapes {
-            self.check_shape(s, true)?;
+            self.check_shape(s, true, false)?;
         }
         check_disjoint(&self.shapes)?;
         if self.shapes.len() > 1 && self.shapes.iter().any(|s| s.boundary.is_some()) {
@@ -504,7 +504,15 @@ impl Model {
         })
     }
 
-    fn check_shape(&self, s: &Shape, outermost: bool) -> Result<(), ModelError> {
+    fn check_shape(&self, s: &Shape, outermost: bool, in_tile: bool) -> Result<(), ModelError> {
+        if s.solid.is_rod() && !in_tile {
+            return Err(ModelError::BadValue(
+                "a cylinder without a height runs through whatever holds it, which only a \
+                 lattice tile bounds (the lattice gives it its height): give it one with \
+                 .height(..), or put it in a tile"
+                    .into(),
+            ));
+        }
         if !s.solid.is_valid() {
             return Err(ModelError::BadValue(format!(
                 "every size must be positive and finite, not {}",
@@ -525,7 +533,7 @@ impl Model {
             ));
         }
         for child in &s.children {
-            self.check_shape(child, false)?;
+            self.check_shape(child, false, in_tile)?;
             if !s.solid.encloses(&child.solid) {
                 return Err(ModelError::Geometry(problem(
                     &s.solid,
@@ -545,11 +553,11 @@ impl Model {
         if let Some(spec) = &s.dh {
             let lattice = super::lower_packed::check_dh(s, spec)?;
             if let Some(particle) = spec.particle() {
-                self.check_shape(particle, false)?;
+                self.check_shape(particle, false, in_tile)?;
             }
             if let Some(lattice) = lattice {
                 for tile in lattice.tiles() {
-                    self.check_shape(tile, false)?;
+                    self.check_shape(tile, false, true)?;
                 }
             }
         }
@@ -569,10 +577,13 @@ impl Model {
             ));
         }
         for tile in lattice.tiles() {
-            self.check_shape(tile, false)?;
+            self.check_shape(tile, false, true)?;
         }
         if let Solid::Sphere(zone) = s.solid {
             return check_lattice_in_sphere(s, zone, lattice);
+        }
+        if let Solid::Cylinder(cylinder) = s.solid {
+            return check_lattice_in_cylinder(s, cylinder, lattice);
         }
         if lattice.covering_offset().is_some() {
             return Err(ModelError::BadValue(
@@ -607,8 +618,114 @@ impl Model {
                 ),
             )));
         }
+        if n[2] == 1 {
+            let (lo, hi) = s.solid.bounds();
+            check_one_layer(c[2], hi[2] - lo[2], pitch[2])?;
+        }
         Ok(())
     }
+}
+
+/// **A one-layer lattice is extruded**: the CSG lattice ignores z for it, so
+/// its tiles run through their container's whole height and sit at
+/// `z = 0` (checked 2026-10-18 with a 2 cm tile in a 6 cm box: the tile's
+/// contents filled all 6 cm, against `Shape::containing_lattice`'s "this
+/// shape's material fills whatever of it the lattice does not cover"). So a
+/// one-layer lattice needs its container centred at `z = 0` and its tiles
+/// at least as tall as the container; a lattice that is to stop short in z
+/// needs two or more layers.
+fn check_one_layer(
+    container_z_centre: f64,
+    container_height: f64,
+    tile_height: f64,
+) -> Result<(), ModelError> {
+    let tol = 1.0e-12 * container_height.abs().max(tile_height.abs());
+    if container_z_centre.abs() > tol {
+        return Err(ModelError::BadValue(format!(
+            "a one-layer lattice ignores z, so its tiles sit at z = 0: centre the container at \
+             z = 0 (it is at {container_z_centre} cm), or stack at least two layers"
+        )));
+    }
+    if tile_height < container_height - tol {
+        return Err(ModelError::BadValue(format!(
+            "a one-layer lattice is extruded through its container's whole height, so its tiles \
+             must be at least as tall as the container: {container_height} cm, not \
+             {tile_height} cm (stack at least two layers if the grid is to stop short in z)"
+        )));
+    }
+    Ok(())
+}
+
+/// **A lattice in a cylinder is clipped by it** (OpenMC's lattice fill cell
+/// bounded by a cylinder and two planes): the grid must cover the cylinder,
+/// and tiles the cylinder cuts are cut. Only water tiles are cut in LCT-008
+/// (tutorial 6); the census counts a tile whole wherever it is cut.
+///
+/// A one-layer lattice is extruded (the CSG lattice ignores z for it, and
+/// its tiles' frame has z = 0 at the model's z = 0), so its tiles must be
+/// at least as tall as the cylinder reaches from z = 0.
+fn check_lattice_in_cylinder(
+    s: &Shape,
+    cylinder: Cylinder,
+    lattice: &Lattice,
+) -> Result<(), ModelError> {
+    if lattice.covering_offset().is_some() {
+        return Err(ModelError::BadValue(
+            "Lattice::covering fills a sphere (with whole-particle rejection); a cylinder is \
+             filled with a lattice of given size"
+                .into(),
+        ));
+    }
+    if cylinder.is_rod() {
+        return Err(ModelError::BadValue(
+            "a shape filled with a lattice needs a height: Cylinder::radius(..).height(..)".into(),
+        ));
+    }
+    let pitch = lattice.pitch_cm().unwrap_or([0.0; 3]);
+    let n = lattice.dimensions();
+    let c = cylinder.centre_cm();
+    let (lo, hi) = cylinder.z_range();
+    let cm = Length::new::<centimeter>;
+    // The grid: x-y centred on the cylinder; z centred on the cylinder for a
+    // stack of layers, on z = 0 for one extruded layer.
+    let z_centre = if n[2] == 1 { 0.0 } else { c[2] };
+    if n[2] == 1 && c[2].abs() > 1.0e-12 * (hi - lo) {
+        return check_one_layer(c[2], hi - lo, pitch[2]);
+    }
+    let grid = Solid::Cuboid(
+        Cuboid::sides(
+            cm(n[0] as f64 * pitch[0]),
+            cm(n[1] as f64 * pitch[1]),
+            cm(n[2] as f64 * pitch[2]),
+        )
+        .centred_at(cm(c[0]), cm(c[1]), cm(z_centre)),
+    );
+    if !grid.encloses(&s.solid) {
+        let why = if n[2] == 1 {
+            format!(
+                "; a one-layer lattice is extruded through the cylinder, so its tiles must be \
+                 at least {:.6} cm tall (the cylinder reaches {:.6} cm from z = 0)",
+                2.0 * lo.abs().max(hi.abs()),
+                lo.abs().max(hi.abs())
+            )
+        } else {
+            String::new()
+        };
+        return Err(ModelError::Geometry(problem(
+            &s.solid,
+            &grid,
+            format!(
+                "the {}x{}x{} lattice ({}) does not cover {} that it fills, so part of the \
+                 cylinder would hold no tile{why}",
+                n[0],
+                n[1],
+                n[2],
+                grid.describe(),
+                s.solid.describe()
+            ),
+        )));
+    }
+    Ok(())
 }
 
 /// A lattice in a sphere: the tiles' material must be the sphere's (a
@@ -709,6 +826,7 @@ fn set_bc(s: &mut SurfaceKind, bc: BoundaryType) {
         SurfaceKind::XPlane(p) => p.bc = bc,
         SurfaceKind::YPlane(p) => p.bc = bc,
         SurfaceKind::ZPlane(p) => p.bc = bc,
+        SurfaceKind::ZCylinder(p) => p.bc = bc,
         _ => {}
     }
 }
@@ -1204,7 +1322,10 @@ pub(crate) mod tests {
                 .containing(fuel().boundary(Boundary::Reflective)),
             "outermost shape only",
         );
-        refused(Cube::side(cm(-1.0)).filled_with(heu()), "positive and finite");
+        refused(
+            Cube::side(cm(-1.0)).filled_with(heu()),
+            "positive and finite",
+        );
         // A box poking out of a sphere, and a tile's particle poking out of
         // its tile, are drawn.
         match build(
@@ -1242,5 +1363,251 @@ pub(crate) mod tests {
         assert!(
             matches!(m.assemble(), Err(ModelError::BadValue(w)) if w.contains("one outermost"))
         );
+    }
+
+    /// **A cylinder core clips a lattice of assemblies of rods (tutorial 6)**
+    /// and every way to get it wrong is named: the core's surfaces take the
+    /// vacuum (or reflective) boundary, a rod is only allowed in a tile, the
+    /// lattice must cover the cylinder, a one-layer lattice's tiles must be
+    /// tall enough, and the census counts rods and extruded volumes from the
+    /// assembled geometry.
+    #[test]
+    fn a_cylinder_clips_a_lattice_of_assemblies_of_rods() {
+        use super::super::lattice::Lattice;
+        use super::super::shape::{Boundary, Cuboid, Cylinder};
+        use crate::geometry::cell::SurfaceToken;
+        use crate::geometry::position::Direction;
+        use uom::si::volume::cubic_centimeter;
+        let water = || heu().named("water");
+        let fuel = || heu().named("fuel");
+        let clad = || heu().named("clad");
+        let pin_tile = |height: f64| {
+            let fuel_rod = Cylinder::radius(cm(0.4)).filled_with(fuel());
+            let clad_rod = Cylinder::radius(cm(0.5))
+                .filled_with(clad())
+                .containing(fuel_rod);
+            Cuboid::sides(cm(1.2), cm(1.2), cm(height))
+                .filled_with(water())
+                .containing(clad_rod)
+        };
+        let water_tile =
+            |height: f64| Cuboid::sides(cm(1.2), cm(1.2), cm(height)).filled_with(water());
+        // A 2 x 2 assembly of pins (top row: fuel, water; bottom: water, fuel)
+        // in a 3 x 3 core whose corners are water assemblies.
+        let assembly = |height: f64| {
+            Cuboid::sides(cm(2.4), cm(2.4), cm(height))
+                .filled_with(water())
+                .containing_lattice(Lattice::from_rows_top_down(
+                    vec![water_tile(height), pin_tile(height)],
+                    vec![vec![1, 0], vec![0, 1]],
+                ))
+        };
+        let core_with = |height: f64, tiles_height: f64, radius: f64| {
+            let blank = Cuboid::sides(cm(2.4), cm(2.4), cm(tiles_height)).filled_with(water());
+            Cylinder::radius(cm(radius))
+                .height(cm(height))
+                .filled_with(water())
+                .containing_lattice(Lattice::from_rows_top_down(
+                    vec![blank, assembly(tiles_height)],
+                    vec![vec![0, 1, 0], vec![1, 1, 1], vec![0, 1, 0]],
+                ))
+        };
+        let build = |s: Shape| {
+            let mut m = Model::new(fake_data());
+            m.set_temperature(t());
+            m.add(s);
+            m.assemble()
+        };
+
+        // The model: r 3.2 cm covers the 7.2 cm grid's inscribed circle
+        // (3.6), cutting its corners (the blank tiles).
+        let a = build(core_with(10.0, 10.0, 3.2)).expect("assembles");
+        assert_eq!(
+            a.geometry.lattices.len(),
+            2,
+            "the assembly's pin lattice, once, and the core"
+        );
+        // Vacuum on the cylinder and its two planes, nothing else.
+        let vacuum = a
+            .geometry
+            .surfaces
+            .iter()
+            .filter(|s| match s {
+                SurfaceKind::ZCylinder(c) => c.bc == BoundaryType::Vacuum && c.r == 3.2,
+                SurfaceKind::ZPlane(p) => p.bc == BoundaryType::Vacuum,
+                _ => false,
+            })
+            .count();
+        assert_eq!(vacuum, 3);
+        assert!(a
+            .geometry
+            .surfaces
+            .iter()
+            .all(|s| !matches!(s, SurfaceKind::XPlane(p) if p.bc != BoundaryType::Transmissive)));
+        // The source starts over the whole cylinder.
+        assert_eq!((a.source_box.lower.x, a.source_box.upper.z), (-3.2, 5.0));
+        // Pins are rods: one cylinder surface each, no end planes of their own.
+        let rods = a
+            .geometry
+            .surfaces
+            .iter()
+            .filter(|s| matches!(s, SurfaceKind::ZCylinder(c) if c.r == 0.4 || c.r == 0.5))
+            .count();
+        assert_eq!(
+            rods, 2,
+            "a fuel rod and a clad rod, in the one pin tile, lowered once"
+        );
+        // Looking up: the fuel rod of the lower-right pin of the right-hand
+        // assembly, and a water gap.
+        let at = |x: f64, y: f64| {
+            a.geometry
+                .locate(
+                    Position::new(x, y, 1.0),
+                    Direction::new(0.0, 0.0, 1.0),
+                    SurfaceToken::NONE,
+                )
+                .and_then(|p| p.material)
+                .map(|m| a.materials[m].name.clone())
+        };
+        // Core tile (col 2, row 1 from the top) is the right-hand assembly:
+        // centre x = 2.4, y = 0; its lower-right pin (water, fuel row 2) is
+        // at (+0.6, -0.6) of that: global (3.0, -0.6) is outside r 3.2? no:
+        // |(3.0, -0.6)| = 3.06 < 3.2.
+        assert_eq!(at(2.4 + 0.6, -0.6).as_deref(), Some("fuel"));
+        assert_eq!(at(2.4 - 0.6, -0.6).as_deref(), Some("water"));
+        assert_eq!(at(3.3, 0.0), None, "outside the cylinder: lost");
+        // Counting: fuel rods = (pins that are fuel) per assembly x assemblies.
+        let census = a.census().unwrap();
+        let fuel_row = census.rows.iter().find(|r| r.material == "fuel").unwrap();
+        assert_eq!(
+            fuel_row.copies,
+            2 * 5,
+            "2 fuel pins in each of 5 assemblies"
+        );
+        let expect = std::f64::consts::PI * 0.4 * 0.4 * 10.0;
+        assert!(
+            (fuel_row.volume_each.get::<cubic_centimeter>() - expect).abs() < 1e-9,
+            "a rod is as tall as the cylinder it is extruded through"
+        );
+        // The pin tile's water: pitch^2 x height less the clad rod.
+        let tile_water = 1.2 * 1.2 * 10.0 - std::f64::consts::PI * 0.5 * 0.5 * 10.0;
+        assert!(census
+            .rows
+            .iter()
+            .any(|r| (r.volume_each.get::<cubic_centimeter>() - tile_water).abs() < 1e-9));
+
+        // A reflective cylinder reflects on all three surfaces.
+        let r = build(core_with(10.0, 10.0, 3.2).boundary(Boundary::Reflective)).unwrap();
+        assert_eq!(
+            r.geometry
+                .surfaces
+                .iter()
+                .filter(
+                    |s| matches!(s, SurfaceKind::ZCylinder(c) if c.bc == BoundaryType::Reflective)
+                )
+                .count(),
+            1
+        );
+
+        // Refusals, each in words.
+        let words = |s: Shape| match build(s) {
+            Err(ModelError::BadValue(m)) => m,
+            Err(ModelError::Geometry(p)) => p.message,
+            other => panic!("{other:?}"),
+        };
+        // A rod outside a tile.
+        let m = words(Cylinder::radius(cm(1.0)).filled_with(water()));
+        assert!(
+            m.contains("without a height") && m.contains(".height(..)"),
+            "{m}"
+        );
+        let m = words(
+            Cuboid::sides(cm(3.0), cm(3.0), cm(3.0))
+                .filled_with(water())
+                .containing(Cylinder::radius(cm(1.0)).filled_with(fuel())),
+        );
+        assert!(m.contains("without a height"), "{m}");
+        // A grid that does not reach the cylinder (picture).
+        let m = words(core_with(10.0, 10.0, 3.7));
+        assert!(
+            m.contains("does not cover") && m.contains("hold no tile"),
+            "{m}"
+        );
+        // One layer of tiles shorter than the cylinder is tall.
+        let m = words(core_with(10.0, 8.0, 3.2));
+        assert!(m.contains("at least 10.000000 cm tall"), "{m}");
+        // A rod cannot be filled with a lattice; Lattice::covering is a
+        // sphere's.
+        let m = words(
+            Cylinder::radius(cm(3.0))
+                .filled_with(water())
+                .containing_lattice(Lattice::copies_of(water_tile(10.0), [1, 1, 1])),
+        );
+        assert!(
+            m.contains("without a height") || m.contains("needs a height"),
+            "{m}"
+        );
+        let m = words(
+            Cylinder::radius(cm(3.0))
+                .height(cm(10.0))
+                .filled_with(water())
+                .containing_lattice(Lattice::covering(water_tile(10.0), [0.0; 3])),
+        );
+        assert!(m.contains("Lattice::covering"), "{m}");
+        // A three-dimensional stack must cover the cylinder in z as well.
+        let stack = Lattice::copies_of(water_tile(2.0), [6, 6, 2]);
+        let m = words(
+            Cylinder::radius(cm(3.0))
+                .height(cm(10.0))
+                .filled_with(water())
+                .containing_lattice(stack),
+        );
+        assert!(
+            m.contains("does not cover") && !m.contains("extruded"),
+            "{m}"
+        );
+        // A one-layer lattice is extruded (found 2026-10-18: a 2 cm tile in
+        // a 6 cm box filled all 6 cm), so it must be as tall as its box and
+        // sit at z = 0, in a box or a cylinder.
+        let m = words(
+            Cuboid::sides(cm(2.4), cm(2.4), cm(6.0))
+                .filled_with(water())
+                .containing_lattice(Lattice::copies_of(water_tile(2.0), [2, 2, 1])),
+        );
+        assert!(
+            m.contains("extruded through its container's whole height"),
+            "{m}"
+        );
+        let m = words(
+            Cuboid::sides(cm(2.4), cm(2.4), cm(2.0))
+                .centred_at(cm(0.0), cm(0.0), cm(1.0))
+                .filled_with(water())
+                .containing_lattice(Lattice::copies_of(water_tile(2.0), [2, 2, 1])),
+        );
+        assert!(m.contains("tiles sit at z = 0"), "{m}");
+        let m = words(
+            Cylinder::radius(cm(1.0))
+                .height(cm(2.0))
+                .centred_at(cm(0.0), cm(0.0), cm(1.0))
+                .filled_with(water())
+                .containing_lattice(Lattice::copies_of(water_tile(2.0), [2, 2, 1])),
+        );
+        assert!(m.contains("tiles sit at z = 0"), "{m}");
+        build(
+            Cuboid::sides(cm(2.4), cm(2.4), cm(2.0))
+                .filled_with(water())
+                .containing_lattice(Lattice::copies_of(water_tile(2.0), [2, 2, 1])),
+        )
+        .expect("a one-layer lattice as tall as its box is fine");
+        // A stack that does cover it is fine, centred on the cylinder.
+        let stack = Lattice::copies_of(water_tile(5.0), [6, 6, 2]);
+        build(
+            Cylinder::radius(cm(3.0))
+                .height(cm(10.0))
+                .centred_at(cm(0.0), cm(0.0), cm(1.0))
+                .filled_with(water())
+                .containing_lattice(stack),
+        )
+        .expect("a two-layer stack covers the cylinder");
     }
 }

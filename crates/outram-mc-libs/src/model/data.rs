@@ -236,6 +236,14 @@ impl NuclearData {
     /// one named `*-ENDF8.0.endf`. These are the tapes the crate's recorded
     /// ICSBEP benchmarks use (`vv::godiva`, `vv::hst009`). Native only.
     ///
+    /// **Not Fe-54 (found 2026-10-18, tutorial 6):** that tape's header says
+    /// `NLIB = 8`, so this constructor does not offer it and LCT-008's clad
+    /// (Fe-54 among its 35 nuclides) cannot be built from it. Use
+    /// [`Self::from_folder`] on the same folder: it identifies the library
+    /// by the tapes' `HSUB` line and finds all 35. (Checked: this
+    /// constructor finds 34 of LCT-008 case 1's 35 nuclides, Fe-54 missing;
+    /// `from_folder` finds all 35.)
+    ///
     /// # Errors
     /// [`DataError::NoTapes`] when the folder is missing or empty (a clone
     /// without the reference data).

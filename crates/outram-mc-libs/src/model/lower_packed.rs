@@ -105,6 +105,18 @@ pub(crate) fn whole_in_sphere(zone: &Sphere, child: &Solid, at: [f64; 3]) -> boo
                 .sum();
             d2 <= rz * rz
         }
+        Solid::Cylinder(cy) => {
+            // A rod has no ends and so is never whole in a sphere; a finite
+            // cylinder's farthest point is on the rim of its farther end.
+            let (lo, hi) = cy.z_range();
+            if !(lo.is_finite() && hi.is_finite()) {
+                return false;
+            }
+            let cc = cy.centre_cm();
+            let rim = ((at[0] + cc[0]) - c[0]).hypot((at[1] + cc[1]) - c[1]) + cy.radius_cm();
+            let dz = (at[2] + lo - c[2]).abs().max((at[2] + hi - c[2]).abs());
+            rim.hypot(dz) <= rz
+        }
     }
 }
 

@@ -11,8 +11,10 @@
 //! [`super::Model::assemble`] lowers it all to today's CSG
 //! [`Geometry`](crate::geometry::geometry::Geometry).
 //!
-//! Two solids today: [`Sphere`] and [`Cuboid`] (a box; [`Cube`] makes one
-//! with equal sides). **Repeated structures** (#926) are a [`Lattice`] of
+//! Three solids today: [`Sphere`], [`Cuboid`] (a box; [`Cube`] makes one
+//! with equal sides) and [`Cylinder`] (axis along z: a finite cylinder with
+//! a height, or a **rod** without one that runs through whatever holds it,
+//! a pin in a lattice tile). **Repeated structures** (#926) are a [`Lattice`] of
 //! tiles, each tile an ordinary shape (a cube of matrix containing a TRISO
 //! particle, say), placed in a container with [`Shape::containing_lattice`].
 //! A TRISO particle itself needs nothing new: it is concentric spheres, one
@@ -195,6 +197,133 @@ impl Cuboid {
     }
 }
 
+/// **A cylinder with its axis along z**: a radius and, optionally, a centre
+/// (the origin otherwise) and a height.
+///
+/// - **With a height** ([`Cylinder::height`]) it is a finite solid, centred
+///   on its centre: a reactor core, a tank.
+/// - **Without one it is a rod**: it runs the whole height of whatever holds
+///   it. That is what a fuel pin is in a lattice tile, where the lattice
+///   (and the container the lattice fills) decide how tall it is. A rod is
+///   only allowed inside a lattice tile; anywhere else
+///   [`super::Model::assemble`] refuses it and asks for a height.
+///
+/// ```
+/// use outram_mc_libs::model::prelude::*;
+/// use uom::si::{f64::Length, length::centimeter};
+/// let cm = Length::new::<centimeter>;
+/// let pin = Cylinder::radius(cm(0.5149));
+/// assert!(pin.is_rod());
+/// let core = Cylinder::radius(cm(76.2)).height(cm(163.3));
+/// assert_eq!(core.height_cm(), Some(163.3));
+/// assert!((core.volume_cm3().unwrap() - std::f64::consts::PI * 76.2 * 76.2 * 163.3).abs() < 1e-6);
+/// ```
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Cylinder {
+    centre_cm: [f64; 3],
+    radius_cm: f64,
+    height_cm: Option<f64>,
+}
+
+impl Cylinder {
+    /// A rod of `radius` on the z axis (give it a height with
+    /// [`Cylinder::height`] unless it sits in a lattice tile). The radius
+    /// must be positive and finite; [`super::Model::assemble`] refuses one
+    /// that is not.
+    pub fn radius(radius: Length) -> Self {
+        Self {
+            centre_cm: [0.0; 3],
+            radius_cm: radius.get::<centimeter>(),
+            height_cm: None,
+        }
+    }
+
+    /// Give it a height (its z extent, centred on its centre): now a finite
+    /// cylinder. Must be positive and finite.
+    pub fn height(mut self, height: Length) -> Self {
+        self.height_cm = Some(height.get::<centimeter>());
+        self
+    }
+
+    /// Move the centre to `(x, y, z)`. The z of a rod means nothing (it has
+    /// no ends); give it 0.
+    pub fn centred_at(mut self, x: Length, y: Length, z: Length) -> Self {
+        self.centre_cm = [
+            x.get::<centimeter>(),
+            y.get::<centimeter>(),
+            z.get::<centimeter>(),
+        ];
+        self
+    }
+
+    /// Fill it with `material`.
+    pub fn filled_with(self, material: Material) -> Shape {
+        Shape::new(Solid::Cylinder(self), material)
+    }
+
+    /// Radius \[cm\].
+    pub fn radius_cm(&self) -> f64 {
+        self.radius_cm
+    }
+
+    /// Height \[cm\], `None` for a rod.
+    pub fn height_cm(&self) -> Option<f64> {
+        self.height_cm
+    }
+
+    /// Centre \[cm\].
+    pub fn centre_cm(&self) -> [f64; 3] {
+        self.centre_cm
+    }
+
+    /// Whether it has no height: it runs through whatever holds it.
+    pub fn is_rod(&self) -> bool {
+        self.height_cm.is_none()
+    }
+
+    /// Volume \[cm³\], `None` for a rod (it has no height of its own).
+    pub fn volume_cm3(&self) -> Option<f64> {
+        self.height_cm
+            .map(|h| std::f64::consts::PI * self.radius_cm * self.radius_cm * h)
+    }
+
+    /// The z range \[cm\], infinite for a rod.
+    pub(crate) fn z_range(&self) -> (f64, f64) {
+        match self.height_cm {
+            Some(h) => (self.centre_cm[2] - 0.5 * h, self.centre_cm[2] + 0.5 * h),
+            None => (f64::NEG_INFINITY, f64::INFINITY),
+        }
+    }
+
+    /// Distance in the x-y plane from the axis to the point `p`.
+    fn radial_cm(&self, p: [f64; 3]) -> f64 {
+        (p[0] - self.centre_cm[0]).hypot(p[1] - self.centre_cm[1])
+    }
+
+    /// Whether `p` is inside.
+    pub(crate) fn holds(&self, p: [f64; 3]) -> bool {
+        let (lo, hi) = self.z_range();
+        self.radial_cm(p) < self.radius_cm && p[2] > lo && p[2] < hi
+    }
+
+    /// Bounding box `(lower, upper)` \[cm\] (infinite in z for a rod).
+    pub(crate) fn bounds(&self) -> ([f64; 3], [f64; 3]) {
+        let (lo, hi) = self.z_range();
+        (
+            [
+                self.centre_cm[0] - self.radius_cm,
+                self.centre_cm[1] - self.radius_cm,
+                lo,
+            ],
+            [
+                self.centre_cm[0] + self.radius_cm,
+                self.centre_cm[1] + self.radius_cm,
+                hi,
+            ],
+        )
+    }
+}
+
 /// **A cube**: makes a [`Cuboid`] with three equal sides, from a length or
 /// from a packing fraction (both decided for the regular unit cell on #943,
 /// tutorial 4).
@@ -299,23 +428,43 @@ impl Cube {
     }
 }
 
-/// **The solid a [`Shape`] occupies**: a [`Sphere`] or a [`Cuboid`]. Enum
-/// dispatch (workspace rule: no trait objects).
+/// **The solid a [`Shape`] occupies**: a [`Sphere`], a [`Cuboid`] or a
+/// [`Cylinder`]. Enum dispatch (workspace rule: no trait objects).
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Solid {
     /// A sphere.
     Sphere(Sphere),
     /// A box.
     Cuboid(Cuboid),
+    /// A cylinder along z, finite or a rod.
+    Cylinder(Cylinder),
 }
 
 impl Solid {
-    /// Volume \[cm³\], exact.
+    /// Volume \[cm³\], exact (infinite for a rod: see
+    /// [`Solid::volume_within`]).
     pub fn volume_cm3(&self) -> f64 {
         match self {
             Solid::Sphere(s) => 4.0 / 3.0 * std::f64::consts::PI * s.radius_cm.powi(3),
             Solid::Cuboid(b) => b.volume_cm3(),
+            Solid::Cylinder(c) => c.volume_cm3().unwrap_or(f64::INFINITY),
         }
+    }
+
+    /// Volume \[cm³\] when a rod is as tall as `height` \[cm\] (the height
+    /// a one-layer lattice is extruded through); the exact volume otherwise.
+    pub(crate) fn volume_within(&self, height: Option<f64>) -> f64 {
+        match (self, height) {
+            (Solid::Cylinder(c), Some(h)) if c.is_rod() => {
+                std::f64::consts::PI * c.radius_cm * c.radius_cm * h
+            }
+            _ => self.volume_cm3(),
+        }
+    }
+
+    /// Whether this is a [`Cylinder`] without a height.
+    pub(crate) fn is_rod(&self) -> bool {
+        matches!(self, Solid::Cylinder(c) if c.is_rod())
     }
 
     /// Centre \[cm\].
@@ -323,14 +472,17 @@ impl Solid {
         match self {
             Solid::Sphere(s) => s.centre_cm,
             Solid::Cuboid(b) => b.centre_cm,
+            Solid::Cylinder(c) => c.centre_cm,
         }
     }
 
-    /// Axis-aligned bounding box `(lower, upper)` \[cm\].
+    /// Axis-aligned bounding box `(lower, upper)` \[cm\] (infinite in z for
+    /// a rod).
     pub(crate) fn bounds(&self) -> ([f64; 3], [f64; 3]) {
         match self {
             Solid::Sphere(s) => s.bounds(),
             Solid::Cuboid(b) => b.bounds(),
+            Solid::Cylinder(c) => c.bounds(),
         }
     }
 
@@ -342,6 +494,7 @@ impl Solid {
                 let (l, u) = b.bounds();
                 (0..3).all(|i| p[i] > l[i] && p[i] < u[i])
             }
+            Solid::Cylinder(c) => c.holds(p),
         }
     }
 
@@ -350,6 +503,7 @@ impl Solid {
         match self {
             Solid::Sphere(s) => s.radius_cm,
             Solid::Cuboid(b) => b.sides_cm.iter().fold(0.0_f64, |m, x| m.max(*x)),
+            Solid::Cylinder(c) => c.radius_cm.max(c.height_cm.unwrap_or(0.0)),
         }
     }
 
@@ -360,6 +514,11 @@ impl Solid {
             Solid::Sphere(s) => ok(s.radius_cm) && s.centre_cm.iter().all(|c| c.is_finite()),
             Solid::Cuboid(b) => {
                 b.sides_cm.iter().all(|x| ok(*x)) && b.centre_cm.iter().all(|c| c.is_finite())
+            }
+            Solid::Cylinder(c) => {
+                ok(c.radius_cm)
+                    && c.height_cm.is_none_or(ok)
+                    && c.centre_cm.iter().all(|x| x.is_finite())
             }
         }
     }
@@ -372,11 +531,22 @@ impl Solid {
                 "a box of sides {:.6} x {:.6} x {:.6} cm",
                 b.sides_cm[0], b.sides_cm[1], b.sides_cm[2]
             ),
+            Solid::Cylinder(c) => match c.height_cm {
+                Some(h) => format!(
+                    "a cylinder of radius {:.6} cm and height {h:.6} cm",
+                    c.radius_cm
+                ),
+                None => format!("a rod of radius {:.6} cm", c.radius_cm),
+            },
         }
     }
 
     /// Whether `inner` lies wholly inside `self` (touching allowed, to a
-    /// relative `1e-12`). Exact for every pair of solids here.
+    /// relative `1e-12`). Exact for every pair of solids here. A rod has no
+    /// ends of its own, so it is checked in x and y only (and in z against
+    /// nothing): [`super::Model::assemble`] separately insists a rod sits in
+    /// a lattice tile, whose lattice gives it its height. Nothing finite
+    /// holds a rod in z: a sphere does not enclose one.
     pub(crate) fn encloses(&self, inner: &Solid) -> bool {
         let tol = 1.0e-12 * self.scale_cm();
         match (self, inner) {
@@ -395,10 +565,53 @@ impl Solid {
                     .sum();
                 d2.sqrt() <= o.radius_cm + tol
             }
+            (Solid::Sphere(o), Solid::Cylinder(i)) => {
+                // The farthest point of a finite cylinder is on the rim of
+                // its farther end.
+                let (lo, hi) = i.z_range();
+                if !(lo.is_finite() && hi.is_finite()) {
+                    return false;
+                }
+                let rim = (i.centre_cm[0] - o.centre_cm[0]).hypot(i.centre_cm[1] - o.centre_cm[1])
+                    + i.radius_cm;
+                let dz = (lo - o.centre_cm[2]).abs().max((hi - o.centre_cm[2]).abs());
+                rim.hypot(dz) <= o.radius_cm + tol
+            }
+            (Solid::Cuboid(o), Solid::Cylinder(i)) => {
+                let (lo, uo) = o.bounds();
+                let (li, ui) = i.bounds();
+                let z_ok = i.is_rod() || (li[2] >= lo[2] - tol && ui[2] <= uo[2] + tol);
+                z_ok && (0..2).all(|k| li[k] >= lo[k] - tol && ui[k] <= uo[k] + tol)
+            }
             (Solid::Cuboid(o), _) => {
                 let (lo, uo) = o.bounds();
                 let (li, ui) = inner.bounds();
                 (0..3).all(|k| li[k] >= lo[k] - tol && ui[k] <= uo[k] + tol)
+            }
+            (Solid::Cylinder(o), Solid::Sphere(i)) => {
+                let (lo, hi) = o.z_range();
+                o.radial_cm(i.centre_cm) + i.radius_cm <= o.radius_cm + tol
+                    && i.centre_cm[2] - i.radius_cm >= lo - tol
+                    && i.centre_cm[2] + i.radius_cm <= hi + tol
+            }
+            (Solid::Cylinder(o), Solid::Cuboid(i)) => {
+                let (lo, hi) = o.z_range();
+                let (l, u) = i.bounds();
+                let corners_in = [(l[0], l[1]), (l[0], u[1]), (u[0], l[1]), (u[0], u[1])]
+                    .iter()
+                    .all(|&(x, y)| {
+                        (x - o.centre_cm[0]).hypot(y - o.centre_cm[1]) <= o.radius_cm + tol
+                    });
+                corners_in && l[2] >= lo - tol && u[2] <= hi + tol
+            }
+            (Solid::Cylinder(o), Solid::Cylinder(i)) => {
+                let (lo, hi) = o.z_range();
+                let (li, ui) = i.z_range();
+                let d = (i.centre_cm[0] - o.centre_cm[0]).hypot(i.centre_cm[1] - o.centre_cm[1]);
+                let radial = d + i.radius_cm <= o.radius_cm + tol;
+                // A rod in a rod, or any rod in a cylinder (the holder gives
+                // it its height): x-y only. A finite one must fit in z too.
+                radial && (i.is_rod() || (li >= lo - tol && ui <= hi + tol))
             }
         }
     }
@@ -426,6 +639,27 @@ impl Solid {
                 let (la, ua) = a.bounds();
                 let (lb, ub) = b.bounds();
                 (0..3).all(|k| la[k] < ub[k] - tol && lb[k] < ua[k] - tol)
+            }
+            (Solid::Sphere(s), Solid::Cylinder(c)) | (Solid::Cylinder(c), Solid::Sphere(s)) => {
+                // The nearest point of a cylinder to the centre: the centre
+                // pulled radially onto the disc and clamped in z.
+                let (lo, hi) = c.z_range();
+                let dz = (lo - s.centre_cm[2]).max(0.0).max(s.centre_cm[2] - hi);
+                let dr = (c.radial_cm(s.centre_cm) - c.radius_cm).max(0.0);
+                dr.hypot(dz) < s.radius_cm - tol
+            }
+            (Solid::Cuboid(b), Solid::Cylinder(c)) | (Solid::Cylinder(c), Solid::Cuboid(b)) => {
+                let (l, u) = b.bounds();
+                let (lo, hi) = c.z_range();
+                let dx = (l[0] - c.centre_cm[0]).max(0.0).max(c.centre_cm[0] - u[0]);
+                let dy = (l[1] - c.centre_cm[1]).max(0.0).max(c.centre_cm[1] - u[1]);
+                dx.hypot(dy) < c.radius_cm - tol && l[2] < hi - tol && lo < u[2] - tol
+            }
+            (Solid::Cylinder(a), Solid::Cylinder(b)) => {
+                let (la, ha) = a.z_range();
+                let (lb, hb) = b.z_range();
+                let d = (a.centre_cm[0] - b.centre_cm[0]).hypot(a.centre_cm[1] - b.centre_cm[1]);
+                d < a.radius_cm + b.radius_cm - tol && la < hb - tol && lb < ha - tol
             }
         }
     }
@@ -490,9 +724,7 @@ impl Shape {
     /// centred at its own origin (the packing places it).
     pub(crate) fn packed_radius_cm(&self) -> Result<f64, ModelError> {
         match self.solid {
-            Solid::Sphere(s) if s.centre_cm == [0.0; 3] && self.solid.is_valid() => {
-                Ok(s.radius_cm)
-            }
+            Solid::Sphere(s) if s.centre_cm == [0.0; 3] && self.solid.is_valid() => Ok(s.radius_cm),
             _ => Err(ModelError::BadValue(format!(
                 "a packed particle must be a sphere centred at its own origin (the packing \
                  places it), not {}",
@@ -528,6 +760,23 @@ impl Shape {
     /// sphere is left out and the sphere's material fills its place;
     /// nothing is cut), and the tiles' own material must be the sphere's.
     /// [`super::Lattice::covering`] sizes the grid for a sphere.
+    ///
+    /// **A [`Cylinder`] container (tutorial 6)** is filled the other way
+    /// round: the grid must *cover* the cylinder, and the cylinder cuts the
+    /// tiles at its wall (OpenMC's lattice fill cell bounded by a cylinder
+    /// and two planes; LCT-008's core is a 7 x 7 lattice cut by one).
+    ///
+    /// **A tile may itself be filled with a lattice** (a core of assemblies
+    /// of pins).
+    ///
+    /// **A one-layer lattice (`n_z = 1`) is extruded**: the CSG lattice
+    /// ignores z for it, so its tiles run through the container's whole
+    /// height and sit at `z = 0`. It therefore needs a container centred at
+    /// `z = 0` with tiles at least as tall (a box: exactly as tall); a grid
+    /// that is to stop short in z needs two or more layers.
+    /// ~~(Until 2026-10-18 a shorter one-layer grid was accepted and filled
+    /// the whole box, against the sentence above about the material that
+    /// fills what the lattice does not cover.)~~
     /// [`super::Model::assemble`] refuses anything else.
     pub fn containing_lattice(mut self, lattice: Lattice) -> Self {
         self.lattice = Some(lattice);
@@ -671,6 +920,120 @@ mod tests {
         assert_eq!(s.boundary_condition(), Some(Boundary::Reflective));
         let mut n = 0;
         s.visit(&mut |_| n += 1);
+        assert_eq!(n, 2);
+    }
+
+    /// **Cylinders (tutorial 6)**: a rod and a finite cylinder against every
+    /// other solid, one case each way for `encloses` and `overlaps`, and the
+    /// helpers the lowering relies on.
+    #[test]
+    fn cylinder_rods_and_finite_cylinders_relate_exactly() {
+        let rod = Cylinder::radius(cm(1.0));
+        let core = Cylinder::radius(cm(5.0)).height(cm(10.0));
+        assert!(rod.is_rod() && !core.is_rod());
+        assert_eq!((rod.height_cm(), core.height_cm()), (None, Some(10.0)));
+        assert!(rod.volume_cm3().is_none());
+        assert!((core.volume_cm3().unwrap() - std::f64::consts::PI * 250.0).abs() < 1e-9);
+        assert_eq!(core.centre_cm(), [0.0; 3]);
+        let moved = core.centred_at(cm(1.0), cm(2.0), cm(3.0));
+        assert_eq!(moved.centre_cm(), [1.0, 2.0, 3.0]);
+        assert_eq!(moved.bounds(), ([-4.0, -3.0, -2.0], [6.0, 7.0, 8.0]));
+        assert_eq!(rod.bounds().0[2], f64::NEG_INFINITY);
+        assert!(core.holds([3.0, 3.0, 4.9]) && !core.holds([3.0, 4.0, 0.0]));
+        assert!(!core.holds([0.0, 0.0, 5.0]) && rod.holds([0.5, 0.0, 1.0e9]));
+
+        let (srod, score) = (Solid::Cylinder(rod), Solid::Cylinder(core));
+        assert!(srod.is_rod() && !score.is_rod());
+        assert!(srod.volume_cm3().is_infinite());
+        assert!((srod.volume_within(Some(10.0)) - std::f64::consts::PI * 10.0).abs() < 1e-9);
+        assert_eq!(score.volume_within(Some(1.0)), score.volume_cm3());
+        assert!(srod.is_valid() && score.is_valid());
+        assert!(!Solid::Cylinder(Cylinder::radius(cm(-1.0))).is_valid());
+        assert!(!Solid::Cylinder(Cylinder::radius(cm(1.0)).height(cm(0.0))).is_valid());
+        assert!(srod.describe().contains("rod") && score.describe().contains("height"));
+        assert_eq!(score.scale_cm(), 10.0);
+        assert_eq!(srod.centre_cm(), [0.0; 3]);
+
+        // A rod fits in a box or a cylinder by its x-y extent only; nothing
+        // finite holds it in z against a sphere.
+        let bx = Solid::Cuboid(Cuboid::sides(cm(2.0), cm(2.0), cm(2.0)));
+        assert!(bx.encloses(&srod) && score.encloses(&srod));
+        assert!(!Solid::Cuboid(Cuboid::sides(cm(1.9), cm(2.0), cm(2.0))).encloses(&srod));
+        assert!(!Solid::Sphere(Sphere::radius(cm(100.0))).encloses(&srod));
+        // A finite cylinder: in a sphere by its rim, in a box and a cylinder
+        // by x-y and z.
+        let small = Solid::Cylinder(Cylinder::radius(cm(1.0)).height(cm(2.0)));
+        let rim = 2.0_f64.sqrt();
+        assert!(Solid::Sphere(Sphere::radius(cm(rim + 1e-9))).encloses(&small));
+        assert!(!Solid::Sphere(Sphere::radius(cm(rim - 1e-3))).encloses(&small));
+        assert!(bx.encloses(&small));
+        assert!(!Solid::Cuboid(Cuboid::sides(cm(2.0), cm(2.0), cm(1.9))).encloses(&small));
+        assert!(score.encloses(&small));
+        assert!(!score.encloses(&Solid::Cylinder(Cylinder::radius(cm(1.0)).height(cm(11.0)))));
+        assert!(
+            !score.encloses(&Solid::Cylinder(Cylinder::radius(cm(1.0)).centred_at(
+                cm(4.5),
+                cm(0.0),
+                cm(0.0)
+            )))
+        );
+        // A sphere or a box in a cylinder.
+        assert!(score.encloses(&Solid::Sphere(Sphere::radius(cm(4.9)))));
+        assert!(!score.encloses(&Solid::Sphere(Sphere::radius(cm(5.1)))));
+        assert!(score.encloses(&Solid::Cuboid(Cuboid::sides(cm(6.0), cm(6.0), cm(10.0)))));
+        assert!(!score.encloses(&Solid::Cuboid(Cuboid::sides(cm(8.0), cm(8.0), cm(2.0)))));
+
+        // Overlaps, touching is not overlapping.
+        let at =
+            |x: f64| Solid::Cylinder(Cylinder::radius(cm(1.0)).centred_at(cm(x), cm(0.0), cm(0.0)));
+        assert!(srod.overlaps(&at(1.9)) && !srod.overlaps(&at(2.0)));
+        let high = |z: f64| {
+            Solid::Cylinder(Cylinder::radius(cm(1.0)).height(cm(2.0)).centred_at(
+                cm(0.0),
+                cm(0.0),
+                cm(z),
+            ))
+        };
+        assert!(high(0.0).overlaps(&high(1.9)) && !high(0.0).overlaps(&high(2.0)));
+        assert!(
+            srod.overlaps(&high(1.0e6)),
+            "a rod meets a cylinder at any height"
+        );
+        let ball = |x: f64, z: f64| {
+            Solid::Sphere(Sphere::radius(cm(1.0)).centred_at(cm(x), cm(0.0), cm(z)))
+        };
+        assert!(small.overlaps(&ball(1.9, 0.0)) && !small.overlaps(&ball(2.0, 0.0)));
+        assert!(ball(0.0, 1.9).overlaps(&small) && !ball(0.0, 2.1).overlaps(&small));
+        let slab = |x: f64| {
+            Solid::Cuboid(Cuboid::sides(cm(2.0), cm(2.0), cm(2.0)).centred_at(
+                cm(x),
+                cm(0.0),
+                cm(0.0),
+            ))
+        };
+        assert!(small.overlaps(&slab(1.9)) && !small.overlaps(&slab(2.0)));
+        assert!(slab(0.0).overlaps(&srod));
+        // A cylinder cannot be a whole particle of a sphere unless finite and
+        // inside: the packing's test.
+        let zone = Sphere::radius(cm(3.0));
+        assert!(super::super::lower_packed::whole_in_sphere(
+            &zone, &small, [0.0; 3]
+        ));
+        assert!(!super::super::lower_packed::whole_in_sphere(
+            &zone,
+            &small,
+            [2.0, 0.0, 0.0]
+        ));
+        assert!(!super::super::lower_packed::whole_in_sphere(
+            &zone, &srod, [0.0; 3]
+        ));
+        // Fill it and put it in a shape.
+        let pin = rod
+            .filled_with(m())
+            .containing(Cylinder::radius(cm(0.5)).filled_with(m()));
+        assert_eq!(pin.contained().len(), 1);
+        let mut n = 0;
+        pin.visit(&mut |_| n += 1);
         assert_eq!(n, 2);
     }
 }

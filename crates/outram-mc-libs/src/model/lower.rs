@@ -25,11 +25,14 @@ use super::shape::{Component, Shape, Solid};
 use crate::geometry::cell::{Cell, CellFill, HalfSpaceSense, RegionToken};
 use crate::geometry::lattice::{Lattice as CsgLattice, RectLattice};
 use crate::geometry::position::Position;
-use crate::geometry::surface::{BoundaryType, SurfaceKind, XPlane, YPlane, ZPlane};
+use crate::geometry::surface::{BoundaryType, SurfaceKind, XPlane, YPlane, ZCylinder, ZPlane};
 use crate::geometry::universe::Universe;
 use crate::material::material::NuclideComponent;
 use uom::si::f64::ThermodynamicTemperature;
 use uom::si::thermodynamic_temperature::kelvin;
+
+/// A solid's inside tokens, outside tokens and surface indices.
+pub(crate) type SolidTokens = (Vec<RegionToken>, Vec<RegionToken>, Vec<usize>);
 
 /// One lowered shape: the tokens a parent uses to subtract it, and its own
 /// surfaces (for the boundary condition of an outermost shape).
@@ -72,6 +75,10 @@ pub(crate) struct Lowering {
     /// is noted here instead of in `fissile_bounds`.
     pub(crate) in_tile: bool,
     pub(crate) tile_has_heavy_metal: bool,
+    /// While lowering the tiles of a one-layer lattice: the height \[cm\] it
+    /// is extruded through (its container's), which a rod and a tile take
+    /// for their own when their volume is counted.
+    pub(crate) extrusion: Option<f64>,
     far_plane: Option<usize>,
 }
 
@@ -104,10 +111,7 @@ pub(crate) fn combine(inside: &[RegionToken], children: &[Vec<RegionToken>]) -> 
 impl Lowering {
     /// Push `solid`'s surfaces (transmissive) and return `(inside tokens,
     /// outside tokens, surface indices)`.
-    pub(crate) fn solid_surfaces(
-        &mut self,
-        solid: &Solid,
-    ) -> (Vec<RegionToken>, Vec<RegionToken>, Vec<usize>) {
+    pub(crate) fn solid_surfaces(&mut self, solid: &Solid) -> SolidTokens {
         let bc = BoundaryType::Transmissive;
         match solid {
             Solid::Sphere(s) => {
@@ -147,6 +151,39 @@ impl Lowering {
                 let mut outside = inside.clone();
                 outside.push(RegionToken::Complement);
                 (inside, outside, (i0..i0 + 6).collect())
+            }
+            Solid::Cylinder(c) => {
+                let ctr = c.centre_cm();
+                let cylinder = SurfaceKind::ZCylinder(ZCylinder {
+                    x0: ctr[0],
+                    y0: ctr[1],
+                    r: c.radius_cm(),
+                    bc,
+                });
+                if c.is_rod() {
+                    self.surfaces.push(cylinder);
+                    let i = self.surfaces.len() - 1;
+                    return (
+                        vec![half(i, HalfSpaceSense::Inside)],
+                        vec![half(i, HalfSpaceSense::Outside)],
+                        vec![i],
+                    );
+                }
+                // `+z0 ∩ -z1 ∩ -cylinder`, as an OpenMC card writes it.
+                let (lo, hi) = c.z_range();
+                let i0 = self.surfaces.len();
+                self.surfaces.extend([
+                    SurfaceKind::ZPlane(ZPlane { z0: lo, bc }),
+                    SurfaceKind::ZPlane(ZPlane { z0: hi, bc }),
+                    cylinder,
+                ]);
+                let (o, i) = (HalfSpaceSense::Outside, HalfSpaceSense::Inside);
+                let mut inside = vec![half(i0, o), half(i0 + 1, i), RegionToken::Intersection];
+                inside.push(half(i0 + 2, i));
+                inside.push(RegionToken::Intersection);
+                let mut outside = inside.clone();
+                outside.push(RegionToken::Complement);
+                (inside, outside, (i0..i0 + 3).collect())
             }
         }
     }
@@ -225,8 +262,11 @@ impl Lowering {
         let (inside, outside, surfaces) = self.solid_surfaces(&s.solid);
         let m = self.material_index(&s.material, t, masses)?;
         self.note_heavy_metal(m, &s.solid);
-        let volume =
-            s.solid.volume_cm3() - s.children.iter().map(|c| c.solid.volume_cm3()).sum::<f64>();
+        let volume = s.solid.volume_within(self.extrusion)
+            - s.children
+                .iter()
+                .map(|c| c.solid.volume_within(self.extrusion))
+                .sum::<f64>();
         let id = self.cells.len() as i32 + 1;
         self.push_cell(
             Cell::material(id, combine(&inside, &children), m, t),
@@ -252,6 +292,11 @@ impl Lowering {
     /// [`Self::lower_tile`], with the background's volume counted in `pool`
     /// when given (a tile clipped by a sphere). Also returns each child's
     /// own cell (its outermost layer) and the child's volume.
+    ///
+    /// **A tile that is itself filled with a lattice** (an assembly of pins
+    /// in a core of assemblies) is a universe of one fill cell, bounded by
+    /// the enclosing lattice like any tile's background: no surface of its
+    /// own, so no second boundary coincides with the lattice's.
     pub(crate) fn lower_tile_pooled(
         &mut self,
         tile: &Shape,
@@ -261,6 +306,37 @@ impl Lowering {
     ) -> Result<(usize, Vec<(usize, f64)>), ModelError> {
         let t = self.temperature_of(tile, t);
         let mut cells_of = Vec::new();
+        if let Some(lattice) = &tile.lattice {
+            let region = self.everywhere();
+            let tile_volume = match (self.extrusion, tile.solid) {
+                (Some(h), Solid::Cuboid(b)) => b.sides_cm()[0] * b.sides_cm()[1] * h,
+                _ => tile.solid.volume_cm3(),
+            };
+            let (li, held, _) = self.lower_grid(
+                lattice,
+                &tile.material,
+                tile.component,
+                tile.solid.centre_cm(),
+                None,
+                tile_volume,
+                None,
+                t,
+                masses,
+            )?;
+            self.tile_has_heavy_metal |= held;
+            let id = self.cells.len() as i32 + 1;
+            self.push_cell(
+                Cell::fill(id, region, CellFill::Lattice(li), Position::ZERO),
+                &mut cells_of,
+                tile.component,
+                None,
+            );
+            self.universes.push(Universe {
+                id: self.universes.len() as i32,
+                cell_indices: cells_of,
+            });
+            return Ok((self.universes.len() - 1, Vec::new()));
+        }
         let mut child_cells = Vec::new();
         let mut children: Vec<Vec<RegionToken>> = Vec::new();
         for c in &tile.children {
@@ -274,11 +350,15 @@ impl Lowering {
         };
         let m = self.material_index(&tile.material, t, masses)?;
         self.note_heavy_metal(m, &tile.solid);
-        let volume = tile.solid.volume_cm3()
+        let tile_volume = match (self.extrusion, tile.solid) {
+            (Some(h), Solid::Cuboid(b)) => b.sides_cm()[0] * b.sides_cm()[1] * h,
+            _ => tile.solid.volume_cm3(),
+        };
+        let volume = tile_volume
             - tile
                 .children
                 .iter()
-                .map(|c| c.solid.volume_cm3())
+                .map(|c| c.solid.volume_within(self.extrusion))
                 .sum::<f64>();
         let id = self.cells.len() as i32 + 1;
         self.push_cell(
@@ -297,48 +377,80 @@ impl Lowering {
         Ok((self.universes.len() - 1, child_cells))
     }
 
-    fn lower_lattice_container(
+    /// **The grid of a lattice**: each distinct tile lowered once, then (if
+    /// `container` is given, the shape the lattice fills) the container's
+    /// surfaces, the `outer` universe of the container's material, and the
+    /// CSG [`RectLattice`] centred on `centre`. Returns the lattice's
+    /// index, whether any tile holds heavy metal, and the container's
+    /// lowering when there was one.
+    ///
+    /// A **one-layer** lattice (`n_z = 1`) is extruded: the CSG lattice
+    /// ignores z for it, so its tiles run through the whole height of what
+    /// holds them. `extruded_through` is that height (the container's) for
+    /// counting volumes, or `None` to count each tile at its own height.
+    #[allow(clippy::too_many_arguments)]
+    fn lower_grid(
         &mut self,
-        s: &Shape,
         lattice: &super::lattice::Lattice,
+        material: &Material,
+        component: Option<Component>,
+        centre: [f64; 3],
+        container: Option<&Solid>,
+        container_volume: f64,
+        extruded_through: Option<f64>,
         t: f64,
         masses: &AtomicMasses,
-        cells_of: &mut Vec<usize>,
-    ) -> Result<Lowered, ModelError> {
+    ) -> Result<(usize, bool, Option<SolidTokens>), ModelError> {
         // Checked by `Model::check_shape` before lowering.
         let pitch = lattice
             .pitch_cm()
             .ok_or_else(|| ModelError::BadValue("a lattice tile must be a box".into()))?;
-        let was = (self.in_tile, self.tile_has_heavy_metal);
+        let n = lattice.dimensions();
+        let was = (self.in_tile, self.tile_has_heavy_metal, self.extrusion);
         self.in_tile = true;
         self.tile_has_heavy_metal = false;
-        let tile_universes: Vec<usize> = lattice
+        if n[2] == 1 {
+            self.extrusion = extruded_through.or(self.extrusion);
+        }
+        let tile_universes: Result<Vec<usize>, ModelError> = lattice
             .tiles()
             .iter()
             .map(|tile| self.lower_tile(tile, t, masses))
-            .collect::<Result<_, _>>()?;
+            .collect();
         let tiles_hold_heavy_metal = self.tile_has_heavy_metal;
+        let tile_universes = tile_universes?;
+        let extrusion = self.extrusion;
         self.in_tile = was.0;
-        self.tile_has_heavy_metal = was.1 || tiles_hold_heavy_metal;
+        self.tile_has_heavy_metal = was.1;
+        self.extrusion = was.2;
 
-        let (inside, outside, surfaces) = self.solid_surfaces(&s.solid);
+        let lowered = container.map(|c| self.solid_surfaces(c));
         // The outer universe: the container's material wherever the grid
-        // does not reach. `-s ∪ +s` on the container's first surface.
-        let m = self.material_index(&s.material, t, masses)?;
-        let n = lattice.dimensions();
-        let grid_volume = (0..3).map(|i| n[i] as f64 * pitch[i]).product::<f64>();
+        // does not reach. `-s ∪ +s` on the container's first surface (or
+        // everywhere, for a tile, which the enclosing lattice bounds).
+        let m = self.material_index(material, t, masses)?;
+        let grid_volume = n[0] as f64
+            * pitch[0]
+            * n[1] as f64
+            * pitch[1]
+            * extrusion.unwrap_or(n[2] as f64 * pitch[2]);
         let mut outer_cells = Vec::new();
-        let everywhere = vec![
-            half(surfaces[0], HalfSpaceSense::Inside),
-            half(surfaces[0], HalfSpaceSense::Outside),
-            RegionToken::Union,
-        ];
+        // A grid that covers its container leaves no outer.
+        let outer_volume = Some((container_volume - grid_volume).max(0.0));
+        let everywhere = match &lowered {
+            Some((_, _, surfaces)) => vec![
+                half(surfaces[0], HalfSpaceSense::Inside),
+                half(surfaces[0], HalfSpaceSense::Outside),
+                RegionToken::Union,
+            ],
+            None => self.everywhere(),
+        };
         let id = self.cells.len() as i32 + 1;
         self.push_cell(
             Cell::material(id, everywhere, m, t),
             &mut outer_cells,
-            s.component,
-            Some(s.solid.volume_cm3() - grid_volume),
+            component,
+            outer_volume,
         );
         self.universes.push(Universe {
             id: self.universes.len() as i32,
@@ -346,7 +458,7 @@ impl Lowering {
         });
         let outer = self.universes.len() - 1;
 
-        let (lower, _) = lattice.layout(pitch, s.solid.centre_cm());
+        let (lower, _) = lattice.layout(pitch, centre);
         self.lattices.push(CsgLattice::Rect(RectLattice {
             id: self.lattices.len() as i32 + 1,
             n,
@@ -360,6 +472,35 @@ impl Lowering {
             outer: Some(outer),
         }));
         let li = self.lattices.len() - 1;
+        Ok((li, tiles_hold_heavy_metal, lowered))
+    }
+
+    fn lower_lattice_container(
+        &mut self,
+        s: &Shape,
+        lattice: &super::lattice::Lattice,
+        t: f64,
+        masses: &AtomicMasses,
+        cells_of: &mut Vec<usize>,
+    ) -> Result<Lowered, ModelError> {
+        // A one-layer lattice is extruded through its container's height.
+        let (lo, hi) = s.solid.bounds();
+        let height = (hi[2] - lo[2]).is_finite().then_some(hi[2] - lo[2]);
+        let (li, tiles_hold_heavy_metal, lowered) = self.lower_grid(
+            lattice,
+            &s.material,
+            s.component,
+            s.solid.centre_cm(),
+            Some(&s.solid),
+            s.solid.volume_cm3(),
+            height,
+            t,
+            masses,
+        )?;
+        self.tile_has_heavy_metal |= tiles_hold_heavy_metal;
+        let (inside, outside, surfaces) = lowered.ok_or_else(|| {
+            ModelError::BadValue("a lattice container was not lowered (a defect)".into())
+        })?;
         if tiles_hold_heavy_metal {
             // Tile positions are local; the source starts over the container.
             self.note_heavy_metal_bounds(&s.solid);
