@@ -320,9 +320,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     draw(
         PlotBasis::Xy,
         (0.0, 0.0, 0.0),
-        [1.1 * ap, 1.1 * ap],
+        [ap, ap],
         1000,
-        "the centre assembly: 15 x 15 pins",
+        "the centre assembly: 15 x 15 pins (window = its 24.5364 cm pitch)",
         "lct008_assembly_xy.png",
     )?;
     let pp = cards.pin_pitch_cm;
