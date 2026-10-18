@@ -74,6 +74,8 @@ number most likely to be misused
   inventory at water-ingress pressures (gh:#418).
 - **The random walk's `D(T)` covers Ag, Cs, Sr and Kr**; every other element
   diffuses as silver, and the graphite materials are `todo!()` (gh:#541).
+  **Added 2026-10-18:** so is Kr in the buffer (`get_d1_for_kr`), so a Kr
+  walker that reaches the buffer panics.
 - **The decay sampler can panic** on a branch with no daughter
   (spontaneous fission) or on branching ratios summing below 1 (gh:#538).
 - **The decay data and TRISO-ATOPS's half-lives come from different
