@@ -53,7 +53,9 @@
 //! **S(α,β) thermal scattering (bead op-6tz.12).** A moderator nuclide carrying a
 //! [`crate::material::thermal::ThermalScattering`] table (attached via
 //! [`Nuclide::with_thermal_scattering`]) now thermalizes correctly: below the
-//! table's cutoff (~4 eV) the scatter branch samples the bound-atom S(α,β) law
+//! table's cutoff (~~4 eV~~ **CORRECTED 2026-10-18:** the table's own last
+//! energy, 10 eV for ENDF/B-VIII.0 H-in-H₂O since gh:#459; checked on the
+//! ACE tables our port writes, 10 eV for water and 4.9 eV for graphite) the scatter branch samples the bound-atom S(α,β) law
 //! ([`Nuclide::sample_thermal`]) — lab-frame outgoing energy and cosine, with the
 //! up-scatter that builds a Maxwellian — instead of the free-gas elastic kernel.
 //! Nuclides without a table (fuel, O, clad) stay free-gas/CE. This makes a

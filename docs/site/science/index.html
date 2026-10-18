@@ -22,6 +22,7 @@
   <h2 class="ask">What are you interested in?</h2>
   <nav class="chips big" aria-label="Science domains">
     <a class="chip" href="#neutronics">Neutronics</a>
+    <a class="chip" href="#transport">Neutron transport</a>
     <a class="chip" href="#nuclear-data">Nuclear data</a>
     <a class="chip" href="#thermal-hydraulics">Thermal hydraulics</a>
     <a class="chip" href="#cfd">Fluid mechanics &amp; CFD</a>
@@ -88,6 +89,25 @@
       <a class="demo" href="neutronics/ace-files.html" data-kind="science" data-terms="ACE file continuous-energy thermal RECONR BROADR HEATR PURR ACER LEAPR THERMR S(alpha,beta) block NXS JXS emax">44 · How is each ACE file put together?</a>
       <a class="demo" href="neutronics/two-files.html" data-kind="science" data-terms="free gas bound atom thermal cutoff S(alpha,beta) hand-over continuous-energy file thermal file hydrogen water graphite capture elastic OpenMC">45 · Free gas or bound atom?</a>
       <a class="demo" href="neutronics/glossary.html" data-kind="science" data-terms="glossary terms definitions jargon">Neutronics glossary</a>
+      <a class="demo" href="../tutorials/monte-carlo/">Monte Carlo, one rung at a time</a>
+    </div>
+  </section>
+
+  <section class="domain" id="transport">
+    <h2>Neutron transport</h2>
+    <p>How a Monte Carlo code follows neutrons, one step at a time, up to a bare uranium sphere and the HTR-10 pebble-bed core.</p>
+    <div class="chips">
+      <a class="demo featured" href="transport/free-flight.html" data-kind="science" data-terms="exponential flight distance mean free path macroscopic cross section sampling inverse transform random number">1 · How far to the next collision?</a>
+      <a class="demo" href="transport/moving.html" data-kind="science" data-terms="move along direction time of flight track-length estimator Godiva demo">2 · Moving to the collision</a>
+      <a class="demo" href="transport/surfaces.html" data-kind="science" data-terms="surface tracking distance to boundary boundary conditions vacuum reflective white periodic leakage round-off nudge coincident surface">3 · Surfaces: where the flight ends</a>
+      <a class="demo" href="transport/random-numbers.html" data-kind="science" data-terms="random number generator LCG PCG jump-ahead stream seed reproducible parallel history">4 · Where do the random numbers come from?</a>
+      <a class="demo" href="transport/at-a-collision.html" data-kind="science" data-terms="collision nuclide selection reaction ladder fission capture elastic inelastic scattering outgoing energy direction">5 · At a collision: who, what, where to?</a>
+      <a class="demo" href="transport/a-history.html" data-kind="science" data-terms="neutron history loop track capture fission leak Godiva TRISO">6 · Repeat: one neutron, birth to death</a>
+      <a class="demo" href="transport/triso-problem.html" data-kind="science" data-terms="TRISO particle pebble kernel layers surface tracking cost double heterogeneity">7 · TRISO: too many surfaces</a>
+      <a class="demo" href="transport/delta-tracking.html" data-kind="science" data-terms="delta tracking Woodcock majorant virtual collision rejection Serpent Leppanen">8 · Delta tracking: stop looking at surfaces</a>
+      <a class="demo" href="transport/fission-bank.html" data-kind="science" data-terms="fission bank source sites power iteration generation k-effective Shannon entropy comb resampling">9 · The fission bank and k</a>
+      <a class="demo" href="transport/why-statistics.html" data-kind="science" data-terms="error bar central limit theorem correlation generations seeds confidence interval standard error">10 · Why can the error bar be trusted?</a>
+      <a class="demo" href="transport/whole-picture.html" data-kind="science" data-terms="Godiva TRISO HTR-10 core full-core k-effective recorded results demos">11 · Godiva, a TRISO pebble, the HTR-10 core</a>
       <a class="demo" href="../tutorials/monte-carlo/">Monte Carlo, one rung at a time</a>
     </div>
   </section>

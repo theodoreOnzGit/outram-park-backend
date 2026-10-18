@@ -237,9 +237,10 @@ pub mod nxs {
     /// elastic MT=2 and the redundant total MT=1).
     pub const NTR: usize = 3;
     /// NXS(5): NR — number of reactions that have angular distributions
-    /// (deferred; `0`).
+    /// (~~deferred; `0`~~ **CORRECTED 2026-10-18** — written by `build.rs`, `nxs_arr[nxs::NR] = nr`).
     pub const NR: usize = 4;
-    /// NXS(6): NTRP — number of photon-production reactions (deferred; `0`).
+    /// NXS(6): NTRP — number of photon-production reactions (~~deferred; `0`~~
+    /// **CORRECTED 2026-10-18** — written by `build.rs` from the photon-production blocks).
     pub const NTRP: usize = 5;
     /// NXS(9): S — excited-state number of the target (`0` = ground state).
     /// NXS(8): **NDNF** — the number of delayed-neutron precursor groups.
@@ -279,14 +280,18 @@ pub mod jxs {
     /// JXS(7): location of the SIG block (the reaction cross sections).
     pub const SIG: usize = 6;
     /// JXS(8): location of the LAND block (angular-distribution locators;
-    /// deferred; `0`).
+    /// ~~deferred; `0`~~ **CORRECTED 2026-10-18** — set by `build.rs` whenever a reaction is
+    /// anisotropic or NR > 0).
     pub const LAND: usize = 7;
-    /// JXS(9): location of the AND block (angular distributions; deferred; `0`).
+    /// JXS(9): location of the AND block (angular distributions;
+    /// ~~deferred; `0`~~ **CORRECTED 2026-10-18** — set by `build.rs` with LAND).
     pub const AND: usize = 8;
     /// JXS(10): location of the LDLW block (energy-distribution locators;
-    /// deferred; `0`).
+    /// ~~deferred; `0`~~ **CORRECTED 2026-10-18** — always set by `build.rs`: the DLW block when
+    /// NR > 0, else the next free word, as upstream, GitHub #872).
     pub const LDLW: usize = 9;
-    /// JXS(11): location of the DLW block (energy distributions; deferred; `0`).
+    /// JXS(11): location of the DLW block (energy distributions;
+    /// ~~deferred; `0`~~ **CORRECTED 2026-10-18** — set by `build.rs` with LDLW).
     pub const DLW: usize = 10;
     /// JXS(22): location of the last word of the table (`END` = XSS length).
     /// JXS(13): location of the photon-production MT list (`MTRP`).

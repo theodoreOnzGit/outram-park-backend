@@ -248,32 +248,57 @@
     ["ace-files.html", "How is each ACE file put together?"],
     ["two-files.html", "Free gas or bound atom?"]
   ];
+  // The transport track (gh:#906, maintainer 2026-10-18) is a second lesson
+  // sequence in docs/site/science/transport/. It loads this same kit
+  // (../neutronics/lesson-kit.js); the folder the page is served from picks
+  // the list, so each track numbers and links its own pages and the
+  // neutronics list above is untouched. Page file names must differ between
+  // the tracks (the glossary links match on the neutronics names only).
+  var TRANSPORT = [
+    ["free-flight.html", "How far to the next collision?"],
+    ["moving.html", "Moving to the collision"],
+    ["surfaces.html", "Surfaces: where the flight ends"],
+    ["random-numbers.html", "Where do the random numbers come from?"],
+    ["at-a-collision.html", "At a collision: who, what, where to?"],
+    ["a-history.html", "Repeat: one neutron, birth to death"],
+    ["triso-problem.html", "TRISO: too many surfaces"],
+    ["delta-tracking.html", "Delta tracking: stop looking at surfaces"],
+    ["fission-bank.html", "The fission bank and k"],
+    ["why-statistics.html", "Why can the error bar be trusted?"],
+    ["whole-picture.html", "Godiva, a TRISO pebble, the HTR-10 core"]
+  ];
+  var TRACKS = { neutronics: ["Neutronics", LESSONS, "glossary.html"], transport: ["Transport", TRANSPORT, "../neutronics/glossary.html"] };
+  function currentTrack() {
+    var parts = location.pathname.split("/");
+    return TRACKS[parts[parts.length - 2]] || TRACKS.neutronics;
+  }
   function lessonNav() {
-    var here = location.pathname.split("/").pop() || LESSONS[0][0], i = -1;
-    LESSONS.forEach(function (l, j) { if (l[0] === here) i = j; });
+    var T = currentTrack(), LIST = T[1];
+    var here = location.pathname.split("/").pop() || LIST[0][0], i = -1;
+    LIST.forEach(function (l, j) { if (l[0] === here) i = j; });
     if (i < 0) return;
     var top = document.querySelector(".lesson-progress");
     if (top) {
-      top.textContent = "Neutronics · " + (i + 1) + " of " + LESSONS.length;
+      top.textContent = T[0] + " · " + (i + 1) + " of " + LIST.length;
     }
     var bottom = document.querySelector(".lesson-nav");
     if (!bottom) return;
     var row = el("p", { "class": "actions lesson-steps" });
-    if (i > 0) row.append(el("a", { "class": "btn ghost", href: LESSONS[i - 1][0] }, "← " + LESSONS[i - 1][1]));
+    if (i > 0) row.append(el("a", { "class": "btn ghost", href: LIST[i - 1][0] }, "← " + LIST[i - 1][1]));
     var next = bottom.getAttribute("data-next-soon");
-    if (i + 1 < LESSONS.length) row.append(el("a", { "class": "btn", href: LESSONS[i + 1][0] }, LESSONS[i + 1][1] + " →"));
+    if (i + 1 < LIST.length) row.append(el("a", { "class": "btn", href: LIST[i + 1][0] }, LIST[i + 1][1] + " →"));
     else if (next) row.append(el("span", { "class": "btn disabled", "aria-disabled": "true" }, next + " →"));
     var contents = el("details", { "class": "lesson-contents" });
     contents.append(el("summary", {}, "Contents"));
     var ol = el("ol");
-    LESSONS.forEach(function (l, j) {
+    LIST.forEach(function (l, j) {
       var li = el("li");
       if (j === i) li.append(el("b", {}, l[1]));
       else li.append(el("a", { href: l[0] }, l[1]));
       ol.append(li);
     });
     contents.append(ol);
-    var gl = el("p"); gl.append(el("a", { href: "glossary.html" }, "Glossary of terms")); contents.append(gl);
+    var gl = el("p"); gl.append(el("a", { href: T[2] }, "Glossary of terms")); contents.append(gl);
     bottom.append(row, contents);
   }
 

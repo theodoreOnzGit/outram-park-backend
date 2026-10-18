@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How far to the next collision?</title>
+<meta name="description" content="Transport, page 1: between collisions a neutron flies straight, and the distance to its next collision follows an exponential law set by the macroscopic cross section. Sample it with one random number, d = -ln(xi)/Sigma, and see the histogram land on the curve.">
+<link rel="stylesheet" href="../../style.css">
+<script src="../neutronics/lesson-kit.js" defer></script>
+<script src="collision-data.js" defer></script>
+<script src="transport.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Transport lessons (gh:#906), the maintainer's second task of 2026-10-18: neutron tracking step by step, up to Godiva and the HTR-10. Widget: transport.js flight, JavaScript only on purpose (the real code is one line, quoted below; nothing the real code adds can be seen). Real code: crates/outram-mc-libs/src/physics/transport_csg.rs surface_arm (:1719-1740), material.rs macro_xs_total (:140). Numbers in the prose are data-* attributes checked by check-transport.js. -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response. <strong>Review status:</strong> AI-assisted first draft (2026-10-18), not yet reviewed by a human.</p>
+
+<h1>How far to the next collision?</h1>
+<p class="kicker lesson-progress">Transport</p>
+
+<p>Page 1 of the neutronics lessons watched a neutron wander through natural uranium without saying what it was doing. This track opens the box. Step by step, one question at a time, it builds up every process behind a <b>Godiva</b> run (a bare sphere of uranium) and then behind a <b>TRISO pebble</b> and the whole <b>HTR-10</b> core. What the nuclear data contain, and where they come from, was the job of the neutronics lessons; here we only use them.</p>
+<p class="chain">distance to collision &rarr; moving &rarr; surfaces &rarr; random numbers &rarr; the collision &rarr; repeat &rarr; TRISO &rarr; delta tracking &rarr; the fission bank &rarr; the statistics &rarr; the whole picture</p>
+
+<h2>Nothing happens between collisions</h2>
+<p>A neutron with no electric charge feels nothing as it flies. It goes in a straight line until it hits a nucleus. So the first question of any transport code is: <b>how far does it go?</b></p>
+<p>Describe the medium by its <b>macroscopic cross section</b> &Sigma;<sub>t</sub> (units 1/cm): the chance, per centimetre flown, that the neutron collides. It is the sum over the nuclides in the material of their number density times their microscopic cross section at the neutron's energy, &Sigma;<sub>t</sub>&nbsp;=&nbsp;&sum;<sub>i</sub>&nbsp;N<sub>i</sub>&sigma;<sub>t,i</sub>(E) (<code>Material::macro_xs_total</code>, <code>material.rs:140</code>). If the neutron has survived to distance x, the chance it survives a further dx is 1&nbsp;&minus;&nbsp;&Sigma;<sub>t</sub>dx, so the survival probability is</p>
+<p class="eq-block">P(no collision in x) = e<sup>&minus;&Sigma;<sub>t</sub>x</sup></p>
+<p>and the density of the distance d to the first collision is &Sigma;<sub>t</sub>e<sup>&minus;&Sigma;<sub>t</sub>d</sup>, with mean <b>1/&Sigma;<sub>t</sub></b>, the <b>mean free path</b>.</p>
+<p class="predict"><b>Predict first:</b> what fraction of flights are shorter than one mean free path? Longer than three?</p>
+
+<h2>One random number per flight</h2>
+<p>To draw d from that density the code uses the <b>inverse-transform</b> trick: if &xi; is uniform on (0,&nbsp;1), then</p>
+<p class="eq-block">d = &minus;ln(&xi;)&nbsp;/&nbsp;&Sigma;<sub>t</sub></p>
+<p>has exactly the law above (the survival probability is uniform, so set it equal to &xi; and solve). In the transport loop it is one line (<code>transport_csg.rs</code>, the <code>surface_arm</code>): <code>d = -xi.max(f64::MIN_POSITIVE).ln() / sigma_t</code>. The <code>max</code> keeps &xi; off zero so the logarithm is finite. In a void, &Sigma;<sub>t</sub> = 0 and the flight is infinite: the neutron goes straight to the next boundary.</p>
+
+<section class="widget-card">
+  <h3>Sampling the flight</h3>
+  <div class="widget" id="flight">
+    <canvas aria-label="Histogram of sampled flight distances against the exponential density, on linear axes"></canvas>
+  </div>
+  <p class="note">JavaScript only, on purpose: the flight is the single line above and the real code adds nothing to see. The bars are 30&thinsp;000 draws of &minus;ln&thinsp;&xi;/&Sigma;; the curve is the exact density; the dashed line is the mean free path. The page-2 demo runs the real code. A check on this page (<code>check-transport.js</code>) compares a million-draw mean, and the fractions beyond one and three mean free paths, with 1/&Sigma;, e<sup>&minus;1</sup> and e<sup>&minus;3</sup>.</p>
+</section>
+
+<p>Answer to the prediction: <b>63&nbsp;%</b> of flights are shorter than one mean free path (1&nbsp;&minus;&nbsp;e<sup>&minus;1</sup>), and only 5&nbsp;% are longer than three. Many short flights and a few long ones is what the histogram shows, whatever &Sigma;<sub>t</sub> is.</p>
+
+<h2>A real number: Godiva</h2>
+<p>For Godiva's uranium (HEU-MET-FAST-001, U-234, U-235 and U-238 at the atom densities of the five-route study, 293.6&nbsp;K) our port's data path gives, at 1&nbsp;MeV, a macroscopic total cross section whose reciprocal, the mean free path, is <b data-mfp="1000000">3.015</b>&nbsp;cm. The sphere's diameter, 17.48&nbsp;cm, is almost six mean free paths. At 0.1&nbsp;MeV it is <b data-mfp="100000">1.719</b>&nbsp;cm. (Infinitely dilute values from <code>Nuclide::xs_at_energy</code>, written by <code>examples/lesson_collision.rs</code>, 2026-10-18; the sphere's radius and densities are <code>vv::godiva</code>.)</p>
+
+<h2>Why this is allowed to be so simple</h2>
+<p>The exponential law is <b>memoryless</b>: a neutron that has flown 2&nbsp;cm without colliding is, as far as its next collision goes, a brand-new neutron. That is why the code can throw a flight away and draw it again from anywhere (at a boundary, in the next pages; at a virtual collision, in delta tracking) without changing the answer.</p>
+
+<h2>Next question</h2>
+<p>We have a distance. <b>Where is the neutron when it gets there, and what if something is in the way?</b></p>
+
+<nav class="lesson-nav" aria-label="Lessons"></nav>
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. GPL-3.0. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>

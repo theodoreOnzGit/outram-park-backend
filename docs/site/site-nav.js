@@ -92,7 +92,7 @@
   // The pathway each kind of page sits under, and its label.
   var PATHWAY = { "tutorials": "science", "science": "science", "deep-dives": "code", "api": "code", "code": "code", "demos": "demos" };
   var PATHWAY_NAME = { "science": "Learn the science", "code": "Learn to code", "demos": "Web demos" };
-  var SCIENCE_DOMAIN = { "neutronics": "Neutronics" };
+  var SCIENCE_DOMAIN = { "neutronics": "Neutronics", "transport": "Neutron transport" };
 
   var kind = parts[0], name = parts[1] || "";
   if (name === "index.html") name = "";
