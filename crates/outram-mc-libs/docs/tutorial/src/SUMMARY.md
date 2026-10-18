@@ -8,4 +8,5 @@
 - [Rung 4 — LEU-COMP-THERM-008: rods in water, the light-water reactor](./lct008.md)
 - [Rung 5 — TRISO: lumps inside lumps, ending in the HTR-10 pebble bed](./triso.md)
   - [Side page — DEM: pouring the HTR-10 bed](./dem.md)
+  - [Side page — One HTR-10 pebble in the beginner API (tutorial 5)](./pebble_api.md)
 - [Side page — The four benchmark cases, run in your browser](./benchmarks.md)

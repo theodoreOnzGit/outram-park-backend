@@ -307,11 +307,13 @@ mod tests {
         assert_eq!(t.lattice.universes, vec![2, 3, 1, 1, 1, 4]);
         assert_eq!(t.lattice.outer, Some(1));
         assert_eq!(t.background_cells.len(), 4);
-        // The copy in tile (0,0) is centred at x = +0.25 there.
-        let SurfaceKind::Sphere(s) = t.surfaces[1] else {
+        // The copy in tile (0,0) is centred at x = +0.25 there. One layer in
+        // z is a 2-D lattice, whose tiles leave z alone (`tile_center`), so
+        // z stays the particle's own 0.25.
+        let SurfaceKind::Sphere(s) = &t.surfaces[1] else {
             panic!()
         };
-        assert_eq!((s.x0, s.y0, s.z0), (0.25, 0.0, 0.0));
+        assert_eq!((s.x0, s.y0, s.z0), (0.25, 0.0, 0.25));
 
         // Assemble and look the material up.
         let mut surfaces = particle_surfaces;

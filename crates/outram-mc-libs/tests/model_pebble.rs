@@ -304,6 +304,11 @@ fn assert_same_k(a: &AssembledModel, hand: &Geometry) {
         run.k_by_cycle, reference.k_by_generation,
         "per-generation k must be identical bit for bit"
     );
+    assert_eq!(
+        run.provenance.backend.contains("hybrid"),
+        !majorants.is_empty(),
+        "the provenance names the backend that ran"
+    );
     println!(
         "bit for bit: model {} vs hand-built {:.5} ± {:.5} ({} majorants)",
         run.keff(),

@@ -84,7 +84,41 @@
 //!
 //! ## Results
 //!
-//! See the run's output and gh #943; recorded there with hardware.
+//! 2026-10-18, ENDF/B-VIII.0 from `reference-data/endf/`, `MCSettings::Smoke`
+//! (seed 1), `--dh`. Hardware: Intel i9-13900K, pinned to 4 of its 32
+//! logical cores, transport on one thread, 62.5 GiB RAM, Linux, CPU only;
+//! the machine was shared with other jobs.
+//!
+//! | check | result |
+//! |---|---|
+//! | 1. census, regular | **8335** particles, pitch 0.1951235 cm, 27 x 26 x 27 grid, packing fraction 5.024811 % |
+//! | 1. census, random | **8345** particles, 5.03084 % realised against 5.02481 % asked (+0.12 %, inside the 0.2 %) |
+//! | 2. no overlap | closest centres 0.09100 cm apart = one particle diameter (RSA allows touching) |
+//! | k, random | **1.68283 ± 0.00515** (batch means 0.00382); 95 inactive + 50 active cycles of 1000 |
+//! | k, regular | **1.69048 ± 0.00515** (batch means 0.00351); 85 inactive + 50 active |
+//! | regular − random | +765 ± 728 pcm (+1.05 sigma): not resolved |
+//! | random against `DhUniverse::pebble`, same 8345 particles | DhUniverse 1.68884 ± 0.00596; model − DhUniverse −600 pcm (−0.76 sigma) |
+//!
+//! - **SMOKE RUN, not a result to quote**: 1000 per cycle and 50 active
+//!   cycles (the run's own note). sigma is about 500 pcm.
+//! - **Against the crate's nearest record**, nee_soon's `DhUniverse` HTR-10
+//!   pebble 1.68517 ± 0.00266 (2026-10-13, 300.15 K, 30P graphite, helium shell
+//!   to 3.7221 cm; `nee_soon/tests/htr10_single_pebble_vs_dh_universe.rs`):
+//!   random −234 pcm (−0.40 sigma), regular +531 pcm (+0.92 sigma). Not the
+//!   same model (temperature, LEAPR-made laws against tapes, the helium gap),
+//!   so this is consistency at Smoke's sigma, not a comparison of physics.
+//!   `examples/htr10_pebble_delta_tracking.rs`'s 1.68515 ± 0.00178
+//!   (2026-09-16) used crystalline graphite and weight-ppm boron, so it is
+//!   further from this model and is not compared.
+//! - **Predictions, posted on #943 before the runs**: both arms within 2
+//!   sigma of 1.68517 (held), regular − random not resolved (held), model
+//!   against `DhUniverse` on the same particles consistent with 0 (held).
+//! - **Wall time**: data 115 s (13 nuclides, parallel on 4 threads);
+//!   transport 848 s (random) and 530 s (regular) single-threaded, about
+//!   5.8 and 3.9 ms per history; `DhUniverse` (its own delta tracking, the
+//!   same size) 57 s. The CSG delta tracking still stops at every internal
+//!   surface (`physics::delta_tracking::handoff`), so it is not the fast
+//!   path; `DhUniverse` is 15x faster on this pebble.
 
 use std::path::{Path, PathBuf};
 use std::time::Instant;

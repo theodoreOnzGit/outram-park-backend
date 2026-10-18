@@ -973,7 +973,11 @@ impl AssembledModel {
             physics: self.physics(nuclides),
             data_library: self.data_label.clone(),
             temperature_k: self.temperature_k,
-            backend: "CsgPowerIteration, CPU single thread (bit for bit run_keff_csg at a fixed population)",
+            backend: if self.delta_regions().is_empty() {
+                "CsgPowerIteration, CPU single thread (bit for bit run_keff_csg at a fixed population)"
+            } else {
+                "CsgPowerIteration with delta-tracked regions, CPU single thread (bit for bit run_keff_csg_hybrid at a fixed population)"
+            },
             notes: notes(settings.mc(), &p),
             ablations,
             convergence,
