@@ -203,20 +203,23 @@ Add a one-line note next to it:
 **This is lifted only by the maintainer**, in so many words. It is not
 inferred from a change being "large", nor from a number looking wrong.
 
-## The opening state is accepted as it is: do not raise it (maintainer, 2026-10-19)
+## Empty precursors at opening are fine: do not raise them (maintainer, 2026-10-19)
 
 **Maintainer direction, 2026-10-19:** starting `htgr_sim_v1` with **no
-delayed-neutron precursors is fine**, and so is the opening transient that
-follows from it and from the rods at 0.30 (`physics/mod.rs`, "THE OPENING
-STATE IS ~13x PROMPT CRITICAL"; `physics/kinetics.rs`, "The delayed-neutron
-precursors start EMPTY"). This includes the **peak fuel temperature
-indicator** (gh:#964) reading about 2334 K (~2060 °C) at t ≈ 0.4 s after a
-fresh launch, until the user presses **Reset peak**.
+delayed-neutron precursors is fine** (`physics/kinetics.rs`, "The
+delayed-neutron precursors start EMPTY"). It is not an issue worth worrying
+about: do not file it, do not propose seeding the precursors at equilibrium
+because of it, and do not ask the maintainer about it again.
 
-**This is not an issue worth worrying about.** Do not file it, do not
-propose seeding the precursors at equilibrium or moving the rods, and do not
-ask the maintainer about it again. Leave the existing "flagged, not fixed"
-notes in the code as they are; they are the record.
+~~"...and so is the opening transient that follows from it and from the rods
+at 0.30, including the peak fuel temperature indicator reading about 2334 K
+(~2060 °C) at t ≈ 0.4 s after a fresh launch."~~ **CORRECTED 2026-10-19, same
+day, by the maintainer:** "precursors is fine but 2060 is not, needs to be
+below 1600". A peak kernel above **1600 °C** (the TRISO limit) on opening is
+a defect, not an accepted feature. It comes from the opening excess
+reactivity (`physics/mod.rs`, "THE OPENING STATE IS ~13x PROMPT CRITICAL"),
+not from the empty precursors. Fix the cause by its physics, never by
+clamping the indicator or tuning toward 1600 °C.
 
 ## ANIMATION IS DERIVED FROM PHYSICS, NEVER HARDCODED (HARD RULE)
 
