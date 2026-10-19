@@ -234,13 +234,24 @@ impl AssembledModel {
     /// at another temperature than their key's (`RunError::NuclideTemperature`).
     /// Pinned by `tests/region_temperature.rs` (an audit at 1200 K, and the
     /// 293.6 K control that is under).
+    ///
+    /// **Cover (gh #945, stage 3).** Only when `advanced()` asked for it
+    /// (`AdvancedModel::with_majorant_cover`) is the table replaced by its
+    /// Chebyshev cover (`Majorant::chebyshev_cover`): `>=` the table
+    /// everywhere, so the same bound, with a few coefficients per band in
+    /// place of a few hundred thousand nodes, at the price of more virtual
+    /// collisions. The default is the table.
     pub fn majorants(&self, nuclides: &[Nuclide]) -> Vec<Majorant> {
         self.delta_regions
             .iter()
             .map(|mats| {
                 let subset: Vec<LowMaterial> =
                     mats.iter().map(|&m| self.materials[m].clone()).collect();
-                Majorant::bounding(&subset, nuclides, 1.0e-4, 2.0e7, 4096, 32, 0.3)
+                let table = Majorant::bounding(&subset, nuclides, 1.0e-4, 2.0e7, 4096, 32, 0.3);
+                match self.majorant_cover {
+                    Some(s) => table.chebyshev_cover(s),
+                    None => table,
+                }
             })
             .collect()
     }

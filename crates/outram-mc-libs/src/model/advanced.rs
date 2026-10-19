@@ -28,8 +28,10 @@
 use uom::si::f64::Length;
 use uom::si::length::centimeter;
 
+pub use crate::physics::delta_tracking::CoverSettings;
+
 use super::diagnostics::{EnergyGrid, MCDiagnostic, Mesh, MeshBounds, MeshSpec};
-use super::model::Model;
+use super::model::{AssembledModel, Model, ModelError};
 use super::run::{KeffRun, KeffSettings, RunError};
 
 /// **A model with physics switched off on purpose.** Made by
@@ -41,6 +43,7 @@ pub struct AdvancedModel {
     dbrc: bool,
     urr: bool,
     thermal_laws: bool,
+    majorant_cover: Option<CoverSettings>,
 }
 
 impl Model {
@@ -52,6 +55,7 @@ impl Model {
             dbrc: true,
             urr: true,
             thermal_laws: true,
+            majorant_cover: None,
         }
     }
 }
@@ -76,6 +80,34 @@ impl AdvancedModel {
     pub fn without_thermal_scattering(mut self) -> Self {
         self.thermal_laws = false;
         self
+    }
+
+    /// **Cover each delta-tracked region's majorant with Chebyshev bands**
+    /// (gh #945): `regions` energy bands, each a polynomial of the given
+    /// `degree` in ln E, lifted so it is never below the stage-1 table.
+    /// Changes the cost (build memory, virtual collisions), never the
+    /// answer, so it is not an ablation and is not listed in
+    /// [`Self::ablations`]. The default without this call is the table.
+    /// [`CoverSettings::default`] is the measured default.
+    pub fn with_majorant_cover(mut self, settings: CoverSettings) -> Self {
+        self.majorant_cover = Some(settings);
+        self
+    }
+
+    /// The cover requested through [`Self::with_majorant_cover`], if any.
+    pub fn majorant_cover(&self) -> Option<CoverSettings> {
+        self.majorant_cover
+    }
+
+    /// The model assembled with this entry's choices (the majorant cover)
+    /// applied, for inspection and for [`AssembledModel::majorants`].
+    ///
+    /// # Errors
+    /// As [`Model::assemble`].
+    pub fn assemble(&self) -> Result<AssembledModel, ModelError> {
+        let mut a = self.model.assemble()?;
+        a.majorant_cover = self.majorant_cover;
+        Ok(a)
     }
 
     /// The model underneath.
@@ -105,7 +137,7 @@ impl AdvancedModel {
     /// # Errors
     /// As [`Model::keff`].
     pub fn keff(&self, settings: KeffSettings) -> Result<KeffRun, RunError> {
-        let mut a = self.model.assemble()?;
+        let mut a = self.assemble()?;
         if !self.thermal_laws {
             for k in &mut a.nuclides {
                 k.law = None;
@@ -180,5 +212,17 @@ mod tests {
         let a = a.without_dbrc().without_urr().without_thermal_scattering();
         assert_eq!(a.ablations().len(), 3);
         assert!(a.model().shapes().is_empty());
+        // The cover is a cost choice, not an ablation: set, readable, and not listed among the ablations.
+        assert_eq!(a.majorant_cover(), None);
+        let c = CoverSettings {
+            regions: 8,
+            degree: 3,
+        };
+        let a = a.with_majorant_cover(c);
+        assert_eq!(a.majorant_cover(), Some(c));
+        assert_eq!(a.ablations().len(), 3);
+        // An empty model is refused by assemble, with the cover set or not
+        // (the carried cover is pinned in tests/majorant_temperature_cover.rs).
+        assert!(a.assemble().is_err());
     }
 }

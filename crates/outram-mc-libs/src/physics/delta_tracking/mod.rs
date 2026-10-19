@@ -68,6 +68,7 @@
 pub mod flight;
 pub mod handoff;
 pub mod majorant;
+pub mod temperature_cover;
 
 pub use flight::{
     bounded_delta_flight, bounded_delta_flight_urr, bounded_delta_flight_visiting,
@@ -77,3 +78,4 @@ pub use flight::{
 };
 pub use handoff::DeltaTallyEstimator;
 pub use majorant::{bounding_audit_line, Majorant, MajorantAudit};
+pub use temperature_cover::{CoverSettings, TemperatureAudit, DEFAULT_T_MARGIN};
