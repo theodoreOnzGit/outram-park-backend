@@ -469,6 +469,22 @@ impl Material {
     /// **A fuel**: its heavy metal and chemical family. Give its density with
     /// [`Self::density`] (required: resolving without one is an error) and
     /// any impurities with [`Self::contaminant`].
+    ///
+    /// ```
+    /// use outram_mc_libs::model::prelude::*;
+    /// use uom::si::{f64::{MassDensity, Ratio}, mass_density::gram_per_cubic_centimeter, ratio::percent};
+    /// // 4.95 wt% enriched UO2 at 10.4 g/cm3. Nothing is looked up until the
+    /// // material meets a nuclear-data library, so this runs without data.
+    /// let uo2 = Material::fuel(
+    ///     HeavyMetal::Uranium(Enrichment::by_weight(
+    ///         FissileUranium::U235,
+    ///         Ratio::new::<percent>(4.95),
+    ///     )),
+    ///     FuelForm::Oxide,
+    /// )
+    /// .density(MassDensity::new::<gram_per_cubic_centimeter>(10.4));
+    /// # let _ = uo2;
+    /// ```
     pub fn fuel(heavy_metal: HeavyMetal, form: FuelForm) -> Self {
         Self::with_composition("fuel", Composition::Fuel { heavy_metal, form })
     }
@@ -477,6 +493,26 @@ impl Material {
     /// enrichment, no conversion, no density needed. The honest path for a
     /// benchmark that tabulates atom densities (maintainer, #943: "the spec
     /// wins"). A natural element entry expands at natural abundance.
+    ///
+    /// Each entry is a [`Species`]: an [`Isotope`] (`U235`, `H1`, ...) converts
+    /// to one directly, and a natural element is spelled
+    /// `Element::Boron.natural()`. **A bare `Element` does not convert to a
+    /// `Species`**: write `.natural()` (a deliberate step, so that "this
+    /// element at natural abundance" is always stated). A natural element
+    /// expands into its isotopes when the material meets a library, and each
+    /// of them must be in the library's [`super::NuclearData`] (see
+    /// [`Element::natural`]).
+    ///
+    /// ```
+    /// use outram_mc_libs::model::prelude::*;
+    /// // A natural element and two isotopes, in atoms per barn-cm.
+    /// let mix = Material::from_atom_densities([
+    ///     (Element::Carbon.natural(), atoms_per_barn_cm(0.08)),
+    ///     (U235.into(), atoms_per_barn_cm(1.0e-4)),
+    ///     (U238.into(), atoms_per_barn_cm(2.0e-3)),
+    /// ]);
+    /// # let _ = mix;
+    /// ```
     pub fn from_atom_densities<S: Into<Species>>(
         entries: impl IntoIterator<Item = (S, AtomDensity)>,
     ) -> Self {
@@ -488,6 +524,13 @@ impl Material {
     /// (within `1e-6`; never renormalised silently). Give the mass density
     /// with [`Self::density`]. The way to enter any alloy or compound by its
     /// own composition.
+    ///
+    /// **Where the data come from:** a natural element entry
+    /// (`Element::X.natural()`) expands to its natural isotopes when the
+    /// material is resolved, and each of those isotopes must be in the
+    /// [`super::NuclearData`] library (a few OpenMC folding rules aside, which the
+    /// resolution report records); otherwise resolving fails with
+    /// [`super::MaterialError::CannotExpand`] naming what is missing.
     pub fn from_fractions<S: Into<Species>>(
         basis: Basis,
         parts: impl IntoIterator<Item = (S, Ratio)>,

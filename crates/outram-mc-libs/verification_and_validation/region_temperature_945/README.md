@@ -350,8 +350,22 @@ Fit time 0.00 to 0.09 s in every cell. The cover is very loose where there are
 resonances: a band holding a resonance sits above its peak everywhere in the
 band. It is **not monotone in degree** at few bands (U-238 1 region: 367, 783,
 218, 287): the fit keeps the degree with the smallest mean *ln* cover, which can
-raise the linear mean the transport pays for. Choosing by the linear mean
-(`∫ exp(P+s)/table`) would fix that; not done, noted as open.
+raise the linear mean the transport pays for. ~~Choosing by the linear mean
+(`∫ exp(P+s)/table`) would fix that; not done, noted as open.~~ **CORRECTED
+2026-10-19** — the selection now uses the mean linear overhead (`Σ_maj/Σ_t`,
+against the table's step value as the `Σ_t` proxy, width-weighted in `x`, sampled
+at node-interval midpoints); the proven lift is unchanged, so the guarantee is
+untouched. The grid above was measured with the old rule and was **not
+re-measured**.
+
+**Cost of the default cover after the change** (re-measured 2026-10-19, U-238
+only, `u238_default_cover_bounds_between_its_tables`, 4 cores, 206 s; mean
+`Σ_maj/Σ_t` at 750 K, flat/thermal/epi/fast): before 13.70/1.33/32.61/2.02,
+after **13.12/1.33/31.12/2.02** (flat -4 %, epithermal -5 %); cover worst
+0.7616, at most 1. Graphite + UO2 default cover: **not re-measured** (the
+instrument takes over 10 minutes on 4 cores); its 8.3 row (1.83/1.53/2.37/1.46)
+is the old rule's. The table's own value (U-238 4.65/1.33/9.46/1.82) is
+unchanged, as it should be.
 
 ### 8.3 Defaults chosen, with the evidence
 

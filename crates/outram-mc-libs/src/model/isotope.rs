@@ -213,6 +213,16 @@ impl Element {
     /// This element with its **natural** isotopic composition (IUPAC 2013,
     /// atom fractions; see the module docs), as a material entry:
     /// `Element::Boron.natural()`.
+    ///
+    /// **A natural element expands to its isotopes** when a material is
+    /// resolved (see [`Self::natural_abundance`] for the list), and **each of
+    /// those isotopes must be in the [`NuclearData`](super::NuclearData)
+    /// library** in use (a few are folded into a neighbour by OpenMC's rules,
+    /// recorded in the resolution report). If one is absent, resolving fails
+    /// with [`MaterialError::CannotExpand`](super::MaterialError::CannotExpand).
+    /// To see what a library holds, use
+    /// [`NuclearData::atomic_masses`](super::NuclearData::atomic_masses)
+    /// then `.isotopes()`.
     pub fn natural(self) -> Species {
         Species::Natural(self)
     }
@@ -324,7 +334,10 @@ mod tests {
     fn every_isotope_z_has_its_element() {
         assert_eq!(Am241.element(), Element::Americium);
         assert_eq!(Isotope::new(96, 244).unwrap().element(), Element::Curium);
-        assert_eq!(Isotope::new(98, 252).unwrap().element(), Element::Californium);
+        assert_eq!(
+            Isotope::new(98, 252).unwrap().element(),
+            Element::Californium
+        );
         for z in 1..=118u8 {
             let e = Element::from_z(z).expect("all 118 elements listed");
             assert_eq!(e.z(), z);

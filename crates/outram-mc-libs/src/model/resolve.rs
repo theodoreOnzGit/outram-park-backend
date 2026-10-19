@@ -96,13 +96,16 @@ pub enum MaterialError {
     /// A natural element with no stable isotope.
     #[error("{0:?} has no natural isotopic composition")]
     NoNaturalComposition(Element),
-    /// A natural isotope the library lacks and that OpenMC's rules cannot fold.
-    #[error("cannot expand natural {element:?}: the library lacks {missing} and no OpenMC rule folds it into an isotope it holds")]
+    /// Natural isotopes the library lacks and that OpenMC's rules cannot fold.
+    #[error("cannot use natural {element:?}: its isotopes {names} are not in the nuclear-data library ({lib}), so the library does not contain them and no OpenMC rule folds them into an isotope it does hold; add their tapes to the library, or enter the isotopes the library has instead of the natural element", names = isotope_list(.missing), lib = .library)]
     CannotExpand {
         /// The element.
         element: Element,
-        /// The isotope missing.
-        missing: Isotope,
+        /// The natural isotopes the library does not contain.
+        missing: Vec<Isotope>,
+        /// Where the library came from, when known (its label, which names
+        /// the folder or archive it was loaded from).
+        library: String,
     },
     /// A material with no entries.
     #[error("material '{0}' has no entries")]
@@ -118,6 +121,15 @@ pub enum MaterialError {
     /// The steam tables refused the state.
     #[error("steam tables: {0}")]
     SteamTables(String),
+}
+
+/// `"Fe-54, Fe-56"` for an error message.
+fn isotope_list(isotopes: &[Isotope]) -> String {
+    isotopes
+        .iter()
+        .map(|i| i.to_string())
+        .collect::<Vec<_>>()
+        .join(", ")
 }
 
 /// **How a material was resolved**: what a reader needs to check it.
@@ -323,15 +335,18 @@ impl Ctx<'_> {
             ));
             return Ok(vec![(nat, 1.0)]);
         }
-        let Some(&(first_missing, _)) = absent.first() else {
-            return Ok(natural);
+        let library = match self.masses.source() {
+            MassSource::EndfAwr(lib) => lib.clone(),
+            MassSource::Given(why) => format!("masses given by the caller: {why}"),
         };
         if mutual.is_empty() {
             return Err(MaterialError::CannotExpand {
                 element: e,
-                missing: first_missing,
+                missing: absent.iter().map(|&(i, _)| i).collect(),
+                library,
             });
         }
+        let mut unfolded: Vec<Isotope> = Vec::new();
         let mut out: Vec<(Isotope, f64)> = mutual.clone();
         for &(missing, a) in &absent {
             let target = match (missing.z(), missing.a(), missing.metastable_state()) {
@@ -342,10 +357,8 @@ impl Ctx<'_> {
             }
             .filter(|t| out.iter().any(|(i, _)| i == t));
             let Some(t) = target else {
-                return Err(MaterialError::CannotExpand {
-                    element: e,
-                    missing,
-                });
+                unfolded.push(missing);
+                continue;
             };
             if let Some(slot) = out.iter_mut().find(|(i, _)| *i == t) {
                 slot.1 += a;
@@ -354,6 +367,13 @@ impl Ctx<'_> {
                 "{missing} ({a:.6} of natural {}) folded into {t}",
                 e.symbol()
             ));
+        }
+        if !unfolded.is_empty() {
+            return Err(MaterialError::CannotExpand {
+                element: e,
+                missing: unfolded,
+                library,
+            });
         }
         Ok(out)
     }
@@ -1157,6 +1177,17 @@ mod tests {
             )])),
             MaterialError::CannotExpand { .. }
         ));
+        // The message names the missing isotopes, says the library lacks
+        // them, and names where the library came from.
+        let msg = err(Material::from_atom_densities([(
+            Element::Iron.natural(),
+            atoms_per_barn_cm(1e-3),
+        )]))
+        .to_string();
+        assert!(msg.contains("not in the nuclear-data library"), "{msg}");
+        assert!(msg.contains("does not contain"), "{msg}");
+        assert!(msg.contains("unit-test masses"), "{msg}");
+        assert!(msg.contains("Fe54"), "{msg}");
         assert!(matches!(
             err(
                 Material::from_fractions(Basis::Weight, [(Al27, Ratio::new::<percent>(50.0))])

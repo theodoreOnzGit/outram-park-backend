@@ -357,6 +357,37 @@ impl Cube {
     /// [`super::Model::assemble`] refuses with a picture; a fraction that is
     /// not positive gives an infinite or NaN side, refused the same way.
     ///
+    /// **A complete TRISO unit cell** (a reflective cube around one particle,
+    /// k-infinity of a regular array), shown from the shapes to the census.
+    /// Needs nuclear data to assemble, so it is compiled but not run:
+    ///
+    /// ```no_run
+    /// use outram_mc_libs::model::prelude::*;
+    /// use uom::si::{f64::{Length, Ratio}, length::centimeter, ratio::ratio};
+    /// let cm = Length::new::<centimeter>;
+    /// let c = |rho: f64| Material::from_atom_densities([(C12, atoms_per_barn_cm(rho))]);
+    /// let mut model = Model::new(NuclearData::workspace_reference()?);
+    ///
+    /// // One `.containing` per statement, kernel outwards.
+    /// let kernel = Sphere::radius(cm(0.0250))
+    ///     .filled_with(Material::from_atom_densities([(U235, atoms_per_barn_cm(0.02))]));
+    /// let coating = Sphere::radius(cm(0.0455)).filled_with(c(0.09)).containing(kernel);
+    ///
+    /// // The cube that makes a 5 % packing fraction, around the particle.
+    /// let cell = Cube::with_packing_fraction(&coating, Ratio::new::<ratio>(0.05))
+    ///     .filled_with(c(0.08))
+    ///     .containing(coating)
+    ///     .boundary(Boundary::Reflective);
+    /// model.add(cell);
+    ///
+    /// // Count what the assembled geometry holds (no transport needed).
+    /// let assembled = model.assemble()?;
+    /// println!("{}", assembled.census()?);
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    ///
+    /// The cube alone, with its side checked:
+    ///
     /// ```
     /// use outram_mc_libs::model::prelude::*;
     /// use uom::si::{f64::{Length, Ratio}, length::centimeter, ratio::ratio};
@@ -645,7 +676,8 @@ impl Solid {
             // bounding box against the hopper's widest radius and its z range,
             // which can only refuse a legitimate shape, never accept a bad one.
             (Solid::Hopper(o), Solid::Sphere(i)) => {
-                o.contains_ball(i.centre_cm, i.radius_cm, o.top_z_cm()).whole
+                o.contains_ball(i.centre_cm, i.radius_cm, o.top_z_cm())
+                    .whole
             }
             (Solid::Hopper(o), Solid::Hopper(i)) => {
                 i.radius_cm() <= o.radius_cm() + tol
@@ -659,7 +691,10 @@ impl Solid {
                 l[2] >= o.floor_z_cm() - tol
                     && u[2] <= o.top_z_cm() + tol
                     && (0..4).all(|k| {
-                        let (x, y) = (if k & 1 == 0 { l[0] } else { u[0] }, if k & 2 == 0 { l[1] } else { u[1] });
+                        let (x, y) = (
+                            if k & 1 == 0 { l[0] } else { u[0] },
+                            if k & 2 == 0 { l[1] } else { u[1] },
+                        );
                         x.hypot(y) <= o.radius_cm() + tol
                     })
             }
@@ -676,7 +711,10 @@ impl Solid {
                     .collect();
                 match self {
                     Solid::Sphere(o) => corners.iter().all(|v| {
-                        (0..3).map(|k| (v[k] - o.centre_cm[k]).powi(2)).sum::<f64>().sqrt()
+                        (0..3)
+                            .map(|k| (v[k] - o.centre_cm[k]).powi(2))
+                            .sum::<f64>()
+                            .sqrt()
                             <= o.radius_cm + tol
                     }),
                     Solid::HexPrism(o) => prism_holds_all(o, &corners, tol),

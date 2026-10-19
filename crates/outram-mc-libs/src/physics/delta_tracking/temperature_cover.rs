@@ -159,16 +159,6 @@ impl CoverBand {
         (self.poly(self.x_of(e)) + self.shift).r_exp()
     }
 
-    /// `∫_{-1}^{1} (P + s) dx`, in closed form (`∫ T_j = 2/(1-j²)` for even
-    /// `j`, 0 for odd): the band's total `ln` cover, to compare candidates.
-    fn mean_ln(&self) -> f64 {
-        let mut acc = 2.0 * (self.coeffs[0] + self.shift);
-        for (j, c) in self.coeffs.iter().enumerate().skip(2).step_by(2) {
-            acc += 2.0 * c / (1.0 - (j * j) as f64);
-        }
-        acc
-    }
-
     /// `L = Σ j² |c_j|`, a bound on `|P'|` over `[-1, 1]`.
     fn lipschitz(&self) -> f64 {
         self.coeffs
@@ -276,12 +266,43 @@ impl Majorant {
 
     /// The band over node intervals `lo_i..hi_i` (nodes `lo_i ..= hi_i`):
     /// of the lifted fits of degree `0..=degree`, the one with the smallest
-    /// mean `ln` cover (`∫ (P + s) dx` over the band), so a higher `degree`
-    /// is never looser. Every candidate carries its own proven lift.
+    /// **mean linear overhead** `Σ_maj/Σ_t`, so a higher `degree` is never
+    /// costlier by that measure. Every candidate carries its own proven lift,
+    /// so the choice cannot touch the guarantee.
+    ///
+    /// *Selection rule changed 2026-10-19 (gh #945):* it was the smallest mean
+    /// `ln` cover, which is not monotone in the linear overhead the transport
+    /// pays for (a candidate with a lower mean `ln` can have a few very high
+    /// peaks and cost more virtual collisions). The overhead is measured
+    /// against the table's own step value `y` (the proxy for `Σ_t` this
+    /// module has), flat in `ln E`: the mean over node intervals, weighted by
+    /// their width in `x`, of `exp(P(x_mid) + s - y)`.
     fn fit_band(&self, lo_i: usize, hi_i: usize, degree: usize) -> CoverBand {
+        let (ln_lo, ln_hi) = (self.energy[lo_i].r_ln(), self.energy[hi_i].r_ln());
+        let span = ln_hi - ln_lo;
+        let xs: Vec<f64> = (lo_i..=hi_i)
+            .map(|i| 2.0 * (self.energy[i].r_ln() - ln_lo) / span - 1.0)
+            .collect();
+        let ys: Vec<f64> = (lo_i..hi_i)
+            .map(|i| self.sigma[i].max(self.sigma[i + 1]).max(1.0e-30).r_ln())
+            .collect();
+        let overhead = |b: &CoverBand| -> f64 {
+            let (mut num, mut den) = (0.0_f64, 0.0_f64);
+            for (k, &y) in ys.iter().enumerate() {
+                let w = xs[k + 1] - xs[k];
+                let mid = 0.5 * (xs[k] + xs[k + 1]);
+                num += w * (b.poly(mid) + b.shift - y).r_exp();
+                den += w;
+            }
+            if den > 0.0 {
+                num / den
+            } else {
+                f64::INFINITY
+            }
+        };
         (0..=degree)
             .map(|d| self.fit_band_degree(lo_i, hi_i, d))
-            .map(|b| (b.mean_ln(), b))
+            .map(|b| (overhead(&b), b))
             .min_by(|a, b| a.0.total_cmp(&b.0))
             .map(|(_, b)| b)
             .expect("at least degree 0")
@@ -531,12 +552,13 @@ mod tests {
         assert_eq!(CoverSettings::default().regions, 256);
     }
 
-    /// A higher allowed degree is never looser in the band's mean `ln`
-    /// cover (the fit keeps the best of degrees `0..=d`).
+    /// A higher allowed degree is never costlier in mean linear overhead
+    /// (the fit keeps the best of degrees `0..=d` by that measure; the
+    /// sampled mean here is a check of that, within sampling slack).
     #[test]
-    fn a_higher_degree_is_never_looser_in_mean_ln() {
+    fn a_higher_degree_is_never_costlier_in_mean_overhead() {
         let t = spiky();
-        let mean_ln = |d: usize| {
+        let mean_ov = |d: usize| {
             let c = t.chebyshev_cover(CoverSettings {
                 regions: 3,
                 degree: d,
@@ -545,13 +567,13 @@ mod tests {
             (0..k)
                 .map(|i| {
                     let e = 2.0e-3 * (4.0e9_f64).powf(i as f64 / k as f64);
-                    (c.at(e) / t.at(e)).ln()
+                    c.at(e) / t.at(e)
                 })
                 .sum::<f64>()
                 / k as f64
         };
-        let (m0, m3, m8) = (mean_ln(0), mean_ln(3), mean_ln(8));
-        assert!(m3 <= m0 + 0.02 && m8 <= m3 + 0.02, "{m0} {m3} {m8}");
+        let (m0, m3, m8) = (mean_ov(0), mean_ov(3), mean_ov(8));
+        assert!(m3 <= m0 * 1.02 && m8 <= m3 * 1.02, "{m0} {m3} {m8}");
     }
 
     /// Mean overhead and the temperature audit run on empty material sets.

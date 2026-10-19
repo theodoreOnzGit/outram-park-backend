@@ -236,6 +236,13 @@ impl NuclearData {
     /// one named `*-ENDF8.0.endf`. These are the tapes the crate's recorded
     /// ICSBEP benchmarks use (`vv::godiva`, `vv::hst009`). Native only.
     ///
+    /// **What it covers** is whatever tapes the folder holds that pass that
+    /// filter; there is no fixed list. Ask the loaded library:
+    /// `data.atomic_masses().isotopes()` lists every nuclide it supplies,
+    /// [`Self::tape_file`] names the tape for one, and [`Self::label`] names
+    /// the folder it was read from. The folder itself
+    /// (`reference-data/endf/`) is the listing of the raw tapes.
+    ///
     /// **Not Fe-54 (found 2026-10-18, tutorial 6):** that tape's header says
     /// `NLIB = 8`, so this constructor does not offer it and LCT-008's clad
     /// (Fe-54 among its 35 nuclides) cannot be built from it. Use
