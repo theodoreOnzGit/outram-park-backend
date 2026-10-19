@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Cheaper still: fit the curves?</title>
-<meta name="description" content="Neutronics, page 16: the Adler–Adler formalism is semi-empirical. Its form comes from multi-level resonance theory, its coefficients are fitted to data and no longer map onto physical level properties. A summary ladder from exact R-matrix to Adler–Adler, trading physical accuracy for computation.">
+<meta name="description" content="Neutronics, page 16: the Adler–Adler formalism is semi-empirical. Its form comes from multi-level resonance theory, its coefficients are fitted to data and no longer map onto physical level properties. A summary ladder from the all-channel R-matrix to Adler–Adler, trading physical accuracy for computation.">
 <link rel="stylesheet" href="../../style.css">
 <script src="lesson-kit.js" defer></script>
 <script src="resonance-data.js" defer></script>
@@ -31,7 +31,7 @@
 <table>
   <thead><tr><th>Formalism (ENDF)</th><th>Gives up</th><th>Keeps</th><th>Our evaluations</th></tr></thead>
   <tbody>
-    <tr><td data-label="Formalism"><b>R-matrix</b>, every channel (LRF 7, KRM 4)</td><td data-label="Gives up">nothing: exact</td><td data-label="Keeps">everything, at a huge matrix per energy</td><td data-label="Our evaluations">0</td></tr>
+    <tr><td data-label="Formalism"><b>R-matrix</b>, every channel (LRF 7, KRM 4)</td><td data-label="Gives up"><del>nothing: exact</del> <b>corrected 2026-10-19:</b> no channel; formally exact for the channels included, still dependent on channel choice, distant-level treatment and fitted parameters</td><td data-label="Keeps">everything, at a huge matrix per energy</td><td data-label="Our evaluations">0</td></tr>
     <tr><td data-label="Formalism"><b>Reich&ndash;Moore</b> (LRF 3), R-Matrix Limited (LRF 7, KRM 3)</td><td data-label="Gives up">gamma channels, one by one</td><td data-label="Keeps">interference in neutron and fission; physical parameters</td><td data-label="Our evaluations"><span data-census="Reich-Moore (LRF 3)">14</span> + <span data-census="R-Matrix Limited (LRF 7)">4</span></td></tr>
     <tr><td data-label="Formalism"><b>MLBW</b> (LRF 2)</td><td data-label="Gives up">interference in capture and fission</td><td data-label="Keeps">interference in elastic; physical parameters</td><td data-label="Our evaluations"><span data-census="MLBW (LRF 2)">18</span></td></tr>
     <tr><td data-label="Formalism"><b>SLBW</b> (LRF 1)</td><td data-label="Gives up">all interference between levels</td><td data-label="Keeps">one peak per level; physical parameters</td><td data-label="Our evaluations">0</td></tr>

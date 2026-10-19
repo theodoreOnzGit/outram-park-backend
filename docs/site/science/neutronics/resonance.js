@@ -259,16 +259,21 @@
         draw: function (ctx, w, h, zoom) {
           var fg = css("--fg", "#1d2125"), acc = css("--accent", "#1f6f78"), mut = css("--muted", "#5b636b"), hot = "#b85c38";
           if (st.ch === "fis" && !st.gf) st.ch = "el";
-          var ch = st.ch, e0 = 6, e1 = 10 + st.sep + 4, N = 500, cur = { rm: [], ml: [], sl: [] }, hi = 0, lo = 0, dML = 0, dSL = 0, dMS = 0;
+          var ch = st.ch, e0 = 6, e1 = 10 + st.sep + 4, N = 500, cur = { rm: [], ml: [], sl: [], di: [] }, hi = 0, lo = 0, dML = 0, dSL = 0, dMS = 0, dPos = 0, dNeg = 0;
           for (var i = 0; i <= N; i++) {
             var e = e0 + (e1 - e0) * i / N;
             var r = rm(e, rmres(), 0, P.spi, P.ap, P.awri, P.ra)[ch], s = slbw(e, bw(), 0, P.spi, P.ap, P.awri, P.ra)[ch], m = mlbw(e, bw(), 0, P.spi, P.ap, P.awri, P.ra)[ch];
             cur.rm.push(r); cur.sl.push(s); cur.ml.push(m);
-            hi = Math.max(hi, r, s, mode === "mlbw" ? m : 0); lo = Math.min(lo, r, s, mode === "mlbw" ? m : 0);
+            // Page 13: the interference contribution, coherent minus incoherent.
+            // For these s-wave levels Reich-Moore of a lone level equals its SLBW
+            // peak (check-physics.js, to 1e-9), so this difference is the
+            // level-level interference alone.
+            var di = r - s; cur.di.push(di); dPos = Math.max(dPos, di); dNeg = Math.min(dNeg, di);
+            hi = Math.max(hi, r, s, mode === "mlbw" ? m : 0); lo = Math.min(lo, r, s, mode === "mlbw" ? m : 0, mode === "rmatrix" ? di : 0);
             dSL = Math.max(dSL, Math.abs(r - s)); dML = Math.max(dML, Math.abs(r - m)); dMS = Math.max(dMS, Math.abs(m - s));
           }
           hi *= 1.1 / zoom; lo = Math.min(lo * 1.1, -0.02 * hi);
-          var nleg = mode === "mlbw" ? 3 : 2, ly = 66, x0 = 50, y0 = ly + 16 * nleg + 26, pw = w - x0 - 12, ph = h - y0 - 46;
+          var nleg = mode === "rmatrix" || mode === "mlbw" ? 3 : 2, ly = 66, x0 = 50, y0 = ly + 16 * nleg + 26, pw = w - x0 - 12, ph = h - y0 - 46;
           var X = function (e) { return x0 + (e - e0) / (e1 - e0) * pw; }, Y = function (v) { return y0 + (hi - v) / (hi - lo) * ph; };
           axes(ctx, x0, y0, pw, ph, mut);
           ctx.strokeStyle = mut; ctx.beginPath(); ctx.moveTo(x0, Y(0)); ctx.lineTo(x0 + pw, Y(0)); ctx.stroke();
@@ -281,11 +286,12 @@
             ctx.stroke(); ctx.setLineDash([]);
           };
           line(cur.sl, mut, [6, 4], 2);
+          if (mode === "rmatrix") line(cur.di, acc, [2, 3], 2);
           if (mode === "mlbw") line(cur.ml, acc, [], 2);
           line(cur.rm, hot, [], mode === "mlbw" ? 1.5 : 2);
           ctx.restore();
           // Legend, one entry per line so it fits a phone.
-          var leg = mode === "rmatrix" ? [["levels interfering", hot, []], ["each peak alone, summed", mut, [6, 4]]]
+          var leg = mode === "rmatrix" ? [["coherent: amplitudes added, then squared", hot, []], ["incoherent: each peak squared, then added", mut, [6, 4]], ["Δσ_int = coherent − incoherent", acc, [2, 3]]]
             : mode === "reichmoore" ? [["Reich–Moore", hot, []], ["each peak alone, summed (SLBW)", mut, [6, 4]]]
               : [["Reich–Moore", hot, []], ["MLBW", acc, []], ["SLBW sum", mut, [6, 4]]];
           ctx.font = "12px system-ui, sans-serif";
@@ -298,7 +304,7 @@
           var spin = st.same ? "the same spin J" : "different spins J";
           var tail = " Illustrative parameters, not an evaluation; 0 K.";
           if (mode === "rmatrix") return "Two levels " + st.sep.toFixed(2) + " eV apart, " + spin + (st.same ? ": their amplitudes add before squaring, so the result is not the sum of two peaks" : ": they cannot interfere, so the result is the sum of two peaks") +
-            " (largest difference " + dSL.toPrecision(3) + " b)." + tail;
+            ". Interference Δσ_int: largest constructive " + dPos.toPrecision(3) + " b, largest destructive " + dNeg.toPrecision(3) + " b." + tail;
           if (mode === "reichmoore") return "Two levels " + st.sep.toFixed(2) + " eV apart, " + spin + (st.gf ? ", Γf " + (1e3 * st.gf).toFixed(0) + " meV each" : "") + ". " + CAP[ch] + ": Reich–Moore differs from the sum of single peaks by up to " + dSL.toPrecision(3) + " b." + tail;
           return "Two levels " + st.sep.toFixed(2) + " eV apart, " + spin + (st.gf ? ", Γf " + (1e3 * st.gf).toFixed(0) + " meV each" : "") + ": width over spacing Γ/D = " + ((1.03 + st.gf) / st.sep).toFixed(2) + ". " + CAP[ch] + ": MLBW differs from Reich–Moore by up to " + dML.toPrecision(3) + " b and from the SLBW sum by up to " + dMS.toPrecision(3) + " b" +
             (ch !== "el" ? " (MLBW's " + NAME[ch] + " is the SLBW sum by construction)" : "") + "." + tail;
