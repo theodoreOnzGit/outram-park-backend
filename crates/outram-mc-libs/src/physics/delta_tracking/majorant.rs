@@ -48,9 +48,13 @@ use crate::mathf::RealMath;
 #[derive(Debug, Clone, Default)]
 pub struct Majorant {
     /// Ascending energy grid \[eV\].
-    energy: Vec<f64>,
+    pub(super) energy: Vec<f64>,
     /// Majorant Σ_maj \[cm⁻¹\] at each grid energy.
-    sigma: Vec<f64>,
+    pub(super) sigma: Vec<f64>,
+    /// **Chebyshev cover bands** (gh #945, stage 3); empty for every
+    /// constructor except [`Self::chebyshev_cover`]. When non-empty, [`Self::at`]
+    /// evaluates these instead of the table (see `temperature_cover`).
+    pub(super) cover: Vec<super::temperature_cover::CoverBand>,
 }
 
 impl Majorant {
@@ -63,6 +67,7 @@ impl Majorant {
         Majorant {
             energy: vec![0.0, f64::INFINITY],
             sigma: vec![sigma_max, sigma_max],
+            cover: Vec::new(),
         }
     }
 
@@ -137,6 +142,7 @@ impl Majorant {
         Majorant {
             energy: grid,
             sigma,
+            cover: Vec::new(),
         }
     }
 
@@ -166,6 +172,7 @@ impl Majorant {
         Majorant {
             energy: energies.to_vec(),
             sigma,
+            cover: Vec::new(),
         }
     }
 
@@ -349,6 +356,7 @@ impl Majorant {
         Majorant {
             energy: grid,
             sigma,
+            cover: Vec::new(),
         }
     }
 
@@ -472,6 +480,11 @@ impl Majorant {
         Majorant {
             energy: self.energy.clone(),
             sigma: self.sigma.iter().map(|s| s * factor).collect(),
+            cover: self
+                .cover
+                .iter()
+                .map(|b| b.scaled(factor))
+                .collect(),
         }
     }
 
@@ -501,6 +514,9 @@ impl Majorant {
     /// cannot bound a resonance below the floor — build the grid low enough for
     /// that — but no evaluation this crate reads has one there.
     pub fn at(&self, e: f64) -> f64 {
+        if !self.cover.is_empty() {
+            return super::temperature_cover::cover_at(&self.cover, e);
+        }
         match self.sigma.len() {
             0 => 0.0,
             1 => self.sigma[0],
@@ -639,7 +655,14 @@ fn sampled_envelope(
         sigma[b] = sigma[b].max(bin_max);
         sigma[b + 1] = sigma[b + 1].max(bin_max);
     }
-    (Majorant { energy, sigma }, sampled)
+    (
+        Majorant {
+            energy,
+            sigma,
+            cover: Vec::new(),
+        },
+        sampled,
+    )
 }
 
 #[cfg(test)]

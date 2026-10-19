@@ -192,3 +192,220 @@ is what stage 2 (#947's stochastic interpolation on a fixed grid) removes.
 - The ACE route reads tables at their own temperatures; a region at a
   temperature no file has is refused (`DataError::Ace`), as for the model
   temperature before.
+
+
+---
+
+# Stage 3: a majorant that covers a temperature range (2026-10-19)
+
+**Status:** untrusted AI-generated draft per `RESPONSIBLE_USE.md`; research,
+education and V&V only. Predictions were posted on #945 before any run
+([comment](https://github.com/theodoreOnzGit/outram-park-backend/issues/945#issuecomment-6258439360)).
+Code: `src/physics/delta_tracking/temperature_cover.rs`; tests:
+`tests/majorant_temperature_cover.rs`, plus unit tests in the module and
+`src/model/advanced.rs`. Raw logs are not committed (private scratch).
+
+## 6. Construction
+
+Maintainer direction (#945, 2026-10-17): "chebyshev polynomial to cover logE
+and neutron T. Don't have to fit exactly but have to cover everything", then
+"Or rather a few regions". A cover, not a fit: looseness costs virtual
+collisions, an under-bound anywhere is a defect.
+
+**Searched first.** The workspace's Chebyshev code is `material::
+temperature_interpolation` (nodes and an interpolant of cross-section values
+in T, #947) and `petir::ChebSeries`; neither produces a bound, so neither was
+reused for the cover (the cover has its own Clenshaw evaluation, 15 lines).
+Reused: `Majorant::bounding` (per-table bound by construction),
+`Majorant::audit`, the stage-1 lowering and `AssembledModel::majorants`.
+
+**Step 1, the T axis (`Majorant::over_temperature_tables`).** Process the
+region's nuclides at tables spanning `[T_min, T_max]`; build
+`Majorant::bounding` at each; take the pointwise maximum on the union of the
+grids; multiply by `1 + t_margin` (`DEFAULT_T_MARGIN = 0.01`). Guaranteed at
+each table. **Between tables it is not guaranteed by construction**: at a
+fixed `E` near a resonance's half-width crossover `Σ_t(T)` is not monotone
+(the peak falls, the wing rises), so its maximum over a temperature interval
+can exceed both bracketing tables; and tables processed separately differ by
+the processing tolerance. So `t_margin` is *measured* against data processed
+exactly between the tables (section 7), not proven.
+
+**Step 2, the E axis (`Majorant::chebyshev_cover`).** The step-1 node table
+(~3e5 nodes) becomes `regions` bands equal in `ln E`, snapped to nodes; band
+`b` is `exp(P_b(x) + s_b)` with `x = ln E` scaled to `[-1, 1]` and `P_b` the
+Chebyshev interpolant, at the Chebyshev nodes, of the band's upper envelope of
+`ln Σ_maj` (the best of degrees `0..=degree` by the band's mean `ln` cover).
+**The lift `s_b` is proven, not sampled:** the table's value on a node interval
+is the larger of its end nodes (what `Majorant::at` returns), a constant `y_i`;
+`|T_j'| <= j^2` on `[-1, 1]`, so `|P'| <= L = Σ j^2 |c_j|`; on an interval of
+width `w`, `min P >= min(P at its ends) - L w / 2`, and intervals wider than
+`W_MAX = 2e-3` are subdivided first; `s_b = max_i (y_i - bound on min P over
+interval i) + 1e-12`. Then the cover is `>=` the table on every interval, so
+`>=` the bound it covers. Below the first node the 1/v extrapolation of
+`Majorant::at` is kept. This is a guarantee against the step-1 table; the
+data-level guarantee is step 1's. `tests/majorant_temperature_cover.rs` also
+checks the proof on the data: the cover is not below its table at 1.2 million
+probe energies (400 001 log points and their 1e-6 relative neighbours).
+
+**Where it is exposed.** `model.advanced().with_majorant_cover(CoverSettings {
+regions, degree })`, carried to `AssembledModel::majorants`, which then
+covers each delta-tracked region's stage-1 table. It changes cost, never the
+answer, so it is not an ablation and is not listed in `provenance.ablations`.
+**Without the call nothing changes: the stage-1 per-temperature table stays
+the default** (pinned by `advanced_cover_reaches_the_region_majorant_and_
+bounds_the_table`, `cover_bands() == 0`). The model path today builds one
+temperature per region, so what it covers is the energy axis of a region's
+stage-1 bound; the `T`-range tables of step 1 are a library function
+(`over_temperature_tables`) that a temperature field (#949) will feed. They
+are not wired into `Model` yet.
+
+## 7. Methodology
+
+ENDF/B-VIII.0 (`reference-data/endf/`), RECONR + BROADR (tolerance 1e-3, speed
+tier `Fast`), URR tables, and LEAPR crystalline graphite for the bound carbon,
+each processed **exactly** at 293.6, 450, 600, 750, 900, 1050, 1200, 1350 and
+1500 K.
+
+- `U238`: U-238 metal, 0.04784 /b-cm (the worst Doppler case, and a URR
+  nuclide).
+- `MIX`: graphite (C-12 tape 0.0800 /b-cm, crystalline S(α,β)) with UO2 smeared
+  at 5 % by volume (U-235 5.285e-5, U-238 1.10735e-3, O-16 2.3204e-3 /b-cm).
+  The C-12 tape stands for carbon; natural carbon's C-13 is not included.
+
+Tables: `{293.6}` (control), `{293.6, 1500}`, `{293.6, 900, 1500}`,
+`{293.6, 600, 900, 1200, 1500}`. Each table's bound is `Majorant::bounding`
+(4096 bins x 32, 1e-4 eV to 20 MeV), as stage 1, at per-table margin `m0 = 0`
+(isolates the between-table excess) and `0.3` (stage 1's). **Audit:**
+`Majorant::audit_over_temperatures` against every processed temperature that
+is not a table (the between-table test) and the tables themselves: 50 000 log
+energies over 1e-5 eV to 20 MeV plus every nuclide breakpoint, its ulp
+neighbours and every interval midpoint, `Σ_t` the largest URR band. **Cost:**
+mean `Σ_maj / Σ_t` (the expected virtual collisions per real one, plus 1) at
+20 000 log energies over 1e-3 eV to 20 MeV for the material at **1050 K**, flat
+in lethargy and in three windows (thermal < 1 eV, epithermal 1 eV to 10 keV,
+fast > 10 keV). This is a lethargy-weighted proxy, **not** a mean along
+histories (no run was made), so it over-weights regions neutrons rarely visit
+and the absolute figures are not the transport slowdown; the ratios between
+constructions are the finding. Build time is wall clock for the bounding(s) and
+merge; the data processing is not in it (U-238: 628 s for the nine
+temperatures; the mix about 1900 s).
+
+Hardware: 13th Gen Intel Core i9-13900K, 4 of 32 logical cores
+(`taskset -c 0-3`, rayon 4 threads), 62 GB RAM, Linux 7.2.9, CPU only (GPU
+hidden), machine shared with other sessions.
+
+## 8. Predictions (before running) and results
+
+| check | predicted | measured | verdict |
+|---|---|---|---|
+| between-table excess, U-238, `m0 = 0`, `t_margin = 0` | worst `Σ_t/Σ_maj` 1.00 to 1.15 | **1.0000000** with two tables 1207 K apart (ties at 2e7 eV, where the data are not broadened); the single-table control is **2.256 under** at 6.48 eV, 1500 K | refuted (smaller than predicted: none measurable) |
+| same, `m0 = 0.3` | <= 1, about 0.8 to 0.95 | **0.769** (= 1/1.3) at every table count | as predicted |
+| between-table excess, graphite + UO2, `m0 = 0` | smaller than U-238 | **1.00127** at 1.69 MeV, 600 K (ends only); **1.00049** at 1.77 eV, 1200 K (3 tables); **1.00023** at 3.37 eV, 750 K (5 tables); single-table control 2.46 under at 1.4e-5 eV, 1500 K | refuted (larger than U-238's, which had none) |
+| same, `m0 = 0.3` | <= 1 | **0.770** (ends), 0.770, 0.769 | as predicted |
+| overhead of the T-max over a rebuild at the middle T | 1.1x to 1.6x | U-238 **1.37x** (4.33 against 3.16 flat; epithermal 8.68 against 5.86); mix **1.06x** (1.48 against 1.40) | inside for U-238, below for the mix |
+| Chebyshev cover looseness, tens of bands, degree 4 | 5x to 100x the table | U-238 64 x 4 **10.1x**, 256 x 4 **2.9x**; mix 64 x 4 **1.9x**, 256 x 4 **1.2x** | inside for U-238, tighter for the mix |
+| cover with 1 to 4 bands | over 100x | U-238 **99x to 782x**; mix **6x to 40x** | U-238 as predicted, mix far tighter |
+| build: tables cost n x one bounding, the cover fit under 2 s | | U-238 0.9 s per bounding, 5 tables 4.8 s; mix 8.7 s per bounding, 5 tables 46 s; cover fit **0.00 to 0.09 s** | as predicted |
+
+### 8.1 What the between-table numbers say
+
+- U-238 alone shows **no excess** at 7 temperatures between two tables 1207 K
+  apart, to 1e-7. Its broadened resonance region is smooth enough in `T` that
+  the maximum over the two end tables bounds the intermediate ones. This
+  refutes the prediction of a small excess; it does not prove the wing-crossover
+  argument wrong for a narrower table spacing question, it only says it was not
+  measurable here.
+- The mix does show one: **0.127 %** (ends), **0.049 %** (3 tables), **0.023 %**
+  (5 tables) at zero margin, falling with the spacing. The worst of the ends-only
+  case is at 1.69 MeV, where the data are not Doppler-broadened at all: the
+  difference there is the processing tolerance of separate RECONR/BROADR runs
+  (1e-3), not Doppler physics. The 3- and 5-table worst points are at 1.77 eV
+  and 3.37 eV, in the resolved resonances, where I did not separate the
+  two causes. **Not diagnosed further.** The stage-1 per-table 30 % margin
+  already covers all of it (worst 0.770).
+- At margin 0 the mix is also 1.015 over at the tables themselves, at 1.4e-5 eV,
+  *below* the 1e-4 eV floor: `Majorant::at`'s 1/v extrapolation under-bounds the
+  S(α,β) graphite total there (pre-existing, not a temperature effect; the 30 %
+  margin covers it, 0.78).
+- **Margin chosen:** `DEFAULT_T_MARGIN = 1 %`, 8x the worst measured excess
+  (0.127 %), as a floor for cases not measured (water, other nuclides), **not**
+  a derived bound. The guarantee between tables is therefore empirical on these
+  two contents; it is not a proof.
+
+### 8.2 The Chebyshev cover, regions x degree (mean `Σ_maj/Σ_t`, flat in lethargy, 1050 K; 5-table bound)
+
+Table (no cover): U-238 4.33, mix 1.48. Per-temperature rebuild at 1050 K
+(stage 1): U-238 3.16, mix 1.40. Multiple of the 5-table bound:
+
+| regions \ degree | U-238 0 | 2 | 4 | 8 | mix 0 | 2 | 4 | 8 |
+|---|---|---|---|---|---|---|---|---|
+| 1 | 367 | 783 | 218 | 287 | 40.6 | 37.4 | 16.5 | 13.0 |
+| 4 | 148 | 213 | 319 | 99 | 14.1 | 10.5 | 8.8 | 6.2 |
+| 16 | 57 | 186 | 191 | 115 | 5.8 | 6.3 | 6.7 | 4.6 |
+| 64 | 22.5 | 24.7 | 10.1 | 5.9 | 3.1 | 2.5 | 1.9 | 1.5 |
+| 256 | 7.5 | 4.0 | **2.9** | 2.4 | 1.7 | 1.3 | **1.2** | 1.1 |
+| 1024 | 2.5 | 1.7 | 1.6 | 1.5 | 1.2 | 1.1 | 1.1 | 1.1 |
+
+Fit time 0.00 to 0.09 s in every cell. The cover is very loose where there are
+resonances: a band holding a resonance sits above its peak everywhere in the
+band. It is **not monotone in degree** at few bands (U-238 1 region: 367, 783,
+218, 287): the fit keeps the degree with the smallest mean *ln* cover, which can
+raise the linear mean the transport pays for. Choosing by the linear mean
+(`∫ exp(P+s)/table`) would fix that; not done, noted as open.
+
+### 8.3 Defaults chosen, with the evidence
+
+`CoverSettings::default() = { regions: 256, degree: 4 }`: 1280 coefficients in
+place of ~3e5 nodes; 3.0x (U-238) and 1.2x (mix) the table's virtual-collision
+proxy; 64 bands cost 10x and 1.9x; 1024 bands buy 1.6x and 1.1x for four times
+the coefficients; degree 8 at 256 bands buys under 20 %. **A cost choice, not an
+accuracy choice**: the cover holds at every setting tried, because the lift is
+computed for each. Used only if `advanced()` asks; the table stays the default.
+
+**The shipped default, audited** (`default_audit`: tables 293.6 and 1500 K only,
+`m0 = 0.3`, `t_margin = 1 %`, cover 256 x 4; audited at 293.6, 750 and 1500 K):
+
+| content | table worst | cover worst | table build | cover fit | mean `Σ_maj/Σ_t` at 750 K, flat/thermal/epi/fast: table -> cover |
+|---|---|---|---|---|---|
+| U-238 | 0.7616 (1e-4 eV, 1500 K) | 0.7616 (2e7 eV, 293.6 K) | 1.9 s | 0.02 s | 4.65/1.33/9.46/1.82 -> 13.70/1.33/32.61/2.02 |
+| graphite + UO2 | 0.7729 (1.4e-5 eV, 1500 K) | 0.7729 | 19.2 s | 0.03 s | 1.53/1.51/1.68/1.37 -> 1.83/1.53/2.37/1.46 |
+
+Every ratio is at most 1. (The sweep's own end-of-run audit used 64 x 4 and
+all nine temperatures: U-238 0.7692, mix 0.7803, both at most 1; those cells
+are in the 64-band rows above.)
+
+### 8.4 Against the per-temperature rebuild (stage 1)
+
+- **Build:** a rebuild is one `bounding` (U-238 0.9 s, mix 8.7 s), paid again
+  whenever the region's temperature changes. The range bound is `n_tables`
+  boundings (4.8 s and 46 s for five) paid **once** for the whole range, and the
+  cover fit adds 0.02 to 0.03 s. After that a temperature change inside the
+  range costs nothing: no reprocessing and no rebuild, the saving #949's Picard
+  iteration wants. Data processing, the larger cost (about 70 s per U-238
+  temperature, about 200 s for the mix), is not saved by this; stage 2's
+  stochastic interpolation is what removes it.
+- **Virtual collisions:** the range-wide table is 1.37x (U-238) and 1.06x (mix) the
+  rebuild's proxy; the default cover is a further 3.0x and 1.2x on top of the
+  table, so about 4.3x (U-238) and 1.3x (mix) a rebuild at the exact
+  temperature. The U-238 cost sits in the epithermal window (8.7 and 32.6
+  against 5.9 for a rebuild); thermal and fast are near 1.
+
+## 9. Limits and open questions
+
+- **The between-table guarantee is empirical.** Measured on two contents, nine
+  temperatures, 293.6 to 1500 K. The mix's worst points (resolved resonances,
+  and a processing-tolerance point at 1.69 MeV) were not separated further. A
+  denser table set can only shrink the excess; the margin should be re-measured
+  for water (H in H2O, which refuses undeclared temperatures) and a WMP nuclide,
+  where the T dependence is continuous (#948): not measured here.
+- **Not wired into `Model` beyond the E-axis cover.** Step 1 is a library
+  function; the model still builds one temperature per region.
+- **No transport run.** The cost figure is a lethargy-weighted proxy, not a mean
+  along histories, and no k was computed with a cover; the bound is checked
+  against the data, not by transport. A cover only changes the number of virtual
+  collisions, but that is a statement of the method, not a measurement here.
+- **Band edges are equal in `ln E`**, not at the data's own boundaries (S(α,β)
+  cutoff, resolved/unresolved limits) the maintainer named. Whether
+  data-driven edges tighten the cover at equal band count is untested.
+- **Selection of the degree** by mean `ln` (not linear overhead), see 8.2.
+- The U-238 file here is the repository's `n-092_U_238.endf`, as stage 1.

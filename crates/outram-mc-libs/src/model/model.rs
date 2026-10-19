@@ -231,6 +231,10 @@ pub struct AssembledModel {
     /// Per delta-tracked region (a [`super::DhRegion`]): the material
     /// indices its majorant must bound. Cell `tracking` indexes this list.
     pub(crate) delta_regions: Vec<Vec<usize>>,
+    /// `Some`: each delta-tracked region's majorant is replaced by a
+    /// Chebyshev cover of it (gh #945, set only by `advanced()`); `None`
+    /// (the default): the stage-1 per-temperature table.
+    pub(crate) majorant_cover: Option<crate::physics::delta_tracking::CoverSettings>,
     /// Component labels, by component index.
     pub component_labels: Vec<String>,
     /// The library's label (for provenance).
@@ -518,6 +522,7 @@ impl Model {
             pool_images,
             beds: lw.beds,
             delta_regions: lw.delta_regions,
+            majorant_cover: None,
             component_labels: self.components.clone(),
             data_label: self.data.label().to_string(),
             bounds: (lower, upper),
