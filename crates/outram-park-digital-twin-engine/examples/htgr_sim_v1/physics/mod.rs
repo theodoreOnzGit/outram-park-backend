@@ -277,9 +277,10 @@ use turbine_generator::TurbineGeneratorShaft;
 ///
 /// **Update 2026-10-19 (gh:#970):** the bank's excess is still as below, but
 /// the core no longer opens at the design-point temperature: it opens at
-/// [`OPENING_CORE_TEMPERATURE_K`] (1500 degC), where the feedback outweighs
-/// the bank, so the NET opening reactivity is negative and there is no
-/// prompt excursion. The section below describes the bank alone.
+/// [`OPENING_CORE_TEMPERATURE_K`] (~~1500 degC~~ 1000 degC, same day), where
+/// the feedback nearly cancels the bank, so the NET opening reactivity is
+/// small (below prompt critical) and there is no prompt excursion. The
+/// section below describes the bank alone.
 ///
 /// **Prompt critical is `+1 $` by definition.** At 0.30 the bank commands
 /// `+12.97 $`, so the cold-clean opening condition is a **prompt excursion**
@@ -393,9 +394,8 @@ use turbine_generator::TurbineGeneratorShaft;
 ///
 pub const GUI_INITIAL_ROD_INSERTION: f64 = 0.45;
 
-/// **Temperature the core graphite and fuel open at** \[K\]: 1500 degC
-/// (maintainer direction, 2026-10-19, gh:#970: "make the temp of the core and
-/// graphite 1500C at start, so we have negative reactivity from the outset").
+/// **Temperature the core graphite and fuel open at** \[K\]: ~~1500 degC~~
+/// **1000 degC** (maintainer direction, 2026-10-19, gh:#970).
 ///
 /// **Why.** [`GUI_INITIAL_ROD_INSERTION`] is a demonstration choice
 /// (maintainer: chosen so start-up settles at a power from which shutdown can
@@ -403,16 +403,32 @@ pub const GUI_INITIAL_ROD_INSERTION: f64 = 0.45;
 /// Opened at the ~950 K design point the feedback is referenced to, that was
 /// a prompt excursion: about 1.5 GW in the first 0.3 s and a peak kernel of
 /// 2333.6 K (2060.4 degC) at t = 0.4 s (gh:#964), above the 1600 degC TRISO
-/// limit. Opened at 1773.15 K, the isothermal coefficient
-/// (-1.4e-4 /K, Chen et al. 2009) gives -0.115 dk/k against the bank's
-/// +0.051, so the core opens subcritical and the power comes up as it cools.
+/// limit. Opening the core hotter puts the isothermal feedback
+/// (-1.4e-4 /K, Chen et al. 2009) against the bank from t = 0.
 ///
-/// **What it is not.** A demonstration opening condition, not a plant state:
-/// a real HTR-10 is never at 1500 degC with the helium circulating. Only the
-/// core (bed graphite, its helium, the fuel node) opens hot; the feedback
-/// reference, the primary loop and the secondary side are as before, and the
-/// passive path is built in equilibrium with the hot bed.
-pub const OPENING_CORE_TEMPERATURE_K: f64 = 1773.15;
+/// **How 1000 degC was chosen.** The maintainer first suggested 1500 degC
+/// ("negative reactivity from the outset"), then asked for "some power 30 s
+/// in", "just not a spike". Four openings were run headless on default
+/// commands, 2026-10-19 (300-2400 s; `--headless N 10`):
+///
+/// | Opening | Power at 30 s | Max power | Peak kernel | Settled |
+/// |---|---|---|---|---|
+/// | 800 degC | 21.0 MW | **186.5 MW at ~2 s (a spike)** | 1543.3 degC at 0.6 s | 6.6 MW |
+/// | **1000 degC** | **3.4 MW** | **9.6 MW at ~60 s** | **1027.0 degC at 94.9 s** | **5.9 MW** |
+/// | 1200 degC | 0.001 MW | 18.7 MW near 420 s | 1203.2 degC (the opening) | 5.9 MW |
+/// | 1500 degC | ~0 for ~10 min | 20.1 MW near 800 s | 1502.1 degC (the opening) | 5.8 MW |
+///
+/// 1000 degC sits just below the ~1006 degC bed the bank settles at, so the
+/// net opening reactivity is small and positive (below prompt critical):
+/// the power dips to 0.7 MW while the empty precursors fill, then rises
+/// smoothly. This is chosen for the demonstration, from runs, which is
+/// exactly what the maintainer asked for; it is not a plant state.
+///
+/// **What it is not.** A demonstration opening condition. Only the core (bed
+/// graphite, its helium, the fuel node) opens at this temperature; the
+/// feedback reference, the primary loop and the secondary side are as
+/// before, and the passive path is built in equilibrium with the bed.
+pub const OPENING_CORE_TEMPERATURE_K: f64 = 1273.15;
 
 /// Fraction of rated helium flow the simulator opens at:
 /// ~~0.30~~ ~~**1.00** **CHANGED 2026-09-27**~~ **0.30** **CHANGED BACK
@@ -6219,21 +6235,20 @@ mod tests {
     }
 
     /// gh:#970 acceptance (maintainer, 2026-10-19: the opening peak "needs to
-    /// be below 1600"). A fresh plant on the commands it opens with (the
-    /// GUI's and headless's default: rods at [`GUI_INITIAL_ROD_INSERTION`])
-    /// opens hot at [`OPENING_CORE_TEMPERATURE_K`], so the reactivity is
-    /// negative from the first step and power FALLS; the peak kernel over the
-    /// first 60 s stays below the 1600 degC TRISO limit.
+    /// be below 1600"; "some power 30 s in", "just not a spike"). A fresh
+    /// plant on the commands it opens with (rods at
+    /// [`GUI_INITIAL_ROD_INSERTION`]) opens at [`OPENING_CORE_TEMPERATURE_K`].
+    /// Over the first 60 s: no spike (power never above 20 MW, twice rated),
+    /// visible power by 30 s (above 1 MW), and the peak kernel below the
+    /// 1600 degC TRISO limit.
     ///
-    /// **Results, 2026-10-19.** Before the hot opening (950 K): peak 2333.6 K
-    /// (2060.4 degC) at t = 0.4 s. With it: this test's 60 s; and a 2400 s
-    /// headless run (`--headless 24000 500`) peaks at 1775.20 K (1502.05 degC)
-    /// at t = 0.6 s, the opening itself. Power is ~0 for ~10 min while the
-    /// core cools, returns near 800 s with a brief overshoot (20.1 MW in the
-    /// 800 s sample, fuel 1009.8 degC), and holds 5.78 MW at 2400 s with the
-    /// bed at 1006.5 degC and the fuel at 1013.6 degC.
+    /// **Results, 2026-10-19.** Before (950 K opening): 1.5 GW and a 2060.4
+    /// degC peak in the first 0.4 s. At 1000 degC (`--headless 3000 10`):
+    /// 3.4 MW at 30 s, maximum 9.6 MW near 60 s, peak kernel 1026.95 degC at
+    /// 94.9 s, 5.94 MW at 300 s. The other openings tried are in the
+    /// constant's doc.
     #[test]
-    fn a_fresh_plant_opens_below_the_triso_limit_and_subcritical() {
+    fn a_fresh_plant_opens_without_a_spike_and_below_the_triso_limit() {
         const TRISO_LIMIT_K: f64 = 1600.0 + 273.15;
         let mut plant = HtgrPlant::new();
         assert!((plant.kinetics.fuel_temperature().get::<kelvin>() - OPENING_CORE_TEMPERATURE_K).abs() < 1e-9);
@@ -6241,12 +6256,18 @@ mod tests {
         let dt = Time::new::<second>(PLANT_TIMESTEP_S);
         let commands = PlantCommands::default();
         assert_eq!(commands.control_rod_insertion_fraction, GUI_INITIAL_ROD_INSERTION);
-        let p0 = plant.kinetics.total_power().get::<megawatt>();
-        for _ in 0..600 {
+        let mut p_max = 0.0_f64;
+        let mut p_at_30 = f64::NAN;
+        for i in 1..=600 {
             plant.step(dt, commands.clone());
+            let p = plant.kinetics.total_power().get::<megawatt>();
+            p_max = p_max.max(p);
+            if i == 300 {
+                p_at_30 = p;
+            }
         }
-        let p = plant.kinetics.total_power().get::<megawatt>();
-        assert!(p < p0, "a hot opening is subcritical, so power falls: {p0} -> {p} MW");
+        assert!(p_max < 20.0, "a spike: {p_max} MW in the first 60 s");
+        assert!(p_at_30 > 1.0, "no visible power 30 s in: {p_at_30} MW");
         let rec = plant.peak_fuel_record();
         assert!(rec.peak_k < TRISO_LIMIT_K, "opening peak {} K is above the 1600 degC limit", rec.peak_k);
     }
