@@ -97,7 +97,7 @@ pub enum MaterialError {
     #[error("{0:?} has no natural isotopic composition")]
     NoNaturalComposition(Element),
     /// Natural isotopes the library lacks and that OpenMC's rules cannot fold.
-    #[error("cannot use natural {element:?}: its isotopes {names} are not in the nuclear-data library ({lib}), so the library does not contain them and no OpenMC rule folds them into an isotope it does hold; add their tapes to the library, or enter the isotopes the library has instead of the natural element", names = isotope_list(.missing), lib = .library)]
+    #[error("cannot use natural {element:?}: its isotopes {names} are not in the nuclear-data library ({lib}), and no OpenMC rule folds them into an isotope it does hold. Add their tapes to the library, or enter the isotopes the library has instead of the natural element", names = isotope_list(.missing), lib = .library)]
     CannotExpand {
         /// The element.
         element: Element,
@@ -1185,7 +1185,6 @@ mod tests {
         )]))
         .to_string();
         assert!(msg.contains("not in the nuclear-data library"), "{msg}");
-        assert!(msg.contains("does not contain"), "{msg}");
         assert!(msg.contains("unit-test masses"), "{msg}");
         assert!(msg.contains("Fe54"), "{msg}");
         assert!(matches!(
