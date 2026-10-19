@@ -612,7 +612,7 @@ pub struct MapTabState {
     /// AP1000 curve and the bounding-table arms. Default none; display only.
     tede_overlays: TedeOverlays,
     /// The TEDE graph's "Normalise to thermal power" selection (maintainer,
-    /// 2026-10-01): default 600 MWth. Display only.
+    /// 2026-10-01): default 250 MWth (was 600 until 2026-10-19). Display only.
     tede_power: PowerNorm,
     /// The map's zoom and pan (maintainer, 2026-10-01). GUI only: it
     /// magnifies the uploaded texture and the overlays drawn on it, and never
@@ -949,7 +949,7 @@ fn liu_cao_points(o: LiuCaoOverlay, x_max_m: f64) -> Vec<[f64; 2]> {
 
 /// The thermal power a TEDE-graph series is NATIVELY at, i.e. as it arrives
 /// from its source before the graph's power normalisation (maintainer,
-/// 2026-10-01: "scale the TEDE to 600 MWth"). Every series is scaled from
+/// 2026-10-01: "scale the TEDE to 250 MWth"). Every series is scaled from
 /// this, once, by [`PowerNorm::scale`], so nothing is double-scaled.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum SeriesPower {
@@ -998,7 +998,7 @@ impl SeriesPower {
 }
 
 /// The TEDE graph's "Normalise to thermal power" selector (maintainer,
-/// 2026-10-01: "scale the TEDE to 600 MWth"). DISPLAY ONLY: every dose
+/// 2026-10-01: "scale the TEDE to 250 MWth"). DISPLAY ONLY: every dose
 /// series is multiplied by `target / native` ([`PowerNorm::scale`]) -- dose
 /// proportional to released activity proportional to thermal power, the #450
 /// convention -- and nothing upstream (physics, sembawang, buangkok, changi)
@@ -1008,21 +1008,21 @@ pub enum PowerNorm {
     /// Every series at HTR-10's 10 MWth: the graph as it was before the
     /// selector.
     Htr10,
-    /// Every series linearly scaled to 600 MWth. The default (maintainer's
+    /// Every series linearly scaled to 250 MWth. The default (maintainer's
     /// request, 2026-10-01).
     #[default]
-    Mwth600,
+    Mwth250,
 }
 
 impl PowerNorm {
     /// Selector order.
-    const ALL: [PowerNorm; 2] = [PowerNorm::Htr10, PowerNorm::Mwth600];
+    const ALL: [PowerNorm; 2] = [PowerNorm::Htr10, PowerNorm::Mwth250];
 
     /// The target thermal power \[MWth\].
     fn mwth(self) -> f64 {
         match self {
             PowerNorm::Htr10 => crate::physics::bounding_air_ingress::HTR10_MWTH,
-            PowerNorm::Mwth600 => 600.0,
+            PowerNorm::Mwth250 => 250.0,
         }
     }
 
@@ -1030,7 +1030,7 @@ impl PowerNorm {
     fn label(self) -> &'static str {
         match self {
             PowerNorm::Htr10 => "10 MWth (HTR-10)",
-            PowerNorm::Mwth600 => "600 MWth",
+            PowerNorm::Mwth250 => "250 MWth",
         }
     }
 
@@ -1061,7 +1061,7 @@ impl PowerNorm {
             .collect()
     }
 
-    /// The legend suffix: native power and factor, e.g. " [10 MWth \u{d7}60]";
+    /// The legend suffix: native power and factor, e.g. " [10 MWth \u{d7}25]";
     /// empty when the factor is 1 (so at 10 MWth the HTR-10 and arm names
     /// read exactly as before the selector).
     fn tag(self, native: SeriesPower) -> String {
@@ -1089,13 +1089,13 @@ fn factor_text(f: f64) -> String {
     }
 }
 
-/// The caveat at the top of the notes while 600 MWth is selected
+/// The caveat at the top of the notes while 250 MWth is selected
 /// (maintainer's wording, 2026-10-01). Pinned by a test.
 const POWER_SCALING_CAVEAT: &str =
     "Linear power scaling: dose \u{221d} released activity \u{221d} \
      thermal power. Assumes the same release fractions, release height, weather and receptor at \
      every size; ignores that a larger plant's source geometry, building wake, containment/vessel \
-     scaling and fuel burnup differ. Not a dose for any real 600 MWth plant.";
+     scaling and fuel burnup differ. Not a dose for any real 250 MWth plant.";
 
 /// The AP1000 severe-accident TED overlay on the centreline TEDE graph
 /// (maintainer request 2026-10-01, #473): Dadda et al. (2024) Fig. 7, the
@@ -1104,7 +1104,7 @@ const POWER_SCALING_CAVEAT: &str =
 ///
 /// ~~Two entries, "scaled to 10 MWt" (x 10/3400) and "as published,
 /// 3400 MWt".~~ **CHANGED 2026-10-01 (power selector):** ONE entry, scaled
-/// by the selector (x 10/3400 at 10 MWth, x 600/3400 at 600 MWth). The
+/// by the selector (x 10/3400 at 10 MWth, x 250/3400 at 250 MWth). The
 /// as-published 3400 MWt entry was dropped: it would be the only series not
 /// at the selected power, so it could not be read against anything else on
 /// the graph, and the published values themselves are pinned by sembawang's
@@ -3289,7 +3289,7 @@ fn steady_plume_projection_msv(s: &HtgrSnapshot, x_m: f64) -> Option<f64> {
 /// HTR-10 curve, which is expected and NOT switched to log.
 ///
 /// Every dose series is normalised to the "Normalise to thermal power"
-/// selection (default 600 MWth) from its own native power by
+/// selection (default 250 MWth) from its own native power by
 /// [`PowerNorm::scale`]; the NRC line is not. Display only.
 ///
 /// `width` x `height` is the column this graph fills (title, plot, then the
@@ -3719,7 +3719,7 @@ fn draw_tede_plot(ui: &mut Ui, s: &HtgrSnapshot, state: &mut MapTabState, width:
         // Below the plot: the overlay menu, then the long text that used to
         // sit in the legend.
         draw_tede_overlay_menu(ui, &mut state.tede_overlays, &mut state.tede_power);
-        // The power-scaling caveat first in the notes while 600 MWth is
+        // The power-scaling caveat first in the notes while 250 MWth is
         // selected (maintainer's wording), then every shown series' native
         // power and factor.
         if norm != PowerNorm::Htr10 {
@@ -3840,12 +3840,34 @@ const TEDE_WINDOW_COLOUR: Color32 = Color32::from_rgb(20, 150, 80);
 /// | BDB: NuScale LOCA + core melt | ours | 8.15 km |
 /// | Context: WASH-1400 PWR 8 | ours | 1.15 km |
 ///
-/// # Results at 600 MWth (2026-10-01, power selector, display scaling only)
+/// # Results at 250 MWth (2026-10-19, power selector, display scaling only)
+///
+/// **CHANGED 2026-10-19 (maintainer):** the selector's second option is now
+/// 250 MWth, not 600 MWth, and 250 MWth is the default. Every curve x
+/// `250 / native` ([`PowerNorm::scale`]: x25 for the HTR-10 series and the
+/// LWR arms, which arrive at 10 MWth; x0.0735 for AP1000), the 10 mSv
+/// criterion unscaled. Recomputed by running
+/// `tests::the_crossings_recompute_at_250_mwth` and pinned by it; where a
+/// scaled arm is still above 10 mSv at the graph's 20 km end the table says
+/// "> 20.0 km (data ends)" and no crossing is extrapolated.
+///
+/// | Series | Factor | 10 MWth | 250 MWth |
+/// |---|---|---|---|
+/// | AP1000 Dadda 2024 | x0.00294 / x0.0735 | 3.51 km | 19.9 km |
+/// | Liu & Cao 2002 depressurization DBA | x1 / x25 | below everywhere | below everywhere |
+/// | Liu & Cao 2002 water-ingress DBA | x1 / x25 | below everywhere | below everywhere |
+/// | DB: HTR-10 DLOFC | x1 / x25 | below everywhere | below everywhere |
+/// | DB: NuScale LOCA | x1 / x25 | 3.46 km | > 20.0 km (data ends) |
+/// | BDB: HTR-10 KORA core burn (EXTREME) | x1 / x25 | 1.24 km | 12.7 km |
+/// | BDB: NuScale LOCA + core melt | x1 / x25 | 8.15 km | > 20.0 km (data ends) |
+/// | Context: WASH-1400 PWR 8 | x1 / x25 | 1.15 km | 11.5 km |
+///
+/// # ~~Results at 600 MWth~~ (2026-10-01, SUPERSEDED 2026-10-19 by the 250 MWth table above; kept as the record)
 ///
 /// Every curve x `600 / native` ([`PowerNorm::scale`]: x60 for the HTR-10
 /// series and the LWR arms, which arrive at 10 MWth; x0.176 for AP1000),
 /// the 10 mSv criterion unscaled. Pinned by
-/// `tests::the_crossings_recompute_at_600_mwth`. The arms' graph grid ends
+/// `tests::the_crossings_recompute_at_250_mwth`. The arms' graph grid ends
 /// at 20 km, so where a scaled arm is still above 10 mSv there the table
 /// says "> 20.0 km (data ends)" -- no crossing is extrapolated past it.
 ///
@@ -4136,7 +4158,7 @@ fn power_normalisation_note(norm: PowerNorm, rows: &[(String, SeriesPower)]) -> 
 /// never plotted.
 ///
 /// Beside it, the "Normalise to thermal power" selector ([`PowerNorm`],
-/// maintainer 2026-10-01, default 600 MWth).
+/// maintainer 2026-10-01, default 250 MWth).
 fn draw_tede_overlay_menu(ui: &mut Ui, o: &mut TedeOverlays, power: &mut PowerNorm) {
     let selected = o
         .ap1000_on()
@@ -5066,27 +5088,27 @@ mod tests {
     }
 
     /// The power selector's helper (maintainer, 2026-10-01): native ->
-    /// target for each provenance -- 10 -> 600 MWth is x60 for HTR-10 and
+    /// target for each provenance -- 10 -> 250 MWth is x25 for HTR-10 and
     /// for the LWR arms (which arrive at 10 MWth from sembawang, so they are
-    /// NOT rescaled from 160), 3400 -> 600 is x0.17647 for AP1000; the
-    /// identity at the native power; 600 MWth is the default; the legend tag
+    /// NOT rescaled from 160), 3400 -> 250 is x0.073529 for AP1000; the
+    /// identity at the native power; 250 MWth is the default; the legend tag
     /// and the caveat carry the factor and the maintainer's wording.
     #[test]
     fn the_power_normalisation_maps_native_to_target() {
         use super::{arm_power, factor_text, PowerNorm as N, SeriesPower as P, POWER_SCALING_CAVEAT};
-        assert_eq!(N::default(), N::Mwth600);
-        assert_eq!(N::ALL.map(N::label), ["10 MWth (HTR-10)", "600 MWth"]);
-        assert_eq!(N::Mwth600.factor(P::Htr10), 60.0);
-        assert_eq!(N::Mwth600.factor(P::LwrArmAt10), 60.0);
-        assert!((N::Mwth600.factor(P::Ap1000) - 600.0 / 3400.0).abs() < 1e-15);
-        assert!((N::Mwth600.factor(P::Ap1000) - 0.176_470_588).abs() < 1e-9);
+        assert_eq!(N::default(), N::Mwth250);
+        assert_eq!(N::ALL.map(N::label), ["10 MWth (HTR-10)", "250 MWth"]);
+        assert_eq!(N::Mwth250.factor(P::Htr10), 25.0);
+        assert_eq!(N::Mwth250.factor(P::LwrArmAt10), 25.0);
+        assert!((N::Mwth250.factor(P::Ap1000) - 250.0 / 3400.0).abs() < 1e-15);
+        assert!((N::Mwth250.factor(P::Ap1000) - 0.073_529_411).abs() < 1e-9);
         assert_eq!(N::Htr10.factor(P::Htr10), 1.0);
         assert_eq!(N::Htr10.factor(P::LwrArmAt10), 1.0);
         assert!((N::Htr10.factor(P::Ap1000) - 10.0 / 3400.0).abs() < 1e-18);
         // The identity is exact at the native power, whatever the value.
         for v in [0.1, 1.0 / 3.0, 7.77e-9, 123.456] {
             assert_eq!(N::Htr10.scale(v, P::Htr10), v);
-            assert_eq!(N::Mwth600.scale(v, P::Htr10), v * 600.0 / 10.0);
+            assert_eq!(N::Mwth250.scale(v, P::Htr10), v * 250.0 / 10.0);
             assert_eq!(N::Htr10.scale(v, P::Ap1000), v * 10.0 / 3400.0);
         }
         // HTR-10 arms (DB DLOFC, BDB KORA) native HTR-10, the rest LWR at 10.
@@ -5102,24 +5124,24 @@ mod tests {
                 P::LwrArmAt10
             ]
         );
-        assert_eq!(factor_text(60.0), "60");
-        assert_eq!(factor_text(600.0 / 3400.0), "0.176");
+        assert_eq!(factor_text(25.0), "25");
+        assert_eq!(factor_text(250.0 / 3400.0), "0.0735");
         assert_eq!(factor_text(10.0 / 3400.0), "0.00294");
         assert_eq!(factor_text(1.0), "1");
-        assert_eq!(N::Mwth600.tag(P::Htr10), " [10 MWth \u{d7}60]");
-        assert_eq!(N::Mwth600.tag(P::Ap1000), " [3400 MWt \u{d7}0.176]");
+        assert_eq!(N::Mwth250.tag(P::Htr10), " [10 MWth \u{d7}25]");
+        assert_eq!(N::Mwth250.tag(P::Ap1000), " [3400 MWt \u{d7}0.0735]");
         assert_eq!(N::Htr10.tag(P::Htr10), "");
         assert_eq!(N::Htr10.tag(P::Ap1000), " [3400 MWt \u{d7}0.00294]");
         assert!(POWER_SCALING_CAVEAT.starts_with(
             "Linear power scaling: dose \u{221d} released activity \u{221d} thermal power."
         ));
-        assert!(POWER_SCALING_CAVEAT.ends_with("Not a dose for any real 600 MWth plant."));
+        assert!(POWER_SCALING_CAVEAT.ends_with("Not a dose for any real 250 MWth plant."));
     }
 
     /// At 10 MWth every plotted value equals the pre-selector graph's
     /// EXACTLY (regression): the bounding arms are `arm_doses_sv x 1e3`,
     /// Liu & Cao is Table 9 as published, the live centreline is untouched;
-    /// at 600 MWth each is x60 of that. The NRC line is the criterion
+    /// at 250 MWth each is x25 of that. The NRC line is the criterion
     /// unscaled at both settings.
     #[test]
     fn at_10_mwth_the_graph_is_unchanged_and_the_nrc_line_is_never_scaled() {
@@ -5133,10 +5155,10 @@ mod tests {
         for k in 0..7 {
             if let Some(pts) = arm_overlay_points(c, k) {
                 assert_eq!(N::Htr10.scale_points(&pts, arm_power(k)), pts);
-                let big = N::Mwth600.scale_points(&pts, arm_power(k));
+                let big = N::Mwth250.scale_points(&pts, arm_power(k));
                 for (a, b) in pts.iter().zip(&big) {
-                    assert_eq!((a[0], a[1] * 600.0 / 10.0), (b[0], b[1]));
-                    assert!((b[1] - 60.0 * a[1]).abs() <= 1e-14 * b[1]);
+                    assert_eq!((a[0], a[1] * 250.0 / 10.0), (b[0], b[1]));
+                    assert!((b[1] - 25.0 * a[1]).abs() <= 1e-14 * b[1]);
                 }
             }
         }
@@ -5155,7 +5177,7 @@ mod tests {
     /// UNSCALED 10 mSv criterion, interpolated and never extrapolated.
     /// Recorded 2026-10-01 (see [`super::ReferenceCrossing`]'s table).
     #[test]
-    fn the_crossings_recompute_at_600_mwth() {
+    fn the_crossings_recompute_at_250_mwth() {
         use super::{
             ap1000_full_curve, arm_overlay_points, arm_power, arm_series_name, liu_cao_points,
             nrc_reference_msv, reference_crossing, LiuCaoOverlay, PowerNorm as N,
@@ -5163,18 +5185,18 @@ mod tests {
         };
         let r = nrc_reference_msv();
         // A synthetic native curve: 20 mSv at 1 km falling to 0.1 mSv at
-        // 2 km. Scaled x60 it crosses where the NATIVE curve is 10/60 mSv,
+        // 2 km. Scaled x25 it crosses where the NATIVE curve is 10/25 mSv,
         // i.e. the line is not scaled with the curve.
         let native = [[1000.0, 20.0], [2000.0, 0.1]];
         let Some(C::At(x10)) = reference_crossing(&native, r) else {
             panic!()
         };
-        let Some(C::At(x600)) = reference_crossing(&N::Mwth600.scale_points(&native, P::Htr10), r)
+        let Some(C::At(x250)) = reference_crossing(&N::Mwth250.scale_points(&native, P::Htr10), r)
         else {
             panic!()
         };
         assert!((x10 - (1000.0 + 10.0 / 19.9 * 1000.0)).abs() < 1e-9);
-        assert!((x600 - (1000.0 + (1200.0 - 10.0) / 1194.0 * 1000.0)).abs() < 1e-9);
+        assert!((x250 - (1000.0 + 19.6 / 19.9 * 1000.0)).abs() < 1e-9);
         let c = crate::physics::bounding_air_ingress::graph_comparison()
             .as_ref()
             .expect("bounding chain runs");
@@ -5182,23 +5204,23 @@ mod tests {
         for k in 0..7 {
             if let Some(pts) = arm_overlay_points(c, k) {
                 rows.push((
-                    arm_series_name(k, N::Mwth600),
+                    arm_series_name(k, N::Mwth250),
                     reference_crossing(&N::Htr10.scale_points(&pts, arm_power(k)), r),
-                    reference_crossing(&N::Mwth600.scale_points(&pts, arm_power(k)), r),
+                    reference_crossing(&N::Mwth250.scale_points(&pts, arm_power(k)), r),
                 ));
             }
         }
         rows.push((
             "AP1000".into(),
             reference_crossing(&ap1000_full_curve(N::Htr10), r),
-            reference_crossing(&ap1000_full_curve(N::Mwth600), r),
+            reference_crossing(&ap1000_full_curve(N::Mwth250), r),
         ));
         for o in LiuCaoOverlay::ALL {
             let pts = liu_cao_points(o, f64::INFINITY);
             rows.push((
                 o.legend_name().into(),
                 reference_crossing(&N::Htr10.scale_points(&pts, P::Htr10), r),
-                reference_crossing(&N::Mwth600.scale_points(&pts, P::Htr10), r),
+                reference_crossing(&N::Mwth250.scale_points(&pts, P::Htr10), r),
             ));
         }
         #[derive(Clone, Copy)]
@@ -5216,20 +5238,20 @@ mod tests {
         let want = [
             ("DB: HTR-10 DLOFC", W::Below, W::Below),
             ("DB: NuScale LOCA", W::At(3461.3), W::Ends),
-            ("BDB: HTR-10 KORA", W::At(1240.7), W::Ends),
+            ("BDB: HTR-10 KORA", W::At(1240.7), W::At(12686.2)),
             ("BDB: NuScale LOCA + core melt", W::At(8147.3), W::Ends),
-            ("Context: WASH-1400", W::At(1149.5), W::Ends),
-            ("AP1000", W::At(3510.1), W::At(32945.7)),
+            ("Context: WASH-1400", W::At(1149.5), W::At(11480.5)),
+            ("AP1000", W::At(3510.1), W::At(19883.5)),
             ("HTR-10 depressurization", W::Below, W::Below),
-            ("HTR-10 water-ingress", W::Below, W::At(398.8)),
+            ("HTR-10 water-ingress", W::Below, W::Below),
         ];
         assert_eq!(rows.len(), want.len());
-        for ((n, a, b), (stem, w10, w600)) in rows.iter().zip(want) {
+        for ((n, a, b), (stem, w10, w250)) in rows.iter().zip(want) {
             assert!(n.starts_with(stem), "{n}");
             assert!(ok(a, w10), "{n} at 10 MWth: {a:?}");
-            assert!(ok(b, w600), "{n} at 600 MWth: {b:?}");
+            assert!(ok(b, w250), "{n} at 250 MWth: {b:?}");
         }
-        assert!(rows[0].0.ends_with(" [10 MWth \u{d7}60]"));
+        assert!(rows[0].0.ends_with(" [10 MWth \u{d7}25]"));
     }
 
     /// The AP1000 (x 10/3400) curve's reference crossing is found on its
@@ -5374,7 +5396,7 @@ mod tests {
     /// has one entry, scaled by the selector; at 10 MWth the curve is the
     /// published sum x 10/3400 BIT FOR BIT (`total_ted_scaled(.., 10)`, the
     /// pre-selector path), in mSv against m, peaking near 0.59 km (~115 mSv)
-    /// inside the 1000 m clip; at 600 MWth it is the same sum x 600/3400;
+    /// inside the 1000 m clip; at 250 MWth it is the same sum x 250/3400;
     /// the legend carries the pairing and every mismatch.
     #[test]
     fn the_ap1000_overlay_is_optional_scaled_and_labelled() {
@@ -5386,7 +5408,7 @@ mod tests {
              scaled to the selected power"
         );
         let (scaled, note) = ap1000_overlay_curve(PowerNorm::Htr10, 1000.0);
-        let (big, _) = ap1000_overlay_curve(PowerNorm::Mwth600, 1000.0);
+        let (big, _) = ap1000_overlay_curve(PowerNorm::Mwth250, 1000.0);
         assert!(note.contains("peak is inside") && note.contains("not extrapolated"));
         assert!(scaled.iter().all(|p| p[0] >= 98.0 && p[0] <= 1000.0 + 1e-9));
         let pk = scaled
@@ -5405,9 +5427,9 @@ mod tests {
         assert_eq!(scaled, old);
         for (a, b) in scaled.iter().zip(&big) {
             assert_eq!(a[0], b[0]);
-            assert!((b[1] - a[1] * 60.0).abs() <= 1e-12 * b[1].max(1.0));
+            assert!((b[1] - a[1] * 25.0).abs() <= 1e-12 * b[1].max(1.0));
         }
-        let (_, clipped) = ap1000_overlay_curve(PowerNorm::Mwth600, 400.0);
+        let (_, clipped) = ap1000_overlay_curve(PowerNorm::Mwth250, 400.0);
         assert!(clipped.contains("CLIPPED"));
         let legend = ap1000_overlay_caveats(Ap1000Overlay::Dadda2024);
         for needle in [

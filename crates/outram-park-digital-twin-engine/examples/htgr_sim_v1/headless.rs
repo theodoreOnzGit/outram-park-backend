@@ -26,7 +26,7 @@
 //! `determinism_same_config_same_trace` in this module asserts it.
 
 use crate::app::state::HtgrSnapshot;
-use crate::physics::PLANT_TIMESTEP_S;
+use crate::physics::{PeakFuelRecord, PLANT_TIMESTEP_S};
 use crate::runtime::{PlantControls, PlantRuntime};
 use outram_park_digital_twin_engine::prelude::{HeadlessModel, HeadlessRun};
 use uom::si::f64::Time;
@@ -262,6 +262,14 @@ impl HeadlessModel for HtgrHeadless {
     }
 }
 
+impl HtgrHeadless {
+    /// The running maximum of the peak fuel kernel (gh:#964), as the main
+    /// page's indicator shows it. Headless mode's access to the same record.
+    pub fn peak_fuel(&self) -> PeakFuelRecord {
+        self.runtime.plant().peak_fuel_record()
+    }
+}
+
 /// Advance a fresh plant for `cfg.steps` and return the sampled trace.
 ///
 /// Single-threaded, no clock, no I/O. See the module docs on determinism.
@@ -277,11 +285,45 @@ pub fn run(cfg: &HeadlessConfig) -> Vec<TraceRow> {
     )
 }
 
+/// [`run`], also returning the peak-fuel record (gh:#964) at the end of the
+/// run. The trace is identical to [`run`]'s.
+pub fn run_with_peak(cfg: &HeadlessConfig) -> (Vec<TraceRow>, PeakFuelRecord) {
+    let mut model = HtgrHeadless::new();
+    let rows = outram_park_digital_twin_engine::prelude::run(
+        &mut model,
+        cfg.controls.clone(),
+        HeadlessRun {
+            steps: cfg.steps,
+            sample_every: cfg.sample_every,
+        },
+    );
+    (rows, model.peak_fuel())
+}
+
 /// Run and print the trace as CSV on stdout. The `--headless` entry point.
+///
+/// The peak-fuel record is printed on stderr (not stdout, so the CSV stays
+/// clean for the committed-fixture consumers).
 pub fn run_and_print(cfg: &HeadlessConfig) {
+    let (rows, peak) = run_with_peak(cfg);
     println!("{}", TraceRow::csv_header());
-    for row in run(cfg) {
+    for row in rows {
         println!("{}", row.to_csv());
+    }
+    eprintln!("{}", peak_line(&peak));
+}
+
+/// The one-line peak-fuel report of a headless run.
+pub fn peak_line(p: &PeakFuelRecord) -> String {
+    if p.peak_k.is_finite() {
+        format!(
+            "peak fuel (kernel of a core-average pebble, NOT the core hot spot): {:.2} K = {:.2} degC at t = {:.1} s",
+            p.peak_k,
+            p.peak_k - 273.15,
+            p.time_s
+        )
+    } else {
+        "peak fuel (kernel of a core-average pebble): not resolved by this tier".to_string()
     }
 }
 
@@ -598,5 +640,25 @@ mod tests {
                 row.fuel_temperature_k
             );
         }
+    }
+
+    /// The headless path exposes the peak-fuel record (gh:#964): `run_with_peak`
+    /// returns the same trace as `run`, a finite maximum at a time inside the
+    /// run, no lower than the last sampled kernel-bearing state implies, and
+    /// the report line says what the number is.
+    #[test]
+    fn headless_exposes_the_peak_fuel_record() {
+        let cfg = HeadlessConfig {
+            steps: 300,
+            sample_every: 50,
+            ..Default::default()
+        };
+        let (rows, peak) = run_with_peak(&cfg);
+        assert_eq!(rows, run(&cfg));
+        assert!(peak.peak_k.is_finite() && peak.peak_k > 400.0);
+        assert!(peak.time_s > 0.0 && peak.time_s <= 300.0 * PLANT_TIMESTEP_S + 1e-9);
+        let line = peak_line(&peak);
+        assert!(line.contains("core-average pebble") && line.contains("NOT the core hot spot"));
+        assert!(peak_line(&PeakFuelRecord::empty()).contains("not resolved by this tier"));
     }
 }

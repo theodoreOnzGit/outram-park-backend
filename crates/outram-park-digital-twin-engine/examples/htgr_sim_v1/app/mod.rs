@@ -444,6 +444,13 @@ fn start_simulation() -> SimulationRun {
                 plant.protection.reset();
                 state.update(|s| s.trip_reset_requested = false);
             }
+            // Reset peak (gh:#964): restart the running maximum of the peak
+            // kernel from its current value; the request is cleared so one
+            // click resets once.
+            if state.read_with(|s| s.peak_fuel_reset_requested) {
+                plant.reset_peak_fuel_to_current();
+                state.update(|s| s.peak_fuel_reset_requested = false);
+            }
             // Fast-forward: keep calling `plant.step` back to back, with no
             // sleep between calls, until this tick's wall-clock budget is
             // spent (or the defensive step cap below is hit) -- see
@@ -788,7 +795,7 @@ impl eframe::App for HtgrSimApp {
             // kept out of the outer scroll area (nesting two two-axis scroll
             // areas would leave the inner one unbounded).
             if self.open_panel == Panel::Schematic {
-                draw_schematic_panel(ui, &snapshot, &self.tracers, display_unit);
+                draw_schematic_panel(ui, &self.physics, &snapshot, &self.tracers, display_unit);
                 return;
             }
             // The viewport height, measured BEFORE entering the scroll area.

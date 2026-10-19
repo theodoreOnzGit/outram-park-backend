@@ -162,6 +162,67 @@ pub enum PlotsSidePanel {
     Csv,
 }
 
+/// The heading of the peak-fuel indicator. The wording is the honest scope:
+/// the kernel of a **core-average** pebble, not the core hot spot.
+pub(crate) const PEAK_FUEL_LABEL: &str = "Peak fuel (kernel of a core-average pebble)";
+
+/// The hover text of the peak-fuel indicator (gh:#964).
+pub(crate) const PEAK_FUEL_HOVER: &str = "The running maximum, since the plant was built or \
+     Reset peak was pressed, of the centre of the hottest UO2 kernel in a CORE-AVERAGE \
+     pebble. This is NOT the core hot spot: the bed is one node with no axial or radial \
+     power shape, so a real hot-spot pebble runs hotter. At a rated 10 MW point this model \
+     reads about 168 K BELOW Gao & Shi (2002) Table 2's 918.7 degC maximum fuel \
+     temperature (physics::PeakFuelRecord). A shape function is tracked in #965. \
+     From the opening state it includes the first-second start-up excursion (about \
+     2334 K); press Reset peak to drop it.";
+
+/// The indicator's value text: the running maximum in the display unit and
+/// the plant time it was reached, or "not resolved by this tier" when the
+/// record is empty (`NAN`) -- never a substitute temperature.
+pub(crate) fn peak_fuel_text(unit: LegendUnit, peak_k: f64, time_s: f64) -> String {
+    if peak_k.is_finite() {
+        format!(
+            "{} at t = {:.1} s",
+            kelvin_scalar_display(unit, peak_k, 1),
+            time_s
+        )
+    } else {
+        "not resolved by this tier".to_string()
+    }
+}
+
+/// Draw the peak-fuel indicator and its **Reset peak** button on the main
+/// (Schematic) page. GUI drawing code, exempt from a reaching test (egui paint
+/// cannot be driven here); it wraps the tested [`peak_fuel_text`]. The button
+/// only raises a request flag, which the physics thread consumes.
+fn draw_peak_fuel_indicator(
+    ui: &mut Ui,
+    physics: &SharedState<HtgrSnapshot>,
+    snapshot: &HtgrSnapshot,
+    display_unit: LegendUnit,
+) {
+    ui.label(egui::RichText::new(PEAK_FUEL_LABEL).strong())
+        .on_hover_text(PEAK_FUEL_HOVER);
+    ui.label(
+        egui::RichText::new(peak_fuel_text(
+            display_unit,
+            snapshot.peak_kernel_max_k,
+            snapshot.peak_kernel_max_time_s,
+        ))
+        .size(28.0)
+        .strong()
+        .color(egui::Color32::from_rgb(220, 120, 40)),
+    )
+    .on_hover_text(PEAK_FUEL_HOVER);
+    if ui
+        .button("Reset peak")
+        .on_hover_text("Restart the recorded maximum from the current value.")
+        .clicked()
+    {
+        physics.update(|s| s.peak_fuel_reset_requested = true);
+    }
+}
+
 /// Control side-panel: every operator input, written straight back into the
 /// shared physics state via
 /// [`SharedState::update`](outram_park_digital_twin_engine::app_scaffold::SharedState::update).
@@ -674,6 +735,7 @@ fn compass_point(bearing_deg: f64) -> &'static str {
 /// temperature on screen (display only -- see [`temperature_display`]).
 pub fn draw_schematic_panel(
     ui: &mut Ui,
+    physics: &SharedState<HtgrSnapshot>,
     snapshot: &HtgrSnapshot,
     tracers: &SchematicTracers,
     display_unit: LegendUnit,
@@ -693,9 +755,15 @@ pub fn draw_schematic_panel(
     // thing a reader sees, so it is the natural place to mention it.
     ui.small("Tip: Ctrl+ / Ctrl- zoom the whole window in/out, Ctrl+0 resets.");
     ui.separator();
+    // The headline readout (gh:#964, maintainer 2026-10-19: on the MAIN page,
+    // the screen the simulator opens on, no tab switch needed).
+    egui::Frame::group(ui.style()).show(ui, |ui| {
+        draw_peak_fuel_indicator(ui, physics, snapshot, display_unit);
+    });
+    ui.separator();
     // v1.1 replaced the v1 schematic (2026-09-22). The shared plant drawing
-    // has no unit toggle yet, so `display_unit` is unused here for now.
-    let _ = display_unit;
+    // has no unit toggle yet; `display_unit` only formats the peak-fuel
+    // headline above.
     // The central panel already scrolls; the plant scales itself to fit it.
     draw_plant_v1_1(ui, snapshot, tracers);
 }
@@ -1260,4 +1328,26 @@ mod tests {
         assert!((deg - 0.0).abs() < 1e-9, "anticlockwise full turn ended at {deg}");
     }
 
+
+    /// The peak-fuel indicator's text (gh:#964): the running maximum in the
+    /// display unit with its time, and an explicit "not resolved" for `NAN`
+    /// -- never a substitute temperature. The label says "core-average" and
+    /// the hover text says it is not the hot spot and points at #965.
+    /// (`draw_peak_fuel_indicator` itself is GUI drawing code: no test can
+    /// drive egui paint here; it is a thin wrapper over these.)
+    #[test]
+    fn the_peak_fuel_indicator_text_is_honest() {
+        use super::{peak_fuel_text, PEAK_FUEL_HOVER, PEAK_FUEL_LABEL};
+        let t = peak_fuel_text(LegendUnit::Kelvin, 1150.0, 12.34);
+        assert!(t.contains("1150") && t.contains("12.3 s"), "{t}");
+        let c = peak_fuel_text(LegendUnit::Celsius, 1150.0, 0.0);
+        assert!(c.contains("876.9"), "{c}");
+        assert_eq!(
+            peak_fuel_text(LegendUnit::Kelvin, f64::NAN, f64::NAN),
+            "not resolved by this tier"
+        );
+        assert!(PEAK_FUEL_LABEL.contains("core-average pebble"));
+        assert!(PEAK_FUEL_HOVER.contains("NOT the core hot spot"));
+        assert!(PEAK_FUEL_HOVER.contains("#965"));
+    }
 }

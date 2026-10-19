@@ -315,6 +315,20 @@ pub struct HtgrSnapshot {
     /// no axial or radial shape, no burnup. A real HTR-10 peak-power pebble
     /// runs hotter.
     pub peak_kernel_temperature_k: f64,
+    /// Running MAXIMUM of [`Self::peak_kernel_temperature_k`] since the plant
+    /// was built or **Reset peak** was last pressed \[K\] (gh:#964); `NAN`
+    /// until a kernel has been resolved. Shown on the main page as "Peak fuel
+    /// (kernel of a core-average pebble)" -- **not the core hot spot**, see
+    /// [`crate::physics::PeakFuelRecord`] for the recorded gap against Gao &
+    /// Shi (2002) and gh:#965 for the shape function that would close it.
+    pub peak_kernel_max_k: f64,
+    /// Plant time at which [`Self::peak_kernel_max_k`] was reached \[s\], `NAN` if none.
+    pub peak_kernel_max_time_s: f64,
+    /// Operator request to restart the peak-fuel maximum from the current
+    /// value, consumed (and cleared) by the physics thread like
+    /// [`Self::trip_reset_requested`]. Plant reset does not need it: a new
+    /// plant starts with an empty record.
+    pub peak_fuel_reset_requested: bool,
     /// The kernel's rise above the bed node \[K\] -- `peak_kernel - bed`,
     /// `NAN` when unresolved. Published separately because it is the quantity
     /// the Doppler channel's reactivity is proportional to, and it is far more
@@ -915,6 +929,9 @@ impl Default for HtgrSnapshot {
             // NAN until the first physics tick resolves a pebble -- the
             // opening frame must not show a fabricated fuel temperature.
             peak_kernel_temperature_k: f64::NAN,
+            peak_kernel_max_k: f64::NAN,
+            peak_kernel_max_time_s: f64::NAN,
+            peak_fuel_reset_requested: false,
             kernel_offset_k: f64::NAN,
             kernel_doppler_dollars: 0.0,
             release_circulating_ci_per_ci: 0.0,
