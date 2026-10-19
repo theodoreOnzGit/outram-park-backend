@@ -1743,8 +1743,10 @@ pub struct BedStepEnergy {
 
 impl PebbleBedPorousMediaNode {
     /// Construct the node seeded at thermal equilibrium, both phases at
-    /// [`SEED_BED_TEMPERATURE_K`] -- the same cold-start seed every fidelity
-    /// tier in this simulator opens at.
+    /// [`SEED_BED_TEMPERATURE_K`] -- ~~the same cold-start seed every fidelity
+    /// tier in this simulator opens at~~ **CHANGED 2026-10-19 (gh:#970):** the
+    /// design point the kinetics feedback is referenced to. The plant's default
+    /// tier now OPENS hotter, via [`Self::new_at`].
     ///
     /// # Panics
     ///
@@ -1754,10 +1756,25 @@ impl PebbleBedPorousMediaNode {
     /// state -- there is no earlier state to fall back to here in any case,
     /// this is construction.
     pub fn new() -> Self {
-        let helium_state = state_pt(Fluid::Helium, SEED_BED_TEMPERATURE_K, SEED_BED_PRESSURE_PA)
+        Self::new_at(ThermodynamicTemperature::new::<kelvin>(SEED_BED_TEMPERATURE_K))
+    }
+
+    /// [`Self::new`], but with both phases opening at `temperature` instead of
+    /// [`SEED_BED_TEMPERATURE_K`]. Only the OPENING state moves: the design
+    /// point the kinetics feedback is referenced to is still read from
+    /// [`Self::new`] (`HtgrKinetics::new_htr10_published`), and the
+    /// fuel-to-bed coupling is still seeded at the design point. Used by the
+    /// plant's hot opening, [`crate::physics::OPENING_CORE_TEMPERATURE_K`]
+    /// (gh:#970).
+    ///
+    /// # Panics
+    ///
+    /// As [`Self::new`], if the helium flash at `temperature` fails.
+    pub fn new_at(temperature: ThermodynamicTemperature) -> Self {
+        let helium_state = state_pt(Fluid::Helium, temperature.get::<kelvin>(), SEED_BED_PRESSURE_PA)
             .expect("helium (T,p) flash failed to converge at the seed temperature/pressure");
         Self {
-            pebble_temperature: ThermodynamicTemperature::new::<kelvin>(SEED_BED_TEMPERATURE_K),
+            pebble_temperature: temperature,
             helium_state,
             helium_enthalpy: helium_state.enthalpy,
             pebble_bed_helium_volume: bed_void_volume(),

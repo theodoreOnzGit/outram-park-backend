@@ -221,6 +221,13 @@ reactivity (`physics/mod.rs`, "THE OPENING STATE IS ~13x PROMPT CRITICAL"),
 not from the empty precursors. Fix the cause by its physics, never by
 clamping the indicator or tuning toward 1600 °C.
 
+**Fixed 2026-10-19 (gh:#970), at the maintainer's suggestion:** the core
+graphite and fuel open at **1500 °C** (`OPENING_CORE_TEMPERATURE_K`), above
+the ~950 K design point the feedback is referenced to, so the opening is
+subcritical. Peak kernel 1502.05 °C at t = 0.6 s (the opening itself); the
+plant settles at ~5.8 MW. Pinned by
+`physics::tests::a_fresh_plant_opens_below_the_triso_limit_and_subcritical`.
+
 ## ANIMATION IS DERIVED FROM PHYSICS, NEVER HARDCODED (HARD RULE)
 
 **Maintainer direction, 2026-09-21, stated in these words: "never hardcode —

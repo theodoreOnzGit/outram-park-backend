@@ -816,6 +816,16 @@ impl HtgrKinetics {
         self.prompt.fuel_temperature
     }
 
+    /// Open the fuel node (and the bed temperature it conducts to) at
+    /// `temperature` instead of the design point (gh:#970). The feedback
+    /// REFERENCE is not moved: it stays the design point, so a core opened
+    /// hotter than it opens with negative temperature feedback. The power,
+    /// the empty delayed bank and the saturated decay heat are as built.
+    pub fn open_at_temperature(&mut self, temperature: ThermodynamicTemperature) {
+        self.prompt.fuel_temperature = temperature;
+        self.bed_temperature = temperature;
+    }
+
     /// Advance the kinetics by one timestep with the Lie-split coupling.
     ///
     /// `external_reactivity_dollars` is the user-commanded reactivity in

@@ -275,6 +275,12 @@ use turbine_generator::TurbineGeneratorShaft;
 ///
 /// # THE OPENING STATE IS ~13x PROMPT CRITICAL -- flagged, not fixed
 ///
+/// **Update 2026-10-19 (gh:#970):** the bank's excess is still as below, but
+/// the core no longer opens at the design-point temperature: it opens at
+/// [`OPENING_CORE_TEMPERATURE_K`] (1500 degC), where the feedback outweighs
+/// the bank, so the NET opening reactivity is negative and there is no
+/// prompt excursion. The section below describes the bank alone.
+///
 /// **Prompt critical is `+1 $` by definition.** At 0.30 the bank commands
 /// `+12.97 $`, so the cold-clean opening condition is a **prompt excursion**
 /// unless the negative temperature feedback is both very large and effectively
@@ -387,6 +393,27 @@ use turbine_generator::TurbineGeneratorShaft;
 ///
 pub const GUI_INITIAL_ROD_INSERTION: f64 = 0.45;
 
+/// **Temperature the core graphite and fuel open at** \[K\]: 1500 degC
+/// (maintainer direction, 2026-10-19, gh:#970: "make the temp of the core and
+/// graphite 1500C at start, so we have negative reactivity from the outset").
+///
+/// **Why.** [`GUI_INITIAL_ROD_INSERTION`] is a demonstration choice
+/// (maintainer: chosen so start-up settles at a power from which shutdown can
+/// be shown) that commands about +7 $ against the cold-clean critical bank.
+/// Opened at the ~950 K design point the feedback is referenced to, that was
+/// a prompt excursion: about 1.5 GW in the first 0.3 s and a peak kernel of
+/// 2333.6 K (2060.4 degC) at t = 0.4 s (gh:#964), above the 1600 degC TRISO
+/// limit. Opened at 1773.15 K, the isothermal coefficient
+/// (-1.4e-4 /K, Chen et al. 2009) gives -0.115 dk/k against the bank's
+/// +0.051, so the core opens subcritical and the power comes up as it cools.
+///
+/// **What it is not.** A demonstration opening condition, not a plant state:
+/// a real HTR-10 is never at 1500 degC with the helium circulating. Only the
+/// core (bed graphite, its helium, the fuel node) opens hot; the feedback
+/// reference, the primary loop and the secondary side are as before, and the
+/// passive path is built in equilibrium with the hot bed.
+pub const OPENING_CORE_TEMPERATURE_K: f64 = 1773.15;
+
 /// Fraction of rated helium flow the simulator opens at:
 /// ~~0.30~~ ~~**1.00** **CHANGED 2026-09-27**~~ **0.30** **CHANGED BACK
 /// 2026-10-01**, i.e. **1.29 kg/s**.
@@ -404,7 +431,9 @@ pub const GUI_INITIAL_ROD_INSERTION: f64 = 0.45;
 ///   commands: rods 0.45, 1.29 kg/s, feedwater MANUAL 10.0 kg/s, RPS off).
 ///   A harness check, not validation: it ran clean to 1200 s, no panic, no
 ///   IF97 273 K floor. Power peaks ~1.5 GW in the first 0.3 s (the +7 $
-///   opening), falls to 2.19 MW at 200 s and reads **6.078 MW** at 1000 s,
+///   opening; **SUPERSEDED 2026-10-19 by the hot opening,
+///   [`OPENING_CORE_TEMPERATURE_K`], gh:#970: the core now opens subcritical
+///   and the excursion no longer happens**), falls to 2.19 MW at 200 s and reads **6.078 MW** at 1000 s,
 ///   still creeping up (6.084 MW at 1200 s). At 1000 s: core outlet
 ///   1213.99 K, core inlet 402.80 K, bed 1279.32 K, SG helium outlet
 ///   316.45 K, SG steam outlet 454.34 K at 4.0 MPa (below saturation:
@@ -1314,7 +1343,15 @@ impl HtgrPlant {
     /// Construct the plant at the published HTR-10 operating point.
     pub fn new() -> Self {
         let nominal_power = nominal_thermal_power();
-        let core = ReactorModel::default(); // ReactorModelKind::OneNodePorousMedia as of 2026-08-17
+        let mut core = ReactorModel::default(); // ReactorModelKind::OneNodePorousMedia as of 2026-08-17
+        let mut kinetics = HtgrKinetics::new_htr10_published(nominal_power);
+        // The hot opening (gh:#970): core graphite and fuel start at
+        // OPENING_CORE_TEMPERATURE_K, above the design point the feedback is
+        // referenced to, so the reactivity is negative from t = 0.
+        let opening = ThermodynamicTemperature::new::<kelvin>(OPENING_CORE_TEMPERATURE_K);
+        if core.open_at(opening) {
+            kinetics.open_at_temperature(opening);
+        }
         let primary = HeliumPrimaryLoop::new(nominal_helium_flow());
         // The passive path opens in equilibrium with the bed as it is seeded
         // -- the derived constructor (gh:#389; ~~`placeholder()`~~ deleted).
@@ -1331,7 +1368,7 @@ impl HtgrPlant {
             // Off by default: headless and every test get the deterministic,
             // no-wall-clock path. `with_live_map_field` is the GUI's opt-in.
             map_field_live: false,
-            kinetics: HtgrKinetics::new_htr10_published(nominal_power),
+            kinetics,
             core,
             primary,
             secondary: SteamSecondaryLoop::new(),
@@ -6179,6 +6216,39 @@ mod tests {
         assert_eq!(rec.time_s, plant.sim_time.get::<second>());
         // A fresh plant (what Reset plant builds) starts empty.
         assert!(HtgrPlant::new().peak_fuel_record().peak_k.is_nan());
+    }
+
+    /// gh:#970 acceptance (maintainer, 2026-10-19: the opening peak "needs to
+    /// be below 1600"). A fresh plant on the commands it opens with (the
+    /// GUI's and headless's default: rods at [`GUI_INITIAL_ROD_INSERTION`])
+    /// opens hot at [`OPENING_CORE_TEMPERATURE_K`], so the reactivity is
+    /// negative from the first step and power FALLS; the peak kernel over the
+    /// first 60 s stays below the 1600 degC TRISO limit.
+    ///
+    /// **Results, 2026-10-19.** Before the hot opening (950 K): peak 2333.6 K
+    /// (2060.4 degC) at t = 0.4 s. With it: this test's 60 s; and a 2400 s
+    /// headless run (`--headless 24000 500`) peaks at 1775.20 K (1502.05 degC)
+    /// at t = 0.6 s, the opening itself. Power is ~0 for ~10 min while the
+    /// core cools, returns near 800 s with a brief overshoot (20.1 MW in the
+    /// 800 s sample, fuel 1009.8 degC), and holds 5.78 MW at 2400 s with the
+    /// bed at 1006.5 degC and the fuel at 1013.6 degC.
+    #[test]
+    fn a_fresh_plant_opens_below_the_triso_limit_and_subcritical() {
+        const TRISO_LIMIT_K: f64 = 1600.0 + 273.15;
+        let mut plant = HtgrPlant::new();
+        assert!((plant.kinetics.fuel_temperature().get::<kelvin>() - OPENING_CORE_TEMPERATURE_K).abs() < 1e-9);
+        assert!((plant.core.temperature().get::<kelvin>() - OPENING_CORE_TEMPERATURE_K).abs() < 1e-9);
+        let dt = Time::new::<second>(PLANT_TIMESTEP_S);
+        let commands = PlantCommands::default();
+        assert_eq!(commands.control_rod_insertion_fraction, GUI_INITIAL_ROD_INSERTION);
+        let p0 = plant.kinetics.total_power().get::<megawatt>();
+        for _ in 0..600 {
+            plant.step(dt, commands.clone());
+        }
+        let p = plant.kinetics.total_power().get::<megawatt>();
+        assert!(p < p0, "a hot opening is subcritical, so power falls: {p0} -> {p} MW");
+        let rec = plant.peak_fuel_record();
+        assert!(rec.peak_k < TRISO_LIMIT_K, "opening peak {} K is above the 1600 degC limit", rec.peak_k);
     }
 
     /// V&V (gh:#964, 2026-10-19): the peak-fuel indicator against a published

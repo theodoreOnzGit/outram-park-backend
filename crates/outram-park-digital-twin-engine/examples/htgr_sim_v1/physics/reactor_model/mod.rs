@@ -314,6 +314,21 @@ impl ReactorModel {
         }
     }
 
+    /// Re-open the bed with both phases at `temperature` (gh:#970), for the
+    /// tier that resolves a bed: the default one-node porous-media model.
+    /// Returns whether it did. The placeholder tiers keep their own seed and
+    /// return `false`, so the caller leaves the fuel node alone too and the
+    /// two never open inconsistent.
+    pub fn open_at(&mut self, temperature: ThermodynamicTemperature) -> bool {
+        match self {
+            Self::OneNodePorousMedia(core) => {
+                *core = one_node::PebbleBedPorousMediaNode::new_at(temperature);
+                true
+            }
+            Self::AxialSevenNode(_) | Self::CoarseMeshGenFoam(_) => false,
+        }
+    }
+
     /// Energy terms of the most recent bed step, every tier. See
     /// [`one_node::BedStepEnergy`].
     pub fn last_step_energy(&self) -> one_node::BedStepEnergy {
