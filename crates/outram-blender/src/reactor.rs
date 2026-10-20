@@ -228,6 +228,7 @@ fn meridian_profile(dims: &Htr10CoreDimensions) -> Vec<Vec3> {
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
     use std::collections::HashSet;
     use std::f64::consts::PI;
@@ -269,7 +270,7 @@ mod tests {
     /// inscribed prism, so this is the reference the mesh must match to
     /// machine precision.
     fn inscribed_prism_volume(n: usize, r: f64, h: f64) -> f64 {
-        0.5 * (n as f64) * r * r * (TAU / n as f64).sin() * h
+        0.5 * (n as f64) * r * r * (TAU / n as f64).r_sin() * h
     }
 
     /// V&V — the default HTR-10 core envelope is a closed, watertight,

@@ -43,6 +43,7 @@
 //! rather than a second calculation. Like `β_eff` above it is the
 //! **non-adjoint-weighted** form.
 
+use petir::mathf::RealMath;
 use crate::material::material::Material;
 use crate::material::nuclide::Nuclide;
 
@@ -162,8 +163,8 @@ pub fn from_k_ratio(
         );
     }
     // d(beta)/dk = k_p/k^2, d(beta)/dk_p = -1/k.
-    let beta_eff_sigma = ((k_prompt / (k * k) * k_sigma).powi(2)
-        + (k_prompt_sigma / k).powi(2))
+    let beta_eff_sigma = ((k_prompt / (k * k) * k_sigma).r_powi(2)
+        + (k_prompt_sigma / k).r_powi(2))
     .sqrt();
     Ok(KineticsParameters {
         beta_eff,
@@ -244,7 +245,7 @@ mod tests {
         let p = from_k_ratio(1.0, 2.0e-4, 0.993, 2.0e-4, 1.0e-7, 1.0).unwrap();
         assert_eq!(p.method, KineticsMethod::KRatio);
         // Both terms are ~2e-4, so sigma ~ sqrt(2) * 2e-4.
-        let want = ((0.993 * 2.0e-4_f64).powi(2) + (2.0e-4_f64).powi(2)).sqrt();
+        let want = ((0.993 * 2.0e-4_f64).r_powi(2) + (2.0e-4_f64).r_powi(2)).sqrt();
         assert!(
             (p.beta_eff_sigma - want).abs() < 1e-12,
             "sigma {} vs {want}",

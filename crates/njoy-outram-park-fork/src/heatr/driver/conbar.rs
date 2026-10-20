@@ -16,6 +16,7 @@
 //! as upstream indexes it, so the routine's few reads past a subsection's own
 //! data land on what upstream would read there.
 
+use petir::mathf::RealMath;
 use super::flat::{list_flat, nint, tab1_flat, tab2_flat, terp1, terpa, terpa0, QP4, QW4};
 use super::state::Heatr;
 use crate::common::phys::PI;
@@ -486,15 +487,15 @@ pub(super) fn anabar(e: f64, a: &[f64], t1: f64, t2: f64) -> f64 {
             if theta != 0.0 {
                 let b1 = (e - u) / theta;
                 let b2 = b1.sqrt();
-                let b3 = (-b1).exp();
-                let expa = (-b2 * b2).exp();
+                let b3 = (-b1).r_exp();
+                let expa = (-b2 * b2).r_exp();
                 s = theta * (THRHAF - b1 * b2 * b3 / (rpi2 * (1.0 - expa * rerfc(b2)) - b2 * b3));
             }
         }
         9 => {
             if theta != 0.0 {
                 let b1 = (e - u) / theta;
-                let b3 = (-b1).exp();
+                let b3 = (-b1).r_exp();
                 if b1 >= 1.0 / 1000.0 {
                     s = theta * (2.0 - b1 * b1 * b3 / (1.0 - (b1 + 1.0) * b3));
                 } else {
@@ -533,9 +534,9 @@ fn sed(e: f64, ep: f64, theta: f64, u: f64) -> f64 {
     let xeu = (e - u) / theta;
     let aeu = xeu.abs();
     if aeu >= 1.0 / 10000.0 {
-        ep * (-ep / theta).exp() / (theta * theta * (1.0 - (-xeu).exp() * (1.0 + xeu)))
+        ep * (-ep / theta).r_exp() / (theta * theta * (1.0 - (-xeu).r_exp() * (1.0 + xeu)))
     } else {
-        ep * (-ep / theta).exp() / (theta * theta * xeu * xeu * (1.0 - xeu) / 2.0)
+        ep * (-ep / theta).r_exp() / (theta * theta * xeu * xeu * (1.0 - xeu) / 2.0)
     }
 }
 
@@ -586,20 +587,20 @@ pub(super) fn tabbar(a: &[f64], law: i64) -> f64 {
                     f += (yl - xl * b) * delxsq / 2.0 + b * (xh * xhsq - xl * xlsq) / 3.0;
                 }
                 3 => {
-                    let (alxl, alxh) = (xl.ln(), xh.ln());
+                    let (alxl, alxh) = (xl.r_ln(), xh.r_ln());
                     let b = (yh - yl) / (alxh - alxl);
                     f += (yl - b * alxl + b / 2.0) * delxsq / 2.0
                         + b * (xhsq * alxh - xlsq * alxl) / 2.0;
                 }
                 4 => {
-                    let (alyl, alyh) = (yl.ln(), yh.ln());
+                    let (alyl, alyh) = (yl.r_ln(), yh.r_ln());
                     let b = (alyh - alyl) / (xh - xl);
                     f += (yh * (b * xh - 1.0) - yl * (b * xl - 1.0)) / (b * b);
                 }
                 5 => {
-                    let (alxl, alxh, alyl, alyh) = (xl.ln(), xh.ln(), yl.ln(), yh.ln());
+                    let (alxl, alxh, alyl, alyh) = (xl.r_ln(), xh.r_ln(), yl.r_ln(), yh.r_ln());
                     let b = (alyh - alyl) / (alxh - alxl);
-                    f += yl * xlsq * ((xh / xl).powf(b + 2.0) - 1.0) / (b + 2.0);
+                    f += yl * xlsq * ((xh / xl).r_powf(b + 2.0) - 1.0) / (b + 2.0);
                 }
                 _ => {}
             }
@@ -630,7 +631,7 @@ mod tests {
         ]);
         let (e, theta) = (1.0e7, 1.0e6);
         let b1: f64 = e / theta;
-        let want = theta * (2.0 - b1 * b1 * (-b1).exp() / (1.0 - (b1 + 1.0) * (-b1).exp()));
+        let want = theta * (2.0 - b1 * b1 * (-b1).r_exp() / (1.0 - (b1 + 1.0) * (-b1).r_exp()));
         let s = anabar(e, &a, 0.0, 0.0);
         assert!((s - want).abs() < 1.0e-9 * want, "{s} vs {want}");
         // At E/θ = 10 the closed form is 0.45 % below 2θ.

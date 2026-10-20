@@ -16,6 +16,7 @@
 //! same arrays and keeps the indexing. A Rust slice `s` stands for a Fortran
 //! array `a` with `s[k - 1] == a(k)`.
 
+use petir::mathf::RealMath;
 use crate::endf::records::{Cont, List, Tab1, Tab2};
 
 /// Fortran `nint`: round half away from zero.
@@ -110,13 +111,13 @@ pub(super) fn terp1(x1: f64, y1: f64, x2: f64, y2: f64, x: f64, i: i64) -> f64 {
     }
     match i {
         2 => y1 + (x - x1) * (y2 - y1) / (x2 - x1),
-        3 => y1 + (x / x1).ln() * (y2 - y1) / (x2 / x1).ln(),
-        4 => y1 * ((x - x1) * (y2 / y1).ln() / (x2 - x1)).exp(),
+        3 => y1 + (x / x1).r_ln() * (y2 - y1) / (x2 / x1).r_ln(),
+        4 => y1 * ((x - x1) * (y2 / y1).r_ln() / (x2 - x1)).r_exp(),
         5 => {
             if y1 == 0.0 {
                 y1
             } else {
-                y1 * ((x / x1).ln() * (y2 / y1).ln() / (x2 / x1).ln()).exp()
+                y1 * ((x / x1).r_ln() * (y2 / y1).r_ln() / (x2 / x1).r_ln()).r_exp()
             }
         }
         _ => y1,

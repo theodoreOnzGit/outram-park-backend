@@ -137,6 +137,7 @@
 //!   Fast smoke run: k = 1.00134 ± 0.00163 (+0.34σ from the record),
 //!   transport with diagnostics 100 s.
 
+use petir::mathf::RealMath;
 use std::path::PathBuf;
 use std::sync::Mutex;
 use std::time::Instant;
@@ -475,13 +476,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!(
         "  six-factor product - k = {:+.0} ± {:.0} pcm ({:+.2} sigma, uncorrelated combination: conservative)",
         (sf.k_from_factors.mean - k.mean) * 1e5,
-        (sf.k_from_factors.std.powi(2) + k.std.powi(2)).sqrt() * 1e5,
+        (sf.k_from_factors.std.r_powi(2) + k.std.r_powi(2)).sqrt() * 1e5,
         z(sf.k_from_factors.mean, sf.k_from_factors.std, k.mean, k.std)
     );
     println!(
         "  P - k = {:+.0} ± {:.0} pcm ({:+.2} sigma)",
         (sf.k_tracklength.mean - k.mean) * 1e5,
-        (sf.k_tracklength.std.powi(2) + k.std.powi(2)).sqrt() * 1e5,
+        (sf.k_tracklength.std.r_powi(2) + k.std.r_powi(2)).sqrt() * 1e5,
         z(sf.k_tracklength.mean, sf.k_tracklength.std, k.mean, k.std)
     );
     assert!(
@@ -534,7 +535,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let pooled = |v: Vec<f64>| {
             let n = v.len() as f64;
             let m = v.iter().sum::<f64>() / n;
-            let sd = (v.iter().map(|x| (x - m).powi(2)).sum::<f64>() / (n - 1.0)).sqrt();
+            let sd = (v.iter().map(|x| (x - m).r_powi(2)).sum::<f64>() / (n - 1.0)).sqrt();
             (m, sd / n.sqrt())
         };
         let (dprod, dprod_se) = pooled(extra.iter().map(|e| e.0).collect());

@@ -23,6 +23,7 @@
 //!    section that is off by one ULP from upstream at a nuclide's threshold
 //!    is almost always this rule not being applied.
 
+use petir::mathf::RealMath;
 use super::numpy_ops::{isclose_scalar, searchsorted_right};
 use super::PlotError;
 use njoy_outram_park_fork::acer::read::RawAceTable;
@@ -85,9 +86,9 @@ impl Tabulated1D {
                 *o = match law {
                     1 => yi,
                     2 => yi + (xk - xi) / (xi1 - xi) * (yi1 - yi),
-                    3 => yi + (xk / xi).ln() / (xi1 / xi).ln() * (yi1 - yi),
-                    4 => yi * ((xk - xi) / (xi1 - xi) * (yi1 / yi).ln()).exp(),
-                    5 => yi * ((xk / xi).ln() / (xi1 / xi).ln() * (yi1 / yi).ln()).exp(),
+                    3 => yi + (xk / xi).r_ln() / (xi1 / xi).r_ln() * (yi1 - yi),
+                    4 => yi * ((xk - xi) / (xi1 - xi) * (yi1 / yi).r_ln()).r_exp(),
+                    5 => yi * ((xk / xi).r_ln() / (xi1 / xi).r_ln() * (yi1 / yi).r_ln()).r_exp(),
                     // Upstream leaves the zero from `zeros_like` in place for
                     // an unrecognised law.
                     _ => *o,

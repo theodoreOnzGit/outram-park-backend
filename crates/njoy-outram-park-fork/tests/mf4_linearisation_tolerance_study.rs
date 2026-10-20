@@ -70,6 +70,7 @@
 //! silently stop being true, and that the rel-peak criterion really is worse (if
 //! it ever became better, the reasoning here would need revisiting).
 
+use petir::mathf::RealMath;
 use njoy_outram_park_fork::endf::records::SectionCursor;
 use njoy_outram_park_fork::endf::tape::Tape;
 use njoy_outram_park_fork::reference_data::reference_endf_or_skip;
@@ -247,7 +248,7 @@ fn angle_tol_is_priced_and_the_shipped_setting_is_justified() {
         let watt = |e: f64| -> f64 {
             let a = 0.988e6;
             let b = 2.249e-6;
-            (-e / a).exp() * (b * e).max(0.0).sqrt().sinh()
+            (-e / a).r_exp() * (b * e).max(0.0).sqrt().r_sinh()
         };
         let (mut wsum, mut wacc) = (0.0f64, 0.0f64);
         for (c, a1, e) in &rows {

@@ -40,6 +40,7 @@
 //!
 //! Printed by the test and recorded in the #365 thread.
 
+use petir::mathf::RealMath;
 use njoy_outram_park_fork::endf::tape::Tape;
 use njoy_outram_park_fork::nuclear_data::secondary::UncorrelatedEmission;
 use outram_mc_libs::geometry::position::Direction;
@@ -71,7 +72,7 @@ fn ks_two(a: &mut [f64], b: &mut [f64]) -> f64 {
 fn mean_sem(v: &[f64]) -> (f64, f64) {
     let n = v.len() as f64;
     let m = v.iter().sum::<f64>() / n;
-    let var = v.iter().map(|x| (x - m).powi(2)).sum::<f64>() / (n - 1.0);
+    let var = v.iter().map(|x| (x - m).r_powi(2)).sum::<f64>() / (n - 1.0);
     (m, (var / n).sqrt())
 }
 

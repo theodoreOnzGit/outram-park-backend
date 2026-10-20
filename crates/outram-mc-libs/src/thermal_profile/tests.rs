@@ -19,6 +19,7 @@
 //! Tests of the beginner thermal profile (gh:#949). Numbers in the doc
 //! comments were measured by running these tests.
 
+use petir::mathf::RealMath;
 use outram_foam_basic_lib::steady_conduction::{
     RadialClosedForm, RadialGeometry, RadialLayer, ThermalBoundary,
 };
@@ -123,7 +124,7 @@ fn csg_sphere_matches_closed_form() {
     let geometry = nested_spheres(1.0, 2.0);
     let r_cm = 1.0;
     let q = 3.0e8;
-    let volume = 4.0 / 3.0 * std::f64::consts::PI * (r_cm * 1e-2_f64).powi(3);
+    let volume = 4.0 / 3.0 * std::f64::consts::PI * (r_cm * 1e-2_f64).r_powi(3);
     let power = Power::new::<watt>(q * volume);
     let profile = ThermalProblem::uniform_heat(power)
         .removed_by(HeatRemoval::WaterCooled)

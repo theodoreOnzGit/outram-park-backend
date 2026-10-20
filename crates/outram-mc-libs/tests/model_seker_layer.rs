@@ -46,6 +46,7 @@
 //! All pass; the counts and the `k` values are printed by the tests (not
 //! physics results: LOW tier, tiny runs).
 
+use petir::mathf::RealMath;
 #[path = "../examples/common/seker_layer_model.rs"]
 #[allow(dead_code)]
 mod seker_layer_model;
@@ -83,12 +84,12 @@ enum Nee {
 /// `2 d/sqrt(3)` and `pitch - 2 d/sqrt(3)`.
 fn nee_centre(site: Nee) -> [f64; 3] {
     let d = 6.0_f64;
-    let apothem = d * (std::f64::consts::PI / 6.0).cos() + 0.5 * d;
+    let apothem = d * (std::f64::consts::PI / 6.0).r_cos() + 0.5 * d;
     let pitch = 2.0 * apothem;
     let h = 2.0 * (d * (2.0_f64 / 3.0).sqrt());
     let polar = |rho: f64, deg: f64, z: f64| {
         let t = deg.to_radians();
-        [rho * t.cos(), rho * t.sin(), z]
+        [rho * t.r_cos(), rho * t.r_sin(), z]
     };
     let flower = |k: u8, z: f64| {
         if k == 0 {
@@ -160,7 +161,7 @@ fn the_fuel_rule_gives_seven_of_thirteen_in_the_orders_it_names() {
     }
     // The cell's own numbers: 13 balls make 0.6448 of the tile.
     let ball_v = 4.0 / 3.0 * std::f64::consts::PI * 27.0;
-    let tile_v = 2.0 * 3.0_f64.sqrt() * seker::apothem_cm().powi(2) * seker::height_cm();
+    let tile_v = 2.0 * 3.0_f64.sqrt() * seker::apothem_cm().r_powi(2) * seker::height_cm();
     assert!((13.0 * ball_v / tile_v - 0.6448).abs() < 5e-5);
     assert!((seker::apothem_cm() - 8.196_152).abs() < 1e-6);
     assert!((seker::height_cm() - 9.797_959).abs() < 1e-6);
@@ -170,15 +171,15 @@ fn the_fuel_rule_gives_seven_of_thirteen_in_the_orders_it_names() {
     for s in &sites {
         let [x, y, z] = seker::site_centre(*s);
         assert!(z.abs() <= 0.5 * seker::height_cm() + 1e-12);
-        assert!(x.hypot(y) < seker::pitch_cm());
+        assert!(x.r_hypot(y) < seker::pitch_cm());
     }
 }
 
 /// A library of incident-neutron headers (masses only): enough to assemble.
 fn header_only_library() -> NuclearData {
     let endf = |x: f64| {
-        let e = x.abs().log10().floor() as i32;
-        format!("{:.6}{e:+}", x / 10f64.powi(e))
+        let e = x.abs().r_log10().floor() as i32;
+        format!("{:.6}{e:+}", x / 10f64.r_powi(e))
     };
     let tape = |za: f64, awr: f64| {
         format!(
@@ -439,10 +440,10 @@ fn the_beginner_layer_lowers_to_the_hand_built_hexagonal_lattice() {
     let mut angles: Vec<f64> = planes
         .iter()
         .map(|p| {
-            assert!((p.a.hypot(p.b) - 1.0).abs() < 1e-15 && p.c == 0.0);
+            assert!((p.a.r_hypot(p.b) - 1.0).abs() < 1e-15 && p.c == 0.0);
             assert!((p.d - seker::apothem_cm()).abs() < 1e-12, "apothem");
             assert_eq!(p.bc, BoundaryType::Reflective);
-            p.b.atan2(p.a).to_degrees().rem_euclid(360.0)
+            p.b.r_atan2(p.a).to_degrees().rem_euclid(360.0)
         })
         .collect();
     angles.sort_by(f64::total_cmp);
@@ -498,7 +499,7 @@ fn the_beginner_layer_lowers_to_the_hand_built_hexagonal_lattice() {
         ((seed >> 11) as f64) / ((1u64 << 53) as f64)
     };
     let (apothem, h) = (seker::apothem_cm(), seker::height_cm());
-    let r_circ = apothem / (std::f64::consts::PI / 6.0).cos();
+    let r_circ = apothem / (std::f64::consts::PI / 6.0).r_cos();
     let (mut inside, mut outside, mut in_ball) = (0_usize, 0_usize, 0_usize);
     for i in 0..300_000 {
         let (x, y, z) = (
@@ -590,7 +591,7 @@ fn the_beginner_layer_lowers_to_the_hand_built_hexagonal_lattice() {
 fn ball_at(p: [f64; 3]) -> Option<(usize, f64)> {
     nee_sites().iter().enumerate().find_map(|(i, (s, _))| {
         let c = nee_centre(*s);
-        let d = ((p[0] - c[0]).powi(2) + (p[1] - c[1]).powi(2) + (p[2] - c[2]).powi(2)).sqrt();
+        let d = ((p[0] - c[0]).r_powi(2) + (p[1] - c[1]).r_powi(2) + (p[2] - c[2]).r_powi(2)).sqrt();
         (d < 3.0).then_some((i, d))
     })
 }
@@ -620,7 +621,7 @@ fn the_triso_layer_counts_what_the_paper_counts_and_matches_the_site_table() {
     assert_eq!(particles, 7 * seker::PARTICLES_PER_PEBBLE);
     assert_eq!(census.packings.len(), 7, "one packed zone per fuel ball");
     let ball_v = 4.0 / 3.0 * std::f64::consts::PI * 27.0;
-    let tile_expected = 2.0 * 3.0_f64.sqrt() * seker::apothem_cm().powi(2) * seker::height_cm();
+    let tile_expected = 2.0 * 3.0_f64.sqrt() * seker::apothem_cm().r_powi(2) * seker::height_cm();
     assert!((tile_v / tile_expected - 1.0).abs() < 1e-12, "{tile_v}");
     assert!((packing - 13.0 * ball_v / tile_v).abs() < 1e-9, "{packing}");
     assert!((packing - seker::SEKER_INTERIOR_PACKING).abs() < 5e-5);
@@ -660,7 +661,7 @@ fn the_triso_layer_counts_what_the_paper_counts_and_matches_the_site_table() {
         ((seed >> 11) as f64) / ((1u64 << 53) as f64)
     };
     let (apothem, h) = (seker::apothem_cm(), seker::height_cm());
-    let r_circ = apothem / (std::f64::consts::PI / 6.0).cos();
+    let r_circ = apothem / (std::f64::consts::PI / 6.0).r_cos();
     let sites = nee_sites();
     let tile_class = |p: [f64; 3]| -> Option<&'static str> {
         // Wholly inside the prism? (the geometry is bounded by it)

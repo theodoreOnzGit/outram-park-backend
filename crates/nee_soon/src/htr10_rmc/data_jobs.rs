@@ -310,6 +310,7 @@ pub fn assemble_slots(
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
     use crate::htr10_rmc::data::{load_htr10_nuclides, DataDir};
     use outram_mc_libs::run_diagnostics::RunDiagnostics;
@@ -403,7 +404,7 @@ mod tests {
         assert_eq!(shared.len(), direct.len());
         for (i, (a, b)) in shared.iter().zip(&direct).enumerate() {
             for k in 0..600 {
-                let e = 1.0e-5 * (2.0e7_f64 / 1.0e-5).powf(f64::from(k) / 599.0);
+                let e = 1.0e-5 * (2.0e7_f64 / 1.0e-5).r_powf(f64::from(k) / 599.0);
                 let (x, y) = (a.xs_at_energy(e, 300.15), b.xs_at_energy(e, 300.15));
                 assert_eq!(format!("{x:?}"), format!("{y:?}"), "slot {i} at {e}");
                 let (mut s1, mut s2) = (k as u64, k as u64);
@@ -451,7 +452,7 @@ mod tests {
             load_htr10_nuclides(&cfg, &layout, &mut RunDiagnostics::new("test")).expect("load");
         for (i, (a, b)) in shared.iter().zip(&direct).enumerate() {
             for k in 0..300 {
-                let e = 1.0e-5 * (2.0e7_f64 / 1.0e-5).powf(f64::from(k) / 299.0);
+                let e = 1.0e-5 * (2.0e7_f64 / 1.0e-5).r_powf(f64::from(k) / 299.0);
                 assert_eq!(
                     format!("{:?}", a.xs_at_energy(e, 300.15)),
                     format!("{:?}", b.xs_at_energy(e, 300.15)),

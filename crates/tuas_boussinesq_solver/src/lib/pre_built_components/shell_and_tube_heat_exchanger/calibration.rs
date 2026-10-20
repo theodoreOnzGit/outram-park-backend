@@ -1,3 +1,4 @@
+use petir::mathf::RealMath;
 use std::f64::consts::PI;
 
 use uom::si::{
@@ -45,7 +46,7 @@ impl SimpleShellAndTubeHeatExchanger {
             .try_get_thermal_conductivity(insulation_array_temp)
             .unwrap();
 
-        let log_numerator_term: f64 = (insulation_od / insulation_id).get::<ratio>().ln();
+        let log_numerator_term: f64 = (insulation_od / insulation_id).get::<ratio>().r_ln();
 
         let denominator_term: ThermalConductance = 2.0 * PI * lambda_insulation * l;
 
@@ -79,7 +80,7 @@ impl SimpleShellAndTubeHeatExchanger {
             .try_get_thermal_conductivity(outer_shell_array_temp)
             .unwrap();
 
-        let log_numerator_term: f64 = (outer_shell_od / outer_shell_id).get::<ratio>().ln();
+        let log_numerator_term: f64 = (outer_shell_od / outer_shell_id).get::<ratio>().r_ln();
 
         let denominator_term: ThermalConductance = 2.0 * PI * lambda_outer_shell * l;
 
@@ -122,7 +123,7 @@ impl SimpleShellAndTubeHeatExchanger {
             .try_get_thermal_conductivity(inner_tube_array_temp)
             .unwrap();
 
-        let log_numerator_term: f64 = (inner_tube_od / inner_tube_id).get::<ratio>().ln();
+        let log_numerator_term: f64 = (inner_tube_od / inner_tube_id).get::<ratio>().r_ln();
 
         let denominator_term: ThermalConductance =
             2.0 * PI * lambda_inner_tubes * l * self.number_of_tubes as f64;
@@ -550,7 +551,7 @@ impl SimpleShellAndTubeHeatExchanger {
 
         let numerator_term_lmtd: TemperatureInterval = delta_t_max - delta_t_min;
 
-        let denominator_term_lmtd: Ratio = (delta_t_max / delta_t_min).get::<ratio>().ln().into();
+        let denominator_term_lmtd: Ratio = (delta_t_max / delta_t_min).get::<ratio>().r_ln().into();
 
         log_mean_temperature_difference = numerator_term_lmtd / denominator_term_lmtd;
 

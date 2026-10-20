@@ -42,6 +42,7 @@
 //! `tests/thermal_laws_vs_njoy_thermr.rs`). This file tests the branch in
 //! between, which is where resonance escape is decided.
 
+use petir::mathf::RealMath;
 use outram_mc_libs::geometry::position::Direction;
 use outram_mc_libs::material::nuclide::Nuclide;
 use outram_mc_libs::physics::scatter::{elastic_scatter, two_body_scatter_with_mu};
@@ -100,10 +101,10 @@ fn isotropic_elastic_kinematics_match_the_closed_form() {
             continue;
         };
         let a = nuc.awr;
-        let alpha = ((a - 1.0) / (a + 1.0)).powi(2);
-        let mean_ratio_exact = (a * a + 1.0) / (a + 1.0).powi(2);
+        let alpha = ((a - 1.0) / (a + 1.0)).r_powi(2);
+        let mean_ratio_exact = (a * a + 1.0) / (a + 1.0).r_powi(2);
         let xi_exact = if alpha > 0.0 && (1.0 - alpha).abs() > 1.0e-12 {
-            1.0 + alpha * alpha.ln() / (1.0 - alpha)
+            1.0 + alpha * alpha.r_ln() / (1.0 - alpha)
         } else {
             1.0
         };
@@ -116,7 +117,7 @@ fn isotropic_elastic_kinematics_match_the_closed_form() {
                     violations += 1;
                 }
                 sum_r += ep / e;
-                sum_xi += (e / ep).ln();
+                sum_xi += (e / ep).r_ln();
             }
             let (m, xi) = (sum_r / N as f64, sum_xi / N as f64);
             assert_eq!(
@@ -265,7 +266,7 @@ fn sampled_elastic_energy_is_consistent_with_the_sampled_cm_angle() {
                 sum_r += ep / e;
             }
             let (mubar, m) = (sum_mu / N as f64, sum_r / N as f64);
-            let exact = (a * a + 1.0 + 2.0 * a * mubar) / (a + 1.0).powi(2);
+            let exact = (a * a + 1.0 + 2.0 * a * mubar) / (a + 1.0).r_powi(2);
             let rel = m / exact - 1.0;
             println!(
                 "  {name:<5} {e:>9.2e}  sampled mubar {mubar:>+8.4}  <E'/E> {m:.6} \

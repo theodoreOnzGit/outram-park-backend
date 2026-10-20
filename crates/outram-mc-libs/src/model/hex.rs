@@ -12,6 +12,7 @@
 //! a prism against a sphere, a box, a cylinder or another prism. They are
 //! exact (no sampling).
 
+use petir::mathf::RealMath;
 use outram_blender::csg::lattice::HexOrientation;
 use uom::si::f64::Length;
 use uom::si::length::centimeter;
@@ -283,7 +284,7 @@ pub(crate) fn distance_to_polygon(p: [f64; 2], poly: &[[f64; 2]]) -> f64 {
             inside = false;
         }
         let t = ((w[0] * e[0] + w[1] * e[1]) / (e[0] * e[0] + e[1] * e[1])).clamp(0.0, 1.0);
-        let d = (p[0] - (a[0] + t * e[0])).hypot(p[1] - (a[1] + t * e[1]));
+        let d = (p[0] - (a[0] + t * e[0])).r_hypot(p[1] - (a[1] + t * e[1]));
         best = best.min(d);
     }
     if inside {
@@ -301,7 +302,7 @@ pub(crate) fn polygons_overlap(a: &[[f64; 2]], b: &[[f64; 2]], tol: f64) -> bool
         for i in 0..n {
             let (p, q) = (poly[i], poly[(i + 1) % n]);
             let axis = [q[1] - p[1], p[0] - q[0]];
-            let len = axis[0].hypot(axis[1]);
+            let len = axis[0].r_hypot(axis[1]);
             let u = [axis[0] / len, axis[1] / len];
             let project = |s: &[[f64; 2]]| {
                 s.iter()
@@ -352,14 +353,14 @@ mod tests {
             let r = 2.0 / 3.0_f64.sqrt();
             for v in poly {
                 assert!(
-                    (v[0].hypot(v[1]) - r).abs() < 1e-12,
+                    (v[0].r_hypot(v[1]) - r).abs() < 1e-12,
                     "corner at the circumradius"
                 );
             }
             // Every corner lies on two faces; every face is at the apothem.
             for k in 0..6 {
                 let (n, d) = p.face_plane(k);
-                assert!((n[0].hypot(n[1]) - 1.0).abs() < 1e-15);
+                assert!((n[0].r_hypot(n[1]) - 1.0).abs() < 1e-15);
                 assert!((d - 1.0).abs() < 1e-15);
                 let on: usize = poly
                     .iter()
@@ -367,7 +368,7 @@ mod tests {
                     .count();
                 assert_eq!(on, 2);
                 let nb = p.neighbour_vectors()[k];
-                assert!((nb[0].hypot(nb[1]) - 2.0).abs() < 1e-12);
+                assert!((nb[0].r_hypot(nb[1]) - 2.0).abs() < 1e-12);
             }
             assert!(p.holds([0.0, 0.0, 0.0]) && !p.holds([0.0, 0.0, 1.5]));
             assert!(!p.holds([1.0, 0.0, 0.0]) || faces == HexFaces::NormalToY);

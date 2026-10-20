@@ -68,6 +68,7 @@
 //! - **`Gcor`/`Lcor` are unconditional copies** of `G`/`L` (`:44-45`) — a
 //!   correction hook upstream never wired up.
 
+use petir::mathf::RealMath;
 use uom::si::f64::{MolarMass, ThermodynamicTemperature};
 use uom::si::molar_mass::gram_per_mole;
 use uom::si::thermodynamic_temperature::kelvin;
@@ -161,14 +162,14 @@ pub fn calculate_formation_properties(
 
     // Refractivity intercept and refractive index (`:33-34`). `1.8*TB` is °R.
     let i = 0.02266
-        * (0.0003905 * (1.8 * tb) + 2.468 * sg - 0.0005704 * 1.8 * tb * sg).exp()
-        * (1.8 * tb).powf(0.0572)
-        * sg.powf(-0.72);
+        * (0.0003905 * (1.8 * tb) + 2.468 * sg - 0.0005704 * 1.8 * tb * sg).r_exp()
+        * (1.8 * tb).r_powf(0.0572)
+        * sg.r_powf(-0.72);
     let ir = ((1.0 + 2.0 * i) / (1.0 - i)).sqrt();
 
     // Gravity- and refractivity-based group parameters (`:41-42`).
     let g = m * (sg - 0.8513) / sg + 23.6;
-    let l = m * (ir - 1.4752) / ir.powi(2) + 4.51;
+    let l = m * (ir - 1.4752) / ir.r_powi(2) + 4.51;
 
     // `Gcor`/`Lcor` are unconditional copies upstream (`:44-45`).
     let g_cor = g;
@@ -185,7 +186,7 @@ pub fn calculate_formation_properties(
         } else {
             (2.512 - 0.484 * (g_cor - 13.1) / (l_cor - 1.45)).clamp(0.0, 1.0)
         };
-        let rt = 1.0 + (l_cor - (2.18 + 3.28 * alpha.powf(1.5))) / (2.32 + 4.45 * alpha.powf(1.5));
+        let rt = 1.0 + (l_cor - (2.18 + 3.28 * alpha.r_powf(1.5))) / (2.32 + 4.45 * alpha.r_powf(1.5));
         let rar = rt * alpha;
         let rnf = rt - rar;
         (rt, rar, rnf, rnf)
@@ -195,9 +196,9 @@ pub fn calculate_formation_properties(
     // Riazi-Daubert (1986) carbon-to-hydrogen weight ratio and paraffin
     // content (`:72-74`).
     let ch = 17.22
-        * (0.00825 * (1.8 * tb) + 16.94 * sg - 0.00694 * (1.8 * tb) * sg).exp()
-        * (1.8 * tb).powf(-2.725)
-        * sg.powf(-6.798);
+        * (0.00825 * (1.8 * tb) + 16.94 * sg - 0.00694 * (1.8 * tb) * sg).r_exp()
+        * (1.8 * tb).r_powf(-2.725)
+        * sg.r_powf(-6.798);
     let p = 257.0 - 287.7 * sg + 2.876 * ch;
 
     let nh_ = (100.0 + p) / 100.0;

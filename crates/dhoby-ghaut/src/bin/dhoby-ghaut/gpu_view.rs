@@ -24,6 +24,7 @@
 //! every pebble a sphere impostor (`pebbles.wgsl`), with a depth buffer, in
 //! an offscreen target egui shows as a texture.
 
+use petir::mathf::RealMath;
 use std::sync::mpsc::{channel, Receiver};
 use std::sync::{Arc, Mutex};
 use std::future::Future;
@@ -480,10 +481,10 @@ impl PebbleGpu {
             queue.write_buffer(inst, 0, &bytes);
         }
         let u: [f32; 12] = [
-            cam.yaw.cos(),
-            cam.yaw.sin(),
-            cam.pitch.cos(),
-            cam.pitch.sin(),
+            cam.yaw.r_cos(),
+            cam.yaw.r_sin(),
+            cam.pitch.r_cos(),
+            cam.pitch.r_sin(),
             cam.ndc_per_m[0],
             cam.ndc_per_m[1],
             cam.z_mid,

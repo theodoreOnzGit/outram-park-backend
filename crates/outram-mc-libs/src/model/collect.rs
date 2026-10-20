@@ -33,6 +33,7 @@
 //! its tally bin. Standard errors ignore cycle-to-cycle correlation, as
 //! `k`'s does (see `RunProvenance::sigma_batch_means`).
 
+use petir::mathf::RealMath;
 use crate::geometry::cell::CellFill;
 use crate::physics::ifp::IfpSettings;
 use crate::physics::reactor_physics::{assemble_six_factors, Estimate};
@@ -630,7 +631,7 @@ impl Collector {
                         .enumerate()
                         .map(|(i, w)| {
                             if inner.contains(&i) {
-                                0.5 * (w[0].ln() + w[1].ln())
+                                0.5 * (w[0].r_ln() + w[1].r_ln())
                             } else {
                                 f64::NAN
                             }
@@ -638,7 +639,7 @@ impl Collector {
                         .collect();
                     let bound_ln = edges
                         .windows(2)
-                        .map(|w| 0.5 * (w[1] / w[0]).ln())
+                        .map(|w| 0.5 * (w[1] / w[0]).r_ln())
                         .fold(0.0, f64::max);
                     let tally = add_tally(
                         &mut extra,
@@ -1055,7 +1056,7 @@ impl Collector {
                     total,
                     ..
                 } => MCDiagnosticResult::Ealf(Ealf {
-                    ealf_ev: delta_method(&series, |m| (m[0] / m[1]).exp()),
+                    ealf_ev: delta_method(&series, |m| (m[0] / m[1]).r_exp()),
                     discretisation_bound_ln: bound_ln,
                     fission_outside_grid: if total > 0.0 { outside / total } else { 0.0 },
                 }),
@@ -1173,7 +1174,7 @@ impl Collector {
                         .iter()
                         .zip(grid_edges.windows(2))
                         .map(|(f, w)| {
-                            let du = (w[1] / w[0]).ln();
+                            let du = (w[1] / w[0]).r_ln();
                             if total > 0.0 && du > 0.0 && du.is_finite() {
                                 Estimate {
                                     mean: f.mean / (du * total),
@@ -1302,7 +1303,7 @@ mod tests {
         let ma = x.iter().map(|g| g[0]).sum::<f64>() / n;
         let mb = x.iter().map(|g| g[1]).sum::<f64>() / n;
         let q = ma / mb;
-        let var = x.iter().map(|g| (g[0] - q * g[1]).powi(2)).sum::<f64>() / (n - 1.0) / (mb * mb);
+        let var = x.iter().map(|g| (g[0] - q * g[1]).r_powi(2)).sum::<f64>() / (n - 1.0) / (mb * mb);
         assert!((r.mean - q).abs() < 1e-15);
         assert!(
             (r.std - (var / n).sqrt()).abs() < 1e-6 * r.std,

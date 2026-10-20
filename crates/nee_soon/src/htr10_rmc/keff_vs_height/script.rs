@@ -37,6 +37,7 @@
 //! ±500/±1000 pcm band edges) are dashed. Every series names its source in
 //! the legend, and the footer carries the key.
 
+use petir::mathf::RealMath;
 use std::fmt::Write as _;
 
 use super::super::{MCNP_TABLE3_KEFF_VS_HEIGHT, MCNP_TABLE4_KEFF_VS_HEIGHT, RMC_KEFF_VS_HEIGHT};
@@ -370,7 +371,7 @@ pub fn results_table_md(points: &[HeightPoint], prov: &SweepProvenance) -> Strin
         let in1000 = r.iter().filter(|x| x.1.abs() <= 1000.0).count();
         // Unweighted least-squares slope of residual on height.
         let hm = r.iter().map(|x| x.0).sum::<f64>() / n;
-        let sxx: f64 = r.iter().map(|x| (x.0 - hm).powi(2)).sum();
+        let sxx: f64 = r.iter().map(|x| (x.0 - hm).r_powi(2)).sum();
         let sxy: f64 = r.iter().map(|x| (x.0 - hm) * (x.1 - mean)).sum();
         let slope = if sxx > 0.0 { sxy / sxx } else { f64::NAN };
         let m = r.len();

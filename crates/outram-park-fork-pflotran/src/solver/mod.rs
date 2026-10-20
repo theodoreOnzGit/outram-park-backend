@@ -388,6 +388,7 @@ fn nrm2(v: &[f64]) -> f64 {
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
 
     /// 1D Bratu problem `-u'' = λ·exp(u)` on `[0,1]` with `u(0)=u(1)=0`,
@@ -428,7 +429,7 @@ mod tests {
             for i in 0..self.n {
                 let left = if i == 0 { 0.0 } else { x[i - 1] };
                 let right = if i == self.n - 1 { 0.0 } else { x[i + 1] };
-                out[i] = -(left - 2.0 * x[i] + right) * inv - self.lambda * x[i].exp();
+                out[i] = -(left - 2.0 * x[i] + right) * inv - self.lambda * x[i].r_exp();
             }
             Ok(())
         }
@@ -448,7 +449,7 @@ mod tests {
                 *l = 0.0;
             }
             for i in 0..self.n {
-                jac.diag[i] = 2.0 * inv - self.lambda * x[i].exp();
+                jac.diag[i] = 2.0 * inv - self.lambda * x[i].r_exp();
             }
             // One face per off-diagonal; both super- and sub-diagonal are -1/h².
             for f in 0..jac.n_internal_faces {

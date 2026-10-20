@@ -77,6 +77,7 @@
 
 #![cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))]
 
+use petir::mathf::RealMath;
 use outram_mc_libs::gpu::{probe, GpuContext};
 
 /// The shader under test is exactly what the pipeline compiles:
@@ -190,7 +191,7 @@ fn langevin(lambda: f64) -> f64 {
         // L(l) -> l/3 as l -> 0; the closed form cancels catastrophically.
         return lambda / 3.0;
     }
-    1.0 / lambda.tanh() - 1.0 / lambda
+    1.0 / lambda.r_tanh() - 1.0 / lambda
 }
 
 /// The energy grid the `locate` and `interp_channel` probes run against.
@@ -200,7 +201,7 @@ fn langevin(lambda: f64) -> f64 {
 /// would fail.
 fn grid() -> Vec<f32> {
     (0..64)
-        .map(|k| (1.0e-5_f64 * 10.0_f64.powf(k as f64 * 7.0 / 63.0)) as f32)
+        .map(|k| (1.0e-5_f64 * 10.0_f64.r_powf(k as f64 * 7.0 / 63.0)) as f32)
         .collect()
 }
 
@@ -423,7 +424,7 @@ fn the_references_are_sound_without_a_gpu() {
     // wrong lambda.
     let mubar = 0.5_f64;
     let exact =
-        |lambda: f64, xi: f64| 1.0 + (xi + (1.0 - xi) * (-2.0 * lambda).exp()).ln() / lambda;
+        |lambda: f64, xi: f64| 1.0 + (xi + (1.0 - xi) * (-2.0 * lambda).r_exp()).r_ln() / lambda;
     // Find lambda such that L(lambda) = mubar, by bisection.
     let (mut lo, mut hi) = (1e-6_f64, 50.0_f64);
     for _ in 0..200 {
@@ -895,7 +896,7 @@ fn weisskopf(e: f64, awr: f64) -> (f64, f64) {
 /// loop accepts on one try.
 fn gamma2_cdf(x: f64, theta: f64) -> f64 {
     let t = x / theta;
-    1.0 - (-t).exp() * (1.0 + t)
+    1.0 - (-t).r_exp() * (1.0 + t)
 }
 
 /// A draw from `Gamma(2, theta)` truncated to `[0, c]`, by **inverse CDF**.
@@ -1170,7 +1171,7 @@ fn the_rejection_fallback_is_unreachable_where_the_channel_is_open() {
         (12.0, 1.0e5, 0.118),
     ] {
         let (theta, c) = weisskopf(e, awr);
-        let p = (1.0 - gamma2_cdf(c, theta)).powi(64);
+        let p = (1.0 - gamma2_cdf(c, theta)).r_powi(64);
         assert!(
             (p - want).abs() < 0.01,
             "A = {awr}, E = {e:e}: the fallback probability is documented as \
@@ -1185,7 +1186,7 @@ fn the_rejection_fallback_is_unreachable_where_the_channel_is_open() {
         (238.0, 1.0e7),
     ] {
         let (theta, c) = weisskopf(e, awr);
-        let p = (1.0 - gamma2_cdf(c, theta)).powi(64);
+        let p = (1.0 - gamma2_cdf(c, theta)).r_powi(64);
         assert!(
             p < 1e-20,
             "A = {awr}, E = {e:e}: the fallback is documented as unreachable \

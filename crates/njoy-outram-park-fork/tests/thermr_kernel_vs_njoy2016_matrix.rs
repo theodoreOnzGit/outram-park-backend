@@ -42,6 +42,7 @@
 //! matrix is 76 277 card images; the moments are what the comparison uses and
 //! what #188 is about.
 
+use petir::mathf::RealMath;
 use njoy_outram_park_fork::endf::tape::Tape;
 use njoy_outram_park_fork::reference_data::reference_endf_or_skip;
 use njoy_outram_park_fork::thermr::calcem::iform0::compute_iform0;
@@ -202,7 +203,7 @@ fn calcem_emission_kernel_reproduces_njoy2016_shape() {
         if n <= 0.0 || m1 <= 0.0 {
             continue;
         }
-        let shape = (m2 / n) / (m1 / n).powi(2);
+        let shape = (m2 / n) / (m1 / n).r_powi(2);
         let rel = (shape - shape_n) / shape_n;
         if rel.abs() > worst.0.abs() {
             worst = (rel, e_n);
@@ -257,7 +258,7 @@ fn equiprobable_emission_is_the_narrow_one() {
         if s1 <= 0.0 {
             continue;
         }
-        let shape = (s2 / nb) / (s1 / nb).powi(2);
+        let shape = (s2 / nb) / (s1 / nb).r_powi(2);
         let rel = (shape - shape_n) / shape_n;
         if rel.abs() > worst.0.abs() {
             worst = (rel, e_n);

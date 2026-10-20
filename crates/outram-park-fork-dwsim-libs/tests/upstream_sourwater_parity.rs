@@ -87,6 +87,7 @@
 //!
 //! > Verification against upstream, not validation against experiment.
 
+use petir::mathf::RealMath;
 use outram_park_fork_dwsim_libs::thermo::component::Component;
 use outram_park_fork_dwsim_libs::thermo::cubic_eos::{BinaryInteraction, CubicEos, Phase, R};
 use outram_park_fork_dwsim_libs::thermo::flash::{nested_loops_flash, FlashResult, NestedLoopsOptions};
@@ -488,7 +489,7 @@ fn pr_flash(k: &BinaryInteraction) -> FlashResult {
             .unwrap();
         l.iter()
             .zip(&v)
-            .map(|(a, b)| (a - b).exp())
+            .map(|(a, b)| (a - b).r_exp())
             .collect::<Vec<f64>>()
     };
     nested_loops_flash(
@@ -593,7 +594,7 @@ fn sour_gas_eos_layer_matches_upstream() {
         0.997_512_626_146_246_36,
     ];
     let k = kij((0.0394 + 0.0819) / 2.0, (0.0978 + 0.1) / 2.0);
-    let a = eos.a_mix(&comps, &x, t, Some(&k)) * p / (R * t).powi(2);
+    let a = eos.a_mix(&comps, &x, t, Some(&k)) * p / (R * t).r_powi(2);
     let b = eos.b_mix(&comps, &x) * p / (R * t);
     let z = eos.z_roots(a, b)[0];
     assert!(rel(z, 0.042_642_591_944_464_944) < 1e-12, "mixture Z {z}");

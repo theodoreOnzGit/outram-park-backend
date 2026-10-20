@@ -2,6 +2,7 @@
 //! about a point, fit to the screen, the + / − / Reset buttons and a scale
 //! bar (mobile-first rule, items 1, 2 and 5).
 
+use petir::mathf::RealMath;
 use egui::{Color32, Pos2, Rect, RichText, Stroke, Vec2};
 
 /// World (cm, y up) to screen (pixels, y down) for a 2D picture centred on a
@@ -89,7 +90,7 @@ impl View {
             None => resp.hover_pos().filter(|_| resp.hovered()),
         };
         if let Some(p) = centre {
-            let factor = zoom as f64 * (scroll as f64 * 0.0025).exp();
+            let factor = zoom as f64 * (scroll as f64 * 0.0025).r_exp();
             if (factor - 1.0).abs() > 1e-6 {
                 self.zoom_about(rect, p, factor);
             }

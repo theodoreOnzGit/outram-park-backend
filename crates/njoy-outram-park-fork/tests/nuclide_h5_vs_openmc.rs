@@ -30,6 +30,7 @@
 //! Printed at run time; the recorded values are in
 //! `verification_and_validation/nuclide_h5_read/`.
 
+use petir::mathf::RealMath;
 use std::path::PathBuf;
 
 use njoy_outram_park_fork::hdf5::nuclide_read::read_nuclide;
@@ -317,8 +318,8 @@ fn emit_sub_minimum_level_emission_reproducer() {
     let n_pts = 200usize;
     let mut energy: Vec<f64> = (0..n_pts)
         .map(|i| {
-            let (lo, hi) = (1.0e3_f64.ln(), 2.0e7_f64.ln());
-            (lo + (hi - lo) * i as f64 / (n_pts - 1) as f64).exp()
+            let (lo, hi) = (1.0e3_f64.r_ln(), 2.0e7_f64.r_ln());
+            (lo + (hi - lo) * i as f64 / (n_pts - 1) as f64).r_exp()
         })
         .collect();
 
@@ -366,7 +367,7 @@ fn emit_sub_minimum_level_emission_reproducer() {
                         angle: Some(AngleDistribution::isotropic(vec![threshold, hi])),
                         energy: Some(EnergyDist::Level {
                             threshold,
-                            mass_ratio: (awr / (awr + 1.0)).powi(2),
+                            mass_ratio: (awr / (awr + 1.0)).r_powi(2),
                         }),
                     },
                     threshold,

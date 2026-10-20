@@ -47,6 +47,7 @@
 //! All radius / size arguments are dimensionless model-space lengths, as in
 //! [`crate::primitives`]; angles are radians.
 
+use petir::mathf::RealMath;
 use std::f64::consts::PI;
 
 use crate::math::Vec3;
@@ -87,9 +88,9 @@ impl AddMeshOptions {
     /// Apply this placement (scale → rotate → translate) to `mesh`, returning
     /// the transformed mesh.
     pub fn place(&self, mesh: &Mesh) -> Mesh {
-        let (sx, cx) = self.rotation_euler.x.sin_cos();
-        let (sy, cy) = self.rotation_euler.y.sin_cos();
-        let (sz, cz) = self.rotation_euler.z.sin_cos();
+        let (sx, cx) = self.rotation_euler.x.r_sin_cos();
+        let (sy, cy) = self.rotation_euler.y.r_sin_cos();
+        let (sz, cz) = self.rotation_euler.z.r_sin_cos();
         // R = Rz * Ry * Rx (intrinsic XYZ).
         let r = [
             [cy * cz, sx * sy * cz - cx * sz, cx * sy * cz + sx * sz],
@@ -147,7 +148,7 @@ pub fn circle(segments: usize, radius: f64, fill: bool) -> Mesh {
     let positions: Vec<Vec3> = (0..n)
         .map(|i| {
             let a = 2.0 * PI * i as f64 / n as f64;
-            Vec3::new(radius * a.cos(), radius * a.sin(), 0.0)
+            Vec3::new(radius * a.r_cos(), radius * a.r_sin(), 0.0)
         })
         .collect();
     if fill {
@@ -173,7 +174,7 @@ pub fn cone(segments: usize, radius1: f64, radius2: f64, height: f64) -> Mesh {
     let mut positions: Vec<Vec3> = Vec::new();
     for i in 0..n {
         let a = 2.0 * PI * i as f64 / n as f64;
-        positions.push(Vec3::new(radius1 * a.cos(), radius1 * a.sin(), -hz));
+        positions.push(Vec3::new(radius1 * a.r_cos(), radius1 * a.r_sin(), -hz));
     }
     let apex = radius2.abs() < 1e-12;
     if apex {
@@ -181,7 +182,7 @@ pub fn cone(segments: usize, radius1: f64, radius2: f64, height: f64) -> Mesh {
     } else {
         for i in 0..n {
             let a = 2.0 * PI * i as f64 / n as f64;
-            positions.push(Vec3::new(radius2 * a.cos(), radius2 * a.sin(), hz));
+            positions.push(Vec3::new(radius2 * a.r_cos(), radius2 * a.r_sin(), hz));
         }
     }
     let mut faces: Vec<Vec<usize>> = Vec::new();
@@ -217,11 +218,11 @@ pub fn torus(
     let mut positions: Vec<Vec3> = Vec::with_capacity(nm * nt);
     for i in 0..nm {
         let u = 2.0 * PI * i as f64 / nm as f64;
-        let (cu, su) = (u.cos(), u.sin());
+        let (cu, su) = (u.r_cos(), u.r_sin());
         for j in 0..nt {
             let v = 2.0 * PI * j as f64 / nt as f64;
-            let r = major_radius + minor_radius * v.cos();
-            positions.push(Vec3::new(r * cu, r * su, minor_radius * v.sin()));
+            let r = major_radius + minor_radius * v.r_cos();
+            positions.push(Vec3::new(r * cu, r * su, minor_radius * v.r_sin()));
         }
     }
     let idx = |i: usize, j: usize| (i % nm) * nt + (j % nt);

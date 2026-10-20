@@ -416,6 +416,7 @@ pub(crate) fn overwrite_internal(dst: &mut VolScalarField, src: &VolScalarField)
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
     use crate::materials::MsrMaterial;
     use outram_foam_basic_lib::interface::one_dimensional_meshing::create_one_d_mesh;
@@ -476,7 +477,7 @@ mod tests {
         let report = solver.solve().unwrap();
         assert!(report.converged);
 
-        let b2 = (PI / l).powi(2);
+        let b2 = (PI / l).r_powi(2);
         let k_analytic = 0.3 / (0.2 + 0.009 * b2);
         let rel = (report.k_eff - k_analytic).abs() / k_analytic;
         println!(
@@ -529,7 +530,7 @@ mod tests {
         let report = solver.solve().unwrap();
         assert!(report.converged);
 
-        let b2 = (PI / l).powi(2);
+        let b2 = (PI / l).r_powi(2);
         let k_analytic = (0.6 + 12.0 * 1.6 / (8.0 + 0.004 * b2)) / (2.6 + 0.012 * b2);
         let rel = (report.k_eff - k_analytic).abs() / k_analytic;
         println!(

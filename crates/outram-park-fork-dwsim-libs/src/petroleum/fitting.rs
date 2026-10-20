@@ -69,6 +69,7 @@
 //!   multiplier — the same net effect as upstream, which leaves `fw`/`fzra` at
 //!   its previous value when the fit throws.
 
+use petir::mathf::RealMath;
 use uom::si::f64::{MassDensity, Ratio, ThermodynamicTemperature};
 use uom::si::mass_density::kilogram_per_cubic_meter;
 use uom::si::ratio::ratio;
@@ -384,7 +385,7 @@ fn fit_volume_translation(
 
     let a_m = eos.a_i(component, t_k);
     let b_m = eos.b_i(component);
-    let a_dimensionless = a_m * p_pa / (R_DWSIM * t_k).powi(2);
+    let a_dimensionless = a_m * p_pa / (R_DWSIM * t_k).r_powi(2);
     let b_dimensionless = b_m * p_pa / (R_DWSIM * t_k);
     let Some(z) = eos.z_liquid(a_dimensionless, b_dimensionless) else {
         return 0.0;

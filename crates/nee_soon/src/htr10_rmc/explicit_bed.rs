@@ -111,6 +111,7 @@
 //! 0.000962, −583 ± 143 pcm from the lattice at N = 12, on one pour
 //! (`verification_and_validation/htr10_dem_bed_keff_2026_10_08/`).
 
+use petir::mathf::RealMath;
 use std::collections::BTreeMap;
 
 use outram_mc_libs::geometry::cell::{Cell, CellFill, RegionToken};
@@ -261,7 +262,7 @@ impl ExplicitBed {
 /// centres are `d` apart (`d < 2r`).
 #[must_use]
 pub fn lens_volume(r: f64, d: f64) -> f64 {
-    std::f64::consts::PI * (4.0 * r + d) * (2.0 * r - d).powi(2) / 12.0
+    std::f64::consts::PI * (4.0 * r + d) * (2.0 * r - d).r_powi(2) / 12.0
 }
 
 /// **Fuel/dummy flags by the literature's rule**, for centres in the DEM
@@ -286,7 +287,7 @@ pub fn fuel_assignment_at(centres: &[[Length; 3]], f: f64) -> Vec<bool> {
         .enumerate()
         .filter_map(|(i, c)| {
             let [x, y, z] = c.map(|v| v.get::<centimeter>());
-            (z > 0.0).then_some((z, x * x + y * y, y.atan2(x), i))
+            (z > 0.0).then_some((z, x * x + y * y, y.r_atan2(x), i))
         })
         .collect();
     eligible.sort_by(|p, q| {
@@ -310,7 +311,7 @@ fn hex_prism_distance(p: [f64; 3], tc: [f64; 3], pitch: f64, height: f64) -> f64
     let apothem = 0.5 * pitch;
     let inside = (0..6).all(|k| {
         let t = (30.0 + 60.0 * f64::from(k)).to_radians();
-        qx * t.cos() + qy * t.sin() <= apothem
+        qx * t.r_cos() + qy * t.r_sin() <= apothem
     });
     let d2 = if inside {
         0.0
@@ -318,7 +319,7 @@ fn hex_prism_distance(p: [f64; 3], tc: [f64; 3], pitch: f64, height: f64) -> f64
         let rc = pitch / 3.0_f64.sqrt();
         let v = |k: i32| {
             let t = (60.0 * f64::from(k)).to_radians();
-            [rc * t.cos(), rc * t.sin()]
+            [rc * t.r_cos(), rc * t.r_sin()]
         };
         (0..6)
             .map(|k| {
@@ -326,12 +327,12 @@ fn hex_prism_distance(p: [f64; 3], tc: [f64; 3], pitch: f64, height: f64) -> f64
                 let (ex, ey) = (b[0] - a[0], b[1] - a[1]);
                 let s =
                     (((qx - a[0]) * ex + (qy - a[1]) * ey) / (ex * ex + ey * ey)).clamp(0.0, 1.0);
-                (qx - a[0] - s * ex).hypot(qy - a[1] - s * ey)
+                (qx - a[0] - s * ex).r_hypot(qy - a[1] - s * ey)
             })
             .fold(f64::INFINITY, f64::min)
     };
     let dz = ((p[2] - tc[2]).abs() - 0.5 * height).max(0.0);
-    d2.hypot(dz)
+    d2.r_hypot(dz)
 }
 
 /// The tile `(a, b)` whose hexagon holds the planar point `(x, y)`.
@@ -343,7 +344,7 @@ fn containing_tile(x: f64, y: f64, pitch: f64) -> (i32, i32) {
     for a in a0 - 1..=a0 + 1 {
         for b in b0 - 1..=b0 + 1 {
             let [tx, ty] = tile_xy(a, b, pitch);
-            let d = (x - tx).powi(2) + (y - ty).powi(2);
+            let d = (x - tx).r_powi(2) + (y - ty).r_powi(2);
             if d < best.2 {
                 best = (a, b, d);
             }
@@ -361,7 +362,7 @@ fn segment_distance(px: f64, pz: f64, a: [f64; 2], b: [f64; 2]) -> f64 {
     } else {
         0.0
     };
-    (px - a[0] - s * ex).hypot(pz - a[1] - s * ez)
+    (px - a[0] - s * ex).r_hypot(pz - a[1] - s * ez)
 }
 
 impl ExplicitBed {
@@ -383,7 +384,7 @@ impl ExplicitBed {
     /// Whether the centre `c` is inside the container, and its distance to
     /// the container wall (the axis excluded).
     fn wall_distance(&self, c: [f64; 3]) -> (bool, f64) {
-        let (rho, z) = (c[0].hypot(c[1]), c[2]);
+        let (rho, z) = (c[0].r_hypot(c[1]), c[2]);
         let p = self.profile();
         let mut inside = false;
         let mut dmin = f64::INFINITY;
@@ -542,9 +543,9 @@ impl ExplicitBed {
                                 continue;
                             }
                             let q = bed.centres[j];
-                            let d = ((c[0] - q[0]).powi(2)
-                                + (c[1] - q[1]).powi(2)
-                                + (c[2] - q[2]).powi(2))
+                            let d = ((c[0] - q[0]).r_powi(2)
+                                + (c[1] - q[1]).r_powi(2)
+                                + (c[2] - q[2]).r_powi(2))
                             .sqrt();
                             dmin = dmin.min(d);
                             if d < 2.0 * r - TOUCH_TOLERANCE_CM {
@@ -563,7 +564,7 @@ impl ExplicitBed {
             }
         }
         bed.max_overlap = (2.0 * r - dmin).max(0.0);
-        let v_ball = 4.0 / 3.0 * std::f64::consts::PI * r.powi(3);
+        let v_ball = 4.0 / 3.0 * std::f64::consts::PI * r.r_powi(3);
         bed.lens_volume_fraction = lens / (v_ball * bed.centres.len() as f64);
 
         // Every tile each ball intersects.

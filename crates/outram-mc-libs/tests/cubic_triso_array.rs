@@ -25,6 +25,7 @@
 //! differ somewhere in the last digit. Stated rather than rounded away, because
 //! a reader comparing our geometry to theirs needs to know it.
 
+use petir::mathf::RealMath;
 use outram_mc_libs::pebble_beds::sphere_packing::{cubic_array_in_ball, cubic_pitch_for_count};
 
 const R_ZONE: f64 = 2.5;
@@ -107,7 +108,7 @@ fn the_stated_particle_count_is_not_attainable_and_here_is_how_close() {
 fn the_realised_packing_fraction_matches_the_spec_within_the_count_error() {
     const PF_SPEC: f64 = 0.050_248_114; // derived from 8335 in a 2.5 cm zone
     let (pitch, count) = cubic_pitch_for_count(R_PART, R_ZONE, STATED, [0.5, 0.5, 0.0]);
-    let pf = count as f64 * R_PART.powi(3) / R_ZONE.powi(3);
+    let pf = count as f64 * R_PART.r_powi(3) / R_ZONE.r_powi(3);
     let rel = (pf / PF_SPEC - 1.0) * 100.0;
     println!("pitch {pitch:.6} cm, {count} particles, pf {pf:.9} ({rel:+.3} % vs spec)");
     assert!(

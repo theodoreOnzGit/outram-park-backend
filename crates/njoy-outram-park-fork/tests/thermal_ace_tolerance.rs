@@ -20,6 +20,7 @@
 //!    `calcem`'s own `xsi` since 2026-09-29, and leaves the incident-energy grid
 //!    (ITIE), which the caller supplies, identical.
 
+use petir::mathf::RealMath;
 use std::fs::File;
 
 use njoy_outram_park_fork::acer::thermal::{jxs, ThermalAceOptions, CALCEM_TOL};
@@ -37,7 +38,7 @@ fn build(tol: Option<f64>) -> Option<AceTable> {
     let ne = 24;
     let (elo, ehi) = (1.0e-4_f64, 4.0_f64);
     let grid: Vec<f64> = (0..ne)
-        .map(|i| elo * (ehi / elo).powf(i as f64 / (ne - 1) as f64))
+        .map(|i| elo * (ehi / elo).r_powf(i as f64 / (ne - 1) as f64))
         .collect();
     let temp = mf7.incoherent_inelastic.as_ref()?.temperature_k;
     let opts = ThermalAceOptions {

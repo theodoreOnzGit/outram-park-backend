@@ -202,6 +202,7 @@
 //! This is a demonstration model, **not a validated HTR-10 primary-loop
 //! model**.
 
+use petir::mathf::RealMath;
 use outram_park_digital_twin_engine::htr10::design::{Htr10DesignPoint, Htr10FuelTemperatureLimits};
 use outram_park_digital_twin_engine::htr10::kta;
 use outram_park_digital_twin_engine::animation::residence_time_from_flow;
@@ -1819,7 +1820,7 @@ fn helium_properties(t_k: f64) -> (SpecificHeatCapacity, f64, DynamicViscosity) 
 
     /// KTA 3102.1 helium dynamic viscosity \[Pa s\] at temperature `t` \[K\].
     fn kta_helium_viscosity(t: f64) -> DynamicViscosity {
-        DynamicViscosity::new::<pascal_second>(3.674e-7 * t.powf(0.7))
+        DynamicViscosity::new::<pascal_second>(3.674e-7 * t.r_powf(0.7))
     }
 
     let t = if t_k.is_finite() && t_k > 1.0 {
@@ -2578,7 +2579,7 @@ mod tests {
         let (h0, h_end) = (trace[0], *trace.last().unwrap());
         let i = trace
             .iter()
-            .position(|h| (h - h0) / (h_end - h0) >= 1.0 - (-1.0f64).exp())
+            .position(|h| (h - h0) / (h_end - h0) >= 1.0 - (-1.0f64).r_exp())
             .expect("the trace must reach 63.2 % of its change");
         i as f64 * crate::physics::PLANT_TIMESTEP_S
     }
@@ -2602,11 +2603,11 @@ mod tests {
                         .filter(|(j, _)| *j != i)
                         .map(|(_, &tj)| ti / (ti - tj))
                         .product();
-                    a * (-t / ti).exp()
+                    a * (-t / ti).r_exp()
                 })
                 .sum::<f64>()
         };
-        let target = 1.0 - (-1.0f64).exp();
+        let target = 1.0 - (-1.0f64).r_exp();
         let (mut lo, mut hi) = (0.0, 20.0 * taus.iter().sum::<f64>());
         for _ in 0..200 {
             let mid = 0.5 * (lo + hi);
@@ -2888,7 +2889,7 @@ mod tests {
         );
 
         // 2. Coaxial cold run, from the annulus.
-        let annulus = 0.25 * std::f64::consts::PI * (0.900f64.powi(2) - 0.300f64.powi(2));
+        let annulus = 0.25 * std::f64::consts::PI * (0.900f64.r_powi(2) - 0.300f64.r_powi(2));
         let rho_c = rho(published_core_inlet_k());
         let tau_d = s(loop_.cold_duct_residence_time());
         let expected_d = rho_c * annulus * HOT_GAS_DUCT_CROSS_VESSEL_LENGTH_M / m;
@@ -3014,7 +3015,7 @@ mod tests {
         assert!(((m - yao) / yao).abs() < 1e-12);
         assert!(hot > HOT_GAS_DUCT_IN_REFLECTOR_VOLUME_M3);
         assert!(cold > RISER_BOREHOLE_VOLUME_M3);
-        let annulus = 0.25 * std::f64::consts::PI * (0.900f64.powi(2) - 0.300f64.powi(2));
+        let annulus = 0.25 * std::f64::consts::PI * (0.900f64.r_powi(2) - 0.300f64.r_powi(2));
         assert!((duct - annulus * HOT_GAS_DUCT_CROSS_VESSEL_LENGTH_M).abs() < 1e-12);
     }
 

@@ -33,6 +33,7 @@
 //!
 //! Printed by the test.
 
+use petir::mathf::RealMath;
 use outram_mc_libs::material::nuclide::Nuclide;
 use std::path::PathBuf;
 
@@ -67,7 +68,7 @@ fn absorption_levels_count_without_their_lump() {
     let lumpless = Nuclide::from_ace(&t, "Mn55").expect("from_ace, lumps removed");
     let (mut worst, mut share) = (0.0f64, 0.0f64);
     for k in 0..12 {
-        let e = 1.0e6 * (20.0f64).powf(k as f64 / 11.0);
+        let e = 1.0e6 * (20.0f64).r_powf(k as f64 / 11.0);
         let a = orig.xs_at_energy(e, 293.6).absorption;
         let b = lumpless.xs_at_energy(e, 293.6).absorption;
         worst = worst.max(((b - a) / a).abs());

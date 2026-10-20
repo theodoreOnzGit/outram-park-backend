@@ -96,6 +96,7 @@ where
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
     use outram_park_mpi::run;
 
@@ -225,7 +226,7 @@ mod tests {
     fn distributed_newton_matches_serial_on_nonlinear_diffusion() {
         let n = 40;
         let tol = 1e-10;
-        let b: Vec<f64> = (0..n).map(|i| 1.0 + ((i as f64) * 0.2).sin()).collect();
+        let b: Vec<f64> = (0..n).map(|i| 1.0 + ((i as f64) * 0.2).r_sin()).collect();
         let reference = serial_newton(n, &b, tol, 100);
 
         for p in [1, 2, 3, 4, 5] {

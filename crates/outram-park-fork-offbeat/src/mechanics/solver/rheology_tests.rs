@@ -18,6 +18,7 @@
 //! Every number quoted in a doc comment below was **printed by the test itself**
 //! and transcribed; none is predicted.
 
+use petir::mathf::RealMath;
 use std::sync::Arc;
 
 use approx::assert_relative_eq;
@@ -254,7 +255,7 @@ fn clamped_bar_relaxes_to_closed_form_exponential() {
         sigma_xx0 * 1e-6
     );
 
-    let exact = q0 * (-1.0f64).exp();
+    let exact = q0 * (-1.0f64).r_exp();
     let mut errors = Vec::new();
 
     for &n_steps in &[50usize, 200, 800] {
@@ -686,7 +687,7 @@ fn spatially_varying_creep_keeps_the_axial_stress_uniform() {
         let laws: Vec<ConstitutiveLaw> = (0..n)
             .map(|c| {
                 let x = mesh.cell_centres[c].x / length;
-                linear_creep_law(b0 * (1.0 + 0.9 * (std::f64::consts::PI * x).sin()), sigma_c)
+                linear_creep_law(b0 * (1.0 + 0.9 * (std::f64::consts::PI * x).r_sin()), sigma_c)
             })
             .collect();
         solver

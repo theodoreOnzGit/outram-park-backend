@@ -337,6 +337,7 @@ impl SonicFoam {
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
     use outram_foam_basic_lib::interface::one_dimensional_meshing::create_one_d_mesh;
     use outram_foam_basic_lib::primitives::Vector3;
@@ -372,8 +373,8 @@ mod tests {
         const MODE: usize = 5;
         const RATIO: f64 = 0.2;
         let pi = std::f64::consts::PI;
-        let mode = |i: usize| (MODE as f64 * pi * (i as f64 + 0.5) / N as f64).cos();
-        let mu_m = 2.0 - 2.0 * (MODE as f64 * pi / N as f64).cos();
+        let mode = |i: usize| (MODE as f64 * pi * (i as f64 + 0.5) / N as f64).r_cos();
+        let mu_m = 2.0 - 2.0 * (MODE as f64 * pi / N as f64).r_cos();
 
         let mesh = Arc::new(
             create_one_d_mesh(

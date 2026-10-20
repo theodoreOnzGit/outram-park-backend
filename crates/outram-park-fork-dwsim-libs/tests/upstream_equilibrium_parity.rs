@@ -71,6 +71,7 @@
 //!
 //! [`EquilibriumReactor`]: outram_park_fork_dwsim_libs::reactors::EquilibriumReactor
 
+use petir::mathf::RealMath;
 use outram_park_fork_dwsim_libs::reactions::{
     EquilibriumConstant, Reaction, ReactionBasis, ReactionComponent, ReactionKind,
 };
@@ -162,7 +163,7 @@ fn wgs_mole_fraction_matches_upstream() {
     eprintln!("wgs molfrac: xi {:.15}, worst gap {gap:e}", out.extents[0]);
     assert!(gap < GATE, "worst gap {gap:e}: {:?}", out.molar_flows);
 
-    let sqrt_k = (4577.8_f64 / 1000.0 - 4.33).exp().sqrt();
+    let sqrt_k = (4577.8_f64 / 1000.0 - 4.33).r_exp().sqrt();
     let closed = sqrt_k / (1.0 + sqrt_k);
     assert!(
         (out.extents[0] - closed).abs() < GATE,

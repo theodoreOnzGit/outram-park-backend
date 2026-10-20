@@ -41,6 +41,7 @@
 //! tests check against upstream's *own* reference numbers, which already bake
 //! in this exact formula.
 
+use petir::mathf::RealMath;
 use super::constants::{alpha0, b, c, n, PC, R, TC, VC, W, W_H};
 
 /// Density of pure atomic hydrogen as an ideal gas, `rho_H = p W_H / (R T)`.
@@ -63,7 +64,7 @@ pub(super) fn density_molecular_h2(p: f64, t: f64) -> f64 {
     let alpha0_ = alpha0();
     let b_ = b();
     let c_ = c();
-    let alpha_ = alpha0_ / (t / TC).powf(n());
+    let alpha_ = alpha0_ / (t / TC).r_powf(n());
 
     let a_coeff = alpha_ * (c_ - b_);
     let b_coeff = W * (alpha_ + p * b_ * (c_ - b_) - R * t * b_);
@@ -73,18 +74,19 @@ pub(super) fn density_molecular_h2(p: f64, t: f64) -> f64 {
     // Reduced (depressed) cubic form t^3 + p_*t + q_ = 0.
     // https://en.wikipedia.org/wiki/Cubic_equation#Trigonometric_and_hyperbolic_solutions
     let p_ = (3.0 * a_coeff * c_coeff - b_coeff * b_coeff) / (3.0 * a_coeff * a_coeff);
-    let q_ = (2.0 * b_coeff.powi(3) - 9.0 * a_coeff * b_coeff * c_coeff
+    let q_ = (2.0 * b_coeff.r_powi(3) - 9.0 * a_coeff * b_coeff * c_coeff
         + 27.0 * a_coeff * a_coeff * d_coeff)
-        / (27.0 * a_coeff.powi(3));
-    let discriminant = p_.powi(3) / 27.0 + q_ * q_ / 4.0;
+        / (27.0 * a_coeff.r_powi(3));
+    let discriminant = p_.r_powi(3) / 27.0 + q_ * q_ / 4.0;
 
     if discriminant < 0.0 {
-        2.0 * (-p_ / 3.0).sqrt() * ((3.0 * q_ / (2.0 * p_) * (-3.0 / p_).sqrt()).acos() / 3.0).cos()
+        2.0 * (-p_ / 3.0).sqrt()
+            * ((3.0 * q_ / (2.0 * p_) * (-3.0 / p_).sqrt()).r_acos() / 3.0).r_cos()
             - b_coeff / (3.0 * a_coeff)
     } else {
         let u1 = -q_ / 2.0 + discriminant.sqrt();
         let u2 = -q_ / 2.0 - discriminant.sqrt();
-        u1.cbrt() + u2.cbrt() - b_coeff / (3.0 * a_coeff)
+        u1.r_cbrt() + u2.r_cbrt() - b_coeff / (3.0 * a_coeff)
     }
 }
 
@@ -142,7 +144,7 @@ impl MassBasisEosState {
         let rmass = R / W;
         let n_ = n();
         let alpha0_spec = alpha0() / (W * W);
-        let alpha = alpha0_spec / (t / TC).powf(n_);
+        let alpha = alpha0_spec / (t / TC).r_powf(n_);
         let b_spec = b() / W;
         // See module doc: this is a faithful port of upstream's `Vc()*1e-3`,
         // not the `Vc()/W()` a true mass-basis rescale would use.
@@ -152,8 +154,8 @@ impl MassBasisEosState {
         let v = 1.0 / density_molecular_h2(p, t);
 
         let dp_dt = rmass / (v - b_spec + c_local) + n_ * alpha / (t * v * (v + b_spec));
-        let dp_dv = -rmass * t / (v - b_spec + c_local).powi(2)
-            + alpha * (b_spec + 2.0 * v) / (v * (v + b_spec)).powi(2);
+        let dp_dv = -rmass * t / (v - b_spec + c_local).r_powi(2)
+            + alpha * (b_spec + 2.0 * v) / (v * (v + b_spec)).r_powi(2);
         let dv_dt = -dp_dt / dp_dv;
 
         Self {

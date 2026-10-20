@@ -90,6 +90,7 @@
 //! [`MultiphaseError::InvalidInput`]. The look-up table instead **clamps** an
 //! out-of-range query to its axis bounds (documented on [`GroeneveldLut`]).
 
+use petir::mathf::RealMath;
 use crate::MultiphaseError;
 use uom::si::available_energy::joule_per_kilogram;
 use uom::si::f64::{AvailableEnergy, HeatFluxDensity, Length, MassFlux, Pressure};
@@ -321,14 +322,15 @@ impl ChfModel for Biasi {
         let d_cm = d_m * 100.0; // m → cm
         let n = if d_cm >= 1.0 { 0.4 } else { 0.6 };
 
-        let f_p = 0.7249 + 0.099 * p_bar * (-0.032 * p_bar).exp();
-        let h_p =
-            -1.159 + 0.149 * p_bar * (-0.019 * p_bar).exp() + 8.99 * p_bar / (10.0 + p_bar * p_bar);
+        let f_p = 0.7249 + 0.099 * p_bar * (-0.032 * p_bar).r_exp();
+        let h_p = -1.159
+            + 0.149 * p_bar * (-0.019 * p_bar).r_exp()
+            + 8.99 * p_bar / (10.0 + p_bar * p_bar);
 
-        let d_n = d_cm.powf(n);
-        let g16 = g.powf(1.0 / 6.0);
+        let d_n = d_cm.r_powf(n);
+        let g16 = g.r_powf(1.0 / 6.0);
         let q1 = (1.883e7 / (d_n * g16)) * (f_p / g16 - quality);
-        let q2 = (3.78e7 * h_p / (d_n * g.powf(0.6))) * (1.0 - quality);
+        let q2 = (3.78e7 * h_p / (d_n * g.r_powf(0.6))) * (1.0 - quality);
 
         let q = if g >= 300.0 { q1.max(q2) } else { q2 };
         Ok(HeatFluxDensity::new::<watt_per_square_meter>(q))
@@ -440,10 +442,10 @@ impl W3 {
         let dh_in = subcooling_j_per_kg / J_PER_KG_PER_BTU_LBM; // BTU/lbm
 
         let term1 = (2.022 - 0.0004302 * p)
-            + (0.1722 - 0.0000984 * p) * ((18.177 - 0.004129 * p) * x).exp();
+            + (0.1722 - 0.0000984 * p) * ((18.177 - 0.004129 * p) * x).r_exp();
         let term2 = (0.1484 - 1.596 * x + 0.1729 * x * x.abs()) * g6 + 1.037;
         let term3 = 1.157 - 0.869 * x;
-        let term4 = 0.2664 + 0.8357 * (-3.151 * de).exp();
+        let term4 = 0.2664 + 0.8357 * (-3.151 * de).r_exp();
         let term5 = 0.8258 + 0.000794 * dh_in;
 
         let q_btu = (term1 * term2 * term3 * term4 * term5) * 1.0e6; // BTU/hr/ft²
@@ -595,16 +597,16 @@ impl Bowring {
 fn bowring_f(p_r: f64) -> (f64, f64, f64, f64) {
     let (f1, f1_over_f2, f3);
     if p_r <= 1.0 {
-        f1 = (p_r.powf(18.942) * (20.89 * (1.0 - p_r)).exp() + 0.917) / 1.917;
-        f1_over_f2 = (p_r.powf(1.316) * (2.444 * (1.0 - p_r)).exp() + 0.309) / 1.309;
-        f3 = (p_r.powf(17.023) * (16.658 * (1.0 - p_r)).exp() + 0.667) / 1.667;
+        f1 = (p_r.r_powf(18.942) * (20.89 * (1.0 - p_r)).r_exp() + 0.917) / 1.917;
+        f1_over_f2 = (p_r.r_powf(1.316) * (2.444 * (1.0 - p_r)).r_exp() + 0.309) / 1.309;
+        f3 = (p_r.r_powf(17.023) * (16.658 * (1.0 - p_r)).r_exp() + 0.667) / 1.667;
     } else {
-        f1 = p_r.powf(-0.368) * (0.648 * (1.0 - p_r)).exp();
-        f1_over_f2 = p_r.powf(-0.448) * (0.245 * (1.0 - p_r)).exp();
-        f3 = p_r.powf(0.219);
+        f1 = p_r.r_powf(-0.368) * (0.648 * (1.0 - p_r)).r_exp();
+        f1_over_f2 = p_r.r_powf(-0.448) * (0.245 * (1.0 - p_r)).r_exp();
+        f3 = p_r.r_powf(0.219);
     }
     let f2 = f1 / f1_over_f2;
-    let f4 = f3 * p_r.powf(1.649);
+    let f4 = f3 * p_r.r_powf(1.649);
     (f1, f2, f3, f4)
 }
 
@@ -625,7 +627,7 @@ impl ChfModel for Bowring {
         let n = 2.0 - 0.5 * p_r;
 
         let a = 2.317 * (h_fg * d * g / 4.0) * f1 / (1.0 + 0.0143 * f2 * d.sqrt() * g);
-        let c = 0.077 * f3 * d * g / (1.0 + 0.347 * f4 * (g / 1356.0).powf(n));
+        let c = 0.077 * f3 * d * g / (1.0 + 0.347 * f4 * (g / 1356.0).r_powf(n));
 
         let q = (a - 0.25 * d * g * h_fg * quality) / c;
         Ok(HeatFluxDensity::new::<watt_per_square_meter>(q))

@@ -164,6 +164,7 @@
 //! release fraction has been reproduced here. Per `RESPONSIBLE_USE.md` this is
 //! AI-assisted draft material pending human review.
 
+use petir::mathf::RealMath;
 use boon_lay::triso_atops_fork::activities::live_pools::{self, PoolRates, PrimaryPools};
 use boon_lay::triso_atops_fork::activities::{becquerels_from_curies, FailureFractions};
 use boon_lay::triso_atops_fork::normal_operation::{
@@ -328,7 +329,7 @@ pub fn htr10_pool_rates(z: u32, decay_per_s: f64, mass_flow: MassRate) -> PoolRa
         mass_flow.get::<kilogram_per_second>().abs() / htr10_primary_helium_inventory_kg();
     PoolRates {
         decay: decay_per_s,
-        plate_out: -(1.0 - d).ln() * cycles_per_s,
+        plate_out: -(1.0 - d).r_ln() * cycles_per_s,
         clean_up: eta * HTR10_PURIFICATION_INVENTORY_FRACTION_PER_H / 3600.0,
         leak: HTR10_PRIMARY_LEAK_PER_S,
     }
@@ -2383,7 +2384,7 @@ mod tests {
                 let lambda = r.decay_constant.get::<hertz>();
                 let long_lived = std::f64::consts::LN_2 / lambda >= t_irr;
                 let inflation_removed = if long_lived {
-                    1.0 - (-lambda * t_irr).exp()
+                    1.0 - (-lambda * t_irr).r_exp()
                 } else {
                     1.0
                 };

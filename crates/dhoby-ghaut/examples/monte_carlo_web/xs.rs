@@ -26,6 +26,7 @@
 // The wire format serves the browser build (and the tests).
 #![cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
 
+use petir::mathf::RealMath;
 use outram_mc_libs::material::nuclide::Nuclide;
 
 /// Logarithmic bins over [`E_MIN`, `E_MAX`] eV; each keeps its min and max.
@@ -89,14 +90,14 @@ fn value(n: &Nuclide, e: f64, temp_k: f64, c: Channel) -> f64 {
 
 /// Build the curves for `picks` from the loaded nuclides (worker side).
 pub fn curves(nuclides: &[Nuclide], temp_k: f64, picks: &[Pick]) -> Vec<XsCurve> {
-    let (l0, l1) = (E_MIN.log10(), E_MAX.log10());
+    let (l0, l1) = (E_MIN.r_log10(), E_MAX.r_log10());
     let n_back = ((l1 - l0) * BACKBONE_PER_DECADE as f64) as usize;
     picks
         .iter()
         .filter_map(|&(label, i, channel)| {
             let n = nuclides.get(i)?;
             let mut grid = n.native_energy_grid(E_MIN, E_MAX);
-            grid.extend((0..=n_back).map(|k| 10f64.powf(l0 + (l1 - l0) * k as f64 / n_back as f64)));
+            grid.extend((0..=n_back).map(|k| 10f64.r_powf(l0 + (l1 - l0) * k as f64 / n_back as f64)));
             grid.sort_by(|a, b| a.total_cmp(b));
             grid.dedup();
             // Per log bin: (min point, max point), kept in energy order.
@@ -107,7 +108,7 @@ pub fn curves(nuclides: &[Nuclide], temp_k: f64, picks: &[Pick]) -> Vec<XsCurve>
                 if !(s.is_finite() && s > 0.0) {
                     continue;
                 }
-                let b = (((e.log10() - l0) / (l1 - l0)) * BINS as f64) as usize;
+                let b = (((e.r_log10() - l0) / (l1 - l0)) * BINS as f64) as usize;
                 let b = b.min(BINS - 1);
                 if lo[b].is_none_or(|(_, v)| s < v) {
                     lo[b] = Some((e, s));
@@ -136,9 +137,9 @@ pub fn at(c: &XsCurve, e: f64) -> Option<f64> {
         return None;
     }
     let (a, b) = (p[i - 1], p[i]);
-    let (x0, x1, y0, y1) = ((a[0] as f64).ln(), (b[0] as f64).ln(), (a[1] as f64).ln(), (b[1] as f64).ln());
-    let t = if x1 > x0 { (e.ln() - x0) / (x1 - x0) } else { 0.0 };
-    Some((y0 + t * (y1 - y0)).exp())
+    let (x0, x1, y0, y1) = ((a[0] as f64).r_ln(), (b[0] as f64).r_ln(), (a[1] as f64).r_ln(), (b[1] as f64).r_ln());
+    let t = if x1 > x0 { (e.r_ln() - x0) / (x1 - x0) } else { 0.0 };
+    Some((y0 + t * (y1 - y0)).r_exp())
 }
 
 /// Flatten for the worker boundary: `[n_curves, (channel, temp_k, n_points, e, s, e, s, …)…]`;
@@ -261,7 +262,7 @@ pub fn draw(painter: &egui::Painter, rect: Rect, curves: &[XsCurve], shown: &[bo
     let (mut y0, mut y1) = (f64::INFINITY, f64::NEG_INFINITY);
     for c in &visible {
         for p in &c.points {
-            let l = (p[1] as f64).log10();
+            let l = (p[1] as f64).r_log10();
             y0 = y0.min(l);
             y1 = y1.max(l);
         }
@@ -284,16 +285,16 @@ pub fn draw(painter: &egui::Painter, rect: Rect, curves: &[XsCurve], shown: &[bo
         ),
         None => (area, None),
     };
-    let (x0, x1) = (E_MIN.log10(), E_MAX.log10());
-    let xe = |e: f64| area.left() + ((e.log10() - x0) / (x1 - x0)) as f32 * area.width();
+    let (x0, x1) = (E_MIN.r_log10(), E_MAX.r_log10());
+    let xe = |e: f64| area.left() + ((e.r_log10() - x0) / (x1 - x0)) as f32 * area.width();
     let p = |e: f64, s: f64| {
-        let fy = ((s.log10() - y0) / (y1 - y0)) as f32;
+        let fy = ((s.r_log10() - y0) / (y1 - y0)) as f32;
         Pos2::new(xe(e), plot.bottom() - fy.clamp(-0.02, 1.02) * plot.height())
     };
     let grid = Color32::from_rgb(40, 45, 56);
     let step = if area.width() < 260.0 { 4 } else { 2 };
     for d in (x0.ceil() as i32..=x1.floor() as i32).filter(|d| d.rem_euclid(step) == 0) {
-        let x = xe(10f64.powi(d));
+        let x = xe(10f64.r_powi(d));
         painter.line_segment([Pos2::new(x, area.bottom()), Pos2::new(x, area.top())], Stroke::new(1.0, grid));
         let lab = match d {
             0 => "1 eV".to_string(),
@@ -304,7 +305,7 @@ pub fn draw(painter: &egui::Painter, rect: Rect, curves: &[XsCurve], shown: &[bo
         painter.text(Pos2::new(x, area.bottom() + 2.0), egui::Align2::CENTER_TOP, lab, small.clone(), grey);
     }
     for d in y0 as i32..=y1 as i32 {
-        let a = p(E_MIN, 10f64.powi(d));
+        let a = p(E_MIN, 10f64.r_powi(d));
         painter.line_segment([a, Pos2::new(plot.right(), a.y)], Stroke::new(1.0, grid));
         painter.text(Pos2::new(plot.left() - 3.0, a.y), egui::Align2::RIGHT_CENTER, format!("1e{d}"), small.clone(), grey);
     }

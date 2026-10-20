@@ -17,6 +17,7 @@
 //! Anything that changes during a transient. Both solvers own their own field
 //! state; this type is constructed once and read thereafter.
 
+use petir::mathf::RealMath;
 use uom::si::area::square_meter;
 use uom::si::f64::{Angle, Area, Length};
 use uom::si::length::meter;
@@ -202,7 +203,7 @@ impl Pipe1d {
     /// zero, which is what the Edwards case needs.
     #[must_use]
     pub fn axial_gravity(&self) -> f64 {
-        -9.806_65 * self.incline_rad.sin()
+        -9.806_65 * self.incline_rad.r_sin()
     }
 
     /// Centre position of cell `i` \[m\], raw SI: `(i + ½) Δx`.

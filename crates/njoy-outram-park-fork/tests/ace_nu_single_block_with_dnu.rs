@@ -37,6 +37,7 @@
 //! Rule: exact to the printed precision. Old reading: −0.660 % at 1 MeV.
 //! Against NJOY's independent total: worst 2.82e-6 relative.
 
+use petir::mathf::RealMath;
 use njoy_outram_park_fork::acer::ce_laws::decode_nu;
 use njoy_outram_park_fork::acer::delayed::decode_delayed;
 use njoy_outram_park_fork::acer::jxs;
@@ -81,7 +82,7 @@ fn single_prompt_block_plus_dnu_gives_the_total() {
     let d = decode_delayed(&orig).unwrap().expect("U-235 has DNU");
     let mut rule = 0.0f64;
     for k in 0..1000 {
-        let e = 1.0e-5 * (2.0e7f64 / 1.0e-5).powf(k as f64 / 999.0);
+        let e = 1.0e-5 * (2.0e7f64 / 1.0e-5).r_powf(k as f64 / 999.0);
         let want = at(&p1.energy, &p1.nu_total, e) + at(&d.energy, &d.nu_delayed, e);
         let v = at(&got.energy, &got.nu_total, e);
         rule = rule.max(((v - want) / want).abs());

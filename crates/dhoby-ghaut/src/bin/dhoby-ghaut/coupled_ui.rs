@@ -5,6 +5,7 @@
 //! (`coupled.rs`). The one exception is the Step 9 power-shape preview, a
 //! closed-form evaluation (no march) redone only when a setting changes.
 
+use petir::mathf::RealMath;
 use dhoby_ghaut::web_demo::link::{start_native, Link};
 use dhoby_ghaut::workbench::multiphysics::{FeedbackWeighting, MultiphysicsSetup, PowerShape};
 use dhoby_ghaut::workbench::recipe::{Citation, ElementStatus};
@@ -753,20 +754,20 @@ pub fn results(app: &mut App, ui: &mut egui::Ui) {
                 .show(ui, |p| {
                     p.line(Line::new(
                         "ring Δp spread",
-                        pts(|r| r.flow_residual.max(1e-16).log10()),
+                        pts(|r| r.flow_residual.max(1e-16).r_log10()),
                     ));
                     p.line(Line::new(
                         "max ΔT [K]",
-                        pts(|r| r.temperature_change_k.max(1e-16).log10()),
+                        pts(|r| r.temperature_change_k.max(1e-16).r_log10()),
                     ));
                     if mp.solved {
                         p.line(Line::new(
                             "node power",
-                            pts(|r| r.spatial.as_ref().map_or(0.0, |s| s.power_change).max(1e-16).log10()),
+                            pts(|r| r.spatial.as_ref().map_or(0.0, |s| s.power_change).max(1e-16).r_log10()),
                         ));
                         p.line(Line::new(
                             "|Δk|",
-                            pts(|r| r.spatial.as_ref().map_or(0.0, |s| s.k_change).max(1e-16).log10()),
+                            pts(|r| r.spatial.as_ref().map_or(0.0, |s| s.k_change).max(1e-16).r_log10()),
                         ));
                     }
                 });
@@ -925,7 +926,7 @@ pub fn main_view(app: &mut App, ui: &mut egui::Ui, run_step: bool) {
     let (rect, resp) = ui.allocate_exact_size(ui.available_size(), egui::Sense::click_and_drag());
     if resp.hovered() {
         let (scroll, zoom) = ui.input(|i| (i.smooth_scroll_delta.y, i.zoom_delta()));
-        app.mp.zoom = (app.mp.zoom * zoom * (scroll * 0.002).exp()).clamp(0.3, 20.0);
+        app.mp.zoom = (app.mp.zoom * zoom * (scroll * 0.002).r_exp()).clamp(0.3, 20.0);
     }
     if resp.double_clicked() {
         app.mp.zoom = 1.0;

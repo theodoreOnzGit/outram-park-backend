@@ -437,10 +437,10 @@ fn grid() -> &'static Vec<(f64, f64)> {
     static G: OnceLock<Vec<(f64, f64)>> = OnceLock::new();
     G.get_or_init(|| {
         let p_lo = sat_pressure_4(ThermodynamicTemperature::new::<kelvin>(273.15)).get::<pascal>();
-        let (lp0, lp1) = (P_GRID_LO_PA.ln(), 100.0e6_f64.ln());
+        let (lp0, lp1) = (P_GRID_LO_PA.r_ln(), 100.0e6_f64.r_ln());
         let mut pts = Vec::new();
         for i in 0..NP {
-            let p_pa = (lp0 + (lp1 - lp0) * i as f64 / (NP - 1) as f64).exp();
+            let p_pa = (lp0 + (lp1 - lp0) * i as f64 / (NP - 1) as f64).r_exp();
             if p_pa < p_lo || p_pa > 100.0e6 {
                 continue;
             }
@@ -504,6 +504,9 @@ fn part_a() -> Vec<(String, usize, u64)> {
         }),
     ];
 
+    // The three probes below (`powi_const`, `powi_runtime`, `std_libm`) call
+    // `std` on purpose: they are canaries for the platform route, so the
+    // workspace-wide PETIR rename (gh:#985) must not touch them.
     // Constant-argument powi: candidates for compile-time folding.
     let mut c = Fnv::new("powi_const");
     for x in [

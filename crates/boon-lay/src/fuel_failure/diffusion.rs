@@ -73,6 +73,7 @@
 //! illustrative. Anyone comparing against Fig. 2 should expect the offset
 //! above and should not "fix" it by tuning.
 
+use petir::mathf::RealMath;
 use uom::si::f64::{Frequency, Ratio, ThermodynamicTemperature};
 use uom::si::frequency::hertz;
 use uom::si::ratio::ratio;
@@ -132,7 +133,7 @@ pub fn reduced_diffusion_coefficient(
         }
         KernelKind::UraniumOxide => -2.30 - 0.8116e4 / t,
     };
-    Frequency::new::<hertz>(10f64.powf(log_ds))
+    Frequency::new::<hertz>(10f64.r_powf(log_ds))
 }
 
 #[cfg(test)]
@@ -144,7 +145,7 @@ mod tests {
         let t = ThermodynamicTemperature::new::<kelvin>(1.0e4 / x);
         reduced_diffusion_coefficient(kernel, t, Ratio::new::<ratio>(f_b))
             .get::<hertz>()
-            .log10()
+            .r_log10()
     }
 
     /// **The (Th,U)O2 correlation reproduces Fig. 2 (page -487-).**
@@ -221,7 +222,7 @@ mod tests {
         ];
         for (x, figure, want_factor) in samples {
             let eq = log_ds(KernelKind::UraniumOxide, x, 0.0);
-            let factor = 10f64.powf(eq - figure);
+            let factor = 10f64.r_powf(eq - figure);
             assert!(
                 (factor - want_factor).abs() / want_factor < 0.10,
                 "10^4/T={x}: equation is {factor:.1}x the figure, expected ~{want_factor}x"
@@ -270,7 +271,7 @@ mod tests {
         );
         assert!(fresh.get::<hertz>().is_finite() && fresh.get::<hertz>() > 0.0);
         // It must equal the no-burnup-term value exactly.
-        assert!((fresh.get::<hertz>().log10() - (-5.94 - 0.5460e4 / 1600.0)).abs() < 1e-12);
+        assert!((fresh.get::<hertz>().r_log10() - (-5.94 - 0.5460e4 / 1600.0)).abs() < 1e-12);
 
         let zero_k = ThermodynamicTemperature::new::<kelvin>(0.0);
         assert_eq!(

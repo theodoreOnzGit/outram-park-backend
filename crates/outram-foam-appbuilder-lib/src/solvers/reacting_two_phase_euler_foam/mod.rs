@@ -108,6 +108,7 @@
 //!   boundary, documented raw `f64` (SI) in the inner assembly loops — per the
 //!   workspace `CLAUDE.md`.
 
+use petir::mathf::RealMath;
 use crate::error::AppBuilderError;
 use crate::io::control_dict::{ControlDict, StartControl, StopControl};
 use crate::io::fv_schemes::FvSchemes;
@@ -256,7 +257,7 @@ impl InterfacialHeatTransfer {
     pub fn nusselt(&self, re: f64, pr: f64) -> f64 {
         match self {
             Self::Spherical => 2.0,
-            Self::RanzMarshall => 2.0 + 0.6 * re.max(0.0).sqrt() * pr.max(0.0).cbrt(),
+            Self::RanzMarshall => 2.0 + 0.6 * re.max(0.0).sqrt() * pr.max(0.0).r_cbrt(),
             Self::ConstantNu(nu) => *nu,
         }
     }
@@ -766,7 +767,7 @@ impl ReactingTwoPhaseEulerFoam {
                 let w: Vec<f64> = (0..n)
                     .map(|c| {
                         let t = t_field.internal[c].max(1.0);
-                        (a_pre * (-e_act / (R_GAS * t)).exp() * rho * yf.internal[c]).max(0.0)
+                        (a_pre * (-e_act / (R_GAS * t)).r_exp() * rho * yf.internal[c]).max(0.0)
                     })
                     .collect();
                 (w, Some(fuel), Some(product))
@@ -1231,7 +1232,7 @@ mod tests {
     fn ranz_marshall_nusselt_hand_value() {
         let m = InterfacialHeatTransfer::RanzMarshall;
         let nu = m.nusselt(100.0, 0.7);
-        let expect = 2.0 + 0.6 * 10.0 * 0.7_f64.cbrt();
+        let expect = 2.0 + 0.6 * 10.0 * 0.7_f64.r_cbrt();
         assert!((nu - expect).abs() < 1e-12, "nu={nu} expect={expect}");
         // Spherical is the Re→0 limit.
         assert_eq!(InterfacialHeatTransfer::Spherical.nusselt(0.0, 0.7), 2.0);

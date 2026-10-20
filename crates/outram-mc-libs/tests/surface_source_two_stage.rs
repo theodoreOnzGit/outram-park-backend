@@ -57,6 +57,7 @@
 //! the recorded weight is shown to propagate by a separate synthetic case that
 //! replays a hand-built bank at weight `0.25` and gets a quarter of the answer.
 
+use petir::mathf::RealMath;
 use std::sync::Arc;
 
 use outram_mc_libs::geometry::cell::{Cell, CellFill, HalfSpaceSense, RegionToken};
@@ -236,7 +237,7 @@ fn a_two_stage_surface_source_run_reproduces_the_single_stage_answer() {
     let r2 = stage2.bins[0].rel_std_dev(N_BATCHES as u64);
 
     // ---- compare ------------------------------------------------------------
-    let sigma = ((t1 * r1).powi(2) + (t2 * r2).powi(2)).sqrt();
+    let sigma = ((t1 * r1).r_powi(2) + (t2 * r2).r_powi(2)).sqrt();
     let diff = (t2 - t1).abs();
     println!(
         "single stage {t1:.6e} (R={r1:.4}); two stage {t2:.6e} (R={r2:.4}); \
@@ -288,7 +289,7 @@ fn a_replayed_crossing_carries_its_recorded_weight() {
             let mu = 2.0 * t - 1.0;
             let phi = 6.283_185_307_179_586 * (t * 7.0).fract();
             let s = (1.0 - mu * mu).max(0.0).sqrt();
-            let (ux, uy, uz) = (s * phi.cos(), s * phi.sin(), mu);
+            let (ux, uy, uz) = (s * phi.r_cos(), s * phi.r_sin(), mu);
             // Sit exactly on the recording surface, moving outward.
             ss.record(SurfaceCrossing {
                 r: Position::new(R1 * ux, R1 * uy, R1 * uz),

@@ -67,6 +67,7 @@
 //! > workspace `RESPONSIBLE_USE.md`. Not for nuclear facility operation,
 //! > reactor control, safety-critical, or licensing decisions.
 
+use petir::mathf::RealMath;
 use crate::laplacian::{edge_weights_from, mesh_triangles, LaplacianWeighting};
 use crate::math::Vec3;
 use crate::mesh::Mesh;
@@ -311,7 +312,7 @@ fn assign_boundary_uv(
         uv[loop_verts[k]] = match shape {
             BoundaryShape::Circle => {
                 let theta = 2.0 * PI * t;
-                (theta.cos(), theta.sin())
+                (theta.r_cos(), theta.r_sin())
             }
             BoundaryShape::Square => square_point(t),
         };

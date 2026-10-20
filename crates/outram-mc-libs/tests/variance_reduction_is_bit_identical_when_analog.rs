@@ -225,6 +225,7 @@
 //! changes nothing. The estimator's unbiasedness is measured separately by
 //! `examples/variance_reduction_ablation.rs`.
 
+use petir::mathf::RealMath;
 use outram_mc_libs::geometry::cell::{Cell, HalfSpaceSense, RegionToken};
 use outram_mc_libs::geometry::geometry::Geometry;
 use outram_mc_libs::geometry::position::Position;
@@ -410,7 +411,7 @@ fn survival_biasing_is_actually_reachable_from_settings() {
     // A sanity bound, deliberately loose: the two are different ESTIMATORS of
     // the same eigenvalue, so they must land in the same neighbourhood. This
     // is not the unbiasedness measurement.
-    let sigma = (analog.k_std.powi(2) + biased.k_std.powi(2)).sqrt();
+    let sigma = (analog.k_std.r_powi(2) + biased.k_std.r_powi(2)).sqrt();
     let dev = (analog.k_mean - biased.k_mean).abs() / sigma;
     println!("difference = {:+.0} pcm ({dev:.2} sigma)", 1.0e5 * (biased.k_mean - analog.k_mean));
     assert!(

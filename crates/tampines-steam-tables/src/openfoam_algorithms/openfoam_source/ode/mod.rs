@@ -26,8 +26,8 @@
 //! caller's `OdeSystem` implementation — this module only sees plain `f64`
 //! state vectors.
 
-/// Explicit first-order adaptive Euler solver.
 use petir::mathf::RealMath;
+/// Explicit first-order adaptive Euler solver.
 
 pub mod euler;
 /// Adaptive embedded Runge-Kutta-Fehlberg 4(5) solver.

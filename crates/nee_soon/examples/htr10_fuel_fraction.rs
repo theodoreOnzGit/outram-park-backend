@@ -60,6 +60,7 @@
 //! *(2026-09-25, two-ball cell, withdrawn:* recorded in
 //! `crates/outram-mc-libs/verification_and_validation/htr10_rmc/README.md`,
 //! section "The two-ball cell".)
+use petir::mathf::RealMath;
 use nee_soon::htr10_rmc::core_model::{
     assemble_explicit_triso, mat, tile_cell_role, TileCellRole, HTR10_CONUS_HEIGHT_CM,
     HTR10_CORE_RADIUS_CM, HTR10_DISCHARGE_TUBE_RADIUS_CM,
@@ -129,7 +130,7 @@ fn main() {
                         let r = r_max * prn().sqrt();
                         let th = 2.0 * PI * prn();
                         let z = z_lo + (z_hi - z_lo) * prn();
-                        let p = Position::new(r * th.cos(), r * th.sin(), z);
+                        let p = Position::new(r * th.r_cos(), r * th.r_sin(), z);
                         let b = (((r / r_max) * NB as f64) as usize).min(NB - 1);
                         tl.bin_tot[b] += 1;
                         let in_bed = z >= -core.bed_half_height;
@@ -222,16 +223,16 @@ fn main() {
         v_balls_bed += above(-core.bed_half_height) - above(z_hi);
         n_fuel += usize::from(bed.is_fuel(id));
     }
-    let v_ball = 4.0 / 3.0 * PI * r_ball.powi(3);
-    let v_fuel_zone = n_fuel as f64 * 4.0 / 3.0 * PI * r_zone.powi(3);
+    let v_ball = 4.0 / 3.0 * PI * r_ball.r_powi(3);
+    let v_fuel_zone = n_fuel as f64 * 4.0 / 3.0 * PI * r_zone.r_powi(3);
     // TRISO: radii and lattice as `core_model` (offset [0.13, 0.37, 0.71] since
     // 2026-10-01, gh:#430: 8335 built). ~~count as BUILT (8340)~~
     let tr = [0.0250_f64, 0.0340, 0.0380, 0.0415, 0.0455];
     let (_, n_part) = cubic_pitch_for_count(tr[4], 2.5, 8335, [0.13, 0.37, 0.71]);
-    let v_zone = 4.0 / 3.0 * PI * 2.5_f64.powi(3);
+    let v_zone = 4.0 / 3.0 * PI * 2.5_f64.r_powi(3);
     let shell_frac = |i: usize| {
         let lo = if i == 0 { 0.0 } else { tr[i - 1] };
-        n_part as f64 * 4.0 / 3.0 * PI * (tr[i].powi(3) - lo.powi(3)) / v_zone
+        n_part as f64 * 4.0 / 3.0 * PI * (tr[i].r_powi(3) - lo.r_powi(3)) / v_zone
     };
     let part_frac: f64 = (0..5).map(shell_frac).sum();
     // Expected fraction of the envelope for each material slot.

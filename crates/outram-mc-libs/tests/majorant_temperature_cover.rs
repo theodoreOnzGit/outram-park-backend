@@ -35,6 +35,7 @@
 //!
 //! Hardware: see the README section.
 
+use petir::mathf::RealMath;
 use njoy_outram_park_fork::leapr::decks::SabMaterial;
 use njoy_outram_park_fork::reference_data::reference_endf_dir;
 use outram_mc_libs::material::material::{Material as LowMaterial, NuclideComponent};
@@ -159,7 +160,7 @@ fn audit(m: &Majorant, sets: &[&Set]) -> (f64, f64, f64) {
 fn overhead(m: &Majorant, s: &Set) -> [f64; 4] {
     let n = 20_000;
     let es: Vec<f64> = (0..n)
-        .map(|i| 1.0e-3 * (2.0e10_f64).powf((i as f64 + 0.5) / n as f64))
+        .map(|i| 1.0e-3 * (2.0e10_f64).r_powf((i as f64 + 0.5) / n as f64))
         .collect();
     let w = |f: &dyn Fn(f64) -> bool| -> Vec<f64> {
         es.iter().map(|&e| if f(e) { 1.0 } else { 0.0 }).collect()
@@ -179,7 +180,7 @@ fn assert_cover_above_table(cover: &Majorant, table: &Majorant) {
     // 1e-6 relative neighbours of each.
     let n = 400_000;
     for i in 0..=n {
-        let e = 1.0e-5 * (2.0e12_f64).powf(i as f64 / n as f64);
+        let e = 1.0e-5 * (2.0e12_f64).r_powf(i as f64 / n as f64);
         for f in [1.0 - 1e-6, 1.0, 1.0 + 1e-6] {
             let x = e * f;
             assert!(
@@ -459,7 +460,7 @@ fn advanced_cover_reaches_the_region_majorant_and_bounds_the_table() {
     assert_eq!(table.cover_bands(), 0, "the default is the table");
     assert!(cover.cover_bands() >= 1);
     for i in 0..=20_000 {
-        let e = 1.0e-5 * (2.0e12_f64).powf(i as f64 / 20_000.0);
+        let e = 1.0e-5 * (2.0e12_f64).r_powf(i as f64 / 20_000.0);
         assert!(cover.at(e) >= table.at(e) * (1.0 - 1e-12), "at {e}");
     }
 }

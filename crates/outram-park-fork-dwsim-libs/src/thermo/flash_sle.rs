@@ -117,6 +117,7 @@
 //! > safety-critical use. AI-assisted draft — untrusted until human-reviewed per
 //! > the crate `CLAUDE.md`.
 
+use petir::mathf::RealMath;
 use crate::thermo::activity::ActivityModel;
 
 /// CODATA molar gas constant `R = 8.314 462 618 153 24 J/(mol·K)`.
@@ -163,7 +164,7 @@ pub fn ideal_solubility(fusion_enthalpy: f64, fusion_temperature: f64, temperatu
     }
     // -(dH/R)(1/T - 1/Tf) == -(dH/(R T))(1 - T/Tf); DWSIM writes the latter form.
     let a =
-        (-fusion_enthalpy / (R_GAS * temperature) * (1.0 - temperature / fusion_temperature)).exp();
+        (-fusion_enthalpy / (R_GAS * temperature) * (1.0 - temperature / fusion_temperature)).r_exp();
     if a.is_finite() {
         a
     } else {
@@ -597,7 +598,7 @@ mod tests {
     #[test]
     fn ideal_solubility_matches_vant_hoff() {
         let t = 320.0;
-        let closed = (-HF_A / R_GAS * (1.0 / t - 1.0 / TF_A)).exp();
+        let closed = (-HF_A / R_GAS * (1.0 / t - 1.0 / TF_A)).r_exp();
         let got = ideal_solubility(HF_A, TF_A, t);
         assert!((got - closed).abs() < 1e-12, "got {got}, closed {closed}");
         assert!((got - 0.559_963_0).abs() < 1e-6, "got {got}");

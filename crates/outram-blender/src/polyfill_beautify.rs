@@ -584,6 +584,7 @@ pub fn edge_rotate_cost_3d(v1: Vec3, v2: Vec3, v3: Vec3, v4: Vec3, lock_degenera
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
     use crate::polyfill::polyfill_2d;
 
@@ -719,7 +720,7 @@ mod tests {
         let coords: Vec<[f64; 2]> = (0..n)
             .map(|i| {
                 let t = std::f64::consts::TAU * (i as f64) / (n as f64);
-                [t.cos(), t.sin()]
+                [t.r_cos(), t.r_sin()]
             })
             .collect();
         let mut tris = polyfill_2d(&coords);

@@ -37,6 +37,7 @@
 //! All pass; counts and `k` values are printed by the tests (not physics
 //! results: LOW tier, tiny runs).
 
+use petir::mathf::RealMath;
 #[path = "../examples/common/seker_bed_model.rs"]
 #[allow(dead_code)]
 mod seker_bed_model;
@@ -84,12 +85,12 @@ enum Site {
 /// `SekerCell::site_centre`, for 6 cm balls (`bed.rs`).
 fn site_centre(site: Site) -> [f64; 3] {
     let d = 6.0_f64;
-    let apothem = d * (std::f64::consts::PI / 6.0).cos() + 0.5 * d;
+    let apothem = d * (std::f64::consts::PI / 6.0).r_cos() + 0.5 * d;
     let pitch = 2.0 * apothem;
     let h = 2.0 * (d * (2.0_f64 / 3.0).sqrt());
     let polar = |rho: f64, deg: f64, z: f64| {
         let t = deg.to_radians();
-        [rho * t.cos(), rho * t.sin(), z]
+        [rho * t.r_cos(), rho * t.r_sin(), z]
     };
     let flower = |k: u8, z: f64| {
         if k == 0 {
@@ -177,7 +178,7 @@ fn segment_distance(px: f64, pz: f64, a: [f64; 2], b: [f64; 2]) -> f64 {
     } else {
         0.0
     };
-    (px - a[0] - t * dx).hypot(pz - a[1] - t * dz)
+    (px - a[0] - t * dx).r_hypot(pz - a[1] - t * dz)
 }
 
 /// The cavity the hand-built bed fills.
@@ -257,7 +258,7 @@ impl Hand {
     /// `SekerBed::containment`: whole, and centre inside.
     fn containment(&self, c: [f64; 3]) -> (bool, bool) {
         let cv = self.cavity;
-        let (rho, z) = (c[0].hypot(c[1]), c[2]);
+        let (rho, z) = (c[0].r_hypot(c[1]), c[2]);
         let cone_bottom = -cv.cone;
         let tube_bottom = cone_bottom - cv.tube;
         let p = [
@@ -284,7 +285,7 @@ impl Hand {
 
     fn new(cavity: Cavity, top: f64, fraction: f64) -> Self {
         let h = 2.0 * (6.0 * (2.0_f64 / 3.0).sqrt());
-        let apothem = 6.0 * (std::f64::consts::PI / 6.0).cos() + 3.0;
+        let apothem = 6.0 * (std::f64::consts::PI / 6.0).r_cos() + 3.0;
         let pitch = 2.0 * apothem;
         let face0 = 0.0 + 3.0;
         let bottom = -cavity.cone - cavity.tube;
@@ -349,7 +350,7 @@ impl Hand {
                 eligible.push((
                     layer(id),
                     ((x * x + y * y) * 1.0e6).round() as i64,
-                    y.atan2(x),
+                    y.r_atan2(x),
                     id,
                 ));
             }
@@ -409,8 +410,8 @@ const NEE_SOON: [(usize, usize, usize, usize, usize); 5] = [
 /// A library of incident-neutron headers (masses only).
 fn header_only_library() -> NuclearData {
     let endf = |x: f64| {
-        let e = x.abs().log10().floor() as i32;
-        format!("{:.6}{e:+}", x / 10f64.powi(e))
+        let e = x.abs().r_log10().floor() as i32;
+        format!("{:.6}{e:+}", x / 10f64.r_powi(e))
     };
     let tape = |za: f64, awr: f64| {
         format!(

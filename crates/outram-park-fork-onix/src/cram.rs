@@ -246,6 +246,7 @@ pub fn clamp_nonnegative(n: &mut [f64], threshold: f64) -> usize {
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
 
     /// Verification (implementation-correctness): a single decaying nuclide
@@ -260,7 +261,7 @@ mod tests {
         let mut a = BurnupMatrix::zeros(1);
         a.set(0, 0, -1e-3);
         let n = cram16(&a, 500.0, &[1.0]).unwrap();
-        let reference = (-0.5f64).exp();
+        let reference = (-0.5f64).r_exp();
         assert!(
             (n[0] - reference).abs() < 1e-12,
             "got {}, ref {}",

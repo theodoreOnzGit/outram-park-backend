@@ -35,6 +35,7 @@
 //! / discontinuity conventions including the `shade` extrapolation just past
 //! the last point.
 
+use petir::mathf::RealMath;
 use crate::groupr::kinematics::legndr;
 use crate::NjoyError;
 
@@ -162,7 +163,7 @@ pub fn gtff_coherent(e: f64, egg: &[f64], nl: usize, ff_table: &PhotonTab1) -> P
     let (mut snow, mut xnext, _) = ff_table.terpa(xnow);
     let fact = 2.0 * C2 / (C1 * C1 * e * e);
     let xlim = 2.0f64.sqrt() * C1 * e;
-    let c1e = 1.0 / (C1 * e).powi(2);
+    let c1e = 1.0 / (C1 * e).r_powi(2);
     let mut arg = vec![2.0 * snow * snow; nl];
     let stest = TOLER * snow;
     let nq = if nl > 4 { 10 } else { 6 };
@@ -229,7 +230,7 @@ pub fn gtff_incoherent(e: f64, egg: &[f64], nl: usize, sf_table: &PhotonTab1) ->
     let mut pnow = enow;
     let mut xnow = 0.0f64;
     let xzz = C5 * (enow / 500.0).sqrt();
-    let q2m = (2.0 * enow * (1.0 + enow) / (1.0 + 2.0 * enow)).powi(2);
+    let q2m = (2.0 * enow * (1.0 + enow) / (1.0 + 2.0 * enow)).r_powi(2);
     let use_table = xzz <= zz;
     let (mut snow, mut xnext) = if use_table {
         let (s, xn, _) = sf_table.terpa(xnow);
@@ -257,7 +258,7 @@ pub fn gtff_incoherent(e: f64, egg: &[f64], nl: usize, sf_table: &PhotonTab1) ->
     loop {
         // Panel upper bound in mu from the S(x) grid (`:1330-1349`).
         loop {
-            let q2 = (C4 * xnext).powi(2);
+            let q2 = (C4 * xnext).r_powi(2);
             unext = -1.0;
             if q2 > q2m {
                 break;
@@ -464,7 +465,7 @@ mod tests {
             interp: vec![(xs.len() as u32, 2)],
             pairs: xs
                 .iter()
-                .map(|&x| (x, z / (1.0 + (x / 0.6f64).powi(2)).powi(2)))
+                .map(|&x| (x, z / (1.0 + (x / 0.6f64).r_powi(2)).r_powi(2)))
                 .collect(),
         }
     }
@@ -508,7 +509,7 @@ mod tests {
             interp: vec![(xs.len() as u32, 2)],
             pairs: xs
                 .iter()
-                .map(|&x| (x, 6.0 / (1.0 + (x / 0.6f64).powi(2)).powi(2)))
+                .map(|&x| (x, 6.0 / (1.0 + (x / 0.6f64).r_powi(2)).r_powi(2)))
                 .collect(),
         };
         let egg = [10.0, 1.0e3, 1.0e4];

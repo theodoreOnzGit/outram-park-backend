@@ -454,6 +454,7 @@ mod tests {
     //! and no comparison against a DWSIM benchmark case.
     //!
     //! **Results (2026-08-11, release build):** recorded per test.
+    use petir::mathf::RealMath;
 
     use super::*;
     use crate::flowsheet::ObjectType;
@@ -625,7 +626,7 @@ mod tests {
         let (sf, sp) = (feed.clone(), product.clone());
         let mut resolve = move |fs: &mut Flowsheet| -> Result<(), SolverError> {
             let w = FlowsheetVariable::MassFlow.get(fs, &sf)?;
-            FlowsheetVariable::Temperature.set(fs, &sp, 300.0 + 50.0 * w.tanh())
+            FlowsheetVariable::Temperature.set(fs, &sp, 300.0 + 50.0 * w.r_tanh())
         };
 
         let err = solve_simultaneous_adjusts(&mut fs, &adjusts, &mut resolve, &AbortFlag::new())

@@ -55,6 +55,7 @@
 //!    arguments **swapped**. That is a defect of the caller, not of this
 //!    function; see [`crate::petroleum::generate_compounds`].
 
+use petir::mathf::RealMath;
 use uom::si::f64::{KinematicViscosity, MolarMass, Pressure, Ratio, ThermodynamicTemperature};
 use uom::si::kinematic_viscosity::square_meter_per_second;
 use uom::si::molar_mass::gram_per_mole;
@@ -101,7 +102,7 @@ pub fn tc_riazi_daubert(
     let d = d15.get::<ratio>();
     let exponent = -0.0009314 * t - 0.544442 * d + 0.00064791 * t * d;
     ThermodynamicTemperature::new::<kelvin>(
-        9.5233 * exponent.exp() * t.powf(0.81067) * d.powf(0.53691),
+        9.5233 * exponent.r_exp() * t.r_powf(0.81067) * d.r_powf(0.53691),
     )
 }
 
@@ -123,7 +124,7 @@ pub fn tc_riazi_2005(
     let d = d15.get::<ratio>();
     let exponent = -0.00069 * t - 1.4442 * d + 0.000491 * t * d;
     ThermodynamicTemperature::new::<kelvin>(
-        35.9413 * exponent.exp() * t.powf(0.7293) * d.powf(1.2771),
+        35.9413 * exponent.r_exp() * t.r_powf(0.7293) * d.r_powf(1.2771),
     )
 }
 
@@ -224,7 +225,7 @@ pub fn pc_riazi_daubert(pem_e: ThermodynamicTemperature, d15: SpecificGravity) -
     let t = pem_e.get::<kelvin>();
     let d = d15.get::<ratio>();
     let exponent = -0.008505 * t - 4.8014 * d + 0.005749 * t * d;
-    Pressure::new::<pascal>(31_958_000_000.0 * exponent.exp() * t.powf(-0.4844) * d.powf(4.0846))
+    Pressure::new::<pascal>(31_958_000_000.0 * exponent.r_exp() * t.r_powf(-0.4844) * d.r_powf(4.0846))
 }
 
 /// Critical pressure by the **Lee-Kesler (1976)** correlation, **as written
@@ -260,10 +261,10 @@ pub fn pc_riazi_daubert(pem_e: ThermodynamicTemperature, d15: SpecificGravity) -
 pub fn pc_lee_kesler(pem_e: ThermodynamicTemperature, d15: SpecificGravity) -> Pressure {
     let t = pem_e.get::<kelvin>();
     let d = d15.get::<ratio>();
-    let exponent = 5.689 - 0.0566 / d - (0.43639 + 4.1216 / d + 0.21343 / d.powi(2)) * 0.001 * t
-        + (0.47579 + 1.182 / d + 0.15302 / d.powi(2)) * 0.000_001 * t.powi(2)
-        - (2.4505 + 9.9099 / d.powi(2)) * 0.000_000_000_1 * t.powi(3);
-    Pressure::new::<pascal>(1_000_000.0 * 0.986923 * exponent.exp())
+    let exponent = 5.689 - 0.0566 / d - (0.43639 + 4.1216 / d + 0.21343 / d.r_powi(2)) * 0.001 * t
+        + (0.47579 + 1.182 / d + 0.15302 / d.r_powi(2)) * 0.000_001 * t.r_powi(2)
+        - (2.4505 + 9.9099 / d.r_powi(2)) * 0.000_000_000_1 * t.r_powi(3);
+    Pressure::new::<pascal>(1_000_000.0 * 0.986923 * exponent.r_exp())
 }
 
 /// Critical pressure by **Farah (2006)**, two-parameter form:
@@ -274,7 +275,7 @@ pub fn pc_lee_kesler(pem_e: ThermodynamicTemperature, d15: SpecificGravity) -> P
 /// non-positive number), exactly as upstream.
 #[must_use]
 pub fn pc_farah_ab(a: f64, b: f64) -> Pressure {
-    Pressure::new::<pascal>((20.0056 - 9.8758 * a.ln() + 12.2326 * b.ln()).exp())
+    Pressure::new::<pascal>((20.0056 - 9.8758 * a.r_ln() + 12.2326 * b.r_ln()).r_exp())
 }
 
 /// Critical pressure by **Farah (2006)**, three-parameter form:
@@ -284,7 +285,7 @@ pub fn pc_farah_ab(a: f64, b: f64) -> Pressure {
 #[must_use]
 pub fn pc_farah_ab_tb(a: f64, b: f64, pem_e: ThermodynamicTemperature) -> Pressure {
     Pressure::new::<pascal>(
-        (11.2037 - 0.5484 * a + 1.9242 * b + 510.1272 / pem_e.get::<kelvin>()).exp(),
+        (11.2037 - 0.5484 * a + 1.9242 * b + 510.1272 / pem_e.get::<kelvin>()).r_exp(),
     )
 }
 
@@ -304,9 +305,9 @@ pub fn pc_farah_ab_tb_sg(
     d15: SpecificGravity,
 ) -> Pressure {
     Pressure::new::<pascal>(
-        (28.7605 + 0.7158 * a.ln() - 0.2796 * b.ln() + 2.3129 * d15.get::<ratio>().ln()
-            - 2.4027 * pem_e.get::<kelvin>().ln())
-        .exp(),
+        (28.7605 + 0.7158 * a.r_ln() - 0.2796 * b.r_ln() + 2.3129 * d15.get::<ratio>().r_ln()
+            - 2.4027 * pem_e.get::<kelvin>().r_ln())
+        .r_exp(),
     )
 }
 
@@ -339,9 +340,9 @@ pub fn acentric_factor_lee_kesler(
 ) -> AcentricFactor {
     let tbr = pemm.get::<kelvin>() / tc.get::<kelvin>();
     let numerator =
-        -(pc.get::<pascal>() / 101_325.0).ln() - 5.92714 + 6.09648 / tbr + 1.28862 * tbr.ln()
-            - 0.169347 * tbr.powi(6);
-    let denominator = 15.2518 - 15.6875 / tbr - 13.4721 * tbr.ln() + 0.43577 * tbr.powi(6);
+        -(pc.get::<pascal>() / 101_325.0).r_ln() - 5.92714 + 6.09648 / tbr + 1.28862 * tbr.r_ln()
+            - 0.169347 * tbr.r_powi(6);
+    let denominator = 15.2518 - 15.6875 / tbr - 13.4721 * tbr.r_ln() + 0.43577 * tbr.r_powi(6);
     Ratio::new::<ratio>(numerator / denominator)
 }
 
@@ -361,7 +362,7 @@ pub fn acentric_factor_korsten(
 ) -> AcentricFactor {
     let tbr = pemv.get::<kelvin>() / tc.get::<kelvin>();
     Ratio::new::<ratio>(
-        0.5899 * tbr.powf(1.3) / (1.0 - tbr.powf(1.3)) * (pc.get::<pascal>() / 101_325.0).log10()
+        0.5899 * tbr.r_powf(1.3) / (1.0 - tbr.r_powf(1.3)) * (pc.get::<pascal>() / 101_325.0).r_log10()
             - 1.0,
     )
 }
@@ -380,7 +381,7 @@ pub fn acentric_factor_korsten(
 pub fn mw_winn(pem_e: ThermodynamicTemperature, d15: SpecificGravity) -> MolarMass {
     let t = pem_e.get::<kelvin>();
     let d = d15.get::<ratio>();
-    MolarMass::new::<gram_per_mole>(0.00005805 * t.powf(2.3776) / d.powf(0.9371))
+    MolarMass::new::<gram_per_mole>(0.00005805 * t.r_powf(2.3776) / d.r_powf(0.9371))
 }
 
 /// Molecular weight by **Riazi's (1986)** `Tb`/`SG` correlation:
@@ -396,7 +397,7 @@ pub fn mw_riazi(pem_e: ThermodynamicTemperature, d15: SpecificGravity) -> MolarM
     let t = pem_e.get::<kelvin>();
     let d = d15.get::<ratio>();
     let exponent = 0.0002097 * t - 7.78 * d + 0.00208476 * t * d;
-    MolarMass::new::<gram_per_mole>(42.965 * exponent.exp() * t.powf(1.26007) * d.powf(4.98308))
+    MolarMass::new::<gram_per_mole>(42.965 * exponent.r_exp() * t.r_powf(1.26007) * d.r_powf(4.98308))
 }
 
 /// Molecular weight by **Riazi's (1986)** *viscosity-based* correlation for
@@ -424,7 +425,7 @@ pub fn mw_riazi_viscosity(
     let b = v98.get::<square_meter_per_second>();
     let d = d15.get::<ratio>();
     MolarMass::new::<gram_per_mole>(
-        223.56 * a.powf(1.2228 * d - 1.2435) * b.powf(-3.038 * d + 3.4758) * d.powf(-0.6665),
+        223.56 * a.r_powf(1.2228 * d - 1.2435) * b.r_powf(-3.038 * d + 3.4758) * d.r_powf(-0.6665),
     )
 }
 
@@ -444,10 +445,10 @@ pub fn mw_lee_kesler(pem_e: ThermodynamicTemperature, d15: SpecificGravity) -> M
     let t = pem_e.get::<kelvin>();
     let d = d15.get::<ratio>();
     let t1 = -12272.6 + 9486.4 * d + (8.3741 - 5.9917 * d) * t;
-    let t2 = (1.0 - 0.77084 * d - 0.02058 * d.powi(2)) * (0.7465 - 222.466 / t) * 10_000_000.0 / t;
+    let t2 = (1.0 - 0.77084 * d - 0.02058 * d.r_powi(2)) * (0.7465 - 222.466 / t) * 10_000_000.0 / t;
     let t3 =
-        (1.0 - 0.80882 * d - 0.02226 * d.powi(2)) * (0.3228 - 17.335 / t) * 1_000_000_000_000.0
-            / t.powi(3);
+        (1.0 - 0.80882 * d - 0.02226 * d.r_powi(2)) * (0.3228 - 17.335 / t) * 1_000_000_000_000.0
+            / t.r_powi(3);
     MolarMass::new::<gram_per_mole>(t1 + t2 + t3)
 }
 
@@ -458,7 +459,7 @@ pub fn mw_lee_kesler(pem_e: ThermodynamicTemperature, d15: SpecificGravity) -> M
 /// **Valid range** (upstream remark, `:242`): `M` between 72 and 500 kg/kmol.
 #[must_use]
 pub fn mw_farah_ab(a: f64, b: f64) -> MolarMass {
-    MolarMass::new::<gram_per_mole>((6.8117 + 1.3372 * a - 3.6283 * b).exp())
+    MolarMass::new::<gram_per_mole>((6.8117 + 1.3372 * a - 3.6283 * b).r_exp())
 }
 
 /// Molecular weight by **Farah (2006)**, four-parameter form:
@@ -477,7 +478,7 @@ pub fn mw_farah_ab_sg_tb(
     MolarMass::new::<gram_per_mole>(
         (4.0397 + 0.1362 * a - 0.3406 * b - 0.9988 * d15.get::<ratio>()
             + 0.0039 * pem_e.get::<kelvin>())
-        .exp(),
+        .r_exp(),
     )
 }
 
@@ -506,13 +507,13 @@ pub fn mw_farah_ab_sg_tb(
 pub fn visc37_abbott(pem_e: ThermodynamicTemperature, d15: SpecificGravity) -> KinematicViscosity {
     let t = pem_e.get::<kelvin>();
     let d = d15.get::<ratio>();
-    let kw = (1.8 * t).powf(1.0 / 3.0) / d;
+    let kw = (1.8 * t).r_powf(1.0 / 3.0) / d;
     let api = 141.5 / d - 131.5;
-    let log_v = 4.39371 - 1.94733 * kw + 0.12769 * kw.powi(2) + 0.00032629 * api.powi(2)
+    let log_v = 4.39371 - 1.94733 * kw + 0.12769 * kw.r_powi(2) + 0.00032629 * api.r_powi(2)
         - 0.0118246 * kw * api
-        + (0.171617 * kw.powi(2) + 10.9943 * api + 0.0950663 * api.powi(2) - 0.860218 * kw * api)
+        + (0.171617 * kw.r_powi(2) + 10.9943 * api + 0.0950663 * api.r_powi(2) - 0.860218 * kw * api)
             / (api + 50.3642 - 4.78231 * kw);
-    KinematicViscosity::new::<square_meter_per_second>(10.0_f64.powf(log_v) * 0.000_001)
+    KinematicViscosity::new::<square_meter_per_second>(10.0_f64.r_powf(log_v) * 0.000_001)
 }
 
 /// Kinematic viscosity at **98.9 °C (210 °F)** by **Abbott's (1971)** method.
@@ -530,11 +531,11 @@ pub fn visc37_abbott(pem_e: ThermodynamicTemperature, d15: SpecificGravity) -> K
 pub fn visc98_abbott(pem_e: ThermodynamicTemperature, d15: SpecificGravity) -> KinematicViscosity {
     let t = pem_e.get::<kelvin>();
     let d = d15.get::<ratio>();
-    let kw = (1.8 * t).powf(1.0 / 3.0) / d;
+    let kw = (1.8 * t).r_powf(1.0 / 3.0) / d;
     let api = 141.5 / d - 131.5;
-    let log_v = -0.463634 - 0.166532 * api + 0.000513447 * api.powi(2) - 0.00848995 * api * kw
-        + (0.080325 * kw + 1.24899 * api + 0.19768 * api.powi(2)) / (api + 26.786 - 2.6296 * kw);
-    KinematicViscosity::new::<square_meter_per_second>(10.0_f64.powf(log_v) * 0.000_001)
+    let log_v = -0.463634 - 0.166532 * api + 0.000513447 * api.r_powi(2) - 0.00848995 * api * kw
+        + (0.080325 * kw + 1.24899 * api + 0.19768 * api.r_powi(2)) / (api + 26.786 - 2.6296 * kw);
+    KinematicViscosity::new::<square_meter_per_second>(10.0_f64.r_powf(log_v) * 0.000_001)
 }
 
 /// Kinematic viscosity at an arbitrary temperature by **Beg and Amin's (1989)**
@@ -557,9 +558,9 @@ pub fn visc_t_beg_amin(
     let t = temperature.get::<kelvin>();
     let t50 = t50_astm.get::<kelvin>();
     let api = 141.5 / d15.get::<ratio>() - 131.5;
-    let b = (5.471 + 0.00342 * t50).exp();
-    let a = -0.0339 * api.powf(0.188) + 0.241 * t50 / b;
-    KinematicViscosity::new::<square_meter_per_second>(a * (b / t).exp() * 0.000_001)
+    let b = (5.471 + 0.00342 * t50).r_exp();
+    let a = -0.0339 * api.r_powf(0.188) + 0.241 * t50 / b;
+    KinematicViscosity::new::<square_meter_per_second>(a * (b / t).r_exp() * 0.000_001)
 }
 
 /// The **A-parameter of the Walther-ASTM** viscosity-temperature equation,
@@ -577,8 +578,8 @@ pub fn visc_walther_astm_a(
     t2: ThermodynamicTemperature,
     v2: KinematicViscosity,
 ) -> f64 {
-    let tt1 = t1.get::<kelvin>().log10();
-    let tt2 = t2.get::<kelvin>().log10();
+    let tt1 = t1.get::<kelvin>().r_log10();
+    let tt2 = t2.get::<kelvin>().r_log10();
     let vc1 = v1.get::<square_meter_per_second>() * 1_000_000.0;
     let vc2 = v2.get::<square_meter_per_second>() * 1_000_000.0;
     let logz1 = calc_log_z(vc1);
@@ -600,8 +601,8 @@ pub fn visc_walther_astm_b(
     t2: ThermodynamicTemperature,
     v2: KinematicViscosity,
 ) -> f64 {
-    let tt1 = t1.get::<kelvin>().log10();
-    let tt2 = t2.get::<kelvin>().log10();
+    let tt1 = t1.get::<kelvin>().r_log10();
+    let tt2 = t2.get::<kelvin>().r_log10();
     let vc1 = v1.get::<square_meter_per_second>() * 1_000_000.0;
     let vc2 = v2.get::<square_meter_per_second>() * 1_000_000.0;
     (calc_log_z(vc2) - calc_log_z(vc1)) / (tt1 - tt2)
@@ -617,22 +618,22 @@ pub fn visc_walther_astm_b(
 fn calc_log_z(vc: f64) -> f64 {
     let (mut c, mut d, mut e, mut f, mut g, mut h) = (0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
     if vc < 2.0 {
-        c = (-1.14883 - 2.65868 * vc).exp();
+        c = (-1.14883 - 2.65868 * vc).r_exp();
         if vc < 1.65 {
-            d = (-0.0038138 - 12.5645 * vc).exp();
+            d = (-0.0038138 - 12.5645 * vc).r_exp();
             if vc < 0.9 {
-                e = (5.46491 - 37.6289 * vc).exp();
+                e = (5.46491 - 37.6289 * vc).r_exp();
                 if vc < 0.3 {
-                    f = (13.0458 - 74.6851 * vc).exp();
-                    g = (37.4619 - 192.643 * vc).exp();
+                    f = (13.0458 - 74.6851 * vc).r_exp();
+                    g = (37.4619 - 192.643 * vc).r_exp();
                     if vc < 0.24 {
-                        h = (80.4945 - 400.468 * vc).exp();
+                        h = (80.4945 - 400.468 * vc).r_exp();
                     }
                 }
             }
         }
     }
-    (vc + 0.7 + c - d + e - f + g - h).log10().log10()
+    (vc + 0.7 + c - d + e - f + g - h).r_log10().r_log10()
 }
 
 /// Kinematic viscosity at an arbitrary temperature by **Twu's method**,
@@ -664,14 +665,14 @@ pub fn visc_twu(
     let tt1 = 1.8 * t1.get::<kelvin>();
     let tt2 = 1.8 * t2.get::<kelvin>();
 
-    let z1 = vk1 + 0.7 + (-1.47 - 1.84 * vk1 - 0.51 * vk1.powi(2)).exp();
-    let z2 = vk2 + 0.7 + (-1.47 - 1.84 * vk2 - 0.51 * vk2.powi(2)).exp();
+    let z1 = vk1 + 0.7 + (-1.47 - 1.84 * vk1 - 0.51 * vk1.r_powi(2)).r_exp();
+    let z2 = vk2 + 0.7 + (-1.47 - 1.84 * vk2 - 0.51 * vk2.r_powi(2)).r_exp();
 
-    let b = (z1.ln().ln() - z2.ln().ln()) / (tt1.ln() - tt2.ln());
-    let z = (z1.ln().ln() + b * (t.ln() - tt1.ln())).exp().exp();
+    let b = (z1.r_ln().r_ln() - z2.r_ln().r_ln()) / (tt1.r_ln() - tt2.r_ln());
+    let z = (z1.r_ln().r_ln() + b * (t.r_ln() - tt1.r_ln())).r_exp().r_exp();
 
     let w = z - 0.7;
-    let v = w - (-0.7487 - 3.295 * w + 0.6119 * w.powi(2) - 0.3193 * w.powi(3)).exp();
+    let v = w - (-0.7487 - 3.295 * w + 0.6119 * w.r_powi(2) - 0.3193 * w.r_powi(3)).r_exp();
     KinematicViscosity::new::<square_meter_per_second>(v * 0.000_001)
 }
 
@@ -688,7 +689,7 @@ pub fn visc_twu(
 pub fn d15_from_viscosities(v37: KinematicViscosity, v98: KinematicViscosity) -> SpecificGravity {
     let vc37 = v37.get::<square_meter_per_second>() * 1_000_000.0;
     let vc98 = v98.get::<square_meter_per_second>() * 1_000_000.0;
-    Ratio::new::<ratio>(0.7717 * vc37.powf(0.1157) * vc98.powf(-0.1616))
+    Ratio::new::<ratio>(0.7717 * vc37.r_powf(0.1157) * vc98.r_powf(-0.1616))
 }
 
 /// Convert specific gravity at 15.6 °C to specific gravity at 20 °C.
@@ -703,9 +704,9 @@ pub fn d15_from_viscosities(v37: KinematicViscosity, v98: KinematicViscosity) ->
 pub fn d20_from_d15(d15: SpecificGravity) -> SpecificGravity {
     let d = d15.get::<ratio>();
     let out = if d < 0.934 {
-        -0.0166 * d.powi(2) + 1.0311 * d - 0.0182
+        -0.0166 * d.r_powi(2) + 1.0311 * d - 0.0182
     } else {
-        1.2394 * d.powi(3) - 3.7387 * d.powi(2) + 4.7524 * d - 1.2566
+        1.2394 * d.r_powi(3) - 3.7387 * d.r_powi(2) + 4.7524 * d - 1.2566
     };
     Ratio::new::<ratio>(out)
 }
@@ -720,9 +721,9 @@ pub fn d20_from_d15(d15: SpecificGravity) -> SpecificGravity {
 pub fn d15_from_d20(d20: SpecificGravity) -> SpecificGravity {
     let d = d20.get::<ratio>();
     let out = if d < 0.639 {
-        0.0638 * d.powi(2) + 0.8769 * d + 0.0628
+        0.0638 * d.r_powi(2) + 0.8769 * d + 0.0628
     } else {
-        0.0156 * d.powi(2) + 0.9706 * d + 0.0175
+        0.0156 * d.r_powi(2) + 0.9706 * d + 0.0175
     };
     Ratio::new::<ratio>(out)
 }
@@ -739,7 +740,7 @@ pub fn d15_from_d20(d20: SpecificGravity) -> SpecificGravity {
 #[must_use]
 pub fn d15_riazi(mw: MolarMass) -> SpecificGravity {
     let m = mw.get::<gram_per_mole>();
-    Ratio::new::<ratio>(1.07 - (3.56073 - 2.93886 * m.powf(0.1)).exp())
+    Ratio::new::<ratio>(1.07 - (3.56073 - 2.93886 * m.r_powf(0.1)).r_exp())
 }
 
 /// Invert [`d15_riazi`]: molecular weight from specific gravity,
@@ -754,7 +755,7 @@ pub fn d15_riazi(mw: MolarMass) -> SpecificGravity {
 #[must_use]
 pub fn mw_from_d15_riazi(d15: SpecificGravity) -> MolarMass {
     let sg = d15.get::<ratio>();
-    MolarMass::new::<gram_per_mole>((((1.07 - sg).ln() - 3.56073) / -2.93886).powi(10))
+    MolarMass::new::<gram_per_mole>((((1.07 - sg).r_ln() - 3.56073) / -2.93886).r_powi(10))
 }
 
 /// Normal boiling point from molecular weight, the Riazi-Al-Sahhaf SCN
@@ -769,7 +770,7 @@ pub fn mw_from_d15_riazi(d15: SpecificGravity) -> MolarMass {
 #[must_use]
 pub fn tb_from_mw_riazi(mw: MolarMass) -> ThermodynamicTemperature {
     let m = mw.get::<gram_per_mole>();
-    ThermodynamicTemperature::new::<kelvin>(1080.0 - (6.97996 - 0.01964 * m.powf(2.0 / 3.0)).exp())
+    ThermodynamicTemperature::new::<kelvin>(1080.0 - (6.97996 - 0.01964 * m.r_powf(2.0 / 3.0)).r_exp())
 }
 
 /// Invert [`tb_from_mw_riazi`]: molecular weight from normal boiling point,
@@ -781,7 +782,7 @@ pub fn tb_from_mw_riazi(mw: MolarMass) -> ThermodynamicTemperature {
 #[must_use]
 pub fn mw_from_tb_riazi(tb: ThermodynamicTemperature) -> MolarMass {
     let t = tb.get::<kelvin>();
-    MolarMass::new::<gram_per_mole>((1.0 / 0.01964 * (6.97996 - (1080.0 - t).ln())).powf(1.5))
+    MolarMass::new::<gram_per_mole>((1.0 / 0.01964 * (6.97996 - (1080.0 - t).r_ln())).r_powf(1.5))
 }
 
 /// The Watson (UOP) characterisation factor `K_w = (1.8·Tb)^(1/3) / SG` [-].
@@ -794,7 +795,7 @@ pub fn mw_from_tb_riazi(tb: ThermodynamicTemperature) -> MolarMass {
 /// ≈10 for highly aromatic.
 #[must_use]
 pub fn watson_k(tb: ThermodynamicTemperature, d15: SpecificGravity) -> WatsonK {
-    Ratio::new::<ratio>((1.8 * tb.get::<kelvin>()).powf(1.0 / 3.0) / d15.get::<ratio>())
+    Ratio::new::<ratio>((1.8 * tb.get::<kelvin>()).r_powf(1.0 / 3.0) / d15.get::<ratio>())
 }
 
 /// API gravity from specific gravity at 60 °F: `API = 141.5/SG − 131.5` [-].
@@ -993,7 +994,7 @@ mod tests {
         let b = visc_walther_astm_b(t1, v1, t2, v2);
         for (t, v) in [(t1, v1), (t2, v2)] {
             let logz = calc_log_z(v.get::<square_meter_per_second>() * 1.0e6);
-            let predicted = a - b * t.get::<kelvin>().log10();
+            let predicted = a - b * t.get::<kelvin>().r_log10();
             assert!(
                 (predicted - logz).abs() < 1.0e-10,
                 "Walther closure: {predicted} vs {logz}"

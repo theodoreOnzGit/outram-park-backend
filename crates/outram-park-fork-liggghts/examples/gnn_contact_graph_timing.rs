@@ -49,6 +49,7 @@
 //! the exact edge-count agreement above is the check that it would be the same
 //! graph.
 
+use petir::mathf::RealMath;
 use outram_park_fork_liggghts::gnn_bridge;
 use outram_park_fork_liggghts::particle::{Particle, Vec3};
 use uom::si::f64::{Length, Mass, ThermodynamicTemperature};
@@ -59,7 +60,7 @@ fn main() {
     let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../reference-data/liggghts/htr10_settled.csv");
     let text = std::fs::read_to_string(path).expect("htr10_settled.csv");
-    let mass = RHO * 4.0 / 3.0 * std::f64::consts::PI * R_P.powi(3);
+    let mass = RHO * 4.0 / 3.0 * std::f64::consts::PI * R_P.r_powi(3);
     let t0 = std::time::Instant::now();
     let ps: Vec<Particle> = text
         .lines()

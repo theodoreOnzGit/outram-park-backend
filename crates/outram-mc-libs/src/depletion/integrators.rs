@@ -45,6 +45,7 @@
 //! burnup loop was first written, so the recorded results do not move.
 //! Upstream's default is CRAM48 (`abc.py:643`).
 
+use crate::mathf::RealMath;
 use std::collections::HashMap;
 use std::convert::Infallible;
 
@@ -139,7 +140,7 @@ pub fn observed_order(coarse: f64, fine: f64, reference: f64) -> Result<f64, Str
                 .into(),
         );
     }
-    Ok((e_coarse / e_fine).log2())
+    Ok((e_coarse / e_fine).r_log2())
 }
 
 /// Continuous removal or feed of a nuclide during depletion —

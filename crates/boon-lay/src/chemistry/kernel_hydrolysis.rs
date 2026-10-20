@@ -35,6 +35,7 @@
 //! water vapour (TECDOC-978 Eq. 5-3, the `h_o` factors), and iodine or metal
 //! release from hydrolysed kernels.
 
+use petir::mathf::RealMath;
 use uom::si::f64::{Pressure, Ratio, ThermodynamicTemperature};
 use uom::si::pressure::pascal;
 use uom::si::ratio::ratio;
@@ -63,7 +64,7 @@ pub fn stored_gas_fraction(
     if !(p > 0.0 && t > 0.0) {
         return (Ratio::new::<ratio>(0.0), Validity::Extrapolated);
     }
-    let f = 2.13e13 * p.powf(-4.353 + 6503.0 / t) * (-4.7257e4 / t).exp();
+    let f = 2.13e13 * p.r_powf(-4.353 + 6503.0 / t) * (-4.7257e4 / t).r_exp();
     let inside = (1093.15..=1313.15).contains(&t) && (2.8..=1051.0).contains(&p);
     let validity = if f > 1.0 {
         Validity::ClampedToWholeInventory

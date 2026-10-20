@@ -78,6 +78,7 @@
 //! graphite dispersion (level 2, [`super::pebble`]), or anything about the
 //! bed.
 
+use petir::mathf::RealMath;
 use std::f64::consts::PI;
 
 use uom::si::f64::{
@@ -824,7 +825,7 @@ pub fn uranium_dioxide_thermal_conductivity_in(
     let x = temperature.get::<kelvin>() / 1000.0;
 
     let phonon_term = 115.8 / (7.5408 + 17.692 * x + 3.6142 * x * x);
-    let electronic_term = 7410.5 * x.powf(-2.5) * (-16.35 / x).exp();
+    let electronic_term = 7410.5 * x.r_powf(-2.5) * (-16.35 / x).r_exp();
 
     Ok(ThermalConductivity::new::<watt_per_meter_kelvin>(
         phonon_term + electronic_term,
@@ -878,7 +879,7 @@ pub fn pyrocarbon_thermal_conductivity_in(
     let porosity_factor = carbon_porosity_factor(density)?;
     let damage_factor = fluence_damage_factor(fluence)?;
 
-    let k = 244.3 * t.powf(-0.574) * porosity_factor * damage_factor;
+    let k = 244.3 * t.r_powf(-0.574) * porosity_factor * damage_factor;
 
     Ok(ThermalConductivity::new::<watt_per_meter_kelvin>(k))
 }
@@ -955,7 +956,7 @@ pub fn silicon_carbide_thermal_conductivity_in(
     }
 
     let t = temperature.get::<kelvin>();
-    let k = (17885.0 / t + 2.0) * (-0.1277 * gam).exp();
+    let k = (17885.0 / t + 2.0) * (-0.1277 * gam).r_exp();
 
     Ok(ThermalConductivity::new::<watt_per_meter_kelvin>(k))
 }
@@ -1284,7 +1285,7 @@ mod tests {
         // UO2
         let x: f64 = 1.0;
         let uo2_hand = 115.8 / (7.5408 + 17.692 * x + 3.6142 * x * x)
-            + 7410.5 * x.powf(-2.5) * (-16.35 / x).exp();
+            + 7410.5 * x.r_powf(-2.5) * (-16.35 / x).r_exp();
         let uo2_measured = uranium_dioxide_thermal_conductivity(temperature)
             .unwrap()
             .get::<watt_per_meter_kelvin>();
@@ -1293,7 +1294,7 @@ mod tests {
 
         // dense pyrocarbon at 1900 kg/m^3
         let pyc_hand =
-            244.3 * 1000.0_f64.powf(-0.574) * (1900.0 / (2.2 * (1930.0 - 1900.0) + 1900.0));
+            244.3 * 1000.0_f64.r_powf(-0.574) * (1900.0 / (2.2 * (1930.0 - 1900.0) + 1900.0));
         let pyc_measured =
             pyrocarbon_thermal_conductivity(temperature, particle.pyrocarbon_density, fresh)
                 .unwrap()
@@ -1303,7 +1304,7 @@ mod tests {
 
         // buffer at 1100 kg/m^3 — half the dense form
         let buffer_hand =
-            0.5 * 244.3 * 1000.0_f64.powf(-0.574) * (1100.0 / (2.2 * (1930.0 - 1100.0) + 1100.0));
+            0.5 * 244.3 * 1000.0_f64.r_powf(-0.574) * (1100.0 / (2.2 * (1930.0 - 1100.0) + 1100.0));
         let buffer_measured =
             buffer_carbon_thermal_conductivity(temperature, particle.buffer_density, fresh)
                 .unwrap()

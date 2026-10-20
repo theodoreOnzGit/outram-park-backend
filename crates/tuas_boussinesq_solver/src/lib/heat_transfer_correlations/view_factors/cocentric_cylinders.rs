@@ -1,3 +1,4 @@
+use petir::mathf::RealMath;
 use std::f64::consts::PI;
 
 use uom::si::{f64::*, ratio::ratio};
@@ -27,8 +28,8 @@ pub fn outer_cylinder_self_view_factor(
     let r_value: f64 = ratio_r.into();
     let h_value: f64 = ratio_h.into();
 
-    let r_sq = r_value.powf(2.0);
-    let h_sq = h_value.powf(2.0);
+    let r_sq = r_value.r_powf(2.0);
+    let h_sq = h_value.r_powf(2.0);
     let one_over_r = r_value.recip();
     let one_over_h = h_value.recip();
     // F = (R^2 - 2)/R^2
@@ -44,10 +45,10 @@ pub fn outer_cylinder_self_view_factor(
     let d = (4.0 * r_sq + h_sq).sqrt() * one_over_h;
 
     // And C = D asin(E) - asin (F)
-    let c = e.asin() * d - f.asin();
+    let c = e.r_asin() * d - f.r_asin();
 
     // B = 2/R atan (2 * sqrt(R^2 - 1)/H) - H/(2 R) * C
-    let mut b = 2.0 * one_over_r * (2.0 * (r_sq - 1.0).sqrt() * one_over_h).atan();
+    let mut b = 2.0 * one_over_r * (2.0 * (r_sq - 1.0).sqrt() * one_over_h).r_atan();
     b -= h_value * 0.5 * one_over_r * c;
 
     // F_(2-2) =  1 - 1/R - ((H^2 + 4 R^2)^0.5 -H)/(4 R) + 1/PI * B
@@ -93,8 +94,8 @@ pub fn outer_cylinder_to_inner_cylinder_view_factor(
     let r_value: f64 = ratio_r.into();
     let h_value: f64 = ratio_h.into();
 
-    let r_sq = r_value.powf(2.0);
-    let h_sq = h_value.powf(2.0);
+    let r_sq = r_value.r_powf(2.0);
+    let h_sq = h_value.r_powf(2.0);
     let one_over_r = r_value.recip();
     let one_over_h = h_value.recip();
     let hsq_minus_rsq_plus_one = h_sq - r_sq + 1.0;
@@ -102,20 +103,20 @@ pub fn outer_cylinder_to_inner_cylinder_view_factor(
     let hsq_plus_rsq_plus_one = h_sq + r_sq + 1.0;
 
     // F = (hsq_minus_rsq_plus_one)/(2H) asin (1/R)
-    let f = hsq_minus_rsq_plus_one * 0.5 * one_over_h * (one_over_r.asin());
+    let f = hsq_minus_rsq_plus_one * 0.5 * one_over_h * (one_over_r.r_asin());
 
     // E = e1 acos (e2)
     //
     // e1 = sqrt( hsq_plus_rsq_plus_one^2 - 4.0 * rsq)/(2H)
-    let e1 = (hsq_plus_rsq_plus_one.powf(2.0) - 4.0 * r_sq).sqrt() * 0.5 * one_over_h;
+    let e1 = (hsq_plus_rsq_plus_one.r_powf(2.0) - 4.0 * r_sq).sqrt() * 0.5 * one_over_h;
 
     // e2 = (hsq_minus_rsq_plus_one)/(R * hsq_plus_rsq_minus_one)
     let e2 = hsq_minus_rsq_plus_one / (hsq_plus_rsq_minus_one) * one_over_r;
 
-    let e_value = e1 * (e2.acos());
+    let e_value = e1 * (e2.r_acos());
 
     // D = acos (hsq_minus_rsq_plus_one/hsq_plus_rsq_minus_one)
-    let d = (hsq_minus_rsq_plus_one / hsq_plus_rsq_minus_one).acos();
+    let d = (hsq_minus_rsq_plus_one / hsq_plus_rsq_minus_one).r_acos();
 
     // C = D - E - F
     let c = d - e_value - f;
@@ -175,8 +176,8 @@ pub fn outer_cylinder_to_annular_end_ring_view_factor(
     let h_value: f64 = ratio_h.into();
 
     // square and inverse values
-    let r_sq = r_value.powf(2.0);
-    let h_sq = h_value.powf(2.0);
+    let r_sq = r_value.r_powf(2.0);
+    let h_sq = h_value.r_powf(2.0);
     let one_over_h = h_value.recip();
 
     // x and y
@@ -185,28 +186,28 @@ pub fn outer_cylinder_to_annular_end_ring_view_factor(
 
     // common ratios
     let x_by_h = x_value / h_value;
-    let x_sq = x_value.powf(2.0);
+    let x_sq = x_value.r_powf(2.0);
 
     // factors
     // A =  R (atan(X/H) -  atan(2X/H))
 
-    let a = r_value * (x_by_h.atan() - (2.0 * x_by_h).atan());
+    let a = r_value * (x_by_h.r_atan() - (2.0 * x_by_h).r_atan());
 
     // B = H/4 * ( asin(2R^2 - 1) - asin (R))
 
-    let b = h_value * 0.25 * ((2.0 * r_sq - 1.0).asin() - r_value.asin());
+    let b = h_value * 0.25 * ((2.0 * r_sq - 1.0).r_asin() - r_value.r_asin());
 
     // C = X^2/(4 H) * (PI/2 + asin(R))
 
-    let c = x_sq * 0.25 * one_over_h * (0.5 * PI + r_value.asin());
+    let c = x_sq * 0.25 * one_over_h * (0.5 * PI + r_value.r_asin());
 
     // D = d1 * d2
     //
     // d1 = sqrt (1 + R^2 + H^2)^2 -  4 R^2) / (4H)
     // d2 = PI/2 + asin(Y)
-    let d1 = ((1.0 + r_sq + h_sq).powf(2.0) - 4.0 * r_sq).sqrt() * 0.25 * one_over_h;
+    let d1 = ((1.0 + r_sq + h_sq).r_powf(2.0) - 4.0 * r_sq).sqrt() * 0.25 * one_over_h;
 
-    let d2 = 0.5 * PI + y_value.asin();
+    let d2 = 0.5 * PI + y_value.r_asin();
 
     let d = d1 * d2;
 
@@ -218,7 +219,7 @@ pub fn outer_cylinder_to_annular_end_ring_view_factor(
 
     let e1 = (4.0 + h_sq).sqrt() * 0.25;
 
-    let e2 = 0.5 * PI + (1.0 - 2.0 * r_sq * h_sq / (4.0 * x_sq + h_sq)).asin();
+    let e2 = 0.5 * PI + (1.0 - 2.0 * r_sq * h_sq / (4.0 * x_sq + h_sq)).r_asin();
     let e_value = e1 * e2;
 
     // F_(1-2) = 1/PI * (A + B + C - D + E)
@@ -322,8 +323,8 @@ pub fn inner_cylinder_to_annular_end_ring_view_factor(
     let l_value: f64 = ratio_l.into();
 
     // square and inverse values
-    let r_sq = r_value.powf(2.0);
-    let l_sq = l_value.powf(2.0);
+    let r_sq = r_value.r_powf(2.0);
+    let l_sq = l_value.r_powf(2.0);
     let one_over_l = l_value.recip();
     let one_over_r = r_value.recip();
 
@@ -336,19 +337,19 @@ pub fn inner_cylinder_to_annular_end_ring_view_factor(
     //
     // W = acos(A/B)
 
-    let w = (a / b).acos();
+    let w = (a / b).r_acos();
 
     // X = 1/(2L) sqrt( (A+2)^2/R^2 - 4)
 
-    let x = 0.5 * one_over_l * ((a + 2.0).powf(2.0) / r_sq - 4.0).sqrt();
+    let x = 0.5 * one_over_l * ((a + 2.0).r_powf(2.0) / r_sq - 4.0).sqrt();
 
     // Y = acos( A * R / B)
 
-    let y = (a * r_value / b).acos();
+    let y = (a * r_value / b).r_acos();
 
     // Z = A/(2 R L) * asin(R)
 
-    let z = (a * 0.5 * one_over_r * one_over_l) * (r_value.asin());
+    let z = (a * 0.5 * one_over_r * one_over_l) * (r_value.r_asin());
 
     let view_factor_value = v + 1.0 / (2.0 * PI) * (w - x * y - z);
 

@@ -24,6 +24,7 @@
 //! Split out because these are the figure-independent facts about a particle:
 //! every other module here consumes them and none of them depends on the rest.
 
+use petir::mathf::RealMath;
 use uom::si::f64::{Length, Ratio, Time, Velocity};
 use uom::si::ratio::ratio;
 
@@ -139,7 +140,7 @@ impl SicLayer {
     pub fn cbrt_mean_radius(&self) -> Length {
         let ri = self.inner_radius.value;
         let ra = self.outer_radius.value;
-        Length::new::<uom::si::length::meter>((0.5 * (ra.powi(3) + ri.powi(3))).cbrt())
+        Length::new::<uom::si::length::meter>((0.5 * (ra.r_powi(3) + ri.r_powi(3))).r_cbrt())
     }
 
     /// The original layer thickness `d_o = r_a − r_i` (page -484-).

@@ -11,6 +11,7 @@
 //! done in plain `f64` (SI) after unwrapping the `uom` inputs; only the
 //! function boundary and the final results are dimensioned.
 
+use petir::mathf::RealMath;
 use super::friction_factor::{darcy_friction_factor, reynolds_number};
 use uom::si::f64::{
     Acceleration, DynamicViscosity, Length, MassDensity, Pressure, Ratio, SurfaceTension, Velocity,
@@ -70,7 +71,7 @@ fn holdup_horizontal(regime: FlowRegime, fr_m: f64, c_l: f64) -> f64 {
         FlowRegime::Intermittent => (0.845, 0.5351, 0.0173),
         FlowRegime::Distributed => (1.065, 0.5824, 0.0609),
     };
-    (a * c_l.powf(b) / fr_m.powf(c)).max(c_l)
+    (a * c_l.r_powf(b) / fr_m.r_powf(c)).max(c_l)
 }
 
 /// Inclination correction `β`, uphill coefficients only (Beggs & Brill 1973,
@@ -81,8 +82,8 @@ fn beta(regime: FlowRegime, c_l: f64, n_lv: f64, fr_m: f64) -> f64 {
         FlowRegime::Intermittent => (2.96, 0.305, -0.4473, 0.0978),
         FlowRegime::Distributed => return 0.0,
     };
-    let x = d * c_l.powf(e) * n_lv.powf(f) * fr_m.powf(g);
-    (1.0 - c_l) * x.ln()
+    let x = d * c_l.r_powf(e) * n_lv.r_powf(f) * fr_m.r_powf(g);
+    (1.0 - c_l) * x.r_ln()
 }
 
 /// Evaluate the Beggs & Brill (1973) two-phase pressure drop over a pipe
@@ -114,10 +115,10 @@ pub fn beggs_brill_pressure_drop(
     let c_l = q_l / (q_l + q_g);
     let fr_m = v_m * v_m / (G * d);
 
-    let l1 = 316.0 * c_l.powf(0.302);
-    let l2 = 9.252e-4 * c_l.powf(-2.4684);
-    let l3 = 0.1 * c_l.powf(-1.4516);
-    let l4 = 0.5 * c_l.powf(-6.738);
+    let l1 = 316.0 * c_l.r_powf(0.302);
+    let l2 = 9.252e-4 * c_l.r_powf(-2.4684);
+    let l3 = 0.1 * c_l.r_powf(-1.4516);
+    let l4 = 0.5 * c_l.r_powf(-6.738);
 
     let is_segregated = (c_l < 0.01 && fr_m < l1) || (c_l >= 0.01 && fr_m < l2);
     let is_distributed = (c_l < 0.4 && fr_m >= l1) || (c_l >= 0.4 && fr_m > l4);
@@ -125,11 +126,11 @@ pub fn beggs_brill_pressure_drop(
 
     let rho_l = density_liquid.get::<kilogram_per_cubic_meter>();
     let sigma_l = surface_tension_liquid.get::<newton_per_meter>();
-    let n_lv = 1.938 * v_sl * (rho_l / (G * sigma_l)).powf(0.25);
+    let n_lv = 1.938 * v_sl * (rho_l / (G * sigma_l)).r_powf(0.25);
 
-    let theta_rad = (elevation_change.get::<meter>() / length.get::<meter>()).asin();
+    let theta_rad = (elevation_change.get::<meter>() / length.get::<meter>()).r_asin();
     let incl_factor = |beta_val: f64| -> f64 {
-        1.0 + beta_val * ((1.8 * theta_rad).sin() - (1.0 / 3.0) * (1.8 * theta_rad).sin().powi(3))
+        1.0 + beta_val * ((1.8 * theta_rad).r_sin() - (1.0 / 3.0) * (1.8 * theta_rad).r_sin().r_powi(3))
     };
 
     let (regime, holdup_incl) = if is_transition {
@@ -160,17 +161,17 @@ pub fn beggs_brill_pressure_drop(
     let mixture_density = density_liquid * holdup + density_gas * (1.0 - holdup);
 
     // No-slip friction-factor ratio correction (Beggs & Brill f_tp/f_ns).
-    let y = (c_l / (holdup * holdup)).ln();
+    let y = (c_l / (holdup * holdup)).r_ln();
     let s = if y > 1.0 && y < 1.2 {
-        (2.2 * y.exp() - 1.2).ln()
+        (2.2 * y.r_exp() - 1.2).r_ln()
     } else {
-        y / (-0.0523 + 3.182 * y - 0.8725 * y * y + 0.01853 * y.powi(4))
+        y / (-0.0523 + 3.182 * y - 0.8725 * y * y + 0.01853 * y.r_powi(4))
     };
 
     let velocity_mix = Velocity::new::<meter_per_second>(v_m);
     let re_ns = reynolds_number(density_no_slip, velocity_mix, diameter, viscosity_no_slip);
     let f_ns = darcy_friction_factor(re_ns, diameter, roughness);
-    let f_tp = f_ns.get::<ratio>() * s.exp();
+    let f_tp = f_ns.get::<ratio>() * s.r_exp();
 
     let friction_pressure_drop = Pressure::new::<pascal>(
         f_tp * v_m * v_m / 2.0

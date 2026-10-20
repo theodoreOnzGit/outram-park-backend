@@ -20,6 +20,7 @@
 //! (gh:#949). Every number below was measured by running these tests; the
 //! predictions were written before the first run.
 
+use petir::mathf::RealMath;
 use uom::si::area::square_meter;
 use uom::si::f64::{
     Area, HeatTransfer, Length, ThermalConductivity, ThermodynamicTemperature,
@@ -227,14 +228,14 @@ fn vv_nested_shells_converge_at_second_order() {
             errors.push((n, err));
         }
         for w in errors.windows(2) {
-            let p = (w[0].1 / w[1].1).log2();
+            let p = (w[0].1 / w[1].1).r_log2();
             println!(
                 "{geometry:?}: N={} err={:.4e} K -> N={} err={:.4e} K, p={p:.3}",
                 w[0].0, w[0].1, w[1].0, w[1].1
             );
         }
         let last = &errors[errors.len() - 2..];
-        let p = (last[0].1 / last[1].1).log2();
+        let p = (last[0].1 / last[1].1).r_log2();
         assert!((1.9..=2.1).contains(&p), "{geometry:?}: observed order {p}");
     }
 }
@@ -313,7 +314,7 @@ fn vv_picard_on_linear_conductivity_matches_kirchhoff_solution() {
         );
         errors.push(err);
     }
-    let p = (errors[errors.len() - 2] / errors[errors.len() - 1]).log2();
+    let p = (errors[errors.len() - 2] / errors[errors.len() - 1]).r_log2();
     assert!((1.9..=2.1).contains(&p), "observed order {p}");
 }
 
@@ -328,7 +329,7 @@ fn voxel_sphere(cells_across: usize, film_correction: bool) -> (f64, f64, f64) {
         counts: [cells_across + 2; 3],
     };
     let vm = voxel_mesh(&grid, |p| {
-        let d2: f64 = p.iter().map(|x| x.get::<meter>().powi(2)).sum();
+        let d2: f64 = p.iter().map(|x| x.get::<meter>().r_powi(2)).sum();
         (d2 <= r * r).then_some(0)
     })
     .unwrap();

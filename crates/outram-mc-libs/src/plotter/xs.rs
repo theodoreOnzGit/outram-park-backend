@@ -65,6 +65,7 @@
 //!   [`IncidentNeutronData`] holds one ACE table, so the nearest-temperature
 //!   choice upstream makes is always that one table.
 
+use petir::mathf::RealMath;
 use uom::si::f64::ThermodynamicTemperature;
 use uom::si::thermodynamic_temperature::kelvin;
 
@@ -817,8 +818,8 @@ fn calculate_cexs_nuclide<'a>(
             } else if mt == UNITY_MT {
                 funcs.push(Term::Const(1.0));
             } else if mt == XI_MT {
-                let alpha = ((awr - 1.0) / (awr + 1.0)).powi(2);
-                let xi = 1.0 + alpha * alpha.ln() / (1.0 - alpha);
+                let alpha = ((awr - 1.0) / (awr + 1.0)).r_powi(2);
+                let xi = 1.0 + alpha * alpha.r_ln() / (1.0 - alpha);
                 funcs.push(Term::Const(xi));
             } else {
                 funcs.push(Term::Const(0.0));

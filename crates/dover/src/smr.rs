@@ -141,6 +141,7 @@
 //! **Untrusted AI-assisted draft, no human V&V.** Education, research and V&V
 //! only, per the workspace `RESPONSIBLE_USE.md`.
 
+use petir::mathf::RealMath;
 use outram_park_fork_dwsim_libs::reactions::{
     EquilibriumConstant, Reaction, ReactionBasis, ReactionComponent, ReactionKind,
 };
@@ -291,7 +292,7 @@ impl SmrReaction {
     /// [`SmrReaction::kc`].
     #[must_use]
     pub fn equilibrium_constant(self, temperature_k: f64) -> f64 {
-        (-self.delta_g(temperature_k) / (R_GAS * temperature_k)).exp()
+        (-self.delta_g(temperature_k) / (R_GAS * temperature_k)).r_exp()
     }
 
     /// Change in mole count, `Δn = Σ νᵢ` [-].
@@ -330,7 +331,7 @@ impl SmrReaction {
     pub fn kc(self, temperature_k: f64) -> f64 {
         const P_STANDARD: f64 = 100_000.0;
         self.equilibrium_constant(temperature_k)
-            * (P_STANDARD / (R_GAS * temperature_k)).powf(self.delta_n())
+            * (P_STANDARD / (R_GAS * temperature_k)).r_powf(self.delta_n())
     }
 }
 
@@ -408,10 +409,10 @@ pub fn consistent_reverse(
     // R_KINETIC, not R_GAS: this has to reproduce exactly what
     // `Reaction::forward_rate_constant` will compute, and that uses
     // dwsim-libs' own truncated constant. See R_KINETIC's docs.
-    let k_f = forward.a * (-forward.e / (R_KINETIC * temperature_k)).exp();
+    let k_f = forward.a * (-forward.e / (R_KINETIC * temperature_k)).r_exp();
     let k_r = k_f / kc;
     ForwardRate {
-        a: k_r * (e_r / (R_KINETIC * temperature_k)).exp(),
+        a: k_r * (e_r / (R_KINETIC * temperature_k)).r_exp(),
         e: e_r,
     }
 }

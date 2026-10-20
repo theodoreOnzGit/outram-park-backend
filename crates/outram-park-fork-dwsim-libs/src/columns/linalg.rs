@@ -500,6 +500,7 @@ mod tests {
     //! recovered `x = [2, 3, −1]` to 4.4e-16; Broyden converged the 2-D
     //! nonlinear system in 6 iterations to `Σ f² = 1.672e-15`; Newton in 4
     //! iterations to `Σ f² = 7.184e-19`.
+    use petir::mathf::RealMath;
 
     use super::*;
 
@@ -545,7 +546,7 @@ mod tests {
         let f = |v: &[f64]| -> Option<Vec<f64>> {
             Some(vec![
                 v[0] * v[0] + v[1] * v[1] - 4.0,
-                v[0].exp() + v[1] - 1.0,
+                v[0].r_exp() + v[1] - 1.0,
             ])
         };
         let r = broyden_root(
@@ -572,7 +573,7 @@ mod tests {
         let f = |v: &[f64]| -> Option<Vec<f64>> {
             Some(vec![
                 v[0] * v[0] + v[1] * v[1] - 4.0,
-                v[0].exp() + v[1] - 1.0,
+                v[0].r_exp() + v[1] - 1.0,
             ])
         };
         let r = newton_root(

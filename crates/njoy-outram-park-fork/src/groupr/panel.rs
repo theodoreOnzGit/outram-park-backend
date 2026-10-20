@@ -60,6 +60,7 @@
 //! `ff(il,ig)` feed function this reduction fixes to 1. See
 //! [`super::kinematics`].
 
+use petir::mathf::RealMath;
 use std::sync::Arc;
 
 use crate::endf::interp::{terp1, IntLaw};
@@ -173,7 +174,7 @@ impl DerivedQuantity {
     pub fn value(self, e: f64) -> f64 {
         match self {
             DerivedQuantity::AverageEnergy => e,
-            DerivedQuantity::AverageLethargy => (Self::EZERO_EV / e).ln(),
+            DerivedQuantity::AverageLethargy => (Self::EZERO_EV / e).r_ln(),
             DerivedQuantity::AverageInverseVelocity => 1.0 / (Self::VC * e).sqrt(),
         }
     }
@@ -593,7 +594,7 @@ mod tests {
     #[test]
     fn geometric_refinement_converges_to_analytic_integral() {
         let sigma = PointwiseXs::LinLin(Arc::new(vec![(1.0e4, 1.0e-2), (1.0e6, 1.0)]));
-        let exact = (0.99) / (100.0_f64).ln();
+        let exact = (0.99) / (100.0_f64).r_ln();
         let coarse = GroupFlux::Analytic {
             weight: AnalyticWeight::OneOverE,
             temp_k: 0.0,

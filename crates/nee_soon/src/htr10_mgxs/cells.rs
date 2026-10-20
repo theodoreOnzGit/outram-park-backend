@@ -73,6 +73,7 @@
 //!
 //! **Research, education and V&V only** (`RESPONSIBLE_USE.md`).
 
+use petir::mathf::RealMath;
 use outram_mc_libs::geometry::cell::{Cell, CellFill, RegionToken};
 use outram_mc_libs::geometry::geometry::Geometry;
 use outram_mc_libs::geometry::lattice::{HexLattice, HexOrientation, Lattice};
@@ -221,7 +222,7 @@ impl Htr10Cell {
             kind: CellKind::SinglePebble,
             geometry,
             half_extent: [half; 3],
-            volume_cm3: (2.0 * half).powi(3),
+            volume_cm3: (2.0 * half).r_powi(3),
             triso_particles: triso.n_particles,
             fuel_balls: 1,
             dummy_balls: 0,
@@ -291,7 +292,7 @@ impl Htr10Cell {
             let ([px, py, pz], [qx, qy, qz]) = (centre(*p), centre(*q));
             pz.total_cmp(&qz)
                 .then((px * px + py * py).total_cmp(&(qx * qx + qy * qy)))
-                .then(py.atan2(px).total_cmp(&qy.atan2(qx)))
+                .then(py.r_atan2(px).total_cmp(&qy.r_atan2(qx)))
                 .then(p.cmp(q))
         });
         let f = design.fuel_ball_fraction;
@@ -469,17 +470,17 @@ impl Prism {
         let [a1x, a1y] = tile_xy(1, 0, pitch);
         let [a2x, a2y] = tile_xy(0, 1, pitch);
         let (lx, ly) = (i as f64 * a1x + j as f64 * a2x, i as f64 * a1y + j as f64 * a2y);
-        let len = lx.hypot(ly);
-        let theta = ly.atan2(lx);
+        let len = lx.r_hypot(ly);
+        let theta = ly.r_atan2(lx);
         let normals = std::array::from_fn(|k| {
             let t = theta + std::f64::consts::FRAC_PI_3 * k as f64;
-            (t.cos(), t.sin())
+            (t.r_cos(), t.r_sin())
         });
         let apothem = 0.5 * len;
         Self {
             normals,
             apothem,
-            circumradius: apothem / (std::f64::consts::PI / 6.0).cos(),
+            circumradius: apothem / (std::f64::consts::PI / 6.0).r_cos(),
             area: 2.0 * 3.0_f64.sqrt() * apothem * apothem,
         }
     }
@@ -498,8 +499,8 @@ impl Prism {
         let verts: Vec<(f64, f64)> = (0..6)
             .map(|k| {
                 let (n0x, n0y) = self.normals[k];
-                let t = n0y.atan2(n0x) + std::f64::consts::FRAC_PI_6;
-                (self.circumradius * t.cos(), self.circumradius * t.sin())
+                let t = n0y.r_atan2(n0x) + std::f64::consts::FRAC_PI_6;
+                (self.circumradius * t.r_cos(), self.circumradius * t.r_sin())
             })
             .collect();
         (0..6)
@@ -508,7 +509,7 @@ impl Prism {
                 let (bx, by) = verts[k];
                 let (dx, dy) = (bx - ax, by - ay);
                 let t = (((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy)).clamp(0.0, 1.0);
-                (x - ax - t * dx).hypot(y - ay - t * dy)
+                (x - ax - t * dx).r_hypot(y - ay - t * dy)
             })
             .fold(f64::INFINITY, f64::min)
     }

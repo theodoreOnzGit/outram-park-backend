@@ -98,6 +98,7 @@
 //! value, enum-dispatch coverage, clean `NotImplemented` errors), **not**
 //! *validation* against experimental boiling-crisis data.
 
+use petir::mathf::RealMath;
 use crate::MultiphaseError;
 use uom::si::f64::{
     DynamicViscosity, HeatTransfer, Length, MassDensity, MassFlux, Ratio, ThermalConductivity,
@@ -468,7 +469,7 @@ impl PostDryoutHeatTransfer for PostDryoutModel {
                 // Density-ratio-weighted vapour Reynolds number.
                 let re = (g * d / mu_g) * (x + (rho_g / rho_f) * (1.0 - x));
                 // Dittus-Boelter Nusselt number (heating exponent 0.4).
-                let nu = 0.023 * re.powf(0.8) * pr_g.powf(0.4);
+                let nu = 0.023 * re.r_powf(0.8) * pr_g.r_powf(0.4);
                 // Heat-transfer coefficient.
                 let h = nu * k_g / d;
                 Ok(HeatTransfer::new::<watt_per_square_meter_kelvin>(h))

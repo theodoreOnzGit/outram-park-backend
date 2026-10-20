@@ -1,3 +1,4 @@
+use petir::mathf::RealMath;
 #[warn(missing_docs)]
 // This library was developed for use in my PhD thesis under supervision
 // of Professor Per F. Peterson. It is part of a thermal hydraulics
@@ -186,9 +187,9 @@ pub fn get_hitec_dynamic_viscosity(
     // a + bT + cT^2 + dT^3 + eT^4;
     let viscosity_value_pascal_second = a
         + b * fluid_temp_kelvin
-        + c * fluid_temp_kelvin.powf(2.0)
-        + d * fluid_temp_kelvin.powf(3.0)
-        + e * fluid_temp_kelvin.powf(4.0);
+        + c * fluid_temp_kelvin.r_powf(2.0)
+        + d * fluid_temp_kelvin.r_powf(3.0)
+        + e * fluid_temp_kelvin.r_powf(4.0);
 
     Ok(DynamicViscosity::new::<pascal_second>(
         viscosity_value_pascal_second,
@@ -341,9 +342,9 @@ pub fn get_hitec_thermal_conductivity(
     // a + bT + cT^2 + dT^3 + eT^4;
     let thermal_conductivity_value = a
         + b * fluid_temp_kelvin
-        + c * fluid_temp_kelvin.powf(2.0)
-        + d * fluid_temp_kelvin.powf(3.0)
-        + e * fluid_temp_kelvin.powf(4.0);
+        + c * fluid_temp_kelvin.r_powf(2.0)
+        + d * fluid_temp_kelvin.r_powf(3.0)
+        + e * fluid_temp_kelvin.r_powf(4.0);
 
     return Ok(ThermalConductivity::new::<watt_per_meter_kelvin>(
         thermal_conductivity_value,

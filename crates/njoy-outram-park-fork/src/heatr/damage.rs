@@ -3,6 +3,7 @@
 //!
 //! Split out of `heatr/mod.rs` (see the module doc there for the physics).
 
+use petir::mathf::RealMath;
 use crate::endf::MtReaction;
 use crate::reconr::{eval_lin_lin, ReconrResult};
 
@@ -73,13 +74,13 @@ pub(super) fn lindhard_damage(
     if z_r == 0.0 || e_recoil < e_d {
         return 0.0;
     }
-    let zr23 = z_r.powf(2.0 / 3.0);
-    let zl23 = z_l.powf(2.0 / 3.0);
+    let zr23 = z_r.r_powf(2.0 / 3.0);
+    let zl23 = z_l.r_powf(2.0 / 3.0);
     let e_l = C1 * z_r * z_l * (zr23 + zl23).sqrt() * (a_r + a_l) / a_l;
-    let denom = (zr23 + zl23).powf(0.75) * a_r.powf(1.5) * a_l.sqrt();
-    let f_l = C2 * zr23 * z_l.sqrt() * (a_r + a_l).powf(1.5) / denom;
+    let denom = (zr23 + zl23).r_powf(0.75) * a_r.r_powf(1.5) * a_l.sqrt();
+    let f_l = C2 * zr23 * z_l.sqrt() * (a_r + a_l).r_powf(1.5) / denom;
     let ep = e_recoil / e_l;
-    e_recoil / (1.0 + f_l * (C3 * ep.powf(1.0 / 6.0) + C4 * ep.powf(0.75) + ep))
+    e_recoil / (1.0 + f_l * (C3 * ep.r_powf(1.0 / 6.0) + C4 * ep.r_powf(0.75) + ep))
 }
 
 /// Damage-energy production cross section, ENDF **MT=444**, vs incident energy
@@ -195,10 +196,10 @@ impl DamageEnergy {
 /// the recoil kinematics of `heatr.f90::disbar` (its `afact`, `arat`, `r`, `g`
 /// with `awp = 1` for a neutron exit).
 pub(super) fn two_body_recoil_bounds(e: f64, q: f64, awr: f64) -> (f64, f64) {
-    let c = awr / (awr + 1.0).powi(2) * e;
+    let c = awr / (awr + 1.0).r_powi(2) * e;
     let e_thr = (awr + 1.0) / awr * (-q); // 0 for elastic; >0 for a level
     let g = (1.0 - e_thr / e).max(0.0).sqrt();
-    (c * (1.0 - g).powi(2), c * (1.0 + g).powi(2))
+    (c * (1.0 - g).r_powi(2), c * (1.0 + g).r_powi(2))
 }
 
 /// Recoil-averaged Lindhard damage energy `⟨df⟩` \[eV\] for a recoil energy

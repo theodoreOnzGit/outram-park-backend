@@ -63,6 +63,7 @@
 // Each includer uses a different part of it.
 #![allow(dead_code)]
 
+use petir::mathf::RealMath;
 use dhoby_ghaut::web_demo::data_cache::{sha256_hex, Miss, Record, Source};
 use njoy_outram_park_fork::endf::tape::Tape;
 use njoy_outram_park_fork::process::{self, CrossSectionSettings, PurrSettings, Reconstruction};
@@ -748,7 +749,7 @@ mod tests {
     fn fingerprint(n: &Nuclide, temp_k: f64) -> Vec<u64> {
         let mut v = Vec::new();
         let mut es: Vec<f64> = (0..=1200)
-            .map(|i| 1.0e-5 * (2.0e7_f64 / 1.0e-5).powf(f64::from(i) / 1200.0))
+            .map(|i| 1.0e-5 * (2.0e7_f64 / 1.0e-5).r_powf(f64::from(i) / 1200.0))
             .collect();
         if let Some((lo, hi)) = n.urr_range_ev() {
             es.extend((0..=100).map(|i| lo + (hi - lo) * f64::from(i) / 100.0));

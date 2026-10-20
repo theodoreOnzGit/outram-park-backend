@@ -243,6 +243,7 @@ impl Cstr {
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
     use crate::reactions::{ReactionBasis, ReactionComponent, ReactionKind};
 
@@ -299,7 +300,7 @@ mod tests {
             .solve(&feed)
             .unwrap()
             .conversion_of(&feed, 0);
-        let x_pfr_analytic = 1.0 - (-4.0f64).exp();
+        let x_pfr_analytic = 1.0 - (-4.0f64).r_exp();
         assert!(x_cstr < x_pfr_analytic);
     }
 

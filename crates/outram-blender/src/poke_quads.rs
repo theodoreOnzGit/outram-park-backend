@@ -37,6 +37,7 @@
 //!   `Face ▸ Tris to Quads`). Attribute comparisons (material / UV / sharp /
 //!   seam) arrive with the attribute layers in `op-hzs.54.28`.
 
+use petir::mathf::RealMath;
 use std::collections::{HashMap, HashSet};
 
 use crate::math::Vec3;
@@ -307,7 +308,7 @@ fn min_angle4(pos: &[Vec3], a: usize, b: usize, c: usize, d: usize, diag_ac: boo
         let v = pos[q].sub(pos[o]);
         (u.dot(v) / (u.length() * v.length() + 1e-12))
             .clamp(-1.0, 1.0)
-            .acos()
+            .r_acos()
     };
     if diag_ac {
         [
@@ -355,7 +356,7 @@ fn quad_angle_deviation(pos: &[Vec3], q: &[usize; 4]) -> f64 {
         let v = pos[r].sub(pos[o]);
         (u.dot(v) / (u.length() * v.length() + 1e-12))
             .clamp(-1.0, 1.0)
-            .acos()
+            .r_acos()
     };
     let half_pi = std::f64::consts::FRAC_PI_2;
     (0..4)

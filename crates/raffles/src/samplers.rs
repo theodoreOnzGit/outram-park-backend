@@ -856,6 +856,7 @@ fn check_unit_interval(value: f64, parameter: &str) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use petir::mathf::RealMath;
 
     /// Master seed used wherever a test needs one and the value is arbitrary.
     /// Every test in this module is deterministic: seeds are hard-coded, so a
@@ -1218,7 +1219,7 @@ mod tests {
             .map(|c| {
                 design
                     .iter()
-                    .map(|row| (row[c] - means[c]).powi(2))
+                    .map(|row| (row[c] - means[c]).r_powi(2))
                     .sum::<f64>()
                     .sqrt()
             })
@@ -1274,7 +1275,7 @@ mod tests {
                 let mean: f64 = design.iter().map(|row| row[column]).sum::<f64>() / N as f64;
                 let variance: f64 = design
                     .iter()
-                    .map(|row| (row[column] - mean).powi(2))
+                    .map(|row| (row[column] - mean).r_powi(2))
                     .sum::<f64>()
                     / N as f64;
                 worst_mean_error = worst_mean_error.max((mean - 0.5).abs());
@@ -1321,7 +1322,7 @@ mod tests {
                 .map(|replicate| {
                     let design = mc.generate(SEED + 1_000 + replicate);
                     let mean = design.iter().map(|row| row[0]).sum::<f64>() / n as f64;
-                    (mean - 0.5).powi(2)
+                    (mean - 0.5).r_powi(2)
                 })
                 .sum();
             rmse.push((sum_squared_error / REPLICATES as f64).sqrt());
@@ -1373,7 +1374,7 @@ mod tests {
                         .map(|row| row.iter().sum::<f64>())
                         .sum::<f64>()
                         / N as f64;
-                    (estimate - exact_mean).powi(2)
+                    (estimate - exact_mean).r_powi(2)
                 })
                 .sum();
             (total / REPLICATES as f64).sqrt()

@@ -182,6 +182,7 @@
 //! model). CLS/SCLS are **new work**, not an OpenMC port — upstream has no
 //! chord-length sampling.
 
+use petir::mathf::RealMath;
 use outram_mc_libs::geometry::position::{Direction, Position};
 use outram_mc_libs::pebble_beds::sphere_packing::{PackedSpheres, PackingConfig, PackingMethod, Sphere};
 use outram_mc_libs::rng::distributions::isotropic_direction;
@@ -284,7 +285,7 @@ impl FourMethodProblem {
         let spheres = packing.spheres();
 
         for _ in 0..self.max_collisions {
-            let d_scatter = -self.scatter_mfp * (1.0 - prn(seed)).ln();
+            let d_scatter = -self.scatter_mfp * (1.0 - prn(seed)).r_ln();
             let d_wall = self.distance_to_wall(pos, dir);
             let d_kernel = nearest_kernel_entry(pos, dir, spheres, 1e-9).unwrap_or(f64::INFINITY);
 
@@ -343,7 +344,7 @@ impl FourMethodProblem {
             }
 
             let d_wall = self.distance_to_wall(pos, dir);
-            let s = -prn(seed).max(f64::MIN_POSITIVE).ln() / sigma_maj; // sample_delta_distance form
+            let s = -prn(seed).max(f64::MIN_POSITIVE).r_ln() / sigma_maj; // sample_delta_distance form
             if s >= d_wall {
                 return Outcome::Leaked;
             }

@@ -96,6 +96,7 @@
 //! - **`α` outside `[0, 1]` is refused, not clipped.** Clipping would present
 //!   a CFL violation as a plausible answer.
 
+use petir::mathf::RealMath;
 use outram_foam_basic_lib::fields::{VolScalarField, VolVectorField};
 use outram_foam_basic_lib::interface::one_dimensional_meshing::create_one_d_mesh;
 use outram_foam_basic_lib::mesh::FvMesh;
@@ -1491,7 +1492,7 @@ fn wall_friction_acceleration(u: f64, rho: f64, mu: f64, d_h: f64) -> f64 {
     let f = if re < 2300.0 {
         64.0 / re
     } else {
-        0.316 * re.powf(-0.25)
+        0.316 * re.r_powf(-0.25)
     };
     f * u.abs() * u / (2.0 * d_h)
 }

@@ -58,6 +58,7 @@
 //! `score_track_length`'s own comment and in `FilterEvent::default`'s docs, so a
 //! caller cannot mistake a flat result for a physical one.
 
+use petir::mathf::RealMath;
 use outram_mc_libs::geometry::position::{Direction, Position};
 use outram_mc_libs::particle::particle::ParticleType;
 use outram_mc_libs::prelude::*;
@@ -104,8 +105,8 @@ fn zernike_moments_are_orthogonal_on_the_unit_disc() {
             for it in 0..NT {
                 let th = 2.0 * std::f64::consts::PI * (it as f64 + 0.5) / NT as f64;
                 let ev = at(Position {
-                    x: rho * th.cos(),
-                    y: rho * th.sin(),
+                    x: rho * th.r_cos(),
+                    y: rho * th.r_sin(),
                     z: 0.0,
                 });
                 let z = f.expansion_moments(&ev).expect("inside the disc");
@@ -215,7 +216,7 @@ fn spherical_harmonic_moments_are_orthonormal_on_the_sphere() {
             for ip in 0..NPHI {
                 let phi = -std::f64::consts::PI
                     + 2.0 * std::f64::consts::PI * (ip as f64 + 0.5) / NPHI as f64;
-                let ev = going(st * phi.cos(), st * phi.sin(), mu);
+                let ev = going(st * phi.r_cos(), st * phi.r_sin(), mu);
                 let y = f
                     .expansion_moments(&ev)
                     .expect("harmonics are defined everywhere");

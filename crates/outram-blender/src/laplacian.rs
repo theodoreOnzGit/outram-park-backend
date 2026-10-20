@@ -470,6 +470,7 @@ fn normalized_laplacian_step(
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
     use crate::primitives;
 
@@ -682,7 +683,7 @@ mod tests {
         let radial_std = |m: &Mesh| {
             let rs: Vec<f64> = m.positions().iter().map(|p| p.length()).collect();
             let mean = rs.iter().sum::<f64>() / rs.len() as f64;
-            (rs.iter().map(|r| (r - mean).powi(2)).sum::<f64>() / rs.len() as f64).sqrt()
+            (rs.iter().map(|r| (r - mean).r_powi(2)).sum::<f64>() / rs.len() as f64).sqrt()
         };
 
         let before = radial_std(&noisy);
@@ -776,7 +777,7 @@ mod tests {
         let std = |m: &Mesh| {
             let rs: Vec<f64> = m.positions().iter().map(|p| p.length()).collect();
             let mean = rs.iter().sum::<f64>() / rs.len() as f64;
-            (rs.iter().map(|r| (r - mean).powi(2)).sum::<f64>() / rs.len() as f64).sqrt()
+            (rs.iter().map(|r| (r - mean).r_powi(2)).sum::<f64>() / rs.len() as f64).sqrt()
         };
         let smoothed = taubin_smooth(&noisy, LaplacianWeighting::Uniform, 0.5, -0.53, 10);
         assert!(

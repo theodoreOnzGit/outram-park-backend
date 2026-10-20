@@ -1,3 +1,4 @@
+use petir::mathf::RealMath;
 /// Tally filters — constrain which phase-space events are scored.
 ///
 /// C++ source: `src/tallies/filter_*.cpp` (30+ files), `include/openmc/tallies/filter.h`.
@@ -631,7 +632,7 @@ impl Filter for PolarAzimuthalFilter {
     }
     fn get_bin(&self, ev: &FilterEvent) -> Option<usize> {
         let i_p = bin_in_edges(&self.polar, ev.direction.w)?;
-        let phi = ev.direction.v.atan2(ev.direction.u);
+        let phi = ev.direction.v.r_atan2(ev.direction.u);
         let i_a = bin_in_edges(&self.azimuthal, phi)?;
         Some(i_p * self.azimuthal.len().saturating_sub(1) + i_a)
     }
@@ -818,7 +819,7 @@ impl Filter for ZernikeFilter {
         if rho > 1.0 {
             return None;
         }
-        Some(zernike_zn(self.order, rho, dy.atan2(dx)))
+        Some(zernike_zn(self.order, rho, dy.r_atan2(dx)))
     }
 }
 #[derive(Debug, Clone, PartialEq)]
@@ -851,7 +852,7 @@ impl Filter for SphericalHarmonicsFilter {
         Some(real_spherical_harmonics(
             self.order,
             ev.direction.w,
-            ev.direction.v.atan2(ev.direction.u),
+            ev.direction.v.r_atan2(ev.direction.u),
         ))
     }
 }
@@ -896,9 +897,9 @@ fn zernike_zn(order: usize, rho: f64, theta: f64) -> Vec<f64> {
             let am = m.unsigned_abs() as usize;
             let r = zernike_radial(n, am, rho);
             let v = if m < 0 {
-                r * (am as f64 * theta).sin()
+                r * (am as f64 * theta).r_sin()
             } else {
-                r * (am as f64 * theta).cos()
+                r * (am as f64 * theta).r_cos()
             };
             out.push(v);
             m += 2;
@@ -919,7 +920,7 @@ fn zernike_radial(n: usize, m: usize, rho: f64) -> f64 {
     for k in 0..=half_minus {
         let num = factorial(n - k);
         let den = factorial(k) * factorial(half_plus - k) * factorial(half_minus - k);
-        let term = num / den * rho.powi((n - 2 * k) as i32);
+        let term = num / den * rho.r_powi((n - 2 * k) as i32);
         acc += if k % 2 == 0 { term } else { -term };
     }
     acc
@@ -955,9 +956,9 @@ fn real_spherical_harmonics(order: usize, cos_theta: f64, phi: f64) -> Vec<f64> 
             let v = if m == 0 {
                 norm * p
             } else if m > 0 {
-                std::f64::consts::SQRT_2 * norm * p * (am as f64 * phi).cos()
+                std::f64::consts::SQRT_2 * norm * p * (am as f64 * phi).r_cos()
             } else {
-                std::f64::consts::SQRT_2 * norm * p * (am as f64 * phi).sin()
+                std::f64::consts::SQRT_2 * norm * p * (am as f64 * phi).r_sin()
             };
             out.push(v);
         }
@@ -1238,7 +1239,7 @@ mod tests {
         assert!((p[0] - 1.0).abs() < 1e-14);
         assert!((p[1] - x).abs() < 1e-14);
         assert!((p[2] - 0.5 * (3.0 * x * x - 1.0)).abs() < 1e-14);
-        assert!((p[3] - 0.5 * (5.0 * x.powi(3) - 3.0 * x)).abs() < 1e-14);
+        assert!((p[3] - 0.5 * (5.0 * x.r_powi(3) - 3.0 * x)).abs() < 1e-14);
     }
 
     /// The Legendre filter maps min→ξ=−1, max→ξ=+1, midpoint→ξ=0 and returns the

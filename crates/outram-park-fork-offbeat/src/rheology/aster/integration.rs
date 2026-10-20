@@ -73,6 +73,7 @@
 //! constants, which makes them a genuine external reference rather than a
 //! self-consistency check.
 
+use petir::mathf::RealMath;
 use crate::error::{OffbeatError, Result};
 
 /// Convergence control for a local solve.
@@ -316,7 +317,7 @@ where
 /// central difference in `f64`: `eps^(1/3)`, about 6.06e-6.
 #[must_use]
 pub fn perturbed_default() -> f64 {
-    f64::EPSILON.cbrt()
+    f64::EPSILON.r_cbrt()
 }
 
 /// The secant method — upstream's `SECANTE`.

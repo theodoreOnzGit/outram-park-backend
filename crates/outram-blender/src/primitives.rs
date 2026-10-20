@@ -48,6 +48,7 @@
 //! [`crate::math`]); a length unit is attached only when a mesh is handed to a
 //! solver through an [`crate::export`] bridge.
 
+use petir::mathf::RealMath;
 use crate::math::Vec3;
 use crate::mesh::{Mesh, VertexId};
 use std::f64::consts::PI;
@@ -116,13 +117,13 @@ pub fn uv_sphere(segments: usize, rings: usize, radius: f64) -> Mesh {
     let mut ring_verts: Vec<Vec<VertexId>> = Vec::with_capacity(rings - 1);
     for j in 1..rings {
         let theta = PI * (j as f64) / (rings as f64); // polar angle from +Z
-        let (st, ct) = (theta.sin(), theta.cos());
+        let (st, ct) = (theta.r_sin(), theta.r_cos());
         let mut row = Vec::with_capacity(segments);
         for i in 0..segments {
             let phi = 2.0 * PI * (i as f64) / (segments as f64);
             row.push(m.add_vertex(Vec3::new(
-                radius * st * phi.cos(),
-                radius * st * phi.sin(),
+                radius * st * phi.r_cos(),
+                radius * st * phi.r_sin(),
                 radius * ct,
             )));
         }
@@ -185,7 +186,7 @@ pub fn cylinder(segments: usize, radius: f64, height: f64) -> Mesh {
     let mut top = Vec::with_capacity(segments);
     for i in 0..segments {
         let phi = 2.0 * PI * (i as f64) / (segments as f64);
-        let (x, y) = (radius * phi.cos(), radius * phi.sin());
+        let (x, y) = (radius * phi.r_cos(), radius * phi.r_sin());
         bottom.push(m.add_vertex(Vec3::new(x, y, -hz)));
         top.push(m.add_vertex(Vec3::new(x, y, hz)));
     }

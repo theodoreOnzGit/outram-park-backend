@@ -122,6 +122,7 @@
 //! **Verification, not validation.** These assert that a switch switches. What
 //! the mechanism is *worth* is a separate paired-seed measurement.
 
+use petir::mathf::RealMath;
 use njoy_outram_park_fork::reference_data::reference_file_or_skip;
 use outram_mc_libs::material::nuclide::Nuclide;
 
@@ -312,7 +313,7 @@ fn the_inelastic_hook_ablates_exactly_the_inelastic_channel() {
     // take the neutron down to `alpha*E` with
     // `alpha = ((A-1)/(A+1))^2 = 0.9832` for U-238. Before ablation an
     // inelastic collision drops it far below that.
-    let alpha = ((evaluated.awr - 1.0) / (evaluated.awr + 1.0)).powi(2);
+    let alpha = ((evaluated.awr - 1.0) / (evaluated.awr + 1.0)).r_powi(2);
     let floor = alpha * PROBE_EV;
     let mut seed = 0xAB1A7Eu64;
     let mut n_below_elastic_floor = 0usize;
@@ -482,7 +483,7 @@ fn the_target_motion_hook_ablates_exactly_the_target_velocity() {
     // alpha = ((A-1)/(A+1))^2 = 0.9832 for U-238.
     use outram_mc_libs::geometry::position::Direction;
     use outram_mc_libs::physics::scatter::free_gas_elastic_scatter;
-    let alpha = ((ablated.awr - 1.0) / (ablated.awr + 1.0)).powi(2);
+    let alpha = ((ablated.awr - 1.0) / (ablated.awr + 1.0)).r_powi(2);
     let (mut lo, mut hi) = (f64::INFINITY, 0.0_f64);
     let mut seed = 0x5EED_0001u64;
     for _ in 0..8192 {
@@ -1126,7 +1127,7 @@ fn the_n2n_multiplicity_hook_reaches_the_transport_kernel() {
     }
     let n = diffs.len() as f64;
     let mean = diffs.iter().sum::<f64>() / n;
-    let sd = (diffs.iter().map(|d| (d - mean).powi(2)).sum::<f64>() / (n - 1.0)).sqrt();
+    let sd = (diffs.iter().map(|d| (d - mean).r_powi(2)).sum::<f64>() / (n - 1.0)).sqrt();
     let sem = sd / n.sqrt();
 
     // 1: the kernel noticed, on EVERY seed. A bit-identical pair means no

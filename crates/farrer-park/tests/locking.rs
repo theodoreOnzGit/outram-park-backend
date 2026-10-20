@@ -44,6 +44,7 @@
 
 mod common;
 
+use petir::mathf::RealMath;
 use common::{elastic_newton_with, order};
 use farrer_park::assembly::System;
 use farrer_park::prelude::*;
@@ -419,7 +420,7 @@ fn nearly_incompressible_hex8_locks_under_full_integration_but_not_under_bbar() 
 /// von Mises condition `sigma_theta - sigma_r = 2 sigma_y / sqrt(3)` from
 /// `sigma_r(b) = 0` to `sigma_r(a) = -p`.
 fn limit_pressure(a: f64, b: f64, sigma_y: f64) -> f64 {
-    2.0 / 3.0_f64.sqrt() * sigma_y * (b / a).ln()
+    2.0 / 3.0_f64.sqrt() * sigma_y * (b / a).r_ln()
 }
 
 /// Displacement-controlled thick-walled cylinder: prescribe the bore radial
@@ -477,7 +478,7 @@ fn run_limit_load(
 
     let bore = mesh.nodes_where(|c| ((c[0] * c[0] + c[1] * c[1]).sqrt() - a).abs() < 1e-12);
     assert_eq!(bore.len(), n_theta + 1, "bore node count");
-    let perimeter = n_theta as f64 * 2.0 * a * (std::f64::consts::FRAC_PI_4 / n_theta as f64).sin();
+    let perimeter = n_theta as f64 * 2.0 * a * (std::f64::consts::FRAC_PI_4 / n_theta as f64).r_sin();
 
     let settings = NewtonSettings {
         max_iterations: 60,
@@ -849,7 +850,7 @@ fn run_quad4_cantilever(
 #[test]
 fn shear_locking_in_quad4_is_measured_and_bbar_does_not_cure_it() {
     let (height, load) = (0.1_f64, 1000.0_f64);
-    let inertia = height.powi(3) / 12.0;
+    let inertia = height.r_powi(3) / 12.0;
     let shear_modulus = E_PA / 2.0; // nu = 0
     println!("\nCASE 8: SHEAR LOCKING IN Quad4 (B-bar is NOT a cure)");
 
@@ -857,7 +858,7 @@ fn shear_locking_in_quad4_is_measured_and_bbar_does_not_cure_it() {
     let mut coarse_square_bbar = 0.0_f64;
     for slenderness in [4usize, 8] {
         let length = height * slenderness as f64;
-        let eb = load * length.powi(3) / (3.0 * E_PA * inertia);
+        let eb = load * length.r_powi(3) / (3.0 * E_PA * inertia);
         let timo = eb + load * length / ((5.0 / 6.0) * shear_modulus * height);
         println!(
             "\n  L/H = {slenderness}: Euler-Bernoulli {eb:.6e} m, Timoshenko {timo:.6e} m"

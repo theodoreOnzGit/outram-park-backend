@@ -87,6 +87,7 @@
     not(target_arch = "wasm32")
 ))]
 
+use petir::mathf::RealMath;
 use outram_blender::csg::cell::{Cell, CellFill, HalfSpaceSense, RegionToken};
 use outram_blender::csg::geometry::Geometry;
 use outram_blender::csg::gpu::flat::{flatten, flatten_with};
@@ -448,8 +449,8 @@ fn bored_model() -> Geometry {
     for deg in [30.0_f64, 120.0] {
         let t = deg.to_radians();
         g.surfaces.push(SurfaceKind::Plane(Plane {
-            a: t.cos(),
-            b: t.sin(),
+            a: t.r_cos(),
+            b: t.r_sin(),
             c: 0.0,
             d: 0.0,
             bc: T,
@@ -463,8 +464,8 @@ fn bored_model() -> Geometry {
         let rr = if ring == 0 { 15.0 } else { 18.5 };
         let t = (j * 15.0 + 7.5 * ring as f64 + 3.0).to_radians();
         g.surfaces.push(SurfaceKind::ZCylinder(ZCylinder {
-            x0: rr * t.cos(),
-            y0: rr * t.sin(),
+            x0: rr * t.r_cos(),
+            y0: rr * t.r_sin(),
             r: 1.2,
             bc: T,
         }));

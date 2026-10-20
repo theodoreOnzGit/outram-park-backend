@@ -84,6 +84,7 @@
 //! The exact measured numbers are emitted to stderr by each test (run with
 //! `--nocapture`); the assertions below encode the pass criteria.
 
+use petir::mathf::RealMath;
 use std::f64::consts::PI;
 use std::sync::Arc;
 
@@ -130,7 +131,7 @@ impl OneGroup {
 
     /// Diffusion bare-slab eigenvalue `k = nu Sigma_f / (Sigma_a + D_0 (pi/L)^2)`.
     fn diffusion_slab_k(&self, length: f64) -> f64 {
-        self.nu_sigma_f / (self.sigma_a + self.d0() * (PI / length).powi(2))
+        self.nu_sigma_f / (self.sigma_a + self.d0() * (PI / length).r_powi(2))
     }
 }
 

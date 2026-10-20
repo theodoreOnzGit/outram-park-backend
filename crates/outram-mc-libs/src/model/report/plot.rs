@@ -8,6 +8,7 @@
 //! thick and solid, references dashed, our own calculations small and
 //! dotted, and every series' legend names where it comes from.
 
+use petir::mathf::RealMath;
 use outram_blender::csg::plot::annotate::{draw_text, fmt_tick, nice_step, text_width};
 use outram_blender::csg::plot::colour::Rgb;
 use outram_blender::csg::plot::image::ImageData;
@@ -172,7 +173,7 @@ impl LinePlot {
             f64::NEG_INFINITY,
         );
         for (x, y) in pts {
-            let x = if self.x_log { x.log10() } else { x };
+            let x = if self.x_log { x.r_log10() } else { x };
             x0 = x0.min(x);
             x1 = x1.max(x);
             y0 = y0.min(y);
@@ -255,7 +256,7 @@ impl LinePlot {
                     last = None;
                     continue;
                 }
-                let p = (px(if self.x_log { x.log10() } else { x }), py(y));
+                let p = (px(if self.x_log { x.r_log10() } else { x }), py(y));
                 match last {
                     Some(q) => line(&mut img, q, p, s.colour, s.style, &mut run),
                     None => line(&mut img, p, p, s.colour, s.style, &mut run),
@@ -434,7 +435,7 @@ mod tests {
                 style: Style::Ours,
                 colour: COLOURS[0],
                 points: (0..100)
-                    .map(|i| (10f64.powf(i as f64 / 10.0 - 3.0), (i as f64).sqrt()))
+                    .map(|i| (10f64.r_powf(i as f64 / 10.0 - 3.0), (i as f64).sqrt()))
                     .collect(),
             }],
         };

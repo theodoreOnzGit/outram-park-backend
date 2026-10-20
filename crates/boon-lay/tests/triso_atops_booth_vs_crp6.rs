@@ -71,6 +71,7 @@
 //!    those metals today; Sr-90 in any TRISO-ATOPS or `sembawang` run at
 //!    normal-operation temperatures is affected.
 
+use petir::mathf::RealMath;
 use boon_lay::lagrangian_decay_simulator::lagrangian_diffusion::single_particle_simulator::release_fraction_analytical_solution::calculate_analytical_fraction_released;
 use boon_lay::lagrangian_decay_simulator::lagrangian_diffusion::single_particle_simulator::release_fraction_crp_6_case_1a_1b::simulation_code::kernel_diffusion_coefficient;
 use boon_lay::triso_atops_fork::diffusion::diffusion_coefficient;
@@ -209,7 +210,7 @@ fn booth_longlived_has_the_predicted_truncation_floor_at_small_tau() {
     let a = Length::new::<meter>(1.0);
     let t = Time::new::<second>(1.0);
     for exp10 in [-2, -3, -4, -5, -6, -7, -8, -9, -10, -11, -12, -13, -14] {
-        let tau = 10f64.powi(exp10);
+        let tau = 10f64.r_powi(exp10);
         let d = DiffusionCoefficient::new::<square_meter_per_second>(tau);
         let booth = booth_longlived(d, t, a).get::<ratio>();
         let law = early_time_law(tau);

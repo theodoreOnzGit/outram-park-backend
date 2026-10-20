@@ -9,6 +9,7 @@
 //! not in the data: the reduction only drops points that would land on the
 //! same pixel.
 
+use petir::mathf::RealMath;
 use dhoby_ghaut::web_demo::view::View;
 use egui::{Color32, Pos2, Rect, Shape, Stroke};
 
@@ -34,7 +35,7 @@ impl Frame {
     /// `(w, h)` is the canvas size in pixels: x fills the width, y the
     /// height.
     pub fn around(x0: f64, x1: f64, y0: f64, y1: f64, w: f64, h: f64) -> (Self, f64) {
-        let (lx0, lx1, ly0, ly1) = (x0.log10(), x1.log10(), y0.log10(), y1.log10());
+        let (lx0, lx1, ly0, ly1) = (x0.r_log10(), x1.r_log10(), y0.r_log10(), y1.r_log10());
         let (xspan, yspan) = ((lx1 - lx0).max(0.5) * 1.06, (ly1 - ly0).max(0.5) * 1.06);
         let ys = (h * xspan / (w * yspan)).clamp(0.05, 20.0);
         let f = Frame { origin: [0.5 * (lx0 + lx1), 0.5 * (ly0 + ly1) * ys], ys };
@@ -44,7 +45,7 @@ impl Frame {
     }
     pub fn to_screen(&self, view: &View, rect: Rect, x: f64, y: f64) -> Option<Pos2> {
         if x > 0.0 && y > 0.0 && x.is_finite() && y.is_finite() {
-            Some(view.to_screen(rect, x.log10() - self.origin[0], y.log10() * self.ys - self.origin[1]))
+            Some(view.to_screen(rect, x.r_log10() - self.origin[0], y.r_log10() * self.ys - self.origin[1]))
         } else {
             None
         }
@@ -52,7 +53,7 @@ impl Frame {
     /// The data-unit x and y at a screen point.
     pub fn to_data(&self, view: &View, rect: Rect, p: Pos2) -> [f64; 2] {
         let w = view.to_world(rect, p);
-        [10f64.powf(w[0] + self.origin[0]), 10f64.powf((w[1] + self.origin[1]) / self.ys)]
+        [10f64.r_powf(w[0] + self.origin[0]), 10f64.r_powf((w[1] + self.origin[1]) / self.ys)]
     }
 }
 
@@ -79,18 +80,18 @@ pub fn axes(painter: &egui::Painter, rect: Rect, view: &View, frame: &Frame, xna
     let grid = Color32::from_rgb(38, 44, 56);
     let label = Color32::from_rgb(150, 158, 175);
     let font = egui::FontId::proportional(11.0);
-    let (kx0, kx1) = (lo[0].log10().floor() as i32, hi[0].log10().ceil() as i32);
+    let (kx0, kx1) = (lo[0].r_log10().floor() as i32, hi[0].r_log10().ceil() as i32);
     let step_x = ((kx1 - kx0) as f32 / (rect.width() / 46.0)).ceil().max(1.0) as i32;
     for k in (kx0..=kx1).filter(|k| k.rem_euclid(step_x) == 0) {
-        if let Some(p) = frame.to_screen(view, rect, 10f64.powi(k), lo[1].max(1e-300)) {
+        if let Some(p) = frame.to_screen(view, rect, 10f64.r_powi(k), lo[1].max(1e-300)) {
             painter.line_segment([Pos2::new(p.x, rect.top()), Pos2::new(p.x, rect.bottom())], Stroke::new(1.0, grid));
             painter.text(Pos2::new(p.x + 2.0, rect.bottom() - 28.0), egui::Align2::LEFT_BOTTOM, format!("1e{k}"), font.clone(), label);
         }
     }
-    let (ky0, ky1) = (lo[1].log10().floor() as i32, hi[1].log10().ceil() as i32);
+    let (ky0, ky1) = (lo[1].r_log10().floor() as i32, hi[1].r_log10().ceil() as i32);
     let step_y = ((ky1 - ky0) as f32 / (rect.height() / 40.0)).ceil().max(1.0) as i32;
     for k in (ky0..=ky1).filter(|k| k.rem_euclid(step_y) == 0) {
-        if let Some(p) = frame.to_screen(view, rect, lo[0].max(1e-300), 10f64.powi(k)) {
+        if let Some(p) = frame.to_screen(view, rect, lo[0].max(1e-300), 10f64.r_powi(k)) {
             painter.line_segment([Pos2::new(rect.left(), p.y), Pos2::new(rect.right(), p.y)], Stroke::new(1.0, grid));
             painter.text(Pos2::new(rect.left() + 4.0, p.y - 1.0), egui::Align2::LEFT_BOTTOM, format!("1e{k}"), font.clone(), label);
         }
@@ -190,7 +191,7 @@ mod tests {
         assert!((half - 0.5 * 12.0 * 1.06).abs() < 1e-12);
         let mut view = View::new(half);
         view.fit(rect);
-        let p = frame.to_screen(&view, rect, 10f64.powf(1.0), 10f64.powf(2.0)).unwrap();
+        let p = frame.to_screen(&view, rect, 10f64.r_powf(1.0), 10f64.r_powf(2.0)).unwrap();
         assert!((p.x - rect.center().x).abs() < 1e-3 && (p.y - rect.center().y).abs() < 1e-3);
         assert!(frame.to_screen(&view, rect, 0.0, 1.0).is_none(), "zero has no log");
         let back = frame.to_data(&view, rect, p);

@@ -253,6 +253,7 @@
 //! agreement to 50 pcm would be suspicious and should prompt a search for a
 //! coincidence rather than a celebration.
 
+use petir::mathf::RealMath;
 use outram_mc_libs::prelude::TrisoSpec;
 
 pub mod bed;
@@ -533,7 +534,7 @@ pub fn geometry_closures() -> Vec<GeometryClosure> {
         GeometryClosure {
             quantity: "TRISO packing fraction",
             stated: spec.packing_fraction,
-            derived: 8335.0 * (spec.opyc / 2.5).powi(3),
+            derived: 8335.0 * (spec.opyc / 2.5).r_powi(3),
             units: "-",
             derived_from: "8335 particles of radius 455 um in a 2.5 cm fuel zone",
         },
@@ -549,7 +550,7 @@ pub fn heavy_metal_per_ball() -> f64 {
     let x5 = u235_atom_fraction();
     let m_u = x5 * 235.043_930 + (1.0 - x5) * 238.050_788;
     let m_uo2 = m_u + 2.0 * 15.994_914_6;
-    let v_kernel = 4.0 / 3.0 * std::f64::consts::PI * spec.kernel.powi(3);
+    let v_kernel = 4.0 / 3.0 * std::f64::consts::PI * spec.kernel.r_powi(3);
     8335.0 * v_kernel * RHO_UO2 * m_u / m_uo2
 }
 

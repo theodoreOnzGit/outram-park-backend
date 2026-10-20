@@ -43,6 +43,7 @@
 //! **Untrusted AI draft.** Verified by a LEAPR→THERMR round-trip on synthetic and
 //! `coher`-derived data; **not** validated against a reference NJOY MF=7 tape.
 
+use petir::mathf::RealMath;
 use crate::endf::tape::{Section, Tape};
 use crate::endf::EndfKey;
 use crate::leapr::coher::BraggEdges;
@@ -298,7 +299,7 @@ fn build_coherent_elastic(out: &LeaprOutput, edges: &[(f64, f64)], w_base: f64) 
     let mut suml = 0.0;
     let mut jmax = 0usize;
     for (j, &(e, f)) in edges.iter().enumerate() {
-        sum += (-4.0 * w0 * e).exp() * f;
+        sum += (-4.0 * w0 * e).r_exp() * f;
         if sum - suml > TOL * sum {
             jmax = j + 1; // 1-based index of the last retained edge
             suml = sum;
@@ -314,7 +315,7 @@ fn build_coherent_elastic(out: &LeaprOutput, edges: &[(f64, f64)], w_base: f64) 
     let mut sum = 0.0;
     for (j, &(e, f)) in edges.iter().enumerate() {
         let p = (j + 1).min(jmax); // 1-based pair slot; tail collapses onto jmax
-        sum += (-4.0 * w * e).exp() * f;
+        sum += (-4.0 * w * e).r_exp() * f;
         pairs[p - 1] = (sigfig(e, 7, 0), sigfig(sum, 7, 0));
     }
     push_tab1(
@@ -339,7 +340,7 @@ fn build_coherent_elastic(out: &LeaprOutput, edges: &[(f64, f64)], w_base: f64) 
             let jj = (j + 1).min(jmax);
             let (e, f) = edges[jj - 1];
             let e = sigfig(e, 7, 0);
-            sum += (-4.0 * w * e).exp() * f;
+            sum += (-4.0 * w * e).r_exp() * f;
             svals[jj - 1] = sigfig(sum, 7, 0);
         }
         push_list(&mut rows, out.temperatures_k[t], 0.0, 2, 0, 0, &svals);
@@ -427,14 +428,14 @@ fn stored_s(out: &LeaprOutput, i: usize, j: usize, nt: usize, be: f64) -> f64 {
                 1 => be / 2.0,
                 _ => 0.0,
             };
-            sigfig(base.ln() + shift, 7, 0)
+            sigfig(base.r_ln() + shift, 7, 0)
         } else {
             -999.0
         }
     } else {
         let factor = match out.isym {
-            0 => (-be / 2.0).exp(),
-            1 => (be / 2.0).exp(),
+            0 => (-be / 2.0).r_exp(),
+            1 => (be / 2.0).r_exp(),
             _ => 1.0,
         };
         let raw = base * factor;
@@ -624,7 +625,7 @@ mod tests {
         // fill with a smooth positive law S(a,b) = exp(-a) * exp(-b/3)
         for (ib, &b) in beta.iter().enumerate() {
             for (ia, &a) in alpha.iter().enumerate() {
-                ssm.set(ib, ia, (-a).exp() * (-b / 3.0).exp());
+                ssm.set(ib, ia, (-a).r_exp() * (-b / 3.0).r_exp());
             }
         }
         LeaprOutput {
@@ -686,12 +687,12 @@ mod tests {
             for ia in 0..lt.alpha.len() {
                 let (l, g) = (lt.s[ia], gt.s[ia]);
                 assert!(l > 0.0, "linear S({ia},{ib}) is positive");
-                let rel = (g.exp() - l).abs() / l;
+                let rel = (g.r_exp() - l).abs() / l;
                 assert!(
                     rel < 1.0e-6,
                     "exp(log-stored) != linear-stored at (a{ia}, b{ib}): \
                      exp({g:e}) = {:e} vs {l:e}, rel {rel:e}",
-                    g.exp()
+                    g.r_exp()
                 );
             }
         }
@@ -720,7 +721,7 @@ mod tests {
             let be = sym_ii.beta[ib];
             for ia in 0..st.alpha.len() {
                 let (s, a) = (st.s[ia], at.s[ia]);
-                let expect = a * (-be / 2.0).exp();
+                let expect = a * (-be / 2.0).r_exp();
                 let rel = (expect - s).abs() / s.max(1.0e-30);
                 assert!(
                     rel < 1.0e-6,
@@ -787,7 +788,7 @@ mod tests {
             assert!(tbl.s.iter().all(|&s| s >= 0.0), "S >= 0");
             // values match S_sym = ssm*exp(-beta/2) to 7 sig figs
             for (ia, &a) in out.alpha.iter().enumerate() {
-                let expect = (-a).exp() * (-out.beta[ib] / 3.0).exp() * (-out.beta[ib] / 2.0).exp();
+                let expect = (-a).r_exp() * (-out.beta[ib] / 3.0).r_exp() * (-out.beta[ib] / 2.0).r_exp();
                 let rel = (tbl.s[ia] - expect).abs() / expect.max(1e-30);
                 assert!(rel < 1e-6, "S({ia},{ib}) round-trip rel err {rel:e}");
             }
@@ -879,7 +880,7 @@ mod tests {
         let mut sum = 0.0;
         for (j, &(e, f)) in edges.iter().enumerate() {
             let slot = (j + 1).min(jmax) - 1;
-            sum += (-4.0 * w * e).exp() * f;
+            sum += (-4.0 * w * e).r_exp() * f;
             pairs[slot] = (sigfig(e, 7, 0), sigfig(sum, 7, 0));
         }
         pairs
@@ -904,7 +905,7 @@ mod tests {
         for j in 0..edges.len() {
             let slot = (j + 1).min(jmax) - 1;
             let (e, f) = edges[slot];
-            sum += (-4.0 * w * sigfig(e, 7, 0)).exp() * f;
+            sum += (-4.0 * w * sigfig(e, 7, 0)).r_exp() * f;
             svals[slot] = sigfig(sum, 7, 0);
         }
         svals
@@ -1097,7 +1098,7 @@ mod tests {
             );
             for k in 0..40 {
                 // 1e-5 .. 10 eV, log-spaced
-                let e = 1e-5 * 10_f64.powf(6.0 * (k as f64) / 39.0);
+                let e = 1e-5 * 10_f64.r_powf(6.0 * (k as f64) / 39.0);
                 let xs = ce.cross_section(e, temp_k).unwrap();
                 assert!(
                     xs.is_finite() && xs >= 0.0,
@@ -1207,7 +1208,7 @@ mod tests {
             let quirk: f64 = expect[jmax - 1];
             let honest = sigfig(
                 br.edges.iter().fold(0.0, |acc, &(e, f)| {
-                    acc + (-4.0 * w * sigfig(e, 7, 0)).exp() * f
+                    acc + (-4.0 * w * sigfig(e, 7, 0)).r_exp() * f
                 }),
                 7,
                 0,

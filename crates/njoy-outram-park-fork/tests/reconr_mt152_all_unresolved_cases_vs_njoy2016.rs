@@ -109,6 +109,7 @@
 //! against NJOY2016, not validation: nothing here is compared to measurement,
 //! and the synthetic material does not exist.
 
+use petir::mathf::RealMath;
 use njoy_outram_park_fork::common::phys::{AMASSN_AMU, PI};
 use njoy_outram_park_fork::endf::mt::MtReaction;
 use njoy_outram_park_fork::endf::tape::Tape;
@@ -643,10 +644,10 @@ fn reproduce_csunr1_with_upstream_fall_through(range: &UnresolvedRange, e: f64) 
     let aw = awri * AMASSN_AMU;
     // `naps` handling, `csunr1:3950-3958`.
     let aa = match range.naps {
-        0 => 0.123 * aw.cbrt() + 0.08,
+        0 => 0.123 * aw.r_cbrt() + 0.08,
         _ => ap,
     };
-    let konst = (2.0 * PI * PI) / (WAVE_K * rat).powi(2);
+    let konst = (2.0 * PI * PI) / (WAVE_K * rat).r_powi(2);
 
     let (mut elastic, mut capture) = (0.0_f64, 0.0_f64);
     // `vl`/`ps` are Fortran locals of `csunr1`, so they persist across l and j.
@@ -675,7 +676,7 @@ fn reproduce_csunr1_with_upstream_fall_through(range: &UnresolvedRange, e: f64) 
             }
             vl *= e2; // `:4010`, inside the j loop.
             if jdx == 0 {
-                spot = 4.0 * PI * (2.0 * ll as f64 + 1.0) * (ps.sin() / k).powi(2);
+                spot = 4.0 * PI * (2.0 * ll as f64 + 1.0) * (ps.r_sin() / k).r_powi(2);
             }
             let gnx = j.gno * vl;
             let den = e * j.d;
@@ -685,7 +686,7 @@ fn reproduce_csunr1_with_upstream_fall_through(range: &UnresolvedRange, e: f64) 
                 s += QW[i] * QP[i] * QP[i] / (gnx * QP[i] + j.gg);
                 c += QW[i] * QP[i] / (gnx * QP[i] + j.gg);
             }
-            let add = konst * gj * 2.0 * gnx * ps.sin().powi(2) / den;
+            let add = konst * gj * 2.0 * gnx * ps.r_sin().r_powi(2) / den;
             elastic += s * temp * gnx - add;
             capture += c * temp * j.gg;
         }

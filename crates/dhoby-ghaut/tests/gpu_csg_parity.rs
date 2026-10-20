@@ -133,6 +133,7 @@
 
 #![cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))]
 
+use petir::mathf::RealMath;
 use std::time::Instant;
 
 use nee_soon::htr10_rmc::core_model::{assemble_explicit_triso, mat};
@@ -160,9 +161,9 @@ fn scheme(g: &Geometry, background: Rgb) -> ColourScheme {
 /// `View3d::eye` of the workbench.
 fn eye(target: [f64; 3], yaw: f64, pitch: f64, distance: f64) -> Position {
     Position::new(
-        target[0] + distance * pitch.cos() * yaw.cos(),
-        target[1] + distance * pitch.cos() * yaw.sin(),
-        target[2] + distance * pitch.sin(),
+        target[0] + distance * pitch.r_cos() * yaw.r_cos(),
+        target[1] + distance * pitch.r_cos() * yaw.r_sin(),
+        target[2] + distance * pitch.r_sin(),
     )
 }
 

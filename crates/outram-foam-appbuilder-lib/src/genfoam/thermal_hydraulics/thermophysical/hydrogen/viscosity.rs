@@ -38,6 +38,7 @@
 //! [`equation_of_state::density`](super::equation_of_state::density)); the
 //! upstream regression fixture's reference values already reflect it.
 
+use petir::mathf::RealMath;
 use super::collision_integrals::{a12, omega22_22};
 use super::constants::{R, TC, W, W_H};
 use super::diffusion::binary_diffusion_h_h2;
@@ -51,11 +52,11 @@ use super::equation_of_state::density;
 #[inline]
 pub(super) fn zero_density_viscosity(t: f64) -> f64 {
     let t_star = t / 30.41;
-    let ln_t_star = t_star.ln();
-    let s_star = (2.09630e-1 - 4.55274e-1 * ln_t_star + 1.43602e-1 * ln_t_star.powi(2)
-        - 3.35325e-2 * ln_t_star.powi(3)
-        + 2.76981e-3 * ln_t_star.powi(4))
-    .exp();
+    let ln_t_star = t_star.r_ln();
+    let s_star = (2.09630e-1 - 4.55274e-1 * ln_t_star + 1.43602e-1 * ln_t_star.r_powi(2)
+        - 3.35325e-2 * ln_t_star.r_powi(3)
+        + 2.76981e-3 * ln_t_star.r_powi(4))
+    .r_exp();
     0.021357 * (W * t).sqrt() / (0.297 * 0.297 * s_star) * 1e-6
 }
 
@@ -67,11 +68,11 @@ pub(super) fn zero_density_viscosity(t: f64) -> f64 {
 #[inline]
 pub(super) fn excess_viscosity(t: f64) -> f64 {
     let t_star = t / 30.41;
-    let b_star = -0.1870 + 2.4871 / t_star + 3.7151 / t_star.powi(2) - 11.0972 / t_star.powi(3)
-        + 9.0965 / t_star.powi(4)
-        - 3.8292 / t_star.powi(5)
-        + 0.5166 / t_star.powi(6);
-    b_star * 0.297f64.powi(3) * zero_density_viscosity(t)
+    let b_star = -0.1870 + 2.4871 / t_star + 3.7151 / t_star.r_powi(2) - 11.0972 / t_star.r_powi(3)
+        + 9.0965 / t_star.r_powi(4)
+        - 3.8292 / t_star.r_powi(5)
+        + 0.5166 / t_star.r_powi(6);
+    b_star * 0.297f64.r_powi(3) * zero_density_viscosity(t)
 }
 
 /// Viscosity of pure atomic hydrogen from Chapman-Enskog kinetic theory
@@ -108,8 +109,8 @@ pub(super) fn dynamic_viscosity(p: f64, t: f64) -> f64 {
                 * (4.56334068e-2 * tr
                     + 2.32797868e-1 / tr
                     + 9.58326120e-1 * rho_r * rho_r / (1.27941189e-1 + tr)
-                    + 3.63576595e-1 * rho_r.powi(6))
-                .exp());
+                    + 3.63576595e-1 * rho_r.r_powi(6))
+                .r_exp());
 
     let x_h = mole_fraction_atomic_h(p, t);
     if x_h == 0.0 {
@@ -120,7 +121,7 @@ pub(super) fn dynamic_viscosity(p: f64, t: f64) -> f64 {
     let d_h_h2 = binary_diffusion_h_h2(p, t);
     let a_ = a12(t);
 
-    let h11 = (1.0 - x_h).powi(2) / viscosity_h2
+    let h11 = (1.0 - x_h).r_powi(2) / viscosity_h2
         + 2.0 * (1.0 - x_h) * x_h / (W + W_H) * R * t / (p * d_h_h2)
             * (1.0 + 3.0 * W_H * a_ / (5.0 * W));
     let h22 = x_h * x_h / viscosity_h
@@ -128,7 +129,7 @@ pub(super) fn dynamic_viscosity(p: f64, t: f64) -> f64 {
             * (1.0 + 3.0 * W * a_ / (5.0 * W_H));
     let h12 = -2.0 * (1.0 - x_h) * x_h / (W + W_H) * R * t / (p * d_h_h2) * (1.0 - 3.0 * a_ / 5.0);
 
-    ((1.0 - x_h).powi(2) / h11 + x_h * x_h / h22 - 2.0 * (1.0 - x_h) * x_h * h12 / (h11 * h22))
+    ((1.0 - x_h).r_powi(2) / h11 + x_h * x_h / h22 - 2.0 * (1.0 - x_h) * x_h * h12 / (h11 * h22))
         / (1.0 - h12 * h12 / (h11 * h22))
 }
 

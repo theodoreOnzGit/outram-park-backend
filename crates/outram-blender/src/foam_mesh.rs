@@ -93,6 +93,7 @@
 //! `RESPONSIBLE_USE.md`: not for reactor operation, licensing, or safety-critical
 //! decisions.
 
+use petir::mathf::RealMath;
 use std::collections::HashMap;
 use std::path::Path;
 
@@ -627,7 +628,7 @@ pub fn revolved_profile_surface(profile: &[[f64; 2]], n_seg: usize) -> (Vec<Vec3
             let mut r = Vec::with_capacity(n_seg);
             for j in 0..n_seg {
                 let phi = 2.0 * std::f64::consts::PI * j as f64 / n_seg as f64;
-                pts.push(Vec3::new(p[0] * phi.cos(), p[0] * phi.sin(), p[1]));
+                pts.push(Vec3::new(p[0] * phi.r_cos(), p[0] * phi.r_sin(), p[1]));
                 r.push(pts.len() - 1);
             }
             ring.push(r);
@@ -717,7 +718,7 @@ mod revolve_tests {
         }
         let tau = 2.0 * std::f64::consts::PI;
         let exact = tau * (ir / 6.0).abs();
-        let k = n as f64 * (tau / n as f64).sin() / tau;
+        let k = n as f64 * (tau / n as f64).r_sin() / tau;
         assert!((v - exact * k).abs() < 1e-9 * exact, "{v} vs {}", exact * k);
         let mut rev = prof.to_vec();
         rev.reverse();

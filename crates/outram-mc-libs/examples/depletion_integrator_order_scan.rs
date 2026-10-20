@@ -3,6 +3,7 @@
 //! Since gh:#950 the integrators are PETIR's eight ports of OpenMC's (all of
 //! them are scanned); "operator calls" is `Integrator::operator_calls` for a
 //! step after the first, with upstream's default 10 SI iterations.
+use petir::mathf::RealMath;
 use outram_mc_libs::depletion::chain::DepletionChain;
 use outram_mc_libs::depletion::integrators::Integrator;
 use outram_mc_libs::depletion::operator::{deplete_with, BurnupSettings, OneGroupWeighting};
@@ -28,7 +29,7 @@ fn eol(i: Integrator, h: f64) -> f64 {
     deplete_with(i, &chain, &initial(), &settings(h)).steps.last().unwrap().k_inf
 }
 fn order(a: f64, b: f64, c: f64) -> f64 {
-    ((a - b).abs() / (b - c).abs()).log2()
+    ((a - b).abs() / (b - c).abs()).r_log2()
 }
 
 fn main() {

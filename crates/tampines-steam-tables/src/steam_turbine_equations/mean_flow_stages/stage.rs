@@ -32,6 +32,7 @@
 //! two methods are public so a unit test can exercise either mechanism on its
 //! own.
 
+use petir::mathf::RealMath;
 use uom::si::available_energy::joule_per_kilogram;
 use uom::si::f64::*;
 use uom::si::ratio::ratio;
@@ -181,7 +182,7 @@ impl RotorBlading {
         let mean_relative_speed = triangle.get_mean_relative_speed();
 
         let tangential_coefficient: Ratio =
-            self.lift_coefficient * mean_angle.cos() + self.drag_coefficient * mean_angle.sin();
+            self.lift_coefficient * Ratio::from(mean_angle.value.r_cos()) + self.drag_coefficient * Ratio::from(mean_angle.value.r_sin());
 
         let force_term: Ratio = self.solidity * tangential_coefficient * 0.5;
 

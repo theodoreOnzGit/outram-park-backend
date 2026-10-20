@@ -19,6 +19,7 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+use petir::mathf::RealMath;
 use crate::openfoam_algorithms::openfoam_source::boundary::bc::PatchField;
 use crate::openfoam_algorithms::openfoam_source::field::Field;
 use crate::openfoam_algorithms::openfoam_source::surface_field::SurfaceScalarField;
@@ -31,7 +32,7 @@ use crate::openfoam_algorithms::openfoam_source::{Tensor, Vector3};
 fn pseudo_inv_mv(m: Tensor, rhs: Vector3) -> Vector3 {
     let det = m.det();
     let scale = m.xx.abs().max(m.yy.abs()).max(m.zz.abs());
-    if scale > 0.0 && det.abs() > 1e-20 * scale.powi(3) {
+    if scale > 0.0 && det.abs() > 1e-20 * scale.r_powi(3) {
         m.inv().mat_vec(rhs)
     } else {
         // Degenerate: each non-zero diagonal component is solved independently.

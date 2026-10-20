@@ -262,6 +262,7 @@ impl Preconditioner {
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
     use crate::matrix::SquareMatrix;
 
@@ -322,8 +323,8 @@ mod tests {
         let mut num = 0.0;
         let mut den = 0.0;
         for i in 0..x.len() {
-            num += (x[i] - y[i]).powi(2);
-            den += y[i].powi(2);
+            num += (x[i] - y[i]).r_powi(2);
+            den += y[i].r_powi(2);
         }
         (num / den).sqrt()
     }

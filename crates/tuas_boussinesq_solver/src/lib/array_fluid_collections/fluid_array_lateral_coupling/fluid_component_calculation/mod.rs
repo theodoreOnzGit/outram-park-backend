@@ -15,6 +15,7 @@
 //! at the array bulk temperature, plus incline angle and internal pressure
 //! source (e.g. a simulated pump).
 
+use petir::mathf::RealMath;
 use crate::boussinesq_thermophysical_properties::density::try_get_rho;
 use crate::boussinesq_thermophysical_properties::dynamic_viscosity::try_get_mu_viscosity;
 use crate::tuas_lib_error::TuasLibError;
@@ -142,7 +143,7 @@ impl DimensionlessDarcyLossCorrelations {
             // f L/D + K = A + B Re^(C)
             DimensionlessDarcyLossCorrelations::SimpleReynoldsPower(a, b, c) => {
                 let friction_factor =
-                    a.get::<ratio>() + b.get::<ratio>() * reynolds.get::<ratio>().powf(*c);
+                    a.get::<ratio>() + b.get::<ratio>() * reynolds.get::<ratio>().r_powf(*c);
 
                 friction_factor
             }

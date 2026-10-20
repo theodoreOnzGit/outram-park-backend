@@ -651,6 +651,7 @@ impl crate::gpu::GpuContext {
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
 
     /// Verification: the GPU (`f32`) full WMP evaluation agrees with the CPU
@@ -711,8 +712,8 @@ mod tests {
         let n = 2000usize;
         let e_min = wmp.e_min;
         let e_max = wmp.e_max;
-        let ratio = (e_max / e_min).powf(1.0 / (n as f64 - 1.0));
-        let energies_f64: Vec<f64> = (0..n).map(|i| e_min * ratio.powi(i as i32)).collect();
+        let ratio = (e_max / e_min).r_powf(1.0 / (n as f64 - 1.0));
+        let energies_f64: Vec<f64> = (0..n).map(|i| e_min * ratio.r_powi(i as i32)).collect();
         let energies_f32: Vec<f32> = energies_f64.iter().map(|&e| e as f32).collect();
 
         let temp_k = 300.0_f64;

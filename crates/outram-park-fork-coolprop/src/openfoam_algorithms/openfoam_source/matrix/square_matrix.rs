@@ -19,6 +19,7 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+use petir::mathf::RealMath;
 /// Error type for `SquareMatrix::solve`.
 #[derive(Debug, Clone, PartialEq)]
 pub enum MatrixError {
@@ -413,8 +414,8 @@ mod tests {
         let mut b_norm_sq = 0.0_f64;
         for i in 0..n {
             let ax_i: f64 = (0..n).map(|j| m2.get(i, j) * x[j]).sum();
-            r_norm_sq += (ax_i - b[i]).powi(2);
-            b_norm_sq += b[i].powi(2);
+            r_norm_sq += (ax_i - b[i]).r_powi(2);
+            b_norm_sq += b[i].r_powi(2);
         }
         let rel_residual = r_norm_sq.sqrt() / b_norm_sq.sqrt();
         assert!(

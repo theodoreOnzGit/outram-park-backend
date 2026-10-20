@@ -36,6 +36,7 @@
 //!
 //! Recorded in the printout; see the #461 comment of 2026-09-30.
 
+use petir::mathf::RealMath;
 use outram_mc_libs::geometry::cell::{Cell, HalfSpaceSense, RegionToken};
 use outram_mc_libs::geometry::geometry::Geometry;
 use outram_mc_libs::geometry::position::Position;
@@ -145,7 +146,7 @@ fn parallel_path_applies_survival_biasing() {
         "survival biasing changed nothing on the parallel path: the setting is not \
          reaching the kernel (GitHub #461)"
     );
-    let z = (biased.k_mean - analog.k_mean) / (analog.k_std.powi(2) + biased.k_std.powi(2)).sqrt();
+    let z = (biased.k_mean - analog.k_mean) / (analog.k_std.r_powi(2) + biased.k_std.r_powi(2)).sqrt();
     assert!(z.abs() < 4.0, "survival-biased parallel k differs from analog by {z:.2} sigma");
 }
 
@@ -187,7 +188,7 @@ fn analog_fission_under_weight_windows_is_unbiased() {
         ..base(seq)
     });
     let z = (windowed.k_mean - analog.k_mean)
-        / (analog.k_std.powi(2) + windowed.k_std.powi(2)).sqrt();
+        / (analog.k_std.r_powi(2) + windowed.k_std.r_powi(2)).sqrt();
     println!(
         "analog k = {:.5} +/- {:.5}; weight-windowed k = {:.5} +/- {:.5}; z = {z:+.2}",
         analog.k_mean, analog.k_std, windowed.k_mean, windowed.k_std

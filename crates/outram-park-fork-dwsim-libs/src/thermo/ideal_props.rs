@@ -107,6 +107,7 @@
 //!   departures that turn these ideal-gas values into real-fluid properties
 //!   live in [`crate::thermo::cubic_eos`], not here.
 
+use petir::mathf::RealMath;
 /// Universal gas constant `R` [J/(mol·K)] — CODATA 2018 exact value.
 ///
 /// DWSIM hard-codes the rounded `8.314`; this port uses the exact SI value.
@@ -179,9 +180,9 @@ pub fn ideal_gas_enthalpy(
     let t0 = t_ref;
     a * (t - t0)
         + b / 2.0 * (t * t - t0 * t0)
-        + c / 3.0 * (t.powi(3) - t0.powi(3))
-        + d / 4.0 * (t.powi(4) - t0.powi(4))
-        + e / 5.0 * (t.powi(5) - t0.powi(5))
+        + c / 3.0 * (t.r_powi(3) - t0.r_powi(3))
+        + d / 4.0 * (t.r_powi(4) - t0.r_powi(4))
+        + e / 5.0 * (t.r_powi(5) - t0.r_powi(5))
 }
 
 /// Sensible ideal-gas molar entropy relative to `(T_ref, P_ref)`
@@ -222,12 +223,12 @@ pub fn ideal_gas_entropy(
     let e = component.cp_ig_e;
     let t = temperature;
     let t0 = t_ref;
-    let cp_over_t_integral = a * (t / t0).ln()
+    let cp_over_t_integral = a * (t / t0).r_ln()
         + b * (t - t0)
         + c / 2.0 * (t * t - t0 * t0)
-        + d / 3.0 * (t.powi(3) - t0.powi(3))
-        + e / 4.0 * (t.powi(4) - t0.powi(4));
-    cp_over_t_integral - R * (pressure / p_ref).ln()
+        + d / 3.0 * (t.r_powi(3) - t0.r_powi(3))
+        + e / 4.0 * (t.r_powi(4) - t0.r_powi(4));
+    cp_over_t_integral - R * (pressure / p_ref).r_ln()
 }
 
 /// Mole-fraction-weighted ideal-gas molar heat capacity of a mixture
@@ -318,7 +319,7 @@ pub fn ideal_entropy_of_mixing(mole_fractions: &[f64]) -> f64 {
     -R * mole_fractions
         .iter()
         .filter(|&&x| x > 0.0)
-        .map(|&x| x * x.ln())
+        .map(|&x| x * x.r_ln())
         .sum::<f64>()
 }
 
@@ -432,7 +433,7 @@ mod tests {
         let c = comp([a, 0.0, 0.0, 0.0, 0.0]);
         let (t, t_ref): (f64, f64) = (500.0, 298.15);
         let (p, p_ref): (f64, f64) = (5.0 * 101_325.0, 101_325.0);
-        let expected = a * (t / t_ref).ln() - R * (p / p_ref).ln();
+        let expected = a * (t / t_ref).r_ln() - R * (p / p_ref).r_ln();
         assert_relative_eq!(
             ideal_gas_entropy(&c, t, p, t_ref, p_ref),
             expected,
@@ -460,20 +461,20 @@ mod tests {
 
         let h_expected = a * (t - t0)
             + b / 2.0 * (t * t - t0 * t0)
-            + cc / 3.0 * (t.powi(3) - t0.powi(3))
-            + d / 4.0 * (t.powi(4) - t0.powi(4))
-            + e / 5.0 * (t.powi(5) - t0.powi(5));
+            + cc / 3.0 * (t.r_powi(3) - t0.r_powi(3))
+            + d / 4.0 * (t.r_powi(4) - t0.r_powi(4))
+            + e / 5.0 * (t.r_powi(5) - t0.r_powi(5));
         assert_relative_eq!(
             ideal_gas_enthalpy(&c, t, t0),
             h_expected,
             max_relative = 1e-12
         );
 
-        let s_expected = a * (t / t0).ln()
+        let s_expected = a * (t / t0).r_ln()
             + b * (t - t0)
             + cc / 2.0 * (t * t - t0 * t0)
-            + d / 3.0 * (t.powi(3) - t0.powi(3))
-            + e / 4.0 * (t.powi(4) - t0.powi(4));
+            + d / 3.0 * (t.r_powi(3) - t0.r_powi(3))
+            + e / 4.0 * (t.r_powi(4) - t0.r_powi(4));
         // P = P_ref => pressure term is exactly 0.
         assert_relative_eq!(
             ideal_gas_entropy(&c, t, 101_325.0, t0, 101_325.0),
@@ -493,11 +494,11 @@ mod tests {
         let c = comp([0.0; 5]);
         let (t_ref, p_ref) = (298.15, 101_325.0);
         let s_compress = ideal_gas_entropy(&c, t_ref, 2.0 * p_ref, t_ref, p_ref);
-        assert_relative_eq!(s_compress, -R * 2.0_f64.ln(), max_relative = 1e-12);
+        assert_relative_eq!(s_compress, -R * 2.0_f64.r_ln(), max_relative = 1e-12);
         assert_relative_eq!(s_compress, -5.763_146, max_relative = 1e-6);
 
         let s_expand = ideal_gas_entropy(&c, t_ref, 0.5 * p_ref, t_ref, p_ref);
-        assert_relative_eq!(s_expand, R * 2.0_f64.ln(), max_relative = 1e-12);
+        assert_relative_eq!(s_expand, R * 2.0_f64.r_ln(), max_relative = 1e-12);
     }
 
     /// **Methodology.** The ideal entropy of mixing for a 50/50 binary is the
@@ -508,7 +509,7 @@ mod tests {
     #[test]
     fn ideal_entropy_of_mixing_fifty_fifty_is_r_ln2() {
         let s_mix = ideal_entropy_of_mixing(&[0.5, 0.5]);
-        assert_relative_eq!(s_mix, R * 2.0_f64.ln(), max_relative = 1e-12);
+        assert_relative_eq!(s_mix, R * 2.0_f64.r_ln(), max_relative = 1e-12);
         assert_relative_eq!(s_mix, 5.763_146, max_relative = 1e-6);
 
         // Pure stream: no mixing entropy (x ln x = 0 at x=1, x=0 skipped).
@@ -559,7 +560,7 @@ mod tests {
         // (c) mixture entropy = weighted pure entropies + ideal mixing term.
         let s_weighted = 0.5 * ideal_gas_entropy(&comps[0], t, p, t_ref, p_ref)
             + 0.5 * ideal_gas_entropy(&comps[1], t, p, t_ref, p_ref);
-        let s_expected = s_weighted + R * 2.0_f64.ln();
+        let s_expected = s_weighted + R * 2.0_f64.r_ln();
         assert_relative_eq!(
             mixture_ideal_gas_entropy(&comps, &x, t, p, t_ref, p_ref),
             s_expected,

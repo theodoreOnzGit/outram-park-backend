@@ -7,6 +7,7 @@
 //! Worker in the browser), so this file only draws what the engine reports
 //! and the page never freezes.
 
+use petir::mathf::RealMath;
 use crate::anim::{self, animated_speed, draw_track, energy_colour, fmt_energy, fmt_speed, fmt_time, Anim};
 use crate::engine::{Event, Request, Tier};
 use crate::history::{outcome_name, History, Stats};
@@ -2149,7 +2150,7 @@ fn draw_entropy(painter: &egui::Painter, rect: Rect, it: &Iteration) {
     let n = it.total_gens().max(2) as f64;
     // From just below the lowest value to the 5 x 5 x 5 mesh's ceiling,
     // log2(125) bits, so the rise is visible.
-    let ceiling = (125f64).log2();
+    let ceiling = (125f64).r_log2();
     let lowest = it.gens.iter().filter_map(|g| g.entropy).fold(ceiling, f64::min);
     let ax = Axes { rect, x: (0.5, n + 0.5), y: ((lowest - 0.5).floor().max(0.0), ceiling) };
     ax.frame(painter, "Shannon entropy of the fission source (bits)", |v| format!("{v:.1}"));

@@ -183,7 +183,6 @@ lie in `[0, 1]`; correlation coefficients lie in `[-1, 1]`.
 
 | Feature | Default | What it adds |
 |---|---|---|
-| `deterministic-math` | off | Routes `distributions::seeded::sample_normal`'s `cos` through `petir::real::cos` instead of the platform libm. `outram-mc-libs`' feature of the same name turns it on, so the samplers it re-exports keep their stream |
 | `burn` | off | Neural-network surrogates backed by [burn](https://github.com/tracel-ai/burn), this workspace's replacement for PyTorch. Pulls `burn` in `no_std` + `alloc` mode with the pure-Rust, libm-backed `ndarray` backend — no system BLAS and no GPU, so the Android and wasm builds stay clean. |
 
 ```bash

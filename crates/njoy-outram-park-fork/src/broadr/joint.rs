@@ -39,6 +39,7 @@
 //! writes a negative energy, so on a RECONR PENDF, the only input this
 //! function takes, upstream skips the correction as well.
 
+use petir::mathf::RealMath;
 use crate::{
     common::phys::BK_EV_PER_K,
     endf::{
@@ -235,15 +236,15 @@ fn erfc_consts() -> &'static ErfcConsts {
     static C: std::sync::OnceLock<ErfcConsts> = std::sync::OnceLock::new();
     C.get_or_init(|| {
         let d1mach1 = f64::MIN_POSITIVE; // tiny(one)
-        let d1mach3 = 2.0f64.powi(-53); // two**(-digits(one))
+        let d1mach3 = 2.0f64.r_powi(-53); // two**(-digits(one))
         let eta = d1mach3 / 10.0;
-        let txmax = (-(SQRTPI * d1mach1).ln()).sqrt();
+        let txmax = (-(SQRTPI * d1mach1).r_ln()).sqrt();
         ErfcConsts {
             nterf: initds(&ERFCS, eta),
             nterfc: initds(&ERFCCS, eta),
             nterc2: initds(&ERC2CS, eta),
-            xsml: -(-(SQRTPI * d1mach3).ln()).sqrt(),
-            xmax: txmax - txmax.ln() / (2.0 * txmax) - 1.0 / 10.0,
+            xsml: -(-(SQRTPI * d1mach3).r_ln()).sqrt(),
+            xmax: txmax - txmax.r_ln() / (2.0 * txmax) - 1.0 / 10.0,
             sqeps: (2.0 * d1mach3).sqrt(),
         }
     })
@@ -271,10 +272,10 @@ fn erfc(x: f64) -> f64 {
     y *= y;
     let mut v = if y <= 4.0 {
         let xx = (8.0 / y - 5.0) / 3.0;
-        (-y).exp() / x.abs() * (1.0 / 2.0 + csevl(xx, &ERC2CS, c.nterc2))
+        (-y).r_exp() / x.abs() * (1.0 / 2.0 + csevl(xx, &ERC2CS, c.nterc2))
     } else {
         let xx = 8.0 / y - 1.0;
-        (-y).exp() / x.abs() * (1.0 / 2.0 + csevl(xx, &ERFCCS, c.nterfc))
+        (-y).r_exp() / x.abs() * (1.0 / 2.0 + csevl(xx, &ERFCCS, c.nterfc))
     };
     if x < 0.0 {
         v = 2.0 - v;
@@ -292,7 +293,7 @@ fn funky(aa: f64) -> [f64; 5] {
     let asq = a * a;
     let mut expo = 0.0;
     if a < ALIM {
-        expo = (-asq).exp();
+        expo = (-asq).r_exp();
     }
     let mut f = [0.0f64; 5];
     if a < ALIM {
@@ -344,7 +345,7 @@ fn hnabb(n: i32, aa: f64, bb: f64) -> f64 {
     let asq = a * a;
     let mut con = 0.0;
     if asq < EXPLIM {
-        con = (-asq).exp() * resqpi / POW2[n as usize];
+        con = (-asq).r_exp() * resqpi / POW2[n as usize];
     }
     let mut mflag = 0;
     let mut k: i32 = n;
@@ -354,7 +355,7 @@ fn hnabb(n: i32, aa: f64, bb: f64) -> f64 {
     cm[1] = 1.0;
     let mut xk = 1.0;
     if k != 0 {
-        xk = x.powi(k);
+        xk = x.r_powi(k);
     }
     let mut s = h * xk;
     let mut fact = h;
@@ -391,7 +392,7 @@ fn hnabb(n: i32, aa: f64, bb: f64) -> f64 {
         }
         xk = 1.0;
         if k != 0 {
-            xk = x.powi(k);
+            xk = x.r_powi(k);
         }
         let term = fact * xk * qmn;
         s += term;
@@ -1295,7 +1296,7 @@ mod tests {
         // a log grid, 200 points per decade, 1e-5 eV to 2e7 eV
         let n = 12 * 200 + 1;
         let grid: Vec<f64> = (0..n)
-            .map(|i| sigfig(1e-5 * 10f64.powf(i as f64 / 200.0), 7, 0))
+            .map(|i| sigfig(1e-5 * 10f64.r_powf(i as f64 / 200.0), 7, 0))
             .filter(|&e| e <= 2.0e7)
             .collect();
         let pairs: Vec<(f64, f64)> = grid.iter().map(|&e| (e, sigfig(f(e), 7, 0))).collect();

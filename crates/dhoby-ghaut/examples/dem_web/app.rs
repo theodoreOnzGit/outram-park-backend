@@ -3,6 +3,7 @@
 //! energy against time, and the side panel. The UI thread only draws; the
 //! pour runs in [`crate::engine`] one short chunk per request.
 
+use petir::mathf::RealMath;
 use crate::engine::{Event, Request, Snapshot};
 use crate::htr10_beds::{self, draw, Beds};
 use dhoby_ghaut::web_demo::lesson::SITE;
@@ -564,7 +565,7 @@ fn draw_plots(p: &egui::Painter, rect: Rect, pour: Option<&Pour>, show: Show) {
     );
     // KE on a log scale, 1e-4 .. 1e2, with the settle target.
     frame(r_ke, "kinetic energy per pebble / one-radius drop (log)");
-    let lg = |v: f64| v.max(1e-6).log10();
+    let lg = |v: f64| v.max(1e-6).r_log10();
     let target = at(r_ke, 0.0, lg(1e-3), -4.0, 2.0);
     p.line_segment(
         [target, Pos2::new(r_ke.right(), target.y)],

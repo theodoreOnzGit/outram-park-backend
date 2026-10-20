@@ -95,6 +95,7 @@
 //! separately confirm the infinite-dilution limit (`sigma_0 -> inf`) returns the
 //! weight `C(E)` even with elastic scattering active.
 
+use petir::mathf::RealMath;
 use std::sync::Arc;
 
 use crate::groupr::panel::{GroupFlux, PointwiseXs, GETWTF_STEP, NO_NEXT_BREAK_EV};
@@ -245,7 +246,7 @@ pub fn genflx_slowing_down(
     let nemax = params.nflmax.max(2);
     let sigpot = params.sigpot;
     // Absorber's own scattering alpha (groupr.f90:5428).
-    let alpha1 = ((awr - 1.0) / (awr + 1.0)).powi(2);
+    let alpha1 = ((awr - 1.0) / (awr + 1.0)).r_powi(2);
     let nsigz = dilutions.len();
     let (beta, sam, gamma) = (params.beta, params.sam, params.gamma);
     // Card-8a rule (groupr.f90:4994): an external moderator without an admixed
@@ -378,7 +379,7 @@ pub fn genflx_slowing_down(
         let ej = energies[p];
         let ejp = energies[p + 1];
         let width = ejp - ej;
-        let dlog = (ejp / ej).ln();
+        let dlog = (ejp / ej).r_ln();
         let f1 = ejp / width;
         let f2 = ej / width;
         let f3 = f1 * dlog - 1.0;
@@ -395,8 +396,8 @@ pub fn genflx_slowing_down(
             if elim > ejp {
                 elim = ejp;
             }
-            let g3 = f1 * (elim / ej).ln() - (elim - ej) / width;
-            let g4 = (elim - ej) / width - f2 * (elim / ej).ln();
+            let g3 = f1 * (elim / ej).r_ln() - (elim - ej) / width;
+            let g4 = (elim - ej) / width - f2 * (elim / ej).r_ln();
             for iz in 0..nsigz {
                 let (s1, s2) = mod_source(k, p, iz, &ss);
                 flux[p][iz] += g4 * s2 * flux[p + 1][iz] / one_minus_alpha;
@@ -433,8 +434,8 @@ pub fn genflx_slowing_down(
                         }
                     } else {
                         // Partial panel up to elim (groupr.f90:5532-5544).
-                        let g3 = f1 * (elim / ej).ln() - (elim - ej) / width;
-                        let g4 = (elim - ej) / width - f2 * (elim / ej).ln();
+                        let g3 = f1 * (elim / ej).r_ln() - (elim - ej) / width;
+                        let g4 = (elim - ej) / width - f2 * (elim / ej).r_ln();
                         for iz in 0..nsigz {
                             let (s1, s2) = mod_source(k, p, iz, &ss);
                             flux[li][iz] += (g3 * s1 * flux[p][iz] + g4 * s2 * flux[p + 1][iz])
@@ -628,7 +629,7 @@ mod tests {
         let mut pairs = Vec::new();
         for k in 0..=20 {
             let e = 1.0 + k as f64 * 4.95; // 1 .. 100 eV
-            let cap = 200.0 / (1.0 + ((e - 50.0) / 2.0).powi(2)); // Lorentzian capture
+            let cap = 200.0 / (1.0 + ((e - 50.0) / 2.0).r_powi(2)); // Lorentzian capture
             pairs.push((e, 11.0 + cap)); // total = elastic(11) + capture
         }
         let grid: Vec<f64> = pairs.iter().map(|p| p.0).collect();
@@ -665,7 +666,7 @@ mod tests {
         let mut pairs = Vec::new();
         for k in 0..=20 {
             let e = 1.0 + k as f64 * 4.95;
-            let cap = 200.0 / (1.0 + ((e - 50.0) / 2.0).powi(2));
+            let cap = 200.0 / (1.0 + ((e - 50.0) / 2.0).r_powi(2));
             pairs.push((e, 11.0 + cap));
         }
         let grid: Vec<f64> = pairs.iter().map(|p| p.0).collect();

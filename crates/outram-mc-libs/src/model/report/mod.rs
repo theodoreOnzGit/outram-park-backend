@@ -23,6 +23,7 @@
 //! - **No new dependency**: PNGs by outram-blender's own encoder over
 //!   `miniz_oxide`, the zip by [`zip`] over the same.
 
+use petir::mathf::RealMath;
 mod plot;
 pub mod zip;
 
@@ -663,7 +664,7 @@ impl Builder {
             "in ln E".into(),
             format!(
                 "|ln EALF error| from bin midpoints <= this ({:.2} %)",
-                100.0 * (e.discretisation_bound_ln.exp() - 1.0)
+                100.0 * (e.discretisation_bound_ln.r_exp() - 1.0)
             ),
         ]);
         t.row(vec![
@@ -708,7 +709,7 @@ impl Builder {
             .iter()
             .zip(l.edges_ev.windows(2))
             .flat_map(|(e, w)| {
-                let du = (w[1] / w[0]).ln();
+                let du = (w[1] / w[0]).r_ln();
                 let v = if du > 0.0 && du.is_finite() {
                     e.mean / du
                 } else {
@@ -844,7 +845,7 @@ impl Builder {
             .per_lethargy
             .iter()
             .zip(s.edges_ev.windows(2))
-            .map(|(e, w)| e.mean * (w[1] / w[0]).ln())
+            .map(|(e, w)| e.mean * (w[1] / w[0]).r_ln())
             .sum();
         t.row(vec![
             "integral of normalised spectrum".into(),

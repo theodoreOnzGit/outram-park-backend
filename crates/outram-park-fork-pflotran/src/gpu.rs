@@ -22,6 +22,7 @@
 //! > was available, so only the CPU fallback was exercised here. The GPU dispatch
 //! > must be validated on a GPU-equipped host before it is trusted (bead op-v6s.14).
 
+use petir::mathf::RealMath;
 use std::future::Future;
 use std::sync::{Arc, Mutex};
 use std::task::{Context, Poll, Waker};
@@ -100,7 +101,7 @@ pub fn van_genuchten_se_cpu(alpha: f64, n: f64, m: f64, pc: &[f64]) -> Vec<f64> 
             if p <= 0.0 {
                 1.0
             } else {
-                (1.0 + (alpha * p).powf(n)).powf(-m).clamp(0.0, 1.0)
+                (1.0 + (alpha * p).r_powf(n)).r_powf(-m).clamp(0.0, 1.0)
             }
         })
         .collect()
@@ -294,7 +295,7 @@ mod tests {
         assert_eq!(se[0], 1.0); // pc <= 0 saturated
         assert_eq!(se[1], 1.0);
         for k in 2..pc.len() {
-            let expected = (1.0 + (alpha * pc[k]).powf(n)).powf(-m);
+            let expected = (1.0 + (alpha * pc[k]).r_powf(n)).r_powf(-m);
             assert!((se[k] - expected).abs() < 1e-12);
             assert!((0.0..=1.0).contains(&se[k]));
         }

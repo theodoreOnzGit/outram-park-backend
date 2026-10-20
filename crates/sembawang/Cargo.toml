@@ -38,6 +38,9 @@ backronym = "Severe-accident Evolution and Melt Behaviour Analysis Workbench for
 # that reasoning held, and these three are added because there is now code
 # that calls into them, not ahead of it.
 [dependencies]
+# Every transcendental routes through PETIR for cross-platform bit identity
+# (gh:#985). petir is no_std, so this edge adds nothing Android- or wasm-hostile.
+petir = { workspace = true }
 # The release physics. boon-lay's TRISO-ATOPS fork is the whole mechanistic
 # layer; this crate orchestrates it and does not reimplement any of it.
 boon-lay  = { workspace = true }

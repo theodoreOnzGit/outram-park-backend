@@ -1,5 +1,6 @@
 //! Temporary scan for the #266 convergence study: does Xe-135 enter the
 //! asymptotic regime once the step resolves its ~9.14 h half-life?
+use petir::mathf::RealMath;
 fn main() {
     use outram_mc_libs::depletion::chain::DepletionChain;
     use outram_mc_libs::depletion::operator::{deplete_predictor, BurnupSettings, OneGroupWeighting};
@@ -9,7 +10,7 @@ fn main() {
     println!("  step[d]  step[h]   n      k_inf(EOL)            Xe135(EOL)");
     let mut ks = vec![]; let mut xs = vec![];
     for k in 0..8 {
-        let h = 5.0 / 2f64.powi(k);
+        let h = 5.0 / 2f64.r_powi(k);
         let n = (total / h).round() as usize;
         let s = BurnupSettings { power_watts: 1.0e6, fuel_volume_cm3: 1.0e3, step_days: h,
             n_steps: n, temperature_k: 293.6, one_group_energy_ev: 0.0253,
@@ -21,10 +22,10 @@ fn main() {
         ks.push(l.k_inf); xs.push(xe);
     }
     let ord = |a: f64, b: f64, c: f64| { let d1=a-b; let d2=b-c;
-        if d2==0.0 || d1/d2<=0.0 { f64::NAN } else { (d1/d2).log2() } };
+        if d2==0.0 || d1/d2<=0.0 { f64::NAN } else { (d1/d2).r_log2() } };
     println!("\n  order estimates (Richardson, successive triples)");
     for i in 0..ks.len()-2 {
         println!("   h={:8.5}  k_inf p={:6.3}   Xe135 p={:6.3}",
-                 5.0/2f64.powi(i as i32), ord(ks[i],ks[i+1],ks[i+2]), ord(xs[i],xs[i+1],xs[i+2]));
+                 5.0/2f64.r_powi(i as i32), ord(ks[i],ks[i+1],ks[i+2]), ord(xs[i],xs[i+1],xs[i+2]));
     }
 }

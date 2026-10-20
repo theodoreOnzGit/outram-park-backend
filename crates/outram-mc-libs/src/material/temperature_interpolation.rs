@@ -76,6 +76,7 @@
 //! uses PETIR's port of GSL's `gsl_cheb_init` (`petir::ChebSeries::new`), and
 //! is a measurement aid here, not a transport path.
 
+use petir::mathf::RealMath;
 use crate::material::nuclide::{MicroXS, Nuclide};
 use crate::physics::scatter::K_BOLTZMANN_EV_PER_K;
 use njoy_outram_park_fork::NjoyError;
@@ -104,7 +105,7 @@ impl InterpolationVariable {
         match self {
             Self::Kt => K_BOLTZMANN_EV_PER_K * t_k,
             Self::SqrtT => t_k.sqrt(),
-            Self::LogT => t_k.ln(),
+            Self::LogT => t_k.r_ln(),
         }
     }
 
@@ -114,7 +115,7 @@ impl InterpolationVariable {
         match self {
             Self::Kt => x / K_BOLTZMANN_EV_PER_K,
             Self::SqrtT => x * x,
-            Self::LogT => x.exp(),
+            Self::LogT => x.r_exp(),
         }
     }
 
@@ -388,7 +389,7 @@ pub fn chebyshev_nodes_k(
     let (bma, bpa) = (0.5 * (b - a), 0.5 * (b + a));
     Ok((0..n)
         .map(|k| {
-            let y = (std::f64::consts::PI * (k as f64 + 0.5) / n as f64).cos();
+            let y = (std::f64::consts::PI * (k as f64 + 0.5) / n as f64).r_cos();
             variable.temperature(y * bma + bpa)
         })
         .collect())

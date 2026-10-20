@@ -39,6 +39,7 @@
 //! so `f = η φ` ([`purification_rate`]). Both conversions are this module's
 //! modelling assumptions, stated here; neither comes from upstream.
 
+use petir::mathf::RealMath;
 use uom::si::f64::{Frequency, Ratio, Time};
 use uom::si::frequency::hertz;
 use uom::si::ratio::ratio;
@@ -259,7 +260,7 @@ pub fn rate_from_fraction_per_cycle(fraction: Ratio, cycle_time: Time) -> Freque
     let t = cycle_time.get::<second>();
     assert!((0.0..1.0).contains(&f), "fraction per cycle {f} outside [0, 1)");
     assert!(t > 0.0 && t.is_finite(), "cycle time {t} s is not positive");
-    Frequency::new::<hertz>(-(-f).ln_1p() / t)
+    Frequency::new::<hertz>(-(-f).r_ln_1p() / t)
 }
 
 /// The purification rate when a fraction `φ` of the circuit flow passes
@@ -431,7 +432,7 @@ mod tests {
         );
         let cs = r.for_element(55);
         assert!((cs.k_plate.get::<hertz>() - std::f64::consts::LN_2 / 10.0).abs() < 1e-15);
-        assert!((cs.k_clean.get::<hertz>() + (-0.009f64).ln_1p() / 10.0).abs() < 1e-18);
+        assert!((cs.k_clean.get::<hertz>() + (-0.009f64).r_ln_1p() / 10.0).abs() < 1e-18);
         assert_eq!(r.for_element(36).k_plate.get::<hertz>(), 0.0);
         assert!(fell_back.contains(&(36, "plate-out")));
         assert!(!fell_back.iter().any(|(z, _)| *z == 55));

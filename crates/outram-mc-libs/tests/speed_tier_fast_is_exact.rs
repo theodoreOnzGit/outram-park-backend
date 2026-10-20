@@ -37,6 +37,7 @@
 //! All four nuclides: identical in every compared value. The per-nuclide
 //! counts are printed by the test.
 
+use petir::mathf::RealMath;
 use njoy_outram_park_fork::reference_data::reference_endf;
 use outram_mc_libs::material::material::{Material, NuclideComponent};
 use outram_mc_libs::material::nuclide::{MicroXS, Nuclide};
@@ -48,7 +49,7 @@ fn probe_energies() -> Vec<f64> {
     let mut es = Vec::new();
     for i in 0..=400 {
         let f = i as f64 / 400.0;
-        es.push(1.0e-5 * (2.0e7_f64 / 1.0e-5).powf(f));
+        es.push(1.0e-5 * (2.0e7_f64 / 1.0e-5).r_powf(f));
     }
     for i in 0..=100 {
         es.push(1.0e-4 + i as f64 * (5.0 - 1.0e-4) / 100.0);

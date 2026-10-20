@@ -1,3 +1,4 @@
+use petir::mathf::RealMath;
 use crate::lagrangian_decay_simulator::lagrangian_diffusion::temperature_dependent_collisions::TrisoPebbleLayerMaterial;
 use uom::si::areal_number_density::per_square_meter;
 use uom::si::diffusion_coefficient::square_meter_per_second;
@@ -75,7 +76,7 @@ pub fn get_d1_for_cs(
                 gamma_fast_neutron_fluence.get::<per_square_meter>();
 
             let exponential_factor =
-                (gamma_neutron_fluence_neutrons_per_sqm * 1e-25 * 1.1 / 5.0).exp();
+                (gamma_neutron_fluence_neutrons_per_sqm * 1e-25 * 1.1 / 5.0).r_exp();
 
             5.5e-14 * exponential_factor
         }

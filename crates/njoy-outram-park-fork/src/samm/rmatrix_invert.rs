@@ -18,6 +18,7 @@
 //! reason: direct line-by-line checkability against the source matters
 //! more here than idiomatic style.
 
+use petir::mathf::RealMath;
 use crate::samm::linpack::{xspfa, xspsl, PackedComplexMatrix};
 
 #[inline]
@@ -130,8 +131,8 @@ pub fn twoch(rmat_in: &PackedComplexMatrix) -> PackedComplexMatrix {
 
         let bbr = g(&rmat.re, K11) * g(&rmat.re, K22)
             - g(&rmat.im, K11) * g(&rmat.im, K22)
-            - g(&rmat.re, K21).powi(2)
-            + g(&rmat.im, K21).powi(2);
+            - g(&rmat.re, K21).r_powi(2)
+            + g(&rmat.im, K21).r_powi(2);
         let bbi = g(&rmat.re, K11) * g(&rmat.im, K22) + g(&rmat.im, K11) * g(&rmat.re, K22)
             - 2.0 * g(&rmat.re, K21) * g(&rmat.im, K21);
 
@@ -196,7 +197,7 @@ pub fn twoch(rmat_in: &PackedComplexMatrix) -> PackedComplexMatrix {
         }
     } else if g(&rmat.im, K21) != 0.0 {
         // Real part is zero everywhere; imaginary part is dense.
-        let a = g(&rmat.im, K11) * g(&rmat.im, K22) - g(&rmat.im, K21).powi(2);
+        let a = g(&rmat.im, K11) * g(&rmat.im, K22) - g(&rmat.im, K21).r_powi(2);
         s(&mut rinv.im, K11, -g(&rmat.im, K22) / a);
         s(&mut rinv.im, K21, g(&rmat.im, K21) / a);
         s(&mut rinv.im, K22, -g(&rmat.im, K11) / a);
@@ -343,8 +344,8 @@ pub fn threech(rmat_in: &PackedComplexMatrix) -> PackedComplexMatrix {
         s(&mut rinv.im, 6, -1.0 / g(&rmat.im, 6));
     } else {
         let (rr, ri) = (&rmat.re, &rmat.im);
-        let fc1r = g(rr, K22) * g(rr, K33) - g(ri, K22) * g(ri, K33) - g(rr, K32).powi(2)
-            + g(ri, K32).powi(2);
+        let fc1r = g(rr, K22) * g(rr, K33) - g(ri, K22) * g(ri, K33) - g(rr, K32).r_powi(2)
+            + g(ri, K32).r_powi(2);
         let fc1i =
             g(ri, K22) * g(rr, K33) + g(rr, K22) * g(ri, K33) - 2.0 * g(rr, K32) * g(ri, K32);
         let fc2r = g(rr, K21) * g(rr, K33) - g(ri, K21) * g(ri, K33) - g(rr, K31) * g(rr, K32)
@@ -386,8 +387,8 @@ pub fn threech(rmat_in: &PackedComplexMatrix) -> PackedComplexMatrix {
         s(
             &mut rinv.re,
             K22,
-            (g(rr, K11) * g(rr, K33) - g(rr, K31).powi(2) - g(ri, K11) * g(ri, K33)
-                + g(ri, K31).powi(2))
+            (g(rr, K11) * g(rr, K33) - g(rr, K31).r_powi(2) - g(ri, K11) * g(ri, K33)
+                + g(ri, K31).r_powi(2))
                 * dcr
                 - (g(ri, K11) * g(rr, K33) - 2.0 * g(rr, K31) * g(ri, K31)
                     + g(rr, K11) * g(ri, K33))
@@ -396,8 +397,8 @@ pub fn threech(rmat_in: &PackedComplexMatrix) -> PackedComplexMatrix {
         s(
             &mut rinv.im,
             K22,
-            (g(rr, K11) * g(rr, K33) - g(rr, K31).powi(2) - g(ri, K11) * g(ri, K33)
-                + g(ri, K31).powi(2))
+            (g(rr, K11) * g(rr, K33) - g(rr, K31).r_powi(2) - g(ri, K11) * g(ri, K33)
+                + g(ri, K31).r_powi(2))
                 * dci
                 + (g(ri, K11) * g(rr, K33) - 2.0 * g(rr, K31) * g(ri, K31)
                     + g(rr, K11) * g(ri, K33))
@@ -428,8 +429,8 @@ pub fn threech(rmat_in: &PackedComplexMatrix) -> PackedComplexMatrix {
         s(
             &mut rinv.re,
             K33,
-            (g(rr, K11) * g(rr, K22) - g(rr, K21).powi(2) - g(ri, K11) * g(ri, K22)
-                + g(ri, K21).powi(2))
+            (g(rr, K11) * g(rr, K22) - g(rr, K21).r_powi(2) - g(ri, K11) * g(ri, K22)
+                + g(ri, K21).r_powi(2))
                 * dcr
                 - (g(ri, K11) * g(rr, K22) - 2.0 * g(rr, K21) * g(ri, K21)
                     + g(rr, K11) * g(ri, K22))
@@ -438,8 +439,8 @@ pub fn threech(rmat_in: &PackedComplexMatrix) -> PackedComplexMatrix {
         s(
             &mut rinv.im,
             K33,
-            (g(rr, K11) * g(rr, K22) - g(rr, K21).powi(2) - g(ri, K11) * g(ri, K22)
-                + g(ri, K21).powi(2))
+            (g(rr, K11) * g(rr, K22) - g(rr, K21).r_powi(2) - g(ri, K11) * g(ri, K22)
+                + g(ri, K21).r_powi(2))
                 * dci
                 + (g(ri, K11) * g(rr, K22) - 2.0 * g(rr, K21) * g(ri, K21)
                     + g(rr, K11) * g(ri, K22))

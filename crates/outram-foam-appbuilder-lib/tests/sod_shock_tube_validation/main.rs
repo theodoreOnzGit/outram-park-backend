@@ -75,6 +75,7 @@
 //! expected accuracy of a 2nd-order shock-capturing central scheme, with
 //! monotone (non-oscillatory) captures of the shock, contact, and rarefaction.
 
+use petir::mathf::RealMath;
 use outram_foam_appbuilder_lib::io::control_dict::{ControlDict, StartControl, StopControl};
 use outram_foam_appbuilder_lib::io::field_reader::{read_vol_scalar_field, read_vol_vector_field_full};
 use outram_foam_appbuilder_lib::io::fv_schemes::FvSchemes;
@@ -140,8 +141,8 @@ fn pressure_fn(p_star: f64, side: GasState) -> (f64, f64) {
         (f, df)
     } else {
         let f = 2.0 * c_k / (GAMMA - 1.0)
-            * ((p_star / side.p).powf((GAMMA - 1.0) / (2.0 * GAMMA)) - 1.0);
-        let df = 1.0 / (side.rho * c_k) * (p_star / side.p).powf(-(GAMMA + 1.0) / (2.0 * GAMMA));
+            * ((p_star / side.p).r_powf((GAMMA - 1.0) / (2.0 * GAMMA)) - 1.0);
+        let df = 1.0 / (side.rho * c_k) * (p_star / side.p).r_powf(-(GAMMA + 1.0) / (2.0 * GAMMA));
         (f, df)
     }
 }
@@ -203,13 +204,13 @@ fn sample(l: GasState, r: GasState, p_star: f64, u_star: f64, xi: f64) -> GasSta
                 }
             }
         } else {
-            let c_star_l = c_l * (p_star / l.p).powf((GAMMA - 1.0) / (2.0 * GAMMA));
+            let c_star_l = c_l * (p_star / l.p).r_powf((GAMMA - 1.0) / (2.0 * GAMMA));
             let s_head = l.u - c_l;
             let s_tail = u_star - c_star_l;
             if xi <= s_head {
                 l
             } else if xi >= s_tail {
-                let rho = l.rho * (p_star / l.p).powf(1.0 / GAMMA);
+                let rho = l.rho * (p_star / l.p).r_powf(1.0 / GAMMA);
                 GasState {
                     rho,
                     u: u_star,
@@ -218,8 +219,8 @@ fn sample(l: GasState, r: GasState, p_star: f64, u_star: f64, xi: f64) -> GasSta
             } else {
                 let u = 2.0 / (GAMMA + 1.0) * (c_l + (GAMMA - 1.0) / 2.0 * l.u + xi);
                 let c = 2.0 / (GAMMA + 1.0) * (c_l + (GAMMA - 1.0) / 2.0 * (l.u - xi));
-                let rho = l.rho * (c / c_l).powf(2.0 / (GAMMA - 1.0));
-                let p = l.p * (c / c_l).powf(2.0 * GAMMA / (GAMMA - 1.0));
+                let rho = l.rho * (c / c_l).r_powf(2.0 / (GAMMA - 1.0));
+                let p = l.p * (c / c_l).r_powf(2.0 * GAMMA / (GAMMA - 1.0));
                 GasState { rho, u, p }
             }
         }
@@ -236,13 +237,13 @@ fn sample(l: GasState, r: GasState, p_star: f64, u_star: f64, xi: f64) -> GasSta
             }
         }
     } else {
-        let c_star_r = c_r * (p_star / r.p).powf((GAMMA - 1.0) / (2.0 * GAMMA));
+        let c_star_r = c_r * (p_star / r.p).r_powf((GAMMA - 1.0) / (2.0 * GAMMA));
         let s_head = r.u + c_r;
         let s_tail = u_star + c_star_r;
         if xi >= s_head {
             r
         } else if xi <= s_tail {
-            let rho = r.rho * (p_star / r.p).powf(1.0 / GAMMA);
+            let rho = r.rho * (p_star / r.p).r_powf(1.0 / GAMMA);
             GasState {
                 rho,
                 u: u_star,
@@ -251,8 +252,8 @@ fn sample(l: GasState, r: GasState, p_star: f64, u_star: f64, xi: f64) -> GasSta
         } else {
             let u = 2.0 / (GAMMA + 1.0) * (-c_r + (GAMMA - 1.0) / 2.0 * r.u + xi);
             let c = 2.0 / (GAMMA + 1.0) * (c_r - (GAMMA - 1.0) / 2.0 * (r.u - xi));
-            let rho = r.rho * (c / c_r).powf(2.0 / (GAMMA - 1.0));
-            let p = r.p * (c / c_r).powf(2.0 * GAMMA / (GAMMA - 1.0));
+            let rho = r.rho * (c / c_r).r_powf(2.0 / (GAMMA - 1.0));
+            let p = r.p * (c / c_r).r_powf(2.0 * GAMMA / (GAMMA - 1.0));
             GasState { rho, u, p }
         }
     }
@@ -307,7 +308,7 @@ fn exact_riemann_reproduces_sod_star_state() {
 
     let p_star = star_pressure(l, r);
     let u_star = star_velocity(l, r, p_star);
-    let rho_star_l = l.rho * (p_star / l.p).powf(1.0 / GAMMA);
+    let rho_star_l = l.rho * (p_star / l.p).r_powf(1.0 / GAMMA);
     let g1 = (GAMMA - 1.0) / (GAMMA + 1.0);
     let rho_star_r = r.rho * (p_star / r.p + g1) / (g1 * (p_star / r.p) + 1.0);
     let shock_speed = right_shock_speed(r, p_star);

@@ -19,6 +19,7 @@
 //! 4. **Measurement** — `#[ignore]`d crossover benchmarks whose printed output
 //!    is the source of every number in the constants' documentation.
 
+use petir::mathf::RealMath;
 use super::*;
 use crate::polynomial::RootType;
 
@@ -951,7 +952,7 @@ fn root_batch_crossover_benchmark() {
         // enthalpy evaluation. Same root, so the iteration counts are
         // comparable.
         let costly = |i: usize, x: f64| {
-            let s = (1.0 + x * x).ln().exp().sqrt();
+            let s = (1.0 + x * x).r_ln().r_exp().sqrt();
             s * s - 1.0 - targets[i]
         };
 

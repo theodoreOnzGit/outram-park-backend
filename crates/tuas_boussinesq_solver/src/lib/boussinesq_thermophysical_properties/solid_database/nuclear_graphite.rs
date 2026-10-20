@@ -46,6 +46,7 @@
 //! literature values, verified only against hand evaluations of the same
 //! formulas (see the unit tests at the bottom of this file).
 
+use petir::mathf::RealMath;
 use peroxide::fuga::{Calculus, CubicSpline, Spline};
 use roots::{find_root_brent, SimpleConvergency};
 use uom::si::available_energy::joule_per_kilogram;
@@ -243,9 +244,9 @@ pub fn nuclear_graphite_specific_heat_capacity_butland_maddison_polynomial(
         min_temp_butland_maddison_polynomial(),
     )?;
     let t = temperature.get::<kelvin>();
-    let cp_cal_per_gram_kelvin = 0.54212 - 2.42667e-6 * t - 90.2725 / t - 43449.3 / t.powi(2)
-        + 1.59309e7 / t.powi(3)
-        - 1.43688e9 / t.powi(4);
+    let cp_cal_per_gram_kelvin = 0.54212 - 2.42667e-6 * t - 90.2725 / t - 43449.3 / t.r_powi(2)
+        + 1.59309e7 / t.r_powi(3)
+        - 1.43688e9 / t.r_powi(4);
     const JOULE_PER_THERMOCHEMICAL_CALORIE: f64 = 4.184;
     // cal/(g K) -> J/(kg K): x 4.184 J/cal x 1000 g/kg.
     Ok(SpecificHeatCapacity::new::<joule_per_kilogram_kelvin>(
@@ -303,7 +304,7 @@ pub fn nuclear_graphite_fluence_damage_factor(fluence: Ratio) -> Result<Ratio, T
         });
     }
 
-    let damage_factor: f64 = 1.0 - 0.336 * (1.0 - f64::exp(-1.005 * gam)) - 3.50e-2 * gam;
+    let damage_factor: f64 = 1.0 - 0.336 * (1.0 - <f64 as petir::mathf::RealMath>::r_exp(-1.005 * gam)) - 3.50e-2 * gam;
 
     Ok(Ratio::new::<ratio>(damage_factor))
 }
@@ -740,7 +741,7 @@ fn nuclear_graphite_matrix_a3_conductivity_formula(
 ) -> ThermalConductivity {
     let t: f64 = temperature.get::<kelvin>();
     let temperature_factor: f64 =
-        1.0 - 9.7556e-4 * (t - 373.15) * f64::exp(-6.036e-4 * (t - 273.15));
+        1.0 - 9.7556e-4 * (t - 373.15) * <f64 as petir::mathf::RealMath>::r_exp(-6.036e-4 * (t - 273.15));
     let density_maxwell_factor: f64 = 1740.0 / (2.2 * (1700.0 - 1740.0) + 1740.0);
     let k_value: f64 = 47.4 * temperature_factor * density_maxwell_factor * damage_factor;
     ThermalConductivity::new::<watt_per_meter_kelvin>(k_value)
@@ -755,7 +756,7 @@ fn nuclear_graphite_matrix_a3_conductivity_formula(
 #[inline]
 fn butland_maddison_polynomial_enthalpy_joule_per_kg(t_kelvin: f64) -> f64 {
     let antiderivative = |t: f64| {
-        0.54212 * t - 2.42667e-6 * t * t / 2.0 - 90.2725 * t.ln() + 43449.3 / t
+        0.54212 * t - 2.42667e-6 * t * t / 2.0 - 90.2725 * t.r_ln() + 43449.3 / t
             - 1.59309e7 / (2.0 * t * t)
             + 1.43688e9 / (3.0 * t * t * t)
     };
@@ -911,7 +912,7 @@ pub fn nuclear_graphite_matrix_a3_k_zero_fluence_matches_closed_form() {
     // at 600 K, full closed form
     let t: f64 = 600.0;
     let k_hand_600: f64 = 47.4
-        * (1.0 - 9.7556e-4 * (t - 373.15) * f64::exp(-6.036e-4 * (t - 273.15)))
+        * (1.0 - 9.7556e-4 * (t - 373.15) * <f64 as petir::mathf::RealMath>::r_exp(-6.036e-4 * (t - 273.15)))
         * (1740.0 / (2.2 * (1700.0 - 1740.0) + 1740.0));
 
     let k_measured_600 = nuclear_graphite_matrix_a3_thermal_conductivity_zero_fluence(
@@ -1261,8 +1262,8 @@ fn butland_maddison_polynomial_covers_250_to_3000_k_and_refuses_outside() {
     };
     // Hand evaluation of the published formula (x 4184 J/kg per cal/g).
     let hand = |t: f64| {
-        (0.54212 - 2.42667e-6 * t - 90.2725 / t - 43449.3 / (t * t) + 1.59309e7 / t.powi(3)
-            - 1.43688e9 / t.powi(4))
+        (0.54212 - 2.42667e-6 * t - 90.2725 / t - 43449.3 / (t * t) + 1.59309e7 / t.r_powi(3)
+            - 1.43688e9 / t.r_powi(4))
             * 4184.0
     };
     for t in [250.0, 300.0, 1000.0, 2000.0, 2500.0, 3000.0] {

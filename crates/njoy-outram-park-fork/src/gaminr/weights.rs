@@ -43,6 +43,7 @@
 //! tabulated energy range clamp to the endpoint value and are flagged in
 //! [`PhotonWeight::evaluate`].
 
+use petir::mathf::RealMath;
 use crate::NjoyError;
 
 /// Photon weighting-function option — the `iwt` card-2 integer
@@ -206,8 +207,8 @@ impl WeightTab1 {
         let (y1, y2) = (ys[i], ys[i + 1]);
         // ENDF law 5 (ln-ln): y = exp( ln y1 + (ln y2 - ln y1)
         //                              * (ln E - ln x1)/(ln x2 - ln x1) ).
-        let t = (e_ev.ln() - x1.ln()) / (x2.ln() - x1.ln());
-        (y1.ln() + (y2.ln() - y1.ln()) * t).exp()
+        let t = (e_ev.r_ln() - x1.r_ln()) / (x2.r_ln() - x1.r_ln());
+        (y1.r_ln() + (y2.r_ln() - y1.r_ln()) * t).r_exp()
     }
 }
 

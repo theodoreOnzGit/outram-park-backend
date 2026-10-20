@@ -123,6 +123,7 @@
 //! [`MaterialState::swelling`]: crate::materials::MaterialState::swelling
 //! [`OffbeatError::OutOfRange`]: crate::error::OffbeatError::OutOfRange
 
+use petir::mathf::RealMath;
 use crate::error::{OffbeatError, Result};
 use crate::materials::MaterialState;
 
@@ -701,12 +702,12 @@ impl SwellingModel {
                 // Analytic integral of upstream's per-burnup-step gas rate,
                 // holding temperature fixed over the history.
                 let delta_t = T_REF - state.temperature; // >= 0: T is clamped.
-                let coefficient = GAS * rho * delta_t.powf(T_EXPONENT) * (T_DECAY * delta_t).exp();
+                let coefficient = GAS * rho * delta_t.r_powf(T_EXPONENT) * (T_DECAY * delta_t).r_exp();
                 let decay = BURNUP_DECAY * rho;
                 let gas = if decay.abs() < 1.0e-30 {
                     coefficient * fima
                 } else {
-                    coefficient * ((decay * fima).exp() - 1.0) / decay
+                    coefficient * ((decay * fima).r_exp() - 1.0) / decay
                 };
 
                 SwellingStrain::isotropic(solid + gas)
@@ -739,8 +740,8 @@ impl SwellingModel {
                 let (a, n) = clad_type.coefficients();
                 // The BISON coefficients are fitted against fluence in n/cm^2.
                 let phi = state.fast_fluence / 1.0e4;
-                let axial = a * phi.powf(n);
-                let transverse = -(1.0 - (1.0 + axial).powf(-0.5));
+                let axial = a * phi.r_powf(n);
+                let transverse = -(1.0 - (1.0 + axial).r_powf(-0.5));
                 SwellingStrain::new(transverse, transverse, axial)
             }
 
@@ -761,9 +762,9 @@ impl SwellingModel {
                 const DPA_PER_1E26: f64 = 5.0;
 
                 let dpa = state.fast_fluence / 1.0e26 * DPA_PER_1E26;
-                let dose_factor = A * dpa.powf(N) + OFFSET;
+                let dose_factor = A * dpa.r_powf(N) + OFFSET;
                 let x = (state.temperature - 273.15 - T_PEAK_CELSIUS) / 100.0;
-                let temperature_factor = (-(x * x)).exp();
+                let temperature_factor = (-(x * x)).r_exp();
                 // Upstream's result is a percentage.
                 SwellingStrain::isotropic(0.01 * temperature_factor * dose_factor)
             }
@@ -780,7 +781,7 @@ impl SwellingModel {
                         .enumerate()
                         .map(|(i, c)| {
                             let order = i32::try_from(i).unwrap_or(i32::MAX) + 1;
-                            c / f64::from(order) * phi.powi(order)
+                            c / f64::from(order) * phi.r_powi(order)
                         })
                         .sum()
                 };
@@ -975,7 +976,7 @@ fn steel_void_swelling(
     let t_celsius = state.temperature - 273.15;
     let phi22 = state.fast_fluence / 1.0e26;
     let x = (t_celsius - t_peak_celsius) / t_width;
-    0.01 * a * (b * x * x).exp() * phi22.powf(dose_exponent)
+    0.01 * a * (b * x * x).r_exp() * phi22.r_powf(dose_exponent)
 }
 
 #[cfg(test)]
@@ -1195,9 +1196,9 @@ mod tests {
             let gas = 1.96e-31
                 * rho
                 * d_fima
-                * delta_t.powf(11.73)
-                * (-0.0162 * delta_t).exp()
-                * (-0.0178 * rho * fima).exp();
+                * delta_t.r_powf(11.73)
+                * (-0.0162 * delta_t).r_exp()
+                * (-0.0178 * rho * fima).r_exp();
             euler += solid + gas;
         }
 
@@ -1287,8 +1288,8 @@ mod tests {
         for i in 0..STEPS {
             let phi_old = (i as f64 / STEPS as f64) * FLUENCE / 1.0e4;
             let phi_new = ((i + 1) as f64 / STEPS as f64) * FLUENCE / 1.0e4;
-            let increment = a * phi_new.powf(n) - a * phi_old.powf(n);
-            accumulated += -(1.0 - (1.0 + increment).powf(-0.5));
+            let increment = a * phi_new.r_powf(n) - a * phi_old.r_powf(n);
+            accumulated += -(1.0 - (1.0 + increment).r_powf(-0.5));
         }
 
         let relative = (closed_form - accumulated).abs() / closed_form.abs();

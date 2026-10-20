@@ -20,6 +20,7 @@
 //! - [`parse_mf6_law7_lab_angle_energy`] — the `ZAP=1, LAW=7` lab-frame
 //!   angle-then-energy subsection.
 
+use petir::mathf::RealMath;
 use crate::endf::{
     records::{SectionCursor, Tab1},
     tape::Section,
@@ -665,7 +666,7 @@ pub struct Mf6PhaseSpace {
 /// rebuild the shape, and it must be the *same* shape ACER would have written or
 /// the two routes disagree about a distribution neither of them stores.
 pub fn law66_shape_table(npsx: i32) -> (Vec<f64>, Vec<f64>, Vec<f64>) {
-    let step1 = 10f64.powf(1.0 / 5.0);
+    let step1 = 10f64.r_powf(1.0 / 5.0);
     let step2 = 1.0 / 50.0;
     let elow = 1.0e-5;
     let test1 = 1.0 + 1.0 / 100_000.0;
@@ -683,7 +684,7 @@ pub fn law66_shape_table(npsx: i32) -> (Vec<f64>, Vec<f64>, Vec<f64>) {
             0.0
         } else {
             let rn = 3.0;
-            xx.sqrt() * (1.0 - xx).powf(rn * npsx as f64 / 2.0 - 4.0)
+            xx.sqrt() * (1.0 - xx).r_powf(rn * npsx as f64 / 2.0 - 4.0)
         };
         yn += (xx - xl) * (pn + pl) / 2.0;
         x.push(xx);

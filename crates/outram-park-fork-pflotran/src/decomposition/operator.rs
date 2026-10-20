@@ -242,6 +242,7 @@ pub fn serial_diffusion_cg(
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
     use outram_park_mpi::run;
 
@@ -264,7 +265,7 @@ mod tests {
         let shift = 0.05_f64;
         let tol = 1e-11;
         let k = conductivity(n);
-        let b: Vec<f64> = (0..n).map(|i| ((i as f64) * 0.25).cos() + 1.5).collect();
+        let b: Vec<f64> = (0..n).map(|i| ((i as f64) * 0.25).r_cos() + 1.5).collect();
         let (reference, _) = serial_diffusion_cg(n, &k, &b, shift, tol, 2000);
 
         for p in [1, 2, 3, 5, 8] {
@@ -294,7 +295,7 @@ mod tests {
         let shift = 0.05_f64;
         let tol = 1e-11;
         let k = conductivity(n);
-        let b: Vec<f64> = (0..n).map(|i| ((i as f64) * 0.25).cos() + 1.5).collect();
+        let b: Vec<f64> = (0..n).map(|i| ((i as f64) * 0.25).r_cos() + 1.5).collect();
         let (reference, _) = serial_diffusion_cg(n, &k, &b, shift, tol, 2000);
 
         for p in [1, 2, 4] {

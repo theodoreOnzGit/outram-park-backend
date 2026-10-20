@@ -129,6 +129,7 @@
 //! [`MaterialState::fast_fluence`]: crate::materials::MaterialState::fast_fluence
 //! [`YoungModulusModel::MatproZircaloy`]: crate::materials::properties::young_modulus::YoungModulusModel::MatproZircaloy
 
+use petir::mathf::RealMath;
 use crate::error::{OffbeatError, Result};
 use crate::materials::properties::young_modulus::matpro_zircaloy_young;
 use crate::materials::MaterialState;
@@ -631,7 +632,7 @@ pub fn matpro_zircaloy_shear_modulus(t: f64, state: &MaterialState) -> f64 {
         // plus. That asymmetry is MATPRO's, and is reproduced deliberately.
         let k1 = (PAR1 - PAR2 * temp) * state.oxygen_content;
         let k2 = -PAR3 * state.cold_work;
-        let k3 = PAR4 + PAR5 * (-state.fast_fluence / PAR6).exp();
+        let k3 = PAR4 + PAR5 * (-state.fast_fluence / PAR6).r_exp();
         (PAR7 - PAR8 * temp + k1 + k2) / k3
     };
     let beta = |temp: f64| PAR9 - PAR10 * temp;

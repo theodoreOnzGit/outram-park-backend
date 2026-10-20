@@ -24,6 +24,7 @@
 //! ([`WoSWalker::walk_until_released`]); see the test
 //! `multilayer_walk_transmits_across_interfaces`.
 
+use petir::mathf::RealMath;
 use fission_yields_data::prelude::Nuclide;
 use outram_mc_libs::rng::lcg::prn;
 use uom::si::diffusion_coefficient::square_meter_per_second;
@@ -398,7 +399,7 @@ impl WoSWalker {
 /// fuel kernel, and the initial condition for the Crank release comparison.
 #[inline]
 pub fn sample_uniform_in_ball(seed: &mut u64, radius: Length) -> [Length; 3] {
-    let r = radius * prn(seed).cbrt();
+    let r = radius * prn(seed).r_cbrt();
     let dir = sample_uniform_direction(seed);
     [r * dir[0], r * dir[1], r * dir[2]]
 }
@@ -593,7 +594,7 @@ mod tests {
         let reinsert = eps * 3.0;
         let k = 1.0;
 
-        let vol_frac_in = (a.get::<meter>() / b.get::<meter>()).powi(3); // (50/100)^3 = 0.125
+        let vol_frac_in = (a.get::<meter>() / b.get::<meter>()).r_powi(3); // (50/100)^3 = 0.125
 
         let set_radius = |pos: &mut [Length; 3], target: Length| {
             let rho = radial_distance(*pos);

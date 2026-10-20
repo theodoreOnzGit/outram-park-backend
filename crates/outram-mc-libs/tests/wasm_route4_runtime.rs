@@ -29,6 +29,7 @@
 //!
 //! Recorded in `verification_and_validation/route4_process_931/README.md`.
 
+use petir::mathf::RealMath;
 use njoy_outram_park_fork::endf::tape::Tape;
 use outram_mc_libs::material::nuclide::Nuclide;
 use outram_mc_libs::material::processed::ProcessedEvaluation;
@@ -61,7 +62,7 @@ fn route4_runs_in_wasm_and_gives_the_native_numbers() {
     let n = Nuclide::from_processed(&tape, mat, "U234", 293.6, back).expect("nuclide");
     let (lo, hi) = n.urr_range_ev().expect("U-234 has URR tables");
     let mut energies: Vec<f64> = (0..200)
-        .map(|k| 1.0e-5 * (2.0e7_f64 / 1.0e-5).powf(f64::from(k) / 199.0))
+        .map(|k| 1.0e-5 * (2.0e7_f64 / 1.0e-5).r_powf(f64::from(k) / 199.0))
         .collect();
     energies.extend((1..=50).map(|k| lo + (hi - lo) * f64::from(k) / 51.0));
     for e in energies {

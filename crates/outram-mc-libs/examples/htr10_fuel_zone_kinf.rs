@@ -124,6 +124,7 @@
 //! Monte Carlo modelling notes), and are mirrored as typed data in
 //! `outram_park_digital_twin_engine::htr10::neutronics`.
 
+use petir::mathf::RealMath;
 use outram_mc_libs::geometry::position::Position;
 use outram_mc_libs::material::material::Material;
 use outram_mc_libs::material::nuclide::Nuclide;
@@ -282,7 +283,7 @@ fn main() {
     // Kernel volume fraction of the fuelled zone:
     //   n * (4/3) pi r_k^3 / ((4/3) pi R_fz^3) = n * (r_k / R_fz)^3.
     let kernel_packing_fraction =
-        PARTICLES_PER_PEBBLE * (KERNEL_RADIUS_CM / FUEL_ZONE_RADIUS_CM).powi(3);
+        PARTICLES_PER_PEBBLE * (KERNEL_RADIUS_CM / FUEL_ZONE_RADIUS_CM).r_powi(3);
 
     // A 2 cm cube (half-width 1 cm) holds about a thousand kernels at this
     // packing fraction - enough for a representative stochastic realisation

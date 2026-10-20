@@ -94,6 +94,7 @@
 //! doc; it is **not** a verification, because Fig. 9's caption states neither
 //! the burnup nor the irradiation history.
 
+use petir::mathf::RealMath;
 use uom::si::f64::{Frequency, Length, Ratio, ThermodynamicTemperature, Time};
 use uom::si::frequency::hertz;
 use uom::si::ratio::ratio;
@@ -137,7 +138,7 @@ pub fn decomposition_rate_constant(
     }
     let r = super::pressure::GAS_CONSTANT_J_PER_MOL_K;
     let k = DECOMPOSITION_FRONT_VELOCITY_M_PER_S / d_o
-        * (-DECOMPOSITION_ACTIVATION_J_PER_MOL / (r * t)).exp();
+        * (-DECOMPOSITION_ACTIVATION_J_PER_MOL / (r * t)).r_exp();
     Frequency::new::<hertz>(k)
 }
 
@@ -235,7 +236,7 @@ pub fn thermal_decomposition_failure_fraction_with(
     if zeta <= 0.0 {
         return Ratio::new::<ratio>(0.0);
     }
-    Ratio::new::<ratio>(1.0 - (-alpha * zeta.powf(beta)).exp())
+    Ratio::new::<ratio>(1.0 - (-alpha * zeta.r_powf(beta)).r_exp())
 }
 
 #[cfg(test)]
@@ -281,7 +282,7 @@ mod tests {
 
         // The sphere calibration reaches its median much later:
         // zeta = (ln2/1e-4)^(1/4) = 9.1247...
-        let zeta_half = (std::f64::consts::LN_2 / 0.0001).powf(0.25);
+        let zeta_half = (std::f64::consts::LN_2 / 0.0001).r_powf(0.25);
         let phi = thermal_decomposition_failure_fraction(
             Ratio::new::<ratio>(zeta_half),
             DecompositionCalibration::ParticlesInSphere,
@@ -344,7 +345,7 @@ mod tests {
     /// stated range.
     #[test]
     fn the_activation_energy_spans_benzs_measurement_range() {
-        let decades = (k_at(2200.0) / k_at(1600.0)).log10();
+        let decades = (k_at(2200.0) / k_at(1600.0)).r_log10();
         assert!(
             (decades - 3.76).abs() < 0.02,
             "1600->2200 degC should span ~3.9 decades in k, got {decades:.3}"

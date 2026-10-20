@@ -159,6 +159,7 @@
 //!
 //! This is a demonstration model, not a validated turbine-generator model.
 
+use petir::mathf::RealMath;
 use tampines_steam_tables::steam_turbine_equations::generator::ThreePhaseElectricGeneratorTurbine;
 use uom::si::angular_velocity::{radian_per_second, revolution_per_minute};
 use uom::si::area::square_meter;
@@ -722,7 +723,7 @@ mod tests {
         }
 
         let measured = shaft.angular_velocity().get::<radian_per_second>();
-        let analytical = omega_0 * (-30.0 / tau).exp();
+        let analytical = omega_0 * (-30.0 / tau).r_exp();
         let relative = (measured - analytical).abs() / analytical;
         assert!(
             relative < 1e-2,

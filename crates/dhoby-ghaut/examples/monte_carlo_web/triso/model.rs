@@ -40,6 +40,7 @@
 // does not call them.
 #![cfg_attr(target_arch = "wasm32", allow(dead_code))]
 
+use petir::mathf::RealMath;
 use njoy_outram_park_fork::common::phys::{AMASSN_AMU, AMU_G};
 use crate::tapes::read_tape;
 use outram_mc_libs::geometry::cell::{Cell, CellFill, HalfSpaceSense, RegionToken};
@@ -163,7 +164,7 @@ pub fn particle_centres(seed: u64) -> Vec<(f64, f64)> {
     let n = particles_2d();
     let rp = particle_r();
     let r_max = FUEL_ZONE_R - rp - CLEARANCE;
-    let min_d2 = (2.0 * rp + CLEARANCE).powi(2);
+    let min_d2 = (2.0 * rp + CLEARANCE).r_powi(2);
     let mut s = seed;
     let mut out: Vec<(f64, f64)> = Vec::with_capacity(n);
     let mut attempts = 0usize;
@@ -172,8 +173,8 @@ pub fn particle_centres(seed: u64) -> Vec<(f64, f64)> {
         assert!(attempts < 10_000_000, "particle placement did not converge");
         // Uniform in the disc of radius r_max.
         let (r, t) = (r_max * uniform(&mut s).sqrt(), std::f64::consts::TAU * uniform(&mut s));
-        let (x, y) = (r * t.cos(), r * t.sin());
-        if out.iter().all(|&(a, b)| (a - x).powi(2) + (b - y).powi(2) >= min_d2) {
+        let (x, y) = (r * t.r_cos(), r * t.r_sin());
+        if out.iter().all(|&(a, b)| (a - x).r_powi(2) + (b - y).r_powi(2) >= min_d2) {
             out.push((x, y));
         }
     }

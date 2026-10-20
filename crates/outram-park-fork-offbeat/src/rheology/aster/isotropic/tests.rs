@@ -20,6 +20,7 @@
 //! `σ_y = 250` MPa, `E = 210` GPa, `ν = 0.3` hence `μ = E/(2(1+ν)) =
 //! 80.769…` GPa. Power-law hardening uses `α = 100`, `n = 10`.
 
+use petir::mathf::RealMath;
 use super::*;
 use crate::rheology::aster::hardening::ASTER_POWER_LINEARISATION_STRAIN;
 use crate::rheology::aster::kinematics::AsterVoigt;
@@ -145,7 +146,7 @@ fn the_power_law_curve_is_monotone_increasing() {
     let h = power_law();
     let mut previous = f64::NEG_INFINITY;
     for i in 0..=11 {
-        let p = 10.0_f64.powi(-12 + i);
+        let p = 10.0_f64.r_powi(-12 + i);
         let r = h.value(p);
         let slope = h.slope(p);
         println!("p = {p:e}  ->  R = {r:e}, R' = {slope:e}");

@@ -18,6 +18,7 @@
 //! (geometry, materials, nuclide plan), transport is `outram-mc-libs`, and the
 //! slices are `outram_mc_libs::geometry::plot`, the OpenMC-parity plotter.
 
+use petir::mathf::RealMath;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Instant;
@@ -546,7 +547,7 @@ impl Engine {
             .iter()
             .enumerate()
             .map(|(i, b)| {
-                let du = (edges[i + 1] / edges[i]).ln();
+                let du = (edges[i + 1] / edges[i]).r_ln();
                 (b.mean(n) / total / du, b.rel_std_dev(n))
             })
             .collect();
@@ -759,10 +760,10 @@ pub fn needed_tapes() -> Vec<NeededTape> {
 
 /// `n` log-spaced bins per decade from `lo` to `hi` eV (edges).
 pub fn log_edges(lo: f64, hi: f64, per_decade: usize) -> Vec<f64> {
-    let decades = (hi / lo).log10();
+    let decades = (hi / lo).r_log10();
     let n = (decades * per_decade as f64).ceil() as usize;
     (0..=n)
-        .map(|i| lo * 10f64.powf(decades * i as f64 / n as f64))
+        .map(|i| lo * 10f64.r_powf(decades * i as f64 / n as f64))
         .collect()
 }
 

@@ -33,6 +33,7 @@
 //! > against experiment, and only the neutronics slab has an exact analytical
 //! > reference. Human V&V sign-off is still required (`RESPONSIBLE_USE.md`).
 
+use petir::mathf::RealMath;
 use outram_foam_appbuilder_lib::genfoam::neutronics::xs::{
     CrossSectionData, NuclearDataInput, StateInput, ZoneConstantsInput, ZoneStateInput,
 };
@@ -307,7 +308,7 @@ fn genfoam_slab_1g_diffusion_is_critical() {
 fn openfoam_simple_udm_coeff(alpha_d: f64, rho_d: f64, rho_c: f64, vc: f64, a: f64) -> f64 {
     let alpha = alpha_d.max(0.0);
     let rho_mix = alpha * rho_d + (1.0 - alpha) * rho_c;
-    (rho_c / rho_mix) * vc * 10_f64.powf(-a * alpha)
+    (rho_c / rho_mix) * vc * 10_f64.r_powf(-a * alpha)
 }
 
 /// **Case 2 — drift-flux settling (`dahl` equivalent).**

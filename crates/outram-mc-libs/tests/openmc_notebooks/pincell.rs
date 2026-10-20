@@ -77,6 +77,7 @@
 //!   has been measured; 1.39802 ± 0.00652 must be regarded as stale until the
 //!   S(α,β) data file is available and the test is re-run.
 
+use petir::mathf::RealMath;
 use outram_mc_libs::tally::filter::FilterKind;
 use outram_mc_libs::geometry::cell::{Cell, CellFill, HalfSpaceSense, RegionToken};
 use outram_mc_libs::geometry::geometry::Geometry;
@@ -940,7 +941,7 @@ fn csg_multithread_agrees_with_single_thread() {
         par1.k_mean, par4.k_mean
     );
 
-    let sigma_comb = (seq.k_std.powi(2) + par1.k_std.powi(2)).sqrt().max(1e-9);
+    let sigma_comb = (seq.k_std.r_powi(2) + par1.k_std.r_powi(2)).sqrt().max(1e-9);
     let dist = (seq.k_mean - par1.k_mean).abs() / sigma_comb;
     eprintln!(
         "[csg backend agreement] seq = {:.5} ± {:.5}, par = {:.5} ± {:.5}  ({:.2}σ apart)",

@@ -23,6 +23,7 @@
 //! Recorded in
 //! `verification_and_validation/acer_photoatomic_vs_njoy2016.md`.
 
+use petir::mathf::RealMath;
 use njoy_outram_park_fork::acer::photoatomic::{photoatomic_ace, PhotoatomicOptions};
 use njoy_outram_park_fork::acer::read;
 use njoy_outram_park_fork::endf::tape::Tape;
@@ -211,7 +212,7 @@ fn main() {
             let a = mine.xss[lhnm - 1 + i] * tot - pe - pp;
             let b = njoy.xss[lhnm - 1 + i] * tot - pe - pp;
             let rel = if b != 0.0 { (a - b).abs() / b.abs() } else { 0.0 };
-            let decade = e.log10().floor() as i32;
+            let decade = e.r_log10().floor() as i32;
             if decade != prev_decade {
                 prev_decade = decade;
                 println!("    E={e:.4e}  inc term mine {a:.9e} njoy {b:.9e}  rel {rel:.3e}");

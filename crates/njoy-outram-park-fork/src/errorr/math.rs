@@ -49,6 +49,7 @@
 #![allow(clippy::assign_op_pattern)]
 #![allow(clippy::type_complexity)]
 
+use petir::mathf::RealMath;
 use crate::NjoyError;
 
 /// Fortran default-integer power `10**n`, reproduced exactly.
@@ -91,16 +92,16 @@ pub fn efacphi(l: i32, rho: f64) -> f64 {
     if l == 0 {
         rho
     } else if l == 1 {
-        rho - rho.atan()
+        rho - rho.r_atan()
     } else if l == 2 {
-        let phi = rho - (3.0 * rho / (3.0 - r2)).atan();
+        let phi = rho - (3.0 * rho / (3.0 - r2)).r_atan();
         if phi / rho < TEST {
             0.0
         } else {
             phi
         }
     } else if l == 3 {
-        let phi = rho - ((15.0 * rho - rho * r2) / (15.0 - 6.0 * r2)).atan();
+        let phi = rho - ((15.0 * rho - rho * r2) / (15.0 - 6.0 * r2)).r_atan();
         if phi / rho < TEST {
             0.0
         } else {
@@ -110,7 +111,7 @@ pub fn efacphi(l: i32, rho: f64) -> f64 {
         let r4 = r2 * r2;
         let top = 105.0 * rho - 10.0 * r2 * rho;
         let bot = 105.0 - 45.0 * r2 + r4;
-        let phi = rho - (top / bot).atan();
+        let phi = rho - (top / bot).r_atan();
         if phi / rho < TEST {
             0.0
         } else {
@@ -187,12 +188,12 @@ pub fn eunfac(l: i32, rho: f64, rhoc: f64, amun: f64) -> (f64, f64) {
         (amun, rhoc)
     } else if l == 1 {
         let vl = amun * r2 / (1.0 + r2);
-        let ps = rhoc - rhoc.atan();
+        let ps = rhoc - rhoc.r_atan();
         (vl, ps)
     } else if l == 2 {
         let r4 = r2 * r2;
         let vl = amun * r4 / (9.0 + 3.0 * r2 + r4);
-        let ps = rhoc - (3.0 * rhoc / (3.0 - rhoc * rhoc)).atan();
+        let ps = rhoc - (3.0 * rhoc / (3.0 - rhoc * rhoc)).r_atan();
         (vl, ps)
     } else {
         // Upstream leaves vl, ps unset for l > 2; no fabricated value.
@@ -714,7 +715,7 @@ mod tests {
     #[test]
     fn efacphi_l1_closed_form() {
         let rho = 0.8f64;
-        let expect = rho - rho.atan();
+        let expect = rho - rho.r_atan();
         assert!((efacphi(1, rho) - expect).abs() < 1e-15);
     }
 

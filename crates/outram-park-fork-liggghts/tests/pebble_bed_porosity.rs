@@ -98,6 +98,7 @@
 //! Measured values are in [`RADIAL_REFERENCE`] and [`AXIAL_REFERENCE`], which
 //! are the regression fixture. Headline numbers are recorded on each test.
 
+use petir::mathf::RealMath;
 use outram_park_fork_liggghts::particle::Vec3;
 
 /// Pebble radius of the reference bed `[m]`.
@@ -166,7 +167,7 @@ fn radial_porosity(centres: &[Vec3]) -> Vec<(f64, f64)> {
             let r = (r0 * r0 + u * (r1 * r1 - r0 * r0)).sqrt();
             for it in 0..n_th {
                 let th = 2.0 * std::f64::consts::PI * (it as f64 + 0.5) / n_th as f64;
-                let (x, y) = (r * th.cos(), r * th.sin());
+                let (x, y) = (r * th.r_cos(), r * th.r_sin());
                 for iz in 0..n_z {
                     let z = z_lo + (z_hi - z_lo) * (iz as f64 + 0.5) / n_z as f64;
                     total += 1;
@@ -202,7 +203,7 @@ fn axial_porosity(centres: &[Vec3]) -> Vec<(f64, f64)> {
             let r = R_CYL * u.sqrt(); // uniform in area
             for it in 0..n_th {
                 let th = 2.0 * std::f64::consts::PI * (it as f64 + 0.5) / n_th as f64;
-                let (x, y) = (r * th.cos(), r * th.sin());
+                let (x, y) = (r * th.r_cos(), r * th.r_sin());
                 for iz in 0..n_z {
                     let z = z0 + (z1 - z0) * (iz as f64 + 0.5) / n_z as f64;
                     total += 1;
@@ -672,7 +673,7 @@ fn the_zbs_wall_placeholder_has_the_wrong_shape() {
         return;
     };
     // Reproduced from tampines::pebble_bed::zbs::ZbsBed::wall_region_porosity.
-    let zbs = |y: f64, eps_bulk: f64| (eps_bulk * (1.0 + 1.36 * (-5.0 * y / D_P).exp())).min(1.0);
+    let zbs = |y: f64, eps_bulk: f64| (eps_bulk * (1.0 + 1.36 * (-5.0 * y / D_P).r_exp())).min(1.0);
     let eps_bulk = 0.4429;
 
     let profile = radial_porosity(&centres);

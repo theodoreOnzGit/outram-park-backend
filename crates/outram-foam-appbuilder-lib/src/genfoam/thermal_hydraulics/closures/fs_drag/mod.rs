@@ -58,6 +58,7 @@
 //!   A.A. Bishop, "Laminar, transition, and turbulent parallel flow pressure
 //!   drop across wire-wrap-spaced rod bundles", *Nucl. Sci. Eng.* 69, 1979.
 
+use petir::mathf::RealMath;
 use crate::genfoam::thermal_hydraulics::units::{DarcyFrictionFactor, ReynoldsNumber};
 use uom::si::ratio::ratio;
 
@@ -162,21 +163,21 @@ impl FsWallFriction {
                 coeff,
                 constant,
                 exp,
-            } => (coeff * re.log10() + constant).powf(exp),
+            } => (coeff * re.r_log10() + constant).r_powf(exp),
             Self::ReynoldsPower {
                 coeff,
                 exp,
                 constant,
-            } => coeff * re.powf(exp) + constant,
-            Self::Rehme { a, b1, b2 } => a * (b1 / re + b2 / re.powf(0.133)),
-            Self::Engel => blend_400(re, 99.0 / re, 0.48 / re.powf(0.25), 5000.0),
-            Self::ModifiedEngel => blend_400(re, 110.0 / re, 0.37 / re.powf(0.25), 5000.0),
+            } => coeff * re.r_powf(exp) + constant,
+            Self::Rehme { a, b1, b2 } => a * (b1 / re + b2 / re.r_powf(0.133)),
+            Self::Engel => blend_400(re, 99.0 / re, 0.48 / re.r_powf(0.25), 5000.0),
+            Self::ModifiedEngel => blend_400(re, 110.0 / re, 0.37 / re.r_powf(0.25), 5000.0),
             Self::BaxiDalleDonne { a, b, c } => {
-                let ft = 0.316 * (b + c * re.powf(0.086)) / re.powf(0.25);
+                let ft = 0.316 * (b + c * re.r_powf(0.086)) / re.r_powf(0.25);
                 blend_400(re, a / re, ft, 5000.0)
             }
             Self::NoKazimi { a, b, c } => {
-                let ft = 0.316 * (b + c * re.powf(0.086)) / re.powf(0.25);
+                let ft = 0.316 * (b + c * re.r_powf(0.086)) / re.r_powf(0.25);
                 blend_400(re, a / re, ft, 2600.0)
             }
         }
@@ -201,11 +202,11 @@ impl FsWallFriction {
         let ratio_pd = pt / pin_diameter;
         let b = ratio_pd.sqrt()
             + (7.6 * (pin_diameter + wire_diameter) * ratio_pd * ratio_pd / wire_lead_length)
-                .powf(2.16);
+                .r_powf(2.16);
         Self::Rehme {
             a: wetted_pin_perimeter / (wetted_pin_perimeter + wetted_wrap_perimeter),
             b1: 64.0 * b.sqrt(),
-            b2: 0.0816 * b.powf(0.9335),
+            b2: 0.0816 * b.r_powf(0.9335),
         }
     }
 
@@ -220,10 +221,10 @@ impl FsWallFriction {
         let pt = pin_diameter + 1.0444 * wire_diameter;
         let ratio_pd = pt / pin_diameter;
         Self::BaxiDalleDonne {
-            a: (80.0 / (100.0 * wire_lead_length).sqrt()) * ratio_pd.powf(1.5),
-            b: 1.034 / ratio_pd.powf(0.124),
-            c: 29.7 * ratio_pd.powf(6.9)
-                / (wire_lead_length / (pin_diameter + wire_diameter)).powf(2.239),
+            a: (80.0 / (100.0 * wire_lead_length).sqrt()) * ratio_pd.r_powf(1.5),
+            b: 1.034 / ratio_pd.r_powf(0.124),
+            c: 29.7 * ratio_pd.r_powf(6.9)
+                / (wire_lead_length / (pin_diameter + wire_diameter)).r_powf(2.239),
         }
     }
 
@@ -240,10 +241,10 @@ impl FsWallFriction {
         let pt = pin_diameter + 1.0444 * wire_diameter;
         let ratio_pd = pt / pin_diameter;
         Self::NoKazimi {
-            a: (32.0 / (100.0 * wire_lead_length).sqrt()) * ratio_pd.powf(1.5),
-            b: 1.034 / ratio_pd.powf(0.124),
-            c: 29.7 * ratio_pd.powf(6.9)
-                / (wire_lead_length / (pin_diameter + wire_diameter)).powf(2.239),
+            a: (32.0 / (100.0 * wire_lead_length).sqrt()) * ratio_pd.r_powf(1.5),
+            b: 1.034 / ratio_pd.r_powf(0.124),
+            c: 29.7 * ratio_pd.r_powf(6.9)
+                / (wire_lead_length / (pin_diameter + wire_diameter)).r_powf(2.239),
         }
     }
 }
@@ -255,9 +256,9 @@ impl FsWallFriction {
 /// The `(8/Re)^12` term recovers the laminar `f = 64/Re` limit; the `A`/`B`
 /// terms recover the turbulent (rough-pipe) limit.
 fn churchill(re: f64, surface_roughness: f64) -> f64 {
-    let a = (-2.457 * ((7.0 / re).powf(0.9) + 0.27 * surface_roughness).ln()).powi(16);
-    let b = (37530.0 / re).powi(16);
-    8.0 * ((8.0 / re).powi(12) + 1.0 / (a + b).powf(1.5)).powf(1.0 / 12.0)
+    let a = (-2.457 * ((7.0 / re).r_powf(0.9) + 0.27 * surface_roughness).r_ln()).r_powi(16);
+    let b = (37530.0 / re).r_powi(16);
+    8.0 * ((8.0 / re).r_powi(12) + 1.0 / (a + b).r_powf(1.5)).r_powf(1.0 / 12.0)
 }
 
 /// Laminar/turbulent blend used by the wire-wrapped-bundle correlations.

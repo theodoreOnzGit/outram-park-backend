@@ -48,6 +48,7 @@
 //! keeps the law's own points, storing `(E', pdf, cdf)` and the cosines at each
 //! one. See [`acesix_tabulated`].
 
+use petir::mathf::RealMath;
 use crate::thermr::calcem::types::EqualProbableRow;
 
 /// One equally-probable outgoing-energy bin.
@@ -182,7 +183,7 @@ pub fn acesix_equiprobable(
                 // `aceth.f90:411-415` takes |disc| and continues rather than
                 // failing; reproduced, since a negative disc here is a rounding
                 // artefact of a nearly-exhausted panel.
-                let disc = ((yl / f).powi(2) + 2.0 * (fract - sum) / f).abs();
+                let disc = ((yl / f).r_powi(2) + 2.0 * (fract - sum) / f).abs();
                 let sign = if f < 0.0 { -1.0 } else { 1.0 };
                 (xl - yl / f + sign * disc.sqrt()).clamp(xl, x)
             } else {
@@ -248,7 +249,7 @@ pub fn acesix_equiprobable(
 /// Al-27 differed from NJOY2016's.
 fn moment(grall: f64, xl: f64, yl: f64, x: f64, y: f64, upto: f64) -> f64 {
     grall + (yl - (y - yl) * xl / (x - xl)) * (upto * upto - xl * xl) / 2.0
-        + ((y - yl) / (x - xl)) * (upto.powi(3) - xl.powi(3)) / 3.0
+        + ((y - yl) / (x - xl)) * (upto.r_powi(3) - xl.r_powi(3)) / 3.0
 }
 
 /// Scale a law to unit integral, the way THERMR's MF=6 writer does before the
@@ -423,7 +424,7 @@ pub fn acesix_tabulated(rows: &[EqualProbableRow], nang: usize) -> Vec<AcesixPoi
                 x
             } else if (y - yl).abs() > (y + yl) / 100_000.0 {
                 let f = (y - yl) / (x - xl);
-                let disc = ((yl / f).powi(2) + 2.0 * (fract - sum) / f).abs();
+                let disc = ((yl / f).r_powi(2) + 2.0 * (fract - sum) / f).abs();
                 let sign = if f < 0.0 { -1.0 } else { 1.0 };
                 (xl - yl / f + sign * disc.sqrt()).clamp(xl, x)
             } else {

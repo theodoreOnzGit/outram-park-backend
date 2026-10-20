@@ -22,6 +22,7 @@
 //!   `cargo metadata` because the crate has no API for them.
 #![allow(dead_code)]
 
+use petir::mathf::RealMath;
 use fission_yields_data::prelude::{fission_yield_linear_interpolation, Nuclide};
 use njoy_outram_park_fork::endf::records::SectionCursor;
 use njoy_outram_park_fork::endf::tape::Tape;
@@ -340,7 +341,7 @@ pub fn resonances(tape: &Tape, mat: i32) -> Result<Resonances, String> {
 /// as this workspace's RECONR computes it for NAPS = 0
 /// (`reconr/slbw.rs`, `RC1`, `RC2`), returned in fm.
 pub fn channel_radius_fm(awri: f64) -> f64 {
-    (0.123 * awri.powf(1.0 / 3.0) + 0.08) * 10.0
+    (0.123 * awri.r_powf(1.0 / 3.0) + 0.08) * 10.0
 }
 
 /// Thin a density on its own grid for drawing: keep every `step`-th point

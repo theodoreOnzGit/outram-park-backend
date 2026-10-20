@@ -81,6 +81,7 @@
 //! Superseded: **k_eff = 0.21486 ± 0.00489**, total fuel track-length
 //! flux = 2.03e4, central pin = 3.64e3, total fuel ν-fission = 3.52e3.
 
+use petir::mathf::RealMath;
 use outram_mc_libs::tally::filter::FilterKind;
 use outram_mc_libs::geometry::cell::{Cell, HalfSpaceSense, RegionToken};
 use outram_mc_libs::geometry::geometry::Geometry;
@@ -175,7 +176,7 @@ fn pin_center(i: usize) -> (f64, f64) {
         (0.0, 0.0)
     } else {
         let theta = 2.0 * std::f64::consts::PI * (i - 1) as f64 / N_RING_PINS as f64;
-        (R_RING * theta.cos(), R_RING * theta.sin())
+        (R_RING * theta.r_cos(), R_RING * theta.r_sin())
     }
 }
 

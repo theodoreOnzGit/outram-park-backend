@@ -23,9 +23,9 @@ pub fn water_dielectric_const_rho_t(rho: MassDensity, t: ThermodynamicTemperatur
     let exponent = 9.0
         + 2.0 * capital_a
         + 18.0 * capital_b
-        + capital_a.powi(2)
+        + capital_a.r_powi(2)
         + 10.0 * capital_a * capital_b
-        + 9.0 * capital_b.powi(2);
+        + 9.0 * capital_b.r_powi(2);
     let den = 4.0 * (1.0 - capital_b);
 
     let num = 1.0 + capital_a + 5.0 * capital_b + exponent.sqrt();

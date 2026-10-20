@@ -38,6 +38,7 @@
 //! All identical; the counts are printed by the test. (i9-13900K, release,
 //! one thread, machine shared with other agents.)
 
+use petir::mathf::RealMath;
 use njoy_outram_park_fork::endf::tape::Tape;
 use njoy_outram_park_fork::reference_data::reference_endf;
 use outram_mc_libs::material::nuclide::{MicroXS, Nuclide};
@@ -99,7 +100,7 @@ fn compare(file: &str, name: &str, fissile: bool) -> Option<usize> {
         "{name}: URR range"
     );
     let mut es: Vec<f64> = (0..=1200)
-        .map(|i| 1.0e-5 * (2.0e7_f64 / 1.0e-5).powf(f64::from(i) / 1200.0))
+        .map(|i| 1.0e-5 * (2.0e7_f64 / 1.0e-5).r_powf(f64::from(i) / 1200.0))
         .collect();
     if let Some((lo, hi)) = direct.urr_range_ev() {
         es.extend((0..=100).map(|i| lo + (hi - lo) * f64::from(i) / 100.0));
@@ -198,7 +199,7 @@ fn a_shipped_thermal_law_is_the_built_law_bit_for_bit() {
     );
     let mut n = 0;
     for i in 0..=400 {
-        let e = 1.0e-5 * (5.0_f64 / 1.0e-5).powf(f64::from(i) / 400.0);
+        let e = 1.0e-5 * (5.0_f64 / 1.0e-5).r_powf(f64::from(i) / 400.0);
         assert_eq!(
             bits(&a.xs_at_energy(e, TEMP_K)),
             bits(&b.xs_at_energy(e, TEMP_K)),

@@ -31,6 +31,7 @@
 //! `--nocapture`; the pass criterion is |Δk| ≤ 4 σ_combined. The value
 //! recorded on the first run is in that test's doc comment.
 
+use petir::mathf::RealMath;
 use outram_mc_libs::geometry::cell::{Cell, HalfSpaceSense, RegionToken};
 use outram_mc_libs::geometry::geometry::Geometry;
 use outram_mc_libs::geometry::position::{Direction, Position};
@@ -149,7 +150,7 @@ fn geometry() -> Geometry {
 fn majorant(mats: &[Material], nucs: &[Nuclide]) -> Majorant {
     let (lo, hi) = (1.0e-5_f64, 2.0e7_f64);
     let grid: Vec<f64> = (0..512)
-        .map(|i| (lo.ln() + (hi.ln() - lo.ln()) * i as f64 / 511.0).exp())
+        .map(|i| (lo.r_ln() + (hi.r_ln() - lo.r_ln()) * i as f64 / 511.0).r_exp())
         .collect();
     Majorant::over_indices(mats, &[0, 1, 2], nucs, &grid, 0.1)
 }
@@ -261,7 +262,7 @@ fn a_delta_trace_reports_the_sampling_it_did() {
                     ..
                 } => {
                     assert_eq!(from, at, "a flight starts where the last one ended");
-                    let want = -xi.max(f64::MIN_POSITIVE).ln() / majorant;
+                    let want = -xi.max(f64::MIN_POSITIVE).r_ln() / majorant;
                     assert!(
                         (distance - want).abs() <= 1e-12 * want.max(1.0),
                         "s = -ln xi / maj: {distance} vs {want}"
@@ -458,7 +459,7 @@ fn the_csg_source_entropy_is_bounded_and_reading_it_changes_nothing() {
     let away = RegularMesh { lower_left: [1.0e3; 3], upper_right: [2.0e3; 3], dimension: [2; 3] };
     let mut read = CsgPowerIteration::new(&geom, &mats, &nucs, source_box(), &s);
     let mut plain = CsgPowerIteration::new(&geom, &mats, &nucs, source_box(), &s);
-    let ceiling = 125f64.log2();
+    let ceiling = 125f64.r_log2();
     let mut seen = Vec::new();
     loop {
         assert_eq!(read.source_entropy(&mesh(1)), Some(0.0));

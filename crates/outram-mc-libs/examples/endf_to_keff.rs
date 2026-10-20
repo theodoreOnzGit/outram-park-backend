@@ -72,6 +72,7 @@
 //!   stationarity false alarm on a 30-cycle window or a real transient is
 //!   exactly what #927 is to measure; it is recorded here, not explained.
 
+use petir::mathf::RealMath;
 use std::path::PathBuf;
 use std::time::Instant;
 
@@ -221,7 +222,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let k = run.keff();
     let sigma = k.std.max(run.provenance.sigma_batch_means.unwrap_or(0.0));
     let pcm = (k.mean - godiva::BENCHMARK_K) * 1e5;
-    let combined = ((sigma * 1e5).powi(2) + RECORDED_SEM_PCM.powi(2)).sqrt();
+    let combined = ((sigma * 1e5).r_powi(2) + RECORDED_SEM_PCM.r_powi(2)).sqrt();
     println!(
         "\nk_eff = {k}  ({pcm:+.0} ± {:.0} pcm from HEU-MET-FAST-001, benchmark ±{:.0} pcm)",
         sigma * 1e5,
@@ -274,7 +275,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             ((r.keff().mean - 1.0) * 1e5, r.keff().std * 1e5)
         });
         let rep = EnsembleReport::from_runs(runs);
-        let sigma = (rep.sem.powi(2) + RECORDED_SEM_PCM.powi(2)).sqrt();
+        let sigma = (rep.sem.r_powi(2) + RECORDED_SEM_PCM.r_powi(2)).sqrt();
         println!(
             "\n{n_seeds} seeds x Custom {{ {} per cycle, {} inactive, {} active }}: mean {:+.0} pcm, \
              sd {:.0}, sem ±{:.0}; against the record {:+.0} pcm = {:.1} sigma ({:.0} s on {workers} workers)",

@@ -14,6 +14,7 @@
 //! stack. On Android the real entry point and its egui-using module are gated
 //! out and replaced by a no-op `main`, so the example target still builds there.
 
+use petir::mathf::RealMath;
 #[cfg(not(target_os = "android"))]
 fn main() -> eframe::Result<()> {
     let native_options = eframe::NativeOptions {
@@ -197,7 +198,7 @@ mod app {
         (0..=72)
             .map(|k| {
                 let a = std::f64::consts::TAU * k as f64 / 72.0;
-                [radius_um * a.cos(), radius_um * a.sin()]
+                [radius_um * a.r_cos(), radius_um * a.r_sin()]
             })
             .collect()
     }

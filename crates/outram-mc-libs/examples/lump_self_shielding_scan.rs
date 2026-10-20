@@ -66,6 +66,7 @@
 //!
 //! (The 2026-09-11 `vv_gate` table below was taken at `HIST=4000`; these rows
 //! are at the default 50 000, hence the smaller sigmas.) Quote these numbers.
+use petir::mathf::RealMath;
 use njoy_outram_park_fork::reference_data::reference_endf;
 use outram_mc_libs::geometry::surface::BoundaryType;
 use outram_mc_libs::material::material::{Material, NuclideComponent};
@@ -297,7 +298,7 @@ fn main() {
         &[0.006_f64, 0.02, 0.05, 0.15, 0.5, 1.5]
     };
     for &r_cell in scan_sizes {
-        let r_fuel = r_cell * vfrac.cbrt();
+        let r_fuel = r_cell * vfrac.r_cbrt();
         let mats = &mats_lumped;
         let geom = fhr_pebble_geometry(
             0.0,
@@ -699,7 +700,7 @@ fn ring_rpt_annulus(
     // multi-region solver reproduces it identically when every shell carries one
     // material (tests/lump_collision_probability.rs), so the two sides of the
     // lumping effect below are on the same footing.
-    let vol = |r_out: f64, r_in: f64| r_out.powi(3) - r_in.powi(3);
+    let vol = |r_out: f64, r_in: f64| r_out.r_powi(3) - r_in.r_powi(3);
     let v_fuel = vol(R_RPT_FUEL, R_RPT_INNER);
     let v_cell = vol(R_ROOT, 0.0);
     let f_fuel = v_fuel / v_cell;

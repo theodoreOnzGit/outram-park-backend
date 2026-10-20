@@ -81,6 +81,7 @@
 //!     --example godiva_kinf_vs_openmc
 //! ```
 
+use petir::mathf::RealMath;
 #[cfg(target_os = "android")]
 fn main() {
     println!("godiva_kinf_vs_openmc is desktop-only (reads reference-data/endf/).");
@@ -116,7 +117,7 @@ mod desktop {
     fn stats(x: &[f64]) -> (f64, f64, f64) {
         let n = x.len() as f64;
         let m = x.iter().sum::<f64>() / n;
-        let var = x.iter().map(|v| (v - m).powi(2)).sum::<f64>() / (n - 1.0).max(1.0);
+        let var = x.iter().map(|v| (v - m).r_powi(2)).sum::<f64>() / (n - 1.0).max(1.0);
         (m, var.sqrt(), var.sqrt() / n.sqrt())
     }
 

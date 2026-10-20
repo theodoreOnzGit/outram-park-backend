@@ -39,6 +39,7 @@
 //! one genuinely singular case (van Genuchten–Mualem `dk_r/dS_e` as
 //! `S_e -> 1`).
 
+use petir::mathf::RealMath;
 use crate::error::PflotranError;
 use crate::units::{CapillaryPressure, RelativePermeability, Saturation};
 use uom::si::f64::Ratio;
@@ -238,8 +239,8 @@ impl CharacteristicCurveModel for VanGenuchten {
             return 1.0;
         }
         let ap = self.alpha * pc_pa; // > 0
-        let f = 1.0 + ap.powf(self.n);
-        f.powf(-self.m)
+        let f = 1.0 + ap.r_powf(self.n);
+        f.r_powf(-self.m)
     }
 
     fn d_se_d_pc(&self, pc_pa: f64) -> f64 {
@@ -247,9 +248,9 @@ impl CharacteristicCurveModel for VanGenuchten {
             return 0.0;
         }
         let ap = self.alpha * pc_pa; // > 0
-        let f = 1.0 + ap.powf(self.n);
+        let f = 1.0 + ap.r_powf(self.n);
         // dSe/dpc = -m * n * alpha * ap^(n-1) * f^(-m-1)
-        -self.m * self.n * self.alpha * ap.powf(self.n - 1.0) * f.powf(-self.m - 1.0)
+        -self.m * self.n * self.alpha * ap.r_powf(self.n - 1.0) * f.r_powf(-self.m - 1.0)
     }
 
     fn relative_permeability(&self, se: f64) -> f64 {
@@ -260,9 +261,9 @@ impl CharacteristicCurveModel for VanGenuchten {
         if se >= 1.0 {
             return 1.0;
         }
-        let sm = se.powf(1.0 / self.m); // Se^(1/m)
+        let sm = se.r_powf(1.0 / self.m); // Se^(1/m)
         let inner = 1.0 - sm; // 1 - Se^(1/m), in (0,1)
-        let g = 1.0 - inner.powf(self.m); // 1 - (1 - Se^(1/m))^m
+        let g = 1.0 - inner.r_powf(self.m); // 1 - (1 - Se^(1/m))^m
         (se.sqrt() * g * g).clamp(0.0, 1.0)
     }
 
@@ -276,11 +277,11 @@ impl CharacteristicCurveModel for VanGenuchten {
         if se >= 1.0 {
             return f64::INFINITY;
         }
-        let sm = se.powf(1.0 / self.m); // Se^(1/m)
+        let sm = se.r_powf(1.0 / self.m); // Se^(1/m)
         let inner = 1.0 - sm; // in (0,1)
-        let g = 1.0 - inner.powf(self.m);
-        let term1 = 0.5 * se.powf(-0.5) * g * g;
-        let term2 = se.sqrt() * 2.0 * g * inner.powf(self.m - 1.0) * se.powf(1.0 / self.m - 1.0);
+        let g = 1.0 - inner.r_powf(self.m);
+        let term1 = 0.5 * se.r_powf(-0.5) * g * g;
+        let term2 = se.sqrt() * 2.0 * g * inner.r_powf(self.m - 1.0) * se.r_powf(1.0 / self.m - 1.0);
         term1 + term2
     }
 
@@ -367,7 +368,7 @@ impl CharacteristicCurveModel for BrooksCorey {
             // At or below air-entry pressure (includes pc <= 0): saturated.
             1.0
         } else {
-            ap.powf(-self.lambda)
+            ap.r_powf(-self.lambda)
         }
     }
 
@@ -377,7 +378,7 @@ impl CharacteristicCurveModel for BrooksCorey {
             0.0
         } else {
             // dSe/dpc = -lambda * alpha * (alpha pc)^(-lambda-1)
-            -self.lambda * self.alpha * ap.powf(-self.lambda - 1.0)
+            -self.lambda * self.alpha * ap.r_powf(-self.lambda - 1.0)
         }
     }
 
@@ -386,7 +387,7 @@ impl CharacteristicCurveModel for BrooksCorey {
         if se <= 0.0 {
             return 0.0;
         }
-        se.powf(3.0 + 2.0 / self.lambda).clamp(0.0, 1.0)
+        se.r_powf(3.0 + 2.0 / self.lambda).clamp(0.0, 1.0)
     }
 
     fn d_kr_d_se(&self, se: f64) -> f64 {
@@ -395,7 +396,7 @@ impl CharacteristicCurveModel for BrooksCorey {
             // Finite limit 0 (exponent 2 + 2/lambda > 0).
             return 0.0;
         }
-        (3.0 + 2.0 / self.lambda) * se.powf(2.0 + 2.0 / self.lambda)
+        (3.0 + 2.0 / self.lambda) * se.r_powf(2.0 + 2.0 / self.lambda)
     }
 
     fn residual_saturation(&self) -> f64 {
@@ -546,7 +547,7 @@ impl CharacteristicCurveModel for Haverkamp {
         if pc_pa <= 0.0 {
             return 1.0;
         }
-        let psi_b = self.abs_head_cm(pc_pa).powf(self.beta);
+        let psi_b = self.abs_head_cm(pc_pa).r_powf(self.beta);
         self.alpha / (self.alpha + psi_b)
     }
 
@@ -555,10 +556,10 @@ impl CharacteristicCurveModel for Haverkamp {
             return 0.0;
         }
         let psi = self.abs_head_cm(pc_pa);
-        let psi_b = psi.powf(self.beta);
+        let psi_b = psi.r_powf(self.beta);
         let denom = self.alpha + psi_b;
         // dSe/dpc = -alpha*beta*c*psi^(beta-1) / (alpha+psi^beta)^2
-        -self.alpha * self.beta * self.cm_per_pa * psi.powf(self.beta - 1.0) / (denom * denom)
+        -self.alpha * self.beta * self.cm_per_pa * psi.r_powf(self.beta - 1.0) / (denom * denom)
     }
 
     fn relative_permeability(&self, se: f64) -> f64 {
@@ -570,7 +571,7 @@ impl CharacteristicCurveModel for Haverkamp {
             return 1.0;
         }
         let u = self.alpha * (1.0 - se) / se; // = |psi|^beta
-        let w = u.powf(self.gamma / self.beta); // = |psi|^gamma
+        let w = u.r_powf(self.gamma / self.beta); // = |psi|^gamma
         self.a / (self.a + w)
     }
 
@@ -582,9 +583,9 @@ impl CharacteristicCurveModel for Haverkamp {
         }
         let r = self.gamma / self.beta;
         let u = self.alpha * (1.0 - se) / se;
-        let g = u.powf(r);
+        let g = u.r_powf(r);
         let ag = self.a + g;
-        let num = self.a * r * self.alpha * u.powf(r - 1.0);
+        let num = self.a * r * self.alpha * u.r_powf(r - 1.0);
         let val = num / (se * se * ag * ag);
         if val.is_finite() {
             val
@@ -781,7 +782,7 @@ mod tests {
         let mut prev = 1.0;
         // Sweep capillary pressure (Pa) across the unsaturated range.
         for k in 0..40 {
-            let pcv = 100.0 * 1.2f64.powi(k);
+            let pcv = 100.0 * 1.2f64.r_powi(k);
             let s = se_val(&c, pcv);
             assert!((0.0..=1.0).contains(&s), "Se out of range: {s}");
             assert!(s <= prev + 1e-12, "Se not monotone decreasing");

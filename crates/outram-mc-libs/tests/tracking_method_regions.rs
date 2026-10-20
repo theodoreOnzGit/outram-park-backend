@@ -32,6 +32,7 @@
 //! are not expected to agree; this one exists to prove the SUBSETTING takes
 //! effect, that one to price it.
 
+use petir::mathf::RealMath;
 use outram_mc_libs::geometry::cell::{
     Cell, CellFill, HalfSpaceSense, RegionToken, SurfaceToken, TrackingMethod,
 };
@@ -265,7 +266,7 @@ fn a_region_local_majorant_ignores_materials_outside_its_index_list() {
     // m3 is 100x m1 — the "control rod" of this miniature.
     let all = vec![mat(1, 1.0e-5), mat(2, 1.0e-4), mat(3, 1.0e-2)];
     let grid: Vec<f64> = (0..24)
-        .map(|i| 1.0e-3 * 10.0_f64.powf(i as f64 * 0.5))
+        .map(|i| 1.0e-3 * 10.0_f64.r_powf(i as f64 * 0.5))
         .collect();
 
     let weak_only = Majorant::over_indices(&all, &[0, 1], &nucs, &grid, 0.3);

@@ -10,6 +10,7 @@
 //! drop has no reaction part at all, and the impulse and reaction terms are
 //! public so either can be evaluated on its own.
 
+use petir::mathf::RealMath;
 use approx::assert_relative_eq;
 use uom::si::angle::{degree, radian};
 use uom::si::angular_velocity::radian_per_second;
@@ -123,7 +124,7 @@ fn impulse_optimum_blade_speed_ratio_is_half_sin_nozzle_angle() {
         }
     }
 
-    let expected_ratio = nozzle_angle.sin().get::<ratio>() / 2.0;
+    let expected_ratio = Ratio::from(nozzle_angle.value.r_sin()).get::<ratio>() / 2.0;
 
     assert_relative_eq!(best_ratio, expected_ratio, max_relative = 2e-3);
 }

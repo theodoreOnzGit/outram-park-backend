@@ -52,6 +52,7 @@
 //! activities. Silently clamping and silently passing it on are both worse than
 //! saying so.
 
+use petir::mathf::RealMath;
 use boon_lay::triso_atops_fork::accident::{
     accident_release_curies, atoms_to_curies, coolant_release, mean_temperature_rate,
     AccidentFractions, NormalOperationNode, ReleaseMaterial as AccidentMaterial,
@@ -712,7 +713,7 @@ pub fn accident_release_with_venting(
                 transient
                     .times
                     .iter()
-                    .map(|t| -(-lam * t.get::<second>().min(t_cut)).exp_m1())
+                    .map(|t| -(-lam * t.get::<second>().min(t_cut)).r_exp_m1())
                     .collect(),
             )
         }

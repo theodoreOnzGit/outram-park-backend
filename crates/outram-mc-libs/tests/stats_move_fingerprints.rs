@@ -127,6 +127,7 @@
 //! `0x1fb06c36a096d760`, `k = 1.52292 +/- 0.01056`, the same bits at
 //! `8df5cde5f` and with #784's tracking observers.**
 
+use petir::mathf::RealMath;
 use outram_mc_libs::geometry::cell::{Cell, HalfSpaceSense, RegionToken};
 use outram_mc_libs::geometry::geometry::Geometry;
 use outram_mc_libs::geometry::position::Position;
@@ -440,8 +441,8 @@ fn fhr_explicit_triso_delta_is_bit_identical() {
         R_PEBBLE,
     );
     let (e_min, e_max, n_grid): (f64, f64, usize) = (1.0e-4, 2.0e7, 150);
-    let ratio = (e_max / e_min).powf(1.0 / (n_grid as f64 - 1.0));
-    let grid: Vec<f64> = (0..n_grid as i32).map(|i| e_min * ratio.powi(i)).collect();
+    let ratio = (e_max / e_min).r_powf(1.0 / (n_grid as f64 - 1.0));
+    let grid: Vec<f64> = (0..n_grid as i32).map(|i| e_min * ratio.r_powi(i)).collect();
     let majorant = Majorant::from_materials(&materials, &nuclides, &grid, 0.05);
     let settings = KeffSettings {
         n_particles: 500,
@@ -600,7 +601,7 @@ impl Probe {
         let mu = self.range(-1.0, 1.0);
         let phi = self.range(0.0, std::f64::consts::TAU);
         let s = (1.0 - mu * mu).sqrt();
-        outram_mc_libs::geometry::position::Direction::new(s * phi.cos(), s * phi.sin(), mu)
+        outram_mc_libs::geometry::position::Direction::new(s * phi.r_cos(), s * phi.r_sin(), mu)
     }
 }
 

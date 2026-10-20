@@ -641,6 +641,7 @@ where
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
     use crate::thermo::cubic_eos::CubicEos;
     use approx::assert_relative_eq;
@@ -902,7 +903,7 @@ mod tests {
         let dep = &dep;
 
         let s_known = mixture_entropy(&c, &z, t_known, p, t_ref, p_ref, flash, dep);
-        assert_relative_eq!(s_known, a * (t_known / t_ref).ln(), max_relative = 1e-12);
+        assert_relative_eq!(s_known, a * (t_known / t_ref).r_ln(), max_relative = 1e-12);
 
         let r = flash_ps(
             &c,

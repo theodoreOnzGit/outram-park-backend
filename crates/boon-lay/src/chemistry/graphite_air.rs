@@ -32,6 +32,7 @@
 //! and CO2 is the bounding choice for heat per mole of O2 consumed (393.7
 //! against 2 x 111.4 = 222.8 kJ).
 
+use petir::mathf::RealMath;
 use uom::si::f64::{Frequency, Pressure, ThermodynamicTemperature};
 use uom::si::frequency::hertz;
 use uom::si::pressure::pascal;
@@ -66,8 +67,8 @@ pub fn kinetic_specific_rate(
 ) -> (Frequency, Validity) {
     let t = temperature.get::<kelvin>();
     let p = oxygen.get::<pascal>().max(0.0);
-    let rate = LN_PRE_EXPONENTIAL_PER_S.exp()
-        * (-ACTIVATION_ENERGY_J_PER_MOL / (R_J_PER_MOL_K * t)).exp()
+    let rate = LN_PRE_EXPONENTIAL_PER_S.r_exp()
+        * (-ACTIVATION_ENERGY_J_PER_MOL / (R_J_PER_MOL_K * t)).r_exp()
         * p
         / REFERENCE_O2_PA;
     let v = if (870.15..=967.15).contains(&t) {

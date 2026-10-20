@@ -2,6 +2,7 @@
 //! `openmc.run()`-style console, k by generation, the lethargy spectrum and
 //! the saved runs.
 
+use petir::mathf::RealMath;
 use egui::{Color32, RichText};
 use egui_plot::{Line, Plot, PlotPoints, Points};
 
@@ -295,7 +296,7 @@ pub fn generation_lines(ks: &[f64], entropy: &[f64], inactive: usize) -> Vec<Str
             let n = active.len() as f64;
             if active.len() > 1 {
                 let m = active.iter().sum::<f64>() / n;
-                let var = active.iter().map(|x| (x - m).powi(2)).sum::<f64>() / (n - 1.0);
+                let var = active.iter().map(|x| (x - m).r_powi(2)).sum::<f64>() / (n - 1.0);
                 s.push_str(&format!("   {m:7.5} +/- {:7.5}", (var / n).sqrt()));
             }
         }
@@ -330,7 +331,7 @@ fn plots(app: &mut App, ui: &mut egui::Ui) {
         .iter()
         .enumerate()
         .filter(|(_, v)| v.0 > 0.0)
-        .map(|(i, v)| [(o.edges[i] * o.edges[i + 1]).sqrt().log10(), v.0])
+        .map(|(i, v)| [(o.edges[i] * o.edges[i + 1]).sqrt().r_log10(), v.0])
         .collect();
     Plot::new("spectrum")
         .height(100.0)
@@ -371,7 +372,7 @@ fn runs_table(app: &App, ui: &mut egui::Ui) {
                 Some((k1, s1)) => {
                     let d = (1.0 / k1 - 1.0 / r.k) * 1.0e5;
                     let e =
-                        ((s1 / (k1 * k1)).powi(2) + (r.sigma / (r.k * r.k)).powi(2)).sqrt() * 1.0e5;
+                        ((s1 / (k1 * k1)).r_powi(2) + (r.sigma / (r.k * r.k)).r_powi(2)).sqrt() * 1.0e5;
                     ui.label(format!("{d:+.0} ± {e:.0}"))
                 }
                 None => ui.label(""),

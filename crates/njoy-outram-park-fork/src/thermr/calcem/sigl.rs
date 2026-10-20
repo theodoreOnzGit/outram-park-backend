@@ -27,6 +27,7 @@
 //! reusing the first sweep's points — this port does the same, on purpose
 //! (translation, not "improvement").
 
+use petir::mathf::RealMath;
 use super::super::mf7::IncoherentInelastic;
 use crate::error::NjoyError;
 use crate::groupr::kinematics::legndr;
@@ -322,7 +323,7 @@ pub fn sigl(
                     // label 175
                     let f = (y[i] - yl2) * xil;
                     let rf = 1.0 / f;
-                    let mut disc = (yl2 * rf).powi(2) + 2.0 * (fract - sum2) * rf;
+                    let mut disc = (yl2 * rf).r_powi(2) + 2.0 * (fract - sum2) * rf;
                     if disc < 0.0 {
                         disc = disc.abs(); // NJOY: warn and continue with |disc|
                     }

@@ -233,6 +233,7 @@ pub fn oxide_thermal_coupling(
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
 
     /// Self-consistency check against the closed form, not validation: the
@@ -358,7 +359,7 @@ mod tests {
         // The recorded Arrhenius feedback factor at 100 um.
         let hot = oxide_thermal_coupling(surface, cell, 15.0, 5.0e-5, 1.0e-4);
         let speedup =
-            (16_266.103_059_581_319 * (1.0 / surface - 1.0 / hot.interface_temperature)).exp();
+            (16_266.103_059_581_319 * (1.0 / surface - 1.0 / hot.interface_temperature)).r_exp();
         assert!(
             (speedup - 2.3366).abs() < 1.0e-3,
             "recorded corrosion feedback drifted: {speedup}x"

@@ -15,6 +15,7 @@
 //! | `f6cm`    | 8260–8518 | [`Cm6Emission::f6cm`] | **DONE**, including the `ND` discrete-line branches (init bounds `8324-8335`, delta-function branch `8467-8501`) |
 //! | `cm2lab`  | 8135–8258 | [`cm2lab`] | **DONE** |
 
+use petir::mathf::RealMath;
 use super::bach::bach;
 use super::shared::{legndr, remove_small_moments, LabDistribution, EMAX, SMALL, TINY};
 use crate::endf::interp::{terp1, IntLaw};
@@ -251,7 +252,7 @@ impl Cm6Emission {
                         ep_cm,
                     )?
                 };
-                t = aa * ((aa * w).cosh() + r * (aa * w).sinh()) / (2.0 * aa.sinh());
+                t = aa * ((aa * w).r_cosh() + r * (aa * w).r_sinh()) / (2.0 * aa.r_sinh());
                 t *= s;
                 if t < 0.0 {
                     t = 0.0;
@@ -341,7 +342,7 @@ impl Cm6Emission {
                         lines[i].ep,
                     )?
                 };
-                let mut t = aa * ((aa * w).cosh() + r * (aa * w).sinh()) / (2.0 * aa.sinh());
+                let mut t = aa * ((aa * w).r_cosh() + r * (aa * w).r_sinh()) / (2.0 * aa.r_sinh());
                 t *= s;
                 Ok(t.max(0.0))
             }
@@ -535,9 +536,9 @@ impl Cm6Emission {
         }
 
         // --Select the next lab energy grid point (8455-8461).
-        let mut epnxt = e * ((epnn / e).sqrt() - xc.sqrt()).powi(2);
+        let mut epnxt = e * ((epnn / e).sqrt() - xc.sqrt()).r_powi(2);
         if epnxt <= ep * (1.0 + SMALL) {
-            epnxt = e * ((epnn / e).sqrt() + xc.sqrt()).powi(2);
+            epnxt = e * ((epnn / e).sqrt() + xc.sqrt()).r_powi(2);
         }
         if epnxt <= ep * (1.0 + SMALL) {
             epnxt = 3.0 * ep / 2.0;
@@ -576,7 +577,7 @@ impl Cm6Emission {
             let w = (ep - epp - xc * e) / denom;
             let u = (xc * e + ep - epp) / (2.0 * (xc * e * ep).sqrt());
             if w < -1.0 {
-                let mut epn = e * ((epp / e).sqrt() - xc.sqrt()).powi(2);
+                let mut epn = e * ((epp / e).sqrt() - xc.sqrt()).r_powi(2);
                 epn *= if ep < CHECK * epn { RDN } else { RUP };
                 if epn < epnxt * (1.0 - SMALL) {
                     epnxt = epn;
@@ -584,7 +585,7 @@ impl Cm6Emission {
             } else if w <= 1.0 {
                 let p = legndr(u, na_lab);
                 let f = self.f6dis(i, w)? / denom;
-                let mut epn = e * ((epp / e).sqrt() + xc.sqrt()).powi(2);
+                let mut epn = e * ((epp / e).sqrt() + xc.sqrt()).r_powi(2);
                 epn *= if ep < CHECK * epn { RDN } else { RUP };
                 if epn < epnxt * (1.0 - SMALL) {
                     epnxt = epn;
@@ -626,7 +627,7 @@ impl Cm6Emission {
         self.validate(nl)?;
 
         let e = self.e_in;
-        let xc = self.awp_emitted / (self.awr_target + 1.0).powi(2);
+        let xc = self.awp_emitted / (self.awr_target + 1.0).r_powi(2);
 
         // --f6cm initialization (groupr.f90:8299-8340).
         let has_continuum = !self.points.is_empty();
@@ -640,11 +641,11 @@ impl Cm6Emission {
             let (epn0, epmax) = self.f6ddx_init();
             epnn = EMAX.min(epn0);
             epmax_c = epmax.max(0.0);
-            elmax = e * ((epmax_c / e).sqrt() + xc.sqrt()).powi(2);
+            elmax = e * ((epmax_c / e).sqrt() + xc.sqrt()).r_powi(2);
             elmax *= UP;
             let mut epn = STEP * elmax;
             if epmax_c * UP < xc * e {
-                epn = e * ((epmax_c / e).sqrt() - xc.sqrt()).powi(2);
+                epn = e * ((epmax_c / e).sqrt() - xc.sqrt()).r_powi(2);
             }
             epnext = EMAX.min(epn);
             eps = TINY / elmax;
@@ -659,11 +660,11 @@ impl Cm6Emission {
                 if epn > epmax_c * (1.0 + SMALL) {
                     epmax_c = epn;
                 }
-                let epx_lo = DN * e * ((epn / e).sqrt() - xc.sqrt()).powi(2);
+                let epx_lo = DN * e * ((epn / e).sqrt() - xc.sqrt()).r_powi(2);
                 if epx_lo < epnext * (1.0 - SMALL) {
                     epnext = epx_lo;
                 }
-                let epx_hi = UP * e * ((epn / e).sqrt() + xc.sqrt()).powi(2);
+                let epx_hi = UP * e * ((epn / e).sqrt() + xc.sqrt()).r_powi(2);
                 if epx_hi > elmax * (1.0 + SMALL) {
                     elmax = epx_hi;
                 }
@@ -919,8 +920,8 @@ mod tests {
             lab.p0_integral
         );
         assert!(!lab.points.is_empty());
-        let xc = 1.0 / (51.0_f64).powi(2);
-        let elmax = (5.0e5_f64.sqrt() + (xc * 1.0e6).sqrt()).powi(2) * 1.01;
+        let xc = 1.0 / (51.0_f64).r_powi(2);
+        let elmax = (5.0e5_f64.sqrt() + (xc * 1.0e6).sqrt()).r_powi(2) * 1.01;
         let mut prev = f64::NEG_INFINITY;
         for (ep, c) in &lab.points {
             assert!(*ep >= prev, "not ascending at {ep}");

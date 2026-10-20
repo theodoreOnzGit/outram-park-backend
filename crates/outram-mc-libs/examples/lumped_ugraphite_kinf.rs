@@ -172,6 +172,7 @@
 //! (100), `THREADS` (3), `SEED`, `CU` (600), `RADII` (comma list, cm),
 //! `CONTROL` (0 skips the homogenised control).
 
+use petir::mathf::RealMath;
 #[path = "common/ugraphite_common.rs"]
 mod ugraphite_common;
 
@@ -239,7 +240,7 @@ fn main() {
         env_or::<usize>("INACTIVE", 20),
         env_or::<usize>("ACTIVE", 100),
         env_or::<usize>("THREADS", 3),
-        1.0 / v.cbrt()
+        1.0 / v.r_cbrt()
     );
     println!(
         "lump: U metal {RHO_U_METAL} g/cm3, N_U = {:.6e} /b-cm; moderator: graphite N_C = {:.6e} /b-cm",

@@ -63,6 +63,7 @@
 //! [`oxygen_per_fission_uo2`] therefore takes a `uom` [`Time`] and converts
 //! internally, so a caller cannot get this wrong at all.
 
+use petir::mathf::RealMath;
 use uom::si::f64::{Ratio, ThermodynamicTemperature, Time};
 use uom::si::ratio::ratio;
 use uom::si::thermodynamic_temperature::kelvin;
@@ -108,8 +109,8 @@ pub fn oxygen_per_fission_thoria(
     if t <= 0.0 || thorium_to_u235 <= 0.0 || f_b <= 0.0 {
         return Ratio::new::<ratio>(0.0);
     }
-    let log_opf = 0.96 - 0.442e4 / t + 0.4 * thorium_to_u235.log10() + 0.3 * f_b.log10();
-    Ratio::new::<ratio>(10f64.powf(log_opf).min(OPF_MAX))
+    let log_opf = 0.96 - 0.442e4 / t + 0.4 * thorium_to_u235.r_log10() + 0.3 * f_b.r_log10();
+    Ratio::new::<ratio>(10f64.r_powf(log_opf).min(OPF_MAX))
 }
 
 /// Which side of the accident a `UO2` `OPF` is wanted for.
@@ -161,7 +162,7 @@ pub fn oxygen_per_fission_uo2(
     if t_b_k <= 0.0 || t_b_s <= 0.0 {
         return Ratio::new::<ratio>(0.0);
     }
-    let mut log_opf = -10.08 - 0.85e4 / t_b_k + 2.0 * t_b_s.log10();
+    let mut log_opf = -10.08 - 0.85e4 / t_b_k + 2.0 * t_b_s.r_log10();
     if let HeatingRegime::DuringHeating { temperature } = regime {
         let t = temperature.get::<kelvin>();
         if t <= 0.0 {
@@ -169,7 +170,7 @@ pub fn oxygen_per_fission_uo2(
         }
         log_opf -= 0.404 * (1.0e4 / t - 1.0e4 / (t_b_k + KERNEL_SURFACE_OFFSET_K));
     }
-    Ratio::new::<ratio>(10f64.powf(log_opf).min(OPF_MAX))
+    Ratio::new::<ratio>(10f64.r_powf(log_opf).min(OPF_MAX))
 }
 
 /// **Eq (5d)** — `OPF` for a `UCO` kernel: zero (page -489-).
@@ -295,7 +296,7 @@ mod tests {
         ];
         let c: Vec<f64> = pts
             .iter()
-            .map(|(t, opf)| opf.log10() - 0.96 + 0.442e4 / (t + 273.15))
+            .map(|(t, opf)| opf.r_log10() - 0.96 + 0.442e4 / (t + 273.15))
             .collect();
         let mean = c.iter().sum::<f64>() / c.len() as f64;
         for (i, v) in c.iter().enumerate() {
@@ -306,7 +307,7 @@ mod tests {
             );
         }
         // And that constant is a physical burnup at the report's own N values.
-        let f_b_at_n5 = 10f64.powf((mean - 0.4 * 5f64.log10()) / 0.3);
+        let f_b_at_n5 = 10f64.r_powf((mean - 0.4 * 5f64.r_log10()) / 0.3);
         assert!(
             (0.01..0.25).contains(&f_b_at_n5),
             "implied F_b at N=5 is {f_b_at_n5:.4}, outside anything plausible"
@@ -381,7 +382,7 @@ mod tests {
             );
         }
         // The days reading is excluded here too, by about ten decades.
-        let on_days = -10.08 - 0.85e4 / 1049.15 + 2.0 * 1020f64.log10();
+        let on_days = -10.08 - 0.85e4 / 1049.15 + 2.0 * 1020f64.r_log10();
         assert!(
             on_days < -10.0,
             "reading t_B in days puts log OPF at {on_days:.2}, not -2.29"

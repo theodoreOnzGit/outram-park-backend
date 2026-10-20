@@ -20,6 +20,7 @@
 // does not call them.
 #![cfg_attr(target_arch = "wasm32", allow(dead_code))]
 
+use petir::mathf::RealMath;
 use super::model::{self, NuclearData, N_U235};
 use crate::history::{csv_row, History, CSV_HEADER};
 use outram_mc_libs::geometry::geometry::Geometry;
@@ -106,7 +107,7 @@ impl Chain {
         let (cx, cy) = centres[i];
         let r = model::KERNEL_R * (1.0 - 1.0e-9) * model::uniform(&mut self.rng).sqrt();
         let t = std::f64::consts::TAU * model::uniform(&mut self.rng);
-        Position::new(cx + r * t.cos(), cy + r * t.sin(), 0.0)
+        Position::new(cx + r * t.r_cos(), cy + r * t.r_sin(), 0.0)
     }
 }
 

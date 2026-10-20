@@ -300,6 +300,7 @@ pub fn serial_poisson_2d_cg(
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
     use outram_park_mpi::run;
 
@@ -312,7 +313,7 @@ mod tests {
             .map(|k| {
                 let ix = k % nx;
                 let iy = k / nx;
-                ((ix as f64) * 0.2).sin() + ((iy as f64) * 0.3).cos() + 1.0
+                ((ix as f64) * 0.2).r_sin() + ((iy as f64) * 0.3).r_cos() + 1.0
             })
             .collect();
         let (reference, _) = serial_poisson_2d_cg(nx, ny, &b_global, shift, tol, 5000);

@@ -41,6 +41,7 @@
 //! The heads (`Wic`/`Wpc`, Compressor.vb:1012-1022) and the `k`-based discharge
 //! estimate are not ported here; only the enthalpy-based duty/exponent core is.
 
+use petir::mathf::RealMath;
 use uom::si::f64::{AvailableEnergy, MassDensity, MassRate, Power, Pressure, Ratio};
 use uom::si::power::watt;
 use uom::si::ratio::ratio;
@@ -112,8 +113,8 @@ pub fn isentropic_exponent(
     rho1: MassDensity,
     rho2_ideal: MassDensity,
 ) -> Ratio {
-    let pressure_ratio_ln = (p2 / p1).get::<ratio>().ln();
-    let density_ratio_ln = (rho2_ideal / rho1).get::<ratio>().ln();
+    let pressure_ratio_ln = (p2 / p1).get::<ratio>().r_ln();
+    let density_ratio_ln = (rho2_ideal / rho1).get::<ratio>().r_ln();
     Ratio::new::<ratio>(pressure_ratio_ln / density_ratio_ln)
 }
 
@@ -135,8 +136,8 @@ pub fn polytropic_exponent(
     rho1: MassDensity,
     rho2: MassDensity,
 ) -> Ratio {
-    let pressure_ratio_ln = (p2 / p1).get::<ratio>().ln();
-    let density_ratio_ln = (rho2 / rho1).get::<ratio>().ln();
+    let pressure_ratio_ln = (p2 / p1).get::<ratio>().r_ln();
+    let density_ratio_ln = (rho2 / rho1).get::<ratio>().r_ln();
     Ratio::new::<ratio>(pressure_ratio_ln / density_ratio_ln)
 }
 
@@ -165,8 +166,8 @@ pub fn schultz_correction_factor(
     let pr = (p2 / p1).get::<ratio>();
     let n_i = n_isentropic.get::<ratio>();
     let n_p = n_polytropic.get::<ratio>();
-    let numerator = (pr.powf((n_p - 1.0) / n_p) - 1.0) * ((n_p / (n_p - 1.0)) * (n_i - 1.0) / n_i);
-    let denominator = pr.powf((n_i - 1.0) / n_i) - 1.0;
+    let numerator = (pr.r_powf((n_p - 1.0) / n_p) - 1.0) * ((n_p / (n_p - 1.0)) * (n_i - 1.0) / n_i);
+    let denominator = pr.r_powf((n_i - 1.0) / n_i) - 1.0;
     Ratio::new::<ratio>(numerator / denominator)
 }
 
@@ -346,7 +347,7 @@ mod tests {
         // n = ln(2) / ln(1.6) = 1.4747698...
         assert_relative_eq!(
             n.get::<ratio>(),
-            2.0_f64.ln() / 1.6_f64.ln(),
+            2.0_f64.r_ln() / 1.6_f64.r_ln(),
             max_relative = 1e-12
         );
         assert_relative_eq!(n.get::<ratio>(), 1.474_769_8, max_relative = 1e-6);

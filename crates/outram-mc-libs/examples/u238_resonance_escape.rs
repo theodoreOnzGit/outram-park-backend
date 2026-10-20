@@ -139,6 +139,7 @@
 //!     --example u238_resonance_escape
 //! ```
 
+use petir::mathf::RealMath;
 #[path = "common/energy_only_slowing_down.rs"]
 mod energy_only_slowing_down;
 
@@ -186,8 +187,8 @@ fn main() {
     // and leaving it off keeps xi*Sigma_s a number this program can state.
     let n_c = 0.08_f64; // atoms/barn.cm
     let awr_c = c12.awr;
-    let alpha_c = ((awr_c - 1.0) / (awr_c + 1.0)).powi(2);
-    let xi_c = 1.0 + alpha_c * alpha_c.ln() / (1.0 - alpha_c);
+    let alpha_c = ((awr_c - 1.0) / (awr_c + 1.0)).r_powi(2);
+    let xi_c = 1.0 + alpha_c * alpha_c.r_ln() / (1.0 - alpha_c);
     // Carbon's elastic cross section is flat across the whole band; take it at
     // 1 keV, in the middle of it.
     let sigma_s_c = c12.xs_at_energy(1.0e3, temp).elastic;
@@ -245,7 +246,7 @@ fn main() {
         // Invert the first-order relation. Using -ln(1-P) rather than P itself
         // removes the leading depletion term, so the ratio stays meaningful once
         // absorption is no longer small.
-        let ri_eff = -(1.0 - p_abs).ln() * xi_sigma_s / n_a;
+        let ri_eff = -(1.0 - p_abs).r_ln() * xi_sigma_s / n_a;
         let sigma_0 = n_c * sigma_s_c / n_a;
         println!(
             "{n_a:>12.1e} {sigma_0:>12.4e} {p_abs:>12.5} {p_dilute:>12.5} {ri_eff:>12.3} \
@@ -255,7 +256,7 @@ fn main() {
         // Binomial 1-sigma on P_abs, propagated through RI_eff = -ln(1-P)*xi*Sigma_s/N_a.
         // d/dP of -ln(1-P) is 1/(1-P), so sigma_RI/RI = sigma_P / ((1-P) * -ln(1-P)).
         let sigma_p = (p_abs * (1.0 - p_abs) / n_hist as f64).sqrt();
-        let rel_sigma = sigma_p / ((1.0 - p_abs) * -(1.0 - p_abs).ln());
+        let rel_sigma = sigma_p / ((1.0 - p_abs) * -(1.0 - p_abs).r_ln());
         shielding.push((sigma_0, ri_eff / RI_MEASURED_B, rel_sigma));
     }
 

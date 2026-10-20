@@ -29,6 +29,7 @@
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+use petir::mathf::RealMath;
 #[cfg(target_os = "android")]
 fn main() {}
 
@@ -484,11 +485,11 @@ mod app {
 
         /// Rotate a point (yaw about Y, then pitch about X) → orthographic (x, y).
         fn project(&self, p: Vec3) -> egui::Vec2 {
-            let (cy, sy) = (self.yaw.cos() as f64, self.yaw.sin() as f64);
+            let (cy, sy) = (self.yaw.r_cos() as f64, self.yaw.r_sin() as f64);
             let x1 = p.x * cy + p.z * sy;
             let z1 = -p.x * sy + p.z * cy;
             let y1 = p.y;
-            let (cp, sp) = (self.pitch.cos() as f64, self.pitch.sin() as f64);
+            let (cp, sp) = (self.pitch.r_cos() as f64, self.pitch.r_sin() as f64);
             let y2 = y1 * cp - z1 * sp;
             egui::vec2(x1 as f32, y2 as f32)
         }

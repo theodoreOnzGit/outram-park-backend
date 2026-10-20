@@ -116,6 +116,7 @@ pub fn bounding_domain(soups: &[TriSoup], margin: f64) -> TriSoup {
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
     use crate::carve::carve_around;
     use crate::shapes::surface_volume;
@@ -136,7 +137,7 @@ mod tests {
             (total - 8.0 * one).abs() < 1e-9,
             "8 identical pebbles sum exactly"
         );
-        let analytic = 4.0 / 3.0 * PI * 0.8_f64.powi(3);
+        let analytic = 4.0 / 3.0 * PI * 0.8_f64.r_powi(3);
         assert!(
             (one - analytic).abs() / analytic < 0.05,
             "single pebble within 5% analytic (coarse UV)"
@@ -150,7 +151,7 @@ mod tests {
         let pins = pin_lattice([3, 3], 1.5, 0.5, 4.0, 32);
         assert_eq!(pins.len(), 9);
         let total: f64 = pins.iter().map(|(p, t)| surface_volume(p, t)).sum();
-        let one = PI * 0.5_f64.powi(2) * 4.0;
+        let one = PI * 0.5_f64.r_powi(2) * 4.0;
         assert!(
             (total - 9.0 * one).abs() / (9.0 * one) < 0.01,
             "9 pins' volume within 1%"

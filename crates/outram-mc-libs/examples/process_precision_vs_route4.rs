@@ -40,6 +40,7 @@
 //! table and interpretation:
 //! `verification_and_validation/process_precision_929/README.md`.
 
+use petir::mathf::RealMath;
 use njoy_outram_park_fork::endf::tape::Tape;
 use njoy_outram_park_fork::process::{self, CrossSectionSettings, Reconstruction};
 use njoy_outram_park_fork::reference_data::reference_endf;
@@ -160,7 +161,7 @@ fn main() {
         let (mut flips, mut control) = (0usize, 0usize);
         for i in 0..DRAWS {
             // log-uniform over the DBRC window, 1e-2 .. 1e3 eV
-            let e = 1.0e-2 * 1.0e5_f64.powf((i as f64 + 0.5) / DRAWS as f64);
+            let e = 1.0e-2 * 1.0e5_f64.r_powf((i as f64 + 0.5) / DRAWS as f64);
             let s0 = 0xDB4C_0929u64.wrapping_add((i as u64).wrapping_mul(0x9E37_79B9_7F4A_7C15));
             let (mut sa, mut sb) = (s0, s0);
             let a = free_gas_elastic_scatter_dbrc(e, u, awr, kt, 0.3, &mut sa, ta.as_ref());

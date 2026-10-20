@@ -73,6 +73,7 @@
 //! has not been thought of. `op-os8x` stays open on a pass; what changes is that
 //! one of its two named suspects is measured rather than merely suspected.
 
+use petir::mathf::RealMath;
 use outram_mc_libs::physics::scatter::cm_to_lab;
 
 /// `(E_lab, mu_lab)` from Galilean velocity addition, in reduced units where
@@ -106,7 +107,7 @@ fn cm_to_lab_reproduces_galilean_velocity_addition() {
             for &f in &fractions {
                 // CM outgoing energy cannot exceed what two-body kinematics
                 // allow for an elastic collision; scale to that.
-                let e_cm_max = e * (awr / (awr + 1.0)).powi(2);
+                let e_cm_max = e * (awr / (awr + 1.0)).r_powi(2);
                 let e_cm_out = f * e_cm_max;
                 for &mu in &mus {
                     let (got_e, got_mu) = cm_to_lab(e, e_cm_out, mu, awr);
@@ -167,7 +168,7 @@ fn cm_to_lab_satisfies_its_closed_form_limits() {
     let e = 2.0e6_f64;
 
     // Elastic: E'_cm = E (A/(A+1))^2 must reduce to the textbook expression.
-    let e_cm = e * (awr / (awr + 1.0)).powi(2);
+    let e_cm = e * (awr / (awr + 1.0)).r_powi(2);
     let mut worst = 0.0f64;
     for i in 0..=200 {
         let mu = -1.0 + 2.0 * i as f64 / 200.0;
@@ -188,7 +189,7 @@ fn cm_to_lab_satisfies_its_closed_form_limits() {
         let v_cm = e.sqrt() / (awr + 1.0);
         for &(mu, sign) in &[(1.0_f64, 1.0_f64), (-1.0, -1.0)] {
             let (got, got_mu) = cm_to_lab(e, e_cm_out, mu, awr);
-            let want = (e_cm_out.sqrt() * sign + v_cm).powi(2);
+            let want = (e_cm_out.sqrt() * sign + v_cm).r_powi(2);
             assert!(
                 (got - want).abs() / want < 1.0e-12,
                 "collinear emission at mu_cm = {mu} gives {got:.6e}, not {want:.6e}"

@@ -38,6 +38,7 @@
 //!   event time either way). The exact Brownian-bridge placement is a possible
 //!   refinement.
 
+use petir::mathf::RealMath;
 use fission_yields_data::prelude::Nuclide;
 use outram_mc_libs::rng::lcg::prn;
 use uom::si::f64::{Frequency, Time};
@@ -142,7 +143,7 @@ pub enum DepletionOutcome {
 /// occurrence test and the event time.
 #[inline]
 pub fn sample_event_time(rate: Frequency, u: f64) -> Time {
-    -((1.0 - u).ln()) / rate
+    -((1.0 - u).r_ln()) / rate
 }
 
 impl WoSWalker {
@@ -153,7 +154,7 @@ impl WoSWalker {
         match decay_library.try_match_nuclides_to_decay_data(self.nuclide) {
             Some(data) => match data.half_life_information {
                 HalfLifeAndDecayEnergyInfo::Unstable(half_life, _energy) => {
-                    2.0_f64.ln() / half_life
+                    2.0_f64.r_ln() / half_life
                 }
                 HalfLifeAndDecayEnergyInfo::Stable => Frequency::ZERO,
             },

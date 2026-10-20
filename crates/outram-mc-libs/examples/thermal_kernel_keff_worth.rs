@@ -113,6 +113,7 @@
 //! (`graphite_sab_angle_and_width_vs_njoy_thermr.rs`) are the better
 //! instrument for that.
 
+use petir::mathf::RealMath;
 use outram_mc_libs::geometry::position::Position;
 use outram_mc_libs::material::material::{Material, NuclideComponent};
 use outram_mc_libs::material::nuclide::Nuclide;
@@ -323,7 +324,7 @@ fn sem_of(xs: &[f64]) -> f64 {
         return f64::NAN;
     }
     let m = xs.iter().sum::<f64>() / n;
-    let var = xs.iter().map(|x| (x - m).powi(2)).sum::<f64>() / (n - 1.0);
+    let var = xs.iter().map(|x| (x - m).r_powi(2)).sum::<f64>() / (n - 1.0);
     (var / n).sqrt()
 }
 

@@ -249,6 +249,7 @@
 //! remains ~~scaffold-level~~ illustrative is only the *plant-scale illustrative parameters*
 //! below, not the kinetics wiring.
 
+use petir::mathf::RealMath;
 use nee_soon::NordheimFuchsExactTimestepper;
 use teh_o_prke::decay_heat::{DecayHeat, FissioningNuclide};
 use teh_o_prke::delayed_neutron_layer::DelayedNeutronLayer;
@@ -800,7 +801,7 @@ impl HtgrKinetics {
         }
         let t_f = self.prompt.fuel_temperature.get::<kelvin>();
         let t_b = self.bed_temperature.get::<kelvin>();
-        let relaxed = t_b + (t_f - t_b) * (-dt.get::<second>() / (r * c)).exp();
+        let relaxed = t_b + (t_f - t_b) * (-dt.get::<second>() / (r * c)).r_exp();
         self.prompt.fuel_temperature = ThermodynamicTemperature::new::<kelvin>(relaxed);
         let moved = c * (t_f - relaxed);
         self.ledger.conducted_to_bed += moved;
@@ -1358,7 +1359,7 @@ mod tests {
             moved += k.transfer_heat_to_bed(dt);
             let now = k.fuel_temperature().get::<k_unit>();
             assert!(now <= previous && now >= bed.get::<k_unit>(), "step {i}");
-            let exact = bed.get::<k_unit>() + 50.0 * (-(i as f64) * 1.0e-3 / tau).exp();
+            let exact = bed.get::<k_unit>() + 50.0 * (-(i as f64) * 1.0e-3 / tau).r_exp();
             worst = worst.max((now - exact).abs());
             previous = now;
         }
@@ -1577,7 +1578,7 @@ mod tests {
         let norm: f64 = (0..5).map(|i| bet[i] / lam[i]).sum();
         let deficit = |t: f64| -> f64 {
             (0..5)
-                .map(|i| bet[i] / lam[i] / norm * (-lam[i] * t).exp())
+                .map(|i| bet[i] / lam[i] / norm * (-lam[i] * t).r_exp())
                 .sum()
         };
         let (mut lo, mut hi) = (0.0, 2000.0);

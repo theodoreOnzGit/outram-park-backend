@@ -21,6 +21,7 @@
 //! (Frobenius-Schur method), and cross sections follow from `|S|²` terms.
 //! For nuclides with no fission widths the 3×3 inversion reduces to a scalar.
 
+use petir::mathf::RealMath;
 use crate::{
     common::phys::PI,
     reconr::{
@@ -241,8 +242,8 @@ pub fn eval_rm_range(e: f64, lstates: &[RmLState], ap: f64, spi: f64, naps: i32)
         }
         let (_, pe) = shift_and_penetrability(ll, rho);
         let phi = facphi(ll, rhoc);
-        let p1 = (2.0 * phi).cos();
-        let p2 = (2.0 * phi).sin();
+        let p1 = (2.0 * phi).r_cos();
+        let p2 = (2.0 * phi).r_sin();
 
         // `per` as `rdf2bw` stored it (`reconr.f90:936-1010`): this l-state's
         // own AWRI and radius `ral`.

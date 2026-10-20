@@ -7,6 +7,7 @@
 //! All inputs and outputs are bare `f64` dimensionless quantities (Reynolds
 //! number, relative roughness, `L/D`). Reynolds number is recovered from a
 //! Bejan number by bisection root-finding.
+use petir::mathf::RealMath;
 extern crate peroxide;
 use peroxide::prelude::*;
 
@@ -139,7 +140,7 @@ pub fn custom_kpipe_be_d(
         custom_k,
     )?;
 
-    let bejan_d = 0.5 * f_ldk * reynolds_number.powf(2.0);
+    let bejan_d = 0.5 * f_ldk * reynolds_number.r_powf(2.0);
 
     return Ok(bejan_d);
 }
@@ -165,7 +166,7 @@ pub fn custom_f_ldk_be_d(
         custom_k,
     )?;
 
-    let bejan_d = 0.5 * f_ldk * reynolds_number.powf(2.0);
+    let bejan_d = 0.5 * f_ldk * reynolds_number.r_powf(2.0);
 
     return Ok(bejan_d);
 }

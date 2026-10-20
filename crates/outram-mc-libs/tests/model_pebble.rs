@@ -50,6 +50,7 @@
 //! are printed by the tests; the `k` values are not physics results (LOW
 //! tier, tiny runs).
 
+use petir::mathf::RealMath;
 use outram_mc_libs::dh_universe::{pack_in_ball, DhTreatment, DhUniverse, PebbleParams};
 use outram_mc_libs::geometry::cell::{
     Cell, CellFill, HalfSpaceSense, RegionToken, SurfaceToken, TrackingMethod,
@@ -92,8 +93,8 @@ fn cm(x: f64) -> Length {
 /// A library of incident-neutron headers (masses only): enough to assemble.
 fn header_only_library() -> NuclearData {
     let endf = |x: f64| {
-        let e = x.abs().log10().floor() as i32;
-        format!("{:.6}{e:+}", x / 10f64.powi(e))
+        let e = x.abs().r_log10().floor() as i32;
+        format!("{:.6}{e:+}", x / 10f64.r_powi(e))
     };
     let tape = |za: f64, awr: f64| {
         format!(
@@ -460,11 +461,11 @@ fn lattice_in_a_sphere_lowers_to_the_htr10_core_lattice() {
     let p = &census.packings[0];
     assert_eq!((p.particles, kept), (expected, expected));
     assert_eq!(census.rows[0].copies, expected, "kernels placed");
-    let v_p = 4.0 / 3.0 * std::f64::consts::PI * R_P.powi(3);
-    let v_zone = 4.0 / 3.0 * std::f64::consts::PI * R_ZONE.powi(3);
+    let v_p = 4.0 / 3.0 * std::f64::consts::PI * R_P.r_powi(3);
+    let v_zone = 4.0 / 3.0 * std::f64::consts::PI * R_ZONE.r_powi(3);
     let realised = p.realised.get::<ratio>();
     assert!((realised / (expected as f64 * v_p / v_zone) - 1.0).abs() < 1e-12);
-    assert!((p.requested.get::<ratio>() / (v_p / PITCH.powi(3)) - 1.0).abs() < 1e-12);
+    assert!((p.requested.get::<ratio>() / (v_p / PITCH.r_powi(3)) - 1.0).abs() < 1e-12);
     assert!(matches!(
         p.arrangement,
         Arrangement::RegularLattice {
@@ -491,7 +492,7 @@ fn lattice_in_a_sphere_lowers_to_the_htr10_core_lattice() {
         .iter()
         .filter(|r| matches!(r.kind, RowKind::Pooled { .. }))
         .all(|r| r.volume().get::<cubic_centimeter>() == 0.0));
-    let v_pebble = 4.0 / 3.0 * std::f64::consts::PI * R_PEBBLE.powi(3);
+    let v_pebble = 4.0 / 3.0 * std::f64::consts::PI * R_PEBBLE.r_powi(3);
     let total = census.total_volume().get::<cubic_centimeter>();
     assert!((total / v_pebble - 1.0).abs() < 1e-12, "{total}");
 
@@ -578,8 +579,8 @@ fn hand_random() -> (Geometry, usize) {
         .map(|s| Position::new(s.center.x + 0.0, s.center.y + 0.0, s.center.z + 0.0))
         .collect();
     let triso = build_triso_particle(Position::ZERO, TrisoRadii::HTR10, HAND_MATS, T, 1, 0, 0);
-    let v_p = 4.0 / 3.0 * std::f64::consts::PI * R_P.powi(3);
-    let p = (v_p / PF).cbrt();
+    let v_p = 4.0 / 3.0 * std::f64::consts::PI * R_P.r_powi(3);
+    let p = (v_p / PF).r_cbrt();
     let axes = [0.5; 3].map(|o| covering_axis(R_ZONE, p, o));
     let t = create_triso_lattice(
         &centres,
@@ -667,7 +668,7 @@ fn random_packing_lowers_to_pack_in_ball_and_create_triso_lattice() {
         "some particles straddle tile faces ({copies_in_tiles} copies of {n})"
     );
     let realised = p.realised.get::<ratio>();
-    assert!((realised / PF - 1.0).abs() <= (2e-3_f64).max((R_P / R_ZONE).powi(3) / PF));
+    assert!((realised / PF - 1.0).abs() <= (2e-3_f64).max((R_P / R_ZONE).r_powi(3) / PF));
     assert_eq!(p.requested.get::<ratio>(), PF);
     assert!(matches!(
         p.arrangement,
@@ -678,7 +679,7 @@ fn random_packing_lowers_to_pack_in_ball_and_create_triso_lattice() {
         100.0 * realised,
         100.0 * PF
     );
-    let v_pebble = 4.0 / 3.0 * std::f64::consts::PI * R_PEBBLE.powi(3);
+    let v_pebble = 4.0 / 3.0 * std::f64::consts::PI * R_PEBBLE.r_powi(3);
     let total = census.total_volume().get::<cubic_centimeter>();
     assert!((total / v_pebble - 1.0).abs() < 1e-12);
 }

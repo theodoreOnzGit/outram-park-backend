@@ -40,6 +40,7 @@
 //! - `water`: fit (`L = A + B*log(C-T)`) to NIST water saturation data,
 //!   <https://www.nist.gov/system/files/documents/srd/NISTIR5078-Tab1.pdf>.
 
+use petir::mathf::RealMath;
 use super::LatentHeat;
 use uom::si::available_energy::joule_per_kilogram;
 use uom::si::f64::ThermodynamicTemperature;
@@ -106,12 +107,12 @@ impl LatentHeatModel {
 fn fink_leibowitz(t_k: f64) -> f64 {
     let t = t_k.clamp(371.0, 2500.0);
     let one_minus_t_over_tc = 1.0 - t / 2503.7;
-    393370.0 * one_minus_t_over_tc + 4398600.0 * one_minus_t_over_tc.powf(0.29302)
+    393370.0 * one_minus_t_over_tc + 4398600.0 * one_minus_t_over_tc.r_powf(0.29302)
 }
 
 /// Water latent heat fit, J/kg. `T` clamped to `[273.16, 680] K` matching
 /// upstream's `min(max(iT_, 273.16), 680)`.
 fn water_latent_heat(t_k: f64) -> f64 {
     let t = t_k.clamp(273.16, 680.0);
-    1.0e6 * (-2.44 + 0.82 * (681.718 - t).ln())
+    1.0e6 * (-2.44 + 0.82 * (681.718 - t).r_ln())
 }

@@ -46,6 +46,7 @@
 //! - `liq_dens_rackett`'s `Double.IsNaN(Pvp)` guard (`:302`) becomes the
 //!   `Option` API below.
 
+use petir::mathf::RealMath;
 use uom::si::f64::{
     MassDensity, MolarEnergy, MolarMass, MolarVolume, Pressure, Ratio, ThermodynamicTemperature,
 };
@@ -180,7 +181,7 @@ pub fn liquid_density_rackett(
         .filter(|z| *z != 0.0)
         .unwrap_or(0.29056 - 0.08775 * w);
     // Saturated molar volume, cm³/mol.
-    let v_sat = R_CM3_BAR * tc / pc_bar * z_ra.powf(1.0 + (1.0 - tr).powf(2.0 / 7.0));
+    let v_sat = R_CM3_BAR * tc / pc_bar * z_ra.r_powf(1.0 + (1.0 - tr).r_powf(2.0 / 7.0));
 
     let v = match (pressure, vapor_pressure) {
         (Some(p), Some(pvp)) if pvp.get::<pascal>() != 0.0 && t < tc => {
@@ -193,16 +194,16 @@ pub fn liquid_density_rackett(
             let h = 1.14188;
             let j = 0.0861488;
             let k = 0.0344483;
-            let e = (f + g * w + h * w * w).exp();
+            let e = (f + g * w + h * w * w).r_exp();
             let c = j + k * w;
             let beta = pc_bar
                 * 100_000.0
                 * (-1.0
-                    + a * (1.0 - tr).powf(1.0 / 3.0)
-                    + b * (1.0 - tr).powf(2.0 / 3.0)
+                    + a * (1.0 - tr).r_powf(1.0 / 3.0)
+                    + b * (1.0 - tr).r_powf(2.0 / 3.0)
                     + d * (1.0 - tr)
-                    + e * (1.0 - tr).powf(4.0 / 3.0));
-            v_sat * (1.0 - c * ((beta + p.get::<pascal>()) / (beta + pvp.get::<pascal>())).ln())
+                    + e * (1.0 - tr).r_powf(4.0 / 3.0));
+            v_sat * (1.0 - c * ((beta + p.get::<pascal>()) / (beta + pvp.get::<pascal>())).r_ln())
         }
         _ => v_sat,
     };
@@ -234,8 +235,8 @@ pub fn heat_of_vaporization_vetere(
     let pc_bar = critical_pressure.get::<pascal>() / 100_000.0;
     let tbr = boiling_point.get::<kelvin>() / tc;
     MolarEnergy::new::<joule_per_mole>(
-        R_DWSIM * tc * tbr * (0.4343 * pc_bar.ln() - 0.69431 + 0.8954 * tbr)
-            / (0.37691 - 0.37306 * tbr + 0.15075 * tbr.powi(-2) / pc_bar),
+        R_DWSIM * tc * tbr * (0.4343 * pc_bar.r_ln() - 0.69431 + 0.8954 * tbr)
+            / (0.37691 - 0.37306 * tbr + 0.15075 * tbr.r_powi(-2) / pc_bar),
     )
 }
 

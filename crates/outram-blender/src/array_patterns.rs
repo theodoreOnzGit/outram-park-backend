@@ -38,6 +38,7 @@
 //!
 //! Positions/lengths are dimensionless model-space quantities; angles radians.
 
+use petir::mathf::RealMath;
 use std::sync::Arc;
 
 use crate::curve::Spline;
@@ -74,7 +75,7 @@ fn compose(a: Affine3, b: Affine3) -> Affine3 {
 /// (Rodrigues), as an [`Affine3`] with no translation.
 fn rotation(axis: Vec3, angle: f64) -> Affine3 {
     let k = axis.normalize();
-    let (s, c) = angle.sin_cos();
+    let (s, c) = angle.r_sin_cos();
     let (x, y, z) = (k.x, k.y, k.z);
     let t = 1.0 - c;
     Affine3::from_rows(

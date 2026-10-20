@@ -57,6 +57,7 @@
 //! not assign them a unit type: they are plain `f64` "upstream plume-shine
 //! values".
 
+use petir::mathf::RealMath;
 mod integral;
 mod tables;
 
@@ -79,7 +80,7 @@ use uom::si::f64::Length;
 /// does (`10 ** -4` is `pow(10.0, -4.0)`).
 #[must_use]
 pub fn prefactor() -> f64 {
-    5.0 * 10f64.powf(-4.0)
+    5.0 * 10f64.r_powf(-4.0)
 }
 
 /// The per-class integrals of one gamma line, `[A..F]` (upstream

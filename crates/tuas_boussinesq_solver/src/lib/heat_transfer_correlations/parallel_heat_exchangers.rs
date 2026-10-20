@@ -1,3 +1,4 @@
+use petir::mathf::RealMath;
 use uom::si::f64::*;
 use crate::tuas_lib_error::TuasLibError;
 use crate::heat_transfer_correlations::thermal_resistance::subtract_two_thermodynamic_temperatures;
@@ -39,8 +40,8 @@ use crate::heat_transfer_correlations::thermal_resistance::subtract_two_thermody
 ///
 /// let mut LMTD_value_expected =
 /// (A_temperature_interval_value - B_temperature_interval_value)/
-/// (A_temperature_interval_value.ln() -
-/// B_temperature_interval_value.ln());
+/// (A_temperature_interval_value.r_ln() -
+/// B_temperature_interval_value.r_ln());
 ///
 /// let LMTD_test = log_mean_temperature_difference(
 /// cold_fluid_temp_A,
@@ -56,8 +57,8 @@ use crate::heat_transfer_correlations::thermal_resistance::subtract_two_thermody
 ///
 /// let mut LMTD_value_expected =
 /// ((48_f64 - 21_f64) - (50_f64-20.0))/
-/// ((48_f64-21_f64).ln() -
-/// (50_f64-20.0).ln());
+/// ((48_f64-21_f64).r_ln() -
+/// (50_f64-20.0).r_ln());
 ///
 /// approx::assert_relative_eq!(LMTD_value_expected, LMTD_test.value,
 /// max_relative=0.001);
@@ -91,7 +92,7 @@ pub fn log_mean_temperature_difference(
 
     let numerator = a_temperature_interval - b_temperature_interval;
 
-    let denominator = a_temperature_interval.value.ln() - b_temperature_interval.value.ln();
+    let denominator = a_temperature_interval.value.r_ln() - b_temperature_interval.value.r_ln();
 
     return Ok(numerator / denominator);
 }

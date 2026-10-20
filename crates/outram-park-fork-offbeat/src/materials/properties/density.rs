@@ -57,6 +57,7 @@
 //!
 //! Raw `f64` in strict SI: temperature in kelvin, density in kg/m^3.
 
+use petir::mathf::RealMath;
 use crate::error::{OffbeatError, Result};
 use crate::materials::MaterialState;
 
@@ -429,7 +430,7 @@ impl DensityModel {
 
             Self::Schumann1515Ti { reference_density } => {
                 let strain = schumann_linear_strain(t);
-                reference_density / (1.0 + strain).powi(3)
+                reference_density / (1.0 + strain).r_powi(3)
             }
         }
     }
@@ -602,7 +603,7 @@ mod tests {
         };
         let tc: f64 = 700.0;
         let eps: f64 = -3.101e-4 + 1.545e-5 * tc + 2.75e-9 * tc * tc;
-        let expected = 7900.0 * (1.0 / (1.0 + eps)).powi(3);
+        let expected = 7900.0 * (1.0 / (1.0 + eps)).r_powi(3);
         let got = model.value(&MaterialState::fresh(tc + 273.15));
         assert!((got - expected).abs() / expected < 1e-9, "{got:e}");
         assert!((got - 7625.5).abs() < 1.0, "{got:e}");
@@ -639,7 +640,7 @@ mod tests {
         while t <= 1300.0 {
             let state = MaterialState::fresh(t);
             let strain = expansion.strain(&state);
-            let expected = SCHUMANN_1515TI_REFERENCE_DENSITY / (1.0 + strain).powi(3);
+            let expected = SCHUMANN_1515TI_REFERENCE_DENSITY / (1.0 + strain).r_powi(3);
             let got = density.value(&state);
             assert!(
                 (got - expected).abs() / expected < 1e-12,

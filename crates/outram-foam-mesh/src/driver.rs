@@ -494,6 +494,7 @@ fn classify_layer_outcome(
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
     use crate::mesh_quality::QualityVerdict;
 
@@ -545,7 +546,7 @@ mod tests {
         assert_eq!(out.quality.n_negative_volume_cells, 0);
 
         // Closed form for a 2:1 octree interface: arccos(1.5/sqrt(2.75)).
-        let expected_non_ortho = (1.5f64 / 2.75f64.sqrt()).acos().to_degrees();
+        let expected_non_ortho = (1.5f64 / 2.75f64.sqrt()).r_acos().to_degrees();
         assert!(
             (out.quality.max_non_ortho_deg - expected_non_ortho).abs() < 1e-12,
             "2:1 interface non-orthogonality {} vs closed form {expected_non_ortho}",

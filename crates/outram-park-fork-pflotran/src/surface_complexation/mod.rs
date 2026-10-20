@@ -157,6 +157,7 @@
 //!   geochemistry," *Reviews in Mineralogy* 23 (1990) 177 — CCM/DLM/TLM overview.
 //! - G. Sposito, *The Surface Chemistry of Natural Particles*, Oxford (2004).
 
+use petir::mathf::RealMath;
 use crate::error::PflotranError;
 
 /// Faraday constant `F`, in C/mol (CODATA).
@@ -407,7 +408,7 @@ impl SurfaceSite {
 
     /// Boltzmann master factor `P = exp(-F·psi/(R·T))`.
     fn boltzmann_p(psi: f64) -> f64 {
-        (-F_OVER_RT * psi).exp()
+        (-F_OVER_RT * psi).r_exp()
     }
 
     /// Surface species `([>SOH], [>SOH2+], [>SO-], [>SOM])` (mol/L) at a given
@@ -424,16 +425,16 @@ impl SurfaceSite {
         psi: f64,
     ) -> (f64, f64, f64, f64) {
         let p = Self::boltzmann_p(psi);
-        let k_a1 = 10.0_f64.powf(self.log_k_a1);
-        let k_a2 = 10.0_f64.powf(self.log_k_a2);
-        let k_m = 10.0_f64.powf(complex.log_k);
+        let k_a1 = 10.0_f64.r_powf(self.log_k_a1);
+        let k_a2 = 10.0_f64.r_powf(self.log_k_a2);
+        let k_m = 10.0_f64.r_powf(complex.log_k);
         let z = complex.metal_charge;
 
         // Ratios of each species to [>SOH].
         let r_soh2 = k_a1 * h * p; // Δz = +1
         let r_so = k_a2 / h / p; //   Δz = -1
         let r_som = if m > 0.0 {
-            k_m * m / h * p.powf(z - 1.0) // Δz = z-1
+            k_m * m / h * p.r_powf(z - 1.0) // Δz = z-1
         } else {
             0.0
         };
@@ -473,7 +474,7 @@ impl SurfaceSite {
             match model {
                 SurfaceComplexationModel::ConstantCapacitance { capacitance } => capacitance * psi,
                 SurfaceComplexationModel::DiffuseLayer { ionic_strength } => {
-                    DLM_PREFACTOR * ionic_strength.sqrt() * (0.5 * F_OVER_RT * psi).sinh()
+                    DLM_PREFACTOR * ionic_strength.sqrt() * (0.5 * F_OVER_RT * psi).r_sinh()
                 }
                 // NEM never reaches the solver.
                 SurfaceComplexationModel::NonElectrostatic => 0.0,
@@ -569,7 +570,7 @@ impl SurfaceSite {
             )));
         }
 
-        let h = 10.0_f64.powf(-ph);
+        let h = 10.0_f64.r_powf(-ph);
         let m = metal_molarity;
 
         let psi = match model {

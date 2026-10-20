@@ -142,6 +142,7 @@
 //! - The result reports which [`UnderwoodMode`] was taken — upstream computes
 //!   the same branch but does not expose it.
 
+use petir::mathf::RealMath;
 use ndarray::Array2;
 use uom::si::catalytic_activity::katal;
 use uom::si::f64::{Length, MolarMass, Power, Pressure, Ratio, ThermodynamicTemperature};
@@ -621,16 +622,16 @@ impl ShortcutColumn {
             // Fenske minimum stages (`:238-243`). alpha_hk == 1 by
             // construction, but the ratio is kept as upstream writes it.
             let s = (xd[lk] / xd[hk]) * (xb[hk] / xb[lk]);
-            n_min = s.ln() / (alpha[lk] / alpha[hk]).ln();
+            n_min = s.r_ln() / (alpha[lk] / alpha[hk]).r_ln();
 
             // Non-key distribution constant C and per-component split
             // (`:245-259`).
-            let c = (alpha[lk].log10() * (xd[hk] / xb[hk]).log10()
-                - alpha[hk].log10() * (xd[lk] / xb[lk]).log10())
-                / (alpha[lk].log10() - alpha[hk].log10());
+            let c = (alpha[lk].r_log10() * (xd[hk] / xb[hk]).r_log10()
+                - alpha[hk].r_log10() * (xd[lk] / xb[lk]).r_log10())
+                / (alpha[lk].r_log10() - alpha[hk].r_log10());
             for i in 0..n {
                 if i != lk && i != hk {
-                    let cte = 10.0_f64.powf(n_min * alpha[i].log10() + c);
+                    let cte = 10.0_f64.r_powf(n_min * alpha[i].r_log10() + c);
                     xb[i] = f_flow * z[i] / (b_flow + d_flow * cte);
                     xd[i] = xb[i] * cte;
                 }
@@ -754,7 +755,7 @@ impl ShortcutColumn {
 
         // ---- Gilliland actual stages, Eduljee analytic fit (`:409-414`).
         let xx = (r - r_min) / (r + 1.0);
-        let yy = 0.75 * (1.0 - xx.powf(0.5668));
+        let yy = 0.75 * (1.0 - xx.r_powf(0.5668));
         let n_actual = (yy + n_min) / (1.0 - yy);
 
         // ---- Product temperatures and duties (`:446-510`).
@@ -832,7 +833,7 @@ impl ShortcutColumn {
         // Ns is the stripping-section stage count: the feed sits Ns
         // theoretical stages above the reboiler.
         let ss = z[lk] / z[hk] * xb[hk] / xb[lk];
-        let n_min_strip = ss.ln() / alpha[lk].ln();
+        let n_min_strip = ss.r_ln() / alpha[lk].r_ln();
         let feed_stage = n_min_strip * n_actual / n_min;
 
         // ---- Sizing (`:537-561`).
@@ -989,7 +990,7 @@ fn underwood_objective(x: f64, alpha: &[f64], z: &[f64], q: f64) -> f64 {
             value += alpha[j] * z[j] / (alpha[j] - x);
         }
     }
-    (value - 1.0 + q).powi(2)
+    (value - 1.0 + q).r_powi(2)
 }
 
 /// Brent scalar minimisation on `[a, b]` to absolute tolerance `epsilon`,
@@ -1278,7 +1279,7 @@ mod tests {
         assert!((out.bottoms_composition[0] - 0.05).abs() < 1e-12);
 
         // Fenske closed form.
-        let nmin_hand = 361.0_f64.ln() / alpha.ln();
+        let nmin_hand = 361.0_f64.r_ln() / alpha.r_ln();
         assert!(
             (out.minimum_stages - nmin_hand).abs() < 1e-9,
             "Nmin = {} vs hand {nmin_hand}",
@@ -1297,7 +1298,7 @@ mod tests {
 
         // Gilliland/Eduljee closed form from the hand Rmin.
         let xx = (2.0 - rmin_hand) / 3.0;
-        let yy = 0.75 * (1.0 - xx.powf(0.5668));
+        let yy = 0.75 * (1.0 - xx.r_powf(0.5668));
         let n_hand = (yy + nmin_hand) / (1.0 - yy);
         assert!(
             (out.actual_stages - n_hand).abs() < 1e-4,

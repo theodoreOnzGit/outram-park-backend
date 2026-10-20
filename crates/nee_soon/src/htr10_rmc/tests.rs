@@ -40,6 +40,7 @@
 //! `crates/outram-mc-libs/verification_and_validation/htr10_rmc/`. See the
 //! module docs.
 
+use petir::mathf::RealMath;
 use super::*;
 
 /// The reconstruction must be a **packing**, not an overlapping lattice — a
@@ -492,9 +493,9 @@ fn no_two_balls_of_the_built_bed_overlap() {
                             continue;
                         }
                         let q = &balls[j].0;
-                        let d = ((p[0] - q[0]).powi(2)
-                            + (p[1] - q[1]).powi(2)
-                            + (p[2] - q[2]).powi(2))
+                        let d = ((p[0] - q[0]).r_powi(2)
+                            + (p[1] - q[1]).r_powi(2)
+                            + (p[2] - q[2]).r_powi(2))
                         .sqrt();
                         dmin = dmin.min(d);
                     }
@@ -609,7 +610,7 @@ fn the_built_bed_is_57_percent_fuel_balls_and_the_conus_none() {
     let balls = built_balls(&built_ball_pieces(&c));
     let (mut bed_n, mut bed_fuel, mut conus_n, mut conus_fuel) = (0, 0, 0, 0);
     for (p, flags) in &balls {
-        let r = p[0].hypot(p[1]);
+        let r = p[0].r_hypot(p[1]);
         if r > c.bed_radius {
             continue;
         }
@@ -683,7 +684,7 @@ fn the_sampled_bed_has_the_papers_packing_and_fuel_ball_fraction() {
         let th = 2.0 * std::f64::consts::PI * prn();
         let z = c.bed_half_height * (2.0 * prn() - 1.0);
         let path = g
-            .locate(Position::new(r * th.cos(), r * th.sin(), z), u, SurfaceToken::NONE)
+            .locate(Position::new(r * th.r_cos(), r * th.r_sin(), z), u, SurfaceToken::NONE)
             .expect("every point in the bed is located");
         let role = path
             .levels
@@ -721,8 +722,8 @@ fn the_sampled_bed_has_the_papers_packing_and_fuel_ball_fraction() {
                     above(lo) - above(hi)
                 })
                 .sum();
-            let v_bed = pi * c.bed_radius.powi(2) * 2.0 * c.bed_half_height;
-            let v_ball = 4.0 / 3.0 * pi * r.powi(3);
+            let v_bed = pi * c.bed_radius.r_powi(2) * 2.0 * c.bed_half_height;
+            let v_ball = 4.0 / 3.0 * pi * r.r_powi(3);
             let seker = (1346 * b.n_layers + 733) as f64 * v_ball / v_bed;
             println!(
                 "Seker bed, N = {}: ball list -> {:.5}; Seker Table 3 count -> {seker:.5}",
@@ -764,7 +765,7 @@ fn the_mcnp_columns_reproduce_the_papers_relative_differences() {
             let rd = (k_rmc - k_mcnp).abs() / k_rmc;
             // The paper prints up to 6 decimals and drops trailing zeros.
             let decimals = format!("{p}").split('.').nth(1).map_or(0, str::len) as i32;
-            let tol = 0.5 * 10f64.powi(-decimals) + 1e-12;
+            let tol = 0.5 * 10f64.r_powi(-decimals) + 1e-12;
             assert!(
                 (rd - p).abs() <= tol,
                 "{name} at {h} cm: Re-diff {rd:.7} but the paper prints {p}"

@@ -87,6 +87,7 @@
 //! [`outram_park_fork_coolprop`]'s), bed pressure drop, effective conduction
 //! through the bed ([`super::zbs`]), or anything inside a pebble.
 
+use petir::mathf::RealMath;
 use uom::si::f64::{
     DynamicViscosity, HeatTransfer, Length, LinearNumberDensity, MassDensity, Ratio,
     ThermalConductivity, Velocity,
@@ -251,7 +252,7 @@ impl PackedBedConvection {
             )));
         }
 
-        Ok(Ratio::new::<ratio>(2.0 + 1.1 * pr.cbrt() * re.powf(0.6)))
+        Ok(Ratio::new::<ratio>(2.0 + 1.1 * pr.r_cbrt() * re.r_powf(0.6)))
     }
 
     /// Particle-to-fluid heat transfer coefficient, W/(m^2 K):
@@ -444,7 +445,7 @@ mod tests {
         let prandtl = Ratio::new::<ratio>(0.71);
         let fluid_conductivity = ThermalConductivity::new::<watt_per_meter_kelvin>(0.30);
 
-        let hand_nusselt = 2.0 + 1.1 * 0.71_f64.cbrt() * 1000.0_f64.powf(0.6);
+        let hand_nusselt = 2.0 + 1.1 * 0.71_f64.r_cbrt() * 1000.0_f64.r_powf(0.6);
         let measured_nusselt = bed
             .nusselt_number(reynolds, prandtl)
             .unwrap()
@@ -503,8 +504,8 @@ mod tests {
 
         // independent route: count the pebbles in a cubic metre of bed
         let pebble_radius: f64 = 0.03;
-        let pebble_volume = 4.0 / 3.0 * std::f64::consts::PI * pebble_radius.powi(3);
-        let pebble_surface = 4.0 * std::f64::consts::PI * pebble_radius.powi(2);
+        let pebble_volume = 4.0 / 3.0 * std::f64::consts::PI * pebble_radius.r_powi(3);
+        let pebble_surface = 4.0 * std::f64::consts::PI * pebble_radius.r_powi(2);
         let pebbles_per_cubic_metre = (1.0 - 0.39) / pebble_volume;
         let surface_per_cubic_metre = pebbles_per_cubic_metre * pebble_surface;
         println!(
@@ -585,7 +586,7 @@ mod tests {
                 .get::<ratio>();
 
             // TUAS's transposed expression, recomputed here rather than called
-            let tuas_transposed = 2.0 + 1.1 * reynolds_value.powf(0.333) * prandtl_value.powf(0.6);
+            let tuas_transposed = 2.0 + 1.1 * reynolds_value.r_powf(0.333) * prandtl_value.r_powf(0.6);
 
             println!(
                 "Re = {reynolds_value}, Pr = {prandtl_value}: correct Nu = {correct}, \
@@ -602,7 +603,7 @@ mod tests {
             .nusselt_number(Ratio::new::<ratio>(1000.0), prandtl)
             .unwrap()
             .get::<ratio>()
-            / (2.0 + 1.1 * 1000.0_f64.powf(0.333) * prandtl_value.powf(0.6));
+            / (2.0 + 1.1 * 1000.0_f64.r_powf(0.333) * prandtl_value.r_powf(0.6));
         assert!(
             ratio_at_1000 > 2.0,
             "the divergence at Re = 1000 must be recorded as large, not marginal"
@@ -666,7 +667,7 @@ mod tests {
         println!(
             "using the interstitial velocity instead: Re = {inflated} \
              ({inflation:.4} times too high, inflating Nu by {:.4})",
-            inflation.powf(0.6)
+            inflation.r_powf(0.6)
         );
         assert_relative_eq!(1.0 / 0.39, inflation, max_relative = 1e-12);
 

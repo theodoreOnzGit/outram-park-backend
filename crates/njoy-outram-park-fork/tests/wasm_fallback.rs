@@ -38,6 +38,7 @@
 //! this answers "does the parallel path execute and stay sane under wasm", not
 //! "is BROADR correct". The crate's own verification tests own correctness.
 
+use petir::mathf::RealMath;
 use njoy_outram_park_fork::broadr::doppler_broaden;
 use njoy_outram_park_fork::endf::MtReaction;
 use njoy_outram_park_fork::reconr::ReconrSection;
@@ -49,7 +50,7 @@ fn synthetic_capture(n: usize) -> ReconrSection {
         .map(|i| {
             // 1e-3 eV to 1e4 eV, logarithmically spaced.
             let f = i as f64 / (n - 1) as f64;
-            let e = 1.0e-3_f64 * (1.0e7_f64).powf(f);
+            let e = 1.0e-3_f64 * (1.0e7_f64).r_powf(f);
             // sigma ~ 1/sqrt(E), the classic 1/v capture shape.
             (e, 100.0 / e.sqrt())
         })

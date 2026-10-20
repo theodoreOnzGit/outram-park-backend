@@ -47,6 +47,7 @@
 //! cargo run --release -p outram-mc-libs --example mg_scatter_anisotropy_ablation -- 48
 //! ```
 
+use petir::mathf::RealMath;
 use outram_mc_libs::geometry::cell::{Cell, HalfSpaceSense, RegionToken};
 use outram_mc_libs::geometry::geometry::Geometry;
 use outram_mc_libs::geometry::position::Position;
@@ -122,7 +123,7 @@ fn mean_sem(v: &[f64]) -> (f64, f64) {
     if v.len() < 2 {
         return (mean, f64::NAN);
     }
-    let var = v.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / (n - 1.0);
+    let var = v.iter().map(|x| (x - mean).r_powi(2)).sum::<f64>() / (n - 1.0);
     (mean, (var / n).sqrt())
 }
 

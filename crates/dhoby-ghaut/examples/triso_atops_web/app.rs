@@ -4,6 +4,7 @@
 //! every calculation off this thread. Each frame only drains the link, draws
 //! and sends.
 
+use petir::mathf::RealMath;
 use crate::engine::{
     Event, Frame, Request, Series, DECAY_NUCLIDES, GEOMETRIES, LAYER_NUCLIDES, POPULATION,
     rel, release_dims, release_header, release_value, GROUPS, RELEASE_SKIPPED,
@@ -1195,8 +1196,8 @@ fn draw_pools(painter: &egui::Painter, rect: Rect, f: &Frame, pick: u8, now_h: f
     let any_rate = |k: usize| nucs.iter().any(|&i| release_header(f, i, k) > 0.0);
     // Log scale for widths and dots: six decades below the largest flow.
     let q_r = total(rel::R, false);
-    let top = q.iter().cloned().fold(q_r, f64::max).max(1e-300).log10();
-    let norm = |v: f64| if v > 0.0 { ((v.log10() - (top - 6.0)) / 6.0).clamp(0.0, 1.0) as f32 } else { 0.0 };
+    let top = q.iter().cloned().fold(q_r, f64::max).max(1e-300).r_log10();
+    let norm = |v: f64| if v > 0.0 { ((v.r_log10() - (top - 6.0)) / 6.0).clamp(0.0, 1.0) as f32 } else { 0.0 };
 
     let font = egui::FontId::proportional(text);
     let small = egui::FontId::proportional((text * 0.82).max(8.0));
@@ -1358,18 +1359,18 @@ fn draw_pools(painter: &egui::Painter, rect: Rect, f: &Frame, pick: u8, now_h: f
         painter.circle_filled(particle, radii[k], REGIONS[k].0);
     }
     let toward = (kernel - particle).normalized();
-    let crack_angle = toward.y.atan2(toward.x) + 0.6;
+    let crack_angle = toward.y.r_atan2(toward.x) + 0.6;
     for d in [-0.2f32, -0.07, 0.07, 0.2] {
         let a = crack_angle + d;
-        let u = Vec2::new(a.cos(), a.sin());
+        let u = Vec2::new(a.r_cos(), a.r_sin());
         painter.line_segment([particle + u * radii[2], particle + u * radii[4]], Stroke::new(1.6, Color32::from_rgb(58, 62, 70)));
     }
     let groups = dot_groups(&shares(rel::R), 2 + (norm(q_r) * 6.0).round() as usize);
     let n = groups.len().max(1);
     for (k, g) in groups.iter().enumerate() {
         let s = ((t * 0.3 + k as f64 / n as f64) % 1.0) as f32;
-        let a = crack_angle + ((k as f32 * 2.399).sin()) * 0.2;
-        let u = Vec2::new(a.cos(), a.sin());
+        let a = crack_angle + ((k as f32 * 2.399).r_sin()) * 0.2;
+        let u = Vec2::new(a.r_cos(), a.r_sin());
         painter.circle_filled(particle + u * (radii[0] * 0.3 + s * (rm - radii[0] * 0.3)), 2.0, GROUP_COLOURS[*g]);
     }
     // Leader lines: a dot on each layer, a thin line to its box.
@@ -1385,12 +1386,12 @@ fn draw_pools(painter: &egui::Painter, rect: Rect, f: &Frame, pick: u8, now_h: f
 
     // The pools: name, content at "now", and a gauge of its decade.
     let pools_bq = [c_bq, p_bq, h_bq, g_bq];
-    let top_bq = pools_bq.iter().cloned().fold(0.0f64, f64::max).max(1e-300).log10();
+    let top_bq = pools_bq.iter().cloned().fold(0.0f64, f64::max).max(1e-300).r_log10();
     let boxed = |c: Pos2, colour: Color32, name: &str, value: String, gauge: Option<f64>| {
         let r = Rect::from_center_size(c, half * 2.0);
         painter.rect_filled(r, 6.0, Color32::from_rgb(28, 32, 40));
         if let Some(bq) = gauge {
-            let g = if bq > 0.0 { ((bq.log10() - (top_bq - 8.0)) / 8.0).clamp(0.0, 1.0) as f32 } else { 0.0 };
+            let g = if bq > 0.0 { ((bq.r_log10() - (top_bq - 8.0)) / 8.0).clamp(0.0, 1.0) as f32 } else { 0.0 };
             let fill = Rect::from_min_max(Pos2::new(r.left(), r.bottom() - r.height() * g), r.max);
             painter.rect_filled(fill, 6.0, colour.gamma_multiply(0.35));
         }
@@ -1433,7 +1434,7 @@ fn draw_source_term(painter: &egui::Painter, rect: Rect, text: f32) {
     for (i, (n, bq, core)) in rows.iter().enumerate() {
         let y = top + i as f32 * h;
         painter.text(Pos2::new(rect.left() + 12.0, y + h / 2.0), egui::Align2::LEFT_CENTER, *n, font.clone(), Color32::LIGHT_GRAY);
-        let frac = ((bq.log10() - lo) / (hi - lo)).clamp(0.02, 1.0) as f32;
+        let frac = ((bq.r_log10() - lo) / (hi - lo)).clamp(0.02, 1.0) as f32;
         let bar = Rect::from_min_size(Pos2::new(rect.left() + label_w, y + h * 0.15), Vec2::new(w * frac, h * 0.7));
         painter.rect_filled(bar, 2.0, PALETTE[0]);
         let label = painter.layout_no_wrap(
@@ -1509,8 +1510,8 @@ fn draw_one(painter: &egui::Painter, rect: Rect, series: &[&Series], spec: &Spec
     if plot.width() < 40.0 || plot.height() < 30.0 {
         return;
     }
-    let tx = |x: f64| if spec.xlog { x.log10() } else { x };
-    let ty = |y: f64| if spec.ylog { y.log10() } else { y };
+    let tx = |x: f64| if spec.xlog { x.r_log10() } else { x };
+    let ty = |y: f64| if spec.ylog { y.r_log10() } else { y };
     let ok = |x: f64, y: f64| x.is_finite() && y.is_finite() && (!spec.xlog || x > 0.0) && (!spec.ylog || y > 0.0);
     let (mut x0, mut x1, mut y0, mut y1) = (f64::MAX, f64::MIN, f64::MAX, f64::MIN);
     for s in series {
@@ -1599,8 +1600,8 @@ fn draw_one(painter: &egui::Painter, rect: Rect, series: &[&Series], spec: &Spec
         }
     }
     if let Some(cx) = spec.cursor {
-        if ok(cx, if spec.ylog { 10f64.powf(y1) } else { y1 }) {
-            let px = to(cx, if spec.ylog { 10f64.powf(y0) } else { y0 }).x;
+        if ok(cx, if spec.ylog { 10f64.r_powf(y1) } else { y1 }) {
+            let px = to(cx, if spec.ylog { 10f64.r_powf(y0) } else { y0 }).x;
             if px >= plot.left() && px <= plot.right() {
                 painter.line_segment([Pos2::new(px, plot.top()), Pos2::new(px, plot.bottom())], Stroke::new(1.0, Color32::from_rgb(255, 230, 120)));
             }
@@ -1612,7 +1613,7 @@ fn draw_one(painter: &egui::Painter, rect: Rect, series: &[&Series], spec: &Spec
 fn nice_ticks(a: f64, b: f64) -> Vec<f64> {
     let span = (b - a).abs().max(1e-300);
     let raw = span / 5.0;
-    let mag = 10f64.powf(raw.log10().floor());
+    let mag = 10f64.r_powf(raw.r_log10().floor());
     let step = [1.0, 2.0, 5.0, 10.0].into_iter().map(|m| m * mag).find(|s| *s >= raw).unwrap_or(10.0 * mag);
     let mut t = (a / step).ceil() * step;
     let mut out = Vec::new();

@@ -9,6 +9,7 @@
 //! single smooth expression valid across the laminar, transition and turbulent
 //! regimes; the Reynolds number must be strictly positive (Re = 0 or Re < 0
 //! panics).
+use petir::mathf::RealMath;
 extern crate peroxide;
 use peroxide::prelude::*;
 
@@ -74,35 +75,35 @@ use crate::tuas_lib_error::TuasLibError;
 //
 
 fn churchill_friction_captial_b(reynolds_number: f64) -> f64 {
-    let numerator = 37530.0_f64.powf(16.0);
-    let denominator = reynolds_number.powf(16.0);
+    let numerator = 37530.0_f64.r_powf(16.0);
+    let denominator = reynolds_number.r_powf(16.0);
     return numerator / denominator;
 }
 
 fn churchill_friction_captial_a(reynolds_number: f64, roughness_ratio: f64) -> f64 {
     let seven_over_reynolds_number = 7.0 / reynolds_number;
-    let reynolds_term = seven_over_reynolds_number.powf(0.9);
+    let reynolds_term = seven_over_reynolds_number.r_powf(0.9);
 
     let roughness_term = 0.27 * roughness_ratio;
 
     let log_fraction = 1.0 / (reynolds_term + roughness_term);
     // we will need natural logarithms:
-    let inner_bracket_term = 2.457 * log_fraction.ln();
+    let inner_bracket_term = 2.457 * log_fraction.r_ln();
 
-    let capital_a = inner_bracket_term.powf(16.0);
+    let capital_a = inner_bracket_term.r_powf(16.0);
 
     return capital_a;
 }
 
 fn churchill_inner_term(reynolds: f64, roughness_ratio: f64) -> f64 {
     let eight_over_reynolds_number = 8.0 / reynolds;
-    let laminar_term = eight_over_reynolds_number.powf(12.0);
+    let laminar_term = eight_over_reynolds_number.r_powf(12.0);
 
     let captial_a_term = churchill_friction_captial_a(reynolds, roughness_ratio);
     let captial_b_term = churchill_friction_captial_b(reynolds);
 
     let captial_a_plus_captial_b_all_inverse = 1.0 / (captial_a_term + captial_b_term);
-    let turbulent_term = captial_a_plus_captial_b_all_inverse.powf(3.0 / 2.0);
+    let turbulent_term = captial_a_plus_captial_b_all_inverse.r_powf(3.0 / 2.0);
 
     return laminar_term + turbulent_term;
 }
@@ -123,7 +124,7 @@ fn fanning(reynolds_number: f64, roughness_ratio: f64) -> Result<f64, TuasLibErr
     }
 
     let inner_term = churchill_inner_term(reynolds_number, roughness_ratio);
-    let power_term = inner_term.powf(1.0 / 12.0);
+    let power_term = inner_term.r_powf(1.0 / 12.0);
     let fanning_friction_factor = 2.0 * power_term;
     return Ok(fanning_friction_factor);
 }
@@ -209,7 +210,7 @@ pub fn get_bejan_number_d(
 
     let f_ldk = f * length_to_diameter_ratio + form_loss_k;
 
-    let mut bejan_number = 0.5 * f_ldk * reynolds_number.powf(2.0);
+    let mut bejan_number = 0.5 * f_ldk * reynolds_number.r_powf(2.0);
 
     if is_negative {
         bejan_number = bejan_number * -1.0;

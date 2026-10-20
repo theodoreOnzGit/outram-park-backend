@@ -140,8 +140,8 @@ const OVERLAP_TOL: f64 = 1.0e-6;
 /// RSA packer so the two methods pack the *same* number of spheres for a given
 /// request and their realized fractions are directly comparable.
 fn sphere_count(radius: f64, half_width: f64, packing_fraction: f64) -> usize {
-    let v_cube = (2.0 * half_width).powi(3);
-    let v_sphere = 4.0 / 3.0 * std::f64::consts::PI * radius.powi(3);
+    let v_cube = (2.0 * half_width).r_powi(3);
+    let v_sphere = 4.0 / 3.0 * std::f64::consts::PI * radius.r_powi(3);
     (packing_fraction * v_cube / v_sphere).floor() as usize
 }
 
@@ -200,8 +200,8 @@ pub fn pack_spheres_crp(
         }]);
     }
 
-    let v_cube = (2.0 * half_width).powi(3);
-    let v_sphere = 4.0 / 3.0 * std::f64::consts::PI * radius.powi(3);
+    let v_cube = (2.0 * half_width).r_powi(3);
+    let v_sphere = 4.0 / 3.0 * std::f64::consts::PI * radius.r_powi(3);
 
     // Target centre-to-centre distance: two radius-`r` spheres just touching.
     let d_target = 2.0 * radius;
@@ -339,10 +339,10 @@ pub fn pack_spheres_crp(
         // Contract the nominal diameter toward the target. The true (inner) density
         // is derived from the current minimum distance.
         let d_in = min_dist.min(d_out);
-        let pf_in = std::f64::consts::PI / 6.0 * n as f64 * d_in.powi(3) / v_cube;
+        let pf_in = std::f64::consts::PI / 6.0 * n as f64 * d_in.r_powi(3) / v_cube;
         let gap = (pf_nom - pf_in).max(1e-12);
         let j_exp = (-gap.r_log10()).floor().max(0.0) as i32;
-        let dpf = base_rate * 0.5_f64.powi(j_exp);
+        let dpf = base_rate * 0.5_f64.r_powi(j_exp);
         pf_nom = (pf_nom - dpf).max(pf_target);
     }
 
@@ -415,8 +415,8 @@ mod tests {
         }
 
         // (c) Realized packing fraction clearly exceeds RSA's ~0.38 ceiling.
-        let v_sphere = 4.0 / 3.0 * std::f64::consts::PI * radius.powi(3);
-        let v_cube = (2.0 * half).powi(3);
+        let v_sphere = 4.0 / 3.0 * std::f64::consts::PI * radius.r_powi(3);
+        let v_cube = (2.0 * half).r_powi(3);
         let realized = spheres.len() as f64 * v_sphere / v_cube;
         assert!(
             realized >= 0.55,

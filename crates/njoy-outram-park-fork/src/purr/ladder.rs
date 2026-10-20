@@ -6,6 +6,7 @@
 //! plan-named boundary, the Monte Carlo core (`unrest`) lives in
 //! [`super::unrest`].
 
+use petir::mathf::RealMath;
 use crate::unresr::mf2::UnresolvedRange;
 use crate::unresr::wfun::{qp_node, qw_weight};
 use crate::unresr::{channel_radius_urr, penetrability_factor, range_sequences_purr};
@@ -212,7 +213,7 @@ pub fn generate_ladder(
 
     loop {
         let energy = match resonances.last() {
-            Some(prev) => prev.energy + dcon * (-rng.next().ln()).sqrt(),
+            Some(prev) => prev.energy + dcon * (-rng.next().r_ln()).sqrt(),
             None => elow + dcon * rng.next(),
         };
 
@@ -447,7 +448,7 @@ pub fn infinite_dilution_reference(
             // unresx:1440-1442 — potential scattering added once per L (its
             // first J-state), matching unresl's identical convention.
             if last_l != Some(seq.l) {
-                spot += seq.abn * ab * (2.0 * seq.l as f64 + 1.0) * ps.sin().powi(2);
+                spot += seq.abn * ab * (2.0 * seq.l as f64 + 1.0) * ps.r_sin().r_powi(2);
                 last_l = Some(seq.l);
             }
 
@@ -479,15 +480,15 @@ pub fn infinite_dilution_reference(
                 ndf_x,
                 csz: seq.abn * ab * gj,
                 cth_ref: (CON1_DOPPLER * seq.awri / (e * T_REF)).sqrt(),
-                cc2p: (2.0 * ps).cos(),
-                cs2p: (2.0 * ps).sin(),
+                cc2p: (2.0 * ps).r_cos(),
+                cs2p: (2.0 * ps).r_sin(),
             });
 
             let gs = gnrx(gnx, gfx, seq.gg, ndf_n, ndf_f, ndf_x, gxx, 1);
             let gc = gnrx(gnx, gfx, seq.gg, ndf_n, ndf_f, ndf_x, gxx, 2);
             let gf_avg = gnrx(gnx, gfx, seq.gg, ndf_n, ndf_f, ndf_x, gxx, 3);
             let temp = seq.abn * std::f64::consts::PI * ab * gj * gnx / (2.0 * seq.d);
-            sigi_elastic += temp * (gs * gnx - 2.0 * ps.sin().powi(2));
+            sigi_elastic += temp * (gs * gnx - 2.0 * ps.r_sin().r_powi(2));
             sigi_fission += temp * gf_avg * gfx;
             sigi_capture += temp * gc * seq.gg;
         }

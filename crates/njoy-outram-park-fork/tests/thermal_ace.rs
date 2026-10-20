@@ -9,6 +9,7 @@
 //! cargo test -p njoy-outram-park-fork --test thermal_ace --release
 //! ```
 
+use petir::mathf::RealMath;
 use std::fs::File;
 
 use njoy_outram_park_fork::{
@@ -32,7 +33,7 @@ fn al27_thermal() -> AceTable {
     let ne = 40;
     let (elo, ehi) = (1.0e-4_f64, 4.0_f64);
     let grid: Vec<f64> = (0..ne)
-        .map(|i| elo * (ehi / elo).powf(i as f64 / (ne - 1) as f64))
+        .map(|i| elo * (ehi / elo).r_powf(i as f64 / (ne - 1) as f64))
         .collect();
 
     let temp = mf7.incoherent_inelastic.as_ref().unwrap().temperature_k;

@@ -95,6 +95,7 @@
 //!     --example graphite_energy_decrement
 //! ```
 
+use petir::mathf::RealMath;
 fn main() {
     use njoy_outram_park_fork::reference_data::reference_endf;
     use outram_mc_libs::material::thermal::ThermalScattering;
@@ -104,8 +105,8 @@ fn main() {
     const N: usize = 200_000;
 
     let a = 12.0_f64;
-    let alpha = ((a - 1.0) / (a + 1.0)).powi(2);
-    let xi_fg = 1.0 + alpha * alpha.ln() / (1.0 - alpha);
+    let alpha = ((a - 1.0) / (a + 1.0)).r_powi(2);
+    let xi_fg = 1.0 + alpha * alpha.r_ln() / (1.0 - alpha);
 
     let tsl = reference_endf("tsl-crystalline-graphite.endf").expect("graphite tape");
     let g = ThermalScattering::from_endf_file(tsl.to_str().unwrap(), 30, TEMP, "C in graphite")
@@ -127,7 +128,7 @@ fn main() {
             if let Some((ep, _mu)) = g.sample(e, &mut seed) {
                 if ep > 0.0 {
                     sum_ratio += ep / e;
-                    sum_xi += (e / ep).ln();
+                    sum_xi += (e / ep).r_ln();
                     if ep > e {
                         n_up += 1;
                     }

@@ -103,6 +103,7 @@
 //! (matching upstream exactly). The difference is confined to the top of the
 //! grid.
 
+use petir::mathf::RealMath;
 use uom::si::f64::{KinematicViscosity, MolarMass, Ratio, ThermodynamicTemperature};
 use uom::si::kinematic_viscosity::square_meter_per_second;
 use uom::si::molar_mass::gram_per_mole;
@@ -145,7 +146,7 @@ pub const DEFAULT_SPECIFIC_GRAVITY_LOWER_BOUND: f64 = 0.7;
 /// `M0 = 90 g/mol` bound (`Riazi.vb:155`).
 #[must_use]
 pub fn default_boiling_point_lower_bound_kelvin() -> f64 {
-    1080.0 - (6.97996 - 0.01964 * 90.0_f64.powf(2.0 / 3.0)).exp()
+    1080.0 - (6.97996 - 0.01964 * 90.0_f64.r_powf(2.0 / 3.0)).r_exp()
 }
 
 /// Everything [`generate_compounds`] needs: the bulk assay, how many cuts to
@@ -275,7 +276,7 @@ pub fn distribute_property(
 
     // q(i) = B/A * d(i/n)^B, i = 0..=n  (`:504-506`)
     let q: Vec<f64> = (0..=n)
-        .map(|i| b / a * interpolant.evaluate(i as f64 / n as f64).powf(b))
+        .map(|i| b / a * interpolant.evaluate(i as f64 / n as f64).r_powf(b))
         .collect();
 
     let mut fractions = vec![0.0_f64; n];
@@ -283,10 +284,10 @@ pub fn distribute_property(
     for i in 1..=n {
         let val1 = interpolant.evaluate((i as f64 - 1.0) / n as f64);
         let val2 = interpolant.evaluate(i as f64 / n as f64);
-        let fraction = (-b / a * val1.powf(b)).exp() - (-b / a * val2.powf(b)).exp();
+        let fraction = (-b / a * val1.r_powf(b)).r_exp() - (-b / a * val2.r_powf(b)).r_exp();
         fractions[i - 1] = fraction;
         let excess = 1.0 / fraction
-            * (a / b).powf(1.0 / b)
+            * (a / b).r_powf(1.0 / b)
             * (incomplete_gamma_q(1.0 + 1.0 / b, q[i - 1])
                 - incomplete_gamma_q(1.0 + 1.0 / b, q[i]));
         means[i - 1] = lower_bound * (1.0 + excess);
@@ -320,13 +321,13 @@ pub fn distribute_property_means_only(
     let interpolant = build_inverse_grid(a, b, grid_points);
 
     let q: Vec<f64> = (0..=n)
-        .map(|i| b / a * interpolant.evaluate(i as f64 / n as f64).powf(b))
+        .map(|i| b / a * interpolant.evaluate(i as f64 / n as f64).r_powf(b))
         .collect();
 
     (1..=n)
         .map(|i| {
             let excess = 1.0 / fractions[i - 1]
-                * (a / b).powf(1.0 / b)
+                * (a / b).r_powf(1.0 / b)
                 * (incomplete_gamma_q(1.0 + 1.0 / b, q[i - 1])
                     - incomplete_gamma_q(1.0 + 1.0 / b, q[i]));
             lower_bound * (1.0 + excess)
@@ -343,8 +344,8 @@ fn build_inverse_grid(a: f64, b: f64, grid_points: usize) -> FloaterHormannInter
     let points: Vec<(f64, f64)> = (0..grid_points)
         .map(|i| {
             let x = i as f64 / DISTRIBUTION_GRID as f64;
-            let d = (a / b * (1.0 / (1.0 - (i as f64 + 0.001) / DISTRIBUTION_GRID as f64)).ln())
-                .powf(1.0 / b);
+            let d = (a / b * (1.0 / (1.0 - (i as f64 + 0.001) / DISTRIBUTION_GRID as f64)).r_ln())
+                .r_powf(1.0 / b);
             (x, d)
         })
         .collect();
@@ -433,7 +434,7 @@ pub fn generate_compounds(
             sg_bulk,
             sg0,
             3.0,
-            |excess| (excess / 0.619).powi(3),
+            |excess| (excess / 0.619).r_powi(3),
             cuts,
             DISTRIBUTION_GRID,
         )
@@ -443,7 +444,7 @@ pub fn generate_compounds(
             tb_bulk,
             tb0,
             1.5,
-            |excess| (excess / 0.689).powf(1.5),
+            |excess| (excess / 0.689).r_powf(1.5),
             cuts,
             DISTRIBUTION_GRID,
         )
@@ -579,7 +580,7 @@ pub fn generate_compounds(
     )
     .get::<square_meter_per_second>();
 
-    let visc_scale = |excess: f64| (excess / 0.619).powi(3);
+    let visc_scale = |excess: f64| (excess / 0.619).r_powi(3);
     let mut d_v1 = vec![0.0_f64; n];
     let mut d_v2 = vec![0.0_f64; n];
 

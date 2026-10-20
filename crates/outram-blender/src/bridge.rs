@@ -220,6 +220,7 @@ pub fn align_by_nearest(mesh: &Mesh, ring_a: &[VertexId], ring_b: &[VertexId]) -
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
     use crate::mesh::EdgeId;
     use crate::primitives;
@@ -255,7 +256,7 @@ mod tests {
             (0..8)
                 .map(|i| {
                     let a = std::f64::consts::TAU * i as f64 / 8.0;
-                    m.add_vertex(Vec3::new(a.cos(), a.sin(), z))
+                    m.add_vertex(Vec3::new(a.r_cos(), a.r_sin(), z))
                 })
                 .collect()
         };

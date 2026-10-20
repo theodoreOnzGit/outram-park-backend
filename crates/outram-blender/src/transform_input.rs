@@ -40,6 +40,7 @@
 //!   numeric overrides and a grid increment into the delta actually applied.
 //! - [`apply_translation`] — move a vertex selection by a delta.
 
+use petir::mathf::RealMath;
 use crate::math::Vec3;
 use crate::mesh::{Mesh, VertexId};
 
@@ -361,7 +362,7 @@ impl Parser<'_> {
         if self.peek() == Some(&Tok::Caret) {
             self.eat();
             let exp = self.power()?;
-            Some(base.powf(exp))
+            Some(base.r_powf(exp))
         } else {
             Some(base)
         }

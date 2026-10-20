@@ -63,6 +63,7 @@
 //!     --example epithermal_slowing_down
 //! ```
 
+use petir::mathf::RealMath;
 use outram_mc_libs::material::nuclide::Nuclide;
 use outram_mc_libs::material::thermal::ThermalScattering;
 use outram_mc_libs::physics::scatter::{
@@ -150,8 +151,8 @@ fn main() {
 
     for (label, nuc) in &cases {
         let a = nuc.awr;
-        let alpha = ((a - 1.0) / (a + 1.0)).powi(2);
-        let xi_iso = 1.0 + alpha * alpha.ln() / (1.0 - alpha);
+        let alpha = ((a - 1.0) / (a + 1.0)).r_powi(2);
+        let xi_iso = 1.0 + alpha * alpha.r_ln() / (1.0 - alpha);
         let ratio_iso = 0.5 * (1.0 + alpha);
 
         println!("\n=== {label}   AWR = {a:.5}   alpha = {alpha:.6} ===");
@@ -184,7 +185,7 @@ fn main() {
                     continue;
                 }
                 sum_ratio += ep / e;
-                sum_xi += (e / ep).ln();
+                sum_xi += (e / ep).r_ln();
                 if ep > e {
                     n_up += 1;
                 }

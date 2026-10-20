@@ -20,6 +20,7 @@
 //!
 //! Research, education and V&V only; not for emergency planning or response.
 
+use petir::mathf::RealMath;
 use crate::engine::{plume_chi_over_q, plume_class, plume_field, plume_rise_m, PlumeParams};
 use crate::rungs::Rung;
 use buangkok::pydoseia::dispersion::{
@@ -249,7 +250,7 @@ pub fn compute(step: Step, p: StepParams) -> StepFrame {
                         let (sy, sz) = sigmas(p.class, x);
                         v.push(0.0);
                         ghost.push(
-                            (-(z - p.h).powi(2) / (2.0 * sz * sz)).exp()
+                            (-(z - p.h).r_powi(2) / (2.0 * sz * sz)).r_exp()
                                 / (2.0 * std::f64::consts::PI * sy * sz * u),
                         );
                     }
@@ -410,7 +411,7 @@ mod tests {
         let (x, z) = (800.0, 12.0);
         let (sy, sz) = sigmas(p.class, x);
         let direct = |z: f64| {
-            (-(z - p.h).powi(2) / (2.0 * sz * sz)).exp()
+            (-(z - p.h).r_powi(2) / (2.0 * sz * sz)).r_exp()
                 / (2.0 * std::f64::consts::PI * sy * sz * u)
         };
         let coded = chi_over_q_at(p.class, u, p.h, x, 0.0, z);

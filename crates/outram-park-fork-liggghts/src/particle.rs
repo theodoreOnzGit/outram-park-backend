@@ -71,6 +71,7 @@
 //! - H. Goldstein, C. Poole, J. Safko, *Classical Mechanics*, 3rd ed.
 //!   (Addison-Wesley, 2002) — rigid-body rotation, solid-sphere inertia.
 
+use petir::mathf::RealMath;
 use uom::si::f64::{Length, Mass, ThermodynamicTemperature};
 use uom::si::length::meter;
 use uom::si::mass::kilogram;
@@ -285,7 +286,7 @@ impl Particle {
     /// Standard closed-form volume of a sphere of radius `r = self.radius`.
     #[must_use]
     pub fn volume(&self) -> f64 {
-        (4.0 / 3.0) * std::f64::consts::PI * self.radius.powi(3)
+        (4.0 / 3.0) * std::f64::consts::PI * self.radius.r_powi(3)
     }
 
     /// Moment of inertia of the particle `[kg·m²]`: `I = (2/5) m r²`.
@@ -297,7 +298,7 @@ impl Particle {
     /// via `α = τ / I`.
     #[must_use]
     pub fn moment_of_inertia(&self) -> f64 {
-        (2.0 / 5.0) * self.mass * self.radius.powi(2)
+        (2.0 / 5.0) * self.mass * self.radius.r_powi(2)
     }
 
     /// Advance the particle one time step `dt` `[s]` under a constant applied

@@ -129,6 +129,7 @@
 //! cargo test --release -p outram-mc-libs --test elastic_xi_h1_o16 -- --nocapture
 //! ```
 
+use petir::mathf::RealMath;
 use njoy_outram_park_fork::reference_data::reference_endf_or_skip;
 use outram_mc_libs::geometry::position::Direction;
 use outram_mc_libs::material::nuclide::Nuclide;
@@ -144,8 +145,8 @@ const K_SEM: f64 = 4.0;
 
 /// `ξ` for isotropic CM elastic scattering off a target at rest.
 fn xi_analytic(awr: f64) -> f64 {
-    let alpha = ((awr - 1.0) / (awr + 1.0)).powi(2);
-    1.0 + alpha * alpha.ln() / (1.0 - alpha)
+    let alpha = ((awr - 1.0) / (awr + 1.0)).r_powi(2);
+    1.0 + alpha * alpha.r_ln() / (1.0 - alpha)
 }
 
 /// Mean, sample sd and sem of `ln(E/E′)` over `N` collisions at `e`, plus
@@ -172,7 +173,7 @@ fn measure(nuc: &Nuclide, e: f64, mf4: bool, seed: &mut u64) -> (f64, f64, f64, 
             free_gas_elastic_scatter_dbrc(e, u, nuc.awr, kt, mu_cm, seed, nuc.dbrc_table());
         assert!(ep > 0.0, "non-positive outgoing energy {ep} at {e} eV");
         // Welford: one pass, no catastrophic cancellation at N = 4e6.
-        let x = (e / ep).ln();
+        let x = (e / ep).r_ln();
         let d = x - mean;
         mean += d / (i + 1) as f64;
         m2 += d * (x - mean);

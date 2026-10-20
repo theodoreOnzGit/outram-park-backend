@@ -36,6 +36,7 @@
 //! divergence formula), used to sanity-check both these generators and any
 //! imported surface. Pure Rust, no dependencies.
 
+use petir::mathf::RealMath;
 use crate::math::Vec3;
 use std::f64::consts::PI;
 
@@ -114,12 +115,12 @@ pub fn sphere_surface(centre: Vec3, radius: f64, n_lat: usize, n_lon: usize) -> 
     pts.push(centre.add(Vec3::new(0.0, 0.0, radius)));
     for i in 1..n_lat {
         let theta = PI * i as f64 / n_lat as f64; // 0..π
-        let (st, ct) = (theta.sin(), theta.cos());
+        let (st, ct) = (theta.r_sin(), theta.r_cos());
         for j in 0..n_lon {
             let phi = 2.0 * PI * j as f64 / n_lon as f64;
             pts.push(centre.add(Vec3::new(
-                radius * st * phi.cos(),
-                radius * st * phi.sin(),
+                radius * st * phi.r_cos(),
+                radius * st * phi.r_sin(),
                 radius * ct,
             )));
         }
@@ -169,11 +170,11 @@ pub fn cylinder_surface(base: Vec3, radius: f64, height: f64, n_seg: usize) -> T
     // Rim rings: bottom then top.
     for j in 0..n_seg {
         let phi = 2.0 * PI * j as f64 / n_seg as f64;
-        pts.push(base.add(Vec3::new(radius * phi.cos(), radius * phi.sin(), 0.0)));
+        pts.push(base.add(Vec3::new(radius * phi.r_cos(), radius * phi.r_sin(), 0.0)));
     }
     for j in 0..n_seg {
         let phi = 2.0 * PI * j as f64 / n_seg as f64;
-        pts.push(base.add(Vec3::new(radius * phi.cos(), radius * phi.sin(), height)));
+        pts.push(base.add(Vec3::new(radius * phi.r_cos(), radius * phi.r_sin(), height)));
     }
     let b = |j: usize| 2 + (j % n_seg);
     let t = |j: usize| 2 + n_seg + (j % n_seg);

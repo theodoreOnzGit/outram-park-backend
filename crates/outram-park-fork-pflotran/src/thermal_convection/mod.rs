@@ -1059,6 +1059,7 @@ impl ThermalConvectionSimulation {
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
     use uom::si::f64::Length;
     use uom::si::length::meter;
@@ -1136,7 +1137,7 @@ mod tests {
             let ctr = grid.cell_center(c);
             let (x, z) = (ctr[0], ctr[2]);
             let t_cond = t_bottom + (t_top - t_bottom) * (z / h);
-            let pert = amp * (std::f64::consts::PI * x).sin() * (std::f64::consts::PI * z).sin();
+            let pert = amp * (std::f64::consts::PI * x).r_sin() * (std::f64::consts::PI * z).r_sin();
             s[2 * c] = 1.0e5 + params.reference_density * params.gravity * (h - z);
             s[2 * c + 1] = t_cond + pert;
         }

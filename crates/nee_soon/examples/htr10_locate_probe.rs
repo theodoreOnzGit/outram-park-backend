@@ -26,6 +26,7 @@
 //! eliminates the largest class of candidates; what remains is the flight
 //! itself, and it is NOT yet isolated -- see `htr10_rmc_keff.rs`'s status
 //! section for the candidates still open.
+use petir::mathf::RealMath;
 use nee_soon::htr10_rmc::core_model::assemble_explicit_triso;
 use outram_mc_libs::geometry::cell::SurfaceToken;
 use outram_mc_libs::geometry::position::{Direction, Position};
@@ -97,9 +98,9 @@ fn main() {
     for i in 0..20000 {
         let t = i as f64 / 20000.0;
         let p = Position::new(
-            (t * 97.0).sin() * 45.0,
-            (t * 61.0).cos() * 45.0,
-            (t * 29.0).sin() * 50.0,
+            (t * 97.0).r_sin() * 45.0,
+            (t * 61.0).r_cos() * 45.0,
+            (t * 29.0).r_sin() * 50.0,
         );
         match core.geometry.locate(p, u, SurfaceToken::NONE) {
             Some(path) => *counts.entry(path.material).or_insert(0usize) += 1,

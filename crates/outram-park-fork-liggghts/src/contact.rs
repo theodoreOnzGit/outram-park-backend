@@ -123,6 +123,7 @@
 //!   Sci.* **59**(3), 525–541 (2004) — the restitution-based damping
 //!   coefficient and Hertz–Mindlin assembly used here.
 
+use petir::mathf::RealMath;
 use uom::si::f64::Pressure;
 use uom::si::pressure::pascal;
 
@@ -520,7 +521,7 @@ impl HertzContact {
     /// (elastic, no damping). The damping coefficients use `|β|`.
     #[must_use]
     pub fn damping_beta(&self) -> f64 {
-        let ln_e = self.restitution.ln();
+        let ln_e = self.restitution.r_ln();
         let pi = std::f64::consts::PI;
         ln_e / (ln_e * ln_e + pi * pi).sqrt()
     }
@@ -530,7 +531,7 @@ impl ContactLaw for HertzContact {
     fn normal_force_scalar(&self, delta_n: f64, v_n: f64, r_eff: f64, m_eff: f64) -> f64 {
         let e_star = self.effective_modulus();
         // Elastic Hertzian spring: (4/3) E* √R* δ^{3/2}.
-        let elastic = (4.0 / 3.0) * e_star * r_eff.sqrt() * delta_n.powf(1.5);
+        let elastic = (4.0 / 3.0) * e_star * r_eff.sqrt() * delta_n.r_powf(1.5);
         // Viscoelastic damping: c_n·v_n with c_n = 2√(5/6)|β|√(S_n m*),
         // S_n = 2 E* √(R* δ) the normal contact stiffness.
         let s_n = 2.0 * e_star * (r_eff * delta_n).sqrt();
@@ -835,8 +836,8 @@ mod tests {
             epsilon = 1.0
         );
         // β = ln(0.8)/sqrt(ln(0.8)^2 + π^2)
-        let ln_e = 0.8_f64.ln();
-        let beta_expected = ln_e / (ln_e * ln_e + std::f64::consts::PI.powi(2)).sqrt();
+        let ln_e = 0.8_f64.r_ln();
+        let beta_expected = ln_e / (ln_e * ln_e + std::f64::consts::PI.r_powi(2)).sqrt();
         assert_abs_diff_eq!(hertz.damping_beta(), beta_expected, epsilon = 1.0e-15);
         assert!(hertz.damping_beta() < 0.0);
     }

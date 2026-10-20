@@ -44,6 +44,7 @@
 //! not benchmark numbers (LOW tier, tiny run). The ENDF/B-VIII.0 run and the
 //! OpenMC comparison are in `verification_and_validation/diagnostics/README.md`.
 
+use petir::mathf::RealMath;
 use njoy_outram_park_fork::reference_data::reference_endf_dir;
 use outram_mc_libs::material::nuclide::Nuclide;
 use outram_mc_libs::model::prelude::*;
@@ -209,7 +210,7 @@ fn diagnostics_change_nothing_are_independent_and_consistent() {
         .per_lethargy
         .iter()
         .zip(spec.edges_ev.windows(2))
-        .map(|(e, w)| e.mean * (w[1] / w[0]).ln())
+        .map(|(e, w)| e.mean * (w[1] / w[0]).r_ln())
         .sum();
     assert!((integral - 1.0).abs() < 1e-12);
     println!(

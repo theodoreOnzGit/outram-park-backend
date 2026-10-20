@@ -22,6 +22,7 @@
 //! - **Case C** (`LRF=2`) — every average parameter (`D`, `GX`, `GNO`, `GG`,
 //!   `GF`) is energy-dependent, tabulated independently per J-state.
 
+use petir::mathf::RealMath;
 use crate::NjoyError;
 
 /// The energy-dependent scattering radius `AP(E)` \[10⁻¹² cm\] of an `NRO=1`
@@ -443,8 +444,8 @@ fn sigfig7(x: f64) -> f64 {
     if x == 0.0 {
         return 0.0;
     }
-    let mag = x.abs().log10().floor() as i32;
-    let scale = 10f64.powi(6 - mag);
+    let mag = x.abs().r_log10().floor() as i32;
+    let scale = 10f64.r_powi(6 - mag);
     (x * scale).round() / scale
 }
 

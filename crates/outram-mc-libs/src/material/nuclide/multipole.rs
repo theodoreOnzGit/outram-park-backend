@@ -28,6 +28,7 @@
 //! **Opt-in.** No constructor attaches multipole data. The reasons and the
 //! measurements behind them are in the V&V record §7.
 
+use petir::mathf::RealMath;
 use super::{MicroXS, Nuclide, XsSource};
 use crate::physics::scatter::K_BOLTZMANN_EV_PER_K;
 use njoy_outram_park_fork::wmp::{WindowedMultipole, WmpLibrary};
@@ -225,7 +226,7 @@ impl Nuclide {
             let mut prev: Option<(f64, [f64; 4])> = None;
             for &(e, v) in rows.iter().filter(|(e, _)| *e >= lo && *e <= hi) {
                 if let Some((e0, v0)) = prev {
-                    let du = (e / e0).ln();
+                    let du = (e / e0).r_ln();
                     for k in 0..4 {
                         acc[k] += 0.5 * (v0[k] + v[k]) * du;
                     }

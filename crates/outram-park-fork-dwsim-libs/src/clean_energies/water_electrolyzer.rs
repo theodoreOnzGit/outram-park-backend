@@ -81,6 +81,7 @@
 //!   [`OutletEnthalpyBump`] return exactly the numbers DWSIM writes onto the
 //!   streams before flashing.
 
+use petir::mathf::RealMath;
 use uom::si::catalytic_activity::katal;
 use uom::si::electric_current::ampere;
 use uom::si::electric_potential::volt;
@@ -197,7 +198,7 @@ fn shomate_entropy_j_per_mol_k(
     g: f64,
 ) -> f64 {
     let t = temperature_k / 1000.0;
-    a * t.ln() + b * t + c * t * t / 2.0 + d * t * t * t / 3.0 - e / (2.0 * t * t) + g
+    a * t.r_ln() + b * t + c * t * t / 2.0 + d * t * t * t / 3.0 - e / (2.0 * t * t) + g
 }
 
 /// Absolute molar entropy of **liquid water** \[J/(mol·K)\] at

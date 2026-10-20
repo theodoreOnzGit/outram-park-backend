@@ -295,6 +295,7 @@
 //! assert_eq!(states, serial.states().unwrap());
 //! ```
 
+use petir::mathf::RealMath;
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
 
@@ -2635,7 +2636,7 @@ fn gauss_legendre_nodes(n: usize) -> Vec<(f64, f64)> {
     let mut out: Vec<(f64, f64)> = Vec::with_capacity(n);
     let nf = n as f64;
     for k in 1..=n {
-        let mut x = (std::f64::consts::PI * (k as f64 - 0.25) / (nf + 0.5)).cos();
+        let mut x = (std::f64::consts::PI * (k as f64 - 0.25) / (nf + 0.5)).r_cos();
         // Newton on P_n. Converges quadratically from this guess; the cap is a
         // safety net, not the termination condition.
         for _ in 0..64 {

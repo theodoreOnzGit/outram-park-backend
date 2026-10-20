@@ -48,6 +48,9 @@ default = ["long-tests"]
 long-tests = []
 
 [dependencies]
+# Every transcendental routes through PETIR for cross-platform bit identity
+# (gh:#985). petir is no_std, so this edge adds nothing Android- or wasm-hostile.
+petir = { workspace = true }
 # Backend thermal-hydraulic / thermophysical-property crates this framework
 # composes. Wired now even though not every one has a consumer yet -- the
 # module surface is built out incrementally (see docs/notes.md or the epic

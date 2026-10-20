@@ -80,6 +80,7 @@
 //! depletion code; the cross-section collapse and the CRAM step are each
 //! verified separately, and this checks that they are wired together correctly.
 
+use petir::mathf::RealMath;
 use outram_mc_libs::depletion::chain::DepletionChain;
 use outram_mc_libs::depletion::operator::{
     deplete_coupled, deplete_predictor, BurnupSettings, OneGroupWeighting,
@@ -90,7 +91,7 @@ use outram_mc_libs::tally::filter::EnergyFilter;
 /// Ascending log-spaced group boundaries, `n + 1` of them.
 fn log_grid(lo: f64, hi: f64, n: usize) -> Vec<f64> {
     (0..=n)
-        .map(|i| (lo.ln() + (hi.ln() - lo.ln()) * i as f64 / n as f64).exp())
+        .map(|i| (lo.r_ln() + (hi.r_ln() - lo.r_ln()) * i as f64 / n as f64).r_exp())
         .collect()
 }
 

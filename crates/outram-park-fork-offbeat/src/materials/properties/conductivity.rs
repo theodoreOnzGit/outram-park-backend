@@ -101,6 +101,7 @@
 //!   is not continuous as the gadolinia content goes to zero. See
 //!   [`ConductivityModel::NfirUo2`].
 
+use petir::mathf::RealMath;
 use crate::error::{OffbeatError, Result};
 use crate::materials::MaterialState;
 
@@ -897,11 +898,11 @@ impl ConductivityModel {
                     + 2.46e-4 * t
                     + 1.87e-3 * bu
                     + 1.1599 * gad
-                    + (1.0 - 0.9 * (-0.04 * bu).exp())
+                    + (1.0 - 0.9 * (-0.04 * bu).r_exp())
                         * 0.038
-                        * bu.powf(0.28)
-                        * (1.0 / (1.0 + 396.0 * (-6380.0 / t).exp()));
-                let electronic = 3.5e9 / (t * t) * (-16360.0 / t).exp();
+                        * bu.r_powf(0.28)
+                        * (1.0 / (1.0 + 396.0 * (-6380.0 / t).r_exp()));
+                let electronic = 3.5e9 / (t * t) * (-16360.0 / t).r_exp();
                 let k95 = 1.0 / phonon_denominator + electronic;
 
                 let density_fraction = state.density_fraction() / volume_correction(state);
@@ -918,22 +919,22 @@ impl ConductivityModel {
                 // is reproduced faithfully, not repaired.
                 let base = if gad > 0.0 {
                     let gd_ir = 0.1197 * gad
-                        + gad.tanh().powf(0.1)
+                        + gad.r_tanh().r_powf(0.1)
                         + 1.214167e-2 * gad
                         + 5.40625e-4 * gad * gad
                         - 5.182292e-5 * gad * gad * gad;
                     let gd_fac =
-                        (0.027273 * gad + 0.652_272_73) - 2.25e-2 * gad * (1.0e-5 * bu).tanh();
+                        (0.027273 * gad + 0.652_272_73) - 2.25e-2 * gad * (1.0e-5 * bu).r_tanh();
                     gd_ir * gd_fac
                 } else {
                     9.592e-2
                 };
 
-                let ramp = 0.5 * (1.0 + ((tc - 900.0) / 150.0).tanh());
+                let ramp = 0.5 * (1.0 + ((tc - 900.0) / 150.0).r_tanh());
                 let phonon_low =
                     1.0 / (base + 6.14e-3 * bu - 1.4e-5 * bu * bu + (2.5e-4 - 1.81e-6 * bu) * tc);
                 let phonon_high = 1.0 / (base + 2.6e-3 * bu + (2.5e-4 - 2.7e-7 * bu) * tc);
-                let electronic = 1.32e-2 * (1.88e-3 * tc).exp();
+                let electronic = 1.32e-2 * (1.88e-3 * tc).r_exp();
                 let k95 = (1.0 - ramp) * phonon_low + ramp * phonon_high + electronic;
 
                 let density_fraction = state.density_fraction() / volume_correction(state);
@@ -955,7 +956,7 @@ impl ConductivityModel {
                     0.24
                 };
                 // Upstream computes in kW/(m K) and multiplies by 1000.
-                1000.0 * (1.0 / (phonon_offset + phonon_slope * t) + 1.32e-5 * (1.88e-3 * t).exp())
+                1000.0 * (1.0 / (phonon_offset + phonon_slope * t) + 1.32e-5 * (1.88e-3 * t).r_exp())
             }
 
             Self::BrancheriaMox => {
@@ -984,7 +985,7 @@ impl ConductivityModel {
                     + 3.583e-1 * c_w_am
                     + 6.317e-2 * c_w_np
                     + (-2.625 * x + 2.493) * 1.0e-4 * t;
-                let k = 1.0 / denominator + 1.541e11 / t.powf(2.5) * (-1.522e4 / t).exp();
+                let k = 1.0 / denominator + 1.541e11 / t.r_powf(2.5) * (-1.522e4 / t).r_exp();
 
                 // Barani porosity correction with helium-filled pores.
                 let kappa_he = 0.69;
@@ -999,12 +1000,12 @@ impl ConductivityModel {
 
                 let a = 0.035 + 2.8 * x;
                 let b = (2.86 - 7.15 * x) * 1.0e-4;
-                let h = 1.0 / (1.0 + 396.0 * (-6380.0 / t).exp());
+                let h = 1.0 / (1.0 + 396.0 * (-6380.0 / t).r_exp());
                 let k95 = 1.0
                     / (a + b * t
                         + 1.87e-3 * bu
-                        + (1.0 - 0.9 * (-0.04 * bu).exp()) * 0.038 * bu.powf(0.28) * h)
-                    + 1.5e9 / (t * t) * (-13520.0 / t).exp();
+                        + (1.0 - 0.9 * (-0.04 * bu).r_exp()) * 0.038 * bu.r_powf(0.28) * h)
+                    + 1.5e9 / (t * t) * (-13520.0 / t).r_exp();
 
                 let p = state.porosity;
                 k95 * 1.0789 * (1.0 - p) / (1.0 + 0.5 * p)
@@ -1027,13 +1028,13 @@ impl ConductivityModel {
                 let b = 2.39e-4 + 1.37e-13 * c_w_pu + 5.47e-4 * c_w_am + 2.48e-14 * c_w_np;
 
                 let phonon = 1.0 / (a + b * t);
-                let electronic = 5.27e9 / (t * t) * (-17109.5 / t).exp();
-                let k0 = (phonon + electronic) * (1.0 - p).powf(2.5);
+                let electronic = 5.27e9 / (t * t) * (-17109.5 / t).r_exp();
+                let k0 = (phonon + electronic) * (1.0 - p).r_powf(2.5);
 
                 // kappa_inf = 1.755 W/(m K); phi = 128.75 MWd/kgHM (upstream
                 // 128.75e3 in its MWd/tHM burnup unit).
                 let kappa_inf = 1.755;
-                kappa_inf + (k0 - kappa_inf) * (-bu / 128.75).exp()
+                kappa_inf + (k0 - kappa_inf) * (-bu / 128.75).r_exp()
             }
 
             Self::PhilipponneauMox => {
@@ -1319,7 +1320,7 @@ mod tests {
     fn matpro_uo2_porosity_factor_is_unity_at_95_percent_density() {
         let t = 1000.0;
         let k = ConductivityModel::MatproUo2.value(&fresh_95_percent_dense(t));
-        let k95 = 1.0 / (0.0452 + 2.46e-4 * t) + 3.5e9 / (t * t) * (-16360.0f64 / t).exp();
+        let k95 = 1.0 / (0.0452 + 2.46e-4 * t) + 3.5e9 / (t * t) * (-16360.0f64 / t).r_exp();
         assert!((k / k95 - 1.0).abs() < 1.0e-4, "ratio {}", k / k95);
     }
 
@@ -1441,7 +1442,7 @@ mod tests {
             // drops out of the reconstruction.
             let tc = t - 273.15;
             let base = 9.592e-2;
-            let k95 = 1.0 / (base + 2.5e-4 * tc) + 1.32e-2 * (1.88e-3 * tc).exp();
+            let k95 = 1.0 / (base + 2.5e-4 * tc) + 1.32e-2 * (1.88e-3 * tc).r_exp();
             assert!(
                 (with_porosity / k95 - 1.0).abs() < 1.0e-12,
                 "T = {t} K: {with_porosity} vs {k95}"
@@ -1604,7 +1605,7 @@ mod tests {
         let t: f64 = 1000.0;
 
         let bare =
-            1.0 / (1.595e-2 + 2.493e-4 * t) + 1.541e11 / t.powf(2.5) * (-1.522e4f64 / t).exp();
+            1.0 / (1.595e-2 + 2.493e-4 * t) + 1.541e11 / t.r_powf(2.5) * (-1.522e4f64 / t).r_exp();
 
         let mut dense = MaterialState::fresh(t);
         dense.porosity = 0.0;

@@ -27,6 +27,7 @@
 //! The sigma fits differ (upstream uses the BARC/AERB power-law set below, not
 //! Briggs), so the two are not interchangeable and are not unified here.
 
+use petir::mathf::RealMath;
 use uom::si::f64::{Length, Velocity};
 use uom::si::length::meter;
 use uom::si::velocity::meter_per_second;
@@ -94,7 +95,7 @@ impl StabilityClass {
 pub fn sigma_y(stability: StabilityClass, x: Length) -> Length {
     const AY: [f64; 6] = [0.3658, 0.2751, 0.2089, 0.1471, 0.1046, 0.0722];
     let x1 = x.get::<meter>();
-    Length::new::<meter>(AY[stability.index()] * x1.powf(0.9031))
+    Length::new::<meter>(AY[stability.index()] * x1.r_powf(0.9031))
 }
 
 /// Vertical plume spread `sigma_z = A_z x^q + r`, m, with three distance bands
@@ -124,7 +125,7 @@ pub fn sigma_z(stability: StabilityClass, x: Length) -> Length {
     } else {
         return Length::new::<meter>(f64::NAN);
     };
-    Length::new::<meter>((az * x1.powf(q)) + r)
+    Length::new::<meter>((az * x1.r_powf(q)) + r)
 }
 
 /// Wind-speed correction from measurement height to release height,
@@ -148,9 +149,9 @@ pub fn height_correction_factor(
     let h = release_height.get::<meter>();
     let hm = measurement_height.get::<meter>();
     if h < 10.0 {
-        (10.0 / hm).powf(p)
+        (10.0 / hm).r_powf(p)
     } else {
-        (h / hm).powf(p)
+        (h / hm).r_powf(p)
     }
 }
 
@@ -207,9 +208,9 @@ pub fn master_equation_single_plume(
     let h = release_height.get::<meter>();
     let speed = 1.0 * speed_factor;
     let pre_expo = 1.0 / (2.0 * core::f64::consts::PI * sy * sz * speed);
-    let expo = (-(y * y / (2.0 * (sy * sy)))).exp()
-        * ((-((z - h) * (z - h) / (2.0 * (sz * sz)))).exp()
-            + (-((z + h) * (z + h) / (2.0 * (sz * sz)))).exp());
+    let expo = (-(y * y / (2.0 * (sy * sy)))).r_exp()
+        * ((-((z - h) * (z - h) / (2.0 * (sz * sz)))).r_exp()
+            + (-((z + h) * (z + h) / (2.0 * (sz * sz)))).r_exp());
     MasterEquationTerms { pre_expo, expo }
 }
 
@@ -234,8 +235,8 @@ pub fn master_equation_sector_averaged(
     let sz = sigma_z.get::<meter>();
     let h = release_height.get::<meter>();
     let pre_expo = 1.0 / ((2.0 * core::f64::consts::PI).sqrt() * x1 * SECTOR_WIDTH_RAD * sz);
-    let expo = (-((z - h) * (z - h) / (2.0 * (sz * sz)))).exp()
-        + (-((z + h) * (z + h) / (2.0 * (sz * sz)))).exp();
+    let expo = (-((z - h) * (z - h) / (2.0 * (sz * sz)))).r_exp()
+        + (-((z + h) * (z + h) / (2.0 * (sz * sz)))).r_exp();
     MasterEquationTerms { pre_expo, expo }
 }
 

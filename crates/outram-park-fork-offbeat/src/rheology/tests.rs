@@ -32,6 +32,7 @@
 //! and MATPRO correlations against their source data is separate, unstarted
 //! work.
 
+use petir::mathf::RealMath;
 use std::sync::Arc;
 
 use outram_foam_basic_lib::primitives::SymmTensor;
@@ -237,7 +238,7 @@ fn von_mises_stress_never_exceeds_the_yield_surface() {
     };
 
     for exponent in 1..=5 {
-        let gamma = 10.0f64.powi(-exponent);
+        let gamma = 10.0f64.r_powi(-exponent);
         let inputs = quasi_static(pure_shear(gamma));
         let out = law.correct(0, &inputs, &RheologyState::pristine()).unwrap();
         assert!(
@@ -418,7 +419,7 @@ fn stress_relaxation_follows_the_analytic_geometric_decay() {
     for step in 1..=20 {
         let out = law.correct(0, &inputs, &state).unwrap();
         state.advance(&out);
-        let expected = q0 * ratio.powi(step);
+        let expected = q0 * ratio.r_powi(step);
         assert!(
             (out.von_mises_stress() - expected).abs() < 1.0e-9 * expected,
             "step {step}: measured {} vs closed form {expected}",
@@ -621,7 +622,7 @@ fn limback_irradiation_creep_scales_with_fast_flux() {
         sra.rate_and_derivative(1.0e6, &inputs, &state).unwrap().0
     };
     let ratio = rate_at(4.0e18) / rate_at(1.0e18);
-    let expected = 4.0f64.powf(0.85);
+    let expected = 4.0f64.r_powf(0.85);
     assert!(
         (ratio - expected).abs() < 1.0e-3 * expected,
         "flux scaling {ratio} vs phi^0.85 = {expected}"

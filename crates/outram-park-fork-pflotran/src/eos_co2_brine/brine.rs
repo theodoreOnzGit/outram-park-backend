@@ -50,6 +50,7 @@
 //! Untrusted AI-generated draft (`RESPONSIBLE_USE.md`); see the parent module
 //! [`crate::eos_co2_brine`] for the full warning and provenance.
 
+use petir::mathf::RealMath;
 use crate::error::PflotranError;
 
 /// Maximum NaCl mass fraction accepted (~ halite saturation near ambient).
@@ -151,7 +152,7 @@ impl Brine {
         let eta_cp = 0.1
             + 0.333 * w
             + (1.65 + 91.9 * w * w * w)
-                * (-(0.42 * (w.powf(0.8) - 0.17).powi(2) + 0.045) * t.powf(0.8)).exp();
+                * (-(0.42 * (w.r_powf(0.8) - 0.17).r_powi(2) + 0.045) * t.r_powf(0.8)).r_exp();
 
         // cP -> Pa.s.
         Ok(eta_cp * 1.0e-3)

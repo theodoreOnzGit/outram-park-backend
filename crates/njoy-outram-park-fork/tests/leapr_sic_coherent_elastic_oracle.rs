@@ -52,6 +52,7 @@
 //! mean reproducing the evaluation's own error. **AI-assisted draft, no human
 //! review**: the finding is about a published evaluation and needs one.
 
+use petir::mathf::RealMath;
 use njoy_outram_park_fork::leapr::decks::{embedded_deck_text, SabMaterial};
 use njoy_outram_park_fork::leapr::deck::LeaprDeck;
 use njoy_outram_park_fork::leapr::generate::{generate_tape, ElasticChannel};
@@ -411,7 +412,7 @@ fn swapping_in_the_tapes_implied_basis_recovers_most_of_the_thermal_point_gap() 
             .edges
             .iter()
             .take_while(|&&(edge, _)| edge <= e)
-            .map(|&(edge, f)| f * (-four_w * edge).exp())
+            .map(|&(edge, f)| f * (-four_w * edge).r_exp())
             .sum::<f64>()
             / e
     }

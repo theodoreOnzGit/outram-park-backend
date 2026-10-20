@@ -125,6 +125,7 @@
 //! Enum-free by design (a single struct of parameters); no trait objects, no
 //! `Box`, no lifetimes (workspace rules).
 
+use petir::mathf::RealMath;
 use crate::error::PflotranError;
 
 /// Debye–Hückel–Pitzer osmotic-coefficient slope `A_phi` at 25 degrees C in
@@ -268,7 +269,7 @@ impl PitzerBinaryParams {
         let sqrt_i = i.sqrt();
         -A_PHI_25C
             * (sqrt_i / (1.0 + B_PITZER * sqrt_i)
-                + (2.0 / B_PITZER) * (1.0 + B_PITZER * sqrt_i).ln())
+                + (2.0 / B_PITZER) * (1.0 + B_PITZER * sqrt_i).r_ln())
     }
 
     /// Debye–Hückel `f^phi` term (osmotic form) at ionic strength `i`:
@@ -291,7 +292,7 @@ impl PitzerBinaryParams {
             return 2.0 * self.beta0 + 2.0 * self.beta1;
         }
         let x = ALPHA_1_1 * i.sqrt();
-        let shape = 1.0 - (1.0 + x - 0.5 * x * x) * (-x).exp();
+        let shape = 1.0 - (1.0 + x - 0.5 * x * x) * (-x).r_exp();
         2.0 * self.beta0 + (2.0 * self.beta1 / (x * x)) * shape
     }
 
@@ -299,7 +300,7 @@ impl PitzerBinaryParams {
     /// `beta0 + beta1*exp(-alpha*sqrt(I))`.
     #[inline]
     fn b_phi(&self, i: f64) -> f64 {
-        self.beta0 + self.beta1 * (-ALPHA_1_1 * i.sqrt()).exp()
+        self.beta0 + self.beta1 * (-ALPHA_1_1 * i.sqrt()).r_exp()
     }
 
     /// Mean activity coefficient `gamma_pm` of the salt at stoichiometric
@@ -338,13 +339,13 @@ impl PitzerBinaryParams {
         let z_prod = (self.z_cation * self.z_anion).abs();
 
         let coeff_b = 2.0 * self.nu_cation * self.nu_anion / nu;
-        let coeff_c = 2.0 * (self.nu_cation * self.nu_anion).powf(1.5) / nu;
+        let coeff_c = 2.0 * (self.nu_cation * self.nu_anion).r_powf(1.5) / nu;
         let c_gamma = 1.5 * self.c_phi;
 
         let ln_gamma = z_prod * Self::f_gamma(i)
             + molality * coeff_b * self.b_gamma(i)
             + molality * molality * coeff_c * c_gamma;
-        Ok(ln_gamma.exp())
+        Ok(ln_gamma.r_exp())
     }
 
     /// Osmotic coefficient `phi` of the solvent at stoichiometric molality `m`
@@ -382,7 +383,7 @@ impl PitzerBinaryParams {
         let z_prod = (self.z_cation * self.z_anion).abs();
 
         let coeff_b = 2.0 * self.nu_cation * self.nu_anion / nu;
-        let coeff_c = 2.0 * (self.nu_cation * self.nu_anion).powf(1.5) / nu;
+        let coeff_c = 2.0 * (self.nu_cation * self.nu_anion).r_powf(1.5) / nu;
 
         let phi = 1.0
             + z_prod * Self::f_phi(i)

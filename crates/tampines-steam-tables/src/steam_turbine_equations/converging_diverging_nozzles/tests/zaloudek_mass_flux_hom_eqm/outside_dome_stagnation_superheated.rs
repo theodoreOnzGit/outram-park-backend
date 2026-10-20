@@ -14,6 +14,7 @@
 //! near-saturated-vapour throat recompresses isentropically into the
 //! superheated-vapour region.
 
+use petir::mathf::RealMath;
 use uom::si::f64::*;
 use uom::si::area::square_foot;
 use uom::si::mass_flux::kilogram_per_square_meter_second;
@@ -84,8 +85,8 @@ fn validate_zaloudek_curve_superheated(
         );
 
         approx::assert_relative_eq!(
-            g_calc.get::<kilogram_per_square_meter_second>().log10(),
-            g_expected.get::<kilogram_per_square_meter_second>().log10(),
+            g_calc.get::<kilogram_per_square_meter_second>().r_log10(),
+            g_expected.get::<kilogram_per_square_meter_second>().r_log10(),
             max_relative = mass_flux_log_tolerance,
         );
     }

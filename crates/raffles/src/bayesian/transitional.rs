@@ -56,6 +56,7 @@
 //! Independent implementations from those papers — see the provenance note in
 //! [`super`].
 
+use petir::mathf::RealMath;
 use petir::rng::lcg::prn;
 
 use super::mcmc::{ChainState, EnsembleMove, MetropolisHastings};
@@ -457,7 +458,7 @@ impl TransitionalResult {
                 let var = self
                     .samples
                     .iter()
-                    .map(|s| (s[j] - mean[j]).powi(2))
+                    .map(|s| (s[j] - mean[j]).r_powi(2))
                     .sum::<f64>()
                     / (n - 1.0);
                 var.sqrt()
@@ -622,11 +623,11 @@ where
             })
             .collect();
         let ln_w_max = ln_w.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
-        let w: Vec<f64> = ln_w.iter().map(|lw| (lw - ln_w_max).exp()).collect();
+        let w: Vec<f64> = ln_w.iter().map(|lw| (lw - ln_w_max).r_exp()).collect();
         let w_sum: f64 = w.iter().sum();
 
         // Evidence increment: ln( mean_i exp(d_beta * lnL_i) ).
-        ln_evidence += ln_w_max + (w_sum / n as f64).ln();
+        ln_evidence += ln_w_max + (w_sum / n as f64).r_ln();
 
         let w_norm: Vec<f64> = w.iter().map(|v| v / w_sum).collect();
         let ess = 1.0 / w_norm.iter().map(|v| v * v).sum::<f64>();
@@ -719,7 +720,7 @@ where
 
         stages.push(StageReport {
             beta: next_beta,
-            ln_evidence_increment: ln_w_max + (w_sum / n as f64).ln(),
+            ln_evidence_increment: ln_w_max + (w_sum / n as f64).r_ln(),
             acceptance_rate: if proposed == 0 {
                 0.0
             } else {
@@ -806,13 +807,13 @@ fn weight_cov(ln_l: &[f64], d_beta: f64) -> f64 {
     if !ln_w_max.is_finite() {
         return f64::INFINITY;
     }
-    let w: Vec<f64> = ln_w.iter().map(|lw| (lw - ln_w_max).exp()).collect();
+    let w: Vec<f64> = ln_w.iter().map(|lw| (lw - ln_w_max).r_exp()).collect();
     let n = w.len() as f64;
     let mean = w.iter().sum::<f64>() / n;
     if !(mean > 0.0) {
         return f64::INFINITY;
     }
-    let var = w.iter().map(|v| (v - mean).powi(2)).sum::<f64>() / n;
+    let var = w.iter().map(|v| (v - mean).r_powi(2)).sum::<f64>() / n;
     var.sqrt() / mean
 }
 
@@ -839,7 +840,7 @@ fn weight_ess(ln_l: &[f64], d_beta: f64) -> f64 {
     if !ln_w_max.is_finite() {
         return 0.0;
     }
-    let w: Vec<f64> = ln_w.iter().map(|lw| (lw - ln_w_max).exp()).collect();
+    let w: Vec<f64> = ln_w.iter().map(|lw| (lw - ln_w_max).r_exp()).collect();
     let sum: f64 = w.iter().sum();
     let sum_squares: f64 = w.iter().map(|v| v * v).sum();
     if !(sum_squares > 0.0) {
@@ -996,10 +997,10 @@ mod tests {
         //             + 1/2 ln(post_var / tau^2)
         //             - ybar^2 n /(2 sigma^2) - mu_0^2/(2 tau^2)
         //             + post_mean^2 / (2 post_var)
-        let s: f64 = y.iter().map(|v| (v - ybar).powi(2)).sum();
-        let ln_evidence = -0.5 * n * (2.0 * core::f64::consts::PI * sigma * sigma).ln()
+        let s: f64 = y.iter().map(|v| (v - ybar).r_powi(2)).sum();
+        let ln_evidence = -0.5 * n * (2.0 * core::f64::consts::PI * sigma * sigma).r_ln()
             - s / (2.0 * sigma * sigma)
-            + 0.5 * (post_var / (tau * tau)).ln()
+            + 0.5 * (post_var / (tau * tau)).r_ln()
             - n * ybar * ybar / (2.0 * sigma * sigma)
             - mu_0 * mu_0 / (2.0 * tau * tau)
             + post_mean * post_mean / (2.0 * post_var);
@@ -1026,8 +1027,8 @@ mod tests {
         move |theta: &[f64]| {
             let mu = theta[0];
             let n = y.len() as f64;
-            let ss: f64 = y.iter().map(|v| (v - mu).powi(2)).sum();
-            -0.5 * n * (2.0 * core::f64::consts::PI * sigma * sigma).ln()
+            let ss: f64 = y.iter().map(|v| (v - mu).r_powi(2)).sum();
+            -0.5 * n * (2.0 * core::f64::consts::PI * sigma * sigma).r_ln()
                 - ss / (2.0 * sigma * sigma)
         }
     }
@@ -1131,7 +1132,7 @@ mod tests {
         // Himmelblau's function, sharpened so the peaks are distinguishable.
         let ln_likelihood = |theta: &[f64]| {
             let (x, y) = (theta[0], theta[1]);
-            let f = (x * x + y - 11.0).powi(2) + (x + y * y - 7.0).powi(2);
+            let f = (x * x + y - 11.0).r_powi(2) + (x + y * y - 7.0).r_powi(2);
             -f
         };
 
@@ -1149,7 +1150,7 @@ mod tests {
             let count = result
                 .samples
                 .iter()
-                .filter(|s| ((s[0] - px).powi(2) + (s[1] - py).powi(2)).sqrt() < 0.75)
+                .filter(|s| ((s[0] - px).r_powi(2) + (s[1] - py).r_powi(2)).sqrt() < 0.75)
                 .count();
             fractions.push(count as f64 / result.samples.len() as f64);
         }
@@ -1191,7 +1192,7 @@ mod tests {
         let reference = narrow_ref - wide_ref;
         println!(
             "Occam factor: measured {measured:.6}, closed form {reference:.6}, ln(10) = {:.6}",
-            10.0_f64.ln()
+            10.0_f64.r_ln()
         );
         assert!(
             (measured - reference).abs() < 0.5,
@@ -1446,7 +1447,7 @@ mod tests {
     fn effective_sample_size_and_weight_cov_are_the_same_criterion() {
         // A spread of log-likelihoods with real structure, not a flat set.
         let ln_l: Vec<f64> = (0..500)
-            .map(|i| -0.01 * (i as f64 - 250.0).powi(2))
+            .map(|i| -0.01 * (i as f64 - 250.0).r_powi(2))
             .collect();
         let n = ln_l.len() as f64;
 
@@ -1488,7 +1489,7 @@ mod tests {
         (0..200)
             .map(|i| {
                 let theta = 4.0 * i as f64 / 199.0;
-                -0.5 * 12.0 * ((theta - 2.0) / spread).powi(2)
+                -0.5 * 12.0 * ((theta - 2.0) / spread).r_powi(2)
             })
             .collect()
     }
@@ -1647,8 +1648,8 @@ mod tests {
             // Exactly the increment the sampler accumulates, at his d_beta.
             let ln_w: Vec<f64> = ln_l.iter().map(|l| d_beta * l).collect();
             let ln_w_max = ln_w.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
-            let w_sum: f64 = ln_w.iter().map(|lw| (lw - ln_w_max).exp()).sum();
-            let ours = ln_w_max + (w_sum / ln_l.len() as f64).ln();
+            let w_sum: f64 = ln_w.iter().map(|lw| (lw - ln_w_max).r_exp()).sum();
+            let ours = ln_w_max + (w_sum / ln_l.len() as f64).r_ln();
             let abs = (ours - his_ln_s).abs();
             println!(
                 "spread {spread:.1} beta {beta:.2}: ln S his {his_ln_s:.17} \
@@ -1737,7 +1738,7 @@ mod tests {
                 let m = r.samples.iter().map(|t| t[0]).sum::<f64>() / n;
                 // Sample sd, matching Octave's std(), so the two columns are
                 // the same estimator.
-                let v = r.samples.iter().map(|t| (t[0] - m).powi(2)).sum::<f64>() / (n - 1.0);
+                let v = r.samples.iter().map(|t| (t[0] - m).r_powi(2)).sum::<f64>() / (n - 1.0);
                 means.push(m);
                 sds.push(v.sqrt());
                 ln_zs.push(r.ln_evidence);
@@ -1746,7 +1747,7 @@ mod tests {
             let stat = |v: &[f64]| {
                 let n = v.len() as f64;
                 let m = v.iter().sum::<f64>() / n;
-                let s = (v.iter().map(|x| (x - m).powi(2)).sum::<f64>() / (n - 1.0)).sqrt();
+                let s = (v.iter().map(|x| (x - m).r_powi(2)).sum::<f64>() / (n - 1.0)).sqrt();
                 (m, s)
             };
             let (om, os) = stat(&means);
@@ -1878,7 +1879,7 @@ mod tests {
             let r = tmcmc(&prior, conjugate_ln_likelihood(y.clone(), sigma), &config).unwrap();
             let n = r.samples.len() as f64;
             let m = r.samples.iter().map(|t| t[0]).sum::<f64>() / n;
-            let v = r.samples.iter().map(|t| (t[0] - m).powi(2)).sum::<f64>() / (n - 1.0);
+            let v = r.samples.iter().map(|t| (t[0] - m).r_powi(2)).sum::<f64>() / (n - 1.0);
             means.push(m);
             sds.push(v.sqrt());
             ln_zs.push(r.ln_evidence);
@@ -1887,7 +1888,7 @@ mod tests {
         let stat = |v: &[f64]| {
             let n = v.len() as f64;
             let m = v.iter().sum::<f64>() / n;
-            let s = (v.iter().map(|x| (x - m).powi(2)).sum::<f64>() / (n - 1.0)).sqrt();
+            let s = (v.iter().map(|x| (x - m).r_powi(2)).sum::<f64>() / (n - 1.0)).sqrt();
             (m, s)
         };
         let (om, os) = stat(&means);

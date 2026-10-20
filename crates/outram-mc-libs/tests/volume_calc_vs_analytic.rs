@@ -86,6 +86,7 @@
 //! with its own noise, and the asymmetry above means the cheap version is
 //! informative in the direction that counts.
 
+use petir::mathf::RealMath;
 use outram_mc_libs::geometry::cell::{Cell, HalfSpaceSense, RegionToken};
 use outram_mc_libs::geometry::geometry::Geometry;
 use outram_mc_libs::geometry::position::Position;
@@ -223,8 +224,8 @@ fn closed_form_volumes_are_recovered() {
     };
     let (res, located) = calc.execute(&geom);
 
-    let inner_exact = 4.0 / 3.0 * pi * 2.0_f64.powi(3);
-    let shell_exact = 4.0 / 3.0 * pi * (4.0_f64.powi(3) - 2.0_f64.powi(3));
+    let inner_exact = 4.0 / 3.0 * pi * 2.0_f64.r_powi(3);
+    let shell_exact = 4.0 / 3.0 * pi * (4.0_f64.r_powi(3) - 2.0_f64.r_powi(3));
     println!("hit fraction in geometry: {located:.4} (exact: pi/6 = {:.4})", pi / 6.0);
     for (r, exact, name) in [
         (res[0], inner_exact, "inner ball r<2"),
@@ -287,7 +288,7 @@ fn closed_form_volumes_are_recovered() {
 fn the_quoted_uncertainty_matches_the_observed_scatter() {
     const REPEATS: usize = 32;
     let geom = sphere_geom(&[4.0]);
-    let exact = 4.0 / 3.0 * std::f64::consts::PI * 4.0_f64.powi(3);
+    let exact = 4.0 / 3.0 * std::f64::consts::PI * 4.0_f64.r_powi(3);
 
     let mut estimates = Vec::with_capacity(REPEATS);
     let mut quoted = 0.0_f64;
@@ -312,7 +313,7 @@ fn the_quoted_uncertainty_matches_the_observed_scatter() {
     let mean = estimates.iter().sum::<f64>() / REPEATS as f64;
     let observed = (estimates
         .iter()
-        .map(|v| (v - mean).powi(2))
+        .map(|v| (v - mean).r_powi(2))
         .sum::<f64>()
         / (REPEATS as f64 - 1.0))
         .sqrt();

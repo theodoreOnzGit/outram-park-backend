@@ -95,6 +95,7 @@
 //! doc comments in this module for the measured values; every case agrees with
 //! its closed form to `< 1e-12`.
 
+use petir::mathf::RealMath;
 use outram_foam_basic_lib::io::PolyMesh;
 use outram_foam_basic_lib::primitives::Vector3;
 
@@ -368,7 +369,7 @@ pub fn assess_quality(mesh: &PolyMesh) -> MeshQualityReport {
         let sf = areas[fi];
         let denom = d.mag() * sf.mag() + 1e-300;
         let cos = (d.dot(sf) / denom).clamp(-1.0, 1.0);
-        let ang = cos.acos().to_degrees();
+        let ang = cos.r_acos().to_degrees();
         sum_non_ortho += ang;
         max_non_ortho_deg = max_non_ortho_deg.max(ang);
         if ang > NON_ORTHO_SEVERE_DEG {
@@ -446,7 +447,7 @@ fn cell_aspect_ratio(sum_cmpt_mag: Vector3, volume: f64) -> f64 {
     if volume <= 0.0 {
         return 0.0;
     }
-    (sum_cmpt_mag.x + sum_cmpt_mag.y + sum_cmpt_mag.z) / (6.0 * volume.powf(2.0 / 3.0))
+    (sum_cmpt_mag.x + sum_cmpt_mag.y + sum_cmpt_mag.z) / (6.0 * volume.r_powf(2.0 / 3.0))
 }
 
 /// Skewness of a single face (OpenFOAM `primitiveMeshTools::faceSkewness`).
@@ -651,7 +652,7 @@ mod tests {
     #[test]
     fn sheared_block_non_orthogonality_is_atan_k() {
         for target_deg in [45.0f64, 60.0, 86.0] {
-            let k = target_deg.to_radians().tan();
+            let k = target_deg.to_radians().r_tan();
             let m = box_row(3, 1.0, 1.0, 1.0, |p| Vector3::new(p.x + k * p.z, p.y, p.z));
             let q = assess_quality(&m);
 
@@ -837,7 +838,7 @@ mod tests {
         let m = box_row(1, a, b, c, |p| p);
         let q = assess_quality(&m);
 
-        let expected = (a * b + b * c + c * a) / (3.0 * (a * b * c).powf(2.0 / 3.0));
+        let expected = (a * b + b * c + c * a) / (3.0 * (a * b * c).r_powf(2.0 / 3.0));
         assert!(
             (q.max_aspect_ratio - expected).abs() < 1e-12,
             "AR {} vs {expected}",

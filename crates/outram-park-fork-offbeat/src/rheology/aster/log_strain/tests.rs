@@ -25,6 +25,7 @@
 //! None of these is validation against code_aster output; they are verification
 //! that the framework is internally and physically correct.
 
+use petir::mathf::RealMath;
 use approx::assert_relative_eq;
 use outram_foam_basic_lib::primitives::{SymmTensor, Tensor};
 
@@ -153,7 +154,7 @@ fn the_wrapped_stress_is_objective() {
     );
 
     let theta = std::f64::consts::FRAC_PI_6;
-    let (c, s) = (theta.cos(), theta.sin());
+    let (c, s) = (theta.r_cos(), theta.r_sin());
     let q = Tensor::new(c, -s, 0.0, s, c, 0.0, 0.0, 0.0, 1.0);
 
     let plain = LogarithmicStrain::new(DeformationGradient::new(f).unwrap()).unwrap();
@@ -217,13 +218,13 @@ fn pure_dilatation_matches_the_closed_form() {
 
     // E = ln(a) I
     let e = wrapper.log_strain();
-    assert_relative_eq!(e.xx, a.ln(), max_relative = 1e-12);
+    assert_relative_eq!(e.xx, a.r_ln(), max_relative = 1e-12);
     assert!(e.xy.abs() < 1e-15 && e.xz.abs() < 1e-15 && e.yz.abs() < 1e-15);
 
     let t = hookean(e, MU, LAMBDA);
     let sigma = wrapper.cauchy_from_conjugate(t);
 
-    let expected = (2.0 * MU + 3.0 * LAMBDA) * a.ln() / a.powi(3);
+    let expected = (2.0 * MU + 3.0 * LAMBDA) * a.r_ln() / a.r_powi(3);
     assert_relative_eq!(sigma.xx, expected, max_relative = 1e-12);
     assert_relative_eq!(sigma.yy, expected, max_relative = 1e-12);
     assert_relative_eq!(sigma.zz, expected, max_relative = 1e-12);
@@ -274,7 +275,7 @@ fn uniaxial_stretch_matches_the_closed_form() {
     let t = hookean(e, MU, LAMBDA);
     let sigma = wrapper.cauchy_from_conjugate(t);
 
-    let ln_a = a.ln();
+    let ln_a = a.r_ln();
     // T = 2 mu E + lambda tr(E) I, with E = diag(ln a, 0, 0).
     let t_xx = 2.0 * MU * ln_a + LAMBDA * ln_a;
     let t_yy = LAMBDA * ln_a;

@@ -47,6 +47,8 @@
 //! instead, which corrupted `Y^-1` for every `n >= 4` spin group with a
 //! non-zero off-diagonal; see `xdot`'s doc comment.
 
+use petir::mathf::RealMath;
+
 /// A packed complex-symmetric matrix (see this module's doc comment for
 /// the storage convention).
 pub struct PackedComplexMatrix {
@@ -154,9 +156,9 @@ fn ixamax(n: i64, re: &[f64], im: &[f64], x0: i64) -> i64 {
         return 1;
     }
     let mut imax = 1_i64;
-    let mut smax = g(re, x0 + 1).powi(2) + g(im, x0 + 1).powi(2);
+    let mut smax = g(re, x0 + 1).r_powi(2) + g(im, x0 + 1).r_powi(2);
     for i in 2..=n {
-        let aa = g(re, x0 + i).powi(2) + g(im, x0 + i).powi(2);
+        let aa = g(re, x0 + i).r_powi(2) + g(im, x0 + i).r_powi(2);
         if aa > smax {
             imax = i;
             smax = aa;
@@ -200,11 +202,11 @@ pub fn xspfa(a: &mut PackedComplexMatrix, n: i64) -> (Vec<i64>, i64) {
 
         let km1 = k - 1;
         let kk = ik + k;
-        let absakk = g(re, kk).powi(2) + g(im, kk).powi(2);
+        let absakk = g(re, kk).r_powi(2) + g(im, kk).r_powi(2);
 
         let imax = ixamax(k - 1, re, im, ik);
         let imk = ik + imax;
-        let colmax = g(re, imk).powi(2) + g(im, imk).powi(2);
+        let colmax = g(re, imk).r_powi(2) + g(im, imk).r_powi(2);
 
         let kstep;
         let swap;
@@ -219,7 +221,7 @@ pub fn xspfa(a: &mut PackedComplexMatrix, n: i64) -> (Vec<i64>, i64) {
             let mut imj = im_val + 2 * imax;
             let mut j = imaxp1;
             while j <= k {
-                let aa = g(re, imj).powi(2) + g(im, imj).powi(2);
+                let aa = g(re, imj).r_powi(2) + g(im, imj).r_powi(2);
                 rowmax = rowmax.max(aa);
                 imj += j;
                 j += 1;
@@ -227,11 +229,11 @@ pub fn xspfa(a: &mut PackedComplexMatrix, n: i64) -> (Vec<i64>, i64) {
             if imax != 1 {
                 let jmax = ixamax(imax - 1, re, im, im_val);
                 let jmim = jmax + im_val;
-                let aa = g(re, jmim).powi(2) + g(im, jmim).powi(2);
+                let aa = g(re, jmim).r_powi(2) + g(im, jmim).r_powi(2);
                 rowmax = rowmax.max(aa);
             }
             let imim = imax + im_val;
-            let aa = g(re, imim).powi(2) + g(im, imim).powi(2);
+            let aa = g(re, imim).r_powi(2) + g(im, imim).r_powi(2);
             if aa >= alpha * rowmax {
                 kstep = 1;
                 swap = true;
@@ -268,7 +270,7 @@ pub fn xspfa(a: &mut PackedComplexMatrix, n: i64) -> (Vec<i64>, i64) {
             for jj in 1..=km1 {
                 let j = k - jj;
                 let jk = ik + j;
-                let aa = g(re, kk).powi(2) + g(im, kk).powi(2);
+                let aa = g(re, kk).r_powi(2) + g(im, kk).r_powi(2);
                 let dmulk = -(g(re, jk) * g(re, kk) + g(im, jk) * g(im, kk)) / aa;
                 let dmulki = (g(re, jk) * g(im, kk) - g(im, jk) * g(re, kk)) / aa;
                 xaxpy(j, dmulk, dmulki, re, im, ik, ij);
@@ -300,7 +302,7 @@ pub fn xspfa(a: &mut PackedComplexMatrix, n: i64) -> (Vec<i64>, i64) {
 
             let km2 = k - 2;
             if km2 != 0 {
-                let aa = g(re, km1k).powi(2) + g(im, km1k).powi(2);
+                let aa = g(re, km1k).r_powi(2) + g(im, km1k).r_powi(2);
                 let ak = (g(re, kk) * g(re, km1k) + g(im, kk) * g(im, km1k)) / aa;
                 let aki = (g(im, kk) * g(re, km1k) - g(re, kk) * g(im, km1k)) / aa;
                 let km1km1 = ikm1 + k - 1;
@@ -379,7 +381,7 @@ pub fn xspsl(a: &PackedComplexMatrix, n: i64, kpvt: &[i64], b_re: &mut [f64], b_
                 let bk_im = b_im[(k - 1) as usize];
                 xaxpy_b(k - 1, bk_re, bk_im, re, im, ik, b_re, b_im);
             }
-            let aa = g(re, kk).powi(2) + g(im, kk).powi(2);
+            let aa = g(re, kk).r_powi(2) + g(im, kk).r_powi(2);
             let ab = (b_re[(k - 1) as usize] * g(re, kk) + b_im[(k - 1) as usize] * g(im, kk)) / aa;
             let new_bi =
                 (b_im[(k - 1) as usize] * g(re, kk) - b_re[(k - 1) as usize] * g(im, kk)) / aa;
@@ -405,7 +407,7 @@ pub fn xspsl(a: &PackedComplexMatrix, n: i64, kpvt: &[i64], b_re: &mut [f64], b_
             }
             let km1k = ik + k - 1;
             let kk = ik + k;
-            let aa = g(re, km1k).powi(2) + g(im, km1k).powi(2);
+            let aa = g(re, km1k).r_powi(2) + g(im, km1k).r_powi(2);
             let ak = (g(re, kk) * g(re, km1k) + g(im, kk) * g(im, km1k)) / aa;
             let aki = (g(im, kk) * g(re, km1k) - g(re, kk) * g(im, km1k)) / aa;
             let km1km1 = ikm1 + k - 1;

@@ -31,6 +31,7 @@
 //! upstream defaults ([`BREAKTHROUGH_SERIES_TERMS`], [`BOOTH_SERIES_TERMS`],
 //! [`ATTENUATION_SERIES_TERMS`]).
 
+use petir::mathf::RealMath;
 use std::f64::consts::PI;
 
 use uom::si::diffusion_coefficient::square_meter_per_second;
@@ -96,7 +97,7 @@ pub fn rb_fail_noble_gases(
     };
     let lam = decay_constant.get::<hertz>();
     let t_k = temperature.get::<kelvin>();
-    let rb = (n * (1.0 / lam).ln() + b / t_k + c).exp();
+    let rb = (n * (1.0 / lam).r_ln() + b / t_k + c).r_exp();
     Ratio::new::<ratio>(rb)
 }
 
@@ -145,7 +146,7 @@ pub fn breakthrough_model(
     for k in 1..BREAKTHROUGH_SERIES_TERMS {
         let n = k as f64;
         sum +=
-            (-1.0_f64).powi(k as i32) / (n * PI).powi(2) * (-(n * PI).powi(2) * d_prime * t).exp();
+            (-1.0_f64).r_powi(k as i32) / (n * PI).r_powi(2) * (-(n * PI).r_powi(2) * d_prime * t).r_exp();
     }
     let rf = 3.0 * (d * t) / r / a - a / 2.0 / r - 6.0 * a / r * sum;
     clamp_release_fraction(rf)
@@ -190,7 +191,7 @@ pub fn booth_longlived(
     let mut sum = 0.0;
     for i in 1..BOOTH_SERIES_TERMS {
         let n = i as f64;
-        sum += (-(n * PI).powi(2) * d_prime * t).exp() / (n * PI).powi(2);
+        sum += (-(n * PI).r_powi(2) * d_prime * t).r_exp() / (n * PI).r_powi(2);
     }
     Ratio::new::<ratio>(1.0 - 6.0 * sum)
 }
@@ -231,7 +232,7 @@ pub fn booth_shortlived_fast_diffuse(
     let lam = decay_constant.get::<hertz>();
     let a = equivalent_sphere_radius.get::<meter>();
     let x = (lam * a * a / d).sqrt();
-    let rb = 3.0 / x * (1.0 / x.tanh() - 1.0 / x);
+    let rb = 3.0 / x * (1.0 / x.r_tanh() - 1.0 / x);
     Ratio::new::<ratio>(rb)
 }
 
@@ -277,7 +278,7 @@ pub fn attenuation_factor(
     while i < ATTENUATION_SERIES_TERMS {
         let n = i as f64;
         sum +=
-            4.0 / n / PI * (n * PI / 2.0).sin() * (-(n * PI).powi(2) * d * t / 4.0 / a / a).exp();
+            4.0 / n / PI * (n * PI / 2.0).r_sin() * (-(n * PI).r_powi(2) * d * t / 4.0 / a / a).r_exp();
         i += 2;
     }
     let af = if sum == 1.0 {
@@ -345,7 +346,7 @@ mod tests {
         // For large x, coth(x)≈1, so <R/B> ≈ (3/x)(1 − 1/x) ≈ 3/x.
         assert_relative_eq!(
             rb,
-            3.0 / x * (1.0 / x.tanh() - 1.0 / x),
+            3.0 / x * (1.0 / x.r_tanh() - 1.0 / x),
             max_relative = 1e-12
         );
         assert_relative_eq!(rb, 3.0 / x, max_relative = 2e-2);

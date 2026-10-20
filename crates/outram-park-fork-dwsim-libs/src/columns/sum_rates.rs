@@ -81,6 +81,7 @@
 //! - Stage heat duties `Q_j` are **never updated** by this solver — an absorber
 //!   has given duties. They are echoed back unchanged.
 
+use petir::mathf::RealMath;
 use crate::columns::bubble_point::net_flow_sums;
 use crate::columns::model::{ColumnError, ColumnSolverInput, ColumnSolverOutput};
 use crate::columns::profile::StageProfile;
@@ -412,9 +413,9 @@ impl SumRatesSolver {
                     let y_ant = yc[i][j];
                     yc[i][j] = k[i][j] * xc[i][j];
                     sumy += yc[i][j];
-                    comp_error += (yc[i][j] - y_ant).powi(2);
+                    comp_error += (yc[i][j] - y_ant).r_powi(2);
                 }
-                t_error += (tj[i] - tj_ant[i]).powi(2);
+                t_error += (tj[i] - tj_ant[i]).r_powi(2);
                 if sumy > 0.0 {
                     for j in 0..nc {
                         yc[i][j] /= sumy;

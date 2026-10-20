@@ -155,6 +155,7 @@
 //!   operation, reactor control, safety-critical, or licensing decisions.
 //!   Independent OUTRAM PARK fork, not the official DWSIM.
 
+use petir::mathf::RealMath;
 use crate::thermo::ideal_props::R;
 
 /// Fugacity model for the gas-phase chemical potential (enum dispatch, no
@@ -569,7 +570,7 @@ impl GibbsSystem {
         };
 
         let rt = R * temperature;
-        let ln_p_ratio = (pressure / p_ref).ln();
+        let ln_p_ratio = (pressure / p_ref).r_ln();
         // Constant (composition-independent) part of μ_i/RT.
         let cc: Vec<f64> = (0..n)
             .map(|i| gibbs_formation[i] / rt + ln_phi[i] + ln_p_ratio)
@@ -602,7 +603,7 @@ impl GibbsSystem {
 
             // μ_i/RT = cc_i + ln(y_i),  y_i = n_i / n_t.
             for i in 0..n {
-                mu_rt[i] = cc[i] + (moles[i] / n_t).ln();
+                mu_rt[i] = cc[i] + (moles[i] / n_t).r_ln();
             }
 
             // Assemble the (M+1) RAND system.
@@ -673,7 +674,7 @@ impl GibbsSystem {
                 1.0
             };
             for i in 0..n {
-                moles[i] *= (omega * delta[i]).exp();
+                moles[i] *= (omega * delta[i]).r_exp();
                 // Guard against under/overflow to keep the next ln finite.
                 if !moles[i].is_finite() || moles[i] < 1e-300 {
                     moles[i] = 1e-300;
@@ -711,7 +712,7 @@ impl GibbsSystem {
         // Final element potentials and Gibbs energy at the converged point.
         let n_t: f64 = moles.iter().sum();
         for i in 0..n {
-            mu_rt[i] = cc[i] + (moles[i] / n_t).ln();
+            mu_rt[i] = cc[i] + (moles[i] / n_t).r_ln();
         }
         // Recover π at convergence by one more solve for reporting (u ≈ 0 there).
         let element_potentials = self.final_element_potentials(&moles, &mu_rt);
@@ -872,7 +873,7 @@ mod tests {
             )
             .unwrap();
 
-        let k = (-dg / (R * t)).exp();
+        let k = (-dg / (R * t)).r_exp();
         let nb = k / (1.0 + k);
         assert!(
             (res.moles[1] - nb).abs() < 1e-9,
@@ -934,7 +935,7 @@ mod tests {
             )
             .unwrap();
 
-        let k = (-dg / (R * t)).exp();
+        let k = (-dg / (R * t)).r_exp();
         let sk = k.sqrt();
         let xi = sk / (1.0 + sk);
 
@@ -975,7 +976,7 @@ mod tests {
         let (t, dg) = (1000.0, 10000.0);
         let g = [0.0, dg / 2.0]; // g°_A2 = 0, 2·g°_A = ΔG°
         let feed = [1.0, 0.0];
-        let k = (-dg / (R * t)).exp();
+        let k = (-dg / (R * t)).r_exp();
 
         // Analytic extent from 4ξ²/(1−ξ²)·(P/P°) = K.
         let xi_at = |pratio: f64| {
@@ -1070,7 +1071,7 @@ mod tests {
             )
             .unwrap();
 
-        let k = (-dg / (R * t)).exp();
+        let k = (-dg / (R * t)).r_exp();
         assert!(
             (res.mole_fractions[1] / res.mole_fractions[0] - k).abs() < 1e-9,
             "yB/yA={} K={}",
@@ -1097,7 +1098,7 @@ mod tests {
         let sys = GibbsSystem::new(&["A", "B"], &["X"], &[&[1.0, 1.0]]).unwrap();
         let t = 1000.0;
         let g = [0.0, 0.0]; // ΔG° = 0 ⇒ ideal K = 1
-        let c = 2.0_f64.ln();
+        let c = 2.0_f64.r_ln();
         let res = sys
             .minimize(
                 &g,
@@ -1111,9 +1112,9 @@ mod tests {
             .unwrap();
         let ratio = res.mole_fractions[1] / res.mole_fractions[0];
         assert!(
-            (ratio - (-c).exp()).abs() < 1e-9,
+            (ratio - (-c).r_exp()).abs() < 1e-9,
             "yB/yA={ratio} exp={}",
-            (-c).exp()
+            (-c).r_exp()
         );
         assert!((res.moles[0] + res.moles[1] - 1.0).abs() < 1e-9);
     }

@@ -43,6 +43,7 @@
 //! [`crate::csg::cell::Cell::contains`] would reject on its stack discipline)
 //! is never folded: it is kept, whole, in every voxel its box reaches.
 
+use petir::mathf::RealMath;
 use std::collections::HashMap;
 
 use crate::csg::cell::{HalfSpaceSense, RegionToken};
@@ -533,7 +534,7 @@ pub fn build(g: &Geometry, u: usize) -> Option<GridIndex> {
     let ext: [f64; 3] = [0, 1, 2].map(|k| hi[k] - lo[k]);
     let tokens: usize = cells.iter().map(|&c| g.cells[c].region.len()).sum();
     let target = (tokens * VOXELS_PER_TOKEN).clamp(MIN_VOXELS, MAX_VOXELS) as f64;
-    let side = (ext[0] * ext[1] * ext[2] / target).cbrt();
+    let side = (ext[0] * ext[1] * ext[2] / target).r_cbrt();
     let n = ext.map(|e| ((e / side).ceil() as usize).clamp(1, 1024));
     let d = [0, 1, 2].map(|k| ext[k] / n[k] as f64);
 

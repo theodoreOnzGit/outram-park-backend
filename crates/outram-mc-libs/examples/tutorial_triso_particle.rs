@@ -157,6 +157,7 @@
 //!   single-thread rate measured here (18.8 s per 5000) is below the
 //!   earlier ~27 s; the host's other load differed and is not recorded.
 
+use petir::mathf::RealMath;
 use std::path::PathBuf;
 use std::time::Instant;
 
@@ -287,7 +288,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .containing(sic_ball);
 
     // ── 4. The unit cell: a reflective cube at HTR-10's packing fraction ───
-    let pf = PARTICLES_PER_PEBBLE * (r.opyc / FUEL_ZONE_R_CM).powi(3);
+    let pf = PARTICLES_PER_PEBBLE * (r.opyc / FUEL_ZONE_R_CM).r_powi(3);
     let cube = Cube::with_packing_fraction(&opyc, Ratio::new::<ratio>(pf));
     // The same cube by its side, the other way the decision allows:
     // `Cube::side(cm(a))`.
@@ -627,7 +628,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!(
         "  six-factor product - k = {:+.0} ± {:.0} pcm ({zf:+.2} sigma)",
         (sf.k_from_factors.mean - k.mean) * 1e5,
-        (sf.k_from_factors.std.powi(2) + sigma.powi(2)).sqrt() * 1e5
+        (sf.k_from_factors.std.r_powi(2) + sigma.r_powi(2)).sqrt() * 1e5
     );
     assert!(
         sf.undefined_because.is_none(),

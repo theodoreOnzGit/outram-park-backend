@@ -81,6 +81,7 @@
 //! repeat runs and limitations are on the benchmark in
 //! `crate::krylov::hybrid_tests`.
 
+use petir::mathf::RealMath;
 use std::sync::Arc;
 
 use super::{KrylovResult, KrylovSettings, Preconditioner};
@@ -391,7 +392,7 @@ pub(super) fn givens(a: f64, b: f64) -> (f64, f64) {
     } else if a == 0.0 {
         (0.0, 1.0)
     } else {
-        let r = a.hypot(b);
+        let r = a.r_hypot(b);
         (a / r, b / r)
     }
 }

@@ -52,6 +52,7 @@
 //! were scored and then re-sampled after the particle stopped there. Fixed
 //! in `transport_csg.rs` (score only before `d_bound`), then passed.
 
+use petir::mathf::RealMath;
 use std::sync::Arc;
 
 use outram_blender::unstructured::{Element, ElementKind, LengthUnit, UnstructuredMesh};
@@ -80,7 +81,7 @@ const F: f64 = 0.61;
 /// BCC sphere radius for packing `F` in a cube of side `a`:
 /// `2·(4/3)π r³ = F a³`.
 fn bcc_radius(a: f64) -> f64 {
-    a * (3.0 * F / (8.0 * std::f64::consts::PI)).cbrt()
+    a * (3.0 * F / (8.0 * std::f64::consts::PI)).r_cbrt()
 }
 
 /// Whether `p` is inside a sphere of the infinite BCC lattice of pitch `a`
@@ -576,7 +577,7 @@ fn delta_tally_matches_surface_track_length_on_a_bcc_cell() {
     ];
     let a = 6.0;
     let grid: Vec<f64> = (0..4096)
-        .map(|i| (1.0e-5_f64.ln() + (2.0e7_f64.ln() - 1.0e-5_f64.ln()) * i as f64 / 4095.0).exp())
+        .map(|i| (1.0e-5_f64.r_ln() + (2.0e7_f64.r_ln() - 1.0e-5_f64.r_ln()) * i as f64 / 4095.0).r_exp())
         .collect();
     let maj = Majorant::over_indices(&mats, &[0, 1], &nucs, &grid, 0.3);
     let h = 0.5 * a;
@@ -640,7 +641,7 @@ fn delta_tally_matches_surface_track_length_on_a_bcc_cell() {
     println!("delta virtual collisions: {}", tent.virtual_collisions);
     for g in 0..2 {
         let z = (d[g].0 - s[g].0).abs()
-            / ((d[g].0 * d[g].1).powi(2) + (s[g].0 * s[g].1).powi(2)).sqrt();
+            / ((d[g].0 * d[g].1).r_powi(2) + (s[g].0 * s[g].1).r_powi(2)).sqrt();
         println!(
             "group {g}: Σ_t surface {:.6} ± {:.2e} | delta tentative {:.6} ± {:.2e} ({:+.2} %, {z:.2} σ) | delta real-collision {:.6} ± {:.2e} ({:+.1} %)",
             s[g].0, s[g].0 * s[g].1, d[g].0, d[g].0 * d[g].1,

@@ -442,6 +442,7 @@ pub(crate) fn block_on<F: Future>(future: F) -> F::Output {
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
 
     /// The CPU reference path is always exercised (feature-independent).
@@ -487,7 +488,7 @@ mod tests {
         let pts: Vec<Vec3> = (0..1000)
             .map(|i| {
                 let f = i as f64;
-                Vec3::new(f * 0.5 - 3.0, (f * 0.25).sin() * 4.0, f * 0.01)
+                Vec3::new(f * 0.5 - 3.0, (f * 0.25).r_sin() * 4.0, f * 0.01)
             })
             .collect();
 

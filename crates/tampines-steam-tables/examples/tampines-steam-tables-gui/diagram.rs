@@ -27,6 +27,7 @@
 //! the same rule the reference-data layers follow: **say a layer does not apply,
 //! never fill it with something that looks like data.**
 
+use petir::mathf::RealMath;
 use uom::si::available_energy::kilojoule_per_kilogram;
 use uom::si::pressure::bar;
 use uom::si::specific_heat_capacity::kilojoule_per_kilogram_kelvin;
@@ -160,7 +161,7 @@ impl DiagramKind {
     pub fn y_hover(self, y: f64, log: bool) -> String {
         match self {
             Self::TemperaturePressure | Self::PressureEnthalpy => {
-                let p_bar = if log { 10.0_f64.powf(y) } else { y };
+                let p_bar = if log { 10.0_f64.r_powf(y) } else { y };
                 format!("p = {p_bar:.4} bar")
             }
             Self::TemperatureEntropy => format!("T = {y:.2} \u{00B0}C"),

@@ -24,6 +24,7 @@
 //! These are arithmetic, not transport. Eigenvalue consequences are measured in
 //! `examples/htr10_pebble_delta_tracking.rs`.
 
+use petir::mathf::RealMath;
 use super::*;
 use crate::prelude::TrisoSpec;
 use std::f64::consts::PI;
@@ -54,7 +55,7 @@ fn the_tabulated_heavy_metal_loading_closes_to_a_milligram() {
     let m_u = x5 * 235.043_930 + (1.0 - x5) * 238.050_788;
     let m_uo2 = m_u + 2.0 * 15.994_914_6;
 
-    let v_kernel = 4.0 / 3.0 * PI * spec.kernel.powi(3);
+    let v_kernel = 4.0 / 3.0 * PI * spec.kernel.r_powi(3);
     let hm = KERNELS_PER_BALL * v_kernel * RHO_UO2 * m_u / m_uo2;
 
     assert!(
@@ -70,7 +71,7 @@ fn the_tabulated_heavy_metal_loading_closes_to_a_milligram() {
 #[test]
 fn the_stored_packing_fraction_is_what_the_geometry_implies() {
     let spec = TrisoSpec::HTR10_LI2014;
-    let implied = KERNELS_PER_BALL * (spec.opyc / FUEL_ZONE_RADIUS).powi(3);
+    let implied = KERNELS_PER_BALL * (spec.opyc / FUEL_ZONE_RADIUS).r_powi(3);
     assert!(
         (implied - spec.packing_fraction).abs() < 1.0e-6,
         "stored packing fraction {} but 8335 particles of radius {} in a {} cm \

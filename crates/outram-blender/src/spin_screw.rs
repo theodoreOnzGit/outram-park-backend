@@ -36,6 +36,7 @@
 //! For an explicit polyline (rather than a mesh selection) use
 //! [`crate::revolve`].
 
+use petir::mathf::RealMath;
 use crate::math::Vec3;
 use crate::mesh::{Mesh, VertexId};
 use crate::selection::Axis;
@@ -172,7 +173,7 @@ fn sweep(
 
 /// Rotate `v` about unit axis `k` by `theta` (Rodrigues).
 fn rotate_about(v: Vec3, k: Vec3, theta: f64) -> Vec3 {
-    let (s, c) = theta.sin_cos();
+    let (s, c) = theta.r_sin_cos();
     v.scale(c)
         .add(k.cross(v).scale(s))
         .add(k.scale(k.dot(v) * (1.0 - c)))

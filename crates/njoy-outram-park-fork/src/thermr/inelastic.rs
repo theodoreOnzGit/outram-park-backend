@@ -30,6 +30,7 @@
 //! adaptively to a tolerance; that refinement (and the liquid `cliq` small-α
 //! correction) are future accuracy work, noted where they apply.
 
+use petir::mathf::RealMath;
 use super::mf7::{interp_s_temperature, AlphaTable, IncoherentInelastic};
 use crate::common::phys::BK_EV_PER_K;
 
@@ -78,7 +79,7 @@ impl IncoherentInelastic {
     /// material (`B(6)` records it; pass `1.0` for a monatomic scatterer).
     pub fn sigma_bound(&self, natom: f64) -> f64 {
         let a = self.mass_ratio();
-        (self.b[0] / natom) * ((a + 1.0) / a).powi(2)
+        (self.b[0] / natom) * ((a + 1.0) / a).r_powi(2)
     }
 
     /// Principal-scatterer effective temperature `T_eff` \[eV\] at physical
@@ -190,7 +191,7 @@ impl IncoherentInelastic {
         if let Some(s) = self.liquid_small_alpha_ln_s(tables, a_tab, b_tab) {
             // Label 160: `sig = 0; if (s-bb/2 > sabflg) sig = exp(s-bb/2)`.
             let arg = s - beta / 2.0;
-            let x = if arg > SABFLG { arg.exp() } else { 0.0 };
+            let x = if arg > SABFLG { arg.r_exp() } else { 0.0 };
             let sig = sigc * self.sigma_bound(natom) * x;
             return if sig.is_finite() && sig > 0.0 {
                 sig
@@ -231,7 +232,7 @@ impl IncoherentInelastic {
         // sabflg) sig = exp(s-bb/2)`), and the floored-corner gate above
         // already sends deep downscatter to the SCT kernel.
         let arg = ln_s - beta / 2.0;
-        let x = if arg > SABFLG { arg.exp() } else { 0.0 };
+        let x = if arg > SABFLG { arg.r_exp() } else { 0.0 };
         let sig = sigc * self.sigma_bound(natom) * x;
         if sig.is_finite() && sig > 0.0 {
             sig
@@ -292,10 +293,10 @@ impl IncoherentInelastic {
         // T_eff in eV, at the requested temperature where calcem reads it
         // there (`IncoherentInelastic::teff_request_k`, GitHub #866).
         let teff = self.teff_ev(self.teff_request_k.unwrap_or(temp_k));
-        let arg = (a - b).powi(2) * tev / (4.0 * a * teff) + (b + bb) / 2.0;
+        let arg = (a - b).r_powi(2) * tev / (4.0 * a * teff) + (b + bb) / 2.0;
         let mut sig = 0.0;
         if -arg > SABFLG {
-            let s = (-arg).exp() / (c * (a * teff * rtev).sqrt());
+            let s = (-arg).r_exp() / (c * (a * teff * rtev).sqrt());
             sig += sigc * self.sigma_bound(natom) * s;
         }
         if sig.is_finite() && sig > 0.0 {
@@ -645,7 +646,7 @@ impl IncoherentInelastic {
         let ia1 = (ia + 1).min(na - 1);
         let floored = |t: &AlphaTable, i: usize| {
             let v = t.s.get(i).copied().unwrap_or(0.0);
-            !(v > 0.0) || v.ln() <= SABFLG
+            !(v > 0.0) || v.r_ln() <= SABFLG
         };
         floored(&tables[ib], ia)
             || floored(&tables[ib], ia1)
@@ -700,7 +701,7 @@ impl IncoherentInelastic {
         if t0.alpha.len() < 2 || self.beta.len() < 2 {
             return None;
         }
-        let ln = |v: f64| if v > SABFLG.exp() { v.ln() } else { SABFLG };
+        let ln = |v: f64| if v > SABFLG.r_exp() { v.r_ln() } else { SABFLG };
         let (s11, s21, s12) = (ln(t0.s[0]), ln(t0.s[1]), ln(t1.s[0]));
         if !(s11 > s21) {
             return None; // cliq = 0: not the diffusive case
@@ -711,7 +712,7 @@ impl IncoherentInelastic {
             return None;
         }
         let cliq = (s11 - s12) * alpha1 / (beta2 * beta2);
-        let s = s11 + (alpha1 / a).ln() / 2.0 - cliq * b * b / a;
+        let s = s11 + (alpha1 / a).r_ln() / 2.0 - cliq * b * b / a;
         Some(s.max(SABFLG))
     }
 
@@ -805,7 +806,7 @@ fn terp1_lin_log(x1: f64, y1: f64, x2: f64, y2: f64, x: f64) -> f64 {
     if x2 == x1 || y2 == y1 || x == x1 {
         return y1;
     }
-    y1 + (x / x1).ln() * (y2 - y1) / (x2 / x1).ln()
+    y1 + (x / x1).r_ln() * (y2 - y1) / (x2 / x1).r_ln()
 }
 
 /// **`terpq` — the three-point interpolation NJOY uses for `ln S(α,β)` on both
@@ -895,7 +896,7 @@ fn interp_alpha_ln_s(table: &AlphaTable, a: f64) -> f64 {
         return SABFLG;
     }
     // `thermr.f90:1748-1751`: `log(S)` above `sabmin = exp(sabflg)`, else `sabflg`.
-    let ln = |v: f64| if v > SABFLG.exp() { v.ln() } else { SABFLG };
+    let ln = |v: f64| if v > SABFLG.r_exp() { v.r_ln() } else { SABFLG };
     if a >= alpha[n - 1] {
         return SABFLG;
     }

@@ -22,6 +22,7 @@
 //! `P_l(|ER|)`, which the caller re-evaluates whenever it perturbs `ER` or
 //! the scattering radius.
 
+use petir::mathf::RealMath;
 use crate::common::phys::{AMASSN_AMU, PI};
 use crate::reconr::slbw::WAVE_K;
 
@@ -46,7 +47,7 @@ pub fn ggmlbw(e: f64, b: &[f64]) -> ([f64; 4], f64) {
     let awri = b[12];
     let ap = b[7];
     let aw = AMASSN_AMU * awri;
-    let mut ra = RC1 * aw.powf(THIRD) + RC2;
+    let mut ra = RC1 * aw.r_powf(THIRD) + RC2;
     if naps == 1 {
         ra = ap;
     }
@@ -77,8 +78,8 @@ pub fn ggmlbw(e: f64, b: &[f64]) -> ([f64; 4], f64) {
             pec = p;
         }
         let phi = efacphi(ll, rhoc);
-        let cos2p = 1.0 - (2.0 * phi).cos();
-        let sin2p = (2.0 * phi).sin();
+        let cos2p = 1.0 - (2.0 * phi).r_cos();
+        let sin2p = (2.0 * phi).r_sin();
         let mut sum = 0.0;
         let fl = ll as f64;
         let ajmin = ((spi - fl).abs() - 0.5).abs();
@@ -127,7 +128,7 @@ pub fn ggmlbw(e: f64, b: &[f64]) -> ([f64; 4], f64) {
             sigp[3] += comfac * gg;
         }
         for j in 0..nj {
-            let add = gj[j] * ((cos2p - sigj[0][j]).powi(2) + (sin2p + sigj[1][j]).powi(2));
+            let add = gj[j] * ((cos2p - sigj[0][j]).r_powi(2) + (sin2p + sigj[1][j]).r_powi(2));
             sigp[1] += add;
         }
         sigp[1] += 2.0 * diff * cos2p;

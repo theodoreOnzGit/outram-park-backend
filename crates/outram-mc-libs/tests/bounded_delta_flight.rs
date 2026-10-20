@@ -34,6 +34,7 @@
 //! Also measured: 1960 of 2000 flights through a thin slab exited, and **every
 //! one landed on the boundary to within 1e-12 cm** rather than past it.
 
+use petir::mathf::RealMath;
 use outram_mc_libs::geometry::position::{Direction, Position};
 use outram_mc_libs::material::material::{Material, NuclideComponent};
 use outram_mc_libs::material::nuclide::Nuclide;
@@ -64,7 +65,7 @@ fn slab_material(atom_density: f64) -> Material {
 
 fn grid() -> Vec<f64> {
     (0..24)
-        .map(|i| 1.0e-3 * 10.0_f64.powf(i as f64 * 0.5))
+        .map(|i| 1.0e-3 * 10.0_f64.r_powf(i as f64 * 0.5))
         .collect()
 }
 
@@ -214,7 +215,7 @@ fn truncation_is_unbiased() {
 
     // Binomial sigma on the collided fraction, combined over the two arms.
     let sd = |f: f64| (f * (1.0 - f) / N as f64).sqrt();
-    let sigma_frac = (sd(frac_a).powi(2) + sd(frac_b).powi(2)).sqrt();
+    let sigma_frac = (sd(frac_a).r_powi(2) + sd(frac_b).r_powi(2)).sqrt();
     let z_frac = (frac_a - frac_b).abs() / sigma_frac.max(1.0e-12);
 
     println!("            one region     two regions");

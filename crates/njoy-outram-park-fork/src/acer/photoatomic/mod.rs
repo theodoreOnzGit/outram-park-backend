@@ -56,6 +56,7 @@
 pub mod fluorescence;
 pub mod incoherent_heating;
 
+use petir::mathf::RealMath;
 use crate::acer::read::{AceClass, AceFileType, AceHeader, RawAceTable};
 use crate::endf::gety1::Gety1;
 use crate::endf::interp::{intega, terpa};
@@ -244,7 +245,7 @@ impl PhotoatomicAce {
 pub fn to_log_eszg(xss: &mut [f64], nes: usize) {
     for v in xss.iter_mut().take(5 * nes) {
         if *v != 0.0 {
-            *v = v.ln();
+            *v = v.r_ln();
         }
     }
 }

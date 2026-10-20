@@ -58,6 +58,7 @@
 
 #![allow(dead_code)]
 
+use petir::mathf::RealMath;
 use std::f64::consts::PI;
 
 use outram_mc_libs::geometry::triso_particle::TrisoRadii;
@@ -91,7 +92,7 @@ pub const SEKER_INTERIOR_PACKING: f64 = 0.6448;
 
 /// `SekerCell::from_paper`: hexagon apothem \[cm\].
 pub fn apothem_cm() -> f64 {
-    BALL_DIAMETER_CM * (PI / 6.0).cos() + 0.5 * BALL_DIAMETER_CM
+    BALL_DIAMETER_CM * (PI / 6.0).r_cos() + 0.5 * BALL_DIAMETER_CM
 }
 
 /// Flat-to-flat pitch \[cm\] (`SekerCell::pitch`).
@@ -132,7 +133,7 @@ pub fn site_centre(site: Site) -> [f64; 3] {
     let h = height_cm();
     let polar = |rho: f64, deg: f64, z: f64| {
         let t = deg.to_radians();
-        [rho * t.cos(), rho * t.sin(), z]
+        [rho * t.r_cos(), rho * t.r_sin(), z]
     };
     let s3 = 3.0_f64.sqrt();
     match site {
@@ -168,7 +169,7 @@ pub fn fuel_flags(f: f64) -> Vec<bool> {
             (
                 layer,
                 ((x * x + y * y) * 1.0e6).round() as i64,
-                y.atan2(x),
+                y.r_atan2(x),
                 i,
             )
         })

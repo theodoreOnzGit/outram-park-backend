@@ -22,6 +22,7 @@
 //! module docs and in `verification_and_validation/tutorial_rung2/README.md`
 //! and `tutorial_rung3/README.md`.
 
+use petir::mathf::RealMath;
 use crate::material::material::{Material, NuclideComponent};
 use crate::pebble_beds::fhr_pebble::TrisoSpec;
 use crate::pebble_beds::htr10::{
@@ -215,7 +216,7 @@ pub fn uranium_volume_fraction(c_per_u: f64) -> f64 {
 /// Wigner-Seitz cell radius for a lump of radius `r_lump` at cell-average
 /// `c_per_u` \[cm\].
 pub fn cell_radius(r_lump: f64, c_per_u: f64) -> f64 {
-    r_lump / uranium_volume_fraction(c_per_u).cbrt()
+    r_lump / uranium_volume_fraction(c_per_u).r_cbrt()
 }
 
 #[cfg(test)]

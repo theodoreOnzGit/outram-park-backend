@@ -22,6 +22,7 @@
 //! A TRISO particle itself needs nothing new: it is concentric spheres, one
 //! `.containing` per statement (maintainer, #926, 2026-10-17).
 
+use petir::mathf::RealMath;
 use uom::si::f64::{Length, Ratio};
 use uom::si::length::centimeter;
 use uom::si::ratio::ratio;
@@ -301,7 +302,7 @@ impl Cylinder {
 
     /// Distance in the x-y plane from the axis to the point `p`.
     fn radial_cm(&self, p: [f64; 3]) -> f64 {
-        (p[0] - self.centre_cm[0]).hypot(p[1] - self.centre_cm[1])
+        (p[0] - self.centre_cm[0]).r_hypot(p[1] - self.centre_cm[1])
     }
 
     /// Whether `p` is inside.
@@ -398,7 +399,7 @@ impl Cube {
     /// ```
     pub fn with_packing_fraction(particle: &Shape, packing_fraction: Ratio) -> Cuboid {
         let pf = packing_fraction.get::<ratio>();
-        let a = (particle.solid.volume_cm3() / pf).cbrt();
+        let a = (particle.solid.volume_cm3() / pf).r_cbrt();
         let l = Length::new::<centimeter>(a);
         Cuboid::sides(l, l, l)
     }
@@ -485,7 +486,7 @@ impl Solid {
     /// [`Solid::volume_within`]).
     pub fn volume_cm3(&self) -> f64 {
         match self {
-            Solid::Sphere(s) => 4.0 / 3.0 * std::f64::consts::PI * s.radius_cm.powi(3),
+            Solid::Sphere(s) => 4.0 / 3.0 * std::f64::consts::PI * s.radius_cm.r_powi(3),
             Solid::Cuboid(b) => b.volume_cm3(),
             Solid::Cylinder(c) => c.volume_cm3().unwrap_or(f64::INFINITY),
             Solid::HexPrism(h) => h.volume_cm3(),
@@ -695,7 +696,7 @@ impl Solid {
                             if k & 1 == 0 { l[0] } else { u[0] },
                             if k & 2 == 0 { l[1] } else { u[1] },
                         );
-                        x.hypot(y) <= o.radius_cm() + tol
+                        x.r_hypot(y) <= o.radius_cm() + tol
                     })
             }
             (Solid::Cylinder(o), Solid::Hopper(i)) => {
@@ -712,7 +713,7 @@ impl Solid {
                 match self {
                     Solid::Sphere(o) => corners.iter().all(|v| {
                         (0..3)
-                            .map(|k| (v[k] - o.centre_cm[k]).powi(2))
+                            .map(|k| (v[k] - o.centre_cm[k]).r_powi(2))
                             .sum::<f64>()
                             .sqrt()
                             <= o.radius_cm + tol
@@ -749,7 +750,7 @@ impl Solid {
             }
             (Solid::Sphere(o), Solid::HexPrism(i)) => i.vertices().iter().all(|v| {
                 (0..3)
-                    .map(|k| (v[k] - o.centre_cm[k]).powi(2))
+                    .map(|k| (v[k] - o.centre_cm[k]).r_powi(2))
                     .sum::<f64>()
                     .sqrt()
                     <= o.radius_cm + tol
@@ -770,7 +771,7 @@ impl Solid {
                     .map(|k| {
                         let a = (l[k] - o.centre_cm[k]).abs();
                         let b = (u[k] - o.centre_cm[k]).abs();
-                        a.max(b).powi(2)
+                        a.max(b).r_powi(2)
                     })
                     .sum();
                 d2.sqrt() <= o.radius_cm + tol
@@ -782,10 +783,10 @@ impl Solid {
                 if !(lo.is_finite() && hi.is_finite()) {
                     return false;
                 }
-                let rim = (i.centre_cm[0] - o.centre_cm[0]).hypot(i.centre_cm[1] - o.centre_cm[1])
+                let rim = (i.centre_cm[0] - o.centre_cm[0]).r_hypot(i.centre_cm[1] - o.centre_cm[1])
                     + i.radius_cm;
                 let dz = (lo - o.centre_cm[2]).abs().max((hi - o.centre_cm[2]).abs());
-                rim.hypot(dz) <= o.radius_cm + tol
+                rim.r_hypot(dz) <= o.radius_cm + tol
             }
             (Solid::Cuboid(o), Solid::Cylinder(i)) => {
                 let (lo, uo) = o.bounds();
@@ -810,14 +811,14 @@ impl Solid {
                 let corners_in = [(l[0], l[1]), (l[0], u[1]), (u[0], l[1]), (u[0], u[1])]
                     .iter()
                     .all(|&(x, y)| {
-                        (x - o.centre_cm[0]).hypot(y - o.centre_cm[1]) <= o.radius_cm + tol
+                        (x - o.centre_cm[0]).r_hypot(y - o.centre_cm[1]) <= o.radius_cm + tol
                     });
                 corners_in && l[2] >= lo - tol && u[2] <= hi + tol
             }
             (Solid::Cylinder(o), Solid::Cylinder(i)) => {
                 let (lo, hi) = o.z_range();
                 let (li, ui) = i.z_range();
-                let d = (i.centre_cm[0] - o.centre_cm[0]).hypot(i.centre_cm[1] - o.centre_cm[1]);
+                let d = (i.centre_cm[0] - o.centre_cm[0]).r_hypot(i.centre_cm[1] - o.centre_cm[1]);
                 let radial = d + i.radius_cm <= o.radius_cm + tol;
                 // A rod in a rod, or any rod in a cylinder (the holder gives
                 // it its height): x-y only. A finite one must fit in z too.
@@ -834,7 +835,7 @@ impl Solid {
             (Solid::Hopper(a), Solid::Sphere(s)) | (Solid::Sphere(s), Solid::Hopper(a)) => {
                 // The nearest point of a solid of revolution to a centre lies
                 // in the centre's own meridional half-plane.
-                distance_to_profile(a, s.centre_cm[0].hypot(s.centre_cm[1]), s.centre_cm[2])
+                distance_to_profile(a, s.centre_cm[0].r_hypot(s.centre_cm[1]), s.centre_cm[2])
                     < s.radius_cm - tol
             }
             // Any other pair with a hopper: the bounding boxes, which can only
@@ -855,7 +856,7 @@ impl Solid {
                 let d2: f64 = (0..3)
                     .map(|k| {
                         let c = s.centre_cm[k];
-                        (l[k] - c).max(0.0).max(c - u[k]).powi(2)
+                        (l[k] - c).max(0.0).max(c - u[k]).r_powi(2)
                     })
                     .sum();
                 d2.sqrt() < s.radius_cm - tol
@@ -871,19 +872,19 @@ impl Solid {
                 let (lo, hi) = c.z_range();
                 let dz = (lo - s.centre_cm[2]).max(0.0).max(s.centre_cm[2] - hi);
                 let dr = (c.radial_cm(s.centre_cm) - c.radius_cm).max(0.0);
-                dr.hypot(dz) < s.radius_cm - tol
+                dr.r_hypot(dz) < s.radius_cm - tol
             }
             (Solid::Cuboid(b), Solid::Cylinder(c)) | (Solid::Cylinder(c), Solid::Cuboid(b)) => {
                 let (l, u) = b.bounds();
                 let (lo, hi) = c.z_range();
                 let dx = (l[0] - c.centre_cm[0]).max(0.0).max(c.centre_cm[0] - u[0]);
                 let dy = (l[1] - c.centre_cm[1]).max(0.0).max(c.centre_cm[1] - u[1]);
-                dx.hypot(dy) < c.radius_cm - tol && l[2] < hi - tol && lo < u[2] - tol
+                dx.r_hypot(dy) < c.radius_cm - tol && l[2] < hi - tol && lo < u[2] - tol
             }
             (Solid::Cylinder(a), Solid::Cylinder(b)) => {
                 let (la, ha) = a.z_range();
                 let (lb, hb) = b.z_range();
-                let d = (a.centre_cm[0] - b.centre_cm[0]).hypot(a.centre_cm[1] - b.centre_cm[1]);
+                let d = (a.centre_cm[0] - b.centre_cm[0]).r_hypot(a.centre_cm[1] - b.centre_cm[1]);
                 d < a.radius_cm + b.radius_cm - tol && la < hb - tol && lb < ha - tol
             }
         }
@@ -901,7 +902,7 @@ fn hex_overlaps(h: &HexPrism, other: &Solid, tol: f64) -> bool {
     match other {
         Solid::Sphere(s) => {
             let dz = gap(s.centre_cm[2], s.centre_cm[2]);
-            distance_to_polygon([s.centre_cm[0], s.centre_cm[1]], &poly).hypot(dz)
+            distance_to_polygon([s.centre_cm[0], s.centre_cm[1]], &poly).r_hypot(dz)
                 < s.radius_cm - tol
         }
         Solid::Cuboid(b) => {

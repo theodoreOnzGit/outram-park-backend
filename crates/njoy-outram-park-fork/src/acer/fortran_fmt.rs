@@ -107,6 +107,7 @@ pub fn fortran_i20(x: f64) -> String {
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
 
     #[test]
@@ -154,8 +155,8 @@ mod tests {
         let x = 587_985_670_346.5f64;
         assert_eq!(fortran_e(x, 11, 20).trim(), "5.87985670346E+11");
         // What the division form gives, recorded so the difference is visible:
-        let e = x.abs().log10().floor() as i32;
-        let divided = format!("{:.11}", x.abs() / 10f64.powi(e));
+        let e = x.abs().r_log10().floor() as i32;
+        let divided = format!("{:.11}", x.abs() / 10f64.r_powi(e));
         assert_eq!(divided, "5.87985670347", "the division form is a unit high here");
     }
 

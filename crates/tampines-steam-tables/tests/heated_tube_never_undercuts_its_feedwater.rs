@@ -46,6 +46,7 @@
 //! the bounded scheme removes it. Harness check of a discrete invariant, not a
 //! physics validation.
 
+use petir::mathf::RealMath;
 use tampines_steam_tables::region_1_subcooled_liquid::h_tp_1;
 use tampines_steam_tables::{EnergyConvectionScheme, TampinesSteamArray};
 use uom::si::area::square_meter;
@@ -73,7 +74,7 @@ fn worst_undershoot(scheme: EnergyConvectionScheme, seconds: f64) -> (f64, Optio
     let p = Pressure::new::<megapascal>(4.0);
     let t_feed = ThermodynamicTemperature::new::<kelvin>(313.15);
     let h_in = h_tp_1(t_feed, p);
-    let area = 90.0 * std::f64::consts::PI / 4.0 * 0.014_f64.powi(2);
+    let area = 90.0 * std::f64::consts::PI / 4.0 * 0.014_f64.r_powi(2);
     let mut arr = TampinesSteamArray::new(
         Length::new::<meter>(34.0),
         Area::new::<square_meter>(area),
