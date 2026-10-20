@@ -273,7 +273,7 @@
 //!   Institute (SNRSI).
 //! - **Permission:** given by the author for open-source release under OUTRAM
 //!   PARK, with institutional approval; see the crate README, "Permission and attribution".
-//! - **Licence:** GPL-3.0-only.
+//! - **Licence:** ~~GPL-3.0-only~~ **AGPL-3.0-only** (relicensed 2026-10-20, gh:#973).
 
 // --- support layer (no `.m` counterpart) ---------------------------------
 pub mod driftflux6_solverstatic1d;

@@ -432,7 +432,7 @@ ported module's doc comment points at it.
 | **Scope of that permission** | **explicitly open-source, under OUTRAM PARK** — stated up front, not inferred |
 | **Institutional approval** | given by SiCong (project lead), explicitly for sharing in the open-source repository |
 | **Source** | the `main_exec_diff3d_standalone` snapshot |
-| **Licence** | GPL-3.0-only |
+| **Licence** | ~~GPL-3.0-only~~ **AGPL-3.0-only** (relicensed 2026-10-20, gh:#973) |
 | **Recorded** | 2026-08-05 |
 
 The scope question that matters for a copyleft repository — translation for

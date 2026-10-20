@@ -16,7 +16,7 @@ governs everything not stated here; this file never relaxes it.
 An independent `no_std` Rust translation of **CYCLUS** (the agent-based
 fuel-cycle simulation kernel and its dynamic resource exchange) and
 **CYCAMORE** (its facility-agent library). Both upstreams are BSD-3-Clause;
-this crate is GPL-3.0-only and the relicensing is **one-way**.
+this crate is ~~GPL-3.0-only~~ **AGPL-3.0-only** (relicensed 2026-10-20, gh:#973) and the relicensing is **one-way**.
 
 Tracked as epic **`op-r830`**.
 

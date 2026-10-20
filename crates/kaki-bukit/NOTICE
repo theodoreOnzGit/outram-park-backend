@@ -3,8 +3,9 @@ outram-park-fork-cyclus
 
 Copyright (C) 2026 Theodore Ong and the outram-park contributors.
 
-This crate is distributed under the **GNU General Public License, version 3
-only (GPL-3.0-only)**, the OUTRAM PARK workspace default.
+This crate is distributed under the ~~**GNU General Public License, version 3
+only (GPL-3.0-only)**~~ **GNU Affero General Public License, version 3 only
+(AGPL-3.0-only)** (relicensed 2026-10-20, gh:#973), the OUTRAM PARK workspace default.
 
 Derived works
 -------------
@@ -29,7 +30,7 @@ This crate is an independent Rust translation of:
    **BSD-2-Clause**.
 
 BSD-3-Clause and BSD-2-Clause are both GPLv3-compatible, so this translation
-may be distributed under GPL-3.0-only. **The compatibility is ONE-WAY**: code
+may be distributed under ~~GPL-3.0-only~~ **AGPL-3.0-only**. **The compatibility is ONE-WAY**: code
 written in this crate cannot be contributed back to Cyclus, Cycamore or PyNE
 under their original licences without the copyright holder's agreement.
 
@@ -42,7 +43,7 @@ Cyclus project, CNERG, or the University of Wisconsin.**
 Dependencies
 ------------
 
-The only dependency is **`petir`** (GPL-3.0-only), this workspace's `no_std`
+The only dependency is **`petir`** (~~GPL-3.0-only~~ **AGPL-3.0-only**), this workspace's `no_std`
 numerics library, itself derived from the GNU Scientific Library. It supplies
 every numerical kernel this crate uses: the matrix algebra behind decay, and
 the transcendental functions behind the enrichment value function and the

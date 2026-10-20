@@ -12,7 +12,7 @@ be reproducible by a reader.
   generated `.txt` headers record. From the local checkout at `/opt/src/openmc`.
 * **Date accessed** — 2026-09-23
 * **Licence** — MIT; the upstream notice is `LICENSE.openmc` in this folder.
-  Compatible with this workspace's GPL-3.0-only.
+  Compatible with this workspace's ~~GPL-3.0-only~~ **AGPL-3.0-only** (relicensed 2026-10-20, gh:#973).
 
 ## Contents
 
@@ -21,7 +21,7 @@ be reproducible by a reader.
 | `chain_simple.xml` | `examples/pincell_depletion/chain_simple.xml` — the 9-nuclide notebook chain | copied verbatim |
 | `chain_simple_decay.xml` | `tests/chain_simple_decay.xml` — the same chain plus decay photon/electron sources and two metastable states | copied verbatim |
 | `chain_ni.xml` | `tests/chain_ni.xml` — 21 nuclides with `(n,2n)`, `(n,p)`, `(n,a)` and targetless decays | copied verbatim |
-| `dump_chain.py` | the driver: `openmc.deplete.Chain.from_xml` -> a flat, bit-exact text dump | new work (GPL-3.0, this workspace) |
+| `dump_chain.py` | the driver: `openmc.deplete.Chain.from_xml` -> a flat, bit-exact text dump | new work (~~GPL-3.0~~ **AGPL-3.0-only**, this workspace) |
 | `openmc_chain_*.txt` | the generated reference dumps | produced by `dump_chain.py` from the `.xml` beside it |
 | `LICENSE.openmc` | upstream MIT notice | copied verbatim |
 

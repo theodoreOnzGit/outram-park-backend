@@ -29,7 +29,7 @@
 //! | Version, commit | v3.0.0, `a356280d564bbdfbe74b97f32db0776444da58a5` (2026-10-02) |
 //! | Authors | "Jon Drobny <drobny2@illinois.edu>", "Jon Drobny <jdrobny@tae.com>" (upstream `Cargo.toml` `authors`). The JOSS paper's authors are Jon T. Drobny and Davide Curreli. Upstream states no copyright line. |
 //! | Paper | J. T. Drobny and D. Curreli, "RustBCA: A High-Performance Binary-Collision-Approximation Code for Ion-Material Interactions", *Journal of Open Source Software* **6**(64), 3298 (2021), doi:10.21105/joss.03298 |
-//! | Licence | GNU GPL v3; upstream's `LICENSE` is copied as `src/rustbca/LICENSE`. Upstream does not say "-only" or "-or-later"; either is compatible with boon-lay's GPL-3.0. |
+//! | Licence | GNU GPL v3; upstream's `LICENSE` is copied as `src/rustbca/LICENSE`. Upstream does not say "-only" or "-or-later"; either is compatible with boon-lay's ~~GPL-3.0~~ **AGPL-3.0-only** combined work. |
 //!
 //! Every copied file carries the workspace provenance header. The README beside
 //! this file repeats the attribution for readers browsing the tree.
