@@ -204,6 +204,8 @@ pub mod fast_exp;
 pub mod fast_log;
 pub mod fast_pow;
 pub mod gamma_inc;
+/// Correctly rounded `hypot` (`f64`, `f32`), ported from CORE-MATH (gh:#997).
+pub mod hypot;
 pub mod integration;
 pub mod interp;
 pub mod linalg;

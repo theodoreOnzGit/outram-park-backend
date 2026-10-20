@@ -294,6 +294,25 @@ reproduced in the file header.
   this crate.
 
 ================================================================================
+DERIVED WORK — CORE-MATH (correctly rounded hypot)
+================================================================================
+
+`src/hypot.rs` ports CORE-MATH's `cr_hypot` (src/binary64/hypot/hypot.c) and
+`cr_hypotf` (src/binary32/hypot/hypotf.c). Ported 2026-10-20 at the
+maintainer's direction (gh:#997: "Port"). The full MIT notice is reproduced
+in the file header.
+
+  Project    : CORE-MATH
+  Upstream   : https://gitlab.inria.fr/core-math/core-math
+  Commit     : 7ebab73913c5a33a25402ee51c96ec06b3a18095 (2026-10-20)
+  Licence    : MIT (verified from LICENSE and both file headers)
+
+      Copyright (c) 2022-2026 Alexei Sibidanov <sibid@uvic.ca>   (hypot.c)
+      Copyright (c) 2022-2025 Alexei Sibidanov                   (hypotf.c)
+
+  MIT is permissive and GPL/AGPL-compatible; the flow is ONE-WAY.
+
+================================================================================
 OTHER UPSTREAM SOURCES
 ================================================================================
 

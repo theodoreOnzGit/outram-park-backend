@@ -35,7 +35,7 @@ When you do port, the doc comment names the **upstream file and line**, and the
 NOTICE names the copyright holder for that module — GSL's holders differ per
 file, so re-read each header rather than copying one across.
 
-### Four non-GSL ports exist, and they were maintainer-directed (three more follow below)
+### Four non-GSL ports exist, and they were maintainer-directed (~~three~~ four more follow below)
 
 Added 2026-09-15 at the maintainer's direction — "port select code from roots
 and peroxide to complement petir's capabilities, credit the author's
@@ -168,6 +168,34 @@ follows:
   clip; `k`'s SI standard deviation by the independent-sum formula; and the
   scope cuts (no restart, transfer rates, external sources, MPI, results
   file or unit conversion).
+
+### An eighth non-GSL port: CORE-MATH's correctly rounded `hypot` (2026-10-20)
+
+`src/hypot.rs` ports CORE-MATH's `cr_hypot` (`src/binary64/hypot/hypot.c`)
+and `cr_hypotf` (`src/binary32/hypot/hypotf.c`), commit `7ebab739`, MIT,
+Alexei Sibidanov. **Maintainer direction on gh:#997, 2026-10-20: "Port"**
+(a correctly rounded `hypot`, after gh:#993 found the `libm` crate's is off
+by one ulp on some inputs). That is the approval this section requires for a
+non-GSL source. It binds future work as follows:
+
+- **Every PETIR `hypot` route goes through it**: `real::hypot`/`hypotf`,
+  `Real::hypot` and `RealMath::r_hypot` on both float types. Do not route
+  one back to `libm::hypot`; `tests/hypot_correct_rounding.rs`'s
+  `every_route_is_the_core_math_port` pins it.
+- **Correct rounding is pinned against MPFR**, not asserted:
+  `reference-data/core-math/` (8 044 838 inputs, 0 misroundings). A change
+  that moves one bit fails the sweep hashes.
+- **`wrapping_*` is the C semantics, not a style choice.** The hard path
+  relies on 64-bit modular products; release overflow checks would panic on
+  a plain `*`.
+- **Deviations** (flagged in the file): round-to-nearest only (Rust cannot
+  read the rounding mode) and no FP exception flags or `errno`. FMA comes
+  from `libm::fma`, which is correctly rounded.
+- **It made the GSL comparisons exact against STOCK GSL**: `qr`, `svd`,
+  `eigen_symm` bit-identical on every value; `eigen_nonsymm` on 12 of 13
+  cases, the 13th differing because glibc 2.44's own `hypot` misrounds.
+- **GSL's own `gsl_hypot`** (`sys/hypot.c`, called by name in `francis.c`
+  and `elljac.c`) is a different routine and stays ported as GSL wrote it.
 
 **`peroxide` as a DEPENDENCY remains ruled out** (it pulls
 `blas`/`lapack`/`netcdf`/`arrow`, which the "Dependencies" section below
@@ -337,7 +365,7 @@ obliges" below.
   | `cheb` pipeline (`init`/`eval`/`deriv`/`integ`) | 4707/6114 (77.0 %) | — |
   | `cheb::eval_mode`, default `order_sp` | 461/615 (75.0 %) | 1.06e-15 results, 1.05e-2 error estimates |
   | `cheb::eval_mode`, reduced `order_sp` | 357/369 (96.7 %) | — |
-  | `linalg::qr` factorisation and least squares | 81/85 (95.3 %) | 4.27e-16 factor, 4.94e-16 solution |
+  | `linalg::qr` factorisation and least squares | ~~81/85 (95.3 %)~~ **85/85 (100 %) since the CORE-MATH `hypot`** (gh:#997, 2026-10-20) | ~~4.27e-16 factor, 4.94e-16 solution~~ 0 |
   | `linalg::lu_decomp` (**added 2026-10-20, after the declaration**, gh:#992) | 1637/1637 (100 %) | 0 |
   | `expint`, `gamma_inc` | see `gsl_expint.rs`, `gsl_gamma_inc.rs` | — |
   | `roots` (bracketing / polishing), `min`, `interp`, `ode` (RKF45) | 100 % — every iterate, value and error estimate | 0 |
@@ -345,7 +373,8 @@ obliges" below.
   | `integration` (6 Kronrod rules + QAG) | 27/28 (96.4 %) | 1.82e-16 |
   | `integration::qags` (**added 2026-09-28, after the declaration**, for `buangkok`'s plume shine) | 40/42 (95.2 %); statuses and iteration counts 21/21 | results 0; error estimates 1.43e-6 |
   | `fast_exp` / `fast_log` / `fast_pow` | 100 % vs ARM optimized-routines | 0 |
-  | `linalg::{cholesky, symmtd, eigen_symm, svd, eigen_nonsymm}` (**added 2026-10-20, after the declaration**, gh:#993) | 100 % vs GSL given PETIR's `hypot` (`reference-data/gsl/libm_shim.rs`); Cholesky 100 % vs stock GSL for `n <= 24` | stock GSL differs only through `hypot` (and, for Cholesky above `n = 24`, GSL's Level-3 blocking) |
+  | `hypot` / `hypotf` (**added 2026-10-20**, gh:#997; CORE-MATH port) | 100 % correctly rounded vs MPFR 4.2.2, 8 044 838 inputs | 0 |
+  | `linalg::{cholesky, symmtd, eigen_symm, svd, eigen_nonsymm}` (**added 2026-10-20, after the declaration**, gh:#993) | 100 % vs GSL given PETIR's `hypot` (~~`reference-data/gsl/libm_shim.rs`~~ `petir_hypot_shim.rs` since gh:#997); Cholesky 100 % vs stock GSL for `n <= 24`; **since gh:#997, `symmtd`/`eigen_symm` and `svd` 100 % vs STOCK GSL, `eigen_nonsymm` 12 of 13 cases** | ~~stock GSL differs only through `hypot`~~ stock GSL differs only through glibc's own `hypot` misrounding (`eigen_nonsymm` `rand25`, 3.7e-15 of `max|lambda|`) and, for Cholesky above `n = 24`, GSL's Level-3 blocking |
   | `linalg::expm` (**added 2026-10-20**, gh:#993; GNU Octave `expm.m`, balancing omitted) | 127/220 vs Octave 11.3.0 without balancing | 3.2e-16 normwise; 1.1e-11 vs stock `expm` on a badly scaled matrix (the balancing) |
 
   The declaration was made on the condition "if it agrees with GSL". It does.

@@ -45,6 +45,29 @@
 //! **4.54e-13 of `max|lambda|`** (Frank 8, balanced, `lambda = 0.1025`).
 //! The prediction held. That the cyclic cases reach the exceptional shift
 //! is pinned by `eigen_nonsymm::tests::cyclic_permutations_reach_the_exceptional_shift`.
+//!
+//! # Re-measured 2026-10-20 after the CORE-MATH `hypot` (gh:#997)
+//!
+//! **Prediction** (gh:#993/#997, before the run): with a correctly rounded
+//! `hypot`, bit-identical to stock GSL. Refined before the GSL rerun, once
+//! the MPFR sweep (`tests/hypot_correct_rounding.rs`) showed glibc 2.44's
+//! `hypot` is itself not correctly rounded: bit-identical wherever glibc
+//! rounds every `hypot` it is given correctly, otherwise not.
+//!
+//! **Result.** GSL relinked with PETIR's `hypot`
+//! (`eigen-nonsymm-gsl-2.8-petir-hypot-reference.txt`): Hessenberg
+//! 1037/1037, balancing 1062/1062, eigenvalues 320/320, all bit-identical.
+//! Against STOCK GSL: eigenvalue components in order ~~104/320~~ **236/320**
+//! bit-identical; multiset worst ~~4.54e-13~~ **3.73e-15** of `max|lambda|`.
+//! Every remaining difference is in `rand25`, and it is glibc's: logging
+//! each `hypot` call GSL makes (glibc vs PETIR vs MPFR) found five distinct
+//! inputs, each called twice, where glibc 2.44 returns one ulp off the
+//! correctly rounded value and PETIR returns MPFR's, e.g.
+//! `hypot(-0x1.569095968f0f5p-2, 0x1.e62aaa381022ep-2)`: glibc
+//! `0x1.295df708e098cp-1`, PETIR and MPFR `0x1.295df708e098bp-1`. The
+//! other twelve cases are bit-identical to stock. Prediction held in its
+//! refined form; the original form ("bit-identical to stock") missed on
+//! `rand25`.
 
 mod linalg_gsl_common;
 
@@ -52,7 +75,12 @@ use linalg_gsl_common::{load, Case, Score};
 use petir::linalg::{balance_matrix, eigen_nonsymm, hessenberg};
 
 const FILE: &str = "eigen-nonsymm-gsl-2.8-reference.txt";
-const SHIM_FILE: &str = "eigen-nonsymm-gsl-2.8-libm-hypot-reference.txt";
+/// ~~`eigen-nonsymm-gsl-2.8-libm-hypot-reference.txt`~~ **CHANGED 2026-10-20
+/// (gh:#997):** GSL relinked with PETIR's CORE-MATH `hypot`
+/// (`reference-data/gsl/petir_hypot_shim.rs`). Unlike QR, SVD and the
+/// symmetric solver, this one does NOT equal stock GSL: glibc 2.44 misrounds
+/// five distinct `hypot` calls on `rand25` (see the module doc).
+const SHIM_FILE: &str = "eigen-nonsymm-gsl-2.8-petir-hypot-reference.txt";
 
 fn evals(case: &Case, re: &str, im: &str) -> Vec<(f64, f64)> {
     case.vector(re).into_iter().zip(case.vector(im)).collect()
@@ -64,7 +92,8 @@ fn evals(case: &Case, re: &str, im: &str) -> Vec<(f64, f64)> {
 /// # Results (2026-10-20)
 ///
 /// Hessenberg 1037/1037, balancing 1062/1062, eigenvalues 320/320: **all
-/// bit-identical**.
+/// bit-identical** (against the `libm`-`hypot` run, 2026-10-20 gh:#993; and
+/// again against the PETIR-`hypot` run after gh:#997).
 #[test]
 fn nonsymm_matches_gsl_with_the_same_hypot_bit_for_bit() {
     let Some(cases) = load(SHIM_FILE) else {
@@ -112,7 +141,10 @@ fn nonsymm_matches_gsl_with_the_same_hypot_bit_for_bit() {
         (&bs, "balancing (matrix, D)"),
         (&es, "eigenvalues (re, im; unbalanced and balanced)"),
     ] {
-        eprintln!("{}", s.summary(&format!("{label} vs GSL 2.8 + libm hypot")));
+        eprintln!(
+            "{}",
+            s.summary(&format!("{label} vs GSL 2.8 + PETIR hypot"))
+        );
         assert!(s.compared > 0);
         assert_eq!(s.identical, s.compared, "{}", s.summary(label));
     }
@@ -125,6 +157,11 @@ fn nonsymm_matches_gsl_with_the_same_hypot_bit_for_bit() {
 /// In order (not gated): 104/320 bit-identical; the worst per-value figure
 /// is a `1e-16` eigenvalue of the 4-cycle, i.e. rounding noise around zero.
 /// As a multiset: worst **4.54e-13** of `max|lambda|` (Frank 8, balanced).
+///
+/// **Re-measured 2026-10-20 (gh:#997, CORE-MATH `hypot`):** in order
+/// 236/320 bit-identical, worst per-value 5.18e-15 (`rand25`); as a
+/// multiset worst **3.73e-15** of `max|lambda|` (`rand25`). All of it is
+/// glibc misrounding `hypot` (module doc).
 #[test]
 fn nonsymm_eigenvalues_agree_with_stock_gsl() {
     let Some(cases) = load(FILE) else {

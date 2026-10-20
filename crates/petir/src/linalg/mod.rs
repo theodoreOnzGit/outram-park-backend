@@ -51,7 +51,9 @@
 //!   `expm.m` without its LAPACK balancing step (gh:#993).
 //!
 //! Each gh:#993 port is bit-identical to compiled GSL 2.8 once GSL is given
-//! the same `hypot` (the `libm` crate's); see
+//! the same `hypot` ~~(the `libm` crate's)~~ (**since 2026-10-20, gh:#997,
+//! PETIR's correctly rounded CORE-MATH port**, which makes `qr`, `svd` and
+//! `eigen_symm` bit-identical to STOCK GSL on every reference case); see
 //! `reference-data/gsl/README.md` and `docs/verification-summary.md`.
 //!
 //! # No BLAS library is linked, and none may be

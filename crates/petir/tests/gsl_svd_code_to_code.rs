@@ -38,6 +38,20 @@
 //! 1428/1428 bit-identical against the `libm`-`hypot` run; against stock GSL,
 //! singular values 1.12e-15 normwise and vectors within 0.22 of their bound.
 //! Details in the two tests.
+//!
+//! # Re-measured 2026-10-20 after the CORE-MATH `hypot` (gh:#997)
+//!
+//! **Prediction** (gh:#993/#997, before the run): with a correctly rounded
+//! `hypot`, bit-identical to stock GSL. Refined before the GSL rerun, once
+//! the MPFR sweep (`tests/hypot_correct_rounding.rs`) showed glibc 2.44's
+//! `hypot` is itself not correctly rounded: bit-identical wherever glibc
+//! rounds every `hypot` it is given correctly, otherwise not.
+//!
+//! **Result.** GSL relinked with PETIR's `hypot` writes a file
+//! byte-identical to stock GSL's, and PETIR is bit-identical to STOCK GSL on
+//! all 1428 values; singular values ~~27/57~~ **57/57** bit-identical,
+//! normwise ~~1.12e-15~~ **0**, vectors ~~0.22 of bound~~ **0**. The
+//! prediction held.
 
 mod linalg_gsl_common;
 
@@ -45,7 +59,12 @@ use linalg_gsl_common::{load, Score};
 use petir::linalg::Svd;
 
 const FILE: &str = "svd-gsl-2.8-reference.txt";
-const SHIM_FILE: &str = "svd-gsl-2.8-libm-hypot-reference.txt";
+/// ~~`svd-gsl-2.8-libm-hypot-reference.txt`~~ **CHANGED 2026-10-20
+/// (gh:#997):** PETIR's `hypot` is now CORE-MATH's correctly rounded one, and
+/// GSL relinked with it (`reference-data/gsl/petir_hypot_shim.rs`) writes a
+/// file byte-identical to stock GSL's on this driver, so the bit-for-bit test
+/// reads the stock file.
+const SHIM_FILE: &str = FILE;
 
 /// Every `U`, `S`, `V` and solve entry against GSL with PETIR's `hypot`.
 ///
@@ -81,7 +100,7 @@ fn svd_matches_gsl_with_the_same_hypot_bit_for_bit() {
             s.add(|| format!("{name} X[{}]", idx[0]), *v, x[idx[0]]);
         }
     }
-    eprintln!("{}", s.summary("SVD vs GSL 2.8 + libm hypot"));
+    eprintln!("{}", s.summary("SVD vs GSL 2.8 (stock = PETIR hypot)"));
     assert_eq!(cases.len(), 12);
     assert_eq!(s.identical, s.compared, "{}", s.summary("SVD"));
 }
