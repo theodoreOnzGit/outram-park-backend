@@ -1,0 +1,2 @@
+interval_R_S1_indep 0.96297270166 0.99995706864
+R_VERSION R version 4.6.1 (2026-06-24) 

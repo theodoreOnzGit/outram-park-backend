@@ -329,6 +329,21 @@ Verification record: [`docs/scram-port-verification.md`](docs/scram-port-verific
 oracle in `reference-data/scram/`. Upstream was **built and run** — nothing in
 that fixture was reasoned out from reading SCRAM's source.
 
+### Computing with Confidence and pba.r (gh:#987) — a third and fourth upstream
+
+`src/scram/pba.rs` ports the pba.r operations that Adolphus Lye's "Coherent
+systems" scripts call; `src/scram/pbox_tree.rs` evaluates a `FaultTree` with
+c-box basic events. Provenance: Lye's scripts have no licence file (the author
+asked for the port; maintainer confirmed AGPLv3 fine, 2026-10-20); `pba.r` is
+Scott Ferson's, GPL-3.0, so `pba.rs` carries a pba.r header. **`sra.r` in the
+same upstream folder is "All rights reserved": never read, port or run it.**
+Verified against the original R scripts (R 4.6.1) and an Octave Monte Carlo:
+`docs/computing-with-confidence-verification.md`, which also lists what is
+NOT verified. Two traps recorded there: `KN` is `cbox_binomial` except at the
+support ends and the `1e-6` clamp (`pba::kn` / `kn_exact`), and the published
+Case study 4 overwrites its c-boxes with point values. AI-assisted draft, no
+human or owner review.
+
 ### Third-party BSD code inside RAVEN
 
 RAVEN's own `NOTICE.txt` discloses vendored third-party code under separate BSD
