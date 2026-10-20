@@ -13,7 +13,9 @@
      buttons and a science search, no curriculum list. A domain button opens
      that domain's short list below it (CSS :target, no script). Each lesson
      link marked data-kind="science" is a search entry
-     (scripts/build-search-index.sh): keep each on one line. -->
+     (scripts/build-search-index.sh): keep each on one line. A long domain
+     groups its lessons in collapsible chapters (<details class="chapter">);
+     the script at the foot opens the chapter a link's #hash points into. -->
 <main>
 <header class="top">
   <h1>Learn the science</h1>
@@ -21,9 +23,8 @@
 </header>
   <h2 class="ask">What are you interested in?</h2>
   <nav class="chips big" aria-label="Science domains">
-    <a class="chip" href="#neutronics">Neutronics</a>
+    <a class="chip" href="#nuclear-data-and-neutronics">Nuclear Data and Neutronics</a>
     <a class="chip" href="#transport">Neutron transport</a>
-    <a class="chip" href="#nuclear-data">Nuclear data</a>
     <a class="chip" href="#thermal-hydraulics">Thermal hydraulics</a>
     <a class="chip" href="#cfd">Fluid mechanics &amp; CFD</a>
     <a class="chip" href="#particle-mechanics">Particle mechanics</a>
@@ -39,55 +40,81 @@
   </form>
   <div class="search-results" aria-live="polite"></div>
 
-  <section class="domain" id="neutronics">
-    <h2>Neutronics</h2>
-    <p>How neutrons move through matter, and how a reactor keeps a chain reaction going.</p>
+  <section class="domain" id="nuclear-data-and-neutronics">
+    <!-- The old Neutronics and Nuclear data sections, merged (maintainer,
+         2026-10-20). Their ids are kept as anchors so old links still land
+         here: #neutronics at the top, #nuclear-data on chapter 4. -->
+    <span id="neutronics" class="anchor"></span>
+    <h2>Nuclear Data and Neutronics</h2>
+    <p>How neutrons move through matter, and how a reactor keeps a chain reaction going; and where a cross section comes from: from the evaluator&rsquo;s resonance parameters to the table a transport code reads.</p>
+    <details class="chapter" id="ch-basic-nuclear-physics" open>
+      <summary>Chapter 1 · Basic nuclear physics <span class="range">(lessons 1&ndash;11)</span></summary>
+      <div class="chips">
+        <a class="demo featured" href="neutronics/meet-the-neutron.html" data-kind="science" data-terms="neutron neutronics scattering absorption fission leakage random walk natural uranium">1 · Meet the neutron</a>
+        <a class="demo" href="neutronics/why-it-scatters.html" data-kind="science" data-terms="elastic scattering collision kinematics momentum energy moderation H-1 C-12 U-238">2 · Why does a neutron bounce?</a>
+        <a class="demo" href="neutronics/moving-nuclei.html" data-kind="science" data-terms="thermal motion temperature relative velocity Maxwell-Boltzmann free gas Doppler broadening">3 · The nucleus is moving too</a>
+        <a class="demo" href="neutronics/matter-waves.html" data-kind="science" data-terms="de Broglie wavelength wave packet Heisenberg uncertainty matter wave energy levels">4 · Why not billiard balls?</a>
+        <a class="demo" href="neutronics/quantum-scattering.html" data-kind="science" data-terms="quantum scattering partial waves phase shift interference angular distribution anisotropic isotropic hard sphere scattering radius nuclear data">5 · A neutron wave at a nucleus</a>
+        <a class="demo" href="neutronics/storing-shapes.html" data-kind="science" data-terms="representation interpolation points shape functions basis functions Fourier series Bessel functions spherical harmonics Legendre">6 · How do we store a shape?</a>
+        <a class="demo" href="neutronics/scattering-angles.html" data-kind="science" data-terms="scattering cosine mu Legendre polynomials coefficients ENDF MF4 angular distribution NJOY ACER ptleg2 ACE table sampling">7 · How are scattering angles stored?</a>
+        <a class="demo" href="neutronics/why-energy-matters.html" data-kind="science" data-terms="resonance allowed levels energy compound nucleus binding energy standing wave Breit-Wigner">8 · Why does the neutron's energy matter?</a>
+        <a class="demo" href="neutronics/nuclear-levels.html" data-kind="science" data-terms="shell model harmonic oscillator Woods-Saxon magic numbers spin-orbit pairing collective motion level density total cross section He-4 Mn-55 U-238 resonances RECONR">9 · Why are nuclear levels so complicated?</a>
+        <a class="demo" href="neutronics/what-can-happen.html" data-kind="science" data-terms="reaction channels compound nucleus elastic inelastic (n,n') capture (n,gamma) (n,p) (n,alpha) (n,2n) fission Q-value threshold MT number binding energy">10 · What can happen when a neutron meets a nucleus?</a>
+        <a class="demo" href="neutronics/fission.html" data-kind="science" data-terms="fission fissile fissionable U-235 U-238 pairing fission barrier threshold">11 · Fission: fissile and fissionable</a>
+      </div>
+    </details>
+    <details class="chapter" id="ch-resonances-doppler">
+      <summary>Chapter 2 · Resonances and Doppler broadening <span class="range">(lessons 12&ndash;22)</span></summary>
+      <div class="chips">
+        <a class="demo" href="neutronics/resonance-shape.html" data-kind="science" data-terms="resonance shape SLBW single-level Breit-Wigner width lifetime partial widths capture elastic dip U-238 6.67 eV">12 · What shapes a resonance peak?</a>
+        <a class="demo" href="neutronics/r-matrix.html" data-kind="science" data-terms="R-matrix interference amplitudes spin group same J channels matrix inversion brute force Wigner Eisenbud">13 · Do neighbouring peaks interfere?</a>
+        <a class="demo" href="neutronics/reich-moore.html" data-kind="science" data-terms="Reich-Moore eliminated width gamma channels capture fission interference R-Matrix Limited LRF 3 LRF 7">14 · Can we skip the gamma paths?</a>
+        <a class="demo" href="neutronics/mlbw.html" data-kind="science" data-terms="MLBW multi-level Breit-Wigner elastic interference capture fission single-level LRF 2 Gamma/D">15 · Can we drop the matrix?</a>
+        <a class="demo" href="neutronics/adler-adler.html" data-kind="science" data-terms="Adler-Adler semi-empirical Kapur-Peierls fitted coefficients LRF 4 formalism ladder">16 · Cheaper still: fit the curves?</a>
+        <a class="demo" href="neutronics/log-scales.html" data-kind="science" data-terms="log scale logarithmic lethargy xi mean logarithmic energy decrement slowing down moderation collisions 1/v B-10 resonance bunching unresolved range">17 · Why are cross sections drawn on log scales?</a>
+        <a class="demo" href="neutronics/unresolved.html" data-kind="science" data-terms="unresolved resonance range URR average parameters level spacing infinitely dilute smearing LSSF File 3 fluctuation integral chi-square U-238 U-234">18 · The double whammy: unresolved resonances</a>
+        <a class="demo" href="neutronics/purr.html" data-kind="science" data-terms="PURR probability table resonance ladder Wigner distribution chi-square widths sampling unresolved range infinitely dilute fluctuation factor LSSF temperature correlations">19 · PURR: make up the resonances</a>
+        <a class="demo" href="neutronics/bound-atoms.html" data-kind="science" data-terms="bound atoms free gas lattice molecule binding vibration energies thermal scattering S(alpha,beta) moderator graphite water ZrH quartz Bragg">20 · But the atoms are bound!</a>
+        <a class="demo" href="neutronics/lattice-scattering.html" data-kind="science" data-terms="lattice scattering Bragg edges coherent elastic diffraction plane spacing graphite Debye-Waller temperature phonon frequency spectrum S(alpha,beta) incoherent elastic inelastic detailed balance">21 · What does lattice scattering depend on?</a>
+        <a class="demo" href="neutronics/doppler.html" data-kind="science" data-terms="Doppler broadening temperature free gas Maxwell-Boltzmann relative speed BROADR SIGMA1 kernel resonance area 1/v U-238 6.67 eV">22 · Doppler broadening: lone atoms, warm</a>
+      </div>
+    </details>
+    <details class="chapter" id="ch-phonons">
+      <summary>Chapter 3 · Scattering with phonons <span class="range">(lessons 23&ndash;41)</span></summary>
+      <div class="chips">
+        <a class="demo" href="neutronics/phonons.html" data-kind="science" data-terms="phonon lattice vibration spring mass normal mode acoustic optical quasiparticle boson polarisation longitudinal transverse wavevector crystal momentum dispersion neutron phonon creation absorption">23 · What is a phonon?</a>
+        <a class="demo" href="neutronics/many-phonons.html" data-kind="science" data-terms="many phonons density of states rho vibration spectrum polycrystalline incoherent alpha-quartz water band gap semiconductor Debye beta squared">24 · Can we have more than one phonon?</a>
+        <a class="demo" href="neutronics/structure.html" data-kind="science" data-terms="structure molecule water normal modes 3N-6 stretch bend crystal bands acoustic optical gap anisotropy graphite layers polycrystalline cubic approximation">25 · How does structure shape the phonons?</a>
+        <a class="demo" href="neutronics/alpha-beta.html" data-kind="science" data-terms="alpha beta kick energy transfer recoil line scattering law S(alpha,beta) detailed balance">26 · Maths 1: two numbers for a collision</a>
+        <a class="demo" href="neutronics/jiggle.html" data-kind="science" data-terms="thermal motion jiggle Doppler broadening Maxwell-Boltzmann Gaussian bell curve exponential">27 · Maths 1½: let the nucleus jiggle</a>
+        <a class="demo" href="neutronics/free-gas.html" data-kind="science" data-terms="free gas scattering law closed form Gaussian sum rule normalisation">28 · Maths 2: the free gas, exactly</a>
+        <a class="demo" href="neutronics/one-spring.html" data-kind="science" data-terms="oscillator swing phonon Poisson upscatter downscatter detailed balance phonon expansion Bessel Debye-Waller elastic">29 · Maths 3: one swing</a>
+        <a class="demo" href="neutronics/convolution.html" data-kind="science" data-terms="convolution dice sum of random variables flip slide independence">30 · Maths 3½: what is a convolution?</a>
+        <a class="demo" href="neutronics/many-modes.html" data-kind="science" data-terms="phonon expansion density of states convolution sampling Monte Carlo Poisson central limit theorem LEAPR">31 · Maths 4: many modes, many phonons</a>
+        <a class="demo" href="neutronics/big-kicks.html" data-kind="science" data-terms="short-collision-time approximation SCT bell curve LEAPR">32 · Maths 5: big kicks, use the bell</a>
+        <a class="demo" href="neutronics/bell-shape.html" data-kind="science" data-terms="bell curve centre width free recoil effective temperature">33 · Maths 5a: what shapes the bell curve?</a>
+        <a class="demo" href="neutronics/zero-point.html" data-kind="science" data-terms="zero-point motion ground state third law Fermi energy effective temperature">34 · Maths 5b: why can't atoms sit still?</a>
+        <a class="demo" href="neutronics/stiff-soft.html" data-kind="science" data-terms="effective temperature coth stiff soft spring kT density of states">35 · Maths 5c: stiff springs, soft springs</a>
+        <a class="demo" href="neutronics/snapshot.html" data-kind="science" data-terms="snapshot impulse Doppler shift big kick">36 · Maths 5d: what does a hard kick see?</a>
+        <a class="demo" href="neutronics/why-bell.html" data-kind="science" data-terms="Gaussian Maxwell-Boltzmann ground state momentum bell curve">37 · Maths 5e: why is it a bell curve?</a>
+        <a class="demo" href="neutronics/width.html" data-kind="science" data-terms="width variance effective temperature kinetic energy">38 · Maths 5f: what sets the width?</a>
+        <a class="demo" href="neutronics/one-spring-check.html" data-kind="science" data-terms="impulse approximation effective temperature coth LEAPR check">39 · Maths 5g: checking it, one spring then a crystal</a>
+        <a class="demo" href="neutronics/coherent.html" data-kind="science" data-terms="coherent incoherent scattering interference Bragg hydrogen carbon oxygen spin">40 · Maths 5h: do the waves add up?</a>
+        <a class="demo" href="neutronics/spin.html" data-kind="science" data-terms="nuclear spin triplet singlet scattering length hydrogen incoherent carbon-12 oxygen-16 spin zero Sears">41 · Maths 5i: why does each hydrogen scatter differently?</a>
+      </div>
+    </details>
+    <details class="chapter" id="ch-nuclear-data">
+      <summary>Chapter 4 · Nuclear data for the transport code <span class="range">(lessons 42&ndash;45)</span></summary>
+      <span id="nuclear-data" class="anchor"></span>
+      <div class="chips">
+        <a class="demo" href="neutronics/which-nucleus.html" data-kind="science" data-terms="free gas target velocity sampling relative speed Maxwell-Boltzmann constant cross-section approximation CXS BROADR rate partner collision kinematics up-scatter">42 · Which nucleus did the neutron hit?</a>
+        <a class="demo" href="neutronics/dbrc.html" data-kind="science" data-terms="DBRC Doppler Broadening Rejection Correction resonance elastic scattering 0 K cross section rejection sampling U-238 6.67 eV up-scatter capture k-eff OpenMC">43 · DBRC: let the resonance choose the partner</a>
+        <a class="demo" href="neutronics/ace-files.html" data-kind="science" data-terms="ACE file continuous-energy thermal RECONR BROADR HEATR PURR ACER LEAPR THERMR S(alpha,beta) block NXS JXS emax">44 · How is each ACE file put together?</a>
+        <a class="demo" href="neutronics/two-files.html" data-kind="science" data-terms="free gas bound atom thermal cutoff S(alpha,beta) hand-over continuous-energy file thermal file hydrogen water graphite capture elastic OpenMC">45 · Free gas or bound atom?</a>
+        <a class="demo" href="../deep-dives/nuclear-data/where-sigma-comes-from.html" data-kind="science" data-terms="cross section sigma(E) resonances ENDF evaluation">Where does &sigma;(E) come from?</a>
+      </div>
+    </details>
     <div class="chips">
-      <a class="demo featured" href="neutronics/meet-the-neutron.html" data-kind="science" data-terms="neutron neutronics scattering absorption fission leakage random walk natural uranium">1 · Meet the neutron</a>
-      <a class="demo" href="neutronics/why-it-scatters.html" data-kind="science" data-terms="elastic scattering collision kinematics momentum energy moderation H-1 C-12 U-238">2 · Why does a neutron bounce?</a>
-      <a class="demo" href="neutronics/moving-nuclei.html" data-kind="science" data-terms="thermal motion temperature relative velocity Maxwell-Boltzmann free gas Doppler broadening">3 · The nucleus is moving too</a>
-      <a class="demo" href="neutronics/matter-waves.html" data-kind="science" data-terms="de Broglie wavelength wave packet Heisenberg uncertainty matter wave energy levels">4 · Why not billiard balls?</a>
-      <a class="demo" href="neutronics/quantum-scattering.html" data-kind="science" data-terms="quantum scattering partial waves phase shift interference angular distribution anisotropic isotropic hard sphere scattering radius nuclear data">5 · A neutron wave at a nucleus</a>
-      <a class="demo" href="neutronics/storing-shapes.html" data-kind="science" data-terms="representation interpolation points shape functions basis functions Fourier series Bessel functions spherical harmonics Legendre">6 · How do we store a shape?</a>
-      <a class="demo" href="neutronics/scattering-angles.html" data-kind="science" data-terms="scattering cosine mu Legendre polynomials coefficients ENDF MF4 angular distribution NJOY ACER ptleg2 ACE table sampling">7 · How are scattering angles stored?</a>
-      <a class="demo" href="neutronics/why-energy-matters.html" data-kind="science" data-terms="resonance allowed levels energy compound nucleus binding energy standing wave Breit-Wigner">8 · Why does the neutron's energy matter?</a>
-      <a class="demo" href="neutronics/nuclear-levels.html" data-kind="science" data-terms="shell model harmonic oscillator Woods-Saxon magic numbers spin-orbit pairing collective motion level density total cross section He-4 Mn-55 U-238 resonances RECONR">9 · Why are nuclear levels so complicated?</a>
-      <a class="demo" href="neutronics/what-can-happen.html" data-kind="science" data-terms="reaction channels compound nucleus elastic inelastic (n,n') capture (n,gamma) (n,p) (n,alpha) (n,2n) fission Q-value threshold MT number binding energy">10 · What can happen when a neutron meets a nucleus?</a>
-      <a class="demo" href="neutronics/fission.html" data-kind="science" data-terms="fission fissile fissionable U-235 U-238 pairing fission barrier threshold">11 · Fission: fissile and fissionable</a>
-      <a class="demo" href="neutronics/resonance-shape.html" data-kind="science" data-terms="resonance shape SLBW single-level Breit-Wigner width lifetime partial widths capture elastic dip U-238 6.67 eV">12 · What shapes a resonance peak?</a>
-      <a class="demo" href="neutronics/r-matrix.html" data-kind="science" data-terms="R-matrix interference amplitudes spin group same J channels matrix inversion brute force Wigner Eisenbud">13 · Do neighbouring peaks interfere?</a>
-      <a class="demo" href="neutronics/reich-moore.html" data-kind="science" data-terms="Reich-Moore eliminated width gamma channels capture fission interference R-Matrix Limited LRF 3 LRF 7">14 · Can we skip the gamma paths?</a>
-      <a class="demo" href="neutronics/mlbw.html" data-kind="science" data-terms="MLBW multi-level Breit-Wigner elastic interference capture fission single-level LRF 2 Gamma/D">15 · Can we drop the matrix?</a>
-      <a class="demo" href="neutronics/adler-adler.html" data-kind="science" data-terms="Adler-Adler semi-empirical Kapur-Peierls fitted coefficients LRF 4 formalism ladder">16 · Cheaper still: fit the curves?</a>
-      <a class="demo" href="neutronics/log-scales.html" data-kind="science" data-terms="log scale logarithmic lethargy xi mean logarithmic energy decrement slowing down moderation collisions 1/v B-10 resonance bunching unresolved range">17 · Why are cross sections drawn on log scales?</a>
-      <a class="demo" href="neutronics/unresolved.html" data-kind="science" data-terms="unresolved resonance range URR average parameters level spacing infinitely dilute smearing LSSF File 3 fluctuation integral chi-square U-238 U-234">18 · The double whammy: unresolved resonances</a>
-      <a class="demo" href="neutronics/purr.html" data-kind="science" data-terms="PURR probability table resonance ladder Wigner distribution chi-square widths sampling unresolved range infinitely dilute fluctuation factor LSSF temperature correlations">19 · PURR: make up the resonances</a>
-      <a class="demo" href="neutronics/bound-atoms.html" data-kind="science" data-terms="bound atoms free gas lattice molecule binding vibration energies thermal scattering S(alpha,beta) moderator graphite water ZrH quartz Bragg">20 · But the atoms are bound!</a>
-      <a class="demo" href="neutronics/lattice-scattering.html" data-kind="science" data-terms="lattice scattering Bragg edges coherent elastic diffraction plane spacing graphite Debye-Waller temperature phonon frequency spectrum S(alpha,beta) incoherent elastic inelastic detailed balance">21 · What does lattice scattering depend on?</a>
-      <a class="demo" href="neutronics/doppler.html" data-kind="science" data-terms="Doppler broadening temperature free gas Maxwell-Boltzmann relative speed BROADR SIGMA1 kernel resonance area 1/v U-238 6.67 eV">22 · Doppler broadening: lone atoms, warm</a>
-      <a class="demo" href="neutronics/phonons.html" data-kind="science" data-terms="phonon lattice vibration spring mass normal mode acoustic optical quasiparticle boson polarisation longitudinal transverse wavevector crystal momentum dispersion neutron phonon creation absorption">23 · What is a phonon?</a>
-      <a class="demo" href="neutronics/many-phonons.html" data-kind="science" data-terms="many phonons density of states rho vibration spectrum polycrystalline incoherent alpha-quartz water band gap semiconductor Debye beta squared">24 · Can we have more than one phonon?</a>
-      <a class="demo" href="neutronics/structure.html" data-kind="science" data-terms="structure molecule water normal modes 3N-6 stretch bend crystal bands acoustic optical gap anisotropy graphite layers polycrystalline cubic approximation">25 · How does structure shape the phonons?</a>
-      <a class="demo" href="neutronics/alpha-beta.html" data-kind="science" data-terms="alpha beta kick energy transfer recoil line scattering law S(alpha,beta) detailed balance">26 · Maths 1: two numbers for a collision</a>
-      <a class="demo" href="neutronics/jiggle.html" data-kind="science" data-terms="thermal motion jiggle Doppler broadening Maxwell-Boltzmann Gaussian bell curve exponential">27 · Maths 1½: let the nucleus jiggle</a>
-      <a class="demo" href="neutronics/free-gas.html" data-kind="science" data-terms="free gas scattering law closed form Gaussian sum rule normalisation">28 · Maths 2: the free gas, exactly</a>
-      <a class="demo" href="neutronics/one-spring.html" data-kind="science" data-terms="oscillator swing phonon Poisson upscatter downscatter detailed balance phonon expansion Bessel Debye-Waller elastic">29 · Maths 3: one swing</a>
-      <a class="demo" href="neutronics/convolution.html" data-kind="science" data-terms="convolution dice sum of random variables flip slide independence">30 · Maths 3½: what is a convolution?</a>
-      <a class="demo" href="neutronics/many-modes.html" data-kind="science" data-terms="phonon expansion density of states convolution sampling Monte Carlo Poisson central limit theorem LEAPR">31 · Maths 4: many modes, many phonons</a>
-      <a class="demo" href="neutronics/big-kicks.html" data-kind="science" data-terms="short-collision-time approximation SCT bell curve LEAPR">32 · Maths 5: big kicks, use the bell</a>
-      <a class="demo" href="neutronics/bell-shape.html" data-kind="science" data-terms="bell curve centre width free recoil effective temperature">33 · Maths 5a: what shapes the bell curve?</a>
-      <a class="demo" href="neutronics/zero-point.html" data-kind="science" data-terms="zero-point motion ground state third law Fermi energy effective temperature">34 · Maths 5b: why can't atoms sit still?</a>
-      <a class="demo" href="neutronics/stiff-soft.html" data-kind="science" data-terms="effective temperature coth stiff soft spring kT density of states">35 · Maths 5c: stiff springs, soft springs</a>
-      <a class="demo" href="neutronics/snapshot.html" data-kind="science" data-terms="snapshot impulse Doppler shift big kick">36 · Maths 5d: what does a hard kick see?</a>
-      <a class="demo" href="neutronics/why-bell.html" data-kind="science" data-terms="Gaussian Maxwell-Boltzmann ground state momentum bell curve">37 · Maths 5e: why is it a bell curve?</a>
-      <a class="demo" href="neutronics/width.html" data-kind="science" data-terms="width variance effective temperature kinetic energy">38 · Maths 5f: what sets the width?</a>
-      <a class="demo" href="neutronics/one-spring-check.html" data-kind="science" data-terms="impulse approximation effective temperature coth LEAPR check">39 · Maths 5g: checking it, one spring then a crystal</a>
-      <a class="demo" href="neutronics/coherent.html" data-kind="science" data-terms="coherent incoherent scattering interference Bragg hydrogen carbon oxygen spin">40 · Maths 5h: do the waves add up?</a>
-      <a class="demo" href="neutronics/spin.html" data-kind="science" data-terms="nuclear spin triplet singlet scattering length hydrogen incoherent carbon-12 oxygen-16 spin zero Sears">41 · Maths 5i: why does each hydrogen scatter differently?</a>
-      <a class="demo" href="neutronics/which-nucleus.html" data-kind="science" data-terms="free gas target velocity sampling relative speed Maxwell-Boltzmann constant cross-section approximation CXS BROADR rate partner collision kinematics up-scatter">42 · Which nucleus did the neutron hit?</a>
-      <a class="demo" href="neutronics/dbrc.html" data-kind="science" data-terms="DBRC Doppler Broadening Rejection Correction resonance elastic scattering 0 K cross section rejection sampling U-238 6.67 eV up-scatter capture k-eff OpenMC">43 · DBRC: let the resonance choose the partner</a>
-      <a class="demo" href="neutronics/ace-files.html" data-kind="science" data-terms="ACE file continuous-energy thermal RECONR BROADR HEATR PURR ACER LEAPR THERMR S(alpha,beta) block NXS JXS emax">44 · How is each ACE file put together?</a>
-      <a class="demo" href="neutronics/two-files.html" data-kind="science" data-terms="free gas bound atom thermal cutoff S(alpha,beta) hand-over continuous-energy file thermal file hydrogen water graphite capture elastic OpenMC">45 · Free gas or bound atom?</a>
       <a class="demo" href="neutronics/glossary.html" data-kind="science" data-terms="glossary terms definitions jargon">Neutronics glossary</a>
       <a class="demo" href="../tutorials/monte-carlo/">Monte Carlo, one rung at a time</a>
     </div>
@@ -112,13 +139,6 @@
     </div>
   </section>
 
-  <section class="domain" id="nuclear-data">
-    <h2>Nuclear data</h2>
-    <p>Where a cross section comes from: from the evaluator's resonance parameters to the table a transport code reads.</p>
-    <div class="chips">
-      <a class="demo" href="../deep-dives/nuclear-data/where-sigma-comes-from.html" data-kind="science" data-terms="cross section sigma(E) resonances ENDF evaluation">Where does &sigma;(E) come from?</a>
-    </div>
-  </section>
 
   <section class="domain" id="thermal-hydraulics">
     <h2>Thermal hydraulics</h2>
@@ -161,5 +181,29 @@
 
   <p class="status">Every lesson is an AI-assisted first draft until a human has reviewed it; each page states its review status. Research, education and V&amp;V only.</p>
 </main>
+<script>
+// Collapsible chapters (maintainer, 2026-10-20). Plain <details> collapse
+// with no script; this only (a) opens the chapter that a #hash points into
+// (an old #nuclear-data link, a chapter id, anything inside one) and scrolls
+// to it, and (b) folds chapter 1 on a phone, so a narrow screen opens with
+// every chapter closed. Desktop opens with chapter 1 open.
+(function () {
+  if (!window.matchMedia("(min-width: 640px)").matches) {
+    var all = document.querySelectorAll("details.chapter");
+    for (var i = 0; i < all.length; i++) all[i].open = false;
+  }
+  function reveal() {
+    var id = decodeURIComponent(location.hash.slice(1));
+    var el = id && document.getElementById(id);
+    if (!el) return;
+    for (var d = el.closest("details"); d; d = d.parentElement && d.parentElement.closest("details")) d.open = true;
+    // An old section id kept as an anchor inside a chapter: show the chapter's title too.
+    var ch = el.classList.contains("anchor") && el.closest("details.chapter");
+    (ch || el).scrollIntoView({ block: "start" });
+  }
+  window.addEventListener("hashchange", reveal);
+  reveal();
+})();
+</script>
 </body>
 </html>

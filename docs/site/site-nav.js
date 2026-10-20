@@ -92,7 +92,10 @@
   // The pathway each kind of page sits under, and its label.
   var PATHWAY = { "tutorials": "science", "science": "science", "deep-dives": "code", "api": "code", "code": "code", "demos": "demos" };
   var PATHWAY_NAME = { "science": "Learn the science", "code": "Learn to code", "demos": "Web demos" };
-  var SCIENCE_DOMAIN = { "neutronics": "Neutronics", "transport": "Neutron transport" };
+  // A lesson folder -> its section on the science page and that section's
+  // label. Neutronics and Nuclear data are one section since 2026-10-20.
+  var SCIENCE_DOMAIN = { "neutronics": "Nuclear Data and Neutronics", "transport": "Neutron transport" };
+  var SCIENCE_SECTION = { "neutronics": "nuclear-data-and-neutronics" };
 
   var kind = parts[0], name = parts[1] || "";
   if (name === "index.html") name = "";
@@ -112,7 +115,7 @@
   } else if (kind === "science") {
     // A lesson: science/<domain>/<lesson>.html, Up to its domain on the
     // science page.
-    sectionUrl = new URL("science/#" + name, root);
+    sectionUrl = new URL("science/#" + (SCIENCE_SECTION[name] || name), root);
     sectionLabel = SCIENCE_DOMAIN[name] || name;
     atSectionIndex = false;
   } else {
