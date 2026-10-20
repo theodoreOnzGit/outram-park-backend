@@ -304,6 +304,125 @@ mod tests {
         assert!(t1 < 1e-4 && t2 < 1e-4, "exponential tail: {t1:e}, {t2:e}");
     }
 
+    /// Unit roundoff of `f32`, `2^-24` (half of `f32::EPSILON`).
+    const U32: f64 = 5.960_464_477_539_063e-8;
+
+    /// `ulp(p) / p`: the relative size of one unit in the last place of `p`.
+    fn ulp_over(p: f32) -> f64 {
+        let up = f32::from_bits(p.to_bits() + 1);
+        f64::from(up - p) / f64::from(p)
+    }
+
+    /// The `f32` Clenshaw sum of `c` at the exact `t`, evaluated in `f64`,
+    /// and an a-priori bound on how far `cheb(c, t_f32)` can sit from it.
+    ///
+    /// Every term is a first-order worst case (each rounding at its bound,
+    /// no cancellation between them). It is computed from the `f64`
+    /// recurrence values, which are condition numbers, not errors:
+    ///
+    /// - each step `d = fl(fl(fl(2t d) - dd) + c_k)` rounds three times,
+    ///   locally `u (|2t d| + |2t d - dd| + |d_new|)`; an error injected
+    ///   into `d_k` reaches the result multiplied by `T_k(t)` (because
+    ///   `t U_{k-1} - U_{k-2} = T_k`), and `|T_k| <= 1` on `[-1, 1]`, so
+    ///   the local errors add without amplification;
+    /// - the closing `t d_1 - d_2 + c_0/2` rounds three times likewise;
+    /// - the coefficients are `f32` roundings of GSL's `f64` table:
+    ///   `u (|c_0|/2 + sum |c_k|)`;
+    /// - `t` itself is off by at most `dt`, which costs `|C'(t)| dt` with
+    ///   `C' = sum k c_k U_{k-1}(t)`.
+    fn cheb_budget(c: &[f32], t: f64, dt: f64) -> (f64, f64) {
+        let (mut d, mut dd, mut err) = (0.0_f64, 0.0_f64, 0.0_f64);
+        for &ck in c[1..].iter().rev() {
+            let m = 2.0 * t * d;
+            let s = m - dd;
+            let next = s + f64::from(ck);
+            err += U32 * (m.abs() + s.abs() + next.abs());
+            dd = d;
+            d = next;
+        }
+        let m = t * d;
+        let s = m - dd;
+        let value = s + 0.5 * f64::from(c[0]);
+        err += U32 * (m.abs() + s.abs() + value.abs());
+        let coef: f64 = c[1..].iter().map(|v| f64::from(*v).abs()).sum();
+        err += U32 * (0.5 * f64::from(c[0]).abs() + coef);
+        let (mut u_prev, mut u_k, mut slope) = (0.0_f64, 1.0_f64, 0.0_f64);
+        for (k, &ck) in c.iter().enumerate().skip(1) {
+            slope += k as f64 * f64::from(ck) * u_k;
+            let u_next = 2.0 * t * u_k - u_prev;
+            u_prev = u_k;
+            u_k = u_next;
+        }
+        err += slope.abs() * dt;
+        (value, err)
+    }
+
+    /// The log error `f32` can deliver for the `x <= 4` branch of `S_1`
+    /// (`s1 = true`) or `S_2`, derived from the propagation analysis in
+    /// `the_f32_cost_is_cancellation_at_the_branch_boundary`, as a bound on
+    /// `|ln S_f32 - ln S_f64|`. Also returns the cancellation ratio.
+    fn branch_log_budget(x: f32, s1: bool) -> (f64, f64) {
+        let xd = f64::from(x);
+        // (1) px = powf(x, a') = exp(a' ln x): the exponent's rounding
+        // a' - 1/3 enters the exp argument multiplied by |ln x|, and powf
+        // adds at most one ulp of its own (faithful; checked below).
+        let a_err = (f64::from(1.0_f32 / 3.0) - 1.0 / 3.0).abs();
+        let p = Real::powf(xd, 1.0 / 3.0);
+        let l_p = a_err * Real::ln(xd).abs() + ulp_over(p as f32);
+        // (3) t = x*x/8 - 1: x is exact, x*x rounds, /8 is exact, -1 rounds.
+        let t = xd * xd / 8.0 - 1.0;
+        let dt = U32 * (xd * xd / 8.0) + U32 * t.abs();
+        let (lo, hi, n) = if s1 {
+            (&SYNCH1[..], &SYNCH2[..], 11_i32)
+        } else {
+            (&SYNCH21[..], &SYNCH22[..], 5_i32)
+        };
+        let (c_lo, e_lo) = cheb_budget(lo, t, dt);
+        let (c_hi, e_hi) = cheb_budget(hi, t, dt);
+        let pi_s3 = core::f64::consts::PI / Real::sqrt(3.0);
+        let a = p * c_lo;
+        let b = Real::powi(p, n) * c_hi;
+        let c = if s1 { pi_s3 * xd } else { 0.0 };
+        let r = a - b - c;
+        // (2), (4) log errors ADD through products: px^n is n l_p plus its
+        // n - 1 rounded multiplies; each term adds its series and one
+        // rounded multiply.
+        let l_a = l_p + e_lo / c_lo.abs() + U32;
+        let l_b = f64::from(n) * l_p + f64::from(n - 1) * U32 + e_hi / c_hi.abs() + U32;
+        let l_c = (f64::from(PI_OVER_SQRT3) - pi_s3).abs() / pi_s3 + U32;
+        // (5) the sum turns each term's log error into an absolute one,
+        // |T| l_T, plus the two rounded subtractions.
+        let abs_err =
+            a.abs() * l_a + b.abs() * l_b + c.abs() * l_c + U32 * (a - b).abs() + U32 * r.abs();
+        let rel = abs_err / r.abs();
+        let cancel = a.abs().max(b.abs()).max(c.abs()) / r.abs();
+        (-Real::ln(1.0 - rel), cancel)
+    }
+
+    /// `|ln(got / reference)|`, the log error.
+    fn log_err(got: f32, reference: f64) -> f64 {
+        Real::ln(f64::from(got) / reference).abs()
+    }
+
+    /// The shipped `x <= 4` branch of `S_1` with `px` supplied, so the
+    /// negative control can degrade it. Asserted bit-equal to
+    /// [`synchrotron_1`] when given the shipped `px`.
+    fn s1_branch_given_px(x: f32, px: f32) -> f32 {
+        let t = x * x / 8.0 - 1.0;
+        px * cheb(&SYNCH1, t) - pow_int(px, 11) * cheb(&SYNCH2, t) - PI_OVER_SQRT3 * x
+    }
+
+    /// `S_2`'s counterpart of [`s1_branch_given_px`].
+    fn s2_branch_given_px(x: f32, px: f32) -> f32 {
+        let t = x * x / 8.0 - 1.0;
+        px * cheb(&SYNCH21, t) - pow_int(px, 5) * cheb(&SYNCH22, t)
+    }
+
+    /// `p` moved `k` ulps away from zero.
+    fn ulps_up(p: f32, k: u32) -> f32 {
+        f32::from_bits(p.to_bits() + k)
+    }
+
     /// **The `f32` cost above is cancellation in upstream's own formula, not
     /// anything this transcription did**, and that is measured here rather
     /// than asserted in prose.
@@ -329,57 +448,192 @@ mod tests {
     /// cancellation and simply has 29 more bits to spend, so this is a
     /// property of the series, not of the width.
     ///
-    /// The assertion is that the measured error in units of `f32::EPSILON`
-    /// stays within a small factor of the cancellation ratio. If a future
-    /// change makes the error *large* relative to the cancellation, that is a
-    /// transcription defect and this test is what distinguishes the two.
+    /// # The instrument: log error against a propagated budget (gh #1003)
     ///
-    /// **FAILING since 2026-10-20, OPEN for the maintainer (gh #1001).** The
-    /// factor 4 was measured in the `cfg(test)` build, where std's inherent
-    /// `powf` (glibc) shadowed `Real::powf`, so it described glibc, not the
-    /// shipped `libm` route. Through `libm` the mirror misses at `x = 3.99`:
-    /// `S_1` error 4535 ulps against a cancellation of 1101.6, a factor of
-    /// 4.12. The cause is one input: `libm::powf(3.99, 1/3)` returns
-    /// `0x3fcb0494`, 0.64 ulp from the true value, where glibc returns the
-    /// correctly rounded `0x3fcb0493` (within musl's documented 0.82-ulp
-    /// bound, so not an upstream bug), and `S_1`'s `x^{11/3}` term multiplies
-    /// that error by 11 before the cancellation. The assertion is left as it
-    /// was: moving the factor is the maintainer's call.
+    /// ~~The assertion is that the measured error in units of `f32::EPSILON`
+    /// stays within a small factor of the cancellation ratio~~ (`ulps < 4 *
+    /// cancel`, with `ulps = |S_f32 - S_f64| / |S_f64| / f32::EPSILON` and
+    /// `cancel = max|term| / |S|`). **REPLACED 2026-10-20 (gh #1003).** The
+    /// factor 4 was never derived. It was measured, and through glibc's
+    /// `powf`, because std shadowed `Real::powf` in the test build (gh
+    /// #1001). Through the shipped `libm::powf` the mirror read **4.12** at
+    /// `x = 3.99` (`S_1` error 4535 ulps against a cancellation of 1101.6),
+    /// and the test failed. The cause was one input: `libm::powf(3.99, 1/3)`
+    /// returns `0x3fcb0494`, 0.64 ulp from the true value, where glibc
+    /// returns the correctly rounded `0x3fcb0493`. ~~(within musl's documented
+    /// 0.82-ulp bound, so not an upstream bug)~~ **CORRECTED 2026-10-20:**
+    /// `libm` 0.2.16's `powf` is FreeBSD's `e_powf.c`, not musl's newer
+    /// 0.82-ulp routine, and it documents no ulp bound ("nearly rounded").
+    /// Measured below on this branch's domain it is faithful, worst **0.840
+    /// ulp** (0.853 on a denser stride); the 0.82 figure does not apply.
+    ///
+    /// A uniform factor of the cancellation was the wrong instrument because
+    /// the terms are not alike. `x^{11/3} = exp((11/3) ln x)`: an error in
+    /// an exponential's argument comes out as a **log** error, `|ln f_f32 -
+    /// ln f_ref|`, and log errors add through products. So `x^{11/3}`
+    /// carries eleven times `x^{1/3}`'s log error, which no factor shared
+    /// with the other two terms can express. Maintainer direction,
+    /// 2026-10-20: "for exp error propagation you should measure by log error
+    /// rather than error, to be fair."
+    ///
+    /// **The metric now** is the log error of the result, `|ln S_f32 - ln
+    /// S_f64|`, and the bound is what `f32` can deliver on this formula,
+    /// derived term by term. Everything is first order in `u = 2^-24` and
+    /// worst case, every rounding at its bound
+    /// (`branch_log_budget`, `cheb_budget`):
+    ///
+    /// 1. **`px = powf(x, a')`** with `a' = f32(1/3)`, i.e. `exp(a' ln x)`.
+    ///    The exponent's rounding enters the exp argument multiplied by
+    ///    `|ln x|`, the `|argument| * eps` term:
+    ///    `|a' - 1/3| |ln x| = 9.93e-9 |ln x|`. `powf` adds at most one ulp
+    ///    of its own. So `l_p <= |a' - 1/3| |ln x| + ulp(px)/px`.
+    /// 2. **`px^n` by `n - 1` rounded multiplies** (`pow_int`):
+    ///    `n l_p + (n - 1) u`.
+    /// 3. **Each Chebyshev series** (Clenshaw, GSL's form): three roundings
+    ///    per step, each reaching the result multiplied by `T_k(t)`, which
+    ///    is at most 1 on `[-1, 1]`; the coefficients' rounding to `f32`,
+    ///    `u sum |c_k|`; and `t`'s own rounding, `|C'(t)| u (x^2/8 + |t|)`.
+    ///    These are evaluated in `f64` from the recurrence's values, which
+    ///    are condition numbers, not errors.
+    /// 4. **Each term** `T = prefactor * C`: `l_T = l_prefactor + dC/|C| +
+    ///    u`. The constant term: `pi/sqrt 3`'s rounding plus `u`.
+    /// 5. **The sum** turns each term's log error into an absolute one:
+    ///    `|dS| <= sum |T_i| l_i + u |a - b| + u |S|`, and the log-error
+    ///    bound is `-ln(1 - |dS|/|S|)`.
+    ///
+    /// Left out: the `f64` reference's own error, about `cancel * 2^-52`
+    /// times a few, 1e-12 against budgets of 1e-5 to 3e-3.
+    ///
+    /// **Prediction, written before the run:** at `x = 3.99` the budget would
+    /// be dominated by step 1 through `x^{11/3}`, `11 l_p |b|/|S|`, roughly
+    /// 9 000 eps, so the measured 4 535 eps would sit at 0.3 to 0.5 of it.
+    /// **Result:** the budget is 21 342 eps and the measured error 0.213 of
+    /// it. The estimate left out step 2's rounded multiplies and step 3's
+    /// Clenshaw roundings. At `x = 3.99` the `S_1` budget splits as `powf`
+    /// (step 1) 41 %, rounded multiplies 27 %, Clenshaw 31 %, the rest 1 %.
+    ///
+    /// # Results, 2026-10-20, through the shipped `libm::powf`
+    ///
+    /// Log error and budget in units of `f32::EPSILON`:
+    ///
+    /// | `x` | cancel `S_1` | `S_1` error / budget | ratio | cancel `S_2` | `S_2` error / budget | ratio |
+    /// |---|---|---|---|---|---|---|
+    /// | 1 | 4.0 | 4.1 / 87.6 | 0.046 | 4.0 | 11.0 / 176.7 | 0.063 |
+    /// | 2 | 20.4 | 8.8 / 363.7 | 0.024 | 28.7 | 38.7 / 660.9 | 0.058 |
+    /// | 3 | 142.8 | 222.9 / 2 380 | 0.094 | 217.8 | 325.5 / 3 099 | 0.105 |
+    /// | 3.9 | 913.2 | 213.0 / 17 524 | 0.012 | 1 338 | 1 303 / 19 402 | 0.067 |
+    /// | 3.99 | 1 101 | **4 536 / 21 342** | **0.213** | 1 604 | 4 959 / 23 341 | 0.212 |
+    /// | 4 | 1 124 | 536.2 / 21 814 | 0.025 | 1 637 | 434.3 / 23 825 | 0.018 |
+    ///
+    /// Over a further 100 001 linear probes on `[2^-10, 4]` the worst ratio is
+    /// **0.361** for `S_1` (at `x = 3.294`) and **0.380** for `S_2` (at
+    /// `x = 0.1496`). The old metric at `x = 3.99` read 4 535 / 1 101.6 =
+    /// 4.12 against an asserted 4. The new one reads 0.213 against 1.
+    ///
+    /// **This bound is looser than the old one where the old one held.** At
+    /// `x = 3.99` the new budget allows 21 342 eps where `4 * cancel` allowed
+    /// 4 404. That is what a first-order worst case costs: it is derived,
+    /// so it can be argued with line by line, but it is not tight.
+    ///
+    /// **Negative control: the budget can fail.** Move the shipped `px` by
+    /// `k` ulps, as a `powf` worse than faithful would, and keep everything
+    /// else as shipped. Ratio of log error to budget:
+    ///
+    /// | `x` | `k = 1` | `k = 2` | `k = 3` | `k = 4` |
+    /// |---|---|---|---|---|
+    /// | 3.9, `S_1` | 0.233 | 0.486 | 0.834 | **1.087** |
+    /// | 3.99, `S_1` | 0.550 | 0.804 | **1.114** | **1.368** |
+    /// | 4, `S_1` | 0.247 | 0.497 | 0.803 | **1.053** |
+    /// | 3.99, `S_2` | 0.386 | 0.618 | 0.734 | 0.909 |
+    ///
+    /// So a `powf` three ulps off is caught at `x = 3.99`, and one or two ulps
+    /// off is not: that is this instrument's resolution, stated rather than
+    /// hidden. A single extra `f32` rounding of `px`'s exp argument (at most
+    /// `u * |ln x|/3 = 0.46 u` at `x = 4`) is far below it. Bit-identity
+    /// with the shader and the transcription tests carry the finer checks.
+    /// The `k = 3` row at `x = 3.99` is asserted below.
+    ///
+    /// The test also asserts the assumption the budget rests on: `powf(x,
+    /// 1/3)` is faithful over `[2^-10, 4]` (every 61st `f32`).
     #[test]
     fn the_f32_cost_is_cancellation_at_the_branch_boundary() {
-        for x in [1.0_f32, 2.0, 3.0, 3.9, 3.99, 4.0] {
+        let eps = f64::from(f32::EPSILON);
+
+        // The assumption the budget rests on: libm 0.2.16's powf (FreeBSD
+        // e_powf.c, which documents no ulp bound) is faithful, under one
+        // ulp, for exponent f32(1/3) on this branch's domain.
+        let (mut worst_ulp, mut at) = (0.0_f64, 0.0_f32);
+        let mut bits = SMALL_CUT.to_bits();
+        while bits <= 4.0_f32.to_bits() {
+            let x = f32::from_bits(bits);
+            let exact = Real::powf(f64::from(x), f64::from(1.0_f32 / 3.0));
+            let got = f64::from(Real::powf(x, 1.0 / 3.0));
+            let e = (got - exact).abs() / (ulp_over(exact as f32) * exact);
+            if e > worst_ulp {
+                worst_ulp = e;
+                at = x;
+            }
+            bits += 61;
+        }
+        assert!(
+            worst_ulp < 1.0,
+            "powf(x, 1/3) is assumed faithful; it is {worst_ulp} ulp off at {at:e}"
+        );
+
+        // The six points this test has always checked, then a sweep.
+        let mut xs = std::vec![1.0_f32, 2.0, 3.0, 3.9, 3.99, 4.0];
+        let n = 100_000_u32;
+        xs.extend((0..=n).map(|k| SMALL_CUT + (4.0 - SMALL_CUT) * (k as f32 / n as f32)));
+        for &x in &xs {
+            let x = x.min(4.0);
             let px = Real::powf(x, 1.0 / 3.0); // as shipped (gh #1001)
-            let t = x * x / 8.0 - 1.0;
-
-            let (a, b, c) = (
-                px * cheb(&SYNCH1, t),
-                pow_int(px, 11) * cheb(&SYNCH2, t),
-                PI_OVER_SQRT3 * x,
+            assert_eq!(
+                s1_branch_given_px(x, px).to_bits(),
+                synchrotron_1(x).to_bits()
             );
-            let r = a - b - c;
-            let cancel = (a.abs().max(b.abs()).max(c.abs()) / r.abs()) as f64;
-            let true1 = f64_synch::synchrotron_1(x as f64);
-            let ulps =
-                (((synchrotron_1(x) as f64) - true1) / true1).abs() / f64::from(f32::EPSILON);
-            assert!(
-                ulps < 4.0 * cancel,
-                "S_1 at x = {x}: the branch cancels by {cancel:e} and the error \
-                 is {ulps:e} ulps. The error is documented as tracking the \
-                 cancellation; an error far above it is a transcription defect, \
-                 not arithmetic"
+            assert_eq!(
+                s2_branch_given_px(x, px).to_bits(),
+                synchrotron_2(x).to_bits()
             );
 
-            let (a, b) = (px * cheb(&SYNCH21, t), pow_int(px, 5) * cheb(&SYNCH22, t));
-            let r = a - b;
-            let cancel = (a.abs().max(b.abs()) / r.abs()) as f64;
-            let true2 = f64_synch::synchrotron_2(x as f64);
-            let ulps =
-                (((synchrotron_2(x) as f64) - true2) / true2).abs() / f64::from(f32::EPSILON);
+            let (b1, k1) = branch_log_budget(x, true);
+            let l1 = log_err(synchrotron_1(x), f64_synch::synchrotron_1(f64::from(x)));
+            let (b2, k2) = branch_log_budget(x, false);
+            let l2 = log_err(synchrotron_2(x), f64_synch::synchrotron_2(f64::from(x)));
             assert!(
-                ulps < 4.0 * cancel,
-                "S_2 at x = {x}: cancels by {cancel:e}, error {ulps:e} ulps"
+                l1 <= b1,
+                "S_1 at x = {x}: log error {:.1} eps against a propagated budget of \
+                 {:.1} eps (cancellation {k1:.1}). Above the budget is more error \
+                 than f32 arithmetic on this formula can produce: a transcription \
+                 defect, or a powf worse than faithful",
+                l1 / eps,
+                b1 / eps
+            );
+            assert!(
+                l2 <= b2,
+                "S_2 at x = {x}: log error {:.1} eps against a budget of {:.1} eps \
+                 (cancellation {k2:.1})",
+                l2 / eps,
+                b2 / eps
             );
         }
+
+        // Negative control: the budget can fail. A px three ulps off, as a
+        // powf worse than faithful would give, breaches it at x = 3.99.
+        let x = 3.99_f32;
+        let px = ulps_up(Real::powf(x, 1.0 / 3.0), 3);
+        let (b1, _) = branch_log_budget(x, true);
+        let l1 = log_err(
+            s1_branch_given_px(x, px),
+            f64_synch::synchrotron_1(f64::from(x)),
+        );
+        assert!(
+            l1 > b1,
+            "negative control: px three ulps off at x = 3.99 was measured at \
+             1.114 of the budget; it now reads {:.3}, so the budget can no \
+             longer see a powf three ulps off",
+            l1 / b1
+        );
 
         // And the cancellation really does worsen toward the boundary, which
         // is why the worst point above sits there.
