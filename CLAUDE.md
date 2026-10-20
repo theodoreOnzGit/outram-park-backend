@@ -577,6 +577,12 @@ gh issue comment <number> --body "..."           # progress
 
 ## Build & test
 
+**Toolchain: Rust 1.99.1** (maintainer direction, 2026-10-20: "make 1.99 the
+standard"), pinned in the root `rust-toolchain.toml`, so rustup selects it for
+every cargo command in the repo. The Pages build stays on its own pinned 1.98.0
+(`RUSTUP_TOOLCHAIN` in `.github/workflows/pages.yml`, gh:#772) until that pin is
+bumped deliberately. Historical records keep the toolchain they were run with.
+
 > Measured evidence, the CI-trigger investigation and the long-tests worked
 > examples: [`docs/claude-md-rationale/build-test-and-ci.md`](docs/claude-md-rationale/build-test-and-ci.md).
 
