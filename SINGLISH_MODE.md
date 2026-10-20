@@ -17,7 +17,7 @@ This is a **style toggle for chat prose only**. It does **not** change any
 artefact and does **not** relax any rule:
 
 - **Code, comments, doc comments, commit messages, PR text, `README`/`docs`,
-  V&V write-ups, and beads** stay in clear standard English — this is an
+  V&V write-ups, and GitHub issues** stay in clear standard English — this is an
   international, open-source, NUS-affiliated project, so artefacts must read the
   same to everyone. Singlish lives only in the conversational reply text.
 - It does **not** relax any mandatory rule in `CLAUDE.md` — responsible-use /

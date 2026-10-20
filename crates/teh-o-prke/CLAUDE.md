@@ -61,7 +61,7 @@ is never committed or pushed) and is also `exclude`d from the packaged crate
 (`exclude = ["pki", "docs"]`). Confirmed by the maintainer (2026-07-16).
 
 Automated audits / secret scanners may surface it — **do not** treat it as a
-leaked key, do not "rotate" it, and do not open a security bead for it. If tidying
+leaked key, do not "rotate" it, and do not open a security issue for it. If tidying
 is ever wanted, it can simply be deleted (it is untracked local scratch).
 
 ## What this is

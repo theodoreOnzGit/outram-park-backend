@@ -5,12 +5,6 @@ This project tracks work in **GitHub issues** on
 are in [`CLAUDE.md`](CLAUDE.md) and they bind every agent, not only Claude.
 This file is a short pointer for agents that read `AGENTS.md` first.
 
-> **Tracker history.** kopi-beans (`bn`) was deprecated on 2026-09-21 because
-> of persistent problems with its git-ref store and sync daemon. Before that
-> the workspace used beads-rs (`bd`) and, before that, Go beads. Do not install
-> or use `bn` or `bd` here. The full record is in
-> [`docs/kopi-beans-deprecation.md`](docs/kopi-beans-deprecation.md).
-
 ## Quick Reference
 
 ```bash
@@ -31,7 +25,7 @@ gh issue comment <number> --body "..."           # progress
   in the issue body in words ("blocked by #123").
 - **After a plan is approved, convert it into issues before writing code**:
   one child issue per deliverable, under the relevant crate's epic.
-- **`op-*` ids are historical** references into the old beads tracker. Do not
+- **`op-*` ids are historical** references into the retired issue tracker. Do not
   look them up in `gh` and do not mint new ones.
 - **If `gh` is unavailable**, fall back to the harness's task tools and say so
   in the hand-off.

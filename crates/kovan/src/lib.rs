@@ -48,7 +48,7 @@ pub mod advanced_git;
 /// behaviour change, and (per grep) touched no reference outside this
 /// crate's own doc comments. Renaming `DigitiseApp` itself to a name that
 /// reflects shell (not digitiser) ownership is a separate, deliberately
-/// deferred follow-up — see the crate's `bn` tracker.
+/// deferred follow-up.
 #[cfg(all(feature = "gui", not(target_os = "android")))]
 pub mod app;
 pub mod artifact;

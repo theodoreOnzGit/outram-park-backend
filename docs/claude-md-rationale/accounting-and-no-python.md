@@ -138,7 +138,7 @@ drivers, and `gen_latex_doc.py`. Six are **code generation** (they read the
 gitignored upstream CoolProp JSON clone and emit Rust), which is neither
 documentation nor accounting; `gen_latex_doc.py` scaffolds a LaTeX doc series
 and arguably is. Whether to bring them in is a maintainer decision that has not
-been made — tracked as a bead. Do not delete them under this rule without
+been made — tracked as an issue. Do not delete them under this rule without
 asking.
 
 Everything else matching `*.py` is vendored upstream source under

@@ -207,7 +207,7 @@ the port's own comments claim, is not a substitute for reading it.
    before you measure.** If the fix would move the answer the wrong way, you
    have the wrong hypothesis — stop and go back to step 1.
 
-**Record what you find in the bead**, including when upstream turns out to
+**Record what you find in the issue**, including when upstream turns out to
 handle it the same way we do (that result is worth as much as a defect, and
 saves the next session repeating the search).
 

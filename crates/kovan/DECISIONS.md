@@ -783,7 +783,7 @@ table digitisation) — both are genuinely maintainer-scope decisions (the
 OCR one explicitly conflicts with this crate's documented "no ML" digitiser
 rule and needs an exception granted, not assumed), so everything chained
 off them (`op-hnhp`, `op-b1y5`, `op-9vml`, `op-wr08`, `op-x3wl`, `op-5sdc`,
-`op-p17q`) stays unimplemented. See `bn show op-9c2e` for the full graph.
+`op-p17q`) stays unimplemented (retired tracker epic `op-9c2e`).
 
 **`op-6ez3` — PDF page rendering engine: decided as `kopitiam_pdf::mupdf`.**
 This was largely already decided by the `kopitiam-pdf` dependency landing

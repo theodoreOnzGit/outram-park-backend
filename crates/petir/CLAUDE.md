@@ -5,9 +5,9 @@ and, where noted, is stricter.
 
 ## Read the epic first
 
-The settled design decisions for this crate live in the kopi-beans epic
-**`op-chyp`**, not here. Read it (`bn show op-chyp`) before proposing anything
-structural. The short version, all of it maintainer-decided:
+The settled design decisions for this crate were recorded in the retired
+tracker's epic `op-chyp`; the live epic is gh:#203. Read it before proposing
+anything structural. The decisions, all of them maintainer-decided:
 
 1. PETIR is a **`no_std` port of GSL**, plus selected GNU Octave maths.
 2. **Numerics are PORTED from a real library with real V&V — never written from
@@ -180,7 +180,7 @@ earlier session did.
 Every module declares itself as **ported**, **lifted verbatim**, or
 **delegated** (see the README table). A routine in none of those three does not
 belong in this crate. If something genuinely has no suitable upstream, the
-honest move is a bead saying so, not a hand-rolled implementation with a
+honest move is an issue saying so, not a hand-rolled implementation with a
 confident doc comment.
 
 A worked example of rule 2 being followed properly: `specfunc::ln_gamma` was

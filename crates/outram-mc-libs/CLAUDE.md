@@ -496,7 +496,7 @@ the OUTRAM PARK Monte Carlo path. This is a durable direction, not a one-off.
 - Approach: a notebook→test→required-API **mapping doc**, then a
   `tests/openmc_notebooks/` harness — tractable notebooks as live tests, the
   rest `#[ignore]` with a documented "requires API X" reason + a per-notebook
-  bead. `pincell`/Godiva k_eff (op-u6s.1) is the natural first live case.
+  issue. `pincell`/Godiva k_eff (op-u6s.1) is the natural first live case.
 - Notebooks are OpenMC-project open-source (MIT) — cite provenance
   (source notebook + commit) per RESPONSIBLE_USE.md; V&V docs state methodology
   **and** measured results. Tracked under beads epic **op-6tz**.
@@ -515,7 +515,7 @@ the OUTRAM PARK Monte Carlo path. This is a durable direction, not a one-off.
   combined σ, σ-distance, data used on each side, stats note). That folder is
   **gitignored** — the CSVs are reproducible generated outputs, kept local, not
   committed. The interpretation/write-up still goes in the committed V&V docs +
-  the relevant bead.
+  the relevant issue.
 
 ### Code-to-code verification: commit the OpenMC input scripts (MANDATORY)
 
@@ -1124,7 +1124,7 @@ requires it.
 correctly returns a zero GPU share for `DeviceClass::Cpu` — handing work to a
 software rasteriser costs buffer copies to run the same arithmetic on the same
 cores. The library was right and the test was wrong, and the test had **never
-executed on any host**. See `bn` for the record.
+executed on any host**.
 
 **Two things follow for anyone adding a GPU test here.**
 

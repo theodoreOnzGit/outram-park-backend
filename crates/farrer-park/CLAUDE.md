@@ -118,7 +118,7 @@ result is wrong, read the MOOSE or PRISMS routine that owns the behaviour
 *before* reasoning from first principles or from this crate's own comments. In
 a translation, the overwhelmingly likely cause is that upstream does something
 the port does not — most often a bound, a guard, or a branch, not a wrong
-formula. Record what you find in the bead, including when upstream turns out to
+formula. Record what you find in the issue, including when upstream turns out to
 do exactly what we do.
 
 ## Maturity

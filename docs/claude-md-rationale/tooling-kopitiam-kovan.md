@@ -5,8 +5,7 @@
 > The binding rules live in `CLAUDE.md` under "Dogfood KOPITIAM and
 >
 > **RETIRED RULES PRESERVED HERE.** Two hard rules reproduced below no longer
-> apply: the **kopi-beans tracker mandate** (deprecated 2026-09-21, see
-> [`../kopi-beans-deprecation.md`](../kopi-beans-deprecation.md)) and the
+> apply: the **kopi-beans tracker mandate** (deprecated 2026-09-21) and the
 > **kovan literature ingestion / read-write mandate** (retired 2026-09-21 at
 > the maintainer's request). They are kept verbatim as history. **Do not act on
 > them** — `CLAUDE.md` is the live rule set.
@@ -362,7 +361,7 @@ it first** where it covers the task, and **report every rough edge you hit**
 > **`kopi-beans` (`bn`) is no longer part of this rule.** It was deprecated as
 > this workspace's issue tracker on 2026-09-21 — persistent beads-store and
 > daemon problems made it cumbersome. GitHub issues replace it; see "Issue
-> tracking & roadmap" and [`docs/kopi-beans-deprecation.md`](docs/kopi-beans-deprecation.md).
+> tracking & roadmap".
 > Defects found in it still get filed upstream under "Raising issues".
 
 **For OUTRAM-PARK-specific context, prefer `kovan` over `kopitiam` (maintainer

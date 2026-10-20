@@ -6,7 +6,7 @@
 //! module-path relocation — every file below is otherwise unchanged; see
 //! `crate::digitiser::gui::run` for the one call site that opens this
 //! shell. `DigitiseApp` itself keeping its pre-move name is a deliberate,
-//! disclosed scope cut for this pass — see the crate's `bn` tracker for the
+//! disclosed scope cut for this pass; the rename is a
 //! follow-up rename.
 
 mod advanced_git_view;

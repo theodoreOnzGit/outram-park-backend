@@ -547,8 +547,7 @@ specifically, not just human contributors:
 
 Track all tasks and roadmap progress in GitHub issues on
 `theodoreOnzGit/outram-park-backend`, via `gh`, not TodoWrite or markdown
-TODO lists. (`bn` / kopi-beans was deprecated 2026-09-21; see
-[`docs/kopi-beans-deprecation.md`](docs/kopi-beans-deprecation.md).)
+TODO lists.
 
 ```bash
 gh issue list --state open                       # what is open
@@ -566,7 +565,7 @@ gh issue comment <number> --body "..."           # progress
 - **Roadmap / progress questions** are answered from `gh issue list/view`.
 - **If `gh` is unavailable**, fall back to the harness task tools and say so
   in the hand-off.
-- **`op-*` ids are historical** references into the old beads store; do not
+- **`op-*` ids are historical** references into the retired issue tracker; do not
   look them up in `gh` and do not mint new ones.
 - The tracker holds *work to do*; the per-project `memory/` files hold
   *durable facts and preferences*. Both stay in use.

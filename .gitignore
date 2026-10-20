@@ -5,11 +5,9 @@
 # The Doppler verification uses the extracted reference CSVs instead.
 crates/njoy-outram-park-fork/tests/resources/*.h5
 
-# Beads / Dolt files (added by bd init)
+# Dolt / database files
 .dolt/
 *.db
-.beads-credential-key
-.beads/proxieddb/
 
 # Session progress summaries (regenerated on demand; never committed)
 /progress.md

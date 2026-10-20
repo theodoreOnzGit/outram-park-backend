@@ -5,7 +5,7 @@
 //! *currently visible* nodes into world-space positions, a camera that maps
 //! world space to a viewport (Fit All / Centre Selection / zoom-at-cursor),
 //! manual node pinning, and an [`ascii_render`] projection for headless
-//! dogfooding — behaviour ported (not code-ported — see `bn show
+//! dogfooding — behaviour ported (not code-ported; retired tracker id
 //! op-30um.8`) from the maintainer's Python prototype
 //! `collaboration/kovan-issue-35-prototypes/layer4-mindmap-ascii/mindmap_layout.py`.
 //!

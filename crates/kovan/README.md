@@ -1071,7 +1071,7 @@ workbench" ask (epic `op-9c2e`) — the pieces landed so far:
 Still open on the `op-9c2e` epic and not implemented: the bibliography
 management window, the "kovan folder" project format (`kovan.toml`), and
 structured markdown section editing — each needs a design/decision pass
-before implementation (see `bn show op-9c2e` for the full child-issue graph).
+before implementation (retired tracker epic `op-9c2e`).
 
 ## Android
 

@@ -406,10 +406,8 @@ operational-facility data, and none may be introduced to satisfy it.
 
 ## 9. Issue tracker
 
-Filed 2026-08-04 into beads-rs; the store now belongs to kopi-beans (`bn`) —
-run `bn show <id>` for per-case detail, `bn ready` for what is unblocked (see
-root `CLAUDE.md` "Issue tracking & roadmap — kopi-beans" for the live
-format-version blocker on that store as of 2026-08-07).
+Filed 2026-08-04 into the workspace's tracker at the time, since retired; the
+`op-*` ids below are historical. Live work is tracked in GitHub issues.
 
 **Pipe / property / nozzle — under `op-21g` (tampines-steam-tables):**
 

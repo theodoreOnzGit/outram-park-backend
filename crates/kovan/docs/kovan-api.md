@@ -945,7 +945,7 @@ This pass is the module-path relocation only — a pure move, no
 behaviour change, and (per grep) touched no reference outside this
 crate's own doc comments. Renaming `DigitiseApp` itself to a name that
 reflects shell (not digitiser) ownership is a separate, deliberately
-deferred follow-up — see the crate's `bn` tracker.
+deferred follow-up.
 The KOVAN application shell — [`DigitiseApp`] and its view panels. Moved
 here from `digitiser::gui::desktop` 2026-09-01 (GH issue #35 checkpoint
 §22, `op-1arj`): the digitiser is one panel the shell hosts, not the
@@ -954,7 +954,7 @@ shell's owner, so the shell's own state (this file's `DigitiseApp`,
 module-path relocation — every file below is otherwise unchanged; see
 `crate::digitiser::gui::run` for the one call site that opens this
 shell. `DigitiseApp` itself keeping its pre-move name is a deliberate,
-disclosed scope cut for this pass — see the crate's `bn` tracker for the
+disclosed scope cut for this pass; the rename is a
 follow-up rename.
 
 ```rust
@@ -33648,7 +33648,7 @@ What belongs here: turning a [`crate::mindmap_model::MindmapModel`]'s
 *currently visible* nodes into world-space positions, a camera that maps
 world space to a viewport (Fit All / Centre Selection / zoom-at-cursor),
 manual node pinning, and an [`ascii_render`] projection for headless
-dogfooding — behaviour ported (not code-ported — see `bn show
+dogfooding — behaviour ported (not code-ported; retired tracker id
 op-30um.8`) from the maintainer's Python prototype
 `collaboration/kovan-issue-35-prototypes/layer4-mindmap-ascii/mindmap_layout.py`.
 
@@ -34205,7 +34205,7 @@ What belongs here: a GUI-independent model of the mindmap's *logical*
 graph — which nodes exist, which are currently visible, and the three
 behavioural rules the maintainer's headless Python dogfood
 (`collaboration/kovan-issue-35-prototypes/layer3-mindmap-ui/mindmap_model.py`,
-a behaviour spec, not code to port literally — see `bn show op-30um.7`)
+a behaviour spec, not code to port literally; retired tracker id `op-30um.7`)
 pins down:
 
 1. **Expansion/collapse is explicit user state and is the only thing
@@ -34222,7 +34222,7 @@ What does **not** belong here: pixel/world-space positions, cameras and
 the ASCII renderer (that is [`crate::mindmap_layout`]); egui widgets and
 rendering, colour resolution, and wiring into the existing hand-rolled
 painter (that is [`crate::mindmap`] and `crate::app`, out of scope for
-this pass per `bn show op-30um.7`); and the canonical user-authored
+this pass per retired tracker id `op-30um.7`); and the canonical user-authored
 relation model (`RelationKind`/`UserRelation`, `op-30um.1`, landing in
 [`crate::relation`]) — this module only consumes a plain [`TypedEdge`]
 input, documented below as the seam that later work plugs into.
