@@ -909,6 +909,27 @@ pub fn fermi_dirac_3half(x: f64) -> f64 {
     }
 }
 
+/// The `f64` tables, for `wgsl::mirror_fermi_dirac`'s log-error budgets (gh #1003): the
+/// coefficients its `f32` tables were rounded and truncated from. Aliases,
+/// as `dawson`'s `PROBE_DAW`, so the tables stay plain `const` for
+/// `tests/gsl_tables_audit.rs`.
+#[cfg(test)]
+pub(crate) const PROBE_FD_HALF_A: [f64; 23] = FD_HALF_A;
+#[cfg(test)]
+pub(crate) const PROBE_FD_HALF_B: [f64; 20] = FD_HALF_B;
+#[cfg(test)]
+pub(crate) const PROBE_FD_HALF_C: [f64; 23] = FD_HALF_C;
+#[cfg(test)]
+pub(crate) const PROBE_FD_HALF_D: [f64; 30] = FD_HALF_D;
+#[cfg(test)]
+pub(crate) const PROBE_FD_3HALF_A: [f64; 20] = FD_3HALF_A;
+#[cfg(test)]
+pub(crate) const PROBE_FD_3HALF_B: [f64; 22] = FD_3HALF_B;
+#[cfg(test)]
+pub(crate) const PROBE_FD_3HALF_C: [f64; 21] = FD_3HALF_C;
+#[cfg(test)]
+pub(crate) const PROBE_FD_3HALF_D: [f64; 25] = FD_3HALF_D;
+
 #[cfg(test)]
 mod tests {
     extern crate std;

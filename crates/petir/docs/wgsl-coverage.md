@@ -183,7 +183,7 @@ Measured so far, on `llvmpipe (LLVM 20.1.2, 256 bits)`:
 | `Ti_2` | 1.444e-07 | 1.595e-07 |
 | `Li_2`, inversion branch (`x > 2`) | — | 5.710e-06, at `Li_2`'s zero |
 | `I_0` / `I_1` | 1.821e-06 / 1.761e-06 | 1.576e-07 / 1.748e-07 |
-| `K_0` / `K_1` | 2.242e-07 / 2.812e-07 | 1.629e-07 / 1.736e-07 |
+| `K_0` / `K_1` | 2.242e-07 / 2.812e-07 | ~~1.629e-07~~ **1.605e-07** (re-measured through `libm`, 2026-10-20, gh #1003) / 1.736e-07 |
 | `J_0` / `J_1` | 2.246e-07 / 5.695e-07 | 2.744e-06 / 7.354e-06 (at the zeros) |
 | `Y_0` / `Y_1` | 3.980e-07 / 3.329e-07 | 1.288e-05 / 2.786e-05 (at the zeros) |
 | BLAS L1 (`dot`, `nrm2`, `asum`, `iamax`) | **0** bit-identical | — |
@@ -416,15 +416,23 @@ it inward can only take away answers the hardware was willing to give. Every
 row above is asserted in `mirror_synchrotron`'s
 `the_range_guard_is_kept_because_retargeting_it_discards_answers`.
 
-**Its `f32` cost — 6.1e-04, three orders worse than any other kernel here —
+**Its `f32` cost — ~~6.1e-04~~ 6.8e-04 (re-measured through `libm`, 2026-10-20; the 6.1e-04 went through glibc's `powf`, gh #1001), three orders worse than any other kernel here —
 is upstream's cancellation, not this transcription.** On `x <= 4` GSL
 evaluates `S_1` as `x^{1/3} C_1 - x^{11/3} C_2 - (pi/sqrt 3) x`, three terms
 that grow while the answer falls: at `x = 4` the largest is **1124 times the
 result** for `S_1` and **1637 times** for `S_2`. That costs about `log2 R`
 bits, leaving `f32` roughly 13, which is the 1e-4 observed. `f64` runs the
 identical cancellation with 29 more bits to spend. Away from that boundary
-the mirror is ordinary — 8.6e-07 on the small-argument branch, 6.4e-05 on the
-exponential tail. `the_f32_cost_is_cancellation_at_the_branch_boundary`
+the mirror is ordinary — 8.6e-07 on the small-argument branch, ~~6.4e-05 on the
+exponential tail~~ **8.2e-07 on the exponential tail (CORRECTED 2026-10-20, gh
+#1003: the 6.4e-05 was the point `x = 4` itself, which belongs to the
+cancelling branch)**. `the_f32_cost_is_what_it_was_measured_to_be` now holds
+every probe on `[1e-6, 100]` to a derived **log-error** budget per branch
+(worst 0.834, `S_2`'s small branch, where upstream's two-term form leaves out
+`3x^2/4`), and the Fermi-Dirac (`F_0`, `F_{1/2}`, `F_{3/2}`, worst 0.971 at
+`F_0`'s branch cut) and Bessel (`I_0`, `I_1`, `K_0`, `K_1`, worst 0.563)
+mirrors' cost tests do the same, each with a negative control
+(`wgsl::log_budget`). `the_f32_cost_is_cancellation_at_the_branch_boundary`
 ~~asserts the error tracks the measured cancellation ratio, so a real
 transcription defect would still fail it.~~ **CORRECTED 2026-10-20 (gh
 #1003):** the old metric (relative error under 4 times the cancellation

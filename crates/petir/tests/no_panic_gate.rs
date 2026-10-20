@@ -181,6 +181,14 @@ fn library_code_contains_no_explicit_panic() {
     source_files(&src, &mut files);
     assert!(!files.is_empty(), "found no source files under {src:?}");
 
+    // The log_budget exemption below holds only while the module is test-only.
+    let wgsl_mod = fs::read_to_string(src.join("wgsl/mod.rs")).unwrap_or_default();
+    assert!(
+        wgsl_mod.contains("#[cfg(test)]\npub(crate) mod log_budget;"),
+        "wgsl/log_budget.rs is exempted from this gate as test-only code; \
+         wgsl/mod.rs no longer declares it under #[cfg(test)]"
+    );
+
     let mut offences: Vec<String> = Vec::new();
 
     for file in &files {
@@ -192,7 +200,12 @@ fn library_code_contains_no_explicit_panic() {
 
         // verification_tests.rs is a test module included by its parent under
         // #[cfg(test)]; it is test code by role even though it is its own file.
-        if rel.ends_with("verification_tests.rs") || rel.ends_with("recurrence_tests.rs") {
+        // wgsl/log_budget.rs likewise: `wgsl/mod.rs` declares it under
+        // #[cfg(test)] (gh #1003), so it never ships.
+        if rel.ends_with("verification_tests.rs")
+            || rel.ends_with("recurrence_tests.rs")
+            || rel.ends_with("wgsl/log_budget.rs")
+        {
             continue;
         }
 
@@ -539,7 +552,12 @@ fn no_subscript_in_the_crate_can_fail_at_runtime() {
             .to_string_lossy()
             .replace('\\', "/");
 
-        if rel.ends_with("verification_tests.rs") || rel.ends_with("recurrence_tests.rs") {
+        // wgsl/log_budget.rs likewise: `wgsl/mod.rs` declares it under
+        // #[cfg(test)] (gh #1003), so it never ships.
+        if rel.ends_with("verification_tests.rs")
+            || rel.ends_with("recurrence_tests.rs")
+            || rel.ends_with("wgsl/log_budget.rs")
+        {
             continue;
         }
 
