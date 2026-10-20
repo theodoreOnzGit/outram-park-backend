@@ -160,6 +160,10 @@ pub mod mirror_legendre_plm;
 /// transcription of its 32-bit emulated multiply.
 pub mod mirror_lcg;
 
+/// CPU mirror of the `3 x 3` SVD / closest-rotation shader: an `f32`
+/// transcription of [`crate::faer_dense::svd3`] (gh #1005).
+pub mod mirror_svd3;
+
 /// Headless GPU execution of these kernels. **Behind the off-by-default
 /// `wgpu` feature**, and the only module in the crate that uses `std`.
 #[cfg(all(
@@ -457,6 +461,15 @@ pub const LEGENDRE_PLM: &str = include_str!("shaders/legendre_plm.wgsl");
 /// (moved here 2026-10-02).
 pub const LCG: &str = include_str!("shaders/lcg.wgsl");
 
+/// faer's dense SVD of a `3 x 3` matrix and the closest proper rotation
+/// (Kabsch / Procrustes) built from it, in `f32`: `petir_svd3`,
+/// `petir_closest_rotation3` and `petir_closest_rotation3_src` (which reads
+/// the `src` binding). A transcription of PETIR's own faer port
+/// ([`crate::faer_dense::svd3`]) specialised to `n = 3`, mirrored line for
+/// line by [`mirror_svd3`]. Added for `outram-blender`'s ARAP local step
+/// (gh #1005).
+pub const SVD3: &str = include_str!("shaders/svd3.wgsl");
+
 /// Every shader source in this module, in dependency order.
 ///
 /// They are mutually independent today; the order is fixed so that a
@@ -480,7 +493,7 @@ pub const LCG: &str = include_str!("shaders/lcg.wgsl");
 /// fails if any `.wgsl` file is absent from [`ALL_NAMES`]. **Adding a shader
 /// means adding it to both arrays**; the directory is the authority, not
 /// anyone's count.
-pub const ALL: [&str; 26] = [
+pub const ALL: [&str; 27] = [
     POLY,
     CHEB,
     LEGENDRE,
@@ -507,6 +520,7 @@ pub const ALL: [&str; 26] = [
     GEGENBAUER,
     LEGENDRE_PLM,
     LCG,
+    SVD3,
 ];
 
 /// Names of the sources in [`ALL`], index for index, for diagnostics.
@@ -517,7 +531,7 @@ pub const ALL: [&str; 26] = [
 /// removes a shader from validation. That happened once, to `psi_zeta`, and
 /// `all_and_all_names_are_the_same_length` in `tests/wgsl_validation.rs` is
 /// what now catches it.
-pub const ALL_NAMES: [&str; 26] = [
+pub const ALL_NAMES: [&str; 27] = [
     "poly",
     "cheb",
     "legendre",
@@ -544,6 +558,7 @@ pub const ALL_NAMES: [&str; 26] = [
     "gegenbauer",
     "legendre_plm",
     "lcg",
+    "svd3",
 ];
 
 pub use kernel_builder::test_kernel;
@@ -631,8 +646,13 @@ mod tests {
     fn every_shader_declares_its_licence_and_lineage() {
         for (name, src) in ALL_NAMES.iter().zip(ALL.iter()) {
             assert!(!src.is_empty(), "{name}.wgsl is empty");
+            // GPL-3.0-only for transcriptions of GSL; AGPL-3.0-only for
+            // `svd3.wgsl`, transcribed from the AGPL `faer_dense` port (the
+            // crate is AGPL since 2026-10-20, gh #973; GSL-derived files keep
+            // their GPL header).
             assert!(
-                src.contains("SPDX-License-Identifier: GPL-3.0-only"),
+                src.contains("SPDX-License-Identifier: GPL-3.0-only")
+                    || src.contains("SPDX-License-Identifier: AGPL-3.0-only"),
                 "{name}.wgsl has no SPDX header"
             );
             assert!(

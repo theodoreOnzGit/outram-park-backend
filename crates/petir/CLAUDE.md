@@ -346,6 +346,13 @@ non-GSL source. It binds future work as follows:
   there); larger `n` returns `Invalid` rather than running a different path.
   Errors: non-finite bidiagonal -> `Domain`, iteration budget -> `MaxIterations`
   (faer returns `NoConvergence` for both).
+- **Its `n = 3` path has an `f32` WGSL twin** (gh #1005, 2026-10-20):
+  `wgsl/shaders/svd3.wgsl` and `wgsl::mirror_svd3`, a transcription of
+  `faer_dense::svd3` plus the Kabsch sign fix, for `outram-blender`'s
+  opt-in GPU ARAP. Scalar reductions replace the lane model, so it is judged
+  by rotation angle against a derived budget (`mirror_svd3::angle_budget`),
+  not bit-identity. If `svd.rs` changes, change the shader and mirror with
+  it.
 
 **`peroxide` as a DEPENDENCY remains ruled out** (it pulls
 `blas`/`lapack`/`netcdf`/`arrow`, which the "Dependencies" section below
