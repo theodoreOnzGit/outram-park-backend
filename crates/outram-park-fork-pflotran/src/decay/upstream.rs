@@ -141,6 +141,10 @@ pub const UFD_UPDATE_CLIP: f64 = 10.0;
 /// (`upstream_output.txt`), so 1000 binds only where upstream would never stop.
 pub const UFD_IMPLICIT_MAX_ITERATIONS: usize = 1000;
 
+/// `tiny`, the value `LUDecomposition1` writes over an exactly zero pivot,
+/// `utility.F90` line 572 (`PetscReal, parameter :: tiny=1.0d-20`).
+const LU_TINY: f64 = 1.0e-20;
+
 /// Parent lists as `PMUFDDecaySetup` builds them, `pm_ufd_decay.F90` lines
 /// 1213-1222: for each isotope in index order, for each of its daughters in
 /// the order given, append the isotope to that daughter's list. A parent that
@@ -219,6 +223,18 @@ fn floor_mass(x: f64) -> f64 {
     }
 }
 
+/// gfortran `MAXVAL` on a non-empty array: the largest non-`NaN` entry, or
+/// `NaN` if every entry is `NaN` (probed with gfortran 16.2.1 on 2026-10-20).
+fn fortran_maxval(xs: impl Iterator<Item = f64>) -> f64 {
+    let mut best = f64::NAN;
+    for x in xs {
+        if !x.is_nan() && (best.is_nan() || x > best) {
+            best = x;
+        }
+    }
+    best
+}
+
 /// The UFD_DECAY default: 3-generation explicit analytical Bateman solution,
 /// a port of `pm_ufd_decay.F90` lines 1868-1928 plus the floor of line 1994.
 ///
@@ -288,6 +304,236 @@ fn finish(mut out: Vec<f64>) -> Result<Vec<f64>, PflotranError> {
         *x = floor_mass(*x);
     }
     Ok(out)
+}
+
+/// The UFD_DECAY `IMPLICIT_SOLUTION` path: backward Euler solved by Newton in
+/// a log formulation, a port of `pm_ufd_decay.F90` lines 1929-1991 plus the
+/// floor of line 1994. Returns the new inventory and the Newton iteration
+/// count (upstream's `it`).
+///
+/// `daughters[p]` lists `(daughter, stoichiometry)` in upstream's order.
+///
+/// # Errors
+/// [`PflotranError::InvalidInput`] for a self-parent or self-grandparent
+/// (upstream's guard); [`PflotranError::Convergence`] for a zero Jacobian row
+/// (upstream aborts) or after [`UFD_IMPLICIT_MAX_ITERATIONS`] iterations
+/// (upstream loops forever); both are module docs item 4.
+pub(crate) fn ufd_implicit(
+    lambda: &[f64],
+    daughters: &[Vec<(usize, f64)>],
+    mass_iso_tot0: &[f64],
+    dt: f64,
+) -> Result<(Vec<f64>, usize), PflotranError> {
+    check_self_ancestry(&parent_lists(daughters))?;
+    let n = mass_iso_tot0.len();
+    let one_over_dt = 1.0 / dt;
+    let mut prev_solution = vec![1.0_f64; n]; // line 1931
+    let mut solution = mass_iso_tot0.to_vec(); // line 1932
+    let mut it = 0_usize;
+    let mut residual = vec![0.0_f64; n];
+    let mut jac = vec![0.0_f64; n * n]; // row-major: jac[i * n + j] = Jacobian(i, j)
+    let mut indices = vec![0_usize; n];
+    loop {
+        // Line 1936: inf-norm relative change.
+        let change = fortran_maxval(
+            solution
+                .iter()
+                .zip(&prev_solution)
+                .map(|(s, p)| (s - p).abs() / p),
+        );
+        if change < UFD_IMPLICIT_TOLERANCE {
+            break;
+        }
+        if it >= UFD_IMPLICIT_MAX_ITERATIONS {
+            return Err(PflotranError::Convergence(format!(
+                "UFD IMPLICIT_SOLUTION Newton did not converge in {it} iterations \
+                 (relative change {change:e}); upstream has no cap and would not \
+                 stop either (pm_ufd_decay.F90 lines 1934-1990)"
+            )));
+        }
+        prev_solution.copy_from_slice(&solution);
+        it += 1;
+        residual.iter_mut().for_each(|r| *r = 0.0);
+        jac.iter_mut().for_each(|j| *j = 0.0);
+        // Lines 1945-1972.
+        for iiso in 0..n {
+            let s = solution.get(iiso).copied().unwrap_or(0.0);
+            let m0 = mass_iso_tot0.get(iiso).copied().unwrap_or(0.0);
+            if let Some(r) = residual.get_mut(iiso) {
+                *r += (s - m0) * one_over_dt;
+            }
+            if let Some(j) = jac.get_mut(iiso * n + iiso) {
+                *j += one_over_dt;
+            }
+            let rate_constant = lambda.get(iiso).copied().unwrap_or(0.0);
+            let rate = rate_constant * s;
+            if let Some(r) = residual.get_mut(iiso) {
+                *r += rate;
+            }
+            if let Some(j) = jac.get_mut(iiso * n + iiso) {
+                *j += rate_constant;
+            }
+            for &(idaughter, stoich) in daughters.get(iiso).map(Vec::as_slice).unwrap_or(&[]) {
+                if let Some(r) = residual.get_mut(idaughter) {
+                    *r -= rate * stoich;
+                }
+                if let Some(j) = jac.get_mut(idaughter * n + iiso) {
+                    *j -= rate_constant * stoich;
+                }
+            }
+        }
+        // Lines 1974-1981: row scaling.
+        let mut rhs = vec![0.0_f64; n];
+        for (iiso, (row, r)) in jac.chunks_exact_mut(n.max(1)).zip(&mut rhs).enumerate() {
+            let mut norm = fortran_maxval(row.iter().map(|x| x.abs())).max(1.0);
+            norm = 1.0 / norm;
+            *r = residual.get(iiso).copied().unwrap_or(0.0) * norm;
+            row.iter_mut().for_each(|x| *x *= norm);
+        }
+        // Lines 1982-1985: log formulation, column scaling.
+        for row in jac.chunks_exact_mut(n.max(1)) {
+            for (x, s) in row.iter_mut().zip(&solution) {
+                *x *= s;
+            }
+        }
+        // Lines 1986-1990.
+        lu_decomposition(&mut jac, n, &mut indices)?;
+        lu_back_substitution(&jac, n, &indices, &mut rhs);
+        for (s, r) in solution.iter_mut().zip(&rhs) {
+            let clipped = 1.0_f64.copysign(*r) * r.abs().min(UFD_UPDATE_CLIP);
+            *s *= (-clipped).r_exp();
+        }
+    }
+    Ok((finish(solution)?, it))
+}
+
+/// Crout LU with implicit (scaled) partial pivoting, a port of
+/// `LUDecomposition1`, `utility.F90` lines 561-652 (Numerical Recipes
+/// `ludcmp`). `a` is row-major `n x n`, overwritten by its factors;
+/// `indx[j]` records the pivot row (0-based) of column `j`.
+///
+/// Differences from upstream: a zero row returns [`PflotranError::Convergence`]
+/// where upstream (called through `LUDecomposition2`, `stop_on_error =
+/// PETSC_TRUE`) prints the Jacobian and calls `MPI_Abort`; the sign `D` is not
+/// returned (no caller here uses it).
+///
+/// `petir::linalg::SquareMatrix` (OpenFOAM's `LUDecompose`, lifted) is the same
+/// algorithm with the same arithmetic order, and was checked and rejected for
+/// reuse: on a zero row it scales by `0` instead of stopping, and over a zero
+/// pivot it writes `f64::EPSILON`, not `1e-20`. The UFD implicit Newton meets a
+/// zero pivot whenever a nuclide's inventory is zero, so the guard matters.
+pub(crate) fn lu_decomposition(
+    a: &mut [f64],
+    n: usize,
+    indx: &mut [usize],
+) -> Result<(), PflotranError> {
+    let get = |a: &[f64], i: usize, j: usize| a.get(i * n + j).copied().unwrap_or(0.0);
+    let mut vv = vec![0.0_f64; n];
+    for (i, v) in vv.iter_mut().enumerate() {
+        let mut aamax = 0.0_f64;
+        for j in 0..n {
+            if get(a, i, j).abs() > aamax {
+                aamax = get(a, i, j).abs();
+            }
+        }
+        if aamax <= 0.0 {
+            return Err(PflotranError::Convergence(format!(
+                "Singular value encountered in LUDecomposition(): row {i} is zero \
+                 (upstream utility.F90 line 593 aborts the run here)"
+            )));
+        }
+        *v = 1.0 / aamax;
+    }
+    for j in 0..n {
+        for i in 0..j {
+            let mut sum = get(a, i, j);
+            for k in 0..i {
+                sum -= get(a, i, k) * get(a, k, j);
+            }
+            if let Some(x) = a.get_mut(i * n + j) {
+                *x = sum;
+            }
+        }
+        let mut aamax = 0.0_f64;
+        let mut imax = j;
+        for i in j..n {
+            let mut sum = get(a, i, j);
+            for k in 0..j {
+                sum -= get(a, i, k) * get(a, k, j);
+            }
+            if let Some(x) = a.get_mut(i * n + j) {
+                *x = sum;
+            }
+            let dum = vv.get(i).copied().unwrap_or(0.0) * sum.abs();
+            if dum >= aamax {
+                imax = i;
+                aamax = dum;
+            }
+        }
+        if j != imax {
+            for k in 0..n {
+                a.swap(imax * n + k, j * n + k);
+            }
+            if let Some(vj) = vv.get(j).copied() {
+                if let Some(slot) = vv.get_mut(imax) {
+                    *slot = vj;
+                }
+            }
+        }
+        if let Some(slot) = indx.get_mut(j) {
+            *slot = imax;
+        }
+        if get(a, j, j) == 0.0 {
+            if let Some(x) = a.get_mut(j * n + j) {
+                *x = LU_TINY;
+            }
+        }
+        if j + 1 != n {
+            let dum = 1.0 / get(a, j, j);
+            for i in (j + 1)..n {
+                if let Some(x) = a.get_mut(i * n + j) {
+                    *x *= dum;
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Forward and back substitution on the factors from [`lu_decomposition`], a
+/// port of `LUBackSubstitution`, `utility.F90` lines 656-699, including its
+/// skip of leading zeros in `b` (`ii`). `b` is overwritten by the solution.
+pub(crate) fn lu_back_substitution(a: &[f64], n: usize, indx: &[usize], b: &mut [f64]) {
+    let get = |i: usize, j: usize| a.get(i * n + j).copied().unwrap_or(0.0);
+    // `ii` is 1-based upstream with 0 meaning "not yet"; here `None`.
+    let mut ii: Option<usize> = None;
+    for i in 0..n {
+        let ll = indx.get(i).copied().unwrap_or(i);
+        let mut sum = b.get(ll).copied().unwrap_or(0.0);
+        let bi = b.get(i).copied().unwrap_or(0.0);
+        if let Some(x) = b.get_mut(ll) {
+            *x = bi;
+        }
+        if let Some(start) = ii {
+            for j in start..i {
+                sum -= get(i, j) * b.get(j).copied().unwrap_or(0.0);
+            }
+        } else if sum != 0.0 {
+            ii = Some(i);
+        }
+        if let Some(x) = b.get_mut(i) {
+            *x = sum;
+        }
+    }
+    for i in (0..n).rev() {
+        let mut sum = b.get(i).copied().unwrap_or(0.0);
+        for j in (i + 1)..n {
+            sum -= get(i, j) * b.get(j).copied().unwrap_or(0.0);
+        }
+        if let Some(x) = b.get_mut(i) {
+            *x = sum / get(i, i);
+        }
+    }
 }
 
 #[cfg(test)]

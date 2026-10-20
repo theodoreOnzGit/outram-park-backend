@@ -5,6 +5,7 @@
 //! against CRAM48. Each test states its methodology, its prediction and
 //! tolerance (fixed before the first run) and its measured result.
 
+use super::*;
 use crate::decay::{DecayChain, DecaySolver, Nuclide};
 
 const MINUTE: f64 = 60.0;
@@ -83,6 +84,16 @@ fn upstream_masses(case: &str, tag: &str) -> Vec<Vec<u64>> {
         }
     }
     out
+}
+
+/// Upstream's Newton iteration count per step (`N` lines, decimal).
+fn upstream_iterations(case: &str) -> Vec<usize> {
+    UPSTREAM
+        .lines()
+        .map(|l| l.split_whitespace().collect::<Vec<_>>())
+        .filter(|f| f.len() == 5 && f[0] == case && f[1] == "N")
+        .map(|f| f[4].parse().unwrap())
+        .collect()
 }
 
 fn normwise(x: &[f64], y: &[f64], total: f64) -> f64 {
@@ -167,6 +178,191 @@ fn ufd_three_generation_matches_compiled_upstream_bit_for_bit() {
         }
     }
     assert_eq!(equal, 165);
+}
+
+/// **Code-to-code, UFD_DECAY `IMPLICIT_SOLUTION`.**
+///
+/// Methodology: the `driver.F90` cases with a positive inventory (radon,
+/// thorium C, converging; upstream cannot start from a zero, see the module
+/// docs) marched with [`ufd_implicit`]; every mass after every step compared
+/// bit for bit, and every step's Newton iteration count compared with
+/// upstream's `it`.
+///
+/// Prediction, written before the first run: **bit-identical, 115 of 115
+/// masses and 25 of 25 iteration counts.** Same reasoning as the 3-generation
+/// test, plus: the LU is ported line for line, so its pivoting and summation
+/// order are upstream's. Tolerance: none.
+///
+/// Measured 2026-10-20: **115 of 115 masses and 25 of 25 iteration
+/// counts bit-identical** (counts 4 to 25; 25 at thorium C's first step).
+/// The first run compared against the plain `-O2` build instead and failed
+/// by 1 ulp at radon step 5, isotope 4: see the next test.
+#[test]
+fn ufd_implicit_matches_compiled_upstream_bit_for_bit() {
+    let (mut equal, mut counts) = (0, 0);
+    for (name, chain, c0, dt) in driver_cases() {
+        if name == "radon0" {
+            continue;
+        }
+        let up = upstream_masses(name, "I");
+        let its = upstream_iterations(name);
+        assert_eq!(its.len(), up.len());
+        let daughters = chain.daughter_lists();
+        let mut c = c0.clone();
+        for (step, want) in up.iter().enumerate() {
+            let (next, it) = ufd_implicit(&chain.lambda, &daughters, &c, dt).unwrap();
+            c = next;
+            assert_eq!(it, its[step], "{name} step {} iterations", step + 1);
+            counts += 1;
+            for (i, (x, w)) in c.iter().zip(want).enumerate() {
+                assert_eq!(
+                    x.to_bits(),
+                    *w,
+                    "{name} step {} isotope {}: {x:e} vs upstream {:e}",
+                    step + 1,
+                    i + 1,
+                    f64::from_bits(*w)
+                );
+                equal += 1;
+            }
+        }
+        // `decay_with` is the same routine.
+        assert_eq!(
+            march(&chain, DecaySolver::UfdImplicit, &c0, dt, up.len()),
+            c
+        );
+    }
+    assert_eq!((equal, counts), (115, 25));
+}
+
+/// The plain `-O2` build of the same Fortran (`run.sh`).
+const UPSTREAM_O2_VECTOR: &str =
+    include_str!("../../verification_and_validation/upstream_decay/upstream_output_O2_vector.txt");
+
+/// **Code-to-code, IMPLICIT_SOLUTION, against the vectorised `-O2` build.**
+///
+/// Methodology: as the test above, against `upstream_output_O2_vector.txt`,
+/// where gfortran turned the array statement `solution =
+/// solution*exp(-rhs)` (line 1989) into calls to glibc libmvec's
+/// `_ZGVbN2v_exp`, which is not bit-identical to scalar `exp` (found while
+/// debugging the first run of the test above, which compared against this
+/// build and failed by 1 ulp at radon step 5; `run.sh` now builds both). The
+/// two Fortran builds already differ from each other in 19 of 115 masses and
+/// in no iteration count, so that much was known before this test ran.
+///
+/// Prediction and tolerance, fixed before running: 96 of 115 masses
+/// bit-equal, the same 25 iteration counts, worst relative difference
+/// `< 1e-13` (libmvec `exp` is within 4 ulp; the Newton's fixed point damps
+/// rather than amplifies a perturbation). Measured 2026-10-20: 96 of 115 bit-equal, worst relative
+/// difference 2.36e-16 (1 ulp), iteration counts identical.
+#[test]
+fn ufd_implicit_against_the_vectorised_o2_build() {
+    let (mut equal, mut total, mut worst) = (0, 0, 0.0_f64);
+    for (name, chain, c0, dt) in driver_cases() {
+        if name == "radon0" {
+            continue;
+        }
+        let mut want_its = Vec::new();
+        let mut want: Vec<Vec<u64>> = Vec::new();
+        for f in UPSTREAM_O2_VECTOR
+            .lines()
+            .map(|l| l.split_whitespace().collect::<Vec<_>>())
+        {
+            if f.len() == 5 && f[0] == name && f[1] == "N" {
+                want_its.push(f[4].parse::<usize>().unwrap());
+            }
+            if f.len() == 5 && f[0] == name && f[1] == "I" {
+                let step: usize = f[2].parse().unwrap();
+                if want.len() < step {
+                    want.resize(step, Vec::new());
+                }
+                want[step - 1].push(u64::from_str_radix(f[4], 16).unwrap());
+            }
+        }
+        let mut c = c0.clone();
+        for (step, w) in want.iter().enumerate() {
+            let (next, it) = ufd_implicit(&chain.lambda, &chain.daughter_lists(), &c, dt).unwrap();
+            c = next;
+            assert_eq!(it, want_its[step], "{name} step {}", step + 1);
+            for (x, wb) in c.iter().zip(w) {
+                let y = f64::from_bits(*wb);
+                total += 1;
+                if x.to_bits() == *wb {
+                    equal += 1;
+                }
+                worst = worst.max((x - y).abs() / y.abs());
+            }
+        }
+    }
+    println!("vs -O2 vectorised build: {equal} of {total} bit-equal, worst relative {worst:.2e}");
+    assert_eq!(total, 115);
+    assert!(worst < 1e-13, "{worst}");
+}
+
+/// Where upstream hangs or aborts, this port returns an error (module docs
+/// item 4): a zero daughter makes the Newton cycle (the extracted Fortran ran
+/// for over 1.9e6 iterations without stopping, `run.sh`), and a zero
+/// parentless nuclide gives a zero Jacobian row (upstream: `MPI_Abort`).
+#[test]
+fn ufd_implicit_reports_where_upstream_hangs_or_aborts() {
+    let pair =
+        DecayChain::new(vec![nuc("A", 50.0, vec![(1, 1.0)]), nuc("B", 8.0, vec![])]).unwrap();
+    let mut c = vec![1000.0, 0.0];
+    let err = pair
+        .decay_with(DecaySolver::UfdImplicit, &mut c, 1.0)
+        .unwrap_err();
+    assert!(
+        matches!(&err, PflotranError::Convergence(m) if m.contains("did not converge in 1000")),
+        "{err:?}"
+    );
+    assert_eq!(c, vec![1000.0, 0.0], "inventory untouched on error");
+    let lone = DecayChain::new(vec![nuc("A", 50.0, vec![])]).unwrap();
+    let err = lone
+        .decay_with(DecaySolver::UfdImplicit, &mut [0.0], 1.0)
+        .unwrap_err();
+    assert!(matches!(&err, PflotranError::Convergence(m) if m.contains("row 0 is zero")));
+}
+
+/// Module docs item 5, upstream's quirk carried over: `prev_solution` starts
+/// at 1, so an inventory of ones is "converged" before the first iteration
+/// and comes back undecayed, after 0 iterations.
+#[test]
+fn ufd_implicit_skips_an_inventory_of_ones() {
+    let chain =
+        DecayChain::new(vec![nuc("A", 1.0, vec![(1, 1.0)]), nuc("B", 2.0, vec![])]).unwrap();
+    let (out, it) =
+        ufd_implicit(&chain.lambda, &chain.daughter_lists(), &[1.0, 1.0], 10.0).unwrap();
+    assert_eq!((out, it), (vec![1.0, 1.0], 0));
+}
+
+/// Upstream's setup guards (lines 1243-1262) and this port's equal-rate guard
+/// (module docs item 3) refuse before computing.
+#[test]
+fn ufd_guards_refuse_self_ancestry_and_equal_rates() {
+    let selfish = DecayChain::new(vec![nuc("A", 5.0, vec![(0, 1.0)])]).unwrap();
+    for solver in [DecaySolver::UfdThreeGeneration, DecaySolver::UfdImplicit] {
+        let err = selfish.decay_with(solver, &mut [1.0], 1.0).unwrap_err();
+        assert!(matches!(&err, PflotranError::InvalidInput(m) if m.contains("its parent")));
+    }
+    let cycle = DecayChain::new(vec![
+        nuc("A", 5.0, vec![(1, 1.0)]),
+        nuc("B", 7.0, vec![(0, 1.0)]),
+    ])
+    .unwrap();
+    let err = cycle
+        .decay_with(DecaySolver::UfdImplicit, &mut [1.0, 2.0], 1.0)
+        .unwrap_err();
+    assert!(matches!(&err, PflotranError::InvalidInput(m) if m.contains("grandparent")));
+    let twins =
+        DecayChain::new(vec![nuc("A", 5.0, vec![(1, 1.0)]), nuc("B", 5.0, vec![])]).unwrap();
+    let err = twins
+        .decay_with(DecaySolver::UfdThreeGeneration, &mut [1.0, 0.0], 1.0)
+        .unwrap_err();
+    assert!(matches!(&err, PflotranError::InvalidInput(m) if m.contains("share the decay")));
+    // The implicit path divides by no difference of rates, and runs.
+    twins
+        .decay_with(DecaySolver::UfdImplicit, &mut [1.0, 0.5], 1.0)
+        .unwrap();
 }
 
 /// **The 3-generation form is exact for depth <= 3.**
@@ -283,4 +479,22 @@ fn ufd_three_generation_ignores_branching_like_upstream() {
     let gain = ufd.iter().sum::<f64>() - 1000.0;
     println!("UFD 3-gen branching gain: {gain:.4} atoms");
     assert!(rel(gain, decayed) < 1e-12);
+}
+
+/// The ported LU solves a system that needs pivoting, and refuses a zero row
+/// (upstream aborts there).
+#[test]
+fn ported_lu_solves_and_refuses_a_zero_row() {
+    // [[1, 2, 3], [4, 5, 6], [7, 8, 10]] x = [6, 15, 25] -> x = (1, 1, 1).
+    let mut a = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 10.0];
+    let mut indx = vec![0; 3];
+    lu_decomposition(&mut a, 3, &mut indx).unwrap();
+    assert_ne!(indx, vec![0, 1, 2], "pivoting exercised");
+    let mut b = vec![6.0, 15.0, 25.0];
+    lu_back_substitution(&a, 3, &indx, &mut b);
+    for x in b {
+        assert!((x - 1.0).abs() < 1e-14, "{x}");
+    }
+    let mut z = vec![1.0, 2.0, 0.0, 0.0];
+    assert!(lu_decomposition(&mut z, 2, &mut [0, 0]).is_err());
 }

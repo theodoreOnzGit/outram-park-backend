@@ -181,6 +181,15 @@ pub enum DecaySolver {
     /// branching fractions** (as upstream does) and drops great-grandparent
     /// ingrowth within a step. Use to reproduce a `UFD_DECAY` run.
     UfdThreeGeneration,
+    /// Upstream PFLOTRAN's `UFD_DECAY` with `IMPLICIT_SOLUTION`: backward
+    /// Euler by a log-formulation Newton (relative change `< 1e-6`, update
+    /// clipped to 10), then the `1e-90` floor (`pm_ufd_decay.F90` lines
+    /// 1929-1994). Bit-identical to the compiled upstream routine built with
+    /// scalar `exp`, within 1 ulp of a vectorised `-O2` build. Fails with
+    /// [`PflotranError::Convergence`] where upstream would hang or abort (an
+    /// exactly zero inventory). Use to reproduce a `UFD_DECAY
+    /// IMPLICIT_SOLUTION` run.
+    UfdImplicit,
 }
 
 /// Natural logarithm of 2, used to convert a half-life to a decay constant.
@@ -410,6 +419,9 @@ impl DecayChain {
                 concentrations,
                 dt,
             )?,
+            DecaySolver::UfdImplicit => {
+                upstream::ufd_implicit(&self.lambda, &self.daughter_lists(), concentrations, dt)?.0
+            }
         };
         concentrations.copy_from_slice(&out);
         Ok(())
