@@ -38,10 +38,50 @@ cargo test  --release -p bedok --lib --tests -- --test-threads=4
 cargo quick-test -p bedok          # no `long-tests`; iteration only
 ```
 
+### faer -> petir::sparse (2026-10-20, gh #994): what moved, and what it costs
+
+The flux solves' sparse LU (`matlab::Decomposition`) moved from `faer` to
+`petir::sparse::SparseLu`, a `no_std` port of faer 0.24.4's **simplicial**
+LU with COLAMD ordering. `outram-foam-basic-lib`'s Krylov solvers were
+rejected: MATLAB's `decomposition` solves directly, and an iterative solve
+would move every eigenvalue at the solver-tolerance level. faer is no longer
+a bedok dependency, and bedok now passes the wasm `--lib` gate.
+
+**Numbers (measured 2026-10-20, whole lib suite before and after, one core,
+`RAYON_NUM_THREADS=1`, every printed line diffed):** 265 passed / 27 ignored
+both times. faer had chosen its *supernodal* path for the 3-D flux operator,
+which the port does not reproduce bit for bit (rounding-level, 2.2e-15
+relative on the n = 10 404 `LHS`), so exactly three printed numbers moved:
+
+| test | quantity | faer | petir::sparse |
+|---|---|---|---|
+| `matlab_parity_iaea3ds` | flux max rel. diff vs MATLAB | 1.024e-12 | 1.018e-12 |
+| `matlab_parity_iaea3ds` | pwrdens sum rel. diff vs MATLAB | 3.998e-14 | 4.155e-14 |
+| `x1_sweep_the_nodal_update_interval` | `nodalupd = 6` row (the diverging regime) | k 297.98, 647 iterations | k 284 335.69, 663 iterations |
+
+Unchanged at every printed digit: IAEA-3D `k_eff` 1.0290842762 (-0.0000 pcm),
+the X1 frozen-nodal `k_eff` 1.0230689628 (+0.00 pcm, 211 iterations, flux-sum
+rel. diff 2.928e-11), every other `nodalupd` row, the NEACRP and transient
+outputs. The `nodalupd = 6` row is the chaotic regime (as in
+`petir/docs/why-petir-last-ulp-evidence.md` section 4): garbage in, a
+different garbage out; nothing asserts it.
+
+**Cost: the suite took 8434 s against 1279 s (6.6x)** on the same single
+core. The simplicial factorisation of the n = 10 404 operator takes 1.21 s
+against faer's supernodal 0.17 s (faer's own simplicial path: 1.17-1.22 s, so
+this is the algorithm, not the port); solves are as fast. The transients
+(`neacrpd1t`), which refactorise on every nodal update, carry most of it. The
+per-test table below predates this change and was **not** re-measured; no
+test was gated. Whether to port faer's supernodal LU as well, or gate the
+transients behind `long-tests`, is a maintainer decision (gh #994).
+
 ### The tests are internally parallel — do not oversubscribe (2026-10-02)
 
-The flux solves run on `faer` with `rayon`, so **one test already uses every
-core it can get**, and `--test-threads` does not limit that. With the harness
+~~The flux solves run on `faer` with `rayon`, so **one test already uses every
+core it can get**,~~ **CHANGED 2026-10-20:** the solves are now serial
+(`petir::sparse`, above), so `--test-threads` alone sets the core count. The
+2026-10-02 record follows: the flux solves ran on `faer` with `rayon`, so
+**one test already used every core it could get**, and `--test-threads` does not limit that. With the harness
 default (one test thread per core) a 16-core machine ran 14 of these at once
 and the lib suite took **49+ minutes** (GitHub #503); the same suite takes
 **1509 s at `--test-threads=4`** (measured 2026-10-02, i9-13900K, pinned to 14

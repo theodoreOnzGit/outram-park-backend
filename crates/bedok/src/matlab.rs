@@ -544,6 +544,18 @@ impl SparseMatrix {
 /// This is **not** for the large sparse systems elsewhere in the solver; those
 /// want a real sparse factorisation.
 ///
+/// **Deliberately not moved to `petir::linalg` (checked 2026-10-20, gh #992 /
+/// #994).** PETIR's dense LU (`SquareMatrix::lu_decompose`, lifted from
+/// OpenFOAM) pivots on the largest entry *relative to its row's largest*
+/// (scaled partial pivoting) and writes `f64::EPSILON` into a zero pivot;
+/// this routine, like `mldivide`'s LAPACK `getrf`, pivots on the largest
+/// absolute value and returns `NaN` on a zero pivot. The semantics differ, so
+/// swapping would change which pivot is chosen, not just the rounding. A port
+/// of GSL's `gsl_linalg_LU_decomp`, which pivots on the largest absolute value
+/// (as PETIR's `square_matrix.rs` docs record), would match; PETIR has none
+/// yet. gh #993 (Octave-style `solve` over GSL numerics) is where it would
+/// land.
+///
 /// # Arguments
 ///
 /// - `a` — the `n`-by-`n` matrix, **row-major**: element `(i, j)` at
@@ -639,6 +651,23 @@ pub fn norm2(v: &[f64]) -> f64 {
 /// selects for a general (unsymmetric, non-triangular) sparse matrix — the
 /// nodal-diffusion `LHS` is unsymmetric, so no Cholesky path applies.
 ///
+/// **Backend, since 2026-10-20 (gh #994): [`petir::sparse::SparseLu`]**, a
+/// `no_std` port of faer 0.24.4's simplicial sparse LU with COLAMD ordering,
+/// replacing ~~`faer::sparse::linalg::solvers::Lu`~~. A direct solve was kept
+/// on purpose: `outram-foam-basic-lib`'s Krylov solvers were the first choice
+/// and were rejected because they converge to a tolerance, where MATLAB's
+/// `decomposition` (and this port) solve directly. The port is bit-identical
+/// to faer's *simplicial* LU (`petir/tests/sparse_vs_faer.rs`), but faer chose
+/// its *supernodal* path for the 3-D flux operator (measured on the
+/// n = 10 404 `LHS` of `x1_frozen_nodal_static_eigenvalue_against_the_matlab`:
+/// 3383/10 404 solution entries bit-identical, worst 2.2e-15 relative), so
+/// solves moved at the rounding level. What that did to every printed V&V
+/// number is recorded in this crate's `CLAUDE.md` ("faer -> petir::sparse").
+/// It is also slower to *factorise*: 1.21 s against faer's 0.17 s for that
+/// matrix on one thread (faer's own simplicial path takes 1.17-1.22 s, so
+/// the gap is simplicial against supernodal, not the port); a *solve* is
+/// 3.3 ms against faer's 4.3-4.6 ms.
+///
 /// # A singular matrix yields `NaN`, it does not error
 ///
 /// MATLAB's `decomposition` **warns** on a singular matrix and its `\` then
@@ -656,7 +685,7 @@ pub fn norm2(v: &[f64]) -> f64 {
 #[allow(clippy::large_enum_variant)]
 pub enum Decomposition {
     /// A successful LU factorisation.
-    Factorised(faer::sparse::linalg::solvers::Lu<usize, f64>),
+    Factorised(petir::sparse::SparseLu),
     /// The factorisation failed — see the type-level note on why this is not an
     /// error.
     Singular,
@@ -676,14 +705,11 @@ impl Decomposition {
             a.cols()
         );
         let n = a.rows();
-        let triplets: Vec<faer::sparse::Triplet<usize, usize, f64>> = a
-            .find()
-            .into_iter()
-            .map(|t| faer::sparse::Triplet::new(t.i, t.j, t.v))
-            .collect();
+        let triplets: Vec<(usize, usize, f64)> =
+            a.find().into_iter().map(|t| (t.i, t.j, t.v)).collect();
 
-        match faer::sparse::SparseColMat::try_new_from_triplets(n, n, &triplets) {
-            Ok(m) => match m.sp_lu() {
+        match petir::sparse::CscMatrix::try_from_triplets(n, n, &triplets) {
+            Ok(m) => match petir::sparse::SparseLu::factorize(&m) {
                 Ok(lu) => Self::Factorised(lu),
                 Err(_) => Self::Singular,
             },
@@ -696,18 +722,14 @@ impl Decomposition {
     /// # Panics
     /// If `rhs` is not the matrix's dimension long.
     pub fn solve(&self, rhs: &[f64]) -> Vec<f64> {
-        use faer::prelude::Solve;
-
         match self {
             Self::Singular => vec![f64::NAN; rhs.len()],
-            Self::Factorised(lu) => {
-                let mut b = faer::Mat::<f64>::zeros(rhs.len(), 1);
-                for (i, &v) in rhs.iter().enumerate() {
-                    b[(i, 0)] = v;
-                }
-                lu.solve_in_place(&mut b);
-                (0..rhs.len()).map(|i| b[(i, 0)]).collect()
-            }
+            // PETIR returns an error rather than panicking; the only one a
+            // factorised `Decomposition` can meet is a wrong-length `rhs`,
+            // which is this method's documented panic.
+            Self::Factorised(lu) => lu
+                .solve(rhs)
+                .expect("right-hand side length must match the factorised matrix"),
         }
     }
 }

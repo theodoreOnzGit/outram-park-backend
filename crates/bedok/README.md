@@ -405,7 +405,10 @@ misleadingly as `linker 'link.exe' not found`, which reads like a missing
 compiler rather than a missing SDK.
 
 The GNU toolchain (`stable-x86_64-pc-windows-gnu`) is **not** a workaround: it
-cannot build `faer`, which needs `dlltool` from MinGW binutils.
+cannot build `faer`, which needs `dlltool` from MinGW binutils. **Not
+re-checked 2026-10-20:** bedok no longer depends on `faer` (gh #994, its
+sparse LU is now `petir::sparse`), so that reason no longer applies to this
+crate; whether the GNU toolchain now builds it has not been tried.
 
 **What passing tests do and do not mean.** They cover the translated utility
 layer and pin the known reference defects; the IAPWS region-1 functions agree
