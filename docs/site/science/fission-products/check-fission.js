@@ -392,5 +392,86 @@ for (const [f, html] of ch2) {
 }
 check("cascade-recorded.js: the RustBCA record carries its date", CR.rustbca.date === "2026-10-16" ? 0 : 1, 0);
 
+// ─── Chapter 3, "TRISO kernel" (lessons 10-28) ───────────────────────────
+// Data: kernel-data.js (crates/dhoby-ghaut/examples/lesson_triso_kernel),
+// kernel-recorded.js (cited / pending), kernel-physics.js (the page models).
+// PREDICTIONS, written 2026-10-20 BEFORE the first run of 26-34:
+// - 26: the page's Booth series and R/B agree with boon-lay's to 1e-9.
+// - 27: R/B falls as mu^-1 (slope -1/2 against lambda) at large mu: the
+//   log-log slope over the last two decades is -1 within 0.01.
+// - 31: the page's fixed-step sphere walk sits BELOW Booth (it misses
+//   excursions within a step), by less than 0.03 at D t / a^2 = 0.01.
+// - 32: the recoil escape share for range/radius = 0.01 is three quarters
+//   of 0.01 within 5 %.
+// - 34: a Potts run at kT' = 0.3 has less boundary after 50 sweeps.
+for (const f of ["kernel-data.js", "kernel-recorded.js", "kernel-physics.js"]) eval(fs.readFileSync(path.join(__dirname, f), "utf8"));
+const KD = window.KERNEL_DATA, KR = window.KERNEL_RECORDED, KP = window.KernelPhysics;
+// 26. The page's formulas against boon-lay's values. The FIRST run failed
+//     (1.1e-7, 3.2e-7): kernel-data.js held the curves at 7 figures. The
+//     generator now writes them at full precision; 2026-10-20: 4.1e-15 and 0.
+{
+  let wf = 0, wr = 0;
+  KD.booth.x.forEach((x, i) => { wf = Math.max(wf, Math.abs(KP.boothF(x) - KD.booth.f[i])); });
+  KD.booth.mu.forEach((m, i) => { wr = Math.max(wr, Math.abs(KP.boothRB(m) - KD.booth.rb[i]) / KD.booth.rb[i]); });
+  check("26: |page Booth f − boon-lay booth_longlived| (worst)", wf, 1e-9);
+  check("26: |page R/B − boon-lay booth_shortlived_fast_diffuse| / R/B (worst)", wr, 1e-9);
+}
+// 27. The R/B fingerprint's slope.
+{
+  const n = KD.booth.mu.length, i0 = n - 21, i1 = n - 1;
+  const slope = Math.log(KD.booth.rb[i1] / KD.booth.rb[i0]) / Math.log(KD.booth.mu[i1] / KD.booth.mu[i0]);
+  report("27 R/B slope against mu (last two decades)", slope.toFixed(5) + ", so " + (slope / 2).toFixed(5) + " against lambda");
+  check("27: |slope + 1| (R/B ∝ mu^-1 = lambda^-1/2)", Math.abs(slope + 1), 0.01);
+}
+// 28. boon-lay's CRP-6 Monte Carlo against Booth (generator), within 3 se.
+{
+  let worst = 0;
+  KD.mcBooth.forEach((p) => { worst = Math.max(worst, Math.abs(p.mc - p.booth) / Math.sqrt(p.booth * (1 - p.booth) / p.n)); });
+  report("28 CRP-6 MC vs Booth", `worst ${worst.toFixed(2)} standard errors over ${KD.mcBooth.length} points`);
+  check("28: worst |MC − Booth| in standard errors", worst, 3);
+}
+// 29. The code's lumping: five classes; the big one is the nominal 1e-19.
+{
+  check("29: number of diffusion classes in boon-lay's code", Math.abs(KD.dClasses.length - 5), 0);
+  const big = KD.dClasses.reduce((m, c) => (c.members.length > m.members.length ? c : m));
+  check("29: nominal class D is one constant, kernel = graphite", big.kernel.every((v) => v === big.kernel[0]) && big.kernel[0] === big.graphite[0] ? 0 : 1, 0);
+  report("29 nominal class", `${big.members.length} elements at ${big.kernel[0]} m²/s`);
+  check("29: noble gases are the only non-plating elements", KD.elements.filter((e) => !e.plates).every((e) => e.group === "NobleGas") ? 0 : 1, 0);
+}
+// 30. The kernel's temperature rise against tampines' particle solution.
+KD.profiles.forEach((p) => {
+  const rise = p.t[0] - p.tSurf;
+  report(`30 kernel rise at ${p.tSurf} K`, `${rise.toFixed(4)} K here, ${p.tampinesRise.toFixed(4)} K tampines`);
+  check(`30: |rise − tampines| at ${p.tSurf} K [K]`, Math.abs(rise - p.tampinesRise), 0.5);
+});
+// 31. The page's sphere walk against Booth.
+{
+  const x = 0.01, w = KP.walkSphere(4000, x, 400, 31, 0), b = KP.boothF(x);
+  report("31 sphere walk", `walk ${w.f.toFixed(4)} vs Booth ${b.toFixed(4)} at D t / a² = ${x}`);
+  check("31: Booth − walk (predicted 0 to 0.03)", (b - w.f) >= -3 * Math.sqrt(b * (1 - b) / 4000) && (b - w.f) < 0.03 ? 0 : 1, 0);
+}
+// 32. The recoil skin, and 33 the lognormal helper's median.
+{
+  const r = KP.recoilEscape(0.01, 400000, 32);
+  report("32 recoil escape at range/radius 0.01", r.toExponential(4));
+  check("32: |escape / (0.75 × 0.01) − 1|", Math.abs(r / 0.0075 - 1), 0.05);
+  const rr = KP.lognormalRadii(5e-6, 0.4, 61);
+  check("33: lognormal middle radius = median (relative)", Math.abs(rr[30] / 5e-6 - 1), 1e-9);
+  check("33: erf(erfinv(0.3)) − 0.3", Math.abs(KP.erf(KP.erfinv(0.3)) - 0.3), 1e-12);
+}
+// 34. The Potts coarsening coarsens.
+{
+  const s = KP.pottsInit(64, 32, 34), b0 = KP.boundaryFraction(s);
+  for (let i = 0; i < 50; i++) KP.pottsSweep(s, 0.3);
+  const b1 = KP.boundaryFraction(s);
+  report("34 Potts", `boundary fraction ${b0.toFixed(3)} → ${b1.toFixed(3)} after 50 sweeps`);
+  check("34: boundary did not shrink", b1 < b0 ? 0 : 1, 0);
+}
+// 35. The chapter's pages: banner and folded section.
+for (const f of fs.readdirSync(__dirname).filter((f) => f.startsWith("kernel-") && f.endsWith(".html"))) {
+  const html = fs.readFileSync(path.join(__dirname, f), "utf8");
+  check(`${f}: banner or "Learn more advanced stuff" missing`, html.includes("Research, education and V&amp;V only") && html.includes("Learn more advanced stuff") ? 0 : 1, 0);
+}
+
 if (failed) { console.log(`${failed} check(s) failed`); process.exit(1); }
 console.log("all fission-products checks passed");

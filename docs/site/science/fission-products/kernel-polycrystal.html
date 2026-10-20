@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Real UO2 is not neat rows</title>
+<meta name="description" content="Fission products, lesson 10: a TRISO kernel's UO2 is a polycrystal: grains of different orientation meeting at disordered boundaries, with point defects, foreign atoms and a variable oxygen content.">
+<link rel="stylesheet" href="../../style.css">
+<script src="../neutronics/lesson-kit.js" defer></script>
+<script src="kernel-data.js" defer></script>
+<script src="kernel-recorded.js" defer></script>
+<script src="cascade-recorded.js" defer></script>
+<script src="kernel-physics.js" defer></script>
+<script src="kernel-story.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Fission products, chapter 3 "TRISO kernel" (maintainer design
+     2026-10-20), lesson 10. The polycrystal demo is ILLUSTRATIVE.
+     Checked by check-fission.js. -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response. <strong>Review status:</strong> AI-assisted first draft (2026-10-20), not yet reviewed by a human.</p>
+<span id="kd-numbers" hidden></span>
+
+<h1>Real UO<sub>2</sub> is not neat rows</h1>
+<p class="kicker lesson-progress">Fission products</p>
+
+<p>Chapter 2 followed one fission product in a perfect crystal. A TRISO particle&rsquo;s fuel is a small sphere of UO<sub>2</sub>, the <b>kernel</b> (<span data-kd="kernelUm">&hellip;</span> in radius in HTR-10). This chapter asks how fission products get out of it. First: what is it really like inside?</p>
+
+<section class="widget-card">
+  <h3>Zoom from grains to atoms</h3>
+  <div class="widget" id="poly">
+    <canvas aria-label="A polycrystal of coloured grains; zooming in on the boundary between two grains shows rows of atoms in two orientations meeting in a disordered band, with a few vacancies and foreign atoms."></canvas>
+  </div>
+  <p class="note"><b>Illustrative</b>: random grain shapes, and defect fractions chosen to be visible.</p>
+</section>
+
+<p><b>Predict first.</b> Is a sintered fuel kernel one big crystal, or many small ones?</p>
+
+<h2>Grains, boundaries and defects</h2>
+<ul>
+<li><b>Grains.</b> Many small crystals, each a region of one continuous lattice, with its rows pointing its own way <a href="#ref-doe1993hdbk1017v1">(U.S. Department of Energy, 1993)</a>, p. 9.</li>
+<li><b>Grain boundaries.</b> Where grains meet, the atoms misfit: a region usually one to three atom diameters wide <a href="#ref-doe1993hdbk1017v1">(U.S. Department of Energy, 1993)</a>, p. 9. Disordered, so atoms move along it more easily.</li>
+<li><b>Point defects.</b> Missing atoms (vacancies), atoms in the gaps (interstitials), foreign atoms on lattice sites <a href="#ref-doe1993hdbk1017v1">(U.S. Department of Energy, 1993)</a>, p. 18. Every fission product is one of those foreign atoms.</li>
+<li><b>Not exactly UO<sub>2</sub>.</b> The oxygen content can drift: UO<sub>2+<i>x</i></sub>. SCIANTIX models this deviation and the oxygen potential that comes with it <a href="#ref-sciantix2344575">(Pizzocri et al., 2018)</a>, <code>stoichiometry_deviation.rst</code>.</li>
+</ul>
+<p>Some TRISO kernels are UCO (a mix of oxide and carbide) instead. This chapter is about UO<sub>2</sub> only; UCO is mentioned, not modelled.</p>
+
+<p><b>Next question:</b> does it matter <i>which</i> element the fission product is?</p>
+
+<details class="optional">
+<summary>Learn more advanced stuff</summary>
+<h3>Why this matters for release</h3>
+<p>A fission product released from the kernel has to cross two scales: from inside a grain to its boundary, and from the boundary network to the kernel&rsquo;s surface. Lessons 16 to 18 model the first as diffusion out of a sphere, and ask what to do about the second.</p>
+<h3>What the picture leaves out</h3>
+<p>Real grain shapes, sizes and boundary structure in TRISO UO<sub>2</sub>: <span class="pending">source pending</span>. The demo&rsquo;s grains are a random Voronoi pattern.</p>
+</details>
+
+<nav class="lesson-nav" aria-label="Lessons"></nav>
+
+<!-- references:begin -->
+<h2>References</h2>
+
+<p class="csl-entry" id="ref-sciantix2344575" style="padding-left: 2em; text-indent: -2em;">Pizzocri, D., Barani, T., &#38; Luzzi, L. (2018). <i>SCIANTIX</i> [Computer software]. https://github.com/sciantix/sciantix-official</p>
+
+<p class="csl-entry" id="ref-doe1993hdbk1017v1" style="padding-left: 2em; text-indent: -2em;">U.S. Department of Energy. (1993). <i>DOE Fundamentals Handbook: Material Science, Volume 1 of 2</i> (Handbook DOE-HDBK-1017/1-93). U.S. Department of Energy.</p>
+
+<!-- references:end -->
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. GPL-3.0. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>

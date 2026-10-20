@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Complication: precursors</title>
+<meta name="description" content="Fission products, lesson 23: a nuclide may spend the first part of its life as a different element, its precursor, which moves differently. A caesium atom that was born as xenon travelled as a gas first.">
+<link rel="stylesheet" href="../../style.css">
+<script src="../neutronics/lesson-kit.js" defer></script>
+<script src="kernel-data.js" defer></script>
+<script src="kernel-recorded.js" defer></script>
+<script src="cascade-recorded.js" defer></script>
+<script src="kernel-physics.js" defer></script>
+<script src="kernel-story.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Fission products, chapter 3, lesson 23. Xe-137 half-life from boon-lay's
+     decay library (kernel-data.js). TRISO-ATOPS's parent_decay selection is
+     in boon-lay's run_selection module. -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response. <strong>Review status:</strong> AI-assisted first draft (2026-10-20), not yet reviewed by a human.</p>
+<span id="kd-numbers" hidden></span>
+
+<h1>Complication 4: precursors</h1>
+<p class="kicker lesson-progress">Fission products</p>
+
+<p>Decay chains (lesson 6) change the element. A Cs-137 atom may have started as Xe-137, a gas, which decays with a half-life of <b data-kd="xe137">&hellip;</b> (boon-lay&rsquo;s decay library). For that time it moved like a gas. So the caesium you find outside may have got out <i>as xenon</i>, and the family it belongs to depends on when you look.</p>
+
+<section class="widget-card">
+  <h3>How a precursor bends the clean curve</h3>
+  <div class="widget" data-bend="precursor">
+    <canvas aria-label="Released fraction against time: the clean curve and a curve released faster because part of the life was spent as a faster-moving precursor."></canvas>
+  </div>
+</section>
+
+<p>TRISO-ATOPS can account for this with a per-nuclide <code>parent_decay</code> flag, set when the nuclides are selected (boon-lay&rsquo;s <a href="../../code-review/#crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs::select_nuclides"><code>select_nuclides</code></a>; the port&rsquo;s documentation records an upstream quirk that keeps a stock run from applying it to Rh-105, reproduced as upstream has it). Link back: in the <a href="kernel-many-spheres.html">many-spheres model</a>, part of the atom&rsquo;s time runs with another family&rsquo;s D.</p>
+
+<details class="optional">
+<summary>Learn more advanced stuff</summary>
+<p>The bend shown is <b>illustrative</b>: a share of the life at a higher D. Doing it properly means following each atom down its chain with each link&rsquo;s own D and half-life, which boon-lay&rsquo;s Lagrangian walker can do (each atom carries its nuclide, chapter 2&rsquo;s decay Monte Carlo).</p>
+</details>
+
+<nav class="lesson-nav" aria-label="Lessons"></nav>
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. GPL-3.0. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>

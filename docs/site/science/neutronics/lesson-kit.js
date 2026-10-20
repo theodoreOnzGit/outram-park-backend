@@ -280,7 +280,27 @@
     ["decay-again.html", "Then it decays: the same story again"],
     ["decay-or-move.html", "Settled: decay or move?"],
     ["atom-hop.html", "How an atom hops"],
-    ["atoms-swap.html", "Atoms swapping: how hops become diffusion"]
+    ["atoms-swap.html", "Atoms swapping: how hops become diffusion"],
+    // Chapter 3, "TRISO kernel" (maintainer design 2026-10-20).
+    ["kernel-polycrystal.html", "Real UO2 is not neat rows"],
+    ["kernel-chemistry.html", "Chemistry decides the fate"],
+    ["kernel-grain-growth.html", "Boundaries move, defects gather"],
+    ["kernel-pores.html", "Voids climb the temperature gradient"],
+    ["kernel-in-out.html", "In the grain, and out of it"],
+    ["kernel-lumping.html", "Lump by chemistry and volatility"],
+    ["kernel-booth-grain.html", "Booth on one grain"],
+    ["kernel-many-spheres.html", "Many Booth spheres"],
+    ["kernel-two-scales.html", "From the boundary to the kernel surface"],
+    ["kernel-rb.html", "The R/B fingerprint"],
+    ["kernel-recoil.html", "Complication 1: recoil"],
+    ["kernel-knockout.html", "Complication 2: knockout"],
+    ["kernel-sweeping.html", "Complication 3: grain-boundary sweeping"],
+    ["kernel-precursors.html", "Complication 4: precursors"],
+    ["kernel-bursts.html", "Complication 5: bursts on heating"],
+    ["kernel-burnup-oxygen.html", "Complication 6: burnup and the oxygen balance"],
+    ["kernel-conductivity.html", "Complication 7: conductivity falls"],
+    ["kernel-hbs.html", "Complication 8: the high-burnup structure"],
+    ["kernel-swelling.html", "Complication 9: the kernel swells"]
   ];
   var TRACKS = {
     neutronics: ["Neutronics", LESSONS, "glossary.html"],
