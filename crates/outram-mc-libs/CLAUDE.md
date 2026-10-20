@@ -621,7 +621,7 @@ a translation of it.
 - **XML configuration parsing** — `src/xml_interface.cpp`
 - **CMFD accelerator** — `src/cmfd_solver.cpp`
 - **Random ray extension** — `src/random_ray/`
-- ~~**Photon/electron transport** — `src/photon.cpp`~~ **CORRECTED 2026-10-16 (maintainer decision): photons are IN scope here, electrons are not.** "Charged particles go thru boon lay, uncharged thru OutramMC." Photon transport (`src/photon.cpp`, `src/bremsstrahlung.cpp`) may be ported into this crate; electrons and every other charged particle go to `boon-lay` (see "Particle split" below). Nothing is ported yet.
+- ~~**Photon/electron transport** — `src/photon.cpp`~~ **CORRECTED 2026-10-16 (maintainer decision): photons are IN scope here, electrons are not.** "Charged particles go thru boon lay, uncharged thru OutramMC." Photon transport (`src/photon.cpp`, `src/bremsstrahlung.cpp`) may be ported into this crate; electrons and every other charged particle go to `boon-lay` (see "Particle split" below). Nothing is ported yet. **CORRECTED AGAIN 2026-10-20 (maintainer): this crate is neutrons only.** Photons, electrons and positrons go to **PUNGGOL** (`punggol`); ions stay in `boon-lay`. See "Particle split" below.
 - **Python/ctypes C API** — `openmc/lib/` Python package
 - **Geometry overlap checker** — `src/geometry_aux.cpp` (overlap detection only; the core intersection logic is in scope). *Note 2026-09-25:* the plotter's per-pixel overlap test (`check_cell_overlap`, `src/geometry.cpp:38-90`) IS ported, as `geometry::plot::slice::check_cell_overlap`, because `<show_overlaps>` needs it; transport still does no overlap checking.
 
@@ -799,13 +799,35 @@ the pure path, and `ImageData::write_png` is a one-line `std::fs::write`
 convenience at the end of a plot, never inside transport. The DEFLATE codec is
 `miniz_oxide`, already in this crate's tree via `njoy-outram-park-fork`.
 
-### Neutron-only initially
-~~Photon and electron physics (`src/photon.cpp`) are deferred.~~ **CORRECTED
+### Neutron-only
+~~Photon and electron physics (`src/photon.cpp`) are deferred.~~ ~~**CORRECTED
 2026-10-16:** photon physics is deferred but in scope; electron physics is not
-this crate's (next section). The `ParticleType` enum reserves slots for them,
+this crate's (next section).~~ **CORRECTED 2026-10-20:** this crate transports
+neutrons only, by design. Photon and electron physics belong to PUNGGOL (next
+section). The `ParticleType` enum reserves slots for them,
 but only `Neutron` transport is implemented.
 
-### Particle split: uncharged here, charged in `boon-lay` (maintainer decision, 2026-10-16)
+### Particle split (maintainer decisions, 2026-10-16 and 2026-10-20)
+
+**Current split, 2026-10-20 (maintainer):** "outramMC will take care of
+neutrons, PUNGGOL takes care of gammas and other things".
+
+| Particle | Crate |
+|---|---|
+| Neutrons | **this crate**, and only neutrons |
+| Photons (gammas), electrons, positrons | **`punggol`** (PUNGGOL domain, `docs/ecosystem-naming.md`): the OpenMC photon port (gh:#975) and the EGSnrc electron/positron port as a module with provenance (gh:#976) |
+| Ions: fission fragments, alphas, recoil knock-ons | **`boon-lay`** (its RustBCA copy) |
+
+- **Coupled neutron–photon transport:** this crate records where secondary
+  photons are born in its collision loop (as OpenMC does), and `punggol`
+  transports them. **`punggol` depends on this crate, never the reverse.**
+- General numerics from those ports (alias tables, RANMAR/RANLUX, fast
+  interpolation) go to `petir`.
+
+The 2026-10-16 record below is kept as history. Where it says photons are
+ported "here" or electrons go to `boon-lay`, the table above supersedes it.
+
+#### 2026-10-16: uncharged here, charged in `boon-lay` (superseded in part)
 
 > "Charged particles go thru boon lay, uncharged thru OutramMC."
 
