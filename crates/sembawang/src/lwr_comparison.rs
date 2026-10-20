@@ -85,6 +85,7 @@
 //! at 1 m/s, as `examples/htr10_air_ingress_kora_bound.rs`, whose chain
 //! [`htr10_air_ingress_bound`] reproduces.
 
+use petir::mathf::RealMath;
 use boon_lay::fuel_failure::htr10 as panama_htr10;
 use boon_lay::triso_atops_fork::accident::AccidentFractions;
 use boon_lay::triso_atops_fork::nuclide_model::nuclide_database::find_nuclide;
@@ -246,7 +247,7 @@ pub mod kora {
             let ((t0, f0), (t1, f1)) = (w[0], w[1]);
             (t0..=t1).contains(&hours).then(|| {
                 let a = (hours - t0) / (t1 - t0);
-                (f0.ln() + a * (f1.ln() - f0.ln())).exp()
+                (f0.r_ln() + a * (f1.r_ln() - f0.r_ln())).r_exp()
             })
         })
     }
@@ -706,12 +707,12 @@ where
                     0.5 - x / 6.0 + x * x / 24.0 - x * x * x / 120.0,
                 )
             } else {
-                let om = -(-x).exp_m1();
+                let om = -(-x).r_exp_m1();
                 (om / x, (x - om) / (x * x))
             };
             let int_a = a * dt * phi1 + src * dt * dt * phi2;
             released += l * int_a;
-            a = a * (-x).exp() + src * dt * phi1;
+            a = a * (-x).r_exp() + src * dt * phi1;
         }
         Some(released)
     };
@@ -751,7 +752,7 @@ pub fn scaled_containment(thermal_power_mwth: f64) -> (f64, f64) {
     let v_ref_m3 = NUSCALE_CNV_FREE_VOLUME_FT3 * 0.028_316_846_592;
     (
         v_ref_m3 * thermal_power_mwth / NUSCALE_MODULE_MWTH,
-        (NUSCALE_MODULE_MWTH / thermal_power_mwth).cbrt(),
+        (NUSCALE_MODULE_MWTH / thermal_power_mwth).r_cbrt(),
     )
 }
 
@@ -1088,7 +1089,7 @@ pub fn max_dose(releases: &Releases, x_m: f64, a: DoseAssumptions) -> Dose {
             .map(|x| x.decay_constant().get::<uom::si::frequency::hertz>())
             .unwrap_or(0.0);
         let decay_integral = if lam > 0.0 {
-            -(-lam * a.exposure_s).exp_m1() / lam
+            -(-lam * a.exposure_s).r_exp_m1() / lam
         } else {
             a.exposure_s
         };

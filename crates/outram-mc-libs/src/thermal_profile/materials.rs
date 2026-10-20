@@ -25,6 +25,7 @@
 //! silently. **Copies elsewhere in the workspace** are named so the two cannot
 //! drift unnoticed; this crate cannot depend on those crates.
 
+use petir::mathf::RealMath;
 use uom::si::f64::{ThermalConductivity, ThermodynamicTemperature};
 use uom::si::thermal_conductivity::watt_per_meter_kelvin;
 use uom::si::thermodynamic_temperature::kelvin;
@@ -97,12 +98,12 @@ impl ThermalMaterial {
         let k = match self {
             Self::UraniumDioxide => {
                 let (a, b, c, d) = (0.0452, 2.46e-4, 3.5e9, 16361.0);
-                1.0 / (a + b * tk) + c / (tk * tk) * (-d / tk).exp()
+                1.0 / (a + b * tk) + c / (tk * tk) * (-d / tk).r_exp()
             }
             Self::GraphiteMatrixA3 => {
                 let tc = tk - 273.15;
                 let (k100, alpha, delta) = (47.4, 9.7556e-4, -6.0360e-4);
-                k100 * (1.0 - alpha * (tc - 100.0) * (delta * tc).exp())
+                k100 * (1.0 - alpha * (tc - 100.0) * (delta * tc).r_exp())
             }
             Self::StainlessSteel304L => 7.9318 + 0.023051 * tk - 6.4166e-6 * tk * tk,
             Self::Aluminium => 220.0,

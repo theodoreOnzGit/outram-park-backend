@@ -60,6 +60,7 @@
 //! operation, reactor control, safety-critical or licensing decisions.
 //! Independent OUTRAM PARK fork, not the official DWSIM.
 
+use petir::mathf::RealMath;
 use crate::thermo::Component;
 use uom::si::dynamic_viscosity::pascal_second;
 use uom::si::f64::{
@@ -101,9 +102,9 @@ pub fn gas_viscosity_lucas(
     let mm_g = component.molar_mass * 1000.0; // kg/mol -> g/mol
     let tr = t / tc;
 
-    let xi = 0.176 * (tc / (mm_g.powi(3) * pc_bar.powi(4))).powf(1.0 / 6.0);
+    let xi = 0.176 * (tc / (mm_g.r_powi(3) * pc_bar.r_powi(4))).r_powf(1.0 / 6.0);
     let eta_xi =
-        0.807 * tr.powf(0.618) - 0.357 * (-0.449 * tr).exp() + 0.34 * (-4.058 * tr).exp() + 0.018;
+        0.807 * tr.r_powf(0.618) - 0.357 * (-0.449 * tr).r_exp() + 0.34 * (-4.058 * tr).r_exp() + 0.018;
     let eta_micropoise = eta_xi / xi;
     DynamicViscosity::new::<pascal_second>(eta_micropoise * 1.0e-7)
 }
@@ -169,7 +170,7 @@ pub fn gas_viscosity_wilke(
             } else {
                 let a = 1.0
                     + (pure_viscosities[i] / pure_viscosities[j]).sqrt()
-                        * (molar_masses[j] / molar_masses[i]).powf(0.25);
+                        * (molar_masses[j] / molar_masses[i]).r_powf(0.25);
                 a * a / (8.0 * (1.0 + molar_masses[i] / molar_masses[j])).sqrt()
             };
             denom += mole_fractions[j] * phi;
@@ -218,12 +219,12 @@ pub fn gas_viscosity_jossi_stiel_thodos(
     let _t = temperature.get::<kelvin>();
     let pc_atm = critical_pressure / 101_325.0;
     let rho_r = critical_volume / molar_volume;
-    let xit = (critical_temperature / molar_mass_g.powi(3) / pc_atm.powi(4)).powf(1.0 / 6.0);
+    let xit = (critical_temperature / molar_mass_g.r_powi(3) / pc_atm.r_powi(4)).r_powf(1.0 / 6.0);
     // DWSIM rescales η₀ (Pa·s) by 1e7 into its internal micropoise-like unit.
     let eta0_scaled = low_pressure_viscosity.get::<pascal_second>() * 1.0e7;
-    let bracket = 1.023 + 0.23364 * rho_r + 0.58533 * rho_r.powi(2) - 0.40758 * rho_r.powi(3)
-        + 0.093324 * rho_r.powi(4);
-    let tmp = (bracket.powi(4) - 1.0) / xit + eta0_scaled;
+    let bracket = 1.023 + 0.23364 * rho_r + 0.58533 * rho_r.r_powi(2) - 0.40758 * rho_r.r_powi(3)
+        + 0.093324 * rho_r.r_powi(4);
+    let tmp = (bracket.r_powi(4) - 1.0) / xit + eta0_scaled;
     DynamicViscosity::new::<pascal_second>(tmp * 1.0e-7)
 }
 
@@ -258,9 +259,9 @@ pub fn liquid_viscosity_letsou_stiel(
     let w = component.acentric_factor;
     let tr = t / tc;
 
-    let e0 = (2.648 - 3.725 * tr + 1.309 * tr.powi(2)) * 1.0e-3;
-    let e1 = (7.425 - 13.39 * tr + 5.933 * tr.powi(2)) * 1.0e-3;
-    let xi = 0.176 * (tc / (mm_g.powi(3) * pc_bar.powi(4))).powf(1.0 / 6.0);
+    let e0 = (2.648 - 3.725 * tr + 1.309 * tr.r_powi(2)) * 1.0e-3;
+    let e1 = (7.425 - 13.39 * tr + 5.933 * tr.r_powi(2)) * 1.0e-3;
+    let xi = 0.176 * (tc / (mm_g.r_powi(3) * pc_bar.r_powi(4))).r_powf(1.0 / 6.0);
     DynamicViscosity::new::<pascal_second>((e0 + e1 * w) / xi / 1000.0)
 }
 
@@ -304,16 +305,16 @@ pub fn liquid_viscosity_mixture(
         let eta = pure_viscosities[i];
         match rule {
             LiquidViscosityMixingRule::MoleAverage => val += x * eta,
-            LiquidViscosityMixingRule::LogMoleAverage => val += x * eta.ln(),
+            LiquidViscosityMixingRule::LogMoleAverage => val += x * eta.r_ln(),
             LiquidViscosityMixingRule::InvertedMassAverage => val += w / eta,
-            LiquidViscosityMixingRule::InvertedLogMassAverage => val += w / eta.ln(),
+            LiquidViscosityMixingRule::InvertedLogMassAverage => val += w / eta.r_ln(),
         }
     }
     let result = match rule {
         LiquidViscosityMixingRule::MoleAverage => val,
-        LiquidViscosityMixingRule::LogMoleAverage => val.exp(),
+        LiquidViscosityMixingRule::LogMoleAverage => val.r_exp(),
         LiquidViscosityMixingRule::InvertedMassAverage => 1.0 / val,
-        LiquidViscosityMixingRule::InvertedLogMassAverage => (1.0 / val).exp(),
+        LiquidViscosityMixingRule::InvertedLogMassAverage => (1.0 / val).r_exp(),
     };
     DynamicViscosity::new::<pascal_second>(result)
 }
@@ -376,11 +377,11 @@ pub fn liquid_thermal_conductivity_latini(
         LatiniFluidType::Other => (0.494, 0.0, 0.5, -0.167),
     };
 
-    let a = a_star * tb.powf(alpha) / (mm_g.powf(beta) * tc.powf(gamma));
+    let a = a_star * tb.r_powf(alpha) / (mm_g.r_powf(beta) * tc.r_powf(gamma));
     let lambda = if tr > 0.98 {
         0.0
     } else {
-        a * (1.0 - tr).powf(0.38) / tr.powf(1.0 / 6.0)
+        a * (1.0 - tr).r_powf(0.38) / tr.r_powf(1.0 / 6.0)
     };
     ThermalConductivity::new::<watt_per_meter_kelvin>(lambda)
 }
@@ -472,8 +473,8 @@ pub fn gas_thermal_conductivity_ely_hanley(
     let tr = t / tc;
     let tplus = if tr <= 2.0 { tr } else { 2.0 };
 
-    let teta = 1.0 + (w - 0.011) * (0.56553 - 0.86276 * tplus.ln() - 0.69852 / tplus);
-    let omega = (1.0 + (w - 0.011) * (0.3856 - 1.1617 * tplus.ln())) * 0.288 / zc;
+    let teta = 1.0 + (w - 0.011) * (0.56553 - 0.86276 * tplus.r_ln() - 0.69852 / tplus);
+    let omega = (1.0 + (w - 0.011) * (0.3856 - 1.1617 * tplus.r_ln())) * 0.288 / zc;
 
     let f = tc * teta / 190.4;
     let h = vc * omega / 99.2 * 1.0e6; // m³/mol -> cm³/mol scaling
@@ -493,11 +494,11 @@ pub fn gas_thermal_conductivity_ely_hanley(
     ];
     let mut eta0 = 0.0;
     for (i, c) in C.iter().enumerate() {
-        eta0 += 1.0e-7 * c * t0.powf((i as f64 - 3.0) / 3.0);
+        eta0 += 1.0e-7 * c * t0.r_powf((i as f64 - 3.0) / 3.0);
     }
 
     let lambda0 = 1944.0 * eta0;
-    let h_big = (0.01604 / mm_kg).powf(0.5) * f.powf(0.5) / h.powf(2.0 / 3.0);
+    let h_big = (0.01604 / mm_kg).r_powf(0.5) * f.r_powf(0.5) / h.r_powf(2.0 / 3.0);
     let lambda_star = lambda0 * h_big;
     let eta_star = eta0 * h_big * mm_kg / 0.01604;
 
@@ -564,8 +565,8 @@ pub fn surface_tension_brock_bird(
         0.7 * tc
     };
     let tbr = tb / tc;
-    let q = 0.1196 * (1.0 + tbr * (pc_bar / 1.01325).ln() / (1.0 - tbr)) - 0.279;
-    let sigma_mn = pc_bar.powf(2.0 / 3.0) * tc.powf(1.0 / 3.0) * q * (1.0 - tr).powf(11.0 / 9.0);
+    let q = 0.1196 * (1.0 + tbr * (pc_bar / 1.01325).r_ln() / (1.0 - tbr)) - 0.279;
+    let sigma_mn = pc_bar.r_powf(2.0 / 3.0) * tc.r_powf(1.0 / 3.0) * q * (1.0 - tr).r_powf(11.0 / 9.0);
     SurfaceTension::new::<newton_per_meter>(sigma_mn / 1000.0)
 }
 

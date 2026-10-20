@@ -63,6 +63,7 @@
 //!    that feeds V&V or a solver stays CPU-deterministic. GPU is *acceleration
 //!    only*, and [`crate::gpu::transform_vertices_gpu`] returns `f32`-precision results.
 
+use petir::mathf::RealMath;
 use crate::math::Vec3;
 use crate::transform::Affine3;
 use core::future::Future;
@@ -487,7 +488,7 @@ mod tests {
         let pts: Vec<Vec3> = (0..1000)
             .map(|i| {
                 let f = i as f64;
-                Vec3::new(f * 0.5 - 3.0, (f * 0.25).sin() * 4.0, f * 0.01)
+                Vec3::new(f * 0.5 - 3.0, (f * 0.25).r_sin() * 4.0, f * 0.01)
             })
             .collect();
 

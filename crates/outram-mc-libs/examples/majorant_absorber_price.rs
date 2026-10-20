@@ -89,6 +89,7 @@
 //! cargo run --release -p outram-mc-libs --example majorant_absorber_price
 //! ```
 
+use petir::mathf::RealMath;
 use std::path::PathBuf;
 use std::time::Instant;
 
@@ -209,9 +210,9 @@ fn b4c_rod(id: i32) -> Material {
 /// uses elsewhere in this crate.
 fn energy_grid(n: usize) -> Vec<f64> {
     let (lo, hi) = (1.0e-4_f64, 2.0e7_f64);
-    let (ll, lh) = (lo.ln(), hi.ln());
+    let (ll, lh) = (lo.r_ln(), hi.r_ln());
     (0..n)
-        .map(|i| (ll + (lh - ll) * i as f64 / (n - 1) as f64).exp())
+        .map(|i| (ll + (lh - ll) * i as f64 / (n - 1) as f64).r_exp())
         .collect()
 }
 

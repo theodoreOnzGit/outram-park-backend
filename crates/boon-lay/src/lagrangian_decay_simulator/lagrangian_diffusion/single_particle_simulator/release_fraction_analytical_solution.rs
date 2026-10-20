@@ -3,6 +3,7 @@
 // uom = { version = "0.35", features = ["f64", "si"] }
 
 // Add these `use` statements at the top of your relevant file (e.g., a new verification module)
+use petir::mathf::RealMath;
 use std::f64::consts::PI;
 use uom::si::diffusion_coefficient::square_meter_per_second;
 use uom::si::f64::*;
@@ -69,12 +70,12 @@ pub fn calculate_analytical_fraction_released(
     // it looks identical to the analytical formula. So should be okay
     for n in 1..=num_terms {
         let n_f64 = n as f64;
-        let n_pi_squared = (n_f64 * PI).powi(2); // This part is dimensionless
+        let n_pi_squared = (n_f64 * PI).r_powi(2); // This part is dimensionless
 
         let term_exponent_value = -dimensionless_ratio_dt_r2 * n_pi_squared;
         let term_coefficient = 6.0 / n_pi_squared;
 
-        sum_terms += term_coefficient * term_exponent_value.exp();
+        sum_terms += term_coefficient * term_exponent_value.r_exp();
     }
 
     let fraction_remaining = sum_terms;

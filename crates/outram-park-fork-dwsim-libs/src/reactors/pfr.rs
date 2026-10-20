@@ -47,6 +47,7 @@
 //!
 //! ⚠️ Untrusted draft, pending human V&V (see [`crate::reactors`]).
 
+use petir::mathf::RealMath;
 use crate::reactions::{Reaction, ReactionKind};
 
 use super::{ReactorError, ReactorFeed, ReactorOutcome};
@@ -259,7 +260,7 @@ mod tests {
         let out = reactor.solve(&feed).unwrap();
 
         let tau = reactor.volume / feed.volumetric_flow; // 2 s
-        let x_analytic = 1.0 - (-k * tau).exp();
+        let x_analytic = 1.0 - (-k * tau).r_exp();
         let x_num = out.conversion_of(&feed, 0);
         assert!(
             (x_num - x_analytic).abs() < 1e-6,

@@ -87,6 +87,7 @@
 //! - Everything the steady model does not do is still not done: mean-line only,
 //!   no radial equilibrium, no spanwise variation, no tip leakage.
 
+use petir::mathf::RealMath;
 use uom::si::available_energy::joule_per_kilogram;
 use uom::si::energy::joule;
 use uom::si::f64::*;
@@ -382,7 +383,7 @@ impl TransientMeanFlowTurbine {
 
         // The stator turns the flow to its exit angle, so the absolute velocity
         // is the solved axial component divided by the cosine of that angle.
-        let absolute_velocity_in = axial_velocity / stage.geometry.nozzle_angle.cos();
+        let absolute_velocity_in = axial_velocity / stage.geometry.nozzle_angle.r_cos();
 
         let triangle = VelocityTriangle::new_from_nozzle_and_blade_angles(
             blade_speed,

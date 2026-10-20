@@ -14,6 +14,7 @@
 
 /// One arm of one record: index into [`super::model::TREATMENTS`], `k`, its
 /// σ, and the speed against the record's own delta arm (`None`: not recorded).
+use petir::mathf::RealMath;
 #[derive(Clone, Copy, Debug)]
 pub struct Arm {
     pub t: usize,
@@ -103,7 +104,7 @@ pub fn bias(r: &Record, t: usize) -> Option<(f64, f64)> {
     let x = r.arms.iter().find(|x| x.t == t && t != 0)?;
     Some((
         (x.k - d.k) * 1.0e5,
-        (x.sigma.powi(2) + d.sigma.powi(2)).sqrt() * 1.0e5,
+        (x.sigma.r_powi(2) + d.sigma.r_powi(2)).sqrt() * 1.0e5,
     ))
 }
 

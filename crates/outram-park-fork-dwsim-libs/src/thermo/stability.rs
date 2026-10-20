@@ -95,6 +95,7 @@
 //! (`Vec<f64>` / `&[f64]`). Inner arithmetic is documented raw `f64` (SI:
 //! K, Pa, mole fractions \[-\]), matching [`crate::thermo::cubic_eos`].
 
+use petir::mathf::RealMath;
 use crate::thermo::cubic_eos::{CubicEos, Phase};
 use crate::thermo::flash::wilson_k_values;
 use crate::thermo::Component;
@@ -209,7 +210,7 @@ pub fn tangent_plane_distance(
     let mut tm = 0.0;
     for i in 0..components.len() {
         if w[i] > 0.0 {
-            tm += w[i] * (w[i].ln() + ln_phi_w[i] - z[i].ln() - ln_phi_z[i]);
+            tm += w[i] * (w[i].r_ln() + ln_phi_w[i] - z[i].r_ln() - ln_phi_z[i]);
         }
     }
     tm
@@ -233,7 +234,7 @@ fn run_trial(
 ) -> Option<Vec<f64>> {
     let n = comps.len();
     let mut y = seed.to_vec();
-    let mut ln_y: Vec<f64> = y.iter().map(|&yi| yi.ln()).collect();
+    let mut ln_y: Vec<f64> = y.iter().map(|&yi| yi.r_ln()).collect();
 
     for _ in 0..MAX_SS_ITER {
         let s: f64 = y.iter().sum();
@@ -249,7 +250,7 @@ fn run_trial(
             let dl = new_ln_yi - ln_y[i];
             err += dl * dl;
             ln_y[i] = new_ln_yi;
-            y[i] = new_ln_yi.exp();
+            y[i] = new_ln_yi.r_exp();
         }
 
         if err < SS_TOL {
@@ -311,7 +312,7 @@ pub fn stability_test(
 ) -> StabilityResult {
     let n = components.len();
     let ln_phi_z = ln_phi_min_gibbs(eos, components, z, t, p);
-    let d: Vec<f64> = (0..n).map(|i| z[i].ln() + ln_phi_z[i]).collect();
+    let d: Vec<f64> = (0..n).map(|i| z[i].r_ln() + ln_phi_z[i]).collect();
 
     let k = wilson_k_values(components, t, p);
     let vapor_seed: Vec<f64> = (0..n).map(|i| z[i] * k[i]).collect();
@@ -325,7 +326,7 @@ pub fn stability_test(
             continue;
         };
         // Trivial-solution guard: converged back to the feed.
-        let dist: f64 = (0..n).map(|i| (w[i] - z[i]).powi(2)).sum();
+        let dist: f64 = (0..n).map(|i| (w[i] - z[i]).r_powi(2)).sum();
         if dist < TRIVIAL_TOL {
             continue;
         }
@@ -440,7 +441,7 @@ mod tests {
         let w = r.trial_composition.expect("unstable ⇒ a trial composition");
         assert_abs_diff_eq!(w.iter().sum::<f64>(), 1.0, epsilon = 1e-9);
         // The destabilising trial is a distinct (non-trivial) phase.
-        let dist: f64 = (0..2).map(|i| (w[i] - z[i]).powi(2)).sum();
+        let dist: f64 = (0..2).map(|i| (w[i] - z[i]).r_powi(2)).sum();
         assert!(
             dist > 1e-3,
             "trial must be non-trivial (≠ feed), got w = {w:?}"

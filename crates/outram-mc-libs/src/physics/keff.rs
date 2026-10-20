@@ -2860,7 +2860,7 @@ mod tests {
 
         // single vs multi: statistical comparison (different RNG streams).
         let d_sm = (single.k_mean - multi.k_mean).abs();
-        let sig_sm = (single.k_std.powi(2) + multi.k_std.powi(2)).sqrt();
+        let sig_sm = (single.k_std.r_powi(2) + multi.k_std.r_powi(2)).sqrt();
         eprintln!(
             "single-vs-multi: |Δk| = {:.5} ({:.2}σ, band {:.5})",
             d_sm,
@@ -2892,7 +2892,7 @@ mod tests {
         eprintln!("k_gpu = {:.5} ± {:.5}", gpu.k_mean, gpu.k_std);
 
         let d_sg = (single.k_mean - gpu.k_mean).abs();
-        let sig_sg = (single.k_std.powi(2) + gpu.k_std.powi(2)).sqrt();
+        let sig_sg = (single.k_std.r_powi(2) + gpu.k_std.r_powi(2)).sqrt();
         eprintln!(
             "single-vs-gpu: |Δk| = {:.5} ({:.2}σ, band {:.5})",
             d_sg,

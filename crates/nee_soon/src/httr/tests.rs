@@ -36,6 +36,7 @@
 //! **Results (2026-10-16).** All pass; the measured numbers are in each
 //! test's assertion message and in the V&V README.
 
+use petir::mathf::RealMath;
 use std::f64::consts::PI;
 
 use outram_mc_libs::geometry::cell::SurfaceToken;
@@ -74,7 +75,7 @@ fn the_layer_pattern_holds_333_whole_particles() {
                 n += 1;
                 let x = (i as f64 - 13.0) * spec::TRISO_PITCH_CM[0];
                 let y = (j as f64 - 13.0) * spec::TRISO_PITCH_CM[1];
-                let r = x.hypot(y);
+                let r = x.r_hypot(y);
                 let opyc = spec::TRISO_RADII_CM[4];
                 assert!(
                     r - opyc > spec::COMPACT_INNER_R && r + opyc < spec::COMPACT_OUTER_R,
@@ -94,7 +95,7 @@ fn the_layer_pattern_holds_333_whole_particles() {
 /// built particle count, the 3.4 % kernel gives that mass to 0.05 %.
 #[test]
 fn a_rod_holds_r1s_188_58_g_of_uranium() {
-    let v_kernel = 4.0 / 3.0 * PI * spec::TRISO_RADII_CM[0].powi(3);
+    let v_kernel = 4.0 / 3.0 * PI * spec::TRISO_RADII_CM[0].r_powi(3);
     let na = 0.602_214_076; // atoms/(b cm) per mol/cm³
     let [u234, u235, u238] = super::materials::KERNEL_U[0];
     let grams_per_cm3 = (u234 * 234.040_952 + u235 * 235.043_930 + u238 * 238.050_788) / na;
@@ -240,7 +241,7 @@ fn the_centre_rod_sits_at_its_critical_height() {
     assert_eq!(material_at(&g, x, 0.0, zb - 5.0), Some(mat::HELIUM));
     assert_eq!(material_at(&g, x, 0.0, zb + 0.5), Some(mat::ALLOY_800H), "bottom end plate");
     let a = 120.0 * PI / 180.0;
-    let (rx, ry) = (spec::CR_HOLE_OFFSET * a.cos(), spec::CR_HOLE_OFFSET * a.sin());
+    let (rx, ry) = (spec::CR_HOLE_OFFSET * a.r_cos(), spec::CR_HOLE_OFFSET * a.r_sin());
     assert_eq!(material_at(&g, rx + 4.5, ry, zb + 15.0), Some(mat::HELIUM), "RSS hole");
     // Below the hole bottom the column is solid graphite.
     assert_eq!(material_at(&g, x, 0.0, spec::CR_HOLE_BOTTOM_Z - 1.0), Some(mat::BLOCK));
@@ -257,7 +258,7 @@ fn the_compact_kernel_fraction_is_the_specified_one() {
     let g = core().geometry;
     let (cx, cy) = centre("C02");
     let (px, py) = (spec::PIN_PITCH, 0.0);
-    let want = 333.0 * 4.0 / 3.0 * PI * 0.03f64.powi(3) / (PI * (1.3f64.powi(2) - 0.25) * 0.1);
+    let want = 333.0 * 4.0 / 3.0 * PI * 0.03f64.r_powi(3) / (PI * (1.3f64.r_powi(2) - 0.25) * 0.1);
     let mut seed = 0x2545_f491_4f6c_dd1du64;
     let mut prn = || {
         seed ^= seed << 13;
@@ -271,7 +272,7 @@ fn the_compact_kernel_fraction_is_the_specified_one() {
         let t = 2.0 * PI * prn();
         let z = -20.0 + 40.0 * prn();
         n += 1;
-        let m = material_at(&g, cx + px + r * t.cos(), cy + py + r * t.sin(), z);
+        let m = material_at(&g, cx + px + r * t.r_cos(), cy + py + r * t.r_sin(), z);
         if m.is_some_and(|m| m < 12) {
             hits += 1;
         }
@@ -301,7 +302,7 @@ fn no_point_of_the_model_is_lost() {
         let r = r_max * prn().sqrt();
         let t = 2.0 * PI * prn();
         let z = (2.0 * prn() - 1.0) * (spec::CORE_HALF_HEIGHT - 1e-6);
-        let (x, y) = (r * t.cos(), r * t.sin());
+        let (x, y) = (r * t.r_cos(), r * t.r_sin());
         assert!(material_at(&g, x, y, z).is_some(), "lost at ({x}, {y}, {z})");
     }
 }

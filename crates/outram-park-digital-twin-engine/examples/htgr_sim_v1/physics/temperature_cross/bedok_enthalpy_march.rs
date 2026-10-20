@@ -252,6 +252,7 @@
 // this file becomes visible again. It is a scaffold, not a policy.
 #![allow(dead_code)]
 
+use petir::mathf::RealMath;
 use super::{CrossRepairError, CrossRepairInputs, CrossRepairOutcome};
 
 use tampines_steam_tables::interfaces::functional_programming::ph_flash_eqm::t_ph_eqm;
@@ -1547,7 +1548,7 @@ mod tests {
         let c_max = c_hot.max(c_cold);
         let ntu = ua_total / c_min;
         let c_r = c_min / c_max;
-        let e = (-ntu * (1.0 - c_r)).exp();
+        let e = (-ntu * (1.0 - c_r)).r_exp();
         let effectiveness = (1.0 - e) / (1.0 - c_r * e);
         let t_cold_in = t_ph_eqm(cold_pressure(), inputs.cold_inlet_enthalpy).get::<kelvin>();
         let duty = effectiveness * c_min * (t_hot_in - t_cold_in);

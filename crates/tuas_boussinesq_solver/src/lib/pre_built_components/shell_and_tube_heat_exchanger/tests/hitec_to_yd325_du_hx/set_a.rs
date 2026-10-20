@@ -14,6 +14,7 @@
 /// I'm assuming an adiabatic bc to the outside
 /// and switching off the insulation boolean
 ///
+use petir::mathf::RealMath;
 #[test]
 //#[ignore = "debugging"]
 pub fn du_test_shell_and_tube_heat_exchanger_set_a() {
@@ -555,7 +556,7 @@ pub fn du_test_shell_and_tube_heat_exchanger_set_a() {
         let delta_t_max_to_delta_t_min: Ratio = delta_t_max / delta_t_min;
 
         let lmtd: TemperatureInterval =
-            (delta_t_max - delta_t_min) / (delta_t_max_to_delta_t_min.get::<ratio>().ln());
+            (delta_t_max - delta_t_min) / (delta_t_max_to_delta_t_min.get::<ratio>().r_ln());
 
         let shell_side_area: Area = number_of_tubes as f64 * PI * tube_side_od * pipe_length;
 
@@ -687,7 +688,7 @@ pub fn du_test_shell_and_tube_heat_exchanger_set_a() {
             .unwrap();
 
         let reciprocal_tube_side_solid_term = tube_side_od / (2.0 as f64 * lambda_wall)
-            * (tube_side_od / tube_side_id).get::<ratio>().ln();
+            * (tube_side_od / tube_side_id).get::<ratio>().r_ln();
 
         let _one_over_u_postprocess = u_calc_from_postprocess.recip();
 

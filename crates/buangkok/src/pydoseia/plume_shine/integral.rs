@@ -23,6 +23,7 @@
 //! difference is in `docs/pydoseia-code-to-code.md` and pinned by
 //! `tests/plume_shine_petir_vs_quadpack.rs`.
 
+use petir::mathf::RealMath;
 use uom::si::f64::Length;
 use uom::si::length::meter;
 
@@ -165,7 +166,7 @@ pub struct PlumeShineGeometry {
 /// `black_box` so that LLVM does not rewrite the call as `v * v` (the same
 /// value except when libm's `pow` rounds the square differently).
 fn sq(v: f64) -> f64 {
-    v.powf(core::hint::black_box(2.0))
+    v.r_powf(core::hint::black_box(2.0))
 }
 
 fn sy(s: StabilityClass, x: f64) -> f64 {
@@ -279,9 +280,9 @@ pub fn kernel_single_plume(
     let sigz = sz(s, x);
     (1.0 / (2.0 * core::f64::consts::PI * sigy * sigz))
         * ((1.0 + (k * mu * r2().sqrt())) / (4.0 * core::f64::consts::PI * r2()))
-        * (-mu * r2().sqrt()).exp()
-        * ((-0.5 * sq(y)) / sq(sigy)).exp()
-        * ((-0.5 * sq(z - h) / sq(sigz)).exp() + (-0.5 * sq(z + h) / sq(sigz)).exp())
+        * (-mu * r2().sqrt()).r_exp()
+        * ((-0.5 * sq(y)) / sq(sigy)).r_exp()
+        * ((-0.5 * sq(z - h) / sq(sigz)).r_exp() + (-0.5 * sq(z + h) / sq(sigz)).r_exp())
 }
 
 /// The sector-averaged kernel, upstream's `expo_xyz` in
@@ -305,8 +306,8 @@ pub fn kernel_sector_averaged(
     let sigz = sz(s, x);
     (1.0 / ((2.0 * core::f64::consts::PI).sqrt() * x * SECTOR_WIDTH_RAD * sigz))
         * ((1.0 + (k * mu * r2().sqrt())) / (4.0 * core::f64::consts::PI * r2()))
-        * (-mu * r2().sqrt()).exp()
-        * ((-0.5 * sq(z - h) / sq(sigz)).exp() + (-0.5 * sq(z + h) / sq(sigz)).exp())
+        * (-mu * r2().sqrt()).r_exp()
+        * ((-0.5 * sq(z - h) / sq(sigz)).r_exp() + (-0.5 * sq(z + h) / sq(sigz)).r_exp())
 }
 
 /// One line's integral for one stability class: the kernel integrated over

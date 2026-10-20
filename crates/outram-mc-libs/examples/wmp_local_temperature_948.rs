@@ -31,6 +31,7 @@
 //! `Nuclide::with_multipole` (tested in `tests/wmp_local_temperature_948.rs`)
 //! and the #947 instruments (tested in `vv::temperature_interpolation_947`).
 
+use petir::mathf::RealMath;
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -350,7 +351,7 @@ fn stage_accuracy(threads: usize) {
     let alpha = base.alpha.clone();
     let sd_e: Vec<f64> = lethargy
         .iter()
-        .map(|u| SD_BAND.e_top * (-u).exp())
+        .map(|u| SD_BAND.e_top * (-u).r_exp())
         .collect();
     let c_sd: Vec<(f64, f64)> = sd_e
         .iter()
@@ -689,7 +690,7 @@ fn stage_keff(threads: usize, histories: usize, active: usize) {
         res.push((r.k_mean, r.k_std));
     }
     let d = res[1].0 - res[0].0;
-    let s = (res[0].1.powi(2) + res[1].1.powi(2)).sqrt();
+    let s = (res[0].1.r_powi(2) + res[1].1.r_powi(2)).sqrt();
     println!(
         "WMP − tables = {:+.1} ± {:.1} pcm ({:+.2} σ)",
         1e5 * d,
@@ -821,7 +822,7 @@ fn stage_timing() {
         .map(|i| {
             let x =
                 ((i as u64).wrapping_mul(0x9E37_79B9_7F4A_7C15) >> 11) as f64 / (1u64 << 53) as f64;
-            (2.0e4_f64).powf(x)
+            (2.0e4_f64).r_powf(x)
         })
         .collect();
     println!("| lookup (U-238, 900 K, 1 eV–20 keV, 1e6 energies) | tables ns | WMP ns | ratio |\n|---|---|---|---|");

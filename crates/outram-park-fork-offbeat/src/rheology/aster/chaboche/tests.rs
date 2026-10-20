@@ -41,6 +41,7 @@
 //! immediately, and no iteration on the lateral stress is needed as it would be
 //! for uniaxial *stress*.
 
+use petir::mathf::RealMath;
 use approx::assert_relative_eq;
 use outram_foam_basic_lib::primitives::SymmTensor;
 
@@ -114,7 +115,7 @@ fn flow_condition_residual(law: ChabocheLaw, out: &ChabocheIncrement, dt: f64) -
     if law.is_rate_dependent() && dt > 0.0 {
         let m = law.parameters();
         resisting +=
-            m.viscous_stress * (out.equivalent_increment / dt).powf(1.0 / m.viscous_exponent);
+            m.viscous_stress * (out.equivalent_increment / dt).r_powf(1.0 / m.viscous_exponent);
     }
     von_mises_of_deviator(shifted) - resisting
 }
@@ -725,7 +726,7 @@ fn the_viscous_overstress_follows_the_norton_relation() {
         let residual = flow_condition_residual(law, &out, dt).abs();
         worst = worst.max(residual);
         let overstress =
-            p.viscous_stress * (out.equivalent_increment / dt).powf(1.0 / p.viscous_exponent);
+            p.viscous_stress * (out.equivalent_increment / dt).r_powf(1.0 / p.viscous_exponent);
         println!(
             "dt = {:>8.1e} s: dp = {:.6e}, overstress = {:.5e} Pa, sigma_eq = {:.7e} Pa, |residual| = {:.4e} Pa",
             dt,
@@ -872,7 +873,7 @@ fn the_flow_direction_follows_the_shifted_deviator() {
         "cos(flow, shifted deviator) = {:.12}, cos(flow, trial deviator) = {:.6}, angle to trial = {:.1} deg",
         with_shifted,
         with_trial,
-        with_trial.acos().to_degrees()
+        with_trial.r_acos().to_degrees()
     );
     assert_relative_eq!(with_shifted, 1.0, max_relative = 1e-12);
     assert!(
@@ -915,7 +916,7 @@ fn isotropic_hardening_alone_saturates_at_r_infinity() {
         equivalent(stress),
         p.r_asymptotic,
         (equivalent(stress) - p.r_asymptotic).abs() / p.r_asymptotic,
-        (-p.b * state.accumulated_plastic_strain).exp()
+        (-p.b * state.accumulated_plastic_strain).r_exp()
     );
     assert_relative_eq!(equivalent(stress), p.r_asymptotic, max_relative = 1e-6);
 }

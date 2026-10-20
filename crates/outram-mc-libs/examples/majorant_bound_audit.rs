@@ -56,6 +56,7 @@
 //! ENDF/B-VII.1 through `net-fetch` and could not be audited here. Its numbers
 //! were already marked superseded and pending a re-run (`op-jis`).
 
+use petir::mathf::RealMath;
 use outram_mc_libs::prelude::*;
 use outram_mc_libs::material::material::NuclideComponent;
 use outram_mc_libs::pebble_beds::delta_tracking::bounding_audit_line;
@@ -74,7 +75,7 @@ fn audit(name: &str, materials: &[Material], nuclides: &[Nuclide], margin: f64, 
 
     for i in 0..=n {
         let f = i as f64 / n as f64;
-        let e = scan_lo * (scan_hi / scan_lo).powf(f);
+        let e = scan_lo * (scan_hi / scan_lo).r_powf(f);
         let m = maj.at(e);
         for (mi, mat) in materials.iter().enumerate() {
             let st = mat.macro_xs_total(e, nuclides);
@@ -149,7 +150,7 @@ fn resonance_scan(materials: &[Material], nuclides: &[Nuclide], margin: f64) {
     let mut breaches = 0usize;
 
     for i in 0..=n {
-        let e = lo * (hi / lo).powf(i as f64 / n as f64);
+        let e = lo * (hi / lo).r_powf(i as f64 / n as f64);
         let m = maj.at(e);
         if !(m > 0.0) {
             continue;

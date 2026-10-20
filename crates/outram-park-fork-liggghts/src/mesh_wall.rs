@@ -126,6 +126,7 @@
 //!   treatment in the granular literature (closest-point-on-facet contact
 //!   detection); this is an independent reimplementation of that public method.
 
+use petir::mathf::RealMath;
 use crate::boundary::{Boundary, Contact};
 use crate::particle::{Particle, Vec3};
 use crate::DemError;
@@ -951,7 +952,7 @@ mod tests {
                 for h in 0..2 {
                     let z = 0.02 + 0.05 * f64::from(h);
                     let p = Particle::new(
-                        Vec3::new(0.0485 * ang.cos(), 0.0485 * ang.sin(), z),
+                        Vec3::new(0.0485 * ang.r_cos(), 0.0485 * ang.r_sin(), z),
                         Vec3::zero(),
                         Vec3::zero(),
                         Mass::new::<kilogram>(1.0e-3),
@@ -986,7 +987,7 @@ mod tests {
         for a in 0..12 {
             let ang = std::f64::consts::TAU * f64::from(a) / 12.0;
             let p = Particle::new(
-                Vec3::new(0.0485 * ang.cos(), 0.0485 * ang.sin(), 0.05),
+                Vec3::new(0.0485 * ang.r_cos(), 0.0485 * ang.r_sin(), 0.05),
                 Vec3::zero(),
                 Vec3::zero(),
                 Mass::new::<kilogram>(1.0e-3),

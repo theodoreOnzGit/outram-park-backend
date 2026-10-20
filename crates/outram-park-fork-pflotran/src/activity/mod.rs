@@ -68,6 +68,7 @@
 //!
 //! Enum dispatch, no trait objects (workspace rule).
 
+use petir::mathf::RealMath;
 use crate::error::PflotranError;
 
 /// Debye–Hückel `A` constant at 25 degrees C in water, in units of
@@ -198,7 +199,7 @@ impl ActivityModel {
     /// assert!((g - 1.0).abs() < 1e-12);
     /// ```
     pub fn gamma(&self, charge: f64, ionic_strength: f64) -> f64 {
-        10f64.powf(self.log10_gamma(charge, ionic_strength))
+        10f64.r_powf(self.log10_gamma(charge, ionic_strength))
     }
 
     /// The Debye–Hückel `A` constant used by the charged models
@@ -295,7 +296,7 @@ mod tests {
         // Cross-check against the formula recomputed here (tight tolerance).
         let sqrt_i = 0.1f64.sqrt();
         let expected =
-            10f64.powf(-ActivityModel::a_constant() * (sqrt_i / (1.0 + sqrt_i) - 0.3 * 0.1));
+            10f64.r_powf(-ActivityModel::a_constant() * (sqrt_i / (1.0 + sqrt_i) - 0.3 * 0.1));
         assert!((g - expected).abs() < 1e-12, "g={g} expected={expected}");
     }
 

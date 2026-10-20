@@ -1,3 +1,4 @@
+use petir::mathf::RealMath;
 use roots::{find_root_brent, SimpleConvergency};
 use specific_enthalpy::try_get_h;
 use uom::si::available_energy::{joule_per_gram, joule_per_kilogram};
@@ -82,8 +83,8 @@ pub fn steel_304_l_libreoffice_spline_specific_heat_capacity_ciet_zweibaum(
     // in joule per kilogram kelvin
     let steel_specific_heat_capacity_value = 3.494005840e2
         + 4.655602117e-1 * temperature_value_kelvin
-        - 3.976680063e-4 * temperature_value_kelvin.powf(2.0)
-        + 1.313656168e-7 * temperature_value_kelvin.powf(3.0);
+        - 3.976680063e-4 * temperature_value_kelvin.r_powf(2.0)
+        + 1.313656168e-7 * temperature_value_kelvin.r_powf(3.0);
 
     return Ok(SpecificHeatCapacity::new::<joule_per_kilogram_kelvin>(
         steel_specific_heat_capacity_value,
@@ -112,8 +113,8 @@ pub fn steel_ss_304_l_ornl_specific_heat_capacity(
 
     let temperature_value_kelvin: f64 = temperature.get::<kelvin>();
     let specific_heat_capacity_val = 1000.0
-        * (0.4267 + 1.700 * f64::powf(10.0, -4.0) * temperature_value_kelvin
-            - 5.200 * f64::powf(10.0, -8.0));
+        * (0.4267 + 1.700 * <f64 as petir::mathf::RealMath>::r_powf(10.0, -4.0) * temperature_value_kelvin
+            - 5.200 * <f64 as petir::mathf::RealMath>::r_powf(10.0, -8.0));
 
     Ok(SpecificHeatCapacity::new::<joule_per_kilogram_kelvin>(
         specific_heat_capacity_val,
@@ -189,7 +190,7 @@ pub fn steel_ss_304_l_ornl_thermal_conductivity(
 
     let temperature_value_kelvin: f64 = temperature.get::<kelvin>();
     let thermal_conductivity_val =
-        7.9318 + 0.023051 * temperature_value_kelvin - 6.4166 * f64::powf(10.0, -6.0);
+        7.9318 + 0.023051 * temperature_value_kelvin - 6.4166 * <f64 as petir::mathf::RealMath>::r_powf(10.0, -6.0);
 
     Ok(ThermalConductivity::new::<watt_per_meter_kelvin>(
         thermal_conductivity_val,
@@ -419,13 +420,13 @@ pub fn steel_ss_304_l_ornl_specific_enthalpy_graves(
         let temp_2_value_kelvin = temp_2.get::<kelvin>();
 
         let enthalpy_value_joule_per_gram_per_kelvin_temp_1 = 1.73333e-8
-            * f64::powf(temp_1_value_kelvin, 3.0)
-            + 0.000085 * f64::powf(temp_1_value_kelvin, 2.0)
+            * <f64 as petir::mathf::RealMath>::r_powf(temp_1_value_kelvin, 3.0)
+            + 0.000085 * <f64 as petir::mathf::RealMath>::r_powf(temp_1_value_kelvin, 2.0)
             + 0.4267 * temp_1_value_kelvin;
 
         let enthalpy_value_joule_per_gram_per_kelvin_temp_2 = 1.73333e-8
-            * f64::powf(temp_2_value_kelvin, 3.0)
-            + 0.000085 * f64::powf(temp_2_value_kelvin, 2.0)
+            * <f64 as petir::mathf::RealMath>::r_powf(temp_2_value_kelvin, 3.0)
+            + 0.000085 * <f64 as petir::mathf::RealMath>::r_powf(temp_2_value_kelvin, 2.0)
             + 0.4267 * temp_2_value_kelvin;
 
         let enthalpy_difference_joule_per_gram = enthalpy_value_joule_per_gram_per_kelvin_temp_2

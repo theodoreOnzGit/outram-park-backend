@@ -63,6 +63,7 @@
 //! Godiva route 3 -54 +/- 40 pcm vs OpenMC (was +1853), Jemima +124 +/- 38 (was
 //! -923; equal to the ENDF route's residual).
 
+use petir::mathf::RealMath;
 use njoy_outram_park_fork::acer::ce_decode::decode_ce;
 use njoy_outram_park_fork::acer::read;
 use njoy_outram_park_fork::reference_data::ace_reference_file_or_skip;
@@ -232,7 +233,7 @@ fn u234_fission_spectrum_is_the_partial_mixture() {
             .map(|_| nuc.sample_fission_energy(e, &mut seed))
             .collect();
         let mean = xs.iter().sum::<f64>() / N as f64;
-        let var = xs.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / (N - 1) as f64;
+        let var = xs.iter().map(|x| (x - mean).r_powi(2)).sum::<f64>() / (N - 1) as f64;
         let sigma = (var / N as f64).sqrt();
         let z = (mean - mix) / sigma;
         println!(

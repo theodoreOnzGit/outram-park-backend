@@ -42,6 +42,7 @@
 //!
 //! ⚠️ Untrusted draft, pending human V&V (see [`crate::reactors`]).
 
+use petir::mathf::RealMath;
 use crate::reactions::{Reaction, ReactionKind};
 
 use super::{solve_linear, ReactorError, ReactorFeed, ReactorOutcome};
@@ -299,7 +300,7 @@ mod tests {
             .solve(&feed)
             .unwrap()
             .conversion_of(&feed, 0);
-        let x_pfr_analytic = 1.0 - (-4.0f64).exp();
+        let x_pfr_analytic = 1.0 - (-4.0f64).r_exp();
         assert!(x_cstr < x_pfr_analytic);
     }
 

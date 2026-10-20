@@ -185,6 +185,7 @@
 //! helium -- `fhr_sim_v2` will pass a molten salt through the same
 //! [`CoolPropFluid`] parameter.
 
+use petir::mathf::RealMath;
 use tampines::compressible::{CompressibleFluidArray, CoolPropFluid};
 use tampines_steam_tables::TampinesSteamArray;
 use tuas_boussinesq_solver::array_fluid_collections::solid_array_lateral_coupling::SolidColumn;
@@ -2084,7 +2085,7 @@ mod tests {
              first step tracked {:.4}% of the {total:.3} K total response \
              (first-order lag of tau = {tau:.2} s would give {:.4}%)",
             100.0 * fraction,
-            100.0 * (1.0 - (-dt_s / tau).exp()),
+            100.0 * (1.0 - (-dt_s / tau).r_exp()),
         );
 
         assert!(

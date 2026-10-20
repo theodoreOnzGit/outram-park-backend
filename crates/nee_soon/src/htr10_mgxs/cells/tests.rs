@@ -20,6 +20,7 @@
 //! Printed with `--nocapture`; recorded in
 //! `verification_and_validation/htr10_mgxs_cells/README.md`.
 
+use petir::mathf::RealMath;
 use super::*;
 use crate::htr10_rmc::core_model::mat;
 use outram_mc_libs::geometry::cell::SurfaceToken;
@@ -41,7 +42,7 @@ fn sample(c: &Htr10Cell, n: usize) -> (usize, f64, f64, f64) {
     let design = Htr10CoreDesign::default();
     let r_zone = design.fuel_zone_radius_cm;
     let r_kernel = design.triso_radii_cm[0];
-    let kernel_share = c.triso_particles as f64 * (r_kernel / r_zone).powi(3);
+    let kernel_share = c.triso_particles as f64 * (r_kernel / r_zone).r_powi(3);
     let mut rng = Rng(0x9E37_79B9_7F4A_7C15);
     let [hx, hy, hz] = c.half_extent;
     let u = Direction::new(0.3, 0.4, (1.0f64 - 0.25).sqrt());
@@ -67,7 +68,7 @@ fn sample(c: &Htr10Cell, n: usize) -> (usize, f64, f64, f64) {
             None => panic!("a point inside the cell has no material: {p:?}"),
         }
         let in_zone = c.balls.iter().any(|&([x, y, z], fuel)| {
-            fuel && (p.x - x).powi(2) + (p.y - y).powi(2) + (p.z - z).powi(2) < r_zone * r_zone
+            fuel && (p.x - x).r_powi(2) + (p.y - y).r_powi(2) + (p.z - z).r_powi(2) < r_zone * r_zone
         });
         zone += usize::from(in_zone);
     }

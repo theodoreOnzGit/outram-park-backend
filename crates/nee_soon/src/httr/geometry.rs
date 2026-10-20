@@ -46,6 +46,7 @@
 //! only the compact's materials (`materials::mat::COMPACT`), as HTR-10's
 //! covers only its bed.
 
+use petir::mathf::RealMath;
 use std::f64::consts::PI;
 
 use outram_mc_libs::geometry::cell::{Cell, CellFill};
@@ -132,8 +133,8 @@ impl B {
         for (k, o) in out.iter_mut().enumerate() {
             let phi = (30.0 + 60.0 * k as f64) * PI / 180.0;
             *o = self.surf(SurfaceKind::Plane(Plane {
-                a: phi.cos(),
-                b: phi.sin(),
+                a: phi.r_cos(),
+                b: phi.r_sin(),
                 c: 0.0,
                 d: a,
                 bc: BoundaryType::Transmissive,
@@ -403,8 +404,8 @@ pub fn assemble_httr(rods: RodPositions, tracking: CompactTracking) -> Assembled
         .map(|k| {
             let a = f64::from(k) * 60.0 * PI / 180.0;
             b.zcyl(
-                spec::CR_HOLE_OFFSET * a.cos(),
-                spec::CR_HOLE_OFFSET * a.sin(),
+                spec::CR_HOLE_OFFSET * a.r_cos(),
+                spec::CR_HOLE_OFFSET * a.r_sin(),
                 spec::CR_HOLE_R,
             )
         })
@@ -413,7 +414,7 @@ pub fn assemble_httr(rods: RodPositions, tracking: CompactTracking) -> Assembled
     let hole_at = |deg: f64| -> (usize, f64, f64) {
         let k = ((deg.rem_euclid(360.0) / 60.0).round() as usize) % 6;
         let a = k as f64 * 60.0 * PI / 180.0;
-        (k, spec::CR_HOLE_OFFSET * a.cos(), spec::CR_HOLE_OFFSET * a.sin())
+        (k, spec::CR_HOLE_OFFSET * a.r_cos(), spec::CR_HOLE_OFFSET * a.r_sin())
     };
     let rod_u = build_rod(&mut b);
 
@@ -558,8 +559,8 @@ pub fn assemble_httr(rods: RodPositions, tracking: CompactTracking) -> Assembled
 /// `a2 = 36.2 (cos 150, sin 150)`) of the point `(x, y)`, rounded.
 fn column_index(x: f64, y: f64) -> (i32, i32) {
     let p = spec::COLUMN_PITCH;
-    let j = x / (p * (150.0 * PI / 180.0).cos());
-    let i = (y - j * p * (150.0 * PI / 180.0).sin()) / p;
+    let j = x / (p * (150.0 * PI / 180.0).r_cos());
+    let i = (y - j * p * (150.0 * PI / 180.0).r_sin()) / p;
     (i.round() as i32, j.round() as i32)
 }
 

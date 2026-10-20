@@ -61,6 +61,7 @@
 //! runner: `examples/stats_sweep_loo.rs` (reads the committed CSV, no
 //! transport).
 
+use petir::mathf::RealMath;
 use raffles::surrogate::validation::LeaveOneOut;
 use raffles::surrogate::PolynomialSurrogate;
 
@@ -243,7 +244,7 @@ impl SweepSurrogate {
 }
 
 fn distance(a: &[f64], b: &[f64]) -> f64 {
-    a.iter().zip(b).map(|(p, q)| (p - q).powi(2)).sum::<f64>().sqrt()
+    a.iter().zip(b).map(|(p, q)| (p - q).r_powi(2)).sum::<f64>().sqrt()
 }
 
 #[cfg(test)]
@@ -287,7 +288,7 @@ mod tests {
     /// 2026-10-03).
     #[test]
     fn proposals_are_distinct_and_avoid_existing_runs() {
-        let s = SweepSurrogate::fit(runs(|h| (h / 100.0).ln()), 2, 0.0).unwrap();
+        let s = SweepSurrogate::fit(runs(|h| (h / 100.0).r_ln()), 2, 0.0).unwrap();
         let cands: Vec<Vec<f64>> = (0..41).map(|i| vec![95.0 + 2.5 * i as f64]).collect();
         let picks = s.propose_next_runs(&cands, 3);
         assert_eq!(picks.len(), 3);

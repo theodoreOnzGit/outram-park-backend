@@ -12,6 +12,7 @@
 //! they measure is `outram-mc-libs` reproducing NJOY, not NJOY reproducing
 //! itself.
 
+use petir::mathf::RealMath;
 pub mod njoy_golden;
 /// Instruments for the temperature-interpolation error study (GitHub #947).
 pub mod temperature_interpolation_947;
@@ -256,7 +257,7 @@ pub fn report_source_convergence(
     // understates the error bar. A drift that is not resolved against even
     // this optimistic bound is certainly not resolved.
     let n = active.len() as f64;
-    let var = active.iter().map(|x| (x - mean(active)).powi(2)).sum::<f64>() / (n - 1.0);
+    let var = active.iter().map(|x| (x - mean(active)).r_powi(2)).sum::<f64>() / (n - 1.0);
     let drift_sem = (var * 2.0 / (n / 2.0)).sqrt() * 1.0e5;
     eprintln!(
         "    active halves:     {:.5} then {:.5}   drift {:+.0} +/- {:.0} pcm (>= this err)",

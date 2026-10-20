@@ -50,6 +50,7 @@
 //!
 //! Printed by the test; recorded in the #365 thread.
 
+use petir::mathf::RealMath;
 use njoy_outram_park_fork::reference_data::{ace_reference_file_or_skip, reference_endf};
 use outram_mc_libs::material::nuclide::Nuclide;
 use outram_mc_libs::material::speed::SpeedTier;
@@ -61,7 +62,7 @@ fn mean_sem(n: &Nuclide, e: f64, seed: u64) -> (f64, f64) {
     let mut s = seed;
     let v: Vec<f64> = (0..N).map(|_| n.sample_fission_energy(e, &mut s)).collect();
     let m = v.iter().sum::<f64>() / N as f64;
-    let var = v.iter().map(|x| (x - m).powi(2)).sum::<f64>() / (N - 1) as f64;
+    let var = v.iter().map(|x| (x - m).r_powi(2)).sum::<f64>() / (N - 1) as f64;
     (m, (var / N as f64).sqrt())
 }
 

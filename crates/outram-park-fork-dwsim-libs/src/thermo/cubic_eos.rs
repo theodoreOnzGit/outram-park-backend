@@ -65,6 +65,7 @@
 //! > operation, reactor control, safety-critical, or licensing decisions.
 //! > Independent OUTRAM PARK fork, not the official DWSIM.
 
+use petir::mathf::RealMath;
 use crate::thermo::Component;
 
 /// Universal gas constant `R` [J/(mol·K)] — CODATA 2018 exact value.
@@ -367,7 +368,7 @@ impl CubicEos {
     ) -> Option<f64> {
         let am = self.a_mix(comps, z, t, kij);
         let bm = self.b_mix(comps, z);
-        let a = am * p / (R * t).powi(2);
+        let a = am * p / (R * t).r_powi(2);
         let b = bm * p / (R * t);
         let roots = self.z_roots(a, b);
         select_root(&roots, phase, b)
@@ -421,16 +422,16 @@ impl CubicEos {
         let am = self.a_mix(comps, z, t, kij);
         let bm = self.b_mix(comps, z);
         let apart = self.a_partial(&ai, z, kij);
-        let a = am * p / (R * t).powi(2);
+        let a = am * p / (R * t).r_powi(2);
         let b = bm * p / (R * t);
         let zf = select_root(&self.z_roots(a, b), phase, b)?;
 
         let sq = self.sqrt_disc();
-        let lg = ((2.0 * zf + b * (self.u() + sq)) / (2.0 * zf + b * (self.u() - sq))).ln();
+        let lg = ((2.0 * zf + b * (self.u() + sq)) / (2.0 * zf + b * (self.u() - sq))).r_ln();
         let mut out = vec![0.0; n];
         for i in 0..n {
             let t1 = bi[i] * (zf - 1.0) / bm;
-            let t2 = -(zf - b).ln();
+            let t2 = -(zf - b).r_ln();
             let t3 = a * (2.0 * apart[i] / am - bi[i] / bm) / (b * sq);
             out[i] = t1 + t2 - t3 * lg;
         }
@@ -537,15 +538,15 @@ impl CubicEos {
     ) -> Option<(f64, f64, f64)> {
         let am = self.a_mix(comps, z, t, kij);
         let bm = self.b_mix(comps, z);
-        let a = am * p / (R * t).powi(2);
+        let a = am * p / (R * t).r_powi(2);
         let b = bm * p / (R * t);
         let zf = select_root(&self.z_roots(a, b), phase, b)?;
         let dadt = self.dadt(comps, z, t, kij);
 
         let sq = self.sqrt_disc();
-        let lg = ((2.0 * zf + b * (self.u() - sq)) / (2.0 * zf + b * (self.u() + sq))).ln();
-        let da_res = am / (bm * sq) * lg - R * t * ((zf - b) / zf).ln() - R * t * zf.ln();
-        let ds_res = R * ((zf - b) / zf).ln() + R * zf.ln() - 1.0 / (sq * bm) * dadt * lg;
+        let lg = ((2.0 * zf + b * (self.u() - sq)) / (2.0 * zf + b * (self.u() + sq))).r_ln();
+        let da_res = am / (bm * sq) * lg - R * t * ((zf - b) / zf).r_ln() - R * t * zf.r_ln();
+        let ds_res = R * ((zf - b) / zf).r_ln() + R * zf.r_ln() - 1.0 / (sq * bm) * dadt * lg;
         Some((da_res, ds_res, zf))
     }
 }
@@ -601,8 +602,8 @@ fn real_cubic_roots(c2: f64, c1: f64, c0: f64) -> Vec<f64> {
     if disc > 0.0 {
         // One real root.
         let sqrt_disc = disc.sqrt();
-        let u = (-half_q + sqrt_disc).cbrt();
-        let v = (-half_q - sqrt_disc).cbrt();
+        let u = (-half_q + sqrt_disc).r_cbrt();
+        let v = (-half_q - sqrt_disc).r_cbrt();
         roots.push(u + v - shift);
     } else if p.abs() < 1e-300 {
         // Triple root at t = 0.
@@ -610,9 +611,9 @@ fn real_cubic_roots(c2: f64, c1: f64, c0: f64) -> Vec<f64> {
     } else {
         // Three real roots — trigonometric form.
         let m = 2.0 * (-third_p).sqrt();
-        let theta = (3.0 * q / (p * m)).clamp(-1.0, 1.0).acos() / 3.0;
+        let theta = (3.0 * q / (p * m)).clamp(-1.0, 1.0).r_acos() / 3.0;
         for k in 0..3 {
-            let t = m * (theta - 2.0 * std::f64::consts::PI * f64::from(k) / 3.0).cos();
+            let t = m * (theta - 2.0 * std::f64::consts::PI * f64::from(k) / 3.0).r_cos();
             roots.push(t - shift);
         }
     }
@@ -737,7 +738,7 @@ mod tests {
         // Residual of the cubic at the returned root is ~0.
         let am = pr.a_mix(&comps, &z, t, None);
         let bm = pr.b_mix(&comps, &z);
-        let a = am * p / (R * t).powi(2);
+        let a = am * p / (R * t).r_powi(2);
         let b = bm * p / (R * t);
         let c2 = b - 1.0;
         let c1 = a - 2.0 * b - 3.0 * b * b;
@@ -952,7 +953,7 @@ mod tests {
                      would be NaN"
                 );
                 assert!(
-                    (z - b).ln().is_finite(),
+                    (z - b).r_ln().is_finite(),
                     "ln(Z - B) is not finite for {phase:?} root {z}"
                 );
             }

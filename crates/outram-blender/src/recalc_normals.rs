@@ -59,6 +59,7 @@
 //! spanning tree, matching Blender's own behaviour. No `faer`, no external
 //! dependency; Android-safe.
 
+use petir::mathf::RealMath;
 use crate::math::Vec3;
 use crate::mesh::Mesh;
 use std::collections::HashMap;
@@ -550,9 +551,9 @@ mod tests {
             for i in 0..lon {
                 let phi = std::f64::consts::TAU * (i as f64) / (lon as f64);
                 pts.push(Vec3::new(
-                    centre.x + radius * theta.sin() * phi.cos(),
-                    centre.y + radius * theta.sin() * phi.sin(),
-                    centre.z + radius * theta.cos(),
+                    centre.x + radius * theta.r_sin() * phi.r_cos(),
+                    centre.y + radius * theta.r_sin() * phi.r_sin(),
+                    centre.z + radius * theta.r_cos(),
                 ));
             }
         }

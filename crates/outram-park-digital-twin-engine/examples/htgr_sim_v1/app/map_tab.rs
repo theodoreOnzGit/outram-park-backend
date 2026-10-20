@@ -101,6 +101,7 @@
 //! TRISO-ATOPS reference failure fractions and a primary-circuit leak) and is
 //! **not a source term**. See [`crate::physics::atmospheric_dispersion`].
 
+use petir::mathf::RealMath;
 use egui::{
     Align2, Color32, ColorImage, FontId, Pos2, Rect, Sense, Stroke, TextureHandle, TextureOptions,
     Ui, Vec2,
@@ -288,7 +289,7 @@ pub const NRC_2023_EPZ_REFERENCE_LABEL: &str = "10 mSv / 96 h average (NRC 2023 
 /// The dose-rate basis's default scale: floor [`FLOOR_USV_PER_H`] (0.8 µSv/h),
 /// top [`TOP_USV_PER_H`] (1 mSv/h), span `log10(1000 / 0.8)` = 3.097 decades.
 pub fn dose_rate_anchor_scale() -> ColourScale {
-    ColourScale::clamped(FLOOR_USV_PER_H, (TOP_USV_PER_H / FLOOR_USV_PER_H).log10())
+    ColourScale::clamped(FLOOR_USV_PER_H, (TOP_USV_PER_H / FLOOR_USV_PER_H).r_log10())
 }
 
 /// Which quantity the map paints. See the module doc's table.
@@ -482,7 +483,7 @@ impl ColourScale {
 
     /// `floor * 10^span`.
     pub fn top(&self) -> f64 {
-        self.floor * 10f64.powf(self.span_decades)
+        self.floor * 10f64.r_powf(self.span_decades)
     }
 
     /// Fraction up the ramp, `None` at or below the floor (or non-finite).
@@ -490,7 +491,7 @@ impl ColourScale {
         if !(value > self.floor) || !value.is_finite() {
             return None;
         }
-        Some(((value / self.floor).log10() / self.span_decades).clamp(0.0, 1.0))
+        Some(((value / self.floor).r_log10() / self.span_decades).clamp(0.0, 1.0))
     }
 
     /// Colour for `value`.
@@ -511,7 +512,7 @@ const NO_READING_GREY: Color32 = Color32::from_gray(225);
 pub fn anchor_scale() -> ColourScale {
     ColourScale::clamped(
         banana_anchor(),
-        (one_sievert_anchor() / banana_anchor()).log10(),
+        (one_sievert_anchor() / banana_anchor()).r_log10(),
     )
 }
 
@@ -771,7 +772,7 @@ fn field_uv(field_rect: Rect, clip: Rect) -> Option<(Rect, Rect)> {
 fn ring_label_anchor(t: &MapTransform, distance_m: f64, inside: Rect) -> Option<Pos2> {
     (0..24).find_map(|k| {
         let a = (15.0 * k as f64).to_radians();
-        let p = t.to_screen(distance_m * a.cos(), distance_m * a.sin());
+        let p = t.to_screen(distance_m * a.r_cos(), distance_m * a.r_sin());
         inside.contains(p).then_some(p)
     })
 }
@@ -1080,7 +1081,7 @@ fn factor_text(f: f64) -> String {
     if !(f.is_finite() && f > 0.0) {
         return format!("{f}");
     }
-    let decimals = (2 - f.log10().floor() as i32).max(0) as usize;
+    let decimals = (2 - f.r_log10().floor() as i32).max(0) as usize;
     let s = format!("{f:.decimals$}");
     if s.contains('.') {
         s.trim_end_matches('0').trim_end_matches('.').to_string()
@@ -1273,7 +1274,7 @@ fn plume_band(v: f64, lo: f64, hi: f64) -> Option<i32> {
     if !(v > lo) || !v.is_finite() {
         return None;
     }
-    Some(v.min(hi).log10().floor() as i32)
+    Some(v.min(hi).r_log10().floor() as i32)
 }
 
 /// The overlay's pixels: a cell is painted [`PLUME_COLOUR`] where its decade
@@ -1564,7 +1565,7 @@ fn draw_dose_scale_ramp_with_reference(ui: &mut Ui, scale: ColourScale) {
     let segments = 96;
     for i in 0..segments {
         let f0 = i as f64 / segments as f64;
-        let value = scale.floor * 10f64.powf((f0 + 0.5 / segments as f64) * scale.span_decades);
+        let value = scale.floor * 10f64.r_powf((f0 + 0.5 / segments as f64) * scale.span_decades);
         let x0 = rect.left() + rect.width() * f0 as f32;
         let x1 = rect.left() + rect.width() * ((i + 1) as f64 / segments as f64) as f32;
         painter.rect_filled(
@@ -1926,7 +1927,7 @@ fn draw_dispersion_rose(
     let head = (max_radius * 0.12).max(6.0);
     for sign in [-1.0_f32, 1.0] {
         let a = sign * 25.0_f32.to_radians();
-        let (ca, sa) = (a.cos(), a.sin());
+        let (ca, sa) = (a.r_cos(), a.r_sin());
         // Rotate the REVERSED unit vector, so the barbs trail behind the tip.
         let (bx, by) = (-ux * ca - -uy * sa, -ux * sa + -uy * ca);
         painter.line_segment(
@@ -2020,7 +2021,7 @@ fn below_floor_note(field_peak: f64, scale: ColourScale, basis: MapBasis) -> Opt
             "Whole field below the minimum reading: peak {field_peak:.2e} {} is {:.1} decades \
              under the floor.{why} Lower \"minimum reading\" to see the plume.",
             basis.unit(),
-            (scale.floor / field_peak).log10()
+            (scale.floor / field_peak).r_log10()
         )
     } else {
         "Field is zero on this basis (no release evaluated, or zero release rate). \
@@ -2036,7 +2037,7 @@ fn below_floor_note(field_peak: f64, scale: ColourScale, basis: MapBasis) -> Opt
 /// east, cosine on north, so bearing 0 is north.
 fn bearing_to_plot(bearing_deg: f64, radius: f64) -> (f64, f64) {
     let radians = bearing_deg.to_radians();
-    (radius * radians.sin(), radius * radians.cos())
+    (radius * radians.r_sin(), radius * radians.r_cos())
 }
 
 // ~~`log_shade(value, peak)`~~ -- REPLACED 2026-09-28 by `ColourScale::shade`,
@@ -4336,7 +4337,7 @@ fn tede_x_step(span: f64) -> f64 {
         return TEDE_X_STEP_M;
     }
     let raw = span / 5.0;
-    let mut p = 10f64.powf(raw.log10().floor());
+    let mut p = 10f64.r_powf(raw.r_log10().floor());
     if raw / p >= 10.0 {
         // log10 rounding just under a power of ten.
         p *= 10.0;
@@ -4374,7 +4375,7 @@ fn tede_x_label(x: f64, step: f64, span: f64) -> String {
     } else {
         (v, step, "m")
     };
-    let decimals = (-step.log10().floor()).max(0.0) as usize;
+    let decimals = (-step.r_log10().floor()).max(0.0) as usize;
     format!("{v:.decimals$} {unit}")
 }
 
@@ -4385,7 +4386,7 @@ fn nice_step(span: f64) -> f64 {
         return 1.0;
     }
     let raw = span / 5.0;
-    let p = 10f64.powf(raw.log10().floor());
+    let p = 10f64.r_powf(raw.r_log10().floor());
     let m = raw / p;
     p * if m <= 1.0 {
         1.0
@@ -4406,7 +4407,7 @@ fn tede_y_marks(bounds: (f64, f64)) -> Vec<egui_plot::GridMark> {
 /// "V mSv", with as many decimals as the step needs.
 fn tede_y_label(y: f64, range: &std::ops::RangeInclusive<f64>) -> String {
     let step = nice_step(range.end() - range.start());
-    let decimals = (-step.log10().floor()).max(0.0) as usize;
+    let decimals = (-step.r_log10().floor()).max(0.0) as usize;
     let v = if y.abs() < 1e-9 * step { 0.0 } else { y };
     format!("{v:.decimals$} mSv")
 }
@@ -6257,7 +6258,7 @@ mod tests {
             "default (1200 K kernel) map puff model: peak ring air dose rate {peak_air:.3e} uSv/h, \
              peak field air {field_peak:.3e} uSv/h, peak ring ground shine {peak_ground:.3e} uSv/h, \
              floor {FLOOR_USV_PER_H} uSv/h ({:.1} decades below)",
-            (FLOOR_USV_PER_H / field_peak).log10()
+            (FLOOR_USV_PER_H / field_peak).r_log10()
         );
         assert!(peak_air > 0.0);
     }
@@ -6269,7 +6270,7 @@ mod tests {
         let a = dose_rate_anchor_scale();
         assert_eq!(a.floor, 0.8);
         assert!((a.top() - 1000.0).abs() < 1e-9, "{}", a.top());
-        assert!((a.span_decades - (1000.0_f64 / 0.8).log10()).abs() < 1e-15);
+        assert!((a.span_decades - (1000.0_f64 / 0.8).r_log10()).abs() < 1e-15);
         let s = HtgrSnapshot::default();
         assert_eq!(
             MapTabState::default().scale_for(MapBasis::DoseRate, &s, 1.0),

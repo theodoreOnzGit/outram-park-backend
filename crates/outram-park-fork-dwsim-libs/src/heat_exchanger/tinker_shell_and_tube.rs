@@ -34,6 +34,7 @@
 //! everywhere (Reynolds, Prandtl, `j_h`, `f_s`, pressure drop, HTC). This is
 //! a real property of the ported method, not an omission.
 
+use petir::mathf::RealMath;
 use uom::si::f64::{
     DynamicViscosity, HeatTransfer, Length, MassDensity, MassRate, Pressure, Ratio,
     SpecificHeatCapacity, ThermalConductivity,
@@ -170,9 +171,9 @@ pub fn tube_side(
 
     let epsilon_over_di = geometry.tube_roughness.get::<meter>() / di;
     let fric = if re_t > 3250.0 {
-        let a1 = ((epsilon_over_di.powf(1.1096)) / 2.8257 + (7.149 / re_t).powf(0.8961)).log10();
-        let b1 = -2.0 * (epsilon_over_di / 3.7065 - 5.0452 * a1 / re_t).log10();
-        (1.0 / b1).powi(2)
+        let a1 = ((epsilon_over_di.r_powf(1.1096)) / 2.8257 + (7.149 / re_t).r_powf(0.8961)).r_log10();
+        let b1 = -2.0 * (epsilon_over_di / 3.7065 - 5.0452 * a1 / re_t).r_log10();
+        (1.0 / b1).r_powi(2)
     } else {
         64.0 / re_t
     } * geometry.tube_friction_correction_factor.get::<ratio>();
@@ -185,7 +186,7 @@ pub fn tube_side(
             * rho.value;
 
     let h_i = k.value / di * (fric / 8.0) * re_t * pr_t
-        / (1.07 + 12.7 * (fric / 8.0).sqrt() * (pr_t.powf(2.0 / 3.0) - 1.0));
+        / (1.07 + 12.7 * (fric / 8.0).sqrt() * (pr_t.r_powf(2.0 / 3.0) - 1.0));
 
     TubeSideResult {
         reynolds: Ratio::new::<ratio>(re_t),
@@ -239,9 +240,9 @@ pub fn nh_y_np(
     let yy = pitch.get::<meter>() / tube_outer_diameter.get::<meter>();
     let ((na, nb, nc), (ya, yb, yc), (pa, pb, pc)) = nh_y_np_constants(layout);
     (
-        Ratio::new::<ratio>(na * xx.powf(nb) * yy.powf(nc)),
-        Ratio::new::<ratio>(ya * xx.powf(yb) * yy.powf(yc)),
-        Ratio::new::<ratio>(pa * xx.powf(pb) * yy.powf(pc)),
+        Ratio::new::<ratio>(na * xx.r_powf(nb) * yy.r_powf(nc)),
+        Ratio::new::<ratio>(ya * xx.r_powf(yb) * yy.r_powf(yc)),
+        Ratio::new::<ratio>(pa * xx.r_powf(pb) * yy.r_powf(pc)),
     )
 }
 
@@ -255,23 +256,23 @@ pub fn colburn_j_h_friction(layout: TubeLayout, re_shell: Ratio) -> Ratio {
     let j = match layout {
         TubeLayout::Triangular30 | TubeLayout::TriangularRotated => {
             if re < 100.0 {
-                0.497 * re.powf(0.54)
+                0.497 * re.r_powf(0.54)
             } else {
-                0.378 * re.powf(0.59)
+                0.378 * re.r_powf(0.59)
             }
         }
         TubeLayout::Square90 => {
             if re < 100.0 {
-                0.385 * re.powf(0.526)
+                0.385 * re.r_powf(0.526)
             } else {
-                0.2487 * re.powf(0.625)
+                0.2487 * re.r_powf(0.625)
             }
         }
         TubeLayout::SquareRotated45 => {
             if re < 100.0 {
-                0.496 * re.powf(0.54)
+                0.496 * re.r_powf(0.54)
             } else {
-                0.354 * re.powf(0.61)
+                0.354 * re.r_powf(0.61)
             }
         }
     };
@@ -294,16 +295,16 @@ pub fn colburn_j_h_htc(layout: TubeLayout, re_shell_htc: Ratio) -> Ratio {
     let j = match layout {
         TubeLayout::Triangular30 | TubeLayout::TriangularRotated => {
             if re < 100.0 {
-                0.497 * re.powf(0.54)
+                0.497 * re.r_powf(0.54)
             } else {
-                0.378 * re.powf(0.61)
+                0.378 * re.r_powf(0.61)
             }
         }
         TubeLayout::Square90 | TubeLayout::SquareRotated45 => {
             if re < 100.0 {
-                0.385 * re.powf(0.526)
+                0.385 * re.r_powf(0.526)
             } else {
-                0.2487 * re.powf(0.625)
+                0.2487 * re.r_powf(0.625)
             }
         }
     };
@@ -335,66 +336,66 @@ pub fn shell_friction_factor(
     let f = if pitch_over_de <= 1.2 {
         if triangular_family {
             if re < 100.0 {
-                276.46 * re.powf(-0.979)
+                276.46 * re.r_powf(-0.979)
             } else if re < 1000.0 {
-                30.26 * re.powf(-0.523)
+                30.26 * re.r_powf(-0.523)
             } else {
-                2.93 * re.powf(-0.186)
+                2.93 * re.r_powf(-0.186)
             }
         } else if re < 100.0 {
-            230.0 * re.powf(-1.0)
+            230.0 * re.r_powf(-1.0)
         } else if re < 1000.0 {
-            16.23 * re.powf(-0.43)
+            16.23 * re.r_powf(-0.43)
         } else {
-            2.67 * re.powf(-0.173)
+            2.67 * re.r_powf(-0.173)
         }
     } else if pitch_over_de <= 1.3 {
         if triangular_family {
             if re < 100.0 {
-                208.14 * re.powf(-0.945)
+                208.14 * re.r_powf(-0.945)
             } else if re < 1000.0 {
-                27.6 * re.powf(-0.525)
+                27.6 * re.r_powf(-0.525)
             } else {
-                2.27 * re.powf(-0.163)
+                2.27 * re.r_powf(-0.163)
             }
         } else if re < 100.0 {
-            142.22 * re.powf(-0.949)
+            142.22 * re.r_powf(-0.949)
         } else if re < 1000.0 {
-            11.93 * re.powf(-0.43)
+            11.93 * re.r_powf(-0.43)
         } else {
-            1.77 * re.powf(-0.144)
+            1.77 * re.r_powf(-0.144)
         }
     } else if pitch_over_de <= 1.4 {
         if triangular_family {
             if re < 100.0 {
-                122.73 * re.powf(-0.865)
+                122.73 * re.r_powf(-0.865)
             } else if re < 1000.0 {
-                17.82 * re.powf(-0.474)
+                17.82 * re.r_powf(-0.474)
             } else {
-                1.86 * re.powf(-0.146)
+                1.86 * re.r_powf(-0.146)
             }
         } else if re < 100.0 {
-            110.77 * re.powf(-0.965)
+            110.77 * re.r_powf(-0.965)
         } else if re < 1000.0 {
-            7.524 * re.powf(-0.4)
+            7.524 * re.r_powf(-0.4)
         } else {
-            1.01 * re.powf(-0.104)
+            1.01 * re.r_powf(-0.104)
         }
     } else if pitch_over_de <= 1.5 {
         if triangular_family {
             if re < 100.0 {
-                104.33 * re.powf(-0.869)
+                104.33 * re.r_powf(-0.869)
             } else if re < 1000.0 {
-                12.69 * re.powf(-0.434)
+                12.69 * re.r_powf(-0.434)
             } else {
-                1.526 * re.powf(-0.129)
+                1.526 * re.r_powf(-0.129)
             }
         } else if re < 100.0 {
-            58.18 * re.powf(-0.862)
+            58.18 * re.r_powf(-0.862)
         } else if re < 1000.0 {
-            6.76 * re.powf(-0.411)
+            6.76 * re.r_powf(-0.411)
         } else {
-            0.718 * re.powf(-0.008)
+            0.718 * re.r_powf(-0.008)
         }
     } else {
         return Err(ShellAndTubeError::PitchToDiameterRatioTooLarge { pitch_over_de });
@@ -508,10 +509,10 @@ pub fn shell_side(
     let re_s_htc = g_sh * de / mu.value;
     let j_h_htc = colburn_j_h_htc(layout, Ratio::new::<ratio>(re_s_htc));
 
-    let mut h_e = j_h_htc.get::<ratio>() * k.value * pr_s.powf(0.34) / de;
+    let mut h_e = j_h_htc.get::<ratio>() * k.value * pr_s.r_powf(0.34) / de;
     let lb = baffle_spacing * (n_baffles - 1.0);
     let e_c = if (l - lb).abs() > 1e-12 {
-        lb + (l - lb) * (2.0 * baffle_spacing / (l - lb)).powf(0.6) / l
+        lb + (l - lb) * (2.0 * baffle_spacing / (l - lb)).r_powf(0.6) / l
     } else {
         f64::NAN
     };
@@ -540,7 +541,7 @@ pub fn overall_coefficient(
     let h_e = shell_side.htc.get::<watt_per_square_meter_kelvin>();
     let f1 = de / (h_i * di);
     let f2 = geometry.tube_fouling.0 * de / di;
-    let f3 = de / (2.0 * geometry.tube_thermal_conductivity.value) * (de / di).ln();
+    let f3 = de / (2.0 * geometry.tube_thermal_conductivity.value) * (de / di).r_ln();
     let f4 = geometry.shell_fouling.0;
     let f5 = 1.0 / h_e;
     HeatTransfer::new::<watt_per_square_meter_kelvin>(1.0 / (f1 + f2 + f3 + f4 + f5))
@@ -562,7 +563,7 @@ pub fn fouling_factor_from_design_u(
     let h_i = tube_side.htc.get::<watt_per_square_meter_kelvin>();
     let h_e = shell_side.htc.get::<watt_per_square_meter_kelvin>();
     let f1 = de / (h_i * di);
-    let f3 = de / (2.0 * geometry.tube_thermal_conductivity.value) * (de / di).ln();
+    let f3 = de / (2.0 * geometry.tube_thermal_conductivity.value) * (de / di).r_ln();
     let f5 = 1.0 / h_e;
     let u_clean = 1.0 / (f1 + f3 + f5);
     FoulingFactor(1.0 / u_design.get::<watt_per_square_meter_kelvin>() - 1.0 / u_clean)

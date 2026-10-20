@@ -35,6 +35,7 @@
 //! axial mid-plane, the core 522 cm tall, the fuel from `z = -145` to
 //! `z = +145`.
 
+use petir::mathf::RealMath;
 use std::f64::consts::PI;
 
 // ---------------------------------------------------------------------------
@@ -456,8 +457,8 @@ impl ColumnSpec {
     pub fn centre(&self) -> (f64, f64) {
         let (ax, ay) = (0.0, COLUMN_PITCH);
         let (bx, by) = (
-            COLUMN_PITCH * (150.0 * PI / 180.0).cos(),
-            COLUMN_PITCH * (150.0 * PI / 180.0).sin(),
+            COLUMN_PITCH * (150.0 * PI / 180.0).r_cos(),
+            COLUMN_PITCH * (150.0 * PI / 180.0).r_sin(),
         );
         let (i, j) = (f64::from(self.i), f64::from(self.j));
         (i * ax + j * bx, i * ay + j * by)

@@ -36,6 +36,7 @@
 //! sphere's volume minus the whole particles it holds, exact. The census
 //! reports the pool as one row and the particles from the geometry.
 
+use petir::mathf::RealMath;
 use super::census::Arrangement;
 use super::dh_region::{DhSpec, DhTracking, Packing};
 use super::lattice::Lattice;
@@ -100,7 +101,7 @@ pub(crate) fn whole_in_sphere(zone: &Sphere, child: &Solid, at: [f64; 3]) -> boo
                 .map(|k| {
                     let a = (at[k] + l[k] - c[k]).abs();
                     let b = (at[k] + u[k] - c[k]).abs();
-                    a.max(b).powi(2)
+                    a.max(b).r_powi(2)
                 })
                 .sum();
             d2 <= rz * rz
@@ -108,7 +109,7 @@ pub(crate) fn whole_in_sphere(zone: &Sphere, child: &Solid, at: [f64; 3]) -> boo
         Solid::HexPrism(h) => h
             .vertices()
             .iter()
-            .all(|v| (0..3).map(|k| (at[k] + v[k] - c[k]).powi(2)).sum::<f64>() <= rz * rz),
+            .all(|v| (0..3).map(|k| (at[k] + v[k] - c[k]).r_powi(2)).sum::<f64>() <= rz * rz),
         Solid::Cylinder(cy) => {
             // A rod has no ends and so is never whole in a sphere; a finite
             // cylinder's farthest point is on the rim of its farther end.
@@ -117,9 +118,9 @@ pub(crate) fn whole_in_sphere(zone: &Sphere, child: &Solid, at: [f64; 3]) -> boo
                 return false;
             }
             let cc = cy.centre_cm();
-            let rim = ((at[0] + cc[0]) - c[0]).hypot((at[1] + cc[1]) - c[1]) + cy.radius_cm();
+            let rim = ((at[0] + cc[0]) - c[0]).r_hypot((at[1] + cc[1]) - c[1]) + cy.radius_cm();
             let dz = (at[2] + lo - c[2]).abs().max((at[2] + hi - c[2]).abs());
-            rim.hypot(dz) <= rz
+            rim.r_hypot(dz) <= rz
         }
         // A hopper is never a packed particle; its bounding box's corners
         // decide (which can only refuse).
@@ -127,7 +128,7 @@ pub(crate) fn whole_in_sphere(zone: &Sphere, child: &Solid, at: [f64; 3]) -> boo
             let (l, u) = h.bounds();
             (0..8).all(|k| {
                 (0..3)
-                    .map(|d| (at[d] + if (k >> d) & 1 == 0 { l[d] } else { u[d] } - c[d]).powi(2))
+                    .map(|d| (at[d] + if (k >> d) & 1 == 0 { l[d] } else { u[d] } - c[d]).r_powi(2))
                     .sum::<f64>()
                     <= rz * rz
             })
@@ -220,7 +221,7 @@ pub(crate) fn check_dh(s: &Shape, spec: &DhSpec) -> Result<Option<Lattice>, Mode
                  must be above 0 and at most {MAX_PF_RSA} (RSA jams near 38 %, MAX_PF_RSA)"
             )));
         }
-        let expected = pf * (zone.radius_cm() / r).powi(3);
+        let expected = pf * (zone.radius_cm() / r).r_powi(3);
         if expected < 1.0 {
             return Err(ModelError::BadValue(format!(
                 "a packing fraction of {pf} puts {expected:.2} particles in this region: fewer \
@@ -479,7 +480,7 @@ impl Lowering {
             .map_err(|e| ModelError::BadValue(format!("the random packing failed: {e}")))?;
         // pack_in_ball aims for 0.2 % of the fraction; with few particles one
         // particle is a bigger step than that.
-        let one = (r / big_r).powi(3);
+        let one = (r / big_r).r_powi(3);
         if (packed.realised - pf).abs() > (2.0e-3 * pf).max(one) {
             return Err(ModelError::BadValue(format!(
                 "random packing reached {:.6} where {pf:.6} was asked (more than 0.2 % or one \
@@ -520,7 +521,7 @@ impl Lowering {
 
         // The tracking lattice: about one particle centre per tile.
         let v_particle = particle.solid.volume_cm3();
-        let p = (v_particle / pf).cbrt();
+        let p = (v_particle / pf).r_cbrt();
         let pitch = [p; 3];
         let (n, lower) = Lattice::covering_grid(big_r, pitch, [0.5; 3], c);
         let m = self.material_index(&s.material, t, masses)?;

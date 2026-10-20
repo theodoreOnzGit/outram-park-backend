@@ -63,6 +63,7 @@
 //! time and never accuracy, which is exactly why the cost comparison is the
 //! meaningful one.
 
+use petir::mathf::RealMath;
 use outram_mc_libs::geometry::cell::{Cell, HalfSpaceSense, RegionToken};
 use outram_mc_libs::geometry::geometry::Geometry;
 use outram_mc_libs::geometry::position::Position;
@@ -163,7 +164,7 @@ fn source() -> SourceBox {
 fn energy_grid() -> Vec<f64> {
     let (lo, hi) = (1.0e-4_f64, 2.0e7_f64);
     (0..4096)
-        .map(|i| (lo.ln() + (hi.ln() - lo.ln()) * i as f64 / 4095.0).exp())
+        .map(|i| (lo.r_ln() + (hi.r_ln() - lo.r_ln()) * i as f64 / 4095.0).r_exp())
         .collect()
 }
 
@@ -198,7 +199,7 @@ fn hybrid_and_surface_tracking_agree() {
     );
 
     let dk = (hyb.k_mean - surf.k_mean) * 1.0e5;
-    let sigma = ((surf.k_std.powi(2) + hyb.k_std.powi(2)).sqrt()) * 1.0e5;
+    let sigma = ((surf.k_std.r_powi(2) + hyb.k_std.r_powi(2)).sqrt()) * 1.0e5;
     let z = dk.abs() / sigma.max(1.0e-12);
 
     println!("surface  k = {:.6} +/- {:.6}", surf.k_mean, surf.k_std);
@@ -287,7 +288,7 @@ fn an_absorber_outside_the_region_does_not_raise_its_cost() {
     // Both must give the SAME eigenvalue -- an over-bound majorant costs time,
     // never accuracy. That is what makes the cost comparison meaningful.
     let dk = (b.k_mean - a.k_mean) * 1.0e5;
-    let sigma = ((a.k_std.powi(2) + b.k_std.powi(2)).sqrt()) * 1.0e5;
+    let sigma = ((a.k_std.r_powi(2) + b.k_std.r_powi(2)).sqrt()) * 1.0e5;
     println!(
         "k unchanged: {dk:+.1} pcm ({:.2} sigma)",
         dk.abs() / sigma.max(1e-12)

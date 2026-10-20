@@ -77,6 +77,7 @@
 //! Independent implementations from the published definitions — see the
 //! provenance note in [`crate::bayesian`].
 
+use petir::mathf::RealMath;
 use crate::distributions::{Beta, ContinuousDistribution1D};
 use crate::{RafflesError, Result};
 
@@ -875,7 +876,7 @@ mod tests {
     fn zero_observed_failures_does_not_give_a_confident_zero() {
         let cbox = cbox_binomial(0, 10, 2001).unwrap();
         let interval = cbox.cut(0.05).unwrap();
-        let classical = 1.0 - 0.05_f64.powf(1.0 / 10.0);
+        let classical = 1.0 - 0.05_f64.r_powf(1.0 / 10.0);
         println!(
             "c-box(0, 10) 95 % cut: [{:.6}, {:.6}]; one-sided classical limit {:.6}",
             interval.lower(),

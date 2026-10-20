@@ -388,7 +388,7 @@ pub fn slowing_down_grid(
         .iter()
         .map(|c| {
             let a = nuclides[c.nuclide_idx].awr;
-            ((a - 1.0) / (a + 1.0)).powi(2)
+            ((a - 1.0) / (a + 1.0)).r_powi(2)
         })
         .collect();
     // A = 1 gives α = 0 and an unbounded window; fall back to a sane cap.
@@ -1078,7 +1078,7 @@ impl ShellCell {
         let mut material = Vec::with_capacity(self.radii.len() * k);
         for (s, &r_out) in self.radii.iter().enumerate() {
             let r_in = if s == 0 { 0.0 } else { self.radii[s - 1] };
-            let (v_in, v_out) = (r_in.powi(3), r_out.powi(3));
+            let (v_in, v_out) = (r_in.r_powi(3), r_out.r_powi(3));
             for m in 1..=k {
                 let v = v_in + (v_out - v_in) * m as f64 / k as f64;
                 radii.push(v.r_cbrt());
@@ -1113,7 +1113,7 @@ impl ShellCell {
         for (s, &r_out) in self.radii.iter().enumerate() {
             assert!(k[s] >= 1, "subdivision factor must be at least 1");
             let r_in = if s == 0 { 0.0 } else { self.radii[s - 1] };
-            let (v_in, v_out) = (r_in.powi(3), r_out.powi(3));
+            let (v_in, v_out) = (r_in.r_powi(3), r_out.r_powi(3));
             for m in 1..=k[s] {
                 let v = v_in + (v_out - v_in) * m as f64 / k[s] as f64;
                 radii.push(v.r_cbrt());
@@ -1134,7 +1134,7 @@ impl ShellCell {
         (0..self.radii.len())
             .map(|k| {
                 let r_in = if k == 0 { 0.0 } else { self.radii[k - 1] };
-                c * (self.radii[k].powi(3) - r_in.powi(3))
+                c * (self.radii[k].r_powi(3) - r_in.r_powi(3))
             })
             .collect()
     }
@@ -1256,7 +1256,7 @@ pub fn solve_deterministic_multiregion(
     // it happens to sit.
     let alpha: Vec<f64> = nuclides
         .iter()
-        .map(|n| ((n.awr - 1.0) / (n.awr + 1.0)).powi(2))
+        .map(|n| ((n.awr - 1.0) / (n.awr + 1.0)).r_powi(2))
         .collect();
     let used: Vec<usize> = {
         let mut v: Vec<usize> = cell.material.clone();

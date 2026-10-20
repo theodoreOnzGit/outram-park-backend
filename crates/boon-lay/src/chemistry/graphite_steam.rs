@@ -33,6 +33,7 @@
 //! H2O(g) -241.83 kJ/mol (NIST Chemistry WebBook, SRD 69; public data). Its
 //! temperature dependence (a few kJ/mol up to 1300 K) is not carried.
 
+use petir::mathf::RealMath;
 use uom::si::f64::{Frequency, Pressure, ThermodynamicTemperature};
 use uom::si::frequency::hertz;
 use uom::si::pressure::pascal;
@@ -120,12 +121,12 @@ pub fn specific_rate(
     let t = temperature.get::<kelvin>();
     let p_h2o = steam.get::<pascal>().max(0.0);
     let p_h2 = hydrogen.get::<pascal>().max(0.0);
-    let m = c.m_max + (c.m_min - c.m_max) / (1.0 + ((t - c.t0) / c.theta).exp());
+    let m = c.m_max + (c.m_min - c.m_max) / (1.0 + ((t - c.t0) / c.theta).r_exp());
     let rt = R_J_PER_MOL_K * t;
-    let steam_term = p_h2o.powf(m);
-    let numerator = c.k1 * (-c.e1 / rt).exp() * steam_term;
+    let steam_term = p_h2o.r_powf(m);
+    let numerator = c.k1 * (-c.e1 / rt).r_exp() * steam_term;
     let denominator =
-        1.0 + c.k2 * (-c.e2 / rt).exp() * p_h2.powf(c.n) + c.k3 * (-c.e3 / rt).exp() * steam_term;
+        1.0 + c.k2 * (-c.e2 / rt).r_exp() * p_h2.r_powf(c.n) + c.k3 * (-c.e3 / rt).r_exp() * steam_term;
     let inside =
         (1123.15..=1373.15).contains(&t) && (500.0..=20_000.0).contains(&p_h2o) && p_h2 <= 2_000.0;
     (

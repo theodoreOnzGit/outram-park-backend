@@ -15,6 +15,7 @@
 //! `nee_soon::htr10_rmc::bed::SekerBed::containment` (gh:#472), expression
 //! for expression, so the set of balls a bed keeps is that crate's.
 
+use petir::mathf::RealMath;
 use uom::si::f64::Length;
 use uom::si::length::centimeter;
 
@@ -195,7 +196,7 @@ impl Hopper {
     pub(crate) fn holds(&self, p: [f64; 3]) -> bool {
         p[2] > self.bottom_z_cm()
             && p[2] < self.top_z_cm()
-            && p[0].hypot(p[1]) < self.radius_at(p[2])
+            && p[0].r_hypot(p[1]) < self.radius_at(p[2])
     }
 
     /// Bounding box `(lower, upper)` \[cm\].
@@ -289,7 +290,7 @@ impl Hopper {
     /// nearest wall is at least `r - 1e-9` away (a ball touching a wall is
     /// whole).
     pub(crate) fn contains_ball(&self, c: [f64; 3], r: f64, top: f64) -> BallFit {
-        let (rho, z) = (c[0].hypot(c[1]), c[2]);
+        let (rho, z) = (c[0].r_hypot(c[1]), c[2]);
         let p = self.profile(top);
         let walls = self.walls();
         let mut inside = false;
@@ -335,7 +336,7 @@ fn segment_distance(px: f64, pz: f64, a: [f64; 2], b: [f64; 2]) -> f64 {
     } else {
         0.0
     };
-    (px - a[0] - t * dx).hypot(pz - a[1] - t * dz)
+    (px - a[0] - t * dx).r_hypot(pz - a[1] - t * dz)
 }
 
 /// Distance from a point `(rho, z)` to the (filled) profile: zero inside.

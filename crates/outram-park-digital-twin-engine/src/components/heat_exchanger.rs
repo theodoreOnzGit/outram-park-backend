@@ -130,6 +130,7 @@
 //! Per `RESPONSIBLE_USE.md` this is for education, research and V&V only — not
 //! for facility operation, reactor control, or safety-critical decisions.
 
+use petir::mathf::RealMath;
 use crate::components::temperature_colour;
 use egui::{Align2, Color32, FontId, Painter, Pos2, Rect, Response, Sense};
 use egui::{Stroke, StrokeKind, Ui, Vec2, Widget};
@@ -1987,7 +1988,7 @@ mod tests {
             );
             println!("{kind:?}: dt1 = {dt1:.4} K, dt2 = {dt2:.4} K");
             if dt1 > 0.0 && dt2 > 0.0 && (dt1 - dt2).abs() > 1e-9 {
-                let ours = (dt1 - dt2) / (dt1 / dt2).ln();
+                let ours = (dt1 - dt2) / (dt1 / dt2).r_ln();
                 let theirs = lmtd(
                     kind.arrangement(),
                     s.hot_inlet_temp,

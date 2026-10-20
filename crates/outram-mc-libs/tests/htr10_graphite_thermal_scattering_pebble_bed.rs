@@ -184,6 +184,7 @@
 //! an independent NJOY/OpenMC-ACE oracle. The geometry is a packed cube, not
 //! HTR-10. AI-assisted draft, not human-reviewed.
 
+use petir::mathf::RealMath;
 use njoy_outram_park_fork::leapr::deck::LeaprDeck;
 use njoy_outram_park_fork::leapr::decks::{locate_deck, SabMaterial};
 use njoy_outram_park_fork::leapr::generate::{generate_tape, ElasticChannel};
@@ -510,14 +511,14 @@ fn majorant_still_bounds_total_xs_with_bound_graphite() {
 
     let (e_lo, e_hi) = (1.0e-4_f64, 4.0_f64.max(cutoff * 1.05));
     let n = 200_000;
-    let (ln_lo, ln_hi) = (e_lo.ln(), e_hi.ln());
+    let (ln_lo, ln_hi) = (e_lo.r_ln(), e_hi.r_ln());
 
     let mut worst_ratio = 0.0_f64; // max of Sigma_t / Sigma_maj; must stay <= 1
     let mut worst_e = 0.0_f64;
     let mut worst_mat = usize::MAX;
 
     for i in 0..=n {
-        let e = (ln_lo + (ln_hi - ln_lo) * i as f64 / n as f64).exp();
+        let e = (ln_lo + (ln_hi - ln_lo) * i as f64 / n as f64).r_exp();
         let sigma_maj = maj.at(e);
         for (m, mat) in mats.iter().enumerate() {
             let sigma_t = mat.macro_xs_total(e, &nucs);

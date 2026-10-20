@@ -87,6 +87,7 @@
 //! - The page `docs/tutorial/src/tutorial7-seker-layer.md` carries the
 //!   predictions, the simplifications and the pictures' checks.
 
+use petir::mathf::RealMath;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
@@ -187,7 +188,7 @@ fn draw(
 ) -> std::io::Result<Vec<PathBuf>> {
     let h = seker::height_cm();
     let apothem = seker::apothem_cm();
-    let circum = apothem / (std::f64::consts::PI / 6.0).cos();
+    let circum = apothem / (std::f64::consts::PI / 6.0).r_cos();
     let n_fuel = fuel.iter().filter(|f| **f).count();
     let n_mod = fuel.len() - n_fuel;
     // The TRISO lattice puts layers of particle centres at (k + 0.71) pitch
@@ -373,9 +374,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let tile_volume = census.total_volume().get::<cubic_centimeter>();
     let helium_volume = census.volume(c.helium).get::<cubic_centimeter>();
     let packing = 1.0 - helium_volume / tile_volume;
-    let ball_v = 4.0 / 3.0 * std::f64::consts::PI * (0.5 * seker::BALL_DIAMETER_CM).powi(3);
+    let ball_v = 4.0 / 3.0 * std::f64::consts::PI * (0.5 * seker::BALL_DIAMETER_CM).r_powi(3);
     let expected_packing =
-        13.0 * ball_v / (2.0 * 3.0_f64.sqrt() * seker::apothem_cm().powi(2) * seker::height_cm());
+        13.0 * ball_v / (2.0 * 3.0_f64.sqrt() * seker::apothem_cm().r_powi(2) * seker::height_cm());
     println!("\n{census}");
     println!(
         "\ncounted from the assembled geometry:\n  balls: {} fuel + {} moderator = {}  (tile owns 13; {} fuel asked)\n  ball surfaces {spheres} (13 owned balls + {} pieces from the neighbours and the layer above), container planes {planes} (6 faces + 2 ends)\n  TRISO particles: {particles} (= {fuel_balls} x {})\n  tile volume {tile_volume:.4} cm3 (hexagon x height), helium {helium_volume:.4} cm3\n  packing fraction {:.6} (Seker's interior value {:.4}; 13 balls over the tile, {expected_packing:.6})",

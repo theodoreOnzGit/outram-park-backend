@@ -10,6 +10,7 @@
 /// d_o/(2 lambda_w) ln (d_o/d_i)
 /// I calculated this in Libreoffice Calc to be 1/6920
 /// = 0.00014449 (m^2 K)/W
+use petir::mathf::RealMath;
 #[test]
 pub fn check_wall_side_htc() {
     use uom::si::f64::*;
@@ -26,7 +27,7 @@ pub fn check_wall_side_htc() {
     let tube_side_od = Length::new::<meter>(0.014);
     let tube_side_id = Length::new::<meter>(0.01);
     let reciprocal_tube_side_solid_term = tube_side_od / (2.0 as f64 * lambda_wall_du_paper)
-        * (tube_side_od / tube_side_id).get::<ratio>().ln();
+        * (tube_side_od / tube_side_id).get::<ratio>().r_ln();
 
     let wall_heat_transfer_expected = HeatTransfer::new::<watt_per_square_meter_kelvin>(6920.0);
 

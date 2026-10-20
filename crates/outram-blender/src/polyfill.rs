@@ -98,6 +98,7 @@
 //! entry point a mesh operator should call: it preserves the caller's winding
 //! and hence its outward normal.
 
+use petir::mathf::RealMath;
 use crate::math::Vec3;
 
 /// Corner classification, matching upstream's `eSign`.
@@ -540,7 +541,7 @@ mod tests {
             let coords: Vec<[f64; 2]> = (0..n)
                 .map(|i| {
                     let t = std::f64::consts::TAU * (i as f64) / (n as f64);
-                    [t.cos(), t.sin()]
+                    [t.r_cos(), t.r_sin()]
                 })
                 .collect();
             assert_eq!(polyfill_2d(&coords).len(), n - 2, "n = {n}");
@@ -718,7 +719,7 @@ mod tests {
             .map(|i| {
                 let t = std::f64::consts::TAU * (i as f64) / (n as f64);
                 let r = if i % 3 == 0 { 0.4 } else { 1.0 };
-                [r * t.cos(), r * t.sin()]
+                [r * t.r_cos(), r * t.r_sin()]
             })
             .collect();
         for t in polyfill_2d(&coords) {

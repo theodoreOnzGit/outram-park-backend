@@ -190,6 +190,7 @@
 //!   operation, reactor control, safety-critical, or licensing decisions.
 //!   Independent OUTRAM PARK fork, not the official DWSIM.
 
+use petir::mathf::RealMath;
 use crate::thermo::ideal_props::R;
 
 /// L1 penalty weight `μ` on the atom-balance violation in the line-search merit
@@ -704,7 +705,7 @@ impl MultiPhaseGibbsSystem {
         }
 
         let rt = R * temperature;
-        let ln_p_ratio = (pressure / p_ref).ln();
+        let ln_p_ratio = (pressure / p_ref).r_ln();
 
         // Constant (composition-independent) part of μ_ps/RT:
         // cc[p][s] = g°_ps/RT + [ln(P/P°) if gas].
@@ -763,7 +764,7 @@ impl MultiPhaseGibbsSystem {
                 let nt: f64 = moles[p].iter().sum();
                 n_p[p] = nt;
                 for s in 0..ph.n_species {
-                    mu_rt[p][s] = cc[p][s] + (moles[p][s] / nt).ln();
+                    mu_rt[p][s] = cc[p][s] + (moles[p][s] / nt).r_ln();
                 }
             }
 
@@ -907,7 +908,7 @@ impl MultiPhaseGibbsSystem {
             for _bt in 0..80 {
                 for (p, ph) in self.phases.iter().enumerate() {
                     for s in 0..ph.n_species {
-                        let v = moles[p][s] * (omega * delta[p][s]).exp();
+                        let v = moles[p][s] * (omega * delta[p][s]).r_exp();
                         trial[p][s] = if !v.is_finite() || v < 1e-300 {
                             1e-300
                         } else {
@@ -956,7 +957,7 @@ impl MultiPhaseGibbsSystem {
             let nt: f64 = moles[p].iter().sum();
             phase_totals[p] = nt;
             for s in 0..ph.n_species {
-                mu_rt[p][s] = cc[p][s] + (moles[p][s] / nt).ln();
+                mu_rt[p][s] = cc[p][s] + (moles[p][s] / nt).r_ln();
             }
         }
         let mut g_rt = 0.0;
@@ -1008,7 +1009,7 @@ impl MultiPhaseGibbsSystem {
         for (p, ph) in self.phases.iter().enumerate() {
             let nt: f64 = moles[p].iter().sum();
             for s in 0..ph.n_species {
-                let mu = cc[p][s] + (moles[p][s] / nt).ln();
+                let mu = cc[p][s] + (moles[p][s] / nt).r_ln();
                 g += moles[p][s] * mu;
             }
         }
@@ -1180,7 +1181,7 @@ mod tests {
     fn nernst_partition_two_solution_phases() {
         let t = 1000.0;
         let rt = R * t;
-        let g1a = -rt * 2.0_f64.ln(); // gives D = 2
+        let g1a = -rt * 2.0_f64.r_ln(); // gives D = 2
         let sys = MultiPhaseGibbsSystem::new(
             &["Ra", "E0", "E1"],
             &[
@@ -1251,7 +1252,7 @@ mod tests {
     fn vapor_pressure_over_pure_condensed() {
         let t = 1000.0;
         let rt = R * t;
-        let g_cond = rt * 0.3_f64.ln(); // K_vp = 0.3
+        let g_cond = rt * 0.3_f64.r_ln(); // K_vp = 0.3
         let sys = MultiPhaseGibbsSystem::new(
             &["Ea", "Eb"],
             &[

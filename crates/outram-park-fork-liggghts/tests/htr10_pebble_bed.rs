@@ -145,6 +145,7 @@
 //! an hour), so the `long-tests` gate below is the correct one. Runtime is
 //! machine-dependent — re-measure rather than trusting this number.
 
+use petir::mathf::RealMath;
 use outram_park_fork_liggghts::boundary::Boundary;
 use outram_park_fork_liggghts::granular::{
     ContactKinematics, GranularContactModel, GranularMaterial, RollingModel,
@@ -216,7 +217,7 @@ fn bulk_solid_fraction(centres: &[Vec3]) -> (f64, f64) {
         if hi <= lo {
             return 0.0;
         }
-        let f = |z: f64| std::f64::consts::PI * (R_P * R_P * (z - zc) - (z - zc).powi(3) / 3.0);
+        let f = |z: f64| std::f64::consts::PI * (R_P * R_P * (z - zc) - (z - zc).r_powi(3) / 3.0);
         f(hi) - f(lo)
     };
     let solid: f64 = centres.iter().map(|c| cap(c.z)).sum();
@@ -280,7 +281,7 @@ fn write_our_state(name: &str, ps: &[Particle]) {
 /// fails here rather than silently changing the DEM case.
 #[test]
 fn htr10_geometry_matches_the_published_design_point() {
-    let pebble_volume = 4.0 / 3.0 * std::f64::consts::PI * R_P.powi(3);
+    let pebble_volume = 4.0 / 3.0 * std::f64::consts::PI * R_P.r_powi(3);
     let total = pebble_volume * PUBLISHED_PEBBLE_COUNT as f64;
     let bed_volume = total / PUBLISHED_FILLING_FRACTION;
     let area = std::f64::consts::PI * R_CORE * R_CORE;
@@ -322,7 +323,7 @@ fn htr10_full_core_settles_and_matches_liggghts() {
     };
     eprintln!("N = {} (published {PUBLISHED_PEBBLE_COUNT})", init.len());
 
-    let mass = RHO * 4.0 / 3.0 * std::f64::consts::PI * R_P.powi(3);
+    let mass = RHO * 4.0 / 3.0 * std::f64::consts::PI * R_P.r_powi(3);
     let particles: Vec<Particle> = init
         .iter()
         .map(|(x, v)| {

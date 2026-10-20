@@ -185,7 +185,7 @@ pub fn two_body_scatter_with_mu(
 ) -> (f64, Direction) {
     let a = awr;
     let ap1 = a + 1.0;
-    let e_cm_out = (e * (a / ap1).powi(2) + q * a / ap1).max(0.0);
+    let e_cm_out = (e * (a / ap1).r_powi(2) + q * a / ap1).max(0.0);
     let (e_out, mu_lab) = cm_to_lab(e, e_cm_out, mu_cm.clamp(-1.0, 1.0), a);
     (e_out, rotate_direction(u, mu_lab, seed))
 }
@@ -519,8 +519,8 @@ fn sample_target_velocity_dbrc(
     // the constant-cross-section sampler is used, as upstream.
     const RES_SCAT_ENERGY_MIN: f64 = 0.01;
     let window = dbrc.filter(|t| t.applies(e) && e >= RES_SCAT_ENERGY_MIN).and_then(|t| {
-        let e_low = (beta_vn - 4.0).max(0.0).powi(2) * kt_ev / awr;
-        let e_up = (beta_vn + 4.0).powi(2) * kt_ev / awr;
+        let e_low = (beta_vn - 4.0).max(0.0).r_powi(2) * kt_ev / awr;
+        let e_up = (beta_vn + 4.0).r_powi(2) * kt_ev / awr;
         t.has_point_inside(e_low, e_up).then(|| (t, e_up, t.xs_max_over(e_low, e_up)))
     });
 
@@ -667,7 +667,7 @@ pub fn continuum_inelastic_scatter(
     let a = awr;
     let ap1 = a + 1.0;
     // Max neutron CM energy allowed by two-body energy balance for this channel.
-    let e_cm_elastic = (e * (a / ap1).powi(2) + q * a / ap1).max(0.0);
+    let e_cm_elastic = (e * (a / ap1).r_powi(2) + q * a / ap1).max(0.0);
 
     // Weisskopf temperature θ = √(E/a_ld), a_ld ≈ A/11 MeV⁻¹.
     let a_ld = (a / 11.0).max(1.0); // MeV⁻¹
@@ -824,7 +824,7 @@ pub fn continuum_inelastic_scatter_evaluated_with(
         // fraction above it; clamp so no draw can exceed what energy balance
         // allows, exactly as the stand-in path does.
         let ap1 = awr + 1.0;
-        let cap = (e * (awr / ap1).powi(2) + q * awr / ap1).max(0.0);
+        let cap = (e * (awr / ap1).r_powi(2) + q * awr / ap1).max(0.0);
         let e_cm_out = sampled.min(cap);
         // `mu` is a CM cosine here (ENDF LCT=2), so it goes through the same
         // frame transform as the energy.
@@ -929,7 +929,7 @@ mod tests {
     #[test]
     fn dbrc_target_density_is_cxs_times_sigma_0k() {
         let (a, kt, e) = (236.0_f64, 0.0253_f64, 20.3_f64);
-        let sig = |x: f64| 10.0 + 5000.0 / (1.0 + ((x - 20.0) / 0.01).powi(2));
+        let sig = |x: f64| 10.0 + 5000.0 / (1.0 + ((x - 20.0) / 0.01).r_powi(2));
         let pairs: Vec<(f64, f64)> =
             (0..20_000).map(|i| 12.0 + 0.001 * i as f64).map(|x| (x, sig(x))).collect();
         let t = DbrcTable::from_pairs(&pairs, 1.0e3).unwrap();
@@ -941,8 +941,8 @@ mod tests {
         };
         let beta_vn = (a * e / kt).sqrt();
         let (lo, hi) = (
-            (beta_vn - 4.0).max(0.0).powi(2) * kt / a,
-            (beta_vn + 4.0).powi(2) * kt / a,
+            (beta_vn - 4.0).max(0.0).r_powi(2) * kt / a,
+            (beta_vn + 4.0).r_powi(2) * kt / a,
         );
         const NB: usize = 30;
         const N: usize = 400_000;
@@ -1176,7 +1176,7 @@ mod tests {
             let mut seed = 13_579_u64;
             // Burn-in scales with 1/xi: a heavy target needs many more collisions
             // to forget where it started.
-            let alpha = ((awr - 1.0) / (awr + 1.0)).powi(2);
+            let alpha = ((awr - 1.0) / (awr + 1.0)).r_powi(2);
             let xi = 1.0 + alpha * alpha.r_ln() / (1.0 - alpha);
             let burn = (40.0 / xi) as usize;
             let samples = 400_000;
@@ -1268,7 +1268,7 @@ mod tests {
     fn elastic_energy_stays_in_bounds() {
         let mut seed = 99u64;
         let awr = 235.0_f64;
-        let alpha = ((awr - 1.0) / (awr + 1.0)).powi(2);
+        let alpha = ((awr - 1.0) / (awr + 1.0)).r_powi(2);
         let e = 2.0e6;
         for _ in 0..10_000 {
             let (e_out, _) = elastic_scatter(e, Direction::new(1.0, 0.0, 0.0), awr, &mut seed);

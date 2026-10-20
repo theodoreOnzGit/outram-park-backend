@@ -55,6 +55,7 @@
 //! `examples/graphite_kernel_vs_njoy_thermr.rs`, which read the tapes directly
 //! and print these tables in full.
 
+use petir::mathf::RealMath;
 use outram_mc_libs::material::thermal::ThermalScattering;
 // The oracle tables themselves live in the library, at
 // `outram_mc_libs::vv::njoy_golden`, so that the `examples/` programs which
@@ -98,7 +99,7 @@ fn sampled_moments(law: &ThermalScattering, e: f64, n: usize, seed: &mut u64) ->
             continue;
         }
         sum_ratio += ep / e;
-        sum_xi += (e / ep).ln();
+        sum_xi += (e / ep).r_ln();
         k += 1;
     }
     assert!(

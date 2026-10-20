@@ -26,6 +26,7 @@
 //!
 //! 31 variants, all constructible, all dispatched, all reporting a bin count.
 
+use petir::mathf::RealMath;
 use outram_mc_libs::geometry::position::Position;
 use outram_mc_libs::particle::particle::ParticleType;
 use outram_mc_libs::tally::filter::*;
@@ -206,7 +207,7 @@ fn the_legendre_filter_accumulates_bare_moments() {
             w[2]
         );
         assert!(
-            (w[3] - 0.5 * (5.0 * mu.powi(3) - 3.0 * mu)).abs() < 1e-13,
+            (w[3] - 0.5 * (5.0 * mu.r_powi(3) - 3.0 * mu)).abs() < 1e-13,
             "P3 at mu={mu}: {}",
             w[3]
         );

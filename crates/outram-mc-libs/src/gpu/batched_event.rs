@@ -345,7 +345,7 @@ fn langevin_inverse(mu_bar: f32) -> f32 {
         (1.0 / (1.0 - x)).min(50.0)
     };
     for _ in 0..30 {
-        let coth = 1.0 / lambda.tanh();
+        let coth = 1.0 / lambda.r_tanh();
         let f = coth - 1.0 / lambda - x;
         let d = 1.0 / (lambda * lambda) - (coth * coth - 1.0);
         if d.abs() < 1.0e-12 {
@@ -378,7 +378,7 @@ fn exponential_mu(mubar: f32, xi: f32) -> f32 {
     if lambda.abs() < 1.0e-6 {
         return (2.0 * xi - 1.0).clamp(-1.0, 1.0);
     }
-    let mu = 1.0 + (xi + (1.0 - xi) * (-2.0 * lambda).exp()).ln() / lambda;
+    let mu = 1.0 + (xi + (1.0 - xi) * (-2.0 * lambda).r_exp()).r_ln() / lambda;
     mu.clamp(-1.0, 1.0)
 }
 
@@ -407,7 +407,7 @@ fn continuum_inelastic(
         let (l2, h2, r2) = rng_next(l1, h1);
         lo = l2;
         hi = h2;
-        let cand = -theta * (r1 * r2).ln();
+        let cand = -theta * (r1 * r2).r_ln();
         if cand <= e_cm_elastic {
             e_cm_out = cand;
             break;
@@ -471,7 +471,7 @@ pub fn advance_event_cpu_mirror(
             batch.seed_hi[i] = hi;
             continue;
         }
-        let d_col = -xi_flight.ln() / sigma_t;
+        let d_col = -xi_flight.r_ln() / sigma_t;
 
         let ox = px - sphere.x0;
         let oy = py - sphere.y0;

@@ -43,6 +43,7 @@
 //! Positions and lengths are dimensionless model-space quantities; angles are
 //! radians.
 
+use petir::mathf::RealMath;
 use crate::draw_tool::WorkPlane;
 use crate::knife::{Chord, KnifePoint};
 use crate::math::Vec3;
@@ -106,7 +107,7 @@ impl LineTool {
         let Some(prev) = self.points.last().map(|p| p.position) else {
             return;
         };
-        let dir = plane.u.scale(angle.cos()).add(plane.v.scale(angle.sin()));
+        let dir = plane.u.scale(angle.r_cos()).add(plane.v.scale(angle.r_sin()));
         self.points.push(LinePoint {
             position: prev.add(dir.scale(length)),
             on: None,
@@ -148,10 +149,10 @@ impl LineTool {
         }
         let raw = snapped.position.sub(prev);
         let cur_len = raw.length().max(1e-12);
-        let cur_ang = raw.dot(plane.v).atan2(raw.dot(plane.u));
+        let cur_ang = raw.dot(plane.v).r_atan2(raw.dot(plane.u));
         let l = length.unwrap_or(cur_len);
         let a = angle.unwrap_or(cur_ang);
-        let dir = plane.u.scale(a.cos()).add(plane.v.scale(a.sin()));
+        let dir = plane.u.scale(a.r_cos()).add(plane.v.scale(a.r_sin()));
         self.points.push(LinePoint {
             position: prev.add(dir.scale(l)),
             on: None,

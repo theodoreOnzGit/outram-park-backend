@@ -91,6 +91,7 @@
 //!    [`crate::polyfill_beautify`], and for the same reason.
 //! 3. **Rebuild, not in-place.** Returns a new [`Mesh`].
 
+use petir::mathf::RealMath;
 use std::collections::HashMap;
 
 use crate::math::Vec3;
@@ -227,7 +228,7 @@ pub fn limited_dissolve(mesh: &Mesh, angle_limit: f64) -> Mesh {
         .collect();
 
     // Upstream compares against `-cos(angle_limit)` rather than the angle.
-    let limit = -angle_limit.cos();
+    let limit = -angle_limit.r_cos();
 
     dissolve_edges(&mut faces, &positions, limit);
 
@@ -391,7 +392,7 @@ fn dissolve_stranded_verts(
         }
     }
 
-    let cos_limit = angle_limit.cos();
+    let cos_limit = angle_limit.r_cos();
     let mut removable: Vec<usize> = Vec::new();
     for (&v, nbrs) in &neighbours {
         if nbrs.len() != 2 {

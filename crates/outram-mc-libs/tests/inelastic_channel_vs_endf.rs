@@ -41,6 +41,7 @@
 //!
 //! Data-gated: skips (passes) when `reference-data/endf/` is absent.
 
+use petir::mathf::RealMath;
 use outram_mc_libs::geometry::position::Direction;
 use outram_mc_libs::material::nuclide::{Inelastic, Nuclide};
 use outram_mc_libs::physics::scatter::continuum_inelastic_scatter;
@@ -264,9 +265,9 @@ fn continuum_inelastic_respects_two_body_energy_balance() {
                 let (ep, _) = continuum_inelastic_scatter(e, z, n.awr, q, &mut seed);
                 drawn += 1;
                 let ap1 = n.awr + 1.0;
-                let e_cm = (e * (n.awr / ap1).powi(2) + q * n.awr / ap1).max(0.0);
+                let e_cm = (e * (n.awr / ap1).r_powi(2) + q * n.awr / ap1).max(0.0);
                 let e_trans = e / (ap1 * ap1);
-                let bound = (e_cm.sqrt() + e_trans.sqrt()).powi(2);
+                let bound = (e_cm.sqrt() + e_trans.sqrt()).r_powi(2);
                 if ep > bound * (1.0 + REL_SLACK) {
                     over += 1;
                 }

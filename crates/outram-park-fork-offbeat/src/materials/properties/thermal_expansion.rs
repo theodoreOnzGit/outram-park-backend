@@ -103,6 +103,7 @@
 //! kelvin, strain dimensionless, coefficient in `1/K`. Correlations published
 //! in degrees Celsius convert internally and never expose °C.
 
+use petir::mathf::RealMath;
 use crate::error::{OffbeatError, Result};
 use crate::materials::MaterialState;
 
@@ -1141,13 +1142,13 @@ fn d_cubic(c: &[f64; 4], x: f64) -> f64 {
 /// RELAP UO2 expansion function `K1*T - K2 + K3*exp(-E_D/(k*T))` \[-\].
 fn relap_uo2(t: f64) -> f64 {
     RELAP_UO2_K1 * t - RELAP_UO2_K2
-        + RELAP_UO2_K3 * (-RELAP_UO2_ED / (RELAP_UO2_BOLTZMANN * t)).exp()
+        + RELAP_UO2_K3 * (-RELAP_UO2_ED / (RELAP_UO2_BOLTZMANN * t)).r_exp()
 }
 
 /// `d/dT` of [`relap_uo2`] \[1/K\].
 fn d_relap_uo2(t: f64) -> f64 {
     let e_over_k = RELAP_UO2_ED / RELAP_UO2_BOLTZMANN;
-    RELAP_UO2_K1 + RELAP_UO2_K3 * (-e_over_k / t).exp() * e_over_k / (t * t)
+    RELAP_UO2_K1 + RELAP_UO2_K3 * (-e_over_k / t).r_exp() * e_over_k / (t * t)
 }
 
 /// Martin's hypostoichiometry multiplier `1 + 3.98*(2 - O/M)`.
@@ -1174,7 +1175,7 @@ fn lemehov_melting_temperature(state: &MaterialState) -> f64 {
     let c_am = 0.0;
     let tm0 = LEMEHOV_TM_A - LEMEHOV_TM_PU * c_pu - LEMEHOV_TM_OM * x - LEMEHOV_TM_AM * c_am;
     LEMEHOV_TM_ASYMPTOTE
-        + (tm0 - LEMEHOV_TM_ASYMPTOTE) * (-state.burnup / LEMEHOV_TM_BURNUP_SCALE).exp()
+        + (tm0 - LEMEHOV_TM_ASYMPTOTE) * (-state.burnup / LEMEHOV_TM_BURNUP_SCALE).r_exp()
 }
 
 /// Lemehov linear thermal strain \[-\].
@@ -1309,7 +1310,7 @@ fn parfume_pyc_alphas(t: f64, baf: f64) -> (f64, f64) {
     let r_t = (1.0 + baf) / (2.0 + baf);
     let temperature_factor = 1.0 + PARFUME_PYC[2] * (t - PARFUME_PYC[3]) / PARFUME_PYC[4];
     let alpha_r = (PARFUME_PYC[0] - PARFUME_PYC[1] * r_r) * temperature_factor * 1e-6;
-    let alpha_t = (PARFUME_PYC[5] * (r_t - 1.0).powi(2) + 1.0) * temperature_factor * 1e-6;
+    let alpha_t = (PARFUME_PYC[5] * (r_t - 1.0).r_powi(2) + 1.0) * temperature_factor * 1e-6;
     (alpha_r, alpha_t)
 }
 
@@ -1320,7 +1321,7 @@ fn d_parfume_pyc_alphas(baf: f64) -> (f64, f64) {
     let slope = PARFUME_PYC[2] / PARFUME_PYC[4];
     (
         (PARFUME_PYC[0] - PARFUME_PYC[1] * r_r) * slope * 1e-6,
-        (PARFUME_PYC[5] * (r_t - 1.0).powi(2) + 1.0) * slope * 1e-6,
+        (PARFUME_PYC[5] * (r_t - 1.0).r_powi(2) + 1.0) * slope * 1e-6,
     )
 }
 
@@ -1490,7 +1491,7 @@ mod tests {
         let model = ThermalExpansionModel::RelapUO2 { t_ref: 300.0 };
         let eps = model.strain(&MaterialState::fresh(1000.0));
 
-        let f = |t: f64| 9.8e-6 * t - 2.61e-3 + 3.16e-1 * (-1.32e-19 / (1.38e-23 * t)).exp();
+        let f = |t: f64| 9.8e-6 * t - 2.61e-3 + 3.16e-1 * (-1.32e-19 / (1.38e-23 * t)).r_exp();
         let expected = f(1000.0) - f(300.0);
         assert!((eps - expected).abs() < 1e-18, "eps = {eps:e}");
         assert!(
@@ -1500,7 +1501,7 @@ mod tests {
 
         // Shape of the defect term: negligible at 300 K, small but real at
         // 1000 K, dominant near melting.
-        let defect = |t: f64| 3.16e-1 * (-1.32e-19 / (1.38e-23 * t)).exp();
+        let defect = |t: f64| 3.16e-1 * (-1.32e-19 / (1.38e-23 * t)).r_exp();
         assert!(defect(300.0) < 1e-12);
         assert!((defect(1000.0) - 2.215_981e-5).abs() < 1e-10);
         assert!((defect(2800.0) - 1.037_701e-2).abs() < 1e-7);

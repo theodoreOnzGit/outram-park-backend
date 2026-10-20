@@ -169,6 +169,7 @@
 //! caller-supplied exchanged fraction, e.g. from the cavity ventilation once
 //! #420 is sourced).
 
+use petir::mathf::RealMath;
 use boon_lay::fuel_failure::htr10 as panama_htr10;
 use buangkok::coefficients::{
     external_coefficient, fgr11_inhalation, fgr11_inhalation_max_over_classes,
@@ -488,7 +489,7 @@ fn main() {
         let lam = find_nuclide(n)
             .map(|x| x.decay_constant().get::<uom::si::frequency::hertz>())
             .unwrap_or(0.0);
-        let decay_integral = if lam > 0.0 { -(-lam * exposure_s).exp_m1() / lam } else { exposure_s };
+        let decay_integral = if lam > 0.0 { -(-lam * exposure_s).r_exp_m1() / lam } else { exposure_s };
         let e_gs = if v_d == 0.0 {
             Some(0.0)
         } else {

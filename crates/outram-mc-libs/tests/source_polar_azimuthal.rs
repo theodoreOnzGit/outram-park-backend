@@ -57,6 +57,7 @@
 //! axis-aligned test would not catch a frame that happens to be correct only
 //! for `z`.
 
+use petir::mathf::RealMath;
 use outram_mc_libs::geometry::position::Direction;
 use outram_mc_libs::source::angle::{AngleDist, PolarAzimuthalAngle, ScalarDist};
 
@@ -74,7 +75,7 @@ fn a_cone_is_uniform_in_solid_angle_not_in_angle() {
     let theta = 0.5_f64; // rad
     let cone = PolarAzimuthalAngle::cone(axis(), theta).unwrap();
     let a = axis();
-    let mu_min = theta.cos();
+    let mu_min = theta.r_cos();
 
     const NBINS: usize = 10;
     let mut counts = [0usize; NBINS];

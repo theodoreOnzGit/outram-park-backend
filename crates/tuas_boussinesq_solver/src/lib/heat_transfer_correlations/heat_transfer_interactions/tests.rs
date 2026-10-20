@@ -1,3 +1,4 @@
+use petir::mathf::RealMath;
 use std::f64::consts::PI;
 
 use uom::si::{
@@ -89,7 +90,7 @@ pub fn radial_conductance_solid_inside_liquid_inside_test() {
     let r_outer = Length::new::<inch>(5.0);
 
     let thermal_conductance_lengthscale_reference: Length =
-        2.0 * PI * pipe_length / (r_outer / r_inner).ln();
+        2.0 * PI * pipe_length / (r_outer / r_inner).r_ln();
 
     // for thermal conductivity, let's get steel at 25C atmospheric
     // pressure
@@ -154,7 +155,7 @@ pub fn radial_conductance_solid_inside_liquid_outside_test() {
     let r_outer = Length::new::<inch>(5.0);
 
     let thermal_conductance_lengthscale_reference: Length =
-        2.0 * PI * pipe_length / (r_outer / r_inner).ln();
+        2.0 * PI * pipe_length / (r_outer / r_inner).r_ln();
 
     // for thermal conductivity, let's get steel at 25C atmospheric
     // pressure
@@ -220,7 +221,7 @@ pub fn radial_conductance_solid_test() {
     let r_outer = Length::new::<inch>(5.0);
 
     let thermal_conductance_lengthscale_reference: Length =
-        2.0 * PI * pipe_length / (r_outer / r_inner).ln();
+        2.0 * PI * pipe_length / (r_outer / r_inner).r_ln();
 
     // suppose i get a random thermal conductivity
     //

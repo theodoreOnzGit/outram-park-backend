@@ -1,3 +1,4 @@
+use petir::mathf::RealMath;
 use uom::{
     si::{f64::*, ratio::ratio},
     ConstZero,
@@ -60,9 +61,9 @@ impl NusseltPrandtlReynoldsData {
         let e: f64 = self.prandtl_correction_factor_power;
 
         let nusselt: Ratio = a + b
-            * reynolds.get::<ratio>().powf(c)
-            * prandtl_bulk.get::<ratio>().powf(d)
-            * (prandtl_bulk / prandtl_wall).get::<ratio>().powf(e);
+            * reynolds.get::<ratio>().r_powf(c)
+            * prandtl_bulk.get::<ratio>().r_powf(d)
+            * (prandtl_bulk / prandtl_wall).get::<ratio>().r_powf(e);
 
         return Ok(nusselt);
     }
@@ -75,8 +76,8 @@ impl NusseltPrandtlReynoldsData {
     pub fn ciet_version_2_heater_uncorrected(&self) -> Result<Ratio, TuasLibError> {
         let reynolds = self.reynolds;
         let prandtl = self.prandtl_bulk;
-        let reynolds_power_0_836 = reynolds.value.powf(0.836);
-        let prandtl_power_0_333 = prandtl.value.powf(0.333333333333333);
+        let reynolds_power_0_836 = reynolds.value.r_powf(0.836);
+        let prandtl_power_0_333 = prandtl.value.r_powf(0.333333333333333);
 
         let nusselt = Ratio::new::<ratio>(0.04179 * reynolds_power_0_836 * prandtl_power_0_333);
 
@@ -99,8 +100,8 @@ impl NusseltPrandtlReynoldsData {
 
             let reynolds = this.reynolds.abs();
             let prandtl = this.prandtl_bulk;
-            let reynolds_power_0_836 = reynolds.value.powf(0.836);
-            let prandtl_power_0_333 = prandtl.value.powf(0.333333333333333);
+            let reynolds_power_0_836 = reynolds.value.r_powf(0.836);
+            let prandtl_power_0_333 = prandtl.value.r_powf(0.333333333333333);
 
             let nusselt_uncorrected =
                 Ratio::new::<ratio>(0.04179 * reynolds_power_0_836 * prandtl_power_0_333);
@@ -114,7 +115,7 @@ impl NusseltPrandtlReynoldsData {
 
         let prandtl_bulk_to_wall_ratio = prandtl_bulk / prandtl_wall;
 
-        let correction_factor: f64 = prandtl_bulk_to_wall_ratio.get::<ratio>().powf(0.11);
+        let correction_factor: f64 = prandtl_bulk_to_wall_ratio.get::<ratio>().r_powf(0.11);
 
         return Ok(nusselt_uncorrected * correction_factor);
     }
@@ -269,8 +270,8 @@ impl WakaoData {
         let reynolds_power: f64 = 0.6;
 
         let nusselt: Ratio = a + b
-            * prandtl_bulk.get::<ratio>().powf(prandtl_power)
-            * reynolds.get::<ratio>().powf(reynolds_power);
+            * prandtl_bulk.get::<ratio>().r_powf(prandtl_power)
+            * reynolds.get::<ratio>().r_powf(reynolds_power);
 
         return Ok(nusselt);
     }

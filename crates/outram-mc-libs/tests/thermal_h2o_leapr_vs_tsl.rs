@@ -37,6 +37,7 @@
 //! nothing route 4 transports; the deck's own constants (its `EVAL` date)
 //! reproduce the published tape to the bit.
 
+use petir::mathf::RealMath;
 use njoy_outram_park_fork::endf::tape::Tape;
 use njoy_outram_park_fork::leapr::deck::LeaprDeck;
 use njoy_outram_park_fork::leapr::decks::{embedded_deck_text, SabMaterial};
@@ -85,10 +86,10 @@ fn h_in_h2o_from_leapr_matches_the_published_tape_to_thermr_tol() {
     let rel_cut = (leapr.cutoff_ev() - published.cutoff_ev()).abs() / published.cutoff_ev();
     assert!(rel_cut < 1e-6, "cutoff {} eV against {} eV", leapr.cutoff_ev(), published.cutoff_ev());
 
-    let (lo, hi) = (1.0e-5_f64.ln(), (published.cutoff_ev() * 0.999).ln());
+    let (lo, hi) = (1.0e-5_f64.r_ln(), (published.cutoff_ev() * 0.999).r_ln());
     let (mut worst_inel, mut worst_tot, mut at) = (0.0_f64, 0.0_f64, 0.0);
     for k in 0..200 {
-        let e = (lo + (hi - lo) * k as f64 / 199.0).exp();
+        let e = (lo + (hi - lo) * k as f64 / 199.0).r_exp();
         let di = (leapr.inelastic_xs(e) / published.inelastic_xs(e) - 1.0).abs();
         let dt = (leapr.total_xs(e) / published.total_xs(e) - 1.0).abs();
         if di > worst_inel {

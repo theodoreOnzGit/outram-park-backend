@@ -51,6 +51,7 @@
 //! Education and research only, per the workspace `RESPONSIBLE_USE.md`. Not for
 //! reactor operation, licensing, or safety-critical decisions.
 
+use petir::mathf::RealMath;
 #[cfg(not(target_os = "android"))]
 mod anim;
 #[cfg(not(target_os = "android"))]
@@ -408,7 +409,7 @@ mod tests {
                 temperature: model::TEMPERATURE_K,
             };
             for k in 0..=2000 {
-                let e = 1.0e-5 * 10f64.powf(12.3 * k as f64 / 2000.0); // 1e-5 eV .. 20 MeV
+                let e = 1.0e-5 * 10f64.r_powf(12.3 * k as f64 / 2000.0); // 1e-5 eV .. 20 MeV
                 let (a, b) = (one.macro_xs(e, std::slice::from_ref(&full)), one.macro_xs(e, std::slice::from_ref(&thin)));
                 for (what, x, y) in [
                     ("total", a.total, b.total), ("elastic", a.elastic, b.elastic),
@@ -434,7 +435,7 @@ mod tests {
         assert_eq!(model::particles_2d(), 152);
         assert!((model::particle_r() - 0.0455).abs() < 1e-12);
         let p = model::half_pitch();
-        let area_fraction = std::f64::consts::PI * model::PEBBLE_R.powi(2) / (2.0 * p).powi(2);
+        let area_fraction = std::f64::consts::PI * model::PEBBLE_R.r_powi(2) / (2.0 * p).r_powi(2);
         assert!((area_fraction - model::CORE_FILLING_FRACTION).abs() < 1e-12);
     }
 
@@ -449,7 +450,7 @@ mod tests {
         for (i, &(x, y)) in c.iter().enumerate() {
             assert!((x * x + y * y).sqrt() + rp < model::FUEL_ZONE_R, "particle {i} crosses the fuel-zone edge");
             for &(a, b) in &c[i + 1..] {
-                assert!(((x - a).powi(2) + (y - b).powi(2)).sqrt() > 2.0 * rp, "particles overlap");
+                assert!(((x - a).r_powi(2) + (y - b).r_powi(2)).sqrt() > 2.0 * rp, "particles overlap");
             }
             // Probe the middle of every layer along +x.
             let mids = [

@@ -489,7 +489,7 @@ mod tests {
         // Smooth synthetic sigma(E): slowing-down trend + a bump near 1 keV.
         let sigma_of = |e: f64| {
             let l = e.r_log10();
-            100.0 / e.sqrt() + 5.0 * (-(l - 3.0).powi(2)).r_exp()
+            100.0 / e.sqrt() + 5.0 * (-(l - 3.0).r_powi(2)).r_exp()
         };
         let sigma_f64: Vec<f64> = grid_f64.iter().map(|&e| sigma_of(e)).collect();
 

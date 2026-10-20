@@ -121,6 +121,7 @@
 //!     --features endf-pebble-cases --example godiva_continuum_spectrum_ablation
 //! ```
 
+use petir::mathf::RealMath;
 #[cfg(target_os = "android")]
 fn main() {
     println!("godiva_continuum_spectrum_ablation is desktop-only (reads reference-data/endf/).");
@@ -167,9 +168,9 @@ mod desktop {
     ];
 
     fn log_grid(n: usize) -> Vec<f64> {
-        let (l0, l1) = (E_LO.ln(), E_HI.ln());
+        let (l0, l1) = (E_LO.r_ln(), E_HI.r_ln());
         (0..=n)
-            .map(|i| (l0 + (l1 - l0) * i as f64 / n as f64).exp())
+            .map(|i| (l0 + (l1 - l0) * i as f64 / n as f64).r_exp())
             .collect()
     }
 
@@ -220,7 +221,7 @@ mod desktop {
             let (lo, hi) = (edges[i], edges[i + 1]);
             let centre = (lo * hi).sqrt();
             num_e += f * centre;
-            num_ln += f * centre.ln();
+            num_ln += f * centre.r_ln();
             den += f;
             if hi <= SOFT_CUT_EV {
                 below += f;
@@ -236,7 +237,7 @@ mod desktop {
     fn stats(x: &[f64]) -> (f64, f64) {
         let n = x.len() as f64;
         let mean = x.iter().sum::<f64>() / n;
-        let var = x.iter().map(|v| (v - mean).powi(2)).sum::<f64>() / (n - 1.0).max(1.0);
+        let var = x.iter().map(|v| (v - mean).r_powi(2)).sum::<f64>() / (n - 1.0).max(1.0);
         (mean, (var / n).sqrt())
     }
 
@@ -371,7 +372,7 @@ mod desktop {
             // Relative change and its error, propagated.
             let rel = if mb != 0.0 { (ma - mb) / mb.abs() } else { 0.0 };
             let rel_err = if mb != 0.0 {
-                ((sa / mb).powi(2) + (ma * sb / (mb * mb)).powi(2)).sqrt()
+                ((sa / mb).r_powi(2) + (ma * sb / (mb * mb)).r_powi(2)).sqrt()
             } else {
                 0.0
             };

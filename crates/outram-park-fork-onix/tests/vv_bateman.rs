@@ -16,6 +16,7 @@
 //! scope for this draft. Crate status: **untrusted AI-assisted draft pending
 //! human V&V.**
 
+use petir::mathf::RealMath;
 use outram_park_fork_onix::{
     cram16, BurnupMatrix, DecayData, DecayMode, DepletionSystem, FissionYields, Nuclide,
     ReactionChannel, ReactionRates,
@@ -25,9 +26,9 @@ use outram_park_fork_onix::{
 /// with density `n0`. Returns `(n_A, n_B, n_C)` at time `t` (seconds).
 /// Requires `la != lb`. Reference: Bateman (1910); standard three-member chain.
 fn bateman_abc(n0: f64, la: f64, lb: f64, t: f64) -> (f64, f64, f64) {
-    let na = n0 * (-la * t).exp();
-    let nb = n0 * la / (lb - la) * ((-la * t).exp() - (-lb * t).exp());
-    let nc = n0 * (1.0 + (la * (-lb * t).exp() - lb * (-la * t).exp()) / (lb - la));
+    let na = n0 * (-la * t).r_exp();
+    let nb = n0 * la / (lb - la) * ((-la * t).r_exp() - (-lb * t).r_exp());
+    let nc = n0 * (1.0 + (la * (-lb * t).r_exp() - lb * (-la * t).r_exp()) / (lb - la));
     (na, nb, nc)
 }
 
@@ -183,7 +184,7 @@ fn burnup_step_transmutation() {
     let dt = 3000.0;
     let n0 = sys.inventory_vector(&[(a, 1.0)]).unwrap();
     let n = sys.deplete(&n0, dt).unwrap();
-    let ra = (-r * dt).exp();
+    let ra = (-r * dt).r_exp();
     let rb = 1.0 - ra;
     let max_err = (n[0] - ra).abs().max((n[1] - rb).abs());
     println!(
@@ -310,8 +311,8 @@ fn cram16_stiff_diagonal() {
     m.set(0, 0, -1.0);
     m.set(1, 1, -1e-6);
     let n = cram16(&m, 5.0, &[1.0, 1.0]).unwrap();
-    let r0 = (-5.0f64).exp();
-    let r1 = (-5e-6f64).exp();
+    let r0 = (-5.0f64).r_exp();
+    let r1 = (-5e-6f64).r_exp();
     let max_err = (n[0] - r0).abs().max((n[1] - r1).abs());
     println!("(e) stiff-diagonal max abs error = {max_err:.3e}");
     assert!(max_err < 1e-12);

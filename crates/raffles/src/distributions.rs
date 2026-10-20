@@ -157,6 +157,7 @@
 //! this file for the upstream files, commit and the full list of structural
 //! changes.
 
+use petir::mathf::RealMath;
 use crate::{RafflesError, Result};
 
 // ===========================================================================
@@ -259,8 +260,8 @@ pub(crate) mod special {
     pub fn ln_gamma(z: f64) -> f64 {
         if z < 0.5 {
             // Reflection: ln Gamma(z) = ln(pi / sin(pi z)) - ln Gamma(1 - z).
-            let s = (std::f64::consts::PI * z).sin();
-            (std::f64::consts::PI / s.abs()).ln() - ln_gamma(1.0 - z)
+            let s = (std::f64::consts::PI * z).r_sin();
+            (std::f64::consts::PI / s.abs()).r_ln() - ln_gamma(1.0 - z)
         } else {
             let z = z - 1.0;
             let mut x = LANCZOS[0];
@@ -269,7 +270,7 @@ pub(crate) mod special {
             }
             let t = z + LANCZOS_G + 0.5;
             // ln Gamma(z+1) = ln sqrt(2 pi) + (z + 1/2) ln t - t + ln A_g(z)
-            SQRT_2PI.ln() + (z + 0.5) * t.ln() - t + x.ln()
+            SQRT_2PI.r_ln() + (z + 0.5) * t.r_ln() - t + x.r_ln()
         }
     }
 
@@ -330,7 +331,7 @@ pub(crate) mod special {
                 break;
             }
         }
-        sum * (-x + a * x.ln() - ln_gamma(a)).exp()
+        sum * (-x + a * x.r_ln() - ln_gamma(a)).r_exp()
     }
 
     /// A&S 6.5.31 evaluated by the modified Lentz scheme (Lentz 1976).
@@ -359,7 +360,7 @@ pub(crate) mod special {
                 break;
             }
         }
-        h * (-x + a * x.ln() - ln_gamma(a)).exp()
+        h * (-x + a * x.r_ln() - ln_gamma(a)).r_exp()
     }
 
     /// Error function `erf(x)`.
@@ -393,7 +394,7 @@ pub(crate) mod special {
 
     /// Standard normal density `phi(z)`.
     pub fn norm_pdf_std(z: f64) -> f64 {
-        (-0.5 * z * z).exp() / SQRT_2PI
+        (-0.5 * z * z).r_exp() / SQRT_2PI
     }
 
     /// Standard normal quantile `Phi^-1(p)` for `p` in `[0, 1]`.
@@ -416,7 +417,7 @@ pub(crate) mod special {
         let q = if lower { p } else { 1.0 - p };
 
         // A&S 26.2.23 starting approximation, in the lower tail (z <= 0).
-        let t = (-2.0 * q.ln()).sqrt();
+        let t = (-2.0 * q.r_ln()).sqrt();
         let num = 2.515_517 + t * (0.802_853 + t * 0.010_328);
         let den = 1.0 + t * (1.432_788 + t * (0.189_269 + t * 0.001_308));
         let mut z = -(t - num / den);
@@ -461,7 +462,7 @@ pub(crate) mod special {
         if x >= 1.0 {
             return 1.0;
         }
-        let front = (a * x.ln() + b * (1.0 - x).ln() - ln_beta(a, b)).exp();
+        let front = (a * x.r_ln() + b * (1.0 - x).r_ln() - ln_beta(a, b)).r_exp();
         if x < (a + 1.0) / (a + b + 2.0) {
             front * beta_cf(a, b, x) / a
         } else {
@@ -585,7 +586,7 @@ pub(crate) mod special {
             let w = 1.0 - 1.0 / (9.0 * a) + z / (3.0 * a.sqrt());
             a * w * w * w
         } else {
-            (p * ln_gamma(a + 1.0).exp()).powf(1.0 / a)
+            (p * ln_gamma(a + 1.0).r_exp()).r_powf(1.0 / a)
         };
         if !(guess > 0.0) || !guess.is_finite() {
             guess = a.max(1e-3);
@@ -597,7 +598,7 @@ pub(crate) mod special {
                 break;
             }
         }
-        let pdf = |y: f64| (-y + (a - 1.0) * y.ln() - ln_gamma(a)).exp();
+        let pdf = |y: f64| (-y + (a - 1.0) * y.r_ln() - ln_gamma(a)).r_exp();
         solve_cdf(p, 0.0, hi, guess, |y| gamma_p(a, y), pdf)
     }
 
@@ -613,7 +614,7 @@ pub(crate) mod special {
         if p >= 1.0 {
             return 1.0;
         }
-        let pdf = |z: f64| ((a - 1.0) * z.ln() + (b - 1.0) * (1.0 - z).ln() - ln_beta(a, b)).exp();
+        let pdf = |z: f64| ((a - 1.0) * z.r_ln() + (b - 1.0) * (1.0 - z).r_ln() - ln_beta(a, b)).r_exp();
         solve_cdf(p, 0.0, 1.0, a / (a + b), |z| beta_inc_reg(a, b, z), pdf)
     }
 
@@ -650,10 +651,10 @@ pub(crate) mod special {
         let mut breaks: Vec<f64> = Vec::with_capacity(2 * LEVELS as usize + 4);
         breaks.push(0.0);
         for j in (0..=LEVELS).rev() {
-            breaks.push(0.5 * (0.5f64).powi(j));
+            breaks.push(0.5 * (0.5f64).r_powi(j));
         }
         for j in 1..=LEVELS {
-            breaks.push(1.0 - 0.5 * (0.5f64).powi(j));
+            breaks.push(1.0 - 0.5 * (0.5f64).r_powi(j));
         }
         breaks.push(1.0);
 
@@ -974,7 +975,7 @@ impl ContinuousDistribution1D for LogNormal {
         if !(y > 0.0) {
             return 0.0;
         }
-        special::norm_pdf_std((y.ln() - self.mu) / self.sigma) / (y * self.sigma)
+        special::norm_pdf_std((y.r_ln() - self.mu) / self.sigma) / (y * self.sigma)
     }
 
     fn cdf(&self, x: f64) -> f64 {
@@ -982,7 +983,7 @@ impl ContinuousDistribution1D for LogNormal {
         if !(y > 0.0) {
             return 0.0;
         }
-        special::norm_cdf_std((y.ln() - self.mu) / self.sigma)
+        special::norm_cdf_std((y.r_ln() - self.mu) / self.sigma)
     }
 
     fn ppf(&self, p: f64) -> Result<f64> {
@@ -990,11 +991,11 @@ impl ContinuousDistribution1D for LogNormal {
         if p <= 0.0 {
             return Ok(self.low);
         }
-        Ok(self.low + (self.mu + self.sigma * special::norm_ppf_std(p)).exp())
+        Ok(self.low + (self.mu + self.sigma * special::norm_ppf_std(p)).r_exp())
     }
 
     fn mean(&self) -> f64 {
-        self.low + (self.mu + 0.5 * self.sigma * self.sigma).exp()
+        self.low + (self.mu + 0.5 * self.sigma * self.sigma).r_exp()
     }
 
     /// Variance of the log-normal.
@@ -1005,7 +1006,7 @@ impl ContinuousDistribution1D for LogNormal {
     /// spread. See the translation notes at the top of this file.
     fn variance(&self) -> f64 {
         let s2 = self.sigma * self.sigma;
-        (s2.exp() - 1.0) * (2.0 * self.mu + s2).exp()
+        (s2.r_exp() - 1.0) * (2.0 * self.mu + s2).r_exp()
     }
 
     fn support(&self) -> (f64, f64) {
@@ -1179,7 +1180,7 @@ impl ContinuousDistribution1D for Exponential {
         if y < 0.0 {
             0.0
         } else {
-            self.lambda * (-self.lambda * y).exp()
+            self.lambda * (-self.lambda * y).r_exp()
         }
     }
 
@@ -1188,7 +1189,7 @@ impl ContinuousDistribution1D for Exponential {
         if y <= 0.0 {
             0.0
         } else {
-            -(-self.lambda * y).exp_m1()
+            -(-self.lambda * y).r_exp_m1()
         }
     }
 
@@ -1197,7 +1198,7 @@ impl ContinuousDistribution1D for Exponential {
         if p >= 1.0 {
             return Ok(f64::INFINITY);
         }
-        Ok(self.low - (-p).ln_1p() / self.lambda)
+        Ok(self.low - (-p).r_ln_1p() / self.lambda)
     }
 
     fn mean(&self) -> f64 {
@@ -1287,7 +1288,7 @@ impl ContinuousDistribution1D for Weibull {
             };
         }
         let z = y / self.lambda;
-        ((self.k / self.lambda).ln() + (self.k - 1.0) * z.ln() - z.powf(self.k)).exp()
+        ((self.k / self.lambda).r_ln() + (self.k - 1.0) * z.r_ln() - z.r_powf(self.k)).r_exp()
     }
 
     fn cdf(&self, x: f64) -> f64 {
@@ -1295,7 +1296,7 @@ impl ContinuousDistribution1D for Weibull {
         if y <= 0.0 {
             0.0
         } else {
-            -(-(y / self.lambda).powf(self.k)).exp_m1()
+            -(-(y / self.lambda).r_powf(self.k)).r_exp_m1()
         }
     }
 
@@ -1304,16 +1305,16 @@ impl ContinuousDistribution1D for Weibull {
         if p >= 1.0 {
             return Ok(f64::INFINITY);
         }
-        Ok(self.low + self.lambda * (-(-p).ln_1p()).powf(1.0 / self.k))
+        Ok(self.low + self.lambda * (-(-p).r_ln_1p()).r_powf(1.0 / self.k))
     }
 
     fn mean(&self) -> f64 {
-        self.low + self.lambda * special::ln_gamma(1.0 + 1.0 / self.k).exp()
+        self.low + self.lambda * special::ln_gamma(1.0 + 1.0 / self.k).r_exp()
     }
 
     fn variance(&self) -> f64 {
-        let g1 = special::ln_gamma(1.0 + 1.0 / self.k).exp();
-        let g2 = special::ln_gamma(1.0 + 2.0 / self.k).exp();
+        let g1 = special::ln_gamma(1.0 + 1.0 / self.k).r_exp();
+        let g2 = special::ln_gamma(1.0 + 2.0 / self.k).r_exp();
         self.lambda * self.lambda * (g2 - g1 * g1)
     }
 
@@ -1398,7 +1399,7 @@ impl ContinuousDistribution1D for Gamma {
                 0.0
             };
         }
-        self.beta * (-y + (self.alpha - 1.0) * y.ln() - special::ln_gamma(self.alpha)).exp()
+        self.beta * (-y + (self.alpha - 1.0) * y.r_ln() - special::ln_gamma(self.alpha)).r_exp()
     }
 
     fn cdf(&self, x: f64) -> f64 {
@@ -1531,7 +1532,7 @@ impl ContinuousDistribution1D for Beta {
                 0.0
             };
         }
-        ((a - 1.0) * z.ln() + (b - 1.0) * (1.0 - z).ln() - special::ln_beta(a, b)).exp() / scale
+        ((a - 1.0) * z.r_ln() + (b - 1.0) * (1.0 - z).r_ln() - special::ln_beta(a, b)).r_exp() / scale
     }
 
     fn cdf(&self, x: f64) -> f64 {
@@ -1888,10 +1889,10 @@ mod tests {
     fn panel_edges(u_min: f64, k: usize) -> Vec<f64> {
         let mut e = Vec::with_capacity(2 * k + 1);
         for j in 0..=k {
-            e.push(0.5 * (u_min / 0.5).powf((k - j) as f64 / k as f64));
+            e.push(0.5 * (u_min / 0.5).r_powf((k - j) as f64 / k as f64));
         }
         for j in 1..=k {
-            e.push(1.0 - 0.5 * (u_min / 0.5).powf(j as f64 / k as f64));
+            e.push(1.0 - 0.5 * (u_min / 0.5).r_powf(j as f64 / k as f64));
         }
         e
     }
@@ -2051,15 +2052,15 @@ mod tests {
             (
                 "ln Gamma(0.5) = ln sqrt(pi)",
                 special::ln_gamma(0.5),
-                std::f64::consts::PI.sqrt().ln(),
+                std::f64::consts::PI.sqrt().r_ln(),
             ),
-            ("Gamma(5) = 24", special::ln_gamma(5.0).exp(), 24.0),
+            ("Gamma(5) = 24", special::ln_gamma(5.0).r_exp(), 24.0),
             ("erf(1)", special::erf(1.0), 0.842_700_792_949_714_9),
             ("erf(0.5)", special::erf(0.5), 0.520_499_877_813_046_5),
             (
                 "P(1, 1) = 1 - 1/e",
                 special::gamma_p(1.0, 1.0),
-                1.0 - (-1.0f64).exp(),
+                1.0 - (-1.0f64).r_exp(),
             ),
             (
                 "I_{1/2}(2, 3) = 11/16",

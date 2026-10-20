@@ -132,6 +132,7 @@
 //! > tests below); not yet validated against arbitrary imported/scanned
 //! > geometry.
 
+use petir::mathf::RealMath;
 use crate::math::Vec3;
 use crate::mesh::Mesh;
 
@@ -203,7 +204,7 @@ pub fn winding_number(mesh: &Mesh, p: Vec3) -> f64 {
 
         let numerator = ra.dot(rb.cross(rc));
         let denominator = la * lb * lc + ra.dot(rb) * lc + rb.dot(rc) * la + rc.dot(ra) * lb;
-        total_solid_angle += 2.0 * numerator.atan2(denominator);
+        total_solid_angle += 2.0 * numerator.r_atan2(denominator);
     }
     total_solid_angle / (4.0 * std::f64::consts::PI)
 }

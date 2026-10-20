@@ -87,6 +87,7 @@
 //!     --example godiva_spectrum_vs_openmc
 //! ```
 
+use petir::mathf::RealMath;
 #[cfg(target_os = "android")]
 fn main() {
     println!("godiva_spectrum_vs_openmc is desktop-only (reads reference-data/endf/).");
@@ -131,9 +132,9 @@ mod desktop {
     ];
 
     fn log_grid(n: usize) -> Vec<f64> {
-        let (l0, l1) = (E_LO.ln(), E_HI.ln());
+        let (l0, l1) = (E_LO.r_ln(), E_HI.r_ln());
         (0..=n)
-            .map(|i| (l0 + (l1 - l0) * i as f64 / n as f64).exp())
+            .map(|i| (l0 + (l1 - l0) * i as f64 / n as f64).r_exp())
             .collect()
     }
 

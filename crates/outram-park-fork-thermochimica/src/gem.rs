@@ -202,6 +202,7 @@
 ///
 /// Used to non-dimensionalise Gibbs energies (`g°/RT`) throughout the solver.
 /// Exact by the 2019 SI redefinition (`R = N_A · k_B`).
+use petir::mathf::RealMath;
 pub const R: f64 = 8.314_462_618_153_24;
 
 /// L1 penalty weight `μ` \[-\] on the atom-balance violation in the line-search
@@ -873,7 +874,7 @@ impl GemSystem {
         }
 
         let rt = R * temperature;
-        let ln_p_ratio = (pressure / p_ref).ln();
+        let ln_p_ratio = (pressure / p_ref).r_ln();
 
         // Composition-INDEPENDENT part of µ_ps/RT: cc[p][s] = g°_ps/RT + [gas p-term].
         let cc: Vec<Vec<f64>> = self
@@ -930,7 +931,7 @@ impl GemSystem {
                 let x: Vec<f64> = (0..ph.n_species).map(|s| moles[p][s] / nt).collect();
                 let ln_g = ph.model.ln_gamma(&x, rt);
                 for s in 0..ph.n_species {
-                    mu_rt[p][s] = cc[p][s] + x[s].ln() + ln_g[s];
+                    mu_rt[p][s] = cc[p][s] + x[s].r_ln() + ln_g[s];
                 }
             }
 
@@ -1063,7 +1064,7 @@ impl GemSystem {
             for _bt in 0..80 {
                 for (p, ph) in self.phases.iter().enumerate() {
                     for s in 0..ph.n_species {
-                        let v = moles[p][s] * (omega * delta[p][s]).exp();
+                        let v = moles[p][s] * (omega * delta[p][s]).r_exp();
                         trial[p][s] = if !v.is_finite() || v < 1e-300 {
                             1e-300
                         } else {
@@ -1118,8 +1119,8 @@ impl GemSystem {
             let x: Vec<f64> = (0..ph.n_species).map(|s| moles[p][s] / nt).collect();
             let ln_g = ph.model.ln_gamma(&x, rt);
             for s in 0..ph.n_species {
-                mu_rt[p][s] = cc[p][s] + x[s].ln() + ln_g[s];
-                gamma[p][s] = ln_g[s].exp();
+                mu_rt[p][s] = cc[p][s] + x[s].r_ln() + ln_g[s];
+                gamma[p][s] = ln_g[s].r_exp();
             }
         }
         let g_rt = self.total_gibbs_rt(&moles, &cc, rt);
@@ -1166,7 +1167,7 @@ impl GemSystem {
             let x: Vec<f64> = (0..ph.n_species).map(|s| moles[p][s] / nt).collect();
             let ln_g = ph.model.ln_gamma(&x, rt);
             for s in 0..ph.n_species {
-                g += moles[p][s] * (cc[p][s] + x[s].ln() + ln_g[s]);
+                g += moles[p][s] * (cc[p][s] + x[s].r_ln() + ln_g[s]);
             }
         }
         g
@@ -1363,7 +1364,7 @@ mod tests {
     fn ideal_binary_nernst_partition() {
         let t = 1000.0;
         let rt = R * t;
-        let g1a = -rt * 2.0_f64.ln();
+        let g1a = -rt * 2.0_f64.r_ln();
         let sys = GemSystem::new(
             &["Ra", "E0", "E1"],
             &[
@@ -1530,8 +1531,8 @@ mod tests {
             .unwrap();
 
         // Equal chemical potential of A across the two phases (µ/RT).
-        let mu_a0 = res.mole_fractions[0][0].ln();
-        let mu_a1 = res.mole_fractions[1][0].ln() + res.activity_coefficients[1][0].ln();
+        let mu_a0 = res.mole_fractions[0][0].r_ln();
+        let mu_a1 = res.mole_fractions[1][0].r_ln() + res.activity_coefficients[1][0].r_ln();
         assert!(
             (mu_a0 - mu_a1).abs() < 1e-9,
             "µ_A(0)-µ_A(1)={}",
@@ -1623,7 +1624,7 @@ mod tests {
         // (iv) analytic ideal-mixing Gibbs energy of the melt.
         let x0 = res.mole_fractions[0][0];
         let x1 = res.mole_fractions[0][1];
-        let g_analytic = n_lif * (g_lif + rt * x0.ln()) + n_bef2 * (g_bef2 + rt * x1.ln());
+        let g_analytic = n_lif * (g_lif + rt * x0.r_ln()) + n_bef2 * (g_bef2 + rt * x1.r_ln());
         assert!(
             (res.gibbs_energy - g_analytic).abs() < 1e-9 * g_analytic.abs().max(1.0),
             "G={} exp={}",

@@ -65,6 +65,7 @@
 //! the creep increment is effectively explicit in the stress. This port does
 //! not reproduce that; it iterates to a real tolerance.
 
+use petir::mathf::RealMath;
 use crate::error::{OffbeatError, Result};
 
 use super::state::{RheologyInputs, RheologyState};
@@ -509,8 +510,8 @@ fn power_law_rate(q: f64, b: f64, sigma_c: f64, n: f64) -> Result<(f64, f64)> {
         return Ok((0.0, if n == 1.0 { derivative } else { 0.0 }));
     }
     let x = q * 1.0e-6 / sigma_c;
-    let rate_per_hour = b * x.powf(n);
-    let drate_dq_per_hour = b * n * x.powf(n - 1.0) * 1.0e-6 / sigma_c;
+    let rate_per_hour = b * x.r_powf(n);
+    let drate_dq_per_hour = b * n * x.r_powf(n - 1.0) * 1.0e-6 / sigma_c;
     Ok((
         rate_per_hour / SECONDS_PER_HOUR,
         drate_dq_per_hour / SECONDS_PER_HOUR,
@@ -548,11 +549,11 @@ fn limback_secondary_rate_per_hour(
     const C1: f64 = 0.85;
     const C2: f64 = 1.0;
     let flux = inputs.irradiation.fast_flux.max(0.0);
-    let flux_term = if flux > 0.0 { flux.powf(C1) } else { 0.0 };
+    let flux_term = if flux > 0.0 { flux.r_powf(C1) } else { 0.0 };
     let (irr, d_irr) = if q_mpa > 0.0 {
         (
-            c0 * flux_term * q_mpa.powf(C2),
-            c0 * flux_term * C2 * q_mpa.powf(C2 - 1.0) * 1.0e-6,
+            c0 * flux_term * q_mpa.r_powf(C2),
+            c0 * flux_term * C2 * q_mpa.r_powf(C2 - 1.0) * 1.0e-6,
         )
     } else {
         (0.0, c0 * flux_term * 1.0e-6)
@@ -580,7 +581,7 @@ fn limback_secondary_rate_per_hour(
     const A3: f64 = 1.3;
     let fluence_ncm2 = (inputs.material.fast_fluence.max(0.0)) * 1.0e-4;
     let saturation = if fluence_ncm2 > 0.0 {
-        1.0 - (-A2 * fluence_ncm2.powf(A3)).exp()
+        1.0 - (-A2 * fluence_ncm2.r_powf(A3)).r_exp()
     } else {
         0.0
     };
@@ -591,12 +592,12 @@ fn limback_secondary_rate_per_hour(
     let n = clad_type.stress_exponent(q);
 
     let x = a_i * q_mpa / e_mod;
-    let arrhenius = a * e_mod / t * (-qa / (R_ZIRCALOY * t)).exp();
-    let sinh_x = x.sinh();
+    let arrhenius = a * e_mod / t * (-qa / (R_ZIRCALOY * t)).r_exp();
+    let sinh_x = x.r_sinh();
     let (th, d_th) = if sinh_x > 0.0 {
-        let th = arrhenius * sinh_x.powf(n);
+        let th = arrhenius * sinh_x.r_powf(n);
         // d/dq [sinh(x)^n] = n sinh(x)^(n-1) cosh(x) · dx/dq, dx/dq = a_i/E·1e-6.
-        let d_th = arrhenius * n * sinh_x.powf(n - 1.0) * x.cosh() * (a_i / e_mod) * 1.0e-6;
+        let d_th = arrhenius * n * sinh_x.r_powf(n - 1.0) * x.r_cosh() * (a_i / e_mod) * 1.0e-6;
         (th, if d_th.is_finite() { d_th } else { 0.0 })
     } else {
         (0.0, 0.0)
@@ -639,8 +640,8 @@ fn limback_primary_increment(
         return 0.0;
     }
     let saturated = B
-        * secondary_rate_per_hour.powf(B_EXP)
-        * (2.0 - (D * secondary_rate_per_hour).tanh()).powf(D_EXP);
+        * secondary_rate_per_hour.r_powf(B_EXP)
+        * (2.0 - (D * secondary_rate_per_hour).r_tanh()).r_powf(D_EXP);
     if !(saturated > 0.0) || accumulated_primary >= saturated {
         return 0.0;
     }
@@ -648,9 +649,9 @@ fn limback_primary_increment(
     if !(ratio > 0.0) {
         return 0.0;
     }
-    let tau = ratio.ln().powi(2) / (C * C * secondary_rate_per_hour);
+    let tau = ratio.r_ln().r_powi(2) / (C * C * secondary_rate_per_hour);
     let increment = saturated
-        * (1.0 - (-C * (secondary_rate_per_hour * (tau + dt_hours)).sqrt()).exp())
+        * (1.0 - (-C * (secondary_rate_per_hour * (tau + dt_hours)).sqrt()).r_exp())
         - accumulated_primary;
     if increment.is_finite() {
         increment.max(0.0)
@@ -752,7 +753,7 @@ fn matpro_rate(q: f64, sakai_correction: bool, inputs: &RheologyInputs) -> Resul
     // the correlation cannot distinguish oxygen-deficient fuel from
     // stoichiometric fuel. Fast-reactor MOX is normally hypostoichiometric, so
     // this is a real restriction rather than a corner case.
-    let f = 1.0 / ((-20.0 / (om - 2.0).max(1.0e-15).ln() - 8.0).exp() + 1.0);
+    let f = 1.0 / ((-20.0 / (om - 2.0).max(1.0e-15).r_ln() - 8.0).r_exp() + 1.0);
 
     let q1 = 74_829.0 * f + 301_762.0;
     let q2 = 83_143.0 * f + 469_191.0;
@@ -760,18 +761,18 @@ fn matpro_rate(q: f64, sakai_correction: bool, inputs: &RheologyInputs) -> Resul
     let fission_rate = inputs.irradiation.fission_rate.max(0.0);
 
     // Term 1 — diffusional, linear in stress.
-    let c1 = (A1 + A2 * fission_rate) / ((A3 + d) * g * g) * (-q1 / (R_MATPRO * t)).exp();
+    let c1 = (A1 + A2 * fission_rate) / ((A3 + d) * g * g) * (-q1 / (R_MATPRO * t)).r_exp();
     // Term 2 — dislocation, σ^4.5.
-    let c2 = A4 / (A6 + d) * (-q2 / (R_MATPRO * t)).exp();
+    let c2 = A4 / (A6 + d) * (-q2 / (R_MATPRO * t)).r_exp();
     // Term 3 — irradiation enhanced, linear in stress.
     let c3 = if sakai_correction {
         A7_SAKAI * fission_rate
     } else {
-        A7_PLAIN * fission_rate * (-Q3 / (R_MATPRO * t)).exp()
+        A7_PLAIN * fission_rate * (-Q3 / (R_MATPRO * t)).r_exp()
     };
 
-    let rate = c1 * q + c2 * q.powf(4.5) + c3 * q;
-    let derivative = c1 + 4.5 * c2 * q.powf(3.5) + c3;
+    let rate = c1 * q + c2 * q.r_powf(4.5) + c3 * q;
+    let derivative = c1 + 4.5 * c2 * q.r_powf(3.5) + c3;
 
     if !(rate.is_finite() && derivative.is_finite()) {
         return Err(OffbeatError::OutOfRange {

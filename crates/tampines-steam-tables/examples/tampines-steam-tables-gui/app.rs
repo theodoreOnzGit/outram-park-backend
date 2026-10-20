@@ -27,6 +27,7 @@
 //! to feel immediate, but not free, so the built layers are cached per tab and
 //! only invalidated when something that affects them actually changes.
 
+use petir::mathf::RealMath;
 use std::collections::HashMap;
 use std::path::PathBuf;
 
@@ -1299,7 +1300,7 @@ fn draw_plot_layers(
                     let [x, y] = diagram.project(point);
                     let y = if log {
                         if y > 0.0 {
-                            y.log10()
+                            y.r_log10()
                         } else {
                             return None;
                         }

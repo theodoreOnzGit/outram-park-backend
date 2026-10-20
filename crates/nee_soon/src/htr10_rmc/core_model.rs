@@ -36,6 +36,7 @@
 //! model compared against RMC. It is still AI-drafted and awaiting human
 //! review, so its results are tentative (see the parent module docs).
 
+use petir::mathf::RealMath;
 use outram_mc_libs::geometry::cell::{Cell, CellFill, HalfSpaceSense, RegionToken};
 use outram_mc_libs::geometry::geometry::Geometry;
 use outram_mc_libs::geometry::lattice::{HexLattice, HexOrientation, Lattice};
@@ -546,7 +547,7 @@ pub fn assemble(n_rings: usize, n_axial: usize, majorant_index: usize) -> Assemb
     // Volume of a sphere of radius `r` after the tile clips it at +/- height/2.
     let clipped = |r: f64| {
         let cap = r - 0.5 * lat_height;
-        let full = 4.0 / 3.0 * std::f64::consts::PI * r.powi(3);
+        let full = 4.0 / 3.0 * std::f64::consts::PI * r.r_powi(3);
         if cap <= 0.0 {
             full
         } else {
@@ -589,7 +590,7 @@ pub fn assemble(n_rings: usize, n_axial: usize, majorant_index: usize) -> Assemb
     // heavy metal stays exact to +0.060 % -- so **C/U is 4.8 % low**. Sign on
     // k is NOT predictable a priori (an over-moderated core loses parasitic
     // capture as well as moderation) and has not been measured -- gh:#309.
-    let target_fuel_zone_fraction = PAPER_FILLING_FRACTION * (r_fuel_zone / r_ball).powi(3);
+    let target_fuel_zone_fraction = PAPER_FILLING_FRACTION * (r_fuel_zone / r_ball).r_powi(3);
     let lat_pitch = (clipped(r_fuel_zone)
         / (target_fuel_zone_fraction * (3.0_f64.sqrt() / 2.0) * lat_height))
         .sqrt();

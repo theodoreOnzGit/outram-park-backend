@@ -54,6 +54,7 @@
 //! copies. Off-axis profiles need no post-processing. No `faer`, no external
 //! dependency; Android-safe.
 
+use petir::mathf::RealMath;
 use crate::math::Vec3;
 use crate::mesh::Mesh;
 use std::f64::consts::TAU;
@@ -130,8 +131,8 @@ pub fn revolve(
 /// direction `k`, via Rodrigues' rotation formula.
 fn rotate_about_axis(p: Vec3, axis_point: Vec3, k: Vec3, theta: f64) -> Vec3 {
     let v = p.sub(axis_point);
-    let cos = theta.cos();
-    let sin = theta.sin();
+    let cos = theta.r_cos();
+    let sin = theta.r_sin();
     // v_rot = v cosθ + (k × v) sinθ + k (k · v)(1 − cosθ).
     let term1 = v.scale(cos);
     let term2 = k.cross(v).scale(sin);
@@ -208,7 +209,7 @@ mod tests {
             2,
             "capped tube is a closed solid"
         );
-        let expected_vol = 0.5 * 16.0 * (TAU / 16.0).sin() * 2.0;
+        let expected_vol = 0.5 * 16.0 * (TAU / 16.0).r_sin() * 2.0;
         let v6 = signed_volume6(&solid).abs();
         assert!(
             (v6 - 6.0 * expected_vol).abs() < 1e-6,

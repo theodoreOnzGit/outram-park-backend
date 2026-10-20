@@ -70,6 +70,7 @@
 //! upstream's *heuristics*, not theorems — they are reproduced faithfully,
 //! including their approximations.
 
+use petir::mathf::RealMath;
 use crate::granular::GranularMaterial;
 use crate::particle::Particle;
 use crate::DemError;
@@ -218,7 +219,7 @@ pub fn hertz_time(
     let m_eff = 4.0 * radius * radius * radius * std::f64::consts::PI / 3.0 * density;
     let r_eff = radius / 2.0;
     let e_eff = material.y_eff();
-    Ok(2.87 * (m_eff * m_eff / (r_eff * e_eff * e_eff * v_rel)).powf(0.2))
+    Ok(2.87 * (m_eff * m_eff / (r_eff * e_eff * e_eff * v_rel)).r_powf(0.2))
 }
 
 /// Both criteria for a whole ensemble, as `fix check/timestep/gran` computes
@@ -322,7 +323,7 @@ mod tests {
         let r = 5.0e-3;
         let t = hertz_time(r, 2500.0, 2.0, &m).unwrap();
         let m_eff = 4.0 * r * r * r * std::f64::consts::PI / 3.0 * 2500.0;
-        let hand = 2.87 * (m_eff * m_eff / ((r / 2.0) * m.y_eff().powi(2) * 2.0)).powf(0.2);
+        let hand = 2.87 * (m_eff * m_eff / ((r / 2.0) * m.y_eff().r_powi(2) * 2.0)).r_powf(0.2);
         assert_abs_diff_eq!(t, hand, epsilon = hand * 1e-12);
         assert!(hertz_time(r, 2500.0, 0.0, &m).unwrap().is_infinite());
         assert!(hertz_time(r, 2500.0, -1.0, &m).is_err());
@@ -342,7 +343,7 @@ mod tests {
 
         let c = hertz_time(5.0e-3, 2500.0, 1.0, &m).unwrap();
         let d = hertz_time(5.0e-3, 2500.0, 10.0, &m).unwrap();
-        assert_abs_diff_eq!(d / c, 10.0_f64.powf(-0.2), epsilon = 1e-12);
+        assert_abs_diff_eq!(d / c, 10.0_f64.r_powf(-0.2), epsilon = 1e-12);
     }
 
     /// **Methodology.** Ensemble estimate takes the *minimum* over a

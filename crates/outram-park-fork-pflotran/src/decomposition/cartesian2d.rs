@@ -19,6 +19,7 @@
 //! solve remain op-gj5 follow-ups. Blocks are balanced per axis; no
 //! reorder-for-locality.
 
+use petir::mathf::RealMath;
 use outram_park_mpi::{CartesianComm, MpiResult};
 
 use super::krylov::distributed_dot;
@@ -312,7 +313,7 @@ mod tests {
             .map(|k| {
                 let ix = k % nx;
                 let iy = k / nx;
-                ((ix as f64) * 0.2).sin() + ((iy as f64) * 0.3).cos() + 1.0
+                ((ix as f64) * 0.2).r_sin() + ((iy as f64) * 0.3).r_cos() + 1.0
             })
             .collect();
         let (reference, _) = serial_poisson_2d_cg(nx, ny, &b_global, shift, tol, 5000);

@@ -166,6 +166,7 @@
 //! here. Absolute microseconds are machine-specific — the speedup
 //! ratios are the portable quantity.
 
+use petir::mathf::RealMath;
 use std::collections::HashMap;
 use std::time::Instant;
 
@@ -216,7 +217,7 @@ fn isotropic(seed: &mut u64) -> (f64, f64, f64) {
     let mu = 2.0 * rand_unit(seed) - 1.0;
     let phi = std::f64::consts::TAU * rand_unit(seed);
     let s = (1.0 - mu * mu).max(0.0).sqrt();
-    (s * phi.cos(), s * phi.sin(), mu)
+    (s * phi.r_cos(), s * phi.r_sin(), mu)
 }
 
 /// A uniform random point in the packing cube.
@@ -398,7 +399,7 @@ fn run_surface(packing: &PackedSpheres, grid: &SurfaceGrid, mut seed: u64) -> Ar
             if collisions >= MAX_COLLISIONS || outside_cube(p) {
                 break;
             }
-            let flight = -rand_unit(&mut seed).ln() / sigma_of(mat);
+            let flight = -rand_unit(&mut seed).r_ln() / sigma_of(mat);
             match grid.nearest_surface(p, d, flight) {
                 // A surface comes first: move to it, swap material, resample.
                 Some((t_hit, entering)) => {
@@ -458,7 +459,7 @@ fn run_delta(packing: &PackedSpheres, mut seed: u64) -> ArmResult {
         let mut d = isotropic(&mut seed);
         let mut collisions = 0usize;
         while collisions < MAX_COLLISIONS {
-            let flight = -rand_unit(&mut seed).ln() / sigma_maj;
+            let flight = -rand_unit(&mut seed).r_ln() / sigma_maj;
             p = Position {
                 x: p.x + d.0 * flight,
                 y: p.y + d.1 * flight,
@@ -515,7 +516,7 @@ fn run_cls_family(name: &'static str, mut medium: StochasticMedium, mut seed: u6
         let mut d = isotropic(&mut seed);
         let mut collisions = 0usize;
         while collisions < MAX_COLLISIONS {
-            let flight = -rand_unit(&mut seed).ln() / sigma_maj;
+            let flight = -rand_unit(&mut seed).r_ln() / sigma_maj;
             p = Position {
                 x: p.x + d.0 * flight,
                 y: p.y + d.1 * flight,
@@ -572,7 +573,7 @@ fn run_homogenised(mut seed: u64) -> ArmResult {
         let mut d = isotropic(&mut seed);
         let mut collisions = 0usize;
         while collisions < MAX_COLLISIONS {
-            let flight = -rand_unit(&mut seed).ln() / sigma_h;
+            let flight = -rand_unit(&mut seed).r_ln() / sigma_h;
             p = Position {
                 x: p.x + d.0 * flight,
                 y: p.y + d.1 * flight,

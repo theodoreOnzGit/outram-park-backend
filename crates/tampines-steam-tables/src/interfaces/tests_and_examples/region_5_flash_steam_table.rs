@@ -75,6 +75,7 @@
 //!    correlations agree there to 0.009-0.015 K, so an endpoint within that
 //!    tolerance is accepted as the root.
 
+use petir::mathf::RealMath;
 use uom::si::available_energy::kilojoule_per_kilogram;
 use uom::si::f64::*;
 use uom::si::pressure::megapascal;
@@ -108,14 +109,14 @@ fn region_5_grid() -> Vec<(f64, f64)> {
     // 611.213 Pa accordingly. Sweeping below that would be testing
     // extrapolation past a boundary the dispatcher is right to enforce.
     let p_floor_mpa: f64 = 611.213e-6 * 1.001;
-    let ln_p_lo = p_floor_mpa.ln();
-    let ln_p_hi = (REGION_5_BACK_P_MAX_MPA * (1.0 - 1.0e-9)).ln();
+    let ln_p_lo = p_floor_mpa.r_ln();
+    let ln_p_hi = (REGION_5_BACK_P_MAX_MPA * (1.0 - 1.0e-9)).r_ln();
 
     let mut nodes = Vec::with_capacity(n_t * n_p);
     for i in 0..n_t {
         let t = t_lo + (t_hi - t_lo) * (i as f64) / ((n_t - 1) as f64);
         for j in 0..n_p {
-            let p = (ln_p_lo + (ln_p_hi - ln_p_lo) * (j as f64) / ((n_p - 1) as f64)).exp();
+            let p = (ln_p_lo + (ln_p_hi - ln_p_lo) * (j as f64) / ((n_p - 1) as f64)).r_exp();
             nodes.push((t, p));
         }
     }

@@ -48,6 +48,7 @@
 //! **Result: NOT YET MEASURED (testing deferred by maintainer, 2026-10-03).**
 //! Protocol: `verification_and_validation/stats_epic_493/498_uq_sensitivity.md`.
 
+use petir::mathf::RealMath;
 use raffles::distributions::{ContinuousDistribution1D, Distribution};
 use raffles::samplers::{MonteCarlo, Sampler, SamplingDesign};
 use raffles::sensitivity::{
@@ -320,7 +321,7 @@ fn ols_slope(x: &[f64], y: &[f64]) -> Option<(f64, f64)> {
     let nf = n as f64;
     let mx = x.iter().sum::<f64>() / nf;
     let my = y.iter().sum::<f64>() / nf;
-    let sxx: f64 = x.iter().map(|v| (v - mx).powi(2)).sum();
+    let sxx: f64 = x.iter().map(|v| (v - mx).r_powi(2)).sum();
     if !(sxx > 0.0) {
         return None;
     }
@@ -329,7 +330,7 @@ fn ols_slope(x: &[f64], y: &[f64]) -> Option<(f64, f64)> {
     let ss_res: f64 = x
         .iter()
         .zip(y)
-        .map(|(a, b)| (b - my - slope * (a - mx)).powi(2))
+        .map(|(a, b)| (b - my - slope * (a - mx)).r_powi(2))
         .sum();
     Some((slope, (ss_res / (nf - 2.0) / sxx).sqrt()))
 }

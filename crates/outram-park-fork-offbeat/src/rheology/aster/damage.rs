@@ -155,6 +155,7 @@
 //! keeping the **implicit backward-Euler discretisation** of the `NEWTON` path.
 //! See [`LemaitreChabocheLaw`] for the reasoning.
 
+use petir::mathf::RealMath;
 use outram_foam_basic_lib::primitives::{eigen_values_symm, SymmTensor};
 
 use crate::error::{OffbeatError, Result};
@@ -716,12 +717,12 @@ impl LemaitreChabocheLaw {
         if base == 0.0 {
             return 0.0;
         }
-        let growth = base.powf(p.damage_exponent);
+        let growth = base.r_powf(p.damage_exponent);
         match self {
             Self::ViscEndoLema(_) => growth,
             Self::Vendochab(_) => {
                 let one_minus_d = (1.0 - damage).max(1.0 - LEMAITRE_CHABOCHE_DAMAGE_MAX);
-                growth * one_minus_d.powf(-p.damage_closure_exponent)
+                growth * one_minus_d.r_powf(-p.damage_closure_exponent)
             }
         }
     }
@@ -775,19 +776,19 @@ impl LemaitreChabocheLaw {
         } else {
             hardening_variable
         };
-        let sc = p.k * r.powf(1.0 / p.m);
+        let sc = p.k * r.r_powf(1.0 / p.m);
         let inv_sc = if sc <= R8MIEM { 1.0 / R8MIEM } else { 1.0 / sc };
 
-        let arg = p.n * (overstress.ln() - sc.ln());
-        let switch = (0.1 / dt).ln();
+        let arg = p.n * (overstress.r_ln() - sc.r_ln());
+        let switch = (0.1 / dt).r_ln();
         if arg > switch {
             // Tangent linearisation at rate* = 0.1/dt (upstream `etatf(2) = 'TANGENT'`).
             let rate_star = 0.1 / dt;
-            let c1 = p.n * rate_star.powf((p.n - 1.0) / p.n);
+            let c1 = p.n * rate_star.r_powf((p.n - 1.0) / p.n);
             let c0 = (1.0 - p.n) * rate_star;
             (c1 * overstress * inv_sc + c0, true)
         } else {
-            (arg.exp(), false)
+            (arg.r_exp(), false)
         }
     }
 
@@ -1420,7 +1421,7 @@ impl RousselierLaw {
     ) -> f64 {
         let p = self.parameters();
         let arg = (reduced_mean / p.sigma_1).min(200.0);
-        reduced_equivalent - flow_stress + p.d * p.sigma_1 * porosity * arg.exp()
+        reduced_equivalent - flow_stress + p.d * p.sigma_1 * porosity * arg.r_exp()
     }
 
     /// The viscous overstress `SIGM_0 asinh((dp/(dt EPSI_0))^(1/M))` \[Pa\].
@@ -1436,8 +1437,8 @@ impl RousselierLaw {
                     return 0.0;
                 }
                 let x = plastic_increment / (dt * v.reference_strain_rate);
-                let power = x.powf(1.0 / v.exponent);
-                v.sigma_0 * (power + (1.0 + power * power).sqrt()).ln()
+                let power = x.r_powf(1.0 / v.exponent);
+                v.sigma_0 * (power + (1.0 + power * power).sqrt()).r_ln()
             }
         }
     }
@@ -1584,7 +1585,7 @@ impl RousselierLaw {
             let reduced_mean = reduced_mean_start
                 + three_k * theta * (deps_mean - df / (3.0 * one_minus_f * acceleration));
             let arg = (reduced_mean / mat.sigma_1).min(200.0);
-            let expo = mat.d * arg.exp();
+            let expo = mat.d * arg.r_exp();
             let denom = one_minus_f * expo * acceleration;
 
             let dp = if ann == 0.0 {
@@ -1722,7 +1723,7 @@ impl RousselierLaw {
             let term2 = reduced_mean_end * rho_end * df / (1.0 - f_end) / acceleration / dt;
             let term3 = rho_end
                 * mat.sigma_1
-                * (mat.initial_porosity / f_end * rho_end).max(R8MIEM).ln()
+                * (mat.initial_porosity / f_end * rho_end).max(R8MIEM).r_ln()
                 * df
                 / dt;
             let ebloc =
@@ -1875,7 +1876,7 @@ fn erf(x: f64) -> f64 {
     let sign = if x < 0.0 { -1.0 } else { 1.0 };
     let x = x.abs();
     let t = 1.0 / (1.0 + P * x);
-    let y = 1.0 - ((((A5 * t + A4) * t + A3) * t + A2) * t + A1) * t * (-x * x).exp();
+    let y = 1.0 - ((((A5 * t + A4) * t + A3) * t + A2) * t + A1) * t * (-x * x).r_exp();
     sign * y
 }
 
@@ -2102,7 +2103,7 @@ impl NortonOverstress {
         if dkappa <= 0.0 || dt <= 0.0 {
             return 0.0;
         }
-        self.k * (dkappa / dt).powf(1.0 / self.n)
+        self.k * (dkappa / dt).r_powf(1.0 / self.n)
     }
 }
 
@@ -2260,7 +2261,7 @@ impl GursonTvergaardNeedleman {
         let cosh = if arg.abs() > 700.0 {
             f64::MAX / 4.0
         } else {
-            arg.cosh()
+            arg.r_cosh()
         };
         q * q + 2.0 * damage * cosh - 1.0 - damage * damage
     }
@@ -2412,7 +2413,7 @@ impl GursonTvergaardNeedleman {
                 let sinh = if arg.abs() > 700.0 {
                     arg.signum() * f64::MAX / 4.0
                 } else {
-                    arg.sinh()
+                    arg.r_sinh()
                 };
                 sm - mean_trial + three_k * dlambda * damage * mat.q2 * sinh / sigma_star
             };
@@ -2476,7 +2477,7 @@ impl GursonTvergaardNeedleman {
             let sinh = if arg.abs() > 700.0 {
                 arg.signum() * f64::MAX / 4.0
             } else {
-                arg.sinh()
+                arg.r_sinh()
             };
             let volumetric_flow = damage * mat.q2 * sinh / sigma_star;
             let trace_dp = 3.0 * dlambda * volumetric_flow;

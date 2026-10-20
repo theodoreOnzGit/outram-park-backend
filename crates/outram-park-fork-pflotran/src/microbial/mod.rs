@@ -107,6 +107,7 @@
 //!   reference implementation this module mirrors. See P. C. Lichtner et al.,
 //!   *PFLOTRAN User Manual*.
 
+use petir::mathf::RealMath;
 use std::sync::Arc;
 
 use crate::error::PflotranError;
@@ -738,7 +739,7 @@ mod tests {
         let dt = 2.0;
         sys.react(&mut c, &mut b, dt).unwrap();
 
-        let expected = b0 * (-0.5 * dt).exp(); // ~ 0.3679
+        let expected = b0 * (-0.5 * dt).r_exp(); // ~ 0.3679
         assert!(b[0] < b0, "biomass did not decay: {b0} -> {}", b[0]);
         assert!(
             (b[0] - expected).abs() < 1e-4,

@@ -29,6 +29,7 @@
 //! external reference rather than a self-consistency check, and they fail
 //! loudly if an update rule is subtly wrong in a way that still converges.
 
+use petir::mathf::RealMath;
 use super::*;
 
 /// The reference root of `x³ - 2x - 5`, to full `f64` precision.
@@ -53,7 +54,7 @@ fn df(x: f64) -> f64 {
 /// is why the callers below pick the window deliberately rather than using the
 /// last three iterates.
 fn observed_order(e0: f64, e1: f64, e2: f64) -> f64 {
-    (e2 / e1).ln() / (e1 / e0).ln()
+    (e2 / e1).r_ln() / (e1 / e0).r_ln()
 }
 
 /// Errors of successive Newton iterates from `x0`, without any safeguard.

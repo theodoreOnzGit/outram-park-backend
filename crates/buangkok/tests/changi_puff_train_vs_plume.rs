@@ -165,6 +165,7 @@
 //! Pasquill-Gifford Gaussian physics, so this is verification, not
 //! validation.
 
+use petir::mathf::RealMath;
 use buangkok::pydoseia::dispersion::{
     master_equation_single_plume, sigma_y as pydoseia_sigma_y, sigma_z as pydoseia_sigma_z,
     Receptor as PlumeReceptor, StabilityClass as PlumeClass,
@@ -233,8 +234,8 @@ fn puff_kernel(class: StabilityClass, x_p: f64, x_r: f64) -> f64 {
     }
     let (sy, sz) = sigmas(class, x_p);
     let s = x_r - x_p;
-    let amp = 1.0 / ((2.0 * core::f64::consts::PI).powf(1.5) * sy * sy * sz);
-    amp * (-0.5 * s * s / (sy * sy)).exp() * 2.0 * (-0.5 * H * H / (sz * sz)).exp()
+    let amp = 1.0 / ((2.0 * core::f64::consts::PI).r_powf(1.5) * sy * sy * sz);
+    amp * (-0.5 * s * s / (sy * sy)).r_exp() * 2.0 * (-0.5 * H * H / (sz * sz)).r_exp()
 }
 
 /// Ages (s) at which a puff crosses one of `class`'s sigma_z breakpoints,
@@ -263,7 +264,7 @@ fn breakpoint_ages(class: StabilityClass) -> Vec<f64> {
 /// if the summed `abserr` is within [`QUAD_ACCEPT`] of the total, which keeps
 /// the quadrature two orders inside Gate 1's floor; anything worse fails.
 fn continuum_train(class: StabilityClass, x_r: f64, lambda: f64) -> f64 {
-    let f = |a: f64| puff_kernel(class, U * a, x_r) * (-lambda * a).exp();
+    let f = |a: f64| puff_kernel(class, U * a, x_r) * (-lambda * a).r_exp();
     let (sy, _) = sigmas(class, x_r);
     let a_r = x_r / U;
     let w = 12.0 * sy / U;
@@ -308,7 +309,7 @@ fn discrete_age_sum(class: StabilityClass, x_r: f64, lambda: f64, dt: f64) -> f6
     (0..=n)
         .map(|k| {
             let a = k as f64 * dt;
-            puff_kernel(class, U * a, x_r) * (-lambda * a).exp() * dt
+            puff_kernel(class, U * a, x_r) * (-lambda * a).r_exp() * dt
         })
         .sum()
 }

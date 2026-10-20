@@ -102,6 +102,7 @@
 //! objects / `dyn` / `Box` / lifetimes / channels. Compositions owned by value;
 //! documented raw `f64` (SI: K, Pa, mole fractions \[-\]) in the inner loops.
 
+use petir::mathf::RealMath;
 use crate::thermo::cubic_eos::{CubicEos, Phase};
 use crate::thermo::flash::{
     nested_loops_flash, wilson_k_values, FlashError, FlashResult, NestedLoopsOptions,
@@ -218,7 +219,7 @@ pub fn eos_k_values(
         (Some(l), Some(v)) => l
             .iter()
             .zip(v.iter())
-            .map(|(&li, &vi)| (li - vi).exp())
+            .map(|(&li, &vi)| (li - vi).r_exp())
             .collect(),
         _ => wilson_k_values(components, t, p),
     }

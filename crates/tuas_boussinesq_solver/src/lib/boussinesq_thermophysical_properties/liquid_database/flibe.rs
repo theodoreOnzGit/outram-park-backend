@@ -1,3 +1,4 @@
+use petir::mathf::RealMath;
 #[warn(missing_docs)]
 // This library was developed for use in my PhD thesis under supervision
 // of Professor Per F. Peterson. It is part of a thermal hydraulics
@@ -179,7 +180,7 @@ pub fn get_flibe_dynamic_viscosity(
         _e = 0.0;
     }
 
-    let viscosity_value_centipoise = a * (b / fluid_temp_kelvin).exp();
+    let viscosity_value_centipoise = a * (b / fluid_temp_kelvin).r_exp();
 
     Ok(DynamicViscosity::new::<centipoise>(
         viscosity_value_centipoise,
@@ -330,9 +331,9 @@ pub fn get_flibe_thermal_conductivity(
     // a + bT + cT^2 + dT^3 + eT^4;
     let thermal_conductivity_value = a
         + b * fluid_temp_kelvin
-        + c * fluid_temp_kelvin.powf(2.0)
-        + d * fluid_temp_kelvin.powf(3.0)
-        + e * fluid_temp_kelvin.powf(4.0);
+        + c * fluid_temp_kelvin.r_powf(2.0)
+        + d * fluid_temp_kelvin.r_powf(3.0)
+        + e * fluid_temp_kelvin.r_powf(4.0);
 
     return Ok(ThermalConductivity::new::<watt_per_meter_kelvin>(
         thermal_conductivity_value,

@@ -1,3 +1,4 @@
+use petir::mathf::RealMath;
 use crate::heat_transfer_correlations::nusselt_number_correlations::enums::NusseltCorrelation;
 use crate::heat_transfer_correlations::thermal_resistance::try_get_thermal_conductance_annular_cylinder;
 use uom::si::f64::*;
@@ -118,7 +119,7 @@ pub fn parasitic_heat_loss_integration_test_with_hte_1m() {
     let m_cp = mass_flowrate * pipe_fluid.try_get_cp(average_expected_temp).unwrap();
 
     let analytical_outlet_temp_degc = (inlet_temp_degc - ambient_temp_degc)
-        * (-ua / m_cp).exp().get::<ratio>()
+        * (-ua / m_cp).r_exp().get::<ratio>()
         + ambient_temp_degc;
     // first assert analytical solution
     approx::assert_relative_eq!(
@@ -389,7 +390,7 @@ pub fn parasitic_heat_loss_integration_test_with_hte_3m() {
     let m_cp = mass_flowrate * pipe_fluid.try_get_cp(average_expected_temp).unwrap();
 
     let analytical_outlet_temp_degc = (inlet_temp_degc - ambient_temp_degc)
-        * (-ua / m_cp).exp().get::<ratio>()
+        * (-ua / m_cp).r_exp().get::<ratio>()
         + ambient_temp_degc;
     // first assert analytical solution
     approx::assert_relative_eq!(
@@ -660,7 +661,7 @@ pub fn parasitic_heat_loss_integration_test_with_hte_5m() {
     let m_cp = mass_flowrate * pipe_fluid.try_get_cp(average_expected_temp).unwrap();
 
     let analytical_outlet_temp_degc = (inlet_temp_degc - ambient_temp_degc)
-        * (-ua / m_cp).exp().get::<ratio>()
+        * (-ua / m_cp).r_exp().get::<ratio>()
         + ambient_temp_degc;
     // first assert analytical solution
     approx::assert_relative_eq!(
@@ -931,7 +932,7 @@ pub fn parasitic_heat_loss_integration_test_with_hte_7m() {
     let m_cp = mass_flowrate * pipe_fluid.try_get_cp(average_expected_temp).unwrap();
 
     let analytical_outlet_temp_degc = (inlet_temp_degc - ambient_temp_degc)
-        * (-ua / m_cp).exp().get::<ratio>()
+        * (-ua / m_cp).r_exp().get::<ratio>()
         + ambient_temp_degc;
     // first assert analytical solution
     approx::assert_relative_eq!(
@@ -1202,7 +1203,7 @@ pub fn parasitic_heat_loss_integration_test_with_hte_9m() {
     let m_cp = mass_flowrate * pipe_fluid.try_get_cp(average_expected_temp).unwrap();
 
     let analytical_outlet_temp_degc = (inlet_temp_degc - ambient_temp_degc)
-        * (-ua / m_cp).exp().get::<ratio>()
+        * (-ua / m_cp).r_exp().get::<ratio>()
         + ambient_temp_degc;
     // first assert analytical solution
     approx::assert_relative_eq!(

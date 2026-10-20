@@ -50,6 +50,7 @@
 //! says the surrogate is fit for a particular physical purpose. That is the
 //! caller's V&V, on the caller's data.
 
+use petir::mathf::RealMath;
 use burn::nn::loss::{MseLoss, Reduction};
 use burn::optim::{AdamConfig, GradientsParams, Optimizer};
 use burn::prelude::Backend;
@@ -87,7 +88,7 @@ impl Scaler {
         let mut std_dev = vec![0.0; d];
         for row in rows {
             for j in 0..d {
-                std_dev[j] += (row[j] - mean[j]).powi(2);
+                std_dev[j] += (row[j] - mean[j]).r_powi(2);
             }
         }
         for s in std_dev.iter_mut() {
@@ -306,7 +307,7 @@ impl<B: Backend> NeuralSurrogate<B> {
         for (row, target) in inputs.iter().zip(outputs.iter()) {
             let prediction = self.predict(row)?;
             for (p, t) in prediction.iter().zip(target.iter()) {
-                sum += (p - t).powi(2);
+                sum += (p - t).r_powi(2);
                 count += 1;
             }
         }
@@ -509,7 +510,7 @@ mod tests {
         let (inputs, outputs) = sample(
             400,
             2,
-            |v| (3.0 * v[0]).sin() * (2.0 * v[1]).cos(),
+            |v| (3.0 * v[0]).r_sin() * (2.0 * v[1]).r_cos(),
             &mut seed,
         );
         let config = TrainingConfig::default_for(1);
@@ -543,7 +544,7 @@ mod tests {
     /// run did not diverge.
     #[test]
     fn a_trained_surrogate_predicts_held_out_data() {
-        let f = |v: &[f64]| (3.0 * v[0]).sin() * (2.0 * v[1]).cos();
+        let f = |v: &[f64]| (3.0 * v[0]).r_sin() * (2.0 * v[1]).r_cos();
         let mut seed = stream_seed(4_242, 0);
         let (train_inputs, train_outputs) = sample(400, 2, f, &mut seed);
         let (test_inputs, test_outputs) = sample(1_000, 2, f, &mut seed);
@@ -555,7 +556,7 @@ mod tests {
         let spread = {
             let values: Vec<f64> = test_outputs.iter().map(|r| r[0]).collect();
             let mean = values.iter().sum::<f64>() / values.len() as f64;
-            (values.iter().map(|v| (v - mean).powi(2)).sum::<f64>() / values.len() as f64).sqrt()
+            (values.iter().map(|v| (v - mean).r_powi(2)).sum::<f64>() / values.len() as f64).sqrt()
         };
         println!(
             "neural surrogate: out-of-sample RMSE {rmse:.5} against a response sd of \
@@ -577,7 +578,7 @@ mod tests {
     /// never saw. Final training loss 0.000993 on the standardised scale.
     #[test]
     fn badly_scaled_data_trains_as_well_as_well_scaled_data() {
-        let f = |v: &[f64]| (3.0 * v[0]).sin() * (2.0 * v[1]).cos();
+        let f = |v: &[f64]| (3.0 * v[0]).r_sin() * (2.0 * v[1]).r_cos();
         let mut seed = stream_seed(99, 0);
         let (raw_inputs, raw_outputs) = sample(400, 2, f, &mut seed);
         let (raw_test_inputs, raw_test_outputs) = sample(500, 2, f, &mut seed);

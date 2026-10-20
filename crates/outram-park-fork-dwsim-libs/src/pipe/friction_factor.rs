@@ -6,6 +6,7 @@
 //! in `Pipe.vb`'s `CalcOverallHeatTransferCoefficient`); this is the single
 //! consolidated Rust version.
 
+use petir::mathf::RealMath;
 use uom::si::f64::{DynamicViscosity, Length, MassDensity, Pressure, Ratio, Velocity};
 use uom::si::ratio::ratio;
 
@@ -42,14 +43,14 @@ pub fn darcy_friction_factor(reynolds: Ratio, diameter: Length, roughness: Lengt
     let f = if re < 2100.0 {
         64.0 / re
     } else if re > 4000.0 {
-        let a1 = ((rel_roughness.powf(1.1096)) / 2.8257 + (5.8506 / re).powf(0.8961)).log10();
-        let b1 = -2.0 * (rel_roughness / 3.7065 - 5.0452 * a1 / re).log10();
-        (1.0 / b1).powi(2)
+        let a1 = ((rel_roughness.r_powf(1.1096)) / 2.8257 + (5.8506 / re).r_powf(0.8961)).r_log10();
+        let b1 = -2.0 * (rel_roughness / 3.7065 - 5.0452 * a1 / re).r_log10();
+        (1.0 / b1).r_powi(2)
     } else {
         // Transitional (2100 <= Re <= 4000): blended explicit fit.
-        let b = (2.457 * (1.0 / ((7.0 / re).powf(0.9) + 0.27 * rel_roughness)).ln()).powi(16);
-        let c = (37530.0 / re).powi(16);
-        8.0 * ((8.0 / re).powi(12) + 1.0 / (b + c).powf(1.5)).powf(1.0 / 12.0)
+        let b = (2.457 * (1.0 / ((7.0 / re).r_powf(0.9) + 0.27 * rel_roughness)).r_ln()).r_powi(16);
+        let c = (37530.0 / re).r_powi(16);
+        8.0 * ((8.0 / re).r_powi(12) + 1.0 / (b + c).r_powf(1.5)).r_powf(1.0 / 12.0)
     };
     Ratio::new::<ratio>(f)
 }

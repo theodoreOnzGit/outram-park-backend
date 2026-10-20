@@ -18,6 +18,7 @@
 
 //! Running one case: data, model, two passes, condensation, collapse, checks.
 
+use petir::mathf::RealMath;
 use std::time::Instant;
 
 use outram_mc_libs::physics::keff::{ComputeType, KeffResult, KeffSettings, ThreadCount};
@@ -439,7 +440,7 @@ mod tests {
 
     fn lib(kernel_flux: Vec<f64>) -> MgxsLibrary {
         let n = kernel_flux.len();
-        let edges: Vec<f64> = (0..=n).map(|i| 10f64.powi(i as i32)).collect();
+        let edges: Vec<f64> = (0..=n).map(|i| 10f64.r_powi(i as i32)).collect();
         MgxsLibrary {
             groups: GroupStructure::new(edges).expect("ascending"),
             zones: vec![ZoneMgxs {

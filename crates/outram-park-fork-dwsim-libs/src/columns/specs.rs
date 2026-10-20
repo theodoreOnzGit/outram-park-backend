@@ -43,6 +43,7 @@
 //!   compound. This port uses `spci2` there, matching the error function
 //!   immediately above it, which upstream gets right.
 
+use petir::mathf::RealMath;
 use crate::columns::model::{ColumnError, ColumnSpec, CondenserType, SpecBasis, SpecType};
 use crate::columns::profile::StageProfile;
 use crate::columns::thermo_bridge::ColumnThermo;
@@ -91,7 +92,7 @@ pub fn component_feed_rate(
 
 fn log_ratio(computed: f64, target: f64) -> Option<f64> {
     if computed.is_finite() && target.is_finite() && computed > 0.0 && target > 0.0 {
-        let r = (computed / target).ln();
+        let r = (computed / target).r_ln();
         if r.is_finite() {
             Some(r)
         } else {

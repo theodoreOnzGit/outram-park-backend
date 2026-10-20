@@ -397,7 +397,7 @@ pub fn rpt_fuel_outer_radius(
     fuel_zone_radius: f64,
     packing_fraction: f64,
 ) -> f64 {
-    let r3 = inner_radius.powi(3) + packing_fraction * fuel_zone_radius.powi(3);
+    let r3 = inner_radius.r_powi(3) + packing_fraction * fuel_zone_radius.r_powi(3);
     let r_outer = r3.r_cbrt();
     assert!(
         r_outer <= fuel_zone_radius,
@@ -680,12 +680,12 @@ mod tests {
         let triso: f64 = hits[..5].iter().sum::<usize>() as f64 / N as f64;
         let names = ["kernel", "buffer", "IPyC", "SiC", "OPyC"];
         let r = [spec.kernel, spec.buffer, spec.ipyc, spec.sic, spec.opyc];
-        let o3 = spec.opyc.powi(3);
+        let o3 = spec.opyc.r_powi(3);
 
         // 1. Layer shares OF THE TRISO MATERIAL -- pure geometry.
         for i in 0..5 {
-            let lo = if i == 0 { 0.0 } else { r[i - 1].powi(3) };
-            let expect = (r[i].powi(3) - lo) / o3;
+            let lo = if i == 0 { 0.0 } else { r[i - 1].r_powi(3) };
+            let expect = (r[i].r_powi(3) - lo) / o3;
             let got = hits[i] as f64 / N as f64 / triso;
             let rel = (got - expect) / expect;
             eprintln!(
@@ -749,7 +749,7 @@ mod tests {
     fn layer_volumes_sum_to_particle_volume() {
         let s = TrisoSpec::FHR_HALEU_UCO;
         let v: f64 = s.layer_volumes().iter().sum();
-        let ball = 4.0 / 3.0 * std::f64::consts::PI * s.opyc.powi(3);
+        let ball = 4.0 / 3.0 * std::f64::consts::PI * s.opyc.r_powi(3);
         assert!((v - ball).abs() < 1e-15 * ball, "{v} vs {ball}");
     }
 
@@ -906,7 +906,7 @@ mod tests {
         let r_fz = 1.9;
         let pf = 0.3;
         let r_out = rpt_fuel_outer_radius(r_in, r_fz, pf);
-        let ball = |r: f64| 4.0 / 3.0 * std::f64::consts::PI * r.powi(3);
+        let ball = |r: f64| 4.0 / 3.0 * std::f64::consts::PI * r.r_powi(3);
         let shell_v = ball(r_out) - ball(r_in);
         let particle_v = pf * ball(r_fz);
         assert!(

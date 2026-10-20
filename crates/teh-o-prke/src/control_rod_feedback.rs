@@ -1,3 +1,4 @@
+use petir::mathf::RealMath;
 use std::f64::consts::PI;
 
 use uom::si::{f64::*, ratio::ratio};
@@ -26,7 +27,7 @@ pub fn obtain_rod_worth_cylinder(
 
     // [x/H - 1/ (2 pi) sin (2 pi x/H)]
     let rod_worth_ratio: Ratio =
-        x_by_h - Ratio::new::<ratio>(1.0 / (2.0 * PI) * (2.0 * PI * x_by_h.get::<ratio>()).sin());
+        x_by_h - Ratio::new::<ratio>(1.0 / (2.0 * PI) * (2.0 * PI * x_by_h.get::<ratio>()).r_sin());
 
     let reactivity = rod_worth_ratio * rod_worth;
 

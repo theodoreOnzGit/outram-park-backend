@@ -99,6 +99,7 @@
 //! where a surrogate would actually earn its keep, breaks the fixed-graph
 //! assumption and is **not** covered here.
 
+use petir::mathf::RealMath;
 #[cfg(not(feature = "gnn-burn"))]
 fn main() {
     eprintln!(
@@ -134,7 +135,7 @@ mod run {
             .join("../../reference-data/liggghts")
             .join(name);
         let text = std::fs::read_to_string(path).ok()?;
-        let mass = density * 4.0 / 3.0 * std::f64::consts::PI * radius.powi(3);
+        let mass = density * 4.0 / 3.0 * std::f64::consts::PI * radius.r_powi(3);
         let mut rows: Vec<(usize, Particle)> = text
             .lines()
             .skip(1)

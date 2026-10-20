@@ -1,3 +1,4 @@
+use petir::mathf::RealMath;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, SystemTime};
@@ -538,12 +539,12 @@ impl FHRSimulatorApp {
         // 1,0.75
 
         let cr_insertion_factor_f64: f64 = cr_insertion_factor.get::<ratio>();
-        let term1 = -8.413e0 * cr_insertion_factor_f64.powi(5);
-        let term2 = 2.064e1 * cr_insertion_factor_f64.powi(4);
-        let term3 = -1.639e1 * cr_insertion_factor_f64.powi(3);
-        let term4 = 4.238e0 * cr_insertion_factor_f64.powi(2);
-        let term5 = -3.626e-1 * cr_insertion_factor_f64.powi(1);
-        let term6 = 1.031e0 * cr_insertion_factor_f64.powi(0);
+        let term1 = -8.413e0 * cr_insertion_factor_f64.r_powi(5);
+        let term2 = 2.064e1 * cr_insertion_factor_f64.r_powi(4);
+        let term3 = -1.639e1 * cr_insertion_factor_f64.r_powi(3);
+        let term4 = 4.238e0 * cr_insertion_factor_f64.r_powi(2);
+        let term5 = -3.626e-1 * cr_insertion_factor_f64.r_powi(1);
+        let term6 = 1.031e0 * cr_insertion_factor_f64.r_powi(0);
 
         return Ratio::new::<ratio>(term1 + term2 + term3 + term4 + term5 + term6);
     }

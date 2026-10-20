@@ -40,6 +40,7 @@
 //!   .NET dynamic-dispatch extension point, and this workspace's solver set is
 //!   a closed enum (no `dyn`).
 
+use petir::mathf::RealMath;
 use ndarray::Array2;
 
 /// Tuning for [`broyden_root`] and [`newton_root`].
@@ -545,7 +546,7 @@ mod tests {
         let f = |v: &[f64]| -> Option<Vec<f64>> {
             Some(vec![
                 v[0] * v[0] + v[1] * v[1] - 4.0,
-                v[0].exp() + v[1] - 1.0,
+                v[0].r_exp() + v[1] - 1.0,
             ])
         };
         let r = broyden_root(
@@ -572,7 +573,7 @@ mod tests {
         let f = |v: &[f64]| -> Option<Vec<f64>> {
             Some(vec![
                 v[0] * v[0] + v[1] * v[1] - 4.0,
-                v[0].exp() + v[1] - 1.0,
+                v[0].r_exp() + v[1] - 1.0,
             ])
         };
         let r = newton_root(

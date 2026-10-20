@@ -55,6 +55,7 @@
 //!   (weighted averages and the `χ²/dof` scale-factor test).
 //! - C. E. Bonferroni (1936); any text on multiple comparisons.
 
+use petir::mathf::RealMath;
 use crate::distributions::special;
 use crate::{RafflesError, Result};
 
@@ -191,7 +192,7 @@ pub fn seed_consistency(values: &[f64], sigmas: &[f64]) -> Result<SeedConsistenc
     let chi2: f64 = values
         .iter()
         .zip(&w)
-        .map(|(x, wi)| (x - weighted_mean).powi(2) * wi)
+        .map(|(x, wi)| (x - weighted_mean).r_powi(2) * wi)
         .sum();
     let dof = n - 1;
     let d = dof as f64;

@@ -49,6 +49,7 @@
 //!   — model class selection from TMCMC evidence, which is what this module
 //!   consumes.
 
+use petir::mathf::RealMath;
 use crate::{RafflesError, Result};
 
 /// How strongly a Bayes factor favours one model over another, on the
@@ -179,7 +180,7 @@ pub fn posterior_model_probabilities(models: &[ModelEvidence]) -> Result<Vec<f64
         .iter()
         .map(|m| m.ln_evidence)
         .fold(f64::NEG_INFINITY, f64::max);
-    let weights: Vec<f64> = models.iter().map(|m| (m.ln_evidence - max).exp()).collect();
+    let weights: Vec<f64> = models.iter().map(|m| (m.ln_evidence - max).r_exp()).collect();
     let total: f64 = weights.iter().sum();
     Ok(weights.into_iter().map(|w| w / total).collect())
 }
@@ -356,8 +357,8 @@ mod tests {
             let ln_likelihood = move |theta: &[f64]| {
                 let mu = theta[0];
                 let n = data.len() as f64;
-                let ss: f64 = data.iter().map(|v| (v - mu).powi(2)).sum();
-                -0.5 * n * (2.0 * core::f64::consts::PI * sigma * sigma).ln()
+                let ss: f64 = data.iter().map(|v| (v - mu).r_powi(2)).sum();
+                -0.5 * n * (2.0 * core::f64::consts::PI * sigma * sigma).r_ln()
                     - ss / (2.0 * sigma * sigma)
             };
             let config = TransitionalConfig::temcmc_defaults(2_000, 20_260_916).unwrap();

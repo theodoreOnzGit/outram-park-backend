@@ -30,6 +30,7 @@
 //! **count** (`atoms`). See the [`super`] module docs for why the pool
 //! quantities are `f64` rather than `uom`-typed.
 
+use petir::mathf::RealMath;
 use uom::si::f64::{DiffusionCoefficient, Length, Time};
 use uom::si::frequency::hertz;
 use uom::si::ratio::ratio;
@@ -186,7 +187,7 @@ pub fn release_rate(
         inventory_bq
     } else {
         let lt = (decay_constant * time).get::<ratio>(); // dimensionless, uom-checked
-        inventory_bq / (1.0 - (-lt).exp())
+        inventory_bq / (1.0 - (-lt).r_exp())
     };
     birth_rate * release_to_birth
 }
@@ -255,7 +256,7 @@ pub fn base_activities(
             let lam = decay_constant.get::<hertz>();
             let lt = (decay_constant * time).get::<ratio>(); // dimensionless, uom-checked
             let source_rate = release_rate / af;
-            let graphite_activity = release_rate * (1.0 - 1.0 / af) * (1.0 - (-lt).exp()) / lam;
+            let graphite_activity = release_rate * (1.0 - 1.0 / af) * (1.0 - (-lt).r_exp()) / lam;
             SourceAndGraphite {
                 source_rate,
                 graphite_activity,

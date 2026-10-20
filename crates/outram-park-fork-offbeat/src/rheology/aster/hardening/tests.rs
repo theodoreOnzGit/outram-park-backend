@@ -17,6 +17,7 @@
 //! Verification only — closed-form identities and analytic derivatives, no
 //! comparison against experiment.
 
+use petir::mathf::RealMath;
 use super::*;
 
 fn ludwik() -> IsotropicHardening {
@@ -131,7 +132,7 @@ fn the_two_power_law_families_are_genuinely_different() {
     let (a, b) = (ludwik(), aster_power());
     let mut worst: f64 = 0.0;
     for i in 0..=5 {
-        let p = 10.0_f64.powi(-6 + i);
+        let p = 10.0_f64.r_powi(-6 + i);
         let (va, vb) = (a.value(p), b.value(p));
         let rel = (va - vb).abs() / va.abs().max(vb.abs());
         println!("p={p:<10.0e} Ludwik={va:>16.6e} AsterPower={vb:>16.6e} rel diff={rel:.4e}");
@@ -231,7 +232,7 @@ fn each_variant_reproduces_its_closed_form() {
     println!(
         "Ludwik:  R({p}) = {} vs closed form {}",
         ludwik().value(p),
-        250.0e6 + 500.0e6 * p.powf(0.2)
+        250.0e6 + 500.0e6 * p.r_powf(0.2)
     );
     println!(
         "EcroNl degenerate: R({p}) = {} vs Linear {}",
@@ -241,7 +242,7 @@ fn each_variant_reproduces_its_closed_form() {
 
     assert_eq!(perfect.value(0.0), perfect.value(p));
     assert!((linear.value(p) - (250.0e6 + 2.0e9 * p)).abs() < 1e-12 * linear.value(p));
-    let ludwik_closed = 250.0e6 + 500.0e6 * p.powf(0.2);
+    let ludwik_closed = 250.0e6 + 500.0e6 * p.r_powf(0.2);
     assert!((ludwik().value(p) - ludwik_closed).abs() < 1e-12 * ludwik_closed);
     assert!(
         (degenerate_ecro.value(p) - linear.value(p)).abs() < 1e-12 * linear.value(p),

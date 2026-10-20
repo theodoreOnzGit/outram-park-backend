@@ -71,6 +71,7 @@
 //! Strict SI raw `f64`: kelvin, metre, pascal, W/m/K for a conductivity,
 //! W/m²K for a conductance.
 
+use petir::mathf::RealMath;
 use crate::error::{OffbeatError, Result};
 use crate::gap::gas::GapGasMixture;
 
@@ -836,7 +837,7 @@ pub fn effective_roughness_distance(
     } else {
         0.0
     };
-    (-ROUGHNESS_PRESSURE_COEFFICIENT * p_kgf).exp() * sum
+    (-ROUGHNESS_PRESSURE_COEFFICIENT * p_kgf).r_exp() * sum
 }
 
 /// Spherical-shell gas conduction length \[m\], **radial** — upstream's
@@ -981,7 +982,7 @@ pub fn contact_conductance(surfaces: &GapSurfaces) -> f64 {
     let r_mean = (0.5 * (r1 + r2)).max(SMALL);
 
     let r_mult = if p_rel <= 0.0087 { 333.3 * p_rel } else { 2.9 };
-    let e = (5.738 - 0.528 * (3.937e7 * r_mean).ln()).exp();
+    let e = (5.738 - 0.528 * (3.937e7 * r_mean).r_ln()).r_exp();
     if !(e > 0.0) || !e.is_finite() {
         return 0.0;
     }
@@ -1517,7 +1518,7 @@ mod tests {
             let s = GapSurfaces::lwr_open_gap(t1, t2);
             let h = radiative_conductance(&s);
             let resistance = 1.0 / s.fuel_emissivity + 1.0 / s.clad_emissivity - 1.0;
-            let direct = STEFAN_BOLTZMANN * (t1.powi(4) - t2.powi(4)) / resistance;
+            let direct = STEFAN_BOLTZMANN * (t1.r_powi(4) - t2.r_powi(4)) / resistance;
             let linearised = h * (t1 - t2);
             assert!(
                 (linearised - direct).abs() < 1e-12 * direct.abs(),

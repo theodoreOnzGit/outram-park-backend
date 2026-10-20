@@ -27,6 +27,7 @@
 //!
 //! Orchestration only: no physics is implemented here.
 
+use petir::mathf::RealMath;
 use njoy_outram_park_fork::endf::tape::Tape as EndfTape;
 use njoy_outram_park_fork::leapr::decks::SabMaterial;
 use outram_mc_libs::material::nuclide::Nuclide;
@@ -403,7 +404,7 @@ mod tests {
         assert_eq!(shared.len(), direct.len());
         for (i, (a, b)) in shared.iter().zip(&direct).enumerate() {
             for k in 0..600 {
-                let e = 1.0e-5 * (2.0e7_f64 / 1.0e-5).powf(f64::from(k) / 599.0);
+                let e = 1.0e-5 * (2.0e7_f64 / 1.0e-5).r_powf(f64::from(k) / 599.0);
                 let (x, y) = (a.xs_at_energy(e, 300.15), b.xs_at_energy(e, 300.15));
                 assert_eq!(format!("{x:?}"), format!("{y:?}"), "slot {i} at {e}");
                 let (mut s1, mut s2) = (k as u64, k as u64);
@@ -451,7 +452,7 @@ mod tests {
             load_htr10_nuclides(&cfg, &layout, &mut RunDiagnostics::new("test")).expect("load");
         for (i, (a, b)) in shared.iter().zip(&direct).enumerate() {
             for k in 0..300 {
-                let e = 1.0e-5 * (2.0e7_f64 / 1.0e-5).powf(f64::from(k) / 299.0);
+                let e = 1.0e-5 * (2.0e7_f64 / 1.0e-5).r_powf(f64::from(k) / 299.0);
                 assert_eq!(
                     format!("{:?}", a.xs_at_energy(e, 300.15)),
                     format!("{:?}", b.xs_at_energy(e, 300.15)),

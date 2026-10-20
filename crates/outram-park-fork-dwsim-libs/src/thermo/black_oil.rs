@@ -133,6 +133,7 @@
 // ---------------------------------------------------------------------------
 
 /// Absolute pressure, pascals (Pa). SI.
+use petir::mathf::RealMath;
 pub type Pascals = f64;
 /// Absolute temperature, kelvin (K). SI.
 pub type Kelvin = f64;
@@ -198,7 +199,7 @@ fn rankine_from_kelvin(t_k: Kelvin) -> f64 {
 /// Base-10 logarithm helper (DWSIM writes `Log(x)/Log(10)` for `log10`).
 #[inline]
 fn log10(x: f64) -> f64 {
-    x.log10()
+    x.r_log10()
 }
 
 // ---------------------------------------------------------------------------
@@ -292,7 +293,7 @@ pub fn vapor_molecular_weight(gas_sg: SpecificGravity) -> GramsPerMole {
 /// - returns — liquid molar mass, g/mol.
 #[inline]
 pub fn liquid_molecular_weight(oil_sg: SpecificGravity, bsw_percent: f64) -> GramsPerMole {
-    let hc = (((1.07 - oil_sg).ln() - 3.560_73) / -2.938_86).powi(10);
+    let hc = (((1.07 - oil_sg).r_ln() - 3.560_73) / -2.938_86).r_powi(10);
     (100.0 - bsw_percent) / 100.0 * hc + bsw_percent / 100.0 * 18.0
 }
 
@@ -308,7 +309,7 @@ pub fn liquid_molecular_weight(oil_sg: SpecificGravity, bsw_percent: f64) -> Gra
 #[inline]
 pub fn liquid_normal_boiling_point(oil_sg: SpecificGravity) -> Kelvin {
     let mw = liquid_molecular_weight(oil_sg, 0.0);
-    1080.0 - (6.979_96 - 0.019_64 * mw.powf(2.0 / 3.0)).exp()
+    1080.0 - (6.979_96 - 0.019_64 * mw.r_powf(2.0 / 3.0)).r_exp()
 }
 
 // ---------------------------------------------------------------------------
@@ -343,7 +344,7 @@ pub fn solution_gor(
     let api = api_gravity(oil_sg);
     let p_psia = pressure_pa * PSIA_PER_PA;
     let rs_scf_stb =
-        gas_sg * ((p_psia / 18.2 + 1.4) * 10f64.powf(0.0125 * api - 0.00091 * tf)).powf(1.2048);
+        gas_sg * ((p_psia / 18.2 + 1.4) * 10f64.r_powf(0.0125 * api - 0.00091 * tf)).r_powf(1.2048);
     rs_scf_stb / SCF_STB_PER_SM3_SM3
 }
 
@@ -372,7 +373,7 @@ pub fn bubble_point_pressure(
     let api = api_gravity(oil_sg);
     let gor_ss = gor_sm3_sm3 * SCF_STB_PER_SM3_SM3;
     let pb_psia = 18.2
-        * ((gor_ss / gas_sg).powf(1.0 / 1.2048) * 10f64.powf(0.00091 * tf - 0.0125 * api) - 1.4);
+        * ((gor_ss / gas_sg).r_powf(1.0 / 1.2048) * 10f64.r_powf(0.00091 * tf - 0.0125 * api) - 1.4);
     pb_psia * PA_PER_PSIA
 }
 
@@ -396,7 +397,7 @@ pub fn oil_fvf_saturated(
 ) -> FormationVolumeFactor {
     let tf = fahrenheit_from_kelvin(temperature_k);
     let rs = rs_sm3_sm3 * SCF_STB_PER_SM3_SM3;
-    0.9759 + 0.00012 * (rs * (gas_sg / oil_sg).sqrt() + 1.25 * tf).powf(1.2)
+    0.9759 + 0.00012 * (rs * (gas_sg / oil_sg).sqrt() + 1.25 * tf).r_powf(1.2)
 }
 
 /// Undersaturated oil compressibility coefficient `C` (Vazquez-Beggs 1980),
@@ -470,7 +471,7 @@ pub fn oil_fvf(
             let c = oil_compressibility(gor_sm3_sm3, pressure_pa, temperature_k, gas_sg, oil_sg);
             let p_psia = pressure_pa * PSIA_PER_PA;
             let pb_psia = pb * PSIA_PER_PA;
-            bos * (pb_psia / p_psia).powf(c)
+            bos * (pb_psia / p_psia).r_powf(c)
         }
     }
 }
@@ -580,15 +581,15 @@ pub fn gas_compressibility_factor(
     let mut cnt = 0_u32;
     loop {
         let rhopr = 0.27 * ppr / (z * tpr);
-        let c1 = a1 + a2 / tpr + a3 / tpr.powi(3) + a4 / tpr.powi(4) + a5 / tpr.powi(5);
+        let c1 = a1 + a2 / tpr + a3 / tpr.r_powi(3) + a4 / tpr.r_powi(4) + a5 / tpr.r_powi(5);
         let c2 = a6 + a7 / tpr + a8 / (tpr * tpr);
         let c3 = a7 / tpr + a8 / (tpr * tpr);
         let z_ant = z;
-        z = 1.0 + c1 * rhopr + c2 * rhopr.powi(2) - a9 * c3 * rhopr.powi(5)
+        z = 1.0 + c1 * rhopr + c2 * rhopr.r_powi(2) - a9 * c3 * rhopr.r_powi(5)
             + a10
                 * (1.0 + a11 * rhopr * rhopr)
-                * (rhopr * rhopr / tpr.powi(3))
-                * (-a11 * rhopr * rhopr).exp();
+                * (rhopr * rhopr / tpr.r_powi(3))
+                * (-a11 * rhopr * rhopr).r_exp();
         cnt += 1;
         if (z - z_ant).abs() < 0.0001 || cnt > 1000 {
             break;
@@ -697,13 +698,13 @@ pub fn gas_viscosity(
 
     let c = a[0]
         + a[1] * ppr
-        + a[2] * ppr.powi(2)
-        + a[3] * ppr.powi(3)
-        + tpr * (a[4] + a[5] * ppr + a[6] * ppr.powi(2) + a[7] * ppr.powi(3))
-        + tpr.powi(2) * (a[8] + a[9] * ppr + a[10] * ppr.powi(2) + a[11] * ppr.powi(3))
-        + tpr.powi(3) * (a[12] + a[13] * ppr + a[14] * ppr.powi(2) + a[15] * ppr.powi(3));
+        + a[2] * ppr.r_powi(2)
+        + a[3] * ppr.r_powi(3)
+        + tpr * (a[4] + a[5] * ppr + a[6] * ppr.r_powi(2) + a[7] * ppr.r_powi(3))
+        + tpr.r_powi(2) * (a[8] + a[9] * ppr + a[10] * ppr.r_powi(2) + a[11] * ppr.r_powi(3))
+        + tpr.r_powi(3) * (a[12] + a[13] * ppr + a[14] * ppr.r_powi(2) + a[15] * ppr.r_powi(3));
 
-    let mug = mug1 / tpr * c.exp();
+    let mug = mug1 / tpr * c.r_exp();
     mug * 0.001
 }
 
@@ -719,7 +720,7 @@ pub fn gas_viscosity(
 pub fn dead_oil_viscosity(temperature_k: Kelvin, oil_sg: SpecificGravity) -> PascalSeconds {
     let tf = fahrenheit_from_kelvin(temperature_k);
     let api = api_gravity(oil_sg);
-    let mu_od_cp = -1.0 + 10f64.powf(10f64.powf(1.8653 - 0.025086 * api - 0.5644 * log10(tf)));
+    let mu_od_cp = -1.0 + 10f64.r_powf(10f64.r_powf(1.8653 - 0.025086 * api - 0.5644 * log10(tf)));
     mu_od_cp * 1e-3
 }
 
@@ -740,7 +741,7 @@ pub fn saturated_oil_viscosity(
     let rs = rs_sm3_sm3 * SCF_STB_PER_SM3_SM3;
     let mu_od_cp = dead_oil_visc_pa_s * 1e3;
     let mu_os_cp =
-        10.715 * (rs + 100.0).powf(-0.515) * mu_od_cp.powf(5.44 * (rs + 150.0).powf(-0.338));
+        10.715 * (rs + 100.0).r_powf(-0.515) * mu_od_cp.r_powf(5.44 * (rs + 150.0).r_powf(-0.338));
     mu_os_cp * 1e-3
 }
 
@@ -770,8 +771,8 @@ pub fn undersaturated_oil_viscosity(
 ) -> PascalSeconds {
     let p_psia = pressure_pa * PSIA_PER_PA;
     let pb_psia = bubble_point_pa * PSIA_PER_PA;
-    let exponent = 2.6 * p_psia.powf(1.187) * 10f64.powf(-0.000_039 * p_psia - 5.0);
-    mu_os_saturated_pa_s * (pb_psia / p_psia).powf(exponent)
+    let exponent = 2.6 * p_psia.r_powf(1.187) * 10f64.r_powf(-0.000_039 * p_psia - 5.0);
+    mu_os_saturated_pa_s * (pb_psia / p_psia).r_powf(exponent)
 }
 
 /// Hydrocarbon live-oil viscosity, regime-dispatched, Pa·s — DWSIM

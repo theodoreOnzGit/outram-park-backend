@@ -144,6 +144,7 @@
 //! homogenised `core_model::assemble`, itself withdrawn 2026-10-01 (it cuts
 //! pebbles, which is wrong physics).
 
+use petir::mathf::RealMath;
 use std::f64::consts::PI;
 
 /// Close-packed layer spacing for spheres of diameter `d` \[cm\]: `d*sqrt(2/3)`.
@@ -200,7 +201,7 @@ impl HexBedCell {
     #[must_use]
     pub fn packing_fraction(&self) -> f64 {
         let r = self.ball_diameter / 2.0;
-        self.balls * (4.0 / 3.0 * PI * r.powi(3)) / self.volume()
+        self.balls * (4.0 / 3.0 * PI * r.r_powi(3)) / self.volume()
     }
 
     /// Nearest-neighbour centre distance **within** a layer \[cm\] — simply the
@@ -240,7 +241,7 @@ impl HexBedCell {
     /// height `9.798 N + 6.0` cm (module docs).
     #[must_use]
     pub fn balls_in_core(&self, core_diameter_cm: f64, core_height_cm: f64) -> f64 {
-        let footprint = PI * (core_diameter_cm / 2.0).powi(2);
+        let footprint = PI * (core_diameter_cm / 2.0).r_powi(2);
         let cells_per_area = 1.0 / ((3.0_f64.sqrt() / 2.0) * self.pitch * self.pitch);
         let layers = core_height_cm / self.height;
         footprint * cells_per_area * layers * self.balls
@@ -646,7 +647,7 @@ fn segment_distance(px: f64, pz: f64, a: [f64; 2], b: [f64; 2]) -> f64 {
     } else {
         0.0
     };
-    (px - a[0] - t * dx).hypot(pz - a[1] - t * dz)
+    (px - a[0] - t * dx).r_hypot(pz - a[1] - t * dz)
 }
 
 impl TwoBallBed {
@@ -735,7 +736,7 @@ impl TwoBallBed {
     #[must_use]
     pub fn container_boundary_distance(&self, centre: [f64; 3]) -> Option<f64> {
         let t = self.tube?;
-        let (rho, z) = (centre[0].hypot(centre[1]), centre[2]);
+        let (rho, z) = (centre[0].r_hypot(centre[1]), centre[2]);
         let bottom = self.conus_floor - t.depth;
         let cone = segment_distance(
             rho,
@@ -825,7 +826,7 @@ impl TwoBallBed {
         let mut n = 0;
         for id in self.all_balls() {
             let [x, y, z] = self.centre(id);
-            let rho = x.hypot(y);
+            let rho = x.r_hypot(y);
             let crosses = rho + r > self.bed_radius && rho - r < self.bed_radius;
             if z >= self.bed_bottom && z - r < self.bed_top && crosses && self.is_present(id) {
                 n += 1;
@@ -963,7 +964,7 @@ impl TwoBallBed {
         let all = self.all_balls();
         for &id in &all {
             let [x, y, z] = self.centre(id);
-            let rxy = x.hypot(y);
+            let rxy = x.r_hypot(y);
             let ok = match self.assignment {
                 FuelAssignment::AllFuel => true,
                 FuelAssignment::Paper => {
@@ -974,7 +975,7 @@ impl TwoBallBed {
                 }
             };
             if ok && self.is_present(id) {
-                eligible.push((Self::layer(id), x * x + y * y, y.atan2(x), id));
+                eligible.push((Self::layer(id), x * x + y * y, y.r_atan2(x), id));
             }
         }
         eligible.sort_by(|p, q| {
@@ -1140,7 +1141,7 @@ impl SekerCell {
     pub fn from_paper() -> Self {
         let d = 6.0;
         Self {
-            apothem: d * (PI / 6.0).cos() + 0.5 * d,
+            apothem: d * (PI / 6.0).r_cos() + 0.5 * d,
             height: 2.0 * close_packed_layer_spacing(d),
             ball_diameter: d,
         }
@@ -1169,7 +1170,7 @@ impl SekerCell {
     #[must_use]
     pub fn packing_fraction(&self) -> f64 {
         let r = 0.5 * self.ball_diameter;
-        self.balls_per_cell() * (4.0 / 3.0 * PI * r.powi(3)) / (self.area() * self.height)
+        self.balls_per_cell() * (4.0 / 3.0 * PI * r.r_powi(3)) / (self.area() * self.height)
     }
 
     /// Tile-local centre \[cm\] of `site`. See [`SekerSite`].
@@ -1179,7 +1180,7 @@ impl SekerCell {
         let h = self.height;
         let polar = |rho: f64, deg: f64, z: f64| {
             let t = deg.to_radians();
-            [rho * t.cos(), rho * t.sin(), z]
+            [rho * t.r_cos(), rho * t.r_sin(), z]
         };
         let flower = |k: u8, z: f64| {
             if k == 0 {
@@ -1582,7 +1583,7 @@ impl SekerBed {
     /// exactly when its meridional disk lies inside the profile (the argument in
     /// [`TwoBallBed::container_boundary_distance`]).
     fn containment(&self, c: [f64; 3]) -> (bool, bool) {
-        let (rho, z) = (c[0].hypot(c[1]), c[2]);
+        let (rho, z) = (c[0].r_hypot(c[1]), c[2]);
         let p = self.profile();
         // The profile, closed along the axis, is a simple polygon.
         let mut inside = false;
@@ -1659,7 +1660,7 @@ impl SekerBed {
                 FuelAssignment::FuelledConus => true,
             };
             if ok && self.is_present(id) {
-                eligible.push((Self::layer(id), x * x + y * y, y.atan2(x), id));
+                eligible.push((Self::layer(id), x * x + y * y, y.r_atan2(x), id));
             }
         }
         eligible.sort_by(|p, q| {
@@ -2086,9 +2087,9 @@ mod hex_lattice_tests {
                     for s in BallSite::ALL {
                         let l = cell.site_centre(s);
                         let g = bed.centre(tile_ball(a, b, level, s));
-                        let d = ((tx + l[0] - g[0]).powi(2)
-                            + (ty + l[1] - g[1]).powi(2)
-                            + (tz + l[2] - g[2]).powi(2))
+                        let d = ((tx + l[0] - g[0]).r_powi(2)
+                            + (ty + l[1] - g[1]).r_powi(2)
+                            + (tz + l[2] - g[2]).r_powi(2))
                         .sqrt();
                         assert!(d < 1e-9, "tile ({a},{b},{level}) site {s:?} is {d} cm off");
                         checked += 1;
@@ -2199,14 +2200,14 @@ mod seker_cell_tests {
             .all_balls()
             .into_iter()
             .map(|id| bed.centre(id))
-            .filter(|p| p[0].hypot(p[1]) < 20.0)
+            .filter(|p| p[0].r_hypot(p[1]) < 20.0)
             .collect();
         let (mut dmin, mut contacts) = (f64::INFINITY, 0);
         for i in 0..c.len() {
             for j in i + 1..c.len() {
-                let d = ((c[i][0] - c[j][0]).powi(2)
-                    + (c[i][1] - c[j][1]).powi(2)
-                    + (c[i][2] - c[j][2]).powi(2))
+                let d = ((c[i][0] - c[j][0]).r_powi(2)
+                    + (c[i][1] - c[j][1]).r_powi(2)
+                    + (c[i][2] - c[j][2]).r_powi(2))
                 .sqrt();
                 dmin = dmin.min(d);
                 contacts += usize::from((d - 6.0).abs() < 1e-9);
@@ -2235,7 +2236,7 @@ mod seker_cell_tests {
                     for s in SekerSite::ALL {
                         let l = cell.site_centre(s);
                         let g = bed.centre(seker_tile_ball(a, b, level, s));
-                        let d = (tx + l[0] - g[0]).hypot(ty + l[1] - g[1]).hypot(tz + l[2] - g[2]);
+                        let d = (tx + l[0] - g[0]).r_hypot(ty + l[1] - g[1]).r_hypot(tz + l[2] - g[2]);
                         assert!(d < 1e-9, "tile ({a},{b},{level}) site {s:?} is {d} cm off");
                         checked += 1;
                     }
@@ -2252,12 +2253,12 @@ mod seker_cell_tests {
         let v: Vec<[f64; 2]> = (0..6)
             .map(|i| {
                 let t = (60.0 * f64::from(i)).to_radians();
-                [rv * t.cos(), rv * t.sin()]
+                [rv * t.r_cos(), rv * t.r_sin()]
             })
             .collect();
         let inside = (0..6).all(|i| {
             let t = (30.0 + 60.0 * f64::from(i)).to_radians();
-            p[0] * t.cos() + p[1] * t.sin() <= cell.apothem
+            p[0] * t.r_cos() + p[1] * t.r_sin() <= cell.apothem
         });
         let lateral = if inside {
             0.0
@@ -2267,7 +2268,7 @@ mod seker_cell_tests {
                 .fold(f64::INFINITY, f64::min)
         };
         let vertical = (p[2].abs() - 0.5 * cell.height).max(0.0);
-        lateral.hypot(vertical)
+        lateral.r_hypot(vertical)
     }
 
     /// **The 23 sites are complete**: every lattice ball that reaches into a
@@ -2378,7 +2379,7 @@ mod seker_cell_tests {
             }
             kept += 1;
             let [x, y, z] = bed.centre(id);
-            let rho = x.hypot(y);
+            let rho = x.r_hypot(y);
             assert!(z + 3.0 <= bed.bed_top + 1e-9, "{id:?} above the bed top");
             if z + 3.0 > bed.bed_bottom {
                 assert!(rho + 3.0 <= 90.0 + 1e-9, "{id:?} crosses the side wall");

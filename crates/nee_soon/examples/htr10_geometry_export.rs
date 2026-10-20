@@ -52,6 +52,7 @@
 //! The rows themselves are still the old circular closures of gh:#430; changing
 //! them is not a documentation fix.
 
+use petir::mathf::RealMath;
 use std::fmt::Write as _;
 use std::fs;
 use std::path::PathBuf;
@@ -469,12 +470,12 @@ fn main() {
     // BUILT lattice's pitch and height; Şeker's balls touch, so both nearest
     // distances are one diameter (tested on the built bed in
     // `htr10_rmc::tests::no_two_balls_of_the_built_bed_overlap`).
-    let tile_volume = 0.5 * 3.0_f64.sqrt() * core.lat_pitch.powi(2) * core.lat_height;
+    let tile_volume = 0.5 * 3.0_f64.sqrt() * core.lat_pitch.r_powi(2) * core.lat_height;
     let realised_packing = seker.balls_per_cell()
         * 4.0
         / 3.0
         * std::f64::consts::PI
-        * (0.5 * table1::BALL_DIAMETER_CM).powi(3)
+        * (0.5 * table1::BALL_DIAMETER_CM).r_powi(3)
         / tile_volume;
     let interlayer = table1::BALL_DIAMETER_CM;
     let core_balls = core.bed.as_ref().and_then(|b| b.core_balls()).unwrap_or(0);

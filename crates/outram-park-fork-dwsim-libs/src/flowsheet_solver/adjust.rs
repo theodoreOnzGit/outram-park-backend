@@ -94,6 +94,7 @@
 //! Newton arithmetic against analytically-solvable synthetic cases; they are not
 //! validation against a DWSIM benchmark flowsheet.
 
+use petir::mathf::RealMath;
 use std::collections::HashMap;
 
 use crate::flowsheet::{Flowsheet, ObjectId, ObjectType};
@@ -625,7 +626,7 @@ mod tests {
         let (sf, sp) = (feed.clone(), product.clone());
         let mut resolve = move |fs: &mut Flowsheet| -> Result<(), SolverError> {
             let w = FlowsheetVariable::MassFlow.get(fs, &sf)?;
-            FlowsheetVariable::Temperature.set(fs, &sp, 300.0 + 50.0 * w.tanh())
+            FlowsheetVariable::Temperature.set(fs, &sp, 300.0 + 50.0 * w.r_tanh())
         };
 
         let err = solve_simultaneous_adjusts(&mut fs, &adjusts, &mut resolve, &AbortFlag::new())

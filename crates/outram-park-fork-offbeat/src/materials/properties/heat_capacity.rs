@@ -75,6 +75,7 @@
 //!   upstream actually uses when the optional `heatCapacity` sub-dictionary is
 //!   absent, and for SiC it is also the value published by Snead et al.
 
+use petir::mathf::RealMath;
 use crate::error::{OffbeatError, Result};
 use crate::materials::MaterialState;
 
@@ -605,8 +606,8 @@ impl HeatCapacityModel {
                 let activation = 18531.7;
 
                 let u = theta / t;
-                let einstein = c1 * u * u * u.exp() / ((u.exp() - 1.0) * (u.exp() - 1.0));
-                einstein + 2.0 * c2 * t + c3 * activation * (-activation / t).exp() / (t * t)
+                let einstein = c1 * u * u * u.r_exp() / ((u.r_exp() - 1.0) * (u.r_exp() - 1.0));
+                einstein + 2.0 * c2 * t + c3 * activation * (-activation / t).r_exp() / (t * t)
             }
 
             Self::MatproZircaloy => {
@@ -646,7 +647,7 @@ impl HeatCapacityModel {
             Self::IaeaZircaloy => {
                 let cp_alpha = 255.66 + 0.1024 * t;
                 let cp_beta = 597.1 - 0.4088 * t + 1.565e-4 * t * t;
-                let peak = 1058.4 * (-(t - 1213.8).powi(2) / 719.61).exp();
+                let peak = 1058.4 * (-(t - 1213.8).r_powi(2) / 719.61).r_exp();
 
                 if t < 1100.0 {
                     cp_alpha
@@ -661,13 +662,13 @@ impl HeatCapacityModel {
 
             // Upstream writes the third term with a *negative* exponent; see
             // the variant doc comment on why it is reproduced, not repaired.
-            Self::Banerjee1515Ti => 431.0 + 0.177 * t + 8.72e-5 * t.powi(-2),
+            Self::Banerjee1515Ti => 431.0 + 0.177 * t + 8.72e-5 * t.r_powi(-2),
 
             Self::Molybdenum => 9.74e-6 * t * t + 5.37e-2 * t + 235.0,
 
             // par4 = -3.1946e7: the initialiser-list value upstream uses, and
             // the value published by Snead et al.
-            Self::SneadSiC => 925.65 + 0.3772 * t - 7.9259e-5 * t * t - 3.1946e7 * t.powi(-2),
+            Self::SneadSiC => 925.65 + 0.3772 * t - 7.9259e-5 * t * t - 3.1946e7 * t.r_powi(-2),
         }
     }
 }
@@ -704,14 +705,14 @@ fn matpro_oxide_heat_capacity(
     defect_energy: f64,
 ) -> f64 {
     let scaled = theta / temperature;
-    let exponential = scaled.exp();
+    let exponential = scaled.r_exp();
     let denominator = temperature * (exponential - 1.0);
 
     let einstein = k1 * theta * theta * exponential / (denominator * denominator);
     let anharmonic = k2 * temperature;
     let schottky = (oxygen_metal_ratio / 2.0) * k3 * defect_energy
         / (GAS_CONSTANT * temperature * temperature)
-        * (-defect_energy / (GAS_CONSTANT * temperature)).exp();
+        * (-defect_energy / (GAS_CONSTANT * temperature)).r_exp();
 
     einstein + anharmonic + schottky
 }
@@ -1073,7 +1074,7 @@ mod tests {
         let t: f64 = 1.0e7;
         let u: f64 = 587.41 / t;
         let cp =
-            322.49 * u * u * u.exp() / ((u.exp() - 1.0) * (u.exp() - 1.0)) + 2.0 * 1.4679e-2 * t;
+            322.49 * u * u * u.r_exp() / ((u.r_exp() - 1.0) * (u.r_exp() - 1.0)) + 2.0 * 1.4679e-2 * t;
         let analytic = 322.49 + 2.0 * 1.4679e-2 * t;
         assert!((cp / analytic - 1.0).abs() < 1.0e-6, "{cp} vs {analytic}");
     }

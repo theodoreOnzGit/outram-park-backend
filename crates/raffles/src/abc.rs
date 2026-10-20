@@ -101,6 +101,7 @@
 //! Independent implementations from the published definitions — see the
 //! provenance note in [`crate::bayesian`].
 
+use petir::mathf::RealMath;
 use crate::bayesian::IndependentPrior;
 use crate::distance::DistanceMetric;
 use crate::samplers::stream_seed;
@@ -210,7 +211,7 @@ impl AbcKernel {
             Self::Gaussian { .. } => -0.5 * ratio * ratio,
             Self::Epanechnikov { .. } => {
                 if ratio < 1.0 {
-                    (1.0 - ratio * ratio).ln()
+                    (1.0 - ratio * ratio).r_ln()
                 } else {
                     f64::NEG_INFINITY
                 }
@@ -474,7 +475,7 @@ where
         } else if ln_l >= 0.0 {
             true
         } else {
-            u.max(f64::MIN_POSITIVE).ln() < ln_l
+            u.max(f64::MIN_POSITIVE).r_ln() < ln_l
         };
         if accept {
             samples.push(theta);
@@ -552,7 +553,7 @@ mod tests {
     fn mean_and_sd(samples: &[Vec<f64>]) -> (f64, f64) {
         let n = samples.len() as f64;
         let mean = samples.iter().map(|s| s[0]).sum::<f64>() / n;
-        let var = samples.iter().map(|s| (s[0] - mean).powi(2)).sum::<f64>() / (n - 1.0);
+        let var = samples.iter().map(|s| (s[0] - mean).r_powi(2)).sum::<f64>() / (n - 1.0);
         (mean, var.sqrt())
     }
 

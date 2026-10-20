@@ -25,6 +25,7 @@
 //! the port `material::temperature_interpolation`, which are tested there and
 //! in `tests/temperature_interpolation_947.rs`.
 
+use petir::mathf::RealMath;
 use std::collections::BTreeMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
@@ -332,7 +333,7 @@ fn stage_pointwise(threads: usize, with_urr: bool) {
     let alpha = base.alpha.clone();
     let sd_e: Vec<f64> = lethargy
         .iter()
-        .map(|u| SD_BAND.e_top * (-u).exp())
+        .map(|u| SD_BAND.e_top * (-u).r_exp())
         .collect();
     let c_sd: Vec<(f64, f64)> = sd_e
         .iter()
@@ -907,7 +908,7 @@ fn stage_mc(threads: usize, histories: usize) {
     let s = |p: f64| mc.stderr_of(p);
     let (pe, p1, p2) = (runs[0].escaped, runs[1].escaped, runs[2].escaped);
     let pst = 0.5 * (p1 + p2);
-    let sst = 0.5 * (s(p1).powi(2) + s(p2).powi(2)).sqrt();
+    let sst = 0.5 * (s(p1).r_powi(2) + s(p2).r_powi(2)).sqrt();
     println!("| arm | deterministic p | MC p ± 1σ | MC histories |\n|---|---|---|---|");
     println!(
         "| exact {target} K | {p_det_ex:.6} | {pe:.6} ± {:.6} | {histories} |",
@@ -915,7 +916,7 @@ fn stage_mc(threads: usize, histories: usize) {
     );
     println!("| stochastic (T) | {p_det_st:.6} | {pst:.6} ± {sst:.6} (two seeds: {p1:.6}, {p2:.6}) | {} |", 2 * histories);
     let d_mc = pst - pe;
-    let s_mc = (s(pe).powi(2) + sst.powi(2)).sqrt();
+    let s_mc = (s(pe).r_powi(2) + sst.r_powi(2)).sqrt();
     println!(
         "\nstochastic - exact: deterministic {:+.6} ({}%), MC {:+.6} ± {:.6} ({:.1} sigma)",
         p_det_st - p_det_ex,
@@ -986,7 +987,7 @@ fn stage_sab(threads: usize, histories: usize, mc_bracket: usize) {
         .collect();
     grid.extend(
         (0..=4000)
-            .map(|k| 1.0e-5 * (cutoff / 1.0e-5).powf(k as f64 / 4000.0))
+            .map(|k| 1.0e-5 * (cutoff / 1.0e-5).r_powf(k as f64 / 4000.0))
             .filter(|&e| e < cutoff),
     );
     grid.sort_by(f64::total_cmp);
@@ -1117,7 +1118,7 @@ fn stage_sab(threads: usize, histories: usize, mc_bracket: usize) {
         runs[2].absorbed_by[2],
     );
     let fst = 0.5 * (f1 + f2);
-    let sst = 0.5 * (s(f1).powi(2) + s(f2).powi(2)).sqrt();
+    let sst = 0.5 * (s(f1).r_powi(2) + s(f2).r_powi(2)).sqrt();
     println!("\n## Transport: H2O + Pu-239 (N_Pu/N_H2O = {n_pu}), source 4 eV, absorbed fraction in Pu-239, {t} K from [{lo}, {hi}] (T)\n");
     println!("| arm | fraction ± 1σ | histories |\n|---|---|---|");
     println!("| exact | {fe:.6} ± {:.6} | {histories} |", s(fe));
@@ -1126,7 +1127,7 @@ fn stage_sab(threads: usize, histories: usize, mc_bracket: usize) {
         2 * histories
     );
     let d = fst - fe;
-    let sd = (s(fe).powi(2) + sst.powi(2)).sqrt();
+    let sd = (s(fe).r_powi(2) + sst.r_powi(2)).sqrt();
     println!(
         "\nstochastic - exact = {d:+.6} ± {sd:.6} ({:.1} sigma); escaped below 1e-5 eV: {:.2e}",
         d / sd,

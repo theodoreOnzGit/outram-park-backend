@@ -46,6 +46,7 @@
 //! not the geometry. At ~0.3 us per locate the geometry is not what makes an
 //! HTR-10 run expensive; cross-section lookups and the history count are.
 
+use petir::mathf::RealMath;
 use std::time::Instant;
 
 use nee_soon::htr10_rmc::core_model::assemble_explicit_triso;
@@ -82,9 +83,9 @@ fn main() {
                 let r = 0.9 * core.geometry.surfaces.len() as f64; // unused, keep varied
                 let _ = r;
                 Position::new(
-                    (t * 37.0).sin() * 20.0,
-                    (t * 23.0).cos() * 20.0,
-                    (t * 11.0).sin() * 30.0,
+                    (t * 37.0).r_sin() * 20.0,
+                    (t * 23.0).r_cos() * 20.0,
+                    (t * 11.0).r_sin() * 30.0,
                 )
             })
             .collect();

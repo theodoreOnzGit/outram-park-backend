@@ -8,6 +8,7 @@
 //! µ_r = 0, E = 5e8 Pa, ν = 0.2, e = 0.5, dt = 35 µs), unchanged. This file
 //! only steps it in chunks and streams the centres.
 
+use petir::mathf::RealMath;
 use outram_park_fork_liggghts::compute::ThreadCount;
 use outram_park_fork_liggghts::htr10_fill::{
     wall_radius_at, FillProgress, Htr10Fill, Htr10FillSettings, PEBBLE_RADIUS_M, VALVE_Z_M,
@@ -106,7 +107,7 @@ pub fn vessel_bulk_fraction(centres: &[[f64; 3]]) -> f64 {
         if hi <= lo {
             return 0.0;
         }
-        let f = |z: f64| std::f64::consts::PI * (r * r * (z - zc) - (z - zc).powi(3) / 3.0);
+        let f = |z: f64| std::f64::consts::PI * (r * r * (z - zc) - (z - zc).r_powi(3) / 3.0);
         f(hi) - f(lo)
     };
     let solid: f64 = centres.iter().map(|c| cap(c[2])).sum();
@@ -115,7 +116,7 @@ pub fn vessel_bulk_fraction(centres: &[[f64; 3]]) -> f64 {
     let n = ((z_hi - z_lo) / 1e-3).ceil().max(1.0) as usize;
     let dz = (z_hi - z_lo) / n as f64;
     let volume: f64 = (0..n)
-        .map(|i| std::f64::consts::PI * wall_radius_at(z_lo + (i as f64 + 0.5) * dz).powi(2) * dz)
+        .map(|i| std::f64::consts::PI * wall_radius_at(z_lo + (i as f64 + 0.5) * dz).r_powi(2) * dz)
         .sum();
     solid / volume
 }

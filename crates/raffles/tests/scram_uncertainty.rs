@@ -44,6 +44,7 @@
 //! | Oracle | `reference-data/scram/oracle-uncertainty.txt`, from `scram --uncertainty` |
 //! | Upstream trials | 1000, `Settings::num_trials_` |
 
+use petir::mathf::RealMath;
 use raffles::scram::bdd::Bdd;
 use raffles::scram::expression::{Expression, Parameters, DEFAULT_MISSION_TIME};
 use raffles::scram::mef::MefModel;
@@ -301,8 +302,8 @@ fn each_deviate_samples_its_own_distribution() {
             (
                 "lognormal(mu -2, sigma 0.5)",
                 Expression::lognormal_deviate_normal(f(mu), f(s)),
-                (mu + s * s / 2.0).exp(),
-                ((s * s).exp() - 1.0) * (2.0 * mu + s * s).exp(),
+                (mu + s * s / 2.0).r_exp(),
+                ((s * s).r_exp() - 1.0) * (2.0 * mu + s * s).r_exp(),
             )
         },
         {
@@ -310,12 +311,12 @@ fn each_deviate_samples_its_own_distribution() {
             // normal quantile: sigma = ln(EF) / z_0.95.
             let mean = 2.0e-5_f64;
             let z = 1.644_853_626_951_472_2_f64;
-            let s = 3.0_f64.ln() / z;
+            let s = 3.0_f64.r_ln() / z;
             (
                 "lognormal(2e-5, EF 3, 95 %)",
                 Expression::lognormal_deviate(f(mean), f(3.0), f(0.95)),
                 mean,
-                ((s * s).exp() - 1.0) * mean * mean,
+                ((s * s).r_exp() - 1.0) * mean * mean,
             )
         },
         (
@@ -330,7 +331,7 @@ fn each_deviate_samples_its_own_distribution() {
                 "beta(2, 5)",
                 Expression::beta_deviate(f(a), f(b)),
                 a / (a + b),
-                a * b / ((a + b).powi(2) * (a + b + 1.0)),
+                a * b / ((a + b).r_powi(2) * (a + b + 1.0)),
             )
         },
         {
@@ -346,7 +347,7 @@ fn each_deviate_samples_its_own_distribution() {
             for i in 0..3 {
                 let (lo, hi) = (bounds[i], bounds[i + 1]);
                 mean += weights[i] / total * (lo + hi) / 2.0;
-                second += weights[i] / total * (hi.powi(3) - lo.powi(3)) / (3.0 * (hi - lo));
+                second += weights[i] / total * (hi.r_powi(3) - lo.r_powi(3)) / (3.0 * (hi - lo));
             }
             (
                 "histogram over three bins",
@@ -431,7 +432,7 @@ fn the_statistics_are_upstreams_formulas() {
         "sigma {} is not sqrt(2.5)",
         result.sigma
     );
-    assert!((result.error_factor - (1.96 * 2.5_f64.sqrt()).exp()).abs() < 1e-9);
+    assert!((result.error_factor - (1.96 * 2.5_f64.sqrt()).r_exp()).abs() < 1e-9);
     let half = 1.96 * 2.5_f64.sqrt() / 5.0_f64.sqrt();
     assert!((result.confidence_interval.0 - (3.0 - half)).abs() < 1e-12);
     assert!((result.confidence_interval.1 - (3.0 + half)).abs() < 1e-12);

@@ -120,6 +120,7 @@
 //! - T. Pöschel and T. Schwager, *Computational Granular Dynamics* (Springer,
 //!   2005) — settling / packing of granular assemblies.
 
+use petir::mathf::RealMath;
 use std::f64::consts::PI;
 
 use outram_park_fork_liggghts::boundary::Boundary;
@@ -183,7 +184,7 @@ const SETTLED_KE_THRESHOLD: f64 = 1.0e-4;
 /// Build one validated pebble at `position` (at rest), with mass fixed by the
 /// pebble radius and density.
 fn make_pebble(position: Vec3) -> Particle {
-    let volume = (4.0 / 3.0) * PI * PEBBLE_RADIUS.powi(3);
+    let volume = (4.0 / 3.0) * PI * PEBBLE_RADIUS.r_powi(3);
     let mass_kg = PEBBLE_DENSITY * volume;
     Particle::new(
         position,
@@ -276,7 +277,7 @@ fn main() {
     let particles = seed_lattice(n_layers);
     let n = particles.len();
     // Total solid volume of the pebbles [m^3] (all equal spheres).
-    let single_volume = (4.0 / 3.0) * PI * PEBBLE_RADIUS.powi(3);
+    let single_volume = (4.0 / 3.0) * PI * PEBBLE_RADIUS.r_powi(3);
     let total_pebble_volume = n as f64 * single_volume;
 
     let gravity = Vec3::new(0.0, 0.0, -9.81);

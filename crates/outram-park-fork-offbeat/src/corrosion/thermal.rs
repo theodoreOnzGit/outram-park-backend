@@ -50,6 +50,7 @@
 
 /// OpenFOAM's `SMALL`, used by upstream to keep the oxide resistance finite
 /// when the layer has zero thickness.
+use petir::mathf::RealMath;
 const SMALL: f64 = 1.0e-15;
 
 /// Constant term \[W/(m·K)\] of upstream's ZrO2 conductivity fit.
@@ -358,7 +359,7 @@ mod tests {
         // The recorded Arrhenius feedback factor at 100 um.
         let hot = oxide_thermal_coupling(surface, cell, 15.0, 5.0e-5, 1.0e-4);
         let speedup =
-            (16_266.103_059_581_319 * (1.0 / surface - 1.0 / hot.interface_temperature)).exp();
+            (16_266.103_059_581_319 * (1.0 / surface - 1.0 / hot.interface_temperature)).r_exp();
         assert!(
             (speedup - 2.3366).abs() < 1.0e-3,
             "recorded corrosion feedback drifted: {speedup}x"

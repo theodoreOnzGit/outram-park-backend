@@ -4,6 +4,7 @@
 //! **2.82e9 virtual collisions** — 18,801 per history — with every history
 //! exhausting its budget and leaking. This measures why, rather than guessing.
 
+use petir::mathf::RealMath;
 use nee_soon::htr10_rmc::reflector::zone_composition;
 use outram_mc_libs::material::material::{Material, NuclideComponent};
 use outram_mc_libs::material::nuclide::Nuclide;
@@ -99,7 +100,7 @@ fn main() {
     });
 
     let grid: Vec<f64> = (0..4096)
-        .map(|i| (1.0e-4_f64.ln() + (2.0e7_f64.ln() - 1.0e-4_f64.ln()) * i as f64 / 4095.0).exp())
+        .map(|i| (1.0e-4_f64.r_ln() + (2.0e7_f64.r_ln() - 1.0e-4_f64.r_ln()) * i as f64 / 4095.0).r_exp())
         .collect();
     let maj = Majorant::over_indices(&mats, &(0..=6).collect::<Vec<_>>(), &nucs, &grid, 0.3);
     // `OUTRAM_MAJORANT_AUDIT=1`: audit this majorant on the bed materials and stop (GitHub #589).

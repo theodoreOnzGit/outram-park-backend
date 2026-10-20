@@ -41,6 +41,7 @@
 //! kernel volume agrees within its 4-sigma band. The k values are not
 //! physics results (LOW tier, tiny runs).
 
+use petir::mathf::RealMath;
 use outram_mc_libs::geometry::cell::{Cell, CellFill, HalfSpaceSense, RegionToken};
 use outram_mc_libs::geometry::geometry::Geometry;
 use outram_mc_libs::geometry::lattice::{Lattice as CsgLattice, RectLattice};
@@ -65,8 +66,8 @@ const T: f64 = 293.6;
 /// A library of incident-neutron headers (masses only): enough to assemble.
 fn header_only_library() -> NuclearData {
     let endf = |x: f64| {
-        let e = x.abs().log10().floor() as i32;
-        format!("{:.6}{e:+}", x / 10f64.powi(e))
+        let e = x.abs().r_log10().floor() as i32;
+        format!("{:.6}{e:+}", x / 10f64.r_powi(e))
     };
     let tape = |za: f64, awr: f64| {
         format!(
@@ -281,7 +282,7 @@ fn model_with(shape: Shape) -> Model {
 /// HTR-10's packing fraction: 8335 particles of r = 0.0455 cm in a 2.5 cm
 /// fuel zone (`tests/cubic_triso_array.rs`, `TrisoSpec::HTR10_LI2014`).
 fn htr10_pf() -> f64 {
-    8335.0 * (0.0455_f64 / 2.5).powi(3)
+    8335.0 * (0.0455_f64 / 2.5).r_powi(3)
 }
 
 /// **Tutorial 4's geometry**: one TRISO particle in a reflective cube of
@@ -433,7 +434,7 @@ fn triso_lattice_lowers_to_a_hand_built_rect_lattice() {
     );
     assert!(census.rows[6].volume_each.get::<cubic_centimeter>().abs() < 1e-15);
     let total = census.total_volume().get::<cubic_centimeter>();
-    assert!((total / (27.0 * a.powi(3)) - 1.0).abs() < 1e-13);
+    assert!((total / (27.0 * a.r_powi(3)) - 1.0).abs() < 1e-13);
     let particle_v: f64 = census.rows[..5]
         .iter()
         .map(|r| r.volume().get::<cubic_centimeter>())
@@ -609,7 +610,7 @@ fn the_run_gives_the_same_k_and_diagnostics_on_any_number_of_threads() {
         "different random streams"
     );
     let z = (single.keff().mean - one.keff().mean)
-        / (single.keff().std.powi(2) + one.keff().std.powi(2)).sqrt();
+        / (single.keff().std.r_powi(2) + one.keff().std.r_powi(2)).sqrt();
     println!(
         "threads: k {} (any pool) vs {} (single thread), {z:+.2} sigma",
         one.keff(),

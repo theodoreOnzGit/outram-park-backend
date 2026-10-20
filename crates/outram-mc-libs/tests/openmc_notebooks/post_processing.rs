@@ -90,6 +90,7 @@
 //! the fuel-overlapping centre, so the asserted structure and symmetry properties
 //! are unaffected.
 
+use petir::mathf::RealMath;
 use outram_mc_libs::tally::filter::FilterKind;
 use outram_mc_libs::geometry::cell::{Cell, HalfSpaceSense, RegionToken};
 use outram_mc_libs::geometry::geometry::Geometry;
@@ -268,7 +269,7 @@ fn write_csv(rows: &[String]) {
 fn mean_std(xs: &[f64]) -> (f64, f64) {
     let n = xs.len() as f64;
     let mean = xs.iter().sum::<f64>() / n;
-    let var = xs.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / n;
+    let var = xs.iter().map(|x| (x - mean).r_powi(2)).sum::<f64>() / n;
     (mean, var.sqrt())
 }
 

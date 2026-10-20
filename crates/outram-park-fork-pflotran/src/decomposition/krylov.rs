@@ -29,6 +29,7 @@
 //! Newton solve on the real Jacobian, preconditioning, and 2-D/3-D (Cartesian) or
 //! unstructured partitioning remain follow-ups under op-57m.
 
+use petir::mathf::RealMath;
 use outram_park_mpi::{Communicator, MpiResult, ReduceOp};
 
 use super::Decomposition1D;
@@ -411,7 +412,7 @@ mod tests {
         let shift = 0.1_f64;
         let tol = 1e-10;
         // A smooth right-hand side.
-        let b: Vec<f64> = (0..n).map(|i| ((i as f64) * 0.3).sin() + 1.0).collect();
+        let b: Vec<f64> = (0..n).map(|i| ((i as f64) * 0.3).r_sin() + 1.0).collect();
         let (reference, _ref_iters) = serial_cg(n, &b, shift, tol, 1000);
 
         for p in [1, 2, 3, 4, 6, 8] {

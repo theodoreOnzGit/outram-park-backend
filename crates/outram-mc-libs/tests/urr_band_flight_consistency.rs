@@ -44,6 +44,7 @@
 //!
 //! All pass; the printed numbers are recorded on #407.
 
+use petir::mathf::RealMath;
 use outram_mc_libs::material::material::{urr_xi, Material, NuclideComponent};
 use outram_mc_libs::material::nuclide::Nuclide;
 use outram_mc_libs::rng::lcg::prn;
@@ -69,7 +70,7 @@ fn band_total_bound_and_macroscopic_total() {
     let mut checked = 0;
     for (k, nuc) in nucs.iter().enumerate() {
         for i in 0..40 {
-            let e = 2.3e3 * (1.4e5_f64 / 2.3e3).powf(i as f64 / 39.0);
+            let e = 2.3e3 * (1.4e5_f64 / 2.3e3).r_powf(i as f64 / 39.0);
             if !nuc.needs_urr_draw(e) {
                 continue;
             }

@@ -79,6 +79,7 @@
 //!     --example graphite_sab_angle_and_width_vs_njoy_thermr
 //! ```
 
+use petir::mathf::RealMath;
 use outram_mc_libs::material::thermal::ThermalScattering;
 
 const TEMP: f64 = 600.0;
@@ -148,8 +149,8 @@ fn main() {
             .iter()
             .filter(|(e, _)| (1.0e-3..=4.0).contains(e))
             .min_by(|a, b| {
-                ((a.0 / probe).ln().abs())
-                    .partial_cmp(&(b.0 / probe).ln().abs())
+                ((a.0 / probe).r_ln().abs())
+                    .partial_cmp(&(b.0 / probe).r_ln().abs())
                     .unwrap()
             })
         else {
@@ -214,8 +215,8 @@ fn main() {
             .iter()
             .filter(|(e, _)| (1.0e-3..=4.0).contains(e))
             .min_by(|a, b| {
-                ((a.0 / probe).ln().abs())
-                    .partial_cmp(&(b.0 / probe).ln().abs())
+                ((a.0 / probe).r_ln().abs())
+                    .partial_cmp(&(b.0 / probe).r_ln().abs())
                     .unwrap()
             })
         else {

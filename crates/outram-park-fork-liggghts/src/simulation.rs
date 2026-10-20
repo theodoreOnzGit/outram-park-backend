@@ -159,6 +159,7 @@
 //!   **159**, 98–103 (1967); W. C. Swope et al., *J. Chem. Phys.* **76**, 637
 //!   (1982) — the velocity-Verlet integrator used per particle.
 
+use petir::mathf::RealMath;
 use std::collections::HashMap;
 
 use crate::boundary::{Boundary, Contact};
@@ -785,9 +786,9 @@ mod tests {
                 for k in 0..5 {
                     // Deterministic, index-derived jitter (no RNG).
                     let idx = (i * 25 + j * 5 + k) as f64;
-                    let jx = 0.02 * (7.0 * idx + 3.0).sin();
-                    let jy = 0.02 * (11.0 * idx + 1.0).sin();
-                    let jz = 0.02 * (13.0 * idx + 5.0).sin();
+                    let jx = 0.02 * (7.0 * idx + 3.0).r_sin();
+                    let jy = 0.02 * (11.0 * idx + 1.0).r_sin();
+                    let jz = 0.02 * (13.0 * idx + 5.0).r_sin();
                     let pos = Vec3::new(
                         i as f64 * spacing + jx,
                         j as f64 * spacing + jy,

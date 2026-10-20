@@ -50,6 +50,7 @@
 //! Predictive inference with the jackknife+. *Annals of Statistics, 49*(1),
 //! 486–507. doi:10.1214/20-AOS1965
 
+use petir::mathf::RealMath;
 use super::PolynomialSurrogate;
 use crate::{RafflesError, Result};
 
@@ -148,7 +149,7 @@ impl LeaveOneOut {
                     reason: "every sigma must be strictly positive".into(),
                 });
             }
-            s += (r / sg).powi(2);
+            s += (r / sg).r_powi(2);
         }
         Ok(s / sigmas.len() as f64)
     }

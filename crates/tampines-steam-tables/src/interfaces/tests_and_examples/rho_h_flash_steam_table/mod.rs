@@ -96,6 +96,7 @@
 //! Both mechanisms are demonstrated by the `diagnostics` sub-module rather than
 //! asserted here.
 
+use petir::mathf::RealMath;
 use approx::assert_relative_eq;
 use uom::si::available_energy::kilojoule_per_kilogram;
 use uom::si::f64::*;
@@ -138,10 +139,10 @@ fn pressure_amplification_factor(p: Pressure, h: AvailableEnergy) -> f64 {
     let p_hi = Pressure::new::<pascal>(p_hi_raw);
     let p_lo = Pressure::new::<pascal>(p_lo_raw);
 
-    let ln_v_hi = v_ph_eqm(p_hi, h).get::<cubic_meter_per_kilogram>().ln();
-    let ln_v_lo = v_ph_eqm(p_lo, h).get::<cubic_meter_per_kilogram>().ln();
+    let ln_v_hi = v_ph_eqm(p_hi, h).get::<cubic_meter_per_kilogram>().r_ln();
+    let ln_v_lo = v_ph_eqm(p_lo, h).get::<cubic_meter_per_kilogram>().r_ln();
 
-    let d_ln_v_d_ln_p = (ln_v_hi - ln_v_lo) / (p_hi_raw.ln() - p_lo_raw.ln());
+    let d_ln_v_d_ln_p = (ln_v_hi - ln_v_lo) / (p_hi_raw.r_ln() - p_lo_raw.r_ln());
 
     if d_ln_v_d_ln_p == 0.0 {
         f64::INFINITY

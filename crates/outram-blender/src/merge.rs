@@ -35,6 +35,7 @@
 //!   [`crate::weld::weld`] / Blender's *Merge by Distance* and the operation
 //!   an **Auto-Merge** editor toggle runs after each edit.
 
+use petir::mathf::RealMath;
 use std::collections::HashMap;
 
 use crate::math::Vec3;
@@ -125,7 +126,7 @@ pub fn merge_by_distance(mesh: &Mesh, verts: &[VertexId], threshold: f64) -> Mes
     set.sort_unstable();
     set.dedup();
     let positions = mesh.positions();
-    let t2 = threshold.max(0.0).powi(2);
+    let t2 = threshold.max(0.0).r_powi(2);
 
     let mut remap: HashMap<usize, usize> = HashMap::new();
     for i in 0..set.len() {

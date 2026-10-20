@@ -51,6 +51,7 @@
 //! > Not for reactor operation, licensing, or safety-critical use. Independent
 //! > OUTRAM PARK work; not affiliated with the HTR-10 designers.
 
+use petir::mathf::RealMath;
 use crate::fill_holes::fill_holes;
 use crate::math::Vec3;
 use crate::mesh::Mesh;
@@ -269,7 +270,7 @@ mod tests {
     /// inscribed prism, so this is the reference the mesh must match to
     /// machine precision.
     fn inscribed_prism_volume(n: usize, r: f64, h: f64) -> f64 {
-        0.5 * (n as f64) * r * r * (TAU / n as f64).sin() * h
+        0.5 * (n as f64) * r * r * (TAU / n as f64).r_sin() * h
     }
 
     /// V&V — the default HTR-10 core envelope is a closed, watertight,

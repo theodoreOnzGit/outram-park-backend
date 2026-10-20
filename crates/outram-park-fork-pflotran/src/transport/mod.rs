@@ -61,6 +61,7 @@
 //! uses plain `f64` (not `uom`) because the solute field and its Krylov solve mix
 //! quantities of differing dimension; callers apply units at the case-setup layer.
 
+use petir::mathf::RealMath;
 use crate::error::PflotranError;
 use crate::grid::{Axis, BoundaryLocation, CartesianGrid};
 use outram_foam_basic_lib::krylov::{bicgstab, KrylovResult, KrylovSettings, Preconditioner};
@@ -653,7 +654,7 @@ mod tests {
         let dx: f64 = 0.02;
         let (v, d, length): (f64, f64, f64) = (1.0, 0.05, 1.0);
         let pe = v * length / d;
-        let exact = |x: f64| (pe.exp() - (pe * x / length).exp()) / (pe.exp() - 1.0);
+        let exact = |x: f64| (pe.r_exp() - (pe * x / length).r_exp()) / (pe.r_exp() - 1.0);
 
         let run = |limiter: FluxLimiter| -> Vec<f64> {
             let grid = grid_1d(n, dx);
@@ -860,7 +861,7 @@ mod tests {
         let mut max_err = 0.0_f64;
         for i in 0..n {
             let x = (i as f64 + 0.5) * dx;
-            let exact = (pe.exp() - (pe * x / l).exp()) / (pe.exp() - 1.0);
+            let exact = (pe.r_exp() - (pe * x / l).r_exp()) / (pe.r_exp() - 1.0);
             max_err = max_err.max((c[i] - exact).abs());
         }
         assert!(

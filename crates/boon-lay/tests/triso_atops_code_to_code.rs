@@ -148,6 +148,7 @@
 //! either matches measured fission-product release — that needs a public
 //! benchmark and is not claimed here.
 
+use petir::mathf::RealMath;
 use boon_lay::prelude::*;
 use boon_lay::triso_atops_fork::release_models::steady_state::{
     attenuation_factor, booth_longlived, booth_shortlived_fast_diffuse, breakthrough_model,
@@ -479,7 +480,7 @@ fn booth_transient_zero_floor_is_unreachable() {
     }
     assert!(n > 0, "no non-zero booth_transient fixture rows");
     // 6 / (pi^2 * N) for N = 5000.
-    let predicted = 6.0 / (core::f64::consts::PI.powi(2) * BOOTH_SERIES_TERMS as f64);
+    let predicted = 6.0 / (core::f64::consts::PI.r_powi(2) * BOOTH_SERIES_TERMS as f64);
     assert!(
         (min_nonzero - predicted).abs() / predicted < 1e-3,
         "series-truncation residual {min_nonzero:e} does not match the predicted          6/(pi^2 N) = {predicted:e}"

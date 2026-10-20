@@ -162,6 +162,7 @@
 //! a paired-seed ensemble — a single Godiva-scale run carries ~200 pcm of
 //! seed-to-seed spread, an order larger than the effect predicted above.
 
+use petir::mathf::RealMath;
 use njoy_outram_park_fork::nuclear_data::secondary::{ContinuumAngular, ContinuumEmission};
 use njoy_outram_park_fork::reference_data::reference_file_or_skip;
 use outram_mc_libs::geometry::position::Direction;
@@ -441,7 +442,7 @@ fn u238_continuum_angular_ablation_changes_angles_and_nothing_else() {
         );
 
         let (m_e, m_a) = (mean(&mu_eval), mean(&mu_abl));
-        let d_sem = (sem(&mu_eval).powi(2) + sem(&mu_abl).powi(2)).sqrt();
+        let d_sem = (sem(&mu_eval).r_powi(2) + sem(&mu_abl).r_powi(2)).sqrt();
         println!(
             "  {:>10.3e} {:>14.5} {:>14.5} {:>22} {:>10}",
             e_in,

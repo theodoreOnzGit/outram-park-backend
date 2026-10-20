@@ -38,6 +38,7 @@
 //! re-implementation; OUTRAM PARK fork relicenses under **GPL-3.0-only** (MIT is
 //! GPL-3.0-compatible).
 
+use petir::mathf::RealMath;
 use crate::matrix::BurnupMatrix;
 use num_complex::Complex64;
 
@@ -260,7 +261,7 @@ mod tests {
         let mut a = BurnupMatrix::zeros(1);
         a.set(0, 0, -1e-3);
         let n = cram16(&a, 500.0, &[1.0]).unwrap();
-        let reference = (-0.5f64).exp();
+        let reference = (-0.5f64).r_exp();
         assert!(
             (n[0] - reference).abs() < 1e-12,
             "got {}, ref {}",

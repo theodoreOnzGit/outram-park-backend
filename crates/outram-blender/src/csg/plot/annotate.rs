@@ -27,6 +27,7 @@
 //! and common punctuation; lower case is drawn as upper case) so no font file
 //! or text-rendering dependency is needed.
 
+use petir::mathf::RealMath;
 use super::colour::{Rgb, BLACK, WHITE};
 use super::image::ImageData;
 use super::slice::SlicePlot;
@@ -168,7 +169,7 @@ fn fill_rect(img: &mut ImageData, x0: usize, y0: usize, w: usize, h: usize, c: R
 /// outram-mc diagnostics line plots (gh #941).
 pub fn nice_step(span: f64, max_ticks: usize) -> f64 {
     let raw = span / max_ticks.max(1) as f64;
-    let mag = 10f64.powf(raw.log10().floor());
+    let mag = 10f64.r_powf(raw.r_log10().floor());
     for m in [1.0, 2.0, 5.0, 10.0] {
         if m * mag >= raw {
             return m * mag;
@@ -183,7 +184,7 @@ pub fn fmt_tick(v: f64, step: f64) -> String {
     let decimals = if step >= 1.0 {
         0
     } else {
-        (-step.log10().floor()) as usize
+        (-step.r_log10().floor()) as usize
     };
     let v = if v.abs() < step * 1e-9 { 0.0 } else { v };
     format!("{v:.decimals$}")

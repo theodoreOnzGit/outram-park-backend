@@ -12,6 +12,7 @@
 //! instead of sorting and painting 27 000 egui discs; the discs remain the
 //! fallback without a wgpu device.
 
+use petir::mathf::RealMath;
 use std::sync::{Arc, RwLock};
 
 use dhoby_ghaut::web_demo::link::NativeEngine;
@@ -110,8 +111,8 @@ impl DemView {
     }
 
     fn project(&self, p: [f32; 3]) -> (f32, f32, f32) {
-        let (cy, sy) = (self.yaw.cos(), self.yaw.sin());
-        let (cp, sp) = (self.pitch.cos(), self.pitch.sin());
+        let (cy, sy) = (self.yaw.r_cos(), self.yaw.r_sin());
+        let (cp, sp) = (self.pitch.r_cos(), self.pitch.r_sin());
         // Screen right, screen up, and depth toward the viewer.
         let x = -sy * p[0] + cy * p[1];
         let depth = cp * (cy * p[0] + sy * p[1]) + sp * p[2];
@@ -150,7 +151,7 @@ impl DemView {
         }
         if resp.hovered() {
             let (scroll, zoom) = ui.input(|i| (i.smooth_scroll_delta.y, i.zoom_delta()));
-            self.zoom = (self.zoom * zoom * (scroll * 0.002).exp()).clamp(0.3, 20.0);
+            self.zoom = (self.zoom * zoom * (scroll * 0.002).r_exp()).clamp(0.3, 20.0);
         }
         let painter = ui.painter_at(rect);
         painter.rect_filled(rect, 0.0, Color32::from_rgb(40, 40, 46));
@@ -183,7 +184,7 @@ impl DemView {
             // On the GPU: sphere impostors with a depth buffer, no sort.
             let ppp = ui.ctx().pixels_per_point();
             let size = [(rect.width() * ppp).round() as u32, (rect.height() * ppp).round() as u32];
-            let reach = (CORE_RADIUS_M as f32).hypot(zlo.abs().max(zhi.abs())) + r_m + 0.1;
+            let reach = (CORE_RADIUS_M as f32).r_hypot(zlo.abs().max(zhi.abs())) + r_m + 0.1;
             let cam = PebbleCamera {
                 yaw: self.yaw,
                 pitch: self.pitch,

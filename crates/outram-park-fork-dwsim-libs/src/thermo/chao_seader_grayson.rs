@@ -111,6 +111,7 @@
 
 #![forbid(unsafe_code)]
 
+use petir::mathf::RealMath;
 use crate::thermo::component::Component;
 
 /// Molar gas constant `R` [J/(mol·K)] — CODATA 2018.
@@ -325,11 +326,11 @@ pub fn pure_liquid_fugacity_coefficient(
         + a[4] * tr * tr * tr
         + (a[5] + a[6] * tr + a[7] * tr * tr) * pr
         + (a[8] + a[9] * tr) * pr * pr
-        - pr.log10();
+        - pr.r_log10();
     let log_v1 =
         -4.23893 + 8.65808 * tr - 1.2206 / tr - 3.15224 * tr * tr * tr - 0.025 * (pr - 0.6);
     let log_v = log_v0 + omega * log_v1;
-    Ok(10.0_f64.powf(log_v))
+    Ok(10.0_f64.r_powf(log_v))
 }
 
 /// Liquid-phase activity coefficients `gamma_i` [dimensionless] from the
@@ -393,7 +394,7 @@ pub fn liquid_activity_coefficients(
         .map(|sp| {
             let d = sp.solubility_parameter - delta_bar;
             let ln_gamma = sp.liquid_molar_volume * d * d / (R * t);
-            ln_gamma.exp()
+            ln_gamma.r_exp()
         })
         .collect())
 }
@@ -461,7 +462,7 @@ pub fn vapor_fugacity_coefficients(
         .iter()
         .map(|sp| {
             let c = &sp.component;
-            0.42748 * R * R * c.critical_temperature.powf(2.5) / (c.critical_pressure * t.sqrt())
+            0.42748 * R * R * c.critical_temperature.r_powf(2.5) / (c.critical_pressure * t.sqrt())
         })
         .collect();
     let bi: Vec<f64> = species
@@ -495,10 +496,10 @@ pub fn vapor_fugacity_coefficients(
     Ok((0..n)
         .map(|i| {
             let t1 = bi[i] * (zv - 1.0) / b_mix;
-            let t2 = -(zv - big_b).ln();
+            let t2 = -(zv - big_b).r_ln();
             let t3 = big_a / big_b * (bi[i] / b_mix - 2.0 * (ai[i] / a_mix).sqrt());
-            let t4 = ((zv + big_b) / zv).ln();
-            (t1 + t2 + t3 * t4).exp()
+            let t4 = ((zv + big_b) / zv).r_ln();
+            (t1 + t2 + t3 * t4).r_exp()
         })
         .collect())
 }
@@ -575,16 +576,16 @@ fn real_cubic_roots(c2: f64, c1: f64, c0: f64) -> Vec<f64> {
     let mut roots = Vec::with_capacity(3);
     if disc > 0.0 {
         let sqrt_disc = disc.sqrt();
-        let u = (-half_q + sqrt_disc).cbrt();
-        let v = (-half_q - sqrt_disc).cbrt();
+        let u = (-half_q + sqrt_disc).r_cbrt();
+        let v = (-half_q - sqrt_disc).r_cbrt();
         roots.push(u + v - shift);
     } else if p.abs() < 1e-300 {
         roots.push(-shift);
     } else {
         let m = 2.0 * (-third_p).sqrt();
-        let theta = (3.0 * q / (p * m)).clamp(-1.0, 1.0).acos() / 3.0;
+        let theta = (3.0 * q / (p * m)).clamp(-1.0, 1.0).r_acos() / 3.0;
         for k in 0..3 {
-            let t = m * (theta - 2.0 * std::f64::consts::PI * f64::from(k) / 3.0).cos();
+            let t = m * (theta - 2.0 * std::f64::consts::PI * f64::from(k) / 3.0).r_cos();
             roots.push(t - shift);
         }
     }
@@ -716,12 +717,12 @@ mod tests {
         let log_v0 = a[0]
             + a[1] / tr
             + a[2] * tr
-            + a[3] * tr.powi(2)
-            + a[4] * tr.powi(3)
-            + (a[5] + a[6] * tr + a[7] * tr.powi(2)) * pr
-            + (a[8] + a[9] * tr) * pr.powi(2)
-            - pr.log10();
-        let expected = 10.0_f64.powf(log_v0);
+            + a[3] * tr.r_powi(2)
+            + a[4] * tr.r_powi(3)
+            + (a[5] + a[6] * tr + a[7] * tr.r_powi(2)) * pr
+            + (a[8] + a[9] * tr) * pr.r_powi(2)
+            - pr.r_log10();
+        let expected = 10.0_f64.r_powf(log_v0);
         assert!(
             (nu0 - expected).abs() < 1e-9,
             "nu0={nu0} expected={expected}"

@@ -174,6 +174,7 @@
 //! — against closed-form limits of the model and against internal consistency
 //! conditions — not validation. See `RESPONSIBLE_USE.md`.
 
+use petir::mathf::RealMath;
 use outram_foam_basic_lib::primitives::SymmTensor;
 
 use crate::error::{OffbeatError, Result};
@@ -805,7 +806,7 @@ impl ChabocheLaw {
     #[must_use]
     pub fn kinematic_moduli(self, p: f64) -> (f64, f64) {
         let m = self.parameters();
-        let factor = 1.0 + (m.k - 1.0) * (-m.w * p).exp();
+        let factor = 1.0 + (m.k - 1.0) * (-m.w * p).r_exp();
         let c2 = if self.back_stress_count() == 2 {
             m.c2_asymptotic
         } else {
@@ -821,7 +822,7 @@ impl ChabocheLaw {
     #[must_use]
     pub fn recovery_coefficients(self, p: f64) -> (f64, f64) {
         let m = self.parameters();
-        let factor = m.a_asymptotic + (1.0 - m.a_asymptotic) * (-m.b * p).exp();
+        let factor = m.a_asymptotic + (1.0 - m.a_asymptotic) * (-m.b * p).r_exp();
         let g2 = if self.back_stress_count() == 2 {
             m.gamma2_initial
         } else {
@@ -841,7 +842,7 @@ impl ChabocheLaw {
     #[must_use]
     pub fn isotropic_radius(self, p: f64) -> f64 {
         let m = self.parameters();
-        m.r_asymptotic + (m.r0 - m.r_asymptotic) * (-m.b * p).exp()
+        m.r_asymptotic + (m.r0 - m.r_asymptotic) * (-m.b * p).r_exp()
     }
 
     /// The yield radius at the start of a step, for either kind of variant.
@@ -1031,7 +1032,7 @@ impl ChabocheLaw {
                 + modulus2 * non_radial2)
                 * dp;
         if self.is_rate_dependent() && predictor.dt > 0.0 {
-            resisting += m.viscous_stress * (dp / predictor.dt).powf(1.0 / m.viscous_exponent);
+            resisting += m.viscous_stress * (dp / predictor.dt).r_powf(1.0 / m.viscous_exponent);
         }
 
         let raw = resisting - effective_equivalent;
@@ -1098,7 +1099,7 @@ impl ChabocheLaw {
         let memory_centre = state.memory.memory_centre + centre_shift;
 
         let saturation =
-            m.memory_qm + (m.memory_q0 - m.memory_qm) * (-2.0 * m.memory_mu * memory_radius).exp();
+            m.memory_qm + (m.memory_q0 - m.memory_qm) * (-2.0 * m.memory_mu * memory_radius).r_exp();
         let previous = state.memory.isotropic_increment;
         let isotropic_increment = previous + m.b * (saturation - previous) * dp / (1.0 + m.b * dp);
 
@@ -1254,7 +1255,7 @@ impl ChabocheLaw {
         let mut upper = predictor.yield_function / (1.5 * predictor.twice_shear_modulus + c1 + c2);
         if self.is_rate_dependent() && predictor.dt > 0.0 && m.viscous_stress > 0.0 {
             let norton = predictor.dt
-                * (predictor.yield_function / m.viscous_stress).powf(m.viscous_exponent);
+                * (predictor.yield_function / m.viscous_stress).r_powf(m.viscous_exponent);
             if norton < 1.0 {
                 upper = upper.max(norton);
             }

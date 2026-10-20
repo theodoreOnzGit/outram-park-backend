@@ -1,3 +1,4 @@
+use petir::mathf::RealMath;
 use outram_mc_libs::rng::lcg::prn;
 use std::f64::consts::PI;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -11,14 +12,14 @@ fn random_point_in_spherical_shell(r_in: f64, r_out: f64, seed: &mut u64) -> (f6
     let u: f64 = prn(seed);
     let r_in3 = r_in * r_in * r_in;
     let r_out3 = r_out * r_out * r_out;
-    let rho = (u * (r_out3 - r_in3) + r_in3).cbrt();
+    let rho = (u * (r_out3 - r_in3) + r_in3).r_cbrt();
 
     // Sample direction uniformly on the sphere.
     let z: f64 = prn(seed) * 2.0 - 1.0;
     let phi: f64 = prn(seed) * 2.0 * PI;
     let t = (1.0 - z * z).max(0.0).sqrt();
-    let x = t * phi.cos();
-    let y = t * phi.sin();
+    let x = t * phi.r_cos();
+    let y = t * phi.r_sin();
 
     (rho * x, rho * y, rho * z)
 }

@@ -33,6 +33,7 @@
 //! benchmark — the same gap the coverage survey records as the project's
 //! largest.
 
+use petir::mathf::RealMath;
 use njoy_outram_park_fork::reference_data::reference_endf_or_skip;
 use outram_mc_libs::geometry::position::Direction;
 use outram_mc_libs::material::nuclide::Nuclide;
@@ -129,7 +130,7 @@ fn without_dbrc_the_kernel_is_bit_identical_and_consumes_the_same_draws() {
     let awr = 236.0058;
     let mut n = 0usize;
     for i in 0..4096u64 {
-        let e = 1.0e-2 * 10f64.powf((i % 64) as f64 / 12.0);
+        let e = 1.0e-2 * 10f64.r_powf((i % 64) as f64 / 12.0);
         let seed0 = 0xDB4C_0000u64.wrapping_add(i.wrapping_mul(0x9E37_79B9_7F4A_7C15));
         let (mut sa, mut sb) = (seed0, seed0);
         let a = free_gas_elastic_scatter(e, u, awr, KT, 0.3, &mut sa);

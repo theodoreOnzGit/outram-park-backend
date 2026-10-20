@@ -31,6 +31,7 @@
 //!
 //! Printed by the test and recorded in the #365 thread.
 
+use petir::mathf::RealMath;
 use outram_mc_libs::material::thermal::ThermalScattering;
 use std::path::PathBuf;
 
@@ -64,7 +65,7 @@ fn incoherent_elastic_cosines_match_openmc() {
             .collect();
         let stat = |g: &dyn Fn(f64) -> f64| {
             let m = mus.iter().map(|&x| g(x)).sum::<f64>() / N as f64;
-            let var = mus.iter().map(|&x| (g(x) - m).powi(2)).sum::<f64>() / (N - 1) as f64;
+            let var = mus.iter().map(|&x| (g(x) - m).r_powi(2)).sum::<f64>() / (N - 1) as f64;
             (m, (var / N as f64).sqrt())
         };
         let (m1, s1) = stat(&|x| x);

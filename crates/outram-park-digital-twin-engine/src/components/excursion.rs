@@ -102,6 +102,7 @@
 //! **The on-screen ramp is a presentation constant and is not a release rate.**
 //! See [`RELEASE_RAMP_SECONDS`].
 
+use petir::mathf::RealMath;
 use crate::htr10::design::{generic_coated_particle_retention_limit, Htr10FuelTemperatureLimits};
 use egui::{Align2, Color32, FontId, Painter, Pos2, Rect, Response, Sense};
 use egui::{Stroke, StrokeKind, Ui, Vec2, Widget};
@@ -520,7 +521,7 @@ pub fn banner_pulse(elapsed: Time) -> f32 {
         return 1.0;
     }
     let phase = (seconds * BANNER_PULSE_HZ) as f32;
-    0.5 + 0.5 * (phase * TAU).sin()
+    0.5 + 0.5 * (phase * TAU).r_sin()
 }
 
 // ── Deterministic scatter ───────────────────────────────────────────────────
@@ -801,7 +802,7 @@ impl ExcursionOverlay {
         let intensity = self.intensity();
         let phase = self.phase();
         let centre = rect.center();
-        let reach = 0.5 * rect.width().hypot(rect.height());
+        let reach = 0.5 * rect.width().r_hypot(rect.height());
 
         // ── Shroud over the vessel ─────────────────────────────────────────
         //
@@ -880,8 +881,8 @@ impl ExcursionOverlay {
                 let radius = fuel_radius + drift * 0.75 + reach * 0.05;
                 painter.text(
                     Pos2::new(
-                        centre.x + radius * angle.cos(),
-                        centre.y + radius * angle.sin() - reach * 0.04,
+                        centre.x + radius * angle.r_cos(),
+                        centre.y + radius * angle.r_sin() - reach * 0.04,
                     ),
                     Align2::CENTER_CENTER,
                     species.symbol,

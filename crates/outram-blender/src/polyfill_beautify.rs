@@ -87,6 +87,7 @@
 //!    disagree both answers are equally good by the cost measure.
 //! 4. **Indices, not pointers.** Required by the workspace no-lifetimes rule.
 
+use petir::mathf::RealMath;
 use crate::math::Vec3;
 
 /// Upstream's sentinel for "no such half-edge" (`UINT_MAX`).
@@ -719,7 +720,7 @@ mod tests {
         let coords: Vec<[f64; 2]> = (0..n)
             .map(|i| {
                 let t = std::f64::consts::TAU * (i as f64) / (n as f64);
-                [t.cos(), t.sin()]
+                [t.r_cos(), t.r_sin()]
             })
             .collect();
         let mut tris = polyfill_2d(&coords);

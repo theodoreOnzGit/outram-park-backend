@@ -14,6 +14,7 @@
 //! Every number quoted in a doc comment below was printed by the test that
 //! quotes it and transcribed. None is predicted.
 
+use petir::mathf::RealMath;
 use super::*;
 use crate::rheology::aster::integration::{brent, SolverControl};
 use approx::assert_relative_eq;
@@ -282,7 +283,7 @@ fn westergaard_gradient_is_the_derivative_of_its_displacement() {
 
     let sample = |mode: CrackOpeningMode, x: f64, y: f64| {
         let r = (x * x + y * y).sqrt();
-        let t = y.atan2(x);
+        let t = y.r_atan2(x);
         westergaard_unit_field(mode, r, t, m, state)
             .unwrap()
             .displacement
@@ -296,7 +297,7 @@ fn westergaard_gradient_is_the_derivative_of_its_displacement() {
         let analytic = westergaard_unit_field(mode, r0, t0, m, state)
             .unwrap()
             .gradient;
-        let (x0, y0) = (r0 * t0.cos(), r0 * t0.sin());
+        let (x0, y0) = (r0 * t0.r_cos(), r0 * t0.r_sin());
 
         let dx = sample(mode, x0 + h, y0) - sample(mode, x0 - h, y0);
         let dy = sample(mode, x0, y0 + h) - sample(mode, x0, y0 - h);
@@ -592,7 +593,7 @@ fn kink_angle_reproduces_its_published_limits() {
         println!("{name}: {v:.16e} rad = {:.14} deg", v.to_degrees());
     }
 
-    let exact_ii = -(1.0_f64 / 3.0).acos();
+    let exact_ii = -(1.0_f64 / 3.0).r_acos();
     println!("-arccos(1/3) = {exact_ii:.16e} rad");
     assert_eq!(pure_i, 0.0);
     assert_relative_eq!(pure_ii, exact_ii, max_relative = 1e-12);
@@ -642,7 +643,7 @@ fn kink_angle_is_the_maximum_of_the_hoop_stress() {
         let closed = max_hoop_stress_kink_angle(k1, k2).unwrap();
 
         // d(sigma_tt)/d(theta) = 0, up to a positive factor.
-        let stationarity = |t: f64| k1 * t.sin() + k2 * (3.0 * t.cos() - 1.0);
+        let stationarity = |t: f64| k1 * t.r_sin() + k2 * (3.0 * t.r_cos() - 1.0);
         let solution = brent(stationarity, (-PI, 0.0), &control).unwrap();
 
         println!(
@@ -723,12 +724,12 @@ fn rationalised_kink_angle_agrees_with_the_upstream_literal_expression() {
         }
         let ratio = k1 / k2;
         let sign = if k2 >= 0.0 { 1.0 } else { -1.0 };
-        Some(2.0 * (0.25 * (ratio - sign * (ratio * ratio + 8.0).sqrt())).atan2(1.0))
+        Some(2.0 * (0.25 * (ratio - sign * (ratio * ratio + 8.0).sqrt())).r_atan2(1.0))
     }
 
     let k1 = 1.0;
     for exponent in 0..8 {
-        let k2 = 10.0_f64.powi(-exponent);
+        let k2 = 10.0_f64.r_powi(-exponent);
         let ported = max_hoop_stress_kink_angle(k1, k2).unwrap();
         let literal = upstream_literal(k1, k2).unwrap();
         println!(
@@ -752,7 +753,7 @@ fn rationalised_kink_angle_agrees_with_the_upstream_literal_expression() {
         step_tol: 1.0e-20,
     };
     let reference = brent(
-        |t: f64| k1 * t.sin() + k2 * (3.0 * t.cos() - 1.0),
+        |t: f64| k1 * t.r_sin() + k2 * (3.0 * t.r_cos() - 1.0),
         (-1.0e-3, 0.0),
         &tight,
     )
@@ -850,7 +851,7 @@ fn kink_angle_refuses_a_closed_crack_in_pure_compression() {
 #[test]
 fn planar_crack_tip_frame_matches_the_upstream_rotation() {
     let angle = PI / 6.0;
-    let dir = Vector3::new(angle.cos(), angle.sin(), 0.0);
+    let dir = Vector3::new(angle.r_cos(), angle.r_sin(), 0.0);
     let basis = CrackTipBasis::from_propagation_direction_2d(dir).unwrap();
 
     let (p, n, t) = (
@@ -914,7 +915,7 @@ fn three_dimensional_frame_orthogonalises_and_round_trips() {
     let tangent = Vector3::new(0.0, 0.0, 1.0);
     let tilt = 5.0_f64.to_radians();
     // A normal that is 5 degrees away from perpendicular to the front.
-    let normal = Vector3::new(0.0, tilt.cos(), tilt.sin());
+    let normal = Vector3::new(0.0, tilt.r_cos(), tilt.r_sin());
 
     let basis = CrackTipBasis::from_front_tangent_and_normal(tangent, normal).unwrap();
     let (p, n, t) = (
@@ -997,7 +998,7 @@ fn rotating_the_field_rotates_its_stress() {
 
     let angle = 37.0_f64.to_radians();
     let basis =
-        CrackTipBasis::from_propagation_direction_2d(Vector3::new(angle.cos(), angle.sin(), 0.0))
+        CrackTipBasis::from_propagation_direction_2d(Vector3::new(angle.r_cos(), angle.r_sin(), 0.0))
             .unwrap();
     let global_field = basis.field_to_global(field);
     let sigma_global = near_tip_stress(global_field, m, state);

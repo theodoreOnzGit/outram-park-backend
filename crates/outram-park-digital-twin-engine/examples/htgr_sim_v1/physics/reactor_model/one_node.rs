@@ -211,6 +211,7 @@
 // has a caller inside this example yet.
 #![allow(dead_code)]
 
+use petir::mathf::RealMath;
 use outram_park_digital_twin_engine::htr10::design::Htr10DesignPoint;
 use outram_park_digital_twin_engine::htr10::zbs::zbs_effective_conductivity;
 use uom::si::area::square_meter;
@@ -606,7 +607,7 @@ pub fn conduction_only_axial_heat_rate(
 /// the correlation degrades gracefully to pure conduction as the flow stops --
 /// which is what keeps a tripped circulator physical rather than adiabatic.
 pub fn wakao_nusselt(reynolds: f64, prandtl: f64) -> f64 {
-    2.0 + 1.1 * reynolds.max(0.0).powf(HTC_FLOW_EXPONENT) * prandtl.max(0.0).cbrt()
+    2.0 + 1.1 * reynolds.max(0.0).r_powf(HTC_FLOW_EXPONENT) * prandtl.max(0.0).r_cbrt()
 }
 
 /// The published HTR-10 fuel element, resolved: a fuelled zone of 5.0 cm
@@ -2454,7 +2455,7 @@ mod tests {
         let t = ThermodynamicTemperature::new::<kelvin>(950.0);
         let c = fuel_node_heat_capacity(t).get::<joule_per_kelvin>();
         let n = 8335.0 * 27_000.0;
-        let v = |a: f64, b: f64| 4.0 / 3.0 * PI * (b.powi(3) - a.powi(3));
+        let v = |a: f64, b: f64| 4.0 / 3.0 * PI * (b.r_powi(3) - a.r_powi(3));
         let cp_uo2 = HeatCapacityModel::MatproUo2.value(&MaterialState::fresh(950.0));
         let cp_sic = HeatCapacityModel::SneadSiC.value(&MaterialState::fresh(950.0));
         let cp_c = graphite_specific_heat(t).get::<joule_per_kilogram_kelvin>();

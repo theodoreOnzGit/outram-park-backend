@@ -64,6 +64,7 @@
 ///
 /// Returns the force in newtons. The sign convention is the upstream's: the
 /// restoring force opposes the displacement.
+use petir::mathf::RealMath;
 pub fn spring_force(stiffness: f64, displacement: f64) -> f64 {
     -stiffness * displacement
 }
@@ -120,7 +121,7 @@ pub fn two_by_two_eigenvalues(theta: &[f64]) -> (f64, f64) {
 pub fn eigenvalue_partner(theta: &[f64]) -> Option<Vec<f64>> {
     let (lambda_1, lambda_2) = two_by_two_eigenvalues(theta);
     let s = lambda_1 + lambda_2;
-    let d_squared = (lambda_1 - lambda_2).powi(2);
+    let d_squared = (lambda_1 - lambda_2).r_powi(2);
 
     // Substituting t1 = s - 2 t2 into t1^2 + 4 t2^2 = d^2 gives
     //   8 t2^2 - 4 s t2 + (s^2 - d^2) = 0.
@@ -272,7 +273,7 @@ mod tests {
         .unwrap();
         let ln_likelihood = move |theta: &[f64]| {
             let (m1, m2) = two_by_two_eigenvalues(theta);
-            -0.5 * ((l1 - m1).powi(2) + (l2 - m2).powi(2)) / (sigma * sigma)
+            -0.5 * ((l1 - m1).r_powi(2) + (l2 - m2).r_powi(2)) / (sigma * sigma)
         };
 
         let config = TransitionalConfig::temcmc_defaults(4_000, 20_260_916).unwrap();
@@ -282,7 +283,7 @@ mod tests {
             result
                 .samples
                 .iter()
-                .filter(|s| ((s[0] - centre[0]).powi(2) + (s[1] - centre[1]).powi(2)).sqrt() < 0.15)
+                .filter(|s| ((s[0] - centre[0]).r_powi(2) + (s[1] - centre[1]).r_powi(2)).sqrt() < 0.15)
                 .count() as f64
                 / result.samples.len() as f64
         };

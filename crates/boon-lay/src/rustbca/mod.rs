@@ -75,7 +75,7 @@
 //! `ln`, `powf`, `powi`, `sin`, `cos`, `sin_cos`, `acos`, `atan2`, `cbrt`) is
 //! written `Real::f(x, …)`, with [`petir::real::Real`] — the workspace's one
 //! `no_std` float shim, not a second one. Method syntax is NOT enough in a
-//! `std` crate: `x.exp()` resolves to `f64`'s inherent `std` method before any
+//! `std` crate: `x.r_exp()` resolves to `f64`'s inherent `std` method before any
 //! trait method, so it would silently go to the platform libm on native
 //! builds. The fully-qualified form routes to `libm` in both builds, so a
 //! cascade is bit-identical native and wasm. `sqrt`, `abs`, `floor` and the
@@ -167,6 +167,7 @@
 #![allow(unused_parens, clippy::all)]
 
 // --- imports, as upstream lib.rs, with std replaced by core/alloc ----------
+use petir::mathf::RealMath;
 use core::fmt;
 use core::mem::discriminant;
 

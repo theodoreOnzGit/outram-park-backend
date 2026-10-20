@@ -20,6 +20,7 @@
 //!     --example dump_xs_for_openmc_compare > ours.csv
 //! ```
 
+use petir::mathf::RealMath;
 #[cfg(target_os = "android")]
 fn main() {
     eprintln!("dump_xs_for_openmc_compare is desktop-only (reads reference-data/endf/).");
@@ -49,7 +50,7 @@ mod desktop {
     fn grid() -> Vec<f64> {
         let (lo, hi, n) = (1.0e-4_f64, 1.9e7_f64, 2000usize);
         (0..=n)
-            .map(|i| lo * (hi / lo).powf(i as f64 / n as f64))
+            .map(|i| lo * (hi / lo).r_powf(i as f64 / n as f64))
             .collect()
     }
 

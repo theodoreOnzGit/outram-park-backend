@@ -1,3 +1,4 @@
+use petir::mathf::RealMath;
 use uom::si::f64::*;
 use uom::si::ratio::ratio;
 
@@ -51,7 +52,7 @@ use uom::si::ratio::ratio;
 ///
 pub fn nusselt_ciet_heater_v1_0(reynolds_number: f64) -> f64 {
     if reynolds_number >= 2000_f64 {
-        return 5.44 + 0.034 * reynolds_number.powf(0.82);
+        return 5.44 + 0.034 * reynolds_number.r_powf(0.82);
     }
 
     return 8.0;
@@ -99,7 +100,7 @@ pub fn nusselt_ciet_heater_v1_0(reynolds_number: f64) -> f64 {
 /// let Re = 10000_f64;
 /// let Pr = 17_f64;
 ///
-/// let heating_ref_nu = 0.023 * Re.powf(0.8) * Pr.powf(0.4);
+/// let heating_ref_nu = 0.023 * Re.r_powf(0.8) * Pr.r_powf(0.4);
 ///
 /// let heating_test_bool = true;
 ///
@@ -112,7 +113,7 @@ pub fn nusselt_ciet_heater_v1_0(reynolds_number: f64) -> f64 {
 /// // here we have an example for cooling
 /// // Re = 10000, Pr = 17
 ///
-/// let cooling_ref_nu = 0.023 * Re.powf(0.8) * Pr.powf(0.3);
+/// let cooling_ref_nu = 0.023 * Re.r_powf(0.8) * Pr.r_powf(0.3);
 ///
 /// let cooling_test_bool = false;
 ///
@@ -134,10 +135,10 @@ pub fn nusselt_ciet_heater_v1_0(reynolds_number: f64) -> f64 {
 ///
 pub fn dittus_boelter_correlation(reynolds_number: f64, prandtl_number: f64, heating: bool) -> f64 {
     if heating == true {
-        let nusselt_number = 0.023 * reynolds_number.powf(0.8) * prandtl_number.powf(0.4);
+        let nusselt_number = 0.023 * reynolds_number.r_powf(0.8) * prandtl_number.r_powf(0.4);
         return nusselt_number;
     } else {
-        let nusselt_number = 0.023 * reynolds_number.powf(0.8) * prandtl_number.powf(0.3);
+        let nusselt_number = 0.023 * reynolds_number.r_powf(0.8) * prandtl_number.r_powf(0.3);
         return nusselt_number;
     }
 }
@@ -205,9 +206,9 @@ pub fn dittus_boelter_correlation(reynolds_number: f64, prandtl_number: f64, hea
 ///
 /// let viscosity_ratio = 5.0_f64;
 ///
-/// let nu_f_reference = 0.027 * Re.powf(0.8)
-/// * Pr.powf(1.0/3.0) *
-/// viscosity_ratio.powf(0.14);
+/// let nu_f_reference = 0.027 * Re.r_powf(0.8)
+/// * Pr.r_powf(1.0/3.0) *
+/// viscosity_ratio.r_powf(0.14);
 ///
 /// let test_nu = pipe_correlations::sieder_tate_correlation(
 /// Re, Pr, viscosity_ratio);
@@ -256,9 +257,9 @@ pub fn sieder_tate_correlation(
     }
 
     let nusselt_number_f = 0.027
-        * reynolds_number.powf(0.8)
-        * prandtl_number.powf(0.33333333333)
-        * viscosity_ratio_fluid_over_wall.powf(0.14);
+        * reynolds_number.r_powf(0.8)
+        * prandtl_number.r_powf(0.33333333333)
+        * viscosity_ratio_fluid_over_wall.r_powf(0.14);
 
     return nusselt_number_f;
 }
@@ -290,9 +291,9 @@ pub fn sieder_tate_correlation(
 /// let darcy_ratio: f64 = darcy_friction_factor/8.0;
 ///
 /// let numerator: f64 = darcy_ratio * (Re - 1000_f64) * Pr_fluid *
-///     prandtl_ratio.powf(0.11);
-/// let denominator:f64 = 1_f64 + 12.7_f64 * darcy_ratio.powf(0.5) *
-///     (Pr_fluid.powf(2.0/3.0) - 1.0);
+///     prandtl_ratio.r_powf(0.11);
+/// let denominator:f64 = 1_f64 + 12.7_f64 * darcy_ratio.r_powf(0.5) *
+///     (Pr_fluid.r_powf(2.0/3.0) - 1.0);
 ///
 ///
 ///
@@ -352,9 +353,9 @@ pub fn gnielinski_correlation_liquids_fully_developed(
     let numerator: f64 = darcy_ratio
         * (reynolds_number - 1000_f64)
         * prandtl_number_bulk_fluid
-        * prandtl_ratio.powf(0.11);
+        * prandtl_ratio.r_powf(0.11);
     let denominator: f64 =
-        1_f64 + 12.7_f64 * darcy_ratio.powf(0.5) * (prandtl_number_bulk_fluid.powf(0.666667) - 1.0);
+        1_f64 + 12.7_f64 * darcy_ratio.r_powf(0.5) * (prandtl_number_bulk_fluid.r_powf(0.666667) - 1.0);
 
     let fluid_nusselt_number = numerator / denominator;
 
@@ -530,19 +531,19 @@ pub fn laminar_nusselt_uniform_wall_temperature_developing(
         );
     }
 
-    let diameter_to_length_ratio = length_to_diameter_ratio.powf(-1.0);
+    let diameter_to_length_ratio = length_to_diameter_ratio.r_powf(-1.0);
 
     let term_1: f64 = 3.66;
     let term_2: f64 = 1.615
-        * (reynolds_number * prandtl_number * diameter_to_length_ratio).powf(0.3333333333)
+        * (reynolds_number * prandtl_number * diameter_to_length_ratio).r_powf(0.3333333333)
         - 0.7;
 
-    let term_3: f64 = (reynolds_number * prandtl_number * diameter_to_length_ratio).powf(0.5)
-        * (2.0 / (1.0 + 22.0 * prandtl_number)).powf(0.166666666666666667);
+    let term_3: f64 = (reynolds_number * prandtl_number * diameter_to_length_ratio).r_powf(0.5)
+        * (2.0 / (1.0 + 22.0 * prandtl_number)).r_powf(0.166666666666666667);
 
     let nusselt_number =
-        (term_1.powf(3.0) + 0.7_f64.powf(3.0) + term_2.powf(3.0) + term_3.powf(3.0))
-            .powf(0.33333333333333);
+        (term_1.r_powf(3.0) + 0.7_f64.r_powf(3.0) + term_2.r_powf(3.0) + term_3.r_powf(3.0))
+            .r_powf(0.33333333333333);
 
     return nusselt_number;
 }
@@ -737,20 +738,20 @@ pub fn laminar_nusselt_uniform_heat_flux_developing(
         );
     }
 
-    let diameter_to_length_ratio = length_to_diameter_ratio.powf(-1.0);
+    let diameter_to_length_ratio = length_to_diameter_ratio.r_powf(-1.0);
 
     let term_1: f64 = 4.354;
     let term_2: f64 = 1.953
-        * (reynolds_number * prandtl_number * diameter_to_length_ratio).powf(0.3333333333)
+        * (reynolds_number * prandtl_number * diameter_to_length_ratio).r_powf(0.3333333333)
         - 0.6;
 
     let term_3: f64 = 0.924
-        * (reynolds_number * prandtl_number * diameter_to_length_ratio).powf(0.5)
-        * (prandtl_number).powf(-0.166666666666666667);
+        * (reynolds_number * prandtl_number * diameter_to_length_ratio).r_powf(0.5)
+        * (prandtl_number).r_powf(-0.166666666666666667);
 
     let nusselt_number =
-        (term_1.powf(3.0) + 0.6_f64.powf(3.0) + term_2.powf(3.0) + term_3.powf(3.0))
-            .powf(0.33333333333333);
+        (term_1.r_powf(3.0) + 0.6_f64.r_powf(3.0) + term_2.r_powf(3.0) + term_3.r_powf(3.0))
+            .r_powf(0.33333333333333);
 
     return nusselt_number;
 }
@@ -861,7 +862,7 @@ pub fn gnielinski_turbulent_correlation_liquids_developing_bulk_fluid_prandtl(
 
     let prandtl_ratio: f64 = prandtl_number_bulk_fluid / prandtl_number_wall;
 
-    let entrance_region_correction: f64 = 1.0 + length_to_diameter_ratio.powf(-0.6666666667);
+    let entrance_region_correction: f64 = 1.0 + length_to_diameter_ratio.r_powf(-0.6666666667);
 
     // now we start calculating
     let darcy_ratio: f64 = darcy_friction_factor / 8.0;
@@ -869,9 +870,9 @@ pub fn gnielinski_turbulent_correlation_liquids_developing_bulk_fluid_prandtl(
     let numerator: f64 = darcy_ratio
         * (reynolds_number - 1000_f64)
         * prandtl_number_bulk_fluid
-        * prandtl_ratio.powf(0.11);
+        * prandtl_ratio.r_powf(0.11);
     let denominator: f64 =
-        1_f64 + 12.7_f64 * darcy_ratio.powf(0.5) * (prandtl_number_bulk_fluid.powf(0.666667) - 1.0);
+        1_f64 + 12.7_f64 * darcy_ratio.r_powf(0.5) * (prandtl_number_bulk_fluid.r_powf(0.666667) - 1.0);
 
     let fluid_nusselt_number = numerator / denominator * entrance_region_correction;
 
@@ -948,7 +949,7 @@ pub fn gnielinski_turbulent_correlation_liquids_developing(
 
     let prandtl_ratio: f64 = prandtl_number_bulk_fluid / prandtl_number_wall;
 
-    let entrance_region_correction: f64 = 1.0 + length_to_diameter_ratio.powf(-0.6666666667);
+    let entrance_region_correction: f64 = 1.0 + length_to_diameter_ratio.r_powf(-0.6666666667);
 
     // now we start calculating
     let darcy_ratio: f64 = darcy_friction_factor / 8.0;
@@ -956,9 +957,9 @@ pub fn gnielinski_turbulent_correlation_liquids_developing(
     let numerator: f64 = darcy_ratio
         * (reynolds_number_film - 1000_f64)
         * prandtl_number_film
-        * prandtl_ratio.powf(0.11);
+        * prandtl_ratio.r_powf(0.11);
     let denominator: f64 =
-        1_f64 + 12.7_f64 * darcy_ratio.powf(0.5) * (prandtl_number_film.powf(0.666667) - 1.0);
+        1_f64 + 12.7_f64 * darcy_ratio.r_powf(0.5) * (prandtl_number_film.r_powf(0.666667) - 1.0);
 
     let fluid_nusselt_number = numerator / denominator * entrance_region_correction;
 
@@ -1340,22 +1341,22 @@ pub fn custom_gnielinski_turbulent_nusselt_correlation(
     let reynolds_num_float: f64 = reynolds_number.get::<ratio>();
 
     // (Re^m - 280.0)
-    let reynolds_bracket_term: f64 = reynolds_num_float.powf(reynolds_exponent_m) - 280.0;
+    let reynolds_bracket_term: f64 = reynolds_num_float.r_powf(reynolds_exponent_m) - 280.0;
 
     // Pr_film^0.4
     //
-    let prandtl_term = prandtl_number_film.get::<ratio>().powf(0.4);
+    let prandtl_term = prandtl_number_film.get::<ratio>().r_powf(0.4);
 
     // ( 1.0 + (D_e/l)^(2/3) )
     // I'm providing l/d rather than d/l
     // so it is raised to -2/3, which I approximate as
     // -0.6666666667
-    let length_to_diameter_term = 1.0 + length_to_diameter_ratio.get::<ratio>().powf(-0.6666666667);
+    let length_to_diameter_term = 1.0 + length_to_diameter_ratio.get::<ratio>().r_powf(-0.6666666667);
 
     // (Pr_f/Pr_w)^0.25
     let prandtl_correction_term: f64 = (prandtl_number_fluid / prandtl_number_wall)
         .get::<ratio>()
-        .powf(0.25);
+        .r_powf(0.25);
 
     let nusselt_number = correlation_coefficient_c
         * reynolds_bracket_term

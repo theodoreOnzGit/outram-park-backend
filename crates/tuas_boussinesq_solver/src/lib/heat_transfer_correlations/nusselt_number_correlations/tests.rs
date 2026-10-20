@@ -50,6 +50,7 @@
 /// and Re = 5481, which is also in the turbulent regime
 ///
 ///
+use petir::mathf::RealMath;
 #[test]
 pub fn du_correlation_empirical_test() {
     use uom::si::length::meter;
@@ -647,7 +648,7 @@ pub fn wakao_correlation_transposed_exponent_regression_guard() {
     // the pre-2026-08-11 (WRONG) form, recomputed here only as a reference
     // python3: 2.0 + 1.1*1000**0.3333333333*0.7**0.6 = 10.8807881279
     let nusselt_old_transposed: f64 =
-        2.0 + 1.1 * reynolds_value.powf(0.3333333333) * prandtl_value.powf(0.6);
+        2.0 + 1.1 * reynolds_value.r_powf(0.3333333333) * prandtl_value.r_powf(0.6);
 
     approx::assert_relative_eq!(nusselt_old_transposed, 10.8807881279, max_relative = 1e-9);
 

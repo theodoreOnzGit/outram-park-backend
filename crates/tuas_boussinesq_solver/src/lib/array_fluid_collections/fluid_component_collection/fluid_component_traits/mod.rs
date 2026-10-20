@@ -20,6 +20,7 @@
 //! hydrostatic_pressure_change + internal_pressure_source`; gravity is taken as
 //! 9.81 m/s^2 and hydrostatic head as `rho * g * L * sin(incline_angle)`.
 
+use petir::mathf::RealMath;
 use uom::si::f64::*;
 use uom::si::acceleration::meter_per_second_squared;
 use uom::si::mass_rate::kilogram_per_second;
@@ -209,7 +210,7 @@ pub trait FluidComponentTrait {
         let fluid_density = self.get_fluid_density_at_ref_temperature();
 
         let g: Acceleration = Acceleration::new::<meter_per_second_squared>(-9.81);
-        let delta_h: Length = component_length * incline_angle.sin();
+        let delta_h: Length = component_length * incline_angle.r_sin();
 
         let hydrostatic_pressure_increase: Pressure = fluid_density * g * delta_h;
 
@@ -237,7 +238,7 @@ pub trait FluidComponentTrait {
         let fluid_density = self.get_fluid_density_immutable_at_ref_temperature();
 
         let g: Acceleration = Acceleration::new::<meter_per_second_squared>(-9.81);
-        let delta_h: Length = component_length * incline_angle.sin();
+        let delta_h: Length = component_length * incline_angle.r_sin();
 
         let hydrostatic_pressure_increase: Pressure = fluid_density * g * delta_h;
 
@@ -564,7 +565,7 @@ pub trait FluidPipeCalcPressureChange: FluidPipeCalcPressureLoss + FluidComponen
         fluid_density: MassDensity,
     ) -> Pressure {
         let g: Acceleration = Acceleration::new::<meter_per_second_squared>(-9.81);
-        let delta_h: Length = pipe_length * incline_angle.sin();
+        let delta_h: Length = pipe_length * incline_angle.r_sin();
 
         let hydrostatic_pressure_increase: Pressure = fluid_density * g * delta_h;
 
@@ -811,7 +812,7 @@ pub trait FluidCustomComponentCalcPressureChange:
         fluid_density: MassDensity,
     ) -> Pressure {
         let g: Acceleration = Acceleration::new::<meter_per_second_squared>(-9.81);
-        let delta_h: Length = pipe_length * incline_angle.sin();
+        let delta_h: Length = pipe_length * incline_angle.r_sin();
 
         let hydrostatic_pressure_increase: Pressure = fluid_density * g * delta_h;
 

@@ -46,6 +46,7 @@
 //! Points and lengths are dimensionless model-space quantities (see
 //! [`crate::math`]).
 
+use petir::mathf::RealMath;
 use crate::math::Vec3;
 use crate::mesh::Mesh;
 use crate::snap::{snap_point, SnapTarget};
@@ -204,7 +205,7 @@ pub fn cone_from_drag(
 fn in_plane_distance(plane: &WorkPlane, a: Vec3, b: Vec3) -> f64 {
     let (a0, a1) = plane.project(a);
     let (b0, b1) = plane.project(b);
-    ((a0 - b0).powi(2) + (a1 - b1).powi(2)).sqrt()
+    ((a0 - b0).r_powi(2) + (a1 - b1).r_powi(2)).sqrt()
 }
 
 /// Generalised disc → (disc | apex) prism on the plane, `r_top == 0` → cone.
@@ -221,7 +222,7 @@ fn disc_prism(
     let mut positions: Vec<Vec3> = Vec::new();
     for i in 0..n {
         let a = std::f64::consts::TAU * i as f64 / n as f64;
-        positions.push(plane.point(cu + r_base * a.cos(), cv + r_base * a.sin(), 0.0));
+        positions.push(plane.point(cu + r_base * a.r_cos(), cv + r_base * a.r_sin(), 0.0));
     }
     let apex = r_top.abs() < 1e-12;
     if apex {
@@ -229,7 +230,7 @@ fn disc_prism(
     } else {
         for i in 0..n {
             let a = std::f64::consts::TAU * i as f64 / n as f64;
-            positions.push(plane.point(cu + r_top * a.cos(), cv + r_top * a.sin(), depth));
+            positions.push(plane.point(cu + r_top * a.r_cos(), cv + r_top * a.r_sin(), depth));
         }
     }
     let mut faces: Vec<Vec<usize>> = Vec::new();

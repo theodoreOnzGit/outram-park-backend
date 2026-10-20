@@ -156,6 +156,7 @@
 // Android), so this GPU benchmark is desktop-only. Emit a stub `main` so the
 // example still compiles on Android (an example must have a `main`); every
 // desktop item below is gated with `#[cfg(not(target_os = "android"))]`.
+use petir::mathf::RealMath;
 #[cfg(target_os = "android")]
 fn main() {
     eprintln!("godiva_gpu_benchmark: desktop-only (GPU compute path is not built on Android)");
@@ -566,7 +567,7 @@ fn mean_and_stderr(k: &[f64]) -> (f64, f64) {
     if n < 2 {
         return (mean, f64::NAN);
     }
-    let var = k.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / (n as f64 - 1.0);
+    let var = k.iter().map(|x| (x - mean).r_powi(2)).sum::<f64>() / (n as f64 - 1.0);
     (mean, (var / n as f64).sqrt())
 }
 

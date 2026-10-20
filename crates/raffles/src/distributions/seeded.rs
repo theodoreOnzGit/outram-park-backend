@@ -27,10 +27,10 @@
 //! Moved byte-for-byte from `outram_mc_libs::rng::distributions`, which
 //! re-exports them, so `outram-mc-libs`, `boon-lay` and `nee_soon` call sites
 //! see the same numbers. `ln` is always `petir::real::ln` (as it was through
-//! outram-mc's `RealMath::r_ln`). `cos` follows outram-mc's routing: the
-//! platform `f64::cos` by default, and [`petir::real::cos`] under this crate's
-//! **`deterministic-math`** feature, which `outram-mc-libs`' own
-//! `deterministic-math` feature forwards. Physics samplers (`maxwell`, `watt`,
+//! outram-mc's `RealMath::r_ln`). `cos` is [`petir::real::cos`] in every build
+//! (~~the platform `<f64 as petir::mathf::RealMath>::r_cos` unless an off-by-default `deterministic-math`
+//! feature was on~~ removed 2026-10-20, gh:#985: deterministic maths is not a
+//! choice). Physics samplers (`maxwell`, `watt`,
 //! `isotropic_direction`) stay in `outram-mc-libs`.
 
 use std::f64::consts::PI;
@@ -42,13 +42,6 @@ fn ln(x: f64) -> f64 {
     petir::real::ln(x)
 }
 
-#[cfg(not(feature = "deterministic-math"))]
-#[inline]
-fn cos(x: f64) -> f64 {
-    x.cos()
-}
-
-#[cfg(feature = "deterministic-math")]
 #[inline]
 fn cos(x: f64) -> f64 {
     petir::real::cos(x)
@@ -100,7 +93,7 @@ mod tests {
         let n = 100_000;
         let samples: Vec<f64> = (0..n).map(|_| sample_normal(&mut seed)).collect();
         let mean = samples.iter().sum::<f64>() / n as f64;
-        let var = samples.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / n as f64;
+        let var = samples.iter().map(|x| (x - mean).r_powi(2)).sum::<f64>() / n as f64;
         assert!(mean.abs() < 0.02, "mean = {mean:.4}, expected ~0");
         assert!((var - 1.0).abs() < 0.02, "variance = {var:.4}, expected ~1");
     }

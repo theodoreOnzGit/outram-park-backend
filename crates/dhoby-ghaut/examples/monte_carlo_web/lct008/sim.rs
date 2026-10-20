@@ -19,6 +19,7 @@
 // Headless output is native-only.
 #![cfg_attr(target_arch = "wasm32", allow(dead_code))]
 
+use petir::mathf::RealMath;
 use super::model::{self, NuclearData, PinKind, N_U235};
 use crate::history::History;
 use crate::triso::model::{splitmix, uniform};
@@ -117,6 +118,6 @@ impl Chain {
         let r = model::R_FUEL * (1.0 - 1.0e-9) * uniform(&mut self.rng).sqrt();
         let t = std::f64::consts::TAU * uniform(&mut self.rng);
         let z = model::Z_LO + (model::Z_HI - model::Z_LO) * (0.001 + 0.998 * uniform(&mut self.rng));
-        Position::new(cx + r * t.cos(), cy + r * t.sin(), z)
+        Position::new(cx + r * t.r_cos(), cy + r * t.r_sin(), z)
     }
 }

@@ -21,6 +21,7 @@
 //! `cargo test -p outram-park-fork-offbeat --lib --release
 //! rheology::aster::viscochab -- --nocapture`.
 
+use petir::mathf::RealMath;
 use super::*;
 use outram_foam_basic_lib::ode::{OdeIntegrator, OdeSolver, OdeSystem};
 
@@ -371,7 +372,7 @@ fn flow_rate_matches_the_closed_form_power_law() {
     let f = 60.0e6;
     let r = 25.0e6;
     let reduced = f / (params.drag_stress + params.drag_hardening_coupling * r);
-    let plain = reduced.powf(params.flow_exponent);
+    let plain = reduced.r_powf(params.flow_exponent);
     let got = law.flow_rate(f, r);
     println!("ALP = 0: p_dot = {got}, closed form = {plain}, reduced = {reduced}");
     assert!((got - plain).abs() <= 1.0e-14 * plain);
@@ -379,7 +380,7 @@ fn flow_rate_matches_the_closed_form_power_law() {
     let mut params_exp = params;
     params_exp.exponential_flow_coefficient = 0.5;
     let law_exp = ViscoplasticChabocheWithMemory::new(params_exp).unwrap();
-    let expected = plain * (0.5 * reduced.powf(params.flow_exponent + 1.0)).exp();
+    let expected = plain * (0.5 * reduced.r_powf(params.flow_exponent + 1.0)).r_exp();
     let got_exp = law_exp.flow_rate(f, r);
     println!("ALP = 0.5: p_dot = {got_exp}, closed form = {expected}");
     assert!((got_exp - expected).abs() <= 1.0e-14 * expected);
@@ -458,7 +459,7 @@ fn rkdcha_alpha2_reuses_d1_upstream_typo() {
     let p_dot = law.flow_rate(f, state.isotropic_hardening);
     let ccin = params.dynamic_recovery_floor
         + (1.0 - params.dynamic_recovery_floor)
-            * (-params.isotropic_rate * state.accumulated_strain).exp();
+            * (-params.isotropic_rate * state.accumulated_strain).r_exp();
     let gamma2 = params.dynamic_recovery_2 * ccin;
     let smx_c = smx.components();
     let a2 = state.back_strain_2.components();

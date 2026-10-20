@@ -115,6 +115,7 @@
 //! carry `c_Graphite` in the *explicit* pebble — is free-gas once homogenised.
 //! That is 83 % of the mixed material's carbon. This crate matches it.
 
+use petir::mathf::RealMath;
 use outram_mc_libs::pebble_beds::fhr_pebble::rpt_fuel_outer_radius;
 
 /// The reference deck's own constants (`rpt_pebble.py`).
@@ -127,7 +128,7 @@ mod deck {
 
     /// `self.sphere_vol` in the deck.
     pub fn sphere_vol(r: f64) -> f64 {
-        4.0 / 3.0 * std::f64::consts::PI * r.powi(3)
+        4.0 / 3.0 * std::f64::consts::PI * r.r_powi(3)
     }
 
     /// The deck's FLiBe density correlation, `triso.py::flibe_density_cm3`:
@@ -150,7 +151,7 @@ mod deck {
         let triso_volume = triso_plus_matrix_volume * TRISO_PACKING_FACTOR;
         let inner_sphere_vol = sphere_vol(RING_RPT_INNER_RADIUS_CM);
         let inner_plus_triso = inner_sphere_vol + triso_volume;
-        (0.75 / std::f64::consts::PI * inner_plus_triso).cbrt()
+        (0.75 / std::f64::consts::PI * inner_plus_triso).r_cbrt()
     }
 }
 

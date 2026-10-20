@@ -46,6 +46,7 @@
 //! Heights cross the public API as `uom` [`Length`]s; `k_eff` and its
 //! standard deviation are dimensionless `f64`.
 
+use petir::mathf::RealMath;
 pub mod script;
 
 use std::time::Instant;
@@ -159,9 +160,9 @@ impl SweepStatistics {
 /// majorant is tabulated.
 #[must_use]
 pub fn majorant_energy_grid() -> Vec<f64> {
-    let (lo, hi) = (1.0e-4_f64.ln(), 2.0e7_f64.ln());
+    let (lo, hi) = (1.0e-4_f64.r_ln(), 2.0e7_f64.r_ln());
     (0..4096)
-        .map(|i| (lo + (hi - lo) * i as f64 / 4095.0).exp())
+        .map(|i| (lo + (hi - lo) * i as f64 / 4095.0).r_exp())
         .collect()
 }
 

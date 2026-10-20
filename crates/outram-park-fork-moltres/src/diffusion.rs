@@ -61,6 +61,7 @@
 //! Units: flux `1/(m^2 s)` (amplitude arbitrary up to normalisation),
 //! `D` in `m`, all `Sigma` in `1/m`, `k_eff` dimensionless.
 
+use petir::mathf::RealMath;
 use std::sync::Arc;
 
 use outram_foam_basic_lib::prelude::{
@@ -476,7 +477,7 @@ mod tests {
         let report = solver.solve().unwrap();
         assert!(report.converged);
 
-        let b2 = (PI / l).powi(2);
+        let b2 = (PI / l).r_powi(2);
         let k_analytic = 0.3 / (0.2 + 0.009 * b2);
         let rel = (report.k_eff - k_analytic).abs() / k_analytic;
         println!(
@@ -529,7 +530,7 @@ mod tests {
         let report = solver.solve().unwrap();
         assert!(report.converged);
 
-        let b2 = (PI / l).powi(2);
+        let b2 = (PI / l).r_powi(2);
         let k_analytic = (0.6 + 12.0 * 1.6 / (8.0 + 0.004 * b2)) / (2.6 + 0.012 * b2);
         let rel = (report.k_eff - k_analytic).abs() / k_analytic;
         println!(

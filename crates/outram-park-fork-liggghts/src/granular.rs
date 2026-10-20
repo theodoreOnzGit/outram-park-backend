@@ -111,6 +111,7 @@
 //! - **Verified against upstream** — see `docs/verification-and-validation.md`
 //!   and `tests/liggghts_cross_code.rs`.
 
+use petir::mathf::RealMath;
 use std::collections::HashMap;
 
 use crate::particle::{Particle, Vec3};
@@ -222,7 +223,7 @@ impl GranularMaterial {
     /// `β = ln(e) / √(ln²(e) + π²)`. Negative for `e < 1`, zero at `e = 1`.
     #[must_use]
     pub fn beta_eff(&self) -> f64 {
-        let ln_e = self.restitution.ln();
+        let ln_e = self.restitution.r_ln();
         ln_e / (ln_e * ln_e + std::f64::consts::PI * std::f64::consts::PI).sqrt()
     }
 }
@@ -520,10 +521,10 @@ impl GranularNormalModel {
                 let kn = 16.0 / 15.0
                     * sqrtval
                     * y_eff
-                    * (15.0 * k.m_eff * char_vel * char_vel / (16.0 * sqrtval * y_eff)).powf(0.2);
+                    * (15.0 * k.m_eff * char_vel * char_vel / (16.0 * sqrtval * y_eff)).r_powf(0.2);
                 let kt = if kt_to_kn { kn * 0.285_714_286 } else { kn };
 
-                let ln_e = material.restitution.ln();
+                let ln_e = material.restitution.r_ln();
                 let ln_e_sq = ln_e * ln_e;
                 let gamman = (4.0 * k.m_eff * kn * ln_e_sq
                     / (ln_e_sq + std::f64::consts::PI * std::f64::consts::PI))
@@ -1203,10 +1204,10 @@ mod tests {
         let m = mat();
         assert_abs_diff_eq!(m.y_eff(), 1.0e7 / (2.0 * (1.0 - 0.09)), epsilon = 1e-6);
         assert_abs_diff_eq!(m.g_eff(), 1.0e7 / (4.0 * 1.7 * 1.3), epsilon = 1e-6);
-        let ln_e = 0.9_f64.ln();
+        let ln_e = 0.9_f64.r_ln();
         assert_abs_diff_eq!(
             m.beta_eff(),
-            ln_e / (ln_e * ln_e + std::f64::consts::PI.powi(2)).sqrt(),
+            ln_e / (ln_e * ln_e + std::f64::consts::PI.r_powi(2)).sqrt(),
             epsilon = 1e-15
         );
         // Also verify the "mixed-material" general form collapses to ours.
@@ -1287,10 +1288,10 @@ mod tests {
         let kn_hand = 16.0 / 15.0
             * sqrtval
             * m.y_eff()
-            * (15.0 * k.m_eff * 4.0 / (16.0 * sqrtval * m.y_eff())).powf(0.2);
-        let ln_e = 0.9_f64.ln();
+            * (15.0 * k.m_eff * 4.0 / (16.0 * sqrtval * m.y_eff())).r_powf(0.2);
+        let ln_e = 0.9_f64.r_ln();
         let gamman_hand = (4.0 * k.m_eff * kn_hand * ln_e * ln_e
-            / (ln_e * ln_e + std::f64::consts::PI.powi(2)))
+            / (ln_e * ln_e + std::f64::consts::PI.r_powi(2)))
         .sqrt();
         assert_abs_diff_eq!(out.kn, kn_hand, epsilon = kn_hand * 1e-12);
         assert_abs_diff_eq!(out.gamman, gamman_hand, epsilon = gamman_hand * 1e-12);

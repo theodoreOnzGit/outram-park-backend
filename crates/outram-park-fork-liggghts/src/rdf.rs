@@ -97,6 +97,7 @@
 //! real, and it is measured rather than asserted in `tests/htr10_rdf.rs`.
 //! **Any number quoted in a V&V document comes from the CPU path.**
 
+use petir::mathf::RealMath;
 use crate::compute::ComputeType;
 use crate::particle::Vec3;
 
@@ -388,7 +389,7 @@ pub fn radial_distribution(centres: &[Vec3], settings: RdfSettings, compute: Com
         // Exact shell volume, not 4*pi*r^2*dr — at d/50 resolution the
         // difference is small but it is free to be exact, and it removes a
         // systematic bias in the first bins where r^2 varies fastest.
-        let shell = 4.0 / 3.0 * std::f64::consts::PI * (r_hi.powi(3) - r_lo.powi(3));
+        let shell = 4.0 / 3.0 * std::f64::consts::PI * (r_hi.r_powi(3) - r_lo.r_powi(3));
         let expected = number_density * shell * centre_idx.len() as f64;
         g.push(if expected > 0.0 {
             counts[k] as f64 / expected

@@ -167,6 +167,7 @@
 //! you are about to port traces back to either, stop and ask rather than
 //! guessing at the header. See the crate `NOTICE` and `NOTICE-RAVEN`.
 
+use petir::mathf::RealMath;
 use crate::{RafflesError, Result};
 use core::ops::Range;
 
@@ -927,10 +928,10 @@ mod tests {
         const A: f64 = 7.0;
         const B: f64 = 0.1;
 
-        let d = A * A / 8.0 + B * PI.powi(4) / 5.0 + B * B * PI.powi(8) / 18.0 + 0.5;
-        let d1 = B * PI.powi(4) / 5.0 + B * B * PI.powi(8) / 50.0 + 0.5;
+        let d = A * A / 8.0 + B * PI.r_powi(4) / 5.0 + B * B * PI.r_powi(8) / 18.0 + 0.5;
+        let d1 = B * PI.r_powi(4) / 5.0 + B * B * PI.r_powi(8) / 50.0 + 0.5;
         let d2 = A * A / 8.0;
-        let d13 = 8.0 * B * B * PI.powi(8) / 225.0;
+        let d13 = 8.0 * B * B * PI.r_powi(8) / 225.0;
         // The decomposition must be exact; a slip in the reference values
         // themselves would show up here before the estimator is even run.
         assert!((d1 + d2 + d13 - d).abs() < 1e-9);
@@ -945,7 +946,7 @@ mod tests {
             let x1 = -PI + 2.0 * PI * u1;
             let x2 = -PI + 2.0 * PI * u2;
             let x3 = -PI + 2.0 * PI * u3;
-            x1.sin() + A * x2.sin().powi(2) + B * x3.powi(4) * x1.sin()
+            x1.r_sin() + A * x2.r_sin().r_powi(2) + B * x3.r_powi(4) * x1.r_sin()
         });
         let s = sobol_indices(layout, &outputs).unwrap();
 
@@ -1206,7 +1207,7 @@ mod tests {
         assert!((p_r - 0.6).abs() < 1e-12, "pearson 0.6: {p_r}");
 
         // 5. monotone non-linear transform: Spearman preserved, Pearson not
-        let y_exp: Vec<f64> = x.iter().map(|v| v.exp()).collect();
+        let y_exp: Vec<f64> = x.iter().map(|v| v.r_exp()).collect();
         let p_exp = pearson_correlation(&x, &y_exp).unwrap();
         let s_exp = spearman_correlation(&x, &y_exp).unwrap();
         assert!((s_exp - 1.0).abs() < 1e-12, "spearman exp: {s_exp}");

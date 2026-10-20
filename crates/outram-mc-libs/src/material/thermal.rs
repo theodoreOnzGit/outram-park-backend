@@ -942,8 +942,8 @@ impl ThermalScattering {
         // (`tests/thermal_kernel_stationary_distribution.rs`); preserving the
         // density gives 293.56 K.
         let dens = |n: usize| {
-            ((n as f64) * (cutoff_ev / E_MIN_GRID_EV).ln()
-                / (GRID_REFERENCE_TOP_EV / E_MIN_GRID_EV).ln())
+            ((n as f64) * (cutoff_ev / E_MIN_GRID_EV).r_ln()
+                / (GRID_REFERENCE_TOP_EV / E_MIN_GRID_EV).r_ln())
             .round()
             .max(n as f64) as usize
         };

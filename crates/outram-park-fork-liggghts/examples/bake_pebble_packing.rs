@@ -150,6 +150,7 @@
 //!   performance* (2003) — HTR-10 core geometry (cylindrical bed on a conical
 //!   discharge bottom), the shape qualitatively reproduced here.
 
+use petir::mathf::RealMath;
 use std::f64::consts::PI;
 use std::time::Instant;
 
@@ -345,7 +346,7 @@ fn vessel_radius(y: f64) -> f64 {
 
 /// Build one validated pebble at rest at `position`.
 fn make_pebble(position: Vec3) -> Particle {
-    let volume = (4.0 / 3.0) * PI * R_PEBBLE.powi(3);
+    let volume = (4.0 / 3.0) * PI * R_PEBBLE.r_powi(3);
     Particle::new(
         position,
         Vec3::zero(),
@@ -376,7 +377,7 @@ fn build_boundaries() -> Vec<Boundary> {
     // from (s·R, 0) down to (s·R_chute, −H_CONE) with s = cos(π/M); an inward,
     // upward-pointing normal perpendicular to that line is
     // (−H_CONE, s·(R − R_chute)).
-    let s = (PI / CONE_FACETS as f64).cos();
+    let s = (PI / CONE_FACETS as f64).r_cos();
     for k in 0..CONE_FACETS {
         let phi = 2.0 * PI * k as f64 / CONE_FACETS as f64;
         let (sin_phi, cos_phi) = phi.sin_cos();
@@ -410,7 +411,7 @@ fn seed_pebbles(rng: &mut SplitMix64) -> Vec<Particle> {
     // clearance it costs on the cone wall. |n_rho| = H_CONE / |(H_CONE, R-R_chute)|.
     let slope_norm = (H_CONE * H_CONE + (R - R_CHUTE) * (R - R_CHUTE)).sqrt();
     let cone_radial_clearance = R_PEBBLE * slope_norm / H_CONE;
-    let s = (PI / CONE_FACETS as f64).cos();
+    let s = (PI / CONE_FACETS as f64).r_cos();
 
     let mut particles = Vec::with_capacity(N_TARGET);
     let mut y = -H_CONE + R_PEBBLE + 0.05 * R_PEBBLE;
@@ -523,7 +524,7 @@ fn run_stage(mut sim: DemSimulation, steps: usize, drag: f64, label: &str) -> De
 ///
 /// Returns `(phi, n_centres, v_eroded)`.
 fn interior_solid_fraction(positions: &[Vec3]) -> (f64, usize, f64) {
-    let single_volume = (4.0 / 3.0) * PI * R_PEBBLE.powi(3);
+    let single_volume = (4.0 / 3.0) * PI * R_PEBBLE.r_powi(3);
     let eroded_radius = CV_RADIUS - R_PEBBLE;
     let eroded_y_min = CV_Y_MIN + R_PEBBLE;
     let eroded_y_max = CV_Y_MAX - R_PEBBLE;
@@ -673,7 +674,7 @@ fn report_depth_sweep(positions: &[Vec3], bed_top: f64) {
 fn main() {
     let wall_clock = Instant::now();
 
-    let single_volume = (4.0 / 3.0) * PI * R_PEBBLE.powi(3);
+    let single_volume = (4.0 / 3.0) * PI * R_PEBBLE.r_powi(3);
     let mass = DENSITY * single_volume;
 
     eprintln!("=== OUTRAM PARK — pebble-packing bake (DEM artwork generator) ===");

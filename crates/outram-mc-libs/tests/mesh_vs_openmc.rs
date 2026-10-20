@@ -54,6 +54,7 @@
 //! on the outer radius bins into the last radial cell rather than vanishing,
 //! and an on-axis point pins `phi = 0` instead of leaving it to `atan2(0, 0)`.
 
+use petir::mathf::RealMath;
 use outram_mc_libs::geometry::position::Position;
 use outram_mc_libs::tally::mesh::{CylindricalMesh, RectilinearMesh, SphericalMesh};
 use outram_mc_libs::tally::mesh::CylindricalMeshExt;
@@ -273,7 +274,7 @@ fn centroids_bin_back_to_their_own_bin() {
                 let r = 0.5 * (m.r_grid[i] + m.r_grid[i + 1]);
                 let phi = 0.5 * (m.phi_grid[j] + m.phi_grid[j + 1]);
                 let z = 0.5 * (m.z_grid[k] + m.z_grid[k + 1]);
-                let p = Position::new(r * phi.cos(), r * phi.sin(), z);
+                let p = Position::new(r * phi.r_cos(), r * phi.r_sin(), z);
                 assert_eq!(m.indices(p), Some([i, j, k]), "cyl centroid {i},{j},{k}");
             }
         }
@@ -288,9 +289,9 @@ fn centroids_bin_back_to_their_own_bin() {
                 let th = 0.5 * (m.theta_grid[j] + m.theta_grid[j + 1]);
                 let phi = 0.5 * (m.phi_grid[k] + m.phi_grid[k + 1]);
                 let p = Position::new(
-                    r * th.sin() * phi.cos(),
-                    r * th.sin() * phi.sin(),
-                    r * th.cos(),
+                    r * th.r_sin() * phi.r_cos(),
+                    r * th.r_sin() * phi.r_sin(),
+                    r * th.r_cos(),
                 );
                 assert_eq!(m.indices(p), Some([i, j, k]), "sph centroid {i},{j},{k}");
             }
@@ -420,7 +421,7 @@ fn flat_bin_indices_round_trip_through_centroids() {
                 let r = 0.5 * (m.r_grid[i] + m.r_grid[i + 1]);
                 let phi = 0.5 * (m.phi_grid[j] + m.phi_grid[j + 1]);
                 let z = 0.5 * (m.z_grid[k] + m.z_grid[k + 1]);
-                let p = Position::new(r * phi.cos(), r * phi.sin(), z);
+                let p = Position::new(r * phi.r_cos(), r * phi.r_sin(), z);
                 let flat = kind.bin(p).expect("centroid is inside the mesh");
                 assert_eq!(
                     flat,

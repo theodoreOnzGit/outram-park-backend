@@ -90,6 +90,7 @@
 //! (corrosion raises the failure fraction), the floor at `0.44·m_o`, and the
 //! `0.565`/`187400` Arrhenius as transcribed.
 
+use petir::mathf::RealMath;
 use uom::si::f64::{Frequency, Ratio, ThermodynamicTemperature, Time};
 use uom::si::frequency::hertz;
 use uom::si::ratio::ratio;
@@ -133,7 +134,7 @@ pub fn grain_boundary_corrosion_rate(temperature: ThermodynamicTemperature) -> F
     }
     let r = super::pressure::GAS_CONSTANT_J_PER_MOL_K;
     Frequency::new::<hertz>(
-        GRAIN_BOUNDARY_PREFACTOR_PER_S * (-GRAIN_BOUNDARY_ACTIVATION_J_PER_MOL / (r * t)).exp(),
+        GRAIN_BOUNDARY_PREFACTOR_PER_S * (-GRAIN_BOUNDARY_ACTIVATION_J_PER_MOL / (r * t)).r_exp(),
     )
 }
 
@@ -171,7 +172,7 @@ pub fn advance_grain_boundary_exposure(
 pub fn corroded_weibull_modulus(end_of_irradiation_modulus: f64, exposure: Ratio) -> f64 {
     let x = exposure.get::<ratio>().max(0.0);
     end_of_irradiation_modulus
-        * (RESIDUAL_MODULUS_FRACTION + (1.0 - RESIDUAL_MODULUS_FRACTION) * (-x).exp())
+        * (RESIDUAL_MODULUS_FRACTION + (1.0 - RESIDUAL_MODULUS_FRACTION) * (-x).r_exp())
 }
 
 #[cfg(test)]
@@ -244,7 +245,7 @@ mod tests {
 
         let without = super::super::weibull_failure_fraction(sigma_t, sigma_o, m_o).get::<ratio>();
         let with = super::super::weibull_failure_fraction(sigma_t, sigma_o, m).get::<ratio>();
-        let decades = (with / without).log10();
+        let decades = (with / without).r_log10();
         assert!(
             with > without,
             "grain-boundary corrosion must worsen the failure fraction"

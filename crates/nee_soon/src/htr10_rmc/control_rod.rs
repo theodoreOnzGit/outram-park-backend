@@ -61,6 +61,7 @@
 //! honestly address, and even there the expected bias is positive.
 
 /// Inner radius of the B4C ring \[cm\] — 60 mm diameter.
+use petir::mathf::RealMath;
 pub const B4C_INNER_RADIUS_CM: f64 = 3.0;
 /// Outer radius of the B4C ring \[cm\] — 105 mm diameter.
 pub const B4C_OUTER_RADIUS_CM: f64 = 5.25;
@@ -127,9 +128,9 @@ pub fn b4c_molecular_density() -> f64 {
 #[must_use]
 pub fn radial_packing_fraction() -> f64 {
     let rod_area =
-        N_CONTROL_RODS as f64 * (B4C_OUTER_RADIUS_CM.powi(2) - B4C_INNER_RADIUS_CM.powi(2));
-    let band_area = super::core_model::HTR10_CONTROL_ROD_OUTER_CM.powi(2)
-        - super::core_model::HTR10_CONTROL_ROD_INNER_CM.powi(2);
+        N_CONTROL_RODS as f64 * (B4C_OUTER_RADIUS_CM.r_powi(2) - B4C_INNER_RADIUS_CM.r_powi(2));
+    let band_area = super::core_model::HTR10_CONTROL_ROD_OUTER_CM.r_powi(2)
+        - super::core_model::HTR10_CONTROL_ROD_INNER_CM.r_powi(2);
     rod_area / band_area
 }
 

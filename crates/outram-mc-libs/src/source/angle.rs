@@ -1,6 +1,7 @@
 /// Angular source distributions.
 ///
 /// C++ source: `src/distribution_angle.cpp`, `include/openmc/distribution_angle.h`.
+use petir::mathf::RealMath;
 use crate::geometry::position::Direction;
 
 /// Trait for angular distributions.
@@ -193,7 +194,7 @@ impl PolarAzimuthalAngle {
             axis,
             hint,
             ScalarDist::Uniform {
-                lo: half_angle_rad.cos(),
+                lo: half_angle_rad.r_cos(),
                 hi: 1.0,
             },
             ScalarDist::Uniform {

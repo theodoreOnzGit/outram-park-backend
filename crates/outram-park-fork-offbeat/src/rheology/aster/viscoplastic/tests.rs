@@ -23,6 +23,7 @@
 //!
 //! Nothing here is validation against code_aster output or creep data.
 
+use petir::mathf::RealMath;
 use approx::assert_relative_eq;
 use outram_foam_basic_lib::primitives::SymmTensor;
 
@@ -110,9 +111,9 @@ fn the_norton_rate_matches_the_upstream_expression() {
     let rate = law.equivalent_strain_rate(sigma_eq, 0.0);
 
     let unsurk = 1.0 / 200.0e6;
-    let expected = (sigma_eq * unsurk).powf(5.0);
+    let expected = (sigma_eq * unsurk).r_powf(5.0);
     assert_relative_eq!(rate, expected, max_relative = 1e-12);
-    assert_relative_eq!(rate, 1.25_f64.powi(5), max_relative = 1e-12);
+    assert_relative_eq!(rate, 1.25_f64.r_powi(5), max_relative = 1e-12);
 }
 
 /// **Norton is the `1/m → 0` limit of Lemaitre.**
@@ -190,7 +191,7 @@ fn lemaitre_hardening_slows_the_flow() {
     }
 
     // Each decade of p should scale the rate by 10^(-n/m).
-    let expected_ratio = 10.0_f64.powf(-5.0 / 10.0);
+    let expected_ratio = 10.0_f64.r_powf(-5.0 / 10.0);
     for pair in rates.windows(2) {
         assert_relative_eq!(pair[1] / pair[0], expected_ratio, max_relative = 1e-12);
     }
@@ -358,7 +359,7 @@ fn linear_creep_relaxes_exponentially() {
         von_mises_of_deviator(deviator(stress))
     };
 
-    let closed_form = sigma0 * (-total / tau).exp();
+    let closed_form = sigma0 * (-total / tau).r_exp();
 
     let coarse = integrate_with(200);
     let fine = integrate_with(400);
@@ -464,7 +465,7 @@ fn the_irradiation_rate_has_a_clean_arrhenius_form() {
 
     let (t1, t2) = (600.0, 650.0);
     let measured_ratio = rate_at(t1) / rate_at(t2);
-    let arrhenius_ratio = (-q_over_r * (1.0 / t1 - 1.0 / t2)).exp();
+    let arrhenius_ratio = (-q_over_r * (1.0 / t1 - 1.0 / t2)).r_exp();
 
     assert_relative_eq!(measured_ratio, arrhenius_ratio, max_relative = 1e-10);
 }
@@ -499,7 +500,7 @@ fn the_irradiation_rate_follows_a_power_law_in_flux() {
     };
 
     for decade in 0..3 {
-        let lo = 1.0e16 * 10.0_f64.powi(decade);
+        let lo = 1.0e16 * 10.0_f64.r_powi(decade);
         let ratio = rate_at(lo * 10.0) / rate_at(lo);
         assert_relative_eq!(ratio, 10.0, max_relative = 1e-6);
     }

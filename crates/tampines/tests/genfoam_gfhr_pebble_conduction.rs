@@ -82,6 +82,7 @@
 //!
 //! See the test's doc comment.
 
+use petir::mathf::RealMath;
 use std::f64::consts::PI;
 
 use tampines::pebble_bed::triso::{
@@ -173,10 +174,10 @@ fn conductivity(x: f64) -> ThermalConductivity {
 /// annular-fuel form. Deriving it here keeps the gFHR geometry honest instead of
 /// bending it to fit an existing struct.
 fn heated_annulus_rise(power_w: f64) -> f64 {
-    let volume = 4.0 / 3.0 * PI * (R_MATRIX.powi(3) - R_CORE.powi(3));
+    let volume = 4.0 / 3.0 * PI * (R_MATRIX.r_powi(3) - R_CORE.r_powi(3));
     let q_triple = power_w / volume;
     q_triple / (3.0 * K_MATRIX)
-        * (R_MATRIX.powi(2) / 2.0 + R_CORE.powi(3) / R_MATRIX - 1.5 * R_CORE.powi(2))
+        * (R_MATRIX.r_powi(2) / 2.0 + R_CORE.r_powi(3) / R_MATRIX - 1.5 * R_CORE.r_powi(2))
 }
 
 /// **V&V — gFHR: upstream's reference peak fuel temperature is consistent with

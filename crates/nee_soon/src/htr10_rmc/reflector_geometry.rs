@@ -104,6 +104,7 @@
 //! at bed mid-height, so `z_local = refl_top - z_T`. Every zone boundary here
 //! is fixed hardware: nothing but the bed top moves with the loading.
 
+use petir::mathf::RealMath;
 use outram_mc_libs::geometry::cell::{Cell, CellFill, HalfSpaceSense, RegionToken};
 use outram_mc_libs::geometry::position::Position;
 use outram_mc_libs::geometry::surface::{
@@ -256,7 +257,7 @@ impl ReflectorChannel {
             // A tangential slot: nearest point is the straight flank's middle,
             // farthest its outer corners.
             let half = 0.5 * KLAK_SLOT_STRAIGHT_CM;
-            ((rc - a), ((rc + a).powi(2) + half * half).sqrt().max(rc + a))
+            ((rc - a), ((rc + a).r_powi(2) + half * half).sqrt().max(rc + a))
         } else {
             (rc - a, rc + a)
         }
@@ -617,7 +618,7 @@ pub(super) fn build_reflector(
             // Tangential slot: two R30 end cylinders 100 mm apart along the
             // tangent, joined by a 60 mm wide box (Fig. 4.7).
             let th = ch.azimuth_deg.to_radians();
-            let (er, et) = ([th.cos(), th.sin()], [-th.sin(), th.cos()]);
+            let (er, et) = ([th.r_cos(), th.r_sin()], [-th.r_sin(), th.r_cos()]);
             let half = 0.5 * KLAK_SLOT_STRAIGHT_CM;
             let rc = KLAK_CENTRE_RADIUS_CM;
             let end = |sgn: f64| [x + sgn * half * et[0], y + sgn * half * et[1]];
@@ -942,7 +943,7 @@ mod channel_layout_tests {
             let (rmin, rmax) = c.radial_extent_cm(HOT_GAS_DUCT_AXIS_ZT_CM);
             let r_ch = 0.5 * (rmax - rmin);
             // Lateral distance to the duct axis (the +x half-line).
-            let lateral = if x > 0.0 { y.abs() } else { x.hypot(y) };
+            let lateral = if x > 0.0 { y.abs() } else { x.r_hypot(y) };
             let gap = lateral - r_ch - HOT_GAS_DUCT_RADIUS_CM;
             println!("{:?} at {:.1} deg: gap {gap:.3} cm", c.kind, c.azimuth_deg);
             min_gap = min_gap.min(gap);

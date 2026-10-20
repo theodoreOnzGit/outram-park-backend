@@ -68,6 +68,7 @@
 //! cargo quick-test -p outram-park-fork-liggghts   # skips it
 //! ```
 
+use petir::mathf::RealMath;
 use outram_park_fork_liggghts::boundary::Boundary;
 use outram_park_fork_liggghts::granular::{ContactKinematics, GranularContactModel, GranularMaterial};
 use outram_park_fork_liggghts::granular_system::GranularSystem;
@@ -123,7 +124,7 @@ fn packing(centres: &[Vec3]) -> (f64, f64) {
         if hi <= lo {
             return 0.0;
         }
-        let f = |z: f64| std::f64::consts::PI * (R_P * R_P * (z - zc) - (z - zc).powi(3) / 3.0);
+        let f = |z: f64| std::f64::consts::PI * (R_P * R_P * (z - zc) - (z - zc).r_powi(3) / 3.0);
         f(hi) - f(lo)
     };
     let solid: f64 = centres.iter().map(|p| cap(p.z)).sum();
@@ -163,7 +164,7 @@ fn bulk_packing_matches_liggghts() {
     };
     assert_eq!(init.len(), 354, "unexpected reference particle count");
 
-    let mass = RHO * 4.0 / 3.0 * std::f64::consts::PI * R_P.powi(3);
+    let mass = RHO * 4.0 / 3.0 * std::f64::consts::PI * R_P.r_powi(3);
     let particles: Vec<Particle> = init
         .iter()
         .map(|(x, v)| {

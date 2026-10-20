@@ -32,6 +32,7 @@
 //! `tests/variance_reduction_is_bit_identical_when_analog.rs` is the pattern;
 //! `track_capture_does_not_perturb_the_run` is the check for this feature.
 
+use petir::mathf::RealMath;
 use crate::geometry::position::{Direction, Position};
 
 /// What happened at a recorded state — upstream has no equivalent field, and
@@ -109,7 +110,7 @@ impl Track {
                 .windows(2)
                 .map(|w| {
                     let (a, b) = (w[0].r, w[1].r);
-                    ((b.x - a.x).powi(2) + (b.y - a.y).powi(2) + (b.z - a.z).powi(2)).sqrt()
+                    ((b.x - a.x).r_powi(2) + (b.y - a.y).r_powi(2) + (b.z - a.z).r_powi(2)).sqrt()
                 })
                 .sum(),
         )

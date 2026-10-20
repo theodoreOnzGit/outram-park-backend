@@ -55,6 +55,7 @@
 //! Both tapes are 24–28 MB NJOY outputs and are not checked in; without them
 //! the program prints the build-cost sweep alone, which needs no oracle.
 
+use petir::mathf::RealMath;
 use outram_mc_libs::material::thermal::ThermalScattering;
 use std::time::Instant;
 
@@ -188,7 +189,7 @@ fn sweep(
         for i in 0..THROUGHPUT_N {
             // Sweep the incident energy across the whole table so the access
             // pattern is the scattered one transport produces, not one hot row.
-            let e = 1.0e-3 * (4.0e3f64).powf(i as f64 / THROUGHPUT_N as f64);
+            let e = 1.0e-3 * (4.0e3f64).r_powf(i as f64 / THROUGHPUT_N as f64);
             if let Some((ep, mu)) = law.sample(e, &mut seed) {
                 acc += ep + mu;
             }
@@ -273,7 +274,7 @@ fn sampled_moments(law: &ThermalScattering, e: f64, n: usize, seed: &mut u64) ->
         }
         s1 += ep;
         s2 += ep * ep;
-        sxi += (e / ep).ln();
+        sxi += (e / ep).r_ln();
         k += 1;
     }
     assert!(k > n / 100, "no inelastic scatters at {e} eV");
@@ -290,9 +291,9 @@ fn oracle_moments(matrix: &[(f64, Vec<(f64, f64)>)], probe: f64) -> (f64, f64, f
         .filter(|(e, _)| (1.0e-4..=4.0).contains(e))
         .min_by(|a, b| {
             (a.0 / probe)
-                .ln()
+                .r_ln()
                 .abs()
-                .partial_cmp(&(b.0 / probe).ln().abs())
+                .partial_cmp(&(b.0 / probe).r_ln().abs())
                 .unwrap()
         })
         .expect("no MF=6 rows");
@@ -307,8 +308,8 @@ fn oracle_moments(matrix: &[(f64, Vec<(f64, f64)>)], probe: f64) -> (f64, f64, f
         m1 += 0.5 * (f0 * e0 + f1 * e1) * de;
         m2 += 0.5 * (f0 * e0 * e0 + f1 * e1 * e1) * de;
         let (l0, l1) = (
-            if e0 > 0.0 { (e / e0).ln() } else { 0.0 },
-            if e1 > 0.0 { (e / e1).ln() } else { 0.0 },
+            if e0 > 0.0 { (e / e0).r_ln() } else { 0.0 },
+            if e1 > 0.0 { (e / e1).r_ln() } else { 0.0 },
         );
         mlog += 0.5 * (f0 * l0 + f1 * l1) * de;
     }

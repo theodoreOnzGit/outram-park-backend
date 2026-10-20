@@ -46,6 +46,7 @@
 //! Positions/lengths are dimensionless model-space quantities; angles radians;
 //! `Percent` is a literal percentage (`50.0` = halfway).
 
+use petir::mathf::RealMath;
 use crate::draw_tool::WorkPlane;
 use crate::math::Vec3;
 use crate::mesh::{Mesh, VertexId};
@@ -81,7 +82,7 @@ impl Placement {
                 distance,
                 angle,
             } => {
-                let dir = plane.u.scale(angle.cos()).add(plane.v.scale(angle.sin()));
+                let dir = plane.u.scale(angle.r_cos()).add(plane.v.scale(angle.r_sin()));
                 from.add(dir.scale(distance))
             }
             Placement::Percent { a, b, percent } => a.add(b.sub(a).scale(percent / 100.0)),
@@ -132,7 +133,7 @@ pub fn three_point_arc(p0: Vec3, p1: Vec3, p2: Vec3, segments: usize) -> Vec<Vec
     let v = n.cross(u);
     let ang = |p: Vec3| {
         let d = p.sub(c);
-        d.dot(v).atan2(d.dot(u))
+        d.dot(v).r_atan2(d.dot(u))
     };
     // Sweep from 0 in whichever direction keeps p1 on the arc to p2.
     let a1 = ang(p1).rem_euclid(std::f64::consts::TAU);
@@ -145,7 +146,7 @@ pub fn three_point_arc(p0: Vec3, p1: Vec3, p2: Vec3, segments: usize) -> Vec<Vec
     (0..=seg)
         .map(|i| {
             let t = end * i as f64 / seg as f64;
-            c.add(u.scale(r * t.cos())).add(v.scale(r * t.sin()))
+            c.add(u.scale(r * t.r_cos())).add(v.scale(r * t.r_sin()))
         })
         .collect()
 }
@@ -188,12 +189,12 @@ pub fn fillet(prev: Vec3, corner: Vec3, next: Vec3, radius: f64, segments: usize
     let u0 = d0.scale(1.0 / l0);
     let u1 = d1.scale(1.0 / l1);
     let cos_full = u0.dot(u1).clamp(-1.0, 1.0);
-    let half = (cos_full.acos()) * 0.5;
+    let half = (cos_full.r_acos()) * 0.5;
     if half <= 1e-6 || half >= std::f64::consts::FRAC_PI_2 - 1e-6 {
         return Vec::new();
     }
     // Distance from corner to each tangent point.
-    let tan_dist = radius / half.tan();
+    let tan_dist = radius / half.r_tan();
     if tan_dist > l0 || tan_dist > l1 {
         return Vec::new();
     }
@@ -201,7 +202,7 @@ pub fn fillet(prev: Vec3, corner: Vec3, next: Vec3, radius: f64, segments: usize
     let t1 = corner.add(u1.scale(tan_dist));
     // Arc centre: along the internal bisector, at radius / sin(half).
     let bis = u0.add(u1).normalize();
-    let centre = corner.add(bis.scale(radius / half.sin()));
+    let centre = corner.add(bis.scale(radius / half.r_sin()));
     let n = u0.cross(u1);
     if n.length() < 1e-12 {
         return vec![t0, t1];
@@ -213,7 +214,7 @@ pub fn fillet(prev: Vec3, corner: Vec3, next: Vec3, radius: f64, segments: usize
         let x = r0
             .dot(r1)
             .clamp(-r0.length() * r1.length(), r0.length() * r1.length());
-        (x / (r0.length() * r1.length())).clamp(-1.0, 1.0).acos()
+        (x / (r0.length() * r1.length())).clamp(-1.0, 1.0).r_acos()
     };
     let axis = if r0.cross(r1).dot(n) >= 0.0 {
         n
@@ -291,7 +292,7 @@ pub fn angle_between(a: Vec3, vertex: Vec3, b: Vec3) -> f64 {
     if d < 1e-12 {
         return 0.0;
     }
-    (u.dot(v) / d).clamp(-1.0, 1.0).acos()
+    (u.dot(v) / d).clamp(-1.0, 1.0).r_acos()
 }
 
 /// Reflect a point across a [`WorkPlane`].

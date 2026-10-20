@@ -1,3 +1,4 @@
+use petir::mathf::RealMath;
 #[warn(missing_docs)]
 // This library was developed for use in my PhD thesis under supervision
 // of Professor Per F. Peterson. It is part of a thermal hydraulics
@@ -94,7 +95,7 @@ pub fn get_dowtherm_a_viscosity(
 ) -> Result<DynamicViscosity, TuasLibError> {
     range_check_dowtherm_a(fluid_temp)?;
     let temperature_degrees_c_value = fluid_temp.get::<degree_celsius>();
-    let viscosity_value_pascal_second = 0.130 / temperature_degrees_c_value.powf(1.072);
+    let viscosity_value_pascal_second = 0.130 / temperature_degrees_c_value.r_powf(1.072);
 
     Ok(DynamicViscosity::new::<pascal_second>(
         viscosity_value_pascal_second,
@@ -167,7 +168,7 @@ pub fn get_dowtherm_a_thermal_conductivity(
 ///
 ///
 /// let expected_enthalpy: f64 =
-/// 1518_f64*30_f64 + 2.82/2.0*30_f64.powf(2_f64) - 30924_f64;
+/// 1518_f64*30_f64 + 2.82/2.0*30_f64.r_powf(2_f64) - 30924_f64;
 ///
 /// // the expected value is about 15885 J/kg
 ///
@@ -184,7 +185,7 @@ pub fn get_dowtherm_a_enthalpy(
     // H = 1518*T + 2.82/2.0*T^2 - 30924
     let temp_c_value = fluid_temp.get::<degree_celsius>();
     let enthalpy_value_joule_per_kg =
-        1518.0 * temp_c_value + 2.82 / 2.0 * temp_c_value.powf(2.0) - 30924.0;
+        1518.0 * temp_c_value + 2.82 / 2.0 * temp_c_value.r_powf(2.0) - 30924.0;
 
     // the closest unit available is AvailableEnergy which is
     // joule per kg

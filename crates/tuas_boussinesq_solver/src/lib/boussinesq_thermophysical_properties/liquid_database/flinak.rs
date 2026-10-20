@@ -1,3 +1,4 @@
+use petir::mathf::RealMath;
 #[warn(missing_docs)]
 // This library was developed for use in my PhD thesis under supervision
 // of Professor Per F. Peterson. It is part of a thermal hydraulics
@@ -118,7 +119,7 @@ pub fn get_flinak_dynamic_viscosity(
 
     let a = 0.04;
     let b = 4170_f64;
-    let viscosity_value_centipoise = a * (b / fluid_temp_kelvin).exp();
+    let viscosity_value_centipoise = a * (b / fluid_temp_kelvin).r_exp();
 
     Ok(DynamicViscosity::new::<centipoise>(
         viscosity_value_centipoise,

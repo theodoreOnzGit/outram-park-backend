@@ -66,6 +66,7 @@
 ///
 /// Enum dispatch, not trait objects (workspace design rule). Each variant
 /// fixes the number of adjustable coefficients; see [`LmModel::parameter_count`].
+use petir::mathf::RealMath;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LmModel {
     /// **Vapour pressure**, DIPPR-101 form (`LM.vb:84-115` `fvpvap`):
@@ -133,21 +134,21 @@ impl LmModel {
         let p = params;
         match self {
             Self::VaporPressure | Self::LiquidViscosity => {
-                (p[0] + p[1] / x + p[2] * x.ln() + p[3] * x.powf(p[4])).exp()
+                (p[0] + p[1] / x + p[2] * x.r_ln() + p[3] * x.r_powf(p[4])).r_exp()
             }
             Self::IdealGasHeatCapacity => {
-                p[0] + p[1] * x + p[2] * x.powi(2) + p[3] * x.powi(3) + p[4] * x.powi(4)
+                p[0] + p[1] * x + p[2] * x.r_powi(2) + p[3] * x.r_powi(3) + p[4] * x.r_powi(4)
             }
-            Self::HeatOfVaporization => p[0] * (1.0 - x).powf(p[1] + p[2] * x + p[3] * x.powi(2)),
-            Self::LiquidDensity => p[0] / p[1].powf(1.0 + (1.0 - x / p[2]).powf(p[3])),
-            Self::SecondDegreePolynomial => p[0] + p[1] * x + p[2] * x.powi(2),
+            Self::HeatOfVaporization => p[0] * (1.0 - x).r_powf(p[1] + p[2] * x + p[3] * x.r_powi(2)),
+            Self::LiquidDensity => p[0] / p[1].r_powf(1.0 + (1.0 - x / p[2]).r_powf(p[3])),
+            Self::SecondDegreePolynomial => p[0] + p[1] * x + p[2] * x.r_powi(2),
             Self::TbpSixthDegreePolynomial => {
                 p[0] + p[1] * x
-                    + p[2] * x.powi(2)
-                    + p[3] * x.powi(3)
-                    + p[4] * x.powi(4)
-                    + p[5] * x.powi(5)
-                    + p[6] * x.powi(6)
+                    + p[2] * x.r_powi(2)
+                    + p[3] * x.r_powi(3)
+                    + p[4] * x.r_powi(4)
+                    + p[5] * x.r_powi(5)
+                    + p[6] * x.r_powi(6)
             }
         }
     }
@@ -168,49 +169,49 @@ impl LmModel {
                 vec![
                     fval,
                     fval / x,
-                    fval * x.ln(),
-                    fval * x.powf(p[4]),
-                    fval * p[4] * x.powf(p[4]) * x.ln(),
+                    fval * x.r_ln(),
+                    fval * x.r_powf(p[4]),
+                    fval * p[4] * x.r_powf(p[4]) * x.r_ln(),
                 ]
             }
             // LM.vb:136-140
             Self::IdealGasHeatCapacity => {
-                vec![1.0, x, x.powi(2), x.powi(3), x.powi(4)]
+                vec![1.0, x, x.r_powi(2), x.r_powi(3), x.r_powi(4)]
             }
             // LM.vb:202-206 — note fjac(i,1) and fjac(i,2) are both `fval`
             // upstream; ∂/∂A is f/A analytically, but DWSIM writes f. Ported
             // as written (the damping absorbs the constant scale factor).
             Self::HeatOfVaporization => {
                 let fval = self.evaluate(p, x);
-                vec![fval, fval, fval * x, fval * x.powi(2)]
+                vec![fval, fval, fval * x, fval * x.r_powi(2)]
             }
             // LM.vb:234-238
             Self::LiquidDensity => {
                 let (a, b, c, d) = (p[0], p[1], p[2], p[3]);
                 let cx = c - x;
-                let cd = c.powf(d);
-                let cxd = cx.powf(d);
-                let da = 1.0 / b.powf(1.0 + (1.0 - x / c).powf(d));
-                let db = -(a * cxd + a * cd) / (b.powf((cxd + 2.0 * cd) / cd) * cd);
-                let dc = a * b.ln() * d * cxd * x
-                    / (b.powf((cxd + cd) / cd) * c.powf(d + 1.0) * x
-                        - b.powf((cxd + cd) / cd) * c.powf(d + 2.0));
-                let dd = -(a * b.ln() * cx.ln() - a * b.ln() * c.ln()) * cxd
-                    / (b.powf((cxd + cd) / cd) * cd);
+                let cd = c.r_powf(d);
+                let cxd = cx.r_powf(d);
+                let da = 1.0 / b.r_powf(1.0 + (1.0 - x / c).r_powf(d));
+                let db = -(a * cxd + a * cd) / (b.r_powf((cxd + 2.0 * cd) / cd) * cd);
+                let dc = a * b.r_ln() * d * cxd * x
+                    / (b.r_powf((cxd + cd) / cd) * c.r_powf(d + 1.0) * x
+                        - b.r_powf((cxd + cd) / cd) * c.r_powf(d + 2.0));
+                let dd = -(a * b.r_ln() * cx.r_ln() - a * b.r_ln() * c.r_ln()) * cxd
+                    / (b.r_powf((cxd + cd) / cd) * cd);
                 vec![da, db, dc, dd]
             }
             // LM.vb:266-268
-            Self::SecondDegreePolynomial => vec![1.0, x, x.powi(2)],
+            Self::SecondDegreePolynomial => vec![1.0, x, x.r_powi(2)],
             // CurveConversion.vb:275-281 — fjac(i,1) = 0 is upstream's own
             // value and is deliberately preserved.
             Self::TbpSixthDegreePolynomial => vec![
                 0.0,
                 x,
-                x.powi(2),
-                x.powi(3),
-                x.powi(4),
-                x.powi(5),
-                x.powi(6),
+                x.r_powi(2),
+                x.r_powi(3),
+                x.r_powi(4),
+                x.r_powi(5),
+                x.r_powi(6),
             ],
         }
     }

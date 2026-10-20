@@ -47,6 +47,7 @@
 //! track-length estimator across its cells live in outram-mc-libs
 //! (`UnstructuredMeshExt`).
 
+use petir::mathf::RealMath;
 use std::sync::Arc;
 
 use crate::csg::position::Position;
@@ -226,7 +227,7 @@ impl SphericalMesh {
         let (ri, ro) = (self.r_grid[ijk[0]], self.r_grid[ijk[0] + 1]);
         let (ti, to) = (self.theta_grid[ijk[1]], self.theta_grid[ijk[1] + 1]);
         let (pi_, po) = (self.phi_grid[ijk[2]], self.phi_grid[ijk[2] + 1]);
-        (1.0 / 3.0) * (ro * ro * ro - ri * ri * ri) * (ti.cos() - to.cos()) * (po - pi_)
+        (1.0 / 3.0) * (ro * ro * ro - ri * ri * ri) * (ti.r_cos() - to.r_cos()) * (po - pi_)
     }
 }
 

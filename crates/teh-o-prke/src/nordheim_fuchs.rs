@@ -32,6 +32,7 @@
 //!   design scaffold the project owner supplied 2026-07-14 (generated with
 //!   Microsoft Copilot).
 
+use petir::mathf::RealMath;
 use uom::si::f64::{HeatCapacity, Power, Ratio, TemperatureCoefficient, ThermodynamicTemperature, Time};
 use uom::si::heat_capacity::joule_per_kelvin;
 use uom::si::power::watt;
@@ -272,7 +273,7 @@ impl NordheimFuchsExactTimestepper {
         let r_next = if gamma > 0.0 {
             let atanh_arg = (-r_k / gamma).clamp(-1.0 + 1e-14, 1.0 - 1e-14);
             let phase = gamma * dt_s / (2.0 * lambda_s) + atanh_arg.atanh();
-            -gamma * phase.tanh()
+            -gamma * phase.r_tanh()
         } else {
             // gamma == 0 <=> r_k == 0 and P_k == 0: exactly delayed
             // critical with zero power -- stays there.

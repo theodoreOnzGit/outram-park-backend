@@ -67,6 +67,7 @@
 
 /// Sokal's window constant `c`: the window `M` is the smallest with
 /// `M ≥ c·τ(M)`. Fixed in advance at Sokal's recommended `5`.
+use petir::mathf::RealMath;
 pub const SOKAL_WINDOW_C: f64 = 5.0;
 
 /// Lag-`k` sample autocorrelations `ρ_0 = 1, ρ_1, …, ρ_{max_lag}`.
@@ -82,7 +83,7 @@ pub fn autocorrelation(x: &[f64], max_lag: usize) -> Vec<f64> {
         return Vec::new();
     }
     let mean = x.iter().sum::<f64>() / n as f64;
-    let c0: f64 = x.iter().map(|v| (v - mean).powi(2)).sum::<f64>() / n as f64;
+    let c0: f64 = x.iter().map(|v| (v - mean).r_powi(2)).sum::<f64>() / n as f64;
     if !(c0 > 0.0) {
         return Vec::new();
     }

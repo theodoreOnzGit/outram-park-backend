@@ -115,6 +115,7 @@
 //! Recorded in `docs/verification-and-validation.md` and
 //! `docs/cross-code-summary.md`.
 
+use petir::mathf::RealMath;
 use outram_park_fork_liggghts::boundary::Boundary;
 use outram_park_fork_liggghts::compute::{ComputeType, ThreadCount};
 use outram_park_fork_liggghts::granular::{GranularContactModel, GranularMaterial, RollingModel};
@@ -167,7 +168,7 @@ fn load_positions(name: &str) -> Option<Vec<Vec3>> {
 }
 
 fn pebble(x: Vec3) -> Particle {
-    let m = RHO * 4.0 / 3.0 * std::f64::consts::PI * R_P.powi(3);
+    let m = RHO * 4.0 / 3.0 * std::f64::consts::PI * R_P.r_powi(3);
     Particle::new(
         x,
         Vec3::zero(),
@@ -217,7 +218,7 @@ fn bulk_solid_fraction(centres: &[Vec3]) -> (f64, f64) {
         if hi <= lo {
             return 0.0;
         }
-        let f = |z: f64| std::f64::consts::PI * (R_P * R_P * (z - zc) - (z - zc).powi(3) / 3.0);
+        let f = |z: f64| std::f64::consts::PI * (R_P * R_P * (z - zc) - (z - zc).r_powi(3) / 3.0);
         f(hi) - f(lo)
     };
     let solid: f64 = centres.iter().map(|c| cap(c.z)).sum();

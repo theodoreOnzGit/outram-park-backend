@@ -114,6 +114,7 @@
 //!   `r_eq = 0.14*sqrt(dx^2+dy^2)` isotropic form; anisotropic `kx != ky`
 //!   correction is documented above but not implemented.
 
+use petir::mathf::RealMath;
 use crate::error::PflotranError;
 use crate::grid::CartesianGrid;
 
@@ -252,7 +253,7 @@ impl PeacemanWell {
         }
 
         let r_eq = 0.14 * (dx * dx + dy * dy).sqrt();
-        let denom = (r_eq / r_w).ln() + skin;
+        let denom = (r_eq / r_w).r_ln() + skin;
         if denom <= 0.0 {
             return Err(PflotranError::InvalidInput(format!(
                 "well_index: ln(r_eq/r_w)+skin = {denom} <= 0 (r_eq = {r_eq} m, \
@@ -616,7 +617,7 @@ mod tests {
 
         // Hand-evaluated reference: r_eq = 0.14*sqrt(dx^2+dy^2), WI = 2 pi k h / ln(r_eq/r_w).
         let r_eq = 0.14 * (dx * dx + dy * dy).sqrt();
-        let expected = 2.0 * core::f64::consts::PI * k * dz / (r_eq / r_w).ln();
+        let expected = 2.0 * core::f64::consts::PI * k * dz / (r_eq / r_w).r_ln();
         assert!(
             (wi - expected).abs() <= expected.abs() * 1e-12,
             "wi = {wi}, expected = {expected}"

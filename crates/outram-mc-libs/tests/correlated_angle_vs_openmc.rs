@@ -53,6 +53,7 @@
 //! with the separation from the old scheme. U-235 MT=91 at 5 MeV:
 //! OpenMC `<mu_cm>` 0.02017, old scheme 0.01561.
 
+use petir::mathf::RealMath;
 use outram_mc_libs::material::nuclide::Nuclide;
 use outram_mc_libs::physics::scatter::{sample_continuum_branch, ContinuumAngularMode};
 use std::path::PathBuf;
@@ -66,7 +67,7 @@ fn ws() -> PathBuf {
 fn mean_sem(v: &[f64]) -> (f64, f64) {
     let n = v.len() as f64;
     let m = v.iter().sum::<f64>() / n;
-    let var = v.iter().map(|x| (x - m).powi(2)).sum::<f64>() / (n - 1.0);
+    let var = v.iter().map(|x| (x - m).r_powi(2)).sum::<f64>() / (n - 1.0);
     (m, (var / n).sqrt())
 }
 

@@ -10,7 +10,7 @@
 //!
 //! # Why
 //!
-//! In a `std` crate, `x.exp()`, `x.powf(y)`, `x.powi(n)`, `x.sin()` and
+//! In a `std` crate, `x.r_exp()`, `x.r_powf(y)`, `x.r_powi(n)`, `x.r_sin()` and
 //! friends resolve to the inherent `f64` methods, whose last bit belongs to
 //! the target's C library (glibc, MSVC, wasi-libc, Apple libm) or code
 //! generator. S3 moved every such call in the files below onto
@@ -111,13 +111,13 @@ fn no_platform_libm_on_hot_path() {
 fn the_gate_flags_raw_calls_and_only_raw_calls() {
     let sample = "\
 use petir::mathf::RealMath;
-fn a(x: f64) -> f64 { x.powf(1.5) }
-fn b(x: f64) -> f64 { f64::ln(x) }
-fn c(x: f64) -> f64 { x.r_powf(1.5) + x.r_exp() + x.sqrt() } // x.exp() in a comment
-// x.sin() in a comment line
+fn a(x: f64) -> f64 { x.r_powf(1.5) }
+fn b(x: f64) -> f64 { <f64 as petir::mathf::RealMath>::r_ln(x) }
+fn c(x: f64) -> f64 { x.r_powf(1.5) + x.r_exp() + x.sqrt() } // x.r_exp() in a comment
+// x.r_sin() in a comment line
 #[cfg(test)]
 mod tests {
-    fn d(x: f64) -> f64 { x.exp() }
+    fn d(x: f64) -> f64 { x.r_exp() }
 }
 ";
     let hits: Vec<usize> = offences_in(sample).into_iter().map(|(n, _)| n).collect();

@@ -42,6 +42,7 @@
 //! demonstration** — not for facility operation, reactor control,
 //! safety-critical decisions, or licensing.
 
+use petir::mathf::RealMath;
 use core::fmt;
 use std::sync::{Arc, RwLock};
 
@@ -152,7 +153,7 @@ impl HeaterControlSettings {
         let omega = AngularVelocity::new::<radian_per_second>(self.angular_velocity_rad_per_s);
         let angular_phase: Ratio = omega * current_sim_time;
         let angular_phase_f64: f64 = angular_phase.into();
-        let sinusoid_signal = self.total_amplitude_kw * angular_phase_f64.sin();
+        let sinusoid_signal = self.total_amplitude_kw * angular_phase_f64.r_sin();
 
         Power::new::<kilowatt>(self.steady_state_power_kw + sinusoid_signal)
     }

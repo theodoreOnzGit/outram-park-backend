@@ -31,6 +31,7 @@
 //!
 //! Printed by the test; recorded in the #365 thread.
 
+use petir::mathf::RealMath;
 use njoy_outram_park_fork::acer::angular::ElasticAngular;
 use njoy_outram_park_fork::nuclear_data::secondary::{
     ChiEout, ChiTabular, FissionSpectrum, UncorrelatedEmission,
@@ -84,11 +85,11 @@ fn cm_uncorrelated_law_is_transformed_to_the_lab() {
             })
             .collect();
         let mean = draws.iter().map(|d| d.0).sum::<f64>() / N as f64;
-        let var = draws.iter().map(|d| (d.0 - mean).powi(2)).sum::<f64>() / (N - 1) as f64;
+        let var = draws.iter().map(|d| (d.0 - mean).r_powi(2)).sum::<f64>() / (N - 1) as f64;
         let sem = (var / N as f64).sqrt();
         let mu = draws.iter().map(|d| d.1).sum::<f64>() / N as f64;
         let want = if lct == 2 {
-            e0 + w / 2.0 + e_in / (a + 1.0).powi(2)
+            e0 + w / 2.0 + e_in / (a + 1.0).r_powi(2)
         } else {
             e0 + w / 2.0
         };
@@ -106,7 +107,7 @@ fn cm_uncorrelated_law_is_transformed_to_the_lab() {
                 let ecm = e0 + w * (i as f64 + 0.5) / m as f64;
                 for j in 0..m {
                     let mc = -1.0 + 2.0 * (j as f64 + 0.5) / m as f64;
-                    let et = e_in / (a + 1.0).powi(2);
+                    let et = e_in / (a + 1.0).r_powi(2);
                     let el = ecm + et + 2.0 * mc * (ecm * et).sqrt();
                     mu_want += mc * (ecm / el).sqrt() + (et / el).sqrt();
                 }

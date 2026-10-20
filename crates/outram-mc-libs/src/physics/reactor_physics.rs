@@ -140,7 +140,7 @@ impl Estimate {
             };
         }
         let mean = num.mean / den.mean;
-        let rel = (num.rel().powi(2) + den.rel().powi(2)).sqrt();
+        let rel = (num.rel().r_powi(2) + den.rel().r_powi(2)).sqrt();
         Estimate {
             mean,
             std: mean.abs() * rel,
@@ -150,7 +150,7 @@ impl Estimate {
     /// Product of independent estimates: relative variances add.
     fn product(parts: &[Estimate]) -> Estimate {
         let mean: f64 = parts.iter().map(|e| e.mean).product();
-        let rel2: f64 = parts.iter().map(|e| e.rel().powi(2)).sum();
+        let rel2: f64 = parts.iter().map(|e| e.rel().r_powi(2)).sum();
         Estimate {
             mean,
             std: mean.abs() * rel2.sqrt(),

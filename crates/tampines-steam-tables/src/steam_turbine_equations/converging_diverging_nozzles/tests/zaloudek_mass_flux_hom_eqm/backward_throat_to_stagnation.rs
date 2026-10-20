@@ -1,6 +1,7 @@
 //! Zaloudek validation: BACKWARD equations (throat -> stagnation).
 //! Validates `get_stagnation_conditions_from_throat_ph`.
 
+use petir::mathf::RealMath;
 use uom::si::f64::*;
 use uom::si::area::square_foot;
 use uom::si::available_energy::btu_it_per_pound;
@@ -53,8 +54,8 @@ fn validate_zaloudek_curve_using_throat_conditions(
         );
 
         approx::assert_relative_eq!(
-            g_calc.get::<kilogram_per_square_meter_second>().log10(),
-            g_expected.get::<kilogram_per_square_meter_second>().log10(),
+            g_calc.get::<kilogram_per_square_meter_second>().r_log10(),
+            g_expected.get::<kilogram_per_square_meter_second>().r_log10(),
             max_relative = mass_flux_log_tolerance,
         );
     }

@@ -26,6 +26,7 @@
 //! Jacobian (which needs a distributed BiCGStab, not CG), remain the op-gj5
 //! follow-ups. 1-D structured partition only.
 
+use petir::mathf::RealMath;
 use outram_foam_basic_lib::ldu_matrix::LduMatrix;
 
 use super::krylov::{distributed_bicgstab_with, distributed_cg_with};
@@ -408,7 +409,7 @@ mod tests {
         let k = conductivity(n);
         let grid = one_d_grid(n);
         let ldu = assemble_diffusion_ldu(&grid, &k, shift);
-        let x: Vec<f64> = (0..n).map(|i| (i as f64 * 0.4).sin() + 1.0).collect();
+        let x: Vec<f64> = (0..n).map(|i| (i as f64 * 0.4).r_sin() + 1.0).collect();
         let serial_y = ldu.multiply(&x);
 
         for p in [1, 2, 3, 4] {

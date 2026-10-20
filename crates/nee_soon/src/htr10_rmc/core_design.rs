@@ -54,6 +54,7 @@
 //! geometry in its last bit (measured 2026-10-05 by
 //! `the_default_design_builds_the_geometry_unchanged`).
 
+use petir::mathf::RealMath;
 use super::control_rod::{LOWER_END_INSERTED_CM, LOWER_END_WITHDRAWN_CM};
 use super::explicit_bed::{FUEL_ZONE_RADIUS_CM, PEBBLE_RADIUS_CM};
 
@@ -288,7 +289,7 @@ mod tests {
         let c = assemble_explicit_triso_with(14, 5, 0, &d);
         let (mut n, mut fuel, mut conus_fuel) = (0usize, 0usize, 0usize);
         for (p, flags) in built_balls(&built_ball_pieces(&c)) {
-            if p[0].hypot(p[1]) > c.bed_radius {
+            if p[0].r_hypot(p[1]) > c.bed_radius {
                 continue;
             }
             if p[2] > -c.bed_half_height && p[2] < c.bed_half_height {

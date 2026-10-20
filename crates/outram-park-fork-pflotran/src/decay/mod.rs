@@ -86,6 +86,7 @@
 //! reference case. Not for nuclear facility operation, safeguards analysis, or
 //! any safety-critical or licensing use — education, research, and V&V only.
 
+use petir::mathf::RealMath;
 use crate::error::PflotranError;
 
 /// Natural logarithm of 2, used to convert a half-life to a decay constant.
@@ -357,7 +358,7 @@ impl DecayChain {
                     }
                     denom *= diff;
                 }
-                sum += (-lam[i] * t).exp() / denom;
+                sum += (-lam[i] * t).r_exp() / denom;
             }
 
             result[member] = head_initial * prod_lambda * sum;
@@ -440,7 +441,7 @@ fn matrix_exp(a: &[f64], n: usize) -> Vec<f64> {
         }
     }
 
-    let scale = 0.5_f64.powi(s as i32);
+    let scale = 0.5_f64.r_powi(s as i32);
     let mut m = a.to_vec();
     for v in &mut m {
         *v *= scale;
@@ -496,7 +497,7 @@ mod tests {
         let dt = 37.0;
         chain.decay(&mut c, dt).unwrap();
 
-        let expected = n0 * (-lambda * dt).exp();
+        let expected = n0 * (-lambda * dt).r_exp();
         assert!(
             (c[0] - expected).abs() <= 1e-6 * expected,
             "got {}, expected {}",
@@ -533,7 +534,7 @@ mod tests {
         chain.decay(&mut c, t).unwrap();
 
         // Analytical Bateman daughter amount.
-        let n1 = n0 * l0 / (l1 - l0) * ((-l0 * t).exp() - (-l1 * t).exp());
+        let n1 = n0 * l0 / (l1 - l0) * ((-l0 * t).r_exp() - (-l1 * t).r_exp());
         assert!(
             (c[1] - n1).abs() <= 1e-6 * n1,
             "decay daughter {} vs analytic {}",
@@ -541,7 +542,7 @@ mod tests {
             n1
         );
         // Parent still follows simple exponential.
-        let n0t = n0 * (-l0 * t).exp();
+        let n0t = n0 * (-l0 * t).r_exp();
         assert!((c[0] - n0t).abs() <= 1e-6 * n0t);
 
         // Cross-check against bateman_linear.
@@ -645,7 +646,7 @@ mod tests {
         let mut c = vec![n0, 0.0];
         chain.decay(&mut c, t).unwrap();
 
-        let parent = n0 * (-lam * t).exp();
+        let parent = n0 * (-lam * t).r_exp();
         let decayed = n0 - parent;
         let daughter = 0.6 * decayed; // 60% branch stays in-network
         assert!((c[0] - parent).abs() <= 1e-6 * parent);

@@ -19,6 +19,7 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+use petir::mathf::RealMath;
 use crate::openfoam_algorithms::openfoam_source::imports::*;
 use crate::openfoam_algorithms::openfoam_source::constants::{P_REF, R_UNIVERSAL};
 use super::traits::EquationOfState;
@@ -82,7 +83,7 @@ impl EquationOfState for PerfectGas {
         // S_eos = −R·ln(p / p_std)
         let p_val = p.get::<pascal>();
         let r_val = self.r().get::<joule_per_kilogram_kelvin>();
-        SpecificHeatCapacity::new::<joule_per_kilogram_kelvin>(-r_val * (p_val / P_REF).ln())
+        SpecificHeatCapacity::new::<joule_per_kilogram_kelvin>(-r_val * (p_val / P_REF).r_ln())
     }
 }
 

@@ -7,6 +7,7 @@
 //! compares against an experiment or a published reformer, so nothing here
 //! licenses calling the model validated. See `src/smr.rs` for the scope.
 
+use petir::mathf::RealMath;
 use dover::deck::{Deck, DeckError};
 use dover::headless;
 use dover::smr::{ForwardRate, SmrCase, SmrReaction, R_GAS};
@@ -103,7 +104,7 @@ fn mole_count_change_is_two_for_reforming_and_zero_for_the_shift() {
     // And where Δn = 2 they must not, by the documented factor.
     let t = 1123.15;
     let ratio = SmrReaction::Reforming.equilibrium_constant(t) / SmrReaction::Reforming.kc(t);
-    let expected = (R_GAS * t / 100_000.0).powi(2);
+    let expected = (R_GAS * t / 100_000.0).r_powi(2);
     assert!(
         (ratio - expected).abs() / expected < 1e-12,
         "Kp/Kc should be (RT/P°)^2 = {expected}, got {ratio}"
@@ -208,7 +209,7 @@ fn long_residence_time_approaches_thermodynamic_equilibrium() {
 
     for exp in [0, 1, 2, 3, 4, 5] {
         let mut case = base_case();
-        case.volume = 2.0 * 10f64.powi(exp);
+        case.volume = 2.0 * 10f64.r_powi(exp);
         let out = case.solve().expect("solve");
 
         let q = case.volumetric_flow();
@@ -219,7 +220,7 @@ fn long_residence_time_approaches_thermodynamic_equilibrium() {
             let quotient: f64 = rxn
                 .stoichiometry()
                 .iter()
-                .map(|&(sp, nu)| conc[sp.index()].powf(nu))
+                .map(|&(sp, nu)| conc[sp.index()].r_powf(nu))
                 .product();
             let rel = (quotient / rxn.kc(case.temperature) - 1.0).abs();
             worst = worst.max(rel);
@@ -333,7 +334,7 @@ fn pressure_raises_conversion_in_the_kinetically_limited_regime() {
     let quotient: f64 = SmrReaction::Reforming
         .stoichiometry()
         .iter()
-        .map(|&(sp, nu)| conc[sp.index()].powf(nu))
+        .map(|&(sp, nu)| conc[sp.index()].r_powf(nu))
         .product();
     let ratio = quotient / SmrReaction::Reforming.kc(case.temperature);
     assert!(
@@ -397,7 +398,7 @@ fn shift_kinetics_only_set_the_approach_rate() {
         let quotient: f64 = SmrReaction::WaterGasShift
             .stoichiometry()
             .iter()
-            .map(|&(sp, nu)| conc[sp.index()].powf(nu))
+            .map(|&(sp, nu)| conc[sp.index()].r_powf(nu))
             .product();
         let ratio = quotient / SmrReaction::WaterGasShift.kc(case.temperature);
         assert!(

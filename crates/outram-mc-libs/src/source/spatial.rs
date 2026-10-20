@@ -47,8 +47,8 @@ impl SpatialDist for SphericalSource {
         // Radius sampled uniform-in-volume: the volume element is ∝ r² dr, so the
         // CDF over [r_inner, r_outer] inverts to r = (r_i³ + ξ(r_o³ − r_i³))^{1/3}.
         // A degenerate shell (r_inner == r_outer) yields that exact radius.
-        let ri3 = self.r_inner.powi(3);
-        let ro3 = self.r_outer.powi(3);
+        let ri3 = self.r_inner.r_powi(3);
+        let ro3 = self.r_outer.r_powi(3);
         let r = (ri3 + prn(seed) * (ro3 - ri3)).r_cbrt();
         // Isotropic point on the sphere of that radius.
         let (dx, dy, dz) = crate::rng::distributions::isotropic_direction(seed);

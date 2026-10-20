@@ -31,6 +31,7 @@
 //! a published worked example. That is code verification, not validation of
 //! any HTR-10 simulator.
 
+use petir::mathf::RealMath;
 use uom::si::f64::{Area, DynamicViscosity, Length, MassDensity, MassRate, Pressure, Ratio};
 use uom::si::ratio::ratio;
 use uom::si::{ISQ, Quantity, SI};
@@ -74,7 +75,7 @@ pub fn packed_bed_reynolds(
 /// bed: 0.39). Source: VTB generic pebble-bed tutorial, step 2 (Open tier).
 pub fn kta_friction_factor(reynolds: Ratio, porosity: Ratio) -> Ratio {
     let re_modified = reynolds.get::<ratio>() / (1.0 - porosity.get::<ratio>());
-    Ratio::new::<ratio>(320.0 / re_modified + 6.0 / re_modified.powf(0.1))
+    Ratio::new::<ratio>(320.0 / re_modified + 6.0 / re_modified.r_powf(0.1))
 }
 
 /// KTA pressure-drop magnitude per unit bed length (Pa/m):

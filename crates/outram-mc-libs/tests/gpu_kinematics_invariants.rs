@@ -52,6 +52,7 @@
 
 #![cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))]
 
+use petir::mathf::RealMath;
 use outram_mc_libs::gpu::{probe, GpuContext};
 
 use outram_mc_libs::gpu::batched_event::shader_source;
@@ -281,7 +282,7 @@ fn the_reference_identities_are_self_consistent() {
         );
 
         let back = elastic_energy_ratio(awr, -1.0);
-        let alpha = ((awr - 1.0) / (awr + 1.0)).powi(2);
+        let alpha = ((awr - 1.0) / (awr + 1.0)).r_powi(2);
         assert!(
             (back - alpha).abs() < 1e-12,
             "A = {awr}: backscatter should give alpha = {alpha}, got {back}"
@@ -478,7 +479,7 @@ fn gpu_scattered_energy_stays_within_the_elastic_band() {
     for (idx, c) in all.iter().enumerate() {
         let e_out = out.get(idx * 8).copied().unwrap_or(f32::NAN);
         let e_full = out.get(idx * 8 + 7).copied().unwrap_or(f32::NAN);
-        let alpha = ((c.awr - 1.0) / (c.awr + 1.0)).powi(2);
+        let alpha = ((c.awr - 1.0) / (c.awr + 1.0)).r_powi(2);
         let lo = alpha * c.e;
         let hi = c.e;
         // One f32 ulp of the incident energy, as slack at the endpoints.

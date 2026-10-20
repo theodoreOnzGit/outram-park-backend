@@ -39,6 +39,7 @@
 //! (GitHub #578), a host with a different libm may produce different bits,
 //! in which case add that host's pin rather than loosening the comparison.
 
+use petir::mathf::RealMath;
 use outram_mc_libs::geometry::cell::{Cell, CellFill, HalfSpaceSense, RegionToken};
 use outram_mc_libs::geometry::geometry::Geometry;
 use outram_mc_libs::geometry::position::{Direction, Position};
@@ -233,7 +234,7 @@ fn geometry(delta: bool) -> Geometry {
 fn grid() -> Vec<f64> {
     let (lo, hi) = (1.0e-5_f64, 2.0e7_f64);
     (0..512)
-        .map(|i| (lo.ln() + (hi.ln() - lo.ln()) * i as f64 / 511.0).exp())
+        .map(|i| (lo.r_ln() + (hi.r_ln() - lo.r_ln()) * i as f64 / 511.0).r_exp())
         .collect()
 }
 
@@ -431,7 +432,7 @@ fn delta_primitives_are_bit_identical() {
     fp.u(maj.len() as u64);
     fp.u(bounding.len() as u64);
     for i in 0..2000 {
-        let e = 1.0e-7 * (3.0e7_f64 / 1.0e-7).powf(i as f64 / 1999.0);
+        let e = 1.0e-7 * (3.0e7_f64 / 1.0e-7).r_powf(i as f64 / 1999.0);
         fp.f(maj.at(e));
         fp.f(bounding.at(e));
     }
@@ -450,7 +451,7 @@ fn delta_primitives_are_bit_identical() {
         );
         let (dx, dy, dz) = isotropic_direction(&mut seed);
         let u = Direction::new(dx, dy, dz);
-        let e = 1.0e-3 * (1.0e10_f64).powf(outram_mc_libs::rng::lcg::prn(&mut seed));
+        let e = 1.0e-3 * (1.0e10_f64).r_powf(outram_mc_libs::rng::lcg::prn(&mut seed));
         let exit = |p: Position, d: Direction| {
             let b = p.x * d.u + p.y * d.v + p.z * d.w;
             let c = p.norm_sqr() - R_OUT * R_OUT;

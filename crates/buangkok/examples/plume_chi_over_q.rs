@@ -67,6 +67,7 @@
 //! first draft of this example's reading note said "far downwind and high",
 //! which the run contradicted, and it was corrected before commit.
 
+use petir::mathf::RealMath;
 use buangkok::pydoseia::dispersion::{
     dilution_single_plume_no_met, sigma_z, MeanSpeedScaling, PlumeGeometry, Receptor,
     StabilityClass,
@@ -124,9 +125,9 @@ fn main() {
         "class", "x_peak [m]", "chi/Q peak", "sigma_z(x_peak)", "H / sqrt 2"
     );
     let n = 2000;
-    let (lo, hi) = (50.0_f64.ln(), 50_000.0_f64.ln());
+    let (lo, hi) = (50.0_f64.r_ln(), 50_000.0_f64.r_ln());
     let xs: Vec<f64> = (0..n)
-        .map(|i| (lo + (hi - lo) * i as f64 / (n - 1) as f64).exp())
+        .map(|i| (lo + (hi - lo) * i as f64 / (n - 1) as f64).r_exp())
         .collect();
     let table: Vec<[f64; 6]> = xs.iter().map(|&x| chi_over_q(x)).collect();
     for class in StabilityClass::ALL {

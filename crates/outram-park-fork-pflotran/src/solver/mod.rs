@@ -34,6 +34,7 @@
 //! residual or the Newton step is likewise reported as a `Convergence` failure
 //! rather than propagated silently.
 
+use petir::mathf::RealMath;
 pub mod block;
 
 pub use block::{
@@ -428,7 +429,7 @@ mod tests {
             for i in 0..self.n {
                 let left = if i == 0 { 0.0 } else { x[i - 1] };
                 let right = if i == self.n - 1 { 0.0 } else { x[i + 1] };
-                out[i] = -(left - 2.0 * x[i] + right) * inv - self.lambda * x[i].exp();
+                out[i] = -(left - 2.0 * x[i] + right) * inv - self.lambda * x[i].r_exp();
             }
             Ok(())
         }
@@ -448,7 +449,7 @@ mod tests {
                 *l = 0.0;
             }
             for i in 0..self.n {
-                jac.diag[i] = 2.0 * inv - self.lambda * x[i].exp();
+                jac.diag[i] = 2.0 * inv - self.lambda * x[i].r_exp();
             }
             // One face per off-diagonal; both super- and sub-diagonal are -1/h².
             for f in 0..jac.n_internal_faces {

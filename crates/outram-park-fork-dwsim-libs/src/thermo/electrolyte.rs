@@ -107,6 +107,7 @@
 //! needs the full DWSIM `LIQUAC2_RiQi.txt` / `LIQUAC2_IP.txt` /
 //! `dielectricconstants.txt` parameter databases, which are **not** bundled here.
 
+use petir::mathf::RealMath;
 use crate::thermo::activity::UniquacParams;
 
 /// LIQUAC Debye-Hückel long-range **`A`-constant** numerator
@@ -312,7 +313,7 @@ impl DebyeHuckel {
     #[must_use]
     pub fn from_solvent(density: f64, dielectric: f64, t: f64) -> Self {
         let et = dielectric * t;
-        let a = A_CONST * density.sqrt() / et.powf(1.5);
+        let a = A_CONST * density.sqrt() / et.r_powf(1.5);
         let b = B_CONST * density.sqrt() / et.sqrt();
         Self { a, b }
     }
@@ -438,7 +439,7 @@ impl IdealElectrolyte {
             .iter()
             .map(|s| {
                 if s.is_ion() {
-                    self.dh.ln_gamma_ion(s.charge, im).exp()
+                    self.dh.ln_gamma_ion(s.charge, im).r_exp()
                 } else {
                     1.0
                 }
@@ -544,11 +545,11 @@ impl LiquacModel {
         if let Some(uq) = &self.short_range {
             let g_sr = uq.activity_coefficients(x, t);
             for (ln_gi, &g) in ln_gamma.iter_mut().zip(g_sr.iter()) {
-                *ln_gi += g.ln();
+                *ln_gi += g.r_ln();
             }
         }
 
-        ln_gamma.into_iter().map(f64::exp).collect()
+        ln_gamma.into_iter().map(<f64 as petir::mathf::RealMath>::r_exp).collect()
     }
 }
 
@@ -592,7 +593,7 @@ pub fn osmotic_coefficient(
         return f64::NAN;
     }
     let mw = system.species[solvent_index].molar_mass;
-    -(x[solvent_index] * gamma[solvent_index]).ln() / (mw * sum_ion)
+    -(x[solvent_index] * gamma[solvent_index]).r_ln() / (mw * sum_ion)
 }
 
 /// pH from the hydrogen-ion molality and its activity coefficient
@@ -625,7 +626,7 @@ pub fn ph_from_hydrogen(
     assert_eq!(x.len(), system.n());
     assert_eq!(gamma.len(), system.n());
     let m = system.molalities(x);
-    -(m[hydrogen_index] * gamma[hydrogen_index]).log10()
+    -(m[hydrogen_index] * gamma[hydrogen_index]).r_log10()
 }
 
 /// Strong-electrolyte **complete-dissociation speciation** — the kernel the
@@ -859,8 +860,8 @@ mod tests {
         let g = model.activity_coefficients(&system, &x, 298.15);
         assert_relative_eq!(g[0], 1.0, epsilon = 1e-12); // water
         let im = system.ionic_strength(&x);
-        assert_relative_eq!(g[1], dh.ln_gamma_ion(1, im).exp(), epsilon = 1e-12);
-        assert_relative_eq!(g[2], dh.ln_gamma_ion(-1, im).exp(), epsilon = 1e-12);
+        assert_relative_eq!(g[1], dh.ln_gamma_ion(1, im).r_exp(), epsilon = 1e-12);
+        assert_relative_eq!(g[2], dh.ln_gamma_ion(-1, im).r_exp(), epsilon = 1e-12);
         // Physically: activity coefficient < 1 for the dilute strong electrolyte.
         assert!(g[1] < 1.0 && g[1] > 0.85);
     }
@@ -910,7 +911,7 @@ mod tests {
         let g_uq = uq.activity_coefficients(&x, t);
         for (i, s) in system.species.iter().enumerate() {
             let ln_lr = dh.ln_gamma_ion(s.charge, im);
-            let expected = (ln_lr + g_uq[i].ln()).exp();
+            let expected = (ln_lr + g_uq[i].r_ln()).r_exp();
             assert_relative_eq!(g[i], expected, epsilon = 1e-12);
         }
     }
@@ -942,7 +943,7 @@ mod tests {
         let with_b = LiquacModel::long_range_only(dh).with_middle_range(b);
         let gb = with_b.activity_coefficients(&system, &x, 298.15);
         let im = system.ionic_strength(&x);
-        let expected_na = (dh.ln_gamma_ion(1, im) + 0.3 * m[0]).exp();
+        let expected_na = (dh.ln_gamma_ion(1, im) + 0.3 * m[0]).r_exp();
         assert_relative_eq!(gb[1], expected_na, epsilon = 1e-12);
     }
 

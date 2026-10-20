@@ -265,7 +265,7 @@ pub fn first_flight(radii: &[f64], sigma_t: &[f64], nodes: usize) -> CollisionPr
     let volume: Vec<f64> = (0..n)
         .map(|k| {
             let inner = if k == 0 { 0.0 } else { radii[k - 1] };
-            four_pi_over_3 * (radii[k].powi(3) - inner.powi(3))
+            four_pi_over_3 * (radii[k].r_powi(3) - inner.r_powi(3))
         })
         .collect();
 

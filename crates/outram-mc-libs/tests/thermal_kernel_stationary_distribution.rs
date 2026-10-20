@@ -168,6 +168,7 @@
 //! Data-gated: skips (passes) when `reference-data/endf/` is absent, same
 //! contract as `tests/thermal_laws_vs_njoy_thermr.rs`.
 
+use petir::mathf::RealMath;
 use outram_mc_libs::geometry::position::Direction;
 use outram_mc_libs::material::thermal::ThermalScattering;
 use outram_mc_libs::physics::scatter::{free_gas_elastic_scatter, K_BOLTZMANN_EV_PER_K};
@@ -367,7 +368,7 @@ fn mean_relative_speed(e: f64, awr: f64, kt: f64) -> f64 {
     let a = (awr * e / kt).sqrt();
     e.sqrt()
         * ((1.0 + 1.0 / (2.0 * a * a)) * erf(a)
-            + (-a * a).exp() / (a * std::f64::consts::PI.sqrt()))
+            + (-a * a).r_exp() / (a * std::f64::consts::PI.sqrt()))
 }
 
 /// Abramowitz & Stegun 7.1.26 — `|error| < 1.5e-7`.
@@ -384,7 +385,7 @@ fn erf(x: f64) -> f64 {
     let x = x.abs();
     let t = 1.0 / (1.0 + P * x);
     let poly = A.iter().rev().fold(0.0, |acc, &c| (acc + c) * t);
-    sign * (1.0 - poly * (-x * x).exp())
+    sign * (1.0 - poly * (-x * x).r_exp())
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

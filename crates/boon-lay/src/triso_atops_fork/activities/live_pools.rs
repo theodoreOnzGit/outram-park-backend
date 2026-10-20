@@ -57,6 +57,7 @@
 //! in this workspace).
 
 /// The three primary-circuit pools and the cumulative leak, in **atoms**.
+use petir::mathf::RealMath;
 #[derive(Debug, Clone, Copy, Default, PartialEq)]
 pub struct PrimaryPools {
     /// Circulating in the coolant.
@@ -98,7 +99,7 @@ pub struct PoolStepFlows {
 /// `int_0^dt C(s) e^{-lambda (dt - s)} ds` for `C(s) = c_eq + (c0 - c_eq)
 /// e^{-beta s}`, handling `beta -> lambda` without dividing by zero.
 fn decayed_convolution(c_eq: f64, c0: f64, beta: f64, lambda: f64, dt: f64) -> f64 {
-    let e_l = (-lambda * dt).exp();
+    let e_l = (-lambda * dt).r_exp();
     let first = if lambda * dt > 1.0e-12 {
         c_eq * (1.0 - e_l) / lambda
     } else {
@@ -106,7 +107,7 @@ fn decayed_convolution(c_eq: f64, c0: f64, beta: f64, lambda: f64, dt: f64) -> f
     };
     let d = lambda - beta;
     let second = if (d * dt).abs() > 1.0e-12 {
-        (c0 - c_eq) * ((-beta * dt).exp() - e_l) / d
+        (c0 - c_eq) * ((-beta * dt).r_exp() - e_l) / d
     } else {
         (c0 - c_eq) * dt * e_l
     };
@@ -116,7 +117,7 @@ fn decayed_convolution(c_eq: f64, c0: f64, beta: f64, lambda: f64, dt: f64) -> f
 /// `int_0^dt C(s) ds` for the same `C(s)`.
 fn circulating_integral(c_eq: f64, c0: f64, beta: f64, dt: f64) -> f64 {
     if beta * dt > 1.0e-12 {
-        c_eq * dt + (c0 - c_eq) * (1.0 - (-beta * dt).exp()) / beta
+        c_eq * dt + (c0 - c_eq) * (1.0 - (-beta * dt).r_exp()) / beta
     } else {
         c0 * dt
     }
@@ -151,7 +152,7 @@ pub fn step(
     let c_eq = if beta > 0.0 { s / beta } else { 0.0 };
 
     let circulating = if beta > 0.0 {
-        c0 * (-beta * dt).exp() + c_eq * (1.0 - (-beta * dt).exp())
+        c0 * (-beta * dt).r_exp() + c_eq * (1.0 - (-beta * dt).r_exp())
     } else {
         c0 + s * dt
     };
@@ -165,7 +166,7 @@ pub fn step(
     } else {
         int_c
     };
-    let e_l = (-lambda * dt).exp();
+    let e_l = (-lambda * dt).r_exp();
     let plate_out = pools.plate_out * e_l + rates.plate_out * conv;
     let clean_up = pools.clean_up * e_l + rates.clean_up * conv;
     let leaked_now = rates.leak * int_c;

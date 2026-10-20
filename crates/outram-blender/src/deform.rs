@@ -35,6 +35,7 @@
 //! - [`warp`] — bend space so a "from" segment maps onto a "to" segment.
 //! - [`wave`] — a travelling sine ripple.
 
+use petir::mathf::RealMath;
 use crate::math::Vec3;
 use crate::mesh::{Mesh, VertexId};
 use crate::selection::Axis;
@@ -269,7 +270,7 @@ pub fn warp(
     let rot_axis = src_vec.cross(dst_vec);
     let angle = (src_vec.dot(dst_vec) / (src_len * dst_vec.length().max(1e-9)))
         .clamp(-1.0, 1.0)
-        .acos();
+        .r_acos();
     let k = if rot_axis.length() > 1e-9 {
         rot_axis.normalize()
     } else {
@@ -305,7 +306,7 @@ pub fn wave(
     deform(mesh, verts, |p| {
         let radial = p.sub(k.scale(p.dot(k))).length();
         let phase = std::f64::consts::TAU * (radial / wl - speed * time);
-        p.add(k.scale(amplitude * phase.sin()))
+        p.add(k.scale(amplitude * phase.r_sin()))
     })
 }
 

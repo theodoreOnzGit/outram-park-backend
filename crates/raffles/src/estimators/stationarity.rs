@@ -62,6 +62,7 @@
 //! - R. E. Kass and A. E. Raftery (1995). Bayes factors. *JASA, 90*(430),
 //!   773–795.
 
+use petir::mathf::RealMath;
 use crate::model_selection::{ln_bayes_factor, EvidenceStrength, ModelEvidence};
 
 /// MSER batch size, fixed at the published MSER-5.
@@ -109,7 +110,7 @@ pub fn mser_truncation(x: &[f64], batch_size: usize) -> Option<MserTruncation> {
         let tail = &z[d..];
         let m = tail.len() as f64;
         let mean = tail.iter().sum::<f64>() / m;
-        let ss: f64 = tail.iter().map(|v| (v - mean).powi(2)).sum();
+        let ss: f64 = tail.iter().map(|v| (v - mean).r_powi(2)).sum();
         statistic.push(ss / (m * m));
     }
     let mut best = 0;
@@ -231,7 +232,7 @@ pub fn change_point(x: &[f64], batch_size: usize) -> Option<ChangePoint> {
     let n = k as f64;
     let ss = |s: &[f64]| -> (f64, f64) {
         let m = s.iter().sum::<f64>() / s.len() as f64;
-        (m, s.iter().map(|v| (v - m).powi(2)).sum())
+        (m, s.iter().map(|v| (v - m).r_powi(2)).sum())
     };
     let (_, s0) = ss(&z);
     if !(s0 > 0.0) {
@@ -246,10 +247,10 @@ pub fn change_point(x: &[f64], batch_size: usize) -> Option<ChangePoint> {
         let s = (s1 + s2).max(f64::MIN_POSITIVE);
         s_min = s_min.min(s);
         let (n1, n2) = (tau as f64, (k - tau) as f64);
-        logp.push(-0.5 * (n1 * n2).ln() - 0.5 * (n - 2.0) * s.ln());
+        logp.push(-0.5 * (n1 * n2).r_ln() - 0.5 * (n - 2.0) * s.r_ln());
     }
     let lmax = logp.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
-    let w: Vec<f64> = logp.iter().map(|l| (l - lmax).exp()).collect();
+    let w: Vec<f64> = logp.iter().map(|l| (l - lmax).r_exp()).collect();
     let tot: f64 = w.iter().sum();
     let posterior: Vec<f64> = w.iter().map(|v| v / tot).collect();
     let mut imax = 0;
@@ -264,9 +265,9 @@ pub fn change_point(x: &[f64], batch_size: usize) -> Option<ChangePoint> {
 
     // BIC: Gaussian max log-likelihood -n/2 (ln(2π S/n) + 1); p = 2 (μ, σ)
     // without a change, p = 4 (μ₁, μ₂, σ, τ) with one.
-    let ln_l = |s: f64| -0.5 * n * ((2.0 * std::f64::consts::PI * s / n).ln() + 1.0);
-    let ln_z0 = ln_l(s0) - 1.0 * n.ln();
-    let ln_z1 = ln_l(s_min) - 2.0 * n.ln();
+    let ln_l = |s: f64| -0.5 * n * ((2.0 * std::f64::consts::PI * s / n).r_ln() + 1.0);
+    let ln_z0 = ln_l(s0) - 1.0 * n.r_ln();
+    let ln_z1 = ln_l(s_min) - 2.0 * n.r_ln();
     let (e0, e1) = match (
         ModelEvidence::new("one mean", ln_z0),
         ModelEvidence::new("change in mean", ln_z1),
@@ -297,7 +298,7 @@ mod tests {
         let mut s = seed;
         (0..n)
             .map(|t| {
-                amp * (-(t as f64) / scale).exp()
+                amp * (-(t as f64) / scale).r_exp()
                     + 0.1 * crate::distributions::seeded::sample_normal(&mut s)
             })
             .collect()

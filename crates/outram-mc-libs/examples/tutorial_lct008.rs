@@ -123,6 +123,7 @@
 //! The tutorial page (`docs/tutorial/src/tutorial6-lct008.md`) has the
 //! tables and their reading.
 
+use petir::mathf::RealMath;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
@@ -374,7 +375,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .sum();
     let expect = fuel_pins as f64
         * std::f64::consts::PI
-        * lct008_model::R_FUEL.powi(2)
+        * lct008_model::R_FUEL.r_powi(2)
         * (lct008_model::Z_HI - lct008_model::Z_LO);
     println!("fuel volume {fuel_volume:.1} cm3 (4961 pins x pi r^2 x 163.324 cm = {expect:.1})");
     assert!((fuel_volume / expect - 1.0).abs() < 1e-12);

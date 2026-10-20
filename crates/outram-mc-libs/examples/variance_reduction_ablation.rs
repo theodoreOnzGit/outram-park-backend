@@ -35,6 +35,7 @@
 //! cargo run --release -p outram-mc-libs --example variance_reduction_ablation -- 16
 //! ```
 
+use petir::mathf::RealMath;
 use std::time::Instant;
 
 use outram_mc_libs::geometry::cell::{Cell, HalfSpaceSense, RegionToken};
@@ -127,7 +128,7 @@ fn stats(v: &[f64]) -> (f64, f64, f64) {
     if v.len() < 2 {
         return (mean, f64::NAN, f64::NAN);
     }
-    let var = v.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / (n - 1.0);
+    let var = v.iter().map(|x| (x - mean).r_powi(2)).sum::<f64>() / (n - 1.0);
     (mean, var.sqrt(), (var / n).sqrt())
 }
 

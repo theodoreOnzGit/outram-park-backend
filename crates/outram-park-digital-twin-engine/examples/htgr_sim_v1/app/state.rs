@@ -12,6 +12,7 @@
 //!   updated by a separate plot-sampler thread.
 
 /// Maximum number of samples kept in each plot history buffer.
+use petir::mathf::RealMath;
 const MAX_PLOT_SAMPLES: usize = 4000;
 
 /// One tracked nuclide's TRISO release state, projected onto the snapshot.
@@ -1235,13 +1236,13 @@ mod tests {
             let t = i as f64 * 0.1;
             plots.push_sample(&HtgrSnapshot {
                 sim_time_s: t,
-                reactor_power_mw: 10.0 + (t * 0.001351).sin() * 2.0,
-                prompt_power_mw: 9.0 + (t * 0.002213).sin() * 1.5,
-                delayed_power_mw: 1.0 + (t * 0.000871).sin() * 0.3,
-                fuel_temperature_k: 950.0 + (t * 0.000513).sin() * 40.0,
-                bed_temperature_k: 900.0 + (t * 0.000377).sin() * 30.0,
-                core_outlet_temp_k: 973.15 + (t * 0.000291).sin() * 15.0,
-                turbine_power_mw: 3.1 + (t * 0.000662).sin() * 0.5,
+                reactor_power_mw: 10.0 + (t * 0.001351).r_sin() * 2.0,
+                prompt_power_mw: 9.0 + (t * 0.002213).r_sin() * 1.5,
+                delayed_power_mw: 1.0 + (t * 0.000871).r_sin() * 0.3,
+                fuel_temperature_k: 950.0 + (t * 0.000513).r_sin() * 40.0,
+                bed_temperature_k: 900.0 + (t * 0.000377).r_sin() * 30.0,
+                core_outlet_temp_k: 973.15 + (t * 0.000291).r_sin() * 15.0,
+                turbine_power_mw: 3.1 + (t * 0.000662).r_sin() * 0.5,
                 ..HtgrSnapshot::default()
             });
         }

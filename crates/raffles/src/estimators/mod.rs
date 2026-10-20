@@ -50,6 +50,7 @@
 
 /// Seed-ensemble consistency: `χ²/dof` of seed values against their internal
 /// `σ`, a fixed 95 % band, leave-one-out outlier flags (GitHub #494).
+use petir::mathf::RealMath;
 pub mod seed_consistency;
 /// Autocorrelation-corrected standard errors for a correlated sequence: batch
 /// means, integrated autocorrelation time, effective sample size (GitHub #495).
@@ -92,7 +93,7 @@ pub fn mean_and_stderr(x: &[f64]) -> (f64, f64) {
     if n < 2 {
         return (mean, 0.0);
     }
-    let var = x.iter().map(|v| (v - mean).powi(2)).sum::<f64>() / (n as f64 - 1.0);
+    let var = x.iter().map(|v| (v - mean).r_powi(2)).sum::<f64>() / (n as f64 - 1.0);
     (mean, (var / n as f64).sqrt())
 }
 
@@ -125,7 +126,7 @@ pub fn pooled(x: &[f64]) -> (f64, f64, f64) {
     if n == 1 {
         return (mean, 0.0, 0.0);
     }
-    let var = x.iter().map(|v| (v - mean).powi(2)).sum::<f64>() / (n - 1) as f64;
+    let var = x.iter().map(|v| (v - mean).r_powi(2)).sum::<f64>() / (n - 1) as f64;
     let sd = var.sqrt();
     (mean, sd, sd / (n as f64).sqrt())
 }
@@ -248,7 +249,7 @@ fn rel_var(x: f64, s: f64) -> f64 {
     if x == 0.0 {
         0.0
     } else {
-        (s / x).powi(2)
+        (s / x).r_powi(2)
     }
 }
 

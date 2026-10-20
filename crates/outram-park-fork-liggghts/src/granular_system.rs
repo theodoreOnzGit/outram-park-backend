@@ -60,6 +60,7 @@
 //! all-pairs scan below [`GranularSystem::BRUTE_FORCE_THRESHOLD`] and a
 //! uniform linked-cell grid above it.
 
+use petir::mathf::RealMath;
 use std::collections::HashMap;
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -364,7 +365,7 @@ impl GranularSystem {
         let mut z = fallback;
         for p in &self.particles {
             let contact = radius + p.radius;
-            let dh2 = (p.position.x - x).powi(2) + (p.position.y - y).powi(2);
+            let dh2 = (p.position.x - x).r_powi(2) + (p.position.y - y).r_powi(2);
             if dh2 < contact * contact {
                 let zc = p.position.z + (contact * contact - dh2).sqrt();
                 if zc > z {
@@ -1522,7 +1523,7 @@ mod tests {
         sys.run(300_000);
         let overlap = r - sys.particles()[0].position.z;
         // F = (4/3) E* sqrt(R*) delta^{3/2} = m g
-        let expected = (3.0 * mass * 9.81 / (4.0 * m.y_eff() * r.sqrt())).powf(2.0 / 3.0);
+        let expected = (3.0 * mass * 9.81 / (4.0 * m.y_eff() * r.sqrt())).r_powf(2.0 / 3.0);
         assert!(
             (overlap - expected).abs() / expected < 0.01,
             "settled overlap {overlap:e} m vs Hertz static {expected:e} m"

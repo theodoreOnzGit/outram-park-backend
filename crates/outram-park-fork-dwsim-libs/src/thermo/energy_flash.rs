@@ -85,6 +85,7 @@
 //!   approximation (see [`flash_ps`]); it is verified only for the single-phase
 //!   case here.
 
+use petir::mathf::RealMath;
 use crate::thermo::cubic_eos::Phase;
 use crate::thermo::flash::FlashResult;
 use crate::thermo::ideal_props::{
@@ -902,7 +903,7 @@ mod tests {
         let dep = &dep;
 
         let s_known = mixture_entropy(&c, &z, t_known, p, t_ref, p_ref, flash, dep);
-        assert_relative_eq!(s_known, a * (t_known / t_ref).ln(), max_relative = 1e-12);
+        assert_relative_eq!(s_known, a * (t_known / t_ref).r_ln(), max_relative = 1e-12);
 
         let r = flash_ps(
             &c,

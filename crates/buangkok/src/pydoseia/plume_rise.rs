@@ -24,8 +24,9 @@
 
 /// Python's `v ** e` on floats: C `pow`, with the exponent hidden from LLVM so
 /// it is not strength-reduced.
+use petir::mathf::RealMath;
 fn pw(v: f64, e: f64) -> f64 {
-    v.powf(core::hint::black_box(e))
+    v.r_powf(core::hint::black_box(e))
 }
 
 /// `compute_plume_rise_neutral_unstable_cat(W0, x, U, D_i, D_e)` (classes

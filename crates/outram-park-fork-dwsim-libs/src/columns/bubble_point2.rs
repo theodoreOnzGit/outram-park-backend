@@ -76,6 +76,7 @@
 //! mode, unit conversion of spec values, and the Brent fallbacks in the outer
 //! reboiler loop.
 
+use petir::mathf::RealMath;
 use crate::columns::bubble_point::{
     back_calculate_duties, impose_condenser_spec, impose_reboiler_spec, net_flow_sums,
 };
@@ -478,7 +479,7 @@ impl ModifiedWangHenkeSolver {
                 }
             }
 
-            t_error = (0..n).map(|i| (tj[i] - tj_ant[i]).powi(2)).sum();
+            t_error = (0..n).map(|i| (tj[i] - tj_ant[i]).r_powi(2)).sum();
 
             for i in (0..n).rev() {
                 let mut sumy = 0.0;

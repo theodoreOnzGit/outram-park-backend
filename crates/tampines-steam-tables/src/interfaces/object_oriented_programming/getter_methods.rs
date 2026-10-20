@@ -1,3 +1,4 @@
+use petir::mathf::RealMath;
 use uom::si::f64::*;
 use uom::si::volume::cubic_meter;
 
@@ -531,7 +532,7 @@ mod tests {
             assert_eq!(c_eq, c_kieffer);
             assert!(c > 0.0);
             assert!(
-                (c / c_fig9).log10().abs() < 0.1,
+                (c / c_fig9).r_log10().abs() < 0.1,
                 "x = {x}: {c} m/s vs {c_fig9} m/s"
             );
             assert!(

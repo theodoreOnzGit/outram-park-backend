@@ -27,6 +27,7 @@
 //! another. Materials are numbered in first-use order (equal materials share
 //! one entry), nuclides likewise, keyed by nuclide and thermal law.
 
+use petir::mathf::RealMath;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 
@@ -1149,8 +1150,8 @@ pub(crate) mod tests {
     /// A library with fake headers (masses only): enough to assemble.
     pub(crate) fn fake_data() -> NuclearData {
         let endf = |x: f64| {
-            let e = x.abs().log10().floor() as i32;
-            format!("{:.6}{e:+}", x / 10f64.powi(e))
+            let e = x.abs().r_log10().floor() as i32;
+            format!("{:.6}{e:+}", x / 10f64.r_powi(e))
         };
         let tape = |za: f64, awr: f64| {
             format!(
@@ -1757,7 +1758,7 @@ pub(crate) mod tests {
         use uom::si::volume::cubic_centimeter;
         // Şeker & Çolak's cell for 6 cm balls: apothem d cos 30 + d/2, height
         // 2 d sqrt(2/3) (exact, so the flower balls are exactly tangent).
-        let pitch = 2.0 * (6.0 * (std::f64::consts::PI / 6.0).cos() + 3.0);
+        let pitch = 2.0 * (6.0 * (std::f64::consts::PI / 6.0).r_cos() + 3.0);
         let height = 2.0 * 6.0 * (2.0_f64 / 3.0).sqrt();
         let gas = || Material::from_atom_densities([(H1, atoms_per_barn_cm(1.0e-5))]).named("gas");
         let ball = || {

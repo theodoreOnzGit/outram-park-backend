@@ -48,6 +48,7 @@
 //! time-integrated coefficient `∫D dt` has units of m^2 and is returned as an
 //! [`Area`].
 
+use petir::mathf::RealMath;
 use uom::si::area::square_meter;
 use uom::si::diffusion_coefficient::square_meter_per_second;
 use uom::si::f64::{Area, DiffusionCoefficient, ThermodynamicTemperature, Time};
@@ -86,7 +87,7 @@ fn arrhenius_term(
 ) -> f64 {
     pre_exponential
         * (-activation_energy_kj_per_mol * 1000.0 / temperature_kelvin / GAS_CONSTANT_J_PER_MOL_K)
-            .exp()
+            .r_exp()
 }
 
 /// °C → K, matching the upstream `T + 273.15`.
@@ -308,7 +309,7 @@ mod tests {
         let d = diffusion_coefficient(53, t, t)
             .kernel
             .get::<square_meter_per_second>();
-        let expected = 1.3e-12 * (-126000.0_f64 / (1273.15 * 8.31447)).exp();
+        let expected = 1.3e-12 * (-126000.0_f64 / (1273.15 * 8.31447)).r_exp();
         assert_relative_eq!(d, expected, max_relative = 1e-12);
         assert_relative_eq!(d * 1e18, 8.8011, max_relative = 1e-3);
     }
@@ -322,7 +323,7 @@ mod tests {
             .get::<square_meter_per_second>();
         let tk = 1800.0_f64 + 273.15;
         let expected =
-            8.8e-15 * (-54000.0 / (tk * 8.31447)).exp() + 6e-1 * (-480000.0 / (tk * 8.31447)).exp();
+            8.8e-15 * (-54000.0 / (tk * 8.31447)).r_exp() + 6e-1 * (-480000.0 / (tk * 8.31447)).r_exp();
         assert_relative_eq!(d, expected, max_relative = 1e-12);
     }
 
@@ -345,7 +346,7 @@ mod tests {
     fn silver_sic_matches_hand_calc() {
         let t = ThermodynamicTemperature::new::<degree_celsius>(1200.0);
         let d = diffusion_coefficient_sic_ag(t).get::<square_meter_per_second>();
-        let expected = 3.6e-9 * (-215000.0_f64 / (1473.15 * 8.31447)).exp();
+        let expected = 3.6e-9 * (-215000.0_f64 / (1473.15 * 8.31447)).r_exp();
         assert_relative_eq!(d, expected, max_relative = 1e-12);
         assert_relative_eq!(d * 1e17, 8.5710, max_relative = 1e-3);
     }

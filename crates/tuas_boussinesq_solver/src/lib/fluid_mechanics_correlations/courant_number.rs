@@ -10,6 +10,7 @@
 
 /// calculates the courant number for a fluid
 /// given a one dimensional model
+use petir::mathf::RealMath;
 use uom::si::{f64::*, volume_rate::cubic_meter_per_second};
 
 /// calculates Courant-Friedrichs-Lewy number (CFL)
@@ -243,7 +244,7 @@ pub fn courant_number_3d_openfoam_algorithm_velocity(
 
         // we get the cosine
 
-        let angle_cosine = angle_value_radians.cos();
+        let angle_cosine = angle_value_radians.r_cos();
 
         cosine_angle_vector.push(angle_cosine);
     }

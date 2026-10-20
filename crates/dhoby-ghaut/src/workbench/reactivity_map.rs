@@ -51,6 +51,7 @@
 //! The order is the user's, set before the fit and never chosen by the
 //! held-out error; the planner proposes enough runs for it.
 
+use petir::mathf::RealMath;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use uom::si::f64::ThermodynamicTemperature;
@@ -133,7 +134,7 @@ impl AxisBasis {
         match self {
             Self::Linear => x,
             Self::Sqrt => x.sqrt(),
-            Self::Ln => x.ln(),
+            Self::Ln => x.r_ln(),
         }
     }
 
@@ -143,7 +144,7 @@ impl AxisBasis {
         match self {
             Self::Linear => u,
             Self::Sqrt => u * u,
-            Self::Ln => u.exp(),
+            Self::Ln => u.r_exp(),
         }
     }
 
@@ -795,7 +796,7 @@ pub fn plan_temperatures(lo: f64, hi: f64, n: usize, basis: AxisBasis, existing:
         let (ul, uh) = (basis.u(lo), basis.u(hi));
         (0..n)
             .map(|j| {
-                let c = -(std::f64::consts::PI * j as f64 / (n - 1) as f64).cos();
+                let c = -(std::f64::consts::PI * j as f64 / (n - 1) as f64).r_cos();
                 basis.x(0.5 * (ul + uh) + 0.5 * (uh - ul) * c)
             })
             .collect()

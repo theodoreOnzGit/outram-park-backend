@@ -5,6 +5,7 @@
 //! phase's single-phase pressure drop, corrected by a multiplier derived
 //! from the Martinelli parameter `X`), not the classic void-fraction chart.
 
+use petir::mathf::RealMath;
 use super::friction_factor::{darcy_friction_factor, frictional_pressure_drop, reynolds_number};
 use uom::si::acceleration::meter_per_second_squared;
 use uom::si::angle::radian;
@@ -85,7 +86,7 @@ pub fn lockhart_martinelli_pressure_drop(
         / (q_liquid.get::<cubic_meter_per_second>() + q_gas.get::<cubic_meter_per_second>());
     let elevation_pressure_drop = (density_gas * (1.0 - c_l) + density_liquid * c_l)
         * Acceleration::new::<meter_per_second_squared>(G)
-        * theta.sin()
+        * theta.r_sin()
         * length;
 
     LockhartMartinelliResult {

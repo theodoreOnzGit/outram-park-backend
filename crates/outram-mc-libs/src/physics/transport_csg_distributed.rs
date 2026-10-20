@@ -33,6 +33,7 @@
 //! and the `k` trigger. A run goes to its last generation unless the
 //! population dies out.
 
+use petir::mathf::RealMath;
 use super::{
     bank_entropy, resample, sample_box_source, transport_history_vr, Site, SourceBox, GEN_STRIDE,
     HIST_STRIDE,
@@ -803,7 +804,7 @@ mod tests {
             root_universe: 0,
         };
         let grid: Vec<f64> = (0..400)
-            .map(|i| 1.0e-5 * (2.0e7_f64 / 1.0e-5).powf(i as f64 / 399.0))
+            .map(|i| 1.0e-5 * (2.0e7_f64 / 1.0e-5).r_powf(i as f64 / 399.0))
             .collect();
         let maj = vec![Majorant::over_indices(&mats, &[0], &nucs, &grid, 0.3)];
         (geom, mats, nucs, maj)

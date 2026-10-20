@@ -40,6 +40,7 @@
 //! The two rings must have the **same** vertex count; unequal-count bridging
 //! (Blender interpolates) is tracked as follow-up under this bead.
 
+use petir::mathf::RealMath;
 use crate::math::Vec3;
 use crate::mesh::{Mesh, VertexId};
 
@@ -255,7 +256,7 @@ mod tests {
             (0..8)
                 .map(|i| {
                     let a = std::f64::consts::TAU * i as f64 / 8.0;
-                    m.add_vertex(Vec3::new(a.cos(), a.sin(), z))
+                    m.add_vertex(Vec3::new(a.r_cos(), a.r_sin(), z))
                 })
                 .collect()
         };

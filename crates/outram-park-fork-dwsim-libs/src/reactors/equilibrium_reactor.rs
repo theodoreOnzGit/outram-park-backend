@@ -52,6 +52,7 @@
 //!
 //! ⚠️ Untrusted draft, pending human V&V (see [`crate::reactors`]).
 
+use petir::mathf::RealMath;
 use crate::reactions::{Reaction, ReactionBasis};
 
 use super::{solve_linear, ReactorError, ReactorFeed, ReactorOutcome};
@@ -134,10 +135,10 @@ impl EquilibriumReactor {
                     n_tot,
                     feed.pressure,
                 );
-                ln_prod += c.stoich_coeff * b.ln();
+                ln_prod += c.stoich_coeff * b.r_ln();
             }
             let k = rxn.equilibrium_constant(t).max(1e-300);
-            f.push(ln_prod - k.ln());
+            f.push(ln_prod - k.r_ln());
         }
         Some(f)
     }

@@ -81,6 +81,7 @@
 //!     --example godiva_mf6_continuum_ensemble
 //! ```
 
+use petir::mathf::RealMath;
 #[cfg(target_os = "android")]
 fn main() {
     println!("godiva_mf6_continuum_ensemble is desktop-only (reads reference-data/endf/).");
@@ -126,7 +127,7 @@ mod desktop {
     fn stats(x: &[f64]) -> (f64, f64, f64) {
         let n = x.len() as f64;
         let mean = x.iter().sum::<f64>() / n;
-        let var = x.iter().map(|v| (v - mean).powi(2)).sum::<f64>() / (n - 1.0).max(1.0);
+        let var = x.iter().map(|v| (v - mean).r_powi(2)).sum::<f64>() / (n - 1.0).max(1.0);
         let sd = var.sqrt();
         (mean, sd, sd / n.sqrt())
     }

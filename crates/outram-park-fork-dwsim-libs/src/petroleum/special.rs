@@ -41,6 +41,7 @@
 
 /// Maximum iterations for the series / continued-fraction evaluations before
 /// giving up and returning the best estimate so far.
+use petir::mathf::RealMath;
 const MAX_ITERATIONS: usize = 300;
 
 /// Relative convergence tolerance for the series / continued fraction.
@@ -86,7 +87,7 @@ pub fn ln_gamma(a: f64) -> f64 {
         series += c / (z + k as f64);
     }
     let t = z + LANCZOS_G + 0.5;
-    0.5 * (2.0 * std::f64::consts::PI).ln() + (z + 0.5) * t.ln() - t + series.ln()
+    0.5 * (2.0 * std::f64::consts::PI).r_ln() + (z + 0.5) * t.r_ln() - t + series.r_ln()
 }
 
 /// The gamma function `Γ(a)` for `a > 0`.
@@ -97,7 +98,7 @@ pub fn ln_gamma(a: f64) -> f64 {
 /// deep inside the safe range.
 #[must_use]
 pub fn gamma(a: f64) -> f64 {
-    ln_gamma(a).exp()
+    ln_gamma(a).r_exp()
 }
 
 /// Regularized **lower** incomplete gamma integral
@@ -160,7 +161,7 @@ fn gamma_series_p(a: f64, x: f64) -> f64 {
             break;
         }
     }
-    sum * (-x + a * x.ln() - ln_gamma(a)).exp()
+    sum * (-x + a * x.r_ln() - ln_gamma(a)).r_exp()
 }
 
 /// `Q(a, x)` by the Legendre continued fraction (DLMF 8.9.2) evaluated with the
@@ -188,7 +189,7 @@ fn gamma_continued_fraction_q(a: f64, x: f64) -> f64 {
             break;
         }
     }
-    h * (-x + a * x.ln() - ln_gamma(a)).exp()
+    h * (-x + a * x.r_ln() - ln_gamma(a)).r_exp()
 }
 
 #[cfg(test)]
@@ -243,7 +244,7 @@ mod tests {
                     term *= x / k as f64;
                     sum += term;
                 }
-                let expected = (-x).exp() * sum;
+                let expected = (-x).r_exp() * sum;
                 let got = incomplete_gamma_q(n as f64, x);
                 assert!(
                     (got - expected).abs() < 1.0e-12,

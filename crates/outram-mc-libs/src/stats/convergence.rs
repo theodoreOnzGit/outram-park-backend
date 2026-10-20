@@ -50,6 +50,7 @@
 //! **Result: NOT YET MEASURED (testing deferred by maintainer, 2026-10-03).**
 //! Protocol: `verification_and_validation/stats_epic_493/496_source_convergence.md`.
 
+use petir::mathf::RealMath;
 use crate::physics::keff::KeffResult;
 use raffles::estimators::stationarity::{
     change_point, geweke, mser_truncation, ChangePoint, GewekeTest, MserTruncation, MSER_BATCH,
@@ -223,7 +224,7 @@ mod tests {
         let mut s = seed;
         (0..n)
             .map(|g| {
-                h_inf + (h0 - h_inf) * (-(g as f64) / tau).exp()
+                h_inf + (h0 - h_inf) * (-(g as f64) / tau).r_exp()
                     + 0.01 * raffles::distributions::seeded::sample_normal(&mut s)
             })
             .collect()

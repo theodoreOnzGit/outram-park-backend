@@ -38,6 +38,7 @@
 
 #![cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))]
 
+use petir::mathf::RealMath;
 use outram_mc_libs::gpu::{probe, GpuContext};
 
 /// The shader under test, included verbatim so it cannot drift from the one
@@ -373,7 +374,7 @@ fn every_root_the_gpu_returns_is_a_real_root() {
             for ci in c.iter() {
                 v = v * x + ci;
             }
-            let residual = v.abs() / (scale * (1.0 + x.abs()).powi(4));
+            let residual = v.abs() / (scale * (1.0 + x.abs()).r_powi(4));
             if residual > worst {
                 worst = residual;
             }

@@ -41,6 +41,7 @@
 //!   24*(2), 619–644. doi:
 //!   [10.1137/S1064827501387826](https://doi.org/10.1137/S1064827501387826)
 
+use petir::mathf::RealMath;
 use crate::{RafflesError, Result};
 
 /// A fitted multivariate polynomial surrogate.
@@ -297,8 +298,8 @@ impl PolynomialSurrogate {
         let mut total = 0.0;
         for (row, y) in inputs.iter().zip(outputs.iter()) {
             let prediction = self.predict(row)?;
-            residual += (y - prediction).powi(2);
-            total += (y - mean).powi(2);
+            residual += (y - prediction).r_powi(2);
+            total += (y - mean).r_powi(2);
         }
         if total == 0.0 {
             return Ok(if residual == 0.0 { 1.0 } else { 0.0 });
@@ -320,7 +321,7 @@ impl PolynomialSurrogate {
         }
         let mut sum = 0.0;
         for (row, y) in inputs.iter().zip(outputs.iter()) {
-            sum += (y - self.predict(row)?).powi(2);
+            sum += (y - self.predict(row)?).r_powi(2);
         }
         Ok((sum / outputs.len() as f64).sqrt())
     }
@@ -365,7 +366,7 @@ fn evaluate_basis(basis: &[Vec<usize>], x: &[f64]) -> Vec<f64> {
             exponents
                 .iter()
                 .enumerate()
-                .map(|(j, e)| x[j].powi(*e as i32))
+                .map(|(j, e)| x[j].r_powi(*e as i32))
                 .product()
         })
         .collect()
@@ -512,7 +513,7 @@ mod tests {
     #[test]
     fn the_ishigami_fit_reports_honest_out_of_sample_accuracy() {
         let ishigami =
-            |x: &[f64]| x[0].sin() + 7.0 * x[1].sin().powi(2) + 0.1 * x[2].powi(4) * x[0].sin();
+            |x: &[f64]| x[0].r_sin() + 7.0 * x[1].r_sin().r_powi(2) + 0.1 * x[2].r_powi(4) * x[0].r_sin();
         let mut seed = stream_seed(4_242, 0);
         let draw = |n: usize, seed: &mut u64| {
             let mut inputs = Vec::new();

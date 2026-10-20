@@ -763,7 +763,7 @@ mod tests {
             }],
         };
         let mats = [fuel, matrix];
-        let grid: Vec<f64> = (0..40).map(|i| 1.0e3 * 1.4_f64.powi(i)).collect();
+        let grid: Vec<f64> = (0..40).map(|i| 1.0e3 * 1.4_f64.r_powi(i)).collect();
         let maj = Majorant::from_materials(&mats, &nuclides, &grid, 0.01);
 
         for &e in &grid {

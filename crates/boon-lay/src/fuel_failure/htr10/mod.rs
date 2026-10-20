@@ -136,6 +136,7 @@
 //! in conflict — but without Fig. 10's temperature history it is not a check
 //! either. Digitising Fig. 10 would make it one.
 
+use petir::mathf::RealMath;
 pub mod qualification;
 // pub mod sweep; -- added in the next commit
 
@@ -449,7 +450,7 @@ mod tests {
             // Printed so a `--nocapture` run re-measures the table (gh:#531).
             println!("HTR-10 end of irradiation, T_B = {c} degC: phi_1 = {got:.3e}");
             assert!(
-                (got / want).log10().abs() < 0.05,
+                (got / want).r_log10().abs() < 0.05,
                 "T_B = {c} degC: phi_1 = {got:e}, expected ~{want:e}"
             );
             assert!(
@@ -523,7 +524,7 @@ mod tests {
         ] {
             let got = run(c).total.get::<ratio>();
             assert!(
-                (got / want).log10().abs() < 0.08,
+                (got / want).r_log10().abs() < 0.08,
                 "{c} degC / 200 h: phi_total = {got:e}, expected ~{want:e}"
             );
         }
@@ -547,7 +548,7 @@ mod tests {
         // nobody later reads it as agreement.
         let at_1600 = run(1600.0).total.get::<ratio>();
         assert!(
-            (at_1600 / 3.0e-5).log10().abs() < 0.1,
+            (at_1600 / 3.0e-5).r_log10().abs() < 0.1,
             "the coincidence is real ({at_1600:e} against 3e-5) -- and it is a \
              coincidence: 200 h at HTR-10's accident limit is not an \
              as-manufactured defect fraction for another fuel line"

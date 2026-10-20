@@ -61,6 +61,7 @@
 //! physics V&V**: it shows the condensation is self-consistent against neutron
 //! balance, not that the group constants reproduce any reference eigenvalue.
 
+use petir::mathf::RealMath;
 use nee_soon::mgxs::{condense, matrix_tally, scalar_tally, GroupStructure};
 use outram_mc_libs::geometry::cell::{Cell, HalfSpaceSense, RegionToken};
 use outram_mc_libs::geometry::geometry::Geometry;
@@ -479,7 +480,7 @@ fn condensed_constants_run_through_the_multigroup_kernel() {
         (mg.k_mean - mg_off.k_mean) * 1e5
     );
     let dk_pcm = (mg.k_mean - ce.k_mean) * 1e5;
-    let sigma_pcm = (mg.k_std.powi(2) + ce.k_std.powi(2)).sqrt() * 1e5;
+    let sigma_pcm = (mg.k_std.r_powi(2) + ce.k_std.r_powi(2)).sqrt() * 1e5;
     println!(
         "CE k = {:.5} +/- {:.5}, MG k ({N_GROUPS} groups) = {:.5} +/- {:.5}: {dk_pcm:+.0} +/- {sigma_pcm:.0} pcm",
         ce.k_mean, ce.k_std, mg.k_mean, mg.k_std

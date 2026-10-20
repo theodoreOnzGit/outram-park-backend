@@ -96,6 +96,7 @@
 //!
 //! No human V&V, like the rest of this crate.
 
+use petir::mathf::RealMath;
 use crate::{RafflesError, Result};
 
 /// Minimum sample size of [`dagostino_pearson`]: the Anscombe–Glynn kurtosis
@@ -188,7 +189,7 @@ fn central_moments(x: &[f64], min_n: usize) -> Result<(f64, f64, f64, f64)> {
     let (m2, m3, m4) = (s2 / nf, s3 / nf, s4 / nf);
     // Exactly constant data have m2 == 0; rounding noise on a constant window
     // is caught by the relative test.
-    if m2 <= (f64::EPSILON * mean.abs()).powi(2) {
+    if m2 <= (f64::EPSILON * mean.abs()).r_powi(2) {
         return Err(RafflesError::InvalidParameter {
             parameter: "x".into(),
             value: m2,
@@ -211,7 +212,7 @@ fn central_moments(x: &[f64], min_n: usize) -> Result<(f64, f64, f64, f64)> {
 pub fn moments(x: &[f64]) -> Result<SampleMoments> {
     let (mean, m2, m3, m4) = central_moments(x, MIN_N_MOMENTS)?;
     let n = x.len() as f64;
-    let g1 = m3 / m2.powf(1.5);
+    let g1 = m3 / m2.r_powf(1.5);
     let g2 = m4 / (m2 * m2) - 3.0;
     let g1_adj = g1 * (n * (n - 1.0)).sqrt() / (n - 2.0);
     let g2_adj = ((n + 1.0) * g2 + 6.0) * (n - 1.0) / ((n - 2.0) * (n - 3.0));
@@ -243,7 +244,7 @@ fn z_from_skewness(g1: f64, n: f64) -> f64 {
     let beta2 = 3.0 * (n * n + 27.0 * n - 70.0) * (n + 1.0) * (n + 3.0)
         / ((n - 2.0) * (n + 5.0) * (n + 7.0) * (n + 9.0));
     let w2 = -1.0 + (2.0 * (beta2 - 1.0)).sqrt();
-    let delta = 1.0 / (0.5 * w2.ln()).sqrt();
+    let delta = 1.0 / (0.5 * w2.r_ln()).sqrt();
     let alpha = (2.0 / (w2 - 1.0)).sqrt();
     delta * (y / alpha).asinh()
 }
@@ -263,7 +264,7 @@ fn z_from_kurtosis(b2: f64, n: f64) -> f64 {
     let term2 = if denom == 0.0 {
         0.0
     } else {
-        denom.signum() * ((1.0 - 2.0 / a) / denom.abs()).cbrt()
+        denom.signum() * ((1.0 - 2.0 / a) / denom.abs()).r_cbrt()
     };
     (term1 - term2) / (2.0 / (9.0 * a)).sqrt()
 }
@@ -283,7 +284,7 @@ fn z_from_kurtosis(b2: f64, n: f64) -> f64 {
 pub fn dagostino_pearson(x: &[f64]) -> Result<NormalityTest> {
     let (_, m2, m3, m4) = central_moments(x, MIN_N_NORMALITY_TEST)?;
     let n = x.len() as f64;
-    let g1 = m3 / m2.powf(1.5);
+    let g1 = m3 / m2.r_powf(1.5);
     let b2 = m4 / (m2 * m2);
     let z1 = z_from_skewness(g1, n);
     let z2 = z_from_kurtosis(b2, n);
@@ -293,7 +294,7 @@ pub fn dagostino_pearson(x: &[f64]) -> Result<NormalityTest> {
         z_skewness: z1,
         z_kurtosis: z2,
         k2,
-        p_value: (-0.5 * k2).exp(),
+        p_value: (-0.5 * k2).r_exp(),
     })
 }
 

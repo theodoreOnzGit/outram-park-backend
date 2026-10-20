@@ -4,6 +4,7 @@
 //! preamble (the co/counter-current LMTD forms shared by every calculation
 //! mode in that file).
 
+use petir::mathf::RealMath;
 use uom::si::f64::{Area, HeatTransfer, Power, TemperatureInterval, ThermodynamicTemperature};
 use uom::si::heat_transfer::watt_per_square_meter_kelvin;
 use uom::si::power::watt;
@@ -40,7 +41,7 @@ pub fn lmtd(
         FlowArrangement::CoCurrent => (th_in - tc_in, th_out - tc_out),
         FlowArrangement::CounterCurrent => (th_in - tc_out, th_out - tc_in),
     };
-    TemperatureInterval::new::<temperature_interval_kelvin>((dt1 - dt2) / (dt1 / dt2).ln())
+    TemperatureInterval::new::<temperature_interval_kelvin>((dt1 - dt2) / (dt1 / dt2).r_ln())
 }
 
 /// Heat duty `Q = U A (LMTD) F`, where `F` is an optional multi-pass

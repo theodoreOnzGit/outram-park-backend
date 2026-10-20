@@ -69,6 +69,7 @@
 //! None of this is validation against experiment, and none of it exercises the
 //! shared operator layer — see the caveat above.
 
+use petir::mathf::RealMath;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -130,7 +131,7 @@ const DENSITY: f64 = 7850.0;
 /// both ends, which keeps the first-order boundary treatment of the load field
 /// from dominating the discretisation error.
 fn delta_t(x: f64) -> f64 {
-    let s = (std::f64::consts::PI * x / LENGTH).sin();
+    let s = (std::f64::consts::PI * x / LENGTH).r_sin();
     DELTA_T_PEAK * s * s
 }
 
@@ -145,7 +146,7 @@ fn delta_t(x: f64) -> f64 {
 /// ```
 fn analytic_displacement(x: f64) -> f64 {
     -(ALPHA * DELTA_T_PEAK * LENGTH / (4.0 * std::f64::consts::PI))
-        * (2.0 * std::f64::consts::PI * x / LENGTH).sin()
+        * (2.0 * std::f64::consts::PI * x / LENGTH).r_sin()
 }
 
 /// Analytical axial stress (Pa), which for this profile is **uniform**:

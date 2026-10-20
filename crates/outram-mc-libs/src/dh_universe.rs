@@ -183,6 +183,7 @@
 //! every k-eff driver in this crate already consumes, which is why every
 //! treatment shares one transport path rather than each needing its own.
 
+use petir::mathf::RealMath;
 use std::sync::Mutex;
 
 use crate::geometry::position::Position;
@@ -1137,8 +1138,8 @@ impl DhUniverse {
                         params.fuel_zone_radius
                     )));
                 }
-                let r_outer3 = inner_radius.powi(3) + pf * params.fuel_zone_radius.powi(3);
-                let fuel_outer_radius = r_outer3.cbrt();
+                let r_outer3 = inner_radius.r_powi(3) + pf * params.fuel_zone_radius.r_powi(3);
+                let fuel_outer_radius = r_outer3.r_cbrt();
                 if fuel_outer_radius > params.fuel_zone_radius {
                     return Err(DhError::Geometry(format!(
                         "ring-RPT annulus outer radius {fuel_outer_radius:.4} exceeds the fuel \
@@ -1821,7 +1822,7 @@ pub fn fit_ring_rpt_inner_radius(
     // Default bracket: from a solid smear (inner radius 0, i.e. all the
     // particle material in a central ball) out to most of the fuel zone. The
     // upper end is capped by conservation — the annulus cannot leave the zone.
-    let max_inner = (params.fuel_zone_radius.powi(3) * (1.0 - params.spec.packing_fraction)).cbrt();
+    let max_inner = (params.fuel_zone_radius.r_powi(3) * (1.0 - params.spec.packing_fraction)).r_cbrt();
     let (lo, hi) = bracket.unwrap_or((0.05 * params.fuel_zone_radius, 0.985 * max_inner));
 
     let k_at = |r: f64| -> Result<KeffResult, DhError> {
@@ -2015,7 +2016,7 @@ pub fn pack_in_ball(
     const MAX_STEPS: usize = 6;
 
     let half = radius + particle_radius;
-    let unit = (particle_radius / radius).powi(3); // one sphere's share of the ball
+    let unit = (particle_radius / radius).r_powi(3); // one sphere's share of the ball
 
     let attempt = |request: f64| -> Result<(PackedSpheres, BallPackingAttempt), DhError> {
         let cfg = PackingConfig {
@@ -2113,7 +2114,7 @@ fn build_kernel_level_cls(
     matrix_idx: usize,
 ) -> (ClsMedium, Vec<Material>, usize, f64) {
     let r_kernel = spec.kernel;
-    let pf_kernel = pf * (r_kernel / r_particle).powi(3);
+    let pf_kernel = pf * (r_kernel / r_particle).r_powi(3);
 
     // Volume fractions of the fuel zone for everything that is NOT kernel:
     // the four coating shells, then the graphite matrix.
@@ -2774,7 +2775,7 @@ mod tests {
                 // is still pinned, to the exact geometric relation, so a wrong
                 // derivation cannot pass as "a different level".
                 let spec = TrisoSpec::FHR_HALEU_UCO;
-                let expected = target * (spec.kernel / spec.opyc).powi(3);
+                let expected = target * (spec.kernel / spec.opyc).r_powi(3);
                 assert!(
                     (pf / expected - 1.0).abs() <= 1.0e-9,
                     "{} models pf {pf:.6} against the derived kernel fraction {expected:.6} \
@@ -2815,7 +2816,7 @@ mod tests {
         )
         .unwrap();
         let spec = TrisoSpec::FHR_HALEU_UCO;
-        let expected = u.particle_count() as f64 * (spec.opyc / 1.9_f64).powi(3);
+        let expected = u.particle_count() as f64 * (spec.opyc / 1.9_f64).r_powi(3);
         assert!(
             (u.packing_fraction() - expected).abs() < 1.0e-12,
             "reported {:.6} but {} particles imply {expected:.6}",

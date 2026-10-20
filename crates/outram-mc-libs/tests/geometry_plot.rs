@@ -32,6 +32,7 @@
 //! one that does and skips with a printed note otherwise, so it cannot pass
 //! silently by never having run anything.
 
+use petir::mathf::RealMath;
 use outram_mc_libs::geometry::cell::{Cell, HalfSpaceSense, RegionToken, SurfaceToken};
 use outram_mc_libs::geometry::geometry::Geometry;
 use outram_mc_libs::geometry::plot::{emit_python, sample_slice, ColourBy, Slice};
@@ -361,7 +362,7 @@ fn our_godiva_slice_matches_openmcs_own_rasteriser() {
         }
     }
 
-    let analytic = std::f64::consts::PI * R_CM * R_CM / (2.0 * HALF_WIDTH_CM).powi(2);
+    let analytic = std::f64::consts::PI * R_CM * R_CM / (2.0 * HALF_WIDTH_CM).r_powi(2);
     println!(
         "{PIXELS}x{PIXELS} = {} pixels; inside: ours {inside_ours} ({:.2} %), \
          OpenMC {inside_theirs} ({:.2} %), analytic {:.2} %",

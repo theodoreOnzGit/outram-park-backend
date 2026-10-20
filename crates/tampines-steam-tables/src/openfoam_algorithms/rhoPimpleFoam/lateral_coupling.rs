@@ -1608,7 +1608,7 @@ mod tests {
         let dx = L_M / N as f64;
         let k = std::f64::consts::PI / L_M;
         // Cell-centre value of the mode, reused for seeding and for projection.
-        let mode = |c: usize| (k * (c as f64 + 0.5) * dx).cos();
+        let mode = |c: usize| (k * (c as f64 + 0.5) * dx).r_cos();
 
         let mut arr = TampinesSteamArray::new(
             Length::new::<meter>(L_M),
