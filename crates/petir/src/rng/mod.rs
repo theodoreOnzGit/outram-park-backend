@@ -22,11 +22,13 @@
 //!
 //! OpenMC's samplers (`random_dist.cpp`: Maxwell, Watt, isotropic direction,
 //! Box-Muller normal) stay in `outram_mc_libs::rng::distributions`. They call
-//! `cos` and `sin`, which `outram-mc-libs` routes to the **platform** libm by
+//! `cos` and `sin`, which ~~`outram-mc-libs` routes to the **platform** libm by
 //! default and to `petir::real` only under its `deterministic-math` feature.
 //! A `no_std` copy here could only reach `libm`, so moving them would have
 //! changed the default build's directions and energies in the last ulp — and
-//! with them every seed-pinned k_eff. Nothing outside `outram-mc-libs`'
+//! with them every seed-pinned k_eff.~~ **CORRECTED 2026-10-20 (gh:#985):**
+//! `outram-mc-libs` now routes to PETIR's `RealMath` always, so that reason
+//! is gone. Nothing outside `outram-mc-libs`'
 //! dependents needs them, so the move would have bought nothing.
 
 pub mod lcg;

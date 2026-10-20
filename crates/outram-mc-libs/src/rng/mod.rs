@@ -12,9 +12,10 @@
 //!   samplers (`maxwell`, `watt`, `isotropic_direction`) stay here; the
 //!   generic ones (`uniform`, `sample_normal`, `sample_normal_3d`,
 //!   `sample_exp`) are re-exported from `raffles::distributions::seeded`
-//!   since 2026-10-02 (GitHub #500). None went to PETIR: they call `cos`/`sin`
+//!   since 2026-10-02 (GitHub #500). None went to PETIR. ~~They call `cos`/`sin`
 //!   through a platform-or-`petir::real` route (`deterministic-math`) that a
-//!   `no_std` copy could not reproduce bit for bit.
+//!   `no_std` copy could not reproduce bit for bit.~~ **CORRECTED 2026-10-20
+//!   (gh:#985):** the route is PETIR's `RealMath` always; the feature is gone.
 
 pub use petir::rng::lcg;
 pub mod distributions;

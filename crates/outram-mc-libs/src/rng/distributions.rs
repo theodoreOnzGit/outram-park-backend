@@ -12,8 +12,10 @@ use crate::mathf::RealMath;
 /// `sample_normal_3d` and `sample_exp` — **moved 2026-10-02** to
 /// [`raffles::distributions::seeded`] (GitHub #500), byte for byte, and are
 /// re-exported here so `outram_mc_libs::rng::distributions::*` call sites (this
-/// crate, `boon-lay`, `nee_soon`) are unchanged. Their `cos` keeps this crate's
-/// routing: this crate's `deterministic-math` feature forwards to RAFFLES'.
+/// crate, `boon-lay`, `nee_soon`) are unchanged. ~~Their `cos` keeps this crate's
+/// routing: this crate's `deterministic-math` feature forwards to RAFFLES'.~~
+/// **CORRECTED 2026-10-20 (gh:#985):** their `cos` is `petir::real::cos`
+/// always; the `deterministic-math` features are gone.
 /// The physics samplers below stay here.
 pub use raffles::distributions::seeded::{sample_exp, sample_normal, sample_normal_3d, uniform};
 
