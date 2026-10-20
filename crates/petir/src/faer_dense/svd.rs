@@ -71,6 +71,10 @@ use super::simd::{self, simd_align, SimdCtx, ZERO};
 /// through its GEMM kernels, which this port does not carry.
 pub const MAX_ORDER: usize = 16;
 
+/// A row-major `3 x 3` matrix, `m[i][j]` = entry `(i, j)`, as [`svd3`] takes
+/// and returns it.
+pub type Mat3 = [[f64; 3]; 3];
+
 /// A column-major square matrix, `data[j * n + i]` = entry `(i, j)`.
 #[derive(Debug, Clone, PartialEq)]
 struct Square {
@@ -235,7 +239,7 @@ pub fn svd_square(a: &[f64], n: usize) -> Result<FaerSvd> {
 /// # Errors
 ///
 /// As [`svd_square`].
-pub fn svd3(m: [[f64; 3]; 3]) -> Result<([[f64; 3]; 3], [f64; 3], [[f64; 3]; 3])> {
+pub fn svd3(m: Mat3) -> Result<(Mat3, [f64; 3], Mat3)> {
     let mut a = [0.0; 9];
     for (i, row) in m.iter().enumerate() {
         for (j, x) in row.iter().enumerate() {
@@ -453,7 +457,12 @@ fn qr_algorithm(
     if n == 0 {
         return Ok(());
     }
-    let max_iters = 30_usize.max(53 / 2).saturating_mul(n).saturating_mul(n);
+    // faer: `Ord::max(30, nbits::<T>() / 2) * n * n`, nbits = 53 for f64.
+    #[allow(clippy::unnecessary_min_or_max)]
+    let max_iters = 30_usize
+        .max(f64::MANTISSA_DIGITS as usize / 2)
+        .saturating_mul(n)
+        .saturating_mul(n);
     let last = n - 1;
     let max = {
         let a = norm_max(diag);

@@ -129,6 +129,9 @@ pub(crate) fn inner_prod_simd(lhs: &[f64], rhs: &[f64]) -> Result<f64> {
 
 /// `dot::inner_prod_schoolbook`, real arm: `acc = l * r + acc`, unfused, in
 /// index order from `0`. faer takes it whenever either operand is strided.
+// faer writes `acc = l * r + acc`; kept in that form (the same value as
+// `acc += l * r`, but it reads against upstream line for line).
+#[allow(clippy::assign_op_pattern)]
 pub(crate) fn inner_prod_schoolbook(lhs: &[f64], rhs: &[f64]) -> f64 {
     let mut acc = 0.0;
     for (l, r) in lhs.iter().zip(rhs) {

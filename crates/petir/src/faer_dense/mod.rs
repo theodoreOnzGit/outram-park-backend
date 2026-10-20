@@ -103,4 +103,4 @@ mod kernels;
 mod simd;
 mod svd;
 
-pub use svd::{svd3, svd_square, FaerSvd, MAX_ORDER};
+pub use svd::{svd3, svd_square, FaerSvd, Mat3, MAX_ORDER};
