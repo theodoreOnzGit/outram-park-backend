@@ -205,8 +205,18 @@ substitutions and compares substantive lines.
   what the fields mean is documented there. Documenting them properly means
   doing it upstream and re-lifting.
 - If a divergence is genuinely necessary, record it in the file's PROVENANCE
-  block **and** raise `allowed_deviations` in the test with a reason. There are
-  currently exactly two, both the `extern "C"` → `libm` FFI removal.
+  block **and** raise `allowed_deviations` in the test with a reason. ~~There are
+  currently exactly two, both the `extern "C"` → `libm` FFI removal.~~
+  **CORRECTED 2026-10-20:** every entry in `LIFTS` has `allowed_deviations: 0`
+  (checked in `tests/verbatim_provenance.rs`); the FFI removal sits in `use`
+  lines, which the comparison strips.
+- **Re-lifted 2026-10-20 (gh:#985).** The PETIR-everywhere sweep renamed the
+  sources' transcendentals to `petir::mathf::RealMath`'s `r_` methods, which
+  broke the diff for 12 lifts. The lifts now call the same `r_` methods
+  (`use crate::mathf::RealMath;`), so both copies run the same arithmetic.
+  That moved the lifts' own route for `exp`, `ln` and `powf` from `libm` (via
+  `Real`) to the ARM ports, and `sin_cos` from `libm::sincos` to
+  `(r_sin, r_cos)`. Every petir test passed unchanged after the re-lift.
 
 ## GPU policy: CI is GPU-INDEPENDENT (HARD RULE)
 
