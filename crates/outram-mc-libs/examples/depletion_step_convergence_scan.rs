@@ -22,7 +22,7 @@ fn main() {
         ks.push(l.k_inf); xs.push(xe);
     }
     let ord = |a: f64, b: f64, c: f64| { let d1=a-b; let d2=b-c;
-        if d2==0.0 || d1/d2<=0.0 { f64::NAN } else { (d1/d2).log2() } };
+        if d2==0.0 || d1/d2<=0.0 { f64::NAN } else { (d1/d2).r_log2() } };
     println!("\n  order estimates (Richardson, successive triples)");
     for i in 0..ks.len()-2 {
         println!("   h={:8.5}  k_inf p={:6.3}   Xe135 p={:6.3}",

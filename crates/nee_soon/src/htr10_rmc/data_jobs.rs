@@ -27,7 +27,6 @@
 //!
 //! Orchestration only: no physics is implemented here.
 
-use petir::mathf::RealMath;
 use njoy_outram_park_fork::endf::tape::Tape as EndfTape;
 use njoy_outram_park_fork::leapr::decks::SabMaterial;
 use outram_mc_libs::material::nuclide::Nuclide;
@@ -311,6 +310,7 @@ pub fn assemble_slots(
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
     use crate::htr10_rmc::data::{load_htr10_nuclides, DataDir};
     use outram_mc_libs::run_diagnostics::RunDiagnostics;

@@ -157,7 +157,7 @@ pub fn shannon_entropy_bits(counts: &[f64]) -> Option<f64> {
     for c in counts {
         let p = c / total;
         if p > 0.0 {
-            h -= p * p.log2();
+            h -= p * p.r_log2();
         }
     }
     Some(h)

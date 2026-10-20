@@ -567,7 +567,7 @@ fn vendochab_coupled_solve_is_first_order_in_time() {
         println!("  N = {n:4}  |error| = {err:.6e}");
     }
     for window in errors.windows(2) {
-        let order = (window[0] / window[1]).log2();
+        let order = (window[0] / window[1]).r_log2();
         println!("  measured order = {order:.4}");
         assert!(
             (0.5..=1.5).contains(&order),

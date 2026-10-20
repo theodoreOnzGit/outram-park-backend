@@ -33,7 +33,6 @@
 //! and the `k` trigger. A run goes to its last generation unless the
 //! population dies out.
 
-use petir::mathf::RealMath;
 use super::{
     bank_entropy, resample, sample_box_source, transport_history_vr, Site, SourceBox, GEN_STRIDE,
     HIST_STRIDE,
@@ -732,6 +731,7 @@ impl DistributedPowerIteration {
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
     use crate::geometry::cell::{Cell, HalfSpaceSense, RegionToken};
     use crate::geometry::surface::{BoundaryType, Sphere, SurfaceKind};

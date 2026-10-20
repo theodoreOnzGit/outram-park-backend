@@ -37,7 +37,6 @@
 //! region around them with [`crate::carve::carve_around`]. Pure Rust,
 //! education/research use only (see the crate `RESPONSIBLE_USE.md`).
 
-use petir::mathf::RealMath;
 use crate::math::Vec3;
 use crate::shapes::{box_surface, cylinder_surface, sphere_surface, TriSoup};
 
@@ -117,6 +116,7 @@ pub fn bounding_domain(soups: &[TriSoup], margin: f64) -> TriSoup {
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
     use crate::carve::carve_around;
     use crate::shapes::surface_volume;

@@ -50,7 +50,6 @@
 
 /// OpenFOAM's `SMALL`, used by upstream to keep the oxide resistance finite
 /// when the layer has zero thickness.
-use petir::mathf::RealMath;
 const SMALL: f64 = 1.0e-15;
 
 /// Constant term \[W/(m·K)\] of upstream's ZrO2 conductivity fit.
@@ -234,6 +233,7 @@ pub fn oxide_thermal_coupling(
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
 
     /// Self-consistency check against the closed form, not validation: the

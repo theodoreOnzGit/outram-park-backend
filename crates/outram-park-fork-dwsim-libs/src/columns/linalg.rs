@@ -40,7 +40,6 @@
 //!   .NET dynamic-dispatch extension point, and this workspace's solver set is
 //!   a closed enum (no `dyn`).
 
-use petir::mathf::RealMath;
 use ndarray::Array2;
 
 /// Tuning for [`broyden_root`] and [`newton_root`].
@@ -501,6 +500,7 @@ mod tests {
     //! recovered `x = [2, 3, −1]` to 4.4e-16; Broyden converged the 2-D
     //! nonlinear system in 6 iterations to `Σ f² = 1.672e-15`; Newton in 4
     //! iterations to `Σ f² = 7.184e-19`.
+    use petir::mathf::RealMath;
 
     use super::*;
 

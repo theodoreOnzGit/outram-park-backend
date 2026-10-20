@@ -123,9 +123,9 @@ impl ThreePhaseElectricGeneratorTurbine {
         let phase_shift_2 = Angle::new::<degree>(120.0);
         let phase_shift_3 = Angle::new::<degree>(240.0);
 
-        let cos_angle_1: Ratio = (theta + phase_shift_1).r_cos();
-        let cos_angle_2: Ratio = (theta + phase_shift_2).r_cos();
-        let cos_angle_3: Ratio = (theta + phase_shift_3).r_cos();
+        let cos_angle_1: Ratio = Ratio::from((theta + phase_shift_1).value.r_cos());
+        let cos_angle_2: Ratio = Ratio::from((theta + phase_shift_2).value.r_cos());
+        let cos_angle_3: Ratio = Ratio::from((theta + phase_shift_3).value.r_cos());
 
         let cosine_summation: Ratio =
             cos_angle_1 * cos_angle_1 + cos_angle_2 * cos_angle_2 + cos_angle_3 * cos_angle_3;
@@ -193,7 +193,7 @@ impl ThreePhaseElectricGeneratorTurbine {
         let phase_shift_1 = Angle::ZERO;
 
         let theta: Angle = (self.omega * t).into();
-        let cos_angle_1: Ratio = (theta + phase_shift_1).r_cos();
+        let cos_angle_1: Ratio = Ratio::from((theta + phase_shift_1).value.r_cos());
 
         let emf = -nba * omega * cos_angle_1;
 
@@ -210,7 +210,7 @@ impl ThreePhaseElectricGeneratorTurbine {
         let phase_shift_2 = Angle::new::<degree>(120.0);
 
         let theta: Angle = (self.omega * t).into();
-        let cos_angle_2: Ratio = (theta + phase_shift_2).r_cos();
+        let cos_angle_2: Ratio = Ratio::from((theta + phase_shift_2).value.r_cos());
 
         let emf = -nba * omega * cos_angle_2;
 
@@ -226,7 +226,7 @@ impl ThreePhaseElectricGeneratorTurbine {
         let phase_shift_3 = Angle::new::<degree>(240.0);
 
         let theta: Angle = (self.omega * t).into();
-        let cos_angle_3: Ratio = (theta + phase_shift_3).r_cos();
+        let cos_angle_3: Ratio = Ratio::from((theta + phase_shift_3).value.r_cos());
 
         let emf = -nba * omega * cos_angle_3;
 

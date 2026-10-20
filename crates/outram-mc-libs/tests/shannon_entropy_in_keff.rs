@@ -16,6 +16,7 @@
 //!
 //! Printed by the test.
 
+use petir::mathf::RealMath;
 use outram_mc_libs::geometry::cell::{Cell, HalfSpaceSense, RegionToken};
 use outram_mc_libs::geometry::geometry::Geometry;
 use outram_mc_libs::geometry::position::Position;
@@ -124,7 +125,7 @@ fn entropy_is_reported_and_plateaus() {
     let with = run_keff_csg_hybrid(&geom, &mats, &nucs, &[], Some(&mesh), src, &s, None);
     let without = run_keff_csg(&geom, &mats, &nucs, src, &s, None);
 
-    let ceiling = (mesh.n_bins() as f64).log2();
+    let ceiling = (mesh.n_bins() as f64).r_log2();
     println!("k = {:.6} +/- {:.6}", with.k_mean, with.k_std);
     println!(
         "entropy over {} generations, ceiling log2({}) = {ceiling:.4}",

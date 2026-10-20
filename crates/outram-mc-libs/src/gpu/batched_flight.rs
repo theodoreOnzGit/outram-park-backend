@@ -303,7 +303,7 @@ pub fn advance_flight_cpu_mirror(
         }
 
         // 3. Distance to collision (cm). xi == 0 -> ln(0) = -inf -> d_col = +inf.
-        let d_col = -xi.r_ln() / sigma_t;
+        let d_col = -xi.ln() / sigma_t;
 
         // 4. Distance to the bounding sphere (cm).
         let px = batch.pos[3 * i];
@@ -932,7 +932,7 @@ mod tests {
         let sigma_flat = [1.0f32, 1.0f32];
         let seed = 0xDEAD_BEEF_1234_5678_u64;
         let (_, _, xi) = lcg_advance((seed >> 32) as u32, seed as u32);
-        let expected_x = -xi.r_ln(); // Sigma_t = 1
+        let expected_x = -xi.ln(); // Sigma_t = 1
 
         let mut batch = FlightBatch {
             pos: vec![0.0, 0.0, 0.0],

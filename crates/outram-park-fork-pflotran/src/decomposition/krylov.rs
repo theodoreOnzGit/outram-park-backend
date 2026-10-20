@@ -29,7 +29,6 @@
 //! Newton solve on the real Jacobian, preconditioning, and 2-D/3-D (Cartesian) or
 //! unstructured partitioning remain follow-ups under op-57m.
 
-use petir::mathf::RealMath;
 use outram_park_mpi::{Communicator, MpiResult, ReduceOp};
 
 use super::Decomposition1D;
@@ -403,6 +402,7 @@ pub fn serial_cg(
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
     use outram_park_mpi::run;
 

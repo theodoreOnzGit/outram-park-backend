@@ -87,7 +87,6 @@
 //! or re-used as cooling-tower design data. Per `RESPONSIBLE_USE.md` this is
 //! for education, research and V&V only.
 
-use petir::mathf::RealMath;
 use crate::components::temperature_colour;
 use egui::{Align2, Color32, FontId, Painter, Pos2, Rect, Response, Sense, Shape};
 use egui::{Stroke, StrokeKind, Ui, Vec2, Widget};
@@ -1339,8 +1338,8 @@ impl CoolingTowerVisual {
             // Seen from the side, a blade running radially from the hub
             // projects as its own length times cos(angle) — so it shortens onto
             // the hub as it turns edge-on instead of floating free.
-            let tip_x = cx + fan_half * angle.r_cos();
-            let tip_y = fan_y + h * 0.018 * angle.r_sin();
+            let tip_x = cx + fan_half * angle.cos();
+            let tip_y = fan_y + h * 0.018 * angle.sin();
             painter.line_segment(
                 [Pos2::new(cx, fan_y), Pos2::new(tip_x, tip_y)],
                 Stroke::new((h * 0.016).max(1.6), INTERNALS),

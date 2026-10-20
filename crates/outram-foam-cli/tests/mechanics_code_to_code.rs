@@ -634,7 +634,7 @@ fn the_agreement_and_the_convergence_order_survive_refinement() {
 
     let mut orders = Vec::new();
     for w in errors.windows(2) {
-        orders.push((w[0] / w[1]).log2());
+        orders.push((w[0] / w[1]).r_log2());
     }
     println!("observed orders: {orders:?}");
 

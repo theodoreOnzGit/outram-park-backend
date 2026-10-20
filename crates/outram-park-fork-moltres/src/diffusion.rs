@@ -61,7 +61,6 @@
 //! Units: flux `1/(m^2 s)` (amplitude arbitrary up to normalisation),
 //! `D` in `m`, all `Sigma` in `1/m`, `k_eff` dimensionless.
 
-use petir::mathf::RealMath;
 use std::sync::Arc;
 
 use outram_foam_basic_lib::prelude::{
@@ -417,6 +416,7 @@ pub(crate) fn overwrite_internal(dst: &mut VolScalarField, src: &VolScalarField)
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
     use crate::materials::MsrMaterial;
     use outram_foam_basic_lib::interface::one_dimensional_meshing::create_one_d_mesh;

@@ -151,7 +151,7 @@ fn unit(v: Vec3) -> Vec3 {
 /// wall geometry rigidly about its pivot.
 #[inline]
 fn rotate_vector(v: Vec3, axis: Vec3, angle: f64) -> Vec3 {
-    let (sin_t, cos_t) = angle.sin_cos();
+    let (sin_t, cos_t) = angle.r_sin_cos();
     let cross = axis.cross(v);
     let dot = axis.dot(v);
     v.scale(cos_t)

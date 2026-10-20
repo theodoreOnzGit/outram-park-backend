@@ -941,8 +941,8 @@ fn cavity_ghia_grid_convergence_re100() {
     let f_extrap = f[2] + (f[2] - f[1]) / (R.r_powf(p) - 1.0);
     let gci_23 = 1.25 * ((f[2] - f[1]) / f[2]).abs() / (R.r_powf(p) - 1.0);
 
-    let p_err_rms_12 = (e_rms[0] / e_rms[1]).log2();
-    let p_err_rms_23 = (e_rms[1] / e_rms[2]).log2();
+    let p_err_rms_12 = (e_rms[0] / e_rms[1]).r_log2();
+    let p_err_rms_23 = (e_rms[1] / e_rms[2]).r_log2();
 
     println!("\n── Grid convergence, cavity Re = 100, U_x/U_lid at y/L = {STATION} ──");
     println!("  f(20)  = {:+.6}", f[0]);

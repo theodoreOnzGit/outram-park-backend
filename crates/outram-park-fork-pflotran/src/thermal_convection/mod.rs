@@ -126,7 +126,6 @@
 //! > **Untrusted AI draft — verification only**, per the workspace
 //! > `RESPONSIBLE_USE.md`. Not for facility operation or any safety-critical use.
 
-use petir::mathf::RealMath;
 use std::sync::Arc;
 
 use crate::error::PflotranError;
@@ -1060,6 +1059,7 @@ impl ThermalConvectionSimulation {
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
     use uom::si::f64::Length;
     use uom::si::length::meter;

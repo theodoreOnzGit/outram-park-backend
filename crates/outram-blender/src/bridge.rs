@@ -40,7 +40,6 @@
 //! The two rings must have the **same** vertex count; unequal-count bridging
 //! (Blender interpolates) is tracked as follow-up under this bead.
 
-use petir::mathf::RealMath;
 use crate::math::Vec3;
 use crate::mesh::{Mesh, VertexId};
 
@@ -221,6 +220,7 @@ pub fn align_by_nearest(mesh: &Mesh, ring_a: &[VertexId], ring_b: &[VertexId]) -
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
     use crate::mesh::EdgeId;
     use crate::primitives;

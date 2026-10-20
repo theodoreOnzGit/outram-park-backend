@@ -97,7 +97,7 @@
 //! 0.00968`), and also moves `csg_nested_lattice_navigation` and
 //! `pure_statistics`; with `-AVX512F` alone nothing changes. The libm calls
 //! that are still platform-routed (`cos`, `sin`, `atan2` through `mathf`, and
-//! direct `<f64 as petir::mathf::RealMath>::r_exp`/`cos` calls such as the WMP Faddeeva evaluation in
+//! direct `f64::exp`/`cos` calls such as the WMP Faddeeva evaluation in
 //! `njoy-outram-park-fork`) differ in the last ulp between glibc builds and
 //! CPU-dispatched variants, and a Monte Carlo history amplifies one ulp into
 //! a different random walk. Which call first diverges between host A and

@@ -47,7 +47,6 @@
 //!
 //! ⚠️ Untrusted draft, pending human V&V (see [`crate::reactors`]).
 
-use petir::mathf::RealMath;
 use crate::reactions::{Reaction, ReactionKind};
 
 use super::{ReactorError, ReactorFeed, ReactorOutcome};
@@ -227,6 +226,7 @@ impl Pfr {
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
     use crate::reactions::{ReactionBasis, ReactionComponent, ReactionKind};
 

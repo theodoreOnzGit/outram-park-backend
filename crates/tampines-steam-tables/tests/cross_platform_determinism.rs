@@ -39,7 +39,7 @@
 //!   hashed as NaN at the 17 grid points where `t_ph_eqm < 273.15 K`, because
 //!   `lambda_ph_eqm` panics there (gh:#904; see `part_a`). There are also three
 //!   probes:
-//!   - `powi_const`: `<f64 as petir::mathf::RealMath>::r_powi` with literal arguments, which the compiler
+//!   - `powi_const`: `f64::powi` with literal arguments, which the compiler
 //!     may constant-fold;
 //!   - `powi_runtime`: the same exponents through `std::hint::black_box`;
 //!   - `std_libm`: raw `std` `exp`/`ln`/`powf`/`sin`/`cbrt`, as a canary for
@@ -504,16 +504,19 @@ fn part_a() -> Vec<(String, usize, u64)> {
         }),
     ];
 
+    // The three probes below (`powi_const`, `powi_runtime`, `std_libm`) call
+    // `std` on purpose: they are canaries for the platform route, so the
+    // workspace-wide PETIR rename (gh:#985) must not touch them.
     // Constant-argument powi: candidates for compile-time folding.
     let mut c = Fnv::new("powi_const");
     for x in [
-        10f64.r_powi(-23),
-        10f64.r_powi(-7),
-        10f64.r_powi(23),
-        1.1f64.r_powi(31),
-        0.7f64.r_powi(-19),
-        3.0f64.r_powi(13),
-        1.000_001f64.r_powi(1001),
+        10f64.powi(-23),
+        10f64.powi(-7),
+        10f64.powi(23),
+        1.1f64.powi(31),
+        0.7f64.powi(-19),
+        3.0f64.powi(13),
+        1.000_001f64.powi(1001),
     ] {
         c.push(x);
     }
@@ -522,13 +525,13 @@ fn part_a() -> Vec<(String, usize, u64)> {
     // The same, through black_box: forced to run-time lowering.
     let mut r = Fnv::new("powi_runtime");
     for (b, e) in [(10.0, -23), (10.0, -7), (10.0, 23), (1.1, 31), (0.7, -19), (3.0, 13), (1.000_001, 1001)] {
-        r.push(std::hint::black_box(b as f64).r_powi(std::hint::black_box(e)));
+        r.push(std::hint::black_box(b as f64).powi(std::hint::black_box(e)));
     }
-    // ...and over a runtime sweep, the IF97 pattern `pi.r_powi(ii)`.
+    // ...and over a runtime sweep, the IF97 pattern `pi.powi(ii)`.
     for k in 1..=200 {
         let x = std::hint::black_box(0.05 * k as f64);
         for e in [-41, -9, -2, 1, 2, 3, 7, 12, 24, 32] {
-            r.push(x.r_powi(std::hint::black_box(e)));
+            r.push(x.powi(std::hint::black_box(e)));
         }
     }
     out.push(("powi_runtime".into(), r.n, r.h));
@@ -537,11 +540,11 @@ fn part_a() -> Vec<(String, usize, u64)> {
     let mut s = Fnv::new("std_libm");
     for k in 1..=500 {
         let x = std::hint::black_box(0.0371 * k as f64);
-        s.push(x.r_exp());
-        s.push(x.r_ln());
-        s.push(x.r_powf(1.37));
-        s.push(x.r_sin());
-        s.push(x.r_cbrt());
+        s.push(x.exp());
+        s.push(x.ln());
+        s.push(x.powf(1.37));
+        s.push(x.sin());
+        s.push(x.cbrt());
     }
     out.push(("std_libm".into(), s.n, s.h));
 

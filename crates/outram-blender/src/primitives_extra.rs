@@ -88,9 +88,9 @@ impl AddMeshOptions {
     /// Apply this placement (scale → rotate → translate) to `mesh`, returning
     /// the transformed mesh.
     pub fn place(&self, mesh: &Mesh) -> Mesh {
-        let (sx, cx) = self.rotation_euler.x.sin_cos();
-        let (sy, cy) = self.rotation_euler.y.sin_cos();
-        let (sz, cz) = self.rotation_euler.z.sin_cos();
+        let (sx, cx) = self.rotation_euler.x.r_sin_cos();
+        let (sy, cy) = self.rotation_euler.y.r_sin_cos();
+        let (sz, cz) = self.rotation_euler.z.r_sin_cos();
         // R = Rz * Ry * Rx (intrinsic XYZ).
         let r = [
             [cy * cz, sx * sy * cz - cx * sz, cx * sy * cz + sx * sz],

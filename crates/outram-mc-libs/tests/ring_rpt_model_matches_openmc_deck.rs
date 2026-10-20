@@ -115,11 +115,11 @@
 //! carry `c_Graphite` in the *explicit* pebble — is free-gas once homogenised.
 //! That is 83 % of the mixed material's carbon. This crate matches it.
 
-use petir::mathf::RealMath;
 use outram_mc_libs::pebble_beds::fhr_pebble::rpt_fuel_outer_radius;
 
 /// The reference deck's own constants (`rpt_pebble.py`).
 mod deck {
+    use petir::mathf::RealMath;
     pub const PEBBLE_DIAMETER_CM: f64 = 4.0;
     pub const SHELL_THICKNESS_CM: f64 = 0.1;
     pub const TRISO_PACKING_FACTOR: f64 = 0.3;

@@ -107,7 +107,6 @@
 //!   reference implementation this module mirrors. See P. C. Lichtner et al.,
 //!   *PFLOTRAN User Manual*.
 
-use petir::mathf::RealMath;
 use std::sync::Arc;
 
 use crate::error::PflotranError;
@@ -549,6 +548,7 @@ impl OdeSystem for MicrobialOde {
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
 
     /// Two species `{donor, acceptor}` (indices 0, 1), single reaction

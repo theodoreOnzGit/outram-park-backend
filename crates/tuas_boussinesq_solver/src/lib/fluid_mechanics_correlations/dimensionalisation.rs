@@ -9,7 +9,6 @@
 //! velocity in m/s, hydraulic diameter in m, dynamic viscosity in Pa*s,
 //! pressure in Pa); the dimensionless results are returned as `Ratio` (or a
 //! bare `f64` where a Bejan number is taken as input).
-use petir::mathf::RealMath;
 extern crate peroxide;
 extern crate uom;
 
@@ -165,8 +164,8 @@ pub fn calc_bejan_from_pressure(
         panic!("fluidDensity <= 0.0, nonphysical");
     }
 
-    let bejan_number_d = fluid_pressure * fluid_density * hydraulic_diameter.r_powi(P2::new())
-        / fluid_viscosity.r_powi(P2::new());
+    let bejan_number_d = fluid_pressure * fluid_density * hydraulic_diameter.powi(P2::new())
+        / fluid_viscosity.powi(P2::new());
 
     bejan_number_d
 }
@@ -193,8 +192,8 @@ pub fn calc_bejan_to_pressure(
         panic!("fluidDensity <= 0.0, nonphysical");
     }
 
-    let fluid_pressure = fluid_viscosity.r_powi(P2::new()) * bejan_d
-        / hydraulic_diameter.r_powi(P2::new())
+    let fluid_pressure = fluid_viscosity.powi(P2::new()) * bejan_d
+        / hydraulic_diameter.powi(P2::new())
         / fluid_density;
 
     return fluid_pressure;

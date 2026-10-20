@@ -77,7 +77,6 @@
 //! Independent implementations from the published definitions — see the
 //! provenance note in [`crate::bayesian`].
 
-use petir::mathf::RealMath;
 use crate::distributions::{Beta, ContinuousDistribution1D};
 use crate::{RafflesError, Result};
 
@@ -803,6 +802,7 @@ pub fn cbox_binomial(k: usize, n: usize, levels: usize) -> Result<Pbox> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use petir::mathf::RealMath;
     use crate::distributions::Normal;
 
     /// **Methodology.** Interval arithmetic must enclose every value the

@@ -197,7 +197,7 @@ fn pin_index(x: f64, y: f64) -> (i32, i32) {
 
 /// `(x, y)` rotated by `deg` degrees.
 fn rotate(x: f64, y: f64, deg: f64) -> (f64, f64) {
-    let (s, c) = (deg * PI / 180.0).sin_cos();
+    let (s, c) = (deg * PI / 180.0).r_sin_cos();
     (c * x - s * y, s * x + c * y)
 }
 

@@ -18,7 +18,6 @@
 
 //! Running one case: data, model, two passes, condensation, collapse, checks.
 
-use petir::mathf::RealMath;
 use std::time::Instant;
 
 use outram_mc_libs::physics::keff::{ComputeType, KeffResult, KeffSettings, ThreadCount};
@@ -422,6 +421,7 @@ fn checks(
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
     use crate::mgxs::{GroupStructure, ZoneMgxs};
 

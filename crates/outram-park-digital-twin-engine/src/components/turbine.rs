@@ -673,7 +673,7 @@ impl Widget for TurbineVisual {
                 // half is what makes the ROTOR read as turning; a fixed row has
                 // no rotation to suggest, and hiding half of it just makes the
                 // nozzle ring look half-built.
-                let c = phi.r_cos().get::<ratio>() as f32;
+                let c = uom::si::f64::Ratio::from(phi.value.r_cos()).get::<ratio>() as f32;
                 // Camber turns the flow onto the following rotor row. Sign is
                 // opposite to the rotor's, and magnitude grows with the
                 // placeholder nozzle angle.
@@ -721,7 +721,7 @@ impl Widget for TurbineVisual {
                 // Only the half-revolution facing the viewer is drawn — this
                 // is what reads as a rotor turning behind the stator rather
                 // than a static ring of ticks.
-                if phase.r_sin() <= <uom::si::f64::Ratio as ConstZero>::ZERO {
+                if uom::si::f64::Ratio::from(phase.value.r_sin()) <= <uom::si::f64::Ratio as ConstZero>::ZERO {
                     continue;
                 }
 
@@ -730,7 +730,7 @@ impl Widget for TurbineVisual {
                 // cos(phi), so the blade shortens onto the shaft as it turns
                 // edge-on. Drawing it as a free-floating tick at mid-span makes
                 // the blades look like they hang in the air, unattached.
-                let c = phase.r_cos().get::<ratio>() as f32;
+                let c = uom::si::f64::Ratio::from(phase.value.r_cos()).get::<ratio>() as f32;
                 let root_y = centre.y + hub_radius * c;
                 let tip_y = centre.y + rotor_radius * c;
 

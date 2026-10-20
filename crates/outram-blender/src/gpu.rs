@@ -63,7 +63,6 @@
 //!    that feeds V&V or a solver stays CPU-deterministic. GPU is *acceleration
 //!    only*, and [`crate::gpu::transform_vertices_gpu`] returns `f32`-precision results.
 
-use petir::mathf::RealMath;
 use crate::math::Vec3;
 use crate::transform::Affine3;
 use core::future::Future;
@@ -443,6 +442,7 @@ pub(crate) fn block_on<F: Future>(future: F) -> F::Output {
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
 
     /// The CPU reference path is always exercised (feature-independent).

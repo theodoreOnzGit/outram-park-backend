@@ -59,7 +59,6 @@
 //! spanning tree, matching Blender's own behaviour. No `faer`, no external
 //! dependency; Android-safe.
 
-use petir::mathf::RealMath;
 use crate::math::Vec3;
 use crate::mesh::Mesh;
 use std::collections::HashMap;
@@ -418,6 +417,7 @@ fn face_signed_volume6(positions: &[Vec3], poly: &[usize], flip: bool) -> f64 {
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
     use crate::primitives;
     use std::collections::HashSet;

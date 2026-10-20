@@ -88,7 +88,6 @@
 //! solve mix quantities of differing dimension; callers apply units at the
 //! case-setup layer.
 
-use petir::mathf::RealMath;
 use crate::error::PflotranError;
 use crate::grid::{BoundaryLocation, CartesianGrid};
 use crate::transport::FlowField;
@@ -548,6 +547,7 @@ fn location_index(loc: BoundaryLocation) -> usize {
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
     use crate::units::GeoLength;
     use uom::si::f64::Length;

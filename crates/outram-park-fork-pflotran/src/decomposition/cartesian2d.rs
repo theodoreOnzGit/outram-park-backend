@@ -19,7 +19,6 @@
 //! solve remain op-gj5 follow-ups. Blocks are balanced per axis; no
 //! reorder-for-locality.
 
-use petir::mathf::RealMath;
 use outram_park_mpi::{CartesianComm, MpiResult};
 
 use super::krylov::distributed_dot;
@@ -301,6 +300,7 @@ pub fn serial_poisson_2d_cg(
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
     use outram_park_mpi::run;
 

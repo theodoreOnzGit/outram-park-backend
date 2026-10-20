@@ -322,8 +322,8 @@ impl DimensionlessDarcyLossCorrelations {
 
         let bejan_number = self.get_bejan_number_from_reynolds(reynolds_input)?;
 
-        let fluid_pressure = fluid_viscosity.r_powi(P2::new()) * bejan_number
-            / hydraulic_diameter.r_powi(P2::new())
+        let fluid_pressure = fluid_viscosity.powi(P2::new()) * bejan_number
+            / hydraulic_diameter.powi(P2::new())
             / fluid_density;
 
         return Ok(fluid_pressure);

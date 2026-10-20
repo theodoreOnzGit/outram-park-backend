@@ -25,7 +25,6 @@
 //! preconditioner, and 2-D/3-D/unstructured coefficient operators remain the
 //! op-gj5 follow-ups.
 
-use petir::mathf::RealMath;
 use outram_park_mpi::{Communicator, MpiResult};
 
 use super::krylov::{distributed_cg_with, distributed_pcg_with};
@@ -243,6 +242,7 @@ pub fn serial_diffusion_cg(
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
     use outram_park_mpi::run;
 

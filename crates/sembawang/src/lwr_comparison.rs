@@ -155,6 +155,7 @@ pub mod bound {
 /// with their provenance (#453). Proprietary tier: the values are cited, the
 /// PDF is not redistributed.
 pub mod kora {
+    use petir::mathf::RealMath;
     const TABLE_5_7: &str = include_str!("../reference/tecdoc978/table5_7_kora_heating_in_air.csv");
     const FIG_5_23: &str =
         include_str!("../reference/tecdoc978/fig5_23_failure_fraction_air_ingress_constant_t.csv");

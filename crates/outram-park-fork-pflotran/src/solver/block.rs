@@ -41,7 +41,6 @@
 //! dimensionless numeric coefficients — any `uom` unit bookkeeping belongs to
 //! the flow mode that assembles them, not to this generic block layer.
 
-use petir::mathf::RealMath;
 use crate::error::PflotranError;
 use outram_foam_basic_lib::krylov::vecops::{axpy, dot, nrm2};
 use outram_foam_basic_lib::matrix::SquareMatrix;
@@ -821,6 +820,7 @@ impl BlockNewtonSolver {
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
 
     /// Materialize a [`BlockLduMatrix`] into a dense row-major `(n, n)` matrix,

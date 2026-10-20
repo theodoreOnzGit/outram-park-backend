@@ -98,7 +98,6 @@
 //! entry point a mesh operator should call: it preserves the caller's winding
 //! and hence its outward normal.
 
-use petir::mathf::RealMath;
 use crate::math::Vec3;
 
 /// Corner classification, matching upstream's `eSign`.
@@ -507,6 +506,7 @@ pub fn newell_normal(points: &[Vec3]) -> Vec3 {
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
 
     /// Twice the signed area of a 2-D triangle.

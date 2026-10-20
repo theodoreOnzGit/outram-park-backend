@@ -380,7 +380,7 @@ fn build_boundaries() -> Vec<Boundary> {
     let s = (PI / CONE_FACETS as f64).r_cos();
     for k in 0..CONE_FACETS {
         let phi = 2.0 * PI * k as f64 / CONE_FACETS as f64;
-        let (sin_phi, cos_phi) = phi.sin_cos();
+        let (sin_phi, cos_phi) = phi.r_sin_cos();
         let point = Vec3::new(s * R * cos_phi, 0.0, s * R * sin_phi);
         let normal = Vec3::new(-H_CONE * cos_phi, s * (R - R_CHUTE), -H_CONE * sin_phi);
         boundaries.push(Boundary::wall(point, normal).expect("cone facet normal is non-zero"));

@@ -61,7 +61,6 @@
 //! uses plain `f64` (not `uom`) because the solute field and its Krylov solve mix
 //! quantities of differing dimension; callers apply units at the case-setup layer.
 
-use petir::mathf::RealMath;
 use crate::error::PflotranError;
 use crate::grid::{Axis, BoundaryLocation, CartesianGrid};
 use outram_foam_basic_lib::krylov::{bicgstab, KrylovResult, KrylovSettings, Preconditioner};
@@ -604,6 +603,7 @@ fn location_index(loc: BoundaryLocation) -> usize {
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
     use crate::units::GeoLength;
     use uom::si::f64::Length;

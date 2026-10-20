@@ -54,7 +54,6 @@
 //! geometry in its last bit (measured 2026-10-05 by
 //! `the_default_design_builds_the_geometry_unchanged`).
 
-use petir::mathf::RealMath;
 use super::control_rod::{LOWER_END_INSERTED_CM, LOWER_END_WITHDRAWN_CM};
 use super::explicit_bed::{FUEL_ZONE_RADIUS_CM, PEBBLE_RADIUS_CM};
 
@@ -145,6 +144,7 @@ impl Htr10CoreDesign {
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
 
     /// The default is the record's model, and the rod travel is TECDOC's.

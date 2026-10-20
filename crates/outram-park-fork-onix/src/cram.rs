@@ -38,7 +38,6 @@
 //! re-implementation; OUTRAM PARK fork relicenses under **GPL-3.0-only** (MIT is
 //! GPL-3.0-compatible).
 
-use petir::mathf::RealMath;
 use crate::matrix::BurnupMatrix;
 use num_complex::Complex64;
 
@@ -247,6 +246,7 @@ pub fn clamp_nonnegative(n: &mut [f64], threshold: f64) -> usize {
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
 
     /// Verification (implementation-correctness): a single decaying nuclide

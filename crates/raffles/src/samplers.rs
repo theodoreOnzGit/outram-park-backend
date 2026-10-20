@@ -227,7 +227,6 @@
 //!
 //! None of this is validation, and none of it has been through human review.
 
-use petir::mathf::RealMath;
 use petir::rng::lcg::{future_seed, prn, DEFAULT_STRIDE};
 
 use crate::{RafflesError, Result};
@@ -857,6 +856,7 @@ fn check_unit_interval(value: f64, parameter: &str) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use petir::mathf::RealMath;
 
     /// Master seed used wherever a test needs one and the value is arbitrary.
     /// Every test in this module is deterministic: seeds are hard-coded, so a

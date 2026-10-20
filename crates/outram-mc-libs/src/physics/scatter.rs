@@ -77,7 +77,7 @@ use crate::mathf::RealMath;
 /// about the x-axis instead to avoid dividing by √(1−w²) ≈ 0.
 pub fn rotate_direction(u: Direction, mu: f64, seed: &mut u64) -> Direction {
     let phi = 2.0 * PI * prn(seed);
-    let (sinphi, cosphi) = phi.sin_cos();
+    let (sinphi, cosphi) = phi.r_sin_cos();
     let a = (1.0 - mu * mu).max(0.0).sqrt();
     let b = (1.0 - u.w * u.w).max(0.0).sqrt();
 

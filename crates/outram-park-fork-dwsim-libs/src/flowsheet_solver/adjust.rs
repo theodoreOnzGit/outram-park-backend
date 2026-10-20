@@ -94,7 +94,6 @@
 //! Newton arithmetic against analytically-solvable synthetic cases; they are not
 //! validation against a DWSIM benchmark flowsheet.
 
-use petir::mathf::RealMath;
 use std::collections::HashMap;
 
 use crate::flowsheet::{Flowsheet, ObjectId, ObjectType};
@@ -455,6 +454,7 @@ mod tests {
     //! and no comparison against a DWSIM benchmark case.
     //!
     //! **Results (2026-08-11, release build):** recorded per test.
+    use petir::mathf::RealMath;
 
     use super::*;
     use crate::flowsheet::ObjectType;

@@ -69,7 +69,6 @@
 //! > workspace `RESPONSIBLE_USE.md`. Not for nuclear facility operation,
 //! > reactor control, safety-critical, or licensing decisions.
 
-use petir::mathf::RealMath;
 use crate::math::Vec3;
 use crate::mesh::{FaceId, Mesh};
 use std::collections::HashMap;
@@ -471,6 +470,7 @@ fn normalized_laplacian_step(
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
     use crate::primitives;
 

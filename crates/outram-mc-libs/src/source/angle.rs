@@ -217,7 +217,7 @@ impl AngleDist for PolarAzimuthalAngle {
             return Direction::new(-self.u_ref.u, -self.u_ref.v, -self.u_ref.w);
         }
         let f = (1.0 - mu * mu).max(0.0).sqrt();
-        let (s, c) = phi.sin_cos();
+        let (s, c) = phi.r_sin_cos();
         Direction::new(
             mu * self.u_ref.u + f * c * self.v_ref.u + f * s * self.w_ref.u,
             mu * self.u_ref.v + f * c * self.v_ref.v + f * s * self.w_ref.v,

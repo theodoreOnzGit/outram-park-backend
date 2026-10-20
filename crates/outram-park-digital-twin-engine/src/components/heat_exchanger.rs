@@ -130,7 +130,6 @@
 //! Per `RESPONSIBLE_USE.md` this is for education, research and V&V only — not
 //! for facility operation, reactor control, or safety-critical decisions.
 
-use petir::mathf::RealMath;
 use crate::components::temperature_colour;
 use egui::{Align2, Color32, FontId, Painter, Pos2, Rect, Response, Sense};
 use egui::{Stroke, StrokeKind, Ui, Vec2, Widget};
@@ -1749,6 +1748,7 @@ impl HeatExchangerVisual {
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
     use outram_park_fork_dwsim_libs::heat_exchanger::lmtd::lmtd;
     use uom::si::power::kilowatt as kilowatt_unit;

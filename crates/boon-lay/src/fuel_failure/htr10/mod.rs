@@ -136,7 +136,6 @@
 //! in conflict — but without Fig. 10's temperature history it is not a check
 //! either. Digitising Fig. 10 would make it one.
 
-use petir::mathf::RealMath;
 pub mod qualification;
 // pub mod sweep; -- added in the next commit
 
@@ -369,6 +368,7 @@ pub fn end_of_irradiation_failure_for(
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
     use crate::fuel_failure::history::{AccidentHistory, AccidentStep};
     use uom::si::thermodynamic_temperature::degree_celsius;

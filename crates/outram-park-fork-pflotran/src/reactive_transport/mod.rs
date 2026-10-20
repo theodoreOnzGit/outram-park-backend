@@ -66,7 +66,6 @@
 //!
 //! Enum dispatch throughout, no trait objects, per the workspace design rules.
 
-use petir::mathf::RealMath;
 use crate::error::PflotranError;
 use crate::geochemistry::{ReactionNetwork, Speciation};
 use crate::grid::{BoundaryLocation, CartesianGrid};
@@ -608,6 +607,7 @@ fn location_index(loc: BoundaryLocation) -> usize {
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
     use crate::grid::CartesianGrid;
     use crate::transport::{

@@ -2678,7 +2678,7 @@ mod tests {
         let first = h[0];
         let late = h[6..].iter().sum::<f64>() / 4.0;
         assert!(late > first + 0.5, "entropy did not rise: {h:?}");
-        assert!(late < (125f64).log2(), "entropy above the mesh ceiling: {h:?}");
+        assert!(late < (125f64).r_log2(), "entropy above the mesh ceiling: {h:?}");
     }
 
     /// **LOW-fidelity Godiva V&V** (HEU-MET-FAST-001).

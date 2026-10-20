@@ -96,7 +96,6 @@
 //! Colour is derived too: every region is graded by a temperature the caller
 //! supplies.
 
-use petir::mathf::RealMath;
 use crate::animation::TracerTrain;
 use crate::components::htr10_reactor_schematic::{
     point_along, DRAWN_ASPECT_RATIO, LABEL_REFERENCE_VESSEL_WIDTH,
@@ -238,8 +237,8 @@ fn elbow_up(start: Pos2, turn_x: f32, end_y: f32, radius: f32) -> Vec<Pos2> {
         // pi/2 is the point level with the run, 0 the point above the turn.
         let theta = 0.5 * PI * (1.0 - i as f32 / SEGMENTS as f32);
         out.push(Pos2::new(
-            centre.x + r * theta.r_cos(),
-            centre.y + r * theta.r_sin(),
+            centre.x + r * theta.cos(),
+            centre.y + r * theta.sin(),
         ));
     }
     out.push(Pos2::new(turn_x, end_y));
@@ -751,11 +750,11 @@ impl Widget for Htr10SteamGeneratorVisual {
                     let a1 = turns * 2.0 * PI * t1;
                     // Sign of the cosine says which side of the axis this bit
                     // of the turn is on, so it selects the pass.
-                    if ((0.5 * (a0 + a1)).r_cos() < 0.0) != behind {
+                    if ((0.5 * (a0 + a1)).cos() < 0.0) != behind {
                         continue;
                     }
-                    let p0 = Pos2::new(mid_x + coil_radius * a0.r_sin(), bundle_top + span * t0);
-                    let p1 = Pos2::new(mid_x + coil_radius * a1.r_sin(), bundle_top + span * t1);
+                    let p0 = Pos2::new(mid_x + coil_radius * a0.sin(), bundle_top + span * t0);
+                    let p1 = Pos2::new(mid_x + coil_radius * a1.sin(), bundle_top + span * t1);
                     let water = self.water_temperature_at(t0);
                     let mut c = self.colour(water);
                     if behind {
@@ -831,13 +830,13 @@ impl Widget for Htr10SteamGeneratorVisual {
                         let t1 = (centre_t + arc_span * (f1 - 0.5)).clamp(0.0, 1.0);
                         let a0 = turns * 2.0 * PI * t0;
                         let a1 = turns * 2.0 * PI * t1;
-                        if (0.5 * (a0 + a1)).r_cos() < 0.0 {
+                        if (0.5 * (a0 + a1)).cos() < 0.0 {
                             continue;
                         }
                         let p0 =
-                            Pos2::new(mid_x + coil_radius * a0.r_sin(), bundle_top + span * t0);
+                            Pos2::new(mid_x + coil_radius * a0.sin(), bundle_top + span * t0);
                         let p1 =
-                            Pos2::new(mid_x + coil_radius * a1.r_sin(), bundle_top + span * t1);
+                            Pos2::new(mid_x + coil_radius * a1.sin(), bundle_top + span * t1);
                         painter.line_segment([p0, p1], Stroke::new(width, Color32::WHITE));
                     }
                 }
@@ -1021,7 +1020,7 @@ impl Widget for Htr10SteamGeneratorVisual {
 /// second limit is a level-of-detail choice: on a very small drawing the turn
 /// count is set by what can be seen, not by the coil angle.
 fn coil_turns_and_stroke(span: f32, bundle_w: f32, coil_radius: f32, theta: f32) -> (f32, f32) {
-    let tan_theta = theta.r_tan().abs().max(0.02);
+    let tan_theta = theta.tan().abs().max(0.02);
     let mut turns = (span / (2.0 * PI * coil_radius * tan_theta)).clamp(2.0, 40.0);
     let min_pitch = MIN_COIL_STROKE + MIN_COIL_GAP;
     if span / turns < min_pitch {
@@ -1036,6 +1035,7 @@ fn coil_turns_and_stroke(span: f32, bundle_w: f32, coil_radius: f32, theta: f32)
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
 
     fn kelvins(v: f64) -> ThermodynamicTemperature {

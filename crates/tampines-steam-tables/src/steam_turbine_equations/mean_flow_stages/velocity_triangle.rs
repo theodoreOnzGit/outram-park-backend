@@ -81,15 +81,15 @@ impl VelocityTriangle {
         relative_exit_angle: Angle,
         blade_velocity_coefficient: Ratio,
     ) -> Self {
-        let axial_velocity: Velocity = absolute_velocity_in * nozzle_angle.r_cos();
-        let absolute_tangential_in: Velocity = absolute_velocity_in * nozzle_angle.r_sin();
+        let axial_velocity: Velocity = absolute_velocity_in * Ratio::from(nozzle_angle.value.r_cos());
+        let absolute_tangential_in: Velocity = absolute_velocity_in * Ratio::from(nozzle_angle.value.r_sin());
         let relative_tangential_in: Velocity = absolute_tangential_in - blade_speed;
 
         // The rotor turns the relative flow to its own exit angle. The axial
         // component is unchanged by the mean-line assumption, so the exit
         // relative tangential component is fixed by beta2, and the velocity
         // coefficient then scales the whole relative vector for passage loss.
-        let relative_tangential_ideal: Velocity = axial_velocity * relative_exit_angle.r_tan();
+        let relative_tangential_ideal: Velocity = axial_velocity * Ratio::from(relative_exit_angle.value.r_tan());
         let relative_tangential_out: Velocity =
             relative_tangential_ideal * blade_velocity_coefficient;
 
@@ -203,7 +203,7 @@ impl VelocityTriangle {
     pub fn get_mean_relative_speed(&self) -> Velocity {
         let mean_angle = self.get_mean_relative_angle();
 
-        self.axial_velocity / mean_angle.r_cos()
+        self.axial_velocity / Ratio::from(mean_angle.value.r_cos())
     }
 
     /// Degree of reaction inferred from the kinematics,

@@ -167,7 +167,6 @@
 #![allow(unused_parens, clippy::all)]
 
 // --- imports, as upstream lib.rs, with std replaced by core/alloc ----------
-use petir::mathf::RealMath;
 use core::fmt;
 use core::mem::discriminant;
 

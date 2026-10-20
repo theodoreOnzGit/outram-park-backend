@@ -167,7 +167,7 @@ fn mms_saturated_operator_is_second_order() {
         );
     }
     // Observed order between the two finest grids must approach 2.
-    let order = (errors[errors.len() - 2] / errors[errors.len() - 1]).log2();
+    let order = (errors[errors.len() - 2] / errors[errors.len() - 1]).r_log2();
     println!("observed order (finest pair) = {order:.3}");
     assert!(
         order > 1.8,

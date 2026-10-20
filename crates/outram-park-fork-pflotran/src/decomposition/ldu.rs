@@ -26,7 +26,6 @@
 //! Jacobian (which needs a distributed BiCGStab, not CG), remain the op-gj5
 //! follow-ups. 1-D structured partition only.
 
-use petir::mathf::RealMath;
 use outram_foam_basic_lib::ldu_matrix::LduMatrix;
 
 use super::krylov::{distributed_bicgstab_with, distributed_cg_with};
@@ -373,6 +372,7 @@ pub fn serial_ldu_bicgstab(
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
     // Used only by the convergence assertions below, so it is imported here
     // rather than at module scope (where it is genuinely unused by the lib).

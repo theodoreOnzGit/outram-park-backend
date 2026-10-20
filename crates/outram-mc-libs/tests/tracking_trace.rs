@@ -459,7 +459,7 @@ fn the_csg_source_entropy_is_bounded_and_reading_it_changes_nothing() {
     let away = RegularMesh { lower_left: [1.0e3; 3], upper_right: [2.0e3; 3], dimension: [2; 3] };
     let mut read = CsgPowerIteration::new(&geom, &mats, &nucs, source_box(), &s);
     let mut plain = CsgPowerIteration::new(&geom, &mats, &nucs, source_box(), &s);
-    let ceiling = 125f64.log2();
+    let ceiling = 125f64.r_log2();
     let mut seen = Vec::new();
     loop {
         assert_eq!(read.source_entropy(&mesh(1)), Some(0.0));

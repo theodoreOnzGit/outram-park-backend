@@ -21,7 +21,6 @@
 //! it. Delta-tracked histories are not traced here and their ends are not
 //! counted (the chunk reports how many histories it ran).
 
-use petir::mathf::RealMath;
 use super::{sample_initial_source, transport_history, DeltaDomain, MaterialQuery, Site, GEN_STRIDE, HIST_STRIDE};
 use crate::geometry::position::{Direction, Position};
 use crate::material::material::Material;
@@ -98,6 +97,7 @@ pub fn transport_chunk<Q: MaterialQuery>(
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
     use crate::material::material::NuclideComponent;
     use crate::physics::compute::ThreadCount;

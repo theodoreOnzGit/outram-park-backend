@@ -65,7 +65,6 @@
 //! crate deliberately owns no physics (see the crate `CLAUDE.md`). See
 //! `RESPONSIBLE_USE.md`.
 
-use petir::mathf::RealMath;
 use crate::components::temperature_colour;
 use egui::{Color32, CornerRadius, FontId, Painter, Pos2, Rect, Response, Sense, Shape};
 use egui::{Stroke, StrokeKind, Ui, Vec2, Widget};
@@ -851,8 +850,8 @@ impl SteamGeneratorVisual {
             for k in 1..steps {
                 let angle = PI - PI * (k as f32) / (steps as f32);
                 path.push(Pos2::new(
-                    cx + offset * angle.r_cos(),
-                    bend_centre - offset * angle.r_sin(),
+                    cx + offset * angle.cos(),
+                    bend_centre - offset * angle.sin(),
                 ));
             }
             path.push(Pos2::new(cx + offset, bend_centre));
@@ -892,7 +891,7 @@ impl SteamGeneratorVisual {
         for k in 0..=20 {
             let t = k as f32 / 20.0;
             let x = cx - wrapper_half + t * 2.0 * wrapper_half;
-            wave.push(Pos2::new(x, level_y + (t * PI * 3.0).r_sin() * h * 0.002));
+            wave.push(Pos2::new(x, level_y + (t * PI * 3.0).sin() * h * 0.002));
         }
         for pair in wave.windows(2) {
             painter.line_segment([pair[0], pair[1]], Stroke::new(1.6_f32, steam));
@@ -964,8 +963,8 @@ impl SteamGeneratorVisual {
         let head_radius = (lower_half * 0.98).min(rect.bottom() - tubesheet_bottom);
         let sample = |a: f32| {
             Pos2::new(
-                cx + head_radius * a.r_cos(),
-                tubesheet_bottom + head_radius * a.r_sin(),
+                cx + head_radius * a.cos(),
+                tubesheet_bottom + head_radius * a.sin(),
             )
         };
         for (start, end, fill) in [
@@ -1139,7 +1138,7 @@ impl SteamGeneratorVisual {
             let mut path = Vec::with_capacity(17);
             for k in 0..=16 {
                 let t = k as f32 / 16.0;
-                path.push(Pos2::new(x0 + (x1 - x0) * t, y_row + sag * (t * PI).r_sin()));
+                path.push(Pos2::new(x0 + (x1 - x0) * t, y_row + sag * (t * PI).sin()));
             }
             self.graded_path(
                 painter,
@@ -1387,18 +1386,18 @@ impl SteamGeneratorVisual {
                     let t1 = (k + 1) as f32 / samples as f32;
                     let a0 = phase + turns * 2.0 * PI * t0;
                     let a1 = phase + turns * 2.0 * PI * t1;
-                    let is_behind = (0.5 * (a0 + a1)).r_cos() < 0.0;
+                    let is_behind = (0.5 * (a0 + a1)).cos() < 0.0;
                     if is_behind != behind {
                         continue;
                     }
                     // t = 0 at the TOP of the drawing; the water rises, so the
                     // colour is taken from the height above the bundle bottom.
                     let p0 = Pos2::new(
-                        cx + coil_radius * a0.r_sin(),
+                        cx + coil_radius * a0.sin(),
                         bundle_top + (bundle_bottom - bundle_top) * t0,
                     );
                     let p1 = Pos2::new(
-                        cx + coil_radius * a1.r_sin(),
+                        cx + coil_radius * a1.sin(),
                         bundle_top + (bundle_bottom - bundle_top) * t1,
                     );
                     let rise = 1.0 - 0.5 * (t0 + t1);

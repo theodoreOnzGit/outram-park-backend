@@ -5,7 +5,7 @@
 //!
 //! # Why
 //!
-//! `std`'s `<f64 as petir::mathf::RealMath>::r_exp`, `ln`, `cos` and friends are thin wrappers over the
+//! `std`'s `f64::exp`, `ln`, `cos` and friends are thin wrappers over the
 //! **platform** libm. glibc versions, macOS and MSVC disagree in the last ulp,
 //! and in Monte Carlo one different last bit in a direction cosine changes the
 //! random walk from that history on. OutramMC promises the same bits for the

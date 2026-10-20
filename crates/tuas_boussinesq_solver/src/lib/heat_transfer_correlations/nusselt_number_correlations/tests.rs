@@ -50,7 +50,6 @@
 /// and Re = 5481, which is also in the turbulent regime
 ///
 ///
-use petir::mathf::RealMath;
 #[test]
 pub fn du_correlation_empirical_test() {
     use uom::si::length::meter;

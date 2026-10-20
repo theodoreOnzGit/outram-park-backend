@@ -376,8 +376,8 @@ impl IrradiationGrowthDirection {
     /// [`strain_increment`](Self::strain_increment).
     #[must_use]
     pub fn unit_vector(self) -> Vector3 {
-        let (sa, ca) = self.azimuth.sin_cos();
-        let (sb, cb) = self.elevation.sin_cos();
+        let (sa, ca) = self.azimuth.r_sin_cos();
+        let (sb, cb) = self.elevation.r_sin_cos();
         Vector3::new(ca * cb, sa * cb, -sb)
     }
 
@@ -425,8 +425,8 @@ impl IrradiationGrowthDirection {
     ///   that no tabulated-function machinery is needed here.
     #[must_use]
     pub fn strain_increment(self, growth_strain_increment: f64) -> SymmTensor {
-        let (sa, ca) = self.azimuth.sin_cos();
-        let (sb, cb) = self.elevation.sin_cos();
+        let (sa, ca) = self.azimuth.r_sin_cos();
+        let (sb, cb) = self.elevation.r_sin_cos();
         let g = growth_strain_increment;
         // Upstream stores components 4-6 with a sqrt(2) Mandel factor; this
         // port stores plain tensor components, so the sqrt(2) is dropped and

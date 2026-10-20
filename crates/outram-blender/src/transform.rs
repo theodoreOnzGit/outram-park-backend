@@ -44,7 +44,6 @@
 //! *approximate* match within an `f32`-scale tolerance, not bit-exact — see the
 //! GPU test in [`crate::gpu`].
 
-use petir::mathf::RealMath;
 use crate::math::Vec3;
 
 /// A 3D affine transform: a `3x3` linear map `M` followed by a translation `t`,
@@ -164,6 +163,7 @@ impl Affine3 {
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
 
     #[test]

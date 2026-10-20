@@ -36,6 +36,9 @@ fidelity = 3
 maturity = 1
 
 [dependencies]
+# Every transcendental routes through PETIR for cross-platform bit identity
+# (gh:#985). petir is no_std, so this edge adds nothing Android- or wasm-hostile.
+petir = { workspace = true }
 # Pure-Rust, Android-safe deps only (no BLAS / C / PETSc). `uom` types the
 # physical-quantity API boundary (pressure, saturation, permeability, ...);
 # `thiserror` provides the crate error enum.

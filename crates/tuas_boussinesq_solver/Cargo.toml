@@ -42,6 +42,9 @@ default = ["long-tests"]
 long-tests = []
 
 [dependencies]
+# Every transcendental routes through PETIR for cross-platform bit identity
+# (gh:#985). petir is no_std, so this edge adds nothing Android- or wasm-hostile.
+petir = { workspace = true }
 approx.workspace = true
 csv.workspace = true
 ndarray.workspace = true

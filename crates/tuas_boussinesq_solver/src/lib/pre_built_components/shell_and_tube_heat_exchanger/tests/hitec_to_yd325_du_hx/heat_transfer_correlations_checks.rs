@@ -10,7 +10,6 @@
 /// d_o/(2 lambda_w) ln (d_o/d_i)
 /// I calculated this in Libreoffice Calc to be 1/6920
 /// = 0.00014449 (m^2 K)/W
-use petir::mathf::RealMath;
 #[test]
 pub fn check_wall_side_htc() {
     use uom::si::f64::*;

@@ -159,7 +159,6 @@
 //!   **159**, 98–103 (1967); W. C. Swope et al., *J. Chem. Phys.* **76**, 637
 //!   (1982) — the velocity-Verlet integrator used per particle.
 
-use petir::mathf::RealMath;
 use std::collections::HashMap;
 
 use crate::boundary::{Boundary, Contact};
@@ -546,6 +545,7 @@ impl DemSimulation {
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
     use crate::contact::HookeContact;
     use approx::assert_abs_diff_eq;

@@ -9,7 +9,7 @@
 //!
 //! # Why
 //!
-//! In a `std` crate, `x.r_powi(n)`, `x.r_exp()`, `x.r_atan()` and friends resolve to
+//! In a `std` crate, `x.powi(n)`, `x.exp()`, `x.atan()` and friends resolve to
 //! the inherent `f64` methods, whose last bit is set by the target's C library
 //! or code generator (glibc, MSVC, wasi-libc, Apple libm). The S0 negative
 //! control (`tests/cross_platform_determinism.rs`) measured that difference
@@ -164,13 +164,13 @@ fn no_platform_libm_on_hot_path() {
 fn the_gate_flags_raw_calls_and_only_raw_calls() {
     let sample = "\
 use petir::mathf::RealMath;
-fn a(x: f64) -> f64 { x.r_powi(2) }
-fn b(x: f64) -> f64 { <f64 as petir::mathf::RealMath>::r_exp(x) }
-fn c(x: f64) -> f64 { x.r_powi(2) + x.r_atan() + x.sqrt() } // x.r_atan() in a comment
-// x.r_ln() in a comment line
+fn a(x: f64) -> f64 { x.powi(2) }
+fn b(x: f64) -> f64 { f64::exp(x) }
+fn c(x: f64) -> f64 { x.r_powi(2) + x.r_atan() + x.sqrt() } // x.atan() in a comment
+// x.ln() in a comment line
 #[cfg(test)]
 mod tests {
-    fn d(x: f64) -> f64 { x.r_cbrt() }
+    fn d(x: f64) -> f64 { x.cbrt() }
 }
 ";
     let hits: Vec<usize> = offences_in(sample).into_iter().map(|(n, _)| n).collect();

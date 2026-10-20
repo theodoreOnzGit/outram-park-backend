@@ -41,6 +41,9 @@ maturity = 2
 foam-export = ["dep:outram-foam-basic-lib"]
 
 [dependencies]
+# Every transcendental routes through PETIR for cross-platform bit identity
+# (gh:#985). petir is no_std, so this edge adds nothing Android- or wasm-hostile.
+petir = { workspace = true }
 outram-foam-basic-lib = { workspace = true, optional = true }
 
 [dev-dependencies]

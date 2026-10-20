@@ -227,7 +227,7 @@ impl ReflectorChannel {
     /// Channel centre `(x, y)` \[cm\].
     #[must_use]
     pub fn centre_xy(&self) -> [f64; 2] {
-        let (s, c) = self.azimuth_deg.to_radians().sin_cos();
+        let (s, c) = self.azimuth_deg.to_radians().r_sin_cos();
         let r = self.centre_radius_cm();
         [r * c, r * s]
     }

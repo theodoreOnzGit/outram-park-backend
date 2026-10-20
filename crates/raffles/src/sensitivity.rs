@@ -167,7 +167,6 @@
 //! you are about to port traces back to either, stop and ask rather than
 //! guessing at the header. See the crate `NOTICE` and `NOTICE-RAVEN`.
 
-use petir::mathf::RealMath;
 use crate::{RafflesError, Result};
 use core::ops::Range;
 
@@ -732,6 +731,7 @@ pub fn sobol_indices(layout: SobolSampleLayout, outputs: &[f64]) -> Result<Sobol
 #[cfg(test)]
 mod tests {
     use super::*;
+    use petir::mathf::RealMath;
     use core::f64::consts::PI;
 
     /// Base samples per matrix used by every Sobol gate below. With `k = 3`

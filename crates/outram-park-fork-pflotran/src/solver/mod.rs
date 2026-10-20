@@ -34,7 +34,6 @@
 //! residual or the Newton step is likewise reported as a `Convergence` failure
 //! rather than propagated silently.
 
-use petir::mathf::RealMath;
 pub mod block;
 
 pub use block::{
@@ -389,6 +388,7 @@ fn nrm2(v: &[f64]) -> f64 {
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
 
     /// 1D Bratu problem `-u'' = λ·exp(u)` on `[0,1]` with `u(0)=u(1)=0`,

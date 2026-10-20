@@ -100,7 +100,6 @@
 //! - **No per-reaction extents.** Being reaction-free, the returned
 //!   [`ReactorOutcome::extents`] is empty (the concept does not apply).
 
-use petir::mathf::RealMath;
 use crate::thermo::gibbs::{FugacityModel, GibbsError, GibbsOptions, GibbsSystem};
 
 use super::{ReactorError, ReactorFeed, ReactorOutcome};
@@ -333,6 +332,7 @@ mod tests {
     //! atom conservation. These are **verification** against algebra and a second
     //! solver, **not** validation against measured data — untrusted AI-assisted
     //! draft, pending human review (workspace `RESPONSIBLE_USE.md`).
+    use petir::mathf::RealMath;
 
     use super::*;
     use crate::reactions::{

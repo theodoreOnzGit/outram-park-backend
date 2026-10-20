@@ -27,7 +27,6 @@
 //! the last op-gj5 step — requires faithfully replicating those curves per rank
 //! and is a follow-up. Plain Newton (no line search / damping); 1-D tridiagonal.
 
-use petir::mathf::RealMath;
 use outram_park_mpi::{Communicator, MpiError, MpiResult};
 
 use super::krylov::distributed_dot;
@@ -97,6 +96,7 @@ where
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
     use outram_park_mpi::run;
 

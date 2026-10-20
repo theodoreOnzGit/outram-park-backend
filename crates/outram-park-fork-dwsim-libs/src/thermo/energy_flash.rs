@@ -85,7 +85,6 @@
 //!   approximation (see [`flash_ps`]); it is verified only for the single-phase
 //!   case here.
 
-use petir::mathf::RealMath;
 use crate::thermo::cubic_eos::Phase;
 use crate::thermo::flash::FlashResult;
 use crate::thermo::ideal_props::{
@@ -642,6 +641,7 @@ where
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
     use crate::thermo::cubic_eos::CubicEos;
     use approx::assert_relative_eq;

@@ -50,7 +50,6 @@
 //! **Result: NOT YET MEASURED (testing deferred by maintainer, 2026-10-03).**
 //! Protocol: `verification_and_validation/stats_epic_493/496_source_convergence.md`.
 
-use petir::mathf::RealMath;
 use crate::physics::keff::KeffResult;
 use raffles::estimators::stationarity::{
     change_point, geweke, mser_truncation, ChangePoint, GewekeTest, MserTruncation, MSER_BATCH,
@@ -216,6 +215,7 @@ impl SourceConvergence {
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
 
     /// An entropy-like trace that rises from `h0` to `h_inf` with time

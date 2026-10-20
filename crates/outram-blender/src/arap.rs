@@ -390,12 +390,13 @@ fn component(p: Vec3, d: usize) -> f64 {
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
     use crate::primitives;
 
     /// Apply a rigid transform (rotation `θ` about z + translation `t`).
     fn rigid(p: Vec3, theta: f64, t: Vec3) -> Vec3 {
-        let (s, c) = theta.sin_cos();
+        let (s, c) = theta.r_sin_cos();
         Vec3::new(c * p.x - s * p.y + t.x, s * p.x + c * p.y + t.y, p.z + t.z)
     }
 
@@ -531,7 +532,7 @@ mod tests {
     #[test]
     fn closest_rotation_is_proper() {
         // A pure 40° rotation about z: its closest rotation is itself.
-        let (s, c) = 0.7f64.sin_cos();
+        let (s, c) = 0.7f64.r_sin_cos();
         let rot: M3 = [[c, -s, 0.0], [s, c, 0.0], [0.0, 0.0, 1.0]];
         let r = closest_rotation(rot);
         for i in 0..3 {

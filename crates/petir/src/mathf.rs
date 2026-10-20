@@ -35,7 +35,12 @@
 //! |---|---|---|---|
 //! | **ARM** | [`r_exp`](RealMath::r_exp), [`r_ln`](RealMath::r_ln), [`r_powf`](RealMath::r_powf) | [`crate::fast_exp`], [`crate::fast_log`], [`crate::fast_pow`] — ports of ARM optimized-routines, verified bit-identical to upstream's own compiled C | `exp` faster, `ln` comparable, `powf` ~1.5x slower (measured, see [`crate::real`]) |
 //! | **integer power** | [`r_powi`](RealMath::r_powi) | [`crate::real::powi`] — libgcc's `__powidf2` algorithm, plain `*` and one `/` | not separately benchmarked |
-//! | **`libm`** | `r_log10`, `r_cbrt`, `r_exp_m1`, `r_ln_1p`, `r_sin`, `r_cos`, `r_tan`, `r_asin`, `r_acos`, `r_atan`, `r_atan2`, `r_hypot`, `r_sinh`, `r_cosh`, `r_tanh` | the [`libm`] crate (a pure-Rust port of musl), through [`crate::real`]'s free functions where one exists | **slower than the platform**; by how much is not measured here |
+//! | **`libm`** | `r_log10`, `r_cbrt`, `r_exp_m1`, `r_ln_1p`, `r_sin`, `r_cos`, `r_tan`, `r_asin`, `r_acos`, `r_atan`, `r_atan2`, `r_hypot`, `r_sinh`, `r_cosh`, `r_tanh`, `r_log2`, `r_exp2`, `r_sin_cos` | the [`libm`] crate (a pure-Rust port of musl), through [`crate::real`]'s free functions where one exists | **slower than the platform**; by how much is not measured here |
+//!
+//! **EXTENDED 2026-10-20** (gh:#985): `r_log2`, `r_exp2` and `r_sin_cos` join
+//! the `libm` row, so the workspace-wide rename has a target for every `log2`,
+//! `exp2` and `sin_cos` call site. `r_sin_cos` is `(r_sin, r_cos)`, not
+//! `libm::sincos`, so it is bit-identical to the two separate methods.
 //!
 //! **Only `exp`, `ln` and `powf` take the ARM route.** ARM optimized-routines
 //! publishes no scalar-double `log10`, `cbrt`, trig or hyperbolic functions,
@@ -218,6 +223,20 @@ pub trait RealMath {
 
     /// Hyperbolic tangent. `libm`, via [`crate::real::tanh`].
     fn r_tanh(self) -> f64;
+
+    /// Base-2 logarithm. `libm::log2`.
+    fn r_log2(self) -> f64;
+
+    /// `2^x`. `libm::exp2`.
+    fn r_exp2(self) -> f64;
+
+    /// `(sin x, cos x)`, radians, in the order `f64::sin_cos` returns them.
+    ///
+    /// Computed as [`RealMath::r_sin`] and [`RealMath::r_cos`] (`libm`, via
+    /// [`crate::real::sin`] and [`crate::real::cos`]), not `libm::sincos`, so
+    /// `x.r_sin_cos()` is bit-identical to `(x.r_sin(), x.r_cos())` and a call
+    /// site's meaning does not depend on which spelling it used.
+    fn r_sin_cos(self) -> (f64, f64);
 }
 
 /// The default, deterministic route: ARM ports for `exp`/`ln`/`powf`,
@@ -317,6 +336,21 @@ impl RealMath for f64 {
     fn r_tanh(self) -> f64 {
         crate::real::tanh(self)
     }
+
+    #[inline]
+    fn r_log2(self) -> f64 {
+        libm::log2(self)
+    }
+
+    #[inline]
+    fn r_exp2(self) -> f64 {
+        libm::exp2(self)
+    }
+
+    #[inline]
+    fn r_sin_cos(self) -> (f64, f64) {
+        (crate::real::sin(self), crate::real::cos(self))
+    }
 }
 
 #[cfg(test)]
@@ -381,6 +415,10 @@ mod tests {
             eq(x.r_exp_m1(), libm::expm1(x), "expm1", x);
             eq(x.r_atan2(0.7 - x), libm::atan2(x, 0.7 - x), "atan2", x);
             eq(x.r_hypot(3.0 * x - 2.0), libm::hypot(x, 3.0 * x - 2.0), "hypot", x);
+            eq(x.r_exp2(), libm::exp2(x), "exp2", x);
+            let (s, c) = x.r_sin_cos();
+            eq(s, x.r_sin(), "sin_cos.0", x);
+            eq(c, x.r_cos(), "sin_cos.1", x);
             let u = x / 30.0; // inside [-1, 1]
             eq(u.r_asin(), libm::asin(u), "asin", u);
             eq(u.r_acos(), libm::acos(u), "acos", u);
@@ -389,6 +427,7 @@ mod tests {
             }
             if x > 0.0 {
                 eq(x.r_log10(), libm::log10(x), "log10", x);
+                eq(x.r_log2(), libm::log2(x), "log2", x);
             }
             for n in [-23, -7, -2, -1, 0, 1, 2, 3, 5, 12, 23] {
                 eq(x.r_powi(n), crate::real::powi(x, n), "powi", x);
@@ -414,6 +453,17 @@ mod tests {
     }
 
     /// The IEEE special values must survive the extra hop.
+    /// The 2026-10-20 additions (gh:#985) keep their exact small cases.
+    #[test]
+    fn r_log2_r_exp2_and_r_sin_cos_exact_cases() {
+        assert_eq!(8.0_f64.r_log2(), 3.0);
+        assert_eq!(0.0_f64.r_log2(), f64::NEG_INFINITY);
+        assert!((-1.0_f64).r_log2().is_nan());
+        assert_eq!(3.0_f64.r_exp2(), 8.0);
+        assert_eq!((-1.0_f64).r_exp2(), 0.5);
+        assert_eq!(0.0_f64.r_sin_cos(), (0.0, 1.0));
+    }
+
     #[test]
     fn the_special_values_pass_through() {
         assert_eq!(0.0_f64.r_ln(), f64::NEG_INFINITY);

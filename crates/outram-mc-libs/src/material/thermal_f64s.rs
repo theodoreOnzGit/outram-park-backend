@@ -8,7 +8,6 @@
 //! cross sections and in sampled `(E', μ)`, by `f64s_round_trip_exactly`
 //! below and by `tests/processed_evaluation_round_trip.rs` on real laws.
 
-use petir::mathf::RealMath;
 use super::{
     CoherentElasticTable, ContinuousEmission, EmissionTable, IncoherentElasticTable,
     ThermalElastic, ThermalScattering,
@@ -219,6 +218,7 @@ impl ThermalScattering {
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
 
     /// A law with every channel kind crosses unchanged: every field, and

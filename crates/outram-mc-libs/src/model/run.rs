@@ -97,7 +97,6 @@
 //! `run_keff_csg_hybrid` (multi-thread: its `CpuMultiThread` route; one
 //! thread: its `CpuSingleThread` route).
 
-use petir::mathf::RealMath;
 use raffles::estimators::autocorrelation::CorrelatedMean;
 use raffles::estimators::normality::dagostino_pearson;
 use raffles::estimators::mean_and_stderr;
@@ -1411,6 +1410,7 @@ impl Model {
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
 
     /// The progress line carries OpenMC's columns, and the running average

@@ -242,7 +242,6 @@
 //! One digitisation label reads `90% FIMA` where the caption says
 //! `9.0 % FIMA` and `F_B = 0.09`; 0.09 is used, and the slip is noted.
 
-use petir::mathf::RealMath;
 use uom::si::f64::{Frequency, Pressure, Ratio, ThermodynamicTemperature, Time, Volume};
 use uom::si::frequency::hertz;
 use uom::si::ratio::ratio;
@@ -636,6 +635,7 @@ impl AccidentHistory {
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
     use uom::si::length::micrometer;
     use uom::si::pressure::{megapascal, pascal};

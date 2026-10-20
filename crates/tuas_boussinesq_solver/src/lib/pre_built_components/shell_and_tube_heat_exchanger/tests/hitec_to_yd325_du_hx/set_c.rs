@@ -15,7 +15,6 @@
 /// I'm assuming an adiabatic bc to the outside
 /// and switching off the insulation boolean
 ///
-use petir::mathf::RealMath;
 #[test]
 //#[ignore = "debugging"]
 pub fn du_test_shell_and_tube_heat_exchanger_set_c() {

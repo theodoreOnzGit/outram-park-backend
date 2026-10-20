@@ -51,7 +51,6 @@
 //! > Not for reactor operation, licensing, or safety-critical use. Independent
 //! > OUTRAM PARK work; not affiliated with the HTR-10 designers.
 
-use petir::mathf::RealMath;
 use crate::fill_holes::fill_holes;
 use crate::math::Vec3;
 use crate::mesh::Mesh;
@@ -229,6 +228,7 @@ fn meridian_profile(dims: &Htr10CoreDimensions) -> Vec<Vec3> {
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
     use std::collections::HashSet;
     use std::f64::consts::PI;

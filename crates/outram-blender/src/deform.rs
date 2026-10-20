@@ -124,7 +124,7 @@ fn axis_span(mesh: &Mesh, verts: &[VertexId], axis: Axis) -> (f64, f64) {
 }
 
 fn rodrigues(v: Vec3, k: Vec3, theta: f64) -> Vec3 {
-    let (s, c) = theta.sin_cos();
+    let (s, c) = theta.r_sin_cos();
     v.scale(c)
         .add(k.cross(v).scale(s))
         .add(k.scale(k.dot(v) * (1.0 - c)))

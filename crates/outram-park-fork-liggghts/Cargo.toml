@@ -56,6 +56,9 @@ gnn = ["dep:raffles"]
 gnn-burn = ["gnn", "raffles/burn", "dep:burn"]
 
 [dependencies]
+# Every transcendental routes through PETIR for cross-platform bit identity
+# (gh:#985). petir is no_std, so this edge adds nothing Android- or wasm-hostile.
+petir = { workspace = true }
 # Pure-Rust, Android-safe deps only (no BLAS / C). `uom` types the physical
 # API boundary (mass, radius, temperature, ...); `thiserror` the error enum.
 # The DEM pillar is kept dependency-independent of the CFD crates (per the

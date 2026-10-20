@@ -61,7 +61,6 @@
 //! `RESPONSIBLE_USE.md` this is for education, research and V&V only — not for
 //! facility operation, reactor control, or safety-critical decisions.
 
-use petir::mathf::RealMath;
 use crate::components::temperature_colour;
 use egui::{Color32, Pos2, Rect, Response, Sense, Stroke, Ui, Vec2, Widget};
 use std::f32::consts::TAU;
@@ -165,7 +164,7 @@ fn vane_root_angles(theta: Angle) -> [f32; IMPELLER_VANES] {
 /// phase, including zero — `edge_on_rotor_is_never_empty` pins that, because a
 /// stopped rotor that vanished would be worse than no rotor at all.
 fn edge_on_visible(phase: f32) -> bool {
-    phase.r_sin() > 0.0
+    phase.sin() > 0.0
 }
 
 /// Screen projection of an edge-on blade at this phase, in `[-1, 1]`.
@@ -174,7 +173,7 @@ fn edge_on_visible(phase: f32) -> bool {
 /// ends by the same `cos(phase)` when seen from the side, so it shortens onto
 /// the shaft as it turns edge-on instead of floating free.
 fn edge_on_projection(phase: f32) -> f32 {
-    phase.r_cos()
+    phase.cos()
 }
 
 // ── Deterministic cast-surface stipple ──────────────────────────────────────
@@ -649,8 +648,8 @@ impl VoluteLayout {
 /// included, so a positive shaft speed and the volute wrap agree.
 fn polar(centre: Pos2, radius: f32, angle: f32) -> Pos2 {
     Pos2::new(
-        centre.x + radius * angle.r_cos(),
-        centre.y + radius * angle.r_sin(),
+        centre.x + radius * angle.cos(),
+        centre.y + radius * angle.sin(),
     )
 }
 
@@ -1231,6 +1230,7 @@ impl PumpVisual {
 }
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
     use uom::si::angle::radian;
     use uom::si::angular_velocity::radian_per_second;

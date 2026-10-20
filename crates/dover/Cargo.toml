@@ -34,6 +34,9 @@ backronym = "Deck-based Open-source Visualisation Engine for Reactors"
 # All three are pure Rust with no system BLAS, C toolchain or windowing stack,
 # so the library stays Android- and wasm-buildable per the workspace rules.
 [dependencies]
+# Every transcendental routes through PETIR for cross-platform bit identity
+# (gh:#985). petir is no_std, so this edge adds nothing Android- or wasm-hostile.
+petir = { workspace = true }
 # The reactor stack DOVER composes: Cstr, Reaction, EquilibriumConstant,
 # ReactorFeed/Outcome. Reused rather than reimplemented -- see src/lib.rs.
 outram-park-fork-dwsim-libs = { workspace = true }

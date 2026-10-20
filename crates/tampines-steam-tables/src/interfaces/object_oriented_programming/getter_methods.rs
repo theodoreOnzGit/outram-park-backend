@@ -1,4 +1,3 @@
-use petir::mathf::RealMath;
 use uom::si::f64::*;
 use uom::si::volume::cubic_meter;
 
@@ -470,6 +469,7 @@ impl super::TampinesSteamTableCV {
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::super::TampinesSteamTableCV;
     use crate::interfaces::functional_programming::ph_flash_eqm::{ph_flash_region, s_ph_eqm};
     use crate::interfaces::functional_programming::pt_flash_eqm::FwdEqnRegion;

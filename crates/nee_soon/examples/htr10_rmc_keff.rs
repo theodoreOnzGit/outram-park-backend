@@ -152,6 +152,7 @@
 //!   `cubic_array_in_ball`.~~ **CORRECTED 2026-10-01 (gh:#430):** 8335, as
 //!   stated (Şeker & Çolak 2003 p.266), through a generic lattice offset.
 
+use petir::mathf::RealMath;
 use std::time::Instant;
 
 use uom::si::f64::ThermodynamicTemperature;
@@ -865,7 +866,7 @@ fn main() {
     if let (Some(first), Some(last)) = (res.entropy.first(), res.entropy.last()) {
         println!(
             "  entropy      = {first:.4} -> {last:.4} bits (ceiling {:.4})",
-            (entropy_mesh.n_bins() as f64).log2()
+            (entropy_mesh.n_bins() as f64).r_log2()
         );
     }
     // CORRECTED 2026-09-27: this used to say every run was "a REDUCED core,

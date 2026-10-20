@@ -28,7 +28,7 @@
 //! re-exports them, so `outram-mc-libs`, `boon-lay` and `nee_soon` call sites
 //! see the same numbers. `ln` is always `petir::real::ln` (as it was through
 //! outram-mc's `RealMath::r_ln`). `cos` is [`petir::real::cos`] in every build
-//! (~~the platform `<f64 as petir::mathf::RealMath>::r_cos` unless an off-by-default `deterministic-math`
+//! (~~the platform `f64::cos` unless an off-by-default `deterministic-math`
 //! feature was on~~ removed 2026-10-20, gh:#985: deterministic maths is not a
 //! choice). Physics samplers (`maxwell`, `watt`,
 //! `isotropic_direction`) stay in `outram-mc-libs`.
@@ -86,6 +86,7 @@ pub fn sample_exp(seed: &mut u64, rate: f64) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use petir::mathf::RealMath;
 
     #[test]
     fn sample_normal_mean_and_variance() {

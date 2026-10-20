@@ -87,7 +87,6 @@
 //!    disagree both answers are equally good by the cost measure.
 //! 4. **Indices, not pointers.** Required by the workspace no-lifetimes rule.
 
-use petir::mathf::RealMath;
 use crate::math::Vec3;
 
 /// Upstream's sentinel for "no such half-edge" (`UINT_MAX`).
@@ -585,6 +584,7 @@ pub fn edge_rotate_cost_3d(v1: Vec3, v2: Vec3, v3: Vec3, v4: Vec3, lock_degenera
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
     use crate::polyfill::polyfill_2d;
 

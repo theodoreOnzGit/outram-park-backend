@@ -210,7 +210,7 @@ pub trait FluidComponentTrait {
         let fluid_density = self.get_fluid_density_at_ref_temperature();
 
         let g: Acceleration = Acceleration::new::<meter_per_second_squared>(-9.81);
-        let delta_h: Length = component_length * incline_angle.r_sin();
+        let delta_h: Length = component_length * Ratio::from(incline_angle.value.r_sin());
 
         let hydrostatic_pressure_increase: Pressure = fluid_density * g * delta_h;
 
@@ -238,7 +238,7 @@ pub trait FluidComponentTrait {
         let fluid_density = self.get_fluid_density_immutable_at_ref_temperature();
 
         let g: Acceleration = Acceleration::new::<meter_per_second_squared>(-9.81);
-        let delta_h: Length = component_length * incline_angle.r_sin();
+        let delta_h: Length = component_length * Ratio::from(incline_angle.value.r_sin());
 
         let hydrostatic_pressure_increase: Pressure = fluid_density * g * delta_h;
 
@@ -565,7 +565,7 @@ pub trait FluidPipeCalcPressureChange: FluidPipeCalcPressureLoss + FluidComponen
         fluid_density: MassDensity,
     ) -> Pressure {
         let g: Acceleration = Acceleration::new::<meter_per_second_squared>(-9.81);
-        let delta_h: Length = pipe_length * incline_angle.r_sin();
+        let delta_h: Length = pipe_length * Ratio::from(incline_angle.value.r_sin());
 
         let hydrostatic_pressure_increase: Pressure = fluid_density * g * delta_h;
 
@@ -812,7 +812,7 @@ pub trait FluidCustomComponentCalcPressureChange:
         fluid_density: MassDensity,
     ) -> Pressure {
         let g: Acceleration = Acceleration::new::<meter_per_second_squared>(-9.81);
-        let delta_h: Length = pipe_length * incline_angle.r_sin();
+        let delta_h: Length = pipe_length * Ratio::from(incline_angle.value.r_sin());
 
         let hydrostatic_pressure_increase: Pressure = fluid_density * g * delta_h;
 

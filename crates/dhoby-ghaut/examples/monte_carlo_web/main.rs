@@ -823,7 +823,7 @@ mod tests {
             assert_eq!((g.report.index, g.report.active), (n, n >= 2));
             // 5 x 5 x 5 mesh on the whole assembly: at most log2(125) bits.
             let h = g.report.entropy.expect("a CSG generation reports its source entropy");
-            assert!(h > 0.0 && h <= 125f64.log2() && g.report.counts.tracked == 0, "entropy {h}");
+            assert!(h > 0.0 && h <= 125f64.r_log2() && g.report.counts.tracked == 0, "entropy {h}");
             assert!((g.report.production - g.report.k * 300.0).abs() < 1e-9);
             assert!(g.sites.iter().any(|p| p[0].abs() > 1.0), "the source has spread");
             n += 1;

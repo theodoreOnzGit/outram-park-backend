@@ -27,7 +27,6 @@
 //! another. Materials are numbered in first-use order (equal materials share
 //! one entry), nuclides likewise, keyed by nuclide and thermal law.
 
-use petir::mathf::RealMath;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 
@@ -1139,6 +1138,7 @@ impl AssembledModel {
 
 #[cfg(test)]
 pub(crate) mod tests {
+    use petir::mathf::RealMath;
     use super::super::isotope::isotopes::*;
     use super::super::material::atoms_per_barn_cm;
     use super::super::material::{Material, Moderator};

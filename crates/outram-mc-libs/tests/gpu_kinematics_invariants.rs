@@ -479,7 +479,7 @@ fn gpu_scattered_energy_stays_within_the_elastic_band() {
     for (idx, c) in all.iter().enumerate() {
         let e_out = out.get(idx * 8).copied().unwrap_or(f32::NAN);
         let e_full = out.get(idx * 8 + 7).copied().unwrap_or(f32::NAN);
-        let alpha = ((c.awr - 1.0) / (c.awr + 1.0)).r_powi(2);
+        let alpha = ((c.awr - 1.0) / (c.awr + 1.0)).powi(2);
         let lo = alpha * c.e;
         let hi = c.e;
         // One f32 ulp of the incident energy, as slack at the endpoints.

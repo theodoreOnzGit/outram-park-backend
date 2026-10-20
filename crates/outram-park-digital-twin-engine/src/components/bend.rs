@@ -37,7 +37,6 @@
 //! physics has none, and would flip which side looked hotter depending on
 //! which run happened to be drawn first.
 
-use petir::mathf::RealMath;
 use crate::components::{temperature_colour, PipePhaseShade};
 use egui::{Color32, Pos2, Response, Sense, Stroke, Ui, Vec2, Widget};
 use uom::si::angle::radian;
@@ -230,7 +229,7 @@ impl PipeBendVisual {
     pub fn turn_angle(&self) -> f32 {
         let a = self.in_direction.normalized();
         let b = self.out_direction.normalized();
-        (a.x * b.x + a.y * b.y).clamp(-1.0, 1.0).r_acos()
+        (a.x * b.x + a.y * b.y).clamp(-1.0, 1.0).acos()
     }
 
     /// The filled sector, as a polygon: the inner corner followed by the arc
@@ -239,7 +238,7 @@ impl PipeBendVisual {
         let (na, _nb) = self.outward_normals();
         let r = self.thickness.max(1.0);
 
-        let start = na.y.r_atan2(na.x);
+        let start = na.y.atan2(na.x);
         // Sweep magnitude is the turn angle itself: both normals are the run
         // directions rotated by the same right angle, so the angle between the
         // normals equals the angle between the runs. Its DIRECTION comes from
@@ -259,8 +258,8 @@ impl PipeBendVisual {
         for i in 0..=segments {
             let a = start + sweep * (i as f32 / segments as f32);
             pts.push(Pos2::new(
-                self.inner_corner.x + r * a.r_cos(),
-                self.inner_corner.y + r * a.r_sin(),
+                self.inner_corner.x + r * a.cos(),
+                self.inner_corner.y + r * a.sin(),
             ));
         }
         pts
@@ -302,6 +301,7 @@ impl Widget for PipeBendVisual {
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
 
     fn k(v: f64) -> ThermodynamicTemperature {

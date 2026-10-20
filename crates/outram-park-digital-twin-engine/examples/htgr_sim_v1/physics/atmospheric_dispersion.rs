@@ -1281,7 +1281,7 @@ impl AtmosphericDispersionChannel {
         if delta == 0.0 {
             return;
         }
-        let (s, c) = delta.sin_cos();
+        let (s, c) = delta.r_sin_cos();
         for p in self.puffs.iter_mut() {
             let (dx, dy) = (p.dx_m, p.dy_m);
             p.dx_m = dx * c + dy * s;

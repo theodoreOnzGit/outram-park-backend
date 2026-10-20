@@ -230,7 +230,7 @@ pub fn fillet(prev: Vec3, corner: Vec3, next: Vec3, radius: f64, segments: usize
 }
 
 fn rotate_about(v: Vec3, axis: Vec3, angle: f64) -> Vec3 {
-    let (s, c) = angle.sin_cos();
+    let (s, c) = angle.r_sin_cos();
     v.scale(c)
         .add(axis.cross(v).scale(s))
         .add(axis.scale(axis.dot(v) * (1.0 - c)))

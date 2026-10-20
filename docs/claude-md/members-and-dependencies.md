@@ -198,6 +198,14 @@ never depend on `outram-blender` (it exports into them). **`outram-blender` must
 on `outram-mc-libs`, not even optionally** (Cargo counts optional deps for
 cycles); `mc-export` is retired. `nee_soon → outram-blender` and
 `dhoby-ghaut (dev) → {outram-blender, nee_soon}` carry the MC bridge instead (and, **since 2026-10-03**, `dhoby-ghaut (dev) → {outram-mc-libs, njoy-outram-park-fork}` for the `monte_carlo_web` demo, which drives `outram-mc-libs` directly rather than through `nee_soon::sim`).
+**Since 2026-10-20 (gh:#985)** every crate converted to PETIR maths depends
+on `petir` directly (`petir::mathf::RealMath`): `dover`, `nee_soon`, the
+digital-twin engine, `sembawang`, `tampines`, `teh-o-prke`,
+`tuas_boussinesq_solver`, and the `outram-park-fork-*` crates `cfmesh`,
+`dwsim-libs`, `liggghts`, `moltres`, `offbeat`, `onix`, `pflotran` and
+`thermochimica` as `[dependencies]`; `outram-foam-cli` as a dev-dependency
+(only its tests call it). The edge is `no_std` and adds no Android or wasm
+hazard.
 `outram-foam-basic-lib` has no internal deps besides `petir`, and
 `njoy-outram-park-fork` is kept lean so data consumers stay light:
 ~~`thiserror`, `uom`; no BLAS~~ **CORRECTED 2026-10-02** — its direct

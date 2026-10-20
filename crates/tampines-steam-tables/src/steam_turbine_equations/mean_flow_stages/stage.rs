@@ -182,7 +182,7 @@ impl RotorBlading {
         let mean_relative_speed = triangle.get_mean_relative_speed();
 
         let tangential_coefficient: Ratio =
-            self.lift_coefficient * mean_angle.r_cos() + self.drag_coefficient * mean_angle.r_sin();
+            self.lift_coefficient * Ratio::from(mean_angle.value.r_cos()) + self.drag_coefficient * Ratio::from(mean_angle.value.r_sin());
 
         let force_term: Ratio = self.solidity * tangential_coefficient * 0.5;
 
