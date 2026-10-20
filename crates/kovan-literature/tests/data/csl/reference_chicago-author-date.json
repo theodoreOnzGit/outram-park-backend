@@ -1,7 +1,7 @@
 {
  "meta": {
   "engine": "citeproc-js 2.4.63",
-  "node": "v12.22.9",
+  "node": "v22.22.2",
   "style": "kovan-literature/data/csl/chicago-author-date.csl",
   "locale": "kovan-literature/data/csl/locales-en-US.xml"
  },
@@ -121,6 +121,7 @@
   "liang2013chord",
   "lin2025supercharging",
   "lindsay2018introduction",
+  "ling2016universityphysics3",
   "linuxkernel2026cve",
   "linuxkernel2026security",
   "Liu2010",
@@ -142,6 +143,7 @@
   "miao2025paper2agent",
   "moody1975maximum",
   "murphy2016problem",
+  "nndc2026nudat",
   "Nepuszetal2008",
   "nervi2026foamfornuclear",
   "Newman2013",
@@ -199,6 +201,7 @@
   "SubeljBajec2012",
   "Sunetal2011",
   "sun2026quality",
+  "lanl2024cgmf",
   "tan_mom_cos_2026",
   "tan2025scls",
   "tan2024rsa",
@@ -213,6 +216,7 @@
   "toro2013riemann",
   "trajanov2026cognitive",
   "trkov2018endf6",
+  "doe1993hdbk1019v1",
   "nrc2024ai",
   "van2009astec",
   "Vehlowetal2013",
@@ -576,6 +580,11 @@
    "narrative": "Devkota and Imberger (2009)",
    "bibliography": "<div class=\"csl-entry\">Devkota, Bishnu H., and Jörg Imberger. 2009. “Lagrangian Modeling of Advection-Diffusion Transport in Open Channel Flow.” <i>Water Resources Research</i> 45 (12).</div>"
   },
+  "doe1993hdbk1019v1": {
+   "parenthetical": "(U.S. Department of Energy 1993)",
+   "narrative": "U.S. Department of Energy (1993)",
+   "bibliography": "<div class=\"csl-entry\">U.S. Department of Energy. 1993. <i>DOE Fundamentals Handbook: Nuclear Physics and Reactor Theory, Volume 1 of 2</i>. Handbook DOE-HDBK-1019/1-93. U.S. Department of Energy.</div>"
+  },
   "du2018investigation": {
    "parenthetical": "(Du et al. 2018)",
    "narrative": "Du et al. (2018)",
@@ -851,6 +860,11 @@
    "narrative": "Lane and Thomas (1958)",
    "bibliography": "<div class=\"csl-entry\">Lane, A. M., and R. G. Thomas. 1958. “R-Matrix Theory of Nuclear Reactions.” <i>Reviews of Modern Physics</i> 30 (2): 257–353. https://doi.org/10.1103/RevModPhys.30.257.</div>"
   },
+  "lanl2024cgmf": {
+   "parenthetical": "(Talou et al. 2024)",
+   "narrative": "Talou et al. (2024)",
+   "bibliography": "<div class=\"csl-entry\">Talou, Patrick, Ionel Stetcu, Patrick Jaffke, Michael E. Rising, Amy E. Lovell, and Toshihiko Kawano. 2024. <i>CGMF, Cascading Gamma-Ray Multiplicity and Fission</i>. Released. https://github.com/lanl/CGMF.</div>"
+  },
   "leipzig2021role": {
    "parenthetical": "(Leipzig et al. 2021)",
    "narrative": "Leipzig et al. (2021)",
@@ -900,6 +914,11 @@
    "parenthetical": "(Lindsay et al. 2018)",
    "narrative": "Lindsay et al. (2018)",
    "bibliography": "<div class=\"csl-entry\">Lindsay, Alexander, Gavin Ridley, Andrei Rykhlevskii, and Kathryn Huff. 2018. “Introduction to Moltres: An Application for Simulation of Molten Salt Reactors.” <i>Annals of Nuclear Energy</i> 114: 530–40.</div>"
+  },
+  "ling2016universityphysics3": {
+   "parenthetical": "(Ling et al. 2016)",
+   "narrative": "Ling et al. (2016)",
+   "bibliography": "<div class=\"csl-entry\">Ling, Samuel J., Jeff Sanny, and William Moebs. 2016. <i>University Physics, Volume 3</i>. OpenStax. https://openstax.org/details/books/university-physics-volume-3.</div>"
   },
   "linuxkernel2026cve": {
    "parenthetical": "(Linux Kernel Developers 2026a)",
@@ -1015,6 +1034,11 @@
    "parenthetical": "(Matrix Market 1995)",
    "narrative": "Matrix Market (1995)",
    "bibliography": "<div class=\"csl-entry\">Matrix Market. 1995. “NNC261: Nuclear Reactor Neutron Diffusion Matrix.” https://math.nist.gov/MatrixMarket/data/Harwell-Boeing/nucl/nnc261.html.</div>"
+  },
+  "nndc2026nudat": {
+   "parenthetical": "(National Nuclear Data Center 2026)",
+   "narrative": "National Nuclear Data Center (2026)",
+   "bibliography": "<div class=\"csl-entry\">National Nuclear Data Center. 2026. “Information Extracted from the NuDat Database.” https://www.nndc.bnl.gov/nudat/.</div>"
   },
   "novak2023coupled": {
    "parenthetical": "(Novak et al. 2023)",

@@ -1,7 +1,7 @@
 {
  "meta": {
   "engine": "citeproc-js 2.4.63",
-  "node": "v12.22.9",
+  "node": "v22.22.2",
   "generator": "scripts/csl-intermediate-reference.cjs",
   "sections": [
    "style",
@@ -45816,6 +45816,24 @@
      "type": "article-journal",
      "volume": "45"
     },
+    "doe1993hdbk1019v1": {
+     "author": [
+      {
+       "literal": "U.S. Department of Energy"
+      }
+     ],
+     "genre": "Handbook",
+     "id": "doe1993hdbk1019v1",
+     "issued": {
+      "month": 1,
+      "year": 1993
+     },
+     "number": "DOE-HDBK-1019/1-93",
+     "publisher": "U.S. Department of Energy",
+     "publisher-place": "Washington, D.C.",
+     "title": "DOE Fundamentals Handbook: Nuclear Physics and Reactor Theory, Volume 1 of 2",
+     "type": "report"
+    },
     "du2018investigation": {
      "author": [
       {
@@ -47418,6 +47436,41 @@
      "type": "article-journal",
      "volume": "30"
     },
+    "lanl2024cgmf": {
+     "URL": "https://github.com/lanl/CGMF",
+     "author": [
+      {
+       "family": "Talou",
+       "given": "Patrick"
+      },
+      {
+       "family": "Stetcu",
+       "given": "Ionel"
+      },
+      {
+       "family": "Jaffke",
+       "given": "Patrick"
+      },
+      {
+       "family": "Rising",
+       "given": "Michael E."
+      },
+      {
+       "family": "Lovell",
+       "given": "Amy E."
+      },
+      {
+       "family": "Kawano",
+       "given": "Toshihiko"
+      }
+     ],
+     "id": "lanl2024cgmf",
+     "issued": {
+      "year": 2024
+     },
+     "title": "CGMF, Cascading Gamma-ray Multiplicity and Fission",
+     "type": "software"
+    },
     "leipzig2021role": {
      "author": [
       {
@@ -47674,6 +47727,32 @@
      "title": "Introduction to Moltres: an application for simulation of Molten Salt Reactors",
      "type": "article-journal",
      "volume": "114"
+    },
+    "ling2016universityphysics3": {
+     "ISBN": "978-1-947172-22-7",
+     "URL": "https://openstax.org/details/books/university-physics-volume-3",
+     "author": [
+      {
+       "family": "Ling",
+       "given": "Samuel J."
+      },
+      {
+       "family": "Sanny",
+       "given": "Jeff"
+      },
+      {
+       "family": "Moebs",
+       "given": "William"
+      }
+     ],
+     "id": "ling2016universityphysics3",
+     "issued": {
+      "year": 2016
+     },
+     "publisher": "OpenStax",
+     "publisher-place": "Houston, Texas",
+     "title": "University Physics, Volume 3",
+     "type": "book"
     },
     "linuxkernel2026cve": {
      "URL": "https://www.kernel.org/doc/html/latest/process/cve.html",
@@ -48245,6 +48324,20 @@
       "year": 1995
      },
      "title": "NNC261: Nuclear Reactor Neutron Diffusion Matrix",
+     "type": "document"
+    },
+    "nndc2026nudat": {
+     "URL": "https://www.nndc.bnl.gov/nudat/",
+     "author": [
+      {
+       "literal": "National Nuclear Data Center"
+      }
+     ],
+     "id": "nndc2026nudat",
+     "issued": {
+      "year": 2026
+     },
+     "title": "Information extracted from the NuDat database",
      "type": "document"
     },
     "novak2023coupled": {
@@ -52136,6 +52229,17 @@
       }
      ]
     },
+    "doe1993hdbk1019v1": {
+     "author": [
+      {
+       "static_ordering": true,
+       "name": {
+        "comma-dropping-particle": "",
+        "literal": "U.S. Department of Energy"
+       }
+      }
+     ]
+    },
     "du2018investigation": {
      "author": [
       {
@@ -54016,6 +54120,58 @@
       }
      ]
     },
+    "lanl2024cgmf": {
+     "author": [
+      {
+       "static_ordering": false,
+       "name": {
+        "comma-dropping-particle": "",
+        "family": "Talou",
+        "given": "Patrick"
+       }
+      },
+      {
+       "static_ordering": false,
+       "name": {
+        "comma-dropping-particle": "",
+        "family": "Stetcu",
+        "given": "Ionel"
+       }
+      },
+      {
+       "static_ordering": false,
+       "name": {
+        "comma-dropping-particle": "",
+        "family": "Jaffke",
+        "given": "Patrick"
+       }
+      },
+      {
+       "static_ordering": false,
+       "name": {
+        "comma-dropping-particle": "",
+        "family": "Rising",
+        "given": "Michael E."
+       }
+      },
+      {
+       "static_ordering": false,
+       "name": {
+        "comma-dropping-particle": "",
+        "family": "Lovell",
+        "given": "Amy E."
+       }
+      },
+      {
+       "static_ordering": false,
+       "name": {
+        "comma-dropping-particle": "",
+        "family": "Kawano",
+        "given": "Toshihiko"
+       }
+      }
+     ]
+    },
     "leipzig2021role": {
      "author": [
       {
@@ -54283,6 +54439,34 @@
         "comma-dropping-particle": "",
         "family": "Huff",
         "given": "Kathryn"
+       }
+      }
+     ]
+    },
+    "ling2016universityphysics3": {
+     "author": [
+      {
+       "static_ordering": false,
+       "name": {
+        "comma-dropping-particle": "",
+        "family": "Ling",
+        "given": "Samuel J."
+       }
+      },
+      {
+       "static_ordering": false,
+       "name": {
+        "comma-dropping-particle": "",
+        "family": "Sanny",
+        "given": "Jeff"
+       }
+      },
+      {
+       "static_ordering": false,
+       "name": {
+        "comma-dropping-particle": "",
+        "family": "Moebs",
+        "given": "William"
        }
       }
      ]
@@ -54895,6 +55079,17 @@
        "name": {
         "comma-dropping-particle": "",
         "literal": "Matrix Market"
+       }
+      }
+     ]
+    },
+    "nndc2026nudat": {
+     "author": [
+      {
+       "static_ordering": true,
+       "name": {
+        "comma-dropping-particle": "",
+        "literal": "National Nuclear Data Center"
        }
       }
      ]
@@ -61146,6 +61341,65 @@
       }
      }
     },
+    "doe1993hdbk1019v1": {
+     "number": {
+      "number": {
+       "collapsible": false,
+       "numeric": false,
+       "plural": 0,
+       "values": [
+        {
+         "collapsible": false,
+         "joiningSuffix": "-",
+         "label": "var:number",
+         "labelSuffix": "",
+         "labelVisibility": false,
+         "numeric": false,
+         "origLabel": "",
+         "particle": "",
+         "plural": 0,
+         "value": "DOE"
+        },
+        {
+         "collapsible": false,
+         "joiningSuffix": "-",
+         "label": "var:number",
+         "labelSuffix": "",
+         "labelVisibility": false,
+         "numeric": false,
+         "origLabel": "",
+         "particle": "",
+         "plural": 0,
+         "value": "HDBK"
+        },
+        {
+         "collapsible": false,
+         "joiningSuffix": "-",
+         "label": "var:number",
+         "labelSuffix": "",
+         "labelVisibility": false,
+         "numeric": false,
+         "origLabel": "",
+         "particle": "",
+         "plural": 0,
+         "value": "1019/1"
+        },
+        {
+         "collapsible": false,
+         "joiningSuffix": "",
+         "label": "var:number",
+         "labelSuffix": "",
+         "labelVisibility": false,
+         "numeric": false,
+         "origLabel": "",
+         "particle": "",
+         "plural": 0,
+         "value": "93"
+        }
+       ]
+      }
+     }
+    },
     "du2018investigation": {
      "page": {
       "page": {
@@ -64011,6 +64265,7 @@
       }
      }
     },
+    "lanl2024cgmf": {},
     "leipzig2021role": {
      "issue": {
       "issue": {
@@ -64619,6 +64874,7 @@
       }
      }
     },
+    "ling2016universityphysics3": {},
     "linuxkernel2026cve": {},
     "linuxkernel2026security": {},
     "liu2026dive": {},
@@ -65578,6 +65834,7 @@
      }
     },
     "nnc261_matrixmarket": {},
+    "nndc2026nudat": {},
     "novak2023coupled": {
      "page": {
       "page": {
