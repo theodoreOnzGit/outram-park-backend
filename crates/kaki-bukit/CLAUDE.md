@@ -186,13 +186,17 @@ public API. The workspace's normal command is:
 kovan-cli api-docs kaki-bukit
 ```
 
-**That does not work in the Claude-Code-on-the-web container as of
+~~**That does not work in the Claude-Code-on-the-web container as of
 2026-09-17, for a reason that has nothing to do with this crate.** The
 container ships rustc 1.94.1; the workspace's `egui`/`eframe` 0.36.1 require
 rustc 1.95, so `kovan` cannot be built here at all — with or without
 `--no-default-features`, because cargo resolves the workspace lockfile's MSRV
 either way. The same mismatch makes a bare `cargo check --workspace` fail;
-excluding `outram-park-digital-twin-engine` and `kovan` makes it pass.
+excluding `outram-park-digital-twin-engine` and `kovan` makes it pass.~~
+**CORRECTED 2026-10-20:** the workspace now pins Rust 1.99.1
+(`rust-toolchain.toml`), which satisfies egui/eframe's 1.95 floor, so the
+toolchain-mismatch reason above no longer applies. Not re-checked here by
+building kovan-cli in that container.
 
 Both prerequisites the workspace rule names **are** installed (checked, not
 assumed: `which rustdoc-md` and `rustup toolchain list`), so the mirror is
