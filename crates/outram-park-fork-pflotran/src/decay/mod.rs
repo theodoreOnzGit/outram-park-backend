@@ -82,7 +82,7 @@
 //! backward Euler approaches as `dt -> 0` and its 3-generation form matches
 //! for shallow chains. **Upstream-fidelity options (backward Euler, the
 //! 3-generation form) are not ported**; [`DecaySolver`] lists only what
-//! exists, and the follow-up is filed on GitHub (gh:#999 comment). Do not
+//! exists, and the follow-up is gh:#1000. Do not
 //! quote a result from here as "PFLOTRAN's" decay.
 //!
 //! # Numerics — general-chain integration
