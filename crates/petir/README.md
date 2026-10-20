@@ -266,7 +266,10 @@ Clawpack Developers), was added on 2026-10-16 at the maintainer's direction; see
 `NOTICE` and the crate `CLAUDE.md`. Another, `src/depletion/` from **OpenMC**
 (`openmc/deplete/`, MIT), was added on 2026-10-17 at the maintainer's
 direction (gh:#950). `src/hypot.rs` from **CORE-MATH** (MIT, Alexei
-Sibidanov) was added on 2026-10-20 at the maintainer's direction (gh:#997).
+Sibidanov) was added on 2026-10-20 at the maintainer's direction (gh:#997),
+and `src/linalg/gebal.rs` from **Reference-LAPACK 3.12.1** (`DGEBAL`,
+`DGEBAK`, reference BLAS `DNRM2`/`IDAMAX`; modified BSD) on the same day
+(gh:#998), so `linalg::expm` balances exactly as GNU Octave's `expm.m`.
 
 All were ported on 2026-09-15, with the full upstream notice and
 copyright kept in each file's header where source redistribution requires them.

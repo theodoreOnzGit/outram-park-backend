@@ -115,7 +115,8 @@ the evaluation.
 
 | surface | upstream | agreement | test |
 |---|---|---|---|
-| `linalg::expm` (added 2026-10-20, gh:#993; balancing step skipped, a documented deviation) | GNU Octave 11.3.0 `expm.m`, run | vs `expm.m` with balancing removed: worst 3.2e-16 normwise, 127/220 bit-identical; vs stock `expm`: identical to that except a badly scaled 3x3, 1.1e-11 (the balancing). vs PETIR's CRAM48 on a decay chain: 6.8e-16 | `octave_expm_code_to_code.rs` |
+| `linalg::expm` (added 2026-10-20, gh:#993; ~~balancing step skipped, a documented deviation~~ balancing ported through `DGEBAL`, gh:#998) | GNU Octave 11.3.0 `expm.m`, run | ~~vs `expm.m` with balancing removed: worst 3.2e-16 normwise, 127/220 bit-identical; vs stock `expm`: identical to that except a badly scaled 3x3, 1.1e-11 (the balancing).~~ **Since gh:#998, vs stock `expm`: worst 3.2e-16 normwise (`dense6`), 128/220 bit-identical; the badly scaled 3x3 1.1e-11 -> 0, `chain4` 1.7e-18 -> 0.** vs PETIR's CRAM48 on a decay chain: 6.8e-16 | `octave_expm_code_to_code.rs` |
+| `linalg::{dgebal, dgebak}` (added 2026-10-20, gh:#998; every `JOB`, both `SIDE`s, 68 cases incl. Octave's `expm` inputs, safe-range and subnormal entries, sparse permutation patterns) | Reference-LAPACK 3.12.1 + reference BLAS, run (system library, checked byte-identical to the v3.12.1 sources compiled with gfortran) | **26 024/26 024 bit-identical** | `lapack_gebal_code_to_code.rs` |
 | `fast_exp`, `fast_log`, `fast_pow` | ARM optimized-routines | **100% bit-identical** | `fast_*_vs_arm_optimized_routines.rs` |
 | the 19 verbatim lifts | `outram-foam-basic-lib` (OpenFOAM), `chem-eng` (GNU Octave) | byte-identical after documented `std`→`core` substitutions, 0 allowed deviations on 17 of 19 | `verbatim_provenance.rs` |
 | `specfunc::inc_gamma` vs `gamma_inc` | two independent lineages within PETIR | agree to 4.82e-10 | `incomplete_gamma_cross_check.rs` |

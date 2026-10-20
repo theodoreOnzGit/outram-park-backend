@@ -37,3 +37,9 @@ cases (127/220 entries bit-identical); balancing is a no-op on thirteen of
 them, and on a badly scaled 3x3 it moves Octave's answer by 1.1e-11 normwise,
 which is then exactly PETIR's difference from stock `expm`. Replayed by
 `crates/petir/tests/octave_expm_code_to_code.rs`.
+
+**Re-measured 2026-10-20 after gh:#998** (balancing ported through LAPACK
+`DGEBAL`, `reference-data/lapack/`): PETIR now agrees with STOCK `expm` to
+3.2e-16 normwise at worst, 128/220 entries bit-identical; the badly scaled
+3x3 went from 1.1e-11 to 0. The `RNB` column is kept as the record of what
+balancing does.

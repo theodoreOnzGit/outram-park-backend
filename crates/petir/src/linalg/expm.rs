@@ -20,20 +20,30 @@
 //!    `diag(exp(diag(A)))`;
 //! 2. `-Inf` entries become `-realmax`;
 //! 3. trace reduction: if `trace(A)/n > 0`, subtract it from the diagonal;
-//! 4. ~~balancing~~ — see the deviation below;
+//! 4. balancing: `[d, p, aa] = balance (A)`, i.e. LAPACK `DGEBAL` with job
+//!    `'B'` ([`crate::linalg::octave_balance`]; ~~skipped, see the
+//!    deviation below~~ **ported 2026-10-20, gh:#998**);
 //! 5. scaling: `[~, e] = log2(norm(A, Inf))`, `s = min(max(0, e), 1023)`,
 //!    `A *= 2^-s`;
 //! 6. the degree-8 diagonal Padé approximant with Octave's eight
 //!    coefficients, `r = (x - y) \ (x + y)` with `x` the even and `y` the odd
 //!    part, both by Horner in `A^2`;
-//! 7. `s` squarings; then `r *= exp(trshift)`.
+//! 7. `s` squarings; inverse balancing `r = diag(d) * r / diag(d);
+//!    r(p, p) = r`; then `r *= exp(trshift)`.
 //!
 //! Every matrix operation goes through the Octave vocabulary in
 //! [`crate::linalg::octave`], so this reads like `expm.m`.
 //!
-//! # DEVIATION: no balancing (Octave's step 4)
+//! # ~~DEVIATION: no balancing (Octave's step 4)~~ REMOVED 2026-10-20 (gh:#998)
 //!
-//! Octave calls `[d, p, aa] = balance(A)`, which is LAPACK `dgebal` with
+//! **The balancing step is now carried out exactly as `expm.m` does**,
+//! through a port of LAPACK `DGEBAL` ([`crate::linalg::gebal`]),
+//! bit-identical to Reference-LAPACK 3.12.1, and Octave's
+//! `scaling_vector` / `permuting_vector`. The original text follows,
+//! struck, because it records why the 1.1e-11 difference existed.
+//!
+//!
+//! ~~Octave calls `[d, p, aa] = balance(A)`, which is LAPACK `dgebal` with
 //! job `'B'` (permute, then scale by powers of two to equalise row and
 //! column 2-norms), and undoes it at the end (`r = d * r / d; r(p, p) = r`).
 //! LAPACK is not in PETIR, and GSL's `gsl_linalg_balance_matrix` (ported in
@@ -42,14 +52,15 @@
 //! **PETIR's `expm` skips the step** (`d = 1`, `p = 1:n`). In exact
 //! arithmetic balancing is a similarity transform and changes nothing; in
 //! floating point it changes the scaling exponent `s` and the conditioning
-//! of `x - y`.
+//! of `x - y`.~~
 //!
-//! The effect was **measured** against Octave
+//! ~~The effect was **measured** against Octave
 //! (`tests/octave_expm_code_to_code.rs`): against `expm.m` with only the
 //! balance line removed, and against stock `expm.m`. See that test for the
 //! numbers. Porting `dgebal` (BSD-licensed) would remove the deviation; it is
 //! a non-GSL source, which this crate's `CLAUDE.md` reserves for the
-//! maintainer.
+//! maintainer.~~ The maintainer directed the port on gh:#998; the
+//! before/after numbers are in that test.
 //!
 //! # Other differences from Octave, not deviations in the algorithm
 //!
@@ -68,7 +79,7 @@
 #[allow(unused_imports)]
 use crate::real::Real;
 
-use crate::linalg::{Matrix, Norm};
+use crate::linalg::{octave_balance, Matrix, Norm};
 use crate::{PetirError, Result};
 
 /// Octave's Padé coefficients, `expm.m`, verbatim.
@@ -84,7 +95,8 @@ const C: [f64; 8] = [
 ];
 
 /// The matrix exponential of the square matrix `a`, Octave's `expm`
-/// without its balancing step (see the module docs).
+/// (~~without its balancing step~~ with its `DGEBAL` balancing step since
+/// gh:#998; see the module docs).
 ///
 /// # Errors
 ///
@@ -138,8 +150,8 @@ pub fn expm(a: &Matrix) -> Result<Matrix> {
     if trshift > 0.0 {
         a = a.sub(&id.scale(trshift))?;
     }
-    // Balancing: DEVIATION, skipped (d = 1, p = 1:n). See the module docs.
-    let aa = a;
+    // Balancing: [d, p, aa] = balance (A);  (LAPACK DGEBAL, job 'B')
+    let (d, p, aa) = octave_balance(&a)?;
     // [~, e] = log2 (norm (aa, "inf")); s = min (max (0, e), 1023);
     let (_, e) = libm::frexp(aa.norm(Norm::Inf)?);
     let s = e.clamp(0, 1023);
@@ -176,7 +188,30 @@ pub fn expm(a: &Matrix) -> Result<Matrix> {
         r = r.mul(&r)?;
     }
 
-    // Inverse balancing: skipped with the balancing.
+    // inverse balancing: d = diag (d); r = d * r / d; r(p, p) = r;
+    // Octave's diagonal-matrix products: `d * r` scales row i by d(i),
+    // `r / d` divides column j by d(j).
+    let mut dr = r;
+    for (i, &di) in d.iter().enumerate() {
+        for j in 0..n {
+            let v = di * dr.get(i, j);
+            dr.set(i, j, v);
+        }
+    }
+    for i in 0..n {
+        for (j, &dj) in d.iter().enumerate() {
+            let v = dr.get(i, j) / dj;
+            dr.set(i, j, v);
+        }
+    }
+    let mut r = Matrix::zeros(n, n)?;
+    for (i, &pi) in p.iter().enumerate() {
+        for (j, &pj) in p.iter().enumerate() {
+            // p is 1-based (Octave); 0 cannot occur, and `set` discards
+            // out-of-range indices.
+            r.set(pi.wrapping_sub(1), pj.wrapping_sub(1), dr.get(i, j));
+        }
+    }
     // Inverse trace reduction.
     if trshift > 0.0 {
         r = r.scale(Real::exp(trshift));
