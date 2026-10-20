@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cascade and recombination</title>
+<meta name="description" content="Fission products, lesson 5: the lattice's side of a fragment's stop. A struck atom (the primary knock-on) knocks on others in a branching cascade of vacancies and interstitials; a thermal spike follows, and most displaced atoms return to lattice sites.">
+<link rel="stylesheet" href="../../style.css">
+<script src="../neutronics/lesson-kit.js" defer></script>
+<script src="cascade-data.js" defer></script>
+<script src="cascade-recorded.js" defer></script>
+<script src="hop-physics.js" defer></script>
+<script src="fragment-story.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Fission products, chapter 2, lesson 5 (page B; maintainer design
+     2026-10-20). No detailed math. The cascade demo is a labelled cartoon:
+     the RustBCA recoil tree is pending gh:#979, and recombination needs
+     molecular dynamics (gh:#977, crate bugis). Checked by check-fission.js. -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response. <strong>Review status:</strong> AI-assisted first draft (2026-10-20), not yet reviewed by a human.</p>
+<span id="cd-numbers" hidden></span>
+
+<h1>The lattice's side: cascade and recombination</h1>
+<p class="kicker lesson-progress">Fission products</p>
+
+<p>Near the end of its flight the fragment hits nuclei (lesson 4). Each hit hands energy to an atom of the fuel. This page is about that atom, and the ones it hits in turn.</p>
+
+<section class="widget-card">
+  <h3>A cascade, step by step</h3>
+  <div class="widget" id="cascade">
+    <canvas aria-label="A cartoon of a collision cascade in four steps: one struck atom moving off; a branching tree of further struck atoms, each leaving a vacancy and ending as an interstitial; a hot glowing region; and the few vacancy-interstitial pairs left after most have recombined."></canvas>
+  </div>
+  <p class="note">A <b>cartoon</b>, drawn by hand. The binary-collision code can follow step 2 (its real recoil tree is pending <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/979">gh:#979</a>); it <b>cannot show steps 3 and 4</b>, which need molecular dynamics, coming in the crate <code>bugis</code> (<a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/977">gh:#977</a>).</p>
+</section>
+
+<p><b>Predict first.</b> One fragment makes many hits. Do most of the atoms it knocks out of place stay out of place?</p>
+
+<h2>The primary knock-on and its cascade</h2>
+<p>The first atom the fragment strikes hard is the <b>primary knock-on</b>. If it gets more than the <b>displacement energy</b>, it leaves its site: about <span data-cd="doeEd">&hellip;</span> in the DOE handbook&rsquo;s words <a href="#ref-doe1993hdbk1017v2">(U.S. Department of Energy, 1993)</a>, p. 33. NJOY&rsquo;s default table, which the workspace&rsquo;s NJOY port carries, gives <span data-cd="edU">&hellip;</span> for uranium, <span data-cd="edO">&hellip;</span> for oxygen, <span data-cd="edC">&hellip;</span> for carbon and <span data-cd="edSi">&hellip;</span> for silicon (<code>heatr::default_displacement_energy</code>).</p>
+<p>The empty site it leaves is a <b>vacancy</b>. Where it ends up, squeezed between sites, it is an <b>interstitial</b>. The pair is a <b>Frenkel pair</b> <a href="#ref-doe1993hdbk1017v2">(U.S. Department of Energy, 1993)</a>, p. 35. If the knock-on is fast enough, it knocks on others, and they on others: a branching <b>cascade</b> of vacancies and interstitials <a href="#ref-doe1993hdbk1017v2">(U.S. Department of Energy, 1993)</a>, p. 33.</p>
+
+<h2>The thermal spike, and most of it heals</h2>
+<p>The cascade dumps its energy into a tiny region, which is briefly very hot: a <b>thermal spike</b> <a href="#ref-doe1993hdbk1017v2">(U.S. Department of Energy, 1993)</a>, p. 35. The jostling atoms find their way back: many interstitials drop into nearby vacancies and the pairs vanish (<b>recombination</b>). &ldquo;Most of these displacements are temporary&rdquo; <a href="#ref-doe1993hdbk1017v2">(U.S. Department of Energy, 1993)</a>, pp. 33&ndash;34. How fast this happens (the design brief says within picoseconds) and what fraction survives in UO<sub>2</sub>: <span class="pending">source pending</span>.</p>
+<p>So the answer to the prediction: <b>no</b>, most go back. The few that survive are the lasting damage.</p>
+
+<p><b>Next question:</b> the fragment is now stopped. But it is radioactive. What happens when it decays?</p>
+
+<details class="optional">
+<summary>Learn more advanced stuff</summary>
+<h3>Why the binary-collision code over-counts</h3>
+<p>In boon-lay&rsquo;s RustBCA record of <span data-cd="recDate">&hellip;</span>, one light fragment&rsquo;s cascade followed <b data-cd="recoilsLight">&hellip;</b> recoils on average, the heavy one <b data-cd="recoilsHeavy">&hellip;</b>. Most are not displacements: the code follows a recoil down to a cutoff of 1 to 3&nbsp;eV, which the record notes &ldquo;sit far below the displacement energies&rdquo;. And a binary-collision code treats each collision alone, in a lattice that never relaxes, so it has no thermal spike and no recombination. That is what molecular dynamics adds (gh:#977).</p>
+<h3>Counting displacements: NRT and Kinchin&ndash;Pease</h3>
+<p>There are standard formulas that estimate how many atoms a knock-on displaces from the part of its energy that goes into nuclear collisions (the <b>damage energy</b>). A later lesson takes them up. Their input from nuclear data is NJOY HEATR&rsquo;s damage energy, MT=444, which the workspace&rsquo;s NJOY port produces (<a href="../../code-review/#crates/njoy-outram-park-fork/src/heatr/damage.rs::default_displacement_energy"><code>heatr::damage</code></a>).</p>
+<h3>Displacement spikes</h3>
+<p>The handbook also names the <b>displacement spike</b>: many atoms in a small region displaced at once by a cascade, which changes the material&rsquo;s properties when there are many of them <a href="#ref-doe1993hdbk1017v2">(U.S. Department of Energy, 1993)</a>, p. 35.</p>
+</details>
+
+<nav class="lesson-nav" aria-label="Lessons"></nav>
+
+<!-- references:begin -->
+<h2>References</h2>
+
+<p class="csl-entry" id="ref-doe1993hdbk1017v2" style="padding-left: 2em; text-indent: -2em;">U.S. Department of Energy. (1993). <i>DOE Fundamentals Handbook: Material Science, Volume 2 of 2</i> (Handbook DOE-HDBK-1017/2-93). U.S. Department of Energy.</p>
+
+<!-- references:end -->
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. GPL-3.0. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>

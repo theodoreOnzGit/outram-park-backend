@@ -273,7 +273,14 @@
   var FISSION = [
     ["one-fission.html", "One fission, step by step"],
     ["split-atoms.html", "Split atoms: where do the fragments land?"],
-    ["prompt-spectrum.html", "How fast are the prompt neutrons?"]
+    ["prompt-spectrum.html", "How fast are the prompt neutrons?"],
+    // Chapter 2, "A fragment's story" (maintainer design 2026-10-20).
+    ["fragment-flight.html", "A fragment's flight"],
+    ["lattice-cascade.html", "The lattice's side: cascade and recombination"],
+    ["decay-again.html", "Then it decays: the same story again"],
+    ["decay-or-move.html", "Settled: decay or move?"],
+    ["atom-hop.html", "How an atom hops"],
+    ["atoms-swap.html", "Atoms swapping: how hops become diffusion"]
   ];
   var TRACKS = {
     neutronics: ["Neutronics", LESSONS, "glossary.html"],

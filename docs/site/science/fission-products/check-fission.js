@@ -267,5 +267,130 @@ for (const [name, P] of Object.entries(SD)) {
   check("bracket of 1 MeV in (0.0253 eV, 500 keV, 14 MeV)", Math.abs(b[0] - 1) + Math.abs(b[2] - 5e5 / 1.35e7), 1e-15);
 }
 
+// ─── Chapter 2, "A fragment's story" (lessons 4-9) ───────────────────────
+// Data from crates/dhoby-ghaut/examples/lesson_fission_cascades
+// (cascade-data.js), the cited records (cascade-recorded.js) and the kinetic
+// Monte Carlo (hop-physics.js).
+//
+// PREDICTIONS, written 2026-10-20 BEFORE the first run of 18-24:
+// - 21: the interstitial walk's Arrhenius fit gives back E_m = 1.00 eV to
+//   within 3 %, r^2 > 0.999 (1000 walkers, ~400 hops each, 8 temperatures).
+// - 22: the vacancy mechanism's slope gives E_f + E_m = 1.40 eV to within
+//   5 % (thermal vacancies only).
+// - 23: with a fixed irradiation vacancy fraction 1e-2 swamping the thermal
+//   one (600-900 K), the slope falls to E_m = 0.80 eV, within 10 %.
+// - 24: with 5 % traps of E_b = 0.5 eV, at 600-800 K the slope rises to
+//   E_m + E_b = 1.50 eV, within 10 %; at 1800-2400 K it is nearer E_m
+//   (REPORT only).
+// - 19: every beta recoil on both chains is under 1 keV, so under 1e-5 of
+//   the fragment's energy; the alpha recoils are 50-150 keV.
+for (const f of ["cascade-data.js", "cascade-recorded.js", "hop-physics.js"]) eval(fs.readFileSync(path.join(__dirname, f), "utf8"));
+const CD = window.CASCADE_DATA, CR = window.CASCADE_RECORDED, HP = window.HopPhysics;
+const ch2 = ["fragment-flight.html", "lattice-cascade.html", "decay-again.html", "decay-or-move.html", "atom-hop.html", "atoms-swap.html"]
+  .map((f) => [f, fs.readFileSync(path.join(__dirname, f), "utf8")]);
+const U_KEV = 931494.10242, ME_KEV = 510.9989500;
+
+// 18. The fragments: the momentum split sums to EFR, and the two momenta
+//     are equal and opposite (to the non-relativistic split's ~v^2/c^2).
+//     The sum gates (here and in 19's alpha check) were first set at 1e-12
+//     and FAILED on the first run (5.9e-8, 1.9e-9, 2.8e-8): cascade-data.js
+//     stores 7 significant figures, so a sum of two stored values can be off
+//     by ~1e-7 relative. Corrected 2026-10-20 to 1e-6, from that precision.
+{
+  const [L, Hv] = CD.fragments.pair;
+  check("fragments: |E_L + E_H − EFR| / EFR (7-figure file)", Math.abs(L.e + Hv.e - CD.fragments.efr) / CD.fragments.efr, 1e-6);
+  check("fragments: |pc_L − pc_H| / pc_L (non-relativistic split)", Math.abs(L.pcKeV - Hv.pcKeV) / L.pcKeV, 2e-3);
+}
+
+// 19. The chains: each daughter is the next parent; every kick recomputed
+//     here from Q (independently of physics.rs, with A u for the mass)
+//     agrees with the generator's to 1e-3; and the prediction above.
+{
+  let bad = 0, worstBeta = 0, worstRel = 0;
+  CD.chains.forEach((c) => {
+    c.steps.forEach((s, i) => {
+      if (i && c.steps[i - 1].daughter !== s.parent) bad++;
+      const M = s.da * U_KEV, q = s.qKeV[0], pc2 = q * q + 2 * q * ME_KEV;
+      worstRel = Math.max(worstRel, Math.abs(pc2 / (2 * M) * 1e3 / s.betaRecoilMax[0] - 1), Math.abs(q * q / (2 * M) * 1e3 / s.gammaRecoilMax[0] - 1));
+      worstBeta = Math.max(worstBeta, s.betaRecoilMax[2]);
+      report(`${s.parent} → ${s.daughter}`, `${s.mode}, t½ ${s.t12.toExponential(3)} s, Q ${q.toFixed(0)} keV [${s.qKeV[1].toFixed(0)}, ${s.qKeV[2].toFixed(0)}], beta recoil ≤ ${s.betaRecoilMax[0].toFixed(1)} eV, gamma recoil ≤ ${s.gammaRecoilMax[0].toFixed(2)} eV`);
+    });
+  });
+  check("chains: daughter ≠ next parent", bad, 0);
+  check("chains: recoil recomputed in JS vs generator (relative)", worstRel, 1e-3);
+  check("chains: largest beta recoil (upper end of the mass interval) [eV], predicted < 1000", worstBeta, 1000);
+  const frag = CD.fragments.pair[0].e;
+  check("chains: largest beta recoil / light fragment energy, predicted < 1e-5", worstBeta / frag, 1e-5);
+  CD.kicks.filter((k) => k.kind === "alpha").forEach((k) => {
+    report(`${k.parent} alpha`, `Q ${k.qKeV[0].toFixed(0)} keV, recoil ${(k.recoil[0] / 1e3).toFixed(1)} keV [${(k.recoil[1] / 1e3).toFixed(1)}, ${(k.recoil[2] / 1e3).toFixed(1)}], alpha ${(k.eAlpha[0] / 1e3).toFixed(0)} keV`);
+    check(`${k.parent} alpha recoil outside the predicted 50-150 keV`, k.recoil[0] > 5e4 && k.recoil[0] < 1.5e5 ? 0 : 1, 0);
+    check(`${k.parent} alpha: |E_alpha + E_recoil − Q| / Q`, Math.abs((k.eAlpha[0] + k.recoil[0]) / 1e3 - k.qKeV[0]) / k.qKeV[0], 1e-6);
+  });
+  CD.kicks.filter((k) => k.kind === "neutron").forEach((k) => report(`${k.parent} beta-,n`, `Q_bn ${k.qKeV[0].toFixed(0)} keV, recoil ≤ ${(k.recoil[0] / 1e3).toFixed(2)} keV`));
+  CD.inflight.forEach((f) => report(`in flight, ${f.name}`, `turn ≤ ${f.angleRad.toExponential(2)} rad, ΔE ≤ ${f.dEKeV.toFixed(1)} keV, P(decay in 1 ps) ${f.pPerPs.toExponential(2)}`));
+  // Sampled histories run forward in time and start at the fragment.
+  let hb = 0;
+  for (const [name, hs] of Object.entries(CD.histories)) hs.forEach((h) => {
+    if (h[0][0] !== name) hb++;
+    h.forEach((x, i) => { if (i && x[1] !== null && h[i - 1][1] !== null && x[1] < h[i - 1][1]) hb++; });
+    if (h[h.length - 1][1] !== null) hb++;
+  });
+  check("histories: out of order, wrong start, or not ending stable", hb, 0);
+  // decay-again.html says the half-lives are "more than ten orders of
+  // magnitude" longer than the flight (its lower bound, range / speed).
+  const tmin = CR.rustbca.light.rangeUm * 1e-6 / CD.fragments.pair[0].v;
+  const t12 = Math.min(...CD.chains.map((c) => c.steps[0].t12));
+  report("flight vs first half-life", `flight ≥ ${tmin.toExponential(2)} s, first t½ ${t12} s, ratio ${(t12 / tmin).toExponential(2)}`);
+  check("decay-again: first t½ / flight lower bound below 1e10", t12 / tmin > 1e10 ? 0 : 1, 0);
+}
+
+// 20. Diffusion data: positive, never falling with T, and the flat (clamped)
+//     range the generator found is flat in the array too.
+{
+  let bad = 0;
+  CD.diffusion.series.forEach((s) => {
+    s.d.forEach((d, i) => { if (!(d > 0) || (i && d < s.d[i - 1])) bad++; });
+    if (s.flatUpToC !== null) CD.diffusion.tC.forEach((t, i) => { if (i && t <= s.flatUpToC && s.d[i] !== s.d[i - 1]) bad++; });
+  });
+  check("diffusion series: non-positive, falling, or not flat where clamped", bad, 0);
+  // kT at 1000 K, against the 0.086 eV the design brief quotes.
+  check("kT(1000 K) − 0.0862 eV", Math.abs(HP.kT(1000) - 0.0862), 1e-4);
+  const t = HP.turnbull(1500, 0);
+  check("Turnbull at F = 0 is its first term", Math.abs(t.total - t.d1), 0);
+  // atom-hop.html says a 1 eV barrier hops "dozens of times" as often at
+  // 1500 K as at 1000 K.
+  const ratio = HP.boltzmann(1, 1500) / HP.boltzmann(1, 1000);
+  report("hop ratio 1500 K / 1000 K, 1 eV", ratio.toFixed(1));
+  check("atom-hop: hop ratio outside 'dozens' (12-100)", ratio > 12 && ratio < 100 ? 0 : 1, 0);
+}
+
+// 21-24. The kinetic Monte Carlo: the Arrhenius slope comes back out.
+{
+  const lin = (a, b, n) => Array.from({ length: n }, (_, i) => a + (b - a) * i / (n - 1));
+  const s21 = HP.sweep("walk", { Em: 1.0 }, lin(900, 1950, 8), 1000, 400, 21);
+  report("21 interstitial", `E_fit ${s21.fit.E.toFixed(4)} eV, r² ${s21.fit.r2.toFixed(5)}`);
+  check("21: |E_fit − E_m| / E_m, interstitial walk (predicted < 3 %)", Math.abs(s21.fit.E - 1.0) / 1.0, 0.03);
+  check("21: 1 − r²", 1 - s21.fit.r2, 1e-3);
+  const s22 = HP.sweep("vacancy", { Ef: 0.6, Em: 0.8, cIrr: 0 }, lin(900, 1950, 8), 100, 200000, 22);
+  report("22 vacancy", `E_fit ${s22.fit.E.toFixed(4)} eV (E_f + E_m = 1.40), r² ${s22.fit.r2.toFixed(5)}`);
+  check("22: |E_fit − (E_f + E_m)| / 1.4, vacancy mechanism (predicted < 5 %)", Math.abs(s22.fit.E - 1.4) / 1.4, 0.05);
+  const s23 = HP.sweep("vacancy", { Ef: 0.6, Em: 0.8, cIrr: 1e-2 }, lin(600, 900, 6), 100, 200000, 23);
+  report("23 irradiation", `E_fit ${s23.fit.E.toFixed(4)} eV (E_m = 0.80)`);
+  check("23: |E_fit − E_m| / E_m with irradiation vacancies (predicted < 10 %)", Math.abs(s23.fit.E - 0.8) / 0.8, 0.10);
+  const s24 = HP.sweep("walk", { Em: 1.0, Eb: 0.5, trapFrac: 0.05 }, lin(600, 800, 5), 1000, 400, 24);
+  report("24 traps, 600-800 K", `E_fit ${s24.fit.E.toFixed(4)} eV (E_m + E_b = 1.50)`);
+  check("24: |E_fit − (E_m + E_b)| / 1.5, traps at low T (predicted < 10 %)", Math.abs(s24.fit.E - 1.5) / 1.5, 0.10);
+  const s24h = HP.sweep("walk", { Em: 1.0, Eb: 0.5, trapFrac: 0.05 }, lin(1800, 2400, 5), 1000, 400, 25);
+  report("24 traps, 1800-2400 K", `E_fit ${s24h.fit.E.toFixed(4)} eV`);
+}
+
+// 25. The chapter's pages: banner, folded advanced section, and the
+//     recorded numbers carry their date.
+for (const [f, html] of ch2) {
+  check(`${f}: education-only banner missing`, html.includes("Research, education and V&amp;V only") ? 0 : 1, 0);
+  check(`${f}: "Learn more advanced stuff" section missing`, html.includes("Learn more advanced stuff") ? 0 : 1, 0);
+}
+check("cascade-recorded.js: the RustBCA record carries its date", CR.rustbca.date === "2026-10-16" ? 0 : 1, 0);
+
 if (failed) { console.log(`${failed} check(s) failed`); process.exit(1); }
 console.log("all fission-products checks passed");

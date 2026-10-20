@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Atoms swapping</title>
+<meta name="description" content="Fission products, lesson 9: how hops become diffusion in a crystal. An atom trades places with a vacancy, slips between sites, pushes a neighbour out, or swaps directly; traps hold atoms back, and radiation supplies extra vacancies. With the cited diffusion correlations boon-lay carries.">
+<link rel="stylesheet" href="../../style.css">
+<script src="../neutronics/lesson-kit.js" defer></script>
+<script src="cascade-data.js" defer></script>
+<script src="cascade-recorded.js" defer></script>
+<script src="hop-physics.js" defer></script>
+<script src="fragment-story.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Fission products, chapter 2, lesson 9 (page F; maintainer design
+     2026-10-20 with the same day's corrections: "how diffusion occurs, oh
+     atoms swapping"; mechanisms in plain words, Turnbull's terms in the
+     folded section). Mechanism demo: hop-physics.js / hop-worker.js;
+     correlations: cascade-data.js (boon-lay); Turnbull: SCIANTIX System.C
+     at 2344575 (MIT), read 2026-10-20. Checked by check-fission.js. -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response. <strong>Review status:</strong> AI-assisted first draft (2026-10-20), not yet reviewed by a human.</p>
+<span id="cd-numbers" hidden></span>
+
+<h1>Atoms swapping: how hops become diffusion</h1>
+<p class="kicker lesson-progress">Fission products</p>
+
+<p>Lesson 8 had one atom hopping into an empty neighbouring site. But a crystal is packed: nearly every site is full. So <b>where does a hopping atom go?</b> It has to swap with something.</p>
+
+<section class="widget-card">
+  <h3>Who swaps with what</h3>
+  <div class="widget" id="swap">
+    <canvas aria-label="A square lattice of grey atoms. In the vacancy view an empty site wanders by trading places with neighbours, and a brown atom moves only when the empty site passes it. Other views: a small red atom slipping between sites; a red atom pushing a lattice atom out into a gap; four atoms rotating in a ring. A plot view compares Arrhenius lines for four mechanisms."></canvas>
+  </div>
+  <p class="note">The vacancy and interstitial views are the kinetic Monte Carlo of lesson 8 (the pace is slowed to watch); push-out and ring are <b>cartoons</b>. The Arrhenius plots run in a Web Worker with <b>illustrative</b> barriers. The mechanisms are those listed in <a href="#ref-tian2026mate664">(Tian group, University of Alberta, 2026)</a>, Lecture 04, &ldquo;Diffusion in solids&rdquo;, and Lecture 10, &ldquo;Diffusion models in solids&rdquo;.</p>
+</section>
+
+<p><b>Predict first.</b> An atom can only move when an empty site is next to it. Does that make diffusion slower, and does it change how steeply it rises with temperature?</p>
+
+<h2>Four ways to swap</h2>
+<ul>
+<li><b>Vacancy mechanism.</b> A crystal has a few empty sites, <b>vacancies</b>; the atoms&rsquo; thermal vibrations at high temperature are one way they form <a href="#ref-doe1993hdbk1017v1">(U.S. Department of Energy, 1993)</a>, p. 18. A neighbour hops into the vacancy, so the vacancy moves the other way. The vacancy wanders; an atom moves only <b>when the vacancy comes by</b>. Watch the brown atom: it sits still for a long time, then takes one step.</li>
+<li><b>Interstitial mechanism.</b> A small atom does not sit on a lattice site at all: it lives in the gaps between them and <b>slips from gap to gap</b>. No vacancy is needed, so it usually moves much faster.</li>
+<li><b>Push-out (interstitialcy).</b> An atom in a gap pushes a lattice atom off its site, into the next gap, and takes its place.</li>
+<li><b>Direct exchange and ring rotation.</b> Two neighbours swap places directly, or several turn together in a ring. How rare these are in crystals: <span class="pending">source pending</span>.</li>
+</ul>
+
+<h2>Needing a vacancy adds a second barrier</h2>
+<p>For the vacancy mechanism, two things must happen: a vacancy must be next door, <b>and</b> the hop must succeed. Making a vacancy costs energy too (its <b>formation energy</b>), so the number of vacancies also rises exponentially with temperature. Two exponentials multiply, so their barriers add. That is the answer to the prediction: <b>slower, and steeper</b>. In the plot view, the thermal-vacancy line is the steepest of the three without traps. An interstitial needs no vacancy, so it has only the hop&rsquo;s barrier.</p>
+
+<h2>Traps hold atoms back</h2>
+<p>A diffusing atom can get stuck: bound to a cluster of vacancies, a gas bubble, a dislocation or a grain boundary. To leave, it must first climb out of the trap, an extra barrier. So traps slow diffusion, and most at low temperature, where climbing out is hardest. In the plot, the trapped line bends steeper at low temperature.</p>
+
+<h2>Radiation changes the rules</h2>
+<p>In a reactor, the cascades of lessons 5 and 6 make vacancies all the time, however cold the fuel. With plenty of vacancies supplied, the atom no longer waits for the heat to make them: only the hop&rsquo;s barrier is left, and the line gets shallower. And fission spikes can mix atoms directly, with no help from temperature at all.</p>
+
+<section class="widget-card">
+  <h3>Real numbers: the correlations boon-lay carries</h3>
+  <div class="widget" id="real-d">
+    <canvas aria-label="Diffusion coefficients against inverse temperature on a log scale for several fission products in the UO2 kernel, in graphite and silver in silicon carbide. Clamped ranges are dashed."></canvas>
+  </div>
+  <p class="note">TRISO-ATOPS&rsquo;s NP-MHTGR correlations, as boon-lay ports them (<a href="../../code-review/#crates/boon-lay/src/triso_atops_fork/diffusion/mod.rs::diffusion_coefficient"><code>diffusion_coefficient</code></a>, <a href="../../code-review/#crates/boon-lay/src/triso_atops_fork/diffusion/mod.rs::diffusion_coefficient_sic_ag"><code>diffusion_coefficient_sic_ag</code></a>), from <code>cascade-data.js</code>. Dashed: <b>clamped</b> (held constant below the correlation&rsquo;s lower limit). Kr and Xe are <b>extrapolated</b> outside their range; where Kr&rsquo;s kernel correlation switches is disputed (<a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/974">gh:#974</a>), so neither switch is settled here.</p>
+</section>
+
+<p>Each correlation is a straight line (one Arrhenius term) or a bent one (two terms, or a switch between two). Different atoms in different materials have very different barriers.</p>
+
+<p><b>Where next:</b> how these coefficients turn into how much of a fission product leaves a TRISO particle is boon-lay&rsquo;s book, <a href="../../tutorials/fp-transport-theory/">Fission Product Transport Theory</a>, and its <a href="../../tutorials/triso-atops/">TRISO-ATOPS tutorial</a> (the Booth model and TRISO release).</p>
+
+<details class="optional">
+<summary>Learn more advanced stuff</summary>
+<h3>What sets the barrier</h3>
+<p>How tightly the atom is bound and how much room it has: the bond type (ionic UO<sub>2</sub>, covalent SiC, layered graphite), how badly the atom fits (a big xenon atom in UO<sub>2</sub>, or a charge that does not match), and the mechanism. MATE 664&rsquo;s Lecture 10 lists lattice, bonding, charge and size mismatch as what decides the mechanism <a href="#ref-tian2026mate664">(Tian group, University of Alberta, 2026)</a>. Which barrier each fission product has in UO<sub>2</sub>: <span class="pending">source pending</span>.</p>
+<h3>The vacancy mechanism&rsquo;s exponents add</h3>
+<p>The vacancy fraction goes as exp(&minus;<i>E</i><sub>f</sub>/<i>kT</i>) and the hop as exp(&minus;<i>E</i><sub>m</sub>/<i>kT</i>); the product goes as exp(&minus;(<i>E</i><sub>f</sub>+<i>E</i><sub>m</sub>)/<i>kT</i>), so the Arrhenius slope is <i>Q</i> = <i>E</i><sub>f</sub> + <i>E</i><sub>m</sub>. <code>check-fission.js</code> checks this on the demo&rsquo;s own Monte Carlo, with predictions written before the run: 0.6 + 0.8 eV came back as 1.41&nbsp;eV (predicted within 5&nbsp;%); with a fixed irradiation vacancy fraction of 1e-2 the slope fell to 0.81&nbsp;eV, the hop alone (within 10&nbsp;%); with 5&nbsp;% traps of 0.5&nbsp;eV it rose to 1.50&nbsp;eV at 600&ndash;800&nbsp;K (within 10&nbsp;%), and 1.24&nbsp;eV at 1800&ndash;2400&nbsp;K, on its way back to the free 1.0&nbsp;eV.</p>
+<h3>Correlated hops</h3>
+<p>Right after a tracer atom swaps with a vacancy, the vacancy is next to it, so its most likely next hop is straight back. Its walk is <b>correlated</b>, and it spreads more slowly than its hop count suggests. The Monte Carlo includes this automatically: it simply follows the vacancy.</p>
+<h3>Trapping and re-solution, as SCIANTIX writes them</h3>
+<p>SCIANTIX, a fission-gas code <a href="#ref-sciantix2344575">(Pizzocri et al., 2018)</a>, writes the rate at which a diffusing gas atom is caught by bubbles of radius <i>R</i><sub>b</sub> and number density <i>N</i><sub>b</sub> (Ham&rsquo;s trapping, <a href="#ref-ham1958">(Ham, 1958)</a>) as 4&pi;&nbsp;<i>D</i>&nbsp;(<i>R</i><sub>b</sub>&nbsp;+&nbsp;<i>r</i>)&nbsp;<i>N</i><sub>b</sub>, with <i>r</i> the atom&rsquo;s radius in the lattice; and the rate at which fission fragments knock gas back out of a bubble (re-solution, <a href="#ref-turnbull1971">(Turnbull, 1971)</a>) as 2&pi;&nbsp;&mu;<sub>ff</sub>&nbsp;(<i>R</i><sub>ff</sub>&nbsp;+&nbsp;<i>R</i><sub>b</sub>)&sup2;&nbsp;<i>F</i>, with &mu;<sub>ff</sub> the fragment range, <i>R</i><sub>ff</sub> its radius of influence and <i>F</i> the fission rate (<code>System.C</code>, <code>setTrappingRate</code> and <code>setResolutionRate</code>, read 2026-10-20; their doc comments name krypton and helium, the forms are the gas-in-matrix ones).</p>
+<h3>Turnbull&rsquo;s three terms for xenon in UO<sub>2</sub></h3>
+<p>One of SCIANTIX&rsquo;s choices for the single-atom diffusivity of xenon and krypton in UO<sub>2</sub> (<code>iFissionGasDiffusivity = 1</code>, citing <a href="#ref-turnbull1988iwgfpt32">(Turnbull &amp; others, 1988)</a>) is a sum of three terms, in m&sup2;/s with <i>T</i> in K and <i>F</i> in fissions/m&sup3;/s:</p>
+<p class="formula"><i>d</i><sub>1</sub> = 7.6e-10 exp(&minus;4.86e-19 / <i>k</i><sub>B</sub><i>T</i>); &nbsp;<i>d</i><sub>2</sub> = 4 &times; 1.41e-25 &radic;<i>F</i> exp(&minus;1.91e-19 / <i>k</i><sub>B</sub><i>T</i>); &nbsp;<i>d</i><sub>3</sub> = 8.0e-40 <i>F</i></p>
+<p>In plain terms: the first has the steep temperature dependence of thermal vacancies; the second grows with the square root of the fission rate and has a smaller barrier, like vacancies supplied by the fissions; the third has no temperature dependence at all and grows with the fission rate, like mixing by fission spikes. Those readings are ours; the names often given to the three terms are not verified from a source here.</p>
+<div class="widget" id="turnbull">
+  <canvas aria-label="The three Turnbull terms and their sum against inverse temperature on a log scale, for a chosen fission rate."></canvas>
+</div>
+</details>
+
+<nav class="lesson-nav" aria-label="Lessons"></nav>
+
+<!-- references:begin -->
+<h2>References</h2>
+
+<p class="csl-entry" id="ref-ham1958" style="padding-left: 2em; text-indent: -2em;">Ham, F. S. (1958). <i>Journal of Physics and Chemistry of Solids, 6, 335-351</i>.</p>
+
+<p class="csl-entry" id="ref-sciantix2344575" style="padding-left: 2em; text-indent: -2em;">Pizzocri, D., Barani, T., &#38; Luzzi, L. (2018). <i>SCIANTIX</i> [Computer software]. https://github.com/sciantix/sciantix-official</p>
+
+<p class="csl-entry" id="ref-tian2026mate664" style="padding-left: 2em; text-indent: -2em;">Tian group, University of Alberta. (2026). <i>MATE 664: Kinetics of Materials, lecture notes</i>. https://github.com/tiangroup-uofa/mate664-kinetics-of-materials</p>
+
+<p class="csl-entry" id="ref-turnbull1971" style="padding-left: 2em; text-indent: -2em;">Turnbull, J. A. (1971). <i>Journal of Nuclear Materials, 38, 203</i>.</p>
+
+<p class="csl-entry" id="ref-turnbull1988iwgfpt32" style="padding-left: 2em; text-indent: -2em;">Turnbull, J. A. &#38; others. (1988). <i>IWGFPT-32, Preston, UK, September 18-22</i>.</p>
+
+<p class="csl-entry" id="ref-doe1993hdbk1017v1" style="padding-left: 2em; text-indent: -2em;">U.S. Department of Energy. (1993). <i>DOE Fundamentals Handbook: Material Science, Volume 1 of 2</i> (Handbook DOE-HDBK-1017/1-93). U.S. Department of Energy.</p>
+
+<!-- references:end -->
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. GPL-3.0. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>

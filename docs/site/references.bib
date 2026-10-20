@@ -2262,3 +2262,95 @@
   howpublished = {\url{https://www.nndc.bnl.gov/nudat/}},
   note         = {As exported into fission-yields-data 0.1.5 (mass excesses, half-lives, decay branchings)}
 }
+
+% Added 2026-10-20 for the Fission products chapter "A fragment's story"
+% (lessons 4-9). The DOE handbook's cover, the OpenStax books' front matter and
+% licence lines were read that day from the PDFs in the kovan-standard-open-corpus
+% (crates/kovan-literature/reactor-literature); SCIANTIX from its repository at
+% commit 2344575 (LICENSE: MIT, src/classes/System.C); MATE 664 from its
+% repository at commit 0b0a413de42d3cf92f8984fca992b689000de28e (lectures/L04,
+% L10 index.qmd; the repository has no licence file, so it is cited, never
+% copied). The three papers SCIANTIX cites were NOT read: their entries carry
+% only what SCIANTIX's own reference strings give.
+@techreport{doe1993hdbk1017v2,
+  author       = {{U.S. Department of Energy}},
+  title        = {{DOE} Fundamentals Handbook: Material Science, Volume 2 of 2},
+  institution  = {U.S. Department of Energy},
+  address      = {Washington, D.C.},
+  year         = {1993},
+  month        = {January},
+  number       = {DOE-HDBK-1017/2-93},
+  type         = {Handbook},
+  note         = {Distribution Statement A: approved for public release, distribution is unlimited}
+}
+
+@techreport{doe1993hdbk1017v1,
+  author       = {{U.S. Department of Energy}},
+  title        = {{DOE} Fundamentals Handbook: Material Science, Volume 1 of 2},
+  institution  = {U.S. Department of Energy},
+  address      = {Washington, D.C.},
+  year         = {1993},
+  month        = {January},
+  number       = {DOE-HDBK-1017/1-93},
+  type         = {Handbook},
+  note         = {Distribution Statement A: approved for public release, distribution is unlimited}
+}
+
+@book{ling2016universityphysics2,
+  author       = {Ling, Samuel J. and Sanny, Jeff and Moebs, William},
+  title        = {University Physics, Volume 2},
+  publisher    = {OpenStax},
+  address      = {Houston, Texas},
+  year         = {2016},
+  isbn         = {978-1-947172-21-0},
+  url          = {https://openstax.org/details/books/university-physics-volume-2},
+  note         = {Licensed CC BY-NC-SA 4.0}
+}
+
+@book{flowers2019chemistry2e,
+  author       = {Flowers, Paul and Theopold, Klaus and Langley, Richard and Robinson, William R.},
+  title        = {Chemistry 2e},
+  publisher    = {OpenStax},
+  address      = {Houston, Texas},
+  year         = {2019},
+  isbn         = {978-1-947172-61-6},
+  url          = {https://openstax.org/details/books/chemistry-2e},
+  note         = {Licensed CC BY-NC-SA 4.0}
+}
+
+@software{sciantix2344575,
+  author       = {Pizzocri, Davide and Barani, Tommaso and Luzzi, Lelio},
+  title        = {{SCIANTIX}},
+  year         = {2018},
+  url          = {https://github.com/sciantix/sciantix-official},
+  note         = {Commit 2344575, MIT licence (copyright 2018 Davide Pizzocri, Tommaso Barani, Lelio Luzzi, Politecnico di Milano). src/classes/System.C: setFissionGasDiffusivity, setTrappingRate, setResolutionRate}
+}
+
+@misc{tian2026mate664,
+  author       = {{Tian group, University of Alberta}},
+  title        = {{MATE} 664: Kinetics of Materials, lecture notes},
+  year         = {2026},
+  url          = {https://github.com/tiangroup-uofa/mate664-kinetics-of-materials},
+  note         = {Commit 0b0a413de42d3cf92f8984fca992b689000de28e; Lecture 04 "Introduction to Diffusion" and Lecture 10 "Atomic Models for Diffusion (III): Ideal Crystals". No licence file: cited, not copied. Author and year from the repository, not from a title page}
+}
+
+@inproceedings{turnbull1988iwgfpt32,
+  author       = {Turnbull, J. A. and others},
+  title        = {{IWGFPT-32}, Preston, {UK}, September 18-22},
+  year         = {1988},
+  note         = {Not read here: cited as SCIANTIX cites it (System.C, iFissionGasDiffusivity = 1)}
+}
+
+@article{ham1958,
+  author       = {Ham, F. S.},
+  title        = {Journal of Physics and Chemistry of Solids, 6, 335-351},
+  year         = {1958},
+  note         = {Not read here: cited as SCIANTIX cites it (System.C, iTrappingRate = 1)}
+}
+
+@article{turnbull1971,
+  author       = {Turnbull, J. A.},
+  title        = {Journal of Nuclear Materials, 38, 203},
+  year         = {1971},
+  note         = {Not read here: cited as SCIANTIX cites it (System.C, iResolutionRate = 1)}
+}
