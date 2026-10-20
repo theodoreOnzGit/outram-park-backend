@@ -194,9 +194,12 @@ binds future work as follows:
   factorisation when flops per nonzero exceed 40, and its kernels use SIMD
   GEMM. This port is simplicial only. It agrees with faer's supernodal path
   to ≤ 4.9e-14 relative on the test matrices, and is **slower** on 3-D
-  operators with heavy fill (`bedok`'s n = 10 404 flux matrix: 2.15 s against
-  faer's 0.30 s, serial). A supernodal port would need faer's dense kernels
-  too; it is not done.
+  operators with heavy fill. On `bedok`'s n = 10 404 flux matrix, one thread
+  (2026-10-20): factorisation 1.21 s here, 1.17–1.22 s for faer's own
+  simplicial path, 0.17 s for faer's supernodal path; a solve takes 3.3 ms
+  here against 4.3–4.6 ms in faer. So the port is as fast as the algorithm
+  it ports, and the ~7x is simplicial against supernodal. A supernodal port
+  would need faer's dense kernels too; it is not done.
 - **Duplicate triplets** are summed in input order (faer's unstable sort
   leaves that order unspecified). Neither consumer has duplicates.
 

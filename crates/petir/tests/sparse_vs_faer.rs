@@ -58,7 +58,9 @@
 //! kept): `bedok`'s nodal-diffusion `LHS` from
 //! `x1_frozen_nodal_static_eigenvalue_against_the_matlab` (n = 10 404,
 //! nnz = 58 786) — faer picks supernodal; 3383/10 404 bit-identical, worst
-//! 2.2e-15; serial factor+solve 2.15 s here against faer's 0.30 s.
+//! 2.2e-15. Timing on that matrix, one thread: factorisation 1.21 s here,
+//! 1.17-1.22 s for faer's simplicial path, 0.17 s for faer's supernodal path;
+//! one solve 3.3 ms here, 4.3-4.6 ms in faer.
 //! `outram-blender`'s 44 SPD systems across its lib tests (n = 8 to 266) — all
 //! simplicial, all bit-identical.
 
