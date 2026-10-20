@@ -62,8 +62,13 @@ worked example. For meshes, plot the mesh itself (cells, patches, zones).
 
 > "Charged particles go thru boon lay, uncharged thru OutramMC."
 
-`boon-lay` owns every charged particle, and `outram-mc-libs` owns the neutral
-ones (neutrons, and photons once ported).
+~~`boon-lay` owns every charged particle, and `outram-mc-libs` owns the neutral
+ones (neutrons, and photons once ported).~~ **CORRECTED 2026-10-20
+(maintainer: "outramMC will take care of neutrons, PUNGGOL takes care of
+gammas and other things"):** `boon-lay` owns the **ions**: fission fragments,
+alphas and recoil knock-ons, through its RustBCA copy. Photons, electrons and
+positrons belong to **`punggol`** (the OpenMC photon port, gh:#975; the EGSnrc
+electron/positron port, gh:#976). `outram-mc-libs` owns neutrons only.
 
 - **The first charged-particle code is RustBCA.** It is copied, not taken as a
   dependency, into its own module tree in this crate, with clear attribution:
