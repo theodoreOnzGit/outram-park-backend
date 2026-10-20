@@ -725,10 +725,27 @@ mod tests {
     /// runs at `epsilon` = 0.5, 0.2 and 0.05, everything else fixed. The
     /// posterior standard deviation must decrease monotonically.
     ///
-    /// **Result** (2026-09-16, `--release`, seed 7): posterior sd 0.567720 at
+    /// ~~**Result** (2026-09-16, `--release`, seed 7): posterior sd 0.567720 at
     /// epsilon 0.5, 0.346416 at 0.2, 0.311012 at 0.05. Monotone, and
     /// saturating just above the exact 0.288195 rather than continuing past
-    /// it — which is what a correctly-posed ABC problem should do.
+    /// it — which is what a correctly-posed ABC problem should do.~~
+    ///
+    /// **Re-measured 2026-10-20, after gh:#985 put every transcendental on
+    /// PETIR** (`--release`, seed 7, nothing else changed): sd 0.568129 at
+    /// 0.5, 0.359286 at 0.2, **0.361943 at 0.05**, so this test now FAILS
+    /// (0.05 above 0.2 by 0.0027). The ln/exp route change reshuffles the
+    /// random path; it is not a physics change.
+    ///
+    /// **Monte Carlo noise, measured** (a throwaway scan, not committed, of
+    /// this exact problem at seeds 1..=30): sd at 0.5 is 0.591 +/- 0.016
+    /// (seed-to-seed standard deviation), at 0.2 0.359 +/- 0.014, at 0.05
+    /// **0.262 +/- 0.052**, range 0.164 to 0.362. Seed 7 is the largest of
+    /// the 30 at 0.05 and the only non-monotone seed (1 of 30). So the
+    /// failure is noise, not a broken tolerance; and the 2026-09-16 reading
+    /// "saturating just above the exact 0.288195" was a single-seed artefact:
+    /// at 0.05, 19 of 30 seeds fall BELOW the exact sd (mean 0.262, i.e. over-
+    /// confident). Seed, epsilons and assertion are unchanged pending the
+    /// maintainer's decision (gh:#985).
     #[test]
     fn a_smaller_tolerance_tightens_the_posterior() {
         let mut previous = f64::INFINITY;
