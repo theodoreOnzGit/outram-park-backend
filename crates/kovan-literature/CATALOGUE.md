@@ -226,7 +226,7 @@ IAEA-TECDOC-1382, Vienna, November 2003. Source:
 (V)HTR-Modul.* EUR 28712 EN, JRC107642, Publications Office of the European
 Union. [doi:10.2760/270321](https://doi.org/10.2760/270321).
 - Files: `vhtr-modul-safety-jrc.json`, PDF archived as `kjna28712enn.pdf`.
-  **PDF MOVED 2026-09-22** (maintainer direction) to [`reactor-literature`](https://github.com/theodoreOnzGit/reactor-literature), `theodore-open-corpus/jrc/kjna28712enn.pdf`; the JSON, Markdown and BibTeX stay here.
+  **PDF MOVED 2026-09-22** (maintainer direction) to [`reactor-literature`](https://github.com/theodoreOnzGit/reactor-literature), ~~`theodore-open-corpus/jrc/kjna28712enn.pdf`~~ **CORRECTED 2026-10-20:** now `kovan-standard-open-corpus/eu-jrc/kjna28712enn.pdf` (moved there 2026-10-06, as `crates/boon-lay/src/fuel_failure/htr10/qualification.rs` records; checked in the submodule checkout: `theodore-open-corpus/jrc/` no longer exists). The JSON, Markdown and BibTeX stay here.
 - *Licence:* reuse authorised provided the source is acknowledged (EC Decision
   2011/833/EU); photos not under EU copyright need separate permission.
 - *Good for:* the reference safety treatment of pebble-bed HTGRs — decay-heat
