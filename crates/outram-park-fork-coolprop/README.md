@@ -3,7 +3,8 @@ SPDX-License-Identifier: AGPL-3.0-only
 Part of Outram Park (outram-park-backend).
 A fork/translation of CoolProp (https://github.com/CoolProp/CoolProp, MIT).
 This crate is ~~GPL-3.0-only~~ AGPL-3.0-only (relicensed 2026-10-20, gh:#973); it ships GPL-3.0
-OpenFOAM-derived code whose files keep their GPL-3.0 headers. CoolProp-derived parts keep their MIT
+OpenFOAM-derived code whose files keep their GPL-3.0 headers, so it is an AGPL combined work and ships
+`LICENSE.GPL-3.0` beside `LICENSE`. CoolProp-derived parts keep their MIT
 provenance in-tree (see NOTICE). CoolProp is not affiliated with or endorsing
 this fork. See NOTICE / TRADEMARKS.md.
 -->

@@ -20,9 +20,16 @@ Relicense: GPL-3.0-only -> AGPL-3.0-only (2026-10-20)
 At the maintainer's direction (GitHub issue #973), this crate is licensed
 AGPL-3.0-only from this date, and `LICENSE` is the AGPL-3.0 text.
 
-Its vendored and ported upstreams are PERMISSIVE (named elsewhere in this
+~~Its vendored and ported upstreams are PERMISSIVE (named elsewhere in this
 file), so this translation may be conveyed under AGPL-3.0 with every upstream
-notice and attribution header kept unchanged. None was changed.
+notice and attribution header kept unchanged. None was changed.~~
+CORRECTED 2026-10-20: not all of them. CoolProp (MIT) is permissive, but
+src/openfoam_algorithms/ holds 84 files derived from OpenFOAM
+(GPL-3.0-or-later), which only OpenFOAM's holders could relicense. Those files
+keep GPL-3.0, and the crate conveys as an AGPL-3.0-only COMBINED WORK under
+GPLv3 section 13 / AGPLv3 section 13; `LICENSE.GPL-3.0` ships beside `LICENSE`
+as GPLv3 section 4 requires. Every upstream notice and attribution header is
+kept unchanged.
 
 Versions already published to crates.io keep the licence they were published
 under, forever; this affects future versions only. No version was bumped.
