@@ -185,6 +185,10 @@ a.gl-term { color: inherit; text-decoration: underline dotted var(--accent); tex
 .next-row { justify-content: flex-end; margin-top: 24px; }
 details.optional { margin: 16px 0; padding: 4px 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); }
 details.optional summary { cursor: pointer; font-weight: 600; min-height: 40px; line-height: 40px; }
+/* Reference entries: long DOIs and URLs wrap instead of widening a phone page. */
+.csl-entry { overflow-wrap: anywhere; }
+/* A claim or number still waiting for a source (Fission products lessons). */
+.pending { display: inline-block; padding: 0 6px; border: 1px dashed var(--muted); border-radius: 6px; color: var(--muted); font-size: 0.86em; font-style: italic; }
 .mu-map { max-width: 360px; margin: 8px auto; }
 .mu-map p { display: grid; grid-template-columns: 1fr 1fr 1fr; margin: 0; padding: 6px 10px; border-bottom: 1px solid var(--line); }
 .mu-map span:last-child { color: var(--muted); }

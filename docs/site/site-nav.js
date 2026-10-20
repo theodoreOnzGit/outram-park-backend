@@ -98,8 +98,8 @@
   var PATHWAY_NAME = { "science": "Learn the science", "code": "Learn to code", "demos": "Web demos" };
   // A lesson folder -> its section on the science page and that section's
   // label. Neutronics and Nuclear data are one section since 2026-10-20.
-  var SCIENCE_DOMAIN = { "neutronics": "Nuclear Data and Neutronics", "transport": "Neutron transport" };
-  var SCIENCE_SECTION = { "neutronics": "nuclear-data-and-neutronics" };
+  var SCIENCE_DOMAIN = { "neutronics": "Nuclear Data and Neutronics", "transport": "Neutron transport", "fission-products": "Fission products" };
+  var SCIENCE_SECTION = { "neutronics": "nuclear-data-and-neutronics", "fission-products": "fission-products" };
 
   var kind = parts[0], name = parts[1] || "";
   if (name === "index.html") name = "";
