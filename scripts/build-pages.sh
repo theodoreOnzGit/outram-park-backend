@@ -292,6 +292,8 @@ for f in index.html site-nav.js code-map-bar.js code-map/index.html code-map/cod
   science/transport/{transport,collision-data}.js \
   science/fission-products/{one-fission,split-atoms,prompt-spectrum}.html \
   science/fission-products/{fission-data,fission-pending,fission-physics,one-fission,fp-energy,yields-data,split-physics,split-atoms,spectrum-data,prompt-spectrum}.js \
+  science/fission-products/{fragment-flight,lattice-cascade,decay-again,decay-or-move,atom-hop,atoms-swap}.html \
+  science/fission-products/{cascade-data,cascade-recorded,hop-physics,hop-worker,fragment-story}.js \
   kovan-schema/index.html \
   code-map/code_map.json code-map/site_links.json \
   api/outram_mc_libs/index.html api/changi/index.html \
