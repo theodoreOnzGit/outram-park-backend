@@ -99,8 +99,13 @@ pub enum LaplacianWeighting {
 /// one `(j, i)` per edge. Vertices with no incident edge (isolated) contribute
 /// no entries (an all-zero row).
 ///
-/// The triplet order is unspecified (it comes from a hash map); the assembled
-/// matrix is independent of that order. This is the input a sparse-matrix
+/// ~~The triplet order is unspecified (it comes from a hash map); the assembled
+/// matrix is independent of that order.~~ **CORRECTED 2026-10-20 (gh #1002):**
+/// the order was a `HashMap`'s, and the matrix was *not* independent of it in
+/// the last bits: each diagonal `L_ii` is a floating-point sum taken in that
+/// order. The off-diagonal triplets now come in ascending `(min, max)` edge
+/// order (see [`edge_weights_from`]), then the diagonal in vertex order, so
+/// the output is identical from run to run. This is the input a sparse-matrix
 /// builder (~~[`crate::faer`]~~ `petir::sparse::CscMatrix` since 2026-10-20,
 /// gh #994; the `faer` re-export was removed with gh #996) consumes; it is also directly testable by
 /// materializing a small dense matrix (see this module's tests).
@@ -113,7 +118,7 @@ pub fn laplacian_triplets(
 
     let mut diag = vec![0.0f64; n];
     let mut triplets: Vec<(usize, usize, f64)> = Vec::with_capacity(weights.len() * 2 + n);
-    for (&(i, j), &w) in &weights {
+    for &((i, j), w) in &weights {
         triplets.push((i, j, -w));
         triplets.push((j, i, -w));
         diag[i] += w;
@@ -127,38 +132,78 @@ pub fn laplacian_triplets(
     (n, triplets)
 }
 
-/// Per-edge symmetric weights `w_ij`, keyed by the ordered pair `(min, max)`.
+/// Per-edge symmetric weights `w_ij`, keyed by the ordered pair `(min, max)`,
+/// in ascending key order (see [`edge_weights_from`]).
 ///
 /// - [`LaplacianWeighting::Uniform`]: every edge maps to `1.0`.
 /// - [`LaplacianWeighting::Cotangent`]: accumulates `cot(θ) / 2` over each
 ///   incident triangle, where `θ` is the angle at the vertex opposite the edge.
-fn edge_weights(mesh: &Mesh, weighting: LaplacianWeighting) -> HashMap<(usize, usize), f64> {
+fn edge_weights(mesh: &Mesh, weighting: LaplacianWeighting) -> EdgeWeights {
     edge_weights_from(&mesh_triangles(mesh), &mesh.positions(), weighting)
 }
+
+/// Per-edge weights `((i, j), w_ij)` with `i < j`, one entry per edge, sorted
+/// by `(i, j)` ascending (gh #1002).
+pub(crate) type EdgeWeights = Vec<((usize, usize), f64)>;
 
 /// Edge weights from an explicit triangle list + vertex positions.
 ///
 /// Factored out of [`edge_weights`] so [`laplacian_smooth`] can recompute the
 /// (geometry-dependent) cotangent weights each iteration from the *current*
 /// positions while the topology (`tris`) stays fixed.
+///
+/// **Deterministic order (gh #1002, 2026-10-20).** This ~~returned a
+/// `std::collections::HashMap`~~, whose iteration order is randomly seeded per
+/// map; every caller sums the weights into per-vertex diagonals, one-ring
+/// covariances or right-hand sides in that order, so ARAP, smoothing and
+/// parameterization changed in the last bits from call to call. The weights
+/// are now returned sorted by edge key `(min, max)`, so every one-ring is
+/// visited in ascending neighbour index.
+///
+/// Each edge's own weight is bit-identical to the old map's: the per-triangle
+/// contributions are collected in triangle order and stable-sorted by key, so
+/// equal keys keep triangle order and are added to `0.0` exactly as
+/// `entry(key).or_insert(0.0) += c` added them. Only the order *between*
+/// edges changed. Sort-and-merge replaces the hash map, and is no slower
+/// (timings on gh #1002).
+///
+/// Upstream note: Blender's `MOD_laplaciandeform.cc` (`initLaplacianMatrix`)
+/// accumulates per triangle in triangle order and builds its vertex rings in
+/// edge-index order (`createVertRingMap`). This crate's ARAP is written from
+/// Sorkine & Alexa, not ported from that file, and walks edges rather than
+/// triangles, so the order fixed here is vertex-index order, not Blender's.
 pub(crate) fn edge_weights_from(
     tris: &[[usize; 3]],
     ps: &[Vec3],
     weighting: LaplacianWeighting,
-) -> HashMap<(usize, usize), f64> {
-    let mut weights: HashMap<(usize, usize), f64> = HashMap::new();
+) -> EdgeWeights {
+    let mut contrib: Vec<((usize, usize), f64)> = Vec::with_capacity(tris.len() * 3);
     for &[a, b, c] in tris {
         // Each directed pair (i, j, opposite k) of the triangle's three edges.
         for &(i, j, k) in &[(a, b, c), (b, c, a), (c, a, b)] {
             let key = if i < j { (i, j) } else { (j, i) };
-            match weighting {
-                LaplacianWeighting::Uniform => {
-                    weights.insert(key, 1.0);
-                }
-                LaplacianWeighting::Cotangent => {
-                    *weights.entry(key).or_insert(0.0) += 0.5 * cotangent(ps[k], ps[i], ps[j]);
+            let w = match weighting {
+                LaplacianWeighting::Uniform => 1.0,
+                LaplacianWeighting::Cotangent => 0.5 * cotangent(ps[k], ps[i], ps[j]),
+            };
+            contrib.push((key, w));
+        }
+    }
+    // Stable sort: equal keys keep triangle order, so the merge below adds each
+    // edge's contributions in the order the hash map's `+=` used to.
+    contrib.sort_by_key(|&(key, _)| key);
+
+    let mut weights: EdgeWeights = Vec::with_capacity(contrib.len() / 2 + 1);
+    for (key, w) in contrib {
+        match weights.last_mut() {
+            Some((last, acc)) if *last == key => {
+                if weighting == LaplacianWeighting::Cotangent {
+                    *acc += w;
                 }
             }
+            // `0.0 + w`, not `w`: the map started each entry at `0.0`, which
+            // turns a `-0.0` contribution into `+0.0`.
+            _ => weights.push((key, 0.0 + w)),
         }
     }
     weights
@@ -371,7 +416,7 @@ pub fn laplacian_smooth(
         let mut rhs = vec![[0.0f64; 3]; nfree];
         let mut trips: Vec<(usize, usize, f64)> = Vec::new();
 
-        for (&(gi, gj), &w) in &weights {
+        for &((gi, gj), w) in &weights {
             diag[gi] += w;
             diag[gj] += w;
             match (free_of[gi], free_of[gj]) {
@@ -501,7 +546,7 @@ fn normalized_laplacian_step(
 
     let mut num = vec![Vec3::ZERO; n]; // Σ_j w_ij (x_j − x_i)
     let mut den = vec![0.0f64; n]; //     Σ_j w_ij
-    for (&(i, j), &w) in &weights {
+    for &((i, j), w) in &weights {
         num[i] = num[i].add(pos[j].sub(pos[i]).scale(w));
         num[j] = num[j].add(pos[i].sub(pos[j]).scale(w));
         den[i] += w;
@@ -606,7 +651,9 @@ mod tests {
             Vec3::new(0.0, 1.0, 0.0), // c = 2
         ];
         let mesh = Mesh::from_polygons(&positions, &[vec![0, 1, 2]]);
-        let w = edge_weights(&mesh, LaplacianWeighting::Cotangent);
+        let w: HashMap<(usize, usize), f64> = edge_weights(&mesh, LaplacianWeighting::Cotangent)
+            .into_iter()
+            .collect();
         assert!((w[&(0, 1)] - 0.5).abs() < 1e-12, "w(a,b) = {}", w[&(0, 1)]);
         assert!((w[&(0, 2)] - 0.5).abs() < 1e-12, "w(c,a) = {}", w[&(0, 2)]);
         assert!(w[&(1, 2)].abs() < 1e-12, "w(b,c) = {}", w[&(1, 2)]);
@@ -878,6 +925,64 @@ mod tests {
         let noop = laplacian_smooth(&grid, LaplacianWeighting::Cotangent, 0.0, 5).expect("noop");
         for (a, b) in grid.positions().iter().zip(noop.positions().iter()) {
             assert!(a.sub(*b).length() < 1e-12);
+        }
+    }
+
+    /// Methodology (gh #1002): [`edge_weights_from`] must return one entry per
+    /// edge in strictly ascending `(min, max)` order, and each edge's weight
+    /// must be **bit-identical** to the `HashMap` accumulation it replaced
+    /// (`entry(key).or_insert(0.0) += c`, contributions in triangle order), so
+    /// the fix changes only the order edges are summed in, never a weight.
+    /// Reference: that old accumulation, re-implemented here on a `HashMap`
+    /// and read back by key (lookup order is irrelevant). Mesh: a noisy
+    /// `uv_sphere(16, 10)` (fan-triangulated quads and pole triangles,
+    /// irregular cotangents), both weightings.
+    ///
+    /// Results (2026-10-20): 0 differing bits over all edges, for both
+    /// weightings; keys strictly ascending.
+    #[test]
+    fn edge_weights_are_sorted_and_match_hash_accumulation_bitwise() {
+        let s = primitives::uv_sphere(16, 10, 1.0);
+        let mut seed = 0x9E37_79B9_7F4A_7C15u64;
+        let pos: Vec<Vec3> = s
+            .positions()
+            .iter()
+            .map(|p| p.scale(1.0 + 0.05 * xorshift(&mut seed)))
+            .collect();
+        let tris = mesh_triangles(&s);
+        for weighting in [LaplacianWeighting::Uniform, LaplacianWeighting::Cotangent] {
+            let mut reference: HashMap<(usize, usize), f64> = HashMap::new();
+            for &[a, b, c] in &tris {
+                for &(i, j, k) in &[(a, b, c), (b, c, a), (c, a, b)] {
+                    let key = if i < j { (i, j) } else { (j, i) };
+                    match weighting {
+                        LaplacianWeighting::Uniform => {
+                            reference.insert(key, 1.0);
+                        }
+                        LaplacianWeighting::Cotangent => {
+                            *reference.entry(key).or_insert(0.0) +=
+                                0.5 * cotangent(pos[k], pos[i], pos[j]);
+                        }
+                    }
+                }
+            }
+            let got = edge_weights_from(&tris, &pos, weighting);
+            assert_eq!(
+                got.len(),
+                reference.len(),
+                "{weighting:?}: one entry per edge"
+            );
+            assert!(
+                got.windows(2).all(|w| w[0].0 < w[1].0),
+                "{weighting:?}: keys strictly ascending"
+            );
+            for &(key, w) in &got {
+                assert_eq!(
+                    w.to_bits(),
+                    reference[&key].to_bits(),
+                    "{weighting:?}: weight of {key:?} changed"
+                );
+            }
         }
     }
 }

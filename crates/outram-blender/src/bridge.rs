@@ -140,9 +140,11 @@ pub fn ordered_ring(mesh: &Mesh, edges: &[crate::mesh::EdgeId]) -> Option<(Vec<V
     if set.is_empty() {
         return None;
     }
-    // vertex → incident set-edges
-    let mut adj: std::collections::HashMap<VertexId, Vec<VertexId>> =
-        std::collections::HashMap::new();
+    // vertex → incident set-edges. BTreeMap so the start vertex (lowest open
+    // end, or lowest vertex of a closed loop) does not depend on a randomly
+    // seeded hash order (gh #1002).
+    let mut adj: std::collections::BTreeMap<VertexId, Vec<VertexId>> =
+        std::collections::BTreeMap::new();
     for &e in &set {
         let ed = mesh.edge(e)?;
         adj.entry(ed.verts[0]).or_default().push(ed.verts[1]);

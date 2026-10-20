@@ -112,10 +112,42 @@ worked example. For meshes, plot the mesh itself (cells, patches, zones).
   faer 0.24.4 `Mat::svd()` path it called (maintainer: "Whatever faer does,
   port into petir"; GSL's `linalg::svd` was not used, being a different
   algorithm). Bit-identical to faer on all 6134 distinct covariances the test
-  suite produces (`petir/tests/faer_dense_svd_vs_faer.rs`), and on 22 334
-  pooled from four runs. The suite's covariances themselves change in the
-  last bits from run to run (one-ring weights summed in `HashMap` order,
-  gh #1002, pre-existing). The `pub use faer;` re-export went with it.
+  suite produced in one pre-gh #1002 run (`petir/tests/faer_dense_svd_vs_faer.rs`),
+  and on 22 334 pooled from four runs. ~~The suite's covariances themselves
+  change in the last bits from run to run (one-ring weights summed in
+  `HashMap` order, gh #1002, pre-existing).~~ **Fixed 2026-10-20 (gh #1002),
+  see below:** the suite now gives the same 3 586 distinct covariances every
+  run, re-captured in `reference-data/faer/closest_rotation_inputs.txt`, 0
+  differing bits against faer. The `pub use faer;` re-export went with it.
+
+## Never let a hash map's iteration order reach a result (gh #1002, 2026-10-20)
+
+`std::collections::HashMap`/`HashSet` are randomly seeded: each map visits
+its entries in a different order, between two calls in one process as well
+as between processes. Before gh #1002, code in 17 source files here summed floats,
+numbered new vertices or emitted faces in that order. Measured on the old
+code: ARAP, Laplacian/Taubin smoothing, `laplacian_triplets`, decimate, Loop
+subdivision, both bevels, `bevel_vertices`, the hull, fill-holes,
+`tris_to_quads`, the rip/split/separate operators, solidify, extrude,
+dissolve and `merge_edges` gave different bits or face orders from call to
+call. (`parameterize` on a regular grid, `beauty_fill` and `mesh_to_splines`
+did not on the inputs tried: exact sums, or the order-dependent branch not
+reached.) Rules that follow:
+
+- **Hash maps are for lookups.** Where order reaches an output, iterate an
+  index-ordered `Vec`, sort the keys once (`laplacian::edge_weights_from`
+  returns edges sorted by `(min, max)`), or use a `BTreeMap` when the map is
+  only built and walked once. Never pick "the first key" of a hash map
+  (`keys().next()`); take the minimum.
+- **Cost was measured, not assumed**: single core, interleaved before/after,
+  median of 5-7 rounds; no operator got measurably slower (ARAP -2 %,
+  Laplacian smoothing -8 %, Loop subdivision -10 %, decimate within its
+  ±3 % round-to-round spread). Numbers on gh #1002.
+- **`tests/hash_order_determinism.rs` is the gate**: it digests every
+  affected operator twice in-process and in two child processes, and pins
+  the ARAP bar result bit for bit. It fails on the pre-fix code (negative
+  control run 2026-10-20). Add a new operator to it when it builds a hash
+  map and iterates it.
 
 ## CSG description and tally meshes: what lives here, what does not (GitHub #486)
 

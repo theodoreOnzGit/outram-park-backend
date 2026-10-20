@@ -16,9 +16,13 @@
 //! Inputs:
 //!
 //! 1. **Every distinct `3 x 3` covariance `closest_rotation` received** while
-//!    `outram-blender`'s lib and integration tests ran on the pre-port code
-//!    (2026-10-20, faer path), recorded with their bit patterns in
-//!    `reference-data/faer/closest_rotation_inputs.txt`.
+//!    `outram-blender`'s lib and integration tests ran, recorded with their
+//!    bit patterns in two files under `reference-data/faer/`:
+//!    `closest_rotation_inputs_pre_gh1002.txt`, one run of the pre-port code
+//!    (2026-10-20, faer path), whose covariances varied from run to run, and
+//!    `closest_rotation_inputs.txt`, re-captured after gh #1002 made the
+//!    suite deterministic (2026-10-20, port path; two runs gave the identical
+//!    13 928-call sequence, so a re-capture reproduces the file).
 //! 2. **Random matrices of every order 1..=16** from a fixed xorshift stream,
 //!    with entries spread over 1e-3..1e3, half of them with random exponents
 //!    over 1e-150..1e150.
@@ -34,7 +38,8 @@
 //!
 //! | inputs | cases | differing bits |
 //! |---|---|---|
-//! | `outram-blender` `closest_rotation` covariances | 6 134 distinct | 0 |
+//! | `outram-blender` `closest_rotation` covariances, pre-gh #1002 run | 6 134 distinct | 0 |
+//! | `outram-blender` `closest_rotation` covariances, after gh #1002 | 3 586 distinct (472 shared with the line above) | 0 |
 //! | random, order 3 | 20 000 | 0 |
 //! | random, orders 1, 2, 4..=16 | 400 each (6 000) | 0 |
 //! | structured (17, incl. NaN / inf, which both reject) | 17 | 0 |
@@ -49,12 +54,15 @@
 //!
 //! Interpretation: the port reproduces faer's dense SVD exactly on this
 //! instruction set, so swapping it into `outram-blender` changes no rotation.
-//! Checked there too: the blender suite's covariances differ in the last bits
-//! from run to run (`HashMap`-order sums, gh #1002), so its dumps cannot be
-//! diffed line by line; instead all 22 334 distinct covariances pooled from
-//! one faer run and three port runs were fed through this test (one-off,
-//! 2026-10-20): 0 differing bits, and the 963 covariances both paths met
-//! gave identical rotations. Only the first run's 6 134 are committed.
+//! Checked there too: ~~the blender suite's covariances differ in the last
+//! bits from run to run (`HashMap`-order sums, gh #1002)~~ **(fixed by gh #1002,
+//! 2026-10-20; the suite is now deterministic and the second input file is
+//! its exact, reproducible set)**, so its dumps could not be diffed line by
+//! line; instead all 22 334 distinct covariances pooled from one faer run and
+//! three port runs were fed through this test (one-off, 2026-10-20): 0
+//! differing bits, and the 963 covariances both paths met gave identical
+//! rotations. Only the first run's 6 134 are committed, as the pre-gh #1002
+//! file.
 
 use std::path::PathBuf;
 
@@ -101,10 +109,12 @@ fn compare(a: &[f64], n: usize) -> usize {
     }
 }
 
-/// Row-major 3x3 from the reference file -> column-major.
-fn parse_inputs() -> Vec<[f64; 9]> {
+/// Row-major 3x3 from a reference file in `reference-data/faer/` ->
+/// column-major.
+fn parse_inputs(file: &str) -> Vec<[f64; 9]> {
     let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../reference-data/faer/closest_rotation_inputs.txt");
+        .join("../../reference-data/faer")
+        .join(file);
     let text = std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("{path:?}: {e}"));
     let mut out = Vec::new();
     for line in text.lines() {
@@ -128,24 +138,31 @@ fn parse_inputs() -> Vec<[f64; 9]> {
     out
 }
 
-/// Every covariance `outram-blender`'s tests gave `closest_rotation`.
+/// Every covariance `outram-blender`'s tests gave `closest_rotation`, from
+/// both captures (see the module docs).
 ///
-/// Result 2026-10-20: 6 134 distinct inputs, **0 differing bits**.
+/// Result 2026-10-20: 6 134 distinct pre-gh #1002 inputs and 3 586 distinct
+/// post-gh #1002 inputs, **0 differing bits** on each.
 #[test]
 fn blender_closest_rotation_inputs_are_bit_identical() {
-    let inputs = parse_inputs();
-    assert!(inputs.len() > 100, "only {} inputs", inputs.len());
-    let mut bad = 0;
-    for a in &inputs {
-        let d = compare(a, 3);
-        if d != 0 {
-            bad += 1;
-            if bad < 5 {
-                eprintln!("differs ({d}): {a:?}");
+    for file in [
+        "closest_rotation_inputs_pre_gh1002.txt",
+        "closest_rotation_inputs.txt",
+    ] {
+        let inputs = parse_inputs(file);
+        assert!(inputs.len() > 100, "{file}: only {} inputs", inputs.len());
+        let mut bad = 0;
+        for a in &inputs {
+            let d = compare(a, 3);
+            if d != 0 {
+                bad += 1;
+                if bad < 5 {
+                    eprintln!("{file}: differs ({d}): {a:?}");
+                }
             }
         }
+        assert_eq!(bad, 0, "{file}: {bad} of {} inputs differ", inputs.len());
     }
-    assert_eq!(bad, 0, "{bad} of {} inputs differ", inputs.len());
 }
 
 /// xorshift64*, fixed seed: reproducible without `rand`.

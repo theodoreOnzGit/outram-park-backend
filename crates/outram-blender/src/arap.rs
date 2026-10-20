@@ -126,7 +126,7 @@ pub fn arap_deform(
     let weights = edge_weights_from(&tris, &rest, LaplacianWeighting::Cotangent);
     let mut adj: Vec<Vec<(usize, f64)>> = vec![Vec::new(); n];
     let mut diag = vec![0.0f64; n];
-    for (&(i, j), &w) in &weights {
+    for &((i, j), w) in &weights {
         adj[i].push((j, w));
         adj[j].push((i, w));
         diag[i] += w;
@@ -166,7 +166,7 @@ pub fn arap_deform(
     // iteration-independent (handles don't move), so precompute it.
     let mut trips: Vec<(usize, usize, f64)> = Vec::new();
     let mut rhs_const = vec![[0.0f64; 3]; nfree];
-    for (&(gi, gj), &w) in &weights {
+    for &((gi, gj), w) in &weights {
         match (free_of[gi], free_of[gj]) {
             (Some(fi), Some(fj)) => {
                 let (lo, hi) = if fi < fj { (fi, fj) } else { (fj, fi) };
@@ -239,7 +239,7 @@ pub fn arap_energy(rest: &Mesh, deformed: &[Vec3]) -> f64 {
     let tris = mesh_triangles(rest);
     let weights = edge_weights_from(&tris, &rp, LaplacianWeighting::Cotangent);
     let mut adj: Vec<Vec<(usize, f64)>> = vec![Vec::new(); n];
-    for (&(i, j), &w) in &weights {
+    for &((i, j), w) in &weights {
         adj[i].push((j, w));
         adj[j].push((i, w));
     }
@@ -307,9 +307,14 @@ fn outer_add(s: &mut M3, w: f64, u: Vec3, v: Vec3) {
 /// faer on all 6134 distinct covariances this crate's tests produce, and so
 /// every rotation is unchanged (`petir/tests/faer_dense_svd_vs_faer.rs`;
 /// also checked on 22 334 distinct covariances pooled from four runs of this
-/// crate's suite, 0 differing bits). The covariances themselves vary in the
+/// crate's suite, 0 differing bits). ~~The covariances themselves vary in the
 /// last bits from run to run, because the one-ring weights are summed in
-/// `HashMap` order (pre-existing, gh #1002). Returns the identity for a
+/// `HashMap` order (pre-existing, gh #1002).~~ **Fixed 2026-10-20 (gh #1002):**
+/// the one-ring is now summed in ascending neighbour index
+/// ([`crate::laplacian`]'s `edge_weights_from` returns sorted edges), so the
+/// suite's 13 928 covariances (3 586 distinct) are the same every run; that
+/// set is `reference-data/faer/closest_rotation_inputs.txt`, also 0 differing
+/// bits against faer. Returns the identity for a
 /// degenerate covariance (empty one-ring) whose SVD fails, as before.
 fn closest_rotation(m: M3) -> M3 {
     let (mut uu, _s, vv) = match petir::faer_dense::svd3(m) {

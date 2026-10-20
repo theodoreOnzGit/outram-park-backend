@@ -39,7 +39,7 @@
 //!   into multiple faces is tracked as follow-up.
 
 use petir::mathf::RealMath;
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use crate::math::Vec3;
 use crate::mesh::{Mesh, VertexId};
@@ -166,7 +166,9 @@ pub fn beauty_fill(mesh: &Mesh) -> Mesh {
     }
 
     // Map each undirected edge → the (tri index, opposite vertex).
-    let mut edge_tri: HashMap<(usize, usize), Vec<(usize, usize)>> = HashMap::new();
+    // BTreeMap: the greedy flips below depend on the order edges are visited;
+    // a hash map's is randomly seeded (gh #1002).
+    let mut edge_tri: BTreeMap<(usize, usize), Vec<(usize, usize)>> = BTreeMap::new();
     for (ti, t) in tris.iter().enumerate() {
         for k in 0..3 {
             let (a, b, c) = (t[k], t[(k + 1) % 3], t[(k + 2) % 3]);
