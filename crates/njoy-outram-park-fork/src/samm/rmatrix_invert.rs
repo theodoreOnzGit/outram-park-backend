@@ -17,6 +17,18 @@
 //! Fortran flat offsets rather than translated to 0-indexed, for the same
 //! reason: direct line-by-line checkability against the source matters
 //! more here than idiomatic style.
+//!
+//! # Not folded into `petir::linalg` (gh:#992, checked 2026-10-20)
+//!
+//! Every inverter here works on **complex**-symmetric matrices, and
+//! `petir::linalg` is real-only (`SquareMatrix`, `Matrix`, LU, QR); it has
+//! no complex type and no symmetric-indefinite (Bunch-Kaufman) factorisation.
+//! Beyond the type gap, the arithmetic is the point of the port: `twoch` and
+//! `threech` carry `samm.f90`'s own magnitude rescaling and its
+//! `bbr + bbi == bbr`-style underflow branches, and `yfour` reproduces
+//! LINPACK `CSPFA`/`CSPSL` pivoting. A real LU on a split real/imaginary
+//! `2n x 2n` system would compute the same inverse in exact arithmetic but
+//! not upstream's rounding, so it was not substituted.
 
 use petir::mathf::RealMath;
 use crate::samm::linpack::{xspfa, xspsl, PackedComplexMatrix};

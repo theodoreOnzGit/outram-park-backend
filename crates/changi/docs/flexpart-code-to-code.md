@@ -262,7 +262,9 @@ output of every row.
 | `caldate` | 126 | **0 (bit-exact)** | 0 (117 rows, see below) |
 
 **Interpretation.** Against real(8), **18 of 19 groups are bit-exact on every
-output of every row**. The nineteenth, `cbl`, differs in 26 of its 6 000
+output of every row** (on the glibc route; **CORRECTED 2026-10-20**: since the
+PETIR route, `cbl`, `pbl_profile`, `zenithangle`, `photo_O1D` and `distance`
+have moved, and `cbl` fails its gate; see "PETIR route"). The nineteenth, `cbl`, differs in 26 of its 6 000
 outputs by at most `2.4e-15`. That residual was **attributed by experiment,
 not by argument**: rebuilt in a scratch crate with glibc's `erf` (which is
 what gfortran's intrinsic calls) in place of `petir::specfunc::erf`, `cbl`
@@ -391,15 +393,15 @@ Local stand-ins, none of which changes a routine under test:
 | Stage | Routines | Rows | vs real(8) |
 |---|---|---:|---|
 | 2 interpolation | `interpol_all`, `_misslev`, `_wind`, `_wind_short`, `_vdep` (each + `_nests`) | 1 944 | **bit-exact**, 20 304 outputs |
-| 3 met | `calcpar`(+nests), `calcpv`(+nests), `interpol_rain`(+nests), `get_wetscav`, `wetdepo`, `wetdepokernel`(+nest), `gethourlyOH`, `ohreaction`, `assignland` | 2 144 | **bit-exact** |
+| 3 met | `calcpar`(+nests), `calcpv`(+nests), `interpol_rain`(+nests), `get_wetscav`, `wetdepo`, `wetdepokernel`(+nest), `gethourlyOH`, `ohreaction`, `assignland` | 2 144 | ~~**bit-exact**~~ **CORRECTED 2026-10-20**: bit-exact on the glibc route; `calcpv`, `gethourlyOH` moved, see "PETIR route" |
 | 4 particle step | `advance`, `initialize`, `initialize_cbl_vel`, `re_initialize_particle`, `get_vdep_prob` | 751 | 7 315 of 7 320 bit-exact; 5 at ≤ 3.0e-15 (`erf` substitution in `cbl`) |
-| `cmapf` | all 18 routines of `cmapf_mod`, `coordtrafo` | 10 491 | **bit-exact** |
-| 5 output | `conccalc`, `drydepokernel`(+nest), `centerofmass`, `clustering`, `mean`, `plumetraj`, `partpos_average` | 3 063 | **bit-exact**; `plumetraj` only to its print format |
+| `cmapf` | all 18 routines of `cmapf_mod`, `coordtrafo` | 10 491 | ~~**bit-exact**~~ **CORRECTED 2026-10-20**: bit-exact on the glibc route; see "PETIR route" |
+| 5 output | `conccalc`, `drydepokernel`(+nest), `centerofmass`, `clustering`, `mean`, `plumetraj`, `partpos_average` | 3 063 | ~~**bit-exact**~~ **CORRECTED 2026-10-20**: bit-exact on the glibc route, `clustering` now FAILS its tolerance-0 gate, see "PETIR route"; `plumetraj` only to its print format |
 | 6 convection | `convect43c` (CONVECT, TLIFT), `calcmatrix`, `redist`, `convmix` | 2 234 | **bit-exact**, 22 788 outputs |
 | release | `releaseparticles`, `init_domainfill`, `boundcond_domainfill` (draws injected; each call from upstream's own pre-call state) | 35 calls, 2 516 slot/cell rows | **bit-exact**; real(4) scope excludes calls 27–35, where upstream's own two builds differ by one particle (a `nint(16.4995)` tie flipped by `f32` cell-area cancellation) |
-| vert | `verttransform_ecmwf`, `verttransform_gfs`, `verttransform_nests`, `shift_field`, `shift_field_0` (call sequences replayed with upstream's saved state) | 1 005 | **bit-exact**, 42 460 outputs |
+| vert | `verttransform_ecmwf`, `verttransform_gfs`, `verttransform_nests`, `shift_field`, `shift_field_0` (call sequences replayed with upstream's saved state) | 1 005 | ~~**bit-exact**, 42 460 outputs~~ **CORRECTED 2026-10-20**: bit-exact on the glibc route; within 2.2e-15 on PETIR, see "PETIR route" |
 | concout | `concoutput`, `concoutput_nest`, `concoutput_surf` (every record read back from the files upstream writes); `timemanager`'s output clock, deposition decay, pre/post-advance bookkeeping and particle splitting (inline code extracted byte-for-byte, as stage 0 did for decay) | 2 516 | **bit-exact** (tolerance 0) |
-| outgrid | `outgrid_init`(+nest), `calcfluxes`, `fluxoutput` (numbers read back from the file upstream writes), `initial_cond_calc` | 4 896 | **bit-exact** (tolerance 0) |
+| outgrid | `outgrid_init`(+nest), `calcfluxes`, `fluxoutput` (numbers read back from the file upstream writes), `initial_cond_calc` | 4 896 | ~~**bit-exact** (tolerance 0)~~ **CORRECTED 2026-10-20**: bit-exact on the glibc route; `outgrid_init`(+nest) now within a derived 3.5e-11, see "PETIR route" |
 
 The one translation defect these stages found was in an **earlier** stage. It
 was `obukhov`'s `theta*ustar**2`, worked out above under Results, and stage 3's
@@ -552,6 +554,94 @@ also in 16 replicates.
 precisions, with χ² = 5.2 on 7 dof. The statistics are the mean and variance
 of the final height per starting band, and the fraction moved by the matrix
 (0.45 %). `tests/flexpart_stochastic_redist.rs`.
+
+## PETIR route (2026-10-20, gh:#985)
+
+**What changed.** Every transcendental in `changi` (`ln`, `exp`, `powf`,
+`powi`, `sin`, `cos`, `tan`, `atan`, `atan2`, `cbrt`, ...) now goes through
+`petir::mathf::RealMath`, f64 and f32 alike, so the port gives the same bits
+on every host. Before, it called the platform libm, which on the reference
+host is glibc, the same library gfortran's build of FLEXPART calls. The
+"bit-exact against real(8)" results above were measured under that shared
+libm. They therefore measured libm agreement as well as the translation.
+
+**Methodology.** Same fixtures, same harness, same host class (x86_64 Linux,
+rustc 1.95, `--release`). Every `flexpart_*` and `puff_code_to_code` test was
+run with `--nocapture` twice:
+- **before**: the step-0 sources (`74ed282e1`), on the glibc route;
+- **after**: the PETIR route (`985-rest`).
+
+Each harness line gives bit-exact outputs and `max_rel_dev` per group and
+precision. Groups not listed below did not move, at either precision.
+
+**Results, real(8)** (bit-exact outputs / max relative deviation):
+
+| Group | before | after | gate | status |
+|---|---|---|---:|---|
+| `cnllxy` | 1656/1656 / 0 | 1655/1656 / 2.9e-16 | 1e-13 | passes |
+| `cll2xy` | 1656/1656 / 0 | 1655/1656 / 6.6e-16 | 1e-13 | passes |
+| `cc2gll` | 1656/1656 / 0 | 1634/1656 / 3.0e-16 | 1e-13 | passes |
+| `cg2cll` | 1656/1656 / 0 | 1631/1656 / 1.7e-15 | 1e-13 | passes |
+| `ccrvll` | 1656/1656 / 0 | 1649/1656 / 2.1e-16 | 1e-13 | passes |
+| `cpolll` | 2484/2484 / 0 | 2476/2484 / 1.8e-16 | 1e-13 | passes |
+| `cnxyll` | 1498/1498 / 0 | 1438/1498 / 2.8e-15 | 1e-13 | passes |
+| `cxy2ll` | 1498/1498 / 0 | 1474/1498 / 1.36e-13 | ~~1e-13~~ 2.5e-13, derived | passes |
+| `cg2cxy` | 1498/1498 / 0 | 1461/1498 / 1.29e-13 | ~~1e-13~~ 1.4e-13, derived | passes |
+| `advance` | 7315/7320 / 3.0e-15 | 7314/7320 / 6.4e-15 | 1e-12 | passes |
+| `calcpv` | 5192/5192 / 0 | 5180/5192 / 9.1e-15 | 1e-12 | passes |
+| `calcpar_inputs_identical_in_both_builds` | equal | one `calcpv[1,0,11]` element 1 ulp apart (0.6579982581113344 vs ...345) | `assert_eq` | **FAILS** |
+| `cbl` | 7174/7200 / 2.4e-15 | 7144/7200 / 6.3e-12 | 1e-12 | **FAILS** (4 outputs) |
+| `distance` | 8/8 / 0 | 7/8 / 1.6e-16 | 1e-14 | passes |
+| `pbl_profile` | 112/112 / 0 | 109/112 / 3.9e-16 | 1e-13 | passes |
+| `zenithangle` | 168/168 / 0 | 164/168 / 1.9e-16 | 1e-13 | passes |
+| `photo_O1D` | 99/99 / 0 | 92/99 / 1.1e-15 | 1e-13 | passes |
+| `gethourlyOH` | 5404/5404 / 0 | 5052/5404 / 2.0e-15 | 1e-13 | passes |
+| `ecmwf.out` (vert) | 12960/12960 / 0 | 12938/12960 / 5.8e-16 | 1e-13 | passes |
+| `gfs.out` (vert) | 12960/12960 / 0 | 12916/12960 / 2.2e-15 | 1e-13 | passes |
+| `centerofmass` | 10/10 / 0 | 8/10 / 1.6e-16 | 1e-13 | passes |
+| `partpos_average` | 210/210 / 0 | 208/210 / 1.3e-16 | 1e-13 | passes |
+| `clustering` | 459/459 / 0 | 438/459 / 1.8e-13 | 0 | **FAILS** |
+| `outgrid_init.cell` | 3094/3094 / 0 | 3018/3094 / 2.0e-14 | ~~0~~ 3.5e-11, derived | passes |
+| `outgrid_init_nest.cell` | 1190/1190 / 0 | 1130/1190 / 2.0e-14 | ~~0~~ 3.5e-11, derived | passes |
+
+Real(4): where a test's real(8) leg failed, the real(4) leg never ran, so
+it was not re-measured (`cbl`, `clustering`, `outgrid_init*`,
+`drydepokernel_nest.cell`, the `conccalc` groups). Every real(4) leg that
+did run is unchanged, except `df_cell`. Its f32 arithmetic now also goes
+through PETIR, and it moved from 1562/2208 bit-exact (max 1.1e-4, under the
+precision-spread rule) to 100/1166 (max 6.5e-6).
+
+**Interpretation.** No translation changed. What changed is the libm: PETIR
+against gfortran's glibc. Every movement is at the last-few-ulp level,
+amplified by each routine's conditioning.
+- `cxy2ll` and `cg2cxy` failed the 1e-13 gate by 1.36x and 1.29x. The
+  maintainer accepted this ("Flexpart is ok", 2026-10-20). Their bounds were
+  re-derived from the projection's conditioning at the worst row: libm
+  disagreement of at most 2 ulp per call, propagated by measured linearised
+  sensitivities, plus the `cspanf` wrap's quantum for the longitude. They were
+  not widened until passing. The derivations are in the doc comments of
+  `CXY2LL_TOL8` and `CG2CXY_TOL8` in `tests/flexpart_cmapf_code_to_code.rs`.
+- The maintainer extended "Flexpart is ok" to the other failing gates
+  (2026-10-20), on condition that each new bound is derived and not chosen:
+  - **`outgrid_init.cell`, `outgrid_init_nest.cell`: done.** ~~tol 0~~
+    **CORRECTED 2026-10-20**. The bound is now `4u * max Kc = 3.5e-11`,
+    computed in the test from each row's geometry (`cell_tol8`): two
+    `cos` values per row, each libm within 1 ulp. Observed 2.0e-14.
+  - **`cbl`: not changed, still failing.** A replay of `cbl` with every
+    `powf`/`sin`/`exp`/`erf` result perturbed (linearised, 2 ulp per call)
+    gives a per-row bound of 1.1e-10 (`phi`) and 1.3e-10 (`a`) at the two
+    rows that miss. It covers the observed 5.5e-12 and 4.9e-12. Over all
+    1 200 rows, though, the per-row bound reaches 1.6e-5 (`phi`) and 5.3e-4
+    (`a`): 108 and 135 rows exceed 1e-12, where `Phi` cancels to `O(ptot)`.
+    The harness takes one relative bound per group. A derived group bound
+    would therefore be 5.3e-4, which guts the gate for the well-conditioned
+    majority (median per-row bound 5e-15). That choice is left to the
+    maintainer.
+  - **`clustering`, `calcpar_inputs_identical_in_both_builds`: not changed,
+    still failing.** No derivation was made. Both depend on iterated or
+    searched intermediates (k-means centroids and assignments; `calcpv`'s
+    theta-surface search) that the test cannot see. A first-order replay
+    over every libm call was not attempted for them.
 
 ## What this does NOT establish
 

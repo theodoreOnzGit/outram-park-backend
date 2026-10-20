@@ -297,14 +297,19 @@ fn eval_oro(r: &Row, p: Precision) -> Option<Vec<f64>> {
     Some(vec![orography(p, cfg)[jy * g.numxgrid + ix]])
 }
 
-/// Cell geometry. Real(8): bit-exact. Real(4): the horizontal area (and the
+/// Cell geometry. ~~Real(8): bit-exact.~~ **CORRECTED 2026-10-20**: real(8)
+/// is held to [`cell_tol8`], derived from the area formula's conditioning.
+/// The old tolerance 0 asserted that the port and gfortran called the same
+/// glibc `cos`; the port now goes through PETIR (gh:#985), which deliberately
+/// does not reproduce glibc's last bit. The maintainer accepted the change
+/// ("Flexpart is ok", 2026-10-20). Real(4): the horizontal area (and the
 /// volumes, `area * dh`) come from `sqrt(1-cos^2)` differences that are
 /// ill-conditioned in `f32` everywhere (see
 /// [`outgrid_area_real4_residual_is_the_formulas_conditioning`]), so columns 0
 /// (area) and 1-4 (volumes) use the precision-spread rule; the wall areas
 /// (columns 5-12) are well conditioned and held strictly.
 const CELL: Bounds = Bounds {
-    tol8: 0.0,
+    tol8: 0.0, // ~~tol 0~~ CORRECTED 2026-10-20: replaced at run time by `cell_tol8`
     floor8: 0.0,
     tol4: 1e-5,
     floor4: 0.0,
@@ -312,6 +317,46 @@ const CELL: Bounds = Bounds {
 };
 /// The nest rows carry only area and volumes (columns 0-4).
 const CELL_NEST: Bounds = CELL;
+
+/// Real(8) bound for the cell geometry, derived from the formula, not from
+/// the comparison (gh:#985, 2026-10-20).
+///
+/// The port and the real(8) build run the same arithmetic; they differ only
+/// in the two `cos` values of each row's edges (area, volumes) and the one
+/// `cos(ylat)` of the north wall. If each libm is within 1 ulp of the exact
+/// value, the two disagree by at most 2 ulp, i.e. `delta = 4u` relative,
+/// with `u = 2^-53`. The area's first-order relative error is
+/// `delta * Kc`, `Kc = (cp^2/sp + cm^2/sm) / |sp - sm|`. That is the
+/// `cos`-input part of the `K` of
+/// [`outgrid_area_real4_residual_is_the_formulas_conditioning`]: the
+/// roundings of the shared arithmetic are identical on both sides and drop
+/// out. A row straddling the equator calls no libm (`Kc = 0`). The wall
+/// areas carry one `cos`, so `Kc >= 1`. The bound is `delta * max(Kc, 1)`,
+/// maximised over the real(8) rows of `function`.
+///
+/// Measured 2026-10-20: see the printed `derived tol8`. The "within 1 ulp"
+/// premise is an assumption, not measured here.
+fn cell_tol8(function: &str) -> f64 {
+    let delta = 4.0 * f64::EPSILON / 2.0;
+    let pi180 = changi::flexpart::constants::PI180;
+    let mut kmax = 1.0_f64;
+    for r in rows(Precision::Real8).iter().filter(|r| r.function == function) {
+        let (cfg, jy) = (r.args[0] as usize, r.args[2] as usize);
+        let (g, _) = config(Precision::Real8, cfg);
+        let ylat = g.outlat0 + (jy as f64 + 0.5) * g.dyout;
+        let (lp, lm) = (ylat + 0.5 * g.dyout, ylat - 0.5 * g.dyout);
+        if lm < 0.0 && lp > 0.0 {
+            continue;
+        }
+        let (cp, cm) = ((lp * pi180).r_cos(), (lm * pi180).r_cos());
+        let (sp, sm) = ((1.0 - cp * cp).sqrt(), (1.0 - cm * cm).sqrt());
+        let term = |c: f64, s: f64| if s == 0.0 { 0.0 } else { c * c / s };
+        kmax = kmax.max((term(cp, sp) + term(cm, sm)) / (sp - sm).abs());
+    }
+    let tol = delta * kmax;
+    println!("{function}: derived tol8 = 4u * max Kc = {tol:.3e} (max Kc = {kmax:.3e})");
+    tol
+}
 const ORO: Bounds = Bounds::rel(0.0, 1e-5);
 
 #[test]
@@ -319,7 +364,7 @@ fn outgrid_init_cell_geometry() {
     check_group(
         fixtures(),
         "outgrid_init.cell",
-        CELL,
+        Bounds { tol8: cell_tol8("outgrid_init.cell"), ..CELL },
         |_, _| true,
         |r, p| eval_cell(r, p, false),
     );
@@ -330,7 +375,7 @@ fn outgrid_init_nest_cell_geometry() {
     check_group(
         fixtures(),
         "outgrid_init_nest.cell",
-        CELL_NEST,
+        Bounds { tol8: cell_tol8("outgrid_init_nest.cell"), ..CELL_NEST },
         |_, _| true,
         |r, p| eval_cell(r, p, true),
     );
