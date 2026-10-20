@@ -928,7 +928,6 @@ checksum = "2af50177e190e07a26ab74f8b1efbfe2ef87da2116221318cb1c2e82baf7de06"
 name = "bedok"
 version = "0.0.1"
 dependencies = [
- "faer",
  "petir",
  "thiserror 2.0.21",
 ]
@@ -7968,6 +7967,7 @@ name = "petir"
 version = "0.0.2"
 dependencies = [
  "approx",
+ "faer",
  "libm",
  "naga",
  "uom",

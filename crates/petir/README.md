@@ -73,6 +73,7 @@ that drifts from its origin fails the build rather than rotting quietly.
 | `real` | — | The `no_std` float-math shim |
 | `rng` | ported (OpenMC, not GSL) | OpenMC's 64-bit LCG with its PCG-RXS-M-XS output permutation, O(log n) `future_seed` jump-ahead and `init_seed` stream derivation (`random_lcg.cpp`, MIT). **Moved here from `outram-mc-libs` 2026-10-02**, bit-identical (pinned by a test); `outram_mc_libs::rng::lcg` re-exports it. Its WGSL state advance is `wgsl::LCG` (`lcg.wgsl`), the one copy that `outram-mc-libs`' batched GPU kernels compose |
 | `ssprk` | ported (PyClaw, not GSL) | Strong-stability-preserving Runge–Kutta steps for method-of-lines use: Shu–Osher **SSP22** and **SSP33**, Ketcheson's **SSP104** (`sharpclaw/solver.py`, BSD-3). Bit-identical to PyClaw's own `step()` on 96/96 values (`tests/ssprk_vs_pyclaw.rs`); observed orders 2.01 / 3.01 / 4.01; TVD to the SSP coefficient with a negative control just above it (`tests/ssprk_order_and_tvd.rs`). **Added 2026-10-16** at maintainer direction |
+| `sparse` | ported (faer, not GSL) | Sparse direct solvers: LU with partial pivoting and a **COLAMD** column ordering, Cholesky `LLᵀ` with an **AMD** ordering, elimination trees, sparse triangular solves (faer 0.24.4, MIT; AMD/COLAMD via SuiteSparse, BSD-3). Bit-identical to faer's simplicial path on every case measured, orderings identical (`tests/sparse_vs_faer.rs`); where faer itself picks its supernodal path the solutions agree to ≤ 4.9e-14 relative. **Added 2026-10-20** at maintainer direction (gh #994) |
 | `scalar` | lifted + additions | OpenFOAM guard constants, extended here with GSL's epsilon constants (`bn:op-l87q`) |
 
 **Deliberate subsets rather than gaps**, each named where it matters and
@@ -264,7 +265,9 @@ A further non-GSL port, `src/ssprk.rs` from **Clawpack / PyClaw** (BSD-3-Clause,
 Clawpack Developers), was added on 2026-10-16 at the maintainer's direction; see
 `NOTICE` and the crate `CLAUDE.md`. Another, `src/depletion/` from **OpenMC**
 (`openmc/deplete/`, MIT), was added on 2026-10-17 at the maintainer's
-direction (gh:#950).
+direction (gh:#950). Another, `src/sparse/` from **faer** 0.24.4 (MIT, and
+through it SuiteSparse AMD/COLAMD, BSD-3), was added on 2026-10-20 at the
+maintainer's direction (gh #994).
 
 All were ported on 2026-09-15, with the full upstream notice and
 copyright kept in each file's header where source redistribution requires them.

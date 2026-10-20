@@ -222,6 +222,9 @@ pub mod real;
 pub mod rng;
 pub mod roots;
 pub mod scalar;
+/// Sparse direct solvers (LU with COLAMD, Cholesky with AMD), ported from
+/// `faer` 0.24.4 (MIT) at the maintainer's direction on gh #994.
+pub mod sparse;
 pub mod specfunc;
 pub mod ssprk;
 #[cfg(feature = "transfer-fn")]

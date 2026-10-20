@@ -35,7 +35,7 @@ When you do port, the doc comment names the **upstream file and line**, and the
 NOTICE names the copyright holder for that module — GSL's holders differ per
 file, so re-read each header rather than copying one across.
 
-### Four non-GSL ports exist, and they were maintainer-directed (three more follow below)
+### Four non-GSL ports exist, and they were maintainer-directed (four more follow below)
 
 Added 2026-09-15 at the maintainer's direction — "port select code from roots
 and peroxide to complement petir's capabilities, credit the author's
@@ -168,6 +168,37 @@ follows:
   clip; `k`'s SI standard deviation by the independent-sum formula; and the
   scope cuts (no restart, transfer rates, external sources, MPI, results
   file or unit conversion).
+
+### An eighth non-GSL port: faer's sparse direct solvers (2026-10-20)
+
+`src/sparse/` ports faer 0.24.4's simplicial sparse LU (`sp_lu`, COLAMD column
+ordering) and simplicial sparse Cholesky (`sp_cholesky`, AMD ordering), with the
+elimination-tree helpers and single-column sparse triangular solves (MIT; AMD
+and COLAMD are faer's ports of SuiteSparse, BSD-3, notices kept in those files).
+**Maintainer direction on gh #994, 2026-10-20: "if faer functions are needed,
+export no_std versions of them through petir."** That is the approval this
+section requires for a non-GSL source. GSL has no sparse direct solver, and
+`outram-foam-basic-lib`'s Krylov solvers were checked first and fit neither
+consumer (`bedok` needs a direct solve like MATLAB's `decomposition`;
+`outram-blender`'s API reports a non-SPD system, which PCG cannot detect). It
+binds future work as follows:
+
+- **It is additive.** Nothing GSL-verified is replaced.
+- **Pinned bit for bit against faer's own compiled code**, kept as a
+  dev-dependency: `tests/sparse_vs_faer.rs` asserts identical COLAMD and AMD
+  permutations and bit-identical solutions against faer's simplicial path.
+  Do not reorder the triangular-solve accumulations, the reciprocal-multiply
+  (`x * (1 / d)`, not `x / d`) or the pivot test (`partial_cmp` keeps NaN);
+  any of these changes the rounding and fails that test.
+- **One deviation, flagged where made:** faer picks a *supernodal* numeric
+  factorisation when flops per nonzero exceed 40, and its kernels use SIMD
+  GEMM. This port is simplicial only. It agrees with faer's supernodal path
+  to ≤ 4.9e-14 relative on the test matrices, and is **slower** on 3-D
+  operators with heavy fill (`bedok`'s n = 10 404 flux matrix: 2.15 s against
+  faer's 0.30 s, serial). A supernodal port would need faer's dense kernels
+  too; it is not done.
+- **Duplicate triplets** are summed in input order (faer's unstable sort
+  leaves that order unspecified). Neither consumer has duplicates.
 
 **`peroxide` as a DEPENDENCY remains ruled out** (it pulls
 `blas`/`lapack`/`netcdf`/`arrow`, which the "Dependencies" section below
