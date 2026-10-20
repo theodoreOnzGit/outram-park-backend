@@ -60,6 +60,7 @@
 //! silently "improving" upstream physics without sign-off is exactly the
 //! failure mode this workspace's guardrails exist to prevent.
 
+use petir::mathf::RealMath;
 use crate::genfoam::thermal_hydraulics::units::{HeatFlux, HeatTransferCoefficient};
 use uom::si::f64::{Ratio, ThermodynamicTemperature};
 use uom::si::heat_flux_density::watt_per_square_meter;
@@ -219,16 +220,16 @@ pub fn multi_regime_boiling_htc(inputs: MultiRegimeBoilingInputs) -> MultiRegime
     if inputs.heat_flux_superposition {
         let q_nb = if let Some(s) = inputs.suppression_factor {
             let s_v = s.get::<uom::si::ratio::ratio>();
-            (q_fc.powf(n) + (s_v * q_pb).powf(n)).powf(one_by_n)
+            (q_fc.r_powf(n) + (s_v * q_pb).r_powf(n)).r_powf(one_by_n)
         } else if let (Some(t_onb_typed), Some(htc_pb_onb)) = (
             inputs.t_onset_nucleate_boiling,
             inputs.htc_pool_boiling_at_onset,
         ) {
             let q_bi = htc_pb_onb.get::<watt_per_square_meter_kelvin>()
                 * (t_onb_typed.get::<kelvin>() - tsat);
-            (q_fc.powf(n) + (q_pb - q_bi).powf(n)).powf(one_by_n)
+            (q_fc.r_powf(n) + (q_pb - q_bi).r_powf(n)).r_powf(one_by_n)
         } else {
-            (q_fc.powf(n) + q_pb.powf(n)).powf(one_by_n)
+            (q_fc.r_powf(n) + q_pb.r_powf(n)).r_powf(one_by_n)
         };
 
         let raw_dt = tw - tf;
@@ -256,9 +257,9 @@ pub fn multi_regime_boiling_htc(inputs: MultiRegimeBoilingInputs) -> MultiRegime
         let htc2p_fc_v = htc2p_fc.get::<watt_per_square_meter_kelvin>();
         let htc_nb_v = if let Some(s) = inputs.suppression_factor {
             let s_v = s.get::<uom::si::ratio::ratio>();
-            (htc2p_fc_v.powf(n) + (s_v * htc_pb).powf(n)).powf(one_by_n)
+            (htc2p_fc_v.r_powf(n) + (s_v * htc_pb).r_powf(n)).r_powf(one_by_n)
         } else {
-            (htc2p_fc_v.powf(n) + htc_pb.powf(n)).powf(one_by_n)
+            (htc2p_fc_v.r_powf(n) + htc_pb.r_powf(n)).r_powf(one_by_n)
         };
         MultiRegimeBoilingResult {
             htc: HeatTransferCoefficient::new::<watt_per_square_meter_kelvin>(htc_nb_v),

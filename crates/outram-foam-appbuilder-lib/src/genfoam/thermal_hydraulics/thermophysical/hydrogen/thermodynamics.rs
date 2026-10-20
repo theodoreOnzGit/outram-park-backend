@@ -32,6 +32,7 @@
 //! sensible = absolute enthalpy); this port exposes one function,
 //! [`specific_enthalpy`].
 
+use petir::mathf::RealMath;
 use super::constants::{alpha0, b, c, n, R, TC, W, W_H};
 use super::equation_of_state::density_molecular_h2;
 use super::heat_capacity::{cp_perfect_gas_h2, heat_capacity_atomic_h};
@@ -42,7 +43,7 @@ use super::heat_capacity::{cp_perfect_gas_h2, heat_capacity_atomic_h};
 /// `p` in Pa, `T` in K; returns J/(kg K).
 #[inline]
 pub(super) fn ideal_entropy_molecular_h2(p: f64, t: f64) -> f64 {
-    (130.68e3 + cp_perfect_gas_h2(t) * W * (t / 273.15).ln() - R * (p / 101_325.0).ln()) / W
+    (130.68e3 + cp_perfect_gas_h2(t) * W * (t / 273.15).r_ln() - R * (p / 101_325.0).r_ln()) / W
 }
 
 /// Ideal-gas specific entropy of atomic H referenced to NIST data at
@@ -51,7 +52,7 @@ pub(super) fn ideal_entropy_molecular_h2(p: f64, t: f64) -> f64 {
 /// `p` in Pa, `T` in K; returns J/(kg K).
 #[inline]
 pub(super) fn ideal_entropy_atomic_h(p: f64, t: f64) -> f64 {
-    (114.72e3 + heat_capacity_atomic_h(t) * W_H * (t / 273.15).ln() - R * (p / 101_325.0).ln())
+    (114.72e3 + heat_capacity_atomic_h(t) * W_H * (t / 273.15).r_ln() - R * (p / 101_325.0).r_ln())
         / W_H
 }
 
@@ -66,11 +67,11 @@ pub(super) fn entropy_molecular_h2(p: f64, t: f64) -> f64 {
     let b_ = b();
     let c_ = c();
     let n_ = n();
-    let alpha_ = alpha0_ / (t / TC).powf(n_);
+    let alpha_ = alpha0_ / (t / TC).r_powf(n_);
     let v = W / density_molecular_h2(p, t); // m^3/kmol
 
-    let entropy_departure = (-R * ((v - b_ + c_) * p / (R * t)).ln()
-        + n_ * alpha_ / (t * b_) * ((v + b_) / v).ln())
+    let entropy_departure = (-R * ((v - b_ + c_) * p / (R * t)).r_ln()
+        + n_ * alpha_ / (t * b_) * ((v + b_) / v).r_ln())
         / W;
 
     ideal_entropy_molecular_h2(p, t) - entropy_departure
@@ -98,8 +99,8 @@ pub(super) fn specific_entropy(p: f64, t: f64) -> f64 {
 pub(super) fn specific_enthalpy_atomic_h(t: f64) -> f64 {
     let t_ = t / 1000.0;
     let enthalpy_h_kj_per_mol = 218.0 + 20.78603 * t_ + 4.850638e-10 * t_ * t_ / 2.0
-        - 1.582916e-10 * t_.powi(3) / 3.0
-        + 1.525102e-11 * t_.powi(4) / 4.0
+        - 1.582916e-10 * t_.r_powi(3) / 3.0
+        + 1.525102e-11 * t_.r_powi(4) / 4.0
         - 3.196347e-11 / t_
         + 211.8020
         - 217.9994;
@@ -116,11 +117,11 @@ pub(super) fn specific_enthalpy_molecular_h2(p: f64, t: f64) -> f64 {
     let alpha0_ = alpha0();
     let b_ = b();
     let n_ = n();
-    let alpha_ = alpha0_ / (t / TC).powf(n_);
+    let alpha_ = alpha0_ / (t / TC).r_powf(n_);
     let v = W / density_molecular_h2(p, t); // m^3/kmol
 
     let ideal_gas_part = cp_perfect_gas_h2(t) * t;
-    ideal_gas_part + (p * v - R * t - alpha_ / b_ * (1.0 + n_) * ((v + b_) / v).ln()) / W
+    ideal_gas_part + (p * v - R * t - alpha_ / b_ * (1.0 + n_) * ((v + b_) / v).r_ln()) / W
 }
 
 /// Bulk mixture specific enthalpy, mass-fraction-blending

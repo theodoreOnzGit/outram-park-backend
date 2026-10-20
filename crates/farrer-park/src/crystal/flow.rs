@@ -59,6 +59,7 @@
 //! rate is per second; the rate-sensitivity and hardening exponents and the
 //! latent-hardening ratios are dimensionless; time is in seconds.
 
+use petir::mathf::RealMath;
 use crate::crystal::slip::MAX_SLIP_SYSTEMS;
 use crate::error::{FemError, Result};
 
@@ -158,7 +159,7 @@ impl PowerLawFlow {
         }
         self.reference_slip_rate
             * dt
-            * ratio.powf(1.0 / self.rate_sensitivity_exponent)
+            * ratio.r_powf(1.0 / self.rate_sensitivity_exponent)
             * tau.signum()
     }
 
@@ -180,7 +181,7 @@ impl PowerLawFlow {
                 self.reference_slip_rate * dt / slip_resistance
             };
         }
-        self.reference_slip_rate * dt * n * ratio.powf(n - 1.0) / slip_resistance
+        self.reference_slip_rate * dt * n * ratio.r_powf(n - 1.0) / slip_resistance
     }
 }
 
@@ -349,7 +350,7 @@ impl SaturatingHardening {
         if x <= 0.0 {
             0.0
         } else {
-            self.initial_hardening_modulus * x.powf(self.exponent)
+            self.initial_hardening_modulus * x.r_powf(self.exponent)
         }
     }
 
@@ -504,7 +505,7 @@ mod tests {
         // The rate above saturation is forced to zero rather than left as the
         // NaN the bare expression would give.
         assert_eq!(hardening.single_system_rate(200.0e6), 0.0);
-        assert!((1.0_f64 - 200.0e6 / 148.0e6).powf(2.25).is_nan());
+        assert!((1.0_f64 - 200.0e6 / 148.0e6).r_powf(2.25).is_nan());
         println!(
             "hardening clamp: resistances pinned at {:.1} MPa, no NaN; \
              the unclamped expression at s = 200 MPa is NaN",

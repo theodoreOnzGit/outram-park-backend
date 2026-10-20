@@ -31,6 +31,7 @@
 //! to catch it either way; this port does not silently "fix" it, per this
 //! crate's guardrail against papering over upstream behaviour).
 
+use petir::mathf::RealMath;
 use super::constants::{W, W_H};
 use super::equation_of_state::MassBasisEosState;
 
@@ -60,7 +61,7 @@ pub(super) fn heat_capacity_atomic_h(t: f64) -> f64 {
     }
     let t_ = t / 1000.0;
     let cp_nist = 20.78603 + 4.850638e-10 * t_ - 1.582916e-10 * t_ * t_
-        + 1.525102e-11 * t_.powi(3)
+        + 1.525102e-11 * t_.r_powi(3)
         + 3.196347e-11 / (t_ * t_);
     cp_nist / W_H * 1.0e3
 }
@@ -74,7 +75,7 @@ pub(super) fn heat_capacity_atomic_h(t: f64) -> f64 {
 pub(super) fn heat_capacity_molecular_h2(p: f64, t: f64) -> f64 {
     let s = MassBasisEosState::at(p, t);
     let cp_departure = -p * s.dv_dt + s.rmass
-        - (s.n * s.alpha / t) * ((1.0 + s.n) / s.b_spec) * ((s.v + s.b_spec) / s.v).ln()
+        - (s.n * s.alpha / t) * ((1.0 + s.n) / s.b_spec) * ((s.v + s.b_spec) / s.v).r_ln()
         - s.alpha * (1.0 + s.n) * s.dv_dt / (s.v * (s.v + s.b_spec));
     cp_perfect_gas_h2(t) - cp_departure
 }
@@ -120,8 +121,9 @@ pub(super) fn second_virial_coefficient(p: f64, t: f64) -> f64 {
         return 15.0 * 1e-6 / w_mix;
     }
 
-    let b_cm3_per_mol = -5.66667e-7 * t.powi(6) + 1.26295e-4 * t.powi(5) - 1.16747e-2 * t.powi(4)
-        + 0.578078 * t.powi(3)
+    let b_cm3_per_mol = -5.66667e-7 * t.r_powi(6) + 1.26295e-4 * t.r_powi(5)
+        - 1.16747e-2 * t.r_powi(4)
+        + 0.578078 * t.r_powi(3)
         - 16.37 * t * t
         + 258.895 * t
         - 1933.3;
@@ -132,7 +134,7 @@ pub(super) fn second_virial_coefficient(p: f64, t: f64) -> f64 {
 /// function used by [`cp_perfect_gas_h2`] (upstream `H2::sigmoid`).
 #[inline]
 fn sigmoid(t: f64, a: f64, b: f64) -> f64 {
-    1.0 / (1.0 + (-a * (t - b)).exp())
+    1.0 / (1.0 + (-a * (t - b)).r_exp())
 }
 
 #[cfg(test)]

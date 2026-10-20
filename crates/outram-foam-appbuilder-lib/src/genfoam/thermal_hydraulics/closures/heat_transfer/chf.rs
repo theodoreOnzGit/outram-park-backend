@@ -81,6 +81,7 @@
 //!   reproduces — see [`SubcooledBoilingFraction::SahaZuber`]'s doc for why
 //!   it deviates from upstream's literal C++).
 
+use petir::mathf::RealMath;
 use super::{LatentHeat, PrandtlNumber};
 use crate::genfoam::thermal_hydraulics::units::{HeatFlux, HeatTransferCoefficient, ReynoldsNumber};
 use uom::si::angle::degree;
@@ -221,7 +222,7 @@ impl OnsetOfNucleateBoilingTemperature {
             } => {
                 let theta = contact_angle.get::<uom::si::angle::radian>();
                 let a = 2.0 * surface_tension.get::<newton_per_meter>()
-                    / (1.0 - (-theta.powi(3) - 0.5 * theta).exp()).powi(2);
+                    / (1.0 - (-theta.r_powi(3) - 0.5 * theta).r_exp()).r_powi(2);
 
                 let htc = htc_forced_convection_enhanced.get::<watt_per_square_meter_kelvin>();
                 let t_sat_k = t_sat.get::<kelvin>();
@@ -232,7 +233,7 @@ impl OnsetOfNucleateBoilingTemperature {
 
                 let delta_t_onb_sat = a * htc * t_sat_k / (rho_other * l * k);
                 let inner = (delta_t_onb_sat + 4.0 * (t_sat_k - t_fluid_k)).max(0.0);
-                let t_onb_k = t_fluid_k + 0.25 * (delta_t_onb_sat.sqrt() + inner.sqrt()).powi(2);
+                let t_onb_k = t_fluid_k + 0.25 * (delta_t_onb_sat.sqrt() + inner.sqrt()).r_powi(2);
                 ThermodynamicTemperature::new::<kelvin>(t_onb_k)
             }
         }
@@ -306,7 +307,7 @@ impl FlowEnhancementFactor {
             Self::Chen { max_value } => {
                 let inv_x = inputs.inverse_lockhart_martinelli.get::<ratio>();
                 if inv_x > 0.100_207_179_8 {
-                    clamped(2.35 * (0.213 + inv_x).powf(0.736), max_value)
+                    clamped(2.35 * (0.213 + inv_x).r_powf(0.736), max_value)
                 } else {
                     Ratio::new::<ratio>(1.0)
                 }
@@ -316,12 +317,12 @@ impl FlowEnhancementFactor {
                 max_value,
             } => {
                 let alpha_l = inputs.liquid_void_fraction.get::<ratio>().max(1e-3);
-                clamped(alpha_l.powf(-exponent), max_value)
+                clamped(alpha_l.r_powf(-exponent), max_value)
             }
             Self::CobraTf { max_value } => {
                 let re_mix = inputs.mixture_reynolds_number.get::<ratio>();
                 let re_1p = inputs.single_phase_reynolds_number.get::<ratio>();
-                let f = (re_mix / re_1p).powf(0.8).max(1.0);
+                let f = (re_mix / re_1p).r_powf(0.8).max(1.0);
                 clamped(f, max_value)
             }
         }
@@ -367,7 +368,7 @@ impl SuppressionFactor {
         match *self {
             Self::Chen => {
                 let re_mix = inputs.mixture_reynolds_number.get::<ratio>();
-                Ratio::new::<ratio>(1.0 / (1.0 + 2.53e-6 * re_mix.powf(1.17)))
+                Ratio::new::<ratio>(1.0 / (1.0 + 2.53e-6 * re_mix.r_powf(1.17)))
             }
             Self::CobraTf => {
                 let t_sat = inputs.t_sat.get::<kelvin>();

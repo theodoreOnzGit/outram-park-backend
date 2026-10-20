@@ -57,6 +57,7 @@
 //! comparison against upstream GeN-Foam on the `2D_MSFR` tutorial, in
 //! `tests/genfoam_tutorial_keff.rs`.
 
+use petir::mathf::RealMath;
 use std::f64::consts::PI;
 use std::sync::Arc;
 
@@ -311,7 +312,7 @@ fn precursor_diffusion_smooths_a_cosine_source_instead_of_amplifying_it() {
     let n = 40usize;
     let mesh = slab_mesh(n as i64);
     let dx = 1.0 / n as f64;
-    let mu = 2.0 - 2.0 * (PI / n as f64).cos();
+    let mu = 2.0 - 2.0 * (PI / n as f64).r_cos();
     let eig = mu / (dx * dx);
     let lambda = 0.08;
     let d = 0.5 * lambda / eig;
@@ -319,7 +320,7 @@ fn precursor_diffusion_smooths_a_cosine_source_instead_of_amplifying_it() {
     let tr = transport(&mesh, 0.0, d);
     let lambda_alpha = VolScalarField::uniform("lambda_alpha", mesh.clone(), lambda);
     let s: Vec<f64> = (0..n)
-        .map(|i| (PI * (i as f64 + 0.5) / n as f64).cos())
+        .map(|i| (PI * (i as f64 + 0.5) / n as f64).r_cos())
         .collect();
     let mut source = VolScalarField::uniform("src", mesh.clone(), 0.0);
     source.internal = Field::new(s.clone());

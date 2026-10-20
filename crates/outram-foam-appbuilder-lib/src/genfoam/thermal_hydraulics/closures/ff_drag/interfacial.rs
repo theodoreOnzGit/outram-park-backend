@@ -68,6 +68,7 @@
 //! - H. No, M.S. Kazimi, subchannel void-fraction/interfacial-drag closure
 //!   (MIT report basis for the upstream `NoKazimi` model).
 
+use petir::mathf::RealMath;
 use crate::genfoam::thermal_hydraulics::units::ReynoldsNumber;
 use uom::si::f64::{Length, MassDensity, Ratio, ReciprocalLength, Velocity};
 use uom::si::length::meter;
@@ -250,7 +251,7 @@ fn wallis(a_vap: f64) -> f64 {
 /// form. See [`FfDragCoefficient::SchillerNaumann`].
 fn schiller_naumann(re: f64) -> f64 {
     1.5 * if re < 1000.0 {
-        24.0 * (1.0 + 0.15 * re.powf(0.687)) / re
+        24.0 * (1.0 + 0.15 * re.r_powf(0.687)) / re
     } else {
         0.44
     }
@@ -276,14 +277,14 @@ fn bestion(
     } else {
         let numer = (1.0 - co * a_vap) * u_vap / (1.0 - a_vap).max(OPENFOAM_SMALL) - co * u_liq;
         let denom = u_rel.max(OPENFOAM_SMALL);
-        ((numer / denom).powi(2)).min(0.05)
+        ((numer / denom).r_powi(2)).min(0.05)
     };
     2.0 * a_vap
-        * (1.0 - a_vap).powi(3)
+        * (1.0 - a_vap).r_powi(3)
         * (dh_dispersed_m / dh_continuous_m)
         * (rho_vap / rho_liq)
         * ps
-        / cm.powi(2)
+        / cm.r_powi(2)
 }
 
 /// `BestionTRACE` interfacial drag coefficient — the `Bestion` variant with
@@ -297,7 +298,10 @@ fn bestion_trace(
     rho_continuous: f64,
 ) -> f64 {
     let cm = 0.188_f64;
-    2.0 * a_vap * (1.0 - a_vap).powi(3) * rho_vap / cm.powi(2) / dh_continuous_m / rho_continuous
+    2.0 * a_vap * (1.0 - a_vap).r_powi(3) * rho_vap
+        / cm.r_powi(2)
+        / dh_continuous_m
+        / rho_continuous
         * dh_dispersed_m
 }
 
@@ -311,7 +315,7 @@ fn autruffe(
     dh_continuous_m: f64,
 ) -> f64 {
     4.31 * ((1.0 - a_vap) * (1.0 + 75.0 * (1.0 - a_vap)))
-        .powf(0.95)
+        .r_powf(0.95)
         .max(0.005)
         * (rho_vap / rho_continuous)
         * (dh_dispersed_m / dh_continuous_m)
@@ -325,5 +329,5 @@ fn no_kazimi(a_vap: f64, dh_dispersed_m: f64, a_coeff_per_m: f64) -> f64 {
         * a_vap.min(0.99)
         * ((1.0 - a_vap) / 0.043).min(1.0)
         * 0.005
-        * (1.0 + 234.3 * (1.0 - a_vap.sqrt()).powf(1.15))
+        * (1.0 + 234.3 * (1.0 - a_vap.sqrt()).r_powf(1.15))
 }

@@ -90,6 +90,7 @@
 //! (formula exactness, hand-computed slip velocities, advection boundedness),
 //! not *validation* against experimental or reference-solver data.
 
+use petir::mathf::RealMath;
 use crate::MultiphaseError;
 use outram_foam_basic_lib::fv_operators::{fvc, fvm};
 use outram_foam_basic_lib::prelude::{
@@ -395,7 +396,7 @@ impl SlipModel {
                 let a = alpha.internal.as_slice();
                 Ok((0..n)
                     .map(|c| {
-                        let factor = 10.0_f64.powf(-hindrance_exp * a[c].max(0.0));
+                        let factor = 10.0_f64.r_powf(-hindrance_exp * a[c].max(0.0));
                         *u_t * factor
                     })
                     .collect())
@@ -790,7 +791,7 @@ mod tests {
             hindrance_exp: 2.0,
         };
         let udm = slip.drift_velocity(&u_m, mix.alpha()).unwrap();
-        let expected = 0.1 * 10.0_f64.powf(-0.6);
+        let expected = 0.1 * 10.0_f64.r_powf(-0.6);
         assert_relative_eq!(udm[0].x, expected, max_relative = 1e-12);
     }
 

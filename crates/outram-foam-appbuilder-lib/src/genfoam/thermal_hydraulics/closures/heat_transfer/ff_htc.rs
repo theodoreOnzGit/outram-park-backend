@@ -44,6 +44,7 @@
 //! half-stubbed. Tracked for follow-up once the `phase`/`fluid` port exposes
 //! (and documents) that accessor.
 
+use petir::mathf::RealMath;
 use super::PrandtlNumber;
 use crate::genfoam::thermal_hydraulics::units::{HeatTransferCoefficient, ReynoldsNumber};
 use uom::si::f64::{Length, ThermalConductivity};
@@ -92,9 +93,9 @@ impl FfForcedConvectionHtc {
         let pr_v = pr.get::<ratio>();
         let nu = if b != 0.0 {
             let re_c_pr_d = if c == d {
-                (re_v * pr_v).powf(c)
+                (re_v * pr_v).r_powf(c)
             } else {
-                re_v.powf(c) * pr_v.powf(d)
+                re_v.r_powf(c) * pr_v.r_powf(d)
             };
             a + b * re_c_pr_d
         } else {

@@ -54,6 +54,7 @@
 //! verified as faithful ports; their validation against rod-bundle pressure-drop
 //! data is deferred to when the porous momentum solver (bead op-p6p.7.11) exists.
 
+use petir::mathf::RealMath;
 use super::FsWallFriction;
 use crate::genfoam::thermal_hydraulics::units::reynolds_number;
 use approx::assert_relative_eq;
@@ -97,7 +98,7 @@ fn churchill_matches_colebrook_white_smooth_pipe() {
     // Implicit Colebrook-White smooth-pipe (epsilon = 0), fixed-point iteration.
     let mut f = 0.02_f64;
     for _ in 0..100 {
-        let inv_sqrt = -2.0 * (2.51 / (re * f.sqrt())).log10();
+        let inv_sqrt = -2.0 * (2.51 / (re * f.sqrt())).r_log10();
         f = 1.0 / (inv_sqrt * inv_sqrt);
     }
 
@@ -137,7 +138,7 @@ fn algebraic_fits_reproduce_formulae() {
         exp: -2.0,
     };
     let re = 5.0e4_f64;
-    let expected = (-1.8 * re.log10() + 1.64).powf(-2.0);
+    let expected = (-1.8 * re.r_log10() + 1.64).r_powf(-2.0);
     assert_relative_eq!(f_of(&cole, re), expected, max_relative = 1e-12);
 
     // ReynoldsPower: f = coeff·Re^exp + const (e.g. Blasius 0.316·Re^-0.25).
@@ -148,7 +149,7 @@ fn algebraic_fits_reproduce_formulae() {
     };
     assert_relative_eq!(
         f_of(&blasius, 1.0e4),
-        0.316 * (1.0e4_f64).powf(-0.25),
+        0.316 * (1.0e4_f64).r_powf(-0.25),
         max_relative = 1e-12
     );
 }
@@ -165,9 +166,9 @@ fn baxi_dalle_donne_geometry_coefficients() {
 
     let pt = dp + 1.0444 * dw;
     let ratio_pd = pt / dp;
-    let a = (80.0 / (100.0 * h).sqrt()) * ratio_pd.powf(1.5);
-    let b = 1.034 / ratio_pd.powf(0.124);
-    let c = 29.7 * ratio_pd.powf(6.9) / (h / (dp + dw)).powf(2.239);
+    let a = (80.0 / (100.0 * h).sqrt()) * ratio_pd.r_powf(1.5);
+    let b = 1.034 / ratio_pd.r_powf(0.124);
+    let c = 29.7 * ratio_pd.r_powf(6.9) / (h / (dp + dw)).r_powf(2.239);
 
     match model {
         FsWallFriction::BaxiDalleDonne {
@@ -187,7 +188,7 @@ fn baxi_dalle_donne_geometry_coefficients() {
     if let FsWallFriction::NoKazimi { a: ma, .. } = nk {
         assert_relative_eq!(
             ma,
-            (32.0 / (100.0 * h).sqrt()) * ratio_pd.powf(1.5),
+            (32.0 / (100.0 * h).sqrt()) * ratio_pd.r_powf(1.5),
             max_relative = 1e-12
         );
     } else {

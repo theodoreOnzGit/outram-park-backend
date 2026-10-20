@@ -197,13 +197,21 @@ compiles and links natively on **all five** target platforms:
 If a function is missing from **any** of these five (e.g. it only exists on
 POSIX systems), it must be implemented in pure Rust instead.
 
-The current `extern "C"` calls to `erf`, `erfc`, `tgamma`, and `lgamma` in
+~~The current `extern "C"` calls to `erf`, `erfc`, `tgamma`, and `lgamma` in
 `inc_gamma.rs` and `inv_inc_gamma.rs` satisfy this rule (minimum Android
-API 21 for `tgamma`, which covers ~98% of active devices).
+API 21 for `tgamma`, which covers ~98% of active devices).~~
+**CORRECTED 2026-10-20** (gh:#985) — there are no `extern "C"` calls left in
+this crate: `inc_gamma.rs` and `inv_inc_gamma.rs` take `erf`, `erfc`,
+`tgamma` and `lgamma` from `petir::real` (pure Rust, checked by grep for
+`extern "C"` under `src/`).
 
-Prefer Rust stdlib equivalents where they exist — `f64::gamma()` and
+~~Prefer Rust stdlib equivalents where they exist — `f64::gamma()` and
 `f64::ln_gamma()` (stable since Rust 1.83) can replace `tgamma`/`lgamma`
-with no FFI at all.
+with no FFI at all.~~ **SUPERSEDED 2026-10-20** (gh:#985, maintainer
+direction): every `f64` transcendental goes through PETIR
+(`petir::mathf::RealMath`, or `petir::real` for the special functions), never
+the platform libm, for cross-platform bit identity. `sqrt`, `abs`, `floor`,
+`ceil`, `trunc` and `mul_add` stay on `std` (exact or correctly rounded).
 
 ---
 

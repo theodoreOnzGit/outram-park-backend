@@ -46,6 +46,7 @@
 //                                  volume. (100° and 179° also give 25.5.)
 //   2x2x2 and 4x3x2 blocks pass the same closure/Euler/volume checks.
 
+use petir::mathf::RealMath;
 use outram_foam_mesh::poly_dual_mesh::{poly_dual_mesh, PolyMesh};
 
 const TOL: f64 = 1e-9;
@@ -231,7 +232,7 @@ fn dual_quality_is_exactly_orthogonal_on_a_uniform_block() {
         assert!(q.mean_non_ortho_deg < 1e-12);
         assert!(q.max_skewness < 1e-12, "skew {}", q.max_skewness);
 
-        let expected_ar = 2.0 / (3.0 * 0.5f64.powf(2.0 / 3.0));
+        let expected_ar = 2.0 / (3.0 * 0.5f64.r_powf(2.0 / 3.0));
         assert!(
             (q.max_aspect_ratio - expected_ar).abs() < 1e-12,
             "AR {} vs closed form {expected_ar}",

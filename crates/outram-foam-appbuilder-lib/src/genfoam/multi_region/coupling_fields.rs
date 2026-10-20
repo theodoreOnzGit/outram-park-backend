@@ -417,6 +417,7 @@ impl MeshHandler {
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
     use outram_foam_basic_lib::mesh::fv_mesh::{BoundaryPatch, FvMeshBuilder, PatchKind};
     use outram_foam_basic_lib::primitives::Vector3;
@@ -469,7 +470,7 @@ mod tests {
         let mut pdens = VolScalarField::uniform("powerDensityNeutronics", neutro_mesh.clone(), 0.0);
         for (i, c) in neutro_mesh.cell_centres.iter().enumerate() {
             // A cosine-ish axial power shape.
-            pdens.internal[i] = 1.0e6 * (1.0 + 0.5 * (std::f64::consts::PI * c.x).sin());
+            pdens.internal[i] = 1.0e6 * (1.0 + 0.5 * (std::f64::consts::PI * c.x).r_sin());
         }
         neutro.insert_scalar(pdens);
         neutro.insert_scalar(VolScalarField::uniform("TFuel", neutro_mesh.clone(), 0.0));

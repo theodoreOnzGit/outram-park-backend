@@ -56,6 +56,7 @@ pub mod parallel;
 pub mod rkf45;
 pub mod rosenbrock23;
 
+use petir::mathf::RealMath;
 pub use euler::Euler;
 pub use integrator::{
     DynSystemIntegrator, NoTypedSystem, OdeIntegrator, OdeSolver, SharedOdeSystem,
@@ -250,7 +251,7 @@ pub(crate) fn adaptive_step<Sys: OdeSystem + ?Sized>(
         if err <= 1.0 {
             break err;
         }
-        let scale = (cfg.safe_scale * err.powf(-cfg.alpha_dec)).max(cfg.min_scale);
+        let scale = (cfg.safe_scale * err.r_powf(-cfg.alpha_dec)).max(cfg.min_scale);
         dx *= scale;
         if dx.abs() < f64::EPSILON {
             return Err(OdeError::StepSizeUnderflow);
@@ -260,9 +261,9 @@ pub(crate) fn adaptive_step<Sys: OdeSystem + ?Sized>(
     *x += dx;
     std::mem::swap(y, y_temp);
 
-    let threshold = (cfg.max_scale / cfg.safe_scale).powf(-1.0 / cfg.alpha_inc);
+    let threshold = (cfg.max_scale / cfg.safe_scale).r_powf(-1.0 / cfg.alpha_inc);
     *dx_try = if err > threshold {
-        let scale = (cfg.safe_scale * err.powf(-cfg.alpha_inc)).clamp(cfg.min_scale, cfg.max_scale);
+        let scale = (cfg.safe_scale * err.r_powf(-cfg.alpha_inc)).clamp(cfg.min_scale, cfg.max_scale);
         dx * scale
     } else {
         dx * cfg.safe_scale * cfg.max_scale

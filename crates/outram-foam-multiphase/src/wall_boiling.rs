@@ -115,6 +115,7 @@
 //! component, hand-computed sub-closure values, enum-dispatch reachability,
 //! clean `NotImplemented` errors) — **not** *validation*.
 
+use petir::mathf::RealMath;
 use crate::MultiphaseError;
 use std::f64::consts::PI;
 use uom::si::acceleration::meter_per_second_squared;
@@ -336,7 +337,7 @@ impl RpiPartitioning {
     /// Heat Transfer in Boiling (Hahne & Grigull, eds.), Academic Press.
     pub fn nucleation_site_density(&self, delta_t_superheat: f64) -> f64 {
         let x = (delta_t_superheat / self.delta_t_ref).max(0.0);
-        self.cn * self.n_ref * x.powf(self.nucleation_exponent)
+        self.cn * self.n_ref * x.r_powf(self.nucleation_exponent)
     }
 
     /// **Bubble departure diameter** `d_dep` `[m]` (Tolubinski & Kostanchuk, 1970).
@@ -357,7 +358,7 @@ impl RpiPartitioning {
     /// 4th Int. Heat Transfer Conf., Paris, paper B-2.8.
     pub fn departure_diameter(&self, delta_t_subcooling: f64) -> f64 {
         let sub = delta_t_subcooling.max(0.0);
-        (self.d_ref * (-sub / self.subcooling_scale).exp())
+        (self.d_ref * (-sub / self.subcooling_scale).r_exp())
             .min(self.d_max)
             .max(self.d_min)
     }
@@ -467,7 +468,7 @@ impl WallHeatFluxPartition for RpiPartitioning {
 
         // ── Bubble-influence area fractions (Del Valle & Kenning, 1985) ───────
         let jakob = rho_l * cp_l * dt_subcooling / (rho_v * l_heat);
-        let influence = 4.8 * (-jakob / 80.0).exp();
+        let influence = 4.8 * (-jakob / 80.0).r_exp();
         let a2 = (PI * d_dep * d_dep * n_sites * influence / 4.0).min(1.0);
         let a1 = (1.0 - a2).max(1.0e-4);
 
@@ -481,7 +482,7 @@ impl WallHeatFluxPartition for RpiPartitioning {
         let q_quenching = a2 * h_quench * dt_wall_liquid;
 
         // Evaporative: latent heat of departing bubbles (Kurul-Podowski).
-        let q_evaporative = (PI / 6.0) * d_dep.powi(3) * rho_v * n_sites * f_dep * l_heat;
+        let q_evaporative = (PI / 6.0) * d_dep.r_powi(3) * rho_v * n_sites * f_dep * l_heat;
 
         let q_total = q_convective + q_quenching + q_evaporative;
 

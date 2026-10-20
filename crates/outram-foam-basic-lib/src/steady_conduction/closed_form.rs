@@ -49,6 +49,7 @@
 //! is cited yet (UNCITED: maintainer to supply a heat-conduction text from the
 //! corpus if a citation is wanted).
 
+use petir::mathf::RealMath;
 use uom::si::f64::{Length, ThermalConductivity, ThermodynamicTemperature, VolumetricPowerDensity};
 use uom::si::heat_transfer::watt_per_square_meter_kelvin;
 use uom::si::length::meter;
@@ -142,12 +143,12 @@ impl RadialClosedForm {
         let mut q_cum = 0.0;
         let mut r_in = 0.0_f64;
         for j in 0..layers.len() {
-            c.push(q_cum - q[j] * r_in.powi(m + 1) / (mf + 1.0));
-            q_cum += q[j] * (radii[j].powi(m + 1) - r_in.powi(m + 1)) / (mf + 1.0);
+            c.push(q_cum - q[j] * r_in.r_powi(m + 1) / (mf + 1.0));
+            q_cum += q[j] * (radii[j].r_powi(m + 1) - r_in.r_powi(m + 1)) / (mf + 1.0);
             r_in = radii[j];
         }
         let r_surface = radii[radii.len() - 1];
-        let surface_flux = q_cum / r_surface.powi(m); // W/m^2 leaving the surface
+        let surface_flux = q_cum / r_surface.r_powi(m); // W/m^2 leaving the surface
         let t_surface = match surface {
             ThermalBoundary::FixedTemperature(t) => t.get::<kelvin>(),
             ThermalBoundary::Convective {
@@ -195,7 +196,7 @@ impl RadialClosedForm {
         if self.c[j] != 0.0 {
             let g = match self.m {
                 0 => r_out - r,
-                1 => (r_out / r).ln(),
+                1 => (r_out / r).r_ln(),
                 _ => 1.0 / r - 1.0 / r_out,
             };
             rise += self.c[j] * g;

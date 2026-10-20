@@ -51,6 +51,7 @@
 //!
 //! All nodal coordinates are in metres. A 2-D mesh stores `z = 0`.
 
+use petir::mathf::RealMath;
 use std::sync::Arc;
 
 use crate::element::{ElementType, FacetType};
@@ -574,7 +575,7 @@ pub fn quarter_annulus_quad4(
         let th = std::f64::consts::FRAC_PI_2 * j as f64 / n_theta as f64;
         for i in 0..=n_r {
             let r = r_inner + (r_outer - r_inner) * i as f64 / n_r as f64;
-            coords.push([r * th.cos(), r * th.sin(), 0.0]);
+            coords.push([r * th.r_cos(), r * th.r_sin(), 0.0]);
         }
     }
     let idx = |i: usize, j: usize| j * (n_r + 1) + i;

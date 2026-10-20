@@ -86,6 +86,7 @@
 //!   coincide with feature edges); this is the one documented boundary
 //!   limitation.
 
+use petir::mathf::RealMath;
 use std::collections::HashMap;
 
 use outram_foam_basic_lib::mesh::{BoundaryPatch, FvMesh, FvMeshBuilder, PatchKind};
@@ -910,7 +911,7 @@ pub fn poly_dual_mesh(primal: &PolyMesh, feature_angle_deg: f64) -> Result<DualM
 /// two incident boundary-face outward normals exceeds the threshold. Such a
 /// point sits on a surface edge or corner and is preserved as a dual vertex.
 fn classify_feature_points(m: &PolyMesh, topo: &PrimalTopo, feature_angle_deg: f64) -> Vec<bool> {
-    let thr = feature_angle_deg.to_radians().cos(); // dot >= thr  ⇔  angle <= feature
+    let thr = feature_angle_deg.to_radians().r_cos(); // dot >= thr  ⇔  angle <= feature
     let mut is_feature = vec![false; m.n_points()];
     #[allow(clippy::needless_range_loop)]
     for p in 0..m.n_points() {

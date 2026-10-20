@@ -42,6 +42,7 @@
 //!   Dusseldorf, 1993, via J.G. Collier and J.R. Thome, *Convective Boiling
 //!   and Condensation*, 3rd ed., pp. 155-158, Oxford University Press, 1994.
 
+use petir::mathf::RealMath;
 use super::PrandtlNumber;
 use crate::genfoam::thermal_hydraulics::units::{HeatFlux, HeatTransferCoefficient, ReynoldsNumber};
 use uom::si::f64::{
@@ -147,7 +148,7 @@ impl FsForcedConvectionHtc {
                     if let Some((t_wall, t_fluid)) = wall_fluid_temperatures {
                         let tw = t_wall.get::<kelvin>();
                         if tw > 0.0 {
-                            t_ratio = (tw / t_fluid.get::<kelvin>()).powf(e);
+                            t_ratio = (tw / t_fluid.get::<kelvin>()).r_powf(e);
                         }
                     }
                 }
@@ -177,9 +178,9 @@ impl FsForcedConvectionHtc {
 /// construction time (`usePeclet_(C_ == D_)`).
 fn re_pow_c_pr_pow_d(re: f64, pr: f64, c: f64, d: f64) -> f64 {
     if c == d {
-        (re * pr).powf(c)
+        (re * pr).r_powf(c)
     } else {
-        re.powf(c) * pr.powf(d)
+        re.r_powf(c) * pr.r_powf(d)
     }
 }
 
@@ -245,12 +246,12 @@ impl PoolBoilingHtc {
         let h = match *self {
             Self::Shah => {
                 let (c, m) = shah_interpolated_coefficients(p_r);
-                (c * p_r.powf(m) * dt.powf(SHAH_N)).powf(SHAH_INV_ONE_MINUS_N)
+                (c * p_r.r_powf(m) * dt.r_powf(SHAH_N)).r_powf(SHAH_INV_ONE_MINUS_N)
             }
             Self::Gorenflo { surface_roughness } => {
                 let a = gorenflo_roughness_factor(surface_roughness);
                 let (f, n) = gorenflo_f_and_n(p_r);
-                (GORENFLO_H0 * a * f * (dt / GORENFLO_Q0).powf(n)).powf(1.0 / (1.0 - n))
+                (GORENFLO_H0 * a * f * (dt / GORENFLO_Q0).r_powf(n)).r_powf(1.0 / (1.0 - n))
             }
         };
         HeatTransferCoefficient::new::<watt_per_square_meter_kelvin>(h)
@@ -274,12 +275,12 @@ impl PoolBoilingHtc {
         let h = match *self {
             Self::Shah => {
                 let (c, m) = shah_interpolated_coefficients(p_r);
-                c * q.powf(SHAH_N) * p_r.powf(m)
+                c * q.r_powf(SHAH_N) * p_r.r_powf(m)
             }
             Self::Gorenflo { surface_roughness } => {
                 let a = gorenflo_roughness_factor(surface_roughness);
                 let (f, n) = gorenflo_f_and_n(p_r);
-                GORENFLO_H0 * f * (q / GORENFLO_Q0).powf(n) * a
+                GORENFLO_H0 * f * (q / GORENFLO_Q0).r_powf(n) * a
             }
         };
         HeatTransferCoefficient::new::<watt_per_square_meter_kelvin>(h)
@@ -328,7 +329,7 @@ fn shah_interpolated_coefficients(p_r: f64) -> (f64, f64) {
 
 /// Gorenflo's absolute-surface-roughness correction `A = (R / R0)^0.133`.
 fn gorenflo_roughness_factor(surface_roughness: Length) -> f64 {
-    (surface_roughness.get::<meter>() / GORENFLO_R0).powf(0.133)
+    (surface_roughness.get::<meter>() / GORENFLO_R0).r_powf(0.133)
 }
 
 /// Gorenflo's pressure-dependent normalised heat-transfer function `F(pR)`
@@ -337,7 +338,7 @@ fn gorenflo_roughness_factor(surface_roughness: Length) -> f64 {
 /// By construction `F(0.1) ~= 1` — the correlation's reference state is
 /// `pR = 0.1`, `q'' = q0`, giving `h_PB ~= h0` there (see the V&V tests).
 fn gorenflo_f_and_n(p_r: f64) -> (f64, f64) {
-    let f = 1.73 * p_r.powf(0.27) + (6.1 + 0.68 / (1.0 - p_r)) * p_r * p_r;
-    let n = 0.9 - 0.3 * p_r.powf(0.15);
+    let f = 1.73 * p_r.r_powf(0.27) + (6.1 + 0.68 / (1.0 - p_r)) * p_r * p_r;
+    let n = 0.9 - 0.3 * p_r.r_powf(0.15);
     (f, n)
 }

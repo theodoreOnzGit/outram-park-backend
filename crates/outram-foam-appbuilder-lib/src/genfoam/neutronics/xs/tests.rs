@@ -41,6 +41,7 @@
 //! published evaluation); it exercises every quantity while keeping the expected
 //! interpolation results hand-computable.
 
+use petir::mathf::RealMath;
 use super::*;
 use crate::genfoam::common::rbf;
 use crate::genfoam::neutronics::xs::input::{
@@ -68,7 +69,7 @@ fn rbf_basis_function_closed_forms() {
     assert_relative_eq!(rbf::polyharmonic_spline_function(r2, 1), r, epsilon = 1e-12);
     assert_relative_eq!(
         rbf::polyharmonic_spline_function(r2, 2),
-        r2 * r.ln(),
+        r2 * r.r_ln(),
         epsilon = 1e-12
     );
     assert_relative_eq!(
@@ -78,7 +79,7 @@ fn rbf_basis_function_closed_forms() {
     );
     assert_relative_eq!(
         rbf::polyharmonic_spline_function(r2, 4),
-        r2 * r2 * r.ln(),
+        r2 * r2 * r.r_ln(),
         epsilon = 1e-12
     );
     assert_eq!(rbf::polyharmonic_spline_function(r2, 7), 0.0);
