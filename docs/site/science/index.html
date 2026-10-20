@@ -25,6 +25,7 @@
   <nav class="chips big" aria-label="Science domains">
     <a class="chip" href="#nuclear-data-and-neutronics">Nuclear Data and Neutronics</a>
     <a class="chip" href="#transport">Neutron transport</a>
+    <a class="chip" href="#fission-products">Fission products</a>
     <a class="chip" href="#thermal-hydraulics">Thermal hydraulics</a>
     <a class="chip" href="#cfd">Fluid mechanics &amp; CFD</a>
     <a class="chip" href="#particle-mechanics">Particle mechanics</a>
@@ -139,6 +140,25 @@
     </div>
   </section>
 
+
+  <section class="domain" id="fission-products">
+    <!-- The Fission products track (maintainer design, 2026-10-20): the
+         foundations of nuclear MATERIALS. What one fission throws into a
+         material, why each particle does what it does, where the fragments
+         land, and how fast the neutrons leave. Lessons in
+         docs/site/science/fission-products/, data from
+         crates/outram-mc-libs/examples/lesson_fission_products. -->
+    <h2>Fission products</h2>
+    <p>The foundations of nuclear materials: what one fission throws into the fuel and the material around it, which particle damages or activates it, and why.</p>
+    <details class="chapter" id="ch-fp-one-fission" open>
+      <summary>Chapter 1 · What one fission throws out <span class="range">(lessons 1&ndash;3)</span></summary>
+      <div class="chips">
+        <a class="demo featured" href="fission-products/one-fission.html" data-kind="science" data-terms="fission fragments compound nucleus scission prompt neutrons prompt gamma beta decay delayed neutrons neutrino ternary alpha MT458 energy release particle shower radiation damage activation lattice">1 · One fission, step by step</a>
+        <a class="demo" href="fission-products/split-atoms.html" data-kind="science" data-terms="fission yields mass yield curve independent yields two humps asymmetric fission peak-to-valley shell effects magic numbers U-235 U-238 Pu-239 U-233">2 · Split atoms: where do the fragments land?</a>
+        <a class="demo" href="fission-products/prompt-spectrum.html" data-kind="science" data-terms="prompt fission neutron spectrum MF5 MT18 LF=1 Watt mean energy most probable energy multi-chance fission unit-base interpolation sampling">3 · How fast are the prompt neutrons?</a>
+      </div>
+    </details>
+  </section>
 
   <section class="domain" id="thermal-hydraulics">
     <h2>Thermal hydraulics</h2>
@@ -275,7 +295,8 @@
 // to it, and (b) folds every chapter on a phone, so a narrow screen opens with
 // every chapter closed. Desktop opens with each section's chapter 1 open (the
 // `open` attribute in the markup). It handles every details.chapter on the
-// page: Nuclear Data and Neutronics, and Fuel & materials (TRISO).
+// page: Nuclear Data and Neutronics, Fission products, and Fuel & materials
+// (TRISO).
 (function () {
   if (!window.matchMedia("(min-width: 640px)").matches) {
     var all = document.querySelectorAll("details.chapter");

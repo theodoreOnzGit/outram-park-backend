@@ -267,7 +267,19 @@
     ["why-statistics.html", "Why can the error bar be trusted?"],
     ["whole-picture.html", "Godiva, a TRISO pebble, the HTR-10 core"]
   ];
-  var TRACKS = { neutronics: ["Neutronics", LESSONS, "glossary.html"], transport: ["Transport", TRANSPORT, "../neutronics/glossary.html"] };
+  // The Fission products track (maintainer design, 2026-10-20: the
+  // foundations of nuclear materials) is a third sequence, in
+  // docs/site/science/fission-products/, on the same kit.
+  var FISSION = [
+    ["one-fission.html", "One fission, step by step"],
+    ["split-atoms.html", "Split atoms: where do the fragments land?"],
+    ["prompt-spectrum.html", "How fast are the prompt neutrons?"]
+  ];
+  var TRACKS = {
+    neutronics: ["Neutronics", LESSONS, "glossary.html"],
+    transport: ["Transport", TRANSPORT, "../neutronics/glossary.html"],
+    "fission-products": ["Fission products", FISSION, "../neutronics/glossary.html"]
+  };
   function currentTrack() {
     var parts = location.pathname.split("/");
     return TRACKS[parts[parts.length - 2]] || TRACKS.neutronics;

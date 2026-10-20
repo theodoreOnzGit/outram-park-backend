@@ -2215,3 +2215,50 @@
   month        = {September},
   note         = {Author, title, venue and year entered by an AI assistant on 2026-10-18 and believed correct; the LA-UR report number was dropped as uncertain. Not yet checked against the proceedings}
 }
+
+% Added 2026-10-20 for the Fission products track (lessons 1-3). Each field was
+% read that day from the source itself (re-checked the same day: the CGMF
+% title corrected to the README's, the author list confirmed there): the DOE handbook's cover and page
+% footers and the OpenStax book's front matter from the PDFs in the
+% kovan-standard-open-corpus (crates/kovan-literature/reactor-literature),
+% CGMF's authors and paper from the repository's README.md at commit
+% 46ca6451dc5e449d7a9d0ced98eba0b593fcdf14, and the NuDat citation from the
+% wording NNDC asks for, as quoted in fission-yields-data 0.1.5's src/lib.rs.
+@techreport{doe1993hdbk1019v1,
+  author       = {{U.S. Department of Energy}},
+  title        = {{DOE} Fundamentals Handbook: Nuclear Physics and Reactor Theory, Volume 1 of 2},
+  institution  = {U.S. Department of Energy},
+  address      = {Washington, D.C.},
+  year         = {1993},
+  month        = {January},
+  number       = {DOE-HDBK-1019/1-93},
+  type         = {Handbook},
+  note         = {Distribution Statement A: approved for public release, distribution is unlimited}
+}
+
+@book{ling2016universityphysics3,
+  author       = {Ling, Samuel J. and Sanny, Jeff and Moebs, William},
+  title        = {University Physics, Volume 3},
+  publisher    = {OpenStax},
+  address      = {Houston, Texas},
+  year         = {2016},
+  isbn         = {978-1-947172-22-7},
+  url          = {https://openstax.org/details/books/university-physics-volume-3},
+  note         = {Licensed CC BY-NC-SA 4.0}
+}
+
+@software{lanl2024cgmf,
+  author       = {Talou, Patrick and Stetcu, Ionel and Jaffke, Patrick and Rising, Michael E. and Lovell, Amy E. and Kawano, Toshihiko},
+  title        = {{CGMF}, Cascading Gamma-ray Multiplicity and Fission},
+  year         = {2024},
+  url          = {https://github.com/lanl/CGMF},
+  note         = {Commit 46ca6451dc5e449d7a9d0ced98eba0b593fcdf14 (2024-02-06), BSD-3-Clause; documentation in doc/rtd/ (fissionYields.rst, initialDistributions.rst, isomers.rst). Main reference: Comp. Phys. Comm. 269 (2021) 108087, doi:10.1016/j.cpc.2021.108087}
+}
+
+@misc{nndc2026nudat,
+  author       = {{National Nuclear Data Center}},
+  title        = {Information extracted from the {NuDat} database},
+  year         = {2026},
+  howpublished = {\url{https://www.nndc.bnl.gov/nudat/}},
+  note         = {As exported into fission-yields-data 0.1.5 (mass excesses, half-lives, decay branchings)}
+}
