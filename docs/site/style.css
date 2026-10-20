@@ -116,10 +116,11 @@ body.landing { min-height: 100vh; display: flex; flex-direction: column; }
 .contents h2, .ask { font-size: 1.15rem; margin: 20px 0 4px; }
 .lib { margin-top: 28px; scroll-margin-top: 48px; }
 .lib h2 { font-size: 1.6rem; margin: 0 0 4px; padding-bottom: 4px; border-bottom: 1px solid var(--line); }
-/* Learn the science: a domain's list shows when its button is followed. */
+/* Learn the science: a domain's list shows when its button is followed, or
+   when a link targets anything inside it (an old anchor, a chapter id). */
 .domain { display: none; margin-top: 20px; padding: 4px 16px 8px; background: var(--panel); border: 1px solid var(--line);
   border-radius: 12px; scroll-margin-top: 48px; }
-.domain:target, .domain:has(.anchor:target) { display: block; }
+.domain:target, .domain:has(:target) { display: block; }
 .domain h2 { font-size: 1.3rem; }
 /* A domain's lessons grouped in collapsible chapters; the summary is a 44px tap target. */
 details.chapter { margin: 10px 0; border: 1px solid var(--line); border-radius: 10px; background: var(--bg);
