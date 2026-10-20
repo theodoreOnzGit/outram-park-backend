@@ -160,6 +160,12 @@ follows:
   with its measured effect on results and run time, and listed here and in
   the module docs; one that changes results beyond round-off is the
   maintainer's decision.
+- **Use CRAM, not `linalg::expm`, for decay chains** (measured 2026-10-20,
+  gh:#999, `tests/expm_vs_cram48_stiff_chain.rs`): on the uranium series
+  CRAM48 stays within 2e-15 of the inventory from 1 s to 1e9 a, while
+  `expm`'s error grows with its squaring count (1.6e-10 at 1 a, 5.6e-4 at
+  1e6 a) and at 1e9 a returns 6.6e5 times the inventory, exactly as stock
+  Octave `expm.m` does. That row is pinned as a measured failure.
 - **The deviations** (all flagged `**DEVIATION:**` where made, and listed in
   `src/depletion/mod.rs`): dense matrix and dense elimination instead of
   scipy sparse / SuperLU (measured ≤ 5.9e-15 relative against upstream's
