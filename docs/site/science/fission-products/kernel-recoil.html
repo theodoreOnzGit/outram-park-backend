@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Complication: recoil</title>
+<meta name="description" content="Fission products, lesson 20: fission fragments born near the kernel surface and flying outward escape at once, a recoil skin that bypasses diffusion.">
+<link rel="stylesheet" href="../../style.css">
+<script src="../neutronics/lesson-kit.js" defer></script>
+<script src="kernel-data.js" defer></script>
+<script src="kernel-recorded.js" defer></script>
+<script src="cascade-recorded.js" defer></script>
+<script src="kernel-physics.js" defer></script>
+<script src="kernel-story.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Fission products, chapter 3, lesson 20: one complication per page
+     (maintainer, 2026-10-20). The bend is ILLUSTRATIVE; the range is the
+     RustBCA record's (illustrative) until gh:#979. -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response. <strong>Review status:</strong> AI-assisted first draft (2026-10-20), not yet reviewed by a human.</p>
+<span id="kd-numbers" hidden></span>
+
+<h1>Complication 1: recoil</h1>
+<p class="kicker lesson-progress">Fission products</p>
+
+<p>Lessons 16 to 19 had every atom start at rest and diffuse. But a fission product is born flying (lesson 4). If it is born within one fragment range of the kernel&rsquo;s surface and heads outward, it is out before diffusion starts: a <b>recoil skin</b>.</p>
+
+<section class="widget-card">
+  <h3>How recoil bends the clean curve</h3>
+  <div class="widget" data-bend="recoil">
+    <canvas aria-label="Released fraction against time: the clean many-spheres curve, and a bent curve raised by a constant recoil release."></canvas>
+  </div>
+</section>
+
+<p>How thick is the skin? The fragment range in UO<sub>2</sub>: the RustBCA record gives <span data-kd="rangeHeavy">&hellip;</span> for the heavy fragment (illustrative; the RustBCA tracks are pending <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/979">gh:#979</a>). The share that escapes is worked out geometrically by the page (lesson 19&rsquo;s flat line). Recoil adds a release that does not wait for time or temperature, and does not depend on half-life. Link back: the <a href="kernel-many-spheres.html">many-spheres model</a> plus this constant.</p>
+
+<details class="optional">
+<summary>Learn more advanced stuff</summary>
+<p>The page counts the escaping share by Monte Carlo: uniform births in the sphere, isotropic straight flights of one range, and counts those that end outside. For a range much smaller than the radius it is about three quarters of the range over the radius. Within a grain the same happens at every grain boundary, but there it only moves the atom into the next grain.</p>
+</details>
+
+<nav class="lesson-nav" aria-label="Lessons"></nav>
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. GPL-3.0. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>

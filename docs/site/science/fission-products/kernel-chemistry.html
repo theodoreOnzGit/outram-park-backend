@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chemistry decides the fate</title>
+<meta name="description" content="Fission products, lesson 11: fission makes elements from all over the periodic table, and their chemistry decides what each does in the fuel. Six families, and the oxygen balance. Pick a family here; the rest of the chapter follows it.">
+<link rel="stylesheet" href="../../style.css">
+<script src="../neutronics/lesson-kit.js" defer></script>
+<script src="kernel-data.js" defer></script>
+<script src="kernel-recorded.js" defer></script>
+<script src="cascade-recorded.js" defer></script>
+<script src="kernel-physics.js" defer></script>
+<script src="kernel-story.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Fission products, chapter 3, lesson 11. The family grouping is the
+     maintainer's teaching design (2026-10-20); each family's chemical state
+     is source pending (Kleykamp 1985 candidate, unread). The chosen family
+     is remembered in this browser and used by every later demo. -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response. <strong>Review status:</strong> AI-assisted first draft (2026-10-20), not yet reviewed by a human.</p>
+<span id="kd-numbers" hidden></span>
+
+<h1>Chemistry decides the fate</h1>
+<p class="kicker lesson-progress">Fission products</p>
+
+<p>Fission splits uranium into elements from across the middle of the periodic table (lesson 2). A xenon atom and a strontium atom are both &ldquo;fission products&rdquo;, but chemically they could hardly be more different, and that decides what each does in the fuel.</p>
+
+<section class="widget-card">
+  <h3>Pick a family to follow</h3>
+  <div class="widget short" id="family">
+    <canvas aria-label="Six boxes, one per chemical family of fission products, with their member elements; the chosen family is highlighted."></canvas>
+  </div>
+  <p class="note">Your choice is remembered in this browser: every later demo in the chapter uses this family.</p>
+</section>
+
+<h2>Six families</h2>
+<ul>
+<li><b>Noble gases</b> (Xe, Kr): do not bond; gather in bubbles <span class="pending">source pending</span>.</li>
+<li><b>Volatiles</b> (Cs, I, Te, Rb): easily turned to vapour <span class="pending">source pending</span>.</li>
+<li><b>Alkaline earths</b> (Sr, Ba): form oxides <span class="pending">source pending</span>.</li>
+<li><b>Noble metals</b> (Mo, Ru, Rh, Pd, Tc): form small metallic particles <span class="pending">source pending</span>.</li>
+<li><b>Lanthanides and Zr</b>: dissolve in the UO<sub>2</sub> lattice <span class="pending">source pending</span>.</li>
+<li><b>Silver</b>: its own case, because of how it gets through TRISO coatings (chapter 4).</li>
+</ul>
+<p>These are the families the chapter follows. The chemical form each takes in UO<sub>2</sub> needs a source: <span class="pending">source pending</span> (Kleykamp, 1985, is the candidate; not yet read).</p>
+
+<h2>Oxygen: one more player</h2>
+<p>When a uranium atom fissions, the oxygen that was bound to it has to go somewhere, and not every fission product binds as much oxygen. Spare oxygen in a UO<sub>2</sub> kernel can react with the carbon around it and make CO gas; a UCO kernel&rsquo;s carbide takes up oxygen instead. <span class="pending">source pending</span> for each of these statements; lesson 25 comes back to it.</p>
+
+<p><b>Next question:</b> the grains themselves do not stay still. What happens to them when hot?</p>
+
+<details class="optional">
+<summary>Learn more advanced stuff</summary>
+<h3>Other ways to group them</h3>
+<p>Light-water reactor source terms group fission products by how they are released in a severe accident: NUREG-1465&rsquo;s eight groups <a href="#ref-soffer1995nureg1465">(Soffer et al., 1995)</a>, Table 3.8, p. 10. TRISO-ATOPS groups them by which release model it applies (lesson 15). The three groupings overlap but are not the same.</p>
+</details>
+
+<nav class="lesson-nav" aria-label="Lessons"></nav>
+
+<!-- references:begin -->
+<h2>References</h2>
+
+<p class="csl-entry" id="ref-soffer1995nureg1465" style="padding-left: 2em; text-indent: -2em;">Soffer, L., Burson, S. B., Ferrell, C. M., Lee, R. Y., &#38; Ridgely, J. N. (1995). <i>Accident Source Terms for Light-Water Nuclear Power Plants, Final Report</i> (Report NUREG-1465). U.S. Nuclear Regulatory Commission, Office of Nuclear Regulatory Research.</p>
+
+<!-- references:end -->
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. GPL-3.0. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>

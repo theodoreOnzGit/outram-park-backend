@@ -294,6 +294,9 @@ for f in index.html site-nav.js code-map-bar.js code-map/index.html code-map/cod
   science/fission-products/{fission-data,fission-pending,fission-physics,one-fission,fp-energy,yields-data,split-physics,split-atoms,spectrum-data,prompt-spectrum}.js \
   science/fission-products/{fragment-flight,lattice-cascade,decay-again,decay-or-move,atom-hop,atoms-swap}.html \
   science/fission-products/{cascade-data,cascade-recorded,hop-physics,hop-worker,fragment-story}.js \
+  science/fission-products/kernel-{polycrystal,chemistry,grain-growth,pores,in-out,lumping,booth-grain,many-spheres,two-scales,rb}.html \
+  science/fission-products/kernel-{recoil,knockout,sweeping,precursors,bursts,burnup-oxygen,conductivity,hbs,swelling}.html \
+  science/fission-products/{kernel-data,kernel-recorded,kernel-physics,kernel-worker,kernel-story}.js \
   kovan-schema/index.html \
   code-map/code_map.json code-map/site_links.json \
   api/outram_mc_libs/index.html api/changi/index.html \

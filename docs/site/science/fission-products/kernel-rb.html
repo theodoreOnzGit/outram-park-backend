@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The R/B fingerprint</title>
+<meta name="description" content="Fission products, lesson 19: release-to-birth ratio against decay constant. Diffusion gives a line of slope minus one half; recoil gives a flat line. Measured gas releases are read this way.">
+<link rel="stylesheet" href="../../style.css">
+<script src="../neutronics/lesson-kit.js" defer></script>
+<script src="kernel-data.js" defer></script>
+<script src="kernel-recorded.js" defer></script>
+<script src="cascade-recorded.js" defer></script>
+<script src="kernel-physics.js" defer></script>
+<script src="kernel-story.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Fission products, chapter 3, lesson 19. R/B: boon-lay's
+     booth_shortlived_fast_diffuse (via kernel-data.js) and its JS port;
+     isotope half-lives: boon-lay's decay library; recoil range: the RustBCA
+     record (cascade-recorded.js, illustrative). The slope prediction was
+     written before the run; check-fission.js gates it. -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response. <strong>Review status:</strong> AI-assisted first draft (2026-10-20), not yet reviewed by a human.</p>
+<span id="kd-numbers" hidden></span>
+
+<h1>The R/B fingerprint</h1>
+<p class="kicker lesson-progress">Fission products</p>
+
+<p>Short-lived gas atoms decay while they diffuse. Only those born near a way out escape before decaying. The ratio of the rate released to the rate born, <b>R/B</b>, depends on the half-life, and <i>how</i> it depends tells you how the atoms got out.</p>
+
+<section class="widget-card">
+  <h3>R/B against decay constant</h3>
+  <div class="widget" id="rb">
+    <canvas aria-label="Log-log plot of release-to-birth ratio against decay constant: a Booth diffusion curve falling with slope minus one half, the krypton and xenon isotopes marked on it, and a flat dashed line for recoil."></canvas>
+  </div>
+  <p class="note">Curve: boon-lay&rsquo;s <a href="../../code-review/#crates/boon-lay/src/triso_atops_fork/release_models/steady_state.rs::booth_shortlived_fast_diffuse"><code>booth_shortlived_fast_diffuse</code></a>, D of Xe/Kr from the code. Points: Kr and Xe isotopes at their half-lives from boon-lay&rsquo;s decay library. Recoil line: the RustBCA heavy-fragment range of the record (<span data-kd="rangeHeavy">&hellip;</span>, illustrative), from the kernel surface. Grain radius illustrative.</p>
+</section>
+
+<p><b>Predict first</b> (we did, before running): for short half-lives, on log-log axes, the diffusion line falls with slope &minus;&frac12;, and recoil is flat.</p>
+
+<h2>Two signatures</h2>
+<ul>
+<li><b>Diffusion: slope &minus;&frac12;.</b> When an atom lives only a short time, it can diffuse out only from a thin skin, about &radic;(<i>D</i>/&lambda;) deep. The released share is that skin&rsquo;s volume over the sphere&rsquo;s, so R/B &asymp; 3&radic;(<i>D</i>/&lambda;<i>a</i>&sup2;), falling as &lambda;<sup>&minus;&frac12;</sup>. This is the limit of Booth&rsquo;s steady-state formula (derivation §5a: R/B &rarr; 3/&mu;, &mu; = &radic;(&lambda;<i>a</i>&sup2;/<i>D</i>)).</li>
+<li><b>Recoil: flat.</b> An atom born within a fragment range of the surface, and flying outward, is out at once, whatever its half-life (lesson 20). That share does not depend on &lambda;.</li>
+</ul>
+<p>Measured R/B for several gas isotopes, plotted this way, shows which mechanism dominates: the slope is the fingerprint. <code>check-fission.js</code> fits the slope of boon-lay&rsquo;s curve over its last two decades and finds &minus;&frac12; (the test prediction: within 0.01).</p>
+
+<p><b>Next:</b> the clean picture of lessons 16 to 19 is now set. The rest of the chapter adds the complications one at a time, starting with that recoil skin.</p>
+
+<details class="optional">
+<summary>Learn more advanced stuff</summary>
+<h3>Knockout is flat too</h3>
+<p>Fragments passing near the surface can also knock atoms out (lesson 21). Like recoil, that does not depend on the half-life, so it adds to the flat part.</p>
+</details>
+
+<nav class="lesson-nav" aria-label="Lessons"></nav>
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. GPL-3.0. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>

@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Complication: sweeping</title>
+<meta name="description" content="Fission products, lesson 22: as grains grow, their moving boundaries sweep up what lies in their path, delivering it to the boundary without diffusion.">
+<link rel="stylesheet" href="../../style.css">
+<script src="../neutronics/lesson-kit.js" defer></script>
+<script src="kernel-data.js" defer></script>
+<script src="kernel-recorded.js" defer></script>
+<script src="cascade-recorded.js" defer></script>
+<script src="kernel-physics.js" defer></script>
+<script src="kernel-story.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Fission products, chapter 3, lesson 22. SCIANTIX grain_boundary_sweeping.rst
+     (2344575, MIT) read 2026-10-20: it applies sweeping to helium only. -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response. <strong>Review status:</strong> AI-assisted first draft (2026-10-20), not yet reviewed by a human.</p>
+<span id="kd-numbers" hidden></span>
+
+<h1>Complication 3: grain-boundary sweeping</h1>
+<p class="kicker lesson-progress">Fission products</p>
+
+<p>In lesson 12 the grains grew. When a boundary moves into a grain, the material it passes becomes part of the boundary region, and whatever that material held is now <b>at the boundary</b>, without having diffused there. The boundary <b>sweeps</b> it up.</p>
+
+<section class="widget-card">
+  <h3>How sweeping bends the clean curve</h3>
+  <div class="widget" data-bend="sweeping">
+    <canvas aria-label="Released fraction against time: the clean curve, and a bent curve where a growing share reaches the boundary as grains grow."></canvas>
+  </div>
+</section>
+
+<p>SCIANTIX models this: as the grain radius grows, the gas in the swept shell is moved from the grain to the boundary <a href="#ref-sciantix2344575">(Pizzocri et al., 2018)</a>, <code>grain_boundary_sweeping.rst</code>. Its documentation adds a surprise: it applies sweeping to <b>helium only</b>, and deliberately not to xenon and krypton. Link back: in the <a href="kernel-many-spheres.html">many-spheres model</a>, the spheres would grow with time.</p>
+
+<details class="optional">
+<summary>Learn more advanced stuff</summary>
+<p>Why SCIANTIX leaves xenon and krypton out of sweeping, its document calls &ldquo;a physical choice, not an omission&rdquo;, without the reason on that page: <span class="pending">source pending</span> for the reason.</p>
+</details>
+
+<nav class="lesson-nav" aria-label="Lessons"></nav>
+<!-- references:begin -->
+<h2>References</h2>
+
+<p class="csl-entry" id="ref-sciantix2344575" style="padding-left: 2em; text-indent: -2em;">Pizzocri, D., Barani, T., &#38; Luzzi, L. (2018). <i>SCIANTIX</i> [Computer software]. https://github.com/sciantix/sciantix-official</p>
+
+<!-- references:end -->
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. GPL-3.0. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>

@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>In the grain, and out of it</title>
+<meta name="description" content="Fission products, lesson 14: what each chemical family does inside a grain and what it does at the grain boundary and beyond. Gases collect in boundary bubbles and leave only when the bubbles connect.">
+<link rel="stylesheet" href="../../style.css">
+<script src="../neutronics/lesson-kit.js" defer></script>
+<script src="kernel-data.js" defer></script>
+<script src="kernel-recorded.js" defer></script>
+<script src="cascade-recorded.js" defer></script>
+<script src="kernel-physics.js" defer></script>
+<script src="kernel-story.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Fission products, chapter 3, lesson 14. The gas rows cite SCIANTIX's
+     model docs (2344575, MIT); the other rows are source pending. -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response. <strong>Review status:</strong> AI-assisted first draft (2026-10-20), not yet reviewed by a human.</p>
+<span id="kd-numbers" hidden></span>
+
+<h1>In the grain, and out of it</h1>
+<p class="kicker lesson-progress">Fission products</p>
+
+<p>A fission product is born inside a grain. To leave the kernel it must first reach a grain boundary, and then get from there to the kernel&rsquo;s surface. Each family behaves differently at each stage. The row of the family you chose is in bold.</p>
+
+<div class="table-wrap" id="inout-table"><table>
+<thead><tr><th>Family</th><th>In the grain</th><th>At the boundary and beyond</th></tr></thead>
+<tbody></tbody></table></div>
+
+<p><b>Predict first.</b> Once a xenon atom reaches a grain boundary, is it out?</p>
+
+<h2>Gases: not at once</h2>
+<p>A gas atom diffuses through the grain, now and then caught by a small bubble and knocked back out by a passing fission fragment (lesson 9). At the boundary it does not leave straight away: it collects in <b>boundary bubbles</b>, which grow and spread. Only when they link up into paths to the outside does the gas <b>vent</b>. SCIANTIX models these steps <a href="#ref-sciantix2344575">(Pizzocri et al., 2018)</a>: <code>gas_diffusion.rst</code>, <code>intergranular_bubble_behavior.rst</code> and <code>grain_boundary_venting.rst</code>, where venting is a sigmoid in the bubbles&rsquo; coverage of the boundary, or a correlation with open porosity. So: <b>at the boundary, not yet out</b>.</p>
+
+<h2>The others</h2>
+<p>The rest of the table is <span class="pending">source pending</span>: Cs and I forming compounds and travelling as vapour along porosity; Pd moving out to the coatings and attacking SiC; lanthanides staying dissolved; Sr and Ba as oxides held in the carbon layers.</p>
+
+<p><b>Next question:</b> there are dozens of elements and data for few. How do codes cope?</p>
+
+<details class="optional">
+<summary>Learn more advanced stuff</summary>
+<h3>Release by bookkeeping</h3>
+<p>SCIANTIX does not track released gas directly: it is what is left when the gas still in the grains, at the boundaries and lost to decay is taken from what was produced (<code>gas_release.rst</code>).</p>
+</details>
+
+<nav class="lesson-nav" aria-label="Lessons"></nav>
+
+<!-- references:begin -->
+<h2>References</h2>
+
+<p class="csl-entry" id="ref-sciantix2344575" style="padding-left: 2em; text-indent: -2em;">Pizzocri, D., Barani, T., &#38; Luzzi, L. (2018). <i>SCIANTIX</i> [Computer software]. https://github.com/sciantix/sciantix-official</p>
+
+<!-- references:end -->
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. GPL-3.0. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>
