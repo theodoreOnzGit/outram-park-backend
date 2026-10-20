@@ -206,6 +206,11 @@ an AGPL-3.0-only crate in this workspace (**since 2026-10-05**, `dhoby-ghaut`
 is the other, depending on `kovan` by path), and keeping the dependency
 crate-local is what stops another crate from picking it up (and the
 AGPL question that comes with it) by accident. See `crates/kovan/NOTICE`.
+**Since 2026-10-20 that question needs no answer from the maintainer:
+AGPL-3.0 is an accepted licence in this workspace** ("AGPLv3 is acceptable
+also, never ask me about it again"; root `CLAUDE.md`, "Preserve GPLv3
+compatibility"). Keeping AGPL dependencies crate-local remains good practice:
+it keeps each crate's `license` field honest. It is no longer a gate.
 
 See `docs/workspace-maintenance.md` for the rationale and history.
 

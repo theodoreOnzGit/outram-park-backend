@@ -500,7 +500,12 @@ specifically, not just human contributors:
   `References.md` alongside the example, or the relevant validation report.
 - **Preserve GPLv3 compatibility and provenance headers.** Any new dependency
   or ported code must stay GPLv3-compatible; don't introduce proprietary code
-  or code whose licence you haven't checked. Keep the attribution header
+  or code whose licence you haven't checked. **AGPL-3.0 (`-only` or
+  `-or-later`) is acceptable too — standing maintainer direction,
+  2026-10-20: "AGPLv3 is acceptable also, never ask me about it again".**
+  Bringing in AGPL code or an AGPL dependency needs no confirmation. Do
+  record it: the crate's `license` field and `NOTICE` say AGPL, and its row in
+  `docs/claude-md/members-and-dependencies.md` says so. Keep the attribution header
   block (upstream project, source file, version/commit, copyright, licence)
   on any file that ports from an upstream project — don't strip it during
   refactors, and don't remove or water down `RESPONSIBLE_USE.md`/
