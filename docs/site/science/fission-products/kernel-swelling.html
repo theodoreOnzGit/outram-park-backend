@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kernel swelling</title>
+<meta name="description" content="Fission products, lesson 28: the fission products take up more room than the uranium they replace, so the kernel swells, into the porous buffer around it. Next: the buffer layer.">
+<link rel="stylesheet" href="../../style.css">
+<script src="../neutronics/lesson-kit.js" defer></script>
+<script src="kernel-data.js" defer></script>
+<script src="kernel-recorded.js" defer></script>
+<script src="cascade-recorded.js" defer></script>
+<script src="kernel-physics.js" defer></script>
+<script src="kernel-story.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Fission products, chapter 3, lesson 28 (the chapter's last). Swelling
+     source pending; the release curve is unchanged here on purpose. -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response. <strong>Review status:</strong> AI-assisted first draft (2026-10-20), not yet reviewed by a human.</p>
+<span id="kd-numbers" hidden></span>
+
+<h1>Complication 9: the kernel swells</h1>
+<p class="kicker lesson-progress">Fission products</p>
+
+<p>Two fission products take up more room than the one uranium atom they replace, and the gas among them gathers in bubbles. So the kernel <b>swells</b> <span class="pending">source pending</span>. In a TRISO particle it has somewhere to go: the <b>buffer</b> around it is porous carbon, with room for the kernel to grow into and for gas to collect.</p>
+
+<section class="widget-card">
+  <h3>The clean curve, for comparison</h3>
+  <div class="widget" data-bend="swelling">
+    <canvas aria-label="Released fraction against time: the clean curve, unchanged by swelling in this simple picture."></canvas>
+  </div>
+</section>
+
+<p>Swelling does not change Booth&rsquo;s curve directly. What it changes is the room outside: how much free volume is left in the buffer, and so the gas pressure on the coatings. That is where the next part of the story goes. Link back: the <a href="kernel-many-spheres.html">many-spheres model</a> stays as it was; the room around it shrinks.</p>
+
+<p><b>So the kernel lets its fission products go, some fast, some slowly, by chemistry, by size and by temperature. Next, the buffer layer.</b></p>
+
+<details class="optional">
+<summary>Learn more advanced stuff</summary>
+<p>How much the kernel swells per unit burnup, and how much buffer porosity it takes up: <span class="pending">source pending</span>. boon-lay fuel failure computes the buffer&rsquo;s free volume for the gas pressure; the fuel-failure chapter shows it.</p>
+</details>
+
+<nav class="lesson-nav" aria-label="Lessons"></nav>
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. GPL-3.0. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>

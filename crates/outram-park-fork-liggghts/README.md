@@ -1,5 +1,5 @@
 <!--
-SPDX-License-Identifier: GPL-3.0-only
+SPDX-License-Identifier: AGPL-3.0-only
 Part of Outram Park (outram-park-backend).
 Independent Rust granular-DEM library. NOT a code port of GPL-2.0
 LIGGGHTS/LAMMPS — see NOTICE for the licensing flag.

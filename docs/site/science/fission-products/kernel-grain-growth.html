@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Boundaries move</title>
+<meta name="description" content="Fission products, lesson 12: hot grains grow. Grain boundaries cost energy, so small grains are swallowed by big ones; and vacancies gather into voids.">
+<link rel="stylesheet" href="../../style.css">
+<script src="../neutronics/lesson-kit.js" defer></script>
+<script src="kernel-data.js" defer></script>
+<script src="kernel-recorded.js" defer></script>
+<script src="cascade-recorded.js" defer></script>
+<script src="kernel-physics.js" defer></script>
+<script src="kernel-story.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Fission products, chapter 3, lesson 12. The coarsening demo is an
+     ILLUSTRATIVE Potts model written here (not a port of SPPARKS), run in
+     kernel-worker.js. -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response. <strong>Review status:</strong> AI-assisted first draft (2026-10-20), not yet reviewed by a human.</p>
+<span id="kd-numbers" hidden></span>
+
+<h1>Boundaries move, defects gather</h1>
+<p class="kicker lesson-progress">Fission products</p>
+
+<p>The grains of lesson 10 are not fixed. In hot fuel the boundaries move.</p>
+
+<section class="widget-card">
+  <h3>Grains coarsening</h3>
+  <div class="widget" id="potts">
+    <canvas aria-label="A square map of coloured grains that coarsen over time, small grains disappearing; below, a curve of grain size rising with time."></canvas>
+  </div>
+  <p class="note">An <b>illustrative</b> Potts model, written for this page and run in a Web Worker: a teaching model of coarsening, not UO<sub>2</sub> kinetics.</p>
+</section>
+
+<p><b>Predict first.</b> Left alone and hot, do the grains get smaller, stay the same, or get bigger?</p>
+
+<h2>Boundaries cost energy, so they shrink</h2>
+<p>Atoms at a boundary sit badly, so a boundary stores energy. The material lowers that energy by having less boundary: atoms hop from small grains onto bigger neighbours, small grains vanish, and the average grain <b>grows</b>. Hotter means faster, because the hops are thermally activated (lessons 8 and 9). Fuel codes model this: SCIANTIX&rsquo;s grain growth is temperature-driven, with options that slow it with burnup or stop it at a limiting size <a href="#ref-sciantix2344575">(Pizzocri et al., 2018)</a>, <code>grain_growth.rst</code>.</p>
+
+<h2>Vacancies gather into voids</h2>
+<p>Vacancies wander too (lesson 9). When they meet, they can cluster, and a large cluster is a small empty <b>void</b>, a place where gas atoms can collect. How this happens in UO<sub>2</sub>: <span class="pending">source pending</span>.</p>
+
+<p><b>Next question:</b> the kernel is hotter in the middle than at the edge. Does that push anything around?</p>
+
+<details class="optional">
+<summary>Learn more advanced stuff</summary>
+<h3>The model in the demo</h3>
+<p>Each site carries a grain label. A site tries to take a random neighbour&rsquo;s label; if that does not add boundary, it does; if it does, it may still, with probability exp(&minus;&Delta;<i>E</i>/<i>kT&prime;</i>). That is the Potts model, a standard teaching model of coarsening. The temperature here is in model units, not kelvin.</p>
+<h3>Why it matters for release</h3>
+<p>A moving boundary sweeps through the grain and can collect what lies in its path. Lesson 22 takes that up.</p>
+</details>
+
+<nav class="lesson-nav" aria-label="Lessons"></nav>
+
+<!-- references:begin -->
+<h2>References</h2>
+
+<p class="csl-entry" id="ref-sciantix2344575" style="padding-left: 2em; text-indent: -2em;">Pizzocri, D., Barani, T., &#38; Luzzi, L. (2018). <i>SCIANTIX</i> [Computer software]. https://github.com/sciantix/sciantix-official</p>
+
+<!-- references:end -->
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. GPL-3.0. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>

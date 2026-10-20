@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>From boundary to surface</title>
+<meta name="description" content="Fission products, lesson 18: two scales. If the grain boundaries are open paths, reaching a boundary is release; if they are closed, the whole kernel is the sphere. TRISO-ATOPS blends the two radii.">
+<link rel="stylesheet" href="../../style.css">
+<script src="../neutronics/lesson-kit.js" defer></script>
+<script src="kernel-data.js" defer></script>
+<script src="kernel-recorded.js" defer></script>
+<script src="cascade-recorded.js" defer></script>
+<script src="kernel-physics.js" defer></script>
+<script src="kernel-story.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Fission products, chapter 3, lesson 18. The equivalent-sphere radius
+     a_booth = sqrt(2 a_grain r) is checked against boon-lay's code
+     (release_models/mod.rs, rb_fail, lines 92-95 on 2026-10-20) and its
+     TRISO_ATOPS_DERIVATION.md §2. -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response. <strong>Review status:</strong> AI-assisted first draft (2026-10-20), not yet reviewed by a human.</p>
+<span id="kd-numbers" hidden></span>
+
+<h1>From the boundary to the kernel surface</h1>
+<p class="kicker lesson-progress">Fission products</p>
+
+<p>An atom that reaches a grain boundary is not yet outside the kernel. What happens next sets which sphere Booth should use.</p>
+
+<section class="widget-card">
+  <h3>The same D, three radii</h3>
+  <div class="widget" id="twoscale">
+    <canvas aria-label="Released fraction against time for three Booth spheres: grain-sized, kernel-sized, and TRISO-ATOPS's blended radius between them."></canvas>
+  </div>
+</section>
+
+<p><b>Predict first.</b> If boundaries are fast highways out, which radius is right: the grain&rsquo;s or the kernel&rsquo;s?</p>
+
+<h2>Open paths and closed paths</h2>
+<ul>
+<li><b>Open paths:</b> the boundaries connect to the outside and carry atoms out quickly. Reaching a boundary is release, so the sphere is the <b>grain</b>.</li>
+<li><b>Closed paths:</b> the boundaries hold atoms (lesson 14), and the atoms must cross the whole kernel by slow diffusion. The sphere is the <b>kernel</b>.</li>
+</ul>
+<p>Real fuel is somewhere between. TRISO-ATOPS takes a blend: for its &ldquo;special metals&rdquo; it uses a sphere of radius <i>a</i> = &radic;(2&nbsp;<i>a</i><sub>grain</sub>&nbsp;<i>r</i>), with <i>r</i> the kernel radius. That is what boon-lay&rsquo;s port computes (<a href="../../code-review/#crates/boon-lay/src/triso_atops_fork/release_models/mod.rs::rb_fail"><code>rb_fail</code></a>, read 2026-10-20), and its derivation document gives the same form (<code>TRISO_ATOPS_DERIVATION.md</code>, §2). Where the blend comes from physically: <span class="pending">source pending</span>.</p>
+
+<p><b>Next question:</b> short-lived atoms decay on the way out. Is there a fingerprint of how they leave?</p>
+
+<details class="optional">
+<summary>Learn more advanced stuff</summary>
+<h3>What the blend does</h3>
+<p>The blended radius is the geometric mean of the grain diameter and the kernel radius. Booth depends on <i>D</i>/<i>a</i>&sup2;, so the blend divides the kernel&rsquo;s D/<i>r</i>&sup2; by 2<i>a</i><sub>grain</sub>/<i>r</i>: release is faster than whole-kernel diffusion and slower than grain-only release.</p>
+<p>Note that TRISO-ATOPS&rsquo;s code describes its grain size as the UCO fuel grain size (its <code>rb_fail</code> documentation).</p>
+</details>
+
+<nav class="lesson-nav" aria-label="Lessons"></nav>
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. GPL-3.0. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>

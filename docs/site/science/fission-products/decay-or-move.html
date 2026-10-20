@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Decay or move?</title>
+<meta name="description" content="Fission products, lesson 7: a stopped fission product can decay or diffuse. It is a race between its half-life and how far it diffuses in that time, and how fast it diffuses follows the Arrhenius law.">
+<link rel="stylesheet" href="../../style.css">
+<script src="../neutronics/lesson-kit.js" defer></script>
+<script src="cascade-data.js" defer></script>
+<script src="cascade-recorded.js" defer></script>
+<script src="hop-physics.js" defer></script>
+<script src="fragment-story.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Fission products, chapter 2, lesson 7 (page D; maintainer design
+     2026-10-20). Diffusion coefficients: TRISO-ATOPS's NP-MHTGR
+     correlations through boon-lay's public diffusion_coefficient; half-lives:
+     boon-lay's DecayLibrary; kernel radius: TrisoSpec::HTR10_LI2014. All in
+     cascade-data.js. Checked by check-fission.js. -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response. <strong>Review status:</strong> AI-assisted first draft (2026-10-20), not yet reviewed by a human.</p>
+<span id="cd-numbers" hidden></span>
+
+<h1>Settled: decay or move?</h1>
+<p class="kicker lesson-progress">Fission products</p>
+
+<p>A stopped fission product has two things it can do. It can <b>decay</b> (lesson 6), or it can <b>move</b>: atoms in a hot solid wander, slowly, from site to site. That is <b>diffusion</b>. Which wins is a race: its half-life against how far it gets in that time.</p>
+
+<section class="widget-card">
+  <h3>The race, in a TRISO kernel</h3>
+  <div class="widget" id="race">
+    <canvas aria-label="Horizontal bars on a logarithmic length axis, one per fission product, showing how far each diffuses in one half-life at the chosen temperature, with the kernel radius marked as a dashed line."></canvas>
+  </div>
+  <p class="note">D: TRISO-ATOPS&rsquo;s NP-MHTGR correlations as boon-lay ports them (<a href="../../code-review/#crates/boon-lay/src/triso_atops_fork/diffusion/mod.rs::diffusion_coefficient"><code>diffusion_coefficient</code></a>, kernel). Half-lives: boon-lay&rsquo;s decay library. Kernel radius <span data-cd="kernelUm">&hellip;</span>: HTR-10&rsquo;s, from outram-mc-libs&rsquo; <code>TrisoSpec::HTR10_LI2014</code>.</p>
+</section>
+
+<p><b>Predict first.</b> Heat the kernel by a few hundred degrees. Does the distance an atom covers in one half-life grow a little, or a lot?</p>
+
+<h2>The race</h2>
+<p>In one half-life <i>t</i><sub>&frac12;</sub>, an atom diffusing with coefficient <i>D</i> spreads over a distance of about &radic;(6&nbsp;<i>D</i>&nbsp;<i>t</i><sub>&frac12;</sub>). If that is much smaller than the kernel, the atom decays where it stopped. If it is comparable or larger, it can reach the edge and get out. Move the temperature slider: the bars jump by orders of magnitude, because <i>D</i> does.</p>
+<p>And remember lesson 6: <b>each decay sets off a few more cascades</b>, wherever the atom happens to be when it decays.</p>
+
+<h2>The Arrhenius law</h2>
+<p>How fast an atom diffuses rises steeply with temperature. Every diffusion correlation in the demo has the form of the <b>Arrhenius law</b>, the law chemists use for how reaction rates rise with temperature <a href="#ref-flowers2019chemistry2e">(Flowers et al., 2019)</a>, §12.5, p. 612:</p>
+<p class="formula"><i>D</i> = <i>D</i><sub>0</sub> exp(&minus;<i>Q</i>&nbsp;/&nbsp;<i>RT</i>)</p>
+<p>A barrier <i>Q</i> and the temperature <i>T</i> set an exponential. That is why a few hundred degrees change <i>D</i> by orders of magnitude. The correlations in the demo are exactly this form, some with two terms.</p>
+
+<p><b>Next question:</b> why an exponential? What is an atom actually doing when it diffuses?</p>
+
+<details class="optional">
+<summary>Learn more advanced stuff</summary>
+<h3>Where &radic;(6Dt) comes from</h3>
+<p>For a random walk in three dimensions, the mean squared distance from the start grows as 6<i>Dt</i>. Lesson 9 builds this from single hops.</p>
+<h3>What the correlations are, and where they stop</h3>
+<p>The NP-MHTGR correlations in TRISO-ATOPS are stated for roughly 700&ndash;2400 &deg;C. Below their limits some are <b>clamped</b> (held at their value there): in the kernel, Cs and Sr below 700&nbsp;&deg;C, read from boon-lay&rsquo;s code and found again by the lesson generator from the function&rsquo;s own output. Kr, Xe, I, Te and Se are <b>extrapolated</b> instead. Kr and Xe share one correlation, which switches form at 1500&nbsp;&deg;C in this code; another boon-lay path switches at 700&nbsp;&deg;C for Kr, and which is right is open (<a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/974">gh:#974</a>), so neither is presented as settled here.</p>
+<h3>Booth and release</h3>
+<p>Turning a diffusion coefficient into the fraction of atoms that leave a grain or a kernel is the Booth model, worked through in boon-lay&rsquo;s book <a href="../../tutorials/fp-transport-theory/">Fission Product Transport Theory</a>.</p>
+</details>
+
+<nav class="lesson-nav" aria-label="Lessons"></nav>
+
+<!-- references:begin -->
+<h2>References</h2>
+
+<p class="csl-entry" id="ref-flowers2019chemistry2e" style="padding-left: 2em; text-indent: -2em;">Flowers, P., Theopold, K., Langley, R., &#38; Robinson, W. R. (2019). <i>Chemistry 2e</i>. OpenStax. https://openstax.org/details/books/chemistry-2e</p>
+
+<!-- references:end -->
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. GPL-3.0. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>

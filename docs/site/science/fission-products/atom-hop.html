@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How an atom hops</title>
+<meta name="description" content="Fission products, lesson 8: how an atom migrates. It rattles in its site; now and then a rattle is big enough to squeeze over the barrier to the next site. Hotter means exponentially more such rattles: the Arrhenius law. Many hops make a random walk that spreads like a Gaussian: diffusion.">
+<link rel="stylesheet" href="../../style.css">
+<script src="../neutronics/lesson-kit.js" defer></script>
+<script src="cascade-data.js" defer></script>
+<script src="cascade-recorded.js" defer></script>
+<script src="hop-physics.js" defer></script>
+<script src="fragment-story.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Fission products, chapter 2, lesson 8 (page E; maintainer design
+     2026-10-20, with the correction the same day: "I just want to read about
+     how migration happens"). The main line is migration in plain words, one
+     equation; the Boltzmann counting, the central limit theorem and
+     D = Gamma lambda^2 / 6 are in the folded section. The demo's kinetic
+     Monte Carlo (hop-physics.js) runs its clouds and sweeps in
+     hop-worker.js; check-fission.js checks that the fitted slope gives back
+     the barrier. -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response. <strong>Review status:</strong> AI-assisted first draft (2026-10-20), not yet reviewed by a human.</p>
+<span id="cd-numbers" hidden></span>
+
+<h1>How an atom hops</h1>
+<p class="kicker lesson-progress">Fission products</p>
+
+<p>Lesson 7 said atoms diffuse, and faster when hot. Here is what one atom is actually doing.</p>
+
+<section class="widget-card">
+  <h3>One atom in its site</h3>
+  <div class="widget" id="hop">
+    <canvas aria-label="An atom rattling in one site of a square lattice, now and then hopping to a neighbouring site. Below, the energy along the path between sites: wells at the sites, a hump of height E_m between them, and a line at kT. Other views show a cloud of atoms spreading, and a plot of ln D against 1/T."></canvas>
+  </div>
+  <p class="note">A kinetic Monte Carlo of an atom on a square lattice. The barrier is <b>illustrative</b> (you set it). Time is counted in rattles, so no vibration frequency is assumed. The cloud and the Arrhenius plot are computed in a Web Worker.</p>
+</section>
+
+<p><b>Predict first.</b> Raise the temperature from 1000&nbsp;K to 1500&nbsp;K, with a 1&nbsp;eV barrier. Does the atom hop half again as often, twice as often, or dozens of times as often?</p>
+
+<h2>It rattles, and now and then it squeezes through</h2>
+<ul>
+<li>The atom sits in its site, held by its neighbours, and <b>rattles</b> (vibrates) all the time. The hotter the crystal, the harder it rattles.</li>
+<li>To move to the next site it must <b>squeeze between its neighbours</b>. That costs energy: a hill between the two sites, the <b>migration barrier</b> <i>E</i><sub>m</sub>.</li>
+<li>Most rattles are far too weak. <b>Now and then</b> one is big enough to carry it over the hill, into the next site. That is one <b>hop</b>.</li>
+</ul>
+<p>The chance that one rattle is big enough falls off exponentially with the height of the hill compared with the typical thermal energy <i>kT</i>. So the hop rate is</p>
+<p class="formula">&Gamma; = &nu;&nbsp;exp(&minus;<i>E</i><sub>m</sub>&nbsp;/&nbsp;<i>kT</i>)</p>
+<p>where &nu; is how often it rattles (the <b>attempt frequency</b>; its size: <span class="pending">source pending</span>) and exp(&minus;<i>E</i><sub>m</sub>/<i>kT</i>) is the chance that one rattle succeeds. This is the <b>Arrhenius law</b> for one hop <a href="#ref-tian2026mate664">(Tian group, University of Alberta, 2026)</a>, Lecture 10, &ldquo;Arrhenius jump frequency&rdquo;.</p>
+
+<h2>Hotter means exponentially more hops</h2>
+<p><i>kT</i> is small: <span data-cd="kT1000">&hellip;</span> at 1000&nbsp;K and <span data-cd="kT1500">&hellip;</span> at 1500&nbsp;K (computed on the page from the Boltzmann constant). A barrier of 1&nbsp;eV is many times <i>kT</i>, so the chance per rattle is tiny, and a small change in <i>T</i> changes it a lot. Move the slider and watch the counter &ldquo;1 in &hellip;&rdquo;: for a 1&nbsp;eV barrier, going from 1000&nbsp;K to 1500&nbsp;K makes it hop <b data-cd="hopRatio">&hellip;</b> as often. Not half again, not twice: dozens of times, from a 50&nbsp;% rise in temperature.</p>
+
+<h2>Many hops make diffusion</h2>
+<p>Each hop goes to a random neighbour. After many hops the atom has done a <b>random walk</b>. Release a cloud of atoms in the demo (&ldquo;A cloud&rdquo;): it spreads into a round, bell-shaped blob, and its width grows as the square root of time. That spreading is <b>diffusion</b>, and its speed is set by the hop rate. So diffusion follows the Arrhenius law too.</p>
+<p>The <b>Arrhenius plot</b> view (in the panel) runs the hops at eight temperatures and plots ln&nbsp;<i>D</i> against 1/<i>T</i>. The points fall on a straight line, and its slope gives back the barrier you set.</p>
+
+<p><b>Next question:</b> a hop needs somewhere to go. In a crystal full of atoms, where does the atom hop to?</p>
+
+<details class="optional">
+<summary>Learn more advanced stuff</summary>
+<h3>Why exp(&minus;E/kT): counting states</h3>
+<p>Think of the atom as a small system in contact with the crystal around it, a big reservoir at temperature <i>T</i>. Every arrangement (microstate) of the whole is equally likely. For the atom to hold an extra energy <i>E</i>, the reservoir must give it up, and a reservoir with less energy has fewer arrangements: its entropy drops by about <i>E</i>/<i>T</i>, so its number of arrangements drops by a factor exp(&minus;<i>E</i>/<i>kT</i>). Fewer arrangements, lower probability: that is the Boltzmann factor. OpenStax states Boltzmann&rsquo;s result, with the &ldquo;negative exponential&rdquo; of the total mechanical energy, in <a href="#ref-ling2016universityphysics2">(Ling et al., 2016)</a>, §2.4, p. 91, and the statistical view of entropy in §4.7, pp. 154&ndash;155.</p>
+<h3>Why a Gaussian: the central limit theorem</h3>
+<p>The atom&rsquo;s position after <i>n</i> hops is a sum of <i>n</i> independent random steps. By the central limit theorem, such a sum tends to a Gaussian whose variance grows in proportion to <i>n</i>, so in proportion to time: &lang;<i>R</i>&sup2;&rang; = 2<i>dDt</i> in <i>d</i> dimensions (6<i>Dt</i> in 3D, 4<i>Dt</i> on the demo&rsquo;s flat lattice). With &Gamma;<sub>tot</sub> the total hop rate and &lambda; the hop length, <i>D</i> = &Gamma;<sub>tot</sub>&lambda;&sup2;/(2<i>d</i>): (1/6)&Gamma;<sub>tot</sub>&lambda;&sup2; in 3D. In the continuum limit this is Fick&rsquo;s law. It is the same pair of ideas as the Monte Carlo lessons: sample one step at a time, then let the central limit theorem tell you the spread. boon-lay&rsquo;s Lagrangian walker uses exactly that (its <code>central_limit_theorem</code> module).</p>
+<h3>The fit, checked</h3>
+<p>Before running it, we wrote down that the fitted slope would give back a 1.00&nbsp;eV barrier to within 3&nbsp;% (1000 atoms, about 400 hops each, 8 temperatures from 900 to 1950&nbsp;K). <code>check-fission.js</code> runs the same Monte Carlo under node and fails the site build if it does not; on 2026-10-20 it gave 1.0000&nbsp;eV, r&sup2; = 0.99959.</p>
+<h3>The chemists&rsquo; form</h3>
+<p>Chemists write the same law for a rate constant, <i>k</i> = <i>A</i>&nbsp;exp(&minus;<i>E</i><sub>a</sub>/<i>RT</i>), and read the activation energy off the slope of ln&nbsp;<i>k</i> against 1/<i>T</i> <a href="#ref-flowers2019chemistry2e">(Flowers et al., 2019)</a>, §12.5, p. 612. <i>R</i> = <i>N</i><sub>A</sub><i>k</i> per mole; <i>k</i> per atom.</p>
+</details>
+
+<nav class="lesson-nav" aria-label="Lessons"></nav>
+
+<!-- references:begin -->
+<h2>References</h2>
+
+<p class="csl-entry" id="ref-flowers2019chemistry2e" style="padding-left: 2em; text-indent: -2em;">Flowers, P., Theopold, K., Langley, R., &#38; Robinson, W. R. (2019). <i>Chemistry 2e</i>. OpenStax. https://openstax.org/details/books/chemistry-2e</p>
+
+<p class="csl-entry" id="ref-ling2016universityphysics2" style="padding-left: 2em; text-indent: -2em;">Ling, S. J., Sanny, J., &#38; Moebs, W. (2016). <i>University Physics, Volume 2</i>. OpenStax. https://openstax.org/details/books/university-physics-volume-2</p>
+
+<p class="csl-entry" id="ref-tian2026mate664" style="padding-left: 2em; text-indent: -2em;">Tian group, University of Alberta. (2026). <i>MATE 664: Kinetics of Materials, lecture notes</i>. https://github.com/tiangroup-uofa/mate664-kinetics-of-materials</p>
+
+<!-- references:end -->
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. GPL-3.0. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>

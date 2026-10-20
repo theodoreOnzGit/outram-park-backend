@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Many Booth spheres</title>
+<meta name="description" content="Fission products, lesson 17: the kernel as many grain spheres of different sizes and temperatures, each with its own Booth release, summed. Where one equivalent sphere is a good shortcut and where it is not.">
+<link rel="stylesheet" href="../../style.css">
+<script src="../neutronics/lesson-kit.js" defer></script>
+<script src="kernel-data.js" defer></script>
+<script src="kernel-recorded.js" defer></script>
+<script src="cascade-recorded.js" defer></script>
+<script src="kernel-physics.js" defer></script>
+<script src="kernel-story.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Fission products, chapter 3, lesson 17. The kernel's power density and
+     radial temperature profile are derived in the lesson_triso_kernel
+     generator (nee_soon HTR-10 table 1, tampines Pebble::htr10 and fresh-UO2
+     conductivity, outram-mc-libs TrisoSpec), checked against tampines'
+     particle solution. Grain sizes are ILLUSTRATIVE. -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response. <strong>Review status:</strong> AI-assisted first draft (2026-10-20), not yet reviewed by a human.</p>
+<span id="kd-numbers" hidden></span>
+
+<h1>Many Booth spheres</h1>
+<p class="kicker lesson-progress">Fission products</p>
+
+<p>A kernel is a packing of grains. Each is a little Booth sphere, with its own size and its own temperature, so its own D. The kernel releases the sum, weighted by how many atoms each grain holds.</p>
+
+<section class="widget-card">
+  <h3>One sphere or many</h3>
+  <div class="widget" id="many">
+    <canvas aria-label="Released fraction against time for one equivalent sphere and for many grain spheres with a spread of sizes and temperatures."></canvas>
+  </div>
+  <p class="note">Each grain uses its local D from the code&rsquo;s class for your family. Grain-size spread: <b>illustrative</b> (a lognormal of chosen width). Temperatures: from the kernel profile below.</p>
+</section>
+
+<p><b>Predict first.</b> Which matters more in a TRISO kernel: the spread of grain sizes, or the temperature difference between the kernel&rsquo;s centre and its edge?</p>
+
+<h2>The temperature inside a kernel, worked out</h2>
+<p>HTR-10&rsquo;s core-average power per particle is <b data-kd="perParticle">&hellip;</b>: its thermal power divided by its fuel pebbles and the particles in each, from the workspace&rsquo;s cited HTR-10 data. Spread over the kernel that is <span data-kd="qKernel">&hellip;</span>. Conducting it out through UO<sub>2</sub> (tampines&rsquo; fresh-fuel conductivity) makes the centre only <b data-kd="rises">&hellip;</b> hotter than the surface. tampines&rsquo; own particle solver agrees to within hundredths of a kelvin.</p>
+<p>So, the answer to the prediction: in a TRISO kernel the <b>size spread</b> matters, and the radial temperature hardly does. Toggle both and see.</p>
+
+<h2>Why the shortcut can miss</h2>
+<p>Booth&rsquo;s release is not a straight line in D/a&sup2;: early on it grows as its square root, later it saturates at 1. So the release of the average grain is not the average release of the grains. Small grains empty first and dominate early; big grains hold out late. One &ldquo;equivalent&rdquo; sphere can match one moment and miss the rest.</p>
+
+<p><b>Next question:</b> a grain&rsquo;s boundary is not the kernel&rsquo;s surface. Which sphere should the radius be?</p>
+
+<details class="optional">
+<summary>Learn more advanced stuff</summary>
+<h3>The existing analogue</h3>
+<p>TRISO-ATOPS evaluates Booth per fuel node, each node at its own temperature, and sums over nodes (<code>normal_operation_node</code>); this page does the same one level down, per grain.</p>
+<h3>What the temperature profile assumes</h3>
+<p>Fresh fuel (tampines&rsquo; conductivity has no burnup term; lesson 26), uniform power density across the kernel, and the HTR-10 core <i>average</i>. A hot spot in the core would raise every temperature here, which the panel&rsquo;s shift slider imitates.</p>
+</details>
+
+<nav class="lesson-nav" aria-label="Lessons"></nav>
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. GPL-3.0. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>

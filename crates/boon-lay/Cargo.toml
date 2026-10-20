@@ -20,7 +20,11 @@ include = [
     "/src/rustbca/LICENSE",
     "/README.md",
     "/LICENSE",
+    # The AGPL-3.0 text is `/LICENSE`; the GPL-3.0 text ships beside it because
+    # `src/rustbca/` stays GPL-3.0-or-later (gh:#973).
+    "/LICENSE.GPL-3.0",
     "/LICENSE.triso-atops",
+    "/NOTICE",
     "/NOTICE.triso-atops",
     "/TRADEMARKS.md",
     "/TRISO_ATOPS_DERIVATION.md",

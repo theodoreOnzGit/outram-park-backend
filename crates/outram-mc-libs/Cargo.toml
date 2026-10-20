@@ -23,6 +23,7 @@ include = [
     "/README.md",
     "/LICENSE",
     "/LICENSE.openmc",
+    "/NOTICE",
     "/TRADEMARKS.md",
     "/NUCLEAR_DATA.md",
     "/upstream_source/README.md",
