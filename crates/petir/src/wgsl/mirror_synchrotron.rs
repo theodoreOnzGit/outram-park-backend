@@ -184,7 +184,7 @@ fn s1_with(x: f32, cut: f32) -> f32 {
     }
     if x < cut {
         let t = (12.0 - x) / (x + 4.0);
-        return x.sqrt() * cheb(&SYNCH1A, t) * Real::exp(LOG_SQRT_PI_2 - x);
+        return Real::sqrt(x) * cheb(&SYNCH1A, t) * Real::exp(LOG_SQRT_PI_2 - x);
     }
     0.0
 }
@@ -209,7 +209,7 @@ fn s2_with(x: f32, cut: f32) -> f32 {
     }
     if x < cut {
         let t = (10.0 - x) / (x + 2.0);
-        return x.sqrt() * Real::exp(LOG_SQRT_PI_2 - x) * cheb(&SYNCH2A, t);
+        return Real::sqrt(x) * Real::exp(LOG_SQRT_PI_2 - x) * cheb(&SYNCH2A, t);
     }
     0.0
 }
@@ -333,10 +333,22 @@ mod tests {
     /// stays within a small factor of the cancellation ratio. If a future
     /// change makes the error *large* relative to the cancellation, that is a
     /// transcription defect and this test is what distinguishes the two.
+    ///
+    /// **FAILING since 2026-10-20, OPEN for the maintainer (gh #1001).** The
+    /// factor 4 was measured in the `cfg(test)` build, where std's inherent
+    /// `powf` (glibc) shadowed `Real::powf`, so it described glibc, not the
+    /// shipped `libm` route. Through `libm` the mirror misses at `x = 3.99`:
+    /// `S_1` error 4535 ulps against a cancellation of 1101.6, a factor of
+    /// 4.12. The cause is one input: `libm::powf(3.99, 1/3)` returns
+    /// `0x3fcb0494`, 0.64 ulp from the true value, where glibc returns the
+    /// correctly rounded `0x3fcb0493` (within musl's documented 0.82-ulp
+    /// bound, so not an upstream bug), and `S_1`'s `x^{11/3}` term multiplies
+    /// that error by 11 before the cancellation. The assertion is left as it
+    /// was: moving the factor is the maintainer's call.
     #[test]
     fn the_f32_cost_is_cancellation_at_the_branch_boundary() {
         for x in [1.0_f32, 2.0, 3.0, 3.9, 3.99, 4.0] {
-            let px = x.powf(1.0 / 3.0);
+            let px = Real::powf(x, 1.0 / 3.0); // as shipped (gh #1001)
             let t = x * x / 8.0 - 1.0;
 
             let (a, b, c) = (
@@ -372,7 +384,7 @@ mod tests {
         // And the cancellation really does worsen toward the boundary, which
         // is why the worst point above sits there.
         let ratio = |x: f32| {
-            let px = x.powf(1.0 / 3.0);
+            let px = Real::powf(x, 1.0 / 3.0); // as shipped (gh #1001)
             let t = x * x / 8.0 - 1.0;
             let (a, b, c) = (
                 px * cheb(&SYNCH1, t),

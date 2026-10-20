@@ -195,7 +195,7 @@ pub fn rc(x: f64, y: f64, mode: Mode) -> f64 {
         if sn.abs() < errtol {
             break;
         }
-        let lamda = 2.0 * xn.sqrt() * yn.sqrt() + yn;
+        let lamda = 2.0 * Real::sqrt(xn) * Real::sqrt(yn) + yn;
         xn = (xn + lamda) * 0.25;
         yn = (yn + lamda) * 0.25;
         tick();
@@ -204,7 +204,7 @@ pub fn rc(x: f64, y: f64, mode: Mode) -> f64 {
         }
     }
     let s = sn * sn * (0.3 + sn * (C1 + sn * (0.375 + sn * C2)));
-    (1.0 + s) / mu.sqrt()
+    (1.0 + s) / Real::sqrt(mu)
 }
 
 /// Carlson's `R_D(x,y,z)`, GSL's `gsl_sf_ellint_RD`.
@@ -248,7 +248,7 @@ pub fn rd(x: f64, y: f64, z: f64, mode: Mode) -> f64 {
         if max3(xndev.abs(), yndev.abs(), zndev.abs()) < errtol {
             break;
         }
-        let (xr, yr, zr) = (xn.sqrt(), yn.sqrt(), zn.sqrt());
+        let (xr, yr, zr) = (Real::sqrt(xn), Real::sqrt(yn), Real::sqrt(zn));
         let lamda = xr * (yr + zr) + yr * zr;
         sigma += power4 / (zr * (zn + lamda));
         power4 *= 0.25;
@@ -267,7 +267,7 @@ pub fn rd(x: f64, y: f64, z: f64, mode: Mode) -> f64 {
     let ef = ed + ec + ec;
     let s1 = ed * (-C1 + 0.25 * C3 * ed - 1.5 * C4 * zndev * ef);
     let s2 = zndev * (C2 * ef + zndev * (-C3 * ec + zndev * C4 * ea));
-    3.0 * sigma + power4 * (1.0 + s1 + s2) / (mu * mu.sqrt())
+    3.0 * sigma + power4 * (1.0 + s1 + s2) / (mu * Real::sqrt(mu))
 }
 
 /// Carlson's `R_F(x,y,z)`, GSL's `gsl_sf_ellint_RF`.
@@ -305,7 +305,7 @@ pub fn rf(x: f64, y: f64, z: f64, mode: Mode) -> f64 {
         if max3(xndev.abs(), yndev.abs(), zndev.abs()) < errtol {
             break;
         }
-        let (xr, yr, zr) = (xn.sqrt(), yn.sqrt(), zn.sqrt());
+        let (xr, yr, zr) = (Real::sqrt(xn), Real::sqrt(yn), Real::sqrt(zn));
         let lamda = xr * (yr + zr) + yr * zr;
         xn = (xn + lamda) * 0.25;
         yn = (yn + lamda) * 0.25;
@@ -318,7 +318,7 @@ pub fn rf(x: f64, y: f64, z: f64, mode: Mode) -> f64 {
     let e2 = xndev * yndev - zndev * zndev;
     let e3 = xndev * yndev * zndev;
     let s = 1.0 + (C1 * e2 - 0.1 - C2 * e3) * e2 + C3 * e3;
-    s / mu.sqrt()
+    s / Real::sqrt(mu)
 }
 
 /// Carlson's `R_J(x,y,z,p)`, GSL's `gsl_sf_ellint_RJ`.
@@ -365,7 +365,7 @@ pub fn rj(x: f64, y: f64, z: f64, p: f64, mode: Mode) -> f64 {
         if max4(xndev.abs(), yndev.abs(), zndev.abs(), pndev.abs()) < errtol {
             break;
         }
-        let (xr, yr, zr) = (xn.sqrt(), yn.sqrt(), zn.sqrt());
+        let (xr, yr, zr) = (Real::sqrt(xn), Real::sqrt(yn), Real::sqrt(zn));
         let lamda = xr * (yr + zr) + yr * zr;
         let alfa = pn * (xr + yr + zr) + xr * yr * zr;
         let alfa = alfa * alfa;
@@ -393,7 +393,7 @@ pub fn rj(x: f64, y: f64, z: f64, p: f64, mode: Mode) -> f64 {
     let s1 = 1.0 + e2 * (-C1 + 0.75 * C3 * e2 - 1.5 * C4 * e3);
     let s2 = eb * (0.5 * C2 + pndev * (-C3 - C3 + pndev * C4));
     let s3 = pndev * ea * (C2 - pndev * C3) - C2 * pndev * ec;
-    3.0 * sigma + power4 * (s1 + s2 + s3) / (mu * mu.sqrt())
+    3.0 * sigma + power4 * (s1 + s2 + s3) / (mu * Real::sqrt(mu))
 }
 
 /// The incomplete elliptic integral of the first kind `F(phi, k)`, GSL's

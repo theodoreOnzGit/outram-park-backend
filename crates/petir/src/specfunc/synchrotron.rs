@@ -190,7 +190,9 @@ pub fn synchrotron_1(x: f64) -> f64 {
     }
     if x < underflow_cut() {
         let t = (12.0 - x) / (x + 4.0);
-        return x.sqrt() * crate::cheb_slice::eval_gsl(t, &SYNCH1A) * Real::exp(LOG_SQRT_PI_2 - x);
+        return Real::sqrt(x)
+            * crate::cheb_slice::eval_gsl(t, &SYNCH1A)
+            * Real::exp(LOG_SQRT_PI_2 - x);
     }
     // Upstream's UNDERFLOW_ERROR: e^{-x} has left f64's range.
     0.0
@@ -217,7 +219,9 @@ pub fn synchrotron_2(x: f64) -> f64 {
     }
     if x < underflow_cut() {
         let t = (10.0 - x) / (x + 2.0);
-        return x.sqrt() * Real::exp(LOG_SQRT_PI_2 - x) * crate::cheb_slice::eval_gsl(t, &SYNCH2A);
+        return Real::sqrt(x)
+            * Real::exp(LOG_SQRT_PI_2 - x)
+            * crate::cheb_slice::eval_gsl(t, &SYNCH2A);
     }
     0.0
 }

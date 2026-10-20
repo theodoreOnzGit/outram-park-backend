@@ -1142,17 +1142,19 @@ mod tests {
             let t = (s - 10.0) / 5.0;
             let with_23 = eval_gsl(t, &ZETAM1_INTER[..23]);
             let with_24 = eval_gsl(t, &ZETAM1_INTER);
-            let pow = 2.0_f64.powf(-s);
+            // UFCS, as the shipped branch (gh #1001): the method form would
+            // call the platform libm in this std-linked test build.
+            let pow = Real::powf(2.0_f64, -s);
 
             // What the branch returns must be the 23-coefficient form, bit
             // for bit, at every point.
             assert_eq!(
                 zetam1_intermediate(s).to_bits(),
-                (with_23.exp() + pow).to_bits(),
+                (Real::exp(with_23) + pow).to_bits(),
                 "zetam1_intermediate at s = {s} is not the 23-coefficient form"
             );
 
-            let out_24 = with_24.exp() + pow;
+            let out_24 = Real::exp(with_24) + pow;
             if zetam1_intermediate(s).to_bits() != out_24.to_bits() {
                 differing += 1;
                 worst = worst.max(((zetam1_intermediate(s) - out_24) / out_24).abs());

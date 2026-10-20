@@ -280,17 +280,17 @@ fn mod_phase(x: f64) -> (f64, f64) {
     };
     let m = 0.3125 + m;
     let p = -0.625 + p;
-    let sqx = (-x).sqrt();
-    let modulus = (m / sqx).sqrt();
+    let sqx = Real::sqrt(-x);
+    let modulus = Real::sqrt(m / sqx);
     let phase = core::f64::consts::FRAC_PI_4 - x * sqx * p;
     (modulus, phase)
 }
 
 /// `exp(+(2/3) x^{3/2}) Ai(x)` for `x >= 1`, upstream's `airy_aie`.
 fn aie(x: f64) -> f64 {
-    let sqx = x.sqrt();
+    let sqx = Real::sqrt(x);
     let z = 2.0 / (x * sqx) - 1.0;
-    let y = sqx.sqrt();
+    let y = Real::sqrt(sqx);
     (0.28125 + cheb(z, &AIP)) / y
 }
 
@@ -302,8 +302,8 @@ fn aie(x: f64) -> f64 {
 fn bie(x: f64) -> f64 {
     const ATR: f64 = 8.750_690_570_848_434_5;
     const BTR: f64 = -2.093_836_321_356_054_3;
-    let sqx = x.sqrt();
-    let y = sqx.sqrt();
+    let sqx = Real::sqrt(x);
+    let y = Real::sqrt(sqx);
     // Branch fully rather than selecting a slice: `&BIP[..]` is a range
     // subscript, which `tests/no_panic_gate.rs` rejects on sight even though
     // a full-range one cannot fail. The gate is conservative on purpose.
@@ -341,7 +341,7 @@ pub fn airy_ai(x: f64) -> f64 {
         let z = x * x * x;
         0.375 + (cheb(z, &AIF) - x * (0.25 + cheb(z, &AIG)))
     } else {
-        let x32 = x * x.sqrt();
+        let x32 = x * Real::sqrt(x);
         aie(x) * Real::exp(-2.0 * x32 / 3.0)
     }
 }
@@ -367,7 +367,7 @@ pub fn airy_ai_scaled(x: f64) -> f64 {
         let z = x * x * x;
         let v = 0.375 + (cheb(z, &AIF) - x * (0.25 + cheb(z, &AIG)));
         if x > 0.0 {
-            v * Real::exp(2.0 / 3.0 * z.sqrt())
+            v * Real::exp(2.0 / 3.0 * Real::sqrt(z))
         } else {
             v
         }
@@ -408,7 +408,7 @@ pub fn airy_bi(x: f64) -> f64 {
         let z = (2.0 * x * x * x - 9.0) / 7.0;
         1.125 + cheb(z, &BIF2) + x * (0.625 + cheb(z, &BIG2))
     } else {
-        let y = 2.0 * x * x.sqrt() / 3.0;
+        let y = 2.0 * x * Real::sqrt(x) / 3.0;
         if y > LOG_DBL_MAX - 1.0 {
             // Upstream's OVERFLOW_ERROR, which sets +inf.
             f64::INFINITY
@@ -437,14 +437,14 @@ pub fn airy_bi_scaled(x: f64) -> f64 {
         let z = x * x * x;
         let v = 0.625 + cheb(z, &BIF) + x * (0.4375 + cheb(z, &BIG));
         if x > 0.0 {
-            v * Real::exp(-2.0 / 3.0 * z.sqrt())
+            v * Real::exp(-2.0 / 3.0 * Real::sqrt(z))
         } else {
             v
         }
     } else if x <= 2.0 {
         let x3 = x * x * x;
         let z = (2.0 * x3 - 9.0) / 7.0;
-        let s = Real::exp(-2.0 / 3.0 * x3.sqrt());
+        let s = Real::exp(-2.0 / 3.0 * Real::sqrt(x3));
         s * (1.125 + cheb(z, &BIF2) + x * (0.625 + cheb(z, &BIG2)))
     } else {
         bie(x)

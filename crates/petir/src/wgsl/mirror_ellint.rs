@@ -188,13 +188,13 @@ fn rc_with(x: f32, y: f32, nmax: u32) -> f32 {
             steps = n;
             break;
         }
-        let lamda = 2.0 * xn.sqrt() * yn.sqrt() + yn;
+        let lamda = 2.0 * Real::sqrt(xn) * Real::sqrt(yn) + yn;
         xn = (xn + lamda) * 0.25;
         yn = (yn + lamda) * 0.25;
     }
     note_steps(steps);
     let s = sn * sn * (0.3 + sn * (C1 + sn * (0.375 + sn * C2)));
-    (1.0 + s) / mu.sqrt()
+    (1.0 + s) / Real::sqrt(mu)
 }
 
 /// Carlson's `R_D(x,y,z)`. Mirrors `petir_ellint_rd`.
@@ -228,7 +228,7 @@ fn rd_with(x: f32, y: f32, z: f32, nmax: u32) -> f32 {
             steps = n;
             break;
         }
-        let (xr, yr, zr) = (xn.sqrt(), yn.sqrt(), zn.sqrt());
+        let (xr, yr, zr) = (Real::sqrt(xn), Real::sqrt(yn), Real::sqrt(zn));
         let lamda = xr * (yr + zr) + yr * zr;
         sigma += power4 / (zr * (zn + lamda));
         power4 *= 0.25;
@@ -244,7 +244,7 @@ fn rd_with(x: f32, y: f32, z: f32, nmax: u32) -> f32 {
     let ef = ed + ec + ec;
     let s1 = ed * (-C1 + 0.25 * C3 * ed - 1.5 * C4 * zndev * ef);
     let s2 = zndev * (C2 * ef + zndev * (-C3 * ec + zndev * C4 * ea));
-    3.0 * sigma + power4 * (1.0 + s1 + s2) / (mu * mu.sqrt())
+    3.0 * sigma + power4 * (1.0 + s1 + s2) / (mu * Real::sqrt(mu))
 }
 
 /// Carlson's `R_F(x,y,z)`. Mirrors `petir_ellint_rf`.
@@ -278,7 +278,7 @@ fn rf_with(x: f32, y: f32, z: f32, nmax: u32) -> f32 {
             steps = n;
             break;
         }
-        let (xr, yr, zr) = (xn.sqrt(), yn.sqrt(), zn.sqrt());
+        let (xr, yr, zr) = (Real::sqrt(xn), Real::sqrt(yn), Real::sqrt(zn));
         let lamda = xr * (yr + zr) + yr * zr;
         xn = (xn + lamda) * 0.25;
         yn = (yn + lamda) * 0.25;
@@ -288,7 +288,7 @@ fn rf_with(x: f32, y: f32, z: f32, nmax: u32) -> f32 {
     let e2 = xndev * yndev - zndev * zndev;
     let e3 = xndev * yndev * zndev;
     let s = 1.0 + (C1 * e2 - 0.1 - C2 * e3) * e2 + C3 * e3;
-    s / mu.sqrt()
+    s / Real::sqrt(mu)
 }
 
 /// Carlson's `R_J(x,y,z,p)`. Mirrors `petir_ellint_rj`.
@@ -330,7 +330,7 @@ fn rj_with(x: f32, y: f32, z: f32, p: f32, nmax: u32) -> f32 {
             steps = n;
             break;
         }
-        let (xr, yr, zr) = (xn.sqrt(), yn.sqrt(), zn.sqrt());
+        let (xr, yr, zr) = (Real::sqrt(xn), Real::sqrt(yn), Real::sqrt(zn));
         let lamda = xr * (yr + zr) + yr * zr;
         let alfa = pn * (xr + yr + zr) + xr * yr * zr;
         let alfa = alfa * alfa;
@@ -355,7 +355,7 @@ fn rj_with(x: f32, y: f32, z: f32, p: f32, nmax: u32) -> f32 {
     let s1 = 1.0 + e2 * (-C1 + 0.75 * C3 * e2 - 1.5 * C4 * e3);
     let s2 = eb * (0.5 * C2 + pndev * (-C3 - C3 + pndev * C4));
     let s3 = pndev * ea * (C2 - pndev * C3) - C2 * pndev * ec;
-    3.0 * sigma + power4 * (s1 + s2 + s3) / (mu * mu.sqrt())
+    3.0 * sigma + power4 * (s1 + s2 + s3) / (mu * Real::sqrt(mu))
 }
 
 /// The complete elliptic integral of the first kind `K(k)`. Mirrors

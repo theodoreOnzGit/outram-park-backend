@@ -144,7 +144,7 @@ pub fn nrm2(x: &[f64]) -> f64 {
             ssq += r * r;
         }
     }
-    scale * ssq.sqrt()
+    scale * Real::sqrt(ssq)
 }
 
 /// Sum of absolute values, `sum |x_i|` — the vector 1-norm.

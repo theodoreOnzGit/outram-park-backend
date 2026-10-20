@@ -205,7 +205,7 @@ impl SecondOrderDecayingModes {
                 let zeta = damping_factor.get::<ratio>();
                 let time_ratio = (time_step / process_time).get::<ratio>();
                 let decay = Real::exp(-zeta * time_ratio);
-                let angle = (1.0 - zeta * zeta).sqrt() * time_ratio;
+                let angle = Real::sqrt(1.0 - zeta * zeta) * time_ratio;
                 let (sin_angle, cos_angle) = Real::sin_cos(angle);
 
                 // rotation by `angle`, shrunk by `decay` -- angle addition on
@@ -233,7 +233,7 @@ impl SecondOrderDecayingModes {
                 fast_mode,
             } => {
                 let zeta = damping_factor.get::<ratio>();
-                let root = (zeta * zeta - 1.0).sqrt();
+                let root = Real::sqrt(zeta * zeta - 1.0);
                 let time_ratio = (time_step / process_time).get::<ratio>();
 
                 *slow_mode = *slow_mode * Real::exp(-(zeta - root) * time_ratio);
@@ -263,7 +263,7 @@ impl SecondOrderDecayingModes {
             } => {
                 let zeta = damping_factor.get::<ratio>();
                 let decay = Real::exp(-zeta * time_ratio);
-                let angle = (1.0 - zeta * zeta).sqrt() * time_ratio;
+                let angle = Real::sqrt(1.0 - zeta * zeta) * time_ratio;
                 let (sin_angle, cos_angle) = Real::sin_cos(angle);
                 *cosine_mode += step_magnitude * (decay * cos_angle);
                 *sine_mode += step_magnitude * (decay * sin_angle);
@@ -281,7 +281,7 @@ impl SecondOrderDecayingModes {
                 fast_mode,
             } => {
                 let zeta = damping_factor.get::<ratio>();
-                let root = (zeta * zeta - 1.0).sqrt();
+                let root = Real::sqrt(zeta * zeta - 1.0);
                 // r_1 tau = zeta - root, r_2 tau = zeta + root,
                 // (r_2 - r_1) tau = 2 root
                 let slow_weight = (zeta + root) / (2.0 * root);

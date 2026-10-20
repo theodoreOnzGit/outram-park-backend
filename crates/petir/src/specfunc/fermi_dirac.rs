@@ -779,7 +779,7 @@ fn fd_series_half(x: f64, whole: u32) -> f64 {
     // is harmless for all three because the break is on convergence.
     for n in 2..200 {
         let rat = (n as f64 - 1.0) / n as f64;
-        let mut r = rat.sqrt();
+        let mut r = Real::sqrt(rat);
         for _ in 0..whole {
             r *= rat;
         }
@@ -824,7 +824,7 @@ pub fn fermi_dirac_mhalf(x: f64) -> f64 {
     } else if x < 10.0 {
         cheb(1.0 / 3.0 * (x - 4.0) - 1.0, &FD_MHALF_C)
     } else if x < 30.0 {
-        cheb(0.1 * x - 2.0, &FD_MHALF_D) * x.sqrt()
+        cheb(0.1 * x - 2.0, &FD_MHALF_D) * Real::sqrt(x)
     } else {
         fd_asymp(-0.5, x)
     }
@@ -865,7 +865,7 @@ pub fn fermi_dirac_half(x: f64) -> f64 {
     } else if x < 10.0 {
         cheb(1.0 / 3.0 * (x - 4.0) - 1.0, &FD_HALF_C)
     } else if x < 30.0 {
-        cheb(0.1 * x - 2.0, &FD_HALF_D) * (x * x.sqrt())
+        cheb(0.1 * x - 2.0, &FD_HALF_D) * (x * Real::sqrt(x))
     } else {
         fd_asymp(0.5, x)
     }
@@ -903,7 +903,7 @@ pub fn fermi_dirac_3half(x: f64) -> f64 {
     } else if x < 10.0 {
         cheb(1.0 / 3.0 * (x - 4.0) - 1.0, &FD_3HALF_C)
     } else if x < 30.0 {
-        cheb(0.1 * x - 2.0, &FD_3HALF_D) * (x * x * x.sqrt())
+        cheb(0.1 * x - 2.0, &FD_3HALF_D) * (x * x * Real::sqrt(x))
     } else {
         fd_asymp(1.5, x)
     }

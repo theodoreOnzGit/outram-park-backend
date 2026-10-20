@@ -103,12 +103,12 @@ impl QuadraticEqn {
 
         if discr > 0.0 {
             // Two distinct real roots — use numerically stable form
-            let x = -b / 2.0 - sign(b) * discr.sqrt();
+            let x = -b / 2.0 - sign(b) * Real::sqrt(discr);
             Roots::from_pair(LinearEqn::new(-a, x).roots(), LinearEqn::new(-x, c).roots())
         } else if discr < 0.0 {
             // Complex conjugate pair: Re ± Im·i
             let x_re = Roots::<1>::new(RootType::Complex, -b / 2.0 / a);
-            let x_im = Roots::<1>::new(RootType::Complex, sign(b) * (-discr).sqrt() / a);
+            let x_im = Roots::<1>::new(RootType::Complex, sign(b) * Real::sqrt(-discr) / a);
             Roots::from_pair(x_re, x_im)
         } else {
             // One repeated real root

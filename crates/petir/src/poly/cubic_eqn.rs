@@ -115,15 +115,15 @@ impl CubicEqn {
 
         let three_real = discr < 0.0;
         let one_real_two_complex = discr > 0.0;
-        let two_real = p.abs() > SMALL.sqrt() && !(three_real || one_real_two_complex);
+        let two_real = p.abs() > Real::sqrt(SMALL) && !(three_real || one_real_two_complex);
 
-        let sqrt3 = 3.0_f64.sqrt();
+        let sqrt3 = Real::sqrt(3.0_f64);
 
         let x: f64;
 
         if three_real {
             let w_cb_re = -q / 2.0;
-            let w_cb_im = (-discr).sqrt();
+            let w_cb_im = Real::sqrt(-discr);
             let w_abs = Real::cbrt(Real::hypot(w_cb_re, w_cb_im));
             let w_arg = Real::atan2(w_cb_im, w_cb_re) / 3.0;
             let w_re = w_abs * Real::cos(w_arg);
@@ -135,7 +135,7 @@ impl CubicEqn {
                 2.0 * w_re - b / 3.0
             };
         } else if one_real_two_complex {
-            let w_cb = -q / 2.0 - sign(q) * discr.sqrt();
+            let w_cb = -q / 2.0 - sign(q) * Real::sqrt(discr);
             let w = Real::cbrt(w_cb);
             let t = w - p / (3.0 * w);
 

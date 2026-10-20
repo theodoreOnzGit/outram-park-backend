@@ -286,7 +286,7 @@ pub fn j0(x: f32) -> f32 {
     let ca = cheb(z, &BM0);
     let ct = cheb(z, &BTH0);
     let cp = cos_pi4(y, ct / y);
-    (0.75 + ca) / y.sqrt() * cp
+    (0.75 + ca) / Real::sqrt(y) * cp
 }
 
 /// `J_1(x)` in `f32`. Mirrors `petir_bessel_j1`.
@@ -305,7 +305,7 @@ pub fn j1(x: f32) -> f32 {
     let ca = cheb(z, &BM1);
     let ct = cheb(z, &BTH1);
     let sp = sin_pi4(y, ct / y);
-    let ampl = (0.75 + ca) / y.sqrt();
+    let ampl = (0.75 + ca) / Real::sqrt(y);
     (if x < 0.0 { -ampl } else { ampl }) * sp
 }
 
@@ -324,7 +324,7 @@ pub fn y0(x: f32) -> f32 {
         let c1 = cheb(z, &BM0);
         let c2 = cheb(z, &BTH0);
         let sp = sin_pi4(x, c2 / x);
-        return (0.75 + c1) / x.sqrt() * sp;
+        return (0.75 + c1) / Real::sqrt(x) * sp;
     }
     0.0
 }
@@ -349,7 +349,7 @@ pub fn y1(x: f32) -> f32 {
         let ca = cheb(z, &BM1);
         let ct = cheb(z, &BTH1);
         let cp = cos_pi4(x, ct / x);
-        return -(0.75 + ca) / x.sqrt() * cp;
+        return -(0.75 + ca) / Real::sqrt(x) * cp;
     }
     0.0
 }
@@ -364,9 +364,9 @@ pub fn i0_scaled(x: f32) -> f32 {
         return Real::exp(-y) * (2.75 + cheb(y * y / 4.5 - 1.0, &BI0));
     }
     if y <= 8.0 {
-        return (0.375 + cheb((48.0 / y - 11.0) / 5.0, &AI0)) / y.sqrt();
+        return (0.375 + cheb((48.0 / y - 11.0) / 5.0, &AI0)) / Real::sqrt(y);
     }
-    (0.375 + cheb(16.0 / y - 1.0, &AI02)) / y.sqrt()
+    (0.375 + cheb(16.0 / y - 1.0, &AI02)) / Real::sqrt(y)
 }
 
 /// `I_0(x)` in `f32`; `+inf` past `|x| ~ 88`. Mirrors `petir_bessel_i0`.
@@ -398,7 +398,7 @@ pub fn i1_scaled(x: f32) -> f32 {
     } else {
         cheb(16.0 / y - 1.0, &AI12)
     };
-    let b = (0.375 + c) / y.sqrt();
+    let b = (0.375 + c) / Real::sqrt(y);
     if x > 0.0 {
         b
     } else {
@@ -434,9 +434,9 @@ pub fn k0_scaled(x: f32) -> f32 {
         return Real::exp(x) * (poly(x2, &K0_POLY) - Real::ln(x) * i0v);
     }
     if x <= 8.0 {
-        return (1.203125 + cheb((16.0 / x - 9.0) / 7.0, &AK0)) / x.sqrt();
+        return (1.203125 + cheb((16.0 / x - 9.0) / 7.0, &AK0)) / Real::sqrt(x);
     }
-    (1.25 + cheb(16.0 / x - 1.0, &AK02)) / x.sqrt()
+    (1.25 + cheb(16.0 / x - 1.0, &AK02)) / Real::sqrt(x)
 }
 
 /// `K_0(x)` in `f32`, `NaN` for `x <= 0`. Mirrors `petir_bessel_k0`.
@@ -465,9 +465,9 @@ pub fn k1_scaled(x: f32) -> f32 {
         return Real::exp(x) * (x2 * poly(x2, &K1_POLY) + x * Real::ln(x) * i1v + 1.0) / x;
     }
     if x <= 8.0 {
-        return (1.375 + cheb((16.0 / x - 9.0) / 7.0, &AK1)) / x.sqrt();
+        return (1.375 + cheb((16.0 / x - 9.0) / 7.0, &AK1)) / Real::sqrt(x);
     }
-    (1.25 + cheb(16.0 / x - 1.0, &AK12)) / x.sqrt()
+    (1.25 + cheb(16.0 / x - 1.0, &AK12)) / Real::sqrt(x)
 }
 
 /// `K_1(x)` in `f32`, `NaN` for `x <= 0`. Mirrors `petir_bessel_k1`.

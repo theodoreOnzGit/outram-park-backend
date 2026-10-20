@@ -129,10 +129,10 @@ fn w0_full(x: f32, eps: f32, upstream_tol: bool) -> (f32, u32) {
         return (-1.0, 0);
     }
     if q < 1.0e-3 {
-        return (series_eval(q.sqrt()), 0);
+        return (series_eval(Real::sqrt(q)), 0);
     }
     let w = if x < 1.0 {
-        let p = (2.0 * E * q).sqrt();
+        let p = Real::sqrt(2.0 * E * q);
         -1.0 + p * (1.0 + p * (-1.0 / 3.0 + p * 11.0 / 72.0))
     } else {
         let mut w = Real::ln(x);
@@ -169,7 +169,7 @@ fn wm1_full(x: f32, eps: f32, upstream_tol: bool) -> (f32, u32) {
     }
     let w;
     if x < -1.0e-6 {
-        let v = series_eval(-q.sqrt());
+        let v = series_eval(-Real::sqrt(q));
         if q < 3.0e-3 {
             return (v, 0);
         }
@@ -245,10 +245,14 @@ mod tests {
     ///
     /// 1. **`eps` is a precision constant and is retargeted.** With
     ///    `DBL_EPSILON` (2.2e-16) an `f32` iterate can never satisfy the
-    ///    test. Measured over 200 probes on `W_0`: 142 burn the full
-    ///    iteration budget, and the other 58 stop only because their step
-    ///    became **exactly zero**, which satisfies any positive tolerance —
-    ///    all 58, checked. So the rule never actually terminates the loop;
+    ///    test. Measured over 200 probes on `W_0`: ~~142~~ **144** burn the
+    ///    full iteration budget, and the other ~~58~~ **56** stop only because
+    ///    their step became **exactly zero**, which satisfies any positive
+    ///    tolerance — all ~~58~~ **56**, checked. **CORRECTED 2026-10-20
+    ///    (gh #1001):** 142/58 were measured in the `cfg(test)` build, where
+    ///    std's inherent `expf` (glibc) shadowed `Real::exp`; the shipped
+    ///    `libm` route gives 144/56. The conclusion is unchanged. So the
+    ///    rule never actually terminates the loop;
     ///    the loop runs out, or the arithmetic does. `f32::EPSILON` ships.
     /// 2. **The `1/(|p| e^w)` term makes the tolerance `O(1)` and is
     ///    dropped.** Once `w` is very negative `e^w` is tiny, so that term
@@ -307,14 +311,15 @@ mod tests {
             "with f32::EPSILON the iteration is documented as converging in \
              at most 8 steps, and took {worst_iters_shipped}"
         );
-        // 142 of 200 burn the full budget. The other 58 stop, but NOT
-        // because the tolerance was met -- their Newton/Halley step became
-        // exactly zero, which satisfies any positive tolerance. Measured:
-        // all 58. So the rule is never what terminates the loop.
+        // 144 of 200 burn the full budget (142 when this test ran through
+        // glibc's expf; gh #1001). The other 56 stop, but NOT because the
+        // tolerance was met -- their Newton/Halley step became exactly zero,
+        // which satisfies any positive tolerance. Measured: all 56. So the
+        // rule is never what terminates the loop.
         assert!(
             hit_ceiling >= 140,
             "with upstream's DBL_EPSILON the iteration is documented as \
-             burning its full budget on 142 of 200 probes, and did so on \
+             burning its full budget on 144 of 200 probes, and did so on \
              {hit_ceiling}"
         );
         let mut zero_step = 0;
@@ -329,7 +334,8 @@ mod tests {
             early += 1;
             // Re-form the step the converged iterate would take next.
             let (w, _) = w0_full(x, DBL_EPSILON, false);
-            let e = w.exp();
+            // UFCS, as the shipped iteration (gh #1001).
+            let e = Real::exp(w);
             let p = w + 1.0;
             let mut t = w * e - x;
             if w > 0.0 {

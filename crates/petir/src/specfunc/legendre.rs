@@ -133,7 +133,7 @@ fn legendre_pmm(m: u32, x: f64) -> f64 {
         return 1.0;
     }
     let mut p_mm = 1.0_f64;
-    let root_factor = (1.0 - x).sqrt() * (1.0 + x).sqrt();
+    let root_factor = Real::sqrt(1.0 - x) * Real::sqrt(1.0 + x);
     let mut fact_coeff = 1.0_f64;
     for _ in 1..=m {
         p_mm *= -fact_coeff * root_factor;

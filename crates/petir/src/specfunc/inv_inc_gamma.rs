@@ -53,9 +53,9 @@ fn minimaxs(p: f64) -> f64 {
     const B3: f64 = 0.036_117_081_018_842_03;
 
     let t = if p < 0.5 {
-        (-2.0 * Real::ln(p)).sqrt()
+        Real::sqrt(-2.0 * Real::ln(p))
     } else {
-        (-2.0 * Real::ln(1.0 - p)).sqrt()
+        Real::sqrt(-2.0 * Real::ln(1.0 - p))
     };
 
     let s =
@@ -155,7 +155,7 @@ pub fn inv_inc_gamma(a: f64, p: f64) -> f64 {
         let s3 = s * s2;
         let s4 = s2 * s2;
         let s5 = s * s4;
-        let sqrta = a.sqrt();
+        let sqrta = Real::sqrt(a);
 
         let w = a + s * sqrta + (s2 - 1.0) / 3.0 + (s3 - 7.0 * s) / (36.0 * sqrta)
             - (3.0 * s4 + 7.0 * s2 - 16.0) / (810.0 * a)

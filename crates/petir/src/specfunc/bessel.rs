@@ -689,7 +689,7 @@ pub fn bessel_j0(x: f64) -> f64 {
     let ca = eval_gsl(z, &BM0);
     let ct = eval_gsl(z, &BTH0);
     let cp = cos_pi4(y, ct / y);
-    let ampl = (0.75 + ca) / y.sqrt();
+    let ampl = (0.75 + ca) / Real::sqrt(y);
     ampl * cp
 }
 
@@ -743,7 +743,7 @@ pub fn bessel_j1(x: f64) -> f64 {
     let ca = eval_gsl(z, &BM1);
     let ct = eval_gsl(z, &BTH1);
     let sp = sin_pi4(y, ct / y);
-    let ampl = (0.75 + ca) / y.sqrt();
+    let ampl = (0.75 + ca) / Real::sqrt(y);
     (if x < 0.0 { -ampl } else { ampl }) * sp
 }
 
@@ -798,7 +798,7 @@ pub fn bessel_y0(x: f64) -> f64 {
         let c1 = eval_gsl(z, &BM0);
         let c2 = eval_gsl(z, &BTH0);
         let sp = sin_pi4(x, c2 / x);
-        let ampl = (0.75 + c1) / x.sqrt();
+        let ampl = (0.75 + c1) / Real::sqrt(x);
         return ampl * sp;
     }
     // Upstream reports an underflow here; the value it hands back is zero.
@@ -868,7 +868,7 @@ pub fn bessel_y1(x: f64) -> f64 {
         let ca = eval_gsl(z, &BM1);
         let ct = eval_gsl(z, &BTH1);
         let cp = cos_pi4(x, ct / x);
-        let ampl = (0.75 + ca) / x.sqrt();
+        let ampl = (0.75 + ca) / Real::sqrt(x);
         return -ampl * cp;
     }
     // Upstream reports an underflow here; the value it hands back is zero.
@@ -918,10 +918,10 @@ pub fn bessel_i0_scaled(x: f64) -> f64 {
     }
     if y <= 8.0 {
         let c = eval_gsl((48.0 / y - 11.0) / 5.0, &AI0);
-        return (0.375 + c) / y.sqrt();
+        return (0.375 + c) / Real::sqrt(y);
     }
     let c = eval_gsl(16.0 / y - 1.0, &AI02);
-    (0.375 + c) / y.sqrt()
+    (0.375 + c) / Real::sqrt(y)
 }
 
 /// Modified Bessel function of the first kind, order zero, `I_0(x)`.
@@ -1007,7 +1007,7 @@ pub fn bessel_i1_scaled(x: f64) -> f64 {
     } else {
         eval_gsl(16.0 / y - 1.0, &AI12)
     };
-    let b = (0.375 + c) / y.sqrt();
+    let b = (0.375 + c) / Real::sqrt(y);
     let s = if x > 0.0 { 1.0 } else { -1.0 };
     s * b
 }
@@ -1117,10 +1117,10 @@ pub fn bessel_k0_scaled(x: f64) -> f64 {
     if x <= 8.0 {
         let c = eval_gsl((16.0 / x - 9.0) / 7.0, &AK0);
         // 1.203125 = 77/64, upstream's own note.
-        return (1.203125 + c) / x.sqrt();
+        return (1.203125 + c) / Real::sqrt(x);
     }
     let c = eval_gsl(16.0 / x - 1.0, &AK02);
-    (1.25 + c) / x.sqrt()
+    (1.25 + c) / Real::sqrt(x)
 }
 
 /// Modified Bessel function of the second kind, order zero, `K_0(x)`.
@@ -1198,10 +1198,10 @@ pub fn bessel_k1_scaled(x: f64) -> f64 {
     if x <= 8.0 {
         let c = eval_gsl((16.0 / x - 9.0) / 7.0, &AK1);
         // 1.375 = 11/8, upstream's own note.
-        return (1.375 + c) / x.sqrt();
+        return (1.375 + c) / Real::sqrt(x);
     }
     let c = eval_gsl(16.0 / x - 1.0, &AK12);
-    (1.25 + c) / x.sqrt()
+    (1.25 + c) / Real::sqrt(x)
 }
 
 /// Modified Bessel function of the second kind, order one, `K_1(x)`.

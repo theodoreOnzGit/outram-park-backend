@@ -415,7 +415,7 @@ fn series_half(x: f32, whole: u32) -> f32 {
     let mut sum = term;
     for n in 2..200 {
         let rat = (n as f32 - 1.0) / n as f32;
-        let mut r = rat.sqrt();
+        let mut r = Real::sqrt(rat);
         for _ in 0..whole {
             r *= rat;
         }
@@ -565,7 +565,7 @@ pub fn fermi_dirac_mhalf(x: f32) -> f32 {
     } else if x < 10.0 {
         cheb(&FD_MHALF_C, 1.0 / 3.0 * (x - 4.0) - 1.0)
     } else if x < 30.0 {
-        cheb(&FD_MHALF_D, 0.1 * x - 2.0) * x.sqrt()
+        cheb(&FD_MHALF_D, 0.1 * x - 2.0) * Real::sqrt(x)
     } else {
         asymp(-0.5, LG_MHALF, x)
     }
@@ -587,7 +587,7 @@ pub fn fermi_dirac_half(x: f32) -> f32 {
     } else if x < 10.0 {
         cheb(&FD_HALF_C, 1.0 / 3.0 * (x - 4.0) - 1.0)
     } else if x < 30.0 {
-        cheb(&FD_HALF_D, 0.1 * x - 2.0) * (x * x.sqrt())
+        cheb(&FD_HALF_D, 0.1 * x - 2.0) * (x * Real::sqrt(x))
     } else {
         asymp(0.5, LG_HALF, x)
     }
@@ -608,7 +608,7 @@ pub fn fermi_dirac_3half(x: f32) -> f32 {
     } else if x < 10.0 {
         cheb(&FD_3HALF_C, 1.0 / 3.0 * (x - 4.0) - 1.0)
     } else if x < 30.0 {
-        cheb(&FD_3HALF_D, 0.1 * x - 2.0) * (x * x * x.sqrt())
+        cheb(&FD_3HALF_D, 0.1 * x - 2.0) * (x * x * Real::sqrt(x))
     } else {
         asymp(1.5, LG_3HALF, x)
     }
