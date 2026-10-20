@@ -70,11 +70,20 @@ thiserror.workspace = true
 # solve's convergence path and move k_eff by 14 pcm. PETIR routes them through
 # the pure-Rust `libm` (fdlibm) instead, one fixed implementation on every
 # platform. See GitHub issue #222 and `petir::real`.
-petir.workspace = true
-# Sparse linear algebra, for the two flux solvers: ~~`faer`~~ **since
+#
+# `faer` + `std` (2026-10-20, gh #994, maintainer: "bring faer into petir
+# under a feature, then wire it into bedok"; "You can give petir a std feature
+# also"): the sparse solves run on the real faer through
+# `petir::sparse::SparseBackend::Faer`, with faer's runtime CPU detection.
+# Results then depend on the CPU; `matlab::set_sparse_backend(Ported)` gives
+# PETIR's deterministic port instead. See CLAUDE.md.
+petir = { workspace = true, features = ["faer", "std"] }
+# Sparse linear algebra, for the two flux solvers: ~~`faer`~~ ~~**since
 # 2026-10-20 (gh #994) `petir::sparse`**, a no_std port of faer 0.24.4's
 # simplicial sparse LU (COLAMD ordering), reached through the `petir`
-# dependency above. faer is no longer a dependency of this crate.
+# dependency above. faer is no longer a dependency of this crate.~~
+# **CHANGED again 2026-10-20 (gh #994):** faer itself, reached through
+# `petir`'s `faer` feature (above), by default; PETIR's port on request.
 #
 # Everything ported before them avoided a sparse solve: the A2 system in
 # calc_a1234_expansionxyz only *looks* like a philen-square solve and is in fact

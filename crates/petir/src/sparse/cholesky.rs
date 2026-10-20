@@ -37,7 +37,8 @@
 // Ported items:
 //   src/sparse/linalg/cholesky.rs  factorize_symbolic_cholesky (AMD ordering,
 //     the permutation to the upper triangle, the column counts, and the
-//     supernodal-or-simplicial decision, reported but not followed)
+//     supernodal-or-simplicial decision; the supernodal path itself is in
+//     cholesky_supernodal.rs)
 //                                                  -> SparseLlt::factorize_lower
 //   src/sparse/linalg/cholesky.rs  simplicial::ghost_factorize_simplicial_symbolic_cholesky
 //   src/sparse/linalg/cholesky.rs  simplicial::factorize_simplicial_numeric_cholesky
@@ -57,6 +58,9 @@
 use crate::real::Real;
 
 use super::amd::{self, Control};
+use super::cholesky_supernodal::{self, permute_self_adjoint_to_lower};
+use super::supernodal::{factorize_supernodal_symbolic, SymbolicSupernodal};
+use super::{SparseBackend, SymbolicKind};
 use super::etree::{ereach, prefactorize_symbolic_cholesky};
 use super::{g, m, sl, triangular, CscMatrix, CscPattern};
 use crate::{PetirError, Result};
@@ -78,6 +82,12 @@ pub struct SparseLlt {
     l_row_idx: Vec<usize>,
     l_val: Vec<f64>,
     faer_supernodal: bool,
+    /// The supernodal factor, when that path was taken (the simplicial
+    /// fields are then empty).
+    supernodal: Option<(SymbolicSupernodal, Vec<f64>)>,
+    /// faer's own factorisation, on [`SparseBackend::Faer`].
+    #[cfg(feature = "faer")]
+    faer: Option<super::faer_backend::FaerFactor>,
 }
 
 /// The permuted matrix in upper-triangle CSC form.
@@ -152,6 +162,15 @@ impl SparseLlt {
     /// `LltError::NonPositivePivot`); [`PetirError::Invalid`] on a malformed
     /// matrix.
     pub fn factorize_lower(a: &CscMatrix) -> Result<Self> {
+        Self::factorize_lower_with(a, SymbolicKind::Auto)
+    }
+
+    /// As [`Self::factorize_lower`], choosing the numeric path explicitly
+    /// ([`SymbolicKind::Auto`] is faer's own rule).
+    ///
+    /// # Errors
+    /// As [`Self::factorize_lower`].
+    pub fn factorize_lower_with(a: &CscMatrix, kind: SymbolicKind) -> Result<Self> {
         if a.nrows() != a.ncols() {
             return Err(PetirError::NotSquare {
                 rows: a.nrows(),
@@ -183,6 +202,28 @@ impl SparseLlt {
         // branch (only for a non-AMD ordering) is never reached here.
         let flops = flops.n_div + flops.n_mult_subs_ldl;
         let faer_supernodal = (flops / l_nnz as f64) > 1.0 * CHOLESKY_SUPERNODAL_RATIO_FACTOR;
+        let take_supernodal = match kind {
+            SymbolicKind::Auto => faer_supernodal,
+            SymbolicKind::Simplicial => false,
+            SymbolicKind::Supernodal => true,
+        };
+        if take_supernodal {
+            let sym = factorize_supernodal_symbolic(pat, None, &etree, &col_counts)?;
+            let lower = permute_self_adjoint_to_lower(a, &perm_inv)?;
+            let l = cholesky_supernodal::factorize_numeric(&lower, &sym)?;
+            return Ok(Self {
+                n,
+                perm_fwd,
+                perm_inv,
+                l_col_ptr: Vec::new(),
+                l_row_idx: Vec::new(),
+                l_val: Vec::new(),
+                faer_supernodal,
+                supernodal: Some((sym, l)),
+                #[cfg(feature = "faer")]
+                faer: None,
+            });
+        }
         // simplicial::ghost_factorize_simplicial_symbolic_cholesky
         let mut l_col_ptr = vec![0usize; n + 1];
         for (j, &cj) in col_counts.iter().enumerate() {
@@ -252,6 +293,9 @@ impl SparseLlt {
             l_row_idx,
             l_val,
             faer_supernodal,
+            supernodal: None,
+            #[cfg(feature = "faer")]
+            faer: None,
         })
     }
 
@@ -268,6 +312,53 @@ impl SparseLlt {
         self.faer_supernodal
     }
 
+    /// Factorise with the chosen [`SparseBackend`]: [`SparseBackend::Ported`]
+    /// is [`Self::factorize_lower`]; `SparseBackend::Faer` (feature `faer`)
+    /// hands the matrix to faer's `sp_cholesky(Side::Lower)`, and
+    /// [`Self::perm`] is then empty.
+    ///
+    /// # Errors
+    /// As [`Self::factorize_lower`].
+    pub fn factorize_lower_backend(a: &CscMatrix, backend: SparseBackend) -> Result<Self> {
+        match backend {
+            SparseBackend::Ported => Self::factorize_lower(a),
+            #[cfg(feature = "faer")]
+            SparseBackend::Faer => {
+                if a.nrows() != a.ncols() {
+                    return Err(PetirError::NotSquare {
+                        rows: a.nrows(),
+                        cols: a.ncols(),
+                    });
+                }
+                Ok(Self {
+                    n: a.ncols(),
+                    perm_fwd: Vec::new(),
+                    perm_inv: Vec::new(),
+                    l_col_ptr: Vec::new(),
+                    l_row_idx: Vec::new(),
+                    l_val: Vec::new(),
+                    faer_supernodal: false,
+                    supernodal: None,
+                    faer: Some(super::faer_backend::llt(a)?),
+                })
+            }
+        }
+    }
+
+    /// The backend that produced this factorisation.
+    pub fn backend(&self) -> SparseBackend {
+        #[cfg(feature = "faer")]
+        if self.faer.is_some() {
+            return SparseBackend::Faer;
+        }
+        SparseBackend::Ported
+    }
+
+    /// Whether this factorisation took the supernodal path.
+    pub fn is_supernodal(&self) -> bool {
+        self.supernodal.is_some()
+    }
+
     /// Solve `A x = b` in place (`rhs` holds `b` on entry).
     ///
     /// # Errors
@@ -279,9 +370,20 @@ impl SparseLlt {
                 found: rhs.len(),
             });
         }
+        #[cfg(feature = "faer")]
+        if let Some(f) = &self.faer {
+            return f.solve_in_place(rhs);
+        }
         let mut x = Vec::with_capacity(self.n);
         for &f in &self.perm_fwd {
             x.push(g(rhs, f)?);
+        }
+        if let Some((sym, l)) = &self.supernodal {
+            cholesky_supernodal::solve_in_place(sym, l, &mut x)?;
+            for (r, &inv) in rhs.iter_mut().zip(&self.perm_inv) {
+                *r = g(&x, inv)?;
+            }
+            return Ok(());
         }
         triangular::lower_in_place(&self.l_col_ptr, &self.l_row_idx, &self.l_val, false, &mut x)?;
         triangular::lower_transpose_in_place(

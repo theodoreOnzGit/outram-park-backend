@@ -490,7 +490,11 @@ impl SparseMatrix {
         );
         let mut out = Self::zeros(self.rows, self.cols);
         for t in &self.entries {
-            out.entries.push(Triplet { i: t.i, j: t.j, v: t.v * d[t.j] });
+            out.entries.push(Triplet {
+                i: t.i,
+                j: t.j,
+                v: t.v * d[t.j],
+            });
         }
         out.compress();
         out
@@ -687,9 +691,16 @@ pub fn norm2(v: &[f64]) -> f64 {
 /// selects for a general (unsymmetric, non-triangular) sparse matrix — the
 /// nodal-diffusion `LHS` is unsymmetric, so no Cholesky path applies.
 ///
-/// **Backend, since 2026-10-20 (gh #994): [`petir::sparse::SparseLu`]**, a
+/// **Backend, CHANGED again 2026-10-20 (gh #994): faer 0.24.4 itself**,
+/// through [`petir::sparse::SparseLu`] with
+/// [`petir::sparse::SparseBackend::Faer`] (petir's `faer` + `std` features),
+/// chosen by [`set_sparse_backend`]; `SparseBackend::Ported` is PETIR's
+/// deterministic port. The record below describes the ported (then
+/// simplicial-only) backend that ran between the two changes.
+///
+/// ~~**Backend, since 2026-10-20 (gh #994): [`petir::sparse::SparseLu`]**, a
 /// `no_std` port of faer 0.24.4's simplicial sparse LU with COLAMD ordering,
-/// replacing ~~`faer::sparse::linalg::solvers::Lu`~~. A direct solve was kept
+/// replacing `faer::sparse::linalg::solvers::Lu`.~~ A direct solve was kept
 /// on purpose: `outram-foam-basic-lib`'s Krylov solvers were the first choice
 /// and were rejected because they converge to a tolerance, where MATLAB's
 /// `decomposition` (and this port) solve directly. The port is bit-identical
@@ -733,6 +744,15 @@ impl Decomposition {
     /// # Panics
     /// If `a` is not square.
     pub fn new(a: &mut SparseMatrix) -> Self {
+        Self::with_backend(a, sparse_backend())
+    }
+
+    /// Factorise with an explicit sparse backend, regardless of
+    /// [`set_sparse_backend`].
+    ///
+    /// # Panics
+    /// If `a` is not square.
+    pub fn with_backend(a: &mut SparseMatrix, backend: petir::sparse::SparseBackend) -> Self {
         assert_eq!(
             a.rows(),
             a.cols(),
@@ -745,7 +765,7 @@ impl Decomposition {
             a.find().into_iter().map(|t| (t.i, t.j, t.v)).collect();
 
         match petir::sparse::CscMatrix::try_from_triplets(n, n, &triplets) {
-            Ok(m) => match petir::sparse::SparseLu::factorize(&m) {
+            Ok(m) => match petir::sparse::SparseLu::factorize_backend(&m, backend) {
                 Ok(lu) => Self::Factorised(lu),
                 Err(_) => Self::Singular,
             },
@@ -770,6 +790,35 @@ impl Decomposition {
     }
 }
 
+/// The sparse backend every [`Decomposition::new`] uses: 0 = faer, 1 = ported.
+static SPARSE_BACKEND: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(0);
+
+/// Choose the sparse LU behind [`Decomposition`], process-wide.
+///
+/// - [`petir::sparse::SparseBackend::Faer`] (**the default**, since
+///   2026-10-20, gh #994): faer 0.24.4 itself, as bedok used before #994,
+///   with runtime CPU detection. Fast; its results depend on the CPU's
+///   instruction set, so they are not bit-identical across machines.
+/// - [`petir::sparse::SparseBackend::Ported`]: PETIR's `no_std` port of the
+///   same algorithm, deterministic on every CPU (and bit-identical to faer on
+///   an AVX2+FMA x86-64), but slower — about 10x on the 3-D flux operator.
+///   Use it to reproduce a result exactly.
+pub fn set_sparse_backend(backend: petir::sparse::SparseBackend) {
+    let v = match backend {
+        petir::sparse::SparseBackend::Ported => 1,
+        _ => 0,
+    };
+    SPARSE_BACKEND.store(v, std::sync::atomic::Ordering::Relaxed);
+}
+
+/// The sparse backend [`Decomposition::new`] currently uses.
+pub fn sparse_backend() -> petir::sparse::SparseBackend {
+    match SPARSE_BACKEND.load(std::sync::atomic::Ordering::Relaxed) {
+        1 => petir::sparse::SparseBackend::Ported,
+        _ => petir::sparse::SparseBackend::Faer,
+    }
+}
+
 /// `min(abs(v))` over the entries that have a finite magnitude.
 ///
 /// MATLAB's `min` skips `NaN`, and `abs(Inf)` is `Inf`, which can only be the
@@ -790,6 +839,22 @@ pub fn min_abs_finite(v: &[f64]) -> Option<f64> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_sparse_backend_is_faer_by_default_and_the_port_on_request() {
+        use petir::sparse::SparseBackend;
+        // Other tests run in parallel and rely on the default, so this one
+        // never switches the process-wide setting away from it.
+        set_sparse_backend(SparseBackend::Faer);
+        assert_eq!(sparse_backend(), SparseBackend::Faer);
+        let mut a =
+            SparseMatrix::assemble(&[0, 1, 0, 1], &[0, 0, 1, 1], &[4.0, 1.0, 2.0, 3.0], 2, 2);
+        let x_faer = Decomposition::new(&mut a).solve(&[1.0, 2.0]);
+        let x_port = Decomposition::with_backend(&mut a, SparseBackend::Ported).solve(&[1.0, 2.0]);
+        for (p, f) in x_port.iter().zip(&x_faer) {
+            assert!((p - f).abs() < 1e-14);
+        }
+    }
 
     #[test]
     fn array2_is_column_major() {

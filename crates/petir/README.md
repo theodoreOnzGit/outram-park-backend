@@ -75,7 +75,7 @@ that drifts from its origin fails the build rather than rotting quietly.
 | `rng` | ported (OpenMC, not GSL) | OpenMC's 64-bit LCG with its PCG-RXS-M-XS output permutation, O(log n) `future_seed` jump-ahead and `init_seed` stream derivation (`random_lcg.cpp`, MIT). **Moved here from `outram-mc-libs` 2026-10-02**, bit-identical (pinned by a test); `outram_mc_libs::rng::lcg` re-exports it. Its WGSL state advance is `wgsl::LCG` (`lcg.wgsl`), the one copy that `outram-mc-libs`' batched GPU kernels compose |
 | `rng` (`ChaCha8Rng`, `Uniform`, `Normal`) | ported (`rand` 0.10.3, `rand_distr` 0.6.0, `chacha20` 0.10.2; MIT) | The `rand` pieces `boon-lay`'s RustBCA copy uses: ChaCha8 with `rand_core`'s PCG32 `seed_from_u64`, `random::<f64>()`, `Uniform<f64>`, the ziggurat `Normal<f64>`. **Added 2026-10-20 (gh:#995)**; draw-for-draw identical to the upstream crates over 48 million draws (`tests/rng_vs_rand.rs`, reference in `reference-data/rand/`) |
 | `ssprk` | ported (PyClaw, not GSL) | Strong-stability-preserving Runge–Kutta steps for method-of-lines use: Shu–Osher **SSP22** and **SSP33**, Ketcheson's **SSP104** (`sharpclaw/solver.py`, BSD-3). Bit-identical to PyClaw's own `step()` on 96/96 values (`tests/ssprk_vs_pyclaw.rs`); observed orders 2.01 / 3.01 / 4.01; TVD to the SSP coefficient with a negative control just above it (`tests/ssprk_order_and_tvd.rs`). **Added 2026-10-16** at maintainer direction |
-| `sparse` | ported (faer, not GSL) | Sparse direct solvers: LU with partial pivoting and a **COLAMD** column ordering, Cholesky `LLᵀ` with an **AMD** ordering, elimination trees, sparse triangular solves (faer 0.24.4, MIT; AMD/COLAMD via SuiteSparse, BSD-3). Bit-identical to faer's simplicial path on every case measured, orderings identical (`tests/sparse_vs_faer.rs`); where faer itself picks its supernodal path the solutions agree to ≤ 4.9e-14 relative. **Added 2026-10-20** at maintainer direction (gh #994) |
+| `sparse` | ported (faer, not GSL) | Sparse direct solvers: LU with partial pivoting and a **COLAMD** column ordering, Cholesky `LLᵀ` with an **AMD** ordering, elimination trees, sparse triangular solves (faer 0.24.4, MIT; AMD/COLAMD via SuiteSparse, BSD-3). Simplicial and (since the same day) **supernodal** paths, chosen by faer's own rule or forced with `SymbolicKind`; faer's dense SIMD kernels replayed in scalar code. ~~where faer itself picks its supernodal path the solutions agree to ≤ 4.9e-14 relative~~ **Every solution bit-identical to faer on both paths and on faer's own choice**, orderings identical (`tests/sparse_vs_faer.rs`). The supernodal path is *slower* here than the simplicial one (no SIMD; see the module docs). **Added 2026-10-20** at maintainer direction (gh #994) |
 | `faer_dense` | ported (faer, not GSL) | faer 0.24.4's dense SVD (`Mat::svd()`) for square `n <= 16`: Householder bidiagonalisation, bidiagonal QR, reflector back-transformation, with faer's SIMD kernels modelled lane by lane in scalar code (pulp V3, AVX2+FMA; no `core::arch`). **Bit-identical** to faer on 6 134 `outram-blender` covariances, 26 000 random matrices of orders 1..=16 and 17 structured cases (`tests/faer_dense_svd_vs_faer.rs`). Distinct from `linalg::svd` (GSL), not a replacement for it. **Added 2026-10-20** at maintainer direction (gh #996) |
 | `scalar` | lifted + additions | OpenFOAM guard constants, extended here with GSL's epsilon constants (`bn:op-l87q`) |
 
@@ -172,9 +172,33 @@ point: a crate claiming "no panics" while those held would be overclaiming.
 
 ## `no_std` is the contract
 
-The crate is `#![no_std]` unconditionally. There is no `std` feature to turn on,
-because a numerical kernel that only sometimes builds for a microcontroller is
-one refactor away from not building for one at all.
+The crate is `#![no_std]` unconditionally. ~~There is no `std` feature to turn
+on,~~ because a numerical kernel that only sometimes builds for a
+microcontroller is one refactor away from not building for one at all.
+**CHANGED 2026-10-20 (gh #994):** there is now an opt-in `std` feature, but it
+changes nothing in PETIR itself — see the `faer` backend below.
+
+### Optional features
+
+| feature | default | what it does |
+|---|---|---|
+| `transfer-fn` (implies `uom`) | on | `transfer_fn`, with `uom` sample times |
+| `wgpu` | off | the GPU runner `wgsl::gpu` (needs `std`) |
+| `faer` | off | `sparse::SparseBackend::Faer`: the real `faer` 0.24.4 as a second sparse LU/Cholesky backend |
+| `std` | off | only `faer/std`, so faer can detect the CPU at run time |
+
+**Caveats of the `faer` backend** (maintainer direction, gh #994, 2026-10-20):
+
+1. It is **`no_std` + `alloc`**: it builds for `thumbv7em-none-eabihf`, wasm
+   and Android.
+2. **Without `std`, faer cannot detect the CPU at run time**, so it runs its
+   baseline kernels unless the build enables target features
+   (`RUSTFLAGS="-C target-cpu=native"`, or `-C target-feature=+avx2,+fma`).
+   Turn on `std` too where `std` is available. Measured (bedok subset, one thread, i9-13900K, 2026-10-20 — `matlab_parity_iaea3ds` / `neacrpd1t` `the_transient_marches_without_diverging`: faer + `std` 7.2 s / 116 s; faer without `std` 16.7 s / 265 s; faer without `std` built with `-C target-cpu=native` 12.9 s / 205 s; `Ported` 137 s / 2103 s).
+3. **Its results depend on the CPU and instruction set**, so they are not
+   bit-identical across machines. **`SparseBackend::Ported` (the default) is
+   the deterministic choice.** On an AVX2+FMA x86-64 the two agree bit for bit
+   (`tests/sparse_vs_faer.rs`).
 
 Verified on every commit:
 
@@ -286,7 +310,9 @@ Julien de Troullioud de Lanversin), moved in from `outram-park-fork-onix` on
 2026-10-20 at the maintainer's direction (gh:#999).
 `src/sparse/` from **faer** 0.24.4 (MIT, and
 through it SuiteSparse AMD/COLAMD, BSD-3) was added on 2026-10-20 at the
-maintainer's direction (gh:#994). `src/faer_dense/`, faer 0.24.4's dense SVD
+maintainer's direction (gh:#994), its supernodal paths the same day with the
+arithmetic of faer's dense kernels and of **nano-gemm** 0.2.2,
+**private-gemm-x86** 0.1.22 and **pulp** 0.22.3 (all MIT, sarah quiñones). `src/faer_dense/`, faer 0.24.4's dense SVD
 (with faer-traits' `hypot` and a scalar model of pulp's AVX2 lanes, all MIT),
 was added the same day at the maintainer's direction (gh:#996).
 

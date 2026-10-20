@@ -409,8 +409,8 @@ in the file header.
 DERIVED WORK — faer (sparse LU / Cholesky), and through it SuiteSparse AMD/COLAMD
 ================================================================================
 
-`src/sparse/` ports faer 0.24.4's simplicial sparse LU (`sp_lu`, with its COLAMD
-column ordering) and simplicial sparse Cholesky (`sp_cholesky`, with its AMD
+`src/sparse/` ports faer 0.24.4's sparse LU (`sp_lu`, with its COLAMD
+column ordering) and sparse Cholesky (`sp_cholesky`, with its AMD
 ordering), the elimination-tree helpers and the single-column sparse triangular
 solves. Ported 2026-10-20 at the maintainer's direction (gh #994: "if faer
 functions are needed, export no_std versions of them through petir"), so that
@@ -435,6 +435,31 @@ notices faer ships.
   MIT and BSD-3-Clause flow ONE-WAY into this crate's licence. The BSD
   non-endorsement clause binds: do not use the SuiteSparse authors' names to
   promote this crate.
+
+  Added 2026-10-20 (gh #994, maintainer: "Port lah", "Whatever faer does,
+  port into petir"): faer's SUPERNODAL sparse LU and Cholesky
+  (src/sparse/{supernodal,lu_supernodal,cholesky_supernodal}.rs), and the
+  dense kernels they call (src/sparse/dense/), whose arithmetic is replayed
+  in scalar code from faer's `linalg::{matmul, triangular_solve, lu, cholesky}`
+  and from the three crates faer's f64 kernels run on an AVX2 CPU:
+
+  Project    : nano-gemm 0.2.2 (with nano-gemm-codegen 0.2.1)
+  Upstream   : https://github.com/sarah-ek/nano-gemm
+  Licence    : MIT (Cargo.toml `license = "MIT"`)
+      Copyright (c) sarah quiñones
+
+  Project    : private-gemm-x86 0.1.22
+  Upstream   : https://github.com/sarah-quinones/gemm-x64-v2
+  Licence    : MIT (ships LICENSE)
+      Copyright (c) 2025 sarah quiñones el kazdadi
+
+  Project    : pulp 0.22.3
+  Upstream   : https://github.com/sarah-quinones/pulp
+  Licence    : MIT (ships LICENSE)
+      Copyright (c) sarah quiñones
+
+  The MIT notice is reproduced in src/sparse/dense/mod.rs's header, which the
+  other dense files refer to. The flow is ONE-WAY.
 
 ================================================================================
 DERIVED WORK — faer (dense SVD), faer-traits and pulp
