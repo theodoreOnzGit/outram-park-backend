@@ -149,7 +149,11 @@ fn the_spelling_rule_accepts_marked_letters_only() {
 
 /// Every backronym spells its crate's name, or the name's first part when the
 /// crate name goes on to say what the crate is (`tuas_boussinesq_solver` is
-/// TUAS). Seventeen crates carry one (2026-10-13; sembawang alone before).
+/// TUAS), or its last part when the package name spells the backronym out in
+/// front of the short name
+/// (`deck-based-open-source-visualisation-engine-for-reactors-dover` is DOVER;
+/// renamed 2026-10-20 because `dover` on crates.io belongs to another
+/// project). Seventeen crates carry one (2026-10-13; sembawang alone before).
 #[test]
 fn every_backronym_spells_its_crate_name() {
     let map = workspace();
@@ -157,13 +161,19 @@ fn every_backronym_spells_its_crate_name() {
     for c in &map.crates {
         if let Some(b) = &c.backronym {
             let first = c.name.split(['-', '_']).next().unwrap_or(&c.name);
-            assert!(spells(b, &c.name) || spells(b, first), "{}: backronym {b:?} does not spell the name", c.name);
+            let last = c.name.rsplit(['-', '_']).next().unwrap_or(&c.name);
+            assert!(
+                spells(b, &c.name) || spells(b, first) || spells(b, last),
+                "{}: backronym {b:?} does not spell the name",
+                c.name
+            );
             with.push(c.name.as_str());
         }
     }
     with.sort_unstable();
     assert_eq!(with, [
-        "bedok", "bishan", "boon-lay", "buangkok", "changi", "dhoby-ghaut", "dover", "farrer-park", "kaki-bukit",
+        "bedok", "bishan", "boon-lay", "buangkok", "changi",
+        "deck-based-open-source-visualisation-engine-for-reactors-dover", "dhoby-ghaut", "farrer-park", "kaki-bukit",
         "nee_soon", "pasir-ris", "petir", "raffles", "redhill", "sembawang", "tampines", "tuas_boussinesq_solver",
     ]);
 }
