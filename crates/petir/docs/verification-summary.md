@@ -103,6 +103,20 @@ binary64 inputs and 6884 of CORE-MATH's 33174 worst cases.
 | glibc 2.44 `hypot` (for comparison) | 4 035 478 | 4 027 036 | driver summary |
 | `libm` crate 0.2.16 `hypot` (PETIR's before gh:#997) | 4 035 478 | 3 878 304 | driver summary |
 
+**Workspace consumers re-run (2026-10-20, `--release --lib --tests`, 2 threads).**
+Every crate reaching `r_hypot` / `Real::hypot`:
+- Passed in full: `chem-eng` 32, `kovan-common` 345, `outram-foam-basic-lib` 553,
+  `outram-park-fork-coolprop` 324, `tampines-steam-tables` 1085.
+- Passed, run as subsets: `outram-mc-libs` lib plus the three tests that reach
+  it, 499; `kovan` digitiser 131; digital-twin-engine `excursion` 13.
+- Failed, but not because of this change: `changi` (7 failures, all in the
+  FLEXPART code-to-code tests) and `nee_soon` lib
+  (`the_default_design_builds_the_geometry_unchanged`, 43 452 cells against a
+  pinned 43 445). Both fail identically with the `hypot` routes pointed back
+  at `libm` (A/B, same tree), so the cause predates gh:#997.
+
+No test result moved with `hypot`.
+
 **One entry needs its own note.** `cheb::eval_mode`'s error *estimate* differs
 by up to 1.05e-2 where its result differs by 1.06e-15. Upstream's estimate is
 `|c[order]| + sum|c[i]| * DBL_EPSILON`, dominated by the coefficient whose true
