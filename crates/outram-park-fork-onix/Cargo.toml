@@ -32,12 +32,11 @@ maturity = 2
 
 [dependencies]
 # Every transcendental routes through PETIR for cross-platform bit identity
-# (gh:#985). petir is no_std, so this edge adds nothing Android- or wasm-hostile.
+# (gh:#985), and since gh:#999 CRAM16 itself (petir::depletion::cram16_pfd).
+# petir is no_std, so this edge adds nothing Android- or wasm-hostile.
 petir = { workspace = true }
 uom.workspace = true
 thiserror.workspace = true
-# num-complex: complex arithmetic for the CRAM partial-fraction resolvent solves
-# (A - theta_k/dt * I)^{-1}. Pure Rust, no BLAS/FFI, Android-safe. Version lives
-# in the root [workspace.dependencies].
-num-complex.workspace = true
+# CRAM16 itself is petir::depletion::cram16_pfd since 2026-10-20 (gh:#999), on
+# PETIR's own complex type; num-complex was dropped then.
 

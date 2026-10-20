@@ -37,13 +37,23 @@
 //!
 //! | case | pre-move | post-move |
 //! |---|---|---|
-//! | `single_nuclide` | `0x11bbacd8f70609dd` | not yet run |
-//! | `stiff_diagonal` | `0x8c7da07f988c5126` | not yet run |
-//! | `abc_chain` | `0xa7a83da186009ae6` | not yet run |
-//! | `secular_equilibrium` | `0xd8bca4605bfea942` | not yet run |
-//! | `transmutation` | `0x855fae983da14705` | not yet run |
-//! | `fission_yield` | `0x47a5467c82448c01` | not yet run |
-//! | `stiff_burnup_10` | `0x792d981a9650a5e7` | not yet run |
+//! | `single_nuclide` | `0x11bbacd8f70609dd` | identical |
+//! | `stiff_diagonal` | `0x8c7da07f988c5126` | identical |
+//! | `abc_chain` | `0xa7a83da186009ae6` | identical |
+//! | `secular_equilibrium` | `0xd8bca4605bfea942` | identical |
+//! | `transmutation` | `0x855fae983da14705` | identical |
+//! | `fission_yield` | `0x47a5467c82448c01` | identical |
+//! | `stiff_burnup_10` | `0x792d981a9650a5e7` | identical |
+//!
+//! **Result (2026-10-20): all seven cases bit-identical after the move**, as
+//! predicted before the run (same operations in the same order; the `hypot`
+//! swap could only matter on a pivot near-tie, and none occurred here).
+//! Suites: `cargo test --release -p outram-park-fork-onix -p petir --lib
+//! --tests`: 806 passed before; 813 after, i.e. this file, four PETIR
+//! `onix_cram` tests and one onix error-mapping test, plus
+//! `gsl_eigen_nonsymm_code_to_code`, which failed in the before-run and
+//! passed in the after-run and three reruns without this change touching it.
+//! `verbatim_provenance` failed in both runs and predates this change.
 
 use outram_park_fork_onix::{
     cram16, BurnupMatrix, DecayData, DecayMode, DepletionSystem, FissionYields, Nuclide,
