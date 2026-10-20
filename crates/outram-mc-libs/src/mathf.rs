@@ -39,8 +39,10 @@
 //! direction-dependent fingerprint and left the trig-free `majorants`
 //! fingerprint bit-identical. The fingerprint gates were re-pinned once.
 //!
-//! `tests/no_platform_libm.rs` fails if a direct `std` transcendental call
-//! comes back.
+//! ~~`tests/no_platform_libm.rs` fails if a direct `std` transcendental call
+//! comes back.~~ **CORRECTED 2026-10-20:** that file never existed in this
+//! crate. The gate is workspace-wide, `crates/petir/tests/no_platform_libm.rs`,
+//! and covers this crate's `src/` (gh:#985).
 
 pub use petir::mathf::RealMath;
 
