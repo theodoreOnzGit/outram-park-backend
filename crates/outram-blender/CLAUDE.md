@@ -149,6 +149,46 @@ reached.) Rules that follow:
   control run 2026-10-20). Add a new operator to it when it builds a hash
   map and iterates it.
 
+## GPU kernels from PETIR: measure first, opt in, CPU stays the default (gh #1005, 2026-10-20)
+
+Profiled first (one core, release, `grid(200, 200)`, 40 401 vertices, 10
+ARAP iterations): ARAP took 2.36 s, of which **1.77 s was
+`Mesh::from_polygons`** rebuilding the result, because `add_face` found each
+edge by a linear scan (`O(E^2)`; Loop subdivision of the same grid took
+77 s). That was fixed on the CPU first (`from_polygons` now looks edges up in
+a map; same ids, same mesh, `mesh::tests::from_polygons_matches_face_by_face_add_face`),
+taking ARAP to 0.59 s. The local step (covariance + `closest_rotation` per
+vertex) was then 45 ms of the 51 ms per iteration, the factorisation 56 ms
+once, the solves 6 ms per iteration. Laplacian smoothing is solve-bound and
+was not ported.
+
+- **ARAP's rotations can run on the GPU, opt-in:** `arap_deform_with(..,
+  ArapRotations::GpuF32)` (probes at run time) or `arap_deform_on_gpu(ctx,
+  ..)` (reuses a context). `arap_deform` and `ArapRotations::CpuF64` are the
+  default, unchanged and bit-identical (`opt_in_api_keeps_the_cpu_default_bit_identical`,
+  `tests/hash_order_determinism.rs`). No GPU, a kernel too large for the
+  device, or a failed readback all run the CPU path for the whole
+  deformation, and `ArapOutcome::rotations` says which ran.
+- **The kernel is PETIR's** (`petir::wgsl::SVD3`, an `f32` transcription of
+  the same faer SVD the CPU path runs in `f64`), wrapped by
+  `gpu::GpuClosestRotations` on this crate's existing `gpu::GpuContext`. Only
+  the rotations move to the GPU; covariances, right-hand side and solve stay
+  `f64`.
+- **Measured on an NVIDIA RTX A5000** (`tests/gpu_arap.rs`, SKIPs without a
+  GPU): 40 401 vertices, 10 iterations, 0.604 s CPU against 0.169 s GPU
+  (**3.6x**, context reused; a probe adds about 0.08-0.2 s); 289 vertices,
+  0.0038 s against 0.0030 s (1.3x, not worth a probe). Deformed positions
+  differ from the `f64` result by at most 9.2e-9 (40 401 vertices) and
+  2.6e-8 (289) of the mesh size; the ARAP energies by 1e-8, against a
+  change of 7e-4 to 4e-3 from one more iteration.
+- **Kernel accuracy is checked in PETIR**: mirror vs `f64` within a derived
+  rotation-angle budget (`tests/wgsl_validation.rs`; worst 4.6e-7 rad on
+  this crate's 3 586 test covariances), and GPU vs mirror on the device
+  (`tests/wgsl_gpu.rs`; 487 of 3 586 bit-identical, worst 7.9e-7 rad, within
+  the same budget; the device's FMA contraction and WGSL's non-correctly-rounded
+  division and `sqrt` are the likely cause, not verified on a
+  correctly-rounding device).
+
 ## CSG description and tally meshes: what lives here, what does not (GitHub #486)
 
 Moved here from `outram-mc-libs` on 2026-10-02 (maintainer decisions recorded

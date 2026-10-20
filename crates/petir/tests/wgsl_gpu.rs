@@ -3669,3 +3669,146 @@ fn gpu_legendre_plm_matches_the_cpu_mirror() {
         gpu.adapter_name()
     );
 }
+
+/// `petir_closest_rotation3` on the GPU against the `f32` CPU mirror
+/// [`petir::wgsl::mirror_svd3::closest_rotation3`] (gh #1005): the
+/// transcription check.
+///
+/// # Methodology
+///
+/// The 3 586 covariances `outram-blender`'s ARAP receives in its test suite
+/// (`reference-data/faer/closest_rotation_inputs.txt`), rounded to `f32`,
+/// plus 4 000 matrices uniform in `[-1, 1)`. Probe `x = 9 m + e` returns
+/// entry `e` of matrix `m`'s rotation. Same algorithm, same width, same
+/// operation order; a device may still contract `a * b + c` into an FMA,
+/// which perturbs the result by rounding, so a difference is judged by the
+/// rotation angle against the same derived budget the mirror meets against
+/// `f64` ([`petir::wgsl::mirror_svd3::angle_budget`], with the `f32`
+/// computation's sweep count and gap). Cases whose closest rotation is not
+/// unique are counted, not judged. The bit-identical count is reported.
+///
+/// # Results
+///
+/// 2026-10-20, NVIDIA RTX A5000 (Vulkan): 7 585 judged, 1 not unique, all
+/// inside the budget (worst angle/budget 6.9e-3). Bit-identical: 487 of
+/// 7 586 matrices (487 of the 3 586 blender ones); worst angle 7.9e-7 rad on
+/// the blender inputs, 6.7e-6 rad overall. Not near bit-exact: the likely
+/// cause is the device's freedom under WGSL (FMA contraction; division
+/// within 2.5 ulp; `sqrt` via `inverseSqrt`), not a transcription error,
+/// which would show as O(1) angles. Not verified on a correctly-rounding
+/// device (no software ICD on this host).
+#[test]
+fn gpu_closest_rotation3_matches_the_cpu_mirror() {
+    use petir::wgsl::{mirror_svd3, SVD3};
+    let Some(gpu) = GpuContext::probe() else {
+        eprintln!("SKIP gpu_closest_rotation3_matches_the_cpu_mirror: no GPU adapter");
+        return;
+    };
+    let path = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../reference-data/faer/closest_rotation_inputs.txt"
+    );
+    let text = std::fs::read_to_string(path).expect("blender covariance reference");
+    let mut mats: Vec<[[f32; 3]; 3]> = Vec::new();
+    for line in text
+        .lines()
+        .filter(|l| !l.starts_with('#') && !l.trim().is_empty())
+    {
+        let v: Vec<f32> = line
+            .split_whitespace()
+            .map(|h| f64::from_bits(u64::from_str_radix(h, 16).unwrap()) as f32)
+            .collect();
+        mats.push([[v[0], v[1], v[2]], [v[3], v[4], v[5]], [v[6], v[7], v[8]]]);
+    }
+    let n_blender = mats.len();
+    let mut state = 0x9e37_79b9_7f4a_7c15_u64;
+    let mut next = || {
+        state = state
+            .wrapping_mul(6_364_136_223_846_793_005)
+            .wrapping_add(1_442_695_040_888_963_407);
+        ((state >> 40) as f32) / ((1u64 << 24) as f32) * 2.0 - 1.0
+    };
+    for _ in 0..4_000 {
+        mats.push([
+            [next(), next(), next()],
+            [next(), next(), next()],
+            [next(), next(), next()],
+        ]);
+    }
+    let data: Vec<f32> = mats.iter().flatten().flatten().copied().collect();
+    let probes: Vec<f32> = (0..data.len()).map(|i| i as f32).collect();
+    let got = gpu
+        .eval_map(
+            &[SVD3],
+            "petir_closest_rotation3_src(9u * (u32(x) / 9u), u32(x) % 9u)",
+            &data,
+            &probes,
+            KernelParams {
+                n: data.len() as u32,
+                ..Default::default()
+            },
+        )
+        .expect("dispatch");
+
+    let (mut identical, mut judged, mut not_unique) = (0usize, 0usize, 0usize);
+    let (mut worst, mut worst_ratio, mut worst_blender) = (0.0f64, 0.0f64, 0.0f64);
+    let mut identical_blender = 0usize;
+    for (m, mat) in mats.iter().enumerate() {
+        let want = mirror_svd3::closest_rotation3(*mat);
+        let g: [[f32; 3]; 3] =
+            core::array::from_fn(|i| core::array::from_fn(|j| got[9 * m + 3 * i + j]));
+        if g.iter()
+            .flatten()
+            .zip(want.iter().flatten())
+            .all(|(a, b)| a.to_bits() == b.to_bits())
+        {
+            identical += 1;
+            if m < n_blender {
+                identical_blender += 1;
+            }
+        }
+        let Some((_, s, _, sweeps)) = mirror_svd3::svd3_counted(*mat) else {
+            assert_eq!(g, want, "matrix {m}: the mirror failed, so must the GPU");
+            continue;
+        };
+        let det = |r: &[[f32; 3]; 3]| {
+            r[0][0] * (r[1][1] * r[2][2] - r[1][2] * r[2][1])
+                - r[0][1] * (r[1][0] * r[2][2] - r[1][2] * r[2][0])
+                + r[0][2] * (r[1][0] * r[2][1] - r[1][1] * r[2][0])
+        };
+        let sign = if det(mat) < 0.0 { -1.0 } else { 1.0 };
+        let gap = f64::from(s[1]) + sign * f64::from(s[2]);
+        if s[0] == 0.0 || gap <= 1e-6 * f64::from(s[0]) {
+            not_unique += 1;
+            continue;
+        }
+        let frob = mat
+            .iter()
+            .flatten()
+            .map(|x| f64::from(*x) * f64::from(*x))
+            .sum::<f64>()
+            .sqrt();
+        let budget = mirror_svd3::angle_budget(sweeps, frob, gap);
+        let theta = mirror_svd3::rotation_angle(
+            &g.map(|r| r.map(f64::from)),
+            &want.map(|r| r.map(f64::from)),
+        );
+        assert!(
+            theta <= budget,
+            "matrix {m}: GPU vs mirror angle {theta:e} > {budget:e}"
+        );
+        judged += 1;
+        worst = worst.max(theta);
+        worst_ratio = worst_ratio.max(theta / budget);
+        if m < n_blender {
+            worst_blender = worst_blender.max(theta);
+        }
+    }
+    println!(
+        "gpu svd3 vs mirror on {}: {identical}/{} bit-identical; {judged} judged, \
+         {not_unique} not unique; worst angle {worst:.3e} rad, worst angle/budget {worst_ratio:.3e}; \
+         blender inputs {identical_blender}/{n_blender} bit-identical, worst {worst_blender:.3e} rad",
+        gpu.adapter_name(),
+        mats.len()
+    );
+}

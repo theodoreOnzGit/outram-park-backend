@@ -27,7 +27,7 @@
 use petir::wgsl::{
     test_kernel, AIRY, ALL, ALL_NAMES, ATANINT, BESSEL, CHEB, CLAUSEN, DAWSON, DEBYE, DILOG,
     ELLINT, ELLJAC, ERF, EXPINT, EXPINT3, GEGENBAUER, LEGENDRE_PLM, FERMI_DIRAC, GAMMA, LAMBERT,
-    LCG, LEGENDRE, MATRIX, POLY, PSI_ZETA, SININT, SYNCHROTRON, TRANSPORT,
+    LCG, LEGENDRE, MATRIX, POLY, PSI_ZETA, SININT, SVD3, SYNCHROTRON, TRANSPORT,
 };
 
 /// The sources a shader needs concatenated ahead of it, and a call that
@@ -99,6 +99,11 @@ fn kernel_for(name: &str) -> (Vec<&'static str>, &'static str) {
         "lcg" => (
             vec![LCG],
             "bitcast<f32>(petir_lcg_next(vec2<u32>(bitcast<u32>(x), params.k)).z)",
+        ),
+        // Probe x = 9 m + e: entry e of the closest rotation of matrix m.
+        "svd3" => (
+            vec![SVD3],
+            "petir_closest_rotation3_src(9u * (u32(x) / 9u), u32(x) % 9u)",
         ),
         other => panic!("no validation call registered for {other}.wgsl"),
     }
@@ -230,7 +235,7 @@ fn every_shader_parses_and_validates_under_naga() {
 /// rename cannot silently make the documentation wrong.
 #[test]
 fn every_documented_function_is_defined() {
-    let expected: [(&str, &[&str]); 26] = [
+    let expected: [(&str, &[&str]); 27] = [
         (POLY, &["petir_poly_eval", "petir_poly_eval_comp"]),
         (
             CHEB,
@@ -501,6 +506,14 @@ fn every_documented_function_is_defined() {
                 "petir_lcg_mul_u32_full",
             ],
         ),
+        (
+            SVD3,
+            &[
+                "petir_svd3",
+                "petir_closest_rotation3",
+                "petir_closest_rotation3_src",
+            ],
+        ),
     ];
     for (src, names) in expected {
         for name in names {
@@ -662,6 +675,7 @@ fn the_coverage_ledger_lists_every_shipped_shader() {
             "gegenbauer" => LEDGER.contains("Gegenbauer"),
             "legendre_plm" => LEDGER.contains("associated Legendre"),
             "lcg" => LEDGER.contains("OpenMC 64-bit LCG"),
+            "svd3" => LEDGER.contains("faer 3 x 3 SVD"),
             other => panic!("shader {other}.wgsl has no row in docs/wgsl-coverage.md"),
         };
         assert!(
@@ -953,5 +967,163 @@ fn every_generated_shader_and_its_mirror_hold_the_same_constants() {
         grand, 1409,
         "the generated pairs are documented as holding 1409 coefficients in \
          total; this run compared {grand}"
+    );
+}
+
+/// The `f32` closest-rotation mirror ([`petir::wgsl::mirror_svd3`]) against
+/// the `f64` port it transcribes ([`petir::faer_dense::svd3`] plus the same
+/// sign fix): the precision cost of running ARAP's local step in `f32`
+/// (gh #1005). Feature-free and device-free.
+///
+/// # Methodology
+///
+/// - **Inputs:** every distinct covariance `outram-blender`'s
+///   `arap::closest_rotation` receives in its own test suite
+///   (`reference-data/faer/closest_rotation_inputs.txt`, 3 586 matrices,
+///   real ARAP inputs, many rank 2 from flat meshes), plus 20 000 matrices
+///   with entries uniform in `[-1, 1)` from a fixed LCG.
+/// - **Reference:** the `f64` closest rotation of the same `f64` matrix.
+///   The mirror gets the matrix rounded to `f32`.
+/// - **Instrument:** the rotation angle between the two
+///   ([`mirror_svd3::rotation_angle`]), not entry-wise differences.
+/// - **Budget, derived before the run** ([`mirror_svd3::angle_budget`]):
+///   first-order rounding counts per reflector and per QR sweep, times the
+///   polar factor's condition number `2 ||S||_F / (sigma_2 + sign(det S)
+///   sigma_3)` from the `f64` SVD, using the sweep count the mirror reports.
+///   Every case with a finite budget must be inside it; cases whose closest
+///   rotation is not unique (`gap <= 1e-12 sigma_1`) are counted, not judged.
+///   Also required: `R` is a proper rotation to `f32` round-off
+///   (`||R^T R - I||_F` and `|det R - 1|` within the conditioning-free part
+///   of the budget).
+///
+/// # Results (2026-10-20)
+///
+/// 23 585 cases judged, 1 not unique, **all inside the budget**. Worst angle
+/// 4.57e-7 rad (7.7 `u`) on the blender covariances, 2.68e-5 rad on the
+/// random set (ill-conditioned matrices, small `gap`); worst angle/budget
+/// 5.2e-3, so the first-order worst-case budget is about 200 times loose;
+/// at most 7 QR sweeps. Interpretation: running ARAP's rotations in `f32`
+/// costs well under a microradian on the inputs ARAP actually produces.
+/// Also in `docs/wgsl-coverage.md` (svd3 row) and on gh #1005.
+#[test]
+fn svd3_mirror_tracks_the_f64_port_within_the_derived_angle_budget() {
+    use petir::wgsl::mirror_svd3::{self, angle_budget, rotation_angle, U32};
+
+    fn closest_rotation_f64(m: [[f64; 3]; 3]) -> ([[f64; 3]; 3], f64, f64) {
+        let (mut u, s, v) = match petir::faer_dense::svd3(m) {
+            Ok(r) => r,
+            Err(_) => {
+                return (
+                    [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
+                    0.0,
+                    0.0,
+                )
+            }
+        };
+        let mul = |a: &[[f64; 3]; 3], b: &[[f64; 3]; 3]| {
+            let mut c = [[0.0; 3]; 3];
+            for i in 0..3 {
+                for j in 0..3 {
+                    c[i][j] = a[i][0] * b[j][0] + a[i][1] * b[j][1] + a[i][2] * b[j][2];
+                }
+            }
+            c
+        };
+        let det = |r: &[[f64; 3]; 3]| {
+            r[0][0] * (r[1][1] * r[2][2] - r[1][2] * r[2][1])
+                - r[0][1] * (r[1][0] * r[2][2] - r[1][2] * r[2][0])
+                + r[0][2] * (r[1][0] * r[2][1] - r[1][1] * r[2][0])
+        };
+        let sign = if det(&mul(&u, &v)) < 0.0 {
+            for row in u.iter_mut() {
+                row[2] = -row[2];
+            }
+            -1.0
+        } else {
+            1.0
+        };
+        (mul(&u, &v), s[1] + sign * s[2], s[0])
+    }
+
+    let mut cases: Vec<[[f64; 3]; 3]> = Vec::new();
+    let path = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../reference-data/faer/closest_rotation_inputs.txt"
+    );
+    let text = std::fs::read_to_string(path).expect("blender covariance reference");
+    for line in text
+        .lines()
+        .filter(|l| !l.starts_with('#') && !l.trim().is_empty())
+    {
+        let v: Vec<f64> = line
+            .split_whitespace()
+            .map(|h| f64::from_bits(u64::from_str_radix(h, 16).unwrap()))
+            .collect();
+        cases.push([[v[0], v[1], v[2]], [v[3], v[4], v[5]], [v[6], v[7], v[8]]]);
+    }
+    let n_blender = cases.len();
+    let mut state = 0x2545_f491_4f6c_dd1d_u64;
+    let mut next = || {
+        state = state
+            .wrapping_mul(6_364_136_223_846_793_005)
+            .wrapping_add(1_442_695_040_888_963_407);
+        ((state >> 11) as f64) / ((1u64 << 53) as f64) * 2.0 - 1.0
+    };
+    for _ in 0..20_000 {
+        cases.push([
+            [next(), next(), next()],
+            [next(), next(), next()],
+            [next(), next(), next()],
+        ]);
+    }
+
+    let (mut judged, mut not_unique, mut worst_ratio, mut worst_angle) =
+        (0usize, 0usize, 0.0f64, 0.0f64);
+    let mut worst_blender_angle = 0.0f64;
+    let mut max_sweeps = 0u32;
+    for (idx, m) in cases.iter().enumerate() {
+        let (r64, gap, s1) = closest_rotation_f64(*m);
+        let m32 = m.map(|r| r.map(|x| x as f32));
+        let r32 = mirror_svd3::closest_rotation3(m32);
+        let sweeps = mirror_svd3::svd3_counted(m32).map_or(0, |r| r.3);
+        max_sweeps = max_sweeps.max(sweeps);
+        let r32d = r32.map(|r| r.map(f64::from));
+        // Proper rotation to round-off, whatever the conditioning.
+        let base = angle_budget(sweeps, 0.0, 1.0);
+        let mut orth = 0.0f64;
+        for i in 0..3 {
+            for j in 0..3 {
+                let d: f64 = (0..3).map(|k| r32d[k][i] * r32d[k][j]).sum::<f64>()
+                    - if i == j { 1.0 } else { 0.0 };
+                orth += d * d;
+            }
+        }
+        assert!(
+            orth.sqrt() <= base,
+            "case {idx}: R^T R - I = {} > {base}",
+            orth.sqrt()
+        );
+        let frob = m.iter().flatten().map(|x| x * x).sum::<f64>().sqrt();
+        if s1 == 0.0 || gap <= 1e-12 * s1 {
+            not_unique += 1;
+            continue;
+        }
+        let budget = angle_budget(sweeps, frob, gap);
+        let theta = rotation_angle(&r32d, &r64);
+        assert!(
+            theta <= budget,
+            "case {idx}: angle {theta:e} rad > derived budget {budget:e} (sweeps {sweeps}, gap {gap:e})"
+        );
+        judged += 1;
+        worst_ratio = worst_ratio.max(theta / budget);
+        worst_angle = worst_angle.max(theta);
+        if idx < n_blender {
+            worst_blender_angle = worst_blender_angle.max(theta);
+        }
+    }
+    println!(
+        "svd3 mirror vs f64: {judged} judged, {not_unique} not unique; worst angle {worst_angle:.3e} rad \
+         (blender inputs {worst_blender_angle:.3e} rad = {:.2} u); worst angle/budget {worst_ratio:.3e}; max sweeps {max_sweeps}",
+        worst_blender_angle / U32
     );
 }

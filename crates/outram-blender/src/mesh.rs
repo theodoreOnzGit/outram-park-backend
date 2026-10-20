@@ -71,6 +71,7 @@
 //! instead), and per-element custom data layers.
 
 use crate::math::Vec3;
+use std::collections::HashMap;
 
 /// Index of a [`Vertex`] within a [`Mesh`]'s vertex array.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -188,6 +189,27 @@ impl Mesh {
     /// any [`VertexId`] is out of range for this mesh — both indicate a caller
     /// bug in a generator, caught loudly rather than producing broken topology.
     pub fn add_face(&mut self, verts: &[VertexId]) -> FaceId {
+        self.add_face_indexed(verts, None)
+    }
+
+    /// [`Mesh::add_face`], with an optional `(min, max)` vertex-pair -> edge
+    /// index that [`Mesh::from_polygons`] carries across all its faces.
+    ///
+    /// Without the index each side's edge is found by a linear scan of every
+    /// edge so far, so building a mesh face by face costs `O(E^2)`: measured
+    /// 2026-10-20 (gh #1005) at 1.77 s for a 40 401-vertex `grid(200, 200)`,
+    /// three quarters of a 10-iteration ARAP on it, and the dominant cost of
+    /// Loop subdivision (77 s on the same grid). The index is used for lookups
+    /// only (never iterated), and since every edge is created through
+    /// [`Mesh::find_or_add_edge`] no pair occurs twice, so the edge it returns
+    /// is the one the scan would have found: same ids, same mesh. The caller must
+    /// pass an index that has seen every edge of `self` (an empty index on a
+    /// mesh with no edges, as `from_polygons` does).
+    fn add_face_indexed(
+        &mut self,
+        verts: &[VertexId],
+        mut index: Option<&mut HashMap<(usize, usize), EdgeId>>,
+    ) -> FaceId {
         let n = verts.len();
         assert!(n >= 3, "a face needs at least 3 vertices, got {n}");
         for v in verts {
@@ -205,7 +227,24 @@ impl Mesh {
         // First pass: resolve/create the edge for each side and build loops.
         for (i, &v) in verts.iter().enumerate() {
             let next_v = verts[(i + 1) % n];
-            let edge = self.find_or_add_edge(v, next_v);
+            let edge = match index.as_deref_mut() {
+                Some(map) => {
+                    let key = (v.0.min(next_v.0), v.0.max(next_v.0));
+                    match map.get(&key) {
+                        Some(&e) => e,
+                        None => {
+                            // Every edge of this mesh went through `map`, so a
+                            // miss means the pair has no edge yet; the scan
+                            // would find none and push this same one.
+                            let e = EdgeId(self.edges.len());
+                            self.edges.push(Edge { verts: [v, next_v] });
+                            map.insert(key, e);
+                            e
+                        }
+                    }
+                }
+                None => self.find_or_add_edge(v, next_v),
+            };
 
             let this_loop = LoopId(loop_base + i);
             let next_loop = LoopId(loop_base + (i + 1) % n);
@@ -373,9 +412,12 @@ impl Mesh {
         for &p in positions {
             m.add_vertex(p);
         }
+        // Edge lookups through a map, not `find_or_add_edge`'s linear scan
+        // (`O(E^2)` over the whole build; see `add_face_indexed`).
+        let mut index: HashMap<(usize, usize), EdgeId> = HashMap::new();
         for face in faces {
             let verts: Vec<VertexId> = face.iter().map(|&i| VertexId(i)).collect();
-            m.add_face(&verts);
+            m.add_face_indexed(&verts, Some(&mut index));
         }
         m
     }
@@ -429,6 +471,35 @@ impl Mesh {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// `from_polygons` (map-indexed edge lookup, gh #1005) builds exactly the
+    /// mesh the face-by-face `add_face` linear scan builds: same edge ids,
+    /// loops and faces, on a closed sphere (every edge shared) and an open
+    /// grid (boundary edges), including faces that reuse an edge reversed.
+    #[test]
+    fn from_polygons_matches_face_by_face_add_face() {
+        for mesh in [
+            crate::primitives::uv_sphere(12, 8, 1.0),
+            crate::primitives::grid(7, 5, 2.0),
+        ] {
+            let pos = mesh.positions();
+            let faces: Vec<Vec<usize>> = mesh
+                .polygons()
+                .iter()
+                .map(|f| f.iter().map(|v| v.0).collect())
+                .collect();
+            let mut scan = Mesh::new();
+            for &p in &pos {
+                scan.add_vertex(p);
+            }
+            for f in &faces {
+                let verts: Vec<VertexId> = f.iter().map(|&i| VertexId(i)).collect();
+                scan.add_face(&verts);
+            }
+            let indexed = Mesh::from_polygons(&pos, &faces);
+            assert_eq!(format!("{scan:?}"), format!("{indexed:?}"));
+        }
+    }
 
     /// A single triangle: 3 vertices, 3 edges, 1 face; it is a disc, chi = 1.
     #[test]
