@@ -19,7 +19,7 @@ Treat the dollar figures as bands, not point estimates.
   anchor, versus a grounded reconstruction-cost estimate based on what the
   git history shows actually happened.
 - **Value**: cost is not the same question as value for an unmonetized
-  GPL-3.0 project — framed separately via replacement/utility value,
+  ~~GPL-3.0~~ **AGPL-3.0-only** (relicensed 2026-10-20, gh:#973) project — framed separately via replacement/utility value,
   strategic/portfolio value, and educational value.
 
 ## Results
@@ -81,7 +81,7 @@ leverage is buying here.
 
 ## Value
 
-As GPL-3.0 open-source software with no monetization path, there is no
+As ~~GPL-3.0~~ **AGPL-3.0-only** (relicensed 2026-10-20, gh:#973) open-source software with no monetization path, there is no
 meaningful "market value" in a sale sense — nobody buys this outright, and
 there is no visible external contributor base or install footprint yet (one
 external collaborator, "Ethan," appears in the beads history). Value reads

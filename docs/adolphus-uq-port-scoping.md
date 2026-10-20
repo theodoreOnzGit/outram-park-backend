@@ -17,7 +17,7 @@ work is a **sibling of it, not a part of it**, and the two must not be merged:
 |---|---|---|
 | Upstream | idaholab/raven | Adolphus8/* (seven repos) |
 | Upstream licence | Apache-2.0 | GPL-3.0 (by grant; see below) |
-| Direction | Apache → GPL is **one-way** | author is the crate owner |
+| Direction | Apache → ~~GPL~~ AGPL-3.0-only is **one-way** | author is the crate owner |
 | Covers | samplers, distributions, sensitivity, surrogates | Bayesian model updating, imprecise probability |
 
 They have different upstreams, licences and `NOTICE` obligations, so keeping the
@@ -47,12 +47,12 @@ Licences as reported by the GitHub API on 2026-09-09.
 **Adolphus Lye is the copyright holder of all seven repositories and has granted
 GPL-3.0.** He offered either Apache-2.0 or GPL-3.0; GPL-3.0 is assumed, stated
 to the maintainer on **2026-09-09**. He is a collaborator on this repository.
-GPL-3.0 is `raffles`' own licence, so there is no compatibility question and no
+~~GPL-3.0 is `raffles`' own licence~~ **CORRECTED 2026-10-20 (gh:#973): `raffles` is now `AGPL-3.0-only`** (the grant above was GPL-3.0; the relicence is the maintainer's direction, see `docs/relicensing-agpl-2026-10-20.md`), so there is no compatibility question and no
 one-way constraint of the kind that applies to the RAVEN port.
 
 **The gap to close, tracked as `op-dwqw.1`:** six of the seven repositories carry
 **no LICENSE file**. Absent one, the public default is all-rights-reserved, so a
-third party reading this GPL-3.0 repository **cannot verify from the sources
+third party reading this ~~GPL-3.0~~ AGPL-3.0-only repository **cannot verify from the sources
 themselves** that the ported material was licensed — they would have to take an
 assertion in a commit message on trust.
 
