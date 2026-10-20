@@ -69,6 +69,9 @@ fn lu_in_place_unblocked(
         let row = j - start;
         let mut imax = row;
         let mut max = 0.0f64;
+        // faer's `for i in imax..m`: the range is fixed at entry, as clippy
+        // notes; kept verbatim.
+        #[allow(clippy::mut_range_bound)]
         for i in imax..m {
             let abs = rd(d, a.at(i, col))?.abs();
             if abs > max {

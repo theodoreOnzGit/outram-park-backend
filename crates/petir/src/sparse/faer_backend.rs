@@ -23,7 +23,10 @@ use faer::linalg::solvers::SolveCore;
 use faer::sparse::{SparseColMatRef, SymbolicSparseColMatRef};
 use faer::{Conj, MatMut, Side};
 
-/// faer's factorisations, held by value.
+/// faer's factorisations, held by value. (`Box` is forbidden by the
+/// workspace rules, so the size difference clippy flags is accepted: one
+/// factor per `SparseLu`/`SparseLlt`.)
+#[allow(clippy::large_enum_variant)]
 #[derive(Debug, Clone)]
 pub(crate) enum FaerFactor {
     /// `sp_lu`
