@@ -46,6 +46,7 @@
 //! `#[ignore]`d (`nu_scatter_matrix_full_mt`, gap bead **op-6tz.6.6**); the
 //! tractable elastic (MT=2) slice is LIVE.
 
+use petir::mathf::RealMath;
 use std::fs::File;
 use std::sync::Arc;
 
@@ -95,7 +96,7 @@ fn reconstruct_u235(mt: MtReaction) -> (Vec<f64>, Vec<f64>) {
     let n = 3000usize;
     let (e_lo, e_hi) = (1.0e-3_f64, 2.0e7_f64);
     let grid: Vec<f64> = (0..=n)
-        .map(|i| e_lo * (e_hi / e_lo).powf(i as f64 / n as f64))
+        .map(|i| e_lo * (e_hi / e_lo).r_powf(i as f64 / n as f64))
         .collect();
     let xs: Vec<f64> = grid.iter().map(|&e| result.eval_mt(mt, e)).collect();
     (grid, xs)

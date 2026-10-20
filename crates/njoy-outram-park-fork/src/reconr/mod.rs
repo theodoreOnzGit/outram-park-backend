@@ -48,6 +48,7 @@ pub use mf2::{
     EnergyRange, LState, ResonanceFormalism, ResonanceInfo, RmLState, RmResonance, SlbwResonance,
 };
 
+use petir::mathf::RealMath;
 use crate::{
     endf::{records::SectionCursor, tape::Tape, MtReaction},
     mixr::mix::sigfig,
@@ -2020,7 +2021,7 @@ fn push_rdf2_nodes(grid: &mut Vec<f64>, er: f64, hw: f64, el: f64, eh: f64) {
     }
     let mut ndig = 5;
     if er > 0.0 {
-        ndig = 2 + (er / (hw / 10.0)).log10().round() as i32;
+        ndig = 2 + (er / (hw / 10.0)).r_log10().round() as i32;
     }
     let ndig = ndig.clamp(5, 9);
     grid.push(sigfig(er, ndig, 0));
@@ -2074,7 +2075,7 @@ fn add_rm_halo_energies(grid: &mut Vec<f64>, rm_l_states: &[RmLState], el: f64, 
 pub(crate) fn push_sammy_nodes(grid: &mut Vec<f64>, er: f64, hw: f64, el: f64, eh: f64) {
     let mut ndig = 5;
     if er > 0.0 {
-        ndig = 2 + (er / (hw / 10.0)).log10().round() as i32;
+        ndig = 2 + (er / (hw / 10.0)).r_log10().round() as i32;
     }
     let ndig = ndig.clamp(5, 9);
     for (e, keep) in [(er, er > el && er < eh), (er + hw, er + hw > el && er + hw < eh), (er - hw, er - hw > el && er - hw < eh)] {
@@ -2101,7 +2102,7 @@ fn add_aa_halo_energies(
             }
             let mut ndig = 5;
             if er > 0.0 {
-                ndig = 2 + (er / (hw / 10.0)).log10().round() as i32;
+                ndig = 2 + (er / (hw / 10.0)).r_log10().round() as i32;
             }
             let ndig = ndig.clamp(5, 9);
             grid.push(sigfig(er, ndig, 0));

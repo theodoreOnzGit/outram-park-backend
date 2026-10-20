@@ -16,6 +16,7 @@
 //! The law-7 recoil path keeps upstream's `en = yy*xx` taken before `xx` is
 //! replaced by the recoil energy.
 
+use petir::mathf::RealMath;
 use super::flat::{legndr1, nint, terp1, terpa0, QP4, QP64, QW4, QW64};
 use super::state::Heatr;
 use crate::NjoyError;
@@ -197,7 +198,7 @@ impl Heatr {
                 return Ok((ebar, dame));
             }
             let mut beta = (awrt * (awrt + 1.0 - awp) * (1.0 - thresh / e) / awp).sqrt();
-            let mut afact = awp / (1.0 + awrt).powi(2);
+            let mut afact = awp / (1.0 + awrt).r_powi(2);
             let arec = awp / (awrt + 1.0 - awp);
             if *lang == 0 {
                 let mut f1 = 0.0;

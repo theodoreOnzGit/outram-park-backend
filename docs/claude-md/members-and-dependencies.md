@@ -206,6 +206,10 @@ digital-twin engine, `sembawang`, `tampines`, `teh-o-prke`,
 `thermochimica` as `[dependencies]`; `outram-foam-cli` as a dev-dependency
 (only its tests call it). The edge is `no_std` and adds no Android or wasm
 hazard.
+The OutramFoam stack joined the same day: `outram-foam-appbuilder-lib`,
+`outram-foam-multiphase`, `outram-foam-mesh`, `outram-foam-turbulence-lib` and
+`farrer-park` depend on `petir` as `[dependencies]` (`outram-foam-basic-lib`
+already did).
 `outram-foam-basic-lib` has no internal deps besides `petir`, and
 `njoy-outram-park-fork` is kept lean so data consumers stay light:
 ~~`thiserror`, `uom`; no BLAS~~ **CORRECTED 2026-10-02** — its direct

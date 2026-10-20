@@ -22,6 +22,7 @@
 //! Partial kermas, damage MTs and the kinematic limits (`kchk`) are
 //! accumulated in the same pass, in the columns `hinit` laid out.
 
+use petir::mathf::RealMath;
 use super::flat::{nint, terpa};
 use super::sixbar::SixIo;
 use super::state::{indx, Heatr, ILMAX};
@@ -354,12 +355,12 @@ impl Heatr {
                         self.elist[ilist] = e;
                         self.elist[ilist + 1] = BIG;
                         if e < BREAK1 {
-                            let lg = (e * (1.0 + SMALL)).log10();
+                            let lg = (e * (1.0 + SMALL)).r_log10();
                             let mut iii = (lg + SMALL) as i32;
                             if lg < 0.0 {
                                 iii -= 1;
                             }
-                            let xxx = 10f64.powi(iii);
+                            let xxx = 10f64.r_powi(iii);
                             if 2.0 * xxx > e * (1.0 + SMALL) && e >= 1.0 - SMALL {
                                 elst = 2.0 * xxx;
                             } else if 5.0 * xxx > e * (1.0 + SMALL) && e >= 1.0 - SMALL {

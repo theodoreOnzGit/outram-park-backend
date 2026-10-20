@@ -21,6 +21,7 @@
 //! exact floating-point comparisons (`pro(k) == sum`, `ap == 0`), because
 //! the bin edges are stored words.
 
+use petir::mathf::RealMath;
 use std::sync::OnceLock;
 
 use crate::endf::interp::gral;
@@ -242,11 +243,11 @@ pub fn pttab(interp: &[(u32, u32)], pairs: &[(f64, f64)]) -> Result<Option<[f64;
             1 => a(&p, k) * (a(&amu, j) - a(&amu, k)),
             2 => (a(&p, j) + a(&p, k)) * (a(&amu, j) - a(&amu, k)) / 2.0,
             _ => {
-                let b = (a(&p, j) / a(&p, k)).ln() / (a(&amu, j) - a(&amu, k));
+                let b = (a(&p, j) / a(&p, k)).r_ln() / (a(&amu, j) - a(&amu, k));
                 if b.abs() < 1.0 / 10000.0 {
                     a(&p, k) * (a(&amu, j) - a(&amu, k))
                 } else {
-                    a(&p, k) * ((b * (a(&amu, j) - a(&amu, k))).exp() - 1.0) / b
+                    a(&p, k) * ((b * (a(&amu, j) - a(&amu, k))).r_exp() - 1.0) / b
                 }
             }
         };
@@ -291,13 +292,13 @@ pub fn pttab(interp: &[(u32, u32)], pairs: &[(f64, f64)]) -> Result<Option<[f64;
                     amu[k - 1] = tbmu[l];
                 }
                 _ => {
-                    let b = (a(&p, j) / a(&p, k)).ln() / (a(&amu, j) - a(&amu, k));
+                    let b = (a(&p, j) / a(&p, k)).r_ln() / (a(&amu, j) - a(&amu, k));
                     if b.abs() < 1.0 / 10000.0 {
                         tbmu[l] = aneed / a(&p, k) + a(&amu, k);
                     } else {
-                        tbmu[l] = (1.0 + b * aneed / a(&p, k)).ln() / b + a(&amu, k);
+                        tbmu[l] = (1.0 + b * aneed / a(&p, k)).r_ln() / b + a(&amu, k);
                     }
-                    p[k - 1] = a(&p, k) * (b * (tbmu[l] - a(&amu, k))).exp();
+                    p[k - 1] = a(&p, k) * (b * (tbmu[l] - a(&amu, k))).r_exp();
                     amu[k - 1] = tbmu[l];
                 }
             }

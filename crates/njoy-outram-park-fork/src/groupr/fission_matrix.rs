@@ -48,6 +48,7 @@
 //! - **Remaining gap:** the fully incident-dependent χ(E'|E) matrix (MF=5
 //!   incident-energy axis) is still unported — see the fidelity note above.
 
+use petir::mathf::RealMath;
 use std::sync::Arc;
 
 use crate::groupr::panel::{group_average_vector, group_integral, GroupFlux, PointwiseXs};
@@ -85,11 +86,11 @@ fn validate_bounds(bounds: &[f64], name: &'static str) -> Result<(), NjoyError> 
 fn fine_emission_grid(group_bounds: &[f64]) -> Vec<f64> {
     let lo = group_bounds[0].max(1.0e-5);
     let hi = group_bounds[group_bounds.len() - 1];
-    let decades = (hi / lo).log10().max(1.0);
+    let decades = (hi / lo).r_log10().max(1.0);
     let n = ((decades * 100.0).ceil() as usize).max(2);
     let ratio = hi / lo;
     let mut grid: Vec<f64> = (0..=n)
-        .map(|i| lo * ratio.powf(i as f64 / n as f64))
+        .map(|i| lo * ratio.r_powf(i as f64 / n as f64))
         .collect();
     grid.extend_from_slice(group_bounds);
     grid.sort_by(|a, b| a.partial_cmp(b).expect("finite grid energies"));

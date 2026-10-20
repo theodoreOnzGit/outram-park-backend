@@ -40,6 +40,7 @@
 //! subsections. They are ported line for line; nothing here has compared them
 //! with NJOY.
 
+use petir::mathf::RealMath;
 use crate::endf::interp::{terp1, terpa, IntLaw};
 use crate::endf::records::{SectionCursor, Tab1};
 use crate::endf::tape::Section;
@@ -437,7 +438,7 @@ pub fn acelf6(
 /// its own rounding. `law66_shape_table` builds the same grid for the reader
 /// and does not round, so it is not reused here.
 fn law66_words(npsx: i32, words: &mut Vec<DlwWord>) {
-    let step1 = 10f64.powf(1.0 / 5.0);
+    let step1 = 10f64.r_powf(1.0 / 5.0);
     let step2 = 1.0 / 50.0;
     let test1 = 1.0 + 1.0 / 100_000.0;
     let test2 = 1.0 / 10.0 - 1.0 / 1_000_000.0;
@@ -466,7 +467,7 @@ fn law66_words(npsx: i32, words: &mut Vec<DlwWord>) {
             0.0
         } else {
             let rn = 3.0;
-            xx.sqrt() * (1.0 - xx).powf(rn * f64::from(npsx) / 2.0 - 4.0)
+            xx.sqrt() * (1.0 - xx).r_powf(rn * f64::from(npsx) / 2.0 - 4.0)
         };
         yn += (xx - xl) * (pn + pl) / 2.0;
         x.push(sigfig(xx, 7, 0));
@@ -518,8 +519,8 @@ fn incident_block(
         let mut cx = d[ncyc] * d[1];
         while n > 2 {
             let cxx = cx + d[ncyc + 1] * (d[2 * ncyc] - d[ncyc]);
-            if (cxx / d[2 * ncyc].powf(1.5) - cx / d[ncyc].powf(1.5)).abs()
-                > cx / d[ncyc].powf(1.5) / 50.0
+            if (cxx / d[2 * ncyc].r_powf(1.5) - cx / d[ncyc].r_powf(1.5)).abs()
+                > cx / d[ncyc].r_powf(1.5) / 50.0
             {
                 break;
             }
@@ -782,9 +783,9 @@ pub fn bachaa(iza1i: i32, iza2: i32, izat: i32, e: f64, ep: f64) -> Result<f64, 
     let sq = |x: f64| x * x;
     let mut sa = C1 * (ac - aa)
         + C2 * (sq(nc - zc) / ac - sq(na - za) / aa)
-        + C3 * (ac.powf(TWOTH) - aa.powf(TWOTH))
-        + C4 * (sq(nc - zc) / ac.powf(FOURTH) - sq(na - za) / aa.powf(FOURTH))
-        + C5 * (sq(zc) / ac.powf(THIRD) - sq(za) / aa.powf(THIRD))
+        + C3 * (ac.r_powf(TWOTH) - aa.r_powf(TWOTH))
+        + C4 * (sq(nc - zc) / ac.r_powf(FOURTH) - sq(na - za) / aa.r_powf(FOURTH))
+        + C5 * (sq(zc) / ac.r_powf(THIRD) - sq(za) / aa.r_powf(THIRD))
         + C6 * (sq(zc) / ac - sq(za) / aa);
     match iza1 {
         1002 => sa -= S2,
@@ -795,9 +796,9 @@ pub fn bachaa(iza1i: i32, iza2: i32, izat: i32, e: f64, ep: f64) -> Result<f64, 
     }
     let mut sb = C1 * (ac - ab)
         + C2 * (sq(nc - zc) / ac - sq(nb - zb) / ab)
-        + C3 * (ac.powf(TWOTH) - ab.powf(TWOTH))
-        + C4 * (sq(nc - zc) / ac.powf(FOURTH) - sq(nb - zb) / ab.powf(FOURTH))
-        + C5 * (sq(zc) / ac.powf(THIRD) - sq(zb) / ab.powf(THIRD))
+        + C3 * (ac.r_powf(TWOTH) - ab.r_powf(TWOTH))
+        + C4 * (sq(nc - zc) / ac.r_powf(FOURTH) - sq(nb - zb) / ab.r_powf(FOURTH))
+        + C5 * (sq(zc) / ac.r_powf(THIRD) - sq(zb) / ab.r_powf(THIRD))
         + C6 * (sq(zc) / ac - sq(zb) / ab);
     match iza2 {
         1002 => sb -= S2,
@@ -819,7 +820,7 @@ pub fn bachaa(iza1i: i32, iza2: i32, izat: i32, e: f64, ep: f64) -> Result<f64, 
     } else {
         1.0
     };
-    let mut bb = B1 * x1 + B2 * x1.powi(3) + B3 * fa * fb * x3.powi(4);
+    let mut bb = B1 * x1 + B2 * x1.r_powi(3) + B3 * fa * fb * x3.r_powi(4);
     if iza1i == 0 {
         let mut fact = D1;
         if ep != 0.0 {

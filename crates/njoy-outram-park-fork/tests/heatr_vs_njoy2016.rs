@@ -53,6 +53,7 @@
 //! Both facts are asserted below. Above ~1 MeV the H5 channels diverge for
 //! reasons this comparison cannot separate, so they are printed, not asserted.
 
+use petir::mathf::RealMath;
 use njoy_outram_park_fork::endf::interp::eval_tab1;
 use njoy_outram_park_fork::endf::records::SectionCursor;
 use njoy_outram_park_fork::endf::tape::Tape;
@@ -335,7 +336,7 @@ fn damage_elastic_matches_njoy_where_scattering_is_isotropic() {
         let (mut worst, mut at) = (0.0f64, 0.0);
         let mut devs = Vec::new();
         for i in 0..=120 {
-            let e = 1.2e3 * (ISOTROPIC_TOP_EV / 1.2e3).powf(i as f64 / 120.0);
+            let e = 1.2e3 * (ISOTROPIC_TOP_EV / 1.2e3).r_powf(i as f64 / 120.0);
             let theirs = eval_tab1(e, &interp, &pairs).unwrap();
             if theirs <= 0.0 {
                 continue;
@@ -389,7 +390,7 @@ fn damage_elastic_matches_njoy_where_scattering_is_isotropic() {
         // KNOWN GAP (unported MF=4 anisotropy), not a correctness claim.
         let (mut hi_worst, mut hi_at) = (0.0f64, 0.0);
         for i in 0..=30 {
-            let e = 1.0e5 * (9.0e5f64 / 1.0e5).powf(i as f64 / 30.0);
+            let e = 1.0e5 * (9.0e5f64 / 1.0e5).r_powf(i as f64 / 30.0);
             let theirs = eval_tab1(e, &interp, &pairs).unwrap();
             if theirs <= 0.0 {
                 continue;

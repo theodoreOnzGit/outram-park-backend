@@ -243,8 +243,13 @@ pub fn atan2(y: f64, x: f64) -> f64 {
 
 /// The float operations `core` lacks, provided for `no_std` builds.
 ///
-/// Implemented for [`f64`] only — PETIR is a double-precision library
-/// throughout, matching GSL's and Octave's default storage type. Every method
+/// ~~Implemented for [`f64`] only — PETIR is a double-precision library
+/// throughout, matching GSL's and Octave's default storage type.~~
+/// **CORRECTED 2026-10-20** — implemented for [`f64`] and, since 2026-09-19
+/// (commit `4b9a9a52d1`, the WGSL kernels), for [`f32`] too: the `impl Real
+/// for f32` below routes to `libm`'s single-precision functions (`sinf`,
+/// `expf`, …) and backs the `f32` CPU mirrors in [`crate::wgsl`]. The
+/// numerics layers remain `f64`. Every method
 /// has the same contract, argument order and edge-case behaviour as the
 /// identically named [`f64`] inherent method in `std`.
 pub trait Real: Copy {

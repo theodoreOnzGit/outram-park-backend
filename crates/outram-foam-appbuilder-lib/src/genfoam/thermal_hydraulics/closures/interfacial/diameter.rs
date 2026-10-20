@@ -51,6 +51,7 @@
 //! alphaN * Dhs`; see TRACE theory manual eqns. 4-37/4-38,
 //! <https://www.nrc.gov/docs/ML1200/ML120060218.pdf>, pp. 135-136).
 
+use petir::mathf::RealMath;
 use super::units::{fluid_diameter, FluidDiameter};
 use uom::si::f64::{Pressure, Ratio, ThermodynamicTemperature};
 use uom::si::pressure::pascal;
@@ -97,8 +98,10 @@ impl BubbleDiameter {
 
     fn value(&self, p: f64, t: f64) -> f64 {
         match *self {
-            Self::IsomolarBubble { d0_m, p0_pa, t0_k } => d0_m * ((p0_pa * t) / (p * t0_k)).cbrt(),
-            Self::IsothermalBubble { d0_m, p0_pa } => d0_m * (p0_pa / p).cbrt(),
+            Self::IsomolarBubble { d0_m, p0_pa, t0_k } => {
+                d0_m * ((p0_pa * t) / (p * t0_k)).r_cbrt()
+            }
+            Self::IsothermalBubble { d0_m, p0_pa } => d0_m * (p0_pa / p).r_cbrt(),
         }
     }
 }

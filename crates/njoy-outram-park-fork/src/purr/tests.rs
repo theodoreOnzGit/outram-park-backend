@@ -1,6 +1,7 @@
 //! Unit tests for the `PURR` port (moved verbatim out of `purr/mod.rs`
 //! when the file was split at the ladder-generation / `unrest` boundary).
 
+use petir::mathf::RealMath;
 use super::ladder::CHISQ;
 use super::unrest::line_shape;
 use super::wfun::DopplerTable;
@@ -109,7 +110,7 @@ fn ladder_spacing_has_the_wigner_mean_and_width() {
     let n = spacings.len() as f64;
     assert!(n > 15_000.0, "only {n} spacings");
     let mean = spacings.iter().sum::<f64>() / n;
-    let var = spacings.iter().map(|s| (s - mean).powi(2)).sum::<f64>() / (n - 1.0);
+    let var = spacings.iter().map(|s| (s - mean).r_powi(2)).sum::<f64>() / (n - 1.0);
     let want_sd = dbar * (4.0 / std::f64::consts::PI - 1.0).sqrt();
     // Statistical error of the mean: sd/√n ≈ 0.075 eV here; 4σ bands.
     assert!(
@@ -255,14 +256,14 @@ fn line_shape_selects_the_same_tier_as_upstreams_index_ranges() {
     // Just past 100 → asymptotic; just under → 2-term.
     assert_eq!(line_shape(100.001, 1.0, 1.0, &table), asym(100.001, 1.0));
     assert_eq!(
-        line_shape(1.0, 100.001, 100.001f64.powi(2), &table),
+        line_shape(1.0, 100.001, 100.001f64.r_powi(2), &table),
         asym(1.0, 100.001)
     );
     assert_eq!(line_shape(99.999, 1.0, 1.0, &table), two_term(99.999, 1.0));
     // Just past 6 → 2-term; y alone past 6 too.
     assert_eq!(line_shape(6.001, 0.2, 0.04, &table), two_term(6.001, 0.2));
     assert_eq!(
-        line_shape(0.2, 6.001, 6.001f64.powi(2), &table),
+        line_shape(0.2, 6.001, 6.001f64.r_powi(2), &table),
         two_term(0.2, 6.001)
     );
     // Under 6 but past 3.9 (x) / 3.0 (y): 3-term, i.e. NOT the 2-term
@@ -271,11 +272,11 @@ fn line_shape_selects_the_same_tier_as_upstreams_index_ranges() {
     assert_ne!(g, two_term(5.999, 0.2));
     let g2 = line_shape(3.95, 0.2, 0.04, &table);
     assert_ne!(g2, table.lookup_fine(3.95, 0.2));
-    let g3 = line_shape(0.2, 3.05, 3.05f64.powi(2), &table);
+    let g3 = line_shape(0.2, 3.05, 3.05f64.r_powi(2), &table);
     assert_ne!(g3, table.lookup_coarse(0.2, 3.05));
     // Inside the table region: exactly the table, coarse vs fine by y.
     assert_eq!(
-        line_shape(3.85, 2.95, 2.95f64.powi(2), &table),
+        line_shape(3.85, 2.95, 2.95f64.r_powi(2), &table),
         table.lookup_coarse(3.85, 2.95)
     );
     assert_eq!(
@@ -283,7 +284,7 @@ fn line_shape_selects_the_same_tier_as_upstreams_index_ranges() {
         table.lookup_coarse(3.85, 0.5)
     );
     assert_eq!(
-        line_shape(3.85, 0.499, 0.499f64.powi(2), &table),
+        line_shape(3.85, 0.499, 0.499f64.r_powi(2), &table),
         table.lookup_fine(3.85, 0.499)
     );
     assert_eq!(

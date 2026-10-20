@@ -26,6 +26,7 @@
 //! derive a real `ν̄(E)` from, so [`MtChannel`] does not expose a
 //! ν·σ_f channel — showing an always-zero one would be actively misleading.
 
+use petir::mathf::RealMath;
 use njoy_outram_park_fork::endf::MtReaction;
 use njoy_outram_park_fork::nuclear_data::{Mgxs, MgxsLibrary, MicroXs, XsProvider};
 use njoy_outram_park_fork::wmp::{WindowedMultipole, WmpLibrary};
@@ -188,9 +189,9 @@ pub fn sample_log_log(
     let ratio = e_hi / e_lo;
     (0..n_points)
         .filter_map(|i| {
-            let e = e_lo * ratio.powf(i as f64 / (n_points - 1) as f64);
+            let e = e_lo * ratio.r_powf(i as f64 / (n_points - 1) as f64);
             let sigma = mt.value(&nx.micro(e, temp_k));
-            (sigma > 0.0).then(|| (e.log10(), sigma.log10()))
+            (sigma > 0.0).then(|| (e.r_log10(), sigma.r_log10()))
         })
         .collect()
 }

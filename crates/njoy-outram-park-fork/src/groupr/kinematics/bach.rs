@@ -5,6 +5,7 @@
 
 //! The Kalbach-86 slope systematics (`bach`).
 
+use petir::mathf::RealMath;
 use crate::common::phys::{AMASSN_AMU, AMU_G, CLIGHT_CM_S, EV_ERG};
 use crate::NjoyError;
 
@@ -100,11 +101,11 @@ pub fn bach(iza1i: i32, iza2: i32, izat: i32, e: f64, ep: f64) -> Result<f64, Nj
     let nc = (ac - zc).round();
 
     let mut sa = C1 * (ac - aa)
-        + C2 * ((nc - zc).powi(2) / ac - (na - za).powi(2) / aa)
-        + C3 * (ac.powf(TWOTH) - aa.powf(TWOTH))
-        + C4 * ((nc - zc).powi(2) / ac.powf(FOURTH) - (na - za).powi(2) / aa.powf(FOURTH))
-        + C5 * (zc.powi(2) / ac.powf(THIRD) - za.powi(2) / aa.powf(THIRD))
-        + C6 * (zc.powi(2) / ac - za.powi(2) / aa);
+        + C2 * ((nc - zc).r_powi(2) / ac - (na - za).r_powi(2) / aa)
+        + C3 * (ac.r_powf(TWOTH) - aa.r_powf(TWOTH))
+        + C4 * ((nc - zc).r_powi(2) / ac.r_powf(FOURTH) - (na - za).r_powi(2) / aa.r_powf(FOURTH))
+        + C5 * (zc.r_powi(2) / ac.r_powf(THIRD) - za.r_powi(2) / aa.r_powf(THIRD))
+        + C6 * (zc.r_powi(2) / ac - za.r_powi(2) / aa);
     match iza1 {
         1002 => sa -= S2,
         1003 => sa -= S3,
@@ -114,11 +115,11 @@ pub fn bach(iza1i: i32, iza2: i32, izat: i32, e: f64, ep: f64) -> Result<f64, Nj
     }
 
     let mut sb = C1 * (ac - ab)
-        + C2 * ((nc - zc).powi(2) / ac - (nb - zb).powi(2) / ab)
-        + C3 * (ac.powf(TWOTH) - ab.powf(TWOTH))
-        + C4 * ((nc - zc).powi(2) / ac.powf(FOURTH) - (nb - zb).powi(2) / ab.powf(FOURTH))
-        + C5 * (zc.powi(2) / ac.powf(THIRD) - zb.powi(2) / ab.powf(THIRD))
-        + C6 * (zc.powi(2) / ac - zb.powi(2) / ab);
+        + C2 * ((nc - zc).r_powi(2) / ac - (nb - zb).r_powi(2) / ab)
+        + C3 * (ac.r_powf(TWOTH) - ab.r_powf(TWOTH))
+        + C4 * ((nc - zc).r_powi(2) / ac.r_powf(FOURTH) - (nb - zb).r_powi(2) / ab.r_powf(FOURTH))
+        + C5 * (zc.r_powi(2) / ac.r_powf(THIRD) - zb.r_powi(2) / ab.r_powf(THIRD))
+        + C6 * (zc.r_powi(2) / ac - zb.r_powi(2) / ab);
     match iza2 {
         1002 => sb -= S2,
         1003 => sb -= S3,
@@ -146,7 +147,7 @@ pub fn bach(iza1i: i32, iza2: i32, izat: i32, e: f64, ep: f64) -> Result<f64, Nj
     } else {
         1.0
     };
-    let mut bb = B1 * x1 + B2 * x1.powi(3) + B3 * fa * fb * x3.powi(4);
+    let mut bb = B1 * x1 + B2 * x1.r_powi(3) + B3 * fa * fb * x3.r_powi(4);
     if iza1i == 0 {
         let mut fact = D1 / (ep * TOMEV).sqrt();
         if fact < 1.0 {

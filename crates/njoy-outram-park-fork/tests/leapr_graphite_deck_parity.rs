@@ -159,6 +159,7 @@
 //! [`FrequencyModel::start`]: njoy_outram_park_fork::leapr::frequency::FrequencyModel::start
 //! [`phonon_expansion`]: njoy_outram_park_fork::leapr::continuous::phonon_expansion
 
+use petir::mathf::RealMath;
 use njoy_outram_park_fork::endf::tape::Tape;
 use njoy_outram_park_fork::leapr::continuous::phonon_expansion;
 use njoy_outram_park_fork::leapr::deck::LeaprDeck;
@@ -298,7 +299,7 @@ fn measure(deck: &LeaprDeck, temperature_k: f64, bk: f64) -> (Parity, std::time:
     let (mut m6, mut s6, mut n6) = (0.0f64, 0.0f64, 0usize);
     for k in 0..deck.beta.len() {
         let be = deck.beta[k] * sc;
-        let fold = (-be / 2.0).exp();
+        let fold = (-be / 2.0).r_exp();
         for j in 0..deck.alpha.len() {
             let ours = sab.get(k, j) * fold;
             let theirs = ii.s_tables[k].s[j];
@@ -733,7 +734,7 @@ fn debye_waller_conversion_matches_the_tape_temperature_trend() {
             continue;
         }
         let x = -4.0 * e;
-        let y = inc_a.ln() - inc_b.ln();
+        let y = inc_a.r_ln() - inc_b.r_ln();
         num += x * y;
         den += x * x;
         used += 1;

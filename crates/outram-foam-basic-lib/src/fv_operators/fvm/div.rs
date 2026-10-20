@@ -201,6 +201,7 @@ pub fn div(phi: &SurfaceScalarField, psi: &VolScalarField) -> FvMatrix {
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
     use crate::fields::boundary::bc::{BoundaryCondition, PatchField};
     use crate::fields::field::Field;
@@ -368,13 +369,13 @@ mod tests {
     /// `f` couples cell `f` and cell `(f+1) mod n`, no boundary faces.
     fn ring_mesh(n: usize, h: f64, area: f64) -> Arc<crate::mesh::fv_mesh::FvMesh> {
         use std::f64::consts::PI;
-        let r = h / (2.0 * (PI / n as f64).sin());
+        let r = h / (2.0 * (PI / n as f64).r_sin());
         let owner: Vec<usize> = (0..n).collect();
         let neighbour: Vec<usize> = (0..n).map(|f| (f + 1) % n).collect();
         let cell_centres: Vec<Vector3> = (0..n)
             .map(|i| {
                 let th = 2.0 * PI * i as f64 / n as f64;
-                Vector3::new(r * th.cos(), r * th.sin(), 0.0)
+                Vector3::new(r * th.r_cos(), r * th.r_sin(), 0.0)
             })
             .collect();
         let face_centres: Vec<Vector3> = (0..n)

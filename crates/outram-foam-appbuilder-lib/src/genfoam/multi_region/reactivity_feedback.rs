@@ -86,6 +86,7 @@
 //! [`Ratio`]. The per-cell reduction is done in raw `f64` internally (never at
 //! the API boundary).
 
+use petir::mathf::RealMath;
 use uom::si::f64::{MassDensity, Ratio, ThermodynamicTemperature};
 use uom::si::mass_density::kilogram_per_cubic_meter;
 use uom::si::ratio::ratio;
@@ -192,7 +193,7 @@ impl FeedbackTerm {
                     // −α T_ref ln(T/T_ref); guard non-positive T (extrapolation).
                     DopplerLaw::Logarithmic => {
                         if x > 0.0 {
-                            -a * tr * (x / tr).ln()
+                            -a * tr * (x / tr).r_ln()
                         } else {
                             -a * (x - tr)
                         }

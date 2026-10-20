@@ -21,6 +21,7 @@
 //! temperature (l.583-599); the reference-group flux is only taken when
 //! the reaction is `MT=1`.
 
+use petir::mathf::RealMath;
 use super::gendf::GendfMaterial;
 use super::input::WimsrInput;
 use super::xsecs::{Counts, XsecsResult};
@@ -256,8 +257,8 @@ pub fn resint(
         }
         g.elastic = elas[jg].clone();
         // listing: flux per unit lethargy normalised at igref (l.764-772)
-        let lg = (mat.egb[igref - 1] / mat.egb[igref]).ln();
-        let lj = (mat.egb[nfg + jg] / mat.egb[nfg + jg + 1]).ln();
+        let lg = (mat.egb[igref - 1] / mat.egb[igref]).r_ln();
+        let lj = (mat.egb[nfg + jg] / mat.egb[nfg + jg + 1]).r_ln();
         g.flux_per_lethargy = (0..ires)
             .map(|it| {
                 (0..nsigz)

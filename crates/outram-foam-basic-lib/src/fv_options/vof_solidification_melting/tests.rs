@@ -21,6 +21,7 @@
 //! water's latent heat, upstream's own example value. The mesh is the same
 //! 4-cell, 0.5 m³-per-cell periodic 1-D mesh the other `fv_options` tests use.
 
+use petir::mathf::RealMath;
 use super::*;
 use crate::mesh::FvMesh;
 use std::sync::Arc;
@@ -106,7 +107,7 @@ fn repeated_correct_converges_geometrically_to_the_table_value() {
     }
 
     let measured = model.solid_fraction()[0];
-    let closed_form = 1.0 - 0.1_f64.powi(10);
+    let closed_form = 1.0 - 0.1_f64.r_powi(10);
     println!(
         "after 10 corrects: {measured:.10}, closed form {closed_form:.10}, diff {:.10}",
         measured - closed_form
@@ -230,8 +231,8 @@ fn a_mostly_solid_cell_gains_a_large_positive_diagonal_drag() {
     model.add_momentum_source(&rho, &mut eqn);
 
     let alpha_fluid = 0.1_f64;
-    let closed_form = CELL_VOLUME * rho_value * 1.0e5 * (1.0 - alpha_fluid).powi(2)
-        / (alpha_fluid.powi(3) + 1.0e-3);
+    let closed_form = CELL_VOLUME * rho_value * 1.0e5 * (1.0 - alpha_fluid).r_powi(2)
+        / (alpha_fluid.r_powi(3) + 1.0e-3);
     println!(
         "alpha_solid = {}, diag[0] = {}, closed form = {closed_form}",
         model.solid_fraction()[0],

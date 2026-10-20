@@ -105,6 +105,7 @@
 //! solver-integration bead (op-p6p.7.11+), once field-level assembly exists to
 //! run an actual case.
 
+use petir::mathf::RealMath;
 use super::lahey_k_epsilon::LaheyBubbleClosure;
 use super::mixture_k_epsilon::MixtureKEpsilonClosure;
 use super::porous_k_epsilon::{PorousKEpsilon2PhaseClosure, PorousKEpsilonClosure};
@@ -317,8 +318,8 @@ fn porous_equilibrium_k_matches_openfoam_intensity_correlation() {
 
     let k_eq = model.equilibrium_k(speed, re);
 
-    let intensity = 0.16 * (1.0e4_f64).powf(-1.0 / 8.0);
-    let expected_k = 1.5 * (1.0 * intensity).powi(2);
+    let intensity = 0.16 * (1.0e4_f64).r_powf(-1.0 / 8.0);
+    let expected_k = 1.5 * (1.0 * intensity).r_powi(2);
     assert_relative_eq!(
         k_eq.get::<joule_per_kilogram>(),
         expected_k,
@@ -346,7 +347,7 @@ fn porous_equilibrium_epsilon_matches_openfoam_mixing_length_correlation() {
 
     let length_scale = 0.07 * 0.02;
     let expected_eps =
-        0.09_f64.powf(0.75) * k_eq.get::<joule_per_kilogram>().powf(1.5) / length_scale;
+        0.09_f64.r_powf(0.75) * k_eq.get::<joule_per_kilogram>().r_powf(1.5) / length_scale;
     assert_relative_eq!(
         eps_eq.get::<watt_per_kilogram>(),
         expected_eps,

@@ -141,6 +141,7 @@
 //! parents (`HangingConstraint`); without that constraint an unconstrained move
 //! of the same points opens gaps of ~9e-4 m² per cell.
 
+use petir::mathf::RealMath;
 use std::collections::HashMap;
 
 use outram_foam_basic_lib::mesh::PatchKind;
@@ -681,7 +682,7 @@ struct FeatureEdge {
 /// that angle exceeds the threshold. Restricted port of the feature-edge
 /// extraction underlying `snappySnapDriverFeature.C`.
 fn detect_feature_edges(surface: &TriangleSoup, angle_deg: f64) -> Vec<FeatureEdge> {
-    let cos_thresh = angle_deg.to_radians().cos();
+    let cos_thresh = angle_deg.to_radians().r_cos();
     // Quantise vertices to merge coincident endpoints (STL soups are unshared).
     let quant = 1e-6_f64; // 1 micron grid — adequate for metre-scale test geometry.
     let key = |v: Vector3| -> (i64, i64, i64) {
@@ -983,9 +984,9 @@ mod tests {
             let theta = std::f64::consts::PI * ia;
             let phi = 2.0 * std::f64::consts::PI * io;
             Vector3::new(
-                c.x + r * theta.sin() * phi.cos(),
-                c.y + r * theta.sin() * phi.sin(),
-                c.z + r * theta.cos(),
+                c.x + r * theta.r_sin() * phi.r_cos(),
+                c.y + r * theta.r_sin() * phi.r_sin(),
+                c.z + r * theta.r_cos(),
             )
         };
         for i in 0..n_lat {

@@ -28,6 +28,8 @@
 //! index either way. Callers needing a solved flux use the HIGH tier
 //! (on-device ENDF reprocessing).
 
+use petir::mathf::RealMath;
+
 /// The neutron-flux shape used to weight a fast-range group collapse.
 ///
 /// A closed enum (workspace rule: no trait objects). Each variant supplies its
@@ -91,13 +93,13 @@ impl WeightingSpectrum {
             return 0.0;
         }
         match *self {
-            WeightingSpectrum::Watt { a, b } => (-e / a).exp() * (b * e).sqrt().sinh(),
+            WeightingSpectrum::Watt { a, b } => (-e / a).r_exp() * (b * e).sqrt().r_sinh(),
             WeightingSpectrum::OneOverE => 1.0 / e,
             WeightingSpectrum::Maxwellian { temp_ev } => {
                 if temp_ev <= 0.0 {
                     0.0
                 } else {
-                    e * (-e / temp_ev).exp()
+                    e * (-e / temp_ev).r_exp()
                 }
             }
         }

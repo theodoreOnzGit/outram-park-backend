@@ -111,6 +111,7 @@
 //! porous two-fluid momentum solver (bead op-p6p.7.11) exists to drive these
 //! closures end-to-end.
 
+use petir::mathf::RealMath;
 use super::{FfDragCoefficient, FfInterfacialState, TwoPhaseDragMultiplier};
 use crate::genfoam::thermal_hydraulics::units::reynolds_number;
 use approx::assert_relative_eq;
@@ -182,7 +183,7 @@ fn wallis_pure_vapour_endpoint() {
 fn schiller_naumann_matches_classical_times_1_5() {
     for &re in &[1.0_f64, 100.0, 999.999, 1000.0, 1.0e4] {
         let classical = if re < 1000.0 {
-            24.0 * (1.0 + 0.15 * re.powf(0.687)) / re
+            24.0 * (1.0 + 0.15 * re.r_powf(0.687)) / re
         } else {
             0.44
         };
@@ -216,7 +217,7 @@ fn bestion_co_equals_one_skips_velocity_slip_factor() {
     // Cd = 2*a*(1-a)^3*(Dh_d/Dh_c)*(rho_v/rho_l)/Cm^2
     let cm = 0.188_f64;
     let expected =
-        2.0 * 0.3 * (1.0 - 0.3f64).powi(3) * (0.01 / 0.02) * (800.0 / 800.0) / cm.powi(2);
+        2.0 * 0.3 * (1.0 - 0.3f64).r_powi(3) * (0.01 / 0.02) * (800.0 / 800.0) / cm.r_powi(2);
     assert_relative_eq!(cd, expected, max_relative = 1e-12);
 }
 
@@ -227,7 +228,7 @@ fn bestion_trace_reproduces_formula() {
     let s = state(0.3, 1.0, 5.0, 1.0, 800.0, 0.01, 0.02, 0.0, 0.0, 0.0);
     let cd = cd_of(&FfDragCoefficient::BestionTrace, &s);
     let cm = 0.188_f64;
-    let expected = 2.0 * 0.3 * (1.0 - 0.3f64).powi(3) * 5.0 / cm.powi(2) / 0.02 / 800.0 * 0.01;
+    let expected = 2.0 * 0.3 * (1.0 - 0.3f64).r_powi(3) * 5.0 / cm.r_powi(2) / 0.02 / 800.0 * 0.01;
     assert_relative_eq!(cd, expected, max_relative = 1e-12);
 }
 
@@ -260,7 +261,7 @@ fn no_kazimi_geometry_coefficient() {
         * 0.5_f64.min(0.99)
         * ((1.0 - 0.5) / 0.043_f64).min(1.0)
         * 0.005
-        * (1.0 + 234.3 * (1.0 - 0.5_f64.sqrt()).powf(1.15));
+        * (1.0 + 234.3 * (1.0 - 0.5_f64.sqrt()).r_powf(1.15));
     assert_relative_eq!(cd, expected_cd, max_relative = 1e-12);
 }
 

@@ -27,6 +27,7 @@
 //! matrix must be present at every temperature or the run stops there
 //! ("mti missing from higher temps").
 
+use petir::mathf::RealMath;
 use crate::dtfr::gendf::GendfGroupRecord;
 use crate::NjoyError;
 
@@ -226,8 +227,8 @@ pub fn xsecs(
     let mut jfis = 0i32;
     let mut ifiss = 0i32;
     // aver. log. decrement per collision, isotropic scattering (l.1130-1132)
-    let alf = ((mat.awr - 1.0) / (mat.awr + 1.0)).powi(2);
-    let xxi = 1.0 + alf.ln() * alf / (1.0 - alf);
+    let alf = ((mat.awr - 1.0) / (mat.awr + 1.0)).r_powi(2);
+    let xxi = 1.0 + alf.r_ln() * alf / (1.0 - alf);
 
     let mut jtemp = 0usize;
     let mut blocks = mat.blocks.iter();
@@ -620,7 +621,7 @@ pub fn xsecs(
                     l1[jg] = jg2;
                 }
             }
-            sdp[i] = scat[i] * xi[i] / (egb[i - 1] / egb[i]).ln();
+            sdp[i] = scat[i] * xi[i] / (egb[i - 1] / egb[i]).r_ln();
             if sigp == 0.0 {
                 spot[i] = scat[i];
             }

@@ -27,6 +27,7 @@
 //! Measured numbers are recorded in each test's own doc comment, per the
 //! workspace rule that a V&V test must document both methodology and results.
 
+use petir::mathf::RealMath;
 use farrer_park::crystal::{
     CrystalElasticity, CrystalPlasticity, Orientation, PowerLawFlow, SaturatingHardening,
     SlipFamily, MAX_SLIP_SYSTEMS,
@@ -978,8 +979,8 @@ fn consistent_tangent_against_richardson_extrapolated_jacobian() {
 
         let (j1, j2, j3) = (numerical(1.0), numerical(0.5), numerical(0.25));
         let (e1, e2, e3) = (worst(&j1), worst(&j2), worst(&j3));
-        let order_a = (e1 / e2).log2();
-        let order_b = (e2 / e3).log2();
+        let order_a = (e1 / e2).r_log2();
+        let order_b = (e2 / e3).r_log2();
         let mut richardson = [[0.0f64; 6]; 6];
         for i in 0..6 {
             for j in 0..6 {

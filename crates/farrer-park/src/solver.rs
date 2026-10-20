@@ -72,6 +72,7 @@
 //! Displacements in metres, forces in newtons, stiffness in newton per metre.
 //! Tolerances and load factors are dimensionless.
 
+use petir::mathf::RealMath;
 use crate::assembly::System;
 use crate::bc::{DirichletMethod, DirichletSet};
 use crate::error::{FemError, Result};
@@ -262,11 +263,11 @@ impl LoadStepReport {
         if !(a > 0.0 && b > 0.0 && c > 0.0) {
             return None;
         }
-        let d = (b / a).ln();
+        let d = (b / a).r_ln();
         if d.abs() < 1e-12 {
             return None;
         }
-        Some((c / b).ln() / d)
+        Some((c / b).r_ln() / d)
     }
 
     /// Observed convergence order estimated from the last three residuals
@@ -300,11 +301,11 @@ impl LoadStepReport {
         if !(a > 0.0 && b > 0.0 && c > 0.0) {
             return None;
         }
-        let d = (b / a).ln();
+        let d = (b / a).r_ln();
         if d.abs() < 1e-12 {
             return None;
         }
-        Some((c / b).ln() / d)
+        Some((c / b).r_ln() / d)
     }
 }
 
@@ -474,7 +475,7 @@ fn newton_step(
         let r_abs = rhs.iter().map(|v| v * v).sum::<f64>().sqrt();
         if iter == 0 {
             let ext: f64 = (0..n)
-                .map(|i| (lambda * (external_force[i] + a.body_force[i])).powi(2))
+                .map(|i| (lambda * (external_force[i] + a.body_force[i])).r_powi(2))
                 .sum::<f64>()
                 .sqrt();
             f_ref = ext.max(r_abs).max(1.0e-300);

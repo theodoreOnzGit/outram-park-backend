@@ -44,37 +44,38 @@
 // `H2I.H`, upstream or here. Per the "no orphaned dead code" rule, neither is
 // ported.
 
+use petir::mathf::RealMath;
 /// `Omega^(2,2)_{2,2}` (H-H), single polynomial fit (no low-`T` branch;
 /// atomic hydrogen only appears at high `T` in practice).
 #[inline]
 pub(super) fn omega22_22(t: f64) -> f64 {
-    5e-16 * t.powi(4) - 2e-11 * t.powi(3) + 2e-7 * t * t - 0.0015 * t + 7.1214
+    5e-16 * t.r_powi(4) - 2e-11 * t.r_powi(3) + 2e-7 * t * t - 0.0015 * t + 7.1214
 }
 
 /// `Omega^(1,1)_{1,2}` (H2-H cross term), logarithmic fit valid 1000-10000 K
 /// and extended to cryogenic `T`.
 #[inline]
 pub(super) fn omega11_12(t: f64) -> f64 {
-    -1.024 * t.ln() + 11.054
+    -1.024 * t.r_ln() + 11.054
 }
 
 /// `Omega^(2,2)_{1,2}` (H2-H cross term), same fitting scheme as [`omega11_12`].
 #[inline]
 pub(super) fn omega22_12(t: f64) -> f64 {
-    -1.227 * t.ln() + 13.42
+    -1.227 * t.r_ln() + 13.42
 }
 
 /// `A*_{1,2}` ratio (Hirschfelder-Curtiss-Bird mixture-rule coefficient) for
 /// the H2-H pair.
 #[inline]
 pub(super) fn a12(t: f64) -> f64 {
-    0.0345 * t.ln() + 0.9917
+    0.0345 * t.r_ln() + 0.9917
 }
 
 /// `B*_{1,2}` ratio for the H2-H pair.
 #[inline]
 pub(super) fn b12(t: f64) -> f64 {
-    0.0462 * t.ln() + 0.8701
+    0.0462 * t.r_ln() + 0.8701
 }
 
 // Note: upstream `H2I.H` also fits a `C_12` ratio (`Foam::H2::C_12`), but no

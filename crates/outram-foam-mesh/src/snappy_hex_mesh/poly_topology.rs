@@ -61,6 +61,7 @@
 //!
 //! [`build_fvmesh`]: PolyPatchMesh::build_fvmesh
 
+use petir::mathf::RealMath;
 use outram_foam_basic_lib::mesh::{BoundaryPatch, FvMesh, FvMeshBuilder};
 use outram_foam_basic_lib::primitives::Vector3;
 
@@ -317,7 +318,7 @@ impl PolyPatchMesh {
             let s = areas[f];
             let denom = d.mag() * s.mag() + 1e-300;
             let cos = (d.dot(s) / denom).clamp(-1.0, 1.0);
-            let ang = cos.acos().to_degrees();
+            let ang = cos.r_acos().to_degrees();
             if ang > max_non_ortho {
                 max_non_ortho = ang;
             }

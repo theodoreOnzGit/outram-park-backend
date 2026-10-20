@@ -35,6 +35,7 @@
 //! so a caller hovering in their editor sees a dimensioned rate, not a bare
 //! float. No trait objects, no `Box`, no lifetimes (workspace rules).
 
+use petir::mathf::RealMath;
 use uom::si::f64::Frequency;
 use uom::si::frequency::hertz;
 
@@ -164,7 +165,7 @@ impl DelayedNuBar {
         let mut energy = Vec::with_capacity(n + 1);
         let mut nu = Vec::with_capacity(n + 1);
         for i in 0..=n {
-            let e = e_lo * (e_hi / e_lo).powf(i as f64 / n as f64);
+            let e = e_lo * (e_hi / e_lo).r_powf(i as f64 / n as f64);
             // Horner over reversed coefficients: C1 + C2·E + C3·E² + …
             let v = coeffs.iter().rev().fold(0.0, |acc, &c| acc * e + c);
             energy.push(e);

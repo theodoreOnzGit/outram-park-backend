@@ -94,6 +94,7 @@
 //!   Δ definition only. See the `## Bookkeeping status` gate in the crate
 //!   README — the V&V axis is not human-cleared.
 
+use petir::mathf::RealMath;
 use crate::traits::TurbulenceModel;
 use outram_foam_basic_lib::fv_operators::{fvc, fvm};
 use outram_foam_basic_lib::prelude::{
@@ -239,7 +240,7 @@ impl Smagorinsky {
 /// real positive length. This is OpenFOAM's default `delta cubeRootVol` model.
 fn cube_root_vol_delta(mesh: &FvMesh) -> Vec<f64> {
     (0..mesh.n_cells)
-        .map(|c| mesh.cell_volumes[c].max(SMALL).cbrt())
+        .map(|c| mesh.cell_volumes[c].max(SMALL).r_cbrt())
         .collect()
 }
 

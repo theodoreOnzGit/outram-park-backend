@@ -36,6 +36,7 @@
 //! correctness. It is the case that establishes the enthalpy-porosity coupling
 //! is right; the gallium case then adds convection on top of it.
 
+use petir::mathf::RealMath;
 use outram_foam_appbuilder_lib::io::control_dict::ControlDict;
 use outram_foam_appbuilder_lib::io::fv_schemes::FvSchemes;
 use outram_foam_appbuilder_lib::io::fv_solution::FvSolution;
@@ -293,7 +294,7 @@ fn erf(x: f64) -> f64 {
         - (((((1.061_405_429 * t - 1.453_152_027) * t) + 1.421_413_741) * t - 0.284_496_736) * t
             + 0.254_829_592)
             * t
-            * (-x * x).exp();
+            * (-x * x).r_exp();
     sign * y
 }
 
@@ -304,7 +305,7 @@ fn erf(x: f64) -> f64 {
 /// `λ > 0`, so bisection is unconditionally convergent.
 fn stefan_lambda(stefan: f64) -> f64 {
     let target = stefan / std::f64::consts::PI.sqrt();
-    let f = |l: f64| l * (l * l).exp() * erf(l) - target;
+    let f = |l: f64| l * (l * l).r_exp() * erf(l) - target;
     let (mut lo, mut hi) = (1e-12, 10.0);
     for _ in 0..200 {
         let mid = 0.5 * (lo + hi);
@@ -820,7 +821,7 @@ fn gallium_melting_cavity_gau_viskanta_configuration() {
     // update automatically if the properties are replaced.
     let pr = c.kinematic_viscosity / c.thermal_diffusivity;
     let stefan = c.specific_heat * (c.t_hot - c.t_melt) / c.latent_heat;
-    let ra = c.gravity * c.thermal_expansion * (c.t_hot - c.t_melt) * c.width.powi(3)
+    let ra = c.gravity * c.thermal_expansion * (c.t_hot - c.t_melt) * c.width.r_powi(3)
         / (c.kinematic_viscosity * c.thermal_diffusivity);
     println!("Pr = {pr:.4}   St = {stefan:.4}   Ra = {ra:.4e}");
     println!("(all derived from UNVERIFIED placeholder properties)");

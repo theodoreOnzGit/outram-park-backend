@@ -16,6 +16,7 @@
 //! cargo run --release --example extract_u238_doppler_ref
 //! ```
 
+use petir::mathf::RealMath;
 use hdf5_pure::File;
 use std::io::Write;
 use std::path::PathBuf;
@@ -32,9 +33,9 @@ fn manifest() -> PathBuf {
 
 /// The shared log-spaced energy grid [eV].
 fn log_energies() -> Vec<f64> {
-    let (a, b) = (E_LO.ln(), E_HI.ln());
+    let (a, b) = (E_LO.r_ln(), E_HI.r_ln());
     (0..N_POINTS)
-        .map(|i| (a + (b - a) * i as f64 / (N_POINTS - 1) as f64).exp())
+        .map(|i| (a + (b - a) * i as f64 / (N_POINTS - 1) as f64).r_exp())
         .collect()
 }
 

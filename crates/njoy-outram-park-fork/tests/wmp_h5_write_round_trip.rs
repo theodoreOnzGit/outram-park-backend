@@ -36,6 +36,7 @@
 //! vs length-1 datasets), so a round trip through this crate alone would pass
 //! on a file OpenMC cannot use. That is `tests/wmp_h5_vs_openmc.rs`.
 
+use petir::mathf::RealMath;
 use njoy_outram_park_fork::wmp::{WindowedMultipole, WmpLibrary};
 
 /// Scratch path unique to this process **and to the calling test**.
@@ -164,7 +165,7 @@ fn the_reloaded_record_evaluates_identically() {
             // Spread across the multipole range in sqrt(E), where the windows live.
             for k in 0..5 {
                 let f = (k as f64 + 0.5) / 5.0;
-                let e = (src.e_min.sqrt() + f * (src.e_max.sqrt() - src.e_min.sqrt())).powi(2);
+                let e = (src.e_min.sqrt() + f * (src.e_max.sqrt() - src.e_min.sqrt())).r_powi(2);
                 let a = src.evaluate(e, t);
                 let b = back.evaluate(e, t);
                 for (label, x, y) in [

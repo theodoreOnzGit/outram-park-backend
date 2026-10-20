@@ -16,6 +16,7 @@
 //! (`groupr::kinematics::cm`); HEATR's is a different routine with different
 //! tolerances and is translated as it stands.
 
+use petir::mathf::RealMath;
 use super::flat::{legndr1, nint, terp1};
 use super::state::Heatr;
 use crate::mixr::mix::sigfig;
@@ -80,11 +81,11 @@ impl Heatr {
                 if epm > s.epmax * (1.0 + SMALL) {
                     s.epmax = epm;
                 }
-                s.elmax = e * ((s.epmax / e).sqrt() + xc.sqrt()).powi(2);
+                s.elmax = e * ((s.epmax / e).sqrt() + xc.sqrt()).r_powi(2);
                 s.elmax *= UP;
                 epn = STEP * s.elmax;
                 if s.epmax * UP < xc * e {
-                    epn = e * ((s.epmax / e).sqrt() - xc.sqrt()).powi(2);
+                    epn = e * ((s.epmax / e).sqrt() - xc.sqrt()).r_powi(2);
                 }
                 if epn < *epnext {
                     *epnext = epn;
@@ -105,11 +106,11 @@ impl Heatr {
                     if epn > s.epmax * (1.0 + SMALL) {
                         s.epmax = epn;
                     }
-                    let epx = DN * e * ((epn / e).sqrt() - xc.sqrt()).powi(2);
+                    let epx = DN * e * ((epn / e).sqrt() - xc.sqrt()).r_powi(2);
                     if epx < *epnext * (1.0 - SMALL) {
                         *epnext = epx;
                     }
-                    let epx = UP * e * ((epn / e).sqrt() + xc.sqrt()).powi(2);
+                    let epx = UP * e * ((epn / e).sqrt() + xc.sqrt()).r_powi(2);
                     if epx > s.elmax * (1.0 + SMALL) {
                         s.elmax = epx;
                     }
@@ -263,9 +264,9 @@ impl Heatr {
                 y[2] = y[1];
             }
             // 310
-            epnxt = e * ((epnn / e).sqrt() - xc.sqrt()).powi(2);
+            epnxt = e * ((epnn / e).sqrt() - xc.sqrt()).r_powi(2);
             if epnxt <= ep * (1.0 + SMALL) {
-                epnxt = e * ((epnn / e).sqrt() + xc.sqrt()).powi(2);
+                epnxt = e * ((epnn / e).sqrt() + xc.sqrt()).r_powi(2);
             }
             if epnxt <= ep * (1.0 + SMALL) {
                 epnxt = ONEP5 * ep;
@@ -293,7 +294,7 @@ impl Heatr {
                 let p = legndr1(u, na);
                 let mut f = self.h6dis(i, &mut epn, &mut epm, w, cnow, lang)?;
                 f /= 2.0 * (xc * e * epp).sqrt();
-                epn = e * ((epp / e).sqrt() + xc.sqrt()).powi(2);
+                epn = e * ((epp / e).sqrt() + xc.sqrt()).r_powi(2);
                 if ep < CHECK * epn {
                     epn *= RDN;
                 } else {
@@ -306,7 +307,7 @@ impl Heatr {
                     term[l] += f * p[l];
                 }
             } else if w < -1.0 {
-                epn = e * ((epp / e).sqrt() - xc.sqrt()).powi(2);
+                epn = e * ((epp / e).sqrt() - xc.sqrt()).r_powi(2);
                 if ep < CHECK * epn {
                     epn *= RDN;
                 } else {
@@ -450,7 +451,7 @@ impl Heatr {
                     }
                     let iza2 = nint(self.zap);
                     let aa = bacha(self.izap, iza2, self.izat, self.h6d.enow, ep)?;
-                    t = aa * ((aa * w).cosh() + r * (aa * w).sinh()) / (2.0 * aa.sinh());
+                    t = aa * ((aa * w).r_cosh() + r * (aa * w).r_sinh()) / (2.0 * aa.r_sinh());
                     t *= s;
                     if t < 0.0 {
                         t = 0.0;
@@ -560,7 +561,7 @@ impl Heatr {
             let r = at(inow + 2);
             let iza2 = nint(self.zap);
             let aa = bacha(self.izap, iza2, self.izat, self.h6s.enow, *epnext)?;
-            t = aa * ((aa * w).cosh() + r * (aa * w).sinh()) / (2.0 * aa.sinh());
+            t = aa * ((aa * w).r_cosh() + r * (aa * w).r_sinh()) / (2.0 * aa.r_sinh());
             t *= s;
             if t < 0.0 {
                 t = 0.0;
@@ -620,9 +621,9 @@ impl Heatr {
                 s.eimax = 1.0;
             }
             s.cn = match npsx {
-                3 => C3 / s.eimax.powi(2),
-                4 => C4 / s.eimax.powf(SEVHAF),
-                5 => C5 / s.eimax.powi(5),
+                3 => C3 / s.eimax.r_powi(2),
+                4 => C4 / s.eimax.r_powf(SEVHAF),
+                5 => C5 / s.eimax.r_powi(5),
                 _ => {
                     return Err(NjoyError::EndfParse(
                         "h6psp: 3, 4, or 5 particles only".into(),
@@ -639,7 +640,7 @@ impl Heatr {
         let s = &self.psp;
         let mut v = 0.0;
         if ep < s.eimax * (1.0 - SMALL) {
-            v = s.cn * ep.sqrt() * (s.eimax - ep).powf(s.ex);
+            v = s.cn * ep.sqrt() * (s.eimax - ep).r_powf(s.ex);
         }
         *epnext = ep + STEP * s.eimax;
         if *epnext > s.eimax * (1.0 + SMALL) {
@@ -716,11 +717,11 @@ pub(super) fn bacha(iza1i: i64, iza2: i64, izat: i64, e: f64, ep: f64) -> Result
     let nb = nint(ab - zb) as f64;
     let nc = nint(ac - zc) as f64;
     let mut sa = C1 * (ac - aa)
-        + C2 * ((nc - zc).powi(2) / ac - (na - za).powi(2) / aa)
-        + C3 * (ac.powf(TWOTH) - aa.powf(TWOTH))
-        + C4 * ((nc - zc).powi(2) / ac.powf(FOURTH) - (na - za).powi(2) / aa.powf(FOURTH))
-        + C5 * (zc.powi(2) / ac.powf(THIRD) - za.powi(2) / aa.powf(THIRD))
-        + C6 * (zc.powi(2) / ac - za.powi(2) / aa);
+        + C2 * ((nc - zc).r_powi(2) / ac - (na - za).r_powi(2) / aa)
+        + C3 * (ac.r_powf(TWOTH) - aa.r_powf(TWOTH))
+        + C4 * ((nc - zc).r_powi(2) / ac.r_powf(FOURTH) - (na - za).r_powi(2) / aa.r_powf(FOURTH))
+        + C5 * (zc.r_powi(2) / ac.r_powf(THIRD) - za.r_powi(2) / aa.r_powf(THIRD))
+        + C6 * (zc.r_powi(2) / ac - za.r_powi(2) / aa);
     match iza1 {
         1002 => sa -= S2,
         1003 => sa -= S3,
@@ -729,11 +730,11 @@ pub(super) fn bacha(iza1i: i64, iza2: i64, izat: i64, e: f64, ep: f64) -> Result
         _ => {}
     }
     let mut sb = C1 * (ac - ab)
-        + C2 * ((nc - zc).powi(2) / ac - (nb - zb).powi(2) / ab)
-        + C3 * (ac.powf(TWOTH) - ab.powf(TWOTH))
-        + C4 * ((nc - zc).powi(2) / ac.powf(FOURTH) - (nb - zb).powi(2) / ab.powf(FOURTH))
-        + C5 * (zc.powi(2) / ac.powf(THIRD) - zb.powi(2) / ab.powf(THIRD))
-        + C6 * (zc.powi(2) / ac - zb.powi(2) / ab);
+        + C2 * ((nc - zc).r_powi(2) / ac - (nb - zb).r_powi(2) / ab)
+        + C3 * (ac.r_powf(TWOTH) - ab.r_powf(TWOTH))
+        + C4 * ((nc - zc).r_powi(2) / ac.r_powf(FOURTH) - (nb - zb).r_powi(2) / ab.r_powf(FOURTH))
+        + C5 * (zc.r_powi(2) / ac.r_powf(THIRD) - zb.r_powi(2) / ab.r_powf(THIRD))
+        + C6 * (zc.r_powi(2) / ac - zb.r_powi(2) / ab);
     match iza2 {
         1002 => sb -= S2,
         1003 => sb -= S3,
@@ -758,5 +759,5 @@ pub(super) fn bacha(iza1i: i64, iza2: i64, izat: i64, e: f64, ep: f64) -> Result
         2004 => 2.0,
         _ => 1.0,
     };
-    Ok(B1 * x1 + B2 * x1.powi(3) + B3 * fa * fb * x3.powi(4))
+    Ok(B1 * x1 + B2 * x1.r_powi(3) + B3 * fa * fb * x3.r_powi(4))
 }

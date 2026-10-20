@@ -63,6 +63,7 @@
 //! comparison against an NJOY ACE oracle — see the REVIEW_MANIFEST for the
 //! human-verify list.
 
+use petir::mathf::RealMath;
 use njoy_outram_park_fork::thermr::scattering::IncoherentInelasticScattering;
 use njoy_outram_park_fork::units::{NeutronEnergy, Temperature};
 use uom::si::{area::barn, energy::electronvolt, thermodynamic_temperature::kelvin};
@@ -167,7 +168,7 @@ fn double_differential_obeys_detailed_balance() {
         "both directions must be tabulated, got {fwd} {rev}"
     );
     let ratio = fwd / rev;
-    let analytic = (ep / e) * (-(ep - e) / kt).exp();
+    let analytic = (ep / e) * (-(ep - e) / kt).r_exp();
     let rel = (ratio - analytic).abs() / analytic;
     assert!(
         rel < 0.01,

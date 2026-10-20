@@ -41,6 +41,7 @@
 //! theoretical rate (second-order for smooth fields, first-order near
 //! discontinuities).
 
+use petir::mathf::RealMath;
 use std::sync::Arc;
 
 /// Re-export everything commonly needed from the crate.
@@ -86,7 +87,7 @@ fn main() {
         // The mesh provides cell_centres[i] which is the x-coordinate of cell i
         let mut phi_values = vec![0.0; n_cells];
         for (i, x) in mesh.cell_centres.iter().enumerate() {
-            phi_values[i] = (2.0 * std::f64::consts::PI * x.x).sin();
+            phi_values[i] = (2.0 * std::f64::consts::PI * x.x).r_sin();
         }
 
         // Package into a VolScalarField with zero-gradient boundaries
@@ -106,7 +107,7 @@ fn main() {
         // The analytical gradient (scalar for our 1D case, but stored as Vector3)
         let mut grad_phi_analytical = vec![Vector3::ZERO; n_cells];
         for (i, x) in mesh.cell_centres.iter().enumerate() {
-            let dpdx = 2.0 * std::f64::consts::PI * (2.0 * std::f64::consts::PI * x.x).cos();
+            let dpdx = 2.0 * std::f64::consts::PI * (2.0 * std::f64::consts::PI * x.x).r_cos();
             grad_phi_analytical[i] = Vector3::new(dpdx, 0.0, 0.0);
         }
 
@@ -136,7 +137,7 @@ fn main() {
         let rate = if let (Some(prev_e), Some(_prev_h)) = (prev_error, prev_dx) {
             // p = log₂(error_old / error_new)
             if l2_error > 1e-16 {
-                (prev_e / l2_error).log2()
+                (prev_e / l2_error).r_log2()
             } else {
                 0.0
             }
@@ -181,7 +182,7 @@ fn print_sample_output_coarse() {
     // Create field φ(x) = sin(2π·x)
     let mut phi_values = vec![0.0; n_cells];
     for (i, x) in mesh.cell_centres.iter().enumerate() {
-        phi_values[i] = (2.0 * std::f64::consts::PI * x.x).sin();
+        phi_values[i] = (2.0 * std::f64::consts::PI * x.x).r_sin();
     }
 
     let phi = VolScalarField::new(
@@ -210,9 +211,10 @@ fn print_sample_output_coarse() {
 
     for i in 0..n_cells {
         let x = mesh.cell_centres[i];
-        let phi_val = (2.0 * std::f64::consts::PI * x.x).sin();
+        let phi_val = (2.0 * std::f64::consts::PI * x.x).r_sin();
         let grad_numerical = grad_phi.internal[i].x;
-        let grad_analytical = 2.0 * std::f64::consts::PI * (2.0 * std::f64::consts::PI * x.x).cos();
+        let grad_analytical =
+            2.0 * std::f64::consts::PI * (2.0 * std::f64::consts::PI * x.x).r_cos();
         let error = (grad_numerical - grad_analytical).abs();
 
         println!(

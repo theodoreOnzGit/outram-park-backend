@@ -31,6 +31,7 @@
 //! (20 and 40 keV) while the UNRESR comparison — which never adds `sigx` —
 //! spans the whole range.
 
+use petir::mathf::RealMath;
 use njoy_outram_park_fork::endf::tape::Tape;
 use njoy_outram_park_fork::purr::wfun::DopplerTable;
 use njoy_outram_park_fork::purr::{infinite_dilution_reference, probability_table, Rng};
@@ -98,9 +99,9 @@ fn nro1_scattering_radius_table_is_read_and_interpolated_like_terpa() {
     // INT=5 between nodes: log-log between (2.0e4, 0.9454080) and
     // (2.05e4, 0.9453198).
     let e: f64 = 2.02e4;
-    let expect = (0.9454080f64.ln()
-        + (0.9453198f64 / 0.9454080).ln() * (e / 2.0e4).ln() / (2.05e4f64 / 2.0e4).ln())
-    .exp();
+    let expect = (0.9454080f64.r_ln()
+        + (0.9453198f64 / 0.9454080).r_ln() * (e / 2.0e4).r_ln() / (2.05e4f64 / 2.0e4).r_ln())
+    .r_exp();
     assert!((r.scattering_radius(e).unwrap() - expect).abs() < 1e-12);
     // terpa's edge conventions: the last value inside a 1.00001 shade above
     // the last node, zero beyond it, zero below the first node.

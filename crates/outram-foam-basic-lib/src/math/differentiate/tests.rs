@@ -19,6 +19,7 @@
 //! 5. **Measurement** — `#[ignore]`d benchmarks whose printed output is the
 //!    source of the crossover tables.
 
+use petir::mathf::RealMath;
 use super::*;
 use crate::ode::{OdeError, OdeSystem, Rosenbrock23};
 
@@ -46,14 +47,14 @@ fn quadratic_jacobian(v: &[f64]) -> [[f64; 2]; 2] {
 /// vanishes, so the truncation term is genuinely present at every order.
 fn trig_f(v: &[f64], out: &mut Vec<f64>) {
     out.clear();
-    out.push(v[0].sin() * v[1].cos());
-    out.push(v[0].exp() * v[1]);
+    out.push(v[0].r_sin() * v[1].r_cos());
+    out.push(v[0].r_exp() * v[1]);
 }
 
 fn trig_jacobian(v: &[f64]) -> [[f64; 2]; 2] {
     [
-        [v[0].cos() * v[1].cos(), -v[0].sin() * v[1].sin()],
-        [v[0].exp() * v[1], v[0].exp()],
+        [v[0].r_cos() * v[1].r_cos(), -v[0].r_sin() * v[1].r_sin()],
+        [v[0].r_exp() * v[1], v[0].r_exp()],
     ]
 }
 
@@ -134,15 +135,15 @@ const SCHEMES: [DiffScheme; 4] = [
 fn epsilon_root_constants_match_their_definitions() {
     assert_eq!(
         CBRT_EPSILON,
-        f64::EPSILON.cbrt(),
+        f64::EPSILON.r_cbrt(),
         "CBRT_EPSILON = {:.17e}",
-        f64::EPSILON.cbrt()
+        f64::EPSILON.r_cbrt()
     );
     assert_eq!(
         FIFTH_ROOT_EPSILON,
-        f64::EPSILON.powf(0.2),
+        f64::EPSILON.r_powf(0.2),
         "FIFTH_ROOT_EPSILON = {:.17e}",
-        f64::EPSILON.powf(0.2)
+        f64::EPSILON.r_powf(0.2)
     );
     assert_eq!(
         DiffScheme::Forward.default_relative_step(),
@@ -330,7 +331,7 @@ fn a_failing_column_names_the_variable_that_failed() {
         ComputeBackend::Serial,
         |_, v: &[f64], out: &mut Vec<f64>| {
             out.push(v[0]);
-            out.push(v[1].ln());
+            out.push(v[1].r_ln());
         },
     );
     assert!(!s.is_ok());
@@ -598,7 +599,7 @@ fn ode_jacobian_captures_explicit_dependence_on_the_independent_variable() {
         }
         fn derivatives(&self, x: f64, y: &[f64], dydx: &mut Vec<f64>) {
             dydx.clear();
-            dydx.push(x.sin() * y[1]);
+            dydx.push(x.r_sin() * y[1]);
             dydx.push(x * x);
         }
     }
@@ -616,13 +617,13 @@ fn ode_jacobian_captures_explicit_dependence_on_the_independent_variable() {
     );
     assert_eq!(status, DiffStatus::Ok);
     assert!(
-        (dfdx[0] - x.cos() * y[1]).abs() < 1e-8,
+        (dfdx[0] - x.r_cos() * y[1]).abs() < 1e-8,
         "dfdx[0] = {}",
         dfdx[0]
     );
     assert!((dfdx[1] - 2.0 * x).abs() < 1e-8, "dfdx[1] = {}", dfdx[1]);
     assert!(dfdy.get(0, 0).abs() < 1e-8);
-    assert!((dfdy.get(0, 1) - x.sin()).abs() < 1e-8);
+    assert!((dfdy.get(0, 1) - x.r_sin()).abs() < 1e-8);
 }
 
 #[test]
@@ -654,7 +655,7 @@ fn rosenbrock23_integrates_a_stiff_system_that_has_no_hand_coded_jacobian() {
         .integrate(&system, 0.0, 0.01, &mut y, &mut dx)
         .expect("integrates without a hand-coded Jacobian");
 
-    let exact = (-10.0_f64).exp();
+    let exact = (-10.0_f64).r_exp();
     let rel = (y[0] - exact).abs() / exact;
     assert!(
         rel < 1e-4,
@@ -687,8 +688,8 @@ fn rosenbrock23_integrates_the_stiff_pair_with_a_numerical_jacobian() {
     let det_v = v1[0] * v2[1] - v2[0] * v1[1];
     let alpha = (1.0 * v2[1] - v2[0] * 1.0) / det_v;
     let beta = (v1[0] * 1.0 - 1.0 * v1[1]) / det_v;
-    let exact0 = alpha * v1[0] * l1.exp() + beta * v2[0] * l2.exp();
-    let exact1 = alpha * v1[1] * l1.exp() + beta * v2[1] * l2.exp();
+    let exact0 = alpha * v1[0] * l1.r_exp() + beta * v2[0] * l2.r_exp();
+    let exact1 = alpha * v1[1] * l1.r_exp() + beta * v2[1] * l2.r_exp();
 
     assert!(
         (y[0] - exact0).abs() < 1e-6 * exact0.abs().max(1.0),
@@ -789,7 +790,7 @@ fn a_jacobian_that_cannot_be_differenced_is_counted_and_reaches_the_solver_as_na
 #[test]
 fn observed_convergence_order_matches_theory() {
     let x = 1.0_f64;
-    let exact = x.cos();
+    let exact = x.r_cos();
     println!("\nConvergence order, d/dx sin(x) at x = 1, exact = {exact:.17e}");
     println!(
         "{:>12} {:>14} {:>14} {:>14} {:>14}",
@@ -805,7 +806,7 @@ fn observed_convergence_order_matches_theory() {
                 relative_step: step,
                 ..DiffSettings::with_scheme(*scheme)
             };
-            let d = derivative(x, settings, |t: f64| t.sin())
+            let d = derivative(x, settings, |t: f64| t.r_sin())
                 .derivative()
                 .expect("sin is finite");
             errors[r][c] = (d - exact).abs();
@@ -824,7 +825,7 @@ fn observed_convergence_order_matches_theory() {
     let mut orders = [0.0_f64; 4];
     for c in 0..4 {
         // Slope over the first decade pair, where round-off is still negligible.
-        orders[c] = (errors[0][c] / errors[1][c]).log10();
+        orders[c] = (errors[0][c] / errors[1][c]).r_log10();
     }
     println!(
         "{:>12} {:>14.4} {:>14.4} {:>14.4} {:>14.4}",
@@ -859,13 +860,13 @@ fn accuracy_floor_at_the_default_step() {
     let cases = [
         Case {
             name: "sin",
-            f: |x| x.sin(),
-            d: |x| x.cos(),
+            f: |x| x.r_sin(),
+            d: |x| x.r_cos(),
         },
         Case {
             name: "exp",
-            f: |x| x.exp(),
-            d: |x| x.exp(),
+            f: |x| x.r_exp(),
+            d: |x| x.r_exp(),
         },
         Case {
             name: "x^3-2x",
@@ -879,8 +880,8 @@ fn accuracy_floor_at_the_default_step() {
         },
         Case {
             name: "tanh",
-            f: |x| x.tanh(),
-            d: |x| 1.0 - x.tanh() * x.tanh(),
+            f: |x| x.r_tanh(),
+            d: |x| 1.0 - x.r_tanh() * x.r_tanh(),
         },
     ];
     let points = [0.25_f64, 0.5, 1.0, 1.7, 2.5, 3.3];
@@ -921,16 +922,16 @@ fn accuracy_floor_at_the_default_step() {
         "theory",
         crate::math::minimise::SQRT_EPSILON,
         crate::math::minimise::SQRT_EPSILON,
-        f64::EPSILON.powf(2.0 / 3.0),
-        f64::EPSILON.powf(0.8)
+        f64::EPSILON.r_powf(2.0 / 3.0),
+        f64::EPSILON.r_powf(0.8)
     );
 
     // Each scheme must land within 10x of its predicted floor.
     let predicted = [
         crate::math::minimise::SQRT_EPSILON,
         crate::math::minimise::SQRT_EPSILON,
-        f64::EPSILON.powf(2.0 / 3.0),
-        f64::EPSILON.powf(0.8),
+        f64::EPSILON.r_powf(2.0 / 3.0),
+        f64::EPSILON.r_powf(0.8),
     ];
     for c in 0..4 {
         assert!(
@@ -962,7 +963,7 @@ fn accuracy_floor_at_the_default_step() {
 #[test]
 fn a_step_far_below_the_optimum_is_worse_not_better() {
     let x = 1.0_f64;
-    let exact = x.cos();
+    let exact = x.r_cos();
     println!("\nRound-off wall for the central difference, d/dx sin(x) at x = 1");
     println!("{:>12} {:>16}", "rel step", "rel error");
 
@@ -973,7 +974,7 @@ fn a_step_far_below_the_optimum_is_worse_not_better() {
             relative_step: step,
             ..DiffSettings::central()
         };
-        let d = derivative(x, settings, |t: f64| t.sin())
+        let d = derivative(x, settings, |t: f64| t.r_sin())
             .derivative()
             .expect("finite");
         let rel = (d - exact).abs() / exact.abs();
@@ -1019,7 +1020,7 @@ fn imbalanced_points(n: usize) -> Vec<f64> {
     (0..n)
         .map(|i| {
             let t = (i % 41) as f64;
-            (1.0 + t) * 10.0_f64.powi((i % 7) as i32 - 3)
+            (1.0 + t) * 10.0_f64.r_powi((i % 7) as i32 - 3)
         })
         .collect()
 }
@@ -1029,7 +1030,7 @@ fn derivative_batch_is_bitwise_identical_across_backends() {
     let points = imbalanced_points(2048);
     for scheme in SCHEMES {
         let settings = DiffSettings::with_scheme(scheme);
-        let f = |i: usize, x: f64| (x * (1.0 + i as f64 * 1e-3)).sin() + x.exp() * 1e-2;
+        let f = |i: usize, x: f64| (x * (1.0 + i as f64 * 1e-3)).r_sin() + x.r_exp() * 1e-2;
         let serial = derivative_batch_min(&points, settings, ComputeBackend::Serial, 0, f);
         let multi = derivative_batch_min(&points, settings, ComputeBackend::CpuMulti, 0, f);
         assert!(
@@ -1049,8 +1050,8 @@ fn jacobian_batch_is_bitwise_identical_across_backends() {
         let k = 1.0 + (i % 13) as f64;
         out.clear();
         out.push(k * v[0] * v[1]);
-        out.push(v[2].sin() + v[3] * v[3]);
-        out.push(v[0].exp() * 1e-2 - v[2]);
+        out.push(v[2].r_sin() + v[3] * v[3]);
+        out.push(v[0].r_exp() * 1e-2 - v[2]);
         out.push(k * v[3] * v[1] * v[1]);
     };
     for scheme in SCHEMES {
@@ -1075,7 +1076,7 @@ fn column_parallel_jacobian_is_bitwise_identical_to_the_serial_one() {
         for i in 0..v.len() {
             let prev = v[(i + v.len() - 1) % v.len()];
             let next = v[(i + 1) % v.len()];
-            out.push(v[i].sin() * next + prev * prev * 0.5);
+            out.push(v[i].r_sin() * next + prev * prev * 0.5);
         }
     };
     for scheme in SCHEMES {
@@ -1102,7 +1103,7 @@ fn column_parallel_jacobian_is_bitwise_identical_to_the_serial_one() {
 fn bitwise_identical_across_thread_counts() {
     let points = imbalanced_points(2048);
     let settings = DiffSettings::central_4th();
-    let f = |i: usize, x: f64| (x * (1.0 + i as f64 * 1e-3)).sin() + x.exp() * 1e-2;
+    let f = |i: usize, x: f64| (x * (1.0 + i as f64 * 1e-3)).r_sin() + x.r_exp() * 1e-2;
     let reference = derivative_batch_min(&points, settings, ComputeBackend::Serial, 0, f);
 
     let n = 4_usize;
@@ -1111,8 +1112,8 @@ fn bitwise_identical_across_thread_counts() {
         let k = 1.0 + (i % 13) as f64;
         out.clear();
         out.push(k * v[0] * v[1]);
-        out.push(v[2].sin() + v[3] * v[3]);
-        out.push(v[0].exp() * 1e-2 - v[2]);
+        out.push(v[2].r_sin() + v[3] * v[3]);
+        out.push(v[0].r_exp() * 1e-2 - v[2]);
         out.push(k * v[3] * v[1] * v[1]);
     };
     let jac_reference = jacobian_batch_min(&jac_points, n, settings, ComputeBackend::Serial, 0, jf);
@@ -1142,10 +1143,10 @@ fn bitwise_identical_across_thread_counts() {
 fn the_single_point_form_agrees_with_a_one_element_batch_bit_for_bit() {
     for scheme in SCHEMES {
         let settings = DiffSettings::with_scheme(scheme);
-        let single = derivative(1.7, settings, |x: f64| x.sin() * x.exp());
+        let single = derivative(1.7, settings, |x: f64| x.r_sin() * x.r_exp());
         let batched =
             derivative_batch_min(&[1.7], settings, ComputeBackend::Serial, 0, |_, x: f64| {
-                x.sin() * x.exp()
+                x.r_sin() * x.r_exp()
             });
         assert_eq!(
             single.raw_value().to_bits(),
@@ -1218,7 +1219,7 @@ fn differentiate_crossover_benchmark() {
     for n in [16_usize, 32, 64, 128, 256, 512, 1024, 4096, 16_384, 65_536] {
         let points = imbalanced_points(n);
         let cheap = |_: usize, x: f64| x * x - 3.0 * x;
-        let costly = |_: usize, x: f64| (1.0 + x * x).ln().exp().sqrt().tanh();
+        let costly = |_: usize, x: f64| (1.0 + x * x).r_ln().r_exp().sqrt().r_tanh();
 
         let time = |backend: ComputeBackend, costly_mode: bool| -> f64 {
             let run = || {
@@ -1280,7 +1281,7 @@ fn differentiate_crossover_benchmark() {
             out.clear();
             for c in 0..4 {
                 let z = v[c];
-                out.push(k * (1.0 + z * z).ln().exp().sqrt().tanh() + z.sin() * z.exp());
+                out.push(k * (1.0 + z * z).r_ln().r_exp().sqrt().r_tanh() + z.r_sin() * z.r_exp());
             }
         };
         let time = |backend: ComputeBackend, costly_mode: bool| -> f64 {
@@ -1354,7 +1355,7 @@ fn jacobian_column_crossover_benchmark() {
                 for k in 0..m {
                     acc += v[k] * ((i + k) % 7) as f64 * 0.001;
                 }
-                out.push(v[i].sin() + acc);
+                out.push(v[i].r_sin() + acc);
             }
         };
         let time = |backend: ComputeBackend| -> f64 {
@@ -1398,7 +1399,7 @@ fn differentiate_thread_scaling_benchmark() {
     let n = 65_536_usize;
     let points = imbalanced_points(n);
     let settings = DiffSettings::central_4th();
-    let f = |i: usize, x: f64| (x * (1.0 + i as f64 * 1e-3)).sin() + x.exp() * 1e-2;
+    let f = |i: usize, x: f64| (x * (1.0 + i as f64 * 1e-3)).r_sin() + x.r_exp() * 1e-2;
 
     let reference = derivative_batch_min(&points, settings, ComputeBackend::Serial, 0, f);
     let mut serial_us = f64::INFINITY;

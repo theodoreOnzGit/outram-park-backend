@@ -34,6 +34,7 @@
 //!
 //! Printed by the test.
 
+use petir::mathf::RealMath;
 use njoy_outram_park_fork::endf::tape::Tape;
 use njoy_outram_park_fork::nuclear_data::secondary::ContinuumEmission;
 use njoy_outram_park_fork::reference_data::reference_endf_or_skip;
@@ -45,12 +46,12 @@ fn f6psp(e_out: f64, e_max: f64, npsx: i32) -> f64 {
     }
     let ex = 1.5 * npsx as f64 - 4.0;
     let cn = match npsx {
-        3 => 1.2732 / e_max.powi(2),
-        4 => 3.2813 / e_max.powf(3.5),
-        5 => 5.8205 / e_max.powi(5),
+        3 => 1.2732 / e_max.r_powi(2),
+        4 => 3.2813 / e_max.r_powf(3.5),
+        5 => 5.8205 / e_max.r_powi(5),
         _ => return 0.0,
     };
-    cn * e_out.sqrt() * (e_max - e_out).powf(ex)
+    cn * e_out.sqrt() * (e_max - e_out).r_powf(ex)
 }
 
 #[test]

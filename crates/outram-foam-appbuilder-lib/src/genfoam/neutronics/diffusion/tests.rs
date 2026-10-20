@@ -74,6 +74,7 @@
 //! (The exact measured numbers are emitted to stderr by each test via
 //! `--nocapture`; the assertions below encode the pass criteria.)
 
+use petir::mathf::RealMath;
 use std::f64::consts::PI;
 use std::sync::Arc;
 
@@ -147,7 +148,7 @@ fn slab_mesh(n: i64) -> Arc<FvMesh> {
 
 /// Analytical bare-slab eigenvalue `k = nu Sigma_f / (Sigma_a + D (pi/L)^2)`.
 fn analytic_slab_k(gc: &OneGroup, length: f64) -> f64 {
-    let b2 = (PI / length).powi(2);
+    let b2 = (PI / length).r_powi(2);
     gc.nu_sigma_f / (gc.sigma_a + gc.d * b2)
 }
 

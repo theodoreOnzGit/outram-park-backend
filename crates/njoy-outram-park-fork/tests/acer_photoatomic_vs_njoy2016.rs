@@ -42,6 +42,7 @@
 //! `verification_and_validation/acer_photoatomic_vs_njoy2016.md` for the
 //! measurement and the three hypotheses it killed.
 
+use petir::mathf::RealMath;
 use njoy_outram_park_fork::acer::photoatomic::{photoatomic_ace, PhotoatomicOptions};
 use njoy_outram_park_fork::acer::read::AceFileType;
 use njoy_outram_park_fork::endf::tape::Tape;
@@ -216,7 +217,7 @@ fn eszg_is_logged_and_zeros_survive() {
     let e0 = table.xss[0];
     let e1 = table.xss[nes - 1];
     assert!(
-        (e0 - (1.0e-3f64).ln()).abs() < 1.0e-6,
+        (e0 - (1.0e-3f64).r_ln()).abs() < 1.0e-6,
         "first grid point should be 1 keV in MeV, log is {e0}"
     );
     assert!(e1 > e0, "the energy column must ascend");

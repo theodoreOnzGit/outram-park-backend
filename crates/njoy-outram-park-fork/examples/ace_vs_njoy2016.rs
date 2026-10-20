@@ -91,6 +91,7 @@ fn main() {
 }
 
 mod desktop {
+    use petir::mathf::RealMath;
     use njoy_outram_park_fork::{
         acer::{angular::parse_elastic_angular, energy::build_emissions, jxs, nxs, AceTable},
         endf::tape::Tape,
@@ -749,9 +750,9 @@ mod desktop {
         const BANDS_PER_DECADE: usize = 20;
         let e_min = e_ours[0].max(e_theirs[0]).max(1.0e-11);
         let e_max = e_ours[nes_o - 1].min(e_theirs[nes_t - 1]);
-        let decades = (e_max / e_min).log10();
+        let decades = (e_max / e_min).r_log10();
         let nbands = ((decades * BANDS_PER_DECADE as f64).ceil() as usize).max(1);
-        let edge = |k: usize| e_min * 10f64.powf(decades * k as f64 / nbands as f64);
+        let edge = |k: usize| e_min * 10f64.r_powf(decades * k as f64 / nbands as f64);
 
         let mut band_rows: Vec<(f64, f64, f64, f64, f64)> = Vec::new(); // e_lo, e_hi, njoy tot/abs/el
         for (col, label) in [(1usize, "total"), (2, "absorption"), (3, "elastic")] {

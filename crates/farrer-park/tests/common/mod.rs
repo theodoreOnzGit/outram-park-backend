@@ -23,6 +23,7 @@
 
 #![allow(dead_code)]
 
+use petir::mathf::RealMath;
 use farrer_park::prelude::*;
 
 /// Deterministic pseudo-random number in `[-1, 1)` from two integer seeds.
@@ -97,7 +98,7 @@ pub fn mms_newton() -> NewtonSettings {
 /// Observed convergence order between two mesh levels:
 /// `log(e_coarse / e_fine) / log(h_coarse / h_fine)`.
 pub fn order(e_coarse: f64, e_fine: f64, h_ratio: f64) -> f64 {
-    (e_coarse / e_fine).ln() / h_ratio.ln()
+    (e_coarse / e_fine).r_ln() / h_ratio.r_ln()
 }
 
 /// Largest relative difference between two slices, normalised by the largest

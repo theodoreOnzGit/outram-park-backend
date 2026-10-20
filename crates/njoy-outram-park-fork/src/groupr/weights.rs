@@ -44,6 +44,8 @@
 //! [`AnalyticWeight`]-unavailable; call sites should treat these `iwt` values as
 //! [`crate::NjoyError::NotPorted`] until the TAB1 weight evaluator lands.
 
+use petir::mathf::RealMath;
+
 /// Boltzmann constant in **eV per kelvin**, matching NJOY's `phys` module
 /// (`bk = 8.617333262e-5` eV/K, `phys.f90:22`). Used by the
 /// temperature-dependent thermal segments (`iwt = 7, 12`).
@@ -89,8 +91,8 @@ impl ThermalFissionParams {
         if eb > 50.0 * tb {
             (1.0, 0.0)
         } else {
-            let ab = 1.0 / ((-eb / tb).exp() * eb.powi(2));
-            let ac = 1.0 / ((-ec / tc).exp() * ec.powf(1.5));
+            let ab = 1.0 / ((-eb / tb).r_exp() * eb.r_powi(2));
+            let ac = 1.0 / ((-ec / tc).r_exp() * ec.r_powf(1.5));
             (ab, ac)
         }
     }
@@ -168,11 +170,11 @@ impl AnalyticWeight {
             Self::ThermalFission(p) => {
                 let (ab, ac) = p.normalisation();
                 if e <= p.thermal_break_ev {
-                    ab * e * (-e / p.thermal_temp_ev).exp()
+                    ab * e * (-e / p.thermal_temp_ev).r_exp()
                 } else if e <= p.fission_break_ev {
                     1.0 / e
                 } else {
-                    ac * e.sqrt() * (-e / p.fission_temp_ev).exp()
+                    ac * e.sqrt() * (-e / p.fission_temp_ev).r_exp()
                 }
             }
             // iwt = 6 / 7 (groupr.f90:5222-5245)
@@ -213,20 +215,20 @@ fn thermal_fission_fusion(e: f64, t_dependent: bool, temperature_kelvin: f64) ->
     let bb = 2.0 * tt;
     // cc = 1 for iwt=6; for iwt=7 cc = wt6b*exp(2)/bb^2 (continuity at bb).
     let cc = if t_dependent {
-        WT6B * std::f64::consts::E.powi(2) / bb.powi(2)
+        WT6B * std::f64::consts::E.r_powi(2) / bb.r_powi(2)
     } else {
         1.0
     };
 
     if e <= bb {
-        cc * e * (-e / tt).exp()
+        cc * e * (-e / tt).r_exp()
     } else if e <= WT6C {
         WT6B / e
     } else {
-        let mut wtf = WT6D * e.sqrt() * (-e / WT6E).exp();
-        let pow = -(((e / WT6F).sqrt() - (WT6G / WT6F).sqrt()).powi(2)) / 2.0;
+        let mut wtf = WT6D * e.sqrt() * (-e / WT6E).r_exp();
+        let pow = -(((e / WT6F).sqrt() - (WT6G / WT6F).sqrt()).r_powi(2)) / 2.0;
         if pow > EXMIN {
-            wtf += WT6H * pow.exp();
+            wtf += WT6H * pow.r_exp();
         }
         wtf
     }
@@ -265,19 +267,19 @@ fn vitamin_e(e: f64, t_dependent: bool, temperature_kelvin: f64) -> f64 {
             THERM
         };
         let cc = if t_dependent {
-            CON2 * (EN1 / tt).exp() / EN1.powi(2)
+            CON2 * (EN1 / tt).r_exp() / EN1.r_powi(2)
         } else {
             CON1
         };
-        cc * e * (-e / tt).exp()
+        cc * e * (-e / tt).r_exp()
     } else if e < EN2 {
         CON2 / e
     } else if e < EN3 {
-        CON3 * e.sqrt() * (-e / THETA).exp()
+        CON3 * e.sqrt() * (-e / THETA).r_exp()
     } else if e < EN4 {
         CON4 / e
     } else if e < EN5 {
-        CON5 * (-5.0 * (e.sqrt() - EP.sqrt()).powi(2) / FUSION).exp()
+        CON5 * (-5.0 * (e.sqrt() - EP.sqrt()).r_powi(2) / FUSION).r_exp()
     } else {
         CON6 / e
     }
@@ -534,19 +536,19 @@ mod tests {
 
         // below thermal break
         let e = 0.05;
-        assert!((w.evaluate(e, 300.0) - ab * e * (-e / 0.025).exp()).abs() < 1e-12);
+        assert!((w.evaluate(e, 300.0) - ab * e * (-e / 0.025).r_exp()).abs() < 1e-12);
         // in 1/E region
         let e = 100.0;
         assert!((w.evaluate(e, 300.0) - 1.0 / e).abs() < 1e-15);
         // above fission break
         let e = 2.0e6;
-        assert!((w.evaluate(e, 300.0) - ac * e.sqrt() * (-e / 1.35e6).exp()).abs() < 1e-30);
+        assert!((w.evaluate(e, 300.0) - ac * e.sqrt() * (-e / 1.35e6).r_exp()).abs() < 1e-30);
 
         // continuity at eb: thermal(eb) == 1/eb
-        let thermal_at_eb = ab * 0.1 * (-0.1_f64 / 0.025).exp();
+        let thermal_at_eb = ab * 0.1 * (-0.1_f64 / 0.025).r_exp();
         assert!((thermal_at_eb - 1.0 / 0.1).abs() / (1.0 / 0.1) < 1e-12);
         // continuity at ec: (1/ec) == fission(ec)
-        let fission_at_ec = ac * 8.2e5_f64.sqrt() * (-8.2e5_f64 / 1.35e6).exp();
+        let fission_at_ec = ac * 8.2e5_f64.sqrt() * (-8.2e5_f64 / 1.35e6).r_exp();
         assert!((fission_at_ec - 1.0 / 8.2e5).abs() / (1.0 / 8.2e5) < 1e-12);
     }
 
@@ -569,7 +571,7 @@ mod tests {
         let w = AnalyticWeight::ThermalFissionFusion { t_dependent: false };
         // segment a
         let e = 0.05;
-        let expect_a = e * (-e / 0.054_f64).exp();
+        let expect_a = e * (-e / 0.054_f64).r_exp();
         assert!((w.evaluate(e, 300.0) - expect_a).abs() / expect_a < 1e-6);
         // segment b (1/E region)
         let e = 1.0e5;
@@ -604,16 +606,16 @@ mod tests {
                 "E={e}: got {got}, expect {expect}"
             );
         };
-        check(0.1, 7.45824e7 * 0.1 * (-0.1 / 0.0253_f64).exp());
+        check(0.1, 7.45824e7 * 0.1 * (-0.1 / 0.0253_f64).r_exp());
         check(1.0e5, 1.0 / 1.0e5);
         check(
             5.0e6,
-            1.44934e-9 * 5.0e6_f64.sqrt() * (-5.0e6 / 1.415e6_f64).exp(),
+            1.44934e-9 * 5.0e6_f64.sqrt() * (-5.0e6 / 1.415e6_f64).r_exp(),
         );
         check(1.1e7, 3.90797e-2 / 1.1e7);
         check(
             1.4e7,
-            2.64052e-5 * (-5.0 * (1.4e7_f64.sqrt() - 1.407e7_f64.sqrt()).powi(2) / 2.5e4).exp(),
+            2.64052e-5 * (-5.0 * (1.4e7_f64.sqrt() - 1.407e7_f64.sqrt()).r_powi(2) / 2.5e4).r_exp(),
         );
         check(1.6e7, 6.76517e-2 / 1.6e7);
     }

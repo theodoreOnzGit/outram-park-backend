@@ -92,6 +92,7 @@
 //! eV-based, so every energy is scaled on the way out and every pdf is scaled
 //! by the inverse.
 
+use petir::mathf::RealMath;
 use crate::acer::read::RawAceTable;
 use crate::acer::{jxs, nxs};
 use crate::acer::angular::{ElasticAngular, EnergyAngular};
@@ -989,7 +990,7 @@ fn decode_nu_block(t: &RawAceTable, at: &mut usize) -> Result<NuBar, NjoyError> 
             let poly: Vec<f64> = c
                 .iter()
                 .enumerate()
-                .map(|(k, &ci)| ci * EV_PER_MEV.powi(-(k as i32)))
+                .map(|(k, &ci)| ci * EV_PER_MEV.r_powi(-(k as i32)))
                 .collect();
             Ok(NuBar {
                 energy,

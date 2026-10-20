@@ -35,6 +35,7 @@
 //! - Transport tallies for precursor concentrations (`outram-mc-libs`) — the one
 //!   remaining `#[ignore]` below.
 
+use petir::mathf::RealMath;
 use std::fs::File;
 
 use njoy_outram_park_fork::nuclear_data::delayed::{DelayedChi, DelayedNuBar};
@@ -81,7 +82,7 @@ fn delayed_group_condensation() {
     // and pointwise total ν̄(E).
     let (e_lo, e_hi, n) = (1.0e-5_f64, 2.0e7_f64, 4000usize);
     let energy: Vec<f64> = (0..=n)
-        .map(|i| e_lo * (e_hi / e_lo).powf(i as f64 / n as f64))
+        .map(|i| e_lo * (e_hi / e_lo).r_powf(i as f64 / n as f64))
         .collect();
     let fission = vec![1.0; energy.len()];
     let nu_total: Vec<f64> = energy.iter().map(|&e| nu.at(e)).collect();

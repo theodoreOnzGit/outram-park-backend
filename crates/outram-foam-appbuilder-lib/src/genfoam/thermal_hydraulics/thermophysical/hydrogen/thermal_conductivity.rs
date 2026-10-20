@@ -57,6 +57,7 @@
 //! [`viscosity::dynamic_viscosity`](super::viscosity::dynamic_viscosity) — see
 //! that module's doc for the upstream naming quirk this reproduces.
 
+use petir::mathf::RealMath;
 use super::collision_integrals::{a12, b12, omega22_12};
 use super::constants::{R, W, W_H};
 use super::diffusion::binary_diffusion_h_h2;
@@ -78,11 +79,11 @@ pub(super) fn molecular_h2_thermal_conductivity(p: f64, t: f64) -> f64 {
     let t_ = t / 33.45;
 
     let lambda_0_num = -3.40976e-1 + 4.58820 * t_ - 1.45080 * t_ * t_
-        + 3.26394e-1 * t_.powi(3)
-        + 3.16939e-3 * t_.powi(4)
-        + 1.90592e-4 * t_.powi(5)
-        - 1.139e-6 * t_.powi(6);
-    let lambda_0_denom = 1.38497e2 - 2.21878e1 * t_ + 4.57151 * t_ * t_ + t_.powi(3);
+        + 3.26394e-1 * t_.r_powi(3)
+        + 3.16939e-3 * t_.r_powi(4)
+        + 1.90592e-4 * t_.r_powi(5)
+        - 1.139e-6 * t_.r_powi(6);
+    let lambda_0_denom = 1.38497e2 - 2.21878e1 * t_ + 4.57151 * t_ * t_ + t_.r_powi(3);
     let lambda_0 = lambda_0_num / lambda_0_denom;
 
     // Faithful port of upstream naming: this is the *bulk mixture* density
@@ -91,13 +92,13 @@ pub(super) fn molecular_h2_thermal_conductivity(p: f64, t: f64) -> f64 {
     let rho_c = 31.262;
     let rho_r = rho_mix / rho_c;
     let lambda_excess = (3.63081e-2 + 1.83370e-3 * t_) * rho_r
-        + (-2.07629e-2 - 8.86716e-3 * t_) * rho_r.powi(2)
-        + (3.14810e-2 + 1.58260e-2 * t_) * rho_r.powi(3)
-        + (-1.43097e-2 - 1.06283e-2 * t_) * rho_r.powi(4)
-        + (1.74980e-3 + 2.80673e-3 * t_) * rho_r.powi(5);
+        + (-2.07629e-2 - 8.86716e-3 * t_) * rho_r.r_powi(2)
+        + (3.14810e-2 + 1.58260e-2 * t_) * rho_r.r_powi(3)
+        + (-1.43097e-2 - 1.06283e-2 * t_) * rho_r.r_powi(4)
+        + (1.74980e-3 + 2.80673e-3 * t_) * rho_r.r_powi(5);
 
     let lambda_critical =
-        6.24e-4 / (-2.58e-7 + t_ - 1.0) * (-(0.837 * (rho_r - 1.0)).powi(2)).exp();
+        6.24e-4 / (-2.58e-7 + t_ - 1.0) * (-(0.837 * (rho_r - 1.0)).r_powi(2)).r_exp();
 
     lambda_0 + lambda_excess + lambda_critical
 }
@@ -121,31 +122,31 @@ pub(super) fn thermal_conductivity(p: f64, t: f64) -> f64 {
     let u_y = 4.0 / 15.0 * a_ * W_H * W / (m12 * m12) * (lambda_12 * lambda_12)
         / (lambda_h * lambda_h2)
         - (b_ / 5.0 + 1.0 / 12.0)
-        - 1.0 / a_ * (3.0 * b_ / 8.0 - 25.0 / 32.0) * (W_H - W).powi(2) / (W_H * W);
+        - 1.0 / a_ * (3.0 * b_ / 8.0 - 25.0 / 32.0) * (W_H - W).r_powi(2) / (W_H * W);
     let u_z = 4.0 / 15.0
         * a_
         * (lambda_12 * (1.0 / lambda_h + 1.0 / lambda_h2) * W_H * W / (m12 * m12) - 1.0)
         - (b_ / 5.0 + 1.0 / 12.0);
     let u_1 =
-        4.0 / 15.0 * a_ - (b_ / 5.0 + 1.0 / 12.0) * W_H / W + (W_H - W).powi(2) / (2.0 * W_H * W);
+        4.0 / 15.0 * a_ - (b_ / 5.0 + 1.0 / 12.0) * W_H / W + (W_H - W).r_powi(2) / (2.0 * W_H * W);
     let u_2 =
-        4.0 / 15.0 * a_ - (b_ / 5.0 + 1.0 / 12.0) * W / W_H + (W - W_H).powi(2) / (2.0 * W_H * W);
+        4.0 / 15.0 * a_ - (b_ / 5.0 + 1.0 / 12.0) * W / W_H + (W - W_H).r_powi(2) / (2.0 * W_H * W);
 
     let x_lambda = x_h * x_h / lambda_h
         + 2.0 * x_h * (1.0 - x_h) / lambda_12
-        + (1.0 - x_h).powi(2) / lambda_h2;
+        + (1.0 - x_h).r_powi(2) / lambda_h2;
     let y_lambda = x_h * x_h / lambda_h * u_1
         + 2.0 * x_h * (1.0 - x_h) / lambda_12 * u_y
-        + (1.0 - x_h).powi(2) / lambda_h2 * u_2;
-    let z_lambda = x_h * x_h * u_1 + 2.0 * x_h * (1.0 - x_h) * u_z + (1.0 - x_h).powi(2) * u_2;
+        + (1.0 - x_h).r_powi(2) / lambda_h2 * u_2;
+    let z_lambda = x_h * x_h * u_1 + 2.0 * x_h * (1.0 - x_h) * u_z + (1.0 - x_h).r_powi(2) * u_2;
 
     let lambda_f = (1.0 + z_lambda) / (x_lambda + y_lambda);
 
     let delta_h =
         2.0 * W_H * specific_enthalpy_atomic_h(t) - W * specific_enthalpy_molecular_h2(p, t);
     let lambda_r =
-        p * binary_diffusion_h_h2(p, t) / t * (delta_h / (R * t)).powi(2) * x_h * (1.0 - x_h)
-            / (2.0 - x_h).powi(2);
+        p * binary_diffusion_h_h2(p, t) / t * (delta_h / (R * t)).r_powi(2) * x_h * (1.0 - x_h)
+            / (2.0 - x_h).r_powi(2);
 
     lambda_f + lambda_r
 }

@@ -28,6 +28,8 @@
 //! All arguments are dimensionless (`alpha`, `beta` are the usual ENDF thermal
 //! variables); the return value is the dimensionless S(alpha, beta).
 
+use petir::mathf::RealMath;
+
 /// Exponent floor below which `exp(.)` is treated as zero (matches NJOY
 /// `explim = -250` in `contin`).
 const EXPLIM: f64 = -250.0;
@@ -51,7 +53,7 @@ pub fn sct_free_gas(a: f64, beta: f64, tbar: f64) -> f64 {
     let alp = a * tbar;
     let ex = -(a - beta) * (a - beta) / (4.0 * alp);
     if ex > EXPLIM {
-        ex.exp() / (4.0 * crate::common::phys::PI * alp).sqrt()
+        ex.r_exp() / (4.0 * crate::common::phys::PI * alp).sqrt()
     } else {
         0.0
     }
@@ -70,7 +72,7 @@ mod tests {
         for &(a, beta) in &[(0.5_f64, 0.3_f64), (2.0, 1.7), (5.0, 4.0), (0.1, 2.5)] {
             let s_pos = sct_free_gas(a, beta, 1.0);
             let s_neg = sct_free_gas(a, -beta, 1.0);
-            let expect = (-beta).exp() * s_pos;
+            let expect = (-beta).r_exp() * s_pos;
             let rel = (s_neg - expect).abs() / expect;
             assert!(rel < 1e-13, "a={a} beta={beta}: rel err {rel:e}");
         }

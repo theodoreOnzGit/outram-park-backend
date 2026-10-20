@@ -32,6 +32,7 @@
 //! reading `LSSF=1` as `LSSF=0` makes the reconstruction look catastrophically
 //! wrong when it is correct.
 
+use petir::mathf::RealMath;
 use crate::endf::tape::Tape;
 use crate::unresr::mf2::{self, UnresolvedCase, UnresolvedRange};
 use crate::NjoyError;
@@ -246,13 +247,13 @@ impl UrrProbabilityTables {
             let mut out = [0.0; 4];
             if self.interpolation == 5 {
                 let f = if e > 0.0 && e0 > 0.0 && e1 > e0 {
-                    (e / e0).ln() / (e1 / e0).ln()
+                    (e / e0).r_ln() / (e1 / e0).r_ln()
                 } else {
                     0.0
                 };
                 for k in 0..4 {
                     out[k] = if lo[k] > 0.0 && hi[k] > 0.0 {
-                        ((1.0 - f) * lo[k].ln() + f * hi[k].ln()).exp()
+                        ((1.0 - f) * lo[k].r_ln() + f * hi[k].r_ln()).r_exp()
                     } else {
                         0.0
                     };

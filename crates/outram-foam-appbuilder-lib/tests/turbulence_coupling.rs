@@ -47,6 +47,7 @@
 //! symptom of a missing ω wall treatment. Do not describe any wall-bounded RAS
 //! result from this stack as validated.
 
+use petir::mathf::RealMath;
 use outram_foam_appbuilder_lib::io::control_dict::{ControlDict, StartControl, StopControl};
 use outram_foam_appbuilder_lib::io::fv_schemes::FvSchemes;
 use outram_foam_appbuilder_lib::io::fv_solution::FvSolution;
@@ -192,7 +193,7 @@ fn homogeneous_decay_matches_analytic_k_omega_solution() {
 
     let growth = 1.0 + BETA * w0 * t_end; // 1 + β ω0 t = 4.6
     let w_exact = w0 / growth;
-    let k_exact = k0 * growth.powf(-BETA_STAR / BETA);
+    let k_exact = k0 * growth.r_powf(-BETA_STAR / BETA);
 
     let dt_coarse = 1.0e-3;
     let (k_c, w_c) = run_decay(dt_coarse, (t_end / dt_coarse).round() as usize, k0, w0);
@@ -203,7 +204,7 @@ fn homogeneous_decay_matches_analytic_k_omega_solution() {
     let err_w_f = ((w_f - w_exact) / w_exact).abs();
     let err_k_c = ((k_c - k_exact) / k_exact).abs();
     let err_k_f = ((k_f - k_exact) / k_exact).abs();
-    let order = (err_k_c / err_k_f).log2();
+    let order = (err_k_c / err_k_f).r_log2();
 
     println!("omega exact {w_exact:.12} | dt={dt_coarse:.1e}: {w_c:.12} (rel {err_w_c:.3e}) | dt={dt_fine:.1e}: {w_f:.12} (rel {err_w_f:.3e})");
     println!("k     exact {k_exact:.9e} | dt={dt_coarse:.1e}: {k_c:.9e} (rel {err_k_c:.3e}) | dt={dt_fine:.1e}: {k_f:.9e} (rel {err_k_f:.3e})");

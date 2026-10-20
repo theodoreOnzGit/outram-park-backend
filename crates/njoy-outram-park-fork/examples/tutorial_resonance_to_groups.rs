@@ -74,6 +74,7 @@
 //! `resonance_integral` function docs for why dropping it inflates the answer by
 //! a factor of ~170.
 
+use petir::mathf::RealMath;
 use njoy_outram_park_fork::prelude::*;
 use std::path::PathBuf;
 
@@ -151,7 +152,7 @@ fn resonance_integral(pairs: &[(f64, f64)], e_min: f64, e_max: f64) -> f64 {
         } else {
             s1 + (s2 - s1) * (b - e1) / (e2 - e1)
         };
-        integral += 0.5 * (sa + sb) * (b / a).ln();
+        integral += 0.5 * (sa + sb) * (b / a).r_ln();
     }
     integral
 }
@@ -191,7 +192,7 @@ fn effective_resonance_integral(
         }
         let sc = sc1.max(0.0);
         let st = interp(total, 0.5 * (a + b)).max(0.0);
-        integral += sc * sigma_b / (st + sigma_b) * (b / a).ln();
+        integral += sc * sigma_b / (st + sigma_b) * (b / a).r_ln();
     }
     integral
 }
