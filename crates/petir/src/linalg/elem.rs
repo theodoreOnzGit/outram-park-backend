@@ -28,6 +28,15 @@ pub(crate) fn wr(v: &mut [f64], i: usize, x: f64) {
     }
 }
 
+/// `v[i] += inc` (C's compound assignment, the same single rounding),
+/// discarded if out of range.
+#[inline]
+pub(crate) fn acc(v: &mut [f64], i: usize, inc: f64) {
+    if let Some(s) = v.get_mut(i) {
+        *s += inc;
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -39,6 +48,8 @@ mod tests {
         assert!(rd(&v, 2).is_nan());
         wr(&mut v, 0, 5.0);
         wr(&mut v, 9, 7.0);
-        assert_eq!(v, [5.0, 2.0]);
+        acc(&mut v, 1, 0.5);
+        acc(&mut v, 9, 0.5);
+        assert_eq!(v, [5.0, 2.5]);
     }
 }

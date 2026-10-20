@@ -8,14 +8,14 @@
 //   linalg/cholesky.c   Copyright (C) 2000 Thomas Walter;
 //                       (C) 2000-2007 Brian Gough, Gerard Jungman;
 //                       (C) 2016, 2019 Patrick Alken
-//     :87   gsl_linalg_cholesky_decomp1
-//     :103  gsl_linalg_cholesky_solve   (via :132 gsl_linalg_cholesky_svx)
-//     :218  gsl_linalg_cholesky_invert
-//     :624  cholesky_decomp_L2          (the gaxpy algorithm, G&VL 4.2.1)
+//     :88   gsl_linalg_cholesky_decomp1
+//     :106  gsl_linalg_cholesky_solve   (via :136 gsl_linalg_cholesky_svx)
+//     :227  gsl_linalg_cholesky_invert
+//     :616  cholesky_decomp_L2          (the gaxpy algorithm, G&VL 4.2.1)
 //   linalg/invtri.c     Copyright (C) 2016-2019 Patrick Alken
-//     :37   gsl_linalg_tri_invert, :75 triangular_inverse_L2 (lower branch)
+//     :38   gsl_linalg_tri_invert, :74 triangular_inverse_L2 (lower branch)
 //   linalg/trimult.c    Copyright (C) 2019 Patrick Alken
-//     :39   gsl_linalg_tri_LTL, :62 triangular_multsymm_L2 (lower branch)
+//     :39   gsl_linalg_tri_LTL, :65 triangular_multsymm_L2 (lower branch)
 //   cblas/source_trsv_r.h, source_trmv_r.h, source_gemv_r.h, source_dot_r.h,
 //   source_scal_r.h     Copyright (C) 1996-2000 Gerard Jungman
 //     -- the row-major branches each call above reaches, inlined with the
@@ -92,13 +92,13 @@ fn lower_to_upper(a: &mut Matrix) {
 }
 
 impl Cholesky {
-    /// Factorise `a`, `gsl_linalg_cholesky_decomp1` (`linalg/cholesky.c:87`).
+    /// Factorise `a`, `gsl_linalg_cholesky_decomp1` (`linalg/cholesky.c:88`).
     ///
     /// # Errors
     ///
     /// - [`PetirError::NotSquare`] if `a` is not square (`GSL_ENOTSQR`).
     /// - [`PetirError::Domain`] if a pivot is `<= 0`, i.e. the matrix is not
-    ///   positive definite (`GSL_EDOM`, `cholesky.c:653`).
+    ///   positive definite (`GSL_EDOM`, `cholesky.c:645`).
     ///
     /// # Example
     ///
@@ -149,7 +149,7 @@ impl Cholesky {
         l
     }
 
-    /// Solve `A x = b`, `gsl_linalg_cholesky_solve` (`cholesky.c:103`):
+    /// Solve `A x = b`, `gsl_linalg_cholesky_solve` (`cholesky.c:106`):
     /// forward substitution with `L`, then back substitution with `L^T`.
     ///
     /// # Errors
@@ -170,19 +170,19 @@ impl Cholesky {
     }
 
     /// The inverse `A^{-1}`, `gsl_linalg_cholesky_invert`
-    /// (`cholesky.c:218`): invert `L`, form `L^{-T} L^{-1}`, then mirror the
+    /// (`cholesky.c:227`): invert `L`, form `L^{-T} L^{-1}`, then mirror the
     /// lower triangle onto the upper. The result is exactly symmetric.
     ///
     /// # Errors
     ///
     /// [`PetirError::Singular`] if a diagonal entry of `L` is exactly zero
-    /// (`GSL_ESING` from `triangular_singular`, `invtri.c:233`). A
+    /// (`GSL_ESING` from `triangular_singular`, `invtri.c:232`). A
     /// successfully constructed factor never has one, so this is unreachable
     /// in practice and is kept because upstream checks it.
     pub fn invert(&self) -> Result<Matrix> {
         let n = self.n();
         let mut t = self.llt.clone();
-        // triangular_singular (invtri.c:233)
+        // triangular_singular (invtri.c:232)
         for i in 0..n {
             if t.get(i, i) == 0.0 {
                 return Err(PetirError::Singular { col: i });
@@ -195,7 +195,7 @@ impl Cholesky {
     }
 }
 
-/// `cholesky_decomp_L2` (`linalg/cholesky.c:624`), with the `dgemv` and
+/// `cholesky_decomp_L2` (`linalg/cholesky.c:616`), with the `dgemv` and
 /// `dscal` it calls inlined.
 fn decomp_l2(a: &mut Matrix) -> Result<()> {
     let n = a.rows();
@@ -262,7 +262,7 @@ pub(crate) fn trsv_lower_trans(a: &Matrix, x: &mut [f64]) {
     }
 }
 
-/// `triangular_inverse_L2(CblasLower, CblasNonUnit, T)` (`invtri.c:75`), with
+/// `triangular_inverse_L2(CblasLower, CblasNonUnit, T)` (`invtri.c:74`), with
 /// `dtrmv(Lower, NoTrans, NonUnit)` and `dscal` inlined.
 fn tri_invert_lower_l2(t: &mut Matrix) {
     let n = t.rows();
@@ -294,7 +294,7 @@ fn tri_invert_lower_l2(t: &mut Matrix) {
     }
 }
 
-/// `triangular_multsymm_L2(CblasLower, T)` (`trimult.c:62`): `T <- L^T L` in
+/// `triangular_multsymm_L2(CblasLower, T)` (`trimult.c:65`): `T <- L^T L` in
 /// the lower triangle, with `ddot`, `dgemv(Trans)` and `dscal` inlined.
 fn tri_ltl_l2(t: &mut Matrix) {
     let n = t.rows();

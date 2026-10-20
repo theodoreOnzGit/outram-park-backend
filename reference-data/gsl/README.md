@@ -93,6 +93,49 @@ reference-data/gsl/level2_rebuild.sh reference-data/gsl/cholesky_reference_drive
 So the whole 30x30 difference is GSL's blocking. Replayed by
 `crates/petir/tests/gsl_cholesky_code_to_code.rs`.
 
+## `eigen-symm-gsl-2.8-reference.txt` — symmetric tridiagonal form and eigensolver (gh:#993)
+
+- **Built:** 2026-10-20, same static GSL; `build_driver.sh` in this directory
+  builds and runs any driver here.
+- **Driver:** `eigen_symm_reference_driver.c`.
+- **Routines:** `gsl_linalg_symmtd_decomp`, `_unpack`, `gsl_eigen_symm`,
+  `gsl_eigen_symmv`, `gsl_eigen_symmv_sort(VAL_ASC)`.
+- **Cases:** 1x1, 2x2, 4x4, Hilbert 8x8, Wilkinson W21+, block-diagonal 6x6,
+  `5 I + 1 1^T` (four-fold eigenvalue), random symmetric 10x10, Gram 30x30.
+
+## Isolating `hypot`: `*-libm-hypot-reference.txt`
+
+GSL calls the platform `hypot` (glibc here); PETIR calls the `libm` crate's,
+through `crate::real::Real`, for `no_std` and cross-platform reproducibility.
+The two differ in the last ulp on some inputs: `hypot(1, sqrt(3))` is `2.0`
+from glibc (the correctly rounded value) and `2 - 2^-52` from `libm`.
+`libm_shim.rs` exports the `libm` crate's `hypot` under the C name; linking it
+ahead of `-lm` gives GSL PETIR's `hypot` and nothing else:
+
+```sh
+rustc --edition 2021 --crate-type staticlib -C opt-level=3 -C panic=abort \
+    --extern libm=target/release/deps/liblibm-<hash>.rlib -L target/release/deps \
+    reference-data/gsl/libm_shim.rs -o /tmp/libm_shim.a     # libm 0.2.16
+reference-data/gsl/build_driver.sh reference-data/gsl/eigen_symm_reference_driver.c \
+    reference-data/gsl/eigen-symm-gsl-2.8-libm-hypot-reference.txt /tmp/libm_shim.a
+reference-data/gsl/build_driver.sh reference-data/gsl/qr_reference_driver.c \
+    reference-data/gsl/qr-gsl-2.8-libm-hypot-reference.txt /tmp/libm_shim.a
+```
+
+### What the comparison found (2026-10-20)
+
+| surface | vs stock GSL | vs GSL + `libm` `hypot` |
+|---|---|---|
+| `symmtd` + `eigen_symm[v]` + sort, 6091 values | decomposition 62.2 %, eigenvalues 42.9 %, vectors 31.3 % bit-identical; structural difference on `5 I + 1 1^T` | **6091/6091 bit-identical** |
+| `linalg::qr` (existing port), 85 values + solves | 81/85 (95.3 %) | **85/85, solutions and residuals bit-identical** |
+
+So both ports are exact, and every difference from stock GSL is `hypot`.
+Against stock GSL the eigensolver agrees as an eigen-decomposition: sorted
+eigenvalues to 1.73e-15 normwise, eigenvectors within 0.55 of their
+gap-scaled perturbation bound. Replayed by
+`crates/petir/tests/gsl_eigen_symm_code_to_code.rs` and
+`gsl_qr_code_to_code.rs`.
+
 ## `qags-gsl-2.8-reference.txt` — `gsl_integration_qags`
 
 - **Built:** 2026-09-28, `gcc -O2`, glibc on x86_64-unknown-linux-gnu, from

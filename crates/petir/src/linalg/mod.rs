@@ -53,10 +53,12 @@
 pub mod blas1;
 pub mod cholesky;
 mod elem;
+pub mod eigen_symm;
 pub mod householder;
 pub mod lu;
 pub mod matrix;
 pub mod qr;
+pub mod symmtd;
 /// Row-major dense `n x n` matrix with Crout LU, lifted verbatim from
 /// outram-foam-basic-lib. `MatrixError::Singular`'s `col` field is the
 /// zero-based column at which the pivot vanished; the lint is suppressed here
@@ -67,6 +69,8 @@ pub mod tridiag;
 
 pub use blas1::{asum, axpy, dot, iamax, nrm2, scal, swap};
 pub use cholesky::Cholesky;
+pub use eigen_symm::{eigen_symm, eigen_symmv, eigen_symmv_sort, EigenSort};
+pub use symmtd::SymmTd;
 pub use lu::{det, inverse, ln_det};
 pub use matrix::Matrix;
 pub use qr::{LeastSquares, QrDecomposition};

@@ -53,6 +53,8 @@ entirely on `yerr`, and `yerr` is what a step controller acts on.
 | `linalg::cholesky` (added 2026-10-20, gh:#993; factor, solve, inverse; `n <= 24`, GSL's Level-2 range) | 1411 | 1411 (100.0%) | 0 | `gsl_cholesky_code_to_code.rs` |
 | `linalg::cholesky`, 30x30 vs stock GSL (which blocks at Level 3 above `n = 24`; PETIR does not, a documented deviation) | 1830 | 741 (40.5%) | 1.39e-12 per entry (a near-cancelling inverse entry); normwise 3.8e-16 | `gsl_cholesky_code_to_code.rs` |
 | `linalg::cholesky`, all six cases vs GSL rebuilt with its Level-3 recursion off (`level2_rebuild.sh`) | 3241 | 3241 (100.0%) | 0 | `gsl_cholesky_code_to_code.rs` |
+| `linalg::{symmtd, eigen_symm}` (added 2026-10-20, gh:#993; decomposition, `Q`, eigenvalues and eigenvectors, unordered and sorted, nine cases) vs GSL linked with the `libm` crate's `hypot` | 6091 | 6091 (100.0%) | 0 | `gsl_eigen_symm_code_to_code.rs` |
+| `linalg::eigen_symm` vs stock GSL (glibc `hypot`): sorted eigenpairs | 87 eigenvalues unordered | 37 (42.5%) unordered | sorted eigenvalues 1.73e-15 normwise; eigenvectors within 0.55 of their gap-scaled perturbation bound | `gsl_eigen_symm_code_to_code.rs` |
 | `cheb::eval_mode`, reduced order | 369 | 357 (96.7%) | — | `gsl_cheb_mode_code_to_code.rs` |
 | `cheb::eval_mode`, default order | 615 | 461 (75.0%) | 1.06e-15 results | `gsl_cheb_mode_code_to_code.rs` |
 | `cheb` pipeline (`init`/`eval`/`deriv`/`integ`) | 6114 | 4707 (77.0%) | — | `gsl_code_to_code.rs` |
@@ -63,10 +65,18 @@ entirely on `yerr`, and `yerr` is what a step controller acts on.
 |---|---|---|---|---|
 | `ssprk` (SSP22, SSP33, SSP104; 40 steps, `dt = 2^-4` and `0.03`) vs PyClaw `f522337e` `SharpClawSolver.step` under NumPy 2.4.6 | 96 | 96 (100.0%) | 0 | `ssprk_vs_pyclaw.rs` |
 
-Where agreement is not exact it is at the last ulp. PETIR reaches its BLAS-1
+Where agreement is not exact it is at the last ulp. ~~PETIR reaches its BLAS-1
 kernels through `petir::linalg::blas1` rather than GSL's CBLAS; the two were
 checked to be the same recurrences with the same association, but they are not
-the same object code, and that is enough to move a last bit.
+the same object code, and that is enough to move a last bit.~~ **CORRECTED
+2026-10-20 (gh:#993)** for `linalg::qr`: the cause there is `hypot`, not the
+BLAS-1 kernels. Relinking the QR driver with the `libm` crate's `hypot`
+(the one PETIR calls; `reference-data/gsl/libm_shim.rs`) makes all 85 values
+and every solution and residual entry bit-identical
+(`gsl_qr_code_to_code.rs::the_port_matches_gsl_with_the_same_hypot_bit_for_bit`).
+The same isolation makes the symmetric eigensolver bit-identical throughout
+(below). The other surfaces' last-ulp differences are *not re-checked* this
+way.
 
 **One entry needs its own note.** `cheb::eval_mode`'s error *estimate* differs
 by up to 1.05e-2 where its result differs by 1.06e-15. Upstream's estimate is
