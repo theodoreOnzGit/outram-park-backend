@@ -427,15 +427,18 @@ substitutions and compares substantive lines.
   That moved the lifts' own route for `exp`, `ln` and `powf` from `libm` (via
   `Real`) to the ARM ports, and `sin_cos` from `libm::sincos` to
   `(r_sin, r_cos)`. Every petir test passed unchanged after the re-lift.
-- **The lifts are exempt from gh #1001's UFCS rewrite, on purpose.** #1001
+- **How the lifts meet gh #1001's UFCS rule (merge of 2026-10-21).** #1001
   turned `x.exp()` into `Real::exp(x)` across PETIR so a `std` crate in the
-  build graph cannot shadow `Real`'s methods. In the lifts that rewrite and
-  the re-lift above collided (merge of 2026-10-21). They keep the source's
-  exact text instead: `r_` methods cannot be shadowed (`std` has none), and
-  the remaining method calls (`sqrt`, `f64::mul_add`) are correctly rounded
-  under IEEE 754, so `std` and `Real` give the same value (a NaN's payload
-  aside). If the canonical-NaN `Real::sqrt` is wanted in a lift, change the
-  SOURCE and re-lift, per the rule above.
+  build graph cannot shadow `Real`'s methods, and it collided with the
+  re-lift above. Transcendentals keep the source's exact text, `x.r_exp()`:
+  `r_` methods cannot be shadowed (`std` has none). `sqrt` and `mul_add` keep
+  #1001's `Real::sqrt(x)` / `Real::mul_add(..)` (one canonical NaN, the
+  maintainer's bit-identity direction), and a transcendental on the same line
+  is written `RealMath::r_exp(x)`, the source's arithmetic. Those 28 lines in
+  8 lifts are declared deviations (`UFCS_1001` in
+  `tests/verbatim_provenance.rs`). To remove them, change the SOURCE and
+  re-lift. The re-lift moved `std_shadowing_digest`'s `specfunc` and
+  `transfer_fn` digests (recorded in that test).
 
 ## GPU policy: CI is GPU-INDEPENDENT (HARD RULE)
 
