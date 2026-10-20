@@ -1,5 +1,5 @@
-use peroxide::fuga::{Calculus, CubicSpline, Spline};
-use roots::{find_root_brent, SimpleConvergency};
+use crate::numerical_methods::{bracketed_root, NaturalCubicSpline};
+use petir::roots::BracketingMethod;
 use specific_enthalpy::try_get_h;
 use uom::si::available_energy::joule_per_kilogram;
 use uom::si::f64::*;
@@ -62,12 +62,14 @@ pub fn copper_specific_heat_capacity_zou_zweibaum_spline(
     let specific_heat_capacity_values_joule_per_kilogram_kelvin =
         c!(355.7047, 373.6018, 384.7875, 392.6174, 398.2103, 407.1588, 417.2260);
 
-    let s = CubicSpline::from_nodes(
+    let s = NaturalCubicSpline::new(
         &thermal_cond_temperature_values_kelvin,
         &specific_heat_capacity_values_joule_per_kilogram_kelvin,
-    );
+        "copper: thermal_cond_temperature_values_kelvin -> specific_heat_capacity_values_joule_per_kilogram_kelvin",
+        "K",
+    )?;
 
-    let copper_specific_heat_capacity_value = s.unwrap().eval(temperature_value_kelvin);
+    let copper_specific_heat_capacity_value = s.eval(temperature_value_kelvin)?;
 
     Ok(SpecificHeatCapacity::new::<joule_per_kilogram_kelvin>(
         copper_specific_heat_capacity_value,
@@ -97,12 +99,14 @@ pub fn copper_thermal_conductivity_zou_zweibaum_spline(
     let thermal_conductivity_values_watt_per_meter_kelin =
         c!(406.0, 401.0, 369.0, 393.0, 386.0, 352.0);
 
-    let s = CubicSpline::from_nodes(
+    let s = NaturalCubicSpline::new(
         &thermal_cond_temperature_values_kelvin,
         &thermal_conductivity_values_watt_per_meter_kelin,
-    );
+        "copper: thermal_cond_temperature_values_kelvin -> thermal_conductivity_values_watt_per_meter_kelin",
+        "K",
+    )?;
 
-    let copper_thermal_conductivity_value = s.unwrap().eval(temperature_value_kelvin);
+    let copper_thermal_conductivity_value = s.eval(temperature_value_kelvin)?;
 
     Ok(ThermalConductivity::new::<watt_per_meter_kelvin>(
         copper_thermal_conductivity_value,
@@ -116,7 +120,18 @@ pub fn copper_thermal_conductivity_zou_zweibaum_spline(
 /// data (No. ANL/NSE-19/11). Argonne National
 /// Lab.(ANL), Argonne, IL (United States).
 #[inline]
-pub fn copper_specific_enthalpy(temperature: ThermodynamicTemperature) -> AvailableEnergy {
+///
+/// # Out of the table (gh:#989, 2026-10-20)
+///
+/// The integral runs from the 273.15 K reference to `temperature` over the
+/// natural cubic spline of the cp table. Both limits must lie inside the
+/// table: outside it this returns `TuasLibError::CorrelationRangeError`.
+/// Under `peroxide` it returned a bare value and could not report that.
+/// peroxide's `integrate` also clipped silently to the table and returned 0
+/// for a reversed interval spanning a knot; see
+/// `crate::numerical_methods::NaturalCubicSpline::integral`.
+pub fn copper_specific_enthalpy(temperature: ThermodynamicTemperature
+) -> Result<AvailableEnergy, TuasLibError> {
     let temperature_value_kelvin: f64 = temperature.get::<kelvin>();
     // here we use a cubic spline to interpolate the values
     // it's a little calculation heavy, but don't really care now
@@ -125,14 +140,16 @@ pub fn copper_specific_enthalpy(temperature: ThermodynamicTemperature) -> Availa
     let specific_heat_capacity_values_joule_per_kilogram_kelvin =
         c!(355.7047, 373.6018, 384.7875, 392.6174, 398.2103, 407.1588, 417.2260);
 
-    let s = CubicSpline::from_nodes(
+    let s = NaturalCubicSpline::new(
         &specific_enthalpy_temperature_values_kelvin,
         &specific_heat_capacity_values_joule_per_kilogram_kelvin,
-    );
+        "copper: specific_enthalpy_temperature_values_kelvin -> specific_heat_capacity_values_joule_per_kilogram_kelvin",
+        "K",
+    )?;
 
-    let copper_specific_enthalpy_value = s.unwrap().integrate((273.15, temperature_value_kelvin));
+    let copper_specific_enthalpy_value = s.integral(273.15, temperature_value_kelvin)?;
 
-    return AvailableEnergy::new::<joule_per_kilogram>(copper_specific_enthalpy_value);
+    Ok(AvailableEnergy::new::<joule_per_kilogram>(copper_specific_enthalpy_value))
 }
 /// returns temperature of copper
 /// cited from:
@@ -195,14 +212,17 @@ pub(crate) fn copper_spline_temp_attempt_2_from_specific_enthalpy(
     // as an output
 
     let enthalpy_to_temperature_spline =
-        CubicSpline::from_nodes(&enthalpy_vector, &temperature_values_kelvin);
+        NaturalCubicSpline::new(
+        &enthalpy_vector,
+        &temperature_values_kelvin,
+        "copper: enthalpy_vector -> temperature_values_kelvin",
+        "J/kg",
+    )?;
 
     // now let's get our enthalpy in joules_per_kg
     let h_copper_joules_per_kg = h_copper.get::<joule_per_kilogram>();
 
-    let temperature_from_enthalpy_kelvin = enthalpy_to_temperature_spline
-        .unwrap()
-        .eval(h_copper_joules_per_kg);
+    let temperature_from_enthalpy_kelvin = enthalpy_to_temperature_spline.eval(h_copper_joules_per_kg)?;
 
     // now, the copper enthalpy will not be quite near
     // enough, but it is very close. We can bracket
@@ -246,18 +266,24 @@ pub(crate) fn copper_spline_temp_attempt_2_from_specific_enthalpy(
 
     let lower_limit: f64 = temperature_from_enthalpy_kelvin - brent_error_bound;
 
-    let mut convergency = SimpleConvergency {
-        eps: 1e-8f64,
-        max_iter: 30,
-    };
-    let fluid_temperature_degrees_c_result =
-        find_root_brent(upper_limit, lower_limit, enthalpy_root, &mut convergency);
+    // roots::find_root_brent with SimpleConvergency { eps: 1e-8, max_iter: 30 }
+    // replaced by PETIR's GSL Brent with the same bracket and the same
+    // two-part test; see crate::numerical_methods::bracketed_root (gh:#989).
+    let fluid_temperature_degrees_c_result = bracketed_root(
+        BracketingMethod::Brent,
+        &enthalpy_root,
+        upper_limit,
+        lower_limit,
+        1e-8,
+        30,
+        "copper: temperature from specific enthalpy",
+    );
 
     if let Some(e) = captured_error.into_inner() {
         return Err(e);
     }
 
-    let temperature_from_enthalpy_kelvin = fluid_temperature_degrees_c_result.unwrap();
+    let temperature_from_enthalpy_kelvin = fluid_temperature_degrees_c_result?;
 
     // return temperature
     Ok(ThermodynamicTemperature::new::<kelvin>(temperature_from_enthalpy_kelvin))

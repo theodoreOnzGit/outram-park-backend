@@ -86,12 +86,23 @@ extern crate uom;
 /// though to be honest, it is not too different in implementation compared
 /// to conduction
 
-/// use peroxide macros
-#[macro_use]
-extern crate peroxide;
+/// `c!(a, b, ...)` builds a `Vec<f64>`. It replaces the `peroxide` macro of
+/// the same name (`peroxide-0.41.2/src/macros/r_macro.rs`, comma form), which
+/// TUAS's property tables were written with, so those tables read unchanged
+/// after `peroxide` was removed (gh:#989).
+macro_rules! c {
+    ( $( $x:expr ),* $(,)? ) => {
+        vec![ $( $x as f64 ),* ]
+    };
+}
 
 /// provides error types for tuas_boussinesq_solver
 pub mod tuas_lib_error;
+
+/// PETIR-backed root finding, quadrature and spline tables, with the
+/// convergence semantics of the `peroxide`/`roots` calls they replaced
+/// (gh:#989).
+pub(crate) mod numerical_methods;
 
 /// Pure-Rust dense LU solver (`SquareMatrix`), inlined from `outram-foam-basic-lib`
 /// so this crate has no `outram-foam-basic-lib` dependency — see the module doc.

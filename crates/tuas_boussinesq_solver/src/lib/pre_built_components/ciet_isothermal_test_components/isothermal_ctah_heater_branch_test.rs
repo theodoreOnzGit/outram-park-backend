@@ -1,5 +1,6 @@
-use roots::SimpleConvergency;
-use roots::find_root_brent;
+// `roots` 0.0.8 replaced by PETIR adapters with the same SimpleConvergency
+// semantics (gh:#989); see crate::numerical_methods.
+use crate::numerical_methods::{brent_root, SimpleConvergency};
 use uom::si::f64::*;
 use uom::ConstZero;
 use uom::si::mass_rate::kilogram_per_second;
@@ -582,16 +583,16 @@ pub trait IsothermalCIETSolvers {
 
         let lower_bound: Pressure = hydrostatic_pressure + Pressure::new::<pascal>(-50000_f64);
 
-        let mut convergency = SimpleConvergency {
+        let convergency = SimpleConvergency {
             eps: 1e-12_f64,
             max_iter: 30,
         };
 
-        let pressure_change_pascals = find_root_brent(
+        let pressure_change_pascals = brent_root(
             upper_bound.get::<pascal>(),
             lower_bound.get::<pascal>(),
             &pressure_change_root,
-            &mut convergency,
+            &convergency,
         )
         .unwrap();
 

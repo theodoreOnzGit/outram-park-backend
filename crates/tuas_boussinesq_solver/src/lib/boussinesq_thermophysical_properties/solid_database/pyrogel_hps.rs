@@ -1,5 +1,5 @@
-use peroxide::fuga::{CubicSpline, Spline};
-use roots::{find_root_brent, SimpleConvergency};
+use crate::numerical_methods::{bracketed_root, NaturalCubicSpline};
+use petir::roots::BracketingMethod;
 use specific_enthalpy::try_get_h;
 use uom::si::available_energy::joule_per_kilogram;
 use uom::si::f64::*;
@@ -142,13 +142,15 @@ pub fn pryogel_hps_specific_heat_capacity_spline_low_temp(
     )?;
     let pyrogel_cp_temperature_values_degc = c!(9.883, 24.019, 39.819);
     let pyrogel_cp_values_joule_per_kg_kelvin = c!(883.261, 898.311, 983.814);
-    let s = CubicSpline::from_nodes(
+    let s = NaturalCubicSpline::new(
         &pyrogel_cp_temperature_values_degc,
         &pyrogel_cp_values_joule_per_kg_kelvin,
-    );
+        "pyrogel_hps: pyrogel_cp_temperature_values_degc -> pyrogel_cp_values_joule_per_kg_kelvin",
+        "degC",
+    )?;
 
     let temperature_value_degc: f64 = temperature.get::<degree_celsius>();
-    let pyrogel_generic_cp_joule_per_kg_kelvin = s.unwrap().eval(temperature_value_degc);
+    let pyrogel_generic_cp_joule_per_kg_kelvin = s.eval(temperature_value_degc)?;
     return Ok(SpecificHeatCapacity::new::<joule_per_kilogram_kelvin>(
         pyrogel_generic_cp_joule_per_kg_kelvin,
     ));
@@ -187,13 +189,15 @@ pub fn ground_pyrogel_hps_dsc_spline_data(
         0.303, 0.296, 0.29, 0.286, 0.283
     );
 
-    let s = CubicSpline::from_nodes(
+    let s = NaturalCubicSpline::new(
         &specific_power_temperature_values_degc,
         &specific_power_values_milliwatts_per_milligram,
-    );
+        "pyrogel_hps: specific_power_temperature_values_degc -> specific_power_values_milliwatts_per_milligram",
+        "degC",
+    )?;
 
     let temperature_value_degc: f64 = temperature.get::<degree_celsius>();
-    let pyrogel_generic_dsc_milliwatt_per_milligram = s.unwrap().eval(temperature_value_degc);
+    let pyrogel_generic_dsc_milliwatt_per_milligram = s.eval(temperature_value_degc)?;
 
     return Ok(SpecificPower::new::<kilowatt_per_kilogram>(
         pyrogel_generic_dsc_milliwatt_per_milligram,
@@ -224,13 +228,15 @@ pub fn pyrogel_thermal_conductivity_commercial_factsheet_spline(
     let thermal_conductivity_values_milliwatt_per_meter_kelvin =
         c!(20.0, 24.0, 28.0, 33.0, 40.0, 49.0, 62.0, 69.0);
 
-    let s = CubicSpline::from_nodes(
+    let s = NaturalCubicSpline::new(
         &thermal_cond_temperature_values_degc,
         &thermal_conductivity_values_milliwatt_per_meter_kelvin,
-    );
+        "pyrogel_hps: thermal_cond_temperature_values_degc -> thermal_conductivity_values_milliwatt_per_meter_kelvin",
+        "degC",
+    )?;
 
     let pyrogel_hps_thermal_conductivity_value_milliwatt_per_meter_kelvin =
-        s.unwrap().eval(temperature_value_degc);
+        s.eval(temperature_value_degc)?;
 
     return Ok(ThermalConductivity::new::<milliwatt_per_meter_kelvin>(
         pyrogel_hps_thermal_conductivity_value_milliwatt_per_meter_kelvin,
@@ -293,14 +299,17 @@ pub(crate) fn pyrogel_hps_spline_temp_attempt_1_from_specific_enthalpy(
     // as an output
 
     let enthalpy_to_temperature_spline =
-        CubicSpline::from_nodes(&enthalpy_vector, &temperature_values_kelvin);
+        NaturalCubicSpline::new(
+        &enthalpy_vector,
+        &temperature_values_kelvin,
+        "pyrogel_hps: enthalpy_vector -> temperature_values_kelvin",
+        "J/kg",
+    )?;
 
     // now let's get our enthalpy in joules_per_kg
     let h_pyrogel_joules_per_kg = h_fiberglass.get::<joule_per_kilogram>();
 
-    let temperature_from_enthalpy_kelvin = enthalpy_to_temperature_spline
-        .unwrap()
-        .eval(h_pyrogel_joules_per_kg);
+    let temperature_from_enthalpy_kelvin = enthalpy_to_temperature_spline.eval(h_pyrogel_joules_per_kg)?;
 
     // now, the pyrogel enthalpy will not be quite near
     // enough, but it is very close. We can bracket
@@ -344,18 +353,24 @@ pub(crate) fn pyrogel_hps_spline_temp_attempt_1_from_specific_enthalpy(
 
     let lower_limit: f64 = temperature_from_enthalpy_kelvin - brent_error_bound;
 
-    let mut convergency = SimpleConvergency {
-        eps: 1e-8f64,
-        max_iter: 30,
-    };
-    let fluid_temperature_degrees_c_result =
-        find_root_brent(upper_limit, lower_limit, enthalpy_root, &mut convergency);
+    // roots::find_root_brent with SimpleConvergency { eps: 1e-8, max_iter: 30 }
+    // replaced by PETIR's GSL Brent with the same bracket and the same
+    // two-part test; see crate::numerical_methods::bracketed_root (gh:#989).
+    let fluid_temperature_degrees_c_result = bracketed_root(
+        BracketingMethod::Brent,
+        &enthalpy_root,
+        upper_limit,
+        lower_limit,
+        1e-8,
+        30,
+        "pyrogel_hps: temperature from specific enthalpy",
+    );
 
     if let Some(e) = captured_error.into_inner() {
         return Err(e);
     }
 
-    let temperature_from_enthalpy_kelvin = fluid_temperature_degrees_c_result.unwrap();
+    let temperature_from_enthalpy_kelvin = fluid_temperature_degrees_c_result?;
 
     // return temperature
     Ok(ThermodynamicTemperature::new::<kelvin>(temperature_from_enthalpy_kelvin))
