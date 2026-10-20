@@ -282,7 +282,7 @@ Per the workspace "reuse before porting, port before writing" rule:
 
 ## Licence
 
-GPL-3.0, containing two ports:
+~~GPL-3.0~~ **AGPL-3.0-only, as a combined work** (relicensed 2026-10-20, gh:#973): the FLEXPART port keeps GPL-3.0 and `LICENSE.GPL-3.0` ships beside `LICENSE` (see `docs/relicensing-agpl-2026-10-20.md`). It contains two ports:
 
 - **FLEXPART** (GPL-3.0-or-later, © FLEXPART 1998-2019) —
   [`LICENSE.flexpart`](LICENSE.flexpart), [`NOTICE.flexpart`](NOTICE.flexpart).
@@ -290,7 +290,7 @@ GPL-3.0, containing two ports:
   developers.
 - **`puff`** (MIT, © 2025 Hammerling Research Group) —
   [`LICENSE.puff`](LICENSE.puff), [`NOTICE.puff`](NOTICE.puff). MIT into
-  GPL-3.0 is compatible and **one-way**: nothing in `src/puff/` may be copied
+  ~~GPL-3.0~~ **AGPL-3.0-only** is compatible and **one-way**: nothing in `src/puff/` may be copied
   back into an MIT project on the strength of its origin here. Independent
   fork; not affiliated with or endorsed by the Hammerling Research Group or the
   Colorado School of Mines.

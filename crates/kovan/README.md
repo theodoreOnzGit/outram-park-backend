@@ -59,10 +59,10 @@ Existing notes parse and re-serialise unchanged. The reference with worked
 examples is `docs/site/kovan-schema/index.html`, published on the workspace's
 GitHub Pages site; the parser's own docs are in `src/artifact.rs`.
 
-## License — AGPL-3.0-only (differs from the workspace default)
+## License — AGPL-3.0-only (~~differs from the workspace default~~ **the workspace default since 2026-10-20, gh:#973**)
 
-`kovan` is licensed **AGPL-3.0-only**, not the workspace's usual
-GPL-3.0-only — the one deliberate exception in this repository. It depends
+`kovan` is licensed **AGPL-3.0-only**, ~~not the workspace's usual
+GPL-3.0-only — the one deliberate exception in this repository~~ (**CORRECTED 2026-10-20:** all 48 crates are AGPL-3.0-only now). It depends
 on [`kopitiam-pdf`](https://github.com/theodoreOnzGit/kopitiam) (also
 AGPL-3.0-only), the pure-Rust PDF page rasterizer this crate's PDF-reader
 work (GitHub issue #30) is built on. See [`NOTICE`](./NOTICE) for the full

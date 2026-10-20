@@ -104,7 +104,7 @@ get reviewed line-by-line during translation; control flow does not.
 
 This crate is a **derivative work** of NJOY2016, which is under a *modified BSD
 3-Clause* license (LANL/DOE variant). That license is GPL-compatible, so the
-crate as a whole is `GPL-3.0-only`. To stay compliant, you MUST:
+crate as a whole is ~~`GPL-3.0-only`~~ **`AGPL-3.0-only`** (relicensed 2026-10-20, gh:#973) (BSD-3 is permissive, so AGPL is allowed too). To stay compliant, you MUST:
 
 - **Keep `LICENSE.njoy` and `NOTICE`** at the crate root, verbatim. Never delete
   or alter the upstream copyright notice/disclaimer.

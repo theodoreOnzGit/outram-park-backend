@@ -123,9 +123,9 @@ for the full provenance record).
 - **Upstream license:** NJOY2016 is under a *modified BSD 3-Clause* license (the
   LANL/DOE variant), preserved verbatim in [`LICENSE.njoy`](LICENSE.njoy). Its
   terms continue to apply to everything derived from NJOY2016.
-- **This crate's license:** `GPL-3.0-only`, matching the rest of the OUTRAM PARK
-  workspace. The modified BSD 3-Clause license is GPL-compatible, so the combined
-  work may be distributed under the GPL.
+- **This crate's license:** ~~`GPL-3.0-only`~~ **`AGPL-3.0-only`** (relicensed 2026-10-20, gh:#973), matching the rest of the OUTRAM PARK
+  workspace. The modified BSD 3-Clause license is permissive (GPL- and AGPL-compatible), so the combined
+  work may be distributed under the AGPL.
 - **Not the LANL version.** This is **not** endorsed by or affiliated with Los
   Alamos National Laboratory, LANL, Los Alamos National Security LLC, or the U.S.
   Government. Do **not** report issues with this port to the NJOY developers.

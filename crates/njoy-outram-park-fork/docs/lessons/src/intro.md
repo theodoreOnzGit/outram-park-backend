@@ -40,7 +40,7 @@ localised to one subroutine.
 
 It is a **derivative work** of NJOY2016, which is under a modified BSD
 3-Clause licence (the LANL/DOE variant); the crate is distributed under
-GPL-3.0-only. It is a modified version, **not** the version available from Los
+~~GPL-3.0-only~~ **AGPL-3.0-only** (relicensed 2026-10-20, gh:#973). It is a modified version, **not** the version available from Los
 Alamos, and is not endorsed by its authors or by the U.S. Government. The
 upstream notice travels in
 [`LICENSE.njoy`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/LICENSE.njoy)

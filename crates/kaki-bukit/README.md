@@ -202,6 +202,6 @@ took to earn their evidence.
 
 ## Licence
 
-GPL-3.0-only. Derived from CYCLUS and CYCAMORE (both BSD-3-Clause) and from
+~~GPL-3.0-only~~ **AGPL-3.0-only** (relicensed 2026-10-20, gh:#973). Derived from CYCLUS and CYCAMORE (both BSD-3-Clause) and from
 PyNE's `nucname` (BSD-2-Clause). The relicensing is **one-way**. See `NOTICE`
 and `upstream_source/README.md`.

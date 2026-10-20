@@ -36,8 +36,8 @@ Licensing
   `LICENSE.njoy` and its terms continue to apply to all material derived from
   NJOY2016.
 - The modified BSD 3-Clause license is GPL-compatible. This Rust translation,
-  as a whole, is distributed under the **GNU General Public License v3.0 only**
-  (`GPL-3.0-only`), the same license as the rest of the OUTRAM PARK workspace.
+  as a whole, is distributed under the ~~**GNU General Public License v3.0 only**
+  (`GPL-3.0-only`)~~ **GNU Affero General Public License v3.0 only (`AGPL-3.0-only`)** (relicensed 2026-10-20, gh:#973), the same license as the rest of the OUTRAM PARK workspace.
   See `../../LICENSE` / the workspace `Cargo.toml`.
 - Per BSD-3 condition 3, the names "Los Alamos National Security, LLC",
   "Los Alamos National Laboratory", "LANL", "the U.S. Government", and the names
@@ -61,7 +61,7 @@ from NJOY2016:
   https://github.com/mit-crpg/WMP_Library (ENDF/B-VII.1 evaluations).
 - Copyright:  © 2018-2021 Massachusetts Institute of Technology.
 - License:  MIT (full text in `LICENSE-WMP`). MIT is GPL-compatible, so it
-  coexists with this crate's overall `GPL-3.0-only` licensing.
+  coexists with this crate's overall ~~`GPL-3.0-only`~~ **`AGPL-3.0-only`** licensing.
 - The windowing/curve-fit method is that of C. Josey, P. Romano, B. Forget,
   and K. Smith (MIT CRPG). This attribution is DISTINCT from the NJOY/LANL
   attribution above; do not conflate the two, and do not imply LANL endorsement

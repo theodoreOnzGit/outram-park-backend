@@ -44,7 +44,7 @@ EG&G Idaho, 1989); half-lives are from the IAEA Live Chart of Nuclides.
 | Commit | `de374c8` |
 | Upstream license | MIT — © 2026 Battelle Energy Alliance, LLC (DOE contract DE-AC07-05ID14517) |
 | Authors | Benjamin D. Stoyer, David A. Petti, Alexandra C. Raichart (manual also credits Kyler E. Egan) |
-| This fork's license | GPL-3.0 (combined work); MIT notice retained |
+| This fork's license | ~~GPL-3.0~~ **AGPL-3.0-only** (combined work, relicensed 2026-10-20, gh:#973); MIT notice retained |
 
 Attribution artifacts in the crate:
 
@@ -56,7 +56,7 @@ Attribution artifacts in the crate:
 - `upstream_source/TRISO-ATOPS/PROVENANCE.md` — reference-clone provenance; the
   clone is gitignored and never compiled.
 
-MIT is GPLv3-compatible, so porting MIT-licensed TRISO-ATOPS into GPL-3.0
+MIT is GPLv3-compatible, so porting MIT-licensed TRISO-ATOPS into ~~GPL-3.0~~ **AGPL-3.0-only**
 `boon-lay` is permitted with attribution retained.
 
 ## Module map (Python → Rust)

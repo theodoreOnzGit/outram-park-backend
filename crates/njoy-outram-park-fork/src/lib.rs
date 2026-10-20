@@ -11,7 +11,7 @@
 //!
 //! This crate is a **derivative work** of NJOY2016 (v2016.79), which is licensed
 //! under a modified BSD 3-Clause license (the LANL/DOE variant). That license is
-//! GPL-compatible, so this translation is distributed under `GPL-3.0-only` — the
+//! GPL-compatible, so this translation is distributed under ~~`GPL-3.0-only`~~ **`AGPL-3.0-only`** (relicensed 2026-10-20, gh:#973) — the
 //! same license as the rest of the OUTRAM PARK workspace.
 //!
 //! It is **not** the version available from LANL and is **not** endorsed by
