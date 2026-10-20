@@ -82,17 +82,24 @@
     "nuclear-data": "nuclear-data", "njoy_outram_park_fork": "nuclear-data",
     "dispersion": "dispersion", "changi": "dispersion", "buangkok": "dispersion",
     "sembawang": "dispersion",
-    "triso-atops": "triso-atops", "boon_lay": "triso-atops"
+    "triso-atops": "triso-atops", "boon_lay": "triso-atops",
+    "fp-transport-theory": "triso-atops"
   };
   var TRACK_NAME = {
     "monte-carlo": "Monte Carlo", "nuclear-data": "Nuclear data",
     "dispersion": "Gaussian plume & puff", "triso-atops": "TRISO-ATOPS"
   };
+  // A book whose own name is its label, used as it stands (no " tutorial"):
+  // the boon-lay theory book (maintainer, 2026-10-20).
+  var BOOK_NAME = { "fp-transport-theory": "Fission Product Transport Theory" };
   var KIND = { "tutorials": "tutorial", "deep-dives": "deep dive", "demos": "demo", "api": "API" };
   // The pathway each kind of page sits under, and its label.
   var PATHWAY = { "tutorials": "science", "science": "science", "deep-dives": "code", "api": "code", "code": "code", "demos": "demos" };
   var PATHWAY_NAME = { "science": "Learn the science", "code": "Learn to code", "demos": "Web demos" };
-  var SCIENCE_DOMAIN = { "neutronics": "Neutronics", "transport": "Neutron transport" };
+  // A lesson folder -> its section on the science page and that section's
+  // label. Neutronics and Nuclear data are one section since 2026-10-20.
+  var SCIENCE_DOMAIN = { "neutronics": "Nuclear Data and Neutronics", "transport": "Neutron transport" };
+  var SCIENCE_SECTION = { "neutronics": "nuclear-data-and-neutronics" };
 
   var kind = parts[0], name = parts[1] || "";
   if (name === "index.html") name = "";
@@ -112,14 +119,14 @@
   } else if (kind === "science") {
     // A lesson: science/<domain>/<lesson>.html, Up to its domain on the
     // science page.
-    sectionUrl = new URL("science/#" + name, root);
+    sectionUrl = new URL("science/#" + (SCIENCE_SECTION[name] || name), root);
     sectionLabel = SCIENCE_DOMAIN[name] || name;
     atSectionIndex = false;
   } else {
     sectionUrl = new URL(kind + "/" + name + "/", root);
     sectionLabel = kind === "api"
       ? "API: " + name.replace(/_/g, "-")
-      : (TRACK_NAME[track] || name) + " " + KIND[kind];
+      : BOOK_NAME[name] || (TRACK_NAME[track] || name) + " " + KIND[kind];
     atSectionIndex = rest === "" || rest === "index.html";
   }
 

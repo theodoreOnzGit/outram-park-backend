@@ -163,6 +163,12 @@ while read -r name dir; do
   [[ -z "$name" || "$name" == \#* ]] && continue
   mdbook build "$dir" -d "$PWD/$OUT/tutorials/$name"
 done < docs/site/tutorials.txt
+# mdBook (0.5) publishes `additional-css`/`additional-js` under hashed names
+# (anim/boonlay-anim-6e39ad35.css), but the theory book's 15-dlofc.md reuses
+# the TRISO tutorial's animation by its plain name. Publish the plain names
+# too, so that link holds whatever the hash is. Its absence failed every
+# Pages build from 2026-10-19 (broken-link check).
+cp crates/boon-lay/docs/tutorial/anim/boonlay-anim.{css,js} "$OUT/tutorials/triso-atops/anim/"
 
 # Browser demos (gh:#519, #521): ONE Monte Carlo demo with a rung table
 # (crates/dhoby-ghaut/examples/monte_carlo_web/rungs.rs): wasm build, its JS
