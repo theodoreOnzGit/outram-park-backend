@@ -333,8 +333,15 @@ paper — in the relevant `docs/` development-history entry.
 difference — e.g. 1 ulp from a different `libm`, a vectorised `exp`, or a changed
 operation order — is acceptable when the relative difference is below 1e-8.**
 
-- **Still report it.** State the count bit-identical, the worst difference and its
-  cause; "acceptable" means it does not block a merge, not that it goes unrecorded.
+- **Bit-identical is still strongly preferred** (maintainer, same day): it is a
+  yes/no check that automation can judge alone. **The moment a residual appears,
+  a human has to judge it**, and review time is the scarcest resource here (see
+  "Human review is the bottleneck"). So do the work to reach bit-identity first —
+  match the operation order, the `libm`, the FMA use — and use this allowance only
+  where that is genuinely out of reach, saying why.
+- **Still report it, and flag it for the maintainer.** State the count
+  bit-identical, the worst difference and its cause; "acceptable" means it does
+  not block a merge, not that it goes unrecorded or unreviewed.
 - **Explain the cause.** An unexplained difference is a finding to investigate,
   whatever its size; this allowance is for differences whose round-off origin is
   understood.
