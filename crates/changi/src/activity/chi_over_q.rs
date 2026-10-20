@@ -56,8 +56,6 @@
 //! beyond it, because an all-zero result is otherwise indistinguishable from a
 //! correct answer. A mixed set is allowed through — check [`DilutionFactors::reach`].
 
-use petir::mathf::RealMath;
-
 use uom::si::f64::{Frequency, Length, MassRate, Time};
 use uom::si::frequency::hertz;
 use uom::si::length::meter;
@@ -393,6 +391,7 @@ fn segment_of(bounds: &[f64], t: f64) -> Option<usize> {
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
     use crate::puff::concentration::METHANE_PPM_PER_KG_PER_M3;
     use crate::puff::simulate::{constant_wind, simulate_sensor_mode, AdvectionPolicy, EmissionPolicy};

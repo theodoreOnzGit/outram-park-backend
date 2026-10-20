@@ -73,9 +73,6 @@
 // Used by `pool()` (native/Android) and `gpu_context()` (native/Android,
 // `gpu` feature) -- both absent on `wasm32-unknown-unknown`, so the import
 // is gated the same way rather than left to warn as unused there.
-
-use petir::mathf::RealMath;
-
 #[cfg(not(target_arch = "wasm32"))]
 use std::sync::OnceLock;
 
@@ -634,7 +631,7 @@ mod tests {
         let states: Vec<PuffState> = (0..40)
             .map(|i| PuffState {
                 x: i as f32 * 12.0,
-                y: (i as f32 * 7.0).r_sin() * 80.0,
+                y: (i as f32 * 7.0).sin() * 80.0,
                 sigma_y: 30.0 + i as f32 * 2.0,
                 sigma_z: 20.0 + i as f32,
                 weight: 1.0,

@@ -17,10 +17,9 @@
 // crate, so `f64` carries INHERENT `sinh`/`cosh` that take precedence over a
 // trait method — writing `a.sinh()` with this trait in scope compiles, resolves
 // to the platform C library anyway, and reverts the fix silently.
-
-use petir::mathf::RealMath;
-
 use petir::real::Real;
+// Every other transcendental here goes through RealMath's `r_` methods (gh:#985).
+use petir::mathf::RealMath;
 
 use crate::handle3dcoords::handle3dcoords;
 use crate::matlab::Array4;

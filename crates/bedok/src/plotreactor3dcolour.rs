@@ -56,8 +56,6 @@
 //! collapsed map. That is not a defect — it makes the map a fraction of total
 //! core power per unit volume — but it does mean the map does not sum to 1.
 
-use petir::mathf::RealMath;
-
 use crate::types::{Geometry, Params};
 
 /// The scaled power map, and what the collapse did to get there.
@@ -132,6 +130,7 @@ pub fn scaled_power(params: &Params, geometry: &Geometry, pwrdens: &[f64]) -> Sc
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
 
     fn setup(g_count: usize) -> (Params, Geometry, Vec<f64>) {
