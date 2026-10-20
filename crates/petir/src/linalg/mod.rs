@@ -51,6 +51,8 @@
 //! is worse than an absent one.
 
 pub mod blas1;
+pub mod cholesky;
+mod elem;
 pub mod householder;
 pub mod lu;
 pub mod matrix;
@@ -64,6 +66,7 @@ pub mod square_matrix;
 pub mod tridiag;
 
 pub use blas1::{asum, axpy, dot, iamax, nrm2, scal, swap};
+pub use cholesky::Cholesky;
 pub use lu::{det, inverse, ln_det};
 pub use matrix::Matrix;
 pub use qr::{LeastSquares, QrDecomposition};

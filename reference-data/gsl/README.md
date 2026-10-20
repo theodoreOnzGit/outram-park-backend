@@ -54,6 +54,45 @@ are documented in the replaying test and in the crate source.
 
 Replayed by `crates/petir/tests/gsl_numerics_code_to_code.rs`.
 
+## `cholesky-gsl-2.8-reference.txt` — Cholesky factor, solve, inverse (gh:#993)
+
+- **Built:** 2026-10-20, `gcc -O2`, glibc on x86_64-unknown-linux-gnu,
+  against the full static GSL built from the vendored tree (recipe in the QR
+  section below).
+- **Driver:** `cholesky_reference_driver.c` in this directory. It writes the
+  inputs (`A`, `B`) as well as the outputs, so the replaying test rebuilds
+  them from the file; `crates/petir/tests/linalg_gsl_common/` reads every
+  linear-algebra reference in this shape.
+- **Routines:** `gsl_linalg_cholesky_decomp1`, `_solve`, `_invert`.
+- **Cases:** 3x3 with an exact integer factor, Hilbert 6x6, pseudo-random
+  Gram matrices 8x8, 24x24 and 30x30, and a 2x2 indefinite matrix (refused
+  with `GSL_EDOM`).
+
+### `cholesky-gsl-2.8-level2-reference.txt` — the same driver, Level 3 off
+
+GSL runs Level-2 code for `n <= 24` and a recursive Level-3 blocking above
+(`CROSSOVER` in `linalg/recurse.h`). PETIR ports only the Level-2 code. This
+second file is the same driver linked against `linalg/cholesky.c`, `invtri.c`
+and `trimult.c` recompiled with `CROSSOVER` raised to 100000, made by
+`level2_rebuild.sh` in this directory:
+
+```sh
+reference-data/gsl/level2_rebuild.sh reference-data/gsl/cholesky_reference_driver.c \
+    reference-data/gsl/cholesky-gsl-2.8-level2-reference.txt \
+    linalg/cholesky.c linalg/invtri.c linalg/trimult.c
+```
+
+### What the comparison found (2026-10-20)
+
+| comparison | values | bit-identical | worst relative difference |
+|---|---|---|---|
+| stock GSL, `n <= 24` | 1411 | 1411 (100 %) | 0 |
+| stock GSL, 30x30 | 1830 | 741 (40.5 %) | 1.39e-12 per entry; normwise 1.1e-16 factor, 3.8e-16 inverse, 2.9e-16 solution |
+| GSL at Level 2, all six cases | 3241 | 3241 (100 %) | 0 |
+
+So the whole 30x30 difference is GSL's blocking. Replayed by
+`crates/petir/tests/gsl_cholesky_code_to_code.rs`.
+
 ## `qags-gsl-2.8-reference.txt` — `gsl_integration_qags`
 
 - **Built:** 2026-09-28, `gcc -O2`, glibc on x86_64-unknown-linux-gnu, from
