@@ -68,7 +68,7 @@ wasm-buildable.
 > far as possible exactly as before, and `--no-default-features` drops `wgpu`
 > (and its ~60-crate subtree) for a CPU-only build. wgpu is also target-gated
 > off Android whatever the feature says (no system Vulkan/Metal loader there). They accelerate per-vertex work in
-> single precision, while the CPU ([`math`]/[`faer`]) path stays the
+> single precision, while the CPU ([`math`]/~~[`faer`]~~ `petir`, since 2026-10-20 gh #996) path stays the
 > deterministic reference. Fallback to CPU is **graceful and automatic**: no
 > adapter, or a recoverable GPU error, routes to the CPU path
 > (`Affine3::transform_points_best_effort` is the unified try-GPU-then-CPU entry

@@ -35,7 +35,7 @@ When you do port, the doc comment names the **upstream file and line**, and the
 NOTICE names the copyright holder for that module — GSL's holders differ per
 file, so re-read each header rather than copying one across.
 
-### Four non-GSL ports exist, and they were maintainer-directed (~~three~~ ~~four~~ ~~five~~ ~~seven~~ eight more follow below)
+### Four non-GSL ports exist, and they were maintainer-directed (~~three~~ ~~four~~ ~~five~~ ~~seven~~ ~~eight~~ nine more follow below)
 
 Added 2026-09-15 at the maintainer's direction — "port select code from roots
 and peroxide to complement petir's capabilities, credit the author's
@@ -313,6 +313,37 @@ binds future work as follows:
   would need faer's dense kernels too; it is not done.
 - **Duplicate triplets** are summed in input order (faer's unstable sort
   leaves that order unspecified). Neither consumer has duplicates.
+
+### A thirteenth non-GSL port: faer's dense SVD (2026-10-20)
+
+`src/faer_dense/` ports the path faer 0.24.4's `Mat::svd()` runs for a small
+square `f64` matrix (`svd_imp`, `bidiag_in_place` + `bidiag_fused_op_simd`,
+`qr_algorithm`, the block-size-1 Householder application), faer-traits
+0.24.0's scalar `hypot`, and a scalar model of the `pulp` 0.22.3 `V3` lanes
+faer's SIMD kernels run on (all MIT, sarah quiñones). **Maintainer direction on
+gh #996, 2026-10-20: "Whatever faer does, port into petir"**, replacing the
+earlier plan to move `outram-blender`'s `arap::closest_rotation` onto
+`linalg::svd` (GSL). That is the approval this section requires for a
+non-GSL source. It binds future work as follows:
+
+- **It is additive and must not be merged with `linalg::svd`.** GSL's
+  Golub–Reinsch and faer's bidiagonal QR are different algorithms with
+  different sign conventions; each is pinned to its own upstream.
+- **Pinned bit for bit against faer's compiled code** (dev-dependency):
+  `tests/faer_dense_svd_vs_faer.rs`, 0 differing bits over 6 134 blender
+  covariances (`reference-data/faer/`), 26 000 random matrices of orders
+  1..=16 and 17 structured cases. Two negative controls (lane-sum order,
+  unfused multiply-add) fail it by thousands of cases, so the gate can fail.
+- **The lane model is the point.** Do not "simplify" `simd.rs`: which lane an
+  element sits in, which accumulator a chunk feeds, the fused multiply-adds and
+  `(l0 + l2) + (l1 + l3)` are what make it bit-identical. No `core::arch`, no
+  CPU detection: the same bits on every target, equal to faer's on an
+  AVX2+FMA x86-64; faer itself on AVX-512, aarch64 or SSE-only x86 may differ
+  in the last bits.
+- **Scope:** square, `1 <= n <= 16` (faer's Householder block size is 1
+  there); larger `n` returns `Invalid` rather than running a different path.
+  Errors: non-finite bidiagonal -> `Domain`, iteration budget -> `MaxIterations`
+  (faer returns `NoConvergence` for both).
 
 **`peroxide` as a DEPENDENCY remains ruled out** (it pulls
 `blas`/`lapack`/`netcdf`/`arrow`, which the "Dependencies" section below

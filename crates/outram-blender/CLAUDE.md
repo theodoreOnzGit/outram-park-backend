@@ -93,9 +93,10 @@ worked example. For meshes, plot the mesh itself (cells, patches, zones).
   **`raffles` must not depend on this crate** (or on `outram-mc-libs`); the
   edge runs geometry -> RAFFLES only.
 - **There is no `mesh` feature** (maintainer decision 2026-10-02): mesh
-  authoring and `faer` are always compiled, even for `default-features =
-  false` dependents such as outram-mc-libs. `faer` is target-split in
-  `Cargo.toml` instead (no `rayon`/`rand` on wasm32) so the whole crate builds
+  authoring ~~and `faer`~~ ~~are~~ is always compiled, even for `default-features =
+  false` dependents such as outram-mc-libs. ~~`faer` is target-split in
+  `Cargo.toml` instead (no `rayon`/`rand` on wasm32)~~ (faer was removed
+  2026-10-20, gh #996) so the whole crate builds
   for `wasm32-unknown-unknown`; it is in `scripts/check-wasm.sh`.
 - **Sparse solves run on `petir::sparse` (2026-10-20, gh #994).** Laplacian
   smoothing, ARAP and parameterization factorise through
@@ -104,8 +105,17 @@ worked example. For meshes, plot the mesh itself (cells, patches, zones).
   tests build. `outram-foam-basic-lib`'s PCG was considered and rejected: it
   cannot report a non-SPD system, which these operators' error types promise,
   and making that optional dependency mandatory would also pull it into
-  `outram-mc-libs`. **`faer` remains only for the 3x3 SVD in
-  `arap::closest_rotation`**, until PETIR's GSL SVD (gh #993) replaces it (follow-up gh #996).
+  `outram-mc-libs`. ~~**`faer` remains only for the 3x3 SVD in
+  `arap::closest_rotation`**, until PETIR's GSL SVD (gh #993) replaces it (follow-up gh #996).~~
+  **faer is no longer a dependency (2026-10-20, gh #996).** The 3x3 SVD in
+  `arap::closest_rotation` is `petir::faer_dense::svd3`, a no_std port of the
+  faer 0.24.4 `Mat::svd()` path it called (maintainer: "Whatever faer does,
+  port into petir"; GSL's `linalg::svd` was not used, being a different
+  algorithm). Bit-identical to faer on all 6134 distinct covariances the test
+  suite produces (`petir/tests/faer_dense_svd_vs_faer.rs`), and on 22 334
+  pooled from four runs. The suite's covariances themselves change in the
+  last bits from run to run (one-ring weights summed in `HashMap` order,
+  gh #1002, pre-existing). The `pub use faer;` re-export went with it.
 
 ## CSG description and tally meshes: what lives here, what does not (GitHub #486)
 
