@@ -397,6 +397,15 @@ impl Orientation {
 
     /// The inverse (sample-to-crystal) rotation, i.e. `R^T` stored as an
     /// [`Orientation`] in its own right. Dimensionless.
+    ///
+    /// Deliberately **not** `petir::linalg::inverse` (gh:#992, 2026-10-20):
+    /// `from_matrix` guarantees `R` is orthonormal, so its inverse is its
+    /// transpose — a copy with no arithmetic and no rounding. An LU inverse
+    /// would add rounding and break the exact `inverse().inverse() == R`
+    /// that `orientation_constructors_agree_and_are_proper_rotations` asserts. The `det R`
+    /// check in `from_matrix` is likewise kept as a 3x3 cofactor expansion:
+    /// it only gates `+1` against `-1` at `1e-10`, and an LU determinant
+    /// would buy nothing there.
     #[must_use]
     pub fn inverse(&self) -> Orientation {
         let mut m = [[0.0_f64; 3]; 3];

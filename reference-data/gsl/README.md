@@ -54,6 +54,117 @@ are documented in the replaying test and in the crate source.
 
 Replayed by `crates/petir/tests/gsl_numerics_code_to_code.rs`.
 
+## `cholesky-gsl-2.8-reference.txt` — Cholesky factor, solve, inverse (gh:#993)
+
+- **Built:** 2026-10-20, `gcc -O2`, glibc on x86_64-unknown-linux-gnu,
+  against the full static GSL built from the vendored tree (recipe in the QR
+  section below).
+- **Driver:** `cholesky_reference_driver.c` in this directory. It writes the
+  inputs (`A`, `B`) as well as the outputs, so the replaying test rebuilds
+  them from the file; `crates/petir/tests/linalg_gsl_common/` reads every
+  linear-algebra reference in this shape.
+- **Routines:** `gsl_linalg_cholesky_decomp1`, `_solve`, `_invert`.
+- **Cases:** 3x3 with an exact integer factor, Hilbert 6x6, pseudo-random
+  Gram matrices 8x8, 24x24 and 30x30, and a 2x2 indefinite matrix (refused
+  with `GSL_EDOM`).
+
+### `cholesky-gsl-2.8-level2-reference.txt` — the same driver, Level 3 off
+
+GSL runs Level-2 code for `n <= 24` and a recursive Level-3 blocking above
+(`CROSSOVER` in `linalg/recurse.h`). PETIR ports only the Level-2 code. This
+second file is the same driver linked against `linalg/cholesky.c`, `invtri.c`
+and `trimult.c` recompiled with `CROSSOVER` raised to 100000, made by
+`level2_rebuild.sh` in this directory:
+
+```sh
+reference-data/gsl/level2_rebuild.sh reference-data/gsl/cholesky_reference_driver.c \
+    reference-data/gsl/cholesky-gsl-2.8-level2-reference.txt \
+    linalg/cholesky.c linalg/invtri.c linalg/trimult.c
+```
+
+### What the comparison found (2026-10-20)
+
+| comparison | values | bit-identical | worst relative difference |
+|---|---|---|---|
+| stock GSL, `n <= 24` | 1411 | 1411 (100 %) | 0 |
+| stock GSL, 30x30 | 1830 | 741 (40.5 %) | 1.39e-12 per entry; normwise 1.1e-16 factor, 3.8e-16 inverse, 2.9e-16 solution |
+| GSL at Level 2, all six cases | 3241 | 3241 (100 %) | 0 |
+
+So the whole 30x30 difference is GSL's blocking. Replayed by
+`crates/petir/tests/gsl_cholesky_code_to_code.rs`.
+
+## `eigen-symm-gsl-2.8-reference.txt` — symmetric tridiagonal form and eigensolver (gh:#993)
+
+- **Built:** 2026-10-20, same static GSL; `build_driver.sh` in this directory
+  builds and runs any driver here.
+- **Driver:** `eigen_symm_reference_driver.c`.
+- **Routines:** `gsl_linalg_symmtd_decomp`, `_unpack`, `gsl_eigen_symm`,
+  `gsl_eigen_symmv`, `gsl_eigen_symmv_sort(VAL_ASC)`.
+- **Cases:** 1x1, 2x2, 4x4, Hilbert 8x8, Wilkinson W21+, block-diagonal 6x6,
+  `5 I + 1 1^T` (four-fold eigenvalue), random symmetric 10x10, Gram 30x30.
+
+## `svd-gsl-2.8-reference.txt` — Golub–Reinsch SVD and solve (gh:#993)
+
+- **Built:** 2026-10-20, same static GSL, `build_driver.sh`.
+- **Driver:** `svd_reference_driver.c`.
+- **Routines:** `gsl_linalg_SV_decomp`, `gsl_linalg_SV_solve`.
+- **Cases:** twelve, chosen to reach every branch of `linalg/svdstep.c`
+  (the `N == 1` column, `svd2`, both zero-chasing routines, no sweep at all,
+  the block rescaling for `1e-160` and `1e160` entries) plus Hilbert 6x6 and
+  random 4x3, 8x5 and 30x20.
+- **Result (2026-10-20):** 1428/1428 bit-identical against the
+  `libm`-`hypot` run below; against stock GSL singular values agree to
+  1.12e-15 normwise. Replayed by `crates/petir/tests/gsl_svd_code_to_code.rs`.
+
+## `eigen-nonsymm-gsl-2.8-reference.txt` — Hessenberg, balancing, Francis QR (gh:#993)
+
+- **Built:** 2026-10-20, same static GSL, `build_driver.sh`.
+- **Driver:** `eigen_nonsymm_reference_driver.c`.
+- **Routines:** `gsl_linalg_hessenberg_decomp`, `gsl_linalg_balance_matrix`,
+  `gsl_eigen_nonsymm` (eigenvalues only) unbalanced and balanced.
+- **Cases:** thirteen — 1x1, rotation, real 2x2, 3- and 4-cycles (exceptional
+  shifts), a companion matrix with a complex pair, upper triangular, Frank 8,
+  a badly scaled 3x3, block-diagonal 6x6 (mid-matrix split), random 6, 12, 25.
+- **Result (2026-10-20):** 2419/2419 bit-identical against the
+  `libm`-`hypot` run; against stock GSL the eigenvalues agree as a multiset
+  to 4.54e-13 of `max|lambda|`. Replayed by
+  `crates/petir/tests/gsl_eigen_nonsymm_code_to_code.rs`.
+
+## Isolating `hypot`: `*-libm-hypot-reference.txt`
+
+GSL calls the platform `hypot` (glibc here); PETIR calls the `libm` crate's,
+through `crate::real::Real`, for `no_std` and cross-platform reproducibility.
+The two differ in the last ulp on some inputs: `hypot(1, sqrt(3))` is `2.0`
+from glibc (the correctly rounded value) and `2 - 2^-52` from `libm`.
+`libm_shim.rs` exports the `libm` crate's `hypot` under the C name; linking it
+ahead of `-lm` gives GSL PETIR's `hypot` and nothing else:
+
+```sh
+rustc --edition 2021 --crate-type staticlib -C opt-level=3 -C panic=abort \
+    --extern libm=target/release/deps/liblibm-<hash>.rlib -L target/release/deps \
+    reference-data/gsl/libm_shim.rs -o /tmp/libm_shim.a     # libm 0.2.16
+reference-data/gsl/build_driver.sh reference-data/gsl/eigen_symm_reference_driver.c \
+    reference-data/gsl/eigen-symm-gsl-2.8-libm-hypot-reference.txt /tmp/libm_shim.a
+reference-data/gsl/build_driver.sh reference-data/gsl/qr_reference_driver.c \
+    reference-data/gsl/qr-gsl-2.8-libm-hypot-reference.txt /tmp/libm_shim.a
+```
+
+### What the comparison found (2026-10-20)
+
+| surface | vs stock GSL | vs GSL + `libm` `hypot` |
+|---|---|---|
+| `symmtd` + `eigen_symm[v]` + sort, 6091 values | decomposition 62.2 %, eigenvalues 42.9 %, vectors 31.3 % bit-identical; structural difference on `5 I + 1 1^T` | **6091/6091 bit-identical** |
+| `linalg::qr` (existing port), 85 values + solves | 81/85 (95.3 %) | **85/85, solutions and residuals bit-identical** |
+| `linalg::svd`, 1428 values | singular values 27/57; 1.12e-15 normwise | **1428/1428 bit-identical** |
+| `linalg::eigen_nonsymm` + Hessenberg + balancing, 2419 values | eigenvalues 104/320 in order; 4.54e-13 as a multiset | **2419/2419 bit-identical** |
+
+So both ports are exact, and every difference from stock GSL is `hypot`.
+Against stock GSL the eigensolver agrees as an eigen-decomposition: sorted
+eigenvalues to 1.73e-15 normwise, eigenvectors within 0.55 of their
+gap-scaled perturbation bound. Replayed by
+`crates/petir/tests/gsl_eigen_symm_code_to_code.rs` and
+`gsl_qr_code_to_code.rs`.
+
 ## `qags-gsl-2.8-reference.txt` — `gsl_integration_qags`
 
 - **Built:** 2026-09-28, `gcc -O2`, glibc on x86_64-unknown-linux-gnu, from
@@ -158,6 +269,32 @@ solution and residual.
 85 values compared, **81 bit-identical (95.3 %)**; worst relative difference
 4.27e-16 on the factorisation, 4.94e-16 on the solution, 1.37e-14 on the
 residual. Replayed by `crates/petir/tests/gsl_qr_code_to_code.rs`.
+
+## `lu-gsl-2.8-reference.txt` — LU with partial pivoting and its solve
+
+- **Built:** 2026-10-20 (gh:#992), `gcc -O2`, glibc on x86_64-unknown-linux-gnu,
+  against a full static GSL built from the vendored tree
+  (`./configure --disable-shared --enable-static && make`), linked with GSL's
+  own `libgslcblas.a`.
+- **Driver:** `lu_reference_driver.c` in this directory.
+- **Routines:** `gsl_linalg_LU_decomp` and `gsl_linalg_LU_solve`.
+- **Not the system libgsl.** Arch's `gsl 2.8-1` links netlib
+  `libcblas`/`libblas`, whose `DTRSV` walks back-substitution in the opposite
+  order; the same driver linked that way differs on 44 lines of this file.
+
+```sh
+G=crates/petir/upstream_source/GSL          # the vendored clone (build a copy)
+(cd $G && ./configure --disable-shared --enable-static && make -j"$(nproc)")
+gcc -O2 -I"$G" -o ludriver reference-data/gsl/lu_reference_driver.c \
+    "$G/.libs/libgsl.a" "$G/cblas/.libs/libgslcblas.a" -lm
+./ludriver > reference-data/gsl/lu-gsl-2.8-reference.txt
+```
+
+Nine cases, inputs included in the file: 2x2, a zero leading pivot, a tie in
+the pivot column, rows six decades apart, a pivot below `DBL_MIN`, an exactly
+singular 3x3, and unstructured 6x6, 24x24 and 30x30 (the last through GSL's
+Level-3 path). **Result (2026-10-20): 1637/1637 values bit-identical**,
+including the 30x30. Replayed by `crates/petir/tests/gsl_lu_code_to_code.rs`.
 
 ## Regenerating
 

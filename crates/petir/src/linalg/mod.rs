@@ -25,11 +25,34 @@
 //!   (`ddot`, `dnrm2`, `dasum`, `daxpy`, `dscal`, `idamax`, `dswap`).
 //! - [`lu`] — determinant, log-determinant and explicit inverse built on the LU
 //!   factors, translating `gsl_linalg_LU_det` / `_lndet` / `_invert`.
+//! - [`lu_decomp`] — GSL's own LU with unscaled partial pivoting
+//!   (`gsl_linalg_LU_decomp`) and its solve (`gsl_linalg_LU_svx`).
 //! - [`Matrix`] — the dense rectangular `m x n` matrix a least-squares problem
 //!   needs, which the square lift cannot represent.
 //! - [`householder`] and [`qr`] — Householder reflections and the QR
 //!   factorisation built from them, with a least-squares solve, translating
 //!   `linalg/householder.c` and `linalg/qr.c`.
+//! - [`cholesky`] — `A = L L^T` with solve and inverse,
+//!   `linalg/cholesky.c` (gh:#993).
+//! - [`symmtd`] and [`eigen_symm`](mod@eigen_symm) — symmetric tridiagonal reduction and the
+//!   symmetric eigensolver (values, vectors, sort), `linalg/symmtd.c`,
+//!   `eigen/symm.c`, `symmv.c`, `qrstep.c`, `sort.c` (gh:#993).
+//! - [`svd`] — Golub–Reinsch SVD and solve, `linalg/svd.c`, `svdstep.c`,
+//!   `bidiag.c` (gh:#993).
+//! - [`eigen_nonsymm`](mod@eigen_nonsymm) — balancing, Hessenberg reduction and Francis
+//!   double-shift QR eigenvalues of a general real matrix (complex results as
+//!   [`crate::depletion::Complex64`]), `eigen/nonsymm.c`, `francis.c`,
+//!   `linalg/hessenberg.c`, `balancemat.c` (gh:#993).
+//! - [`octave`] — an Octave-style vocabulary on [`Matrix`] (`eye`, `ones`,
+//!   `diag`, `kron`, `transpose`, `trace`, `norm`, `inv`, `det`, `solve`,
+//!   `mul`, ...) with a table mapping each Octave name to its PETIR method
+//!   (gh:#993).
+//! - [`expm`](fn@expm) — the matrix exponential, ported from GNU Octave's
+//!   `expm.m` without its LAPACK balancing step (gh:#993).
+//!
+//! Each gh:#993 port is bit-identical to compiled GSL 2.8 once GSL is given
+//! the same `hypot` (the `libm` crate's); see
+//! `reference-data/gsl/README.md` and `docs/verification-summary.md`.
 //!
 //! # No BLAS library is linked, and none may be
 //!
@@ -43,18 +66,29 @@
 //!
 //! # Scope
 //!
-//! Dense and real. Not covered: complex matrices, SVD, eigenvalue problems,
-//! banded or sparse storage, and **column-pivoted QR** — so rank-deficient
+//! Dense and real. Not covered: complex matrices, ~~SVD, eigenvalue
+//! problems,~~ (**CORRECTED 2026-10-20, gh:#993**: SVD, the symmetric
+//! eigenproblem and nonsymmetric eigenvalues are now ported, see Contents;
+//! nonsymmetric eigenvectors and Schur vectors are not), banded or sparse storage, and **column-pivoted QR** — so rank-deficient
 //! least squares is reported as an error rather than solved (`bn:op-4m4b`;
 //! GSL's `linalg/qrpt.c` is the source if it is wanted). Those are tracked as
 //! follow-on work rather than stubbed, because a half-implemented eigensolver
 //! is worse than an absent one.
 
 pub mod blas1;
+pub mod cholesky;
+mod elem;
+pub mod eigen_nonsymm;
+pub mod eigen_symm;
+pub mod expm;
 pub mod householder;
 pub mod lu;
+pub mod lu_decomp;
+pub mod octave;
 pub mod matrix;
 pub mod qr;
+pub mod svd;
+pub mod symmtd;
 /// Row-major dense `n x n` matrix with Crout LU, lifted verbatim from
 /// outram-foam-basic-lib. `MatrixError::Singular`'s `col` field is the
 /// zero-based column at which the pivot vanished; the lint is suppressed here
@@ -64,8 +98,16 @@ pub mod square_matrix;
 pub mod tridiag;
 
 pub use blas1::{asum, axpy, dot, iamax, nrm2, scal, swap};
+pub use cholesky::Cholesky;
+pub use eigen_nonsymm::{balance_matrix, eigen_nonsymm, hessenberg};
+pub use eigen_symm::{eigen_symm, eigen_symmv, eigen_symmv_sort, EigenSort};
+pub use expm::expm;
+pub use svd::Svd;
+pub use symmtd::SymmTd;
 pub use lu::{det, inverse, ln_det};
+pub use lu_decomp::{lu_decomp, lu_solve, lu_svx, LuPermutation};
 pub use matrix::Matrix;
+pub use octave::Norm;
 pub use qr::{LeastSquares, QrDecomposition};
 pub use tridiag::solve_symm_tridiag;
 pub use square_matrix::{MatrixError, SquareMatrix};

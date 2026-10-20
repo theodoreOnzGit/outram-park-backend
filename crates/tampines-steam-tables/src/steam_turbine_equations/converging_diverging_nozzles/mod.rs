@@ -9,6 +9,7 @@
 //! [`calculate_velocity_mass_flowrate_and_state_in_cd_nozzle`] is the main
 //! entry point tying the converging and diverging sections together.
 
+use petir::uom_math::QuantityMath;
 use uom::si::f64::*;
 use uom::si::volume::cubic_meter;
 
@@ -94,7 +95,7 @@ pub fn calculate_velocity_mass_flowrate_and_state_in_cd_nozzle(
     let outlet_flow_state_ideal = TampinesSteamTableCV::new_from_ps(p2, s2_ideal, ref_vol);
     let rho_out_ideal = outlet_flow_state_ideal.get_rho();
     let h_out_ideal = outlet_flow_state_ideal.get_specific_enthalpy();
-    let v_out_ideal: Velocity = (2.0 * (h0 - h_out_ideal)).sqrt();
+    let v_out_ideal: Velocity = (2.0 * (h0 - h_out_ideal)).r_sqrt();
     let m_ideal: MassRate = rho_out_ideal * v_out_ideal * a2;
 
     let debug = false;

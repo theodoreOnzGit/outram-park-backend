@@ -1,3 +1,4 @@
+use petir::uom_math::QuantityMath;
 use uom::si::f64::*;
 use uom::si::pressure::megapascal;
 use uom::si::ratio::ratio;
@@ -74,7 +75,7 @@ pub fn w_ps_eqm_region4_kieffer(p: Pressure, s: SpecificHeatCapacity) -> Velocit
     // since neg_c_sq_over_v_sq should be negative:
     let c_sq = v_mix * v_mix / (-neg_c_sq_over_v_sq);
 
-    c_sq.sqrt()
+    c_sq.r_sqrt()
 }
 
 /// this is a simpler version that makes use of derivatives
@@ -96,7 +97,7 @@ pub fn w_ps_eqm_region4_finite_diff_vol(p: Pressure, s: SpecificHeatCapacity) ->
 
     // dv_dp_s should be negative in two-phase region
     // c = v * sqrt(1 / (-dv/dp|_s))
-    let c_hem: Velocity = v * (dv_dp_s * -1.0).recip().sqrt();
+    let c_hem: Velocity = v * (dv_dp_s * -1.0).recip().r_sqrt();
 
     c_hem
 }

@@ -205,7 +205,19 @@ num-complex = "0.4.6"  # pure-Rust complex arithmetic (CRAM depletion resolvent 
 peroxide = "0.41.2"
 roots = "0.0.8"
 thiserror = "2.0.18"
-uom = "0.38.0"
+# uom WITHOUT its `std` feature (gh:#985, maintainer direction 2026-10-20: "I
+# want uom as no std in this workspace. Do the refactor using petir math.").
+# With `std` on, Quantity sqrt/powi/cbrt/hypot/mul_add, Ratio exp/ln/log*/
+# inverse trig and Angle trig dispatch to the platform libm, which differs in
+# the last ulp between glibc/macOS/MSVC -- a #985 determinism leak. Without it
+# uom drops those 27 methods; `petir::uom_math` restores every one on PETIR
+# maths under `r_`-prefixed names. `f32` is listed because it is on anyway:
+# fission-yields-data 0.1.6 enables it, and feature unification turns it on
+# for every crate built alongside that one; listing it keeps this line true.
+# Inheritance can only ADD features, so a member needing more adds it locally.
+# Do NOT add `std` back here: the `r_` names would keep PETIR's route, but
+# petir (which inherits this entry) would link std, breaking its no_std build.
+uom = { version = "0.38.0", default-features = false, features = ["autoconvert", "f32", "f64", "si"] }
 # boon-lay's copy of RustBCA (gh:#876 item 7; src/rustbca/). Versions are
 # upstream RustBCA v3.0.0's. rand and rand_distr carry default-features =
 # false here because inheritance can only ADD features: boon-lay turns on
@@ -422,7 +434,11 @@ rusqlite = { version = "0.40", features = ["bundled"] }
 ratatui = "0.29"
 log = "0.4"
 rayon = "1.11.0"
-fission-yields-data = "0.1.5"
+# 0.1.6 (gh:#985): the first no_std + alloc release; its uom is
+# `default-features = false, features = ["autoconvert","f32","f64","si"]`.
+# 0.1.5 declared a bare `uom = "0.38"`, i.e. with `std`, which feature-unified
+# `uom/std` back on for the whole workspace.
+fission-yields-data = "0.1.6"
 openmc-endf-8-depletion-lib-a = "1.0.0"
 openmc-endf-8-depletion-lib-b = "1.0.0"
 # pure-Rust HDF5 (no system libhdf5) — staged for the Windowed Multipole (WMP)
@@ -715,4 +731,3 @@ strip = "none"
 # cases), which adds `-C force-frame-pointers=yes`. That branch had defined
 # this profile with `debug = "line-tables-only"`; the merge keeps `debug = 2`,
 # a superset, so the script is unaffected.
-
