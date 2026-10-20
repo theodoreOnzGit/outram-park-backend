@@ -1,5 +1,5 @@
 <!--
-SPDX-License-Identifier: GPL-3.0-only
+SPDX-License-Identifier: AGPL-3.0-only
 Part of Outram Park (outram-park-backend).
 A Rust translation of selected OpenFOAM multiphase solvers. Independent fork,
 not the official OpenFOAM software; see the workspace TRADEMARKS.md.

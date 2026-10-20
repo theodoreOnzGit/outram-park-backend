@@ -166,7 +166,20 @@ authors = [
     "National University of Singapore (NUS)",
     "Repository Contributors",
 ]
-license = "GPL-3.0-only"
+# Relicensed GPL-3.0-only -> AGPL-3.0-only on 2026-10-20 (gh:#973), at the
+# maintainer's direction. Crates whose own code is a translation of a COPYLEFT
+# upstream (OpenFOAM, GSL, cfMesh, DWSIM, FLEXPART, Blender, RustBCA, PFLOTRAN,
+# MOOSE/PRISMS, Moltres, the GNU Octave control package) keep those files'
+# GPL-3.0 headers: a translation is a derivative work and cannot be
+# relicensed. Those crates convey as AGPL COMBINED works under GPLv3 §13 /
+# AGPLv3 §13, and each ships `LICENSE.GPL-3.0` beside its `LICENSE` for the
+# GPL-3.0 parts. Every crate's own NOTICE states which case it is in.
+#
+# Five crates are held at GPL-3.0-only by an explicit `license` field until
+# their third-party authors' consent is recorded on gh:#973 -- bedok, raffles,
+# tampines, tampines-steam-tables and tuas_boussinesq_solver. Do not remove
+# those fields without that consent.
+license = "AGPL-3.0-only"
 homepage = "https://github.com/theodoreOnzGit/outram-park-backend"
 repository = "https://github.com/theodoreOnzGit/outram-park-backend"
 categories = ["science"]
