@@ -219,142 +219,333 @@ mod tests {
     extern crate std;
     use super::*;
     use crate::specfunc::synchrotron as f64_synch;
+    // The shared budget machinery, moved out of this module (gh #1003).
+    use crate::wgsl::log_budget::{cheb_budget, log_err, ulp_over, ulps_up, worst_ulps, Sh, U32};
 
-    /// Worst relative difference against the `f64` module over a geometric
-    /// sweep, and where it occurs.
-    fn worst(f: fn(f32) -> f32, g: fn(f64) -> f64, lo: f32, hi: f32, n: u32) -> (f64, f32) {
-        let (mut w, mut at) = (0.0_f64, 0.0_f32);
-        for k in 0..=n {
-            let x = lo * (hi / lo).powf(k as f32 / n as f32);
-            let r = g(x as f64);
-            if r > 1e-30 {
-                let e = (((f(x) as f64) - r) / r).abs();
-                if e > w {
-                    w = e;
-                    at = x;
-                }
-            }
-        }
-        (w, at)
+    /// The geometric probe grid on `[lo, hi]`, `n + 1` points. ~~Built with
+    /// `f32::powf` (method form)~~ **CHANGED 2026-10-20 (gh #1003):** with
+    /// `Real::powf` (UFCS), because the method form resolved to glibc in this
+    /// std-linked test build (gh #1001), so the probe points depended on the
+    /// platform. The points move by an ulp here and there; nothing measured
+    /// depends on exactly where they fall.
+    fn grid(lo: f32, hi: f32, n: u32) -> impl Iterator<Item = f32> {
+        (0..=n).map(move |k| lo * Real::powf(hi / lo, k as f32 / n as f32))
     }
 
-    /// What `f32` costs, against the `f64` module: **6.09e-04 for `S_1` and
-    /// 6.13e-04 for `S_2`**, both at `x = 3.976`, over 200 000 geometric
-    /// probes on `[1e-6, 100]` (measured 2026-09-19).
+    /// The small-argument branch, `x < 2^-10`, as a running error bound.
+    /// `k` moves `powf(x, 1/3)` by `k` ulps (the negative control's defect).
+    ///
+    /// Besides the arithmetic it carries the TRUNCATION of upstream's
+    /// two-term form, which the `f64` reference does not share (it uses the
+    /// Chebyshev branch down to `4.2e-8`). From the Bessel series:
+    ///
+    /// - `S_2 = x K_{2/3}(x) = (pi/sqrt 3)[2^{2/3} x^{1/3}/Gamma(1/3) (1 +
+    ///   3x^2/4 + ...) - 2^{-2/3} x^{5/3}/Gamma(5/3) (1 + 3x^2/20 + ...)]`,
+    ///   so the two-term form `c z (1 - c' z x)` leaves out `3x^2/4`
+    ///   relative, less `(3/20) c' x^{10/3}`.
+    /// - `S_1 = 2 x K_{2/3}(x) - (pi/sqrt 3) x + x int_0^x K_{1/3}` (from
+    ///   `K_{5/3} = -2 K'_{2/3} - K_{1/3}` and `int_0^inf K_{1/3} =
+    ///   pi/sqrt 3`): the `x^{5/3}` terms cancel exactly, and the first one
+    ///   left out is `x^{7/3}` with coefficient `(pi/sqrt 3)(3/4)(2^{5/3}/
+    ///   Gamma(1/3) - 2^{-1/3}/Gamma(4/3)) = 0.4030`, i.e. `(3/16) x^2`
+    ///   relative.
+    ///
+    /// Bounded by `c x^2 + x^{10/3}` relative (`c` = 3/16, 3/4), and TESTED
+    /// against the `f64` module in `f64` arithmetic.
+    fn small_budget(x: f32, s1: bool, k: i32) -> Sh {
+        let xs = Sh::exact(x);
+        let z = xs.powf(1.0 / 3.0, 1.0 / 3.0).bump(k);
+        let one = Sh::exact(1.0);
+        let r = if s1 {
+            let c = Sh::constant(2.1495283, 2.149_528_241_534_478_636_71);
+            let c2 = Sh::constant(0.84381276, 8.438_127_628_132_05e-1);
+            c.mul(z).mul(one.sub(c2.mul(z).mul(z)))
+        } else {
+            let c = Sh::constant(1.0747641, 1.074_764_120_767_239_318_36);
+            let c2 = Sh::constant(1.1776716, 1.177_671_565_102_35);
+            c.mul(z).mul(one.sub(c2.mul(z).mul(xs)))
+        };
+        Sh {
+            e: r.e + r.v.abs() * small_truncation(f64::from(x), s1),
+            ..r
+        }
+    }
+
+    /// The relative truncation bound of the two-term small-`x` form (see
+    /// [`small_budget`]).
+    fn small_truncation(x: f64, s1: bool) -> f64 {
+        let c = if s1 { 3.0 / 16.0 } else { 0.75 };
+        c * x * x + Real::powf(x, 10.0 / 3.0)
+    }
+
+    /// The exponential tail, `x > 4`, as a running error bound. `k` moves the
+    /// exp ARGUMENT `ln sqrt(pi/2) - x` by `k` ulps (the negative control's
+    /// defect: one more rounding of the exponent than the code makes).
+    fn tail_budget(x: f32, s1: bool, k: i32) -> Sh {
+        let xs = Sh::exact(x);
+        let arg = Sh::constant(LOG_SQRT_PI_2, f64_synch::PROBE_LOG_SQRT_PI_2)
+            .sub(xs)
+            .bump(k);
+        if s1 {
+            let t = Sh::exact(12.0).sub(xs).div(xs.add(Sh::exact(4.0)));
+            xs.sqrt()
+                .mul(t.cheb(&SYNCH1A, &f64_synch::PROBE_SYNCH1A))
+                .mul(arg.exp())
+        } else {
+            let t = Sh::exact(10.0).sub(xs).div(xs.add(Sh::exact(2.0)));
+            xs.sqrt()
+                .mul(arg.exp())
+                .mul(t.cheb(&SYNCH2A, &f64_synch::PROBE_SYNCH2A))
+        }
+    }
+
+    /// What `f32` costs, against the `f64` module, over 200 000 geometric
+    /// probes on `[1e-6, 100]`.
+    ///
+    /// ~~**6.09e-04 for `S_1` and 6.13e-04 for `S_2`**, both at `x = 3.976`
+    /// (measured 2026-09-19)~~ **Re-measured 2026-10-20 through the shipped
+    /// `libm` (gh #1001): 6.82e-04 for `S_1` at `x = 3.9895` and 6.13e-04
+    /// for `S_2` at `x = 3.9759`.** The 2026-09-19 figures went through
+    /// glibc's `powf`: before gh #1001 std shadowed the mirror's maths in the
+    /// test build.
     ///
     /// That is far worse than the roughly one-ulp figure the other mirrors in
     /// this module report, and it is **not** a transcription defect — see
     /// `the_f32_cost_is_cancellation_at_the_branch_boundary`, which measures
     /// the mechanism. Away from that boundary the mirror is ordinary: the
-    /// small-argument branch is good to 8.6e-07 and the exponential tail to
-    /// 6.4e-05.
+    /// small-argument branch is good to 8.6e-07 (`S_2`, unchanged when
+    /// re-measured; `S_1` 3.4e-07) and the exponential tail to ~~6.4e-05~~
+    /// **8.2e-07. CORRECTED 2026-10-20:** the 6.4e-05 "tail" figure (6.39e-05
+    /// re-measured) was the point `x = 4` itself, which the sweep on
+    /// `[4, 100]` included and which belongs to the cancelling `x <= 4`
+    /// branch. The tail proper, `x > 4`, is measured below.
     ///
-    /// The exact worst value is grid-dependent — a denser sweep finds 7.3e-04
-    /// at `x = 3.9985` — so the bound, not the number, is what is asserted.
+    /// ~~The exact worst value is grid-dependent — a denser sweep finds
+    /// 7.3e-04 at `x = 3.9985` — so the bound, not the number, is what is
+    /// asserted.~~ **Re-measured 2026-10-20 over EVERY `f32` in `[3.9, 4]`
+    /// through libm: `S_1` 8.90e-04 at 3.99126, `S_2` 8.58e-04 at 3.99410**
+    /// (0.349 and 0.306 of their log-error budgets). The worst is still
+    /// grid-dependent; what is asserted now is the budget at every probe.
+    ///
+    /// # The instrument: log error against derived budgets (gh #1003)
+    ///
+    /// ~~Asserted: relative error under `1e-3` over the whole range, under
+    /// `1e-6` on the small-argument branch (`[1e-6, 9.7e-4]`), under `1e-4`
+    /// on `[4, 100]`.~~ **REPLACED 2026-10-20 (gh #1003).** All three bounds
+    /// were set a little above measured numbers, not derived (`S_2`'s small
+    /// branch sat at 8.6e-7 against 1e-6), and measured through glibc. The
+    /// tail is `sqrt(x) C(t) exp(ln sqrt(pi/2) - x)`: rounding the exp
+    /// argument costs `u |argument|`, up to `69 u` of the result's log at
+    /// `x = 69`, which a relative bound fixed in advance cannot follow.
+    /// Maintainer direction 2026-10-20: exp error propagation is measured in
+    /// log error.
+    ///
+    /// **The metric now** is `|ln S_f32 - ln S_f64|` at every probe (where
+    /// the `f64` value exceeds 1e-30, as before), against a budget derived
+    /// for the branch the probe falls in. This test covers the WHOLE range,
+    /// one budget per branch:
+    ///
+    /// - **`x < 2^-10`** ([`small_budget`]): `z = powf(x, 1/3)` with the
+    ///   exponent's rounding times `|ln x|` (up to 13.8 here, so `1.4e-7`,
+    ///   the largest single term) plus `powf`'s own ulp; the four roundings
+    ///   of `c z (1 - c' z z)`; both constants' rounding; and the two-term
+    ///   form's truncation, `(3/16) x^2` for `S_1` and `(3/4) x^2` for `S_2`.
+    ///   That last is upstream's: `2 sqrt(2) sqrt(eps)` makes `x^2/8 = eps`,
+    ///   right for `S_1`'s `3/16` but six times short for `S_2`'s `3/4`,
+    ///   which is why `S_2`'s small branch is the worse of the two.
+    /// - **`2^-10 <= x <= 4`**: `branch_log_budget`, derived and documented
+    ///   in `the_f32_cost_is_cancellation_at_the_branch_boundary`, applied
+    ///   here at every probe of the geometric sweep.
+    /// - **`x > 4`** ([`tail_budget`]): `t`'s three roundings through
+    ///   `|C'(t)|`, Clenshaw, `sqrt`, two multiplies, and `exp` of an
+    ///   argument carrying `|ln sqrt(pi/2)' - ln sqrt(pi/2)| + u |argument|`.
+    ///
+    /// The assumptions, TESTED below: `powf(x, f32(1/3))` faithful on
+    /// `[1e-6, 2^-10]` (the cancellation test checks `[2^-10, 4]`), `expf`
+    /// faithful on `[-87, -3.7]`, and the two truncation coefficients,
+    /// against the `f64` module at `x = 2^-10, 2^-11, 2^-12`.
+    ///
+    /// **Prediction, written before the run.** Small branch: budget about
+    /// 6.7e-7 for `S_1` (truncation 1.7e-7, `powf` 2.6e-7, roundings 2.4e-7)
+    /// and 1.26e-6 for `S_2` (truncation 7.0e-7), ratios about 0.5 and 0.7
+    /// at the top of the branch. Tail: budget about `77 u = 4.6e-6` at
+    /// `x = 69`, dominated by `u |argument|`, and about `10 u` just above 4;
+    /// ratios about 0.5. Middle branch: as in the cancellation test, worst
+    /// about 0.38. Negative controls: the tail with its exp argument one ulp
+    /// off (twice `u |argument|`) is caught; the small branch with `powf`
+    /// two ulps off is caught.
+    ///
+    /// # Results, 2026-10-20, through the shipped `libm` (gh #1001)
+    ///
+    /// Every probe holds, and the small-branch and tail budgets' `f32`
+    /// shadows are bit-identical to the shipped functions at every probe.
+    ///
+    /// | branch | | worst log error / budget | at | largest log error | its budget | ratio |
+    /// |---|---|---|---|---|---|---|
+    /// | `x < 2^-10` | `S_1` | 0.715 | 2.537e-5 | 3.415e-7 at 9.163e-4 | 4.967e-7 | 0.687 |
+    /// | | `S_2` | **0.834** | 9.640e-4 | 8.602e-7 at 9.640e-4 | 1.031e-6 | 0.834 |
+    /// | `2^-10 <= x <= 4` | `S_1` | 0.349 | 3.485 | 6.818e-4 at 3.9895 | 2.542e-3 | 0.268 |
+    /// | | `S_2` | 0.362 | 0.06515 | 6.132e-4 at 3.9759 | 2.703e-3 | 0.227 |
+    /// | `x > 4` | `S_1` | 0.602 | 8.262 | 7.844e-7 at 64.80 | 4.243e-6 | 0.185 |
+    /// | | `S_2` | 0.601 | 8.290 | 8.201e-7 at 67.24 | 4.395e-6 | 0.187 |
+    ///
+    /// **The exponential tail is good to 8.2e-7, not 6.4e-5**: the old
+    /// figure was the branch boundary, as noted above.
+    ///
+    /// **Against the prediction.** Small-branch budgets came out lower than
+    /// predicted (4.97e-7 against 6.7e-7, 1.03e-6 against 1.26e-6: the
+    /// `powf` term is smaller at the top of the branch, where `|ln x|` is
+    /// 7, than the 13.8 I used) and the ratios higher (0.69 and 0.83 against
+    /// 0.5 and 0.7); `S_2`'s, at 0.834, is the tightest in this module, and
+    /// its budget is 68 % truncation. Tail budgets as predicted (4.2e-6 to
+    /// 4.4e-6 at `x ~ 65`, `u |argument|` the bulk), but the ratio there is
+    /// 0.19, not 0.5: the argument's actual rounding was small at those
+    /// points. The tail's worst RATIO, 0.60, is near `x = 8`, where the
+    /// budget is about `15 u`. Middle branch 0.35 to 0.36, as predicted.
+    ///
+    /// **Negative controls: the budgets can fail.** Ratio of log error to
+    /// budget with one defect injected, everything else as shipped:
+    ///
+    /// | defect | at | -3 ulp | -2 ulp | -1 ulp | +1 ulp | +2 ulp |
+    /// |---|---|---|---|---|---|---|
+    /// | `S_1` tail, exp argument | 64.80 | 5.573 | 3.772 | **1.971** | **1.632** | 3.433 |
+    /// | `S_2` tail, exp argument | 67.24 | 5.386 | 3.646 | **1.906** | **1.575** | 3.315 |
+    /// | `S_1` tail, exp argument | 8.262 | 2.668 | **1.622** | 0.575 | **1.517** | 2.694 |
+    /// | `S_1` small, `powf` | 2.537e-5 | 1.044 | **1.044** | 0.715 | 0.386 | 0.057 |
+    /// | `S_2` small, `powf` | 9.640e-4 | **1.038** | 0.970 | 0.902 | 0.766 | 0.630 |
+    ///
+    /// So one ulp of the tail's exp argument (two roundings' worth, 7.6e-6
+    /// at `x = 65`) is caught in either direction where the error is
+    /// largest; near `x = 8` it is caught in one direction. A `powf` two
+    /// (`S_1`) or three (`S_2`) ulps low is caught in the small branch, one
+    /// is not. The `+1` tail rows at 64.80 and 67.24 and the two small-branch
+    /// rows' first bold cells are asserted.
     #[test]
     fn the_f32_cost_is_what_it_was_measured_to_be() {
-        let (w1, at1) = worst(
-            synchrotron_1,
-            f64_synch::synchrotron_1,
+        // The assumptions the budgets rest on.
+        let third = 1.0_f32 / 3.0;
+        let (worst_ulp, at) = worst_ulps(
+            |x| Real::powf(x, third),
+            |x| Real::powf(x, f64::from(third)),
             1e-6,
-            100.0,
-            200_000,
+            SMALL_CUT,
+            7,
         );
-        let (w2, at2) = worst(
-            synchrotron_2,
-            f64_synch::synchrotron_2,
-            1e-6,
-            100.0,
-            200_000,
+        assert!(
+            worst_ulp < 1.0,
+            "powf(x, 1/3) is assumed faithful; it is {worst_ulp} ulp off at {at:e}"
         );
-        assert!(w1 < 1e-3, "S_1 f32 vs f64: {w1:e} at {at1:e}");
-        assert!(w2 < 1e-3, "S_2 f32 vs f64: {w2:e} at {at2:e}");
-        // And the worst is documented as sitting just under the branch
+        let (worst_ulp, at) = worst_ulps(<f32 as Real>::exp, <f64 as Real>::exp, -87.0, -3.7, 3);
+        assert!(
+            worst_ulp < 1.0,
+            "expf is assumed faithful; it is {worst_ulp} ulp off at {at:e}"
+        );
+        for x in [2.0_f64.powi(-10), 2.0_f64.powi(-11), 2.0_f64.powi(-12)] {
+            let z = Real::powf(x, 1.0 / 3.0);
+            let two_term = [
+                2.149_528_241_534_478_636_71 * z * (1.0 - 8.438_127_628_132_05e-1 * z * z),
+                1.074_764_120_767_239_318_36 * z * (1.0 - 1.177_671_565_102_35 * z * x),
+            ];
+            let full = [f64_synch::synchrotron_1(x), f64_synch::synchrotron_2(x)];
+            for (i, c) in [3.0 / 16.0, 0.75].into_iter().enumerate() {
+                let measured = (full[i] - two_term[i]) / two_term[i];
+                assert!(
+                    (measured / (c * x * x) - 1.0).abs() < 0.05,
+                    "the two-term form of S_{} is derived to leave out {c} x^2 \
+                     relative; at x = {x:e} it leaves out {measured:e}, which is \
+                     {} x^2",
+                    i + 1,
+                    measured / (x * x)
+                );
+            }
+        }
+
+        let mut largest = [(0.0_f64, 0.0_f32); 2];
+        for x in grid(1e-6, 100.0, 200_000) {
+            for (i, (f, g)) in [
+                (
+                    synchrotron_1 as fn(f32) -> f32,
+                    f64_synch::synchrotron_1 as fn(f64) -> f64,
+                ),
+                (synchrotron_2, f64_synch::synchrotron_2),
+            ]
+            .into_iter()
+            .enumerate()
+            {
+                let s1 = i == 0;
+                let r = g(f64::from(x));
+                if r <= 1e-30 {
+                    continue;
+                }
+                let l = log_err(f(x), r);
+                let b = if x < SMALL_CUT {
+                    let sh = small_budget(x, s1, 0);
+                    assert_eq!(sh.f.to_bits(), f(x).to_bits(), "S_{} at {x}", i + 1);
+                    sh.log_bound()
+                } else if x <= 4.0 {
+                    branch_log_budget(x, s1).0
+                } else {
+                    let sh = tail_budget(x, s1, 0);
+                    assert_eq!(sh.f.to_bits(), f(x).to_bits(), "S_{} at {x}", i + 1);
+                    sh.log_bound()
+                };
+                assert!(
+                    l <= b,
+                    "S_{} at x = {x}: log error {l:e} against a derived budget of \
+                     {b:e}. More error than f32 arithmetic on this formula can \
+                     produce: a transcription defect, or a libm routine worse than \
+                     faithful",
+                    i + 1
+                );
+                if l > largest[i].0 {
+                    largest[i] = (l, x);
+                }
+            }
+        }
+        // The largest error is documented as sitting just under the branch
         // boundary at x = 4, where the Chebyshev form cancels.
-        for at in [at1, at2] {
+        for (l, at) in largest {
             assert!(
                 (3.5..=4.0).contains(&at),
-                "the worst point is documented as just below the x = 4 branch \
-                 boundary; it is at {at:e}. If it has moved, the cancellation \
-                 explanation in this module no longer covers the measurement"
+                "the largest log error ({l:e}) is documented as just below the \
+                 x = 4 branch boundary; it is at {at:e}. If it has moved, the \
+                 cancellation explanation in this module no longer covers the \
+                 measurement"
             );
         }
 
-        // Away from that boundary the mirror behaves like the others here.
-        let (s1, _) = worst(
-            synchrotron_1,
-            f64_synch::synchrotron_1,
-            1e-6,
-            9.7e-4,
-            200_000,
-        );
-        let (s2, _) = worst(
-            synchrotron_2,
-            f64_synch::synchrotron_2,
-            1e-6,
-            9.7e-4,
-            200_000,
-        );
-        assert!(
-            s1 < 1e-6 && s2 < 1e-6,
-            "small-argument branch: {s1:e}, {s2:e}"
-        );
-        let (t1, _) = worst(synchrotron_1, f64_synch::synchrotron_1, 4.0, 100.0, 200_000);
-        let (t2, _) = worst(synchrotron_2, f64_synch::synchrotron_2, 4.0, 100.0, 200_000);
-        assert!(t1 < 1e-4 && t2 < 1e-4, "exponential tail: {t1:e}, {t2:e}");
-    }
-
-    /// Unit roundoff of `f32`, `2^-24` (half of `f32::EPSILON`).
-    const U32: f64 = 5.960_464_477_539_063e-8;
-
-    /// `ulp(p) / p`: the relative size of one unit in the last place of `p`.
-    fn ulp_over(p: f32) -> f64 {
-        let up = f32::from_bits(p.to_bits() + 1);
-        f64::from(up - p) / f64::from(p)
-    }
-
-    /// The `f32` Clenshaw sum of `c` at the exact `t`, evaluated in `f64`,
-    /// and an a-priori bound on how far `cheb(c, t_f32)` can sit from it.
-    ///
-    /// Every term is a first-order worst case (each rounding at its bound,
-    /// no cancellation between them). It is computed from the `f64`
-    /// recurrence values, which are condition numbers, not errors:
-    ///
-    /// - each step `d = fl(fl(fl(2t d) - dd) + c_k)` rounds three times,
-    ///   locally `u (|2t d| + |2t d - dd| + |d_new|)`; an error injected
-    ///   into `d_k` reaches the result multiplied by `T_k(t)` (because
-    ///   `t U_{k-1} - U_{k-2} = T_k`), and `|T_k| <= 1` on `[-1, 1]`, so
-    ///   the local errors add without amplification;
-    /// - the closing `t d_1 - d_2 + c_0/2` rounds three times likewise;
-    /// - the coefficients are `f32` roundings of GSL's `f64` table:
-    ///   `u (|c_0|/2 + sum |c_k|)`;
-    /// - `t` itself is off by at most `dt`, which costs `|C'(t)| dt` with
-    ///   `C' = sum k c_k U_{k-1}(t)`.
-    fn cheb_budget(c: &[f32], t: f64, dt: f64) -> (f64, f64) {
-        let (mut d, mut dd, mut err) = (0.0_f64, 0.0_f64, 0.0_f64);
-        for &ck in c[1..].iter().rev() {
-            let m = 2.0 * t * d;
-            let s = m - dd;
-            let next = s + f64::from(ck);
-            err += U32 * (m.abs() + s.abs() + next.abs());
-            dd = d;
-            d = next;
+        // Negative controls: the budgets can fail. The tail with its exp
+        // argument one ulp off, at each function's largest tail error; the
+        // small branch with powf k ulps low, at the points recorded above.
+        let controls: [(&str, f32, bool, bool, i32, f64); 4] = [
+            ("S_1 tail", 64.797_78, true, true, 1, 1.632),
+            ("S_2 tail", 67.241_91, false, true, 1, 1.575),
+            ("S_1 small", 2.537_464_6e-5, true, false, -2, 1.044),
+            ("S_2 small", 9.640_067_6e-4, false, false, -3, 1.038),
+        ];
+        for (name, x, s1, tail, k, documented) in controls {
+            let budget = |k| {
+                if tail {
+                    tail_budget(x, s1, k)
+                } else {
+                    small_budget(x, s1, k)
+                }
+            };
+            let g = if s1 {
+                f64_synch::synchrotron_1
+            } else {
+                f64_synch::synchrotron_2
+            };
+            let b = budget(0).log_bound();
+            let l = log_err(budget(k).f, g(f64::from(x)));
+            assert!(
+                l > b,
+                "negative control, {name} at x = {x}: the defect ({k} ulp) was \
+                 measured at {documented} of the budget; it now reads {:.3}, so the \
+                 budget can no longer see it",
+                l / b
+            );
         }
-        let m = t * d;
-        let s = m - dd;
-        let value = s + 0.5 * f64::from(c[0]);
-        err += U32 * (m.abs() + s.abs() + value.abs());
-        let coef: f64 = c[1..].iter().map(|v| f64::from(*v).abs()).sum();
-        err += U32 * (0.5 * f64::from(c[0]).abs() + coef);
-        let (mut u_prev, mut u_k, mut slope) = (0.0_f64, 1.0_f64, 0.0_f64);
-        for (k, &ck) in c.iter().enumerate().skip(1) {
-            slope += k as f64 * f64::from(ck) * u_k;
-            let u_next = 2.0 * t * u_k - u_prev;
-            u_prev = u_k;
-            u_k = u_next;
-        }
-        err += slope.abs() * dt;
-        (value, err)
     }
 
     /// The log error `f32` can deliver for the `x <= 4` branch of `S_1`
@@ -399,11 +590,6 @@ mod tests {
         (-Real::ln(1.0 - rel), cancel)
     }
 
-    /// `|ln(got / reference)|`, the log error.
-    fn log_err(got: f32, reference: f64) -> f64 {
-        Real::ln(f64::from(got) / reference).abs()
-    }
-
     /// The shipped `x <= 4` branch of `S_1` with `px` supplied, so the
     /// negative control can degrade it. Asserted bit-equal to
     /// [`synchrotron_1`] when given the shipped `px`.
@@ -416,11 +602,6 @@ mod tests {
     fn s2_branch_given_px(x: f32, px: f32) -> f32 {
         let t = x * x / 8.0 - 1.0;
         px * cheb(&SYNCH21, t) - pow_int(px, 5) * cheb(&SYNCH22, t)
-    }
-
-    /// `p` moved `k` ulps away from zero.
-    fn ulps_up(p: f32, k: u32) -> f32 {
-        f32::from_bits(p.to_bits() + k)
     }
 
     /// **The `f32` cost above is cancellation in upstream's own formula, not

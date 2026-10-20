@@ -125,6 +125,10 @@ pub mod mirror_atanint;
 /// `f32` mirrors of the synchrotron shaders.
 pub mod mirror_synchrotron;
 
+/// Derived log-error budgets for the mirrors' `f32` cost tests (gh #1003).
+#[cfg(test)]
+pub(crate) mod log_budget;
+
 /// `f32` mirrors of the Fermi-Dirac integral shaders.
 pub mod mirror_fermi_dirac;
 

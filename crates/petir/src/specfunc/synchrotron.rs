@@ -226,6 +226,17 @@ pub fn synchrotron_2(x: f64) -> f64 {
     0.0
 }
 
+/// The `f64` tables, for `wgsl::mirror_synchrotron`'s log-error budgets (gh #1003): the
+/// coefficients its `f32` tables were rounded and truncated from. Aliases,
+/// as `dawson`'s `PROBE_DAW`, so the tables stay plain `const` for
+/// `tests/gsl_tables_audit.rs`.
+#[cfg(test)]
+pub(crate) const PROBE_SYNCH1A: [f64; 23] = SYNCH1A;
+#[cfg(test)]
+pub(crate) const PROBE_SYNCH2A: [f64; 17] = SYNCH2A;
+#[cfg(test)]
+pub(crate) const PROBE_LOG_SQRT_PI_2: f64 = LOG_SQRT_PI_2;
+
 #[cfg(test)]
 mod tests {
     extern crate std;
