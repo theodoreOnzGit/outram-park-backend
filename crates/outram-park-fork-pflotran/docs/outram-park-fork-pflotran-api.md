@@ -1,6 +1,6 @@
 # Crate Documentation
 
-**Version:** 0.0.0
+**Version:** 0.0.1
 
 **Format Version:** 61
 
@@ -270,7 +270,7 @@ Davies equation — parameterless, reasonable to ionic strength
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ActivityModel { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -305,7 +305,7 @@ Davies equation — parameterless, reasonable to ionic strength
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &ActivityModel) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -342,7 +342,7 @@ Davies equation — parameterless, reasonable to ionic strength
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -473,7 +473,7 @@ pub struct PflotranDeck {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> PflotranDeck { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -507,7 +507,7 @@ pub struct PflotranDeck {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &PflotranDeck) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -544,7 +544,7 @@ pub struct PflotranDeck {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -626,7 +626,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> FlowMode { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -654,10 +654,6 @@ Fields:
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
     ```
 
-  - ```rust
-    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
-    ```
-
 - **Freeze**
 - **From**
   - ```rust
@@ -674,7 +670,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &FlowMode) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -711,7 +707,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -782,7 +778,7 @@ pub struct GridBlock {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> GridBlock { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -817,7 +813,7 @@ pub struct GridBlock {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &GridBlock) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -854,7 +850,7 @@ pub struct GridBlock {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -917,7 +913,7 @@ pub struct MaterialProperty {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> MaterialProperty { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -951,7 +947,7 @@ pub struct MaterialProperty {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &MaterialProperty) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -988,7 +984,7 @@ pub struct MaterialProperty {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1056,7 +1052,7 @@ pub struct CharacteristicCurveBlock {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> CharacteristicCurveBlock { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -1090,7 +1086,7 @@ pub struct CharacteristicCurveBlock {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &CharacteristicCurveBlock) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -1127,7 +1123,7 @@ pub struct CharacteristicCurveBlock {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1192,7 +1188,7 @@ pub struct TimeBlock {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> TimeBlock { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -1227,7 +1223,7 @@ pub struct TimeBlock {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &TimeBlock) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -1264,7 +1260,7 @@ pub struct TimeBlock {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1534,7 +1530,7 @@ pub struct Decomposition2D {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1598,7 +1594,7 @@ pub struct Halo2D {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Halo2D { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -1613,7 +1609,7 @@ pub struct Halo2D {
 
 - **Default**
   - ```rust
-    fn default() -> Halo2D { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
 - **Downcast**
@@ -1668,7 +1664,7 @@ pub struct Halo2D {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -2004,7 +2000,7 @@ pub struct DistributedLduMatrix1D {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> DistributedLduMatrix1D { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -2064,7 +2060,7 @@ pub struct DistributedLduMatrix1D {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -2177,7 +2173,7 @@ pub mod newton { /* ... */ }
 
 **Attributes:**
 
-- `Other("#[allow(clippy::too_many_arguments)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0,\nlint_name: \"too_many_arguments\", kind: Allow}])]")`
 
 Solve a nonlinear system `F(x) = 0` by distributed Newton, starting from `x0`.
 
@@ -2302,7 +2298,7 @@ pub struct DiffusionOperator1D {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> DiffusionOperator1D { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -2362,7 +2358,7 @@ pub struct DiffusionOperator1D {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -2557,7 +2553,7 @@ pub struct DistributedTransport1D {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -2645,7 +2641,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> EndCondition { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -2680,7 +2676,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &EndCondition) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -2717,7 +2713,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -2805,7 +2801,7 @@ pub struct Decomposition1D {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Decomposition1D { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -2870,7 +2866,7 @@ pub struct Decomposition1D {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -2933,7 +2929,7 @@ pub struct Halo {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Halo { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -2968,7 +2964,7 @@ pub struct Halo {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Halo) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -3005,7 +3001,7 @@ pub struct Halo {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -3289,7 +3285,7 @@ pub struct ThermalParameters {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -3401,7 +3397,7 @@ Fields:
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -3502,7 +3498,7 @@ pub struct EnergyBoundaryCondition {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -3640,7 +3636,7 @@ pub struct EnergyTransport {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -3667,7 +3663,13 @@ This module advances a set of coupled radionuclide inventories forward in
 time under first-order radioactive decay and the ingrowth of daughter
 nuclides. It is the decay-source term used by radionuclide transport in the
 OUTRAM PARK nuclear focus, mirroring PFLOTRAN's radioactive-decay reaction
-(`reaction_sandbox_radioactive_decay` / the `RADIOACTIVE_DECAY` block).
+~~(`reaction_sandbox_radioactive_decay` / the `RADIOACTIVE_DECAY` block).~~
+**CORRECTED 2026-10-20 (gh:#999)** — upstream has no
+`reaction_sandbox_radioactive_decay`; its decay lives in the
+`CHEMISTRY` `RADIOACTIVE_DECAY_REACTION` block (`RRadioactiveDecay`,
+`src/pflotran/reaction.F90`) and the `UFD_DECAY` process model
+(`src/pflotran/pm_ufd_decay.F90`). What each does is recorded under
+"What upstream PFLOTRAN does" below.
 
 # Physical model
 
@@ -3708,37 +3710,124 @@ the stable end member). With branching loss (`sum_i b_{p,i} < 1`) the lost
 fraction leaves the network and the total decreases accordingly — both cases
 are handled by the same matrix exponential, so the book-keeping is automatic.
 
+# What upstream PFLOTRAN does (read 2026-10-20, gh:#999)
+
+Read at upstream commit `2af572b8759c34aacc2216f56a906637f90af03e`
+(bitbucket `pflotran/pflotran`, `master`, fetched 2026-10-20; the crate's
+recorded reference clone is `669fbce2`, `upstream_source/README.md`).
+**Upstream never forms a matrix exponential.** It has three decay paths:
+
+1. **`CHEMISTRY` / `RADIOACTIVE_DECAY_REACTION`** (`reaction.F90`,
+   `RRadioactiveDecay`, ~line 5323): decay is a kinetic rate
+   `rate = kf * (total moles in aqueous + gas + equilibrium-sorbed)` added
+   to the reaction residual with its analytical Jacobian, and solved inside
+   PFLOTRAN's Newton iteration — i.e. **backward Euler** (first order in
+   `dt`), coupled with transport or operator-split from it depending on the
+   reactive-transport mode.
+2. **`UFD_DECAY`, default** (`pm_ufd_decay.F90`, `PMUFDDecaySolveISPDIAtCell`,
+   ~line 1868): a **3-generation analytical (Bateman) solution**, explicit in
+   time, for multiple parents and grandparents with non-zero initial
+   daughters (Mariner et al. 2016, SAND2016-9610R, §3.2.3). Exact for
+   chains of depth <= 3 from a cell's current inventory; it truncates
+   ingrowth through great-grandparents within one step.
+3. **`UFD_DECAY` with `IMPLICIT_SOLUTION`** (same routine, ~line 1931):
+   **backward Euler** for any number of generations, solved by Newton in a
+   log formulation (`solution = solution * exp(-rhs)`, update clipped to
+   10), stopping on a relative-change tolerance, then floored at `1e-90`.
+
+So this module's exponential is **not** upstream's algorithm, and it was
+not before this change either (the hand-written Taylor `matrix_exp` was not
+upstream's). It is the exact solution of the same ODE, which upstream's
+backward Euler approaches as `dt -> 0` and its 3-generation form matches
+for shallow chains. ~~**Upstream-fidelity options (backward Euler, the
+3-generation form) are not ported**; [`DecaySolver`] lists only what
+exists, and the follow-up is gh:#1000. Do not
+quote a result from here as "PFLOTRAN's" decay.~~ **UPDATED 2026-10-20
+(gh:#1000, maintainer direction "Port those in"):** all three are now
+ported from the source, as explicit choices that are never the default:
+[`DecaySolver::UfdThreeGeneration`] (path 2) and
+[`DecaySolver::UfdImplicit`] (path 3), each verified bit for bit against
+the extracted upstream routines compiled with gfortran, and
+[`DecaySolver::BackwardEuler`] (path 1, the root upstream's Newton
+converges to for an isolated decay system; not coupled to transport). See
+[`upstream`] for what each reproduces, the upstream quirks carried over
+(the 3-generation form ignores branching fractions and truncates at three
+generations; the implicit Newton has no iteration cap), and the
+measurements. A result from the default CRAM48 is still not "PFLOTRAN's"
+decay; a result from the matching upstream variant is.
+
 # Numerics — general-chain integration
 
-[`DecayChain::decay`] advances *any* network (linear, branching, or
+~~[`DecayChain::decay`] advances *any* network (linear, branching, or
 converging) by forming `exp(A dt)` with **scaling-and-squaring driven by a
 truncated Taylor series** (the workhorse "method 3" of Moler & Van Loan,
 *Nineteen Dubious Ways to Compute the Exponential of a Matrix*, SIAM Review
-45(1) 2003). The scaled matrix `M = A dt / 2^s` is chosen with `s` large
-enough that its infinity-norm is `<= 0.5`; the Taylor series
-`exp(M) = sum_k M^k / k!` then converges rapidly (terminated once a term is
-negligible relative to the running sum, capped at 30 terms), and `exp(A dt)`
-is recovered by squaring `s` times. For a norm `<= 0.5` and 30 Taylor terms
-the truncation error is far below `f64` round-off, so the method is accurate
-to near machine precision (`~1e-12` relative or better) across the stiff
-range of decay constants a real chain spans; the unit tests confirm
-agreement with the closed-form Bateman solution to `< 1e-6`.
+45(1) 2003). ... the unit tests confirm agreement with the closed-form
+Bateman solution to `< 1e-6`.~~ **CORRECTED 2026-10-20 (gh:#999):** the
+hand-written Taylor + scaling-and-squaring `matrix_exp` is removed. Its
+"`~1e-12` relative or better ... across the stiff range" claim was never
+measured, and it was false: measured on its last day against the two
+comparison tests below, it agreed with the exact answer to 6.6e-15 and
+5.7e-14 of the inventory on the radon chain (2 h, 10 d) but only **3.2e-6**
+on the stiff thorium-C branch (Po-212, `||A dt|| ~ 4.6e11`). CRAM48 gives
+5.7e-16 there. So the default's results moved, by up to ~3e-6 of the
+inventory on stiff steps, when CRAM48 replaced it.
+
+[`DecayChain::decay`] advances *any* network (linear, branching, or
+converging) with **PETIR's order-48 IPF CRAM**
+([`petir::depletion::cram48`], OpenMC's `CRAM48`), the default
+[`DecaySolver::Cram48`]. CRAM is accurate to round-off for any step on a
+decay matrix (eigenvalues on the negative real axis), however stiff; there
+is no step-length or norm limit. Order 48 rather than 16: it is OpenMC's
+default and the more accurate of the two PETIR carries; upstream PFLOTRAN
+has no CRAM, so no order is "upstream's".
+
+[`DecaySolver::Expm`] is the explicit, independent cross-check:
+[`petir::linalg::expm`], a port of GNU Octave's `expm.m` (degree-8 Padé,
+LAPACK `DGEBAL` balancing, scaling and squaring). It is kept for the
+comparison tests, not as a fallback; on very stiff steps its accuracy is
+bounded only by `~2^s u` (`s` the number of squarings), which the tests
+measure.
 
 [`DecayChain::bateman_linear`] provides the classic **Bateman (1910)**
 closed form for the special case of a single linear chain
-`0 -> 1 -> ... -> N-1` with unit branching, as an independent analytical
-cross-check of the general integrator.
+`0 -> 1 -> ... -> N-1` with unit branching, as the exact reference both
+methods are judged against.
+
+# Verification (gh:#999)
+
+Two comparison tests, CRAM48 vs `expm` vs the exact answer, each with its
+methodology, tolerance (fixed from the methods' known error before
+running) and measured result in its doc comment:
+`cram48_expm_and_bateman_agree_on_the_radon_chain` (linear, 5 members,
+half-lives 3.1 min to 22.2 a) and
+`cram48_expm_and_exact_agree_on_the_stiff_thorium_c_branch` (branching,
+Po-212's 0.3 us against Pb-212's 10.6 h, `||A dt|| ~ 2e11`).
+
+The upstream variants (gh:#1000) are verified in [`upstream`]'s tests:
+code-to-code against the extracted, compiled upstream Fortran
+(`verification_and_validation/upstream_decay/`), and against CRAM48 for
+exactness at depth 3, the 3-generation form's second-order truncation, and
+backward Euler's first-order error and atom balance.
 
 # Provenance
 
 - Decay-chain / ingrowth theory: H. Bateman, "The solution of a system of
   differential equations occurring in the theory of radioactive
   transformations", *Proc. Cambridge Philos. Soc.* **15** (1910) 423–427.
-- Matrix-exponential method: C. Moler & C. Van Loan, SIAM Review **45**(1)
-  (2003) 3–49.
+- ~~Matrix-exponential method: C. Moler & C. Van Loan, SIAM Review **45**(1)
+  (2003) 3–49.~~ (removed with `matrix_exp`, 2026-10-20.) CRAM: PETIR's
+  port of OpenMC `openmc/deplete/cram.py` (see `petir::depletion`);
+  `expm`: PETIR's port of GNU Octave `expm.m`.
 - Modelled on PFLOTRAN's radioactive-decay reaction (US-DOE national-lab
   subsurface reactive-transport code; this crate is an independent fork —
-  see the crate root and `NOTICE`).
+  see the crate root and `NOTICE`). [`upstream`] is a port of PFLOTRAN's
+  own decay routines at commit `2af572b8` (its file header carries the
+  attribution).
+- 3-generation solution: Mariner et al. (2016), SAND2016-9610R, Sandia
+  National Laboratories, §3.2.3, as upstream cites it (`pm_ufd_decay.F90`
+  lines 7-9). The report itself was not read; the port follows upstream's
+  code.
 
 # Status
 
@@ -3753,8 +3842,352 @@ any safety-critical or licensing use — education, research, and V&V only.
 pub mod decay { /* ... */ }
 ```
 
+### Modules
+
+## Module `upstream`
+
+Upstream PFLOTRAN's own decay algorithms, ported as explicit fidelity
+choices (gh:#1000): [`super::DecaySolver::UfdThreeGeneration`],
+[`super::DecaySolver::UfdImplicit`] and [`super::DecaySolver::BackwardEuler`].
+
+Use these **to reproduce what PFLOTRAN computes**, quirks included. For the
+most accurate answer to the decay ODE use the default CRAM48, which these
+are measured against in the tests below.
+
+# What is ported, and how exactly
+
+- **UFD_DECAY default** (`ufd_three_generation`): the explicit
+  3-generation analytical (Bateman) solution of `pm_ufd_decay.F90` lines
+  1868-1928, every expression in upstream's order of evaluation, so the
+  result is **bit-identical** to the compiled Fortran (code-to-code test
+  below). Then the `1e-90` floor of line 1994.
+- **UFD_DECAY `IMPLICIT_SOLUTION`** (`ufd_implicit`): the backward-Euler
+  Newton of lines 1929-1991, in upstream's log formulation, with upstream's
+  row scaling, its own Crout LU (`lu_decomposition`,
+  `lu_back_substitution`, `utility.F90`), the update clip at 10 and the
+  relative-change test at `1e-6`, then the `1e-90` floor. **Bit-identical**
+  to the compiled Fortran, Newton iteration counts included, when the
+  Fortran calls scalar `exp`; a plain `gfortran -O2` build vectorises line
+  1989's `exp` into glibc libmvec and differs from it (and from this port)
+  by 1 ulp in 19 of 115 masses (see Verification).
+- **CHEMISTRY `RADIOACTIVE_DECAY_REACTION`** (`backward_euler`): upstream
+  puts `rate = kf * N` into the reaction residual with its analytical
+  Jacobian (`reaction.F90` lines 5374-5384) and lets the global (or
+  operator-split `RReact`) Newton converge it. For an isolated decay
+  system that root is the backward-Euler step `(I - dt A) N1 = N0`, which
+  is what is ported: one direct solve with upstream's LU. **Not
+  reproduced:** coupling to transport or to other reactions, sorbed and
+  gas-phase inventories (upstream decays aqueous + gas + equilibrium-sorbed
+  totals), and the Newton's own stopping error (upstream stops at its
+  residual tolerances, so its answer differs from the exact root by up to
+  those tolerances; the direct solve has no such error).
+
+# Upstream behaviour carried over, which a user must know
+
+1. **The 3-generation form ignores branching fractions.** Lines 1880-1925
+   use only decay constants and the parent list; `isotope_daughter_stoich`
+   is never read on this path. A daughter fed with branching `b < 1`
+   grows as if `b = 1`, so a branching chain *gains* atoms (measured in
+   `ufd_three_generation_ignores_branching_like_upstream`). Upstream refuses
+   only `b > 1` (`PMUFDDecayInitializeRun`, line 1463, "Daughter
+   stoichiometries have not been set up"); [`super::DecayChain::new`]
+   refuses that too. The implicit path does use `b`.
+2. **The 3-generation form truncates.** A nuclide receives ingrowth from
+   its parents and grandparents only; atoms that would arrive through a
+   great-grandparent within one step are lost from it (they are not moved
+   anywhere, so a deep chain loses atoms per step). Exact for chains of
+   depth <= 3.
+3. **Equal decay constants divide by zero.** Upstream guards only an
+   isotope that is its own parent or grandparent (lines 1243-1262); a
+   parent and daughter with equal `lambda` give `Inf`/`NaN`, which it
+   then carries on. This port refuses such a chain with
+   [`PflotranError::InvalidInput`] before computing (a signalled error
+   instead of a silent `NaN`). Nearly equal constants are not refused and
+   lose accuracy by cancellation, as upstream does.
+4. **The implicit Newton has no iteration cap upstream** (`it` is counted,
+   line 1937, and never tested). From an exactly zero inventory it never
+   stops: with a zero daughter the Jacobian column is zero, the pivot
+   becomes `tiny = 1e-20`, the clipped update for that nuclide pollutes the
+   others and the iterate cycles forever (observed: the extracted Fortran
+   run past 1.9e6 iterations without converging, `driver zero`); with a zero
+   parentless nuclide the Jacobian row is zero and `LUDecomposition`
+   aborts the run (`driver zeroparent`). This port caps the loop at
+   [`UFD_IMPLICIT_MAX_ITERATIONS`] and returns
+   [`PflotranError::Convergence`], and returns
+   [`PflotranError::Convergence`] for the zero row instead of aborting.
+   **Both are deviations from upstream**, which hangs or aborts there.
+   Upstream never reaches them in practice after its first step, because
+   every step ends with the `1e-90` floor.
+5. **The implicit Newton starts its convergence test from 1.** Line 1931
+   sets `prev_solution = 1`, so an inventory whose every entry is within
+   `1e-6` (relative) of `1.0` passes the test before the first iteration
+   and is returned **undecayed** (`ufd_implicit_skips_an_inventory_of_ones`).
+6. **The `1e-90` floor creates matter**: a nuclide at exactly zero leaves
+   either UFD solve at `1e-90`. Harmless in mol, but not an exact zero.
+
+# Verification
+
+Code-to-code against the compiled upstream routines:
+`verification_and_validation/upstream_decay/` holds `extract.sh`, which
+cuts lines 1868-1994 of `pm_ufd_decay.F90` and lines 542-699 of
+`utility.F90` out of the upstream clone verbatim (checked against their
+SHA-256), `driver.F90`, which supplies only declarations, the parent list
+as `PMUFDDecaySetup` builds it and the cases, and `run.sh`, which builds it
+twice: `upstream_output.txt` (`-O2 -fno-tree-vectorize`, scalar `exp`) and
+`upstream_output_O2_vector.txt` (plain `-O2`, libmvec `exp` on line 1989),
+as hex bit patterns. Measured 2026-10-20 (gfortran 16.2.1, glibc x86-64):
+
+| path | vs scalar-`exp` build | vs plain `-O2` build |
+|---|---|---|
+| 3-generation | 165 / 165 bit-identical | 165 / 165 bit-identical |
+| `IMPLICIT_SOLUTION` masses | 115 / 115 bit-identical | 96 / 115; worst 2.4e-16 relative (1 ulp) |
+| `IMPLICIT_SOLUTION` Newton counts | 25 / 25 | 25 / 25 |
+| decay constants (HALF_LIFE card) | 18 / 18 | 18 / 18 |
+
+Which build a real PFLOTRAN is compiled like depends on its PETSc
+`FOPTFLAGS`; the difference is 1 ulp either way. The analytic checks
+(exactness at depth 3, convergence order, branching, atom balance) are in
+the tests' doc comments. Summary and the zero-inventory probes:
+`verification_and_validation/upstream_decay/README.md`.
+
+```rust
+pub mod upstream { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `UFD_IMPLICIT_TOLERANCE`
+
+The relative-change tolerance of the `IMPLICIT_SOLUTION` Newton,
+`pm_ufd_decay.F90` line 1816 (`PetscReal, parameter :: tolerance = 1.d-6`).
+
+```rust
+pub const UFD_IMPLICIT_TOLERANCE: f64 = 1.0e-6;
+```
+
+#### Constant `UFD_MASS_FLOOR`
+
+The floor applied to every isotope mass after either UFD solve,
+`pm_ufd_decay.F90` line 1994 (`max(mass_iso_tot1,1.d-90)`).
+
+```rust
+pub const UFD_MASS_FLOOR: f64 = 1.0e-90;
+```
+
+#### Constant `UFD_UPDATE_CLIP`
+
+The clip on each Newton update in log space, `pm_ufd_decay.F90` line 1987
+(`min(dabs(rhs),10.d0)`).
+
+```rust
+pub const UFD_UPDATE_CLIP: f64 = 10.0;
+```
+
+#### Constant `UFD_IMPLICIT_MAX_ITERATIONS`
+
+**Not upstream.** The iteration cap this port adds to the
+`IMPLICIT_SOLUTION` Newton, which upstream runs without one (see the module
+docs, item 4). Measured counts on the code-to-code cases are 4 to 25
+(`upstream_output.txt`), so 1000 binds only where upstream would never stop.
+
+```rust
+pub const UFD_IMPLICIT_MAX_ITERATIONS: usize = 1000;
+```
+
 ### Types
 
+#### Enum `DecaySolver`
+
+Which method [`DecayChain::decay_with`] uses to advance `dC/dt = A C`.
+
+**The default is [`DecaySolver::Cram48`]** (gh:#999, maintainer decision):
+the exact exponential to round-off. ~~Neither is upstream PFLOTRAN's
+algorithm; see the module docs.~~ **UPDATED 2026-10-20 (gh:#1000):**
+`Cram48` and `Expm` are not upstream's; the other three variants **are**
+upstream PFLOTRAN's own algorithms, ported from its source ([`upstream`]).
+Choose one of them only to reproduce PFLOTRAN's output; each is less
+accurate than CRAM48 on the same step, by amounts the tests measure.
+
+```rust
+pub enum DecaySolver {
+    Cram48,
+    Expm,
+    UfdThreeGeneration,
+    UfdImplicit,
+    BackwardEuler,
+}
+```
+
+##### Variants
+
+###### `Cram48`
+
+PETIR's order-48 IPF CRAM ([`petir::depletion::cram48`]), one substep.
+
+###### `Expm`
+
+PETIR's port of Octave's `expm` ([`petir::linalg::expm`]), applied to
+the vector. The independent cross-check; less accurate on very stiff
+steps (see the module docs).
+
+###### `UfdThreeGeneration`
+
+Upstream PFLOTRAN's `UFD_DECAY` default: the 3-generation explicit
+analytical Bateman solution (`pm_ufd_decay.F90`,
+`PMUFDDecaySolveISPDIAtCell`, lines 1868-1928; Mariner et al. 2016,
+SAND2016-9610R, §3.2.3), then the `1e-90` floor. Bit-identical to the
+compiled upstream routine. Exact for chains of depth <= 3; **ignores
+branching fractions** (as upstream does) and drops great-grandparent
+ingrowth within a step. Use to reproduce a `UFD_DECAY` run.
+
+###### `UfdImplicit`
+
+Upstream PFLOTRAN's `UFD_DECAY` with `IMPLICIT_SOLUTION`: backward
+Euler by a log-formulation Newton (relative change `< 1e-6`, update
+clipped to 10), then the `1e-90` floor (`pm_ufd_decay.F90` lines
+1929-1994). Bit-identical to the compiled upstream routine built with
+scalar `exp`, within 1 ulp of a vectorised `-O2` build. Fails with
+[`PflotranError::Convergence`] where upstream would hang or abort (an
+exactly zero inventory). Use to reproduce a `UFD_DECAY
+IMPLICIT_SOLUTION` run.
+
+###### `BackwardEuler`
+
+The backward-Euler step `(I - dt A) C1 = C0` that upstream's CHEMISTRY
+`RADIOACTIVE_DECAY_REACTION` (`reaction.F90`, `RRadioactiveDecay`)
+converges to for an isolated decay system, solved directly with
+upstream's LU. First order in `dt`. Does not reproduce coupling to
+transport or other reactions, sorbed or gas inventories, or the Newton
+stopping error (see [`upstream`]).
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
 #### Struct `Nuclide`
 
 One nuclide in a [`DecayChain`]: its half-life and the branchings to its
@@ -3806,7 +4239,7 @@ pub struct Nuclide {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Nuclide { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -3871,7 +4304,7 @@ pub struct Nuclide {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -3943,6 +4376,11 @@ pub struct DecayChain {
   Advance an inventory over `dt` seconds **in place**, applying radioactive
 
 - ```rust
+  pub fn decay_with(self: &Self, solver: DecaySolver, concentrations: &mut [f64], dt: f64) -> Result<(), PflotranError> { /* ... */ }
+  ```
+  [`DecayChain::decay`] with the method chosen explicitly.
+
+- ```rust
   pub fn bateman_linear(self: &Self, head_initial: f64, t: f64) -> Result<Vec<f64>, PflotranError> { /* ... */ }
   ```
   Bateman closed-form solution for a **linear** chain
@@ -3967,7 +4405,7 @@ pub struct DecayChain {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> DecayChain { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -4032,7 +4470,7 @@ pub struct DecayChain {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -4262,7 +4700,7 @@ pub struct Brine {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Brine { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -4297,7 +4735,7 @@ pub struct Brine {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Brine) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -4334,7 +4772,7 @@ pub struct Brine {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -4488,7 +4926,7 @@ pub struct Co2Properties;
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Co2Properties { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -4504,7 +4942,7 @@ pub struct Co2Properties;
 
 - **Default**
   - ```rust
-    fn default() -> Co2Properties { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
 - **Downcast**
@@ -4514,10 +4952,6 @@ pub struct Co2Properties;
 
 - **Eq**
 - **Equivalent**
-  - ```rust
-    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
-    ```
-
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
     ```
@@ -4542,7 +4976,7 @@ pub struct Co2Properties;
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Co2Properties) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -4579,7 +5013,7 @@ pub struct Co2Properties;
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -4764,7 +5198,7 @@ pub struct IapwsWater {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> IapwsWater { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -4780,7 +5214,7 @@ pub struct IapwsWater {
 
 - **Default**
   - ```rust
-    fn default() -> IapwsWater { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
 - **Downcast**
@@ -4790,10 +5224,6 @@ pub struct IapwsWater {
 
 - **Eq**
 - **Equivalent**
-  - ```rust
-    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
-    ```
-
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
     ```
@@ -4818,7 +5248,7 @@ pub struct IapwsWater {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &IapwsWater) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -4855,7 +5285,7 @@ pub struct IapwsWater {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -5040,7 +5470,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -5228,7 +5658,7 @@ Fields:
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -5328,7 +5758,7 @@ pub struct BoundaryCondition {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -5488,7 +5918,7 @@ pub struct RichardsProblem {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -5607,7 +6037,7 @@ pub struct TimeControls {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -5670,7 +6100,7 @@ pub struct StepReport {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> StepReport { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -5736,7 +6166,7 @@ pub struct StepReport {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -5797,7 +6227,7 @@ pub struct RunReport {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> RunReport { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -5863,7 +6293,7 @@ pub struct RunReport {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -6014,7 +6444,7 @@ pub struct RichardsSimulation {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -6165,7 +6595,7 @@ Fields:
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -6444,7 +6874,7 @@ pub struct GeneralFluids {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> GeneralFluids { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -6479,7 +6909,7 @@ pub struct GeneralFluids {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &GeneralFluids) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -6516,7 +6946,7 @@ pub struct GeneralFluids {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -6600,7 +7030,7 @@ conductive heat flux). The natural default.
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> GeneralBoundaryKind { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -6635,7 +7065,7 @@ conductive heat flux). The natural default.
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &GeneralBoundaryKind) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -6672,7 +7102,7 @@ conductive heat flux). The natural default.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -6731,7 +7161,7 @@ pub struct GeneralBoundaryCondition {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> GeneralBoundaryCondition { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -6766,7 +7196,7 @@ pub struct GeneralBoundaryCondition {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &GeneralBoundaryCondition) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -6803,7 +7233,7 @@ pub struct GeneralBoundaryCondition {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -6987,7 +7417,7 @@ pub struct GeneralFlow {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -7133,7 +7563,7 @@ pub struct GeneralSimulation {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -7321,7 +7751,7 @@ pub struct ReactionNetwork {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ReactionNetwork { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -7386,7 +7816,7 @@ pub struct ReactionNetwork {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -7452,7 +7882,7 @@ pub struct Speciation {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Speciation { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -7517,7 +7947,7 @@ pub struct Speciation {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -7671,7 +8101,7 @@ pub struct Hdf5Snapshot {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Hdf5Snapshot { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -7705,7 +8135,7 @@ pub struct Hdf5Snapshot {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Hdf5Snapshot) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -7742,7 +8172,7 @@ pub struct Hdf5Snapshot {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -7878,7 +8308,7 @@ pub struct GpuContext {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -8014,7 +8444,7 @@ The map callback never fired.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -8179,7 +8609,7 @@ The z axis (index `k`, varies slowest).
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Axis { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -8200,10 +8630,6 @@ The z axis (index `k`, varies slowest).
 
 - **Eq**
 - **Equivalent**
-  - ```rust
-    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
-    ```
-
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
     ```
@@ -8233,7 +8659,7 @@ The z axis (index `k`, varies slowest).
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Axis) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -8270,7 +8696,7 @@ The z axis (index `k`, varies slowest).
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -8354,7 +8780,7 @@ The `k == nz - 1` exterior face (high-z end).
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> BoundaryLocation { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -8375,10 +8801,6 @@ The `k == nz - 1` exterior face (high-z end).
 
 - **Eq**
 - **Equivalent**
-  - ```rust
-    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
-    ```
-
   - ```rust
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
     ```
@@ -8408,7 +8830,7 @@ The `k == nz - 1` exterior face (high-z end).
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &BoundaryLocation) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -8445,7 +8867,7 @@ The `k == nz - 1` exterior face (high-z end).
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -8519,7 +8941,7 @@ pub struct Connection {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Connection { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -8554,7 +8976,7 @@ pub struct Connection {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Connection) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -8591,7 +9013,7 @@ pub struct Connection {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -8661,7 +9083,7 @@ pub struct BoundaryFace {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> BoundaryFace { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -8696,7 +9118,7 @@ pub struct BoundaryFace {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &BoundaryFace) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -8733,7 +9155,7 @@ pub struct BoundaryFace {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -8852,7 +9274,7 @@ pub struct CartesianGrid {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> CartesianGrid { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -8917,7 +9339,7 @@ pub struct CartesianGrid {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -9223,7 +9645,7 @@ pub struct KineticMineral {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> KineticMineral { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -9288,7 +9710,7 @@ pub struct KineticMineral {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -9392,7 +9814,7 @@ pub struct KineticSystem {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> KineticSystem { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -9457,7 +9879,7 @@ pub struct KineticSystem {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -9661,7 +10083,7 @@ pub struct MonodReaction {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> MonodReaction { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -9726,7 +10148,7 @@ pub struct MonodReaction {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -9825,7 +10247,7 @@ pub struct MicrobialSystem {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> MicrobialSystem { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -9890,7 +10312,7 @@ pub struct MicrobialSystem {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -10060,7 +10482,7 @@ pub struct TwoPhaseFluids {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> TwoPhaseFluids { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -10095,7 +10517,7 @@ pub struct TwoPhaseFluids {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &TwoPhaseFluids) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -10132,7 +10554,7 @@ pub struct TwoPhaseFluids {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -10208,7 +10630,7 @@ No-flow (zero normal flux for both phases). The natural default.
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> TwoPhaseBoundaryKind { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -10243,7 +10665,7 @@ No-flow (zero normal flux for both phases). The natural default.
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &TwoPhaseBoundaryKind) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -10280,7 +10702,7 @@ No-flow (zero normal flux for both phases). The natural default.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -10339,7 +10761,7 @@ pub struct TwoPhaseBoundaryCondition {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> TwoPhaseBoundaryCondition { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -10374,7 +10796,7 @@ pub struct TwoPhaseBoundaryCondition {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &TwoPhaseBoundaryCondition) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -10411,7 +10833,7 @@ pub struct TwoPhaseBoundaryCondition {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -10576,7 +10998,7 @@ pub struct TwoPhaseFlow {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -10716,7 +11138,7 @@ pub struct TwoPhaseSimulation {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -10977,7 +11399,7 @@ pub struct PitzerBinaryParams {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> PitzerBinaryParams { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -11012,7 +11434,7 @@ pub struct PitzerBinaryParams {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &PitzerBinaryParams) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -11049,7 +11471,7 @@ pub struct PitzerBinaryParams {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -11346,7 +11768,7 @@ pub struct ReactiveBoundaryCondition {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -11495,7 +11917,7 @@ pub struct ReactiveTransport {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -11750,7 +12172,7 @@ pub struct BlockLduMatrix {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -11866,7 +12288,7 @@ pub struct BlockJacobiPreconditioner {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -11984,7 +12406,7 @@ pub struct BlockNewtonConfig {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -12050,7 +12472,7 @@ pub struct BlockNewtonReport {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> BlockNewtonReport { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -12115,7 +12537,7 @@ pub struct BlockNewtonReport {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -12232,7 +12654,7 @@ pub struct BlockNewtonSolver {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -12378,7 +12800,7 @@ at the cost of storing the restart-length Krylov basis.
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> LinearSolverKind { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -12407,10 +12829,6 @@ at the cost of storing the restart-length Krylov basis.
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
     ```
 
-  - ```rust
-    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
-    ```
-
 - **Freeze**
 - **From**
   - ```rust
@@ -12427,7 +12845,7 @@ at the cost of storing the restart-length Krylov basis.
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &LinearSolverKind) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -12464,7 +12882,7 @@ at the cost of storing the restart-length Krylov basis.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -12538,7 +12956,7 @@ three and the default; good for diffusion-dominated Jacobians.
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> PreconditionerKind { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -12567,10 +12985,6 @@ three and the default; good for diffusion-dominated Jacobians.
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
     ```
 
-  - ```rust
-    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
-    ```
-
 - **Freeze**
 - **From**
   - ```rust
@@ -12587,7 +13001,7 @@ three and the default; good for diffusion-dominated Jacobians.
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &PreconditionerKind) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -12624,7 +13038,7 @@ three and the default; good for diffusion-dominated Jacobians.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -12744,7 +13158,7 @@ pub struct NewtonConfig {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -12810,7 +13224,7 @@ pub struct NewtonReport {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> NewtonReport { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -12875,7 +13289,7 @@ pub struct NewtonReport {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -12989,7 +13403,7 @@ pub struct NewtonSolver {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -13324,7 +13738,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> SorptionIsotherm { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -13359,7 +13773,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &SorptionIsotherm) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -13396,7 +13810,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -13527,7 +13941,7 @@ pub struct IonExchange {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> IonExchange { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -13561,7 +13975,7 @@ pub struct IonExchange {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &IonExchange) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -13598,7 +14012,7 @@ pub struct IonExchange {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -13869,7 +14283,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> SurfaceComplexationModel { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -13904,7 +14318,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &SurfaceComplexationModel) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -13941,7 +14355,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -14042,7 +14456,7 @@ pub struct SurfaceSite {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> SurfaceSite { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -14077,7 +14491,7 @@ pub struct SurfaceSite {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &SurfaceSite) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -14114,7 +14528,7 @@ pub struct SurfaceSite {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -14184,7 +14598,7 @@ pub struct SurfaceComplex {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> SurfaceComplex { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -14219,7 +14633,7 @@ pub struct SurfaceComplex {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &SurfaceComplex) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -14256,7 +14670,7 @@ pub struct SurfaceComplex {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -14334,7 +14748,7 @@ pub struct SurfaceSpeciation {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> SurfaceSpeciation { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -14369,7 +14783,7 @@ pub struct SurfaceSpeciation {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &SurfaceSpeciation) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -14406,7 +14820,7 @@ pub struct SurfaceSpeciation {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -14649,7 +15063,7 @@ pub struct ConvectionParameters {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ConvectionParameters { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -14684,7 +15098,7 @@ pub struct ConvectionParameters {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &ConvectionParameters) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -14721,7 +15135,7 @@ pub struct ConvectionParameters {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -14812,7 +15226,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ConvectionBoundaryKind { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -14847,7 +15261,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &ConvectionBoundaryKind) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -14884,7 +15298,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -14943,7 +15357,7 @@ pub struct ConvectionBoundaryCondition {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ConvectionBoundaryCondition { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -14978,7 +15392,7 @@ pub struct ConvectionBoundaryCondition {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &ConvectionBoundaryCondition) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -15015,7 +15429,7 @@ pub struct ConvectionBoundaryCondition {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -15181,7 +15595,7 @@ pub struct ThermalConvection {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -15255,7 +15669,7 @@ pub struct AdaptiveStepReport {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> AdaptiveStepReport { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -15290,7 +15704,7 @@ pub struct AdaptiveStepReport {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &AdaptiveStepReport) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -15327,7 +15741,7 @@ pub struct AdaptiveStepReport {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -15480,7 +15894,7 @@ pub struct ThermalConvectionSimulation {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -15712,7 +16126,7 @@ pub struct FlowField {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -15825,7 +16239,7 @@ pub struct DispersionModel {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -15935,7 +16349,7 @@ Fields:
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -16035,7 +16449,7 @@ pub struct TransportBoundaryCondition {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -16187,7 +16601,7 @@ pub struct SoluteTransport {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -16474,7 +16888,7 @@ pub struct CellId(pub usize);
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> CellId { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -16508,10 +16922,6 @@ pub struct CellId(pub usize);
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
     ```
 
-  - ```rust
-    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
-    ```
-
 - **Freeze**
 - **From**
   - ```rust
@@ -16533,17 +16943,17 @@ pub struct CellId(pub usize);
 - **IntoEither**
 - **Ord**
   - ```rust
-    fn cmp(self: &Self, other: &CellId) -> $crate::cmp::Ordering { /* ... */ }
+    fn cmp(self: &Self, other: &Self) -> $crate::cmp::Ordering { /* ... */ }
     ```
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &CellId) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **PartialOrd**
   - ```rust
-    fn partial_cmp(self: &Self, other: &CellId) -> $crate::option::Option<$crate::cmp::Ordering> { /* ... */ }
+    fn partial_cmp(self: &Self, other: &Self) -> $crate::option::Option<$crate::cmp::Ordering> { /* ... */ }
     ```
 
 - **Pointable**
@@ -16580,7 +16990,7 @@ pub struct CellId(pub usize);
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -16651,7 +17061,7 @@ pub struct UnstructuredConnection {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> UnstructuredConnection { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -16686,7 +17096,7 @@ pub struct UnstructuredConnection {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &UnstructuredConnection) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -16723,7 +17133,7 @@ pub struct UnstructuredConnection {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -16790,7 +17200,7 @@ pub struct UnstructuredBoundaryFace {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> UnstructuredBoundaryFace { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -16825,7 +17235,7 @@ pub struct UnstructuredBoundaryFace {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &UnstructuredBoundaryFace) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -16862,7 +17272,7 @@ pub struct UnstructuredBoundaryFace {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -16967,7 +17377,7 @@ pub struct UnstructuredGrid {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> UnstructuredGrid { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -17032,7 +17442,7 @@ pub struct UnstructuredGrid {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -17236,7 +17646,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> WellControl { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -17271,7 +17681,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &WellControl) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -17308,7 +17718,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -17397,7 +17807,7 @@ pub struct PeacemanWell {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> PeacemanWell { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -17431,7 +17841,7 @@ pub struct PeacemanWell {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &PeacemanWell) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -17468,7 +17878,7 @@ pub struct PeacemanWell {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -17568,7 +17978,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> SourceSink { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -17603,7 +18013,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &SourceSink) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -17640,7 +18050,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -17765,7 +18175,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> AdvancedBc { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -17799,7 +18209,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &AdvancedBc) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -17836,7 +18246,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**

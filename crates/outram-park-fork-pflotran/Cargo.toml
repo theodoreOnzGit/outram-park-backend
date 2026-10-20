@@ -2,10 +2,13 @@
 name = "outram-park-fork-pflotran"
 version = "0.0.1"
 edition.workspace = true
-# GPL-3.0-only: PFLOTRAN upstream is LGPL-2.1-or-later, which LGPL-2.1 §3 lets a
+# ~~GPL-3.0-only: PFLOTRAN upstream is LGPL-2.1-or-later, which LGPL-2.1 §3 lets a
 # licensee relicense under the ordinary GPL — so this crate is distributed as
-# GPL-3.0-only, consistent with the rest of the suite. Upstream provenance and
-# the "verify before publish" caveat live in NOTICE + upstream_source/README.md.
+# GPL-3.0-only, consistent with the rest of the suite.~~ CORRECTED 2026-10-20
+# (gh:#1000, checked against NOTICE and the workspace license field): upstream
+# is LGPL-3.0 (verified 2026-09-10), and this crate takes the workspace
+# license, AGPL-3.0-only, as a combined work; ported files stay GPL-3.0.
+# Upstream provenance lives in NOTICE + upstream_source/README.md.
 # (Bead op-v6s.1.)
 license.workspace = true
 description = "Independent pure-Rust fork/translation of PFLOTRAN (subsurface flow & reactive transport) — enum-dispatched, uom-typed, no PETSc/FFI, no MPI. SCAFFOLD ONLY: no flow mode solves yet, no human V&V — not affiliated with the PFLOTRAN project. Use at your own risk."
@@ -16,7 +19,10 @@ categories.workspace = true
 # docs/ and the upstream reference clone are repo-only provenance/codegen aids,
 # never shipped in the packaged crate. upstream_source/README.md (the small
 # provenance record) is intentionally NOT excluded so it stays in the package.
-exclude = ["docs", "upstream_source/pflotran"]
+# CORRECTED 2026-10-20 (gh:#1000): the clone directory is `PFLOTRAN`
+# (upstream_source/README.md); the old pattern `upstream_source/pflotran` did
+# not match it, so a local clone would have been packaged.
+exclude = ["docs", "upstream_source/PFLOTRAN"]
 
 # Where this crate sits in kovan's code map (GitHub #729, #733; maintainer
 # decisions 2026-10-06). row: degree of integration, 0-1 utilities and

@@ -25,21 +25,21 @@
 //!
 //! # What is ported, and how exactly
 //!
-//! - **UFD_DECAY default** ([`ufd_three_generation`]): the explicit
+//! - **UFD_DECAY default** (`ufd_three_generation`): the explicit
 //!   3-generation analytical (Bateman) solution of `pm_ufd_decay.F90` lines
 //!   1868-1928, every expression in upstream's order of evaluation, so the
 //!   result is **bit-identical** to the compiled Fortran (code-to-code test
 //!   below). Then the `1e-90` floor of line 1994.
-//! - **UFD_DECAY `IMPLICIT_SOLUTION`** ([`ufd_implicit`]): the backward-Euler
+//! - **UFD_DECAY `IMPLICIT_SOLUTION`** (`ufd_implicit`): the backward-Euler
 //!   Newton of lines 1929-1991, in upstream's log formulation, with upstream's
-//!   row scaling, its own Crout LU ([`lu_decomposition`],
-//!   [`lu_back_substitution`], `utility.F90`), the update clip at 10 and the
+//!   row scaling, its own Crout LU (`lu_decomposition`,
+//!   `lu_back_substitution`, `utility.F90`), the update clip at 10 and the
 //!   relative-change test at `1e-6`, then the `1e-90` floor. **Bit-identical**
 //!   to the compiled Fortran, Newton iteration counts included, when the
 //!   Fortran calls scalar `exp`; a plain `gfortran -O2` build vectorises line
 //!   1989's `exp` into glibc libmvec and differs from it (and from this port)
 //!   by 1 ulp in 19 of 115 masses (see Verification).
-//! - **CHEMISTRY `RADIOACTIVE_DECAY_REACTION`** ([`backward_euler`]): upstream
+//! - **CHEMISTRY `RADIOACTIVE_DECAY_REACTION`** (`backward_euler`): upstream
 //!   puts `rate = kf * N` into the reaction residual with its analytical
 //!   Jacobian (`reaction.F90` lines 5374-5384) and lets the global (or
 //!   operator-split `RReact`) Newton converge it. For an isolated decay
@@ -405,6 +405,33 @@ pub(crate) fn ufd_implicit(
         }
     }
     Ok((finish(solution)?, it))
+}
+
+/// The backward-Euler step that CHEMISTRY `RADIOACTIVE_DECAY_REACTION`'s
+/// Newton converges to for an isolated decay system: solve
+/// `(I - dt A) N1 = N0` with upstream's LU. `a` is the decay matrix,
+/// row-major (`A[i][i] = -lambda_i`, `A[d][p] = b_{p,d} lambda_p`, the
+/// stoichiometries of `reaction.F90` lines 5374-5384: `-1` on the decaying
+/// species, `+b` on each product). See the module docs for what is and is not
+/// reproduced.
+///
+/// # Errors
+/// [`PflotranError::Convergence`] if a row of `I - dt A` is zero (not
+/// reachable for a decay matrix and `dt >= 0`: the diagonal is `1 + dt
+/// lambda_i >= 1`).
+pub(crate) fn backward_euler(a: &[f64], n0: &[f64], dt: f64) -> Result<Vec<f64>, PflotranError> {
+    let n = n0.len();
+    let mut m: Vec<f64> = a.iter().map(|x| -dt * x).collect();
+    for i in 0..n {
+        if let Some(d) = m.get_mut(i * n + i) {
+            *d += 1.0;
+        }
+    }
+    let mut indices = vec![0_usize; n];
+    lu_decomposition(&mut m, n, &mut indices)?;
+    let mut x = n0.to_vec();
+    lu_back_substitution(&m, n, &indices, &mut x);
+    Ok(x)
 }
 
 /// Crout LU with implicit (scaled) partial pivoting, a port of

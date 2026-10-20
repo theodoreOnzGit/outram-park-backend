@@ -481,6 +481,116 @@ fn ufd_three_generation_ignores_branching_like_upstream() {
     assert!(rel(gain, decayed) < 1e-12);
 }
 
+/// **Backward Euler's per-step error is `(lambda dt)^2 / 2`.**
+///
+/// Methodology: one nuclide, one step, `x = lambda dt` in {1e-1, 1e-2, 1e-3}.
+/// Backward Euler gives `1 / (1 + x)`, the exact answer is `e^-x`, and their
+/// difference is `x^2/2 - 5x^3/6 + O(x^4)`. Prediction and tolerance, fixed
+/// before running: `|err / (x^2/2) - 1| < 2x` (the next term is `5x/3`
+/// relative). Measured 2026-10-20: `err / (x^2/2) - 1` = -1.493e-1, -1.648e-2,
+/// -1.665e-3, i.e. `-5x/3` to two digits, as the series says.
+#[test]
+fn backward_euler_local_error_is_half_lambda_dt_squared() {
+    let chain = DecayChain::new(vec![nuc("A", 100.0, vec![])]).unwrap();
+    let lam = chain.decay_constant(0);
+    for x in [1e-1, 1e-2, 1e-3] {
+        let dt = x / lam;
+        let be = march(&chain, DecaySolver::BackwardEuler, &[1.0], dt, 1)[0];
+        let err = be - (-x).r_exp();
+        let ratio = err / (x * x / 2.0) - 1.0;
+        println!("BE x = {x:e}: err {err:.4e}, err / (x^2/2) - 1 = {ratio:.4e}");
+        assert!(ratio.abs() < 2.0 * x, "x = {x}: {ratio}");
+    }
+}
+
+/// **Backward Euler converges at first order, and conserves atoms.**
+///
+/// Methodology: the radon chain from 1000 Rn-222 to `T = 2 h` in `N` steps,
+/// `N = 12 ... 384`, against one CRAM48 step; and thorium C (all branching
+/// stays in the network) over 10 steps of 600 s for the atom balance.
+///
+/// Prediction and tolerances, fixed before running: observed order between
+/// the two finest step sizes in [0.9, 1.1]; atom balance `< 1e-13` of the
+/// inventory (the columns of `I - dt A` sum to 1, so `sum N1 = sum N0` up to
+/// round-off). Magnitude at `N = 12`: ~1e-2 of the inventory, about 100x worse
+/// than the 3-generation form at the same step.
+///
+/// Measured 2026-10-20: (normwise, `|diff| / 1000`)
+///
+/// | `N` | `dt` | backward Euler | 3-generation (test above) |
+/// |---|---|---|---|
+/// | 12 | 600 s | 2.32e-4 | 7.34e-4 |
+/// | 24 | 300 s | 1.18e-4 | 2.42e-4 |
+/// | 48 | 150 s | 5.94e-5 | 7.04e-5 |
+/// | 96 | 75 s | 2.98e-5 | 1.91e-5 |
+/// | 192 | 37.5 s | 1.49e-5 | 4.96e-6 |
+/// | 384 | 18.75 s | 7.48e-6 | 1.27e-6 |
+///
+/// Observed order, finest pair: **0.999**, inside [0.9, 1.1]. Atom balance
+/// 2.26e-16. **The magnitude prediction was wrong, in direction too:**
+/// backward Euler is 2.32e-4 at `N = 12`, 43x below the ~1e-2 predicted
+/// and 3.2x *better* than the 3-generation form at the same step, not
+/// 100x worse. On this 5-member chain the 3-generation form drops
+/// great-grandparent ingrowth outright, while backward Euler only damps
+/// it; the 3-generation form wins only below `dt` ~ 100 s (crossover
+/// between `N = 48` and `N = 96`).
+#[test]
+fn backward_euler_is_first_order_and_conservative() {
+    let chain = radon();
+    let c0 = [1000.0, 0.0, 0.0, 0.0, 0.0];
+    let t = 2.0 * HOUR;
+    let exact = march(&chain, DecaySolver::Cram48, &c0, t, 1);
+    let mut errs = Vec::new();
+    for n in [12_usize, 24, 48, 96, 192, 384] {
+        let be = march(&chain, DecaySolver::BackwardEuler, &c0, t / n as f64, n);
+        let e = normwise(&be, &exact, 1000.0);
+        println!("radon BE, N = {n}: {e:.3e}");
+        errs.push(e);
+    }
+    let k = errs.len();
+    let order = (errs[k - 2] / errs[k - 1]).log2();
+    println!("observed order (finest pair): {order:.3}");
+    assert!((0.9..=1.1).contains(&order), "order {order}");
+
+    let thc = thorium_c();
+    let start = [1000.0, 1.0, 1.0, 1.0, 1.0];
+    let be = march(&thc, DecaySolver::BackwardEuler, &start, 600.0, 10);
+    let bal = (be.iter().sum::<f64>() - 1004.0).abs() / 1004.0;
+    println!("thorium C BE atom balance: {bal:.2e}");
+    assert!(bal < 1e-13, "{bal}");
+}
+
+/// **UFD `IMPLICIT_SOLUTION` is backward Euler, up to its Newton stop.**
+///
+/// Methodology: the three positive-inventory driver cases, marched with
+/// [`DecaySolver::UfdImplicit`] and with [`DecaySolver::BackwardEuler`] (the
+/// direct solve of the same equations).
+///
+/// Prediction and tolerance, fixed before running: per-entry relative
+/// difference `< 1e-9`. The Newton stops once the relative change is below
+/// `1e-6` and converges quadratically, so the remaining error should be about
+/// 1e-12. Measured 2026-10-20: worst relative difference
+/// 1.69e-14 (radon), 9.02e-14 (thorium C), 2.40e-13 (converging): inside
+/// the tolerance, near the ~1e-12 predicted.
+#[test]
+fn ufd_implicit_is_backward_euler_to_its_newton_tolerance() {
+    for (name, chain, c0, dt) in driver_cases() {
+        if name == "radon0" {
+            continue;
+        }
+        let steps = if name == "conv" { 5 } else { 10 };
+        let ufd = march(&chain, DecaySolver::UfdImplicit, &c0, dt, steps);
+        let be = march(&chain, DecaySolver::BackwardEuler, &c0, dt, steps);
+        let worst = ufd
+            .iter()
+            .zip(&be)
+            .map(|(a, b)| (a - b).abs() / b.abs())
+            .fold(0.0, f64::max);
+        println!("{name}: UFD implicit vs BE, worst relative {worst:.2e}");
+        assert!(worst < 1e-9, "{name}: {worst}");
+    }
+}
+
 /// The ported LU solves a system that needs pivoting, and refuses a zero row
 /// (upstream aborts there).
 #[test]

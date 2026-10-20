@@ -80,10 +80,22 @@
 //! not before this change either (the hand-written Taylor `matrix_exp` was not
 //! upstream's). It is the exact solution of the same ODE, which upstream's
 //! backward Euler approaches as `dt -> 0` and its 3-generation form matches
-//! for shallow chains. **Upstream-fidelity options (backward Euler, the
+//! for shallow chains. ~~**Upstream-fidelity options (backward Euler, the
 //! 3-generation form) are not ported**; [`DecaySolver`] lists only what
 //! exists, and the follow-up is gh:#1000. Do not
-//! quote a result from here as "PFLOTRAN's" decay.
+//! quote a result from here as "PFLOTRAN's" decay.~~ **UPDATED 2026-10-20
+//! (gh:#1000, maintainer direction "Port those in"):** all three are now
+//! ported from the source, as explicit choices that are never the default:
+//! [`DecaySolver::UfdThreeGeneration`] (path 2) and
+//! [`DecaySolver::UfdImplicit`] (path 3), each verified bit for bit against
+//! the extracted upstream routines compiled with gfortran, and
+//! [`DecaySolver::BackwardEuler`] (path 1, the root upstream's Newton
+//! converges to for an isolated decay system; not coupled to transport). See
+//! [`upstream`] for what each reproduces, the upstream quirks carried over
+//! (the 3-generation form ignores branching fractions and truncates at three
+//! generations; the implicit Newton has no iteration cap), and the
+//! measurements. A result from the default CRAM48 is still not "PFLOTRAN's"
+//! decay; a result from the matching upstream variant is.
 //!
 //! # Numerics — general-chain integration
 //!
@@ -133,6 +145,12 @@
 //! `cram48_expm_and_exact_agree_on_the_stiff_thorium_c_branch` (branching,
 //! Po-212's 0.3 us against Pb-212's 10.6 h, `||A dt|| ~ 2e11`).
 //!
+//! The upstream variants (gh:#1000) are verified in [`upstream`]'s tests:
+//! code-to-code against the extracted, compiled upstream Fortran
+//! (`verification_and_validation/upstream_decay/`), and against CRAM48 for
+//! exactness at depth 3, the 3-generation form's second-order truncation, and
+//! backward Euler's first-order error and atom balance.
+//!
 //! # Provenance
 //!
 //! - Decay-chain / ingrowth theory: H. Bateman, "The solution of a system of
@@ -144,7 +162,13 @@
 //!   `expm`: PETIR's port of GNU Octave `expm.m`.
 //! - Modelled on PFLOTRAN's radioactive-decay reaction (US-DOE national-lab
 //!   subsurface reactive-transport code; this crate is an independent fork —
-//!   see the crate root and `NOTICE`).
+//!   see the crate root and `NOTICE`). [`upstream`] is a port of PFLOTRAN's
+//!   own decay routines at commit `2af572b8` (its file header carries the
+//!   attribution).
+//! - 3-generation solution: Mariner et al. (2016), SAND2016-9610R, Sandia
+//!   National Laboratories, §3.2.3, as upstream cites it (`pm_ufd_decay.F90`
+//!   lines 7-9). The report itself was not read; the port follows upstream's
+//!   code.
 //!
 //! # Status
 //!
@@ -160,10 +184,15 @@ use crate::error::PflotranError;
 
 pub mod upstream;
 
-/// Which method [`DecayChain::decay_with`] uses for `exp(A dt) C`.
+/// Which method [`DecayChain::decay_with`] uses to advance `dC/dt = A C`.
 ///
-/// **The default is [`DecaySolver::Cram48`]** (gh:#999). Neither is upstream
-/// PFLOTRAN's algorithm; see the module docs.
+/// **The default is [`DecaySolver::Cram48`]** (gh:#999, maintainer decision):
+/// the exact exponential to round-off. ~~Neither is upstream PFLOTRAN's
+/// algorithm; see the module docs.~~ **UPDATED 2026-10-20 (gh:#1000):**
+/// `Cram48` and `Expm` are not upstream's; the other three variants **are**
+/// upstream PFLOTRAN's own algorithms, ported from its source ([`upstream`]).
+/// Choose one of them only to reproduce PFLOTRAN's output; each is less
+/// accurate than CRAM48 on the same step, by amounts the tests measure.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum DecaySolver {
     /// PETIR's order-48 IPF CRAM ([`petir::depletion::cram48`]), one substep.
@@ -190,6 +219,13 @@ pub enum DecaySolver {
     /// exactly zero inventory). Use to reproduce a `UFD_DECAY
     /// IMPLICIT_SOLUTION` run.
     UfdImplicit,
+    /// The backward-Euler step `(I - dt A) C1 = C0` that upstream's CHEMISTRY
+    /// `RADIOACTIVE_DECAY_REACTION` (`reaction.F90`, `RRadioactiveDecay`)
+    /// converges to for an isolated decay system, solved directly with
+    /// upstream's LU. First order in `dt`. Does not reproduce coupling to
+    /// transport or other reactions, sorbed or gas inventories, or the Newton
+    /// stopping error (see [`upstream`]).
+    BackwardEuler,
 }
 
 /// Natural logarithm of 2, used to convert a half-life to a decay constant.
@@ -365,10 +401,15 @@ impl DecayChain {
 
     /// [`DecayChain::decay`] with the method chosen explicitly.
     ///
+    /// `dt = 0` leaves the inventory unchanged for every solver (upstream
+    /// PFLOTRAN never takes a zero step, so this reproduces nothing of it).
+    ///
     /// # Errors
     /// As [`DecayChain::decay`], plus [`PflotranError::Convergence`] if a CRAM
     /// pole solve or the `expm` Padé denominator is singular (not reachable for
-    /// a valid decay matrix, but reported rather than panicked).
+    /// a valid decay matrix, but reported rather than panicked). The upstream
+    /// variants add upstream's own refusals, and this port's signalled
+    /// replacements for upstream's hangs, aborts and `NaN`s; see [`upstream`].
     pub fn decay_with(
         &self,
         solver: DecaySolver,
@@ -422,6 +463,7 @@ impl DecayChain {
             DecaySolver::UfdImplicit => {
                 upstream::ufd_implicit(&self.lambda, &self.daughter_lists(), concentrations, dt)?.0
             }
+            DecaySolver::BackwardEuler => upstream::backward_euler(&a, concentrations, dt)?,
         };
         concentrations.copy_from_slice(&out);
         Ok(())
