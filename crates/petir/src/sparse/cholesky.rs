@@ -60,7 +60,7 @@ use crate::real::Real;
 use super::amd::{self, Control};
 use super::cholesky_supernodal::{self, permute_self_adjoint_to_lower};
 use super::supernodal::{factorize_supernodal_symbolic, SymbolicSupernodal};
-use super::SymbolicKind;
+use super::{SparseBackend, SymbolicKind};
 use super::etree::{ereach, prefactorize_symbolic_cholesky};
 use super::{g, m, sl, triangular, CscMatrix, CscPattern};
 use crate::{PetirError, Result};
@@ -85,6 +85,9 @@ pub struct SparseLlt {
     /// The supernodal factor, when that path was taken (the simplicial
     /// fields are then empty).
     supernodal: Option<(SymbolicSupernodal, Vec<f64>)>,
+    /// faer's own factorisation, on [`SparseBackend::Faer`].
+    #[cfg(feature = "faer")]
+    faer: Option<super::faer_backend::FaerFactor>,
 }
 
 /// The permuted matrix in upper-triangle CSC form.
@@ -217,6 +220,8 @@ impl SparseLlt {
                 l_val: Vec::new(),
                 faer_supernodal,
                 supernodal: Some((sym, l)),
+                #[cfg(feature = "faer")]
+                faer: None,
             });
         }
         // simplicial::ghost_factorize_simplicial_symbolic_cholesky
@@ -289,6 +294,8 @@ impl SparseLlt {
             l_val,
             faer_supernodal,
             supernodal: None,
+            #[cfg(feature = "faer")]
+            faer: None,
         })
     }
 
@@ -303,6 +310,48 @@ impl SparseLlt {
     /// they agree only to rounding. See the [module docs](super).
     pub fn faer_would_use_supernodal(&self) -> bool {
         self.faer_supernodal
+    }
+
+    /// Factorise with the chosen [`SparseBackend`]: [`SparseBackend::Ported`]
+    /// is [`Self::factorize_lower`]; `SparseBackend::Faer` (feature `faer`)
+    /// hands the matrix to faer's `sp_cholesky(Side::Lower)`, and
+    /// [`Self::perm`] is then empty.
+    ///
+    /// # Errors
+    /// As [`Self::factorize_lower`].
+    pub fn factorize_lower_backend(a: &CscMatrix, backend: SparseBackend) -> Result<Self> {
+        match backend {
+            SparseBackend::Ported => Self::factorize_lower(a),
+            #[cfg(feature = "faer")]
+            SparseBackend::Faer => {
+                if a.nrows() != a.ncols() {
+                    return Err(PetirError::NotSquare {
+                        rows: a.nrows(),
+                        cols: a.ncols(),
+                    });
+                }
+                Ok(Self {
+                    n: a.ncols(),
+                    perm_fwd: Vec::new(),
+                    perm_inv: Vec::new(),
+                    l_col_ptr: Vec::new(),
+                    l_row_idx: Vec::new(),
+                    l_val: Vec::new(),
+                    faer_supernodal: false,
+                    supernodal: None,
+                    faer: Some(super::faer_backend::llt(a)?),
+                })
+            }
+        }
+    }
+
+    /// The backend that produced this factorisation.
+    pub fn backend(&self) -> SparseBackend {
+        #[cfg(feature = "faer")]
+        if self.faer.is_some() {
+            return SparseBackend::Faer;
+        }
+        SparseBackend::Ported
     }
 
     /// Whether this factorisation took the supernodal path.
@@ -320,6 +369,10 @@ impl SparseLlt {
                 expected: self.n,
                 found: rhs.len(),
             });
+        }
+        #[cfg(feature = "faer")]
+        if let Some(f) = &self.faer {
+            return f.solve_in_place(rhs);
         }
         let mut x = Vec::with_capacity(self.n);
         for &f in &self.perm_fwd {

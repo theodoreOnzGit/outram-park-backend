@@ -138,6 +138,8 @@ pub mod triangular;
 mod cholesky;
 mod cholesky_supernodal;
 mod dense;
+#[cfg(feature = "faer")]
+mod faer_backend;
 mod lu;
 mod lu_supernodal;
 mod supernodal;
@@ -162,6 +164,30 @@ pub enum SymbolicKind {
     Simplicial,
     /// Always the supernodal (dense-block) path.
     Supernodal,
+}
+
+/// Which implementation factorises: PETIR's own port (the default, `no_std`,
+/// deterministic on every CPU) or, with the opt-in `faer` feature, the real
+/// `faer` crate (faster where faer has SIMD kernels for the build; results
+/// depend on the CPU and the build, see the crate `CLAUDE.md`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum SparseBackend {
+    /// PETIR's port of faer 0.24.4 (this module), with [`SymbolicKind`]'s
+    /// path choice.
+    #[default]
+    Ported,
+    /// faer 0.24.4 itself (`sp_lu` / `sp_cholesky(Side::Lower)`, faer's own
+    /// path choice). Feature `faer` only. Caveats: `no_std` + `alloc`;
+    /// **without PETIR's `std` feature faer cannot detect the CPU at run
+    /// time** and runs its baseline kernels unless built with target features
+    /// (`-C target-cpu=native`, `-C target-feature=+avx2,+fma`); and **its
+    /// results depend on the CPU and instruction set**, so they are not
+    /// bit-identical across machines — [`SparseBackend::Ported`] is the
+    /// deterministic choice. Measured on `bedok`'s 3-D transient (one
+    /// thread): faer + `std` 116 s, faer without `std` 265 s (205 s with
+    /// `target-cpu=native`), `Ported` 2103 s.
+    #[cfg(feature = "faer")]
+    Faer,
 }
 
 /// faer's `NONE` sentinel (`usize::MAX`); as a signed index it is `-1`.

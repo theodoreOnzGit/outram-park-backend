@@ -171,9 +171,33 @@ point: a crate claiming "no panics" while those held would be overclaiming.
 
 ## `no_std` is the contract
 
-The crate is `#![no_std]` unconditionally. There is no `std` feature to turn on,
-because a numerical kernel that only sometimes builds for a microcontroller is
-one refactor away from not building for one at all.
+The crate is `#![no_std]` unconditionally. ~~There is no `std` feature to turn
+on,~~ because a numerical kernel that only sometimes builds for a
+microcontroller is one refactor away from not building for one at all.
+**CHANGED 2026-10-20 (gh #994):** there is now an opt-in `std` feature, but it
+changes nothing in PETIR itself — see the `faer` backend below.
+
+### Optional features
+
+| feature | default | what it does |
+|---|---|---|
+| `transfer-fn` (implies `uom`) | on | `transfer_fn`, with `uom` sample times |
+| `wgpu` | off | the GPU runner `wgsl::gpu` (needs `std`) |
+| `faer` | off | `sparse::SparseBackend::Faer`: the real `faer` 0.24.4 as a second sparse LU/Cholesky backend |
+| `std` | off | only `faer/std`, so faer can detect the CPU at run time |
+
+**Caveats of the `faer` backend** (maintainer direction, gh #994, 2026-10-20):
+
+1. It is **`no_std` + `alloc`**: it builds for `thumbv7em-none-eabihf`, wasm
+   and Android.
+2. **Without `std`, faer cannot detect the CPU at run time**, so it runs its
+   baseline kernels unless the build enables target features
+   (`RUSTFLAGS="-C target-cpu=native"`, or `-C target-feature=+avx2,+fma`).
+   Turn on `std` too where `std` is available. Measured (bedok subset, one thread, i9-13900K, 2026-10-20 — `matlab_parity_iaea3ds` / `neacrpd1t` `the_transient_marches_without_diverging`: faer + `std` 7.2 s / 116 s; faer without `std` 16.7 s / 265 s; faer without `std` built with `-C target-cpu=native` 12.9 s / 205 s; `Ported` 137 s / 2103 s).
+3. **Its results depend on the CPU and instruction set**, so they are not
+   bit-identical across machines. **`SparseBackend::Ported` (the default) is
+   the deterministic choice.** On an AVX2+FMA x86-64 the two agree bit for bit
+   (`tests/sparse_vs_faer.rs`).
 
 Verified on every commit:
 

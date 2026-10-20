@@ -487,3 +487,55 @@ fn factorisation_time_vs_faer() {
     });
     println!("RESULT time llt spd2000: petir (AUTO, supernodal) {tp:.3} s, faer {tf:.3} s");
 }
+
+/// **`SparseBackend::Faer` (feature `faer`) against the ported path** on the
+/// same matrices. Methodology: factorise and solve each matrix with both
+/// backends, count bit-identical solution entries and take the worst
+/// relative difference (to the solution's max norm). Pass: worst < 1e-8,
+/// the root `CLAUDE.md` round-off rule for an understood cause. In a test
+/// build faer has its `std` feature (the dev-dependency names it), so the
+/// faer backend runs with runtime CPU detection here, i.e. as faer's own
+/// `sp_lu` / `sp_cholesky`, which the ported path reproduces bit for bit on
+/// this CPU (see above) — so all bits are expected identical on an AVX2+FMA
+/// x86-64, and a round-off difference elsewhere.
+#[cfg(feature = "faer")]
+#[test]
+fn faer_backend_matches_the_ported_path() {
+    use petir::sparse::SparseBackend;
+    let mut lu_cases: Vec<(String, usize, Vec<(usize, usize, f64)>)> = Vec::new();
+    for (n, per_col, seed) in [(5, 2, 2), (40, 3, 3), (300, 4, 4), (1500, 5, 5)] {
+        lu_cases.push((format!("random{n}"), n, random_unsym(n, per_col, seed)));
+    }
+    lu_cases.push(("diffusion12^3x2".into(), 3456, diffusion_3d(12)));
+    for (name, n, t) in &lu_cases {
+        let a = CscMatrix::try_from_triplets(*n, *n, t).unwrap();
+        let b = rhs(*n);
+        let p = SparseLu::factorize_backend(&a, SparseBackend::Ported).unwrap();
+        let f = SparseLu::factorize_backend(&a, SparseBackend::Faer).unwrap();
+        assert_eq!(f.backend(), SparseBackend::Faer);
+        let (bits, worst) = max_rel_diff(&f.solve(&b).unwrap(), &p.solve(&b).unwrap());
+        println!("RESULT backend lu {name} n={n}: Faer vs Ported {bits}/{n} bit-identical, worst rel {worst:.3e}");
+        assert!(worst < 1e-8, "{name}: {worst:e}");
+    }
+    let mut llt_cases: Vec<(String, usize, Vec<(usize, usize, f64)>)> = Vec::new();
+    llt_cases.push(("laplace30^2".into(), 900, laplacian_2d_lower(30, 0.7)));
+    llt_cases.push(("spd2000".into(), 2000, random_spd_lower(2000, 4, 9)));
+    for (name, n, t) in &llt_cases {
+        let a = CscMatrix::try_from_triplets(*n, *n, t).unwrap();
+        let b = rhs(*n);
+        let p = SparseLlt::factorize_lower_backend(&a, SparseBackend::Ported).unwrap();
+        let f = SparseLlt::factorize_lower_backend(&a, SparseBackend::Faer).unwrap();
+        assert_eq!(f.backend(), SparseBackend::Faer);
+        let (bits, worst) = max_rel_diff(&f.solve(&b).unwrap(), &p.solve(&b).unwrap());
+        println!("RESULT backend llt {name} n={n}: Faer vs Ported {bits}/{n} bit-identical, worst rel {worst:.3e}");
+        assert!(worst < 1e-8, "{name}: {worst:e}");
+    }
+    // errors map the same way on both backends
+    let r = CscMatrix::try_from_triplets(2, 3, &[(0, 0, 1.0)]).unwrap();
+    assert!(SparseLu::factorize_backend(&r, SparseBackend::Faer).is_err());
+    let ind = CscMatrix::try_from_triplets(2, 2, &[(0, 0, 1.0), (1, 0, 2.0), (1, 1, 1.0)]).unwrap();
+    assert_eq!(
+        SparseLlt::factorize_lower_backend(&ind, SparseBackend::Faer).unwrap_err(),
+        petir::PetirError::Domain
+    );
+}

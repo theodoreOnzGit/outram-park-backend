@@ -52,7 +52,7 @@ use super::colamd::{self, Control};
 use super::etree::{col_etree, postorder};
 use super::lu_supernodal::{self, SupernodalLu};
 use super::supernodal::{column_counts_aat, factorize_supernodal_symbolic};
-use super::{g, m, sl, triangular, CscMatrix, CscPattern, SymbolicKind};
+use super::{g, m, sl, triangular, CscMatrix, CscPattern, SparseBackend, SymbolicKind};
 use crate::{PetirError, Result};
 use alloc::vec;
 use alloc::vec::Vec;
@@ -79,6 +79,9 @@ pub struct SparseLu {
     /// The supernodal factors, when that path was taken (the simplicial
     /// fields above are then empty).
     supernodal: Option<SupernodalLu>,
+    /// faer's own factorisation, on [`SparseBackend::Faer`].
+    #[cfg(feature = "faer")]
+    faer: Option<super::faer_backend::FaerFactor>,
 }
 
 /// faer's `LU_SUPERNODAL_RATIO_FACTOR`.
@@ -202,6 +205,8 @@ impl SparseLu {
             u_row_idx: Vec::new(),
             u_val: Vec::new(),
             supernodal: None,
+            #[cfg(feature = "faer")]
+            faer: None,
         };
         let supernode_ptr = match kind {
             SymbolicKind::Simplicial => None,
@@ -294,6 +299,51 @@ impl SparseLu {
             &col_counts,
         )?;
         Ok(Some(sym.supernode_begin))
+    }
+
+    /// Factorise with the chosen [`SparseBackend`]: [`SparseBackend::Ported`]
+    /// is [`Self::factorize`]; `SparseBackend::Faer` (feature `faer`) hands
+    /// the matrix to faer's `sp_lu`, and [`Self::col_perm`] /
+    /// [`Self::row_perm`] are then empty (faer keeps its permutations).
+    ///
+    /// # Errors
+    /// As [`Self::factorize`].
+    pub fn factorize_backend(a: &CscMatrix, backend: SparseBackend) -> Result<Self> {
+        match backend {
+            SparseBackend::Ported => Self::factorize(a),
+            #[cfg(feature = "faer")]
+            SparseBackend::Faer => {
+                if a.nrows() != a.ncols() {
+                    return Err(PetirError::NotSquare {
+                        rows: a.nrows(),
+                        cols: a.ncols(),
+                    });
+                }
+                Ok(Self {
+                    n: a.ncols(),
+                    col_perm_fwd: Vec::new(),
+                    col_perm_inv: Vec::new(),
+                    row_perm_fwd: Vec::new(),
+                    l_col_ptr: Vec::new(),
+                    l_row_idx: Vec::new(),
+                    l_val: Vec::new(),
+                    u_col_ptr: Vec::new(),
+                    u_row_idx: Vec::new(),
+                    u_val: Vec::new(),
+                    supernodal: None,
+                    faer: Some(super::faer_backend::lu(a)?),
+                })
+            }
+        }
+    }
+
+    /// The backend that produced this factorisation.
+    pub fn backend(&self) -> SparseBackend {
+        #[cfg(feature = "faer")]
+        if self.faer.is_some() {
+            return SparseBackend::Faer;
+        }
+        SparseBackend::Ported
     }
 
     /// Whether this factorisation took faer's supernodal path.
@@ -411,6 +461,10 @@ impl SparseLu {
                 expected: self.n,
                 found: rhs.len(),
             });
+        }
+        #[cfg(feature = "faer")]
+        if let Some(f) = &self.faer {
+            return f.solve_in_place(rhs);
         }
         permute_rows(rhs, &self.row_perm_fwd)?;
         if let Some(sn) = &self.supernodal {
