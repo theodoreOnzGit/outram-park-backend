@@ -158,6 +158,8 @@
 use petir::mathf::RealMath;
 use crate::error::PflotranError;
 
+pub mod upstream;
+
 /// Which method [`DecayChain::decay_with`] uses for `exp(A dt) C`.
 ///
 /// **The default is [`DecaySolver::Cram48`]** (gh:#999). Neither is upstream
@@ -171,6 +173,14 @@ pub enum DecaySolver {
     /// the vector. The independent cross-check; less accurate on very stiff
     /// steps (see the module docs).
     Expm,
+    /// Upstream PFLOTRAN's `UFD_DECAY` default: the 3-generation explicit
+    /// analytical Bateman solution (`pm_ufd_decay.F90`,
+    /// `PMUFDDecaySolveISPDIAtCell`, lines 1868-1928; Mariner et al. 2016,
+    /// SAND2016-9610R, §3.2.3), then the `1e-90` floor. Bit-identical to the
+    /// compiled upstream routine. Exact for chains of depth <= 3; **ignores
+    /// branching fractions** (as upstream does) and drops great-grandparent
+    /// ingrowth within a step. Use to reproduce a `UFD_DECAY` run.
+    UfdThreeGeneration,
 }
 
 /// Natural logarithm of 2, used to convert a half-life to a decay constant.
@@ -304,6 +314,12 @@ impl DecayChain {
         &self.nuclides[i]
     }
 
+    /// Each nuclide's `(daughter, branching)` list, in the order given: the
+    /// `isotope_daughters` / `isotope_daughter_stoich` of upstream's UFD_DECAY.
+    fn daughter_lists(&self) -> Vec<Vec<(usize, f64)>> {
+        self.nuclides.iter().map(|n| n.daughters.clone()).collect()
+    }
+
     /// Assemble the decay matrix `A` (`dC/dt = A C`) as a dense row-major
     /// `N * N` buffer: `A[i][i] = -lambda_i` and `A[i][p] = b_{p,i} lambda_p`
     /// for every parent `p` with daughter `i`.
@@ -388,6 +404,12 @@ impl DecayChain {
                     .map(|i| (0..n).map(|j| e.get(i, j) * concentrations[j]).sum())
                     .collect()
             }
+            DecaySolver::UfdThreeGeneration => upstream::ufd_three_generation(
+                &self.lambda,
+                &upstream::parent_lists(&self.daughter_lists()),
+                concentrations,
+                dt,
+            )?,
         };
         concentrations.copy_from_slice(&out);
         Ok(())
