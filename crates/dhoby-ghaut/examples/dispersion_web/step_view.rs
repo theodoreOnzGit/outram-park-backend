@@ -129,8 +129,8 @@ impl Axes {
 fn ramp(t: f64) -> Color32 {
     let t = t.clamp(0.0, 1.0) as f32;
     Color32::from_rgba_unmultiplied(
-        (40.0 + 215.0 * t.powf(0.8)) as u8,
-        (20.0 + 220.0 * t.powf(1.6)) as u8,
+        (40.0 + 215.0 * t.r_powf(0.8)) as u8,
+        (20.0 + 220.0 * t.r_powf(1.6)) as u8,
         (90.0 + 80.0 * (1.0 - t) - 40.0 * t) as u8,
         (90.0 + 165.0 * t) as u8,
     )

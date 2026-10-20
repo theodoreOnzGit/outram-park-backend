@@ -45,6 +45,12 @@
 // `mod tests` (a GPU-vs-CPU-mirror one-event agreement test on real hardware) but
 // still requires human review before promotion past the "Unit Tested" V&V stage.
 
+// The f32 CPU mirror's transcendentals go through PETIR (gh:#985), so the
+// mirror is bit-identical across hosts. The GPU side still uses the WGSL
+// shader intrinsics, which are driver-defined; the mirror/GPU agreement
+// test tolerance covers that difference.
+use petir::mathf::RealMath;
+
 use crate::gpu::collision_grid::CollisionTables;
 
 /// Sentinel in [`EventBatch::fiss_nuc`] meaning "this neutron did not fission".
@@ -282,7 +288,7 @@ fn rng_next(lo: u32, hi: u32) -> (u32, u32, f32) {
 fn rotate_direction(u: [f32; 3], mu: f32, lo: u32, hi: u32) -> ([f32; 3], u32, u32) {
     let (lo, hi, xi) = rng_next(lo, hi);
     let phi = 2.0 * std::f32::consts::PI * xi;
-    let (sinphi, cosphi) = phi.sin_cos();
+    let (sinphi, cosphi) = phi.r_sin_cos();
     let a = (1.0 - mu * mu).max(0.0).sqrt();
     let b0 = (1.0 - u[2] * u[2]).max(0.0).sqrt();
     let dir = if b0 > 1.0e-10 {
@@ -345,7 +351,7 @@ fn langevin_inverse(mu_bar: f32) -> f32 {
         (1.0 / (1.0 - x)).min(50.0)
     };
     for _ in 0..30 {
-        let coth = 1.0 / lambda.tanh();
+        let coth = 1.0 / lambda.r_tanh();
         let f = coth - 1.0 / lambda - x;
         let d = 1.0 / (lambda * lambda) - (coth * coth - 1.0);
         if d.abs() < 1.0e-12 {
@@ -378,7 +384,7 @@ fn exponential_mu(mubar: f32, xi: f32) -> f32 {
     if lambda.abs() < 1.0e-6 {
         return (2.0 * xi - 1.0).clamp(-1.0, 1.0);
     }
-    let mu = 1.0 + (xi + (1.0 - xi) * (-2.0 * lambda).exp()).ln() / lambda;
+    let mu = 1.0 + (xi + (1.0 - xi) * (-2.0 * lambda).r_exp()).r_ln() / lambda;
     mu.clamp(-1.0, 1.0)
 }
 
@@ -407,7 +413,7 @@ fn continuum_inelastic(
         let (l2, h2, r2) = rng_next(l1, h1);
         lo = l2;
         hi = h2;
-        let cand = -theta * (r1 * r2).ln();
+        let cand = -theta * (r1 * r2).r_ln();
         if cand <= e_cm_elastic {
             e_cm_out = cand;
             break;
@@ -471,7 +477,7 @@ pub fn advance_event_cpu_mirror(
             batch.seed_hi[i] = hi;
             continue;
         }
-        let d_col = -xi_flight.ln() / sigma_t;
+        let d_col = -xi_flight.r_ln() / sigma_t;
 
         let ox = px - sphere.x0;
         let oy = py - sphere.y0;

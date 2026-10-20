@@ -36,6 +36,12 @@
 // GPU-vs-CPU-mirror flight-agreement test on real hardware), but still requires
 // human review before it is promoted past the "Unit Tested" V&V stage.
 
+// The f32 CPU mirror's transcendentals go through PETIR (gh:#985), so the
+// mirror is bit-identical across hosts. The GPU side still uses the WGSL
+// shader intrinsics, which are driver-defined; the mirror/GPU agreement
+// test tolerance covers that difference.
+use petir::mathf::RealMath;
+
 /// Structure-of-Arrays batch of live neutrons resident for the GPU flight kernel.
 ///
 /// All vectors are `f32`/`u32` acceleration state (the trusted transport loop is
@@ -303,7 +309,7 @@ pub fn advance_flight_cpu_mirror(
         }
 
         // 3. Distance to collision (cm). xi == 0 -> ln(0) = -inf -> d_col = +inf.
-        let d_col = -xi.ln() / sigma_t;
+        let d_col = -xi.r_ln() / sigma_t;
 
         // 4. Distance to the bounding sphere (cm).
         let px = batch.pos[3 * i];
@@ -932,7 +938,7 @@ mod tests {
         let sigma_flat = [1.0f32, 1.0f32];
         let seed = 0xDEAD_BEEF_1234_5678_u64;
         let (_, _, xi) = lcg_advance((seed >> 32) as u32, seed as u32);
-        let expected_x = -xi.ln(); // Sigma_t = 1
+        let expected_x = -xi.r_ln(); // Sigma_t = 1
 
         let mut batch = FlightBatch {
             pos: vec![0.0, 0.0, 0.0],

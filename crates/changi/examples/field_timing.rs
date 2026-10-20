@@ -41,6 +41,8 @@
 //! module doc claimed, which is what makes a 100–200 ms physics tick a real
 //! question rather than a foregone conclusion.
 
+use petir::mathf::RealMath;
+
 use std::time::{Duration, Instant};
 
 use changi::puff::wgsl::{field_pooled, field_serial, FieldGrid, PuffState};
@@ -95,8 +97,8 @@ fn plume(n: usize) -> Vec<PuffState> {
                 x: travel_m,
                 y: 0.0,
                 // Pasquill-Gifford class D, roughly: sigma ~ 0.08 x^0.9.
-                sigma_y: 0.08 * travel_m.max(1.0).powf(0.9),
-                sigma_z: 0.06 * travel_m.max(1.0).powf(0.9),
+                sigma_y: 0.08 * travel_m.max(1.0).r_powf(0.9),
+                sigma_z: 0.06 * travel_m.max(1.0).r_powf(0.9),
                 weight: 10.0,
             }
         })

@@ -246,7 +246,9 @@ fn z_from_skewness(g1: f64, n: f64) -> f64 {
     let w2 = -1.0 + (2.0 * (beta2 - 1.0)).sqrt();
     let delta = 1.0 / (0.5 * w2.r_ln()).sqrt();
     let alpha = (2.0 / (w2 - 1.0)).sqrt();
-    delta * (y / alpha).asinh()
+    // RealMath has no asinh; PETIR's Real::asinh is the pure-Rust libm port.
+    // Called by trait path because f64's inherent asinh would shadow it (gh:#985).
+    delta * petir::real::Real::asinh(y / alpha)
 }
 
 /// Anscombe–Glynn (1983) normalising transform of `b2 = g2 + 3`.

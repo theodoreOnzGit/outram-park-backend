@@ -29,6 +29,8 @@
 //! is expected to pass real state from its own model. It is a narrower
 //! interface, not a fabricated one.
 
+use petir::mathf::RealMath;
+
 use crate::animation::TracerTrain;
 use crate::components::temperature_colour;
 use egui::{Color32, Pos2, Rect, Response, Sense, Stroke, Ui, Vec2, Widget};
@@ -464,7 +466,7 @@ impl Widget for PipeVisual {
         let direction = match self.inclination() {
             Some(incline) => {
                 let a = incline.get::<radian>() as f32;
-                Vec2::new(a.cos(), -a.sin())
+                Vec2::new(a.r_cos(), -a.r_sin())
             }
             None => {
                 let v = self.screen_vector;

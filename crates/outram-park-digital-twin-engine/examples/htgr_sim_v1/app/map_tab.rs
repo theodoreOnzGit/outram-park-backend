@@ -1927,7 +1927,7 @@ fn draw_dispersion_rose(
     let head = (max_radius * 0.12).max(6.0);
     for sign in [-1.0_f32, 1.0] {
         let a = sign * 25.0_f32.to_radians();
-        let (ca, sa) = (a.cos(), a.sin());
+        let (ca, sa) = (a.r_cos(), a.r_sin());
         // Rotate the REVERSED unit vector, so the barbs trail behind the tip.
         let (bx, by) = (-ux * ca - -uy * sa, -ux * sa + -uy * ca);
         painter.line_segment(

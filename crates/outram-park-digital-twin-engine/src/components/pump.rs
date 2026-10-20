@@ -61,6 +61,8 @@
 //! `RESPONSIBLE_USE.md` this is for education, research and V&V only — not for
 //! facility operation, reactor control, or safety-critical decisions.
 
+use petir::mathf::RealMath;
+
 use crate::components::temperature_colour;
 use egui::{Color32, Pos2, Rect, Response, Sense, Stroke, Ui, Vec2, Widget};
 use std::f32::consts::TAU;
@@ -164,7 +166,7 @@ fn vane_root_angles(theta: Angle) -> [f32; IMPELLER_VANES] {
 /// phase, including zero — `edge_on_rotor_is_never_empty` pins that, because a
 /// stopped rotor that vanished would be worse than no rotor at all.
 fn edge_on_visible(phase: f32) -> bool {
-    phase.sin() > 0.0
+    phase.r_sin() > 0.0
 }
 
 /// Screen projection of an edge-on blade at this phase, in `[-1, 1]`.
@@ -173,7 +175,7 @@ fn edge_on_visible(phase: f32) -> bool {
 /// ends by the same `cos(phase)` when seen from the side, so it shortens onto
 /// the shaft as it turns edge-on instead of floating free.
 fn edge_on_projection(phase: f32) -> f32 {
-    phase.cos()
+    phase.r_cos()
 }
 
 // ── Deterministic cast-surface stipple ──────────────────────────────────────
@@ -648,8 +650,8 @@ impl VoluteLayout {
 /// included, so a positive shaft speed and the volute wrap agree.
 fn polar(centre: Pos2, radius: f32, angle: f32) -> Pos2 {
     Pos2::new(
-        centre.x + radius * angle.cos(),
-        centre.y + radius * angle.sin(),
+        centre.x + radius * angle.r_cos(),
+        centre.y + radius * angle.r_sin(),
     )
 }
 
@@ -1599,7 +1601,7 @@ mod tests {
     /// really is the tangential discharge of the drawn volute.
     #[test]
     fn the_discharge_leaves_tangentially_and_upwards() {
-        let (sx, sy) = (-CUTWATER_ANGLE.sin(), CUTWATER_ANGLE.cos());
+        let (sx, sy) = (-CUTWATER_ANGLE.r_sin(), CUTWATER_ANGLE.r_cos());
         assert!(sx.abs() < 1e-6, "tangent is not vertical: ({sx}, {sy})");
         assert!(
             sy < -0.999,

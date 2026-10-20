@@ -309,7 +309,7 @@ fn evaluate(setup: &Setup, name: &str, a: &[f64]) -> Option<Vec<f64>> {
                     Precision::Real4 => {
                         let h = height[k] as f32;
                         tt[k] = (293.0_f32 - 0.0065_f32 * h) as f64;
-                        rho[k] = (1.2_f32 * (-h / 8500.0_f32).exp()) as f64;
+                        rho[k] = (1.2_f32 * (-h / 8500.0_f32).r_exp()) as f64;
                     }
                     Precision::Real8 => {
                         tt[k] = 293.0 - 0.0065 * height[k];

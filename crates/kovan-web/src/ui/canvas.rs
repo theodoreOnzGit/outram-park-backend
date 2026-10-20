@@ -836,13 +836,14 @@ impl Pad for WorldRect {
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
 
     /// WCAG relative luminance of an opaque colour.
     fn luminance(c: Color32) -> f32 {
         let lin = |u: u8| {
             let x = u as f32 / 255.0;
-            if x <= 0.03928 { x / 12.92 } else { ((x + 0.055) / 1.055).powf(2.4) }
+            if x <= 0.03928 { x / 12.92 } else { ((x + 0.055) / 1.055).r_powf(2.4) }
         };
         0.2126 * lin(c.r()) + 0.7152 * lin(c.g()) + 0.0722 * lin(c.b())
     }
