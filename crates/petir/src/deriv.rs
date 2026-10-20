@@ -215,7 +215,7 @@ where
         // Compute an optimised step size to minimise the total error, using
         // the scaling of the truncation error (O(h^2)) and rounding error
         // (O(1/h)).
-        let h_opt = h * (round / (2.0 * trunc)).powf(1.0 / 3.0);
+        let h_opt = h * Real::powf(round / (2.0 * trunc), 1.0 / 3.0);
         let (r_opt, round_opt, trunc_opt) = central_at_h(&f, x, h_opt);
         let error_opt = round_opt + trunc_opt;
 
@@ -262,7 +262,7 @@ where
     if round < trunc && round > 0.0 && trunc > 0.0 {
         // Truncation is O(h) here rather than O(h^2), so the balancing
         // exponent is 1/2 rather than 1/3.
-        let h_opt = h * (round / trunc).powf(1.0 / 2.0);
+        let h_opt = h * Real::powf(round / trunc, 1.0 / 2.0);
         let (r_opt, round_opt, trunc_opt) = forward_at_h(&f, x, h_opt);
         let error_opt = round_opt + trunc_opt;
 

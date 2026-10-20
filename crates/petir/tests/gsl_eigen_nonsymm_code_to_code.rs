@@ -68,6 +68,16 @@
 //! other twelve cases are bit-identical to stock. Prediction held in its
 //! refined form; the original form ("bit-identical to stock") missed on
 //! `rand25`.
+//!
+//! # Regressed and restored 2026-10-20 (gh #1001)
+//!
+//! At `1ab741aacd` (#994 added `faer` as a dev-dependency) the eigenvalues
+//! fell to **236/320** against the PETIR-`hypot` reference, worst 5.18e-15 at
+//! `rand25` EV0R[18], i.e. exactly stock GSL's values: `faer` brought
+//! `num-traits/std` into the graph, and `householder::transform`'s
+//! `alpha.hypot(xnorm)` then resolved to std's inherent `hypot` (glibc)
+//! instead of `Real::hypot`. After the UFCS fix: **320/320** again, with
+//! `faer` still in the graph.
 
 mod linalg_gsl_common;
 

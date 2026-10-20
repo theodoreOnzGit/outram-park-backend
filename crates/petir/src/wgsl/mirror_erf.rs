@@ -137,7 +137,7 @@ pub fn erfc8(x: f32) -> f32 {
         den = x * den + qi;
     }
 
-    (num / den) * (-x * x).exp()
+    (num / den) * Real::exp(-x * x)
 }
 
 /// The complementary error function in `f32`.
@@ -157,10 +157,10 @@ pub fn erfc(x: f32) -> f32 {
     let e_val = if ax <= 1.0 {
         cheb(&ERFC_XLT1, o1, 2.0 * ax - 1.0)
     } else if ax <= 5.0 {
-        let ex2 = (-x * x).exp();
+        let ex2 = Real::exp(-x * x);
         ex2 * cheb(&ERFC_X15, o2, 0.5 * (ax - 3.0))
     } else if ax < 10.0 {
-        let exterm = (-x * x).exp() / ax;
+        let exterm = Real::exp(-x * x) / ax;
         exterm * cheb(&ERFC_X510, o3, (2.0 * ax - 15.0) / 5.0)
     } else {
         erfc8(ax)

@@ -270,7 +270,7 @@ impl QrDecomposition {
             // `(int)(log(absmax) / M_LN2)` -- C truncates toward zero, which
             // `as i32` also does. `absmax > 0` is established above, so the
             // logarithm is finite.
-            let ee = (absmax.ln() / core::f64::consts::LN_2) as i32;
+            let ee = (Real::ln(absmax) / core::f64::consts::LN_2) as i32;
             20.0 * ((self.rows() + self.cols()) as f64)
                 * libm::pow(2.0, f64::from(ee))
                 * crate::scalar::DBL_EPSILON
@@ -306,7 +306,7 @@ impl QrDecomposition {
             }
         }
         let ee = if absmax > 0.0 {
-            (absmax.ln() / core::f64::consts::LN_2) as i32
+            (Real::ln(absmax) / core::f64::consts::LN_2) as i32
         } else {
             0
         };

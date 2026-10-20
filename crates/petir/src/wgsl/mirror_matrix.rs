@@ -99,7 +99,7 @@ pub fn nrm2(x: &[f32]) -> f32 {
             }
         }
     }
-    scale * ssq.sqrt()
+    scale * Real::sqrt(ssq)
 }
 
 /// The naive norm, `sqrt(sum of squares)`.
@@ -114,7 +114,7 @@ pub fn nrm2_naive(x: &[f32]) -> f32 {
     for &v in x.iter() {
         s += v * v;
     }
-    s.sqrt()
+    Real::sqrt(s)
 }
 
 /// Sum of absolute values. Mirrors `petir_blas_asum` / `cblas_sasum`.

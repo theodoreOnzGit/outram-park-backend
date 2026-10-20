@@ -109,7 +109,7 @@ pub fn transform(v: &mut [f64]) -> f64 {
     }
 
     let alpha = *alpha_slot;
-    let beta = -gsl_sign(alpha) * alpha.hypot(xnorm);
+    let beta = -gsl_sign(alpha) * Real::hypot(alpha, xnorm);
     let tau = (beta - alpha) / beta;
 
     let s = alpha - beta;

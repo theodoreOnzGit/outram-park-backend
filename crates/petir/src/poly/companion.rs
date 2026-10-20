@@ -300,7 +300,7 @@ fn orthes(h_mat: &mut Matrix, n: usize) {
                 h += oi * oi;
                 i -= 1;
             }
-            let mut g = h.sqrt();
+            let mut g = Real::sqrt(h);
             if vat(&ort, m) > 0.0 {
                 g = -g;
             }
@@ -423,7 +423,7 @@ fn hqr2_eigenvalues(nn: usize, h: &mut Matrix, d: &mut [f64], e: &mut [f64]) -> 
             w = at(h, n, n - 1) * at(h, n - 1, n);
             p = (at(h, n - 1, n - 1) - at(h, n, n)) / 2.0;
             q = p * p + w;
-            z = q.abs().sqrt();
+            z = Real::sqrt(q.abs());
             put(h, n, n, at(h, n, n) + exshift);
             put(h, n - 1, n - 1, at(h, n - 1, n - 1) + exshift);
             x = at(h, n, n);
@@ -442,7 +442,7 @@ fn hqr2_eigenvalues(nn: usize, h: &mut Matrix, d: &mut [f64], e: &mut [f64]) -> 
                 s = x.abs() + z.abs();
                 p = x / s;
                 q = z / s;
-                r = (p * p + q * q).sqrt();
+                r = Real::sqrt(p * p + q * q);
                 p /= r;
                 q /= r;
 
@@ -503,7 +503,7 @@ fn hqr2_eigenvalues(nn: usize, h: &mut Matrix, d: &mut [f64], e: &mut [f64]) -> 
                 s = (y - x) / 2.0;
                 s = s * s + w;
                 if s > 0.0 {
-                    s = s.sqrt();
+                    s = Real::sqrt(s);
                     if y < x {
                         s = -s;
                     }
@@ -574,7 +574,7 @@ fn hqr2_eigenvalues(nn: usize, h: &mut Matrix, d: &mut [f64], e: &mut [f64]) -> 
                     q /= x;
                     r /= x;
                 }
-                s = (p * p + q * q + r * r).sqrt();
+                s = Real::sqrt(p * p + q * q + r * r);
                 if p < 0.0 {
                     s = -s;
                 }

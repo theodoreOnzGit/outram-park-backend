@@ -483,12 +483,12 @@ fn fd_neg(j: f64, x: f64) -> f64 {
     if x < -1.0 && x < -(j + 1.0).abs() {
         // Simple series [Goano (6)]; the acceleration below is not worth its
         // cost this far out.
-        let ex = x.exp();
+        let ex = Real::exp(x);
         let mut term = ex;
         let mut sum = term;
         for n in 2..100 {
             let rat = (n as f64 - 1.0) / n as f64;
-            term *= -ex * rat.powf(j + 1.0);
+            term *= -ex * Real::powf(rat, j + 1.0);
             sum += term;
             if (term / sum).abs() < DBL_EPSILON {
                 break;
@@ -503,7 +503,7 @@ fn fd_neg(j: f64, x: f64) -> f64 {
 
     let mut s = 0.0_f64;
     let mut xn = x;
-    let ex = -x.exp();
+    let ex = -Real::exp(x);
     let mut enx = -ex;
     let mut f = 0.0_f64;
     let mut f_previous;
@@ -511,7 +511,7 @@ fn fd_neg(j: f64, x: f64) -> f64 {
     let mut qden = [0.0_f64; FD_QSIZE];
 
     for jterm in 0..=FD_ITMAX {
-        let p = (jterm as f64 + 1.0).powf(j + 1.0);
+        let p = Real::powf(jterm as f64 + 1.0, j + 1.0);
         let term = enx / p;
         f_previous = f;
         f = fd_whiz(term, jterm, &mut qnum, &mut qden, &mut s);
@@ -565,8 +565,8 @@ fn fd_asymp(j: f64, x: f64) -> f64 {
     }
 
     let fneg = fd_neg(j, -x);
-    let ex_arg = (j + 1.0) * x.ln() - lg;
-    (j * core::f64::consts::PI).cos() * fneg + 2.0 * seqn * ex_arg.exp()
+    let ex_arg = (j + 1.0) * Real::ln(x) - lg;
+    Real::cos(j * core::f64::consts::PI) * fneg + 2.0 * seqn * Real::exp(ex_arg)
 }
 
 /// `F_{-1}(x) = e^x / (1 + e^x)` — the Fermi-Dirac **occupation function**
@@ -596,10 +596,10 @@ pub fn fermi_dirac_m1(x: f64) -> f64 {
     if x < 0.0 {
         // Written this way rather than 1/(1+e^{-x}) so the exponential that
         // is evaluated is the small one.
-        let ex = x.exp();
+        let ex = Real::exp(x);
         ex / (1.0 + ex)
     } else {
-        1.0 / (1.0 + (-x).exp())
+        1.0 / (1.0 + Real::exp(-x))
     }
 }
 
@@ -632,15 +632,15 @@ pub fn fermi_dirac_0(x: f64) -> f64 {
     if x < -5.0 {
         // ln(1+e^x) = e^x (1 - e^x/2 + e^{2x}/3 - ...), so the leading e^x
         // survives instead of being lost inside ln(1 + tiny).
-        let ex = x.exp();
+        let ex = Real::exp(x);
         let ser = 1.0 - ex * (0.5 - ex * (1.0 / 3.0 - ex * (0.25 - ex * (0.2 - ex / 6.0))));
         ex * ser
     } else if x < 10.0 {
-        (1.0 + x.exp()).ln()
+        Real::ln(1.0 + Real::exp(x))
     } else {
         // ln(1+e^x) = x + e^{-x} - e^{-2x}/2 + ..., so x is exact and only
         // the correction rounds.
-        let ex = (-x).exp();
+        let ex = Real::exp(-x);
         x + ex * (1.0 - 0.5 * ex + ex * ex / 3.0 - ex * ex * ex / 4.0)
     }
 }
@@ -746,7 +746,7 @@ pub fn fermi_dirac_2(x: f64) -> f64 {
 /// `rat*rat*rat` and so on; the power is passed here instead, which keeps
 /// the three integer cases from drifting apart.
 fn fd_series(x: f64, p: u32) -> f64 {
-    let ex = x.exp();
+    let ex = Real::exp(x);
     let mut term = ex;
     let mut sum = term;
     for n in 2..100 {
@@ -772,14 +772,14 @@ fn fd_series(x: f64, p: u32) -> f64 {
 /// passes `2` — exactly upstream's `sqrt(rat)`, `rat*sqrt(rat)` and
 /// `rat*rat*sqrt(rat)`.
 fn fd_series_half(x: f64, whole: u32) -> f64 {
-    let ex = x.exp();
+    let ex = Real::exp(x);
     let mut term = ex;
     let mut sum = term;
     // mhalf iterates to 200 upstream, the other two to 100; the larger bound
     // is harmless for all three because the break is on convergence.
     for n in 2..200 {
         let rat = (n as f64 - 1.0) / n as f64;
-        let mut r = rat.sqrt();
+        let mut r = Real::sqrt(rat);
         for _ in 0..whole {
             r *= rat;
         }
@@ -824,7 +824,7 @@ pub fn fermi_dirac_mhalf(x: f64) -> f64 {
     } else if x < 10.0 {
         cheb(1.0 / 3.0 * (x - 4.0) - 1.0, &FD_MHALF_C)
     } else if x < 30.0 {
-        cheb(0.1 * x - 2.0, &FD_MHALF_D) * x.sqrt()
+        cheb(0.1 * x - 2.0, &FD_MHALF_D) * Real::sqrt(x)
     } else {
         fd_asymp(-0.5, x)
     }
@@ -865,7 +865,7 @@ pub fn fermi_dirac_half(x: f64) -> f64 {
     } else if x < 10.0 {
         cheb(1.0 / 3.0 * (x - 4.0) - 1.0, &FD_HALF_C)
     } else if x < 30.0 {
-        cheb(0.1 * x - 2.0, &FD_HALF_D) * (x * x.sqrt())
+        cheb(0.1 * x - 2.0, &FD_HALF_D) * (x * Real::sqrt(x))
     } else {
         fd_asymp(0.5, x)
     }
@@ -903,7 +903,7 @@ pub fn fermi_dirac_3half(x: f64) -> f64 {
     } else if x < 10.0 {
         cheb(1.0 / 3.0 * (x - 4.0) - 1.0, &FD_3HALF_C)
     } else if x < 30.0 {
-        cheb(0.1 * x - 2.0, &FD_3HALF_D) * (x * x * x.sqrt())
+        cheb(0.1 * x - 2.0, &FD_3HALF_D) * (x * x * Real::sqrt(x))
     } else {
         fd_asymp(1.5, x)
     }

@@ -373,7 +373,7 @@ impl FirstOrderStableTransferFnNoZeroes {
             return;
         }
 
-        let decay_factor = (-(time_step / self.process_time).get::<ratio>()).exp();
+        let decay_factor = Real::exp(-(time_step / self.process_time).get::<ratio>());
         self.decaying_mode = self.decaying_mode * decay_factor;
     }
 
@@ -390,7 +390,7 @@ impl FirstOrderStableTransferFnNoZeroes {
         self.offset += step_magnitude;
 
         // how much of that has yet to be realised
-        let decay_factor = (-(time_since_start / self.process_time).get::<ratio>()).exp();
+        let decay_factor = Real::exp(-(time_since_start / self.process_time).get::<ratio>());
         self.decaying_mode += step_magnitude * decay_factor;
     }
 
@@ -532,7 +532,7 @@ impl FirstOrderResponse {
         // otherwise, calculate as per normal
 
         // u1(t - t1) * Kp * [1-exp(- [t-t1] / tau])
-        let response: Ratio = self.steady_state_value() * (1.0 - exponent_ratio.exp());
+        let response: Ratio = self.steady_state_value() * (1.0 - Real::exp(exponent_ratio));
 
         return response;
     }

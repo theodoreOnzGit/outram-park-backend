@@ -665,7 +665,7 @@ impl ChebSeries {
         for &r in &fit.residual {
             sum_sq += r * r;
         }
-        let rms_residual = (sum_sq / (m as f64)).sqrt();
+        let rms_residual = Real::sqrt(sum_sq / (m as f64));
 
         // `least_squares` returns coefficients of T_0 .. T_order directly,
         // which is the PLAIN convention; `ChebSeries` stores GSL's, where the
