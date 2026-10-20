@@ -6,7 +6,7 @@ src/pydoseia/ is a Rust port of parts of pyDOSEIA
 dca4cdc3bb0bef7f7e692c8991cf536c91e7a4ce, retrieved 2026-09-28. pyDOSEIA is
 distributed under the MIT licence reproduced verbatim below. The ported files
 carry this notice by reference and must keep it; the port as a whole is
-distributed under GPL-3.0 (see the workspace LICENSE), which the MIT licence
+distributed under ~~GPL-3.0~~ **AGPL-3.0-only** (relicensed 2026-10-20, gh:#973) (see the workspace LICENSE), which the MIT licence
 permits.
 
 No pyDOSEIA data file (library/, met_data/) is included in this crate.

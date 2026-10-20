@@ -3,7 +3,7 @@
 //! An independent pure-Rust port of the uncertainty-quantification (UQ) and
 //! risk-analysis core of [RAVEN](https://github.com/idaholab/raven), the
 //! probabilistic risk-analysis / UQ framework developed by Idaho National
-//! Laboratory. Upstream is Apache-2.0; RAFFLES is GPL-3.0-only. That direction
+//! Laboratory. Upstream is Apache-2.0; RAFFLES is AGPL-3.0-only (was GPL-3.0-only until 2026-10-20, gh:#973). That direction
 //! is **one-way** — see [Licensing](#licensing) below.
 //!
 //! **Owner: Adolphus Lye.** They chose the RAFFLES backronym and this crate is
@@ -127,8 +127,10 @@
 //!
 //! ## Licensing
 //!
-//! Upstream RAVEN is **Apache-2.0**; RAFFLES is **GPL-3.0-only**. Apache-2.0
-//! code may be taken into a GPLv3 work, but GPLv3 code may **not** be taken
+//! Upstream RAVEN is **Apache-2.0**; RAFFLES is ~~**GPL-3.0-only**~~
+//! **AGPL-3.0-only** (2026-10-20, gh:#973), a combined work whose GPL-3.0 ports
+//! keep GPL-3.0 (`LICENSE.GPL-3.0`). Apache-2.0
+//! code may be taken into an (A)GPLv3 work, but (A)GPLv3 code may **not** be taken
 //! into an Apache-2.0 work. Code therefore flows RAVEN -> RAFFLES and never
 //! RAFFLES -> RAVEN. Do not contribute RAFFLES code upstream. Full provenance,
 //! the required Battelle Energy Alliance / Idaho National Laboratory
@@ -137,7 +139,8 @@
 //!
 //! **RAVEN is not the only upstream, and the others are not Apache-2.0.**
 //! [`scram`] derives from [SCRAM](https://github.com/rakhimov/scram) and parts
-//! of [`bayesian`] and [`gnn`] from other projects, all **GPL-3.0**, so none
+//! of [`bayesian`] and [`gnn`] from other projects, all **GPL-3.0** (those
+//! files keep it, combined with the AGPL crate under §13), so none
 //! carries the one-way constraint above. Check which upstream a file comes
 //! from before writing an attribution header; the `NOTICE` lists all of them.
 //!

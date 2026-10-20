@@ -7,7 +7,7 @@ edition.workspace = true
 # in-tree (see NOTICE); BSD is GPLv3-compatible, so the crate as a whole is
 # distributed under GPL-3.0-only.
 license.workspace = true
-description = "Pure-Rust fork/port of cfMesh (Creative Fields' automatic unstructured mesh generator: Cartesian / tetrahedral / polyhedral meshing with boundary layers), with voro++ as the Voronoi/polyhedral-dual reference. Consumes an outram-blender surface mesh and produces an outram-foam polyMesh. An independent OUTRAM PARK fork, not the official cfMesh. GPL-3.0; scaffold stage — no human V&V yet, use at your own risk."
+description = "Pure-Rust fork/port of cfMesh (Creative Fields' automatic unstructured mesh generator: Cartesian / tetrahedral / polyhedral meshing with boundary layers), with voro++ as the Voronoi/polyhedral-dual reference. Consumes an outram-blender surface mesh and produces an outram-foam polyMesh. An independent OUTRAM PARK fork, not the official cfMesh. AGPL-3.0-only (ported files keep GPL-3.0); scaffold stage — no human V&V yet, use at your own risk."
 repository.workspace = true
 homepage.workspace = true
 categories.workspace = true

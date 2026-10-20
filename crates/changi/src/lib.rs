@@ -106,7 +106,7 @@
 //!
 //! ## Licence
 //!
-//! GPL-3.0, containing a port of FLEXPART (GPL-3.0-or-later). See
+//! ~~GPL-3.0~~ **AGPL-3.0-only, as a combined work** (relicensed 2026-10-20, gh:#973), containing a port of FLEXPART (GPL-3.0-or-later). See
 //! `LICENSE.flexpart` and `NOTICE.flexpart` at the crate root. Independent
 //! fork; not affiliated with or endorsed by NILU or the FLEXPART developers.
 

@@ -12,7 +12,7 @@ any checkout, with no external data tree.
 * **URL** — <https://github.com/openmc-dev/openmc>
 * **Commit accessed** — `afa7a14`, from the local checkout at
   `/opt/src/openmc`, on **2026-09-23**.
-* **Licence** — MIT. Compatible with this workspace's GPL-3.0-only.
+* **Licence** — MIT. Compatible with this workspace's ~~GPL-3.0-only~~ **AGPL-3.0-only** (relicensed 2026-10-20, gh:#973).
 * **Processing** — **none**. Copied verbatim, byte for byte.
   `tests/depletion_chain_xml_vs_transcription.rs` asserts the copy still
   matches the checkout's file when a checkout is present, so it cannot drift

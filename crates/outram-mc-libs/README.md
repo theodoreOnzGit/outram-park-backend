@@ -142,7 +142,7 @@ upstream, e.g. delta tracking; see `CLAUDE.md`) and what is **out of scope**
 
 ## License
 
-GPL-3.0-only (see the workspace root `LICENSE`), permitted under the terms
+~~GPL-3.0-only~~ **AGPL-3.0-only** (relicensed 2026-10-20, gh:#973; see `LICENSE`), permitted under the terms
 of OpenMC's upstream MIT license — see `TRADEMARKS.md`.
 
 ## Copyright

@@ -104,7 +104,7 @@ and whole-body mSv) — as cited reference data, with provenance in
   (cite, don't reproduce). The **code** is open source under the **MIT
   licence** at <https://github.com/BiswajitSadhu/pyDOSEIA> (checked
   2026-09-28, commit `dca4cdc3`), so its logic may be ported into this
-  GPL-3.0 crate with attribution (MIT notice kept, verbatim in
+  ~~GPL-3.0~~ **AGPL-3.0-only** crate with attribution (MIT notice kept, verbatim in
   [`NOTICE`](NOTICE)). ~~**Partly ported as `buangkok::pydoseia` (2026-09-28).**~~
   **Ported as `buangkok::pydoseia` (2026-09-28; I/O and UI excepted).**
   Each bundled data table's licence is assessed in the scoping note; none is
@@ -125,4 +125,4 @@ and whole-body mSv) — as cited reference data, with provenance in
 
 ## License
 
-GPL-3.0. Part of the [OUTRAM PARK](../../README.md) workspace.
+~~GPL-3.0~~ **AGPL-3.0-only** (relicensed 2026-10-20, gh:#973). Part of the [OUTRAM PARK](../../README.md) workspace.

@@ -36,7 +36,7 @@ maturity gate in that file for what this means and how the bar is revised.
   recording.
 
 
-License: GPL-3.0. Requires OpenBLAS on Linux/macOS, Intel MKL on Windows.
+License: ~~GPL-3.0~~ **AGPL-3.0-only** combined work (relicensed 2026-10-20, gh:#973; ported files keep GPL-3.0 and `LICENSE.GPL-3.0` ships beside `LICENSE`; see `docs/relicensing-agpl-2026-10-20.md`). Requires OpenBLAS on Linux/macOS, Intel MKL on Windows.
 
 ---
 

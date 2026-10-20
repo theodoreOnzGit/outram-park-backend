@@ -31,7 +31,7 @@ beds). It holds no nuclear data of its own; cross sections come from
 
 It is a **derivative work** of OpenMC (MIT licence, copyright the OpenMC
 development team, MIT and Argonne National Laboratory), distributed under
-GPL-3.0-only. It is not the official OpenMC and is not affiliated with or
+~~GPL-3.0-only~~ **AGPL-3.0-only** (relicensed 2026-10-20, gh:#973). It is not the official OpenMC and is not affiliated with or
 endorsed by MIT or Argonne.
 
 ## Live demo

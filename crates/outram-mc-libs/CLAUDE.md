@@ -475,8 +475,8 @@ maturity gate in that file for what this means and how the bar is revised.
   `RECORDED_PCM = -6.0`, `RECORDED_SEM_PCM = 5.0`; the ensemble's own
   `RECORDED_PCM` / `RECORDED_SD` are `-6.0` / `165.0`.
 
-**Upstream license:** OpenMC is MIT-licensed. This Rust port is GPL-3.0-only
-per the workspace default; the port constitutes new copyrightable expression.
+**Upstream license:** OpenMC is MIT-licensed. This Rust port is ~~GPL-3.0-only~~
+**AGPL-3.0-only** (relicensed 2026-10-20, gh:#973) per the workspace default; the port constitutes new copyrightable expression.
 
 ## Standing goal: OpenMC-like API + notebooks-as-verification-tests (MANDATORY)
 

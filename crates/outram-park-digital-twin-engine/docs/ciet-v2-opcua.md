@@ -509,5 +509,5 @@ simulator README has not been executed as part of a test suite.
 
 ## Licence
 
-GPL-3.0. See the workspace root for the full licence text, and
+~~GPL-3.0~~ **AGPL-3.0-only** (relicensed 2026-10-20, gh:#973). See the workspace root for the full licence text, and
 `RESEARCH_INTEGRITY_AND_PROVENANCE.md` for attribution expectations.

@@ -83,7 +83,7 @@ members = [
     "crates/outram-park-fork-moltres",
     # raffles — RAFFLES (Risk Analysis Framework For Learning & Ensemble
     # Simulation): independent pure-Rust port of the UQ / risk-analysis core of
-    # RAVEN (Apache-2.0, Idaho National Laboratory). Apache-2.0 -> GPL-3.0 is
+    # RAVEN (Apache-2.0, Idaho National Laboratory). Apache-2.0 -> ~~GPL-3.0~~ AGPL-3.0 is
     # ONE-WAY; see crates/raffles/NOTICE. Owned by Adolphus Lye. SCAFFOLD:
     # module boundaries + provenance only, nothing implemented. Scoping doc:
     # docs/raven-port-scoping.md.
@@ -175,10 +175,10 @@ authors = [
 # AGPLv3 §13, and each ships `LICENSE.GPL-3.0` beside its `LICENSE` for the
 # GPL-3.0 parts. Every crate's own NOTICE states which case it is in.
 #
-# Five crates are held at GPL-3.0-only by an explicit `license` field until
-# their third-party authors' consent is recorded on gh:#973 -- bedok, raffles,
-# tampines, tampines-steam-tables and tuas_boussinesq_solver. Do not remove
-# those fields without that consent.
+# CORRECTED 2026-10-20: the five crates once held at GPL-3.0-only (bedok, raffles,
+# tampines, tampines-steam-tables, tuas_boussinesq_solver) were relicensed on the
+# maintainer's direction "All crates AGPLv3"; see
+# docs/relicensing-agpl-2026-10-20.md.
 license = "AGPL-3.0-only"
 homepage = "https://github.com/theodoreOnzGit/outram-park-backend"
 repository = "https://github.com/theodoreOnzGit/outram-park-backend"
@@ -192,7 +192,7 @@ categories = ["science"]
 approx = "0.5.1"            # 0.6 is only a pre-release; staying on latest stable
 csv = "1.4.0"
 # no_std f64 transcendentals for PETIR: a pure-Rust port of musl libm,
-# MIT OR Apache-2.0 (permissive into GPL-3.0). Required, not optional -- in
+# MIT OR Apache-2.0 (permissive into ~~GPL-3.0~~ AGPL-3.0). Required, not optional -- in
 # no_std, sin/cos/exp/log/sqrt/pow are std-only and GSL calls them throughout.
 # Bonus kept deliberately: ONE fixed implementation means bit-identical
 # transcendentals across platforms, where std dispatches to whatever
@@ -241,7 +241,7 @@ getrandom = "0.3"
 # request exactly those on native targets, so nothing changes off wasm.
 faer = { version = "0.24", default-features = false }
 # burn — deep-learning / tensor framework (tracel-ai), declared `no_std`.
-# MIT OR Apache-2.0, i.e. permissive into GPL-3.0 (ONE-WAY: our GPL-3.0 code
+# MIT OR Apache-2.0, i.e. permissive into ~~GPL-3.0~~ AGPL-3.0 (ONE-WAY: our ~~GPL-3.0~~ AGPL-3.0 code
 # cannot flow back to burn).
 #
 # THIS IS THE WORKSPACE'S PYTORCH REPLACEMENT (maintainer direction,
@@ -320,8 +320,8 @@ anyhow = "1.0.100"
 # research, and V&V. Nothing here is validated, supported, or claimed fit for
 # reactor operation, control, licensing, or safety-critical use.
 #
-# That is a statement of scope, not a restriction on you: this is GPLv3 software
-# supplied **as-is with no warranty** (GPLv3 §15-16), so downstream use is at the
+# That is a statement of scope, not a restriction on you: this is ~~GPLv3~~ AGPLv3 software
+# supplied **as-is with no warranty** (AGPLv3 §15-16), so downstream use is at the
 # user's own risk and their own responsibility. The project simply does not
 # certify it for operational deployment and will not represent that it is.
 #

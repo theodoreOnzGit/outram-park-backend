@@ -15,7 +15,7 @@ communicator/rank/size, predefined datatypes, point-to-point messaging, and
 threads-as-ranks transport only. No MPICH C source is linked, compiled, or
 vendored; there is no FFI to any system MPI.
 
-LICENSE. Distributed under GPL-3.0-only, consistent with the Outram Park suite.
+LICENSE. Distributed under ~~GPL-3.0-only~~ AGPL-3.0-only (relicensed 2026-10-20, gh:#973), consistent with the Outram Park suite.
 MPICH itself is distributed under a permissive BSD-style license (see the MPICH
 COPYRIGHT), which is compatible with redistribution of independent derivative
 work under the GPL. This crate contains no copied MPICH source, so it carries no

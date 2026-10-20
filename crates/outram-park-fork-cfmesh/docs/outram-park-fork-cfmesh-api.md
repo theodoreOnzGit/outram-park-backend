@@ -1,6 +1,6 @@
 # Crate Documentation
 
-**Version:** 0.0.1
+**Version:** 0.0.3
 
 **Format Version:** 61
 
@@ -229,7 +229,7 @@ with `Arc<T>`); pure Rust with no BLAS/C/Fortran so the crate builds on
 Android/Termux.
 
 > **Not affiliated with Creative Fields or the cfMesh project**, and not the
-> official cfMesh software — an independent GPL fork. **Untrusted
+> official cfMesh software — an independent fork (~~GPL~~ AGPL-3.0-only combined work, 2026-10-20). **Untrusted
 > AI-assisted draft** until human-reviewed, per the workspace
 > `RESPONSIBLE_USE.md`. For education / research / V&V only; not for reactor
 > operation, licensing, or safety-critical decisions.
@@ -501,7 +501,7 @@ pub struct QualityReport {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> QualityReport { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -529,7 +529,7 @@ pub struct QualityReport {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &QualityReport) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -547,7 +547,7 @@ pub struct QualityReport {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1092,7 +1092,7 @@ pub struct Vec3 {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Vec3 { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -1121,7 +1121,7 @@ pub struct Vec3 {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Vec3) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -1139,7 +1139,7 @@ pub struct Vec3 {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1443,7 +1443,7 @@ pub struct SurfaceRegions {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> SurfaceRegions { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -1472,7 +1472,7 @@ pub struct SurfaceRegions {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &SurfaceRegions) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -1490,7 +1490,7 @@ pub struct SurfaceRegions {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1707,7 +1707,7 @@ pub struct TetDualOptions {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> TetDualOptions { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -1741,7 +1741,7 @@ pub struct TetDualOptions {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &TetDualOptions) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -1759,7 +1759,7 @@ pub struct TetDualOptions {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1824,7 +1824,7 @@ pub struct TetDualReport {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> TetDualReport { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -1852,7 +1852,7 @@ pub struct TetDualReport {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &TetDualReport) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -1870,7 +1870,7 @@ pub struct TetDualReport {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -2491,7 +2491,7 @@ pub struct BoundaryPatch {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> BoundaryPatch { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -2519,7 +2519,7 @@ pub struct BoundaryPatch {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &BoundaryPatch) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -2537,7 +2537,7 @@ pub struct BoundaryPatch {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -2643,7 +2643,7 @@ pub struct VolumeMesh {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> VolumeMesh { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -2683,7 +2683,7 @@ pub struct VolumeMesh {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**

@@ -1,8 +1,8 @@
 # Crate Documentation
 
-**Version:** 0.0.0
+**Version:** 0.0.2
 
-**Format Version:** 60
+**Format Version:** 61
 
 # Module `raffles`
 
@@ -11,7 +11,7 @@
 An independent pure-Rust port of the uncertainty-quantification (UQ) and
 risk-analysis core of [RAVEN](https://github.com/idaholab/raven), the
 probabilistic risk-analysis / UQ framework developed by Idaho National
-Laboratory. Upstream is Apache-2.0; RAFFLES is GPL-3.0-only. That direction
+Laboratory. Upstream is Apache-2.0; RAFFLES is AGPL-3.0-only (was GPL-3.0-only until 2026-10-20, gh:#973). That direction
 is **one-way** — see [Licensing](#licensing) below.
 
 **Owner: Adolphus Lye.** They chose the RAFFLES backronym and this crate is
@@ -135,8 +135,10 @@ test problem for anything else. The workspace V&V rule requires both the
 
 ## Licensing
 
-Upstream RAVEN is **Apache-2.0**; RAFFLES is **GPL-3.0-only**. Apache-2.0
-code may be taken into a GPLv3 work, but GPLv3 code may **not** be taken
+Upstream RAVEN is **Apache-2.0**; RAFFLES is ~~**GPL-3.0-only**~~
+**AGPL-3.0-only** (2026-10-20, gh:#973), a combined work whose GPL-3.0 ports
+keep GPL-3.0 (`LICENSE.GPL-3.0`). Apache-2.0
+code may be taken into an (A)GPLv3 work, but (A)GPLv3 code may **not** be taken
 into an Apache-2.0 work. Code therefore flows RAVEN -> RAFFLES and never
 RAFFLES -> RAVEN. Do not contribute RAFFLES code upstream. Full provenance,
 the required Battelle Energy Alliance / Idaho National Laboratory
@@ -145,7 +147,8 @@ attribution, and the verbatim upstream licence text are in the crate's
 
 **RAVEN is not the only upstream, and the others are not Apache-2.0.**
 [`scram`] derives from [SCRAM](https://github.com/rakhimov/scram) and parts
-of [`bayesian`] and [`gnn`] from other projects, all **GPL-3.0**, so none
+of [`bayesian`] and [`gnn`] from other projects, all **GPL-3.0** (those
+files keep it, combined with the AGPL crate under §13), so none
 carries the one-way constraint above. Check which upstream a file comes
 from before writing an attribution header; the `NOTICE` lists all of them.
 
@@ -384,7 +387,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> AbcKernel { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -413,7 +416,7 @@ Fields:
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &AbcKernel) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -432,7 +435,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -508,7 +511,7 @@ pub struct AbcLikelihood {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> AbcLikelihood { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -536,7 +539,7 @@ pub struct AbcLikelihood {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &AbcLikelihood) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -555,7 +558,7 @@ pub struct AbcLikelihood {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -609,7 +612,7 @@ pub struct RejectionAbcResult {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> RejectionAbcResult { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -637,7 +640,7 @@ pub struct RejectionAbcResult {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &RejectionAbcResult) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -656,7 +659,7 @@ pub struct RejectionAbcResult {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1100,7 +1103,7 @@ where
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ChainState { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -1128,7 +1131,7 @@ where
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &ChainState) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -1147,7 +1150,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1228,7 +1231,7 @@ where
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> MetropolisHastings { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -1256,7 +1259,7 @@ where
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &MetropolisHastings) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -1275,7 +1278,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1381,7 +1384,7 @@ where
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> EnsembleMove { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -1410,7 +1413,7 @@ where
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &EnsembleMove) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -1429,7 +1432,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1591,7 +1594,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> TransitionKernel { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -1620,7 +1623,7 @@ Fields:
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &TransitionKernel) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -1639,7 +1642,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1785,7 +1788,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> TemperingCriterion { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -1814,7 +1817,7 @@ Fields:
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &TemperingCriterion) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -1833,7 +1836,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1918,7 +1921,7 @@ pub struct TransitionalConfig {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> TransitionalConfig { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -1947,7 +1950,7 @@ pub struct TransitionalConfig {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &TransitionalConfig) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -1966,7 +1969,7 @@ pub struct TransitionalConfig {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -2027,7 +2030,7 @@ pub struct StageReport {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> StageReport { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -2056,7 +2059,7 @@ pub struct StageReport {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &StageReport) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -2075,7 +2078,7 @@ pub struct StageReport {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -2143,7 +2146,7 @@ pub struct TransitionalResult {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> TransitionalResult { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -2171,7 +2174,7 @@ pub struct TransitionalResult {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &TransitionalResult) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -2190,7 +2193,7 @@ pub struct TransitionalResult {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -2383,7 +2386,7 @@ pub struct IndependentPrior {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> IndependentPrior { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -2411,7 +2414,7 @@ pub struct IndependentPrior {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &IndependentPrior) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -2430,7 +2433,7 @@ pub struct IndependentPrior {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -2485,7 +2488,7 @@ pub struct SamplerDiagnostics {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> SamplerDiagnostics { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -2501,7 +2504,7 @@ pub struct SamplerDiagnostics {
 
 - **Default**
   - ```rust
-    fn default() -> SamplerDiagnostics { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
 - **Eq**
@@ -2520,7 +2523,7 @@ pub struct SamplerDiagnostics {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &SamplerDiagnostics) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -2539,7 +2542,7 @@ pub struct SamplerDiagnostics {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -2910,7 +2913,7 @@ more expensive object.
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> DistanceMetric { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -2939,7 +2942,7 @@ more expensive object.
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &DistanceMetric) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -2958,7 +2961,7 @@ more expensive object.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -3203,7 +3206,7 @@ pub struct Uniform {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Uniform { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -3257,7 +3260,7 @@ pub struct Uniform {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Uniform) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -3276,7 +3279,7 @@ pub struct Uniform {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -3351,7 +3354,7 @@ pub struct Normal {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Normal { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -3405,7 +3408,7 @@ pub struct Normal {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Normal) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -3424,7 +3427,7 @@ pub struct Normal {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -3505,7 +3508,7 @@ pub struct LogNormal {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> LogNormal { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -3560,7 +3563,7 @@ pub struct LogNormal {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &LogNormal) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -3579,7 +3582,7 @@ pub struct LogNormal {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -3657,7 +3660,7 @@ pub struct Triangular {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Triangular { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -3711,7 +3714,7 @@ pub struct Triangular {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Triangular) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -3730,7 +3733,7 @@ pub struct Triangular {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -3805,7 +3808,7 @@ pub struct Exponential {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Exponential { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -3859,7 +3862,7 @@ pub struct Exponential {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Exponential) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -3878,7 +3881,7 @@ pub struct Exponential {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -3960,7 +3963,7 @@ pub struct Weibull {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Weibull { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -4014,7 +4017,7 @@ pub struct Weibull {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Weibull) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -4033,7 +4036,7 @@ pub struct Weibull {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -4119,7 +4122,7 @@ pub struct Gamma {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Gamma { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -4173,7 +4176,7 @@ pub struct Gamma {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Gamma) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -4192,7 +4195,7 @@ pub struct Gamma {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -4286,7 +4289,7 @@ pub struct Beta {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Beta { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -4340,7 +4343,7 @@ pub struct Beta {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Beta) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -4359,7 +4362,7 @@ pub struct Beta {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -4513,7 +4516,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Distribution { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -4567,7 +4570,7 @@ Fields:
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Distribution) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -4586,7 +4589,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -4695,7 +4698,7 @@ pub struct Truncated {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Truncated { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -4751,7 +4754,7 @@ pub struct Truncated {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Truncated) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -4770,7 +4773,7 @@ pub struct Truncated {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -4882,6 +4885,1859 @@ ones and each carries a unit test against a hand-computed value.
 pub mod estimators { /* ... */ }
 ```
 
+### Modules
+
+## Module `seed_consistency`
+
+Seed-ensemble consistency: `χ²/dof` of seed values against their internal
+`σ`, a fixed 95 % band, leave-one-out outlier flags (GitHub #494).
+**Seed-ensemble consistency** — is the scatter of `N` independent Monte
+Carlo runs what each run's own internal `σ` says it should be?
+
+# What this answers
+
+A Monte Carlo code reports, for one run, a value `x_i` and an internal
+standard error `σ_i`. Run the same case with `N` independent seeds and you
+can check that `σ_i` is honest: if it is, the values scatter about their
+common mean with exactly that spread, and
+
+```text
+χ² = Σ (x_i − x̄_w)² / σ_i²        x̄_w = Σ(x_i/σ_i²) / Σ(1/σ_i²)
+```
+
+is distributed as chi-square with `N − 1` degrees of freedom. So
+`χ²/dof ≈ 1` is consistency; `χ²/dof` above its upper 97.5 % point means
+the runs scatter **more** than their internal `σ` admits (the classic cause
+in power iteration: cycle-to-cycle correlation makes the per-run `σ` too
+small — GitHub #495); below the lower 2.5 % point means they scatter
+**less**, which points at seeds that are not independent (the `op-rbo`
+stream-correlation defect is the precedent).
+
+# The band is fixed in advance
+
+Two-sided 95 %: `[χ²_{0.025}(dof), χ²_{0.975}(dof)] / dof`, from the exact
+chi-square quantiles (the regularised incomplete gamma in
+[`crate::distributions`]), not from a normal approximation. Nothing here
+takes a band from the caller, so the criterion cannot be moved after a
+result is seen.
+
+# Outlier seeds
+
+Each seed is compared with the inverse-variance mean of the **others**
+(leave-one-out, so a wild seed cannot pull the reference towards itself):
+
+```text
+z_i = (x_i − x̄_{−i}) / sqrt(σ_i² + 1/Σ_{j≠i} σ_j⁻²)
+```
+
+and flagged when `|z_i|` exceeds the two-sided Bonferroni threshold
+`Φ⁻¹(1 − 0.025/N)` — a 5 % family-wise false-alarm rate over all `N` seeds,
+again fixed in advance. A flag is a prompt to look at that seed, **never a
+licence to drop it**: dropping a seed after seeing it is choosing the data.
+
+# References
+
+- Particle Data Group, *Review of Particle Physics*, "Statistics" chapter
+  (weighted averages and the `χ²/dof` scale-factor test).
+- C. E. Bonferroni (1936); any text on multiple comparisons.
+
+```rust
+pub mod seed_consistency { /* ... */ }
+```
+
+### Types
+
+#### Enum `ConsistencyVerdict`
+
+Direction of a seed-ensemble inconsistency, judged against the fixed
+two-sided 95 % `χ²/dof` band.
+
+```rust
+pub enum ConsistencyVerdict {
+    Consistent,
+    OverDispersed,
+    UnderDispersed,
+}
+```
+
+##### Variants
+
+###### `Consistent`
+
+`χ²/dof` inside its 95 % band: the seed-to-seed scatter agrees with the
+runs' own internal `σ`.
+
+###### `OverDispersed`
+
+Above the band: the runs scatter **more** than their internal `σ`
+says. The internal `σ` under-states the uncertainty (in power
+iteration, usually inter-cycle correlation — GitHub #495).
+
+###### `UnderDispersed`
+
+Below the band: the runs scatter **less** than their internal `σ`
+says — seeds that are not independent, or a `σ` that over-states.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `SeedOutlier`
+
+One seed flagged by the leave-one-out outlier test.
+
+```rust
+pub struct SeedOutlier {
+    pub index: usize,
+    pub value: f64,
+    pub z: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `index` | `usize` | Position of the seed in the input slice. |
+| `value` | `f64` | The seed's value, in the caller's unit. |
+| `z` | `f64` | Its leave-one-out z-score (dimensionless). |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `SeedConsistency`
+
+Everything [`seed_consistency`] measures about an ensemble.
+
+Values carry the caller's unit (pcm, `k`, a tally unit); the ratios and
+`χ²` are dimensionless.
+
+```rust
+pub struct SeedConsistency {
+    pub n: usize,
+    pub mean: f64,
+    pub sd: f64,
+    pub sem: f64,
+    pub weighted_mean: f64,
+    pub weighted_sem: f64,
+    pub rms_internal_sigma: f64,
+    pub spread_ratio: f64,
+    pub chi2: f64,
+    pub dof: usize,
+    pub chi2_per_dof: f64,
+    pub band_95: (f64, f64),
+    pub p_value_upper: f64,
+    pub verdict: ConsistencyVerdict,
+    pub outlier_threshold: f64,
+    pub outliers: Vec<SeedOutlier>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `n` | `usize` | Number of seeds. |
+| `mean` | `f64` | Unweighted pooled mean, sample sd and standard error, exactly<br>[`super::pooled`] — the numbers this workspace's ensembles have always<br>quoted. |
+| `sd` | `f64` | Seed-to-seed sample standard deviation (what ONE run scatters by). |
+| `sem` | `f64` | `sd / √n`, the uncertainty on [`Self::mean`]. |
+| `weighted_mean` | `f64` | Inverse-variance weighted mean `x̄_w`, the reference for `χ²`. |
+| `weighted_sem` | `f64` | `1/sqrt(Σ σ_i⁻²)`: the uncertainty on `x̄_w` *if* the internal `σ`<br>are honest. Compare with [`Self::sem`]. |
+| `rms_internal_sigma` | `f64` | Root-mean-square internal `σ`, `sqrt(mean σ_i²)`. |
+| `spread_ratio` | `f64` | `sd / rms_internal_sigma` — `≈ 1` when the internal `σ` is honest. |
+| `chi2` | `f64` | `Σ (x_i − x̄_w)² / σ_i²`. |
+| `dof` | `usize` | `n − 1`. |
+| `chi2_per_dof` | `f64` | `chi2 / dof`. |
+| `band_95` | `(f64, f64)` | The fixed two-sided 95 % band on `χ²/dof` for this `dof`. |
+| `p_value_upper` | `f64` | Upper-tail probability `P(χ²_dof ≥ chi2)`. |
+| `verdict` | `ConsistencyVerdict` | Where `chi2_per_dof` falls relative to `band_95`. |
+| `outlier_threshold` | `f64` | The two-sided Bonferroni `|z|` threshold used for outliers. |
+| `outliers` | `Vec<SeedOutlier>` | Seeds whose leave-one-out `|z|` exceeds `outlier_threshold`. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `GroupMeanScatter`
+
+Scatter of **disjoint group means** against the prediction `sd/√m`.
+
+The `1/√N` law is not something a single ensemble can show by quoting
+`sd/√N` — that is the formula, not a measurement. What *can* be measured
+is whether means of `m` seeds really scatter by `sd/√m`: split the seeds
+(in order) into `n_groups = ⌊N/m⌋` disjoint groups of `m`, take each
+group's mean, and compare the sample sd of those means with `sd/√m`. If
+the seeds are independent the ratio is `1` within
+`ratio_sigma ≈ 1/sqrt(2(n_groups − 1))` (the large-sample standard error of
+a sample sd, relative). Seeds that share structure push it away from 1.
+
+```rust
+pub struct GroupMeanScatter {
+    pub group_size: usize,
+    pub n_groups: usize,
+    pub observed: f64,
+    pub predicted: f64,
+    pub ratio: f64,
+    pub ratio_sigma: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `group_size` | `usize` | Seeds per group, `m`. |
+| `n_groups` | `usize` | Number of disjoint groups used (leftover seeds at the end are unused). |
+| `observed` | `f64` | Sample sd of the group means. |
+| `predicted` | `f64` | `sd / √m` with `sd` the seed-to-seed sd over the seeds used. |
+| `ratio` | `f64` | `observed / predicted`. |
+| `ratio_sigma` | `f64` | Approximate 1σ on `ratio`, `1/sqrt(2(n_groups − 1))`. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `seed_consistency`
+
+Check an ensemble of independent runs against their own internal `σ`.
+
+`values[i]` and `sigmas[i]` are seed `i`'s estimate and its internal 1σ
+standard error, in one unit. See the module docs for the statistic, the
+fixed 95 % band and the outlier rule.
+
+# Errors
+
+- [`RafflesError::DimensionMismatch`] if the slices differ in length.
+- [`RafflesError::InvalidParameter`] for fewer than two seeds, a
+  non-finite value, or a `σ` that is not strictly positive and finite (a
+  zero `σ` would give that seed infinite weight and an infinite `χ²`).
+
+```
+use raffles::estimators::seed_consistency::{seed_consistency, ConsistencyVerdict};
+let v = [0.0, 1.0, -1.0, 0.5, -0.5];
+let s = [1.0; 5];
+let c = seed_consistency(&v, &s).unwrap();
+assert_eq!(c.dof, 4);
+assert!((c.chi2 - 2.5).abs() < 1e-12);
+assert_eq!(c.verdict, ConsistencyVerdict::Consistent);
+```
+
+```rust
+pub fn seed_consistency(values: &[f64], sigmas: &[f64]) -> crate::Result<SeedConsistency> { /* ... */ }
+```
+
+#### Function `chi2_per_dof_band`
+
+Two-sided band on `χ²/dof` at confidence `level` (e.g. `0.95`), from the
+exact chi-square quantiles: `[χ²_{(1−level)/2}, χ²_{(1+level)/2}] / dof`.
+
+`dof = 0` returns `(NaN, NaN)`; there is no distribution.
+
+```rust
+pub fn chi2_per_dof_band(dof: usize, level: f64) -> (f64, f64) { /* ... */ }
+```
+
+#### Function `group_mean_scatter`
+
+See [`GroupMeanScatter`]. Returns `None` unless `group_size ≥ 1` and at
+least three groups fit (two groups give a ratio with no usable error).
+
+```rust
+pub fn group_mean_scatter(values: &[f64], group_size: usize) -> Option<GroupMeanScatter> { /* ... */ }
+```
+
+## Module `autocorrelation`
+
+Autocorrelation-corrected standard errors for a correlated sequence: batch
+means, integrated autocorrelation time, effective sample size (GitHub #495).
+**Standard errors for correlated sequences** — batch means, the integrated
+autocorrelation time and the effective sample size.
+
+# The problem
+
+The textbook standard error `s/√n` assumes the `n` values are independent.
+A Markov chain's successive states are not, and neither are successive
+generations of a Monte Carlo power iteration: generation `g + 1`'s fission
+source *is* generation `g`'s fission sites. Positive correlation makes the
+true uncertainty of the mean larger than `s/√n` by `sqrt(τ_int)`, where
+
+```text
+τ_int = 1 + 2 Σ_{k≥1} ρ_k          (ρ_k: lag-k autocorrelation)
+```
+
+In a loosely coupled core (a pebble bed, a large lattice) `τ_int` can be
+several, and the naive `σ` under-states the truth by that square root.
+
+# Two estimators, reported side by side with the naive one
+
+- **Non-overlapping batch means.** Cut the sequence into `a` consecutive
+  batches of `b`, take each batch's mean, and quote `sd(batch means)/√a`.
+  If `b` is long compared with the correlation length the batch means are
+  nearly independent, so this is honest without estimating any `ρ_k`. The
+  default batch size is `b = ⌊√n⌋` (Flegal & Jones 2010, the standard
+  consistent choice), **fixed in advance** — choosing `b` after seeing
+  which one gives the flattering `σ` is exactly the tuning the workspace
+  forbids. When `n` is not a multiple of `b`, the **leading** remainder is
+  dropped: the earliest values are the ones most likely to still carry a
+  start-up transient.
+- **Integrated autocorrelation time** with Sokal's automatic window:
+  `τ(M) = 1 + 2 Σ_{k=1..M} ρ_k`, taking the smallest `M ≥ c·τ(M)`, with
+  `c = 5` (Sokal 1997), again fixed. Then `ESS = n/τ` and
+  `σ_ESS = s/√ESS`.
+
+**Neither replaces the naive `σ`.** [`CorrelatedMean`] carries all three,
+so a caller cannot report the corrected one while the naive one silently
+vanishes, or vice versa.
+
+# Limits stated up front
+
+Both corrected estimators are themselves noisy: a batch-means `σ` from `a`
+batches has a relative uncertainty of about `1/sqrt(2(a − 1))` — `±21 %`
+at the 12 batches of a 120-generation run. With too few values neither can
+see a correlation longer than the run, so a short run can report "no
+correlation" for a source that simply has not had time to show it.
+
+# References
+
+- J. M. Flegal and G. L. Jones (2010). Batch means and spectral variance
+  estimators in Markov chain Monte Carlo. *Annals of Statistics, 38*(2),
+  1034–1070. doi:10.1214/09-AOS735
+- A. D. Sokal (1997). Monte Carlo methods in statistical mechanics:
+  foundations and new algorithms. In *Functional Integration*, Springer,
+  131–192. doi:10.1007/978-1-4899-0319-8_6
+- T. Ueki, F. B. Brown, D. K. Parsons and J. S. Warsa (2004).
+  Autocorrelation and dominance ratio in Monte Carlo criticality
+  calculations. *Nuclear Science and Engineering, 145*, 279–290 — the
+  power-iteration motivation.
+
+```rust
+pub mod autocorrelation { /* ... */ }
+```
+
+### Types
+
+#### Struct `AutocorrelationTime`
+
+Integrated autocorrelation time by Sokal's automatic window.
+
+```rust
+pub struct AutocorrelationTime {
+    pub tau_int: f64,
+    pub window: usize,
+    pub window_converged: bool,
+    pub effective_sample_size: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `tau_int` | `f64` | `τ_int = 1 + 2 Σ_{k=1..window} ρ_k`. |
+| `window` | `usize` | The window `M` the sum was truncated at. |
+| `window_converged` | `bool` | `false` when no `M < n/2` satisfied `M ≥ c·τ(M)`: the correlation<br>length is comparable to the run, and `tau_int` is a **lower bound**. |
+| `effective_sample_size` | `f64` | `n / τ_int`. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `BatchMeans`
+
+Non-overlapping batch means.
+
+```rust
+pub struct BatchMeans {
+    pub batch_size: usize,
+    pub n_batches: usize,
+    pub dropped_leading: usize,
+    pub mean: f64,
+    pub sem: f64,
+    pub sem_relative_uncertainty: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `batch_size` | `usize` | Values per batch, `b`. |
+| `n_batches` | `usize` | Number of batches, `a`. |
+| `dropped_leading` | `usize` | Leading values dropped so that `a·b` values remain. |
+| `mean` | `f64` | Mean of the values used (equal to the mean of the batch means). |
+| `sem` | `f64` | `sd(batch means) / √a`. |
+| `sem_relative_uncertainty` | `f64` | Approximate relative 1σ on `sem` itself, `1/sqrt(2(a − 1))`. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `CorrelatedMean`
+
+The mean of a correlated sequence with its naive and corrected standard
+errors, side by side.
+
+`naive_sem` is [`super::mean_and_stderr`] exactly — the number every
+existing report in this workspace quotes. The two corrected ones are
+additions; nothing here replaces it.
+
+```rust
+pub struct CorrelatedMean {
+    pub n: usize,
+    pub mean: f64,
+    pub naive_sem: f64,
+    pub batch: Option<BatchMeans>,
+    pub tau: Option<AutocorrelationTime>,
+    pub ess_sem: Option<f64>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `n` | `usize` | Number of values. |
+| `mean` | `f64` | Plain mean of all values. |
+| `naive_sem` | `f64` | Textbook `s/√n` (assumes independence). |
+| `batch` | `Option<BatchMeans>` | Batch-means estimate at the default batch size, if at least two<br>batches fit. |
+| `tau` | `Option<AutocorrelationTime>` | Autocorrelation-time estimate, if computable. |
+| `ess_sem` | `Option<f64>` | `s / sqrt(ESS)`, the `τ`-corrected standard error. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn estimate(x: &[f64]) -> Self { /* ... */ }
+  ```
+  Estimate everything from `x`, with the default batch size.
+
+- ```rust
+  pub fn estimate_with_batch_size(x: &[f64], batch_size: usize) -> Self { /* ... */ }
+  ```
+  As [`Self::estimate`] with an explicit batch size — for a study of the
+
+- ```rust
+  pub fn batch_inflation(self: &Self) -> Option<f64> { /* ... */ }
+  ```
+  `batch.sem / naive_sem` — how much the naive `σ` under-states, by the
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `autocorrelation`
+
+Lag-`k` sample autocorrelations `ρ_0 = 1, ρ_1, …, ρ_{max_lag}`.
+
+The standard biased estimator (divide every lag's sum by `n`, not
+`n − k`), which keeps the sequence positive semi-definite. Returns an
+empty vector for fewer than two values or a constant sequence (zero
+variance has no autocorrelation to speak of). `max_lag` is clamped to
+`n − 1`.
+
+```rust
+pub fn autocorrelation(x: &[f64], max_lag: usize) -> Vec<f64> { /* ... */ }
+```
+
+#### Function `integrated_autocorrelation_time`
+
+See [`AutocorrelationTime`]. `None` for fewer than four values or a
+constant sequence.
+
+`τ_int` below 1 (anti-correlation) is reported as measured, not clamped:
+it means the naive `σ` *over*-states, and hiding that would be choosing
+the instrument after the result.
+
+```rust
+pub fn integrated_autocorrelation_time(x: &[f64]) -> Option<AutocorrelationTime> { /* ... */ }
+```
+
+#### Function `batch_means`
+
+See [`BatchMeans`]. `None` when `batch_size` is zero or fewer than two
+batches fit.
+
+```rust
+pub fn batch_means(x: &[f64], batch_size: usize) -> Option<BatchMeans> { /* ... */ }
+```
+
+#### Function `default_batch_size`
+
+The default batch size `⌊√n⌋` (Flegal & Jones 2010), fixed in advance.
+
+```rust
+pub fn default_batch_size(n: usize) -> usize { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `SOKAL_WINDOW_C`
+
+Sokal's window constant `c`: the window `M` is the smallest with
+`M ≥ c·τ(M)`. Fixed in advance at Sokal's recommended `5`.
+
+```rust
+pub const SOKAL_WINDOW_C: f64 = 5.0;
+```
+
+## Module `normality`
+
+Sample skewness, excess kurtosis and the D'Agostino–Pearson normality test
+(GitHub #944).
+**Sample skewness, excess kurtosis and a normality test** — is a window of a
+trace (a `k_eff` or Shannon-entropy history, say) plausibly Gaussian?
+
+Generic statistics on a slice of numbers. Deciding which trace to test, and
+what to do with the verdict, stays with the caller (the Auto `k_eff`
+watcher of #927 asks for normality *and* stationarity, the latter from
+[`super::stationarity`]).
+
+# What is computed
+
+With central moments `m_j = Σ(x − x̄)^j / n`:
+
+- **Moment skewness** `g1 = m3 / m2^{3/2}` and **moment excess kurtosis**
+  `g2 = m4 / m2² − 3`. Both are biased in small samples (`E[g2] =
+  −6/(n+1)` for a normal population: about −0.19 at `n = 30`).
+- **Bias-adjusted** `G1 = g1 √(n(n−1)) / (n−2)` and
+  `G2 = ((n+1) g2 + 6)(n−1) / ((n−2)(n−3))` (the SAS/SPSS/Excel and
+  SciPy `bias=False` estimators; Joanes & Gill 1998).
+- **Standard errors under normality** of `g1` and `g2`: the *exact*
+  variances `Var(g1) = 6(n−2)/((n+1)(n+3))` and
+  `Var(g2) = 24n(n−2)(n−3)/((n+1)²(n+3)(n+5))`, which are also the
+  variances the normality test below standardises by. They are standard
+  errors *of the statistic if the data were normal* — the yardstick for
+  "is this skew large?", not a confidence interval for a non-normal
+  population's skew.
+
+# Which normality test, and why (windows of 30–50)
+
+The **D'Agostino–Pearson omnibus test** `K² = Z(g1)² + Z(g2)²`, where
+`Z(g1)` is D'Agostino's (1970) normalising transformation of the skewness
+and `Z(g2)` the Anscombe–Glynn (1983) transformation of the kurtosis. Under
+normality `K²` is approximately `χ²` with 2 degrees of freedom, whose upper
+tail is exactly `p = exp(−K²/2)`.
+
+Jarque–Bera (`n/6 · (g1² + g2²/4)`) was **not** chosen: its `χ²₂` reference
+law is asymptotic and is poor at `n` of a few tens (the skewness and
+kurtosis converge to normality slowly, and `g2` is itself strongly skewed
+at small `n`), which is why Jarque–Bera is normally used with simulated
+critical values at small `n`. The D'Agostino transforms exist precisely to
+make `Z(g1)` and `Z(g2)` standard normal at modest `n`: the skewness
+transform is specified for `n ≥ 8` and the kurtosis transform for `n ≥ 20`
+(the `n ≥ 20` floor is enforced here). The size of the test at `n = 30`
+and `n = 50` is measured in the tests below rather than assumed.
+
+**Measured size (2026-10-17): mildly liberal.** At nominal `alpha = 0.05`
+the rejection rate on N(0,1) windows is about **0.057** (SciPy 1.18.1,
+200 000 windows: 0.0568 at n = 20, 0.0576 at n = 30, 0.0572 at n = 50,
+se 0.0005; this crate's own generator, 20 000 windows: 0.0570 at n = 30,
+0.0530 at n = 50, se 0.0015). The `chi^2_2` law is an approximation, so
+`p_value` is slightly too small; treat `alpha = 0.05` as roughly 0.057.
+
+# Limits
+
+- `K²` is an omnibus **moment** test: it detects skew and tail weight, not,
+  for example, bimodality that preserves the first four moments, and it
+  has little power against mild non-normality at `n = 30`. "Passed" means
+  "no evidence against", never "is Gaussian".
+- It assumes **independent** values. A correlated trace (power-iteration
+  `k_eff`) violates that; the test's size is then not the nominal one.
+  Thin or batch the trace first ([`super::autocorrelation`]) or read the
+  result accordingly.
+- A constant window has zero variance and no defined skewness: an `Err`.
+
+# References
+
+**Not yet verified against the literature corpus** — none of these is in
+`reactor-literature` as of 2026-10-17 (searched by author name; the
+submodule is also empty in agent worktrees), and the bibliographic details
+below are given as the implementation's source of the formulas, to be
+checked against the papers by a human:
+
+- R. B. D'Agostino (1970). Transformation to normality of the null
+  distribution of `g1`. *Biometrika* 57(3), 679–681.
+- F. J. Anscombe and W. J. Glynn (1983). Distribution of the kurtosis
+  statistic `b2` for normal samples. *Biometrika* 70(1), 227–234.
+- R. B. D'Agostino and E. S. Pearson (1973). Tests for departure from
+  normality. Empirical results for the distributions of `b2` and `√b1`.
+  *Biometrika* 60(3), 613–622 (the omnibus `K²`).
+- D. N. Joanes and C. A. Gill (1998). Comparing measures of sample skewness
+  and kurtosis. *The Statistician* 47(1), 183–189 (`G1`, `G2`).
+
+Cross-checked numerically against SciPy 1.18.1 `skew`, `kurtosis`,
+`skewtest`, `kurtosistest`, `normaltest`; see the test docs.
+
+# Status
+
+No human V&V, like the rest of this crate.
+
+```rust
+pub mod normality { /* ... */ }
+```
+
+### Types
+
+#### Struct `SampleMoments`
+
+Sample skewness and excess kurtosis with their null standard errors.
+
+```rust
+pub struct SampleMoments {
+    pub n: usize,
+    pub mean: f64,
+    pub skewness: f64,
+    pub excess_kurtosis: f64,
+    pub skewness_adjusted: f64,
+    pub excess_kurtosis_adjusted: f64,
+    pub se_skewness: f64,
+    pub se_excess_kurtosis: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `n` | `usize` | Sample size. |
+| `mean` | `f64` | Sample mean. |
+| `skewness` | `f64` | Moment skewness `g1 = m3 / m2^{3/2}`. |
+| `excess_kurtosis` | `f64` | Moment excess kurtosis `g2 = m4 / m2² − 3`. |
+| `skewness_adjusted` | `f64` | Bias-adjusted skewness `G1`. |
+| `excess_kurtosis_adjusted` | `f64` | Bias-adjusted excess kurtosis `G2`. |
+| `se_skewness` | `f64` | Standard error of `g1` if the data were normal. |
+| `se_excess_kurtosis` | `f64` | Standard error of `g2` if the data were normal. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `NormalityTest`
+
+Result of the D'Agostino–Pearson omnibus normality test.
+
+```rust
+pub struct NormalityTest {
+    pub n: usize,
+    pub z_skewness: f64,
+    pub z_kurtosis: f64,
+    pub k2: f64,
+    pub p_value: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `n` | `usize` | Sample size. |
+| `z_skewness` | `f64` | Normalised skewness statistic `Z(g1)`, ~`N(0,1)` under normality. |
+| `z_kurtosis` | `f64` | Normalised kurtosis statistic `Z(g2)`, ~`N(0,1)` under normality. |
+| `k2` | `f64` | Omnibus `K² = Z(g1)² + Z(g2)²`, ~`χ²₂` under normality. |
+| `p_value` | `f64` | Upper-tail p-value `exp(−K²/2)`. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn rejects_at(self: &Self, alpha: f64) -> Result<bool> { /* ... */ }
+  ```
+  `true` when normality is rejected at significance level `alpha`
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `moments`
+
+Sample skewness and excess kurtosis of `x`, with null standard errors.
+
+Needs `n ≥ 4` finite, non-constant values ([`MIN_N_MOMENTS`]). See the
+module docs for the definitions.
+
+```
+let m = raffles::estimators::normality::moments(&[1.0, 2.0, 3.0, 4.0, 10.0]).unwrap();
+assert!((m.skewness - 36.0 / 31.622776601683793).abs() < 1e-12);
+assert!((m.excess_kurtosis - (-0.212)).abs() < 1e-12);
+```
+
+```rust
+pub fn moments(x: &[f64]) -> crate::Result<SampleMoments> { /* ... */ }
+```
+
+#### Function `dagostino_pearson`
+
+D'Agostino–Pearson omnibus normality test on `x`.
+
+Needs `n ≥ 20` finite, non-constant values ([`MIN_N_NORMALITY_TEST`]).
+`p_value = exp(−K²/2)`; reject normality when it falls below the chosen
+level (see [`NormalityTest::rejects_at`]). See the module docs for the
+choice of test, its references and its limits.
+
+```
+let x: Vec<f64> = (1..=30).map(|i| (i * i) as f64).collect(); // right-skewed
+let t = raffles::estimators::normality::dagostino_pearson(&x).unwrap();
+assert!((t.p_value - 0.145278851325707).abs() < 1e-9); // SciPy normaltest
+```
+
+```rust
+pub fn dagostino_pearson(x: &[f64]) -> crate::Result<NormalityTest> { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `MIN_N_NORMALITY_TEST`
+
+Minimum sample size of [`dagostino_pearson`]: the Anscombe–Glynn kurtosis
+transform is specified for `n ≥ 20`.
+
+```rust
+pub const MIN_N_NORMALITY_TEST: usize = 20;
+```
+
+#### Constant `MIN_N_MOMENTS`
+
+Minimum sample size for the bias-adjusted `G2` and its variance (`n − 3`
+appears in a denominator), and so for [`moments`].
+
+```rust
+pub const MIN_N_MOMENTS: usize = 4;
+```
+
+## Module `stationarity`
+
+Stationarity diagnostics on a trace: MSER truncation, a Geweke two-window
+test, a single change-point posterior (GitHub #496).
+**Stationarity diagnostics for a trace** — has a sequence stopped
+drifting, and from where on?
+
+Generic output-analysis tools for the warm-up ("initial transient")
+problem. A Monte Carlo power iteration is the motivating case — its
+Shannon-entropy and `k` traces relax from the initial guess before they
+fluctuate about a fixed mode — but nothing here knows that: it takes a
+slice of numbers. Deciding *which* trace, and what to do with the answer,
+stays with the caller.
+
+# Three independent pieces of evidence
+
+- **MSER-m truncation** (White 1997; White, Cobb & Spratt 2000). Batch the
+  trace into means of `m` (default `m = 5`, the published MSER-5), and pick
+  the truncation `d` minimising
+  `MSER(d) = Σ_{j>d} (Z_j − Z̄_d)² / (k − d)²`. It balances the bias of
+  keeping transient values against the variance of discarding good ones.
+  **If the minimum lies in the second half of the trace** the rule has
+  found no stationary tail long enough to trust, and the trace is flagged
+  as not converged — the published rule's own failure signal.
+- **Geweke's two-window test** (Geweke 1992). Compare the mean of the first
+  10 % of a (truncated) trace with the last 50 %, as a z-score, with each
+  window's standard error from **batch means** ([`super::autocorrelation`])
+  rather than the naive `s/√n` — the windows are autocorrelated, and the
+  naive error would turn ordinary correlated wander into "drift". Geweke's
+  original uses a spectral density at zero; batch means estimates the same
+  quantity. `|z| > 1.96` is drift at 95 %, fixed in advance.
+- **A single change-point in the mean**, Bayesian. On the batch means
+  (batching suppresses the autocorrelation the model ignores), with flat
+  priors on the two segment means and a Jeffreys prior on a common
+  variance, the posterior over the change location `τ` is exact:
+  `p(τ | Z) ∝ (n₁ n₂)^{-1/2} · S_τ^{-(n−2)/2}`, `S_τ` the within-segment
+  sum of squares. Whether there is a change at all is judged by BIC
+  (`ln Z ≈ ln L̂ − (p/2) ln n`) between "one mean" and "two means plus a
+  location", and reported on the Kass–Raftery scale through
+  [`crate::model_selection`].
+
+# What none of these can do
+
+They cannot see a transient longer than the trace, and a slowly drifting
+trace with a long correlation time can look stationary to every one of
+them. Passing is evidence, not proof; the reference for an inactive-cycle
+count is still a much longer run.
+
+# References
+
+- K. P. White Jr. (1997). An effective truncation heuristic for bias
+  reduction in simulation output. *Simulation, 69*(6), 323–334.
+- K. P. White Jr., M. J. Cobb and S. C. Spratt (2000). A comparison of five
+  steady-state truncation heuristics for simulation. *Proc. 2000 Winter
+  Simulation Conference*, 755–760. doi:10.1109/WSC.2000.899870
+- J. Geweke (1992). Evaluating the accuracy of sampling-based approaches to
+  the calculation of posterior moments. In *Bayesian Statistics 4*, Oxford
+  University Press, 169–193.
+- R. E. Kass and A. E. Raftery (1995). Bayes factors. *JASA, 90*(430),
+  773–795.
+
+```rust
+pub mod stationarity { /* ... */ }
+```
+
+### Types
+
+#### Struct `MserTruncation`
+
+Result of the MSER-m truncation rule.
+
+```rust
+pub struct MserTruncation {
+    pub batch_size: usize,
+    pub truncation: usize,
+    pub truncation_batches: usize,
+    pub n_batches: usize,
+    pub statistic: Vec<f64>,
+    pub in_first_half: bool,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `batch_size` | `usize` | Batch size `m` used. |
+| `truncation` | `usize` | Optimal truncation in **original samples** (`d* · m`). |
+| `truncation_batches` | `usize` | Optimal truncation in batches, `d*`. |
+| `n_batches` | `usize` | Number of batches `k`. |
+| `statistic` | `Vec<f64>` | `MSER(d)` for every `d` evaluated (`0..=k−2`). |
+| `in_first_half` | `bool` | `true` when `d* ≤ k/2`: a stationary tail at least half the trace long<br>was found. `false` is the rule's own "not converged" signal. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `GewekeTest`
+
+Result of Geweke's two-window test.
+
+```rust
+pub struct GewekeTest {
+    pub mean_first: f64,
+    pub mean_last: f64,
+    pub sem_first: f64,
+    pub sem_last: f64,
+    pub z: f64,
+    pub batch_errors: bool,
+    pub drift: bool,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `mean_first` | `f64` | Mean of the first window. |
+| `mean_last` | `f64` | Mean of the last window. |
+| `sem_first` | `f64` | Standard error of each window's mean (batch means where at least two<br>batches fit, otherwise naive — see `batch_errors`). |
+| `sem_last` | `f64` | See `sem_first`. |
+| `z` | `f64` | `(mean_first − mean_last) / sqrt(sem_first² + sem_last²)`. |
+| `batch_errors` | `bool` | `true` when both errors came from batch means. `false` means at least<br>one window was too short for that and fell back to the naive `s/√n`,<br>which under-states the error of a correlated window — read `z` as an<br>upper bound on its true size then. |
+| `drift` | `bool` | `|z| > GEWEKE_Z_CRIT`. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `ChangePoint`
+
+Posterior over a single change-point in the mean, plus a BIC verdict on
+whether there is one.
+
+```rust
+pub struct ChangePoint {
+    pub batch_size: usize,
+    pub posterior: Vec<f64>,
+    pub first_tau: usize,
+    pub map_tau: usize,
+    pub map_sample: usize,
+    pub segment_means: (f64, f64),
+    pub ln_bayes_factor_change: f64,
+    pub strength: crate::model_selection::EvidenceStrength,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `batch_size` | `usize` | Batch size the trace was reduced by before the analysis. |
+| `posterior` | `Vec<f64>` | `posterior[i]` is `p(τ = first_tau + i | Z)`: the first `τ` batch<br>means form segment one. Sums to 1. |
+| `first_tau` | `usize` | Smallest `τ` considered (each segment needs two batch means). |
+| `map_tau` | `usize` | Posterior mode, in batch means. |
+| `map_sample` | `usize` | `map_tau` in original samples. |
+| `segment_means` | `(f64, f64)` | Mean of segment one and segment two at the mode. |
+| `ln_bayes_factor_change` | `f64` | `ln B` of "change" against "no change" by BIC. Positive favours a change. |
+| `strength` | `crate::model_selection::EvidenceStrength` | Kass–Raftery reading of `|ln B|`. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `mser_truncation`
+
+MSER-`batch_size` on `x`. Batches from the **start** (the trailing
+remainder is dropped), so a truncation counts samples from the first
+value. `None` with fewer than four batches.
+
+```rust
+pub fn mser_truncation(x: &[f64], batch_size: usize) -> Option<MserTruncation> { /* ... */ }
+```
+
+#### Function `geweke`
+
+Geweke's test on `x` with the fixed [`GEWEKE_WINDOWS`]. `None` when either
+window has fewer than two values.
+
+```rust
+pub fn geweke(x: &[f64]) -> Option<GewekeTest> { /* ... */ }
+```
+
+#### Function `change_point`
+
+Single change-point analysis of `x`, reduced to batch means of
+`batch_size` first. `None` with fewer than six batch means, or a trace
+with no spread at all.
+
+```rust
+pub fn change_point(x: &[f64], batch_size: usize) -> Option<ChangePoint> { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `MSER_BATCH`
+
+MSER batch size, fixed at the published MSER-5.
+
+```rust
+pub const MSER_BATCH: usize = 5;
+```
+
+#### Constant `GEWEKE_WINDOWS`
+
+Geweke window fractions (first, last), fixed at Geweke's 10 % / 50 %.
+
+```rust
+pub const GEWEKE_WINDOWS: (f64, f64) = _;
+```
+
+#### Constant `GEWEKE_Z_CRIT`
+
+Two-sided 95 % critical `|z|` for the Geweke test.
+
+```rust
+pub const GEWEKE_Z_CRIT: f64 = 1.959_963_984_540_054;
+```
+
 ### Types
 
 #### Struct `BinStats`
@@ -4926,7 +6782,7 @@ pub struct BinStats {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> BinStats { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -4942,7 +6798,7 @@ pub struct BinStats {
 
 - **Default**
   - ```rust
-    fn default() -> BinStats { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
 - **Freeze**
@@ -4973,7 +6829,7 @@ pub struct BinStats {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -5402,7 +7258,7 @@ simultaneously.
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> PdeClass { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -5431,7 +7287,7 @@ simultaneously.
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &PdeClass) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -5450,7 +7306,7 @@ simultaneously.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -5520,7 +7376,7 @@ pub struct IterationBound {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> IterationBound { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -5548,7 +7404,7 @@ pub struct IterationBound {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &IterationBound) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -5567,7 +7423,7 @@ pub struct IterationBound {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -5718,7 +7574,7 @@ which is the argument for doing both.
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Dtype { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -5748,7 +7604,7 @@ which is the argument for doing both.
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Dtype) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -5767,7 +7623,7 @@ which is the argument for doing both.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -5836,7 +7692,7 @@ pub struct Tensor {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Tensor { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -5864,7 +7720,7 @@ pub struct Tensor {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Tensor) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -5883,7 +7739,7 @@ pub struct Tensor {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -5974,7 +7830,7 @@ pub struct TorchArchive {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> TorchArchive { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -6002,7 +7858,7 @@ pub struct TorchArchive {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &TorchArchive) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -6021,7 +7877,7 @@ pub struct TorchArchive {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -6183,7 +8039,7 @@ pub struct Graph {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Graph { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -6212,7 +8068,7 @@ pub struct Graph {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Graph) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -6231,7 +8087,7 @@ pub struct Graph {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -6326,8 +8182,13 @@ and (2) by combining the component boxes **at matched confidence level** —
 the comonotone case, which is what the confidence-box literature reports as
 "generalised confidence bounds", and which this module states rather than
 leaves implicit. General unknown-dependence p-box convolution is *not*
-implemented; see [`SystemStructure::reliability_pbox`] for what that would
-take.
+implemented here; see [`SystemStructure::reliability_pbox`] for what that would
+take. ~~General unknown-dependence p-box convolution is not implemented~~
+**CORRECTED 2026-10-20 (gh:#987)** — it now exists, in
+[`crate::scram::pba`] (pba.r's Fréchet convolution on this module's
+[`Pbox`] ladder, plus `and`/`or`/`andI`/`orI`), and
+[`crate::scram::pbox_tree`] applies it to a whole fault tree. The
+matched-level combination below is unchanged.
 
 # References
 
@@ -6469,7 +8330,7 @@ pub struct Interval {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Interval { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -6498,7 +8359,7 @@ pub struct Interval {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Interval) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -6517,7 +8378,7 @@ pub struct Interval {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -6588,7 +8449,7 @@ variant is declining to.
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> EventDependence { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -6618,7 +8479,7 @@ variant is declining to.
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &EventDependence) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -6637,7 +8498,7 @@ variant is declining to.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -6723,7 +8584,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> SystemStructure { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -6753,7 +8614,7 @@ Fields:
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &SystemStructure) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -6772,7 +8633,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -6905,7 +8766,7 @@ where
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Pbox { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -6933,7 +8794,7 @@ where
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Pbox) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -6952,7 +8813,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -7136,7 +8997,7 @@ pub enum EvidenceStrength {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> EvidenceStrength { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -7166,17 +9027,17 @@ pub enum EvidenceStrength {
 
 - **Ord**
   - ```rust
-    fn cmp(self: &Self, other: &EvidenceStrength) -> $crate::cmp::Ordering { /* ... */ }
+    fn cmp(self: &Self, other: &Self) -> $crate::cmp::Ordering { /* ... */ }
     ```
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &EvidenceStrength) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **PartialOrd**
   - ```rust
-    fn partial_cmp(self: &Self, other: &EvidenceStrength) -> $crate::option::Option<$crate::cmp::Ordering> { /* ... */ }
+    fn partial_cmp(self: &Self, other: &Self) -> $crate::option::Option<$crate::cmp::Ordering> { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -7195,7 +9056,7 @@ pub enum EvidenceStrength {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -7252,7 +9113,7 @@ pub struct ModelEvidence {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ModelEvidence { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -7280,7 +9141,7 @@ pub struct ModelEvidence {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &ModelEvidence) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -7299,7 +9160,7 @@ pub struct ModelEvidence {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -7365,7 +9226,7 @@ pub struct ModelComparison {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ModelComparison { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -7393,7 +9254,7 @@ pub struct ModelComparison {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &ModelComparison) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -7412,7 +9273,7 @@ pub struct ModelComparison {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -7712,7 +9573,7 @@ pub struct MonteCarlo {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> MonteCarlo { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -7741,7 +9602,7 @@ pub struct MonteCarlo {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &MonteCarlo) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -7773,7 +9634,7 @@ pub struct MonteCarlo {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -7876,7 +9737,7 @@ pub struct LatinHypercube {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> LatinHypercube { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -7905,7 +9766,7 @@ pub struct LatinHypercube {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &LatinHypercube) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -7937,7 +9798,7 @@ pub struct LatinHypercube {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -8048,7 +9909,7 @@ pub struct GridSampler {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> GridSampler { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -8076,7 +9937,7 @@ pub struct GridSampler {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &GridSampler) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -8108,7 +9969,7 @@ pub struct GridSampler {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -8228,7 +10089,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Sampler { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -8256,7 +10117,7 @@ Fields:
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Sampler) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -8275,7 +10136,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -8462,6 +10323,18 @@ place in this module where that is so, and `scram_uncertainty` states the
 confidence and checks the samplers a second way, against closed-form
 moments.
 
+## Confidence-box basic events (gh:#987)
+
+[`pba`] and [`pbox_tree`] evaluate a [`FaultTree`] whose basic events are
+**confidence boxes** or p-boxes rather than numbers, gate by gate, with the
+dependence assumption chosen explicitly: [`pbox_tree::evaluate_pbox_tree`]
+(independent or Fréchet unknown dependence, per gate) and
+[`pbox_tree::evaluate_cbox_edges`] (the left-edge / right-edge construction
+of Lye et al. 2024 for repeated events). Ports of Adolphus Lye's
+"Computing with Confidence" case studies and Scott Ferson's pba.r;
+verified against the original R scripts run with R 4.6.1
+(`crates/raffles/docs/computing-with-confidence-verification.md`). AI-assisted draft.
+
 ## Where this sits relative to the rest of the crate
 
 [`crate::imprecise::SystemStructure`] also computes system reliability, and
@@ -8567,7 +10440,7 @@ pub struct Phase {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Phase { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -8595,7 +10468,7 @@ pub struct Phase {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Phase) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -8614,7 +10487,7 @@ pub struct Phase {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -8676,7 +10549,7 @@ pub struct Alignment {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Alignment { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -8704,7 +10577,7 @@ pub struct Alignment {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Alignment) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -8723,7 +10596,7 @@ pub struct Alignment {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -8842,7 +10715,7 @@ pub struct Ite {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Ite { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -8877,7 +10750,7 @@ pub struct Ite {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Ite) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -8896,7 +10769,7 @@ pub struct Ite {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -9001,7 +10874,7 @@ pub struct Bdd {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Bdd { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -9042,7 +10915,7 @@ pub struct Bdd {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -9203,7 +11076,7 @@ exactly `k` members.
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> CcfModel { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -9233,7 +11106,7 @@ exactly `k` members.
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &CcfModel) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -9252,7 +11125,7 @@ exactly `k` members.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -9329,7 +11202,7 @@ pub struct CcfGroup {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> CcfGroup { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -9370,7 +11243,7 @@ pub struct CcfGroup {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -9426,7 +11299,7 @@ pub struct CcfEvent {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> CcfEvent { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -9467,7 +11340,7 @@ pub struct CcfEvent {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -10243,7 +12116,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Expression { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -10271,7 +12144,7 @@ Fields:
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Expression) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -10290,7 +12163,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -10402,7 +12275,7 @@ pub struct Interval {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Interval { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -10436,7 +12309,7 @@ pub struct Interval {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Interval) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -10460,7 +12333,7 @@ pub struct Interval {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -10647,7 +12520,7 @@ would change the tree's shape.
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Connective { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -10677,7 +12550,7 @@ would change the tree's shape.
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Connective) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -10696,7 +12569,7 @@ would change the tree's shape.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -10784,7 +12657,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Arg { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -10814,7 +12687,7 @@ Fields:
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Arg) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -10833,7 +12706,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -10893,7 +12766,7 @@ pub struct Gate {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Gate { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -10922,7 +12795,7 @@ pub struct Gate {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Gate) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -10941,7 +12814,7 @@ pub struct Gate {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -11021,7 +12894,7 @@ pub struct FaultTree {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> FaultTree { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -11050,7 +12923,7 @@ pub struct FaultTree {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &FaultTree) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -11069,7 +12942,7 @@ pub struct FaultTree {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -11149,7 +13022,7 @@ pub struct FaultTreeModel {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> FaultTreeModel { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -11177,7 +13050,7 @@ pub struct FaultTreeModel {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &FaultTreeModel) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -11196,7 +13069,7 @@ pub struct FaultTreeModel {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -11281,7 +13154,7 @@ pub struct FaultTreeBuilder {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> FaultTreeBuilder { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -11296,7 +13169,7 @@ pub struct FaultTreeBuilder {
 
 - **Default**
   - ```rust
-    fn default() -> FaultTreeBuilder { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
 - **Freeze**
@@ -11327,7 +13200,7 @@ pub struct FaultTreeBuilder {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -11405,7 +13278,7 @@ pub struct ImportanceFactors {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ImportanceFactors { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -11434,7 +13307,7 @@ pub struct ImportanceFactors {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &ImportanceFactors) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -11453,7 +13326,7 @@ pub struct ImportanceFactors {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -11666,7 +13539,7 @@ pub struct Element {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Element { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -11707,7 +13580,7 @@ pub struct Element {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -11831,7 +13704,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> MefConnective { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -11861,7 +13734,7 @@ Fields:
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &MefConnective) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -11880,7 +13753,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -11940,7 +13813,7 @@ pub struct Formula {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Formula { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -11969,7 +13842,7 @@ pub struct Formula {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Formula) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -11988,7 +13861,7 @@ pub struct Formula {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -12059,7 +13932,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> FormulaArg { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -12088,7 +13961,7 @@ Fields:
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &FormulaArg) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -12107,7 +13980,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -12235,7 +14108,7 @@ pub struct MefModel {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> MefModel { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -12250,7 +14123,7 @@ pub struct MefModel {
 
 - **Default**
   - ```rust
-    fn default() -> MefModel { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
 - **Freeze**
@@ -12281,7 +14154,7 @@ pub struct MefModel {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -12482,6 +14355,834 @@ diagnosable failure and a disappearing job.
 pub const EXPANSION_LIMIT: usize = 5_000_000;
 ```
 
+## Module `pba`
+
+# pba.r operations on RAFFLES' [`Pbox`]
+
+The p-box logic needed to propagate **confidence boxes** through Boolean
+gates: [`kn`] (the binomial c-box as pba.r builds it), the dependence-free
+[`and_unknown`] / [`or_unknown`] (Fréchet bounds on the *uncertain
+probabilities*), and the independence versions [`and_independent`] /
+[`or_independent`].
+
+## Two dependence questions, again
+
+The Boolean gate has a dependence between the **events** (do `A` and `B`
+fail together?), and the p-boxes carry a dependence between the
+**uncertainties** in `P(A)` and `P(B)`. pba.r's `and`/`or` make no
+assumption about either: `and(a, b)` is the envelope of
+`max(a + b - 1, 0)` and `min(a, b)`, each combined with Fréchet
+convolution. `andI`/`orI` assume both are independent. This is the
+convention of Lye et al. (2024) and the scripts; it is *not* the
+matched-confidence-level (comonotone) combination of
+[`crate::imprecise::SystemStructure::reliability_pbox`].
+
+## Fréchet convolution on a quantile ladder
+
+For a non-decreasing `op` (sum, min, max) and operands with quantile
+bounds `lower`, `upper` on the ladder `p_i = i/n`:
+
+```text
+upper_z[i] = min over a + b = n + i of  op(upper_x[a], upper_y[b])
+lower_z[m] = max over a + b = m     of  op(lower_x[a], lower_y[b])
+```
+
+which is the Williamson–Downs bound restricted to the ladder, exactly what
+`frechetconv.pbox` loops over. Restricting to grid pairs keeps it a valid
+(possibly not the tightest) bound.
+
+No transcendental functions are used here, so nothing is routed through
+PETIR (gh:#985): the code is `+ - * min max` and a sort.
+
+## References
+
+- S. Ferson, pba.r, <https://github.com/ScottFerson/pba.r> (GPL-3.0).
+- A. Lye, W. Vechgama, M. Sallak, S. Destercke, S. Ferson, S. Xiao (2024),
+  *ASCE-ASME J. Risk Uncertainty Eng. Syst. A* 11, 04024074,
+  doi:10.1061/AJRUA6/RUENG-1380.
+- R. C. Williamson and T. Downs (1990). Probabilistic arithmetic I.
+  *Int. J. Approximate Reasoning* 4, 89-158.
+
+```rust
+pub mod pba { /* ... */ }
+```
+
+### Types
+
+#### Enum `MonotoneOp`
+
+The monotone binary operations the Fréchet convolution is used with.
+
+```rust
+pub enum MonotoneOp {
+    Add,
+    Min,
+    Max,
+}
+```
+
+##### Variants
+
+###### `Add`
+
+`x + y`
+
+###### `Min`
+
+`min(x, y)` — pba.r's `pmin`
+
+###### `Max`
+
+`max(x, y)` — pba.r's `pmax`
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `point`
+
+A precise (zero-width) p-box holding one number — pba.r's `pbox(x)`.
+
+```rust
+pub fn point(value: f64, levels: usize) -> crate::Result<crate::imprecise::Pbox> { /* ... */ }
+```
+
+#### Function `clamp_pbox`
+
+Clamps both quantile series into `[lo, hi]`.
+
+```rust
+pub fn clamp_pbox(a: &crate::imprecise::Pbox, lo: f64, hi: f64) -> crate::Result<crate::imprecise::Pbox> { /* ... */ }
+```
+
+#### Function `kn_exact`
+
+The Clopper-Pearson c-box with the **exact support ends**, no `1e-6` clamp:
+the two edge distributions pba.r's `Sbeta(k, n-k+1)` and
+`Sbeta(k+1, n-k)` give (what the Case study 4 script calls `c_L` and
+`c_R`, built with `beta()` and so unclamped).
+
+# Errors
+
+As [`cbox_binomial`].
+
+```rust
+pub fn kn_exact(k: usize, n: usize, levels: usize) -> crate::Result<crate::imprecise::Pbox> { /* ... */ }
+```
+
+#### Function `kn`
+
+The binomial confidence box exactly as pba.r's `KN(k, n)` builds it.
+
+**Is it [`cbox_binomial`]?** In the interior, yes: the same
+`Beta(k, n-k+1)` / `Beta(k+1, n-k)` quantile ladders. Two differences
+were found by reading `KN` and are reproduced here: (1) pba.r takes the
+*exact* support ends (`qbeta(0) = 0`, `qbeta(1) = 1`) where
+[`cbox_binomial`] evaluates the quantile at `1e-9` and `1 - 1e-9`, which
+for `Beta(23, 2)` is about `0.3`, not `0`; and (2) pba.r clamps the
+result to `[1e-6, 1 - 1e-6]`. This is [`kn_exact`] followed by that clamp.
+Existing `cbox_binomial` is unchanged.
+
+# Errors
+
+As [`cbox_binomial`].
+
+```rust
+pub fn kn(k: usize, n: usize, levels: usize) -> crate::Result<crate::imprecise::Pbox> { /* ... */ }
+```
+
+#### Function `complement`
+
+`1 - a` — pba.r's `complement.pbox`. Exact, no dependence question.
+
+```rust
+pub fn complement(a: &crate::imprecise::Pbox) -> crate::Result<crate::imprecise::Pbox> { /* ... */ }
+```
+
+#### Function `envelope`
+
+pba.r's `env.pbox`: the smallest p-box containing both.
+
+```rust
+pub fn envelope(a: &crate::imprecise::Pbox, b: &crate::imprecise::Pbox) -> crate::Result<crate::imprecise::Pbox> { /* ... */ }
+```
+
+#### Function `frechet_convolve`
+
+pba.r's `frechetconv.pbox(x, y, op)` for a non-decreasing `op`: bounds on
+`op(X, Y)` with **no assumption about the dependence** between `X` and `Y`.
+
+# Errors
+
+[`RafflesError::DimensionMismatch`] if the ladders differ.
+
+```rust
+pub fn frechet_convolve(x: &crate::imprecise::Pbox, y: &crate::imprecise::Pbox, op: MonotoneOp) -> crate::Result<crate::imprecise::Pbox> { /* ... */ }
+```
+
+#### Function `independent_product`
+
+Product of **independent** non-negative p-boxes — pba.r's
+`conv.pbox(x, y, '*')`: all `n x n` cell products, sorted, every `n`-th
+kept.
+
+# Errors
+
+[`RafflesError::DimensionMismatch`] for differing ladders;
+[`RafflesError::InvalidParameter`] if an operand can be negative (the
+sorted-cell construction is only monotone for non-negative factors).
+
+```rust
+pub fn independent_product(x: &crate::imprecise::Pbox, y: &crate::imprecise::Pbox) -> crate::Result<crate::imprecise::Pbox> { /* ... */ }
+```
+
+#### Function `and_independent`
+
+pba.r's `andI`: both events independent, and independent uncertainties.
+
+```rust
+pub fn and_independent(a: &crate::imprecise::Pbox, b: &crate::imprecise::Pbox) -> crate::Result<crate::imprecise::Pbox> { /* ... */ }
+```
+
+#### Function `or_independent`
+
+pba.r's `orI`: `1 - (1 - a)(1 - b)` with independent operands.
+
+```rust
+pub fn or_independent(a: &crate::imprecise::Pbox, b: &crate::imprecise::Pbox) -> crate::Result<crate::imprecise::Pbox> { /* ... */ }
+```
+
+#### Function `and_unknown`
+
+pba.r's `and`: no assumption on dependence. The envelope of the Fréchet
+lower bound `max(a + b - 1, 0)` and the upper bound `min(a, b)`.
+
+```rust
+pub fn and_unknown(a: &crate::imprecise::Pbox, b: &crate::imprecise::Pbox) -> crate::Result<crate::imprecise::Pbox> { /* ... */ }
+```
+
+#### Function `or_unknown`
+
+pba.r's `or`: no assumption on dependence. The envelope of the Fréchet
+lower bound `max(a, b)` and upper bound `min(a + b, 1)`.
+
+```rust
+pub fn or_unknown(a: &crate::imprecise::Pbox, b: &crate::imprecise::Pbox) -> crate::Result<crate::imprecise::Pbox> { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `PBA_BZERO`
+
+pba.r's `Bzero`: `KN` clamps its result to `[1e-6, 1 - 1e-6]` "otherwise
+beta distributions touch zero which is inconvenient in arithmetical
+operations" (pba BETTER.r, near `km`/`KN`).
+
+```rust
+pub const PBA_BZERO: f64 = 1.0e-6;
+```
+
+## Module `pbox_tree`
+
+# Fault trees whose basic events are confidence boxes
+
+[`evaluate_pbox_tree`] takes a [`FaultTree`] and one [`Pbox`] per basic
+event (usually a c-box from [`super::pba::kn`]) and propagates them
+**gate by gate**, with the dependence assumption chosen explicitly for each
+gate ([`GateDependence`]). The tree's structure is the SCRAM
+[`FaultTree`]; its point probabilities are ignored.
+
+## What "gate by gate" costs you
+
+A gate combines its arguments as if they were separate quantities. If a
+basic event (or a sub-gate) feeds the tree through more than one path, the
+independent combination double-counts it. So:
+
+- under [`EventDependence::Unknown`] a repeated event is **safe**: Fréchet
+  bounds hold for every joint distribution, including "the same event
+  twice";
+- under [`EventDependence::Independent`] a repeated event is **refused**
+  ([`RepeatedEvents::Reject`], the default). [`RepeatedEvents::IndependentCopies`]
+  evaluates it anyway, treating each occurrence as an independent copy.
+  That is what the "Boolean function" route of the Case study 3 script
+  computes, and it is **not** the structure-function answer.
+
+[`evaluate_cbox_edges`] is the other route for repeated events: Lye et al.
+(2024) evaluate the tree once with every basic event replaced by its
+left edge and once by its right edge and take the envelope (Case study 4,
+`e1f = env.pbox(e1f_L, e1f_R)`). It applies to coherent trees and to
+c-boxes, whose edges are distributions; it is not justified for an
+arbitrary p-box.
+
+`Xor` is refused (not monotone in the probabilities). `Atleast` is
+supported under unknown dependence only (as the OR of the AND of every
+`min`-subset, at most [`MAX_ATLEAST_SUBSETS`] subsets), because the subsets
+share events.
+
+```rust
+pub mod pbox_tree { /* ... */ }
+```
+
+### Types
+
+#### Enum `GateDependence`
+
+Which dependence assumption each gate uses.
+
+```rust
+pub enum GateDependence {
+    Uniform(crate::imprecise::EventDependence),
+    PerGate(Vec<crate::imprecise::EventDependence>),
+}
+```
+
+##### Variants
+
+###### `Uniform`
+
+The same assumption at every gate.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `crate::imprecise::EventDependence` |  |
+
+###### `PerGate`
+
+One assumption per gate, indexed as [`FaultTree::gates`].
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `Vec<crate::imprecise::EventDependence>` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `RepeatedEvents`
+
+What to do when a basic event or sub-gate feeds the tree twice.
+
+```rust
+pub enum RepeatedEvents {
+    Reject,
+    IndependentCopies,
+}
+```
+
+##### Variants
+
+###### `Reject`
+
+Refuse if any gate would combine a repeated event as independent.
+
+###### `IndependentCopies`
+
+Treat every occurrence as an independent copy (the script's Boolean
+route). Knowingly approximate.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `PboxTreeOptions`
+
+Options for [`evaluate_pbox_tree`].
+
+```rust
+pub struct PboxTreeOptions {
+    pub dependence: GateDependence,
+    pub repeated: RepeatedEvents,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `dependence` | `GateDependence` | Dependence assumption per gate. |
+| `repeated` | `RepeatedEvents` | Repeated-event policy. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn uniform(dependence: EventDependence) -> Self { /* ... */ }
+  ```
+  The same dependence everywhere, repeated events rejected.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `PboxTreeResult`
+
+A p-box for every gate of the tree.
+
+```rust
+pub struct PboxTreeResult {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn top(self: &Self) -> &Pbox { /* ... */ }
+  ```
+  The p-box of the top event.
+
+- ```rust
+  pub fn gate(self: &Self, index: usize) -> Option<&Pbox> { /* ... */ }
+  ```
+  The p-box of gate `index` (indexed as [`FaultTree::gates`]).
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `evaluate_pbox_tree`
+
+Propagates one p-box per basic event through the tree, gate by gate.
+
+`basic` is indexed as [`Arg::BasicEvent`]; all p-boxes share a ladder.
+Gates not reachable from the top are `None` in no result: only reachable
+gates are evaluated, and [`PboxTreeResult::gate`] returns `None` for the
+rest.
+
+# Errors
+
+[`RafflesError::DimensionMismatch`] if `basic` has the wrong length or
+ladders differ; [`RafflesError::InvalidParameter`] for a refused
+connective, a refused repeated event, or a p-box outside `[0, 1]`.
+
+```rust
+pub fn evaluate_pbox_tree(tree: &super::fault_tree::FaultTree, basic: &[crate::imprecise::Pbox], options: &PboxTreeOptions) -> crate::Result<PboxTreeResult> { /* ... */ }
+```
+
+#### Function `evaluate_cbox_edges`
+
+The Lye et al. (2024) edge construction for **confidence boxes**: evaluate
+the tree with every basic event replaced by its left edge, again with its
+right edge, and take the envelope at every gate (Case study 4:
+`e1f = env.pbox(e1f_L, e1f_R)`).
+
+Valid for coherent trees whose inputs are c-boxes. Repeated events are
+allowed with [`EventDependence::Unknown`] gates.
+
+# Errors
+
+As [`evaluate_pbox_tree`], and [`RafflesError::InvalidParameter`] if the
+tree is not coherent.
+
+```rust
+pub fn evaluate_cbox_edges(tree: &super::fault_tree::FaultTree, basic: &[crate::imprecise::Pbox], options: &PboxTreeOptions) -> crate::Result<PboxTreeResult> { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `MAX_ATLEAST_SUBSETS`
+
+Upper limit on the number of `min`-subsets an unknown-dependence
+`Atleast` gate expands into.
+
+```rust
+pub const MAX_ATLEAST_SUBSETS: usize = 200;
+```
+
 ## Module `probability`
 
 Top-event probability from minimal cut sets.
@@ -12560,7 +15261,7 @@ pub struct CutSet {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> CutSet { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -12589,7 +15290,7 @@ pub struct CutSet {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &CutSet) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -12608,7 +15309,7 @@ pub struct CutSet {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -12694,7 +15395,7 @@ exceeds 1 by construction, so it needs no clamp.
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Approximation { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -12724,7 +15425,7 @@ exceeds 1 by construction, so it needs no clamp.
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Approximation) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -12743,7 +15444,7 @@ exceeds 1 by construction, so it needs no clamp.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -12908,7 +15609,7 @@ pub enum SubstitutionType {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> SubstitutionType { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -12938,7 +15639,7 @@ pub enum SubstitutionType {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &SubstitutionType) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -12957,7 +15658,7 @@ pub enum SubstitutionType {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -13022,7 +15723,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> SubstitutionTarget { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -13051,7 +15752,7 @@ Fields:
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &SubstitutionTarget) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -13070,7 +15771,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -13143,7 +15844,7 @@ pub struct Substitution {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Substitution { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -13184,7 +15885,7 @@ pub struct Substitution {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -13240,7 +15941,7 @@ pub struct ProductSubstitution {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ProductSubstitution { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -13269,7 +15970,7 @@ pub struct ProductSubstitution {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &ProductSubstitution) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -13288,7 +15989,7 @@ pub struct ProductSubstitution {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -13420,7 +16121,7 @@ pub struct UncertaintySettings {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> UncertaintySettings { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -13455,7 +16156,7 @@ pub struct UncertaintySettings {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &UncertaintySettings) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -13474,7 +16175,7 @@ pub struct UncertaintySettings {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -13535,7 +16236,7 @@ pub struct UncertaintyResult {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> UncertaintyResult { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -13576,7 +16277,7 @@ pub struct UncertaintyResult {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -13808,7 +16509,7 @@ pub struct PrimeImplicant {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> PrimeImplicant { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -13837,17 +16538,17 @@ pub struct PrimeImplicant {
 
 - **Ord**
   - ```rust
-    fn cmp(self: &Self, other: &PrimeImplicant) -> $crate::cmp::Ordering { /* ... */ }
+    fn cmp(self: &Self, other: &Self) -> $crate::cmp::Ordering { /* ... */ }
     ```
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &PrimeImplicant) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **PartialOrd**
   - ```rust
-    fn partial_cmp(self: &Self, other: &PrimeImplicant) -> $crate::option::Option<$crate::cmp::Ordering> { /* ... */ }
+    fn partial_cmp(self: &Self, other: &Self) -> $crate::option::Option<$crate::cmp::Ordering> { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -13866,7 +16567,7 @@ pub struct PrimeImplicant {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -14250,7 +16951,21 @@ let `A_B^(i)` be `A` with its `i`-th column replaced by the `i`-th column of
 - **First-order index** (Saltelli's form of the Sobol'/Homma–Saltelli
   estimator):
 
-  `V_i = (1/n) * sum_j y_B[j] * (y_AB_i[j] - y_A[j])`,  `S_i = V_i / V`
+  ~~`V_i = (1/n) * sum_j y_B[j] * (y_AB_i[j] - y_A[j])`,  `S_i = V_i / V`~~
+
+  `V_i = (1/n) * sum_j (y_B[j] - ybar) * (y_AB_i[j] - y_A[j])`,  `S_i = V_i / V`
+
+  **CORRECTED 2026-10-07 (gh:#584): `y_B` is centred on the pooled mean
+  `ybar` above.** Subtracting a constant changes nothing in expectation —
+  `y_AB_i` and `y_A` are identically distributed, so `E[y_AB_i - y_A] = 0`
+  — but the uncentred product's sampling error scales with `ybar / sqrt(V)`.
+  On `outram-mc-libs`' `sobol_design_on_an_additive_model` (`ybar/sd ~ 34`,
+  `n = 512`) the uncentred first-order sum came out at `-1.437` against an
+  exact `1`; a 2000-seed replica of that design put the uncentred sum at
+  mean `1.07`, sd `2.17`, and the centred one at mean `1.000`, sd `0.058`
+  (gh:#584, 2026-10-06 audit). SALib's `sobol.analyze` standardises the
+  outputs before the same estimator for the same reason. The Jansen
+  total-effect estimator below is a difference of outputs and is unchanged.
 
 - **Total-effect index** (Jansen's estimator, the one Saltelli et al. (2010)
   recommend for `S_Ti`):
@@ -14293,9 +17008,9 @@ for methodology and the numbers actually produced.
 
 | Gate | Reference | Achieved |
 |---|---|---|
-| Sudret polynomial, `N = 3` | `S_i = 25/91`, `S_Ti = 36/91` exactly | max abs error `2.681e-4` on `S_i`, `3.266e-4` on `S_Ti` at `n = 65536` |
-| Ishigami function | `S = (0.313905, 0.442411, 0)`, `S_T = (0.557589, 0.442411, 0.243684)` | max abs error `3.723e-4` on `S`, `5.105e-5` on `S_T` at `n = 65536` |
-| Additive linear model | `S_i = S_Ti = c_i^2 / sum(c^2)`, `sum S_i = 1` | max abs error `2.493e-4`; `sum S_i = 0.999441` |
+| Sudret polynomial, `N = 3` | `S_i = 25/91`, `S_Ti = 36/91` exactly | max abs error ~~`2.681e-4`~~ `2.079e-4` (centred `y_B`, 2026-10-07) on `S_i`, `3.266e-4` on `S_Ti` at `n = 65536` |
+| Ishigami function | `S = (0.313905, 0.442411, 0)`, `S_T = (0.557589, 0.442411, 0.243684)` | max abs error ~~`3.723e-4`~~ `3.788e-4` (centred `y_B`, 2026-10-07) on `S`, `5.105e-5` on `S_T` at `n = 65536` |
+| Additive linear model | `S_i = S_Ti = c_i^2 / sum(c^2)`, `sum S_i = 1` | max abs error on `S` ~~`2.493e-4`~~ `8.956e-5` (centred `y_B`, 2026-10-07); `sum S_i =` ~~`0.999441`~~ `1.000128` |
 | Pearson / Spearman | exact constructions (`+1`, `-1`, `0`, known `r = 0.6`) | machine precision |
 
 **Still open, not claimed:** the Sobol g-function gate named in the crate
@@ -14407,7 +17122,7 @@ exactly preserved by any strictly monotone transform, linear or not.
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> CorrelationKind { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -14442,7 +17157,7 @@ exactly preserved by any strictly monotone transform, linear or not.
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &CorrelationKind) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -14461,7 +17176,7 @@ exactly preserved by any strictly monotone transform, linear or not.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -14580,7 +17295,7 @@ pub struct SobolSampleLayout {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> SobolSampleLayout { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -14615,7 +17330,7 @@ pub struct SobolSampleLayout {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &SobolSampleLayout) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -14634,7 +17349,7 @@ pub struct SobolSampleLayout {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -14694,7 +17409,7 @@ pub struct SobolIndices {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> SobolIndices { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -14722,7 +17437,7 @@ pub struct SobolIndices {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &SobolIndices) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -14741,7 +17456,7 @@ pub struct SobolIndices {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -14925,10 +17640,17 @@ Surrogate models — cheap reduced-order stand-ins for an expensive model.
   crate's `burn` feature. For responses a bounded-degree polynomial cannot
   express.
 
+- **[`validation`]** — leave-one-out cross-validation and jackknife+
+  prediction intervals for [`PolynomialSurrogate`] (added 2026-10-03,
+  GitHub #499).
+
 Gaussian process regression / kriging and the sparse-grid polynomial chaos
-route are **not** implemented. Neither is the cross-validation machinery;
-the fitted models report `r_squared` and `rmse` on whatever data they are
-given, and the tests here demonstrate why that must be held-out data.
+route are **not** implemented. ~~Neither is the cross-validation
+machinery;~~ **CORRECTED 2026-10-03** — leave-one-out cross-validation is
+now in [`validation`] (polynomial surrogates only; k-fold and the neural
+surrogate are not covered). The fitted models still report `r_squared` and
+`rmse` on whatever data they are given, and the tests here demonstrate why
+that must be held-out data.
 
 ## Scope — what belongs here
 
@@ -15122,7 +17844,7 @@ pub struct PolynomialSurrogate {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> PolynomialSurrogate { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -15150,7 +17872,7 @@ pub struct PolynomialSurrogate {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &PolynomialSurrogate) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -15169,7 +17891,179 @@ pub struct PolynomialSurrogate {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+## Module `validation`
+
+**Leave-one-out cross-validation and jackknife+ prediction intervals** for
+[`PolynomialSurrogate`].
+
+# Why held-out error, not `R²` on the fit
+
+A surrogate's error on the points it was fitted to measures how well it
+*memorised* them. The question a sweep needs answered is how wrong it is
+**between** them. Leave-one-out (LOO) refits `n` times, each time without
+one point, and records the error at the point left out — every residual is
+a genuine prediction.
+
+# Prediction intervals: jackknife+
+
+For a new input `x`, with `μ_{−i}` the model fitted without point `i` and
+`R_i = |y_i − μ_{−i}(x_i)|` its LOO residual, the jackknife+ interval at
+miscoverage `α` is
+
+```text
+[ q⁻_α { μ_{−i}(x) − R_i },  q⁺_α { μ_{−i}(x) + R_i } ]
+```
+
+where `q⁺_α` is the `⌈(1 − α)(n + 1)⌉`-th smallest value and `q⁻_α` the
+`⌊α(n + 1)⌋`-th smallest. Barber, Candès, Ramdas and Tibshirani (2021)
+prove coverage of at least `1 − 2α` for exchangeable data **with no
+assumption on the model** — which is the point: the guarantee does not
+depend on the polynomial being the right shape. When `n` is too small for
+the order statistic to exist the bound is infinite, and is returned as
+such rather than invented.
+
+# What the interval covers
+
+The data `y_i` here are Monte Carlo results, each carrying its own
+statistical noise. The interval therefore covers **a new noisy run** at
+`x`, not the noise-free truth, and it can be no narrower than the run-to-
+run scatter. Callers that need a statement about the noise-free mean must
+say so and handle it themselves.
+
+# Reference
+
+R. F. Barber, E. J. Candès, A. Ramdas and R. J. Tibshirani (2021).
+Predictive inference with the jackknife+. *Annals of Statistics, 49*(1),
+486–507. doi:10.1214/20-AOS1965
+
+```rust
+pub mod validation { /* ... */ }
+```
+
+### Types
+
+#### Struct `LeaveOneOut`
+
+Leave-one-out models and residuals for a polynomial surrogate.
+
+```rust
+pub struct LeaveOneOut {
+    pub full: super::PolynomialSurrogate,
+    pub models: Vec<super::PolynomialSurrogate>,
+    pub residuals: Vec<f64>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `full` | `super::PolynomialSurrogate` | The fit to all points — the model to evaluate for a point estimate. |
+| `models` | `Vec<super::PolynomialSurrogate>` | `models[i]` was fitted without point `i`. |
+| `residuals` | `Vec<f64>` | `residuals[i] = y_i − models[i](x_i)` (signed). |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn fit(inputs: &[Vec<f64>], outputs: &[f64], degree: usize, ridge: f64) -> Result<Self> { /* ... */ }
+  ```
+  Fit the full model and the `n` leave-one-out models.
+
+- ```rust
+  pub fn rmse(self: &Self) -> f64 { /* ... */ }
+  ```
+  Root-mean-square LOO residual.
+
+- ```rust
+  pub fn chi2_per_point(self: &Self, sigmas: &[f64]) -> Result<f64> { /* ... */ }
+  ```
+  `Σ (r_i / σ_i)² / n` — the LOO residuals in units of each point's own
+
+- ```rust
+  pub fn jackknife_plus(self: &Self, x: &[f64], alpha: f64) -> Result<(f64, f64)> { /* ... */ }
+  ```
+  Jackknife+ interval at `x` with miscoverage `alpha` (coverage at least
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -15271,7 +18165,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> RafflesError { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -15305,7 +18199,7 @@ Fields:
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &RafflesError) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -15329,7 +18223,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**

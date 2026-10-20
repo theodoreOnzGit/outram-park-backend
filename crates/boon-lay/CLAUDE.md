@@ -9,7 +9,7 @@ The standalone source lives at:
 `/home/teddy0/Documents/research/boon-lay/`
 
 **Version:** ~~0.2.1~~ **CORRECTED 2026-09-21** — `Cargo.toml` says 0.1.3  
-**License:** GPL-3.0 (same as workspace default)
+**License:** ~~GPL-3.0 (same as workspace default)~~ **AGPL-3.0-only, as a combined work** (relicensed 2026-10-20, gh:#973): `src/rustbca/` stays GPL-3.0-or-later, `LICENSE.GPL-3.0` ships beside `LICENSE`; see `docs/relicensing-agpl-2026-10-20.md`
 
 ---
 

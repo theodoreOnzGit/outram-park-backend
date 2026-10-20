@@ -30,7 +30,7 @@ Blender  —  ARCHITECTURE THIS CRATE DERIVES FROM
   GPL-3.0-or-later (2) and BSL-1.0 (2).
 
   GPL-2.0-or-later is GPL-3.0-compatible: the "or later" clause permits
-  redistribution under GPL-3.0, so this crate's GPL-3.0-only licence is
+  redistribution under GPL-3.0, so this crate's ported files' GPL-3.0-only licence (the crate is an AGPL-3.0-only combined work since 2026-10-20, gh:#973) is
   licence-clean with respect to Blender.
 
   WHAT IS ACTUALLY DERIVED FROM BLENDER

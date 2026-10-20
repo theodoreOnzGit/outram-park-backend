@@ -48,8 +48,13 @@
 //! the comonotone case, which is what the confidence-box literature reports as
 //! "generalised confidence bounds", and which this module states rather than
 //! leaves implicit. General unknown-dependence p-box convolution is *not*
-//! implemented; see [`SystemStructure::reliability_pbox`] for what that would
-//! take.
+//! implemented here; see [`SystemStructure::reliability_pbox`] for what that would
+//! take. ~~General unknown-dependence p-box convolution is not implemented~~
+//! **CORRECTED 2026-10-20 (gh:#987)** — it now exists, in
+//! [`crate::scram::pba`] (pba.r's Fréchet convolution on this module's
+//! [`Pbox`] ladder, plus `and`/`or`/`andI`/`orI`), and
+//! [`crate::scram::pbox_tree`] applies it to a whole fault tree. The
+//! matched-level combination below is unchanged.
 //!
 //! # References
 //!

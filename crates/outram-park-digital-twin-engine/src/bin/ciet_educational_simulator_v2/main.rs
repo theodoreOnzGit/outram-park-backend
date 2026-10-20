@@ -9,7 +9,7 @@
 //!
 //! Ported from the **CIET Educational Simulator v1**, which lives (and stays)
 //! at `crates/tuas_boussinesq_solver/examples/ciet_educational_simulator/`.
-//! Same licence, GPL-3.0. The physics is v1's, unchanged; see
+//! Same licence, ~~GPL-3.0~~ **AGPL-3.0-only** (relicensed 2026-10-20, gh:#973). The physics is v1's, unchanged; see
 //! [`ciet_simulator_v2`] for the full v1-versus-v2 table and the honest
 //! statement of what has and has not been verified.
 //!

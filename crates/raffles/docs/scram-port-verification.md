@@ -116,8 +116,9 @@ below.
 
 ## Licence
 
-SCRAM is **GPL-3.0-or-later**; RAFFLES is **GPL-3.0-only**. Code may flow
-SCRAM → RAFFLES freely — this is a same-licence port, **not** the one-way
+SCRAM is **GPL-3.0-or-later**; RAFFLES is ~~**GPL-3.0-only**~~ **AGPL-3.0-only**
+(2026-10-20, gh:#973). Code may flow SCRAM → RAFFLES — ~~this is a same-licence port~~
+the ported files keep GPL-3.0 and combine with the AGPL crate under §13; **not** the one-way
 Apache-2.0 → GPLv3 relicensing that governs the RAVEN-derived parts of this
 crate. Every ported file carries the upstream attribution header with
 `Copyright (C) 2014-2018 Olzhas Rakhimov`.

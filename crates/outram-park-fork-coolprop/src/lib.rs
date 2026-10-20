@@ -9,10 +9,11 @@
 //! > authors. "CoolProp" is used only to identify the upstream work it is
 //! > derived from (see `TRADEMARKS.md`, `NOTICE`).
 //! >
-//! > **Licence: GPL-3.0-only.** CoolProp itself is MIT, but this crate ships
-//! > GPL-3.0-only OpenFOAM-derived code ([`openfoam_algorithms`]), so the crate
-//! > as a whole is GPL-3.0-only; the CoolProp-derived parts keep their MIT
-//! > provenance in-tree.
+//! > **Licence: ~~GPL-3.0-only~~ AGPL-3.0-only** (relicensed 2026-10-20,
+//! > gh:#973; see `docs/relicensing-agpl-2026-10-20.md`). CoolProp itself is
+//! > MIT, but this crate ships OpenFOAM-derived code
+//! > ([`openfoam_algorithms`]) whose files keep their GPL-3.0 headers; the
+//! > CoolProp-derived parts keep their MIT provenance in-tree.
 //! >
 //! > **⚠️ No human V&V has been performed yet — use at your own risk.** The
 //! > automated tests here are self-consistency and primary-standard checks; no

@@ -320,7 +320,7 @@ asserts the §3 result, and `reconr_u234_unresolved_njoy_golden.rs`.
   (2016.79). Modified BSD 3-Clause (LANL/DOE).
 - **ENDF/B-VIII.0** U-234 (MAT 9225) and the ENDF-6 format specification
   (ENDF-102). Openly published evaluated data.
-- **`njoy-outram-park-fork`**, the Rust comparison arm, GPL-3.0-only.
+- **`njoy-outram-park-fork`**, the Rust comparison arm, ~~GPL-3.0-only~~ **AGPL-3.0-only** (relicensed 2026-10-20, gh:#973).
 
 All data used here is open, publicly released evaluated nuclear data. No
 restricted, proprietary, or operational data is involved

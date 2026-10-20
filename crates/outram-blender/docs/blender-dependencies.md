@@ -27,7 +27,7 @@ the read** rather than a guessed value. This is scaffold-stage analysis, not a
 finished dependency plan.
 
 > **License note.** Blender itself is **GPLv2-or-later**, which is compatible
-> with this workspace's GPLv3-only crates. The dependency licenses listed by
+> with this workspace's ~~GPLv3-only~~ AGPL-3.0-only crates (relicensed 2026-10-20, gh:#973; ported files stay GPL-3.0, combinable under GPLv3 §13). The dependency licenses listed by
 > Blender's build environment are **not inherited by merely reimplementing a
 > concept** — designing a Rust half-edge structure inspired by BMesh, or a
 > Catmull-Clark subdivision routine inspired by OpenSubdiv, creates no license

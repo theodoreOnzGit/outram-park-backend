@@ -75,7 +75,7 @@ Their vendored upstreams are permissive or absent.
 |---|---|---|
 | `njoy-outram-park-fork` | NJOY2016, modified BSD-3-Clause (LANL/DOE); MIT (mit-crpg / WMP) | 0.0.1–0.0.4 GPL-3.0-only |
 | `outram-mc-libs` | OpenMC, MIT (MIT + UChicago Argonne) | 0.0.1–0.0.5 GPL-3.0-only |
-| `outram-park-fork-coolprop` | CoolProp, MIT | 0.1.0–0.1.2 GPL-3.0-only |
+| ~~`outram-park-fork-coolprop`~~ | ~~CoolProp, MIT~~ **MOVED 2026-10-20 to combine-only below**: it also holds 84 OpenFOAM-derived GPL-3.0 files | 0.1.0–0.1.2 GPL-3.0-only |
 | `outram-park-fork-onix` | ONIX, MIT | none |
 | `outram-park-fork-thermochimica` | Thermochimica, BSD-3-Clause (ORNL) | none |
 | `kaki-bukit` | CYCLUS / CYCAMORE, BSD-3-Clause + BSD-2-Clause | none |
@@ -91,6 +91,14 @@ Their vendored upstreams are permissive or absent.
 
 Each ships `LICENSE` (AGPL-3.0) and `LICENSE.GPL-3.0`, and **no file SPDX
 header changed**.
+
+**ADDED 2026-10-20 after a scan of every crate without `LICENSE.GPL-3.0` for
+copyleft-derived files:** `outram-park-fork-coolprop` (84 OpenFOAM-derived
+files under `src/openfoam_algorithms/`; CoolProp itself MIT) and `raffles`
+(see the corrected section below) belong here too, and now ship
+`LICENSE.GPL-3.0`. The scan found no other crate: the remaining GPL SPDX
+headers outside this list are on maintainer-written files, whose holder
+relicensed them.
 
 | Crate | Copyleft-derived content | Published versions grandfathered |
 |---|---|---|
@@ -119,7 +127,11 @@ header changed**.
 below "they are colleagues" and "i know them". That direction, given in the coordinating
 session, stands in place of the per-person recorded consent this section asked for. All five
 now inherit `license.workspace = true` (AGPL-3.0-only), each with a dated NOTICE section.
-`bedok` and `raffles` are relicensed outright (raffles keeps `LICENSE-APACHE-RAVEN`);
+`bedok` ~~and `raffles` are~~ is relicensed outright; ~~(raffles keeps `LICENSE-APACHE-RAVEN`)~~
+**CORRECTED 2026-10-20:** `raffles` cannot be: it holds ports of third-party GPL-3.0 code
+(SCRAM, Rakhimov, GPL-3.0-or-later; Physics-guided-MPNN, GPL-3.0; pba.r, Ferson, GPL-3.0,
+since gh:#987), which only the upstream holders could relicense. It conveys as a combined
+work, keeps `LICENSE-APACHE-RAVEN`, and now ships `LICENSE.GPL-3.0`;
 `tuas_boussinesq_solver`, `tampines` and `tampines-steam-tables` convey as combined works,
 shipping `LICENSE.GPL-3.0`, because they contain files referring to or derived from OpenFOAM
 (GPL-3.0-or-later). Treating them as combine-only is the conservative reading, pending a

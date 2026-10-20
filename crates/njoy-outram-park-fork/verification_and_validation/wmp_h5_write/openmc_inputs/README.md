@@ -12,13 +12,13 @@ workspace rule that a reader must be able to reproduce the reference.
   checkout at `/opt/src/openmc`
 * **Date accessed** — 2026-09-24
 * **Licence** — MIT; upstream notice in `LICENSE.openmc`. Compatible with this
-  workspace's GPL-3.0-only.
+  workspace's ~~GPL-3.0-only~~ **AGPL-3.0-only** (relicensed 2026-10-20, gh:#973).
 
 ## Contents
 
 | File | What it is |
 |---|---|
-| `read_wmp.py` | the driver: reads a `.h5` with `openmc.data.WindowedMultipole.from_hdf5`, prints its structure and evaluated cross sections (new work, GPL-3.0, this workspace) |
+| `read_wmp.py` | the driver: reads a `.h5` with `openmc.data.WindowedMultipole.from_hdf5`, prints its structure and evaluated cross sections (new work, ~~GPL-3.0~~ **AGPL-3.0-only**, this workspace) |
 | `LICENSE.openmc` | upstream MIT notice |
 
 **There is no committed input file here, deliberately.** The thing under test is

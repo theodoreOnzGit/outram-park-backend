@@ -17,7 +17,7 @@ not just the Tier-1 subset.
 
 - **Upstream:** DWSIM — <https://github.com/DanWBR/dwsim>
 - **License:** **GPL-3.0** (confirmed against the clone's `COPYING` = GNU GPL v3;
-  matches this crate's GPL-3.0).
+  matches this crate's ported files' GPL-3.0; the crate is ~~GPL-3.0~~ AGPL-3.0-only since 2026-10-20, gh:#973).
 - **Surveyed commit:** `1abf72d1b6b41d3e9a8cc770d3cc4e8fc76e5766` (2026-07-17),
   shallow clone under `upstream_source/DWSIM/` (gitignored).
 - **Language:** VB.NET (thermodynamics + reactors are `.vb`).

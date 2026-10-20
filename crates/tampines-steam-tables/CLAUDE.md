@@ -75,7 +75,7 @@ It also provides steam-turbine and converging-diverging nozzle equations,
 including choked (critical) two-phase flow, and powers the secondary loop of an
 FHR (Fluoride salt-cooled High-temperature Reactor) educational simulator.
 
-License: GPL-3.0 (OpenFOAM-derived algorithms are included; see README).
+License: ~~GPL-3.0~~ **AGPL-3.0-only** combined work (relicensed 2026-10-20, gh:#973; ported files keep GPL-3.0 and `LICENSE.GPL-3.0` ships beside `LICENSE`; see `docs/relicensing-agpl-2026-10-20.md`) (OpenFOAM-derived algorithms are included; see README).
 
 ## Build, test, run
 

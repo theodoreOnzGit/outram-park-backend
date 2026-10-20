@@ -17,7 +17,7 @@
 //! `dqk21.f`, `dqelg.f`, `dqpsrt.f`). Both were read for this port
 //! (SciPy tag `v1.18.1`, netlib files fetched 2026-09-28). The port follows
 //! the **C** text, including its 0-based indexing, because that is what
-//! pyDOSEIA executes. BSD 3-clause is compatible with this crate's GPL-3.0;
+//! pyDOSEIA executes. BSD 3-clause is compatible with this crate's ~~GPL-3.0~~ **AGPL-3.0-only**;
 //! the notice is reproduced in `crates/buangkok/NOTICE`.
 //!
 //! # Role: the regression reference, not the default
