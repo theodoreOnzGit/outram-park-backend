@@ -467,6 +467,7 @@ pub fn grpav(
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
     use crate::errorr::weight::ErrorrWeight;
 
@@ -541,7 +542,7 @@ mod tests {
             }
             assert!((ans[1] / ans[0] - 3.0).abs() < 1e-12);
             assert!(
-                (ans[0] - (10.0f64).ln()).abs() < 2e-5 * (10.0f64).ln(),
+                (ans[0] - (10.0f64).r_ln()).abs() < 2e-5 * (10.0f64).r_ln(),
                 "flux {}",
                 ans[0]
             );

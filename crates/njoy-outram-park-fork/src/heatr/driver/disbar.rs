@@ -14,6 +14,7 @@
 //! holds the mean-energy half of `disbar` for the ACE route's
 //! `Kerma::from_endf`; this is the whole routine, damage included.
 
+use petir::mathf::RealMath;
 use super::flat::{legndr1, nint, terp1, QP4, QP64, QW4, QW64};
 use super::state::Heatr;
 use crate::common::phys::{ANRATIO, DNRATIO, HNRATIO, PNRATIO, TNRATIO};
@@ -63,9 +64,9 @@ impl Heatr {
             if iverf <= 5 && mtd == 798 {
                 s.ax = 4.0;
             }
-            s.denom = 1.0 / awr.powf(THIRD);
+            s.denom = 1.0 / awr.r_powf(THIRD);
             if s.ax != 0.0 {
-                s.denom = 1.0 / (s.ax.powf(THIRD) + awr.powf(THIRD));
+                s.denom = 1.0 / (s.ax.r_powf(THIRD) + awr.r_powf(THIRD));
             }
             let iz = nint(za / 1000.0);
             s.z = iz as f64;

@@ -133,6 +133,7 @@ pub(crate) const GAUSS8_WEIGHTS: [f64; 8] = [
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
 
     /// `legndr` reproduces the closed-form low-order Legendre polynomials.
@@ -146,8 +147,8 @@ mod tests {
         let x = 0.3_f64;
         let p = legndr(x, 4);
         let p2 = 0.5 * (3.0 * x * x - 1.0);
-        let p3 = 0.5 * (5.0 * x.powi(3) - 3.0 * x);
-        let p4 = 0.125 * (35.0 * x.powi(4) - 30.0 * x * x + 3.0);
+        let p3 = 0.5 * (5.0 * x.r_powi(3) - 3.0 * x);
+        let p4 = 0.125 * (35.0 * x.r_powi(4) - 30.0 * x * x + 3.0);
         assert!((p[0] - 1.0).abs() < 1e-13);
         assert!((p[1] - x).abs() < 1e-13);
         assert!((p[2] - p2).abs() < 1e-13);
@@ -170,11 +171,11 @@ mod tests {
     fn cm_to_lab_edges_are_analytic() {
         let e = 2.0e6;
         let ep_cm = 0.5e6;
-        let xc = 1.0 / (51.0_f64).powi(2);
+        let xc = 1.0 / (51.0_f64).r_powi(2);
         let fwd = lab_energy_from_cm(e, ep_cm, 1.0, xc);
         let bwd = lab_energy_from_cm(e, ep_cm, -1.0, xc);
-        let fwd_ref = (ep_cm.sqrt() + (xc * e).sqrt()).powi(2);
-        let bwd_ref = (ep_cm.sqrt() - (xc * e).sqrt()).powi(2);
+        let fwd_ref = (ep_cm.sqrt() + (xc * e).sqrt()).r_powi(2);
+        let bwd_ref = (ep_cm.sqrt() - (xc * e).sqrt()).r_powi(2);
         assert!(
             (fwd - fwd_ref).abs() < 1e-6 * fwd_ref,
             "fwd {fwd} vs {fwd_ref}"

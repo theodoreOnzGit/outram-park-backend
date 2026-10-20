@@ -30,6 +30,7 @@
 pub mod mf2;
 pub mod wfun;
 
+use petir::mathf::RealMath;
 use crate::common::phys::{BK_EV_PER_K, PI};
 use crate::endf::interp::{terp1, IntLaw};
 use crate::reconr::slbw::{channel_radius, phase_shift, WAVE_K};
@@ -407,10 +408,10 @@ pub fn unresolved_cross_sections(
             // unresl:1072 — the potential-scattering term is added once per
             // `L` (its first J-state, `j.eq.1`), not once per J-state.
             if last_l != Some(seq.l) {
-                spot += seq.abn * ab * (2.0 * seq.l as f64 + 1.0) * ps.sin().powi(2);
+                spot += seq.abn * ab * (2.0 * seq.l as f64 + 1.0) * ps.r_sin().r_powi(2);
                 last_l = Some(seq.l);
             }
-            sint -= seq.abn * ab * PI * gj * gnx * ps.sin().powi(2) / seq.d;
+            sint -= seq.abn * ab * PI * gj * gnx * ps.r_sin().r_powi(2) / seq.d;
         }
     }
 

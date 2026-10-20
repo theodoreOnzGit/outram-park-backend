@@ -1,5 +1,6 @@
 //! Unit tests for `wmp` (moved verbatim out of `wmp.rs` on split).
 
+use petir::mathf::RealMath;
 use super::evaluate::*;
 use super::*;
 
@@ -17,7 +18,7 @@ fn faddeeva_matches_reference_values() {
     // For real x, Re w(x) = e^{−x²} exactly.
     for &x in &[0.5, 1.0, 2.0, 3.0] {
         let w = w_standard(Cf64::new(x, 0.0));
-        assert!((w.re - (-x * x).exp()).abs() < TOL, "Re w({x}) = {}", w.re);
+        assert!((w.re - (-x * x).r_exp()).abs() < TOL, "Re w({x}) = {}", w.re);
     }
 
     // w(i) = 0.4275835761558070… (real).

@@ -67,6 +67,7 @@
 //!   flag but [`UnresolvedTable::shield`] does **not** apply the `xtot`
 //!   correction — it evaluates the `iovl == 0` path. Flagged as a follow-up.
 
+use petir::mathf::RealMath;
 use std::sync::Arc;
 
 use crate::endf::interp::{terp1, IntLaw};
@@ -844,7 +845,7 @@ pub fn terpu(sigz: f64, xs: &[f64], sigs: &[f64]) -> f64 {
                     if st > RHI * s_two {
                         continue;
                     }
-                    terp *= (sigz / st).ln() / (sm / st).ln();
+                    terp *= (sigz / st).r_ln() / (sm / st).r_ln();
                 }
             } else {
                 // path before label 130 (groupr.f90:7020-7023)

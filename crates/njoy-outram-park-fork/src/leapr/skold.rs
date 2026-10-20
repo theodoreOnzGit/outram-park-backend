@@ -24,6 +24,7 @@
 //! `discre` in every temperature pass, only when `ncold = 0`
 //! (`leapr.f90:389-390`); the effective temperature is untouched.
 
+use petir::mathf::RealMath;
 use crate::leapr::coldh::terpk;
 use crate::leapr::deck::PairCorrelation;
 use crate::leapr::input::LeaprInput;
@@ -40,7 +41,7 @@ fn terp1_loglog(x1: f64, y1: f64, x2: f64, y2: f64, x: f64) -> f64 {
     if x2 == x1 || y2 == y1 || x == x1 || y1 == 0.0 {
         return y1;
     }
-    y1 * ((x / x1).ln() * (y2 / y1).ln() / (x2 / x1).ln()).exp()
+    y1 * ((x / x1).r_ln() * (y2 / y1).r_ln() / (x2 / x1).r_ln()).r_exp()
 }
 
 /// Apply the Sköld correction to `ssm` in place (`leapr.f90:2830-2863`).

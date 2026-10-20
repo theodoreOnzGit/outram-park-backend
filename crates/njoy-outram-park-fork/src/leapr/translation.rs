@@ -22,6 +22,7 @@
 //! ## Units
 //! `alpha`, `beta`, `S` dimensionless; temperatures in K.
 
+use petir::mathf::RealMath;
 use crate::leapr::frequency::FrequencyModel;
 use crate::leapr::input::LeaprInput;
 use crate::leapr::SabMatrix;
@@ -92,7 +93,7 @@ pub fn besk1(x: f64) -> f64 {
             + C19)
             * u
             + C20;
-        1.0 / x + bi1 * ((0.5 * x).ln() + C23) - v * bi3
+        1.0 / x + bi1 * ((0.5 * x).r_ln() + C23) - v * bi3
     } else {
         let u = 1.0 / x;
         let bi3 = (((((((((((-C25 * u + C26) * u - C27) * u + C28) * u - C29) * u + C30) * u
@@ -130,15 +131,15 @@ pub fn terps(sd: &[f64], delta: f64, be: f64) -> f64 {
     if i < nsd - 1 {
         let bt = i as f64 * delta;
         let btp = bt + delta;
-        let st = if sd[i] <= 0.0 { SLIM } else { sd[i].ln() };
+        let st = if sd[i] <= 0.0 { SLIM } else { sd[i].r_ln() };
         let stp = if sd[i + 1] <= 0.0 {
             SLIM
         } else {
-            sd[i + 1].ln()
+            sd[i + 1].r_ln()
         };
         let stt = st + (be - bt) * (stp - st) / (btp - bt);
         if stt > SLIM {
-            stt.exp()
+            stt.r_exp()
         } else {
             0.0
         }
@@ -180,9 +181,9 @@ pub fn stable(al: f64, delta: f64, twt: f64, c: f64, ndmax: usize) -> (Vec<f64>,
             let c6 = (be * be + c4).sqrt();
             let c7 = c6 * c2;
             let c5 = if c7 <= 1.0 {
-                c8 * (c3 + be / 2.0).exp()
+                c8 * (c3 + be / 2.0).r_exp()
             } else {
-                c8 * (c3 - c7 + be / 2.0).exp()
+                c8 * (c3 - c7 + be / 2.0).r_exp()
             };
             sd.push(c5 * besk1(c7) / c6);
             ap.push(be);
@@ -199,7 +200,7 @@ pub fn stable(al: f64, delta: f64, twt: f64, c: f64, ndmax: usize) -> (Vec<f64>,
         let wal = twt * al;
         loop {
             let ex = -(wal - be) * (wal - be) / (4.0 * wal);
-            sd.push(ex.exp() / (4.0 * pi * wal).sqrt());
+            sd.push(ex.r_exp() / (4.0 * pi * wal).sqrt());
             ap.push(be);
             be += delta;
             j += 1;
@@ -256,14 +257,14 @@ fn sbfill(nbt: usize, mut delta: f64, be: f64, s: &[f64], betan: &[f64]) -> (Vec
             }
         }
         let val = if idone == 1 {
-            let st = if s[j - 1] <= 0.0 { SLIM } else { s[j - 1].ln() };
-            let stm = if s[j - 2] <= 0.0 { SLIM } else { s[j - 2].ln() };
+            let st = if s[j - 1] <= 0.0 { SLIM } else { s[j - 1].r_ln() };
+            let stm = if s[j - 2] <= 0.0 { SLIM } else { s[j - 2].r_ln() };
             let mut logv = st + (b - betan[j - 1]) * (stm - st) / (betan[j - 2] - betan[j - 1]);
             if bet > 0.0 {
                 logv -= bet;
             }
             if logv > SLIM {
-                logv.exp()
+                logv.r_exp()
             } else {
                 0.0
             }
@@ -368,7 +369,7 @@ pub fn add_translation(
                 let lo = nbt - i + 1; // 1-based
                 s += f * sd[i - 1] * sb[hi - 1];
                 let bb = (i - 1) as f64 * delta;
-                s += f * sd[i - 1] * sb[lo - 1] * (-bb).exp();
+                s += f * sd[i - 1] * sb[lo - 1] * (-bb).r_exp();
             }
             s *= delta / 3.0;
             if s < TINY {
@@ -376,7 +377,7 @@ pub fn add_translation(
             }
             let st = terps(&sd, delta, be);
             if st > 0.0 {
-                s += (-al * f0).exp() * st;
+                s += (-al * f0).r_exp() * st;
             }
             sab.set(ibeta, ialpha, s);
         }
@@ -465,7 +466,7 @@ mod tests {
         let mut sab = SabMatrix::zeros(nbeta, alpha.len());
         for j in 0..alpha.len() {
             for k in 0..nbeta {
-                sab.set(k, j, (-(beta[k]) / 2.0).exp() * 0.01);
+                sab.set(k, j, (-(beta[k]) / 2.0).r_exp() * 0.01);
             }
         }
         let mut tempf = freq.tbar * input.temperature_k;

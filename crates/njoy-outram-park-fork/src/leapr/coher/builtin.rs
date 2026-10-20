@@ -34,6 +34,7 @@
 //! (monotone edges, non-negative structure factors, plausible first-edge energy)
 //! but **not** validated against a reference LEAPR run.
 
+use petir::mathf::RealMath;
 use crate::common::phys::PI;
 use crate::leapr::coher::BraggEdges;
 use crate::leapr::vintage::PhysicalConstants;
@@ -165,28 +166,28 @@ fn formf(lat: CoherentLattice, l1: i64, l2: i64, l3: i64) -> f64 {
         CoherentLattice::Graphite => {
             // l3 even vs odd (integer test, l3 >= 0 in the hexagonal sum).
             if l3 % 2 != 0 {
-                (PI * (f1 - f2) / 3.0).sin().powi(2)
+                (PI * (f1 - f2) / 3.0).r_sin().r_powi(2)
             } else {
-                (6.0 + 10.0 * (2.0 * PI * (f1 - f2) / 3.0).cos()) / 4.0
+                (6.0 + 10.0 * (2.0 * PI * (f1 - f2) / 3.0).r_cos()) / 4.0
             }
         }
         CoherentLattice::Beryllium => {
-            1.0 + (2.0 * PI * (2.0 * f1 + 4.0 * f2 + 3.0 * f3) / 6.0).cos()
+            1.0 + (2.0 * PI * (2.0 * f1 + 4.0 * f2 + 3.0 * f3) / 6.0).r_cos()
         }
         CoherentLattice::BerylliumOxide => {
-            (1.0 + (2.0 * PI * (2.0 * f1 + 4.0 * f2 + 3.0 * f3) / 6.0).cos())
-                * (C1 + C2 + C3 * (3.0 * PI * f3 / 4.0).cos())
+            (1.0 + (2.0 * PI * (2.0 * f1 + 4.0 * f2 + 3.0 * f3) / 6.0).r_cos())
+                * (C1 + C2 + C3 * (3.0 * PI * f3 / 4.0).r_cos())
         }
         CoherentLattice::Aluminium | CoherentLattice::Lead => {
             let e1 = 2.0 * PI * f1;
             let e2 = 2.0 * PI * (f1 + f2);
             let e3 = 2.0 * PI * (f1 + f3);
-            (1.0 + e1.cos() + e2.cos() + e3.cos()).powi(2)
-                + (e1.sin() + e2.sin() + e3.sin()).powi(2)
+            (1.0 + e1.r_cos() + e2.r_cos() + e3.r_cos()).r_powi(2)
+                + (e1.r_sin() + e2.r_sin() + e3.r_sin()).r_powi(2)
         }
         CoherentLattice::Iron => {
             let e1 = 2.0 * PI * (f1 + f2 + f3);
-            (1.0 + e1.cos()).powi(2) + e1.sin().powi(2)
+            (1.0 + e1.r_cos()).r_powi(2) + e1.r_sin().r_powi(2)
         }
     }
 }
@@ -275,7 +276,7 @@ pub fn coher_with_constants(
     // energy <-> tau^2 conversion factors (2541–2545). `econ` comes from the
     // caller's constant set, not from `common::phys`, so that reproducing a
     // pre-2018 evaluation uses that era's `ev`/`amu`/`hbar`/`amassn`.
-    let twopis = (2.0 * PI).powi(2);
+    let twopis = (2.0 * PI).r_powi(2);
     let econ = constants.econ();
     let recon = 1.0 / econ;
     let tsqx = econ / 20.0;
@@ -290,20 +291,20 @@ pub fn coher_with_constants(
         (
             4.0 / (3.0 * a * a),
             1.0 / (c * c),
-            scoh * (4.0 * PI).powi(2) / (2.0 * a * a * c * SQRT3 * econ),
+            scoh * (4.0 * PI).r_powi(2) / (2.0 * a * a * c * SQRT3 * econ),
         )
     } else if is_fcc {
         (
             3.0 / (a * a),
             0.0,
-            scoh * (4.0 * PI).powi(2) / (16.0 * a * a * a * econ),
+            scoh * (4.0 * PI).r_powi(2) / (16.0 * a * a * a * econ),
         )
     } else {
         // iron (bcc)
         (
             2.0 / (a * a),
             0.0,
-            scoh * (4.0 * PI).powi(2) / (8.0 * a * a * a * econ),
+            scoh * (4.0 * PI).r_powi(2) / (8.0 * a * a * a * econ),
         )
     };
 

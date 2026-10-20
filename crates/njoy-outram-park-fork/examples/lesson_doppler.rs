@@ -17,6 +17,7 @@
 //!
 //! Driver glue (`main`): RECONR and BROADR are tested in the crate.
 
+use petir::mathf::RealMath;
 use njoy_outram_park_fork::broadr::doppler_broaden;
 use njoy_outram_park_fork::endf::tape::Tape;
 use njoy_outram_park_fork::reconr::{reconr, ReconrConfig};
@@ -86,7 +87,7 @@ fn main() -> Result<(), String> {
     rows.pop();
     // A pure 1/v cross section through the same kernel.
     let mut onev = cap.clone();
-    onev.pairs = (0..=400).map(|i| 1e-3 * 1e5f64.powf(i as f64 / 400.0)).map(|e| (e, 10.0 / e.sqrt())).collect();
+    onev.pairs = (0..=400).map(|i| 1e-3 * 1e5f64.r_powf(i as f64 / 400.0)).map(|e| (e, 10.0 / e.sqrt())).collect();
     let mut dev = String::new();
     for t in [293.6, 1200.0] {
         let b = doppler_broaden(std::slice::from_ref(&onev), awr, t).remove(0);

@@ -18,6 +18,7 @@
 //! interpolation formula as [`crate::unresr::wfun::WTable::lookup`] (same
 //! `a1..a5`/`pq` weights), only the grid-index mapping differs per table.
 
+use petir::mathf::RealMath;
 use crate::unresr::wfun::WRecurrence;
 
 const EPS: f64 = 1.0e-7;
@@ -121,9 +122,9 @@ fn w_taylor2(rez: f64, aimz: f64, r2: f64, ai2: f64) -> (f64, f64) {
 
     let mut state = WRecurrence::init_taylor();
 
-    let expon = (temp2 * aj0).exp();
-    let expc = expon * (temp2 * ak).cos();
-    let exps = -expon * (temp2 * ak).sin();
+    let expon = (temp2 * aj0).r_exp();
+    let expc = expon * (temp2 * ak).r_cos();
+    let exps = -expon * (temp2 * ak).r_sin();
 
     let mut ajsig: f64 = 0.0;
     let mut sig2p: f64 = 2.0 * C2;
@@ -424,7 +425,7 @@ mod tests {
         assert!(close(r, 0.615_690_344_194_586_7, 1e-9));
         // Re w(x) = exp(-x²) on the real axis.
         let (r, _) = uw2(0.5, 0.0);
-        assert!(close(r, (-0.25f64).exp(), 1e-9));
+        assert!(close(r, (-0.25f64).r_exp(), 1e-9));
     }
 
     #[test]

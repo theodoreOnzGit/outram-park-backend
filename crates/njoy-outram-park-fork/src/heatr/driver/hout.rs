@@ -13,6 +13,7 @@
 //! into MF=3 by MT, and the rest of the material is copied. With a plot unit,
 //! the energy-balance check for `viewr` is written too.
 
+use petir::mathf::RealMath;
 use super::flat::{nint, rows_of_tab1};
 use super::nheat::line14;
 use super::state::Heatr;
@@ -338,7 +339,7 @@ fn plot_block<F: Fn(&Vec<f64>, usize) -> f64>(
     };
     let elo = 1.0 / 1000.0;
     let thin = if log {
-        10f64.powf((EMAX / elo).log10() / 2500.0)
+        10f64.r_powf((EMAX / elo).r_log10() / 2500.0)
     } else {
         EMAX / 2500.0
     };

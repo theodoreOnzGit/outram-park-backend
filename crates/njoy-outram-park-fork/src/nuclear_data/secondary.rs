@@ -15,6 +15,8 @@
 //! routed through the ACER ACE-file writer (`src/ace/energy.rs` has its own,
 //! narrower MF=5 LF=1 parser for that separate path; see `docs/porting-plan.md` §8).
 
+use petir::mathf::RealMath;
+
 /// `true` when an `(NBT, INT)` region table is **lin-lin throughout**: empty
 /// (no regions stated, which ENDF and ACE both read as lin-lin) or every region
 /// `INT = 2`. The consumers below keep their original lin-lin arithmetic on
@@ -83,9 +85,9 @@ fn tabulated1d_core<F: Fn(usize) -> (f64, f64)>(
     let (x1, y1) = point(i + 1);
     match law {
         1 => y0,
-        3 => y0 + (x / x0).ln() / (x1 / x0).ln() * (y1 - y0),
-        4 => y0 * ((x - x0) / (x1 - x0) * (y1 / y0).ln()).exp(),
-        5 => y0 * ((x / x0).ln() / (x1 / x0).ln() * (y1 / y0).ln()).exp(),
+        3 => y0 + (x / x0).r_ln() / (x1 / x0).r_ln() * (y1 - y0),
+        4 => y0 * ((x - x0) / (x1 - x0) * (y1 / y0).r_ln()).r_exp(),
+        5 => y0 * ((x / x0).r_ln() / (x1 / x0).r_ln() * (y1 / y0).r_ln()).r_exp(),
         _ => y0 + (x - x0) / (x1 - x0) * (y1 - y0),
     }
 }
@@ -174,7 +176,7 @@ impl NuBar {
                 let mut energy = Vec::with_capacity(n + 1);
                 let mut nu_total = Vec::with_capacity(n + 1);
                 for i in 0..=n {
-                    let e = e_lo * (e_hi / e_lo).powf(i as f64 / n as f64);
+                    let e = e_lo * (e_hi / e_lo).r_powf(i as f64 / n as f64);
                     // Horner over reversed coefficients: C1 + C2·E + C3·E² + …
                     let nu = coeffs.iter().rev().fold(0.0, |acc, &c| acc * e + c);
                     energy.push(e);
@@ -381,7 +383,7 @@ impl FissionSpectrum {
                 if e <= 0.0 {
                     return 0.0;
                 }
-                (-e / a).exp() * (b * e).sqrt().sinh()
+                (-e / a).r_exp() * (b * e).sqrt().r_sinh()
             }
             FissionSpectrum::Tabulated { e_out, pdf } => interp_zero(e_out, pdf, e),
             FissionSpectrum::ContinuousTabular(chi) => {
@@ -401,7 +403,7 @@ impl FissionSpectrum {
                 if e <= 0.0 || t <= 0.0 {
                     0.0
                 } else {
-                    e.sqrt() * (-e / t).exp()
+                    e.sqrt() * (-e / t).r_exp()
                 }
             }
             FissionSpectrum::Evaporation { theta, .. } => {
@@ -409,7 +411,7 @@ impl FissionSpectrum {
                 if e <= 0.0 || t <= 0.0 {
                     0.0
                 } else {
-                    e * (-e / t).exp()
+                    e * (-e / t).r_exp()
                 }
             }
             FissionSpectrum::WattEnergyDependent { a, b, .. } => {
@@ -418,7 +420,7 @@ impl FissionSpectrum {
                 if e <= 0.0 {
                     0.0
                 } else {
-                    (-e / a0).exp() * (b0 * e).sqrt().sinh()
+                    (-e / a0).r_exp() * (b0 * e).sqrt().r_sinh()
                 }
             }
             FissionSpectrum::Mixture(parts) => parts
@@ -846,7 +848,7 @@ impl ContinuumKalbachRow {
         let langevin = if a.abs() < 1.0e-4 {
             a / 3.0
         } else {
-            1.0 / a.tanh() - 1.0 / a
+            1.0 / a.r_tanh() - 1.0 / a
         };
         self.r * langevin
     }
@@ -892,7 +894,7 @@ impl ContinuumKalbachRow {
             return 2.0 * xi - 1.0;
         }
         let phi = r.atanh();
-        let s = ((2.0 * xi - 1.0) * a.sinh() + r * a.cosh()) / root;
+        let s = ((2.0 * xi - 1.0) * a.r_sinh() + r * a.r_cosh()) / root;
         let mu = (s.asinh() - phi) / a;
         if mu.is_finite() {
             mu.clamp(-1.0, 1.0)
@@ -1810,7 +1812,7 @@ pub fn phase_space_chi(
     let mut incident = Vec::with_capacity(N_IN);
     let mut tables = Vec::with_capacity(N_IN);
     for i in 0..N_IN {
-        let e = e_lo * (e_hi / e_lo).powf(i as f64 / (N_IN - 1) as f64);
+        let e = e_lo * (e_hi / e_lo).r_powf(i as f64 / (N_IN - 1) as f64);
         let emax = e_max_at(e);
         if !(emax > 0.0) {
             continue; // below threshold: no phase space to share

@@ -24,6 +24,7 @@
 //! channel spin; `efrobns`'s singular case is an error here where
 //! upstream degrades silently.
 
+use petir::mathf::RealMath;
 use crate::common::phys::{AMASSN_AMU, PI};
 use crate::reconr::slbw::WAVE_K;
 use crate::NjoyError;
@@ -50,7 +51,7 @@ pub fn ggrmat(e: f64, b: &[f64], npnls: usize, valspi: f64) -> Result<([f64; 4],
     let awri = b[12];
     let ap = b[7];
     let aw = AMASSN_AMU * awri;
-    let mut ra = RC1 * aw.powf(THIRD) + RC2;
+    let mut ra = RC1 * aw.r_powf(THIRD) + RC2;
     if naps == 1 {
         ra = ap;
     }
@@ -90,8 +91,8 @@ pub fn ggrmat(e: f64, b: &[f64], npnls: usize, valspi: f64) -> Result<([f64; 4],
         let (_se, pe) = efacts(ll, rho);
         let phi = efacphi(ll, rhoc);
         let phid = phi;
-        let p1 = (2.0 * phid).cos();
-        let p2 = (2.0 * phid).sin();
+        let p1 = (2.0 * phid).r_cos();
+        let p2 = (2.0 * phid).r_sin();
 
         // possible j values (l.6309-6318)
         let fl = f64::from(ll);
@@ -235,7 +236,7 @@ pub fn ggrmat(e: f64, b: &[f64], npnls: usize, valspi: f64) -> Result<([f64; 4],
                         let u11r = p1 * (2.0 * ri[0][0] - 1.0) + 2.0 * p2 * si[0][0];
                         let u11i = p2 * (1.0 - 2.0 * ri[0][0]) + 2.0 * p1 * si[0][0];
                         termt = 2.0 * gj * (1.0 - u11r);
-                        termn = gj * ((1.0 - u11r).powi(2) + u11i * u11i);
+                        termn = gj * ((1.0 - u11r).r_powi(2) + u11i * u11i);
                     } else {
                         // r-function path (l.6473-6495)
                         let dd = r[0][0];
@@ -255,7 +256,7 @@ pub fn ggrmat(e: f64, b: &[f64], npnls: usize, valspi: f64) -> Result<([f64; 4],
                             termn = gj * (xx * xx + uui * uui);
                         } else {
                             termt = 2.0 * gj * (1.0 - uur);
-                            termn = gj * ((1.0 - uur).powi(2) + uui * uui);
+                            termn = gj * ((1.0 - uur).r_powi(2) + uui * uui);
                         }
                         termf = 0.0;
                     }

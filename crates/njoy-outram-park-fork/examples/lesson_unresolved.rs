@@ -23,6 +23,7 @@
 //! tested in the crate; the lesson's check (`check-physics.js`) reads the
 //! file this writes.
 
+use petir::mathf::RealMath;
 use njoy_outram_park_fork::endf::tape::Tape;
 use njoy_outram_park_fork::reconr::{reconr, ReconrConfig};
 use njoy_outram_park_fork::reference_data::reference_endf;
@@ -93,7 +94,7 @@ fn main() -> Result<(), String> {
         let r = reconr(&tape, &ReconrConfig { mat, tolerance: 0.001, temperature: 0.0 }).map_err(|e| e.to_string())?;
         let cap = r.sections.iter().find(|s| s.mt.number() == 102).ok_or("no MT=102")?;
         let th = thin(&cap.pairs);
-        let ea: Vec<f64> = (0..NAVG).map(|i| 1e2 * (2e5f64 / 1e2).powf(i as f64 / (NAVG - 1) as f64)).collect();
+        let ea: Vec<f64> = (0..NAVG).map(|i| 1e2 * (2e5f64 / 1e2).r_powf(i as f64 / (NAVG - 1) as f64)).collect();
         let av: Vec<f64> = ea.iter().map(|&e| average(&cap.pairs, e / (1.0 + W), e * (1.0 + W))).collect();
         println!("  MT 102: {} points, {} kept; average at 10 keV {:.4} b, at 30 keV {:.4} b", cap.pairs.len(), th.len(), average(&cap.pairs, 1e4 / (1.0 + W), 1e4 * (1.0 + W)), average(&cap.pairs, 3e4 / (1.0 + W), 3e4 * (1.0 + W)));
         let _ = write!(

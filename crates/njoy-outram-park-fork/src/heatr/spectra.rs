@@ -3,6 +3,7 @@
 //! Split out of `heatr/mod.rs` (see the module doc there for the physics of
 //! each phase H1–H5).
 
+use petir::mathf::RealMath;
 use crate::acer::energy::Mf6Neutron;
 use crate::endf::MtReaction;
 use crate::nuclear_data::secondary::FissionSpectrum;
@@ -196,5 +197,5 @@ pub(super) fn emission_spectrum(
 /// At `Q=0` this is exactly H1's elastic formula — confirming the two are the
 /// same physics with (H1) and without (H3) an excitation/reaction Q-value.
 pub(super) fn single_neutron_factor(awr: f64) -> f64 {
-    2.0 * awr / (awr + 1.0).powi(2)
+    2.0 * awr / (awr + 1.0).r_powi(2)
 }

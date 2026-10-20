@@ -13,6 +13,7 @@
 //! | 5 | log-log   | log in x and y |
 //! | 6 | charged-particle special (not used here) |
 
+use petir::mathf::RealMath;
 use crate::NjoyError;
 
 /// Interpolation law code as defined in ENDF-6.
@@ -97,7 +98,7 @@ pub fn terp1(x1: f64, y1: f64, x2: f64, y2: f64, x: f64, law: IntLaw) -> Result<
                     "log interpolation with non-positive x".into(),
                 ));
             }
-            Ok(y1 + (x / x1).ln() * (y2 - y1) / (x2 / x1).ln())
+            Ok(y1 + (x / x1).r_ln() * (y2 - y1) / (x2 / x1).r_ln())
         }
         IntLaw::LogLin => {
             // ENDF INT=4: ln(y) linear in x (`:1439`). Upstream writes this as
@@ -107,7 +108,7 @@ pub fn terp1(x1: f64, y1: f64, x2: f64, y2: f64, x: f64, law: IntLaw) -> Result<
                     "log interpolation with non-positive y".into(),
                 ));
             }
-            Ok(y1 * ((x - x1) * (y2 / y1).ln() / (x2 - x1)).exp())
+            Ok(y1 * ((x - x1) * (y2 / y1).r_ln() / (x2 - x1)).r_exp())
         }
         IntLaw::LogLog => {
             // `:1443-1448`. Upstream returns `y1` outright when `y1 = 0`
@@ -121,7 +122,7 @@ pub fn terp1(x1: f64, y1: f64, x2: f64, y2: f64, x: f64, law: IntLaw) -> Result<
                     "log-log interpolation with non-positive value".into(),
                 ));
             }
-            Ok(y1 * ((x / x1).ln() * (y2 / y1).ln() / (x2 / x1).ln()).exp())
+            Ok(y1 * ((x / x1).r_ln() * (y2 / y1).r_ln() / (x2 / x1).r_ln()).r_exp())
         }
     }
 }
@@ -275,25 +276,25 @@ pub fn gral(
     };
     // y linear in ln(x) (INT=3).
     let linlog = || {
-        let b = (yh - yl) / (xh / xl).ln();
+        let b = (yh - yl) / (xh / xl).r_ln();
         let z = (x2 - x1) / x1;
         if z.abs() <= BREAK {
-            (x2 - x1) * (yl + b * (x1 / xl).ln())
+            (x2 - x1) * (yl + b * (x1 / xl).r_ln())
                 + b * x1 * z * z * (1.0 + z * (-1.0 / 3.0 + z * (1.0 / 6.0 - z / 10.0))) / 2.0
         } else {
-            (x2 - x1) * (yl + b * (x1 / xl).ln())
-                + b * x1 * (1.0 + (x2 / x1) * ((x2 / x1).ln() - 1.0))
+            (x2 - x1) * (yl + b * (x1 / xl).r_ln())
+                + b * x1 * (1.0 + (x2 / x1) * ((x2 / x1).r_ln() - 1.0))
         }
     };
     // ln(y) linear in x (INT=4).
     let loglin = || {
-        let b = (yh / yl).ln() / (xh - xl);
-        let a = yl.ln() - b * xl;
+        let b = (yh / yl).r_ln() / (xh - xl);
+        let a = yl.r_ln() - b * xl;
         let z = (x2 - x1) * b;
         if z.abs() <= BREAK {
-            (a + b * x1).exp() * (x2 - x1) * (1.0 + z * (1.0 / 2.0 + z / 6.0))
+            (a + b * x1).r_exp() * (x2 - x1) * (1.0 + z * (1.0 / 2.0 + z / 6.0))
         } else {
-            (a + b * x1).exp() * (z.exp() - 1.0) / b
+            (a + b * x1).r_exp() * (z.r_exp() - 1.0) / b
         }
     };
     let f = match int_code {
@@ -323,12 +324,12 @@ pub fn gral(
             } else if yl < 0.0 || yh < 0.0 {
                 linlog()
             } else {
-                let b = (yh / yl).ln() / (xh / xl).ln();
-                let z = (b + 1.0) * (x2 / x1).ln();
+                let b = (yh / yl).r_ln() / (xh / xl).r_ln();
+                let z = (b + 1.0) * (x2 / x1).r_ln();
                 if z.abs() <= BREAK {
-                    yl * x1 * (x1 / xl).powf(b) * (x2 / x1).ln() * (1.0 + z * (1.0 / 2.0 + z / 6.0))
+                    yl * x1 * (x1 / xl).r_powf(b) * (x2 / x1).r_ln() * (1.0 + z * (1.0 / 2.0 + z / 6.0))
                 } else {
-                    yl * x1 * (x1 / xl).powf(b) * ((x2 / x1).powf(b + 1.0) - 1.0) / (b + 1.0)
+                    yl * x1 * (x1 / xl).r_powf(b) * ((x2 / x1).r_powf(b + 1.0) - 1.0) / (b + 1.0)
                 }
             }
         }
@@ -410,20 +411,20 @@ mod tests {
         // INT=4, ln(y) linear in x: y = y1 exp(b (x-x1)) with
         // b = ln(y2/y1)/(x2-x1); the integral is (y2 - y1)/b.
         let (x1, y1, x2, y2) = (1.0f64, 1.0f64, 3.0f64, 8.0f64);
-        let b = (y2 / y1).ln() / (x2 - x1);
+        let b = (y2 / y1).r_ln() / (x2 - x1);
         let want = (y2 - y1) / b;
         let got = gral(x1, y1, x2, y2, x1, x2, 4).unwrap();
         assert!((got - want).abs() / want < 1e-12, "law 4: {got} vs {want}");
         // INT=5, log-log: y = y1 (x/x1)^p with p = ln(y2/y1)/ln(x2/x1); the
         // integral is y1 x1 [(x2/x1)^(p+1) - 1] / (p+1).
-        let p = (y2 / y1).ln() / (x2 / x1).ln();
-        let want = y1 * x1 * ((x2 / x1).powf(p + 1.0) - 1.0) / (p + 1.0);
+        let p = (y2 / y1).r_ln() / (x2 / x1).r_ln();
+        let want = y1 * x1 * ((x2 / x1).r_powf(p + 1.0) - 1.0) / (p + 1.0);
         let got = gral(x1, y1, x2, y2, x1, x2, 5).unwrap();
         assert!((got - want).abs() / want < 1e-12, "law 5: {got} vs {want}");
         // INT=3, y linear in ln(x): integral of y1 + b ln(x/x1) over the panel,
         // b = (y2-y1)/ln(x2/x1). Closed form: (x2-x1)(y1 - b) + b(x2 ln(x2/x1)).
-        let b3 = (y2 - y1) / (x2 / x1).ln();
-        let want = (x2 - x1) * (y1 - b3) + b3 * x2 * (x2 / x1).ln();
+        let b3 = (y2 - y1) / (x2 / x1).r_ln();
+        let want = (x2 - x1) * (y1 - b3) + b3 * x2 * (x2 / x1).r_ln();
         let got = gral(x1, y1, x2, y2, x1, x2, 3).unwrap();
         assert!((got - want).abs() / want < 1e-12, "law 3: {got} vs {want}");
     }

@@ -37,6 +37,7 @@
 //! (`   mat9225`) where it had written the ZA (`mat92234`), the one header
 //! difference a browser build of the same deck exposed.
 
+use petir::mathf::RealMath;
 use njoy_outram_park_fork::acer::compare::{compare, Verdict, CE_BLOCKS, THERMAL_BLOCKS};
 use njoy_outram_park_fork::acer::read::{self, AceFileType, RawAceTable};
 use njoy_outram_park_fork::acer::thermal::{jxs as tjxs, ThermalAceOptions};
@@ -110,7 +111,7 @@ fn a_removed_block_is_reported_missing() {
 fn al27_thermal_type1() -> RawAceTable {
     let tape = Tape::read(std::fs::File::open(reference_endf_dir().join("tsl-013_Al_027-ENDF8.0.endf")).unwrap()).unwrap();
     let mf7 = parse_mf7(&tape, 53).unwrap();
-    let grid: Vec<f64> = (0..20).map(|i| 1.0e-4 * (4.0e4_f64).powf(i as f64 / 19.0)).collect();
+    let grid: Vec<f64> = (0..20).map(|i| 1.0e-4 * (4.0e4_f64).r_powf(i as f64 / 19.0)).collect();
     let temp = mf7.incoherent_inelastic.as_ref().unwrap().temperature_k;
     let opts = ThermalAceOptions { n_outgoing: 8, n_cosines: 4, natom: 1.0, emax_ev: 4.0, ..Default::default() };
     let ace = AceTable::thermal_from_mf7(&mf7, temp, "al27", 0, &grid, opts).unwrap();

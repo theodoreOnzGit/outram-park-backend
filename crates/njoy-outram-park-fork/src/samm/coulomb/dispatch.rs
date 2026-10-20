@@ -3,6 +3,7 @@
 //! `samm.f90:4340-4399` (`coulx`) and `samm.f90:4852-4996`
 //! (`bigeta`/`getps`).
 
+use petir::mathf::RealMath;
 use super::asymptotic::{asymp1, asymp2, end1, getfg, taylor, xsigll};
 use crate::common::phys::{EULER, PI};
 
@@ -50,7 +51,7 @@ pub fn bigeta(
             break;
         }
         sum += a;
-        a = a * q / ((k + 1) as f64).powi(2);
+        a = a * q / ((k + 1) as f64).r_powi(2);
     }
     if !converged {
         log::error!("samm bigeta: I0 sum failed to converge (eta={eta}, rho={rho})");
@@ -59,7 +60,7 @@ pub fn bigeta(
     let ai0 = sum;
 
     // samm.f90:4888-4900 -- K_0(z), A&S 9.6.13.
-    let mut sum = -(zhalf.ln() + EULER) * ai0;
+    let mut sum = -(zhalf.r_ln() + EULER) * ai0;
     let mut a = q;
     let mut b = 1.0_f64;
     let mut converged = false;
@@ -70,7 +71,7 @@ pub fn bigeta(
         }
         sum += a * b;
         b += 1.0 / (k + 1) as f64;
-        a = a * q / ((k + 1) as f64).powi(2);
+        a = a * q / ((k + 1) as f64).r_powi(2);
     }
     if !converged {
         log::error!("samm bigeta: K0 sum failed to converge (eta={eta}, rho={rho})");
@@ -97,7 +98,7 @@ pub fn bigeta(
     let ai1 = sum * zhalf;
 
     // samm.f90:4914-4928 -- K_1(z), A&S 9.6.11.
-    let mut sum = 1.0 / z + (zhalf.ln() + EULER) * ai1 - zhalf * 0.5;
+    let mut sum = 1.0 / z + (zhalf.r_ln() + EULER) * ai1 - zhalf * 0.5;
     let mut a = zhalf * q / 2.0;
     let mut b = 1.0_f64;
     let mut c = 0.25_f64;
@@ -140,7 +141,7 @@ pub fn bigeta(
     }
 
     let a = PI * eta;
-    let b = (-a).exp();
+    let b = (-a).r_exp();
     let n = lll as usize;
     if f[n] * b * b + g[n] == g[n] {
         let p = (rho * b / g[n]) / g[n] * b;
@@ -178,7 +179,7 @@ pub fn getps(
     ishift: i32,
 ) -> CoulombPsp {
     let n = lll as usize;
-    let asq = f[n].powi(2) + g[n].powi(2);
+    let asq = f[n].r_powi(2) + g[n].r_powi(2);
     let a = asq.sqrt();
     let p = rho / asq;
     let mut ss = 0.0_f64;

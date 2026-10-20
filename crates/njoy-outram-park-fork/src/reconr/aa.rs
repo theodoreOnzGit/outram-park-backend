@@ -40,6 +40,7 @@
 //! `total` is redefined as `fission + capture` and `elastic = 0` — a second
 //! upstream oddity ported as-is, see [`eval_aa_range`]).
 
+use petir::mathf::RealMath;
 use crate::reconr::{mf2::AaRange, slbw::WAVE_K};
 
 /// `CADLER`, from `reconr.f90`'s `csaa` — an empirical constant folding in
@@ -110,8 +111,8 @@ pub fn eval_aa_range(e: f64, aa: &AaRange, ap: f64) -> AaSigmas {
     let k = WAVE_K * arat * eroot;
     let c = CADLER / (arat * arat);
     let omega = 2.0 * k * ap;
-    let snf = omega.sin();
-    let csf = omega.cos();
+    let snf = omega.r_sin();
+    let csf = omega.r_cos();
 
     let poly_bg = |coef: &[f64; 6]| -> f64 {
         let raw =

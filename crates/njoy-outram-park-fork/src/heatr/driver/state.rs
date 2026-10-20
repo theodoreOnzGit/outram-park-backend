@@ -19,6 +19,7 @@
 //! the translation reads like the Fortran; flat ENDF records are 0-based
 //! slices (see [`super::flat`]).
 
+use petir::mathf::RealMath;
 use crate::endf::tape::Tape;
 
 /// `nbuf`, `ilmax`, `nqamax`, `maxmf6` (`heatr.f90:13-17`).
@@ -536,17 +537,17 @@ impl Heatr {
         if zr == 0.0 {
             0.0
         } else if e <= 0.0 {
-            let el = C1 * zr * zl * (zr.powf(TWOTHD) + zl.powf(TWOTHD)).sqrt() * (ar + al) / al;
+            let el = C1 * zr * zl * (zr.r_powf(TWOTHD) + zl.r_powf(TWOTHD)).sqrt() * (ar + al) / al;
             self.df_rel = 1.0 / el;
             let denom =
-                (zr.powf(TWOTHD) + zl.powf(TWOTHD)).powf(THREEQ) * ar.powf(ONEP5) * al.sqrt();
-            self.df_fl = C2 * zr.powf(TWOTHD) * zl.sqrt() * (ar + al).powf(ONEP5) / denom;
+                (zr.r_powf(TWOTHD) + zl.r_powf(TWOTHD)).r_powf(THREEQ) * ar.r_powf(ONEP5) * al.sqrt();
+            self.df_fl = C2 * zr.r_powf(TWOTHD) * zl.sqrt() * (ar + al).r_powf(ONEP5) / denom;
             0.0
         } else if e < self.brk {
             0.0
         } else {
             let ep = e * self.df_rel;
-            e / (1.0 + self.df_fl * (C3 * ep.powf(SIXTH) + C4 * ep.powf(THREEQ) + ep))
+            e / (1.0 + self.df_fl * (C3 * ep.r_powf(SIXTH) + C4 * ep.r_powf(THREEQ) + ep))
         }
     }
 }

@@ -20,6 +20,7 @@
 //!    upstream walks it: a discontinuity puts an extra point a factor
 //!    `0.99999` below it.
 
+use petir::mathf::RealMath;
 use super::flat::{list_flat, nint, tab1_flat, tab2_flat};
 use super::state::{Heatr, Mf6Section, Mf6Sub, MAXMF6};
 use crate::endf::gety1::Gety1;
@@ -484,7 +485,7 @@ impl Heatr {
                         let efix = if nmod != 7 || lrel != 1 {
                             1.0
                         } else {
-                            mevev.powi(n as i32 - 1)
+                            mevev.r_powi(n as i32 - 1)
                         };
                         for k in 1 + 18 * n..=18 + 18 * n {
                             self.c458[k] = sc(6 + k) * efix;
