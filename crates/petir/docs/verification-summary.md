@@ -45,6 +45,7 @@ entirely on `yerr`, and `yerr` is what a step controller acts on.
 | `roots`, polishing (Newton, secant, Steffenson) | 33 | 33 (100.0%) | 0 | `gsl_numerics_code_to_code.rs` |
 | `min` (golden section, Brent) | 150 | 150 (100.0%) | 0 | `gsl_numerics_code_to_code.rs` |
 | `interp` (linear, natural cubic spline) | 244 | 244 (100.0%) | 0 | `gsl_numerics_code_to_code.rs` |
+| `interp::eval_integ` (linear, natural cubic spline; added 2026-10-20, gh:#989) | 566 | 566 (100.0%) | 0; all 10 GSL `EDOM` rows refused as `Domain` | `gsl_interp_integ_code_to_code.rs` |
 | `ode` (RKF45, state and error estimate) | 120 | 120 (100.0%) | 0 | `gsl_numerics_code_to_code.rs` |
 | `deriv` (central, forward, backward) | 78 | 76 (97.4%) | 3.27e-16 | `gsl_numerics_code_to_code.rs` |
 | `integration` (6 Kronrod rules + QAG) | 28 | 27 (96.4%) | 1.82e-16 | `gsl_numerics_code_to_code.rs` |

@@ -54,6 +54,30 @@ are documented in the replaying test and in the crate source.
 
 Replayed by `crates/petir/tests/gsl_numerics_code_to_code.rs`.
 
+## `interp-integ-gsl-2.8-reference.txt` — `gsl_interp_eval_integ`
+
+- **Built:** 2026-10-20, `gcc -O2`, glibc on x86_64-unknown-linux-gnu, from
+  the vendored tree's `interpolation/{interp,linear,cspline,accel}.c`,
+  `linalg/tridiag.c`, `vector/{init,view}.c`, `block/init.c` and
+  `err/{error,stream}.c` against GSL's own headers (recipe in the driver
+  header; that object list is the one that linked).
+- **Driver:** `interp_integ_reference_driver.c` in this directory.
+- **Why:** `petir::interp::Interp::eval_integ` was ported on 2026-10-20 so
+  that `tuas_boussinesq_solver` could drop `peroxide`, whose
+  `CubicSpline::integrate` it used for enthalpy (gh:#989).
+
+Linear and natural cubic spline on two tables: the 9-knot Runge table of the
+`interp` case above over all 231 ordered pairs `a <= b` of a 21-point grid,
+and a non-uniform 11-knot cp-shaped table on `[200, 1200]` integrated from
+273.15 and from its first knot. Plus 10 `ERR` rows (`a > b`, a limit outside
+the table) where GSL, with its error handler off, returns `NaN`.
+
+### What the comparison found (2026-10-20)
+
+566 values, **566 bit-identical (100.0 %)**; all 10 `ERR` rows refused as
+`PetirError::Domain`. Replayed by
+`crates/petir/tests/gsl_interp_integ_code_to_code.rs`.
+
 ## `qags-gsl-2.8-reference.txt` — `gsl_integration_qags`
 
 - **Built:** 2026-09-28, `gcc -O2`, glibc on x86_64-unknown-linux-gnu, from
