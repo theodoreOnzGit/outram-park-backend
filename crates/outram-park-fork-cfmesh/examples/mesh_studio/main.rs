@@ -29,7 +29,6 @@
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use petir::mathf::RealMath;
 #[cfg(target_os = "android")]
 fn main() {}
 
@@ -50,6 +49,8 @@ fn main() -> eframe::Result<()> {
 #[cfg(not(target_os = "android"))]
 mod app {
     use std::sync::{Arc, RwLock};
+
+    use petir::mathf::RealMath;
 
     use outram_park_fork_cfmesh::carve::carve_box;
     use outram_park_fork_cfmesh::checks::{check_quality, QualityReport};

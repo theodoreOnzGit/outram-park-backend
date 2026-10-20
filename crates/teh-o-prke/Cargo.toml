@@ -47,7 +47,6 @@ chem-eng-real-time-process-control-simulator.workspace = true
 [dev-dependencies]
 env_logger.workspace = true
 local-ip-address.workspace = true
-roots.workspace = true
 serde.workspace = true
 tuas_boussinesq_solver.workspace = true
 

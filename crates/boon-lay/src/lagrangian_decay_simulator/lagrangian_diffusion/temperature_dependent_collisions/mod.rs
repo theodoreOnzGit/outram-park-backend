@@ -1,3 +1,4 @@
+use petir::uom_math::QuantityMath;
 use petir::mathf::RealMath;
 use std::f64::consts::PI;
 
@@ -18,7 +19,7 @@ pub fn mean_speed(medium_temperature: ThermodynamicTemperature, particle_mass: M
     // specific energy (m^2/s^2)
     let specific = (8.0 * k_b_t) / (PI * particle_mass);
     // sqrt to get velocity
-    specific.sqrt()
+    specific.r_sqrt()
 }
 
 /// Expected number of collisions in time t with mean free path ℓ:

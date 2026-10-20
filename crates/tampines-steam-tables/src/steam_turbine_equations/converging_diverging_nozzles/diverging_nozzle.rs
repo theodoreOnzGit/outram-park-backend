@@ -1,3 +1,4 @@
+use petir::uom_math::QuantityMath;
 use uom::si::f64::*;
 use uom::si::pressure::pascal;
 use uom::si::ratio::ratio;
@@ -455,7 +456,7 @@ pub fn calculate_isentropic_exit_pressure_velocity_and_state_supersonic(
         let rho_exit = state_exit.get_rho();
         c_exit = state_exit.get_speed_of_sound();
 
-        v_exit = (2.0 * (h0 - h_exit)).sqrt();
+        v_exit = (2.0 * (h0 - h_exit)).r_sqrt();
 
         let mass_flowrate_calc = rho_exit * v_exit * a_exit;
         let error = (mass_flowrate_calc - mass_flowrate_choked) / mass_flowrate_choked;
@@ -492,7 +493,7 @@ pub fn calculate_isentropic_exit_pressure_velocity_and_state_supersonic(
     let p_mid = 0.5 * (p_lower + p_upper);
     state_exit = TampinesSteamTableCV::new_from_ps(p_mid, s0, ref_vol);
     let h_exit = state_exit.get_specific_enthalpy();
-    v_exit = (2.0 * (h0 - h_exit)).sqrt();
+    v_exit = (2.0 * (h0 - h_exit)).r_sqrt();
 
     // Final sanity check to ensure the result is physically correct.
     assert!(
@@ -550,7 +551,7 @@ pub fn calculate_isentropic_exit_pressure_velocity_and_state_subsonic(
         let rho_exit = state_exit.get_rho();
         c_exit = state_exit.get_speed_of_sound();
 
-        v_exit = (2.0 * (h0 - h_exit)).sqrt();
+        v_exit = (2.0 * (h0 - h_exit)).r_sqrt();
 
         let mass_flowrate_calc = rho_exit * v_exit * a_exit;
         let error = (mass_flowrate_calc - mass_flowrate_choked) / mass_flowrate_choked;
@@ -578,7 +579,7 @@ pub fn calculate_isentropic_exit_pressure_velocity_and_state_subsonic(
     let p_mid = 0.5 * (p_lower + p_upper);
     state_exit = TampinesSteamTableCV::new_from_ps(p_mid, s0, ref_vol);
     let h_exit = state_exit.get_specific_enthalpy();
-    v_exit = (2.0 * (h0 - h_exit)).sqrt();
+    v_exit = (2.0 * (h0 - h_exit)).r_sqrt();
 
     // Final sanity check to ensure the result is physically correct.
     assert!(

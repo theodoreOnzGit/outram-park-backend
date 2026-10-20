@@ -62,7 +62,7 @@ that drifts from its origin fails the build rather than rotting quietly.
 | `deriv` | ported | Numerical differentiation: central, forward and backward rules with automatic step refinement and an error estimate |
 | `integration` | ported | Adaptive Gauss-Kronrod quadrature (QUADPACK): six rules, the `qag` adaptive driver and the extrapolating `qags` (GSL); plus non-adaptive **Gauss-Legendre** to order 30 and **Newton-Cotes** (`peroxide`) |
 | `interp` | ported | Interpolation of tabulated data: linear and natural cubic spline, with derivatives and definite integrals (`eval_integ`, added 2026-10-20) |
-| `linalg` | lifted + ported | Dense `n×n` Crout LU with scaled partial pivoting, determinant, log-determinant, explicit inverse, level-1 BLAS, symmetric tridiagonal solve, and rectangular Householder **QR with least-squares solve** |
+| `linalg` | lifted + ported | Dense `n×n` Crout LU with scaled partial pivoting, determinant, log-determinant, explicit inverse, level-1 BLAS, symmetric tridiagonal solve, rectangular Householder **QR with least-squares solve**, and GSL's own LU with unscaled partial pivoting and its solve (`lu_decomp`, bit-identical to compiled GSL 2.8, gh:#992); since gh:#993 also **Cholesky**, **SVD**, **symmetric eigenvalues/vectors** and **nonsymmetric eigenvalues** (GSL), an **Octave-style `Matrix` vocabulary**, and **`expm`** (GNU Octave) |
 | `min` | ported | One-dimensional minimisation over a bracketing triple: golden section and Brent |
 | `ode` | ported | Initial-value ODE integration: RK4, embedded RKF45, and an adaptive driver |
 | `poly` | lifted + ported | Horner evaluation and derivatives, Newton divided differences, exact linear / quadratic / cubic root finders (OpenFOAM); closed-form **quartic** and biquadratic, and **all roots of any degree** by companion-matrix eigenvalues (the `roots` crate); polynomial **algebra** — multiply, long-divide, translate — with Lagrange interpolation and the **Legendre / Chebyshev / Hermite / Bessel** families (`peroxide`). See Prior art |
@@ -221,6 +221,14 @@ feature flags.
 Adding `num-traits` with its `libm` feature does **not** fix it: `uom` never
 looks at num-traits' features, only at its own. `transfer_fn::ratio_ext`
 restores `sqrt` and `exp` for dimensionless `Ratio` instead.
+
+**Since 2026-10-20 (gh:#985) the whole workspace builds `uom` without `std`**,
+and `petir::uom_math` restores all 27 dropped methods on PETIR maths under
+`r_` names: `QuantityMath` (`r_sqrt`, `r_cbrt`, `r_powi`, `r_hypot`,
+`r_mul_add`, `r_atan2`, on any quantity, with uom's own dimension
+bookkeeping), `RatioMath` (`r_exp`, `r_ln`, the logarithms, inverse trig) and
+`AngleMath` (trig and hyperbolic). Rename `.sqrt()` to `.r_sqrt()` and import
+the trait.
 
 ## Two upstreams, two conventions
 

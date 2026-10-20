@@ -34,9 +34,14 @@
 //! step, λ × 10 on a rejected one), as described in
 //! Marquardt, D. W. (1963), "An algorithm for least-squares estimation of
 //! nonlinear parameters", *J. Soc. Indust. Appl. Math.* 11(2), 431-441.
-//! The `roots` crate (this workspace's only root-finding dependency) provides
+//! ~~The `roots` crate (this workspace's only root-finding dependency) provides
 //! **scalar** root finders only — no nonlinear least-squares — so it could not
-//! be reused here, and no new dependency was added.
+//! be reused here, and no new dependency was added.~~ **CORRECTED 2026-10-20
+//! (gh:#991)** — this crate's root finding is now `petir::roots` (GSL ports),
+//! not the `roots` crate. The conclusion stands: `petir::roots` is scalar
+//! root finding only, and PETIR has no nonlinear least-squares solver (its
+//! least squares is the linear Householder-QR solve in `petir::linalg`), so
+//! nothing could be reused here and no new dependency was added.
 //!
 //! Consequently the *iteration path* of this solver will not be bit-identical
 //! to DWSIM's; the **models**, their analytic Jacobians, and the

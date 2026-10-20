@@ -24,6 +24,7 @@
 //! ([`WoSWalker::walk_until_released`]); see the test
 //! `multilayer_walk_transmits_across_interfaces`.
 
+use petir::uom_math::QuantityMath;
 use petir::mathf::RealMath;
 use fission_yields_data::prelude::Nuclide;
 use outram_mc_libs::rng::lcg::prn;
@@ -409,7 +410,7 @@ pub fn sample_uniform_in_ball(seed: &mut u64, radius: Length) -> [Length; 3] {
 pub fn radial_distance(position: [Length; 3]) -> Length {
     let r_squared: Area =
         position[0] * position[0] + position[1] * position[1] + position[2] * position[2];
-    r_squared.sqrt()
+    r_squared.r_sqrt()
 }
 
 /// Distance from `position` to the nearest layer interface of `triso_cell`.

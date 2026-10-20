@@ -54,7 +54,7 @@ applies: only to crates declared mature".
 
 | Crate (`crates/…`) | Role | Mature |
 |---|---|---|
-| `petir` | **Core numerics** — polynomials, equations, transforms, integration, roots. `no_std`, dependency-lean, ported from GSL. Every other crate's numerics floor. Since 2026-10-02 also the workspace's RNG (OpenMC's LCG, `rng::lcg` + `wgsl::LCG`), moved from `outram-mc-libs`. Since 2026-10-17 also all depletion math (`depletion`: OpenMC's eight integrators, IPF CRAM, the burnup matrix; gh:#950), the CRAM and matrix moved from `outram-mc-libs`, which keeps the chain and operators | ✅ |
+| `petir` | **Core numerics** — polynomials, equations, transforms, integration, roots. `no_std`, dependency-lean, ported from GSL. Every other crate's numerics floor. Since 2026-10-02 also the workspace's RNG (OpenMC's LCG, `rng::lcg` + `wgsl::LCG`), moved from `outram-mc-libs`. Since 2026-10-17 also all depletion math (`depletion`: OpenMC's eight integrators, IPF CRAM, the burnup matrix; gh:#950), the CRAM and matrix moved from `outram-mc-libs`, which keeps the chain and operators. Since 2026-10-20 (gh:#991) `petir::roots` (GSL Brent) replaces the third-party `roots` crate in `outram-park-fork-dwsim-libs` (`pipe::transient`) and in the `fhr_sim` examples of `tampines-steam-tables`, `teh-o-prke`, `tampines` and `outram-park-digital-twin-engine`, all of which have dropped `roots`; `roots` stays in the root `[workspace.dependencies]` for `tuas_boussinesq_solver` until gh:#989 lands | ✅ |
 | `outram-foam-basic-lib` | OpenFOAM primitive + finite-volume layer (Layers 1–4): tensor algebra, solvers, interpolation, thermophysics, fields, mesh, FV operators | ✅ |
 | `outram-foam-turbulence-lib` | OpenFOAM turbulence closures (k-ω SST implemented; others scaffolded) | |
 | `outram-foam-appbuilder-lib` | OpenFOAM solver-application layer + case I/O; host of the **GeN-Foam** deterministic-neutronics + TH port | ✅ |
@@ -252,6 +252,28 @@ compatibility"). Keeping AGPL dependencies crate-local remains good practice:
 it keeps each crate's `license` field honest. It is no longer a gate.
 
 See `docs/workspace-maintenance.md` for the rationale and history.
+
+### `uom` is `no_std` (gh:#985, maintainer direction 2026-10-20)
+
+"I want uom as no std in this workspace. Do the refactor using petir math."
+The root entry is `uom = { version = "0.38.0", default-features = false,
+features = ["autoconvert", "f32", "f64", "si"] }`. Without `std`, uom 0.38
+drops 27 methods (Quantity `sqrt`/`cbrt`/`powi`/`hypot`/`mul_add`/`atan2`,
+Ratio `exp`/`ln`/logs/inverse trig, Angle trig). `petir::uom_math`
+(`QuantityMath`, `RatioMath`, `AngleMath`) restores each on PETIR maths under
+an `r_` name — `area.r_sqrt()`, never `.sqrt()` — so `uom/std` turning back on
+could not silently re-route a call to the platform libm.
+
+- **`std` must never come back through any path.** `cargo tree -e features -i
+  uom --workspace` must show no `feature "std"`. petir inherits this entry, so
+  `std` here would also break petir's `no_std` build;
+  `crates/petir/tests/dependency_policy.rs` checks the root line.
+- **`f32` is listed because it is on anyway:** `fission-yields-data` 0.1.6
+  enables it, and feature unification spreads it to every crate built with
+  that one.
+- **`fission-yields-data` 0.1.5 → 0.1.6** (2026-10-20): 0.1.5 declared a
+  bare `uom = "0.38"`, which turned `uom/std` back on for the whole
+  workspace. 0.1.6 is the maintainer's `no_std + alloc` release.
 
 ### `burn` is this workspace's PyTorch (maintainer direction, 2026-09-16)
 

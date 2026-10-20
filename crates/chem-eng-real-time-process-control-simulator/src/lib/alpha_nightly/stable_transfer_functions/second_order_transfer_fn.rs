@@ -68,6 +68,7 @@
 //! per input change onto a `Vec` and re-summed it on every call. See bead
 //! `op-fm5`.
 
+use petir::transfer_fn::ratio_ext::RatioExt;
 use petir::mathf::RealMath;
 
 use std::collections::VecDeque;

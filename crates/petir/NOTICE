@@ -72,6 +72,75 @@ COPYRIGHT HOLDERS
                            no header of their own; #included into qags.c
                            and covered by its notice
       -> src/integration/qags.rs (ported 2026-09-28, read at the commit above)
+    GSL linalg/lu.c        Copyright (C) 1996, 1997, 1998, 1999, 2000, 2007,
+                           2009 Gerard Jungman, Brian Gough;
+                           Copyright (C) 2019, 2021 Patrick Alken
+    GSL cblas/source_ger.h, cblas/source_trsv_r.h
+                           Copyright (C) 1996, 1997, 1998, 1999, 2000
+                           Gerard Jungman
+    GSL permutation/permute_source.c
+                           Copyright (C) 1996, 1997, 1998, 1999, 2000, 2007
+                           Brian Gough
+      -> src/linalg/lu_decomp.rs (ported 2026-10-20, gh:#992, read at the
+         commit above)
+
+    GSL linalg/cholesky.c  Copyright (C) 2000 Thomas Walter;
+                           (C) 2000, 2001, 2002, 2003, 2005, 2007 Brian
+                           Gough, Gerard Jungman; (C) 2016, 2019 Patrick Alken
+    GSL linalg/invtri.c    Copyright (C) 2016, 2017, 2018, 2019 Patrick Alken
+    GSL linalg/trimult.c   Copyright (C) 2019 Patrick Alken
+    GSL cblas/source_trsv_r.h, source_trmv_r.h, source_gemv_r.h,
+    source_dot_r.h, source_scal_r.h
+                           Copyright (C) 1996, 1997, 1998, 1999, 2000
+                           Gerard Jungman
+      -> src/linalg/cholesky.rs (ported 2026-10-20, gh:#993)
+
+    GSL linalg/symmtd.c    Copyright (C) 2001, 2007 Brian Gough;
+                           (C) 2019 Patrick Alken
+    GSL linalg/householder.c (householder_left)
+                           Copyright (C) 1996, 1997, 1998, 1999, 2000, 2004,
+                           2007, 2010 Gerard Jungman, Brian Gough
+    GSL cblas/source_symv.h, source_syr2.h, source_axpy_r.h, source_ger.h
+                           Copyright (C) 1996, 1997, 1998, 1999, 2000
+                           Gerard Jungman
+      -> src/linalg/symmtd.rs (ported 2026-10-20, gh:#993)
+    GSL eigen/symm.c, eigen/symmv.c
+                           Copyright (C) 2001, 2007 Brian Gough
+    GSL eigen/qrstep.c     Copyright (C) 2007, 2010 Brian Gough
+    GSL eigen/sort.c       Copyright (C) 1996, 1997, 1998, 1999, 2000, 2006,
+                           2007 Gerard Jungman, Patrick Alken
+      -> src/linalg/eigen_symm.rs (ported 2026-10-20, gh:#993)
+    GSL linalg/svd.c       Copyright (C) 1996, 1997, 1998, 1999, 2000, 2004,
+                           2007, 2010 Gerard Jungman, Brian Gough
+    GSL linalg/svdstep.c   Copyright (C) 2007, 2010 Brian Gough
+    GSL linalg/bidiag.c    Copyright (C) 2001, 2007 Brian Gough
+    GSL linalg/householder.c (householder_right, householder_hm1) -- as above
+    GSL linalg/gsl_linalg.h (gsl_linalg_givens)
+                           Copyright (C) 1996, 1997, 1998, 1999, 2000, 2006,
+                           2007, 2019 Gerard Jungman, Brian Gough, Patrick Alken
+      -> src/linalg/svd.rs (ported 2026-10-20, gh:#993)
+    GSL eigen/nonsymm.c    Copyright (C) 2006 Patrick Alken
+    GSL eigen/francis.c    Copyright (C) 2006, 2007 Patrick Alken
+    GSL linalg/hessenberg.c, linalg/balancemat.c
+                           Copyright (C) 2006 Patrick Alken
+    GSL linalg/householder.c (householder_hm, householder_mh) -- as above
+    GSL sys/hypot.c        Copyright (C) 1996, 1997, 1998, 1999, 2000, 2007
+                           Gerard Jungman, Brian Gough, Patrick Alken
+      -> src/linalg/eigen_nonsymm.rs (ported 2026-10-20, gh:#993)
+    GSL cblas/source_gemm_r.h
+                           Copyright (C) 2001, 2007 Brian Gough
+    GSL matrix/prop_source.c (gsl_matrix_norm1), cblas/source_asum_r.h
+                           Copyright (C) 1996, 1997, 1998, 1999, 2000, 2007
+                           Gerard Jungman, Brian Gough (asum: 1996-2000
+                           Gerard Jungman)
+      -> src/linalg/octave.rs (Matrix::mul, Norm::One; 2026-10-20, gh:#993)
+
+  GNU Octave (not GSL): scripts/linear-algebra/expm.m, Octave 11.3.0,
+  sha256 3f97a52a9c9ef91340d72f80438577fadc53438db7e6b6b914ddc6b65bef7345,
+  Copyright (C) 2008-2026 The Octave Project Developers, GPL-3.0-or-later
+  (read from the file's header; used under version 3)
+      -> src/linalg/expm.rs (ported 2026-10-20, gh:#993; balancing omitted,
+         see that file)
 
     GSL interpolation/linear.c, integ_eval.h
                            Copyright (C) 1996, 1997, 1998, 1999, 2000

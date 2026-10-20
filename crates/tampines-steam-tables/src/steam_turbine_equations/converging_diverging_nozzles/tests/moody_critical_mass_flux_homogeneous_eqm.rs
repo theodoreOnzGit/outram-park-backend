@@ -1,3 +1,4 @@
+use petir::uom_math::QuantityMath;
 use petir::mathf::RealMath;
 use uom::ConstZero;
 use uom::si::area::square_foot;
@@ -437,7 +438,7 @@ fn subcooling_ratio(p0: Pressure, h0: AvailableEnergy) -> f64 {
     let t_b = sat_temp_4(p_b);
     let rho_f = v_tp_eqm_two_phase(t_b, p_b, 0.0).recip();
     let h_f = h_tp_eqm_two_phase(t_b, p_b, 0.0);
-    let v_b = (2.0 * (h0 - h_f).max(AvailableEnergy::ZERO)).sqrt();
+    let v_b = (2.0 * (h0 - h_f).max(AvailableEnergy::ZERO)).r_sqrt();
     let g_sonic = mass_flux_ps_eqm_throat(p_b, s0);
     (v_b * rho_f / g_sonic).get::<uom::si::ratio::ratio>()
 }

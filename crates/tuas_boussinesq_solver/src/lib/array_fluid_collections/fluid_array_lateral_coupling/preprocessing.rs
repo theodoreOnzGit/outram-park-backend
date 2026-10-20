@@ -1,3 +1,4 @@
+use petir::uom_math::QuantityMath;
 use ndarray::*;
 use uom::si::f64::*;
 use uom::si::thermodynamic_temperature::kelvin;
@@ -93,7 +94,7 @@ impl FluidArray {
         // I'll just leave it for the time being. As long as it's stable
         // that's fine
 
-        let delta_x: Length = cross_sectional_area.sqrt();
+        let delta_x: Length = cross_sectional_area.r_sqrt();
 
         // now for the array CV, implicit schemes are used. Therefore,
         // the threshold for stability is higher, at 1.0

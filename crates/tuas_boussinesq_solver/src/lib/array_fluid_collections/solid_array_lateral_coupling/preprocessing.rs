@@ -1,3 +1,4 @@
+use petir::uom_math::QuantityMath;
 use crate::boussinesq_thermophysical_properties::thermal_diffusivity::try_get_alpha_thermal_diffusivity;
 use crate::boussinesq_thermophysical_properties::Material;
 use uom::si::f64::*;
@@ -84,7 +85,7 @@ impl SolidColumn {
         // I'll just leave it for the time being. As long as it's stable
         // that's fine
 
-        let delta_x_lateral: Length = cross_sectional_area.sqrt();
+        let delta_x_lateral: Length = cross_sectional_area.r_sqrt();
 
         // the minimum lengthscale is the minimum of these two
 

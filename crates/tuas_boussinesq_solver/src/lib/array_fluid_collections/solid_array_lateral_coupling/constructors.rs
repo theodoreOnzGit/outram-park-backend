@@ -1,3 +1,4 @@
+use petir::uom_math::QuantityMath;
 use std::f64::consts::PI;
 
 use crate::boussinesq_thermophysical_properties::Material;
@@ -120,7 +121,7 @@ impl SolidColumn {
         let cross_sectional_area: Area =
             Area::new::<square_meter>(UNIT_AREA_SQ_METER_FOR_ONE_DIMENSIONAL_CALCS);
 
-        let width: Length = cross_sectional_area.sqrt();
+        let width: Length = cross_sectional_area.r_sqrt();
         let thickness: Length = width;
 
         let default_heat_cv_node: SingleCVNode = SingleCVNode::new_block(

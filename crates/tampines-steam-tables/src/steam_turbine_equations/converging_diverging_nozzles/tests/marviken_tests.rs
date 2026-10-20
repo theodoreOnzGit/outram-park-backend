@@ -280,6 +280,7 @@
 //!      done: it would be fitting the model to its own validation data, and it
 //!      would put the Zaloudek near-saturation curves at risk.
 
+use petir::uom_math::QuantityMath;
 use uom::si::available_energy::kilojoule_per_kilogram;
 use uom::si::f64::*;
 use uom::si::length::millimeter;
@@ -535,7 +536,7 @@ fn hem_maximum_mass_flux(
             return 0.0; // over-expanded guard
         }
         let rho = v_ps_eqm(p, s0).recip();
-        (rho * (2.0 * kinetic_energy).sqrt()).get::<kilogram_per_square_meter_second>()
+        (rho * (2.0 * kinetic_energy).r_sqrt()).get::<kilogram_per_square_meter_second>()
     };
 
     let lower = p_back.get::<pascal>();

@@ -94,6 +94,15 @@ impl Matrix {
         Ok(Self { rows, cols, data })
     }
 
+    /// The row-major storage, `rows * cols` long.
+    ///
+    /// Exposed so that the GSL ports in this module can index the buffer the
+    /// way GSL's `gsl_matrix` does (`data[i * tda + j]`, here `tda == cols`)
+    /// and so keep their loops recognisably the upstream ones.
+    pub fn as_slice(&self) -> &[f64] {
+        &self.data
+    }
+
     /// Number of rows.
     pub fn rows(&self) -> usize {
         self.rows
