@@ -108,6 +108,14 @@ COPYRIGHT HOLDERS
                            Copyright (C) 1996, 1997, 1998, 1999, 2000, 2006,
                            2007, 2019 Gerard Jungman, Brian Gough, Patrick Alken
       -> src/linalg/svd.rs (ported 2026-10-20, gh:#993)
+    GSL eigen/nonsymm.c    Copyright (C) 2006 Patrick Alken
+    GSL eigen/francis.c    Copyright (C) 2006, 2007 Patrick Alken
+    GSL linalg/hessenberg.c, linalg/balancemat.c
+                           Copyright (C) 2006 Patrick Alken
+    GSL linalg/householder.c (householder_hm, householder_mh) -- as above
+    GSL sys/hypot.c        Copyright (C) 1996, 1997, 1998, 1999, 2000, 2007
+                           Gerard Jungman, Brian Gough, Patrick Alken
+      -> src/linalg/eigen_nonsymm.rs (ported 2026-10-20, gh:#993)
 
 ================================================================================
 DERIVED WORK — ARM optimized-routines

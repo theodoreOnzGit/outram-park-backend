@@ -37,6 +37,10 @@
 //!   `eigen/symm.c`, `symmv.c`, `qrstep.c`, `sort.c` (gh:#993).
 //! - [`svd`] — Golub–Reinsch SVD and solve, `linalg/svd.c`, `svdstep.c`,
 //!   `bidiag.c` (gh:#993).
+//! - [`eigen_nonsymm`] — balancing, Hessenberg reduction and Francis
+//!   double-shift QR eigenvalues of a general real matrix (complex results as
+//!   [`crate::depletion::Complex64`]), `eigen/nonsymm.c`, `francis.c`,
+//!   `linalg/hessenberg.c`, `balancemat.c` (gh:#993).
 //!
 //! Each gh:#993 port is bit-identical to compiled GSL 2.8 once GSL is given
 //! the same `hypot` (the `libm` crate's); see
@@ -55,8 +59,9 @@
 //! # Scope
 //!
 //! Dense and real. Not covered: complex matrices, ~~SVD, eigenvalue
-//! problems,~~ (**CORRECTED 2026-10-20, gh:#993**: SVD and the symmetric
-//! eigenproblem are now ported, see Contents), banded or sparse storage, and **column-pivoted QR** — so rank-deficient
+//! problems,~~ (**CORRECTED 2026-10-20, gh:#993**: SVD, the symmetric
+//! eigenproblem and nonsymmetric eigenvalues are now ported, see Contents;
+//! nonsymmetric eigenvectors and Schur vectors are not), banded or sparse storage, and **column-pivoted QR** — so rank-deficient
 //! least squares is reported as an error rather than solved (`bn:op-4m4b`;
 //! GSL's `linalg/qrpt.c` is the source if it is wanted). Those are tracked as
 //! follow-on work rather than stubbed, because a half-implemented eigensolver
@@ -65,6 +70,7 @@
 pub mod blas1;
 pub mod cholesky;
 mod elem;
+pub mod eigen_nonsymm;
 pub mod eigen_symm;
 pub mod householder;
 pub mod lu;
@@ -82,6 +88,7 @@ pub mod tridiag;
 
 pub use blas1::{asum, axpy, dot, iamax, nrm2, scal, swap};
 pub use cholesky::Cholesky;
+pub use eigen_nonsymm::{balance_matrix, eigen_nonsymm, hessenberg};
 pub use eigen_symm::{eigen_symm, eigen_symmv, eigen_symmv_sort, EigenSort};
 pub use svd::Svd;
 pub use symmtd::SymmTd;

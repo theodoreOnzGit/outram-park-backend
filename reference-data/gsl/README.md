@@ -116,6 +116,20 @@ So the whole 30x30 difference is GSL's blocking. Replayed by
   `libm`-`hypot` run below; against stock GSL singular values agree to
   1.12e-15 normwise. Replayed by `crates/petir/tests/gsl_svd_code_to_code.rs`.
 
+## `eigen-nonsymm-gsl-2.8-reference.txt` — Hessenberg, balancing, Francis QR (gh:#993)
+
+- **Built:** 2026-10-20, same static GSL, `build_driver.sh`.
+- **Driver:** `eigen_nonsymm_reference_driver.c`.
+- **Routines:** `gsl_linalg_hessenberg_decomp`, `gsl_linalg_balance_matrix`,
+  `gsl_eigen_nonsymm` (eigenvalues only) unbalanced and balanced.
+- **Cases:** thirteen — 1x1, rotation, real 2x2, 3- and 4-cycles (exceptional
+  shifts), a companion matrix with a complex pair, upper triangular, Frank 8,
+  a badly scaled 3x3, block-diagonal 6x6 (mid-matrix split), random 6, 12, 25.
+- **Result (2026-10-20):** 2419/2419 bit-identical against the
+  `libm`-`hypot` run; against stock GSL the eigenvalues agree as a multiset
+  to 4.54e-13 of `max|lambda|`. Replayed by
+  `crates/petir/tests/gsl_eigen_nonsymm_code_to_code.rs`.
+
 ## Isolating `hypot`: `*-libm-hypot-reference.txt`
 
 GSL calls the platform `hypot` (glibc here); PETIR calls the `libm` crate's,
@@ -142,6 +156,7 @@ reference-data/gsl/build_driver.sh reference-data/gsl/qr_reference_driver.c \
 | `symmtd` + `eigen_symm[v]` + sort, 6091 values | decomposition 62.2 %, eigenvalues 42.9 %, vectors 31.3 % bit-identical; structural difference on `5 I + 1 1^T` | **6091/6091 bit-identical** |
 | `linalg::qr` (existing port), 85 values + solves | 81/85 (95.3 %) | **85/85, solutions and residuals bit-identical** |
 | `linalg::svd`, 1428 values | singular values 27/57; 1.12e-15 normwise | **1428/1428 bit-identical** |
+| `linalg::eigen_nonsymm` + Hessenberg + balancing, 2419 values | eigenvalues 104/320 in order; 4.54e-13 as a multiset | **2419/2419 bit-identical** |
 
 So both ports are exact, and every difference from stock GSL is `hypot`.
 Against stock GSL the eigensolver agrees as an eigen-decomposition: sorted
