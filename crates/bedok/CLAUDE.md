@@ -17,6 +17,9 @@ specific to this crate. Added 2026-10-02 (GitHub #503); the crate had none.
   approval (`NOTICE`, `README.md`, `docs/bedok-port-scoping.md` §6). Cite the
   published paper for the method: Than, Y. R., & Xiao, S. (2026), *Energy
   Engineering* 123(9) (see `README.md`).
+- **Publishing on crates.io is approved** by Than Yan Ren and Xiao SiCong
+  (relayed by the maintainer, 2026-10-20). The crate is published with the
+  rest of the workspace; it ships its own `LICENSE` and `NOTICE`.
 - **One module per `.m` file, named after it.** Keep the original filename in
   each module's doc comment.
 - **No silent repairs.** Reference defects are translated as they are,

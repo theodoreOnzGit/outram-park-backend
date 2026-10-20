@@ -6,7 +6,8 @@ license = "GPL-3.0-only"
 description = "BEDOK — systems-level multiphysics coupling: 3-D nodal-diffusion neutronics coupled to thermal hydraulics. Rust translation of Than Yan Ren's (SNRSI) MATLAB implementation."
 repository = "https://github.com/theodoreOnzGit/outram-park-backend"
 readme = "README.md"
-publish = false
+# Publishing on crates.io approved by Than Yan Ren and Xiao SiCong
+# (maintainer, 2026-10-20); `publish = false` removed.
 
 # Where this crate sits in kovan's code map (GitHub #729, #733; maintainer
 # decisions 2026-10-06). row: degree of integration, 0-1 utilities and
