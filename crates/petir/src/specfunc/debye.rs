@@ -296,7 +296,7 @@ fn debye(order: &DebyeOrder, x: f64) -> f64 {
         // accumulated from the far end inwards so the smallest contributions
         // are added first -- upstream's own loop direction.
         let nexp = (XCUT / x).floor();
-        let ex = (-x).exp();
+        let ex = Real::exp(-x);
         let mut sum = 0.0;
         let mut xk = nexp * x;
         let mut rk = nexp;
@@ -323,7 +323,7 @@ fn debye(order: &DebyeOrder, x: f64) -> f64 {
         for &c in order.fall.iter() {
             poly = poly * x + c;
         }
-        return (order.val_infinity - order.n as f64 * poly * (-x).exp()) / pow_n(x, order.n);
+        return (order.val_infinity - order.n as f64 * poly * Real::exp(-x)) / pow_n(x, order.n);
     }
     // Past xcut, exp(-x) has underflowed and only the tail remains.
     order.val_infinity / pow_n(x, order.n)

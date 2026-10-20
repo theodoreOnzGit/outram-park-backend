@@ -336,13 +336,13 @@ pub fn airy_ai(x: f64) -> f64 {
     }
     if x < -1.0 {
         let (m, theta) = mod_phase(x);
-        m * theta.cos()
+        m * Real::cos(theta)
     } else if x <= 1.0 {
         let z = x * x * x;
         0.375 + (cheb(z, &AIF) - x * (0.25 + cheb(z, &AIG)))
     } else {
         let x32 = x * x.sqrt();
-        aie(x) * (-2.0 * x32 / 3.0).exp()
+        aie(x) * Real::exp(-2.0 * x32 / 3.0)
     }
 }
 
@@ -362,12 +362,12 @@ pub fn airy_ai_scaled(x: f64) -> f64 {
     }
     if x < -1.0 {
         let (m, theta) = mod_phase(x);
-        m * theta.cos()
+        m * Real::cos(theta)
     } else if x <= 1.0 {
         let z = x * x * x;
         let v = 0.375 + (cheb(z, &AIF) - x * (0.25 + cheb(z, &AIG)));
         if x > 0.0 {
-            v * (2.0 / 3.0 * z.sqrt()).exp()
+            v * Real::exp(2.0 / 3.0 * z.sqrt())
         } else {
             v
         }
@@ -400,7 +400,7 @@ pub fn airy_bi(x: f64) -> f64 {
     }
     if x < -1.0 {
         let (m, theta) = mod_phase(x);
-        m * theta.sin()
+        m * Real::sin(theta)
     } else if x < 1.0 {
         let z = x * x * x;
         0.625 + cheb(z, &BIF) + x * (0.4375 + cheb(z, &BIG))
@@ -413,7 +413,7 @@ pub fn airy_bi(x: f64) -> f64 {
             // Upstream's OVERFLOW_ERROR, which sets +inf.
             f64::INFINITY
         } else {
-            bie(x) * y.exp()
+            bie(x) * Real::exp(y)
         }
     }
 }
@@ -432,19 +432,19 @@ pub fn airy_bi_scaled(x: f64) -> f64 {
     }
     if x < -1.0 {
         let (m, theta) = mod_phase(x);
-        m * theta.sin()
+        m * Real::sin(theta)
     } else if x < 1.0 {
         let z = x * x * x;
         let v = 0.625 + cheb(z, &BIF) + x * (0.4375 + cheb(z, &BIG));
         if x > 0.0 {
-            v * (-2.0 / 3.0 * z.sqrt()).exp()
+            v * Real::exp(-2.0 / 3.0 * z.sqrt())
         } else {
             v
         }
     } else if x <= 2.0 {
         let x3 = x * x * x;
         let z = (2.0 * x3 - 9.0) / 7.0;
-        let s = (-2.0 / 3.0 * x3.sqrt()).exp();
+        let s = Real::exp(-2.0 / 3.0 * x3.sqrt());
         s * (1.125 + cheb(z, &BIF2) + x * (0.625 + cheb(z, &BIG2)))
     } else {
         bie(x)

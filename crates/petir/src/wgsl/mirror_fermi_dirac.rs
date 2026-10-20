@@ -389,7 +389,7 @@ fn cheb(c: &[f32], x: f32) -> f32 {
 /// Goano's alternating series for an integer index. Mirrors
 /// `petir_fd_series`.
 fn series(x: f32, p: u32) -> f32 {
-    let ex = x.exp();
+    let ex = Real::exp(x);
     let mut term = ex;
     let mut sum = term;
     for n in 2..100 {
@@ -410,7 +410,7 @@ fn series(x: f32, p: u32) -> f32 {
 /// The same series for a half-integer index. Mirrors
 /// `petir_fd_series_half`.
 fn series_half(x: f32, whole: u32) -> f32 {
-    let ex = x.exp();
+    let ex = Real::exp(x);
     let mut term = ex;
     let mut sum = term;
     for n in 2..200 {
@@ -450,7 +450,7 @@ fn asymp(j: f32, lg: f32, x: f32) -> f32 {
         }
         seqn += add;
     }
-    2.0 * seqn * ((j + 1.0) * x.ln() - lg).exp()
+    2.0 * seqn * Real::exp((j + 1.0) * Real::ln(x) - lg)
 }
 
 /// `F_{-1}(x) = e^x/(1+e^x)`, the Fermi occupation function. Mirrors
@@ -463,10 +463,10 @@ pub fn fermi_dirac_m1(x: f32) -> f32 {
         return 0.0;
     }
     if x < 0.0 {
-        let ex = x.exp();
+        let ex = Real::exp(x);
         ex / (1.0 + ex)
     } else {
-        1.0 / (1.0 + (-x).exp())
+        1.0 / (1.0 + Real::exp(-x))
     }
 }
 
@@ -479,12 +479,12 @@ pub fn fermi_dirac_0(x: f32) -> f32 {
         return 0.0;
     }
     if x < -5.0 {
-        let ex = x.exp();
+        let ex = Real::exp(x);
         ex * (1.0 - ex * (0.5 - ex * (1.0 / 3.0 - ex * (0.25 - ex * (0.2 - ex / 6.0)))))
     } else if x < 10.0 {
-        (1.0 + x.exp()).ln()
+        Real::ln(1.0 + Real::exp(x))
     } else {
-        let ex = (-x).exp();
+        let ex = Real::exp(-x);
         x + ex * (1.0 - 0.5 * ex + ex * ex / 3.0 - ex * ex * ex / 4.0)
     }
 }

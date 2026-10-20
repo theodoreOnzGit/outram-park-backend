@@ -85,7 +85,7 @@ fn series_eval(r: f32) -> f32 {
 fn halley_with(x: f32, w_initial: f32, max_iters: u32, eps: f32, upstream_tol: bool) -> (f32, u32) {
     let mut w = w_initial;
     for i in 0..max_iters {
-        let e = w.exp();
+        let e = Real::exp(w);
         let p = w + 1.0;
         let mut t = w * e - x;
         if w > 0.0 {
@@ -135,9 +135,9 @@ fn w0_full(x: f32, eps: f32, upstream_tol: bool) -> (f32, u32) {
         let p = (2.0 * E * q).sqrt();
         -1.0 + p * (1.0 + p * (-1.0 / 3.0 + p * 11.0 / 72.0))
     } else {
-        let mut w = x.ln();
+        let mut w = Real::ln(x);
         if x > 3.0 {
-            w -= w.ln();
+            w -= Real::ln(w);
         }
         w
     };
@@ -175,8 +175,8 @@ fn wm1_full(x: f32, eps: f32, upstream_tol: bool) -> (f32, u32) {
         }
         w = v;
     } else {
-        let l1 = (-x).ln();
-        let l2 = (-l1).ln();
+        let l1 = Real::ln(-x);
+        let l2 = Real::ln(-l1);
         w = l1 - l2 + l2 / l1;
     }
     halley_with(x, w, 32, eps, upstream_tol)

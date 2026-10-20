@@ -174,17 +174,17 @@ fn s1_with(x: f32, cut: f32) -> f32 {
         return f32::NAN;
     }
     if x < SMALL_CUT {
-        let z = x.powf(1.0 / 3.0);
+        let z = Real::powf(x, 1.0 / 3.0);
         return 2.1495283 * z * (1.0 - 0.84381276 * z * z);
     }
     if x <= 4.0 {
-        let px = x.powf(1.0 / 3.0);
+        let px = Real::powf(x, 1.0 / 3.0);
         let t = x * x / 8.0 - 1.0;
         return px * cheb(&SYNCH1, t) - pow_int(px, 11) * cheb(&SYNCH2, t) - PI_OVER_SQRT3 * x;
     }
     if x < cut {
         let t = (12.0 - x) / (x + 4.0);
-        return x.sqrt() * cheb(&SYNCH1A, t) * (LOG_SQRT_PI_2 - x).exp();
+        return x.sqrt() * cheb(&SYNCH1A, t) * Real::exp(LOG_SQRT_PI_2 - x);
     }
     0.0
 }
@@ -199,17 +199,17 @@ fn s2_with(x: f32, cut: f32) -> f32 {
         return f32::NAN;
     }
     if x < SMALL_CUT {
-        let z = x.powf(1.0 / 3.0);
+        let z = Real::powf(x, 1.0 / 3.0);
         return 1.0747641 * z * (1.0 - 1.1776716 * z * x);
     }
     if x <= 4.0 {
-        let px = x.powf(1.0 / 3.0);
+        let px = Real::powf(x, 1.0 / 3.0);
         let t = x * x / 8.0 - 1.0;
         return px * cheb(&SYNCH21, t) - pow_int(px, 5) * cheb(&SYNCH22, t);
     }
     if x < cut {
         let t = (10.0 - x) / (x + 2.0);
-        return x.sqrt() * (LOG_SQRT_PI_2 - x).exp() * cheb(&SYNCH2A, t);
+        return x.sqrt() * Real::exp(LOG_SQRT_PI_2 - x) * cheb(&SYNCH2A, t);
     }
     0.0
 }

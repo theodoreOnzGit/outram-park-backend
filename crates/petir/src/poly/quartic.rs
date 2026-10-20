@@ -205,9 +205,9 @@ impl RootSet {
 #[inline]
 fn cbrt(x: f64) -> f64 {
     if x < 0.0 {
-        -(-x).powf(1.0 / 3.0)
+        -Real::powf(-x, 1.0 / 3.0)
     } else {
-        x.powf(1.0 / 3.0)
+        Real::powf(x, 1.0 / 3.0)
     }
 }
 
@@ -287,11 +287,11 @@ pub fn roots_cubic_normalized(a2: f64, a1: f64, a0: f64) -> RootSet {
     let a2_div_3 = a2 / 3.0;
 
     if d < 0.0 {
-        let phi_3 = (r / (-q3).sqrt()).acos() / 3.0;
+        let phi_3 = Real::acos(r / (-q3).sqrt()) / 3.0;
         let sqrt_q_2 = 2.0 * (-q).sqrt();
-        RootSet::One([sqrt_q_2 * phi_3.cos() - a2_div_3])
-            .add_root(sqrt_q_2 * (phi_3 - TWO_THIRD_PI).cos() - a2_div_3)
-            .add_root(sqrt_q_2 * (phi_3 + TWO_THIRD_PI).cos() - a2_div_3)
+        RootSet::One([sqrt_q_2 * Real::cos(phi_3) - a2_div_3])
+            .add_root(sqrt_q_2 * Real::cos(phi_3 - TWO_THIRD_PI) - a2_div_3)
+            .add_root(sqrt_q_2 * Real::cos(phi_3 + TWO_THIRD_PI) - a2_div_3)
     } else {
         let sqrt_d = d.sqrt();
         let s = cbrt(r + sqrt_d);

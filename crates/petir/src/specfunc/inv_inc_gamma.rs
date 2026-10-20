@@ -53,9 +53,9 @@ fn minimaxs(p: f64) -> f64 {
     const B3: f64 = 0.036_117_081_018_842_03;
 
     let t = if p < 0.5 {
-        (-2.0 * p.ln()).sqrt()
+        (-2.0 * Real::ln(p)).sqrt()
     } else {
-        (-2.0 * (1.0 - p).ln()).sqrt()
+        (-2.0 * Real::ln(1.0 - p)).sqrt()
     };
 
     let s =
@@ -87,7 +87,7 @@ pub fn inv_inc_gamma(a: f64, p: f64) -> f64 {
     let q = 1.0 - p;
 
     if (a - 1.0).abs() < f64::EPSILON {
-        return -q.ln();
+        return -Real::ln(q);
     }
 
     if a < 1.0 {
@@ -97,35 +97,35 @@ pub fn inv_inc_gamma(a: f64, p: f64) -> f64 {
         if b > 0.6 || (b >= 0.45 && a >= 0.3) {
             // (DM:Eq. 21)
             let u = if b * q > 1e-8 {
-                (p * ga * a).powf(1.0 / a)
+                Real::powf(p * ga * a, 1.0 / a)
             } else {
-                ((-q / a) - EU).exp()
+                Real::exp((-q / a) - EU)
             };
             return u / (1.0 - u / (a + 1.0));
         } else if a < 0.3 && b >= 0.35 {
             // (DM:Eq. 22)
-            let t = (-EU - b).exp();
-            let u = t * t.exp();
-            return t * u.exp();
+            let t = Real::exp(-EU - b);
+            let u = t * Real::exp(t);
+            return t * Real::exp(u);
         } else if b > 0.15 || a >= 0.3 {
             // (DM:Eq. 23)
-            let y = -b.ln();
-            let u = y - (1.0 - a) * y.ln();
-            return y - (1.0 - a) * u.ln() - (1.0 + (1.0 - a) / (1.0 + u)).ln();
+            let y = -Real::ln(b);
+            let u = y - (1.0 - a) * Real::ln(y);
+            return y - (1.0 - a) * Real::ln(u) - Real::ln(1.0 + (1.0 - a) / (1.0 + u));
         } else if b > 0.1 {
             // (DM:Eq. 24)
-            let y = -b.ln();
-            let u = y - (1.0 - a) * y.ln();
+            let y = -Real::ln(b);
+            let u = y - (1.0 - a) * Real::ln(y);
             let u2 = u * u;
             return y
-                - (1.0 - a) * u.ln()
-                - ((u2 + 2.0 * (3.0 - a) * u + (2.0 - a) * (3.0 - a))
-                    / (u2 + (5.0 - a) * u + 2.0))
-                    .ln();
+                - (1.0 - a) * Real::ln(u)
+                - Real::ln(
+                    (u2 + 2.0 * (3.0 - a) * u + (2.0 - a) * (3.0 - a)) / (u2 + (5.0 - a) * u + 2.0),
+                );
         } else {
             // (DM:Eq. 25)
-            let y = -b.ln();
-            let c1 = (a - 1.0) * y.ln();
+            let y = -Real::ln(b);
+            let c1 = (a - 1.0) * Real::ln(y);
             let c12 = c1 * c1;
             let c13 = c12 * c1;
             let c14 = c12 * c12;
@@ -171,12 +171,12 @@ pub fn inv_inc_gamma(a: f64, p: f64) -> f64 {
             }
             let d = 2.0_f64.max(a * (a - 1.0));
             let ln_ga = c_lgamma(a);
-            let ln_b = q.ln() + ln_ga;
+            let ln_b = Real::ln(q) + ln_ga;
 
             if ln_b < -2.3 * d {
                 // (DM:Eq. 25, large-a variant)
                 let y = -ln_b;
-                let c1 = (a - 1.0) * y.ln();
+                let c1 = (a - 1.0) * Real::ln(y);
                 let c12 = c1 * c1;
                 let c13 = c12 * c1;
                 let c14 = c12 * c12;
@@ -200,8 +200,8 @@ pub fn inv_inc_gamma(a: f64, p: f64) -> f64 {
                 return y + c1 + (c2 / y) + (c3 / y2) + (c4 / y3) + (c5 / y4);
             } else {
                 // (DM:Eq. 33)
-                let u = -ln_b + (a - 1.0) * w.ln() - (1.0 + (1.0 - a) / (1.0 + w)).ln();
-                return -ln_b + (a - 1.0) * u.ln() - (1.0 + (1.0 - a) / (1.0 + u)).ln();
+                let u = -ln_b + (a - 1.0) * Real::ln(w) - Real::ln(1.0 + (1.0 - a) / (1.0 + w));
+                return -ln_b + (a - 1.0) * Real::ln(u) - Real::ln(1.0 + (1.0 - a) / (1.0 + u));
             }
         } else {
             // p ≤ 0.5
@@ -211,16 +211,16 @@ pub fn inv_inc_gamma(a: f64, p: f64) -> f64 {
             if w < 0.15 * ap1 {
                 // (DM:Eq. 35) — iterated refinement for small x
                 let ap2 = a + 2.0;
-                let v = p.ln() + c_lgamma(ap1);
-                z = ((v + w) / a).exp();
+                let v = Real::ln(p) + c_lgamma(ap1);
+                z = Real::exp((v + w) / a);
                 // Two iterations with two-term ln(1 + ...)
-                let s_ = (z / ap1 * (1.0 + z / ap2)).ln_1p();
-                z = ((v + z - s_) / a).exp();
-                let s_ = (z / ap1 * (1.0 + z / ap2)).ln_1p();
-                z = ((v + z - s_) / a).exp();
+                let s_ = Real::ln_1p(z / ap1 * (1.0 + z / ap2));
+                z = Real::exp((v + z - s_) / a);
+                let s_ = Real::ln_1p(z / ap1 * (1.0 + z / ap2));
+                z = Real::exp((v + z - s_) / a);
                 // Final iteration with three-term ln(1 + ...)
-                let s_ = (z / ap1 * (1.0 + z / ap2 * (1.0 + z / (a + 3.0)))).ln_1p();
-                z = ((v + z - s_) / a).exp();
+                let s_ = Real::ln_1p(z / ap1 * (1.0 + z / ap2 * (1.0 + z / (a + 3.0))));
+                z = Real::exp((v + z - s_) / a);
             }
 
             if z <= 0.01 * ap1 || z > 0.7 * ap1 {
@@ -228,10 +228,10 @@ pub fn inv_inc_gamma(a: f64, p: f64) -> f64 {
             }
 
             // (DM:Eq. 36) — refinement using Sₙ
-            let ln_sn = sn(a, z).ln();
-            let v = p.ln() + c_lgamma(ap1);
-            z = ((v + z - ln_sn) / a).exp();
-            z * (1.0 - (a * z.ln() - z - v + ln_sn) / (a - z))
+            let ln_sn = Real::ln(sn(a, z));
+            let v = Real::ln(p) + c_lgamma(ap1);
+            z = Real::exp((v + z - ln_sn) / a);
+            z * (1.0 - (a * Real::ln(z) - z - v + ln_sn) / (a - z))
         }
     }
 }

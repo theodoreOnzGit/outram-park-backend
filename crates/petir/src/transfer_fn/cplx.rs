@@ -57,28 +57,28 @@ impl Cplx {
 
     /// Magnitude `|z| = sqrt(re^2 + im^2)`.
     pub fn abs(self) -> f64 {
-        self.re.hypot(self.im)
+        Real::hypot(self.re, self.im)
     }
 
     /// Complex exponential `exp(z) = exp(re) (cos im + i sin im)`.
     pub fn exp(self) -> Self {
-        let r = self.re.exp();
-        Cplx::new(r * self.im.cos(), r * self.im.sin())
+        let r = Real::exp(self.re);
+        Cplx::new(r * Real::cos(self.im), r * Real::sin(self.im))
     }
 
     /// Principal-branch complex logarithm,
     /// `ln(z) = ln|z| + i atan2(im, re)`. Diverges (returns `-inf` real
     /// part) at `z = 0`; callers guard against that.
     pub fn ln(self) -> Self {
-        Cplx::new(self.abs().ln(), self.im.atan2(self.re))
+        Cplx::new(Real::ln(self.abs()), Real::atan2(self.im, self.re))
     }
 
     /// Complex square root (principal branch), used by the quadratic
     /// formula. `sqrt(z) = sqrt(|z|) * exp(i * arg(z) / 2)`.
     pub fn sqrt(self) -> Self {
         let r = self.abs().sqrt();
-        let half_arg = self.im.atan2(self.re) / 2.0;
-        Cplx::new(r * half_arg.cos(), r * half_arg.sin())
+        let half_arg = Real::atan2(self.im, self.re) / 2.0;
+        Cplx::new(r * Real::cos(half_arg), r * Real::sin(half_arg))
     }
 
     /// True if either component is NaN or infinite.

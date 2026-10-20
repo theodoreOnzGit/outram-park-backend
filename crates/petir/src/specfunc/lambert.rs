@@ -148,7 +148,7 @@ fn series_eval(r: f64) -> f64 {
 fn halley(x: f64, w_initial: f64, max_iters: u32) -> f64 {
     let mut w = w_initial;
     for _ in 0..max_iters {
-        let e = w.exp();
+        let e = Real::exp(w);
         let p = w + 1.0;
         let mut t = w * e - x;
         if w > 0.0 {
@@ -205,9 +205,9 @@ pub fn lambert_w0(x: f64) -> f64 {
             -1.0 + p * (1.0 + p * (-1.0 / 3.0 + p * 11.0 / 72.0))
         } else {
             // Rough asymptotic.
-            let mut w = x.ln();
+            let mut w = Real::ln(x);
             if x > 3.0 {
-                w -= w.ln();
+                w -= Real::ln(w);
             }
             w
         };
@@ -263,8 +263,8 @@ pub fn lambert_wm1(x: f64) -> f64 {
         w = v;
     } else {
         // Asymptotic near zero.
-        let l1 = (-x).ln();
-        let l2 = (-l1).ln();
+        let l1 = Real::ln(-x);
+        let l2 = Real::ln(-l1);
         w = l1 - l2 + l2 / l1;
     }
     halley(x, w, 32)

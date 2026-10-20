@@ -334,9 +334,9 @@ impl DecayingSinusoid {
             return;
         }
 
-        let decay = (-(time_step * self.a).get::<ratio>()).exp();
+        let decay = Real::exp(-(time_step * self.a).get::<ratio>());
         let angle = (time_step * self.omega).get::<ratio>();
-        let (sin_angle, cos_angle) = angle.sin_cos();
+        let (sin_angle, cos_angle) = Real::sin_cos(angle);
 
         let previous_cosine = self.cosine_mode;
         let previous_sine = self.sine_mode;
@@ -349,9 +349,9 @@ impl DecayingSinusoid {
     fn activate(&mut self, input_increment: Ratio, time_since_start: Time) {
         let step_magnitude = self.magnitude * input_increment;
 
-        let decay = (-(time_since_start * self.a).get::<ratio>()).exp();
+        let decay = Real::exp(-(time_since_start * self.a).get::<ratio>());
         let angle = (time_since_start * self.omega).get::<ratio>();
-        let (sin_angle, cos_angle) = angle.sin_cos();
+        let (sin_angle, cos_angle) = Real::sin_cos(angle);
 
         self.cosine_mode += step_magnitude * (decay * cos_angle);
         self.sine_mode += step_magnitude * (decay * sin_angle);
@@ -499,10 +499,10 @@ impl DecaySinusoidResponse {
 
         response = match self.sinusoid_type {
             TransferFnSinusoidType::Sine => {
-                self.user_input * self.magnitude * (-at).exp() * (omega_t).sin()
+                self.user_input * self.magnitude * Real::exp(-at) * Real::sin(omega_t)
             }
             TransferFnSinusoidType::Cosine => {
-                self.user_input * self.magnitude * (-at).exp() * (omega_t).cos()
+                self.user_input * self.magnitude * Real::exp(-at) * Real::cos(omega_t)
             }
         };
 

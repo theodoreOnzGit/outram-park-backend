@@ -205,18 +205,18 @@ fn transport_with(n: u32, x: f32, log_eps: f32) -> f32 {
     }
     let t = if x < -log_eps {
         let numexp = ((-log_eps) / x) as u32 + 1;
-        let s = sumexp(numexp, n, (-x).exp(), x);
-        nf * x.ln() - x + s.ln()
+        let s = sumexp(numexp, n, Real::exp(-x), x);
+        nf * Real::ln(x) - x + Real::ln(s)
     } else if x < TWO_OVER_EPS {
         let s = sumexp(1, n, 1.0, x);
-        nf * x.ln() - x + s.ln()
+        nf * Real::ln(x) - x + Real::ln(s)
     } else {
-        nf * x.ln() - x
+        nf * Real::ln(x) - x
     };
     if t < log_eps {
         vinf(n)
     } else {
-        vinf(n) - t.exp()
+        vinf(n) - Real::exp(t)
     }
 }
 

@@ -94,7 +94,7 @@ impl QuadraticEqn {
 
         // Numerically accurate discriminant b²/4 − a·c via FMA compensation
         let w = a * c;
-        let num_discr = f64::mul_add(-a, c, w) + f64::mul_add(b, b / 4.0, -w);
+        let num_discr = Real::mul_add(-a, c, w) + Real::mul_add(b, b / 4.0, -w);
         let discr = if num_discr.abs() > VSMALL {
             num_discr
         } else {

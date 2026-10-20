@@ -608,7 +608,7 @@ fn sin_cos_eps(eps: f64) -> (f64, f64) {
             1.0 - e2 / 2.0 * (1.0 - e2 / 12.0),
         )
     } else {
-        (eps.sin(), eps.cos())
+        (Real::sin(eps), Real::cos(eps))
     }
 }
 
@@ -618,8 +618,8 @@ fn sin_cos_eps(eps: f64) -> (f64, f64) {
 /// argument, which would lose the low bits of a large `y`.
 #[inline]
 fn cos_pi4(y: f64, eps: f64) -> f64 {
-    let sy = y.sin();
-    let cy = y.cos();
+    let sy = Real::sin(y);
+    let cy = Real::cos(y);
     let s = sy + cy;
     let d = sy - cy;
     let (seps, ceps) = sin_cos_eps(eps);
@@ -630,8 +630,8 @@ fn cos_pi4(y: f64, eps: f64) -> f64 {
 /// (`specfunc/bessel.c:816`), the companion to [`cos_pi4`].
 #[inline]
 fn sin_pi4(y: f64, eps: f64) -> f64 {
-    let sy = y.sin();
-    let cy = y.cos();
+    let sy = Real::sin(y);
+    let cy = Real::cos(y);
     let s = sy + cy;
     let d = sy - cy;
     let (seps, ceps) = sin_cos_eps(eps);
@@ -791,7 +791,7 @@ pub fn bessel_y0(x: f64) -> f64 {
     if x < 4.0 {
         let j0 = bessel_j0(x);
         let c = eval_gsl(0.125 * x * x - 1.0, &BY0);
-        return TWO_OVER_PI * (-LN2 + x.ln()) * j0 + 0.375 + c;
+        return TWO_OVER_PI * (-LN2 + Real::ln(x)) * j0 + 0.375 + c;
     }
     if x < xmax {
         let z = 32.0 / (x * x) - 1.0;
@@ -849,7 +849,7 @@ pub fn bessel_y1(x: f64) -> f64 {
         return f64::NEG_INFINITY;
     }
     if x < x_small {
-        let lnterm = (0.5 * x).ln();
+        let lnterm = Real::ln(0.5 * x);
         let j1 = bessel_j1(x);
         // Upstream evaluates the series at the left endpoint of its interval
         // rather than at 0.125 x^2 - 1, which for x this small differs from
@@ -858,7 +858,7 @@ pub fn bessel_y1(x: f64) -> f64 {
         return TWO_OVER_PI * lnterm * j1 + (0.5 + c) / x;
     }
     if x < 4.0 {
-        let lnterm = (0.5 * x).ln();
+        let lnterm = Real::ln(0.5 * x);
         let c = eval_gsl(0.125 * x * x - 1.0, &BY1);
         let j1 = bessel_j1(x);
         return TWO_OVER_PI * lnterm * j1 + (0.5 + c) / x;
@@ -912,7 +912,7 @@ pub fn bessel_i0_scaled(x: f64) -> f64 {
         return 1.0 - y;
     }
     if y <= 3.0 {
-        let ey = (-y).exp();
+        let ey = Real::exp(-y);
         let c = eval_gsl(y * y / 4.5 - 1.0, &BI0);
         return ey * (2.75 + c);
     }
@@ -959,7 +959,7 @@ pub fn bessel_i0(x: f64) -> f64 {
         return 2.75 + c;
     }
     if y < LOG_DBL_MAX - 1.0 {
-        return y.exp() * bessel_i0_scaled(x);
+        return Real::exp(y) * bessel_i0_scaled(x);
     }
     f64::INFINITY
 }
@@ -998,7 +998,7 @@ pub fn bessel_i1_scaled(x: f64) -> f64 {
         return 0.5 * x;
     }
     if y <= 3.0 {
-        let ey = (-y).exp();
+        let ey = Real::exp(-y);
         let c = eval_gsl(y * y / 4.5 - 1.0, &BI1);
         return x * ey * (0.875 + c);
     }
@@ -1063,7 +1063,7 @@ pub fn bessel_i1(x: f64) -> f64 {
         return x * (0.875 + c);
     }
     if y < LOG_DBL_MAX {
-        return y.exp() * bessel_i1_scaled(x);
+        return Real::exp(y) * bessel_i1_scaled(x);
     }
     if x < 0.0 {
         f64::NEG_INFINITY
@@ -1108,8 +1108,8 @@ pub fn bessel_k0_scaled(x: f64) -> f64 {
         return f64::NAN;
     }
     if x < 1.0 {
-        let lx = x.ln();
-        let ex = x.exp();
+        let lx = Real::ln(x);
+        let ex = Real::exp(x);
         let x2 = x * x;
         return ex
             * (poly_eval(&K0_POLY, x2) - lx * (1.0 + 0.25 * x2 * poly_eval(&I0_POLY, 0.25 * x2)));
@@ -1154,7 +1154,7 @@ pub fn bessel_k0(x: f64) -> f64 {
         return f64::NAN;
     }
     if x < 1.0 {
-        let lx = x.ln();
+        let lx = Real::ln(x);
         let x2 = x * x;
         return poly_eval(&K0_POLY, x2) - lx * (1.0 + 0.25 * x2 * poly_eval(&I0_POLY, 0.25 * x2));
     }
@@ -1188,8 +1188,8 @@ pub fn bessel_k1_scaled(x: f64) -> f64 {
         return f64::INFINITY;
     }
     if x < 1.0 {
-        let lx = x.ln();
-        let ex = x.exp();
+        let lx = Real::ln(x);
+        let ex = Real::exp(x);
         let x2 = x * x;
         let t = 0.25 * x2;
         let i1 = 0.5 * x * (1.0 + t * (0.5 + t * poly_eval(&I1_POLY, t)));
@@ -1237,7 +1237,7 @@ pub fn bessel_k1(x: f64) -> f64 {
         return f64::INFINITY;
     }
     if x < 1.0 {
-        let lx = x.ln();
+        let lx = Real::ln(x);
         let x2 = x * x;
         let t = 0.25 * x2;
         let i1 = 0.5 * x * (1.0 + t * (0.5 + t * poly_eval(&I1_POLY, t)));

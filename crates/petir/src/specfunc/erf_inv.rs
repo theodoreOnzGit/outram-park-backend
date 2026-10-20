@@ -37,8 +37,8 @@ pub fn erf_inv(y: f64) -> f64 {
     const A: f64 = 0.147;
     let pi = core::f64::consts::PI;
 
-    let k = 2.0 / (A * pi) + 0.5 * (1.0 - y * y).ln();
-    let h = (1.0 - y * y).ln() / A;
+    let k = 2.0 / (A * pi) + 0.5 * Real::ln(1.0 - y * y);
+    let h = Real::ln(1.0 - y * y) / A;
 
     let x = (-k + (k * k - h).sqrt()).sqrt();
 

@@ -234,7 +234,7 @@ impl FirstOrderStableTransferFnForZeroes {
             return;
         }
 
-        let decay_factor = (-(time_step / self.process_time).get::<ratio>()).exp();
+        let decay_factor = Real::exp(-(time_step / self.process_time).get::<ratio>());
         self.decaying_mode = self.decaying_mode * decay_factor;
     }
 
@@ -242,7 +242,7 @@ impl FirstOrderStableTransferFnForZeroes {
     /// `time_since_start` seconds.
     fn activate(&mut self, input_increment: Ratio, time_since_start: Time) {
         let step_magnitude = self.process_gain * input_increment;
-        let decay_factor = (-(time_since_start / self.process_time).get::<ratio>()).exp();
+        let decay_factor = Real::exp(-(time_since_start / self.process_time).get::<ratio>());
         self.decaying_mode += step_magnitude * decay_factor;
     }
 

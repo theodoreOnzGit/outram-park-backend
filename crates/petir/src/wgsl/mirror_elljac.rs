@@ -160,15 +160,15 @@ fn elljac_with(u: f32, m: f32, nmax: usize) -> Jacobi {
     }
     if m.abs() < DEGEN {
         return Jacobi {
-            sn: u.sin(),
-            cn: u.cos(),
+            sn: Real::sin(u),
+            cn: Real::cos(u),
             dn: 1.0,
         };
     }
     if (m - 1.0).abs() < DEGEN {
-        let cn = 1.0 / u.cosh();
+        let cn = 1.0 / Real::cosh(u);
         return Jacobi {
-            sn: u.tanh(),
+            sn: Real::tanh(u),
             cn,
             dn: cn,
         };
@@ -209,8 +209,8 @@ fn elljac_with(u: f32, m: f32, nmax: usize) -> Jacobi {
     let Some(&mu_n) = mu.get(n) else {
         return Jacobi::NAN;
     };
-    let sin_umu = (u * mu_n).sin();
-    let cos_umu = (u * mu_n).cos();
+    let sin_umu = Real::sin(u * mu_n);
+    let cos_umu = Real::cos(u * mu_n);
     let reflected = sin_umu.abs() < cos_umu.abs();
     let t = if reflected {
         sin_umu / cos_umu

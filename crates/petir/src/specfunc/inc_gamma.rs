@@ -87,9 +87,9 @@ fn calc_pe15(a: f64, x: f64, nmax: i32) -> f64 {
     let mut sum = 0.0_f64;
     for n in 1..=nmax {
         prod *= a + n as f64;
-        sum += x.powi(n) / prod;
+        sum += Real::powi(x, n) / prod;
     }
-    let r = (-x).exp() * x.powf(a) / c_gamma(a);
+    let r = Real::exp(-x) * Real::powf(x, a) / c_gamma(a);
     r / a * (1.0 + sum)
 }
 
@@ -99,9 +99,9 @@ fn calc_qe16(a: f64, x: f64, n_terms: i32) -> f64 {
     let mut sum = 0.0_f64;
     for n in 1..=(n_terms - 1) {
         an *= a - n as f64;
-        sum += an / x.powi(n);
+        sum += an / Real::powi(x, n);
     }
-    let r = (-x).exp() * x.powf(a) / c_gamma(a);
+    let r = Real::exp(-x) * Real::powf(x, a) / c_gamma(a);
     r / x * (1.0 + sum)
 }
 
@@ -171,36 +171,36 @@ pub fn inc_gamma_ratio_q(a: f64, x: f64) -> f64 {
         } else if x < 1.1 {
             // (DM:Eq. 12)
             let alpha = if x < 0.5 {
-                (0.765_f64.sqrt().ln()) / x.ln()
+                (Real::ln(0.765_f64.sqrt())) / Real::ln(x)
             } else {
                 x / 2.59
             };
 
             let mut sum = 0.0;
             for n in 1i32..=10 {
-                sum += (-x).powi(n) / ((a + n as f64) * factorial(n));
+                sum += Real::powi(-x, n) / ((a + n as f64) * factorial(n));
             }
             let j = -a * sum;
 
             if a >= alpha {
                 // (DM:Eq. 9)
-                return 1.0 - (x.powf(a) * (1.0 - j)) / c_gamma(a + 1.0);
+                return 1.0 - (Real::powf(x, a) * (1.0 - j)) / c_gamma(a + 1.0);
             } else {
                 // (DM:Eq. 10)
-                let l = (a * x.ln()).exp() - 1.0;
+                let l = Real::exp(a * Real::ln(x)) - 1.0;
                 let h = 1.0 / c_gamma(a + 1.0) - 1.0;
-                return (x.powf(a) * j - l) / c_gamma(a + 1.0) - h;
+                return (Real::powf(x, a) * j - l) / c_gamma(a + 1.0) - h;
             }
         } else {
             // (DM:Eq. 11)
-            let r = (-x).exp() * x.powf(a) / c_gamma(a);
+            let r = Real::exp(-x) * Real::powf(x, a) / c_gamma(a);
             return r * calc_qe11(a, x, 30);
         }
     } else if a >= BIG {
         let sigma = (1.0 - x / a).abs();
 
         let lambda = x / a;
-        let phi = lambda - 1.0 - lambda.ln();
+        let phi = lambda - 1.0 - Real::ln(lambda);
         let y = a * phi;
 
         if sigma <= E0 / a.sqrt() {
@@ -216,14 +216,14 @@ pub fn inc_gamma_ratio_q(a: f64, x: f64) -> f64 {
             // (DM:Eq. 17)
             let te = calc_te18(a, E0, x, lambda, sigma, phi);
             return if lambda <= 1.0 {
-                1.0 - (0.5 * c_erfc(y.sqrt()) - (-y).exp() / (2.0 * PI * a).sqrt() * te)
+                1.0 - (0.5 * c_erfc(y.sqrt()) - Real::exp(-y) / (2.0 * PI * a).sqrt() * te)
             } else {
-                0.5 * c_erfc(y.sqrt()) + (-y).exp() / (2.0 * PI * a).sqrt() * te
+                0.5 * c_erfc(y.sqrt()) + Real::exp(-y) / (2.0 * PI * a).sqrt() * te
             };
-        } else if x <= a.max(10.0_f64.ln()) {
+        } else if x <= a.max(Real::ln(10.0_f64)) {
             return 1.0 - calc_pe15(a, x, 20);
         } else if x < X0 {
-            let r = (-x).exp() * x.powf(a) / c_gamma(a);
+            let r = Real::exp(-x) * Real::powf(x, a) / c_gamma(a);
             return r * calc_qe11(a, x, 30);
         } else {
             return calc_qe16(a, x, 20);
@@ -231,10 +231,10 @@ pub fn inc_gamma_ratio_q(a: f64, x: f64) -> f64 {
     } else {
         // 1 ≤ a < BIG
         if a > x || x >= X0 {
-            if x <= a.max(10.0_f64.ln()) {
+            if x <= a.max(Real::ln(10.0_f64)) {
                 return 1.0 - calc_pe15(a, x, 20);
             } else if x < X0 {
-                let r = (-x).exp() * x.powf(a) / c_gamma(a);
+                let r = Real::exp(-x) * Real::powf(x, a) / c_gamma(a);
                 return r * calc_qe11(a, x, 30);
             } else {
                 return calc_qe16(a, x, 20);
@@ -249,9 +249,9 @@ pub fn inc_gamma_ratio_q(a: f64, x: f64) -> f64 {
                     // a is a positive integer: (DM:Eq. 14) exponential sum
                     let mut sum = 0.0;
                     for n in 0..=(a as i64 - 1) {
-                        sum += x.powi(n as i32) / factorial(n as i32);
+                        sum += Real::powi(x, n as i32) / factorial(n as i32);
                     }
-                    return (-x).exp() * sum;
+                    return Real::exp(-x) * sum;
                 } else {
                     // a = k + 0.5 for some integer k
                     let i = (a - 0.5) as i32;
@@ -259,14 +259,14 @@ pub fn inc_gamma_ratio_q(a: f64, x: f64) -> f64 {
                     let mut sum = 0.0_f64;
                     for n in 1..=i {
                         prod *= n as f64 - 0.5;
-                        sum += x.powi(n) / prod;
+                        sum += Real::powi(x, n) / prod;
                     }
-                    return c_erfc(x.sqrt()) + (-x).exp() / (PI * x).sqrt() * sum;
+                    return c_erfc(x.sqrt()) + Real::exp(-x) / (PI * x).sqrt() * sum;
                 }
-            } else if x <= a.max(10.0_f64.ln()) {
+            } else if x <= a.max(Real::ln(10.0_f64)) {
                 return 1.0 - calc_pe15(a, x, 20);
             } else if x < X0 {
-                let r = (-x).exp() * x.powf(a) / c_gamma(a);
+                let r = Real::exp(-x) * Real::powf(x, a) / c_gamma(a);
                 return r * calc_qe11(a, x, 30);
             } else {
                 return calc_qe16(a, x, 20);

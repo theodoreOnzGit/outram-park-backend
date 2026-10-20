@@ -175,13 +175,13 @@ pub fn synchrotron_1(x: f64) -> f64 {
     if x < 2.0 * core::f64::consts::SQRT_2 * SQRT_DBL_EPSILON {
         // Brian Gough's first-order correction to the Taylor series
         // S1(x) = (4pi / (sqrt(3) Gamma(1/3))) (x/2)^{1/3} (1 - ...).
-        let z = x.powf(1.0 / 3.0);
+        let z = Real::powf(x, 1.0 / 3.0);
         let cf = 1.0 - 8.438_127_628_132_05e-1 * z * z;
         return 2.149_528_241_534_478_636_71 * z * cf;
     }
     if x <= 4.0 {
         let c0 = PI_OVER_SQRT3;
-        let px = x.powf(1.0 / 3.0);
+        let px = Real::powf(x, 1.0 / 3.0);
         let px11 = pow_int(px, 11);
         let t = x * x / 8.0 - 1.0;
         return px * crate::cheb_slice::eval_gsl(t, &SYNCH1)
@@ -190,7 +190,7 @@ pub fn synchrotron_1(x: f64) -> f64 {
     }
     if x < underflow_cut() {
         let t = (12.0 - x) / (x + 4.0);
-        return x.sqrt() * crate::cheb_slice::eval_gsl(t, &SYNCH1A) * (LOG_SQRT_PI_2 - x).exp();
+        return x.sqrt() * crate::cheb_slice::eval_gsl(t, &SYNCH1A) * Real::exp(LOG_SQRT_PI_2 - x);
     }
     // Upstream's UNDERFLOW_ERROR: e^{-x} has left f64's range.
     0.0
@@ -204,12 +204,12 @@ pub fn synchrotron_2(x: f64) -> f64 {
         return f64::NAN;
     }
     if x < 2.0 * core::f64::consts::SQRT_2 * SQRT_DBL_EPSILON {
-        let z = x.powf(1.0 / 3.0);
+        let z = Real::powf(x, 1.0 / 3.0);
         let cf = 1.0 - 1.177_671_565_102_35 * z * x;
         return 1.074_764_120_767_239_318_36 * z * cf;
     }
     if x <= 4.0 {
-        let px = x.powf(1.0 / 3.0);
+        let px = Real::powf(x, 1.0 / 3.0);
         let px5 = pow_int(px, 5);
         let t = x * x / 8.0 - 1.0;
         return px * crate::cheb_slice::eval_gsl(t, &SYNCH21)
@@ -217,7 +217,7 @@ pub fn synchrotron_2(x: f64) -> f64 {
     }
     if x < underflow_cut() {
         let t = (10.0 - x) / (x + 2.0);
-        return x.sqrt() * (LOG_SQRT_PI_2 - x).exp() * crate::cheb_slice::eval_gsl(t, &SYNCH2A);
+        return x.sqrt() * Real::exp(LOG_SQRT_PI_2 - x) * crate::cheb_slice::eval_gsl(t, &SYNCH2A);
     }
     0.0
 }

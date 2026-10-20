@@ -230,14 +230,14 @@ fn psi_x(x: f64) -> f64 {
         let t = 8.0 / (y * y) - 1.0;
         let c = eval_gsl(t, &APSI_CS);
         if x < 0.0 {
-            let s = (PI * x).sin();
-            let co = (PI * x).cos();
+            let s = Real::sin(PI * x);
+            let co = Real::cos(PI * x);
             if s.abs() < 2.0 * SQRT_DBL_MIN {
                 return f64::NAN;
             }
-            return y.ln() - 0.5 / x + c - PI * co / s;
+            return Real::ln(y) - 0.5 / x + c - PI * co / s;
         }
-        return y.ln() - 0.5 / x + c;
+        return Real::ln(y) - 0.5 / x + c;
     }
     // -2 < x < 2
     if x < -1.0 {
@@ -362,7 +362,7 @@ pub fn psi_int(n: u32) -> f64 {
     let c5 = 1.0 / 240.0;
     let ni2 = (1.0 / nf) * (1.0 / nf);
     let ser = ni2 * (c2 + ni2 * (c3 + ni2 * (c4 + ni2 * c5)));
-    nf.ln() - 0.5 / nf + ser
+    Real::ln(nf) - 0.5 / nf + ser
 }
 
 /// `Re psi(1 + iy)`, the real part of the digamma function on the line
@@ -408,14 +408,14 @@ pub fn psi_1piy(y: f64) -> f64 {
     if ay > 1000.0 {
         // Abramowitz & Stegun 6.3.19, three terms.
         let yi2 = 1.0 / (ay * ay);
-        let lny = ay.ln();
+        let lny = Real::ln(ay);
         let sum = yi2 * (1.0 / 12.0 + 1.0 / 120.0 * yi2 + 1.0 / 252.0 * yi2 * yi2);
         return lny + sum;
     }
     if ay > 10.0 {
         // The same expansion, six terms.
         let yi2 = 1.0 / (ay * ay);
-        let lny = ay.ln();
+        let lny = Real::ln(ay);
         let sum = yi2
             * (1.0 / 12.0
                 + yi2
@@ -545,7 +545,7 @@ pub fn psi_1(x: f64) -> f64 {
         return psi_n_xg0(1, fx) + sum;
     }
     // Abramowitz & Stegun 6.4.7.
-    let sin_px = (PI * x).sin();
+    let sin_px = Real::sin(PI * x);
     let d = PI * PI / (sin_px * sin_px);
     d - psi_n_xg0(1, 1.0 - x)
 }

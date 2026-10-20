@@ -87,9 +87,12 @@ pub fn legendre_plm(l: u32, m: u32, x: f32) -> f32 {
         (0.0, 0.0)
     } else {
         // NOTE both are gated on `dif`. Upstream's condition, verbatim.
-        (0.5 * dif * (dif.ln() - 1.0), 0.5 * sum * (sum.ln() - 1.0))
+        (
+            0.5 * dif * (Real::ln(dif) - 1.0),
+            0.5 * sum * (Real::ln(sum) - 1.0),
+        )
     };
-    let exp_check = 0.5 * (2.0 * l as f32 + 1.0).ln() + t_d - t_s;
+    let exp_check = 0.5 * Real::ln(2.0 * l as f32 + 1.0) + t_d - t_s;
     if exp_check < LOG_MIN + 10.0 {
         return f32::NAN;
     }

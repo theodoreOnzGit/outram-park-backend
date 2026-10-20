@@ -165,10 +165,10 @@ pub fn clausen(x_in: f32) -> f32 {
     let val = if x == 0.0 {
         0.0
     } else if x < X_CUT {
-        x * (1.0 - x.ln())
+        x * (1.0 - Real::ln(x))
     } else {
         let t = 2.0 * (x * x / (PI * PI) - 0.5);
-        x * (cheb(t) - x.ln())
+        x * (cheb(t) - Real::ln(x))
     };
     sgn * val
 }

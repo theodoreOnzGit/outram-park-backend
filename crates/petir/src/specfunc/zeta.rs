@@ -332,10 +332,10 @@ fn riemann_zeta_sgt0(s: f64) -> f64 {
     }
     // Euler product truncated at 7: past s = 20 the neglected factors differ
     // from 1 by less than an ulp.
-    let f2 = 1.0 - 2.0_f64.powf(-s);
-    let f3 = 1.0 - 3.0_f64.powf(-s);
-    let f5 = 1.0 - 5.0_f64.powf(-s);
-    let f7 = 1.0 - 7.0_f64.powf(-s);
+    let f2 = 1.0 - Real::powf(2.0_f64, -s);
+    let f3 = 1.0 - Real::powf(3.0_f64, -s);
+    let f5 = 1.0 - Real::powf(5.0_f64, -s);
+    let f7 = 1.0 - Real::powf(7.0_f64, -s);
     1.0 / (f2 * f3 * f5 * f7)
 }
 
@@ -345,10 +345,10 @@ fn riemann_zeta_1ms_slt0(s: f64) -> f64 {
     if s > -19.0 {
         return eval_gsl((-19.0 - 2.0 * s) / 19.0, &ZETA_XGT1) / (-s);
     }
-    let f2 = 1.0 - 2.0_f64.powf(-(1.0 - s));
-    let f3 = 1.0 - 3.0_f64.powf(-(1.0 - s));
-    let f5 = 1.0 - 5.0_f64.powf(-(1.0 - s));
-    let f7 = 1.0 - 7.0_f64.powf(-(1.0 - s));
+    let f2 = 1.0 - Real::powf(2.0_f64, -(1.0 - s));
+    let f3 = 1.0 - Real::powf(3.0_f64, -(1.0 - s));
+    let f5 = 1.0 - Real::powf(5.0_f64, -(1.0 - s));
+    let f7 = 1.0 - Real::powf(7.0_f64, -(1.0 - s));
     1.0 / (f2 * f3 * f5 * f7)
 }
 
@@ -368,7 +368,7 @@ fn zetam1_intermediate(s: f64) -> f64 {
     let Some(used) = ZETAM1_INTER.get(..23) else {
         return f64::NAN;
     };
-    eval_gsl(t, used).exp() + 2.0_f64.powf(-s)
+    Real::exp(eval_gsl(t, used)) + Real::powf(2.0_f64, -s)
 }
 
 /// `zeta(s) - 1` for `s >= 15`. Ports `riemann_zeta_minus1_large_s`.
@@ -378,12 +378,12 @@ fn zetam1_intermediate(s: f64) -> f64 {
 /// commented out; they are omitted here for the same reason they are omitted
 /// there — past `s = 15` they are below the rounding of `t1 - t2`.
 fn zetam1_large_s(s: f64) -> f64 {
-    let a = 2.0_f64.powf(-s);
-    let b = 3.0_f64.powf(-s);
-    let c = 5.0_f64.powf(-s);
-    let d = 7.0_f64.powf(-s);
-    let e = 11.0_f64.powf(-s);
-    let f = 13.0_f64.powf(-s);
+    let a = Real::powf(2.0_f64, -s);
+    let b = Real::powf(3.0_f64, -s);
+    let c = Real::powf(5.0_f64, -s);
+    let d = Real::powf(7.0_f64, -s);
+    let e = Real::powf(11.0_f64, -s);
+    let f = Real::powf(13.0_f64, -s);
     let t1 = a + b + c + d + e + f;
     let t2 = a * (b + c + d + e + f) + b * (c + d + e + f) + c * (d + e + f) + d * (e + f) + e * f;
     let numt = t1 - t2;
@@ -443,7 +443,7 @@ pub fn hzeta(s: f64, q: f64) -> f64 {
         return f64::NAN;
     }
     let max_bits = 54.0;
-    let ln_term0 = -s * q.ln();
+    let ln_term0 = -s * Real::ln(q);
     if ln_term0 < LOG_DBL_MIN + 1.0 {
         // Upstream reports an underflow; the value it hands back is zero.
         return 0.0;
@@ -452,22 +452,22 @@ pub fn hzeta(s: f64, q: f64) -> f64 {
         return f64::INFINITY;
     }
     if (s > max_bits && q < 1.0) || (s > 0.5 * max_bits && q < 0.25) {
-        return q.powf(-s);
+        return Real::powf(q, -s);
     }
     if s > 0.5 * max_bits && q < 1.0 {
-        let p1 = q.powf(-s);
-        let p2 = (q / (1.0 + q)).powf(s);
-        let p3 = (q / (2.0 + q)).powf(s);
+        let p1 = Real::powf(q, -s);
+        let p2 = Real::powf(q / (1.0 + q), s);
+        let p3 = Real::powf(q / (2.0 + q), s);
         return p1 * (1.0 + p2 + p3);
     }
     let jmax = 12usize;
     let kmax = 10.0_f64;
-    let pmax = (kmax + q).powf(-s);
+    let pmax = Real::powf(kmax + q, -s);
     let mut scp = s;
     let mut pcp = pmax / (kmax + q);
     let mut ans = pmax * ((kmax + q) / (s - 1.0) + 0.5);
     for k in 0..10u32 {
-        ans += (k as f64 + q).powf(-s);
+        ans += Real::powf(k as f64 + q, -s);
     }
     // `hzeta_c[j+1]`, so the correction walks c[1..=jmax+1].
     for (j, &cj) in (0..=jmax).zip(HZETA_C.iter().skip(1)) {
@@ -535,7 +535,7 @@ pub fn zeta(s: f64) -> f64 {
     let sin_term = if m == 0.0 {
         0.0
     } else {
-        (0.5 * PI * (s % 4.0)).sin() / PI
+        Real::sin(0.5 * PI * (s % 4.0)) / PI
     };
     if sin_term == 0.0 {
         // The trivial zeros at the negative even integers, exactly.
@@ -547,7 +547,7 @@ pub fn zeta(s: f64) -> f64 {
         let Some(&tp) = TWOPI_POW.get(n as usize) else {
             return f64::NAN;
         };
-        let p = (2.0 * PI).powf(fs) / tp;
+        let p = Real::powf(2.0 * PI, fs) / tp;
         return p * gamma(1.0 - s) * sin_term * zeta_one_minus_s;
     }
     // Upstream reports an overflow here and declines to compute it; the
@@ -732,7 +732,7 @@ pub fn eta(s: f64) -> f64 {
         return c0 + del * (c1 + del * (c2 + del * (c3 + del * c4)));
     }
     let z = zeta(s);
-    let p = ((1.0 - s) * LN_2).exp();
+    let p = Real::exp((1.0 - s) * LN_2);
     (1.0 - p) * z
 }
 
@@ -767,7 +767,7 @@ pub fn eta_int(n: i32) -> f64 {
             .unwrap_or(f64::NAN);
     }
     let z = zeta_int(n);
-    let p = ((1.0 - n as f64) * LN_2).exp();
+    let p = Real::exp((1.0 - n as f64) * LN_2);
     -p * z
 }
 

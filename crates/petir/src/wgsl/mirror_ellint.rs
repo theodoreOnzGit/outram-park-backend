@@ -368,7 +368,7 @@ pub fn kcomp(k: f32) -> f32 {
         // A&S 17.3.34.
         let y = 1.0 - k * k;
         let ta = 1.386_294_4 + y * (0.096_663_44 + y * 0.035_900_924);
-        let tb = -y.ln() * (0.5 + y * (0.124_985_94 + y * 0.068_802_49));
+        let tb = -Real::ln(y) * (0.5 + y * (0.124_985_94 + y * 0.068_802_49));
         return ta + tb;
     }
     rf(0.0, 1.0 - k * k, 1.0)
@@ -384,7 +384,7 @@ pub fn ecomp(k: f32) -> f32 {
         // A&S 17.3.36.
         let y = 1.0 - k * k;
         let ta = 1.0 + y * (0.443_251_42 + y * (0.062_606_014 + 0.047_573_835 * y));
-        let tb = -y * y.ln() * (0.249_983_68 + y * (0.092_001_8 + 0.040_696_975 * y));
+        let tb = -y * Real::ln(y) * (0.249_983_68 + y * (0.092_001_8 + 0.040_696_975 * y));
         return ta + tb;
     }
     let y = 1.0 - k * k;
@@ -417,7 +417,7 @@ pub fn ellint_f(phi_in: f32, k: f32) -> f32 {
     }
     let nc = (phi_in / PI + 0.5).floor();
     let phi = phi_in - nc * PI;
-    let sp = phi.sin();
+    let sp = Real::sin(phi);
     let s2 = sp * sp;
     let v = sp * rf(1.0 - s2, 1.0 - k * k * s2, 1.0);
     if nc == 0.0 {
@@ -435,7 +435,7 @@ pub fn ellint_e(phi_in: f32, k: f32) -> f32 {
     }
     let nc = (phi_in / PI + 0.5).floor();
     let phi = phi_in - nc * PI;
-    let sp = phi.sin();
+    let sp = Real::sin(phi);
     let s2 = sp * sp;
     let x = 1.0 - s2;
     let y = 1.0 - k * k * s2;
@@ -460,7 +460,7 @@ pub fn ellint_p(phi_in: f32, k: f32, n: f32) -> f32 {
     }
     let nc = (phi_in / PI + 0.5).floor();
     let phi = phi_in - nc * PI;
-    let sp = phi.sin();
+    let sp = Real::sin(phi);
     let s2 = sp * sp;
     let s3 = s2 * sp;
     let x = 1.0 - s2;
@@ -480,7 +480,7 @@ pub fn ellint_d(phi_in: f32, k: f32) -> f32 {
     }
     let nc = (phi_in / PI + 0.5).floor();
     let phi = phi_in - nc * PI;
-    let sp = phi.sin();
+    let sp = Real::sin(phi);
     let s2 = sp * sp;
     let s3 = s2 * sp;
     let v = s3 / 3.0 * rd(1.0 - s2, 1.0 - k * k * s2, 1.0);

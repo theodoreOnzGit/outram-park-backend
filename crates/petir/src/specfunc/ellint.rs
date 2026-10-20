@@ -221,8 +221,8 @@ pub fn rc(x: f64, y: f64, mode: Mode) -> f64 {
 /// ```
 pub fn rd(x: f64, y: f64, z: f64, mode: Mode) -> f64 {
     let errtol = mode.errtol();
-    let lolim = 2.0 / f64::MAX.powf(2.0 / 3.0);
-    let uplim = (0.1 * errtol / f64::MIN_POSITIVE).powf(2.0 / 3.0);
+    let lolim = 2.0 / Real::powf(f64::MAX, 2.0 / 3.0);
+    let uplim = Real::powf(0.1 * errtol / f64::MIN_POSITIVE, 2.0 / 3.0);
     if x.is_nan()
         || y.is_nan()
         || z.is_nan()
@@ -339,8 +339,8 @@ pub fn rf(x: f64, y: f64, z: f64, mode: Mode) -> f64 {
 /// ```
 pub fn rj(x: f64, y: f64, z: f64, p: f64, mode: Mode) -> f64 {
     let errtol = mode.errtol();
-    let lolim = (5.0 * f64::MIN_POSITIVE).powf(1.0 / 3.0);
-    let uplim = 0.3 * (0.2 * f64::MAX).powf(1.0 / 3.0);
+    let lolim = Real::powf(5.0 * f64::MIN_POSITIVE, 1.0 / 3.0);
+    let uplim = 0.3 * Real::powf(0.2 * f64::MAX, 1.0 / 3.0);
     if x.is_nan() || y.is_nan() || z.is_nan() || p.is_nan() || x < 0.0 || y < 0.0 || z < 0.0 {
         return f64::NAN;
     }
@@ -421,7 +421,7 @@ pub fn ellint_f(phi: f64, k: f64, mode: Mode) -> f64 {
     let nc = (phi / core::f64::consts::PI + 0.5).floor();
     let phi = phi - nc * core::f64::consts::PI;
 
-    let sin_phi = phi.sin();
+    let sin_phi = Real::sin(phi);
     let sin2_phi = sin_phi * sin_phi;
     let x = 1.0 - sin2_phi;
     let y = 1.0 - k * k * sin2_phi;
@@ -455,7 +455,7 @@ pub fn ellint_e(phi: f64, k: f64, mode: Mode) -> f64 {
     let nc = (phi / core::f64::consts::PI + 0.5).floor();
     let phi = phi - nc * core::f64::consts::PI;
 
-    let sin_phi = phi.sin();
+    let sin_phi = Real::sin(phi);
     let sin2_phi = sin_phi * sin_phi;
     let x = 1.0 - sin2_phi;
     let y = 1.0 - k * k * sin2_phi;
@@ -497,7 +497,7 @@ pub fn ellint_p(phi: f64, k: f64, n: f64, mode: Mode) -> f64 {
     let nc = (phi / core::f64::consts::PI + 0.5).floor();
     let phi = phi - nc * core::f64::consts::PI;
 
-    let sin_phi = phi.sin();
+    let sin_phi = Real::sin(phi);
     let sin2_phi = sin_phi * sin_phi;
     let sin3_phi = sin2_phi * sin_phi;
     let x = 1.0 - sin2_phi;
@@ -533,7 +533,7 @@ pub fn ellint_d(phi: f64, k: f64, mode: Mode) -> f64 {
     let nc = (phi / core::f64::consts::PI + 0.5).floor();
     let phi = phi - nc * core::f64::consts::PI;
 
-    let sin_phi = phi.sin();
+    let sin_phi = Real::sin(phi);
     let sin2_phi = sin_phi * sin_phi;
     let sin3_phi = sin2_phi * sin_phi;
     let x = 1.0 - sin2_phi;
@@ -585,7 +585,7 @@ pub fn ellint_kcomp(k: f64, mode: Mode) -> f64 {
         let a = [1.386_294_361_12, 0.096_663_442_59, 0.035_900_923_83];
         let b = [0.5, 0.124_985_935_97, 0.068_802_485_76];
         let ta = a[0] + y * (a[1] + y * a[2]);
-        let tb = -y.ln() * (b[0] + y * (b[1] + y * b[2]));
+        let tb = -Real::ln(y) * (b[0] + y * (b[1] + y * b[2]));
         return ta + tb;
     }
     rf(0.0, 1.0 - k * k, 1.0, mode)
@@ -615,7 +615,7 @@ pub fn ellint_ecomp(k: f64, mode: Mode) -> f64 {
         let a = [0.443_251_414_63, 0.062_606_012_20, 0.047_573_835_46];
         let b = [0.249_983_683_10, 0.092_001_800_37, 0.040_696_975_26];
         let ta = 1.0 + y * (a[0] + y * (a[1] + a[2] * y));
-        let tb = -y * y.ln() * (b[0] + y * (b[1] + b[2] * y));
+        let tb = -y * Real::ln(y) * (b[0] + y * (b[1] + b[2] * y));
         return ta + tb;
     }
     let y = 1.0 - k * k;

@@ -253,13 +253,13 @@ fn sin_cos_eps(eps: f32) -> (f32, f32) {
             1.0 - e2 / 2.0 * (1.0 - e2 / 12.0),
         )
     } else {
-        (eps.sin(), eps.cos())
+        (Real::sin(eps), Real::cos(eps))
     }
 }
 
 /// `cos(y - pi/4 + eps)`. Mirrors `petir_bessel_cos_pi4`.
 fn cos_pi4(y: f32, eps: f32) -> f32 {
-    let (sy, cy) = (y.sin(), y.cos());
+    let (sy, cy) = (Real::sin(y), Real::cos(y));
     let (s, d) = (sy + cy, sy - cy);
     let (seps, ceps) = sin_cos_eps(eps);
     (ceps * s - seps * d) / SQRT2
@@ -267,7 +267,7 @@ fn cos_pi4(y: f32, eps: f32) -> f32 {
 
 /// `sin(y - pi/4 + eps)`. Mirrors `petir_bessel_sin_pi4`.
 fn sin_pi4(y: f32, eps: f32) -> f32 {
-    let (sy, cy) = (y.sin(), y.cos());
+    let (sy, cy) = (Real::sin(y), Real::cos(y));
     let (s, d) = (sy + cy, sy - cy);
     let (seps, ceps) = sin_cos_eps(eps);
     (ceps * d + seps * s) / SQRT2
@@ -317,7 +317,7 @@ pub fn y0(x: f32) -> f32 {
     if x < 4.0 {
         let j0v = j0(x);
         let c = cheb(0.125 * x * x - 1.0, &BY0);
-        return TWO_OVER_PI * (-LN2 + x.ln()) * j0v + 0.375 + c;
+        return TWO_OVER_PI * (-LN2 + Real::ln(x)) * j0v + 0.375 + c;
     }
     if x < XMAX {
         let z = 32.0 / (x * x) - 1.0;
@@ -337,12 +337,12 @@ pub fn y1(x: f32) -> f32 {
     if x < 2.0 * SQRT_DBL_EPSILON {
         let j1v = j1(x);
         let c = cheb(-1.0, &BY1);
-        return TWO_OVER_PI * (0.5 * x).ln() * j1v + (0.5 + c) / x;
+        return TWO_OVER_PI * Real::ln(0.5 * x) * j1v + (0.5 + c) / x;
     }
     if x < 4.0 {
         let c = cheb(0.125 * x * x - 1.0, &BY1);
         let j1v = j1(x);
-        return TWO_OVER_PI * (0.5 * x).ln() * j1v + (0.5 + c) / x;
+        return TWO_OVER_PI * Real::ln(0.5 * x) * j1v + (0.5 + c) / x;
     }
     if x < XMAX {
         let z = 32.0 / (x * x) - 1.0;
@@ -361,7 +361,7 @@ pub fn i0_scaled(x: f32) -> f32 {
         return 1.0 - y;
     }
     if y <= 3.0 {
-        return (-y).exp() * (2.75 + cheb(y * y / 4.5 - 1.0, &BI0));
+        return Real::exp(-y) * (2.75 + cheb(y * y / 4.5 - 1.0, &BI0));
     }
     if y <= 8.0 {
         return (0.375 + cheb((48.0 / y - 11.0) / 5.0, &AI0)) / y.sqrt();
@@ -378,7 +378,7 @@ pub fn i0(x: f32) -> f32 {
     if y <= 3.0 {
         return 2.75 + cheb(y * y / 4.5 - 1.0, &BI0);
     }
-    y.exp() * i0_scaled(x)
+    Real::exp(y) * i0_scaled(x)
 }
 
 /// `e^{-|x|} I_1(x)` in `f32`. Mirrors `petir_bessel_i1_scaled`.
@@ -391,7 +391,7 @@ pub fn i1_scaled(x: f32) -> f32 {
         return 0.5 * x;
     }
     if y <= 3.0 {
-        return x * (-y).exp() * (0.875 + cheb(y * y / 4.5 - 1.0, &BI1));
+        return x * Real::exp(-y) * (0.875 + cheb(y * y / 4.5 - 1.0, &BI1));
     }
     let c = if y <= 8.0 {
         cheb((48.0 / y - 11.0) / 5.0, &AI1)
@@ -419,7 +419,7 @@ pub fn i1(x: f32) -> f32 {
     if y <= 3.0 {
         return x * (0.875 + cheb(y * y / 4.5 - 1.0, &BI1));
     }
-    y.exp() * i1_scaled(x)
+    Real::exp(y) * i1_scaled(x)
 }
 
 /// `e^{x} K_0(x)` in `f32`, `NaN` for `x <= 0`. Mirrors
@@ -431,7 +431,7 @@ pub fn k0_scaled(x: f32) -> f32 {
     if x < 1.0 {
         let x2 = x * x;
         let i0v = 1.0 + 0.25 * x2 * poly(0.25 * x2, &I0_POLY);
-        return x.exp() * (poly(x2, &K0_POLY) - x.ln() * i0v);
+        return Real::exp(x) * (poly(x2, &K0_POLY) - Real::ln(x) * i0v);
     }
     if x <= 8.0 {
         return (1.203125 + cheb((16.0 / x - 9.0) / 7.0, &AK0)) / x.sqrt();
@@ -447,9 +447,9 @@ pub fn k0(x: f32) -> f32 {
     if x < 1.0 {
         let x2 = x * x;
         let i0v = 1.0 + 0.25 * x2 * poly(0.25 * x2, &I0_POLY);
-        return poly(x2, &K0_POLY) - x.ln() * i0v;
+        return poly(x2, &K0_POLY) - Real::ln(x) * i0v;
     }
-    (-x).exp() * k0_scaled(x)
+    Real::exp(-x) * k0_scaled(x)
 }
 
 /// `e^{x} K_1(x)` in `f32`, `NaN` for `x <= 0`. Mirrors
@@ -462,7 +462,7 @@ pub fn k1_scaled(x: f32) -> f32 {
         let x2 = x * x;
         let t = 0.25 * x2;
         let i1v = 0.5 * x * (1.0 + t * (0.5 + t * poly(t, &I1_POLY)));
-        return x.exp() * (x2 * poly(x2, &K1_POLY) + x * x.ln() * i1v + 1.0) / x;
+        return Real::exp(x) * (x2 * poly(x2, &K1_POLY) + x * Real::ln(x) * i1v + 1.0) / x;
     }
     if x <= 8.0 {
         return (1.375 + cheb((16.0 / x - 9.0) / 7.0, &AK1)) / x.sqrt();
@@ -479,9 +479,9 @@ pub fn k1(x: f32) -> f32 {
         let x2 = x * x;
         let t = 0.25 * x2;
         let i1v = 0.5 * x * (1.0 + t * (0.5 + t * poly(t, &I1_POLY)));
-        return (x2 * poly(x2, &K1_POLY) + x * x.ln() * i1v + 1.0) / x;
+        return (x2 * poly(x2, &K1_POLY) + x * Real::ln(x) * i1v + 1.0) / x;
     }
-    (-x).exp() * k1_scaled(x)
+    Real::exp(-x) * k1_scaled(x)
 }
 
 #[cfg(test)]

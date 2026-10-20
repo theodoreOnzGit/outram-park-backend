@@ -154,8 +154,8 @@ pub fn gegenpoly_n(n: u32, lambda: f64, x: f64) -> f64 {
     // Upstream's Chebyshev branch: at lambda = 0 the recurrence's 1/k
     // normalisation degenerates, and C_n^0 is 2 T_n(x)/n.
     if lambda == 0.0 && (-1.0..=1.0).contains(&x) {
-        let z = n as f64 * x.acos();
-        return 2.0 * z.cos() / n as f64;
+        let z = n as f64 * Real::acos(x);
+        return 2.0 * Real::cos(z) / n as f64;
     }
     let mut gkm2 = gegenpoly_2(lambda, x);
     let mut gkm1 = gegenpoly_3(lambda, x);
