@@ -72,6 +72,17 @@ COPYRIGHT HOLDERS
                            no header of their own; #included into qags.c
                            and covered by its notice
       -> src/integration/qags.rs (ported 2026-09-28, read at the commit above)
+    GSL linalg/lu.c        Copyright (C) 1996, 1997, 1998, 1999, 2000, 2007,
+                           2009 Gerard Jungman, Brian Gough;
+                           Copyright (C) 2019, 2021 Patrick Alken
+    GSL cblas/source_ger.h, cblas/source_trsv_r.h
+                           Copyright (C) 1996, 1997, 1998, 1999, 2000
+                           Gerard Jungman
+    GSL permutation/permute_source.c
+                           Copyright (C) 1996, 1997, 1998, 1999, 2000, 2007
+                           Brian Gough
+      -> src/linalg/lu_decomp.rs (ported 2026-10-20, gh:#992, read at the
+         commit above)
 
 ================================================================================
 DERIVED WORK — ARM optimized-routines

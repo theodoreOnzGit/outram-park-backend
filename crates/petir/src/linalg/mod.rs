@@ -25,6 +25,8 @@
 //!   (`ddot`, `dnrm2`, `dasum`, `daxpy`, `dscal`, `idamax`, `dswap`).
 //! - [`lu`] — determinant, log-determinant and explicit inverse built on the LU
 //!   factors, translating `gsl_linalg_LU_det` / `_lndet` / `_invert`.
+//! - [`lu_decomp`] — GSL's own LU with unscaled partial pivoting
+//!   (`gsl_linalg_LU_decomp`) and its solve (`gsl_linalg_LU_svx`).
 //! - [`Matrix`] — the dense rectangular `m x n` matrix a least-squares problem
 //!   needs, which the square lift cannot represent.
 //! - [`householder`] and [`qr`] — Householder reflections and the QR
@@ -53,6 +55,7 @@
 pub mod blas1;
 pub mod householder;
 pub mod lu;
+pub mod lu_decomp;
 pub mod matrix;
 pub mod qr;
 /// Row-major dense `n x n` matrix with Crout LU, lifted verbatim from
@@ -65,6 +68,7 @@ pub mod tridiag;
 
 pub use blas1::{asum, axpy, dot, iamax, nrm2, scal, swap};
 pub use lu::{det, inverse, ln_det};
+pub use lu_decomp::{lu_decomp, lu_solve, lu_svx, LuPermutation};
 pub use matrix::Matrix;
 pub use qr::{LeastSquares, QrDecomposition};
 pub use tridiag::solve_symm_tridiag;

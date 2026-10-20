@@ -50,6 +50,7 @@ entirely on `yerr`, and `yerr` is what a step controller acts on.
 | `integration` (6 Kronrod rules + QAG) | 28 | 27 (96.4%) | 1.82e-16 | `gsl_numerics_code_to_code.rs` |
 | `integration::qags` (added 2026-09-28; 21 cases, every exit but `GSL_EFAILED`) | 42 | 40 (95.2%) | results 0; error estimates 1.43e-6 (a libm `pow` ulp amplified by `errsum` cancellation, reproduced by perturbing GSL itself) | `gsl_qags_code_to_code.rs` |
 | `linalg::qr` (factorisation, `tau`, least squares) | 85 | 81 (95.3%) | 4.27e-16 | `gsl_qr_code_to_code.rs` |
+| `linalg::lu_decomp` (added 2026-10-20, gh:#992; factor, permutation, status, solve; 9 cases incl. a 30x30 through GSL's Level-3 path) | 1637 | 1637 (100.0%) | 0 | `gsl_lu_code_to_code.rs` |
 | `cheb::eval_mode`, reduced order | 369 | 357 (96.7%) | — | `gsl_cheb_mode_code_to_code.rs` |
 | `cheb::eval_mode`, default order | 615 | 461 (75.0%) | 1.06e-15 results | `gsl_cheb_mode_code_to_code.rs` |
 | `cheb` pipeline (`init`/`eval`/`deriv`/`integ`) | 6114 | 4707 (77.0%) | — | `gsl_code_to_code.rs` |
