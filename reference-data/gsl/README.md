@@ -103,6 +103,19 @@ So the whole 30x30 difference is GSL's blocking. Replayed by
 - **Cases:** 1x1, 2x2, 4x4, Hilbert 8x8, Wilkinson W21+, block-diagonal 6x6,
   `5 I + 1 1^T` (four-fold eigenvalue), random symmetric 10x10, Gram 30x30.
 
+## `svd-gsl-2.8-reference.txt` — Golub–Reinsch SVD and solve (gh:#993)
+
+- **Built:** 2026-10-20, same static GSL, `build_driver.sh`.
+- **Driver:** `svd_reference_driver.c`.
+- **Routines:** `gsl_linalg_SV_decomp`, `gsl_linalg_SV_solve`.
+- **Cases:** twelve, chosen to reach every branch of `linalg/svdstep.c`
+  (the `N == 1` column, `svd2`, both zero-chasing routines, no sweep at all,
+  the block rescaling for `1e-160` and `1e160` entries) plus Hilbert 6x6 and
+  random 4x3, 8x5 and 30x20.
+- **Result (2026-10-20):** 1428/1428 bit-identical against the
+  `libm`-`hypot` run below; against stock GSL singular values agree to
+  1.12e-15 normwise. Replayed by `crates/petir/tests/gsl_svd_code_to_code.rs`.
+
 ## Isolating `hypot`: `*-libm-hypot-reference.txt`
 
 GSL calls the platform `hypot` (glibc here); PETIR calls the `libm` crate's,
@@ -128,6 +141,7 @@ reference-data/gsl/build_driver.sh reference-data/gsl/qr_reference_driver.c \
 |---|---|---|
 | `symmtd` + `eigen_symm[v]` + sort, 6091 values | decomposition 62.2 %, eigenvalues 42.9 %, vectors 31.3 % bit-identical; structural difference on `5 I + 1 1^T` | **6091/6091 bit-identical** |
 | `linalg::qr` (existing port), 85 values + solves | 81/85 (95.3 %) | **85/85, solutions and residuals bit-identical** |
+| `linalg::svd`, 1428 values | singular values 27/57; 1.12e-15 normwise | **1428/1428 bit-identical** |
 
 So both ports are exact, and every difference from stock GSL is `hypot`.
 Against stock GSL the eigensolver agrees as an eigen-decomposition: sorted

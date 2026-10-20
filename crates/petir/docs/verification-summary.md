@@ -54,6 +54,8 @@ entirely on `yerr`, and `yerr` is what a step controller acts on.
 | `linalg::cholesky`, 30x30 vs stock GSL (which blocks at Level 3 above `n = 24`; PETIR does not, a documented deviation) | 1830 | 741 (40.5%) | 1.39e-12 per entry (a near-cancelling inverse entry); normwise 3.8e-16 | `gsl_cholesky_code_to_code.rs` |
 | `linalg::cholesky`, all six cases vs GSL rebuilt with its Level-3 recursion off (`level2_rebuild.sh`) | 3241 | 3241 (100.0%) | 0 | `gsl_cholesky_code_to_code.rs` |
 | `linalg::{symmtd, eigen_symm}` (added 2026-10-20, gh:#993; decomposition, `Q`, eigenvalues and eigenvectors, unordered and sorted, nine cases) vs GSL linked with the `libm` crate's `hypot` | 6091 | 6091 (100.0%) | 0 | `gsl_eigen_symm_code_to_code.rs` |
+| `linalg::svd` (added 2026-10-20, gh:#993; `U`, `S`, `V`, solve; twelve cases reaching every branch of `svdstep.c`) vs GSL linked with the `libm` crate's `hypot` | 1428 | 1428 (100.0%) | 0 | `gsl_svd_code_to_code.rs` |
+| `linalg::svd` vs stock GSL (glibc `hypot`) | 57 singular values | 27 (47.4%) | singular values 1.12e-15 normwise; vectors within 0.22 of their gap-scaled bound | `gsl_svd_code_to_code.rs` |
 | `linalg::eigen_symm` vs stock GSL (glibc `hypot`): sorted eigenpairs | 87 eigenvalues unordered | 37 (42.5%) unordered | sorted eigenvalues 1.73e-15 normwise; eigenvectors within 0.55 of their gap-scaled perturbation bound | `gsl_eigen_symm_code_to_code.rs` |
 | `cheb::eval_mode`, reduced order | 369 | 357 (96.7%) | — | `gsl_cheb_mode_code_to_code.rs` |
 | `cheb::eval_mode`, default order | 615 | 461 (75.0%) | 1.06e-15 results | `gsl_cheb_mode_code_to_code.rs` |
