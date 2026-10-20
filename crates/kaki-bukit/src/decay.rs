@@ -28,10 +28,14 @@
 //! `pyne_cram_expm_multiply14`, a 14th-order Chebyshev Rational
 //! Approximation.
 //!
-//! So **this module will not reproduce a modern Cyclus decay result.** It is a
+//! ~~So **this module will not reproduce a modern Cyclus decay result.** It is a
 //! correct matrix-exponential solver — verified against the closed-form
 //! two-species Bateman solution to 7.7e-11 at tight tolerance — but it is a
-//! different algorithm from the one upstream actually runs.
+//! different algorithm from the one upstream actually runs.~~ **CORRECTED
+//! 2026-10-20 (gh:#999):** the Taylor port is still here and still a
+//! different algorithm from upstream's, but it is no longer the default: the
+//! default is PETIR's CRAM48 (next sections), the same family as upstream's
+//! CRAM14. Nothing here has been compared against a Cyclus run.
 //!
 //! Two further consequences, both measured:
 //!
@@ -49,10 +53,49 @@
 //!   "gross heuristic for mostly stable nuclides" in fact freezes every
 //!   nuclide with a half-life under ~31.3 days as stable.
 //!
-//! **Adding a CRAM backend is tracked as `op-i68k`**, and
+//! ~~**Adding a CRAM backend is tracked as `op-i68k`**, and
 //! `crates/outram-park-fork-onix/src/cram.rs` already has `cram16()` — reuse
 //! it rather than writing a third matrix-exponential routine. Uniform Taylor
-//! should stay alongside as an independent check.
+//! should stay alongside as an independent check.~~ **CORRECTED 2026-10-20
+//! (gh:#999, closes `op-i68k`)** — the CRAM backend now exists and is the
+//! **default**: [`decay_composition`] and [`decay_material`] solve with
+//! PETIR's order-48 IPF CRAM ([`petir::depletion::cram48`], OpenMC's
+//! `CRAM48`), the workspace's one CRAM. ONIX's own `cram16` is being moved into
+//! PETIR as well (same issue), so PETIR, not onix, is the place to reuse.
+//! Uniform Taylor stays, reachable by the explicit
+//! [`DecaySolver::UniformTaylor`] choice (and through the `*_with_tol`
+//! functions, whose tolerance is Taylor's knob), as the independent check.
+//!
+//! # CRAM is the default, and it is CLOSER to upstream than Taylor
+//!
+//! Modern Cyclus decays with PyNE's CRAM14 (above), so swapping the deprecated
+//! Taylor solver for a CRAM moves this port *towards* upstream, not away from
+//! it. The order differs: PETIR carries OpenMC's CRAM16 and CRAM48, not
+//! PyNE's CRAM14. **The order is CRAM48** because it is the most accurate
+//! of the two and OpenMC's own default; CRAM14 is not ported (gh:#999,
+//! maintainer: not now).
+//!
+//! **Does CRAM48 vs CRAM14 matter for reproducing Cyclus?** No, at any level
+//! a fuel-cycle mass balance can see. The error of the best order-`n`
+//! rational approximation of `exp` on the negative real axis falls like
+//! Halphen's constant `9.289^-n`: about `2.8e-14` of the inventory for
+//! `n = 14`, `3.2e-16` for `n = 16` and round-off for `n = 48`. Measured as a
+//! proxy (`decay::tests::vv_report`), CRAM16 and CRAM48 differ by **at most
+//! 5.1e-16 of the total inventory** on the Sr-90, Po-210 and Pb-212 cases
+//! (5.075e-16, 3.608e-16, 2.961e-16): round-off. CRAM14's bound is ~90x
+//! CRAM16's, still ~3e-14. Both are thirteen orders below
+//! the Taylor default's 9.5e-4 loss, and far below any decay-data
+//! uncertainty. Not re-checked against a compiled PyNE CRAM14 — none is in
+//! this workspace.
+//!
+//! **What CRAM fixes, measured 2026-10-20** (`vv_report`): the one-signed
+//! atom loss is gone. Sr-90 chain, one year: Taylor at the default
+//! `tol = 1e-3` loses **9.515e-4** of the atoms; CRAM48 conserves them to
+//! **1.421e-15**. Isobaric Sr-90 chain mass over five years: Taylor default
+//! **9.331e-4** light; CRAM48 **1.599e-15** (see the V&V table for every row).
+//! And the 1023-half-life cap below is a Taylor limit only: CRAM has no
+//! `exp(-alpha t)` factor, so a step far longer than the shortest half-life
+//! is solved rather than refused (`cram_solves_a_step_taylor_refuses`).
 //!
 //!
 //! # The physics in one paragraph
@@ -168,17 +211,22 @@
 //! as relative error against the closed form. Every row is a real number
 //! printed by `decay::tests::vv_report`, which regenerates the whole table:
 //!
-//! | Case | at `tol = 1e-3` (the default) | at a tight `tol` |
-//! |---|---|---|
-//! | Sr-90 single nuclide, 1 a | 0.000e0 (bit-exact) | — |
-//! | Sr-90 -> Y-90 Bateman **daughter**, 1 a | 9.431e-4 | 7.737e-11 (`tol` 1e-10) |
-//! | Sr-90 -> Y-90 Bateman **parent**, 1 a | 9.431e-4 | 7.737e-11 (`tol` 1e-10) |
-//! | diagonal `exp`, `alpha t = 2` | — | 1.128e-11 (`tol` 1e-10) |
-//! | atom conservation, 3-nuclide chain, 1 a | 9.515e-4 | 7.446e-13 (`tol` 1e-12) |
-//! | atom conservation, 3-nuclide chain, 5 a | 9.331e-4 | 9.731e-13 (`tol` 1e-12) |
-//! | half-life: fraction left after one `T_1/2` | 0.000e0 (bit-exact) | — |
-//! | 1 kg Po-210 -> Pb-206 mass ratio, 1 a | 6.216e-4 | 1.398e-13 (`tol` 1e-12) |
-//! | isobaric chain mass, 5 a | 9.331e-4 | 9.688e-13 (`tol` 1e-12) |
+//! | Case | Taylor at `tol = 1e-3` (~~the default~~ upstream's) | Taylor at a tight `tol` | **CRAM48, the default since 2026-10-20** |
+//! |---|---|---|---|
+//! | Sr-90 single nuclide, 1 a | 0.000e0 (bit-exact) | — | 1.170e-15 |
+//! | Sr-90 -> Y-90 Bateman **daughter**, 1 a | 9.431e-4 | 7.737e-11 (`tol` 1e-10) | 1.125e-15 |
+//! | Sr-90 -> Y-90 Bateman **parent**, 1 a | 9.431e-4 | 7.737e-11 (`tol` 1e-10) | 1.170e-15 |
+//! | diagonal `exp`, `alpha t = 2` | — | 1.128e-11 (`tol` 1e-10) | — |
+//! | atom conservation, 3-nuclide chain, 1 a | 9.515e-4 | 7.446e-13 (`tol` 1e-12) | 1.421e-15 |
+//! | atom conservation, 3-nuclide chain, 5 a | 9.331e-4 | 9.731e-13 (`tol` 1e-12) | 1.066e-15 |
+//! | half-life: fraction left after one `T_1/2` | 0.000e0 (bit-exact) | — | 1.332e-15 |
+//! | 1 kg Po-210 -> Pb-206 mass ratio, 1 a | 6.216e-4 | 1.398e-13 (`tol` 1e-12) | 3.385e-16 |
+//! | isobaric chain mass, 5 a | 9.331e-4 | 9.688e-13 (`tol` 1e-12) | 1.599e-15 |
+//!
+//! The CRAM48 column was measured 2026-10-20 (gh:#999) by the same
+//! `vv_report`, which now also prints CRAM16 vs CRAM48. The Taylor columns
+//! are unchanged to the last digit: the Taylor code did not change, only
+//! which method is the default.
 //!
 //! **Interpretation, and the one thing to take away.** The solver is correct
 //! to round-off; **upstream's default tolerance is not tight enough for a
@@ -704,6 +752,89 @@ pub fn build_decay_matrix(chain: &DecayChain, nuclides: &[Nuc]) -> Result<Matrix
 }
 
 // ---------------------------------------------------------------------------
+// Choosing the solver: CRAM by default, Taylor by explicit choice
+// ---------------------------------------------------------------------------
+
+/// Which matrix-exponential method solves the decay system.
+///
+/// **The default is [`DecaySolver::Cram48`]** (gh:#999): it is closer to
+/// what modern Cyclus runs (PyNE CRAM14, see the module docs), it conserves
+/// atoms to round-off, and it has no step-length cap. Upstream's deprecated
+/// uniformized Taylor series stays as the explicit
+/// [`DecaySolver::UniformTaylor`] choice, the independent check the
+/// comparison tests use.
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub enum DecaySolver {
+    /// PETIR's order-48 IPF CRAM ([`petir::depletion::cram48`], a port of
+    /// OpenMC's `CRAM48`). One substep. **The default.**
+    #[default]
+    Cram48,
+    /// Upstream's `UniformTaylor::MatrixExpSolver` ([`UniformTaylor::solve`])
+    /// with truncation tolerance `tol` in `(0, 1)`; upstream's hard-coded
+    /// value is [`DEFAULT_TOL`]. Loses up to `tol` of the atoms per call,
+    /// always as a loss; see the module docs.
+    UniformTaylor {
+        /// Discarded-Poisson-tail bound, dimensionless.
+        tol: f64,
+    },
+}
+
+impl DecaySolver {
+    /// Upstream's Taylor solver at upstream's own tolerance, `1e-3`.
+    pub const UPSTREAM_TAYLOR: DecaySolver = DecaySolver::UniformTaylor { tol: DEFAULT_TOL };
+
+    /// `x(t) = exp(A t) x0` by this method. `a` is a decay matrix as
+    /// [`build_decay_matrix`] builds it (per second), `t` in seconds.
+    ///
+    /// # Errors
+    ///
+    /// [`CyclusError::Value`] for a negative or non-finite `t`; otherwise the
+    /// chosen method's errors ([`UniformTaylor::solve`], or
+    /// [`cram48_solve`]).
+    pub fn solve(&self, a: &Matrix, x0: &[f64], t: f64) -> Result<Vec<f64>> {
+        match *self {
+            DecaySolver::Cram48 => cram48_solve(a, x0, t),
+            DecaySolver::UniformTaylor { tol } => UniformTaylor::solve(a, x0, t, tol),
+        }
+    }
+}
+
+/// `x(t) = exp(A t) x0` by PETIR's order-48 IPF CRAM
+/// ([`petir::depletion::cram48`]).
+///
+/// Copies the [`Matrix`] into a [`petir::depletion::DepletionMatrix`] (same
+/// convention: parent by column, daughter by row, per second) and calls CRAM
+/// with one substep. Exact for `t = 0` and for an all-zero matrix (PETIR's
+/// early return). Unlike [`UniformTaylor::solve`] there is no cap on
+/// `max lambda * t`.
+///
+/// # Errors
+///
+/// [`CyclusError::Value`] for a non-square `a`, a length mismatch, or a
+/// negative or non-finite `t`; [`CyclusError::Numeric`] if a CRAM pole solve
+/// is singular.
+pub fn cram48_solve(a: &Matrix, x0: &[f64], t: f64) -> Result<Vec<f64>> {
+    let n = a.rows();
+    if a.cols() != n || x0.len() != n {
+        return Err(CyclusError::Value(
+            "CRAM: the decay matrix must be square and match the vector",
+        ));
+    }
+    if !t.is_finite() || t < 0.0 {
+        return Err(CyclusError::Value(
+            "decay time must be finite and non-negative, in seconds",
+        ));
+    }
+    let mut d = petir::depletion::DepletionMatrix::zeros(n);
+    for i in 0..n {
+        for j in 0..n {
+            d.set(i, j, a.get(i, j))?;
+        }
+    }
+    Ok(petir::depletion::cram48(&d, x0, t)?)
+}
+
+// ---------------------------------------------------------------------------
 // The matrix exponential solver
 // ---------------------------------------------------------------------------
 
@@ -1009,6 +1140,9 @@ impl UniformTaylor {
 /// Upstream's `GetResult` copies a nuclide into the output only when its atom
 /// count is `> 0`, and this does the same. The uniformized series produces
 /// only non-negative terms, so an entry is zero exactly when nothing fed it.
+/// CRAM (the default since gh:#999) is not sign-preserving: a fully decayed
+/// nuclide can come out as a round-off-sized negative, and is then dropped
+/// by the same `> 0` test.
 ///
 /// # Errors
 ///
@@ -1044,12 +1178,17 @@ impl UniformTaylor {
 /// let year = 365.25 * 86400.0;
 /// let after = decay_composition(&comp, &chain, year, &AtomicMasses::MassNumber)?;
 ///
-/// // Atom count is conserved -- but only to the solver's tolerance, which
-/// // defaults to upstream's 1e-3 and always errs by LOSING atoms.
+/// // The default solver is CRAM48: atom count is conserved to round-off.
 /// let total: f64 = after.atom().values().sum();
-/// assert!((total - 1.0).abs() < 1e-3);
+/// assert!((total - 1.0).abs() < 1e-12);
 ///
-/// // Ask for a tighter answer when the books have to balance.
+/// // Upstream's deprecated Taylor solver is an explicit choice. At its
+/// // default tolerance 1e-3 it always errs by LOSING atoms ...
+/// let taylor = decay_composition_with_tol(&comp, &chain, year, &AtomicMasses::MassNumber, 1e-3)?;
+/// let total: f64 = taylor.atom().values().sum();
+/// assert!(total < 1.0 && (total - 1.0).abs() < 1e-3);
+///
+/// // ... and agrees with CRAM when asked for a tight answer.
 /// let tight = decay_composition_with_tol(&comp, &chain, year, &AtomicMasses::MassNumber, 1e-12)?;
 /// let total: f64 = tight.atom().values().sum();
 /// assert!((total - 1.0).abs() < 1e-9);
@@ -1061,14 +1200,19 @@ pub fn decay_composition(
     secs: f64,
     masses: &AtomicMasses,
 ) -> Result<Composition> {
-    decay_composition_with_tol(comp, chain, secs, masses, DEFAULT_TOL)
+    decay_composition_with_solver(comp, chain, secs, masses, DecaySolver::default())
 }
 
-/// [`decay_composition`] with an explicit solver tolerance.
+/// [`decay_composition`] by **upstream's deprecated uniformized Taylor
+/// solver**, with an explicit tolerance.
 ///
 /// `tol` is dimensionless and must lie strictly within `(0, 1)`; see
-/// [`UniformTaylor::solve`]. [`decay_composition`] is this function with
-/// [`DEFAULT_TOL`], which is upstream's hard-coded value.
+/// [`UniformTaylor::solve`]. ~~[`decay_composition`] is this function with
+/// [`DEFAULT_TOL`], which is upstream's hard-coded value.~~ **CORRECTED
+/// 2026-10-20 (gh:#999):** [`decay_composition`] now solves with CRAM48;
+/// this function is the explicit Taylor choice,
+/// `decay_composition_with_solver(.., DecaySolver::UniformTaylor { tol })`,
+/// and with `tol = DEFAULT_TOL` reproduces the old default.
 ///
 /// Not an upstream entry point — upstream offers no way to ask for a tighter
 /// answer. It is here because the tolerance is the one knob that trades cost
@@ -1085,6 +1229,24 @@ pub fn decay_composition_with_tol(
     secs: f64,
     masses: &AtomicMasses,
     tol: f64,
+) -> Result<Composition> {
+    decay_composition_with_solver(
+        comp,
+        chain,
+        secs,
+        masses,
+        DecaySolver::UniformTaylor { tol },
+    )
+}
+
+/// [`decay_composition`] with the matrix-exponential method chosen
+/// explicitly ([`DecaySolver`]). Same errors.
+pub fn decay_composition_with_solver(
+    comp: &Composition,
+    chain: &DecayChain,
+    secs: f64,
+    masses: &AtomicMasses,
+    solver: DecaySolver,
 ) -> Result<Composition> {
     if !secs.is_finite() || secs < 0.0 {
         return Err(CyclusError::Value(
@@ -1104,7 +1266,7 @@ pub fn decay_composition_with_tol(
         .map(|nuc| comp.atom().get(nuc).copied().unwrap_or(0.0))
         .collect();
 
-    let x = UniformTaylor::solve(&a, &x0, secs, tol)?;
+    let x = solver.solve(&a, &x0, secs)?;
 
     let mut out = CompMap::new();
     for (k, &nuc) in nuclides.iter().enumerate() {
@@ -1176,14 +1338,17 @@ pub fn decay_material(
     now: i64,
     masses: &AtomicMasses,
 ) -> Result<()> {
-    decay_material_with_tol(mat, chain, secs, now, masses, DEFAULT_TOL)
+    decay_material_with_solver(mat, chain, secs, now, masses, DecaySolver::default())
 }
 
-/// [`decay_material`] with an explicit solver tolerance.
+/// [`decay_material`] by **upstream's deprecated uniformized Taylor solver**,
+/// with an explicit tolerance.
 ///
 /// `tol` is dimensionless and must lie strictly within `(0, 1)`; see
-/// [`UniformTaylor::solve`]. [`decay_material`] is this function with
-/// [`DEFAULT_TOL`], upstream's hard-coded value.
+/// [`UniformTaylor::solve`]. ~~[`decay_material`] is this function with
+/// [`DEFAULT_TOL`], upstream's hard-coded value.~~ **CORRECTED 2026-10-20
+/// (gh:#999):** [`decay_material`] now solves with CRAM48; this is the
+/// explicit Taylor choice.
 ///
 /// **Pass a tighter `tol` than the default for anything that has to balance.**
 /// At `tol = 1e-3` the truncated series discards up to that fraction of the
@@ -1205,6 +1370,26 @@ pub fn decay_material_with_tol(
     now: i64,
     masses: &AtomicMasses,
     tol: f64,
+) -> Result<()> {
+    decay_material_with_solver(
+        mat,
+        chain,
+        secs,
+        now,
+        masses,
+        DecaySolver::UniformTaylor { tol },
+    )
+}
+
+/// [`decay_material`] with the matrix-exponential method chosen explicitly
+/// ([`DecaySolver`]). Same errors.
+pub fn decay_material_with_solver(
+    mat: &mut Material,
+    chain: &DecayChain,
+    secs: f64,
+    now: i64,
+    masses: &AtomicMasses,
+    solver: DecaySolver,
 ) -> Result<()> {
     if !secs.is_finite() || secs < 0.0 {
         return Err(CyclusError::Value(
@@ -1230,7 +1415,7 @@ pub fn decay_material_with_tol(
     }
     let absolute = Composition::from_atom(atoms, masses)?;
 
-    let decayed = decay_composition_with_tol(&absolute, chain, secs, masses, tol)?;
+    let decayed = decay_composition_with_solver(&absolute, chain, secs, masses, solver)?;
     let new_qty = comp_math::sum(decayed.mass());
 
     // `Material` exposes no quantity setter — upstream changes the quantity
@@ -1306,6 +1491,9 @@ mod tests {
     /// nuclide `alpha = lambda`, so `B = A + alpha I` is the zero matrix, every
     /// series term after the first vanishes, and the answer is the `exp`
     /// factor itself. Pass criterion 1e-12 relative; measured 0.000e0.
+    /// **Since 2026-10-20 (gh:#999) this test runs the default, CRAM48**, for
+    /// which nothing is exact by construction: measured 1.170e-15. The
+    /// bit-exact Taylor value is still printed by `vv_report` (`tol 1e-3`).
     #[test]
     fn single_nuclide_matches_exponential_decay() {
         let lambda = lambda_sr90();
@@ -1313,8 +1501,7 @@ mod tests {
         let n0 = 3.5;
         let comp = atom_comp(&[(SR90, n0)]);
 
-        let after =
-            decay_composition(&comp, &chain, YEAR_SECS, &AtomicMasses::MassNumber).unwrap();
+        let after = decay_composition(&comp, &chain, YEAR_SECS, &AtomicMasses::MassNumber).unwrap();
 
         let want = n0 * exp(-lambda * YEAR_SECS);
         let got = after.atom()[&SR90];
@@ -1390,8 +1577,11 @@ mod tests {
         assert!(got_daughter / n0 > 1e-5);
 
         // And the same case at upstream's default tolerance stays well inside
-        // the 1e-3 bound that tolerance promises.
-        let loose = decay_composition(&comp, &chain, t, &AtomicMasses::MassNumber).unwrap();
+        // the 1e-3 bound that tolerance promises (explicit Taylor choice; the
+        // default solver is CRAM48 since gh:#999).
+        let loose =
+            decay_composition_with_tol(&comp, &chain, t, &AtomicMasses::MassNumber, DEFAULT_TOL)
+                .unwrap();
         let loose_daughter = loose.atom()[&Y90];
         assert!(
             rel_err(loose_daughter, want_daughter) < 1e-3,
@@ -1474,12 +1664,13 @@ mod tests {
             );
 
             // At upstream's default tolerance the loss is real, bounded by
-            // `tol`, and always a loss.
-            let loose = decay_composition(
+            // `tol`, and always a loss (explicit Taylor choice).
+            let loose = decay_composition_with_tol(
                 &comp,
                 &chain,
                 years * YEAR_SECS,
                 &AtomicMasses::MassNumber,
+                DEFAULT_TOL,
             )
             .unwrap();
             let loose_total = comp_math::sum(loose.atom());
@@ -1541,6 +1732,8 @@ mod tests {
     /// criterion 1e-12 relative; measured 0.000e0 — bit-exact — for both
     /// Po-210 and Sr-90, because a chain with no tracked daughters makes
     /// `B` the zero matrix and the answer is the `exp` factor itself.
+    /// **Since 2026-10-20 (gh:#999) this runs the default CRAM48**: measured
+    /// 1.332e-15 for both (Taylor's bit-exact 0 is still in `vv_report`).
     #[test]
     fn one_half_life_leaves_half() {
         for (nuc, lambda) in [(PO210, lambda_po210()), (SR90, lambda_sr90())] {
@@ -1755,9 +1948,9 @@ mod tests {
         assert_eq!(mat.prev_decay_time(), 42);
 
         // The same case at upstream's default tolerance: still within the
-        // bound `tol` promises, but visibly light.
+        // bound `tol` promises, but visibly light (explicit Taylor choice).
         let mut loose = Material::new(1.0, comp).unwrap();
-        decay_material(&mut loose, &chain, YEAR_SECS, 42, &masses).unwrap();
+        decay_material_with_tol(&mut loose, &chain, YEAR_SECS, 42, &masses, DEFAULT_TOL).unwrap();
         assert!(loose.quantity() < mat.quantity());
         assert!(rel_err(loose.quantity(), want_ratio) < DEFAULT_TOL);
     }
@@ -1799,8 +1992,7 @@ mod tests {
         let comp = Composition::from_nuclide(SR90, &masses).unwrap();
         let mut mat = Material::new(2.5, comp).unwrap();
 
-        decay_material_with_tol(&mut mat, &chain, 5.0 * YEAR_SECS, 1, &masses, 1e-12)
-            .unwrap();
+        decay_material_with_tol(&mut mat, &chain, 5.0 * YEAR_SECS, 1, &masses, 1e-12).unwrap();
         assert!(
             rel_err(mat.quantity(), 2.5) < 1e-9,
             "isobaric chain mass: got {}, rel err {}",
@@ -1887,10 +2079,8 @@ mod tests {
         assert!(matches!(dup.validate(), Err(CyclusError::Value(_))));
 
         // A non-nuclide id (natural uranium is an element, not a nuclide).
-        let elem = DecayChain::new().with(
-            crate::nuclide::nuc::U_NATURAL,
-            DecayData::single(1.0, SR90),
-        );
+        let elem =
+            DecayChain::new().with(crate::nuclide::nuc::U_NATURAL, DecayData::single(1.0, SR90));
         assert!(matches!(
             elem.validate(),
             Err(CyclusError::InvalidNuclide(_))
@@ -1930,16 +2120,247 @@ mod tests {
     }
 
     /// A step so long that `exp(-alpha t)` underflows is refused rather than
-    /// silently returning zeros. This is the case upstream's "gross heuristic"
+    /// silently returning zeros — **by the Taylor solver** (explicit choice
+    /// since gh:#999). This is the case upstream's "gross heuristic"
     /// was reaching for, and the port reports it instead of zeroing the decay
-    /// constant. See [`build_decay_matrix`]'s docs.
+    /// constant. See [`build_decay_matrix`]'s docs. The default CRAM solves
+    /// the same step: `cram_solves_a_step_taylor_refuses`.
     #[test]
     fn an_underflowing_step_is_refused() {
         // lambda = 1 per second, decayed for 1e6 seconds: alpha*t = 1e6.
         let chain = DecayChain::new().with(SR90, DecayData::single(1.0, Y90));
         let comp = atom_comp(&[(SR90, 1.0)]);
         assert!(matches!(
-            decay_composition(&comp, &chain, 1.0e6, &AtomicMasses::MassNumber),
+            decay_composition_with_tol(
+                &comp,
+                &chain,
+                1.0e6,
+                &AtomicMasses::MassNumber,
+                DEFAULT_TOL
+            ),
+            Err(CyclusError::Value(_))
+        ));
+    }
+
+    /// The step Taylor refuses (`alpha t = 1e6`, i.e. ~1.4e6 half-lives of
+    /// the parent) is solved by the default CRAM48: the parent is gone and
+    /// every atom sits in the stable daughter.
+    ///
+    /// Methodology: exact answer `N_parent = exp(-1e6) = 0` (underflows),
+    /// `N_daughter = 1`. CRAM48's value at `z -> -inf` is its constant term
+    /// `alpha0 ~ 2.3e-47`, so the expected error is round-off on the daughter.
+    /// Pass criterion, fixed before running: both within 1e-12 absolute.
+    /// Measured 2026-10-20: parent 0.000e0 (`exp(-1e6)` and CRAM48's
+    /// `alpha0`-sized remainder both flush to zero here), daughter 8.882e-16.
+    #[test]
+    fn cram_solves_a_step_taylor_refuses() {
+        let chain = DecayChain::new().with(SR90, DecayData::single(1.0, Y90));
+        let comp = atom_comp(&[(SR90, 1.0)]);
+        let after = decay_composition(&comp, &chain, 1.0e6, &AtomicMasses::MassNumber).unwrap();
+        let parent = after.atom().get(&SR90).copied().unwrap_or(0.0);
+        let daughter = after.atom()[&Y90];
+        std::println!(
+            "cram step 1e6: parent {parent:.3e}, daughter err {:.3e}",
+            abs(daughter - 1.0)
+        );
+        assert!(abs(parent) < 1e-12, "parent {parent}");
+        assert!(abs(daughter - 1.0) < 1e-12, "daughter {daughter}");
+    }
+
+    // -----------------------------------------------------------------------
+    // CRAM48 (default) against Taylor (explicit) and the exact answer, gh:#999
+    // -----------------------------------------------------------------------
+
+    /// Exact answer for the Pb-212 -> Bi-212 -> {Tl-208, Pb-208} chain from
+    /// `n0` atoms of Pb-212, in the order `[Pb-212, Bi-212, Tl-208, Pb-208]`.
+    /// Linear-chain Bateman for the first three (Tl-208 carries the branch
+    /// fraction `br`), conservation for the stable end point.
+    fn pb212_bateman(n0: f64, l1: f64, l2: f64, l3: f64, br: f64, t: f64) -> [f64; 4] {
+        let (e1, e2, e3) = (exp(-l1 * t), exp(-l2 * t), exp(-l3 * t));
+        let n1 = n0 * e1;
+        let n2 = n0 * l1 / (l2 - l1) * (e1 - e2);
+        let n3 = br
+            * n0
+            * l1
+            * l2
+            * (e1 / ((l2 - l1) * (l3 - l1))
+                + e2 / ((l1 - l2) * (l3 - l2))
+                + e3 / ((l1 - l3) * (l2 - l3)));
+        [n1, n2, n3, n0 - n1 - n2 - n3]
+    }
+
+    const PB212: Nuc = Nuc::new(822120000);
+    const BI212: Nuc = Nuc::new(832120000);
+    const TL208: Nuc = Nuc::new(812080000);
+    const PB208: Nuc = Nuc::new(822080000);
+
+    /// Decay constants (per second) for [`pb212_chain`]: Pb-212 10.64 h,
+    /// Bi-212 60.55 min, Tl-208 3.053 min; Bi-212's beta branch 0.6406.
+    fn pb212_lambdas() -> (f64, f64, f64, f64) {
+        (
+            ln(2.0) / (10.64 * 3600.0),
+            ln(2.0) / (60.55 * 60.0),
+            ln(2.0) / (3.053 * 60.0),
+            0.3594,
+        )
+    }
+
+    /// Pb-212 -> Bi-212, which branches 35.94 % to Tl-208 (-> Pb-208) and
+    /// 64.06 % to Po-212. **Simplification:** Po-212 (`T_1/2 = 0.30 us`) is
+    /// folded into an instantaneous Bi-212 -> Pb-208 branch. On the
+    /// one-day scale of the test its inventory is `~1e-10` of Bi-212's, below
+    /// what the comparison resolves; and it would cap the Taylor step at
+    /// ~0.3 ms (1023 half-lives), making the cross-check impossible.
+    fn pb212_chain() -> DecayChain {
+        let (l1, l2, l3, br) = pb212_lambdas();
+        DecayChain::new()
+            .with(PB212, DecayData::single(l1, BI212))
+            .with(
+                BI212,
+                DecayData::new(l2, vec![(TL208, br), (PB208, 1.0 - br)]),
+            )
+            .with(TL208, DecayData::single(l3, PB208))
+            .with(PB208, DecayData::stable())
+    }
+
+    /// **Comparison 1 (gh:#999): CRAM48 vs the closed-form Bateman answer and
+    /// vs Taylor, on the two-member Sr-90 -> Y-90 -> Zr-90 chain.**
+    ///
+    /// Methodology: 7 atoms of Sr-90 decayed one year. Three answers: the
+    /// default [`DecaySolver::Cram48`], the explicit
+    /// [`DecaySolver::UniformTaylor`] at `tol = 1e-12`, and the closed-form
+    /// two-species Bateman solution (`two_nuclide_chain_matches_bateman`).
+    ///
+    /// Tolerances, fixed before running from the methods' known error:
+    /// CRAM48's approximation error on the negative real axis is below
+    /// round-off (Halphen's constant, `9.289^-48 ~ 1e-46`), so its error is
+    /// round-off in 24 complex 3x3 solves, `~1e-15` of the inventory; the
+    /// daughter is `~2.5e-4` of the inventory, so its relative error may be
+    /// `~4e-12`. Criteria: parent 1e-12 relative, daughter 1e-10 relative;
+    /// CRAM vs Taylor(1e-12) within 1e-11 of the total inventory (Taylor's
+    /// one-signed bound is 1e-12 of it, plus round-off).
+    ///
+    /// Measured 2026-10-20: CRAM parent 1.170e-15, daughter 1.125e-15 relative to
+    /// Bateman (the daughter is accurate componentwise, not just normwise);
+    /// max |CRAM - Taylor| / total 7.128e-13 (Taylor's own `tol = 1e-12`
+    /// truncation, as expected).
+    #[test]
+    fn cram48_matches_bateman_and_taylor_on_sr90_chain() {
+        let (l1, l2) = (lambda_sr90(), lambda_y90());
+        let chain = sr_y_zr_chain();
+        let n0 = 7.0;
+        let t = YEAR_SECS;
+        let m = AtomicMasses::MassNumber;
+        let comp = atom_comp(&[(SR90, n0)]);
+
+        let cram =
+            decay_composition_with_solver(&comp, &chain, t, &m, DecaySolver::Cram48).unwrap();
+        let taylor = decay_composition_with_solver(
+            &comp,
+            &chain,
+            t,
+            &m,
+            DecaySolver::UniformTaylor { tol: 1e-12 },
+        )
+        .unwrap();
+
+        let want_p = n0 * exp(-l1 * t);
+        let want_d = n0 * l1 / (l2 - l1) * (exp(-l1 * t) - exp(-l2 * t));
+        let ep = rel_err(cram.atom()[&SR90], want_p);
+        let ed = rel_err(cram.atom()[&Y90], want_d);
+        let et = [SR90, Y90, ZR90]
+            .iter()
+            .map(|n| abs(cram.atom()[n] - taylor.atom()[n]) / n0)
+            .fold(0.0_f64, f64::max);
+        std::println!("cmp1: parent {ep:.3e} daughter {ed:.3e} cram-taylor {et:.3e}");
+        assert!(ep < 1e-12, "CRAM parent vs Bateman {ep}");
+        assert!(ed < 1e-10, "CRAM daughter vs Bateman {ed}");
+        assert!(et < 1e-11, "CRAM vs Taylor {et}");
+    }
+
+    /// **Comparison 2 (gh:#999): CRAM48 vs Taylor vs the exact answer on a
+    /// four-member branching chain** — Pb-212 -> Bi-212 -> {Tl-208 (35.94 %)
+    /// -> Pb-208, Pb-208 (64.06 %, via Po-212 folded in; see
+    /// [`pb212_chain`])}, one day from pure Pb-212.
+    ///
+    /// Methodology: the exact answer is the three-member linear-chain Bateman
+    /// solution with the branch fraction on Tl-208, and conservation for
+    /// Pb-208 ([`pb212_bateman`]). Half-lives span 3 min to 10.6 h, so
+    /// `alpha t = 327` for Taylor: a long series (~400 terms) on a matrix with
+    /// a branch, which the two-member case does not exercise.
+    ///
+    /// Tolerances, fixed before running: every component within 1e-13 of
+    /// the total inventory for CRAM48 vs exact (round-off, as comparison 1;
+    /// the closed form's own cancellation in `l_i - l_j` is `~eps * l/dl`,
+    /// at most ~1e-15 here) and 1e-11 for CRAM48 vs Taylor(1e-12); total atoms
+    /// conserved by CRAM48 to 1e-13.
+    ///
+    /// Measured 2026-10-20: CRAM vs exact 1.480e-16, CRAM vs Taylor 7.089e-13,
+    /// CRAM atom balance 1.480e-16 (all relative to the inventory).
+    #[test]
+    fn cram48_matches_exact_and_taylor_on_branching_pb212_chain() {
+        let (l1, l2, l3, br) = pb212_lambdas();
+        let chain = pb212_chain();
+        let n0 = 3.0;
+        let t = 86_400.0;
+        let m = AtomicMasses::MassNumber;
+        let comp = atom_comp(&[(PB212, n0)]);
+        let order = [PB212, BI212, TL208, PB208];
+
+        let cram = decay_composition(&comp, &chain, t, &m).unwrap();
+        let taylor = decay_composition_with_tol(&comp, &chain, t, &m, 1e-12).unwrap();
+        let exact = pb212_bateman(n0, l1, l2, l3, br, t);
+
+        let mut ex = 0.0_f64;
+        let mut et = 0.0_f64;
+        for (k, n) in order.iter().enumerate() {
+            ex = ex.max(abs(cram.atom()[n] - exact[k]) / n0);
+            et = et.max(abs(cram.atom()[n] - taylor.atom()[n]) / n0);
+        }
+        let eb = abs(comp_math::sum(cram.atom()) - n0) / n0;
+        std::println!("cmp2: cram-exact {ex:.3e} cram-taylor {et:.3e} balance {eb:.3e}");
+        // Tl-208 is a real share of the inventory, so the branch is exercised.
+        assert!(exact[2] / n0 > 1e-4, "Tl-208 share {}", exact[2] / n0);
+        assert!(ex < 1e-13, "CRAM vs exact {ex}");
+        assert!(et < 1e-11, "CRAM vs Taylor {et}");
+        assert!(eb < 1e-13, "CRAM atom balance {eb}");
+    }
+
+    /// The default is CRAM48, pinned (root CLAUDE.md, "correct physics is the
+    /// default"): `decay_composition` and `decay_material` give bit for bit
+    /// what the explicit `DecaySolver::Cram48` gives, and differ from the
+    /// Taylor default-tolerance answer.
+    #[test]
+    fn cram48_is_the_default_solver() {
+        assert_eq!(DecaySolver::default(), DecaySolver::Cram48);
+        let m = AtomicMasses::MassNumber;
+        let chain = sr_y_zr_chain();
+        let comp = atom_comp(&[(SR90, 2.0), (Y90, 0.5)]);
+        let d = decay_composition(&comp, &chain, YEAR_SECS, &m).unwrap();
+        let c = decay_composition_with_solver(&comp, &chain, YEAR_SECS, &m, DecaySolver::Cram48)
+            .unwrap();
+        let u = decay_composition_with_solver(
+            &comp,
+            &chain,
+            YEAR_SECS,
+            &m,
+            DecaySolver::UPSTREAM_TAYLOR,
+        )
+        .unwrap();
+        assert_eq!(d.atom(), c.atom());
+        assert_ne!(d.atom(), u.atom());
+
+        let mut a = Material::new(1.0, Composition::from_nuclide(SR90, &m).unwrap()).unwrap();
+        let mut b = a.clone();
+        decay_material(&mut a, &chain, YEAR_SECS, 3, &m).unwrap();
+        decay_material_with_solver(&mut b, &chain, YEAR_SECS, 3, &m, DecaySolver::Cram48).unwrap();
+        assert_eq!(a.quantity(), b.quantity());
+        assert!(matches!(
+            cram48_solve(&Matrix::zeros(2, 2).unwrap(), &[1.0], 1.0),
+            Err(CyclusError::Value(_))
+        ));
+        assert!(matches!(
+            cram48_solve(&Matrix::zeros(1, 1).unwrap(), &[1.0], -1.0),
             Err(CyclusError::Value(_))
         ));
     }
@@ -1992,10 +2413,15 @@ mod tests {
         // 1. single nuclide, default tol
         let chain1 = DecayChain::new().with(SR90, DecayData::new(l1, Vec::new()));
         let c1 = atom_comp(&[(SR90, 3.5)]);
-        let a1 = decay_composition(&c1, &chain1, t, &masses).unwrap();
+        let a1 = decay_composition_with_tol(&c1, &chain1, t, &masses, DEFAULT_TOL).unwrap();
         println!(
             "single nuclide            tol 1e-3   {:.3e}",
             rel_err(a1.atom()[&SR90], 3.5 * exp(-l1 * t))
+        );
+        let a1c = decay_composition(&c1, &chain1, t, &masses).unwrap();
+        println!(
+            "single nuclide            CRAM48     {:.3e}",
+            rel_err(a1c.atom()[&SR90], 3.5 * exp(-l1 * t))
         );
 
         // 2. Bateman
@@ -2003,7 +2429,16 @@ mod tests {
         let want_p = 7.0 * exp(-l1 * t);
         let want_d = 7.0 * l1 / (l2 - l1) * (exp(-l1 * t) - exp(-l2 * t));
         let tight = decay_composition_with_tol(&c, &chain, t, &masses, 1e-10).unwrap();
-        let loose = decay_composition(&c, &chain, t, &masses).unwrap();
+        let loose = decay_composition_with_tol(&c, &chain, t, &masses, DEFAULT_TOL).unwrap();
+        let cram = decay_composition(&c, &chain, t, &masses).unwrap();
+        println!(
+            "Bateman daughter          CRAM48     {:.3e}",
+            rel_err(cram.atom()[&Y90], want_d)
+        );
+        println!(
+            "Bateman parent            CRAM48     {:.3e}",
+            rel_err(cram.atom()[&SR90], want_p)
+        );
         println!(
             "Bateman daughter          tol 1e-10  {:.3e}",
             rel_err(tight.atom()[&Y90], want_d)
@@ -2037,13 +2472,15 @@ mod tests {
         let cc = atom_comp(&[(SR90, 2.0), (Y90, 0.5)]);
         let before = comp_math::sum(cc.atom());
         for years in [1.0_f64, 5.0] {
-            let tight =
-                decay_composition_with_tol(&cc, &chain, years * t, &masses, 1e-12).unwrap();
-            let loose = decay_composition(&cc, &chain, years * t, &masses).unwrap();
+            let tight = decay_composition_with_tol(&cc, &chain, years * t, &masses, 1e-12).unwrap();
+            let loose =
+                decay_composition_with_tol(&cc, &chain, years * t, &masses, DEFAULT_TOL).unwrap();
+            let cram = decay_composition(&cc, &chain, years * t, &masses).unwrap();
             println!(
-                "atom conservation {years} a      tol 1e-12  {:.3e}   tol 1e-3 {:.3e}",
+                "atom conservation {years} a      tol 1e-12  {:.3e}   tol 1e-3 {:.3e}   CRAM48 {:.3e}",
                 rel_err(comp_math::sum(tight.atom()), before),
-                rel_err(comp_math::sum(loose.atom()), before)
+                rel_err(comp_math::sum(loose.atom()), before),
+                rel_err(comp_math::sum(cram.atom()), before)
             );
         }
 
@@ -2052,10 +2489,19 @@ mod tests {
             let data = DecayData::new(lam, Vec::new());
             let th = data.half_life();
             let ch = DecayChain::new().with(nuc, data);
-            let a = decay_composition(&atom_comp(&[(nuc, 1.0)]), &ch, th, &masses).unwrap();
+            let a = decay_composition_with_tol(
+                &atom_comp(&[(nuc, 1.0)]),
+                &ch,
+                th,
+                &masses,
+                DEFAULT_TOL,
+            )
+            .unwrap();
+            let ac = decay_composition(&atom_comp(&[(nuc, 1.0)]), &ch, th, &masses).unwrap();
             println!(
-                "one half-life {name}      tol 1e-3   {:.3e}",
-                rel_err(a.atom()[&nuc], 0.5)
+                "one half-life {name}      tol 1e-3   {:.3e}   CRAM48 {:.3e}",
+                rel_err(a.atom()[&nuc], 0.5),
+                rel_err(ac.atom()[&nuc], 0.5)
             );
         }
 
@@ -2072,12 +2518,15 @@ mod tests {
             .iter()
             .map(|(n, mm)| mm / f64::from(n.a()))
             .sum();
-        let mut mat_loose = Material::new(1.0, comp_po).unwrap();
-        decay_material(&mut mat_loose, &chain_po, t, 42, &masses).unwrap();
+        let mut mat_loose = Material::new(1.0, comp_po.clone()).unwrap();
+        decay_material_with_tol(&mut mat_loose, &chain_po, t, 42, &masses, DEFAULT_TOL).unwrap();
+        let mut mat_cram = Material::new(1.0, comp_po).unwrap();
+        decay_material(&mut mat_cram, &chain_po, t, 42, &masses).unwrap();
         println!(
-            "material mass ratio       tol 1e-12  {:.3e}   tol 1e-3 {:.3e}",
+            "material mass ratio       tol 1e-12  {:.3e}   tol 1e-3 {:.3e}   CRAM48 {:.3e}",
             rel_err(mat.quantity(), want_ratio),
-            rel_err(mat_loose.quantity(), want_ratio)
+            rel_err(mat_loose.quantity(), want_ratio),
+            rel_err(mat_cram.quantity(), want_ratio)
         );
         println!(
             "material atom count       tol 1e-12  {:.3e}",
@@ -2093,13 +2542,56 @@ mod tests {
         let comp_sr = Composition::from_nuclide(SR90, &masses).unwrap();
         let mut iso = Material::new(2.5, comp_sr.clone()).unwrap();
         decay_material_with_tol(&mut iso, &chain, 5.0 * t, 1, &masses, 1e-12).unwrap();
-        let mut iso_loose = Material::new(2.5, comp_sr).unwrap();
-        decay_material(&mut iso_loose, &chain, 5.0 * t, 1, &masses).unwrap();
+        let mut iso_loose = Material::new(2.5, comp_sr.clone()).unwrap();
+        decay_material_with_tol(&mut iso_loose, &chain, 5.0 * t, 1, &masses, DEFAULT_TOL).unwrap();
+        let mut iso_cram = Material::new(2.5, comp_sr).unwrap();
+        decay_material(&mut iso_cram, &chain, 5.0 * t, 1, &masses).unwrap();
         println!(
-            "isobaric mass 5 a         tol 1e-12  {:.3e}   tol 1e-3 {:.3e}",
+            "isobaric mass 5 a         tol 1e-12  {:.3e}   tol 1e-3 {:.3e}   CRAM48 {:.3e}",
             rel_err(iso.quantity(), 2.5),
-            rel_err(iso_loose.quantity(), 2.5)
+            rel_err(iso_loose.quantity(), 2.5),
+            rel_err(iso_cram.quantity(), 2.5)
         );
+
+        // 7b. CRAM16 vs CRAM48, the proxy for "would PyNE's CRAM14 differ?"
+        for (name, ch, nucs, n0) in [
+            (
+                "Sr-90 chain 1 a ",
+                sr_y_zr_chain(),
+                vec![SR90, Y90, ZR90],
+                vec![7.0, 0.0, 0.0],
+            ),
+            (
+                "Po-210 1 a      ",
+                chain_po.clone(),
+                vec![PO210, PB206],
+                vec![1.0, 0.0],
+            ),
+            (
+                "Pb-212 chain 1 d",
+                pb212_chain(),
+                vec![PB212, BI212, TL208, PB208],
+                vec![3.0, 0.0, 0.0, 0.0],
+            ),
+        ] {
+            let tt = if name.starts_with("Pb") { 86_400.0 } else { t };
+            let a = build_decay_matrix(&ch, &nucs).unwrap();
+            let mut d = petir::depletion::DepletionMatrix::zeros(nucs.len());
+            for i in 0..nucs.len() {
+                for j in 0..nucs.len() {
+                    d.set(i, j, a.get(i, j)).unwrap();
+                }
+            }
+            let x16 = petir::depletion::cram16(&d, &n0, tt).unwrap();
+            let x48 = petir::depletion::cram48(&d, &n0, tt).unwrap();
+            let tot: f64 = n0.iter().sum();
+            let diff = x16
+                .iter()
+                .zip(&x48)
+                .map(|(p, q)| abs(p - q) / tot)
+                .fold(0.0_f64, f64::max);
+            println!("CRAM16 vs CRAM48 {name}  max |diff| / inventory {diff:.3e}");
+        }
 
         // 8. transposed matrix, for the sign-convention guard
         let a_ok = build_decay_matrix(&chain, &[SR90, Y90, ZR90]).unwrap();

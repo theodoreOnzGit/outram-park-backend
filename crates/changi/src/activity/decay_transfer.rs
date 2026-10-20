@@ -74,6 +74,24 @@
 //! the closed form stops being convenient and `boon_lay`'s decay engine is
 //! the honest tool. That case is **not** implemented here.
 //!
+//! # Why the closed form stays the runtime path, and how CRAM checks it (gh:#999)
+//!
+//! Maintainer direction 2026-10-20: every decay-chain crate tries PETIR's
+//! CRAM. Changi only ever needs **two** steps (parent and one daughter), and
+//! for two steps [`bateman_two_step`] is the **exact** solution — two
+//! exponentials and a ratio, including the `lambda_p == lambda_d` limit —
+//! so a rational approximation of `exp(A t)` can only be equal to it or
+//! worse, and costs 24 complex 2x2 solves per call against two `exp`s. So the
+//! closed form stays the runtime path, and there is no longer-chain activity
+//! path here for CRAM to serve (verified 2026-10-20: `bateman_two_step` is
+//! the only chain solve in `changi/src`; FLEXPART's `decay` is single-nuclide).
+//!
+//! CRAM48 ([`petir::depletion::cram48`]) and `expm` ([`petir::linalg::expm`])
+//! instead **check** it, in two tests:
+//! `bateman_two_step_matches_cram48` (closed form vs CRAM48, including the
+//! degenerate-limit branch) and `cram48_matches_expm_on_the_two_step_matrix`
+//! (CRAM48 vs `expm`, the two independent matrix methods on the same matrix).
+//!
 //! # Does it matter at all? Usually not, and the table says when
 //!
 //! Travel time to 10 km at 5 m/s is about 2000 s. Against that:
@@ -352,6 +370,129 @@ mod tests {
             assert!(got.is_finite(), "must not blow up at {secs} s");
             assert!((got - want).abs() < 1e-12, "at {secs} s: {got} vs {want}");
         }
+    }
+
+    /// `exp(A t) n0` for the parent -> daughter matrix, by CRAM48 or `expm`,
+    /// returned as the daughter's **activity** per unit parent activity
+    /// released (`n0 = [1/lambda_p, 0]`, so `A_p(0) = 1`), the quantity
+    /// [`bateman_two_step`] returns.
+    fn daughter_activity_by_matrix(lp: f64, ld: f64, secs: f64, use_cram: bool) -> f64 {
+        let mut a = petir::depletion::DepletionMatrix::zeros(2);
+        a.set(0, 0, -lp).unwrap();
+        a.set(1, 0, lp).unwrap();
+        a.set(1, 1, -ld).unwrap();
+        let n0 = [1.0 / lp, 0.0];
+        let nd = if use_cram {
+            petir::depletion::cram48(&a, &n0, secs).unwrap()[1]
+        } else {
+            let m = petir::linalg::Matrix::from_row_major(
+                2,
+                2,
+                a.as_slice().iter().map(|v| v * secs).collect(),
+            )
+            .unwrap();
+            let e = petir::linalg::expm(&m).unwrap();
+            e.get(1, 0) * n0[0] + e.get(1, 1) * n0[1]
+        };
+        ld * nd
+    }
+
+    /// Parent/daughter pairs from the module's own tables, plus the
+    /// degenerate case: (parent half-life s, daughter half-life s, label).
+    fn pairs() -> [(f64, f64, &'static str); 4] {
+        [
+            (2.84 * 3600.0, 17.8 * 60.0, "Kr-88 -> Rb-88"),
+            (
+                9.14 * 3600.0,
+                5.24 * 86400.0,
+                "long-lived daughter, 9.14 h -> 5.24 d",
+            ),
+            (20.8 * 3600.0, 9.14 * 3600.0, "comparable, 20.8 h -> 9.14 h"),
+            (
+                3.0 * 3600.0,
+                3.0 * 3600.0,
+                "equal decay constants (degenerate limit)",
+            ),
+        ]
+    }
+
+    /// **Comparison 1 (gh:#999): the closed form against CRAM48.**
+    ///
+    /// Methodology: for four parent/daughter pairs (a short-lived daughter of
+    /// a longer parent, Kr-88 -> Rb-88; a long-lived daughter of a short
+    /// parent; two comparable half-lives; and exactly equal decay constants,
+    /// which exercises the closed form's analytic-limit branch) and travel
+    /// times 0, 600, 2000, 20 000 and 200 000 s, the daughter activity per
+    /// unit parent activity from [`bateman_two_step`] is compared with
+    /// `lambda_d [exp(A t) n0]_d` by PETIR's CRAM48. The half-lives are only
+    /// timescales for the test (labels name the nuclide pair they resemble);
+    /// nothing here is nuclide data.
+    ///
+    /// Tolerance, fixed before running: `1e-13` absolute on a quantity of
+    /// order 0.1–1. CRAM48's rational error on the negative real axis is
+    /// below round-off (`~9.3^-48`); the residual is round-off in the solves,
+    /// scaled by the inventory `1/lambda_p` relative to the daughter
+    /// activity, i.e. `~ u * max(1, lambda_d / lambda_p)`, at most ~1e-14
+    /// here (Kr-88 -> Rb-88, ratio 9.6).
+    ///
+    /// Measured 2026-10-20: worst absolute difference **6.66e-16** over all
+    /// 20 points, including the degenerate-limit branch.
+    #[test]
+    fn bateman_two_step_matches_cram48() {
+        let mut worst = 0.0_f64;
+        for (hp, hd, label) in pairs() {
+            let p = DecayTransfer::from_half_life(t(hp));
+            let d = DecayTransfer::from_half_life(t(hd));
+            for secs in [0.0, 600.0, 2000.0, 20_000.0, 200_000.0] {
+                let closed = bateman_two_step(p, d, t(secs)).get::<ratio>();
+                let cram =
+                    daughter_activity_by_matrix(p.decay_constant(), d.decay_constant(), secs, true);
+                let err = (closed - cram).abs();
+                worst = worst.max(err);
+                assert!(
+                    err < 1e-13,
+                    "{label} at {secs} s: closed {closed} vs CRAM48 {cram}"
+                );
+            }
+        }
+        println!("closed form vs CRAM48: worst absolute difference {worst:.2e}");
+    }
+
+    /// **Comparison 2 (gh:#999): CRAM48 against `expm` on the same two-step
+    /// matrix** — two independent matrix-exponential methods (IPF CRAM,
+    /// OpenMC's; Padé with balancing and squaring, Octave's), so a defect in
+    /// the matrix assembly shared with the closed form's derivation would not
+    /// hide here.
+    ///
+    /// Methodology: the pairs and times of comparison 1. Tolerance, fixed
+    /// before running: `max(1e-13, 10 * 2^s * u)` absolute, `s` Octave's
+    /// squaring count for `||A t||_inf = (lambda_p + lambda_d) t`, at most
+    /// `s = 8` here (Kr-88 -> Rb-88 at 200 000 s, `||A t|| = 143`), so at most
+    /// `2.8e-13`.
+    ///
+    /// Measured 2026-10-20: worst absolute difference **7.22e-16**.
+    #[test]
+    fn cram48_matches_expm_on_the_two_step_matrix() {
+        let mut worst = 0.0_f64;
+        for (hp, hd, label) in pairs() {
+            let p = DecayTransfer::from_half_life(t(hp));
+            let d = DecayTransfer::from_half_life(t(hd));
+            let (lp, ld) = (p.decay_constant(), d.decay_constant());
+            for secs in [600.0, 2000.0, 20_000.0, 200_000.0] {
+                let cram = daughter_activity_by_matrix(lp, ld, secs, true);
+                let ex = daughter_activity_by_matrix(lp, ld, secs, false);
+                let norm = ((lp + ld) * secs).max(1e-300);
+                let s = ((norm.log2().floor() as i32) + 1).clamp(0, 1023);
+                let bound = (10.0 * 2f64.powi(s) * f64::EPSILON / 2.0).max(1e-13);
+                let err = (cram - ex).abs();
+                worst = worst.max(err);
+                assert!(
+                    err <= bound,
+                    "{label} at {secs} s: CRAM48 {cram} vs expm {ex} (bound {bound:.1e})"
+                );
+            }
+        }
+        println!("CRAM48 vs expm: worst absolute difference {worst:.2e}");
     }
 
     /// A stable parent feeds nothing.

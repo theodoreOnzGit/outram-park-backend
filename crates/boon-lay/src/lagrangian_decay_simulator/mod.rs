@@ -20,6 +20,11 @@ pub use stochastic_decay_chain::*;
 /// some algorithms)
 pub mod monte_carlo_single_radionuclide_decay_simulator;
 
+/// The expected (mean) inventory of a decay chain by PETIR's CRAM48, built
+/// from the same `DecayLibrary` the Monte Carlo samples: the deterministic
+/// cross-check of the per-atom simulators (gh:#999).
+pub mod expected_inventory;
+
 /// these assert that the half life for each nuclide is
 /// correct in the SingleNuclideSimulatorMC
 #[cfg(test)]
