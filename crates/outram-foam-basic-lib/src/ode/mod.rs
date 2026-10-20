@@ -238,23 +238,45 @@ pub(crate) fn adaptive_step<Sys: OdeSystem + ?Sized>(
     let mut dx = *dx_try;
     ode.derivatives(*x, y, dydx0);
 
+    // The derivative at the ACCEPTED state is non-finite: the model itself
+    // broke at a state the solver already took, and no smaller step can
+    // recover. Fail now and name the cause (bead `op-ad6h`).
+    if dydx0.iter().any(|v| !v.is_finite()) {
+        return Err(OdeError::NonFiniteState);
+    }
+
     let err = loop {
         let err = inner_step(*x, y, dydx0, dx, y_temp);
-        // A non-finite error means the system produced NaN or an infinite
-        // value; shrinking `dx` cannot recover from that, so fail immediately
-        // and name the real cause instead of grinding down to a misleading
-        // `StepSizeUnderflow`. See `OdeError::NonFiniteState` and bead
-        // `op-ad6h`.
-        if !err.is_finite() {
-            return Err(OdeError::NonFiniteState);
-        }
         if err <= 1.0 {
             break err;
         }
-        let scale = (cfg.safe_scale * err.r_powf(-cfg.alpha_dec)).max(cfg.min_scale);
+        // ~~A non-finite error means the system produced NaN or an infinite
+        // value; shrinking `dx` cannot recover from that, so fail immediately.~~
+        // CORRECTED 2026-10-21 (gh:#985): that is false for a TRIAL step. An
+        // explicit stage taken with too large a `dx` can overflow (a power-law
+        // rate evaluated at an overshot state) while the accepted state is
+        // perfectly finite, and a smaller step does recover. Upstream
+        // `Foam::adaptiveSolver::solve` handles exactly this: `err = inf` gives
+        // `scale = max(safeScale*pow(inf, -alphaDec), minScale) = minScale`, so
+        // it rejects and retries. The op-ad6h guard (2026-08-13) failed here
+        // instead, which broke offbeat's VISCOCHAB relaxation test. A
+        // non-finite trial error (NaN or inf; `normalize_error` maps NaN to
+        // inf) now shrinks by `min_scale` as upstream does, and if `dx`
+        // underflows while the error is still non-finite the failure is still
+        // reported as `NonFiniteState`, never as a misleading underflow and
+        // never as `Ok` with a NaN state.
+        let scale = if err.is_finite() {
+            (cfg.safe_scale * err.r_powf(-cfg.alpha_dec)).max(cfg.min_scale)
+        } else {
+            cfg.min_scale
+        };
         dx *= scale;
         if dx.abs() < f64::EPSILON {
-            return Err(OdeError::StepSizeUnderflow);
+            return Err(if err.is_finite() {
+                OdeError::StepSizeUnderflow
+            } else {
+                OdeError::NonFiniteState
+            });
         }
     };
 

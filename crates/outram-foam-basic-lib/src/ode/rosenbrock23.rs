@@ -167,26 +167,41 @@ impl Rosenbrock23 {
         // Temporarily take y_temp out to avoid a double-&mut-self borrow
         let mut y_temp = std::mem::take(&mut self.y_temp);
 
+        // Non-finite derivative at the ACCEPTED state: the model broke at a
+        // state already taken, so no smaller step can recover (bead `op-ad6h`).
+        if dydx0_snapshot.iter().any(|v| !v.is_finite()) {
+            self.y_temp = y_temp;
+            return Err(OdeError::NonFiniteState);
+        }
+
         let err = loop {
             let err = self.inner_step(ode, *x, y, &dydx0_snapshot, dx, &mut y_temp);
-            // A non-finite error means the system (commonly its Jacobian)
-            // produced NaN or an infinity. Shrinking `dx` cannot recover from
-            // that, so fail immediately and name the real cause rather than
-            // grinding down to a misleading `StepSizeUnderflow`. This loop
-            // duplicates `adaptive_step`'s, so the same guard is needed in
-            // both. See `OdeError::NonFiniteState` and bead `op-ad6h`.
-            if !err.is_finite() {
-                self.y_temp = y_temp;
-                return Err(OdeError::NonFiniteState);
-            }
             if err <= 1.0 {
                 break err;
             }
-            let scale = (cfg.safe_scale * err.r_powf(-cfg.alpha_dec)).max(cfg.min_scale);
+            // ~~A non-finite error means the system (commonly its Jacobian)
+            // produced NaN or an infinity. Shrinking `dx` cannot recover from
+            // that, so fail immediately.~~ CORRECTED 2026-10-21 (gh:#985): a
+            // TRIAL step can overflow while the accepted state is finite, and
+            // upstream `Foam::adaptiveSolver::solve` then retries with
+            // `scale = max(safeScale*pow(inf, -alphaDec), minScale) = minScale`.
+            // This loop duplicates `adaptive_step`'s (see the note there), so
+            // it carries the same handling: shrink by `min_scale`, and report
+            // `NonFiniteState` (not `StepSizeUnderflow`) if `dx` underflows
+            // while the error is still non-finite.
+            let scale = if err.is_finite() {
+                (cfg.safe_scale * err.r_powf(-cfg.alpha_dec)).max(cfg.min_scale)
+            } else {
+                cfg.min_scale
+            };
             dx *= scale;
             if dx.abs() < f64::EPSILON {
                 self.y_temp = y_temp;
-                return Err(OdeError::StepSizeUnderflow);
+                return Err(if err.is_finite() {
+                    OdeError::StepSizeUnderflow
+                } else {
+                    OdeError::NonFiniteState
+                });
             }
         };
 
