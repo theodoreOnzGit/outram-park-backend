@@ -131,6 +131,19 @@ pub fn dracs_branch_pressure_change_test() {
 /// found that I can't use closures woops
 /// I'll just use simple functions instead
 /// quite lehcheh (troublesome) to type, but ok lah
+///
+/// # Re-measured 2026-10-20 (gh:#989): FAILS after the move to PETIR
+///
+/// The pinned flowrate is 0.010905593698135391 kg/s at `epsilon = 1e-7`.
+/// With the `roots` Brent replaced by GSL's Brent (same bracket, same
+/// `eps`), iteration 99 gives **0.010904398377899532 kg/s** (-1.195e-6
+/// kg/s, -1.1e-4 relative). The assertion is NOT loosened. Attribution
+/// measured the same day: tightening the flow-network solvers' `eps` from
+/// 1e-8/1e-9 to 1e-11 (scratch build, not committed) moves the answer again,
+/// to 0.010902201662272466 kg/s; so this pin is tighter than the result's
+/// sensitivity to the root-finder tolerance, and the movement is that
+/// sensitivity, not a change of physics. Which value to pin is the
+/// maintainer's call. See `docs/peroxide-roots-to-petir-989.md`.
 #[test]
 pub fn dracs_natural_circ_thermal_hydraulics_regression_test_prototype_2() {
     // let's construct the branches with test pressures and obtain

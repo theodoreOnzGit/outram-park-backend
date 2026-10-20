@@ -1123,6 +1123,11 @@ pub fn nuclear_graphite_ig_110_k_quadratic_hand_evaluation() {
 /// 8 (variant, temperature) combinations measured 2.61e-12 K (at 600 K,
 /// both variants) — the Brent-Dekker refinement recovers the forward
 /// temperature far inside the 0.005 K criterion at every point.
+///
+/// **FAILS since 2026-10-20 (gh:#989)**: `nuclear_graphite_specific_enthalpy`
+/// integrates cp from 273.15 K, below the cp table's first knot (300 K);
+/// PETIR refuses (`CorrelationRangeError`, value 273.15, range 300-2000 K)
+/// where peroxide silently clipped. A finding, left failing on purpose.
 #[test]
 pub fn nuclear_graphite_enthalpy_round_trip() {
     use uom::si::pressure::atmosphere;
