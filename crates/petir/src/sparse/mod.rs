@@ -104,6 +104,7 @@ pub mod etree;
 pub mod triangular;
 
 mod cholesky;
+mod dense;
 mod lu;
 
 pub use cholesky::SparseLlt;
