@@ -329,8 +329,25 @@ mod tests {
     /// flagged **14.5 %** of the time, against **4.5 %** with the transient
     /// removed: the "fails 5 % of the time" premise does not hold, because
     /// MSER trades bias for variance (as its doc says) and Geweke sees the
-    /// bias it leaves. The assertion is left unchanged and failing for the
-    /// maintainer to decide (gh:#778).
+    /// bias it leaves. ~~The assertion is left unchanged and failing for the
+    /// maintainer to decide (gh:#778).~~
+    ///
+    /// **REVISED 2026-10-20 (maintainer decision on gh:#778, option (a)).**
+    /// The last check no longer asserts that the MSER tail is drift-free,
+    /// because the measurement above shows that premise is false: MSER leaves
+    /// a residual by design. It now tests what is true and can still fail:
+    /// (i) Geweke on the tail with the KNOWN transient subtracted must not
+    /// flag drift — that trace is noise only, so the `|z| ≤ 1.96` premise
+    /// genuinely holds there (4.5 % flagged over seeds 1..=400, nominal 5 %);
+    /// (ii) subtracting the transient must reduce `|z|`, i.e. the drift Geweke
+    /// sees on the tail is the residual transient, not something else. The
+    /// 1.96 threshold and the seed are unchanged.
+    ///
+    /// **Prediction, written before the run:** `z` on the tail 2.332, on the
+    /// tail minus transient 0.92, both checks pass. **Result (2026-10-20,
+    /// release, rustc 1.99.1):** MSER cut 85; Geweke `z` on the tail
+    /// 2.331656, on the tail minus transient 0.922035. Both checks pass, as
+    /// predicted; the drift on the tail is the residual transient.
     #[test]
     fn transient_is_found_and_tail_passes() {
         let x = trace(1000, 5.0, 20.0, 496);
@@ -344,7 +361,24 @@ mod tests {
         assert!(geweke(&x).unwrap().drift);
         let tail = &x[m.truncation..];
         let g = geweke(tail).unwrap();
-        assert!(!g.drift, "z {}", g.z);
+        // The same tail with the known transient subtracted: noise only.
+        let clean: Vec<f64> = tail
+            .iter()
+            .enumerate()
+            .map(|(i, v)| v - 5.0 * (-((m.truncation + i) as f64) / 20.0).r_exp())
+            .collect();
+        let g_clean = geweke(&clean).unwrap();
+        println!(
+            "MSER cut {}; Geweke z on tail {:.6}, on tail minus transient {:.6}",
+            m.truncation, g.z, g_clean.z
+        );
+        assert!(!g_clean.drift, "noise-only tail flagged, z {}", g_clean.z);
+        assert!(
+            g_clean.z.abs() < g.z.abs(),
+            "removing the residual transient did not reduce |z|: {} -> {}",
+            g.z,
+            g_clean.z
+        );
     }
 
     /// **Methodology.** A step of 10 noise-σ at sample 300 of 600: the change
