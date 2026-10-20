@@ -41,7 +41,7 @@
 //!   Rip; Rip Fill (capping the slit) composes it with
 //!   [`crate::fill_holes`].
 
-use std::collections::{BTreeSet, HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
 use crate::math::Vec3;
 use crate::mesh::{EdgeId, FaceId, Mesh};
@@ -75,7 +75,11 @@ pub fn split_faces(mesh: &Mesh, faces: &[FaceId]) -> Mesh {
     }
     let mut positions = mesh.positions();
     let mut dup: HashMap<usize, usize> = HashMap::new();
-    for &v in used_sel.intersection(&used_other) {
+    // Ascending, so the duplicates are numbered in vertex order and not in
+    // the sets' randomly seeded order (gh #1002).
+    let mut shared: Vec<usize> = used_sel.intersection(&used_other).copied().collect();
+    shared.sort_unstable();
+    for v in shared {
         positions.push(positions[v]);
         dup.insert(v, positions.len() - 1);
     }
@@ -141,7 +145,9 @@ pub fn separate_loose_parts(mesh: &Mesh) -> Vec<Mesh> {
             }
         }
     }
-    let mut groups: HashMap<usize, Vec<usize>> = HashMap::new();
+    // BTreeMap: parts with equal face counts keep root order through the
+    // stable sort below, not a randomly seeded hash order (gh #1002).
+    let mut groups: BTreeMap<usize, Vec<usize>> = BTreeMap::new();
     for fi in 0..polys.len() {
         let r = find(&mut parent, fi);
         groups.entry(r).or_default().push(fi);

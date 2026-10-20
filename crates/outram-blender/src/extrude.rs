@@ -40,7 +40,7 @@
 //! "Extrude to Cursor" is `extrude_* ` followed by a translate by the caller,
 //! so it needs no dedicated entry point.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 use crate::math::Vec3;
 use crate::mesh::{EdgeId, FaceId, Mesh, VertexId};
@@ -103,7 +103,9 @@ pub fn extrude_faces_along_normals(mesh: &Mesh, faces: &[FaceId], amount: f64) -
     let polys = mesh.polygons();
 
     // Per-vertex averaged normal over the selected faces.
-    let mut vnorm: HashMap<usize, Vec3> = HashMap::new();
+    // BTreeMap: the duplicated vertices are numbered in vertex order, not a
+    // randomly seeded hash order (gh #1002).
+    let mut vnorm: BTreeMap<usize, Vec3> = BTreeMap::new();
     for &fi in &sel {
         let fn_ = mesh.face_normal(FaceId(fi));
         for v in &polys[fi] {

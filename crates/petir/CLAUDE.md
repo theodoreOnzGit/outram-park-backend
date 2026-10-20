@@ -331,7 +331,9 @@ non-GSL source. It binds future work as follows:
   different sign conventions; each is pinned to its own upstream.
 - **Pinned bit for bit against faer's compiled code** (dev-dependency):
   `tests/faer_dense_svd_vs_faer.rs`, 0 differing bits over 6 134 blender
-  covariances (`reference-data/faer/`), 26 000 random matrices of orders
+  covariances (`reference-data/faer/`; **plus, since gh #1002 made
+  outram-blender's suite deterministic on 2026-10-20, its 3 586 re-captured
+  covariances, also 0**), 26 000 random matrices of orders
   1..=16 and 17 structured cases. Two negative controls (lane-sum order,
   unfused multiply-add) fail it by thousands of cases, so the gate can fail.
 - **The lane model is the point.** Do not "simplify" `simd.rs`: which lane an

@@ -61,7 +61,7 @@
 
 use crate::math::Vec3;
 use crate::mesh::{FaceId, Mesh};
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap};
 
 /// Apply `iterations` steps of **Loop subdivision** to `mesh`, returning the
 /// refined triangle mesh.
@@ -85,15 +85,23 @@ fn subdivide_once(mesh: &TriMesh) -> TriMesh {
     let n = positions.len();
 
     // Edge → the (1 or 2) opposite vertices in its incident triangle(s).
-    let mut edge_opp: HashMap<(usize, usize), Vec<usize>> = HashMap::new();
-    // Vertex → neighbours (for the interior vertex rule).
-    let mut adj: Vec<HashSet<usize>> = vec![HashSet::new(); n];
+    // BTreeMap: edge points are numbered in edge-key order, not a randomly
+    // seeded hash order (gh #1002).
+    let mut edge_opp: BTreeMap<(usize, usize), Vec<usize>> = BTreeMap::new();
+    // Vertex → neighbours (for the interior vertex rule), ascending and
+    // de-duplicated: the rule sums them in this order, and the HashSet this
+    // used to be iterated in a randomly seeded order (gh #1002).
+    let mut adj: Vec<Vec<usize>> = vec![Vec::new(); n];
     for &[a, b, c] in tris {
         for &(u, w, o) in &[(a, b, c), (b, c, a), (c, a, b)] {
             edge_opp.entry(key(u, w)).or_default().push(o);
-            adj[u].insert(w);
-            adj[w].insert(u);
+            adj[u].push(w);
+            adj[w].push(u);
         }
+    }
+    for nbrs in &mut adj {
+        nbrs.sort_unstable();
+        nbrs.dedup();
     }
 
     // Boundary vertices + their two boundary neighbours.
