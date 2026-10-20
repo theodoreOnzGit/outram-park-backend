@@ -155,9 +155,15 @@ with pre-exponential $D_0$ (m²/s), activation energy $Q$ (J/mol), molar gas
 constant $R = 8.31447 \ \text{J}\,\text{mol}^{-1}\text{K}^{-1}$, and absolute
 temperature $T$ (K). Some species need a sum of two Arrhenius terms (a low- and
 a high-temperature mechanism). The NP-MHTGR correlations (ref. [1]) are valid
-roughly $700$–$2400\ ^\circ\text{C}$; below a species' valid range the
+roughly $700$–$2400\ ^\circ\text{C}$; ~~below a species' valid range the
 temperature is **clamped** to the boundary rather than extrapolated (Manual §5,
-"Results look incorrect").
+"Results look incorrect").~~ **CORRECTED 2026-10-20, checked against
+`diffusion_coefficient` in `src/triso_atops_fork/diffusion/mod.rs`:** only some
+species are clamped, and only from below. Rb/Cs are clamped (kernel
+$\ge 700\ ^\circ\text{C}$, graphite $\ge 550\ ^\circ\text{C}$), as are Sr/Ba/Eu
+(kernel $\ge 700\ ^\circ\text{C}$, graphite $\ge 800\ ^\circ\text{C}$) and
+Ag/Pd in graphite ($\ge 490\ ^\circ\text{C}$). Kr, Xe, I, Te, Se and the Ag/Pd
+kernel are extrapolated, as upstream's code does.
 
 **Code correspondence.** `diffusion_coefficient(z, T, T_graph)` selects the
 correlation family by $Z$ and evaluates the Arrhenius term(s). For the volatile
@@ -483,10 +489,14 @@ These are recorded so the port faithfully reproduces upstream behaviour (a
   approximation valid only for small $D' t$; the code always evaluates the full
   series, and the expansion is used only as an analytic verification check.
 
-- **Temperature clamping, not extrapolation.** Below a species' valid Arrhenius
-  range the temperature is clamped to the boundary (e.g. Cs/Rb kernel clamped to
-  $\ge 700\ ^\circ\text{C}$). Results in the clamped region are boundary values,
-  not physical extrapolations (Manual §5).
+- **Temperature clamping, for some species only.** ~~Below a species' valid
+  Arrhenius range the temperature is clamped to the boundary (e.g. Cs/Rb kernel
+  clamped to $\ge 700\ ^\circ\text{C}$).~~ **CORRECTED 2026-10-20:** the clamps
+  are lower bounds for Rb/Cs, Sr/Ba/Eu and Ag/Pd in graphite only (§3 above).
+  Kr, Xe, I, Te, Se and the Ag/Pd kernel are extrapolated below the valid range,
+  and no species has an upper clamp. Results in a clamped region are boundary
+  values, not physical extrapolations (Manual §5). Results in an extrapolated
+  region are outside the correlation's fitted range.
 
 - **Graph-read / nominal constants.** The "other" fission-metal groups get a
   fixed $\langle R/B \rangle_\text{fail} = 10^{-5}$ and a fixed graphite
