@@ -69,23 +69,27 @@ VERBOSE=0
 #       gating them costs nothing and protects the pure-data half of the kovan
 #       layer from regressing.
 #
-#   bedok
-#       Not wanted as a wasm target. Fails only on faer's default feature set
+#   ~~bedok~~ CORRECTED 2026-10-20 (gh #994): no longer excluded.
+#       ~~Not wanted as a wasm target. Fails only on faer's default feature set
 #       (faer's `rayon` feature pulls spindle -> atomic-wait, which has no wasm
-#       backend). Bead op-okqo.2 (cancelled).
+#       backend). Bead op-okqo.2 (cancelled).~~ bedok dropped faer for
+#       petir::sparse, and `cargo check --release -p bedok --lib --target
+#       wasm32-unknown-unknown` passes (checked 2026-10-20), so it is gated
+#       like every other member. That is compilation only, not a claim that
+#       bedok is a useful wasm target.
 #
 #   ~~outram-blender~~ CORRECTED 2026-10-02 (GitHub #486): no longer excluded.
 #       outram-mc-libs takes its CSG description from it (#486), so it must
 #       build for wasm. Its faer dependency is target-split in its Cargo.toml:
 #       on wasm32 it drops faer's `rayon` and `rand` features (the root faer
-#       entry is `default-features = false`); native builds keep them. bedok
-#       still takes faer's full default set and stays excluded above.
+#       entry is `default-features = false`); native builds keep them. ~~bedok
+#       still takes faer's full default set and stays excluded above.~~ bedok
+#       has no faer since 2026-10-20 (gh #994) and is no longer excluded.
 EXCLUDED=(
   kovan
   kovan-discovery
   kovan-metrics
   kovan-semantics
-  bedok
 )
 
 is_excluded() {

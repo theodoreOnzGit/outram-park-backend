@@ -1322,6 +1322,16 @@ mod tests {
     /// Note the converged values also show the nodal refresh is worth
     /// ~140 pcm here (1.02307 frozen against 1.02451 refreshed), and that
     /// it has essentially converged by an interval of 50.
+    ///
+    /// # Re-measured 2026-10-20 (gh #994, sparse LU faer -> `petir::sparse`)
+    ///
+    /// Every stable row is unchanged at every printed digit (frozen still
+    /// 1.0230689628 in 211 iterations). The diverging `nodalupd = 6` row
+    /// moved from **297.98 (647 iterations)** under faer to **284 335.69 (663
+    /// iterations)** under `petir::sparse`, whose LU differs from faer's
+    /// supernodal one at the rounding level. Note the 3661.34 recorded above
+    /// was already stale before this change (the faer run that day gave
+    /// 297.98); this row is chaotic and nothing asserts it.
     #[test]
     fn x1_sweep_the_nodal_update_interval() {
         let (maxix, maxiy, maxiz) = (17usize, 17, 18);
@@ -1424,6 +1434,12 @@ mod tests {
     /// It also localises what remains of X1: whatever differs must involve
     /// **refreshing** the nodal correction, or lie downstream in the
     /// thermal-hydraulics.
+    ///
+    /// **Re-measured 2026-10-20 (gh #994, sparse LU faer -> `petir::sparse`):
+    /// unchanged at every printed digit** — 1.0230689628, +0.00 pcm, 211
+    /// iterations, residual 9.507775e-7, flux-sum rel. diff 2.928e-11 —
+    /// although the new LU differs from faer's supernodal one by up to
+    /// 2.2e-15 relative on this very operator (n = 10 404).
     #[test]
     // WAS FAILING ON WINDOWS at -14.33 pcm against this 10 pcm gate, while
     // passing at +0.00 pcm on Linux. Root cause found: `calc_abefghxyz` built
@@ -1812,6 +1828,15 @@ mod tests {
     /// neutronics, no thermal-hydraulics, no feedback, no rods, on a uniform
     /// mesh — and at the case's own default nodal-update interval, which
     /// unlike A2's is stable.
+    ///
+    /// # Re-measured 2026-10-20 (gh #994, sparse LU faer -> `petir::sparse`)
+    ///
+    /// `k_eff` unchanged (1.0290842762, -0.0000 pcm), residual and flux sum
+    /// unchanged at the printed digits; flux-max relative difference to the
+    /// MATLAB 1.024e-12 -> 1.018e-12, power-density sum 3.998e-14 ->
+    /// 4.155e-14. Rounding-level, as expected: faer had factorised this
+    /// operator on its supernodal path, which the port does not reproduce bit
+    /// for bit.
     #[test]
     fn matlab_parity_iaea3ds() {
         const M_KEFF: f64 = 1.0290842762;

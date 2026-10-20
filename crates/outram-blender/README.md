@@ -97,7 +97,7 @@ wasm-buildable.
 > types, not just local mirrors; since 2026-10-02 `export::to_csg_geometry`
 > emits a native `csg::geometry::Geometry` with no feature. The vertex bevel now rounds (a multi-segment
 > spherical cap) as well as single-chamfers. A family of **sparse-solve
-> geometry-processing operators** (built on `faer` sparse Cholesky) has landed:
+> geometry-processing operators** (built on ~~`faer`~~ sparse Cholesky, since 2026-10-20 `petir::sparse::SparseLlt`, gh #994) has landed:
 > the cotangent/uniform discrete **Laplacian** with implicit and Taubin
 > (shrinkage-free) **smoothing**, **harmonic/Tutte parameterization** (UV
 > unwrap), and **ARAP** (as-rigid-as-possible) handle-based **deformation**.
@@ -190,7 +190,7 @@ included.
 | `ops` | `bmesh/operators` (`bmo_*`) | **real** — extrude / midpoint-subdivide / vertex-bevel (single chamfer or rounded multi-segment spherical cap; boolean delegates to `boolean`) |
 | `subdivision` | OpenSubdiv / `MOD_subsurf` | **real** — Catmull-Clark surface subdivision (local stencils) |
 | `loop_subdivision` | `MOD_subsurf` (triangle path) | **real** — Loop subdivision surface for triangle meshes |
-| `laplacian` | `MOD_laplaciansmooth` / `bmo_smooth_laplacian` | **real** — cotangent/uniform discrete Laplacian + implicit & Taubin (shrinkage-free) smoothing (first `faer` sparse Cholesky solve) |
+| `laplacian` | `MOD_laplaciansmooth` / `bmo_smooth_laplacian` | **real** — cotangent/uniform discrete Laplacian + implicit & Taubin (shrinkage-free) smoothing (first sparse Cholesky solve; ~~`faer`~~ `petir::sparse` since 2026-10-20, gh #994) |
 | `parameterize` | UV unwrap (harmonic map) | **real** — Tutte/harmonic planar parameterization of a disk (reuses the Laplacian sparse solve) |
 | `arap` | "As Rigid As Possible" deform | **real** — handle-based ARAP deformation (local Procrustes rotation via 3×3 SVD + cotangent-Laplacian global solve) |
 | `decimate` | `MOD_decimate` (Collapse) | **real** — QEM (Garland–Heckbert) edge-collapse mesh simplification |

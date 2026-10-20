@@ -39,6 +39,9 @@ backronym = "Broad-scope Environment for Dual-phase advanced reactor Operation s
 # oversubscription (each test runs faer/rayon in parallel internally, and the
 # harness ran 14 of them at once), not a slow test: the whole lib suite takes
 # 1509 s at `--test-threads=4` (14 then 10 cores). See CLAUDE.md.
+# **CHANGED 2026-10-20 (gh #994):** the sparse solves moved from faer (rayon)
+# to the serial `petir::sparse`, so each test is now single-threaded; the
+# timings above predate that and are re-measured in CLAUDE.md.
 default = ["long-tests"]
 long-tests = []
 
@@ -47,7 +50,8 @@ long-tests = []
 #
 # Expected additions, with the module that will pull each one in:
 #   csv                     -> the benchmark case files (neacrpd1, iaea3ds, ...)
-#   faer                    -> the sparse solves in diffusion_solverxyz
+#   ~~faer                  -> the sparse solves in diffusion_solverxyz~~
+#                           (landed, then replaced by petir::sparse, gh #994)
 #   plotters (workspace dep -> plotreactor3dcolour
 #     to be added)
 #
@@ -67,7 +71,10 @@ thiserror.workspace = true
 # the pure-Rust `libm` (fdlibm) instead, one fixed implementation on every
 # platform. See GitHub issue #222 and `petir::real`.
 petir.workspace = true
-# Sparse linear algebra, for the two flux solvers.
+# Sparse linear algebra, for the two flux solvers: ~~`faer`~~ **since
+# 2026-10-20 (gh #994) `petir::sparse`**, a no_std port of faer 0.24.4's
+# simplicial sparse LU (COLAMD ordering), reached through the `petir`
+# dependency above. faer is no longer a dependency of this crate.
 #
 # Everything ported before them avoided a sparse solve: the A2 system in
 # calc_a1234_expansionxyz only *looks* like a philen-square solve and is in fact
@@ -76,7 +83,3 @@ petir.workspace = true
 # sanodaldiffusion_solverxyz solve the full flux system, which couples nodes
 # spatially, and both factorise LHS once and reuse that factorisation across
 # power iterations (MATLAB `decomposition`).
-# The root workspace entry is `default-features = false` (GitHub #486,
-# 2026-10-02, so outram-blender can build faer for wasm32); this names faer's
-# own default features so bedok's build is unchanged.
-faer = { workspace = true, features = ["std", "rayon", "sparse-linalg", "rand", "npy"] }

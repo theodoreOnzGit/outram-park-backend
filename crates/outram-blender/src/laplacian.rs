@@ -35,8 +35,9 @@
 //! Blender analogue: the Smooth / "Smooth Vertices" and Laplacian-smooth mesh
 //! operators (`MOD_laplaciansmooth`, `bmo_smooth_laplacian`). This is the first
 //! module in the crate that assembles a **global sparse linear system over the
-//! mesh** and solves it — the intended home for the `faer` sparse solver the
-//! crate re-exports (see [`crate`] top-level docs). Future geometry-processing
+//! mesh** and solves it — ~~the intended home for the `faer` sparse solver the
+//! crate re-exports~~ **since 2026-10-20 (gh #994) with
+//! [`petir::sparse::SparseLlt`]**, through [`factor_spd_lower`]. Future geometry-processing
 //! operators that need the same machinery (ARAP deformation, mesh
 //! parameterization) build on the operators here.
 //!
@@ -177,6 +178,58 @@ fn cotangent(apex: Vec3, p: Vec3, q: Vec3) -> f64 {
     u.dot(v) / cross
 }
 
+/// Why [`factor_spd_lower`] failed. Each solver maps it onto its own error
+/// enum (`Assembly` / `NotPositiveDefinite`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum SpdFactorError {
+    /// A triplet index fell outside the `n x n` system.
+    Assembly,
+    /// The sparse Cholesky met a non-positive pivot.
+    NotPositiveDefinite,
+}
+
+/// Factorise the reduced SPD system given as LOWER-triangle triplets
+/// `(row >= col)` with [`petir::sparse::SparseLlt`] — since 2026-10-20 (gh
+/// #994) the backend of every Laplacian-type solve in this crate, replacing
+/// ~~`faer`'s `sp_cholesky(Side::Lower)`~~. It is a `no_std` port of exactly
+/// that faer routine (AMD ordering, simplicial `LLᵀ`), bit-identical to it on
+/// every system faer factors simplicially (`petir/tests/sparse_vs_faer.rs`).
+/// A direct factorisation is kept, rather than `outram-foam-basic-lib`'s
+/// PCG, because the operators' API reports a non-SPD system
+/// ([`SpdFactorError::NotPositiveDefinite`]), which an iterative solve cannot.
+pub(crate) fn factor_spd_lower(
+    n: usize,
+    trips: &[(usize, usize, f64)],
+) -> Result<petir::sparse::SparseLlt, SpdFactorError> {
+    let a = petir::sparse::CscMatrix::try_from_triplets(n, n, trips)
+        .map_err(|_| SpdFactorError::Assembly)?;
+    petir::sparse::SparseLlt::factorize_lower(&a).map_err(|e| match e {
+        // PETIR reports a non-positive pivot as GSL's EDOM.
+        petir::PetirError::Domain => SpdFactorError::NotPositiveDefinite,
+        _ => SpdFactorError::Assembly,
+    })
+}
+
+/// Solve `A X = B` for a `K`-column right-hand side, one column at a time
+/// (bit-identical to faer's multi-column solve, which does the same
+/// per-column arithmetic). A length mismatch, which the callers' assembly
+/// rules out, is [`SpdFactorError::Assembly`].
+pub(crate) fn solve_columns<const K: usize>(
+    llt: &petir::sparse::SparseLlt,
+    rhs: &[[f64; K]],
+) -> Result<Vec<[f64; K]>, SpdFactorError> {
+    let mut out = vec![[0.0f64; K]; rhs.len()];
+    for d in 0..K {
+        let mut col: Vec<f64> = rhs.iter().map(|r| r[d]).collect();
+        llt.solve_in_place(&mut col)
+            .map_err(|_| SpdFactorError::Assembly)?;
+        for (o, v) in out.iter_mut().zip(col) {
+            o[d] = v;
+        }
+    }
+    Ok(out)
+}
+
 /// Fan-triangulate every face of `mesh` into vertex-index triples
 /// (`(v0, v_i, v_{i+1})`). Correct for convex faces (what the crate's
 /// generators and operators produce); the same fan convention the rest of the
@@ -253,8 +306,9 @@ pub enum LaplacianError {
 /// **Boundary vertices are pinned** (held fixed; see [`boundary_vertices`]) so an
 /// open patch does not shrink at its border. The system is solved on the free
 /// (interior) vertices only, as a symmetric-positive-definite reduced system
-/// (pinned neighbours move to the right-hand side), factorized with `faer`'s
-/// sparse Cholesky. For a closed mesh every vertex is free.
+/// (pinned neighbours move to the right-hand side), factorized with a sparse
+/// Cholesky (~~`faer`'s~~ [`petir::sparse::SparseLlt`] since 2026-10-20, gh
+/// #994). For a closed mesh every vertex is free.
 ///
 /// The cotangent weights are **recomputed from the current positions each
 /// iteration**, so the flow tracks the evolving geometry.
@@ -279,10 +333,6 @@ pub fn laplacian_smooth(
     lambda: f64,
     iterations: u32,
 ) -> Result<Mesh, LaplacianError> {
-    use faer::sparse::{SparseColMat, Triplet};
-    use faer::linalg::solvers::Solve;
-    use faer::{Mat, Side};
-
     let faces: Vec<Vec<usize>> = mesh
         .polygons()
         .iter()
@@ -318,7 +368,7 @@ pub fn laplacian_smooth(
         // with L_ii = Σ_j w_ij and L_ij = −w_ij.
         let mut diag = vec![0.0f64; n];
         let mut rhs = vec![[0.0f64; 3]; nfree];
-        let mut trips: Vec<Triplet<usize, usize, f64>> = Vec::new();
+        let mut trips: Vec<(usize, usize, f64)> = Vec::new();
 
         for (&(gi, gj), &w) in &weights {
             diag[gi] += w;
@@ -327,7 +377,7 @@ pub fn laplacian_smooth(
                 (Some(fi), Some(fj)) => {
                     // Off-diagonal λL_ij = −λw; store the lower triangle once.
                     let (lo, hi) = if fi < fj { (fi, fj) } else { (fj, fi) };
-                    trips.push(Triplet::new(hi, lo, -lambda * w));
+                    trips.push((hi, lo, -lambda * w));
                 }
                 (Some(fi), None) => {
                     // gj pinned → −λL_ij x_j = +λw·x_j moves to the RHS.
@@ -344,22 +394,21 @@ pub fn laplacian_smooth(
             }
         }
         for (fi, &gi) in free_verts.iter().enumerate() {
-            trips.push(Triplet::new(fi, fi, 1.0 + lambda * diag[gi]));
+            trips.push((fi, fi, 1.0 + lambda * diag[gi]));
             for d in 0..3 {
                 rhs[fi][d] += component(pos[gi], d); // the x_i term
             }
         }
 
-        let a = SparseColMat::<usize, f64>::try_new_from_triplets(nfree, nfree, &trips)
-            .map_err(|_| LaplacianError::Assembly)?;
-        let llt = a
-            .sp_cholesky(Side::Lower)
-            .map_err(|_| LaplacianError::NotPositiveDefinite)?;
-        let b = Mat::<f64>::from_fn(nfree, 3, |i, j| rhs[i][j]);
-        let x = llt.solve(&b);
+        let to_err = |e| match e {
+            SpdFactorError::Assembly => LaplacianError::Assembly,
+            SpdFactorError::NotPositiveDefinite => LaplacianError::NotPositiveDefinite,
+        };
+        let llt = factor_spd_lower(nfree, &trips).map_err(to_err)?;
+        let x = solve_columns(&llt, &rhs).map_err(to_err)?;
 
         for (fi, &gi) in free_verts.iter().enumerate() {
-            pos[gi] = Vec3::new(x[(fi, 0)], x[(fi, 1)], x[(fi, 2)]);
+            pos[gi] = Vec3::new(x[fi][0], x[fi][1], x[fi][2]);
         }
     }
 
@@ -473,6 +522,33 @@ mod tests {
     use petir::mathf::RealMath;
     use super::*;
     use crate::primitives;
+
+    /// The sparse-Cholesky wrapper (gh #994) maps PETIR's errors onto the
+    /// operators' contract: an indefinite system is `NotPositiveDefinite`, a
+    /// bad index is `Assembly`, and a 2-column solve recovers a known answer.
+    #[test]
+    fn factor_spd_lower_maps_errors_and_solves_columns() {
+        // Lower triangle of [[2, 1], [1, 2]] (SPD); x = [1, 0] and [0, 1]
+        // give b = [2, 1] and [1, 2].
+        let llt = factor_spd_lower(2, &[(0, 0, 2.0), (1, 0, 1.0), (1, 1, 2.0)]).unwrap();
+        let x = solve_columns(&llt, &[[2.0, 1.0], [1.0, 2.0]]).unwrap();
+        for (got, want) in x.iter().flatten().zip([1.0, 0.0, 0.0, 1.0]) {
+            assert!((got - want).abs() < 1e-15, "{got} vs {want}");
+        }
+        // [[1, 2], [2, 1]] is indefinite.
+        assert_eq!(
+            factor_spd_lower(2, &[(0, 0, 1.0), (1, 0, 2.0), (1, 1, 1.0)]).unwrap_err(),
+            SpdFactorError::NotPositiveDefinite
+        );
+        assert_eq!(
+            factor_spd_lower(2, &[(2, 0, 1.0)]).unwrap_err(),
+            SpdFactorError::Assembly
+        );
+        assert_eq!(
+            solve_columns(&llt, &[[1.0]]).unwrap_err(),
+            SpdFactorError::Assembly
+        );
+    }
 
     /// Materialize the sparse triplets into a dense `n x n` matrix (summing
     /// duplicate entries), for small-mesh algebraic checks.

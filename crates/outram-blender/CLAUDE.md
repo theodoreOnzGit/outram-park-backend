@@ -97,6 +97,15 @@ worked example. For meshes, plot the mesh itself (cells, patches, zones).
   false` dependents such as outram-mc-libs. `faer` is target-split in
   `Cargo.toml` instead (no `rayon`/`rand` on wasm32) so the whole crate builds
   for `wasm32-unknown-unknown`; it is in `scripts/check-wasm.sh`.
+- **Sparse solves run on `petir::sparse` (2026-10-20, gh #994).** Laplacian
+  smoothing, ARAP and parameterization factorise through
+  `laplacian::factor_spd_lower` (`petir::sparse::SparseLlt`, a `no_std` port
+  of faer's sparse Cholesky), bit-identical to faer on all 44 systems the lib
+  tests build. `outram-foam-basic-lib`'s PCG was considered and rejected: it
+  cannot report a non-SPD system, which these operators' error types promise,
+  and making that optional dependency mandatory would also pull it into
+  `outram-mc-libs`. **`faer` remains only for the 3x3 SVD in
+  `arap::closest_rotation`**, until PETIR's GSL SVD (gh #993) replaces it (follow-up gh #996).
 
 ## CSG description and tally meshes: what lives here, what does not (GitHub #486)
 

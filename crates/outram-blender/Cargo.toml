@@ -143,9 +143,13 @@ outram-foam-mesh = { workspace = true, optional = true }
 farrer-park = { workspace = true, optional = true }
 
 # Pure-Rust dense+sparse linear algebra backend (Android-safe, no system BLAS).
-# For the large mesh solves the advanced operators need (Laplacian editing /
+# ~~For the large mesh solves the advanced operators need (Laplacian editing /
 # ARAP deformation / parameterization — see beads op-hzs). Per-element math
-# stays in fixed-size `crate::math` types; faer handles the big systems.
+# stays in fixed-size `crate::math` types; faer handles the big systems.~~
+# CHANGED 2026-10-20 (gh #994): the sparse solves moved to `petir::sparse`
+# (through the petir dependency above); faer's ONLY remaining use is the 3x3
+# dense SVD in `arap::closest_rotation`, until PETIR's GSL SVD lands (gh #993).
+# Its `sparse-linalg` feature is no longer needed and is dropped below.
 #
 # Target-split (GitHub #486, maintainer decision 2026-10-02): mesh authoring
 # and faer are ALWAYS compiled (no `mesh` feature), so faer itself must build
@@ -155,13 +159,13 @@ farrer-park = { workspace = true, optional = true }
 # here uses. The root workspace entry is `default-features = false`, so the
 # features are named here.
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-faer = { workspace = true, features = ["std", "rayon", "sparse-linalg", "rand", "npy"] }
+faer = { workspace = true, features = ["std", "rayon", "rand", "npy"] }
 # The plotter rasterises pixel rows in parallel; `rayon-core` has no wasm
 # backend, so on wasm32 `src/wasm_par.rs` stands in, serially (exact: pixels
 # are independent and collected in order).
 rayon = { workspace = true }
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-faer = { workspace = true, features = ["std", "sparse-linalg"] }
+faer = { workspace = true, features = ["std"] }
 
 # GPU compute (headless, no window) — see src/gpu.rs. wgpu is **target-gated OFF
 # Android** (no system Vulkan/Metal loader there, and the workspace Android rule

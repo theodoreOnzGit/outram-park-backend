@@ -91,6 +91,12 @@ approx.workspace = true
 # would compare it with itself; the cross-check has to reach the musl-derived
 # implementation by name to stay an independent second opinion.
 libm.workspace = true
+# `faer` — the upstream that `petir::sparse` was ported from (gh #994,
+# maintainer direction 2026-10-20). A DEV-dependency only, so
+# `tests/sparse_vs_faer.rs` compares the port against upstream's own compiled
+# code on every test run (orderings exactly, solutions bit for bit). Never a
+# normal dependency: faer needs `std`. No `rayon`: the comparison is serial.
+faer = { workspace = true, features = ["std", "sparse-linalg"] }
 
 # wgpu — OPTIONAL, behind the `wgpu` feature, and target-gated off Android and
 # wasm.
