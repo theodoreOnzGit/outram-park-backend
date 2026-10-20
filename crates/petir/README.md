@@ -71,6 +71,7 @@ that drifts from its origin fails the build rather than rotting quietly.
 | `transfer_fn` | ported | Continuous and discrete SISO transfer functions, `c2d` / `d2c`, and the O(1) fixed-state recurrence blocks |
 | `fast_exp`, `fast_log`, `fast_pow` | ported | ARM optimized-routines `exp`, `log` and `pow` — bit-identical to upstream |
 | `real` | — | The `no_std` float-math shim |
+| `hypot` | ported (CORE-MATH, not GSL) | **Correctly rounded** `hypot` / `hypotf` (`cr_hypot`, `cr_hypotf`, MIT), the target of every PETIR `hypot` route. 0 misroundings against MPFR on 8 044 838 inputs (`tests/hypot_correct_rounding.rs`). **Added 2026-10-20** at maintainer direction (gh:#997) |
 | `rng` | ported (OpenMC, not GSL) | OpenMC's 64-bit LCG with its PCG-RXS-M-XS output permutation, O(log n) `future_seed` jump-ahead and `init_seed` stream derivation (`random_lcg.cpp`, MIT). **Moved here from `outram-mc-libs` 2026-10-02**, bit-identical (pinned by a test); `outram_mc_libs::rng::lcg` re-exports it. Its WGSL state advance is `wgsl::LCG` (`lcg.wgsl`), the one copy that `outram-mc-libs`' batched GPU kernels compose |
 | `rng` (`ChaCha8Rng`, `Uniform`, `Normal`) | ported (`rand` 0.10.3, `rand_distr` 0.6.0, `chacha20` 0.10.2; MIT) | The `rand` pieces `boon-lay`'s RustBCA copy uses: ChaCha8 with `rand_core`'s PCG32 `seed_from_u64`, `random::<f64>()`, `Uniform<f64>`, the ziggurat `Normal<f64>`. **Added 2026-10-20 (gh:#995)**; draw-for-draw identical to the upstream crates over 48 million draws (`tests/rng_vs_rand.rs`, reference in `reference-data/rand/`) |
 | `ssprk` | ported (PyClaw, not GSL) | Strong-stability-preserving Runge–Kutta steps for method-of-lines use: Shu–Osher **SSP22** and **SSP33**, Ketcheson's **SSP104** (`sharpclaw/solver.py`, BSD-3). Bit-identical to PyClaw's own `step()` on 96/96 values (`tests/ssprk_vs_pyclaw.rs`); observed orders 2.01 / 3.01 / 4.01; TVD to the SSP coefficient with a negative control just above it (`tests/ssprk_order_and_tvd.rs`). **Added 2026-10-16** at maintainer direction |
@@ -273,7 +274,11 @@ A further non-GSL port, `src/ssprk.rs` from **Clawpack / PyClaw** (BSD-3-Clause,
 Clawpack Developers), was added on 2026-10-16 at the maintainer's direction; see
 `NOTICE` and the crate `CLAUDE.md`. Another, `src/depletion/` from **OpenMC**
 (`openmc/deplete/`, MIT), was added on 2026-10-17 at the maintainer's
-direction (gh:#950).
+direction (gh:#950). `src/hypot.rs` from **CORE-MATH** (MIT, Alexei
+Sibidanov) was added on 2026-10-20 at the maintainer's direction (gh:#997),
+and `src/linalg/gebal.rs` from **Reference-LAPACK 3.12.1** (`DGEBAL`,
+`DGEBAK`, reference BLAS `DNRM2`/`IDAMAX`; modified BSD) on the same day
+(gh:#998), so `linalg::expm` balances exactly as GNU Octave's `expm.m`.
 
 All were ported on 2026-09-15, with the full upstream notice and
 copyright kept in each file's header where source redistribution requires them.

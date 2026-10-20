@@ -57,6 +57,21 @@
 //! inside a degenerate eigenspace. That instrument was chosen **after** the
 //! miss, and is labelled so; the bit-identity test is what carries the
 //! verification.
+//!
+//! # Re-measured 2026-10-20 after the CORE-MATH `hypot` (gh:#997)
+//!
+//! **Prediction** (gh:#993/#997, before the run): with a correctly rounded
+//! `hypot`, bit-identical to stock GSL. Refined before the GSL rerun, once
+//! the MPFR sweep (`tests/hypot_correct_rounding.rs`) showed glibc 2.44's
+//! `hypot` is itself not correctly rounded: bit-identical wherever glibc
+//! rounds every `hypot` it is given correctly, otherwise not.
+//!
+//! **Result.** GSL relinked with PETIR's `hypot` writes a file
+//! byte-identical to stock GSL's, so the first test now reads the stock
+//! file: decomposition ~~1652/2656~~ **2656/2656**, eigenvalues ~~112/261~~
+//! **261/261**, vectors ~~992/3174~~ **3174/3174** bit-identical to STOCK
+//! GSL, `rankone5`'s exact zeros included. In the second test the sorted
+//! eigenvalues now agree to 0 and every vector to 0. The prediction held.
 
 mod linalg_gsl_common;
 
@@ -64,7 +79,12 @@ use linalg_gsl_common::{load, Case, Score};
 use petir::linalg::{eigen_symm, eigen_symmv, eigen_symmv_sort, EigenSort, Matrix, SymmTd};
 
 const FILE: &str = "eigen-symm-gsl-2.8-reference.txt";
-const SHIM_FILE: &str = "eigen-symm-gsl-2.8-libm-hypot-reference.txt";
+/// ~~`eigen-symm-gsl-2.8-libm-hypot-reference.txt`~~ **CHANGED 2026-10-20
+/// (gh:#997):** PETIR's `hypot` is now CORE-MATH's correctly rounded one, and
+/// GSL relinked with it (`reference-data/gsl/petir_hypot_shim.rs`) writes a
+/// file byte-identical to stock GSL's on this driver, so the bit-for-bit test
+/// reads the stock file.
+const SHIM_FILE: &str = FILE;
 
 fn input(case: &Case) -> Matrix {
     case.matrix("A").unwrap()
@@ -138,7 +158,10 @@ fn everything_matches_gsl_with_the_same_hypot_bit_for_bit() {
         (&ev_s, "eigenvalues (symm, symmv, sorted)"),
         (&vec_s, "eigenvectors (unordered, sorted)"),
     ] {
-        eprintln!("{}", s.summary(&format!("{label} vs GSL 2.8 + libm hypot")));
+        eprintln!(
+            "{}",
+            s.summary(&format!("{label} vs GSL 2.8 (stock = PETIR hypot)"))
+        );
         assert!(s.compared > 0);
         assert_eq!(s.identical, s.compared, "{}", s.summary(label));
     }

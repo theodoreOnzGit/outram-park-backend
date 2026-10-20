@@ -48,10 +48,17 @@
 //!   `mul`, ...) with a table mapping each Octave name to its PETIR method
 //!   (gh:#993).
 //! - [`expm`](fn@expm) — the matrix exponential, ported from GNU Octave's
-//!   `expm.m` without its LAPACK balancing step (gh:#993).
+//!   `expm.m` ~~without its LAPACK balancing step~~ (gh:#993), with that
+//!   balancing step since gh:#998.
+//! - [`gebal`] — LAPACK `DGEBAL` / `DGEBAK` (Reference-LAPACK 3.12.1, with
+//!   reference BLAS `DNRM2` and `IDAMAX`) and Octave's `balance` built on
+//!   them (gh:#998). Not GSL's `balance_matrix`, which is a different
+//!   algorithm.
 //!
 //! Each gh:#993 port is bit-identical to compiled GSL 2.8 once GSL is given
-//! the same `hypot` (the `libm` crate's); see
+//! the same `hypot` ~~(the `libm` crate's)~~ (**since 2026-10-20, gh:#997,
+//! PETIR's correctly rounded CORE-MATH port**, which makes `qr`, `svd` and
+//! `eigen_symm` bit-identical to STOCK GSL on every reference case); see
 //! `reference-data/gsl/README.md` and `docs/verification-summary.md`.
 //!
 //! # No BLAS library is linked, and none may be
@@ -81,6 +88,7 @@ mod elem;
 pub mod eigen_nonsymm;
 pub mod eigen_symm;
 pub mod expm;
+pub mod gebal;
 pub mod householder;
 pub mod lu;
 pub mod lu_decomp;
@@ -102,6 +110,7 @@ pub use cholesky::Cholesky;
 pub use eigen_nonsymm::{balance_matrix, eigen_nonsymm, hessenberg};
 pub use eigen_symm::{eigen_symm, eigen_symmv, eigen_symmv_sort, EigenSort};
 pub use expm::expm;
+pub use gebal::{dgebak, dgebal, octave_balance, BackSide, BalanceJob, Balancing};
 pub use svd::Svd;
 pub use symmtd::SymmTd;
 pub use lu::{det, inverse, ln_det};

@@ -132,10 +132,15 @@ So the whole 30x30 difference is GSL's blocking. Replayed by
 
 ## Isolating `hypot`: `*-libm-hypot-reference.txt`
 
-GSL calls the platform `hypot` (glibc here); PETIR calls the `libm` crate's,
-through `crate::real::Real`, for `no_std` and cross-platform reproducibility.
-The two differ in the last ulp on some inputs: `hypot(1, sqrt(3))` is `2.0`
-from glibc (the correctly rounded value) and `2 - 2^-52` from `libm`.
+GSL calls the platform `hypot` (glibc here); PETIR ~~calls the `libm` crate's~~
+(**since 2026-10-20, gh:#997, its own port of CORE-MATH's correctly rounded
+`cr_hypot`**), through `crate::real::Real`, for `no_std` and cross-platform
+reproducibility. The two differ in the last ulp on some inputs:
+`hypot(1, sqrt(3))` is `2.0` from glibc (the correctly rounded value) and
+`2 - 2^-52` from `libm`. (~~glibc's is the correctly rounded one~~
+**CORRECTED 2026-10-20, gh:#997**: glibc 2.44's `hypot` is not correctly
+rounded either; against MPFR it misrounds 23 per million uniform inputs and
+6884 of CORE-MATH's 33174 worst cases — `reference-data/core-math/`.)
 `libm_shim.rs` exports the `libm` crate's `hypot` under the C name; linking it
 ahead of `-lm` gives GSL PETIR's `hypot` and nothing else:
 
@@ -159,6 +164,41 @@ reference-data/gsl/build_driver.sh reference-data/gsl/qr_reference_driver.c \
 | `linalg::eigen_nonsymm` + Hessenberg + balancing, 2419 values | eigenvalues 104/320 in order; 4.54e-13 as a multiset | **2419/2419 bit-identical** |
 
 So both ports are exact, and every difference from stock GSL is `hypot`.
+
+### Re-measured with PETIR's CORE-MATH `hypot` (2026-10-20, gh:#997)
+
+`petir_hypot_shim.rs` exports PETIR's `crate::hypot::hypot` under the C name
+(a `std` staticlib, since petir links `alloc`):
+
+```sh
+cargo build --release -p petir
+rustc --edition 2021 --crate-type staticlib -C opt-level=3 -C panic=abort \
+    --extern petir=target/release/deps/libpetir-<hash>.rlib -L target/release/deps \
+    reference-data/gsl/petir_hypot_shim.rs -o /tmp/petir_hypot_shim.a
+reference-data/gsl/build_driver.sh reference-data/gsl/eigen_nonsymm_reference_driver.c \
+    reference-data/gsl/eigen-nonsymm-gsl-2.8-petir-hypot-reference.txt /tmp/petir_hypot_shim.a
+```
+
+With that shim, the QR, SVD and symmetric-eigen drivers write files
+**byte-identical to stock GSL's** (glibc 2.44 happens to round every `hypot`
+those drivers call correctly), so their bit-for-bit tests now read the stock
+files and no `*-petir-hypot-*` file is kept for them. The nonsymmetric driver
+differs from stock on `rand25` only, and its file is kept:
+
+| surface | PETIR vs stock GSL, before -> after | PETIR vs GSL + PETIR `hypot` |
+|---|---|---|
+| `symmtd` + `eigen_symm[v]` + sort | 62.2 / 42.9 / 31.3 % -> **100 %** (6091/6091) | 6091/6091 |
+| `linalg::qr` | 81/85 -> **85/85**, solves and residuals bit-identical | 85/85 |
+| `linalg::svd` | singular values 27/57 -> **57/57**; all 1428 values bit-identical | 1428/1428 |
+| `linalg::eigen_nonsymm` + Hessenberg + balancing | eigenvalues 104/320 -> **236/320** in order; multiset 4.54e-13 -> **3.73e-15**; 12 of 13 cases bit-identical | 2419/2419 |
+
+The `rand25` residue is glibc's: logging every `hypot` call the driver makes
+(glibc, PETIR and MPFR side by side) finds five distinct inputs, each called
+twice, where glibc returns one ulp above the correctly rounded value and
+PETIR returns MPFR's, e.g. `hypot(-0x1.569095968f0f5p-2, 0x1.e62aaa381022ep-2)`
+= `0x1.295df708e098bp-1` (glibc `...8cp-1`). The `*-libm-hypot-*` files and
+`libm_shim.rs` are kept as the record of the gh:#993 isolation; no test reads
+them any more.
 Against stock GSL the eigensolver agrees as an eigen-decomposition: sorted
 eigenvalues to 1.73e-15 normwise, eigenvectors within 0.55 of their
 gap-scaled perturbation bound. Replayed by

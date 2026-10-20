@@ -50,6 +50,21 @@
 //! and every solution and residual entry, bit for bit** — pinned by
 //! `the_port_matches_gsl_with_the_same_hypot_bit_for_bit` below.
 //!
+//! # Re-measured 2026-10-20 after the CORE-MATH `hypot` (gh:#997)
+//!
+//! **Prediction** (gh:#993/#997, before the run): with a correctly rounded
+//! `hypot`, bit-identical to stock GSL. Refined before the GSL rerun, once
+//! the MPFR sweep (`tests/hypot_correct_rounding.rs`) showed glibc 2.44's
+//! `hypot` is itself not correctly rounded: bit-identical wherever glibc
+//! rounds every `hypot` it is given correctly, otherwise not.
+//!
+//! **Result.** PETIR now calls CORE-MATH's correctly rounded `hypot`
+//! (`crate::hypot`), and against STOCK GSL the factor and `tau` are
+//! ~~81/85~~ **85/85** bit-identical, the solution and residual worst
+//! ~~4.94e-16 / 1.37e-14~~ **0 / 0**. GSL relinked with PETIR's `hypot`
+//! (`reference-data/gsl/petir_hypot_shim.rs`) writes a byte-identical file,
+//! so the bit-for-bit test below reads the stock file. The prediction held.
+//!
 //! # Skipping
 //!
 //! If the reference file is absent the tests skip rather than fail: the file
@@ -200,6 +215,8 @@ fn rel_diff(a: f64, b: f64) -> f64 {
 ///
 /// 85 values compared across the five cases, **81 bit-identical (95.3 %)**,
 /// worst relative difference **4.27e-16** — one ulp at this magnitude.
+/// **Re-measured 2026-10-20 (gh:#997, CORE-MATH `hypot`): 85/85
+/// bit-identical, worst 0.**
 ///
 /// Interpretation: this is GSL's factorisation, not merely a valid one. A
 /// different-but-correct QR would differ in the *sign* of whole columns, which
@@ -273,7 +290,8 @@ fn the_factorisation_matches_gsl_entry_for_entry() {
 /// # Results (2026-09-15)
 ///
 /// Over five cases: worst relative difference **4.94e-16** on the solution and
-/// **1.37e-14** on the residual.
+/// **1.37e-14** on the residual. **Re-measured 2026-10-20 (gh:#997,
+/// CORE-MATH `hypot`): 0 and 0** — both bit-identical.
 ///
 /// The residual is the looser of the two by construction, and the gap is
 /// expected rather than a weakness: it is formed as `Q(Q^T b - R x)`, a
@@ -331,9 +349,11 @@ fn the_least_squares_solution_matches_gsl() {
     assert!(worst_r < 1e-13, "residual differs by {worst_r:e}");
 }
 
-/// Against the same driver relinked with the `libm` crate's `hypot`
+/// ~~Against the same driver relinked with the `libm` crate's `hypot`
 /// (`qr-gsl-2.8-libm-hypot-reference.txt`, built 2026-10-20 for gh:#993 with
-/// `reference-data/gsl/build_driver.sh` and `libm_shim.rs`).
+/// `reference-data/gsl/build_driver.sh` and `libm_shim.rs`).~~ **CHANGED
+/// 2026-10-20 (gh:#997):** against stock GSL, which on this driver equals GSL
+/// relinked with PETIR's CORE-MATH `hypot` byte for byte.
 ///
 /// # Results (2026-10-20)
 ///
@@ -343,9 +363,9 @@ fn the_least_squares_solution_matches_gsl() {
 #[test]
 fn the_port_matches_gsl_with_the_same_hypot_bit_for_bit() {
     let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../reference-data/gsl/qr-gsl-2.8-libm-hypot-reference.txt");
+        .join("../../reference-data/gsl/qr-gsl-2.8-reference.txt");
     let Some(cases) = load_from(path) else {
-        eprintln!("skipping: libm-hypot QR reference not present");
+        eprintln!("skipping: QR reference not present");
         return;
     };
     let mut compared = 0usize;

@@ -139,8 +139,14 @@ COPYRIGHT HOLDERS
   sha256 3f97a52a9c9ef91340d72f80438577fadc53438db7e6b6b914ddc6b65bef7345,
   Copyright (C) 2008-2026 The Octave Project Developers, GPL-3.0-or-later
   (read from the file's header; used under version 3)
-      -> src/linalg/expm.rs (ported 2026-10-20, gh:#993; balancing omitted,
-         see that file)
+      -> src/linalg/expm.rs (ported 2026-10-20, gh:#993; ~~balancing omitted,
+         see that file~~ balancing ported 2026-10-20, gh:#998)
+
+  GNU Octave (not GSL): liboctave/numeric/aepbalance.h (permuting_vector,
+  scaling_vector) and aepbalance.cc (the DGEBAL job letter), Octave 11.3.0
+  source tarball, Copyright (C) 1994-2026 The Octave Project Developers,
+  GPL-3.0-or-later (used under version 3)
+      -> src/linalg/gebal.rs (octave_balance; 2026-10-20, gh:#998)
 
 ================================================================================
 DERIVED WORK — ARM optimized-routines
@@ -292,6 +298,54 @@ reproduced in the file header.
   BSD-3-Clause is permissive and GPL-3.0-compatible; the flow is ONE-WAY.
   The non-endorsement clause binds: do not use the Clawpack name to promote
   this crate.
+
+================================================================================
+DERIVED WORK — Reference-LAPACK (DGEBAL, DGEBAK) and reference BLAS (DNRM2, IDAMAX)
+================================================================================
+
+`src/linalg/gebal.rs` ports LAPACK's SRC/dgebal.f and SRC/dgebak.f and the
+reference BLAS routines they call, BLAS/SRC/dnrm2.f90 and BLAS/SRC/idamax.f.
+Ported 2026-10-20 at the maintainer's direction (gh:#998: "Dgebal also
+port"), so that linalg::expm balances exactly as GNU Octave's expm.m does.
+The full modified-BSD notice is reproduced in the file header, as source
+redistribution requires.
+
+  Project    : Reference-LAPACK
+  Upstream   : https://github.com/Reference-LAPACK/lapack
+  Version    : 3.12.1, tag v3.12.1, commit
+               6ec7f2bc4ecf4c4a93496aa2fa519575bc0e39ca (2024-12-03)
+  Licence    : modified BSD (LAPACK's LICENSE file, read 2026-10-20)
+
+      Copyright (c) 1992-2023 The University of Tennessee and The University
+                              of Tennessee Research Foundation.  All rights
+                              reserved.
+      Copyright (c) 2000-2023 The University of California Berkeley. All
+                              rights reserved.
+      Copyright (c) 2006-2023 The University of Colorado Denver.  All rights
+                              reserved.
+
+  Modified BSD is permissive and GPL/AGPL-compatible; the flow is ONE-WAY.
+  The non-endorsement clause binds: do not use the copyright holders' names
+  to promote this crate.
+
+================================================================================
+DERIVED WORK — CORE-MATH (correctly rounded hypot)
+================================================================================
+
+`src/hypot.rs` ports CORE-MATH's `cr_hypot` (src/binary64/hypot/hypot.c) and
+`cr_hypotf` (src/binary32/hypot/hypotf.c). Ported 2026-10-20 at the
+maintainer's direction (gh:#997: "Port"). The full MIT notice is reproduced
+in the file header.
+
+  Project    : CORE-MATH
+  Upstream   : https://gitlab.inria.fr/core-math/core-math
+  Commit     : 7ebab73913c5a33a25402ee51c96ec06b3a18095 (2026-10-20)
+  Licence    : MIT (verified from LICENSE and both file headers)
+
+      Copyright (c) 2022-2026 Alexei Sibidanov <sibid@uvic.ca>   (hypot.c)
+      Copyright (c) 2022-2025 Alexei Sibidanov                   (hypotf.c)
+
+  MIT is permissive and GPL/AGPL-compatible; the flow is ONE-WAY.
 
 ================================================================================
 OTHER UPSTREAM SOURCES
