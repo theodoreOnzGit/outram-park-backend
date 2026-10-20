@@ -173,7 +173,7 @@ pub fn parameterize(
     let mut rhs = vec![[0.0f64; 2]; nfree];
     let mut trips: Vec<(usize, usize, f64)> = Vec::new();
 
-    for (&(gi, gj), &w) in &weights {
+    for &((gi, gj), w) in &weights {
         diag[gi] += w;
         diag[gj] += w;
         match (free_of[gi], free_of[gj]) {
