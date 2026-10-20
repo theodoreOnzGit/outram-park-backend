@@ -4,7 +4,13 @@
 //! time under first-order radioactive decay and the ingrowth of daughter
 //! nuclides. It is the decay-source term used by radionuclide transport in the
 //! OUTRAM PARK nuclear focus, mirroring PFLOTRAN's radioactive-decay reaction
-//! (`reaction_sandbox_radioactive_decay` / the `RADIOACTIVE_DECAY` block).
+//! ~~(`reaction_sandbox_radioactive_decay` / the `RADIOACTIVE_DECAY` block).~~
+//! **CORRECTED 2026-10-20 (gh:#999)** — upstream has no
+//! `reaction_sandbox_radioactive_decay`; its decay lives in the
+//! `CHEMISTRY` `RADIOACTIVE_DECAY_REACTION` block (`RRadioactiveDecay`,
+//! `src/pflotran/reaction.F90`) and the `UFD_DECAY` process model
+//! (`src/pflotran/pm_ufd_decay.F90`). What each does is recorded under
+//! "What upstream PFLOTRAN does" below.
 //!
 //! # Physical model
 //!
@@ -45,34 +51,97 @@
 //! fraction leaves the network and the total decreases accordingly — both cases
 //! are handled by the same matrix exponential, so the book-keeping is automatic.
 //!
+//! # What upstream PFLOTRAN does (read 2026-10-20, gh:#999)
+//!
+//! Read at upstream commit `2af572b8759c34aacc2216f56a906637f90af03e`
+//! (bitbucket `pflotran/pflotran`, `master`, fetched 2026-10-20; the crate's
+//! recorded reference clone is `669fbce2`, `upstream_source/README.md`).
+//! **Upstream never forms a matrix exponential.** It has three decay paths:
+//!
+//! 1. **`CHEMISTRY` / `RADIOACTIVE_DECAY_REACTION`** (`reaction.F90`,
+//!    `RRadioactiveDecay`, ~line 5323): decay is a kinetic rate
+//!    `rate = kf * (total moles in aqueous + gas + equilibrium-sorbed)` added
+//!    to the reaction residual with its analytical Jacobian, and solved inside
+//!    PFLOTRAN's Newton iteration — i.e. **backward Euler** (first order in
+//!    `dt`), coupled with transport or operator-split from it depending on the
+//!    reactive-transport mode.
+//! 2. **`UFD_DECAY`, default** (`pm_ufd_decay.F90`, `PMUFDDecaySolveISPDIAtCell`,
+//!    ~line 1868): a **3-generation analytical (Bateman) solution**, explicit in
+//!    time, for multiple parents and grandparents with non-zero initial
+//!    daughters (Mariner et al. 2016, SAND2016-9610R, §3.2.3). Exact for
+//!    chains of depth <= 3 from a cell's current inventory; it truncates
+//!    ingrowth through great-grandparents within one step.
+//! 3. **`UFD_DECAY` with `IMPLICIT_SOLUTION`** (same routine, ~line 1931):
+//!    **backward Euler** for any number of generations, solved by Newton in a
+//!    log formulation (`solution = solution * exp(-rhs)`, update clipped to
+//!    10), stopping on a relative-change tolerance, then floored at `1e-90`.
+//!
+//! So this module's exponential is **not** upstream's algorithm, and it was
+//! not before this change either (the hand-written Taylor `matrix_exp` was not
+//! upstream's). It is the exact solution of the same ODE, which upstream's
+//! backward Euler approaches as `dt -> 0` and its 3-generation form matches
+//! for shallow chains. **Upstream-fidelity options (backward Euler, the
+//! 3-generation form) are not ported**; [`DecaySolver`] lists only what
+//! exists, and the follow-up is filed on GitHub (gh:#999 comment). Do not
+//! quote a result from here as "PFLOTRAN's" decay.
+//!
 //! # Numerics — general-chain integration
 //!
-//! [`DecayChain::decay`] advances *any* network (linear, branching, or
+//! ~~[`DecayChain::decay`] advances *any* network (linear, branching, or
 //! converging) by forming `exp(A dt)` with **scaling-and-squaring driven by a
 //! truncated Taylor series** (the workhorse "method 3" of Moler & Van Loan,
 //! *Nineteen Dubious Ways to Compute the Exponential of a Matrix*, SIAM Review
-//! 45(1) 2003). The scaled matrix `M = A dt / 2^s` is chosen with `s` large
-//! enough that its infinity-norm is `<= 0.5`; the Taylor series
-//! `exp(M) = sum_k M^k / k!` then converges rapidly (terminated once a term is
-//! negligible relative to the running sum, capped at 30 terms), and `exp(A dt)`
-//! is recovered by squaring `s` times. For a norm `<= 0.5` and 30 Taylor terms
-//! the truncation error is far below `f64` round-off, so the method is accurate
-//! to near machine precision (`~1e-12` relative or better) across the stiff
-//! range of decay constants a real chain spans; the unit tests confirm
-//! agreement with the closed-form Bateman solution to `< 1e-6`.
+//! 45(1) 2003). ... the unit tests confirm agreement with the closed-form
+//! Bateman solution to `< 1e-6`.~~ **CORRECTED 2026-10-20 (gh:#999):** the
+//! hand-written Taylor + scaling-and-squaring `matrix_exp` is removed. Its
+//! "`~1e-12` relative or better ... across the stiff range" claim was never
+//! measured, and it was false: measured on its last day against the two
+//! comparison tests below, it agreed with the exact answer to 6.6e-15 and
+//! 5.7e-14 of the inventory on the radon chain (2 h, 10 d) but only **3.2e-6**
+//! on the stiff thorium-C branch (Po-212, `||A dt|| ~ 4.6e11`). CRAM48 gives
+//! 5.7e-16 there. So the default's results moved, by up to ~3e-6 of the
+//! inventory on stiff steps, when CRAM48 replaced it.
+//!
+//! [`DecayChain::decay`] advances *any* network (linear, branching, or
+//! converging) with **PETIR's order-48 IPF CRAM**
+//! ([`petir::depletion::cram48`], OpenMC's `CRAM48`), the default
+//! [`DecaySolver::Cram48`]. CRAM is accurate to round-off for any step on a
+//! decay matrix (eigenvalues on the negative real axis), however stiff; there
+//! is no step-length or norm limit. Order 48 rather than 16: it is OpenMC's
+//! default and the more accurate of the two PETIR carries; upstream PFLOTRAN
+//! has no CRAM, so no order is "upstream's".
+//!
+//! [`DecaySolver::Expm`] is the explicit, independent cross-check:
+//! [`petir::linalg::expm`], a port of GNU Octave's `expm.m` (degree-8 Padé,
+//! LAPACK `DGEBAL` balancing, scaling and squaring). It is kept for the
+//! comparison tests, not as a fallback; on very stiff steps its accuracy is
+//! bounded only by `~2^s u` (`s` the number of squarings), which the tests
+//! measure.
 //!
 //! [`DecayChain::bateman_linear`] provides the classic **Bateman (1910)**
 //! closed form for the special case of a single linear chain
-//! `0 -> 1 -> ... -> N-1` with unit branching, as an independent analytical
-//! cross-check of the general integrator.
+//! `0 -> 1 -> ... -> N-1` with unit branching, as the exact reference both
+//! methods are judged against.
+//!
+//! # Verification (gh:#999)
+//!
+//! Two comparison tests, CRAM48 vs `expm` vs the exact answer, each with its
+//! methodology, tolerance (fixed from the methods' known error before
+//! running) and measured result in its doc comment:
+//! `cram48_expm_and_bateman_agree_on_the_radon_chain` (linear, 5 members,
+//! half-lives 3.1 min to 22.2 a) and
+//! `cram48_expm_and_exact_agree_on_the_stiff_thorium_c_branch` (branching,
+//! Po-212's 0.3 us against Pb-212's 10.6 h, `||A dt|| ~ 2e11`).
 //!
 //! # Provenance
 //!
 //! - Decay-chain / ingrowth theory: H. Bateman, "The solution of a system of
 //!   differential equations occurring in the theory of radioactive
 //!   transformations", *Proc. Cambridge Philos. Soc.* **15** (1910) 423–427.
-//! - Matrix-exponential method: C. Moler & C. Van Loan, SIAM Review **45**(1)
-//!   (2003) 3–49.
+//! - ~~Matrix-exponential method: C. Moler & C. Van Loan, SIAM Review **45**(1)
+//!   (2003) 3–49.~~ (removed with `matrix_exp`, 2026-10-20.) CRAM: PETIR's
+//!   port of OpenMC `openmc/deplete/cram.py` (see `petir::depletion`);
+//!   `expm`: PETIR's port of GNU Octave `expm.m`.
 //! - Modelled on PFLOTRAN's radioactive-decay reaction (US-DOE national-lab
 //!   subsurface reactive-transport code; this crate is an independent fork —
 //!   see the crate root and `NOTICE`).
@@ -88,6 +157,21 @@
 
 use petir::mathf::RealMath;
 use crate::error::PflotranError;
+
+/// Which method [`DecayChain::decay_with`] uses for `exp(A dt) C`.
+///
+/// **The default is [`DecaySolver::Cram48`]** (gh:#999). Neither is upstream
+/// PFLOTRAN's algorithm; see the module docs.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum DecaySolver {
+    /// PETIR's order-48 IPF CRAM ([`petir::depletion::cram48`]), one substep.
+    #[default]
+    Cram48,
+    /// PETIR's port of Octave's `expm` ([`petir::linalg::expm`]), applied to
+    /// the vector. The independent cross-check; less accurate on very stiff
+    /// steps (see the module docs).
+    Expm,
+}
 
 /// Natural logarithm of 2, used to convert a half-life to a decay constant.
 const LN_2: f64 = std::f64::consts::LN_2;
@@ -241,14 +325,31 @@ impl DecayChain {
     /// `concentrations[i]` is the amount of nuclide `i` (atoms, mol, mol/L — any
     /// consistent amount unit; the equations are linear). Its length must equal
     /// [`DecayChain::n_nuclides`]. `dt` must be non-negative; `dt = 0` leaves the
-    /// inventory unchanged. The general-chain integrator (scaling-and-squaring
+    /// inventory unchanged. ~~The general-chain integrator (scaling-and-squaring
     /// with a Taylor series) is described in the [module documentation](self)
-    /// and is accurate to near machine precision.
+    /// and is accurate to near machine precision.~~ **Since 2026-10-20
+    /// (gh:#999)** this is [`DecayChain::decay_with`] with the default
+    /// [`DecaySolver::Cram48`]; see the [module documentation](self).
     ///
     /// # Errors
     /// [`PflotranError::InvalidInput`] if `concentrations.len() != n_nuclides()`
     /// or if `dt` is negative or non-finite.
     pub fn decay(&self, concentrations: &mut [f64], dt: f64) -> Result<(), PflotranError> {
+        self.decay_with(DecaySolver::default(), concentrations, dt)
+    }
+
+    /// [`DecayChain::decay`] with the method chosen explicitly.
+    ///
+    /// # Errors
+    /// As [`DecayChain::decay`], plus [`PflotranError::Convergence`] if a CRAM
+    /// pole solve or the `expm` Padé denominator is singular (not reachable for
+    /// a valid decay matrix, but reported rather than panicked).
+    pub fn decay_with(
+        &self,
+        solver: DecaySolver,
+        concentrations: &mut [f64],
+        dt: f64,
+    ) -> Result<(), PflotranError> {
         let n = self.nuclides.len();
         if concentrations.len() != n {
             return Err(PflotranError::InvalidInput(format!(
@@ -265,14 +366,29 @@ impl DecayChain {
             return Ok(()); // exp(0) = identity
         }
 
-        // Scale the decay matrix by dt: M0 = A * dt.
-        let mut m0 = self.decay_matrix();
-        for v in &mut m0 {
-            *v *= dt;
-        }
-
-        let e = matrix_exp(&m0, n);
-        let out = mat_vec(&e, concentrations, n);
+        let a = self.decay_matrix();
+        let out = match solver {
+            DecaySolver::Cram48 => {
+                let mut d = petir::depletion::DepletionMatrix::zeros(n);
+                d.as_mut_slice().copy_from_slice(&a);
+                petir::depletion::cram48(&d, concentrations, dt).map_err(|e| {
+                    PflotranError::Convergence(format!("CRAM48 decay solve failed: {e:?}"))
+                })?
+            }
+            DecaySolver::Expm => {
+                // Scale the decay matrix by dt: M0 = A * dt.
+                let m0: Vec<f64> = a.iter().map(|v| v * dt).collect();
+                let m = petir::linalg::Matrix::from_row_major(n, n, m0).map_err(|e| {
+                    PflotranError::InvalidInput(format!("decay matrix shape: {e:?}"))
+                })?;
+                let e = petir::linalg::expm(&m).map_err(|e| {
+                    PflotranError::Convergence(format!("expm decay solve failed: {e:?}"))
+                })?;
+                (0..n)
+                    .map(|i| (0..n).map(|j| e.get(i, j) * concentrations[j]).sum())
+                    .collect()
+            }
+        };
         concentrations.copy_from_slice(&out);
         Ok(())
     }
@@ -366,110 +482,6 @@ impl DecayChain {
 
         Ok(result)
     }
-}
-
-/// Infinity-norm (maximum absolute row sum) of a dense row-major `n * n` matrix.
-fn inf_norm(a: &[f64], n: usize) -> f64 {
-    let mut max = 0.0_f64;
-    for i in 0..n {
-        let mut row = 0.0;
-        for j in 0..n {
-            row += a[i * n + j].abs();
-        }
-        if row > max {
-            max = row;
-        }
-    }
-    max
-}
-
-/// Dense row-major `n * n` matrix product `c = a * b`.
-fn mat_mul(a: &[f64], b: &[f64], n: usize) -> Vec<f64> {
-    let mut c = vec![0.0_f64; n * n];
-    for i in 0..n {
-        for k in 0..n {
-            let aik = a[i * n + k];
-            if aik == 0.0 {
-                continue;
-            }
-            for j in 0..n {
-                c[i * n + j] += aik * b[k * n + j];
-            }
-        }
-    }
-    c
-}
-
-/// Dense row-major `n * n` matrix times an `n`-vector: `y = a * x`.
-fn mat_vec(a: &[f64], x: &[f64], n: usize) -> Vec<f64> {
-    let mut y = vec![0.0_f64; n];
-    for i in 0..n {
-        let mut acc = 0.0;
-        for j in 0..n {
-            acc += a[i * n + j] * x[j];
-        }
-        y[i] = acc;
-    }
-    y
-}
-
-/// `n * n` identity matrix, row-major.
-fn identity(n: usize) -> Vec<f64> {
-    let mut m = vec![0.0_f64; n * n];
-    for i in 0..n {
-        m[i * n + i] = 1.0;
-    }
-    m
-}
-
-/// Matrix exponential `exp(A)` of a dense row-major `n * n` matrix, by
-/// scaling-and-squaring with a truncated Taylor series (see the module docs).
-///
-/// The input `A` is scaled down to `M = A / 2^s` with `inf_norm(M) <= 0.5`, the
-/// series `exp(M) = sum_k M^k / k!` is summed until a term is negligible (max 30
-/// terms), and `exp(A) = (exp(M))^(2^s)` is recovered by repeated squaring.
-fn matrix_exp(a: &[f64], n: usize) -> Vec<f64> {
-    // Choose the scaling exponent s so that ||A|| / 2^s <= 0.5.
-    let norm = inf_norm(a, n);
-    let mut s = 0u32;
-    if norm > 0.5 {
-        // s = ceil(log2(norm / 0.5)); computed by doubling to avoid log edge cases.
-        let mut scaled = norm;
-        while scaled > 0.5 && s < 1023 {
-            scaled *= 0.5;
-            s += 1;
-        }
-    }
-
-    let scale = 0.5_f64.r_powi(s as i32);
-    let mut m = a.to_vec();
-    for v in &mut m {
-        *v *= scale;
-    }
-
-    // Taylor series: result = sum_{k>=0} M^k / k!, term_{k} = term_{k-1} * M / k.
-    let mut result = identity(n);
-    let mut term = identity(n);
-    for k in 1..=30u32 {
-        term = mat_mul(&term, &m, n);
-        let inv_k = 1.0 / k as f64;
-        for v in &mut term {
-            *v *= inv_k;
-        }
-        for (r, t) in result.iter_mut().zip(term.iter()) {
-            *r += *t;
-        }
-        // Stop once the added term is negligible relative to the running sum.
-        if inf_norm(&term, n) <= f64::EPSILON * inf_norm(&result, n) {
-            break;
-        }
-    }
-
-    // Square s times: exp(A) = (exp(M))^(2^s).
-    for _ in 0..s {
-        result = mat_mul(&result, &result, n);
-    }
-    result
 }
 
 #[cfg(test)]
@@ -708,6 +720,200 @@ mod tests {
         assert!(matches!(err, PflotranError::InvalidInput(_)));
         // Out-of-range single fraction.
         assert!(DecayChain::new(vec![nuc("A", 1.0, vec![(0, 1.5)])]).is_err());
+    }
+
+    /// `[~, e] = log2(norm(A dt, Inf))`, `s = max(0, e)`: the number of
+    /// squarings Octave's `expm` takes, for the a-priori `2^s u` bound.
+    fn expm_squarings(chain: &DecayChain, dt: f64) -> i32 {
+        let n = chain.n_nuclides();
+        let a = chain.decay_matrix();
+        let norm = inf_norm_any(&a, n) * dt;
+        if norm > 0.0 {
+            ((norm.log2().floor() as i32) + 1).clamp(0, 1023)
+        } else {
+            0
+        }
+    }
+
+    fn inf_norm_any(a: &[f64], n: usize) -> f64 {
+        (0..n)
+            .map(|i| (0..n).map(|j| a[i * n + j].abs()).sum::<f64>())
+            .fold(0.0, f64::max)
+    }
+
+    /// The a-priori expm tolerance, normwise: `max(1e-12, min(1, 10 * 2^s * u))`.
+    fn expm_bound(s: i32) -> f64 {
+        (10.0 * 2f64.powi(s) * (f64::EPSILON / 2.0))
+            .min(1.0)
+            .max(1e-12)
+    }
+
+    /// `max_i |x_i - y_i| / total`, the normwise error in inventory units.
+    fn normwise(x: &[f64], y: &[f64], total: f64) -> f64 {
+        x.iter()
+            .zip(y)
+            .map(|(a, b)| (a - b).abs() / total)
+            .fold(0.0, f64::max)
+    }
+
+    const MIN: f64 = 60.0;
+    const HOUR: f64 = 3600.0;
+    const DAY: f64 = 86_400.0;
+    const YEAR: f64 = 365.25 * DAY;
+
+    /// **Comparison 1 (gh:#999): CRAM48 vs `expm` vs Bateman on the radon
+    /// chain.**
+    ///
+    /// Methodology: Rn-222 (3.8235 d) -> Po-218 (3.098 min) -> Pb-214
+    /// (26.8 min) -> Bi-214 (19.9 min) -> Pb-210 (22.2 a), unit branching, from
+    /// 1000 units of Rn-222, at `t = 2 h` (transient: every member changing)
+    /// and `t = 10 d` (Po-218 to Bi-214 in transient equilibrium with
+    /// Rn-222). **Simplifications:** Po-214 (164 us) is folded into an
+    /// instantaneous Bi-214 -> Pb-210 step, and Pb-210's own daughters
+    /// leave the network; both change the chain, not the comparison, which is
+    /// between methods on the same matrix. Reference: the exact
+    /// [`DecayChain::bateman_linear`] (no near-equal decay constants: the
+    /// closest pair, Pb-214 and Bi-214, differ by 35 %).
+    ///
+    /// Tolerances, fixed before running, normwise (`|diff| / 1000`):
+    /// CRAM48 vs Bateman 1e-13 (CRAM48's rational error is below round-off,
+    /// so this is round-off in 24 complex 5x5 solves plus Bateman's own);
+    /// `expm` vs Bateman `max(1e-12, 10 * 2^s * u)`, the scaling-and-squaring
+    /// bound, `s` computed per step (5 at 2 h, 12 at 10 d).
+    ///
+    /// Measured 2026-10-20, normwise against Bateman:
+    ///
+    /// | `t` | CRAM48 | `expm` (`s`, bound) | old Taylor `matrix_exp` (removed) |
+    /// |---|---|---|---|
+    /// | 2 h | 6.82e-16 | 5.68e-16 (5, 1.0e-12) | 6.59e-15 |
+    /// | 10 d | 2.27e-16 | 5.43e-14 (12, 4.5e-12) | 5.67e-14 |
+    ///
+    /// The old column was measured in this same change (gh:#999), with the
+    /// same chain and times, just before `matrix_exp` was deleted.
+    #[test]
+    fn cram48_expm_and_bateman_agree_on_the_radon_chain() {
+        let chain = DecayChain::new(vec![
+            nuc("Rn-222", 3.8235 * DAY, vec![(1, 1.0)]),
+            nuc("Po-218", 3.098 * MIN, vec![(2, 1.0)]),
+            nuc("Pb-214", 26.8 * MIN, vec![(3, 1.0)]),
+            nuc("Bi-214", 19.9 * MIN, vec![(4, 1.0)]),
+            nuc("Pb-210", 22.2 * YEAR, vec![]),
+        ])
+        .unwrap();
+        let n0 = 1000.0;
+        for t in [2.0 * HOUR, 10.0 * DAY] {
+            let bat = chain.bateman_linear(n0, t).unwrap();
+            let mut c = vec![n0, 0.0, 0.0, 0.0, 0.0];
+            chain.decay_with(DecaySolver::Cram48, &mut c, t).unwrap();
+            let mut x = vec![n0, 0.0, 0.0, 0.0, 0.0];
+            chain.decay_with(DecaySolver::Expm, &mut x, t).unwrap();
+            let s = expm_squarings(&chain, t);
+            let (ec, ex) = (normwise(&c, &bat, n0), normwise(&x, &bat, n0));
+            println!(
+                "radon t = {t} s: CRAM48-Bateman {ec:.2e}, expm-Bateman {ex:.2e} (s = {s}, \
+                 bound {:.1e})",
+                expm_bound(s)
+            );
+            assert!(ec < 1e-13, "CRAM48 vs Bateman at {t} s: {ec}");
+            assert!(ex <= expm_bound(s), "expm vs Bateman at {t} s: {ex}");
+        }
+    }
+
+    /// **Comparison 2 (gh:#999): CRAM48 vs `expm` vs the exact answer on a
+    /// stiff branching chain**, thorium C: Pb-212 (10.64 h) -> Bi-212
+    /// (60.55 min) -> {Po-212 (0.299 us, 64.06 %), Tl-208 (3.053 min,
+    /// 35.94 %)} -> Pb-208 (stable), from 1000 units of Pb-212, `t = 1 d`.
+    ///
+    /// Methodology: Po-212 keeps its real half-life, so
+    /// `||A dt||_inf ~ 4.6e11` and `expm` needs ~39 squarings: the stiffness a
+    /// real decay chain brings. The exact answer is by superposition: Pb-212
+    /// and Bi-212 from the two-member Bateman; Po-212 and Tl-208 each the
+    /// third member of a linear chain Pb-212 -> Bi-212 -> X
+    /// ([`DecayChain::bateman_linear`]) times its branching fraction; Pb-208
+    /// by conservation. No near-equal decay constants (closest pair differ
+    /// 10x), so the closed form is well conditioned.
+    ///
+    /// Tolerances, fixed before running, normwise: CRAM48 vs exact 1e-13;
+    /// `expm` vs exact `max(1e-12, 10 * 2^s * u)` (~3e-4 at `s` ~ 38; the
+    /// a-priori bound is weak, the measurement is the point); atom balance
+    /// of CRAM48 1e-13.
+    ///
+    /// Measured 2026-10-20, normwise against the exact answer: **CRAM48
+    /// 5.68e-16** (atom balance 5.68e-16); **`expm` 4.53e-6** (`s = 38`,
+    /// a-priori bound 3.1e-4: inside the bound, ten orders worse than CRAM);
+    /// the removed Taylor `matrix_exp` **3.16e-6**. So on a stiff chain the
+    /// default's answer moved by ~3e-6 of the inventory when CRAM48 replaced
+    /// `matrix_exp`, towards the exact answer. This is the finding that
+    /// justifies CRAM as the default: scaling and squaring, whichever
+    /// approximant it squares, loses accuracy on a step that is 2^38 times
+    /// the stiffest decay time.
+    #[test]
+    fn cram48_expm_and_exact_agree_on_the_stiff_thorium_c_branch() {
+        let (b_po, b_tl) = (0.6406, 0.3594);
+        let chain = DecayChain::new(vec![
+            nuc("Pb-212", 10.64 * HOUR, vec![(1, 1.0)]),
+            nuc("Bi-212", 60.55 * MIN, vec![(2, b_po), (3, b_tl)]),
+            nuc("Po-212", 0.299e-6, vec![(4, 1.0)]),
+            nuc("Tl-208", 3.053 * MIN, vec![(4, 1.0)]),
+            nuc("Pb-208", f64::INFINITY, vec![]),
+        ])
+        .unwrap();
+        let via = |hl: f64| {
+            DecayChain::new(vec![
+                nuc("Pb-212", 10.64 * HOUR, vec![(1, 1.0)]),
+                nuc("Bi-212", 60.55 * MIN, vec![(2, 1.0)]),
+                nuc("X", hl, vec![]),
+            ])
+            .unwrap()
+        };
+        let n0 = 1000.0;
+        let t = DAY;
+        let po = via(0.299e-6).bateman_linear(n0, t).unwrap();
+        let tl = via(3.053 * MIN).bateman_linear(n0, t).unwrap();
+        let (pb212, bi212) = (po[0], po[1]);
+        let (po212, tl208) = (b_po * po[2], b_tl * tl[2]);
+        let exact = [
+            pb212,
+            bi212,
+            po212,
+            tl208,
+            n0 - pb212 - bi212 - po212 - tl208,
+        ];
+
+        let mut c = vec![n0, 0.0, 0.0, 0.0, 0.0];
+        chain.decay_with(DecaySolver::Cram48, &mut c, t).unwrap();
+        let mut x = vec![n0, 0.0, 0.0, 0.0, 0.0];
+        chain.decay_with(DecaySolver::Expm, &mut x, t).unwrap();
+        let s = expm_squarings(&chain, t);
+        let (ec, ex) = (normwise(&c, &exact, n0), normwise(&x, &exact, n0));
+        let bal = (c.iter().sum::<f64>() - n0).abs() / n0;
+        println!(
+            "thorium C: CRAM48-exact {ec:.2e} (balance {bal:.2e}), expm-exact {ex:.2e} \
+             (s = {s}, bound {:.1e})",
+            expm_bound(s)
+        );
+        assert!(tl208 / n0 > 1e-4, "Tl-208 share must be resolvable");
+        assert!(ec < 1e-13, "CRAM48 vs exact {ec}");
+        assert!(bal < 1e-13, "CRAM48 balance {bal}");
+        assert!(ex <= expm_bound(s), "expm vs exact {ex}");
+    }
+
+    /// The default is CRAM48, pinned (root CLAUDE.md, "correct physics is the
+    /// default" — here, "the accurate method is the default"): `decay` is bit
+    /// for bit `decay_with(DecaySolver::Cram48, ..)`.
+    #[test]
+    fn cram48_is_the_default_solver() {
+        assert_eq!(DecaySolver::default(), DecaySolver::Cram48);
+        let chain =
+            DecayChain::new(vec![nuc("A", 20.0, vec![(1, 1.0)]), nuc("B", 5.0, vec![])]).unwrap();
+        let mut a = vec![3.0, 1.0];
+        let mut b = a.clone();
+        chain.decay(&mut a, 7.0).unwrap();
+        chain.decay_with(DecaySolver::Cram48, &mut b, 7.0).unwrap();
+        assert_eq!(a, b);
+        let mut z = vec![3.0, 1.0];
+        chain.decay_with(DecaySolver::Expm, &mut z, 0.0).unwrap();
+        assert_eq!(z, vec![3.0, 1.0]);
     }
 
     #[test]

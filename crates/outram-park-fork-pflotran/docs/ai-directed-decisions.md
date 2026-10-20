@@ -261,8 +261,10 @@ Landed this wave (each **verification-only**, unit-tested, no human V&V):
 - **`activity`** (op-v6s.15.1) — Ideal / Debye–Hückel / Davies coefficients.
 - **`sorption`** (op-v6s.15.2) — Kd/Langmuir/Freundlich isotherms + Gaines–Thomas
   ion exchange; **linear Kd wired into `transport`** (retardation).
-- **`decay`** (op-v6s.15.3) — Bateman chains + `exp(A·dt)` scaling-and-squaring;
-  first-order decay **wired into `transport`**.
+- **`decay`** (op-v6s.15.3) — Bateman chains + `exp(A·dt)` ~~scaling-and-squaring~~
+  **(CORRECTED 2026-10-20, gh:#999: PETIR CRAM48 by default, PETIR `expm` as
+  the explicit cross-check; the hand-written Taylor scaling-and-squaring is
+  removed)**; first-order decay **wired into `transport`**.
 - **`microbial`** (op-v6s.15.4) — Monod / dual-Monod biodegradation (RKF45).
 - **`eos_real`** (op-v6s.15.7) — IAPWS-IF97 liquid water via `tampines-steam-tables`.
 - **`wells`** (op-v6s.15.12) — Peaceman well index (iso/anisotropic), BHP + rate
