@@ -263,6 +263,20 @@ Second tranche:
 | `boundary_totals_text` | 18 | 90 | 3.68e-4 | 6e-4 |
 | `driver_raises` | 1 | 1 | 0 (exact) | 0 |
 
+**`quadpack` no longer exact since the PETIR routing (gh:#985), measured
+2026-10-21.** 2 of 56 values are outside the bit-exact tolerance: `sin50` on
+`[0, 3]` at `eps = 1.49e-8`, `abserr` `4.017649756234245e-13` (fixture) ->
+`4.017340959785412e-13` (port), relative `7.69e-5`; and `sin50` at
+`eps = 1.49e-3`, `value` `6.014983870435742e-3` -> `6.014983870435744e-3`,
+relative `2.9e-16` (2 ulp). Cause, by ablation: the test's integrand
+`(50 x).r_sin()` now runs PETIR's `sin`, while the fixture's integrand ran
+glibc's `sin` through numpy. Putting only that one call back on `std` makes
+all 56 values bit-exact again, so the QUADPACK port itself is unchanged. The
+fixture is upstream's output and the tolerance is not widened; the maintainer
+accepted the result as OK on 2026-10-21, and how to pin it (std `sin` in the
+test integrand to mirror SciPy, or a recorded exception) is left to the
+maintainer. Every other group is unchanged.
+
 Tolerances of the second tranche: 0 everywhere the port performs upstream's
 operations in upstream's order. `plume_shine_met` allows 1e-14 because numpy's
 `einsum` sums 54 products per sector in an order it chooses; it measured

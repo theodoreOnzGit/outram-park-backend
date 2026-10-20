@@ -639,6 +639,12 @@ fn compare(variant: Variant) -> BTreeMap<String, (usize, usize, f64, usize)> {
                     e.2 = e.2.max(d);
                     if d > t {
                         e.3 += 1;
+                        if variant == Variant::Faithful {
+                            eprintln!(
+                                "{} {:?} {}: port {a:e} vs fixture {x:e} (rel {d:e})",
+                                row.group, row.inputs, row.output
+                            );
+                        }
                     }
                 }
                 None => {
