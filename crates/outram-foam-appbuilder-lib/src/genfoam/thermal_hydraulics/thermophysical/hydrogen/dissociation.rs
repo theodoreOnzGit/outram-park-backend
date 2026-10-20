@@ -25,6 +25,7 @@
 //! for nuclear thermal propulsion reactor*, Nucl. Eng. Design 392 (2022)
 //! 111753, Eqs. 2-3; equilibrium-constant fit against Reisfeld (1957), LA-2123.
 
+use petir::mathf::RealMath;
 use super::constants::{W, W_H};
 
 /// Equilibrium constant `Kp` of `H2 <-> 2H`, dimensionless (partial-pressure
@@ -33,7 +34,7 @@ use super::constants::{W, W_H};
 /// `T` in K.
 #[inline]
 pub(super) fn equilibrium_constant_kp(t: f64) -> f64 {
-    10f64.powf(-2.37943e4 / t + 6.33153)
+    10f64.r_powf(-2.37943e4 / t + 6.33153)
 }
 
 /// Mole fraction of atomic hydrogen `x_H = n_H / (n_H + n_H2)` at equilibrium

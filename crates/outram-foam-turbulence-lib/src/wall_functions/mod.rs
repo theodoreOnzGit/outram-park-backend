@@ -28,6 +28,7 @@
 //! patch boundary conditions, and are untested. The log-law constants
 //! (κ = 0.41, E = 9.8, y⁺_lam = 11) are hard-coded.
 
+use petir::mathf::RealMath;
 /// Dimensionless wall distance y⁺ = u_τ · y / ν.
 ///
 /// # Arguments
@@ -56,7 +57,7 @@ pub fn u_tau(u_wall: f64, y: f64, nu: f64) -> f64 {
     let mut u_tau = (u_wall * nu / y).sqrt().max(1e-10);
     for _ in 0..MAX_ITER {
         let yp = y_plus(y, u_tau, nu);
-        let u_plus = (1.0 / KAPPA) * yp.max(1.0).ln() + E.ln() / KAPPA;
+        let u_plus = (1.0 / KAPPA) * yp.max(1.0).r_ln() + E.r_ln() / KAPPA;
         let f = u_tau * u_plus - u_wall;
         let df = u_plus + 1.0 / KAPPA;
         let du = f / df;
@@ -81,6 +82,6 @@ pub fn nu_t_wall(y_p: f64, nu: f64) -> f64 {
     if y_p <= YP_LAM {
         0.0
     } else {
-        nu * (KAPPA * y_p / (E * y_p).ln() - 1.0).max(0.0)
+        nu * (KAPPA * y_p / (E * y_p).r_ln() - 1.0).max(0.0)
     }
 }

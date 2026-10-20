@@ -48,6 +48,7 @@
 //! cell volume = `2.5e-7 m^3` to < 1e-12 relative; boundary face-area vectors
 //! sum to `< 1e-15 m^2` per component (closed). `FvMesh::validate` passes.
 
+use petir::mathf::RealMath;
 use outram_foam_mesh::block_mesh::{block_mesh, block_mesh_from_file, BlockMeshDict};
 
 const CAVITY_DICT: &str = include_str!("blockMeshDict.cavity");
@@ -277,7 +278,7 @@ fn cavity_poly_mesh_round_trips_and_is_cartesian() {
     assert!(q.max_skewness < 1e-12, "skew {}", q.max_skewness);
 
     let (a, b, c) = (0.005f64, 0.005f64, 0.01f64);
-    let expected_ar = (a * b + b * c + c * a) / (3.0 * (a * b * c).powf(2.0 / 3.0));
+    let expected_ar = (a * b + b * c + c * a) / (3.0 * (a * b * c).r_powf(2.0 / 3.0));
     assert!(
         (q.max_aspect_ratio - expected_ar).abs() < 1e-12,
         "AR {} vs closed form {expected_ar}",

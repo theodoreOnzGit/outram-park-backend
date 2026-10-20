@@ -81,6 +81,7 @@
 //! - P.A. Lottes, W.S. Flinn, "A method of analysis of natural circulation
 //!   boiling systems", *Nucl. Sci. Eng.* 1, 1956, pp. 461-476.
 
+use petir::mathf::RealMath;
 use uom::si::f64::Ratio;
 use uom::si::ratio::ratio;
 
@@ -170,25 +171,25 @@ impl TwoPhaseDragMultiplier {
     fn value(&self, phase_fraction: f64, x_lm: f64) -> f64 {
         match *self {
             Self::ChenKalish => {
-                let ln_x = x_lm.clamp(0.07, 30.0).ln();
-                (2.0 * (0.0867 * ln_x * ln_x - 0.518 * ln_x + 1.59)).exp()
+                let ln_x = x_lm.clamp(0.07, 30.0).r_ln();
+                (2.0 * (0.0867 * ln_x * ln_x - 0.518 * ln_x + 1.59)).r_exp()
             }
             Self::Constant { phi2 } => phi2,
-            Self::Kaiser74 => 67.24 / x_lm.clamp(0.07, 30.0).powf(1.1),
+            Self::Kaiser74 => 67.24 / x_lm.clamp(0.07, 30.0).r_powf(1.1),
             Self::Kaiser88 => {
-                let log_sqrt_x = x_lm.clamp(0.07, 30.0).sqrt().ln();
-                (2.0 * (1.48 - 1.05 * log_sqrt_x + 0.09 * log_sqrt_x * log_sqrt_x)).exp()
+                let log_sqrt_x = x_lm.clamp(0.07, 30.0).sqrt().r_ln();
+                (2.0 * (1.48 - 1.05 * log_sqrt_x + 0.09 * log_sqrt_x * log_sqrt_x)).r_exp()
             }
             Self::KottowskiSavatteri => {
-                let log10_x = x_lm.clamp(0.07, 30.0).log10();
-                10f64.powf(2.0 * (0.1046 * log10_x * log10_x - 0.5098 * log10_x + 0.6252))
+                let log10_x = x_lm.clamp(0.07, 30.0).r_log10();
+                10f64.r_powf(2.0 * (0.1046 * log10_x * log10_x - 0.5098 * log10_x + 0.6252))
             }
             Self::LockhartMartinelli { c, max_phi2 } => {
                 (1.0 + c / x_lm + 1.0 / (x_lm * x_lm)).min(max_phi2)
             }
-            Self::LottesFlinn { exp } => phase_fraction.max(1e-9).powf(-exp),
+            Self::LottesFlinn { exp } => phase_fraction.max(1e-9).r_powf(-exp),
             Self::LottesFlinnNguyen { exp } => {
-                (1.0 - (1.0 + x_lm.powf(0.8)).powf(-0.378)).powf(-exp)
+                (1.0 - (1.0 + x_lm.r_powf(0.8)).r_powf(-0.378)).r_powf(-exp)
             }
         }
     }

@@ -61,6 +61,7 @@
 //! plus [`equilibrium_k`](PorousKEpsilonClosure::equilibrium_k) — both ported
 //! above.
 
+use petir::mathf::RealMath;
 use super::units::{
     volumetric_relaxation_coefficient, EddyViscosity, HydraulicDiameter, TurbulentDissipationRate,
     TurbulentKineticEnergy, VoidFraction, VolumetricRelaxationCoefficient,
@@ -119,9 +120,11 @@ impl PorousKEpsilonClosure {
         let u = speed.get::<meter_per_second>();
         let re = reynolds_number.get::<ratio>();
         let turbulence_intensity =
-            self.turbulence_intensity_coeff * re.powf(self.turbulence_intensity_exp);
+            self.turbulence_intensity_coeff * re.r_powf(self.turbulence_intensity_exp);
 
-        TurbulentKineticEnergy::new::<joule_per_kilogram>(1.5 * (u * turbulence_intensity).powi(2))
+        TurbulentKineticEnergy::new::<joule_per_kilogram>(
+            1.5 * (u * turbulence_intensity).r_powi(2),
+        )
     }
 
     /// Porous-zone equilibrium turbulent dissipation rate.
@@ -139,7 +142,7 @@ impl PorousKEpsilonClosure {
             (self.turbulence_length_scale_coeff * structure_dh.get::<meter>()).max(SMALL_LENGTH);
 
         TurbulentDissipationRate::new::<watt_per_kilogram>(
-            self.cmu.powf(0.75) * k.powf(1.5) / length_scale,
+            self.cmu.r_powf(0.75) * k.r_powf(1.5) / length_scale,
         )
     }
 
@@ -228,9 +231,11 @@ impl PorousKEpsilon2PhaseClosure {
         let ar = relative_alpha.get::<ratio>();
 
         let turbulence_intensity = self.base.turbulence_intensity_coeff
-            * re.powf(self.base.turbulence_intensity_exp)
+            * re.r_powf(self.base.turbulence_intensity_exp)
             + self.turbulence_intensity_alpha_coeff * (1.0 - ar);
 
-        TurbulentKineticEnergy::new::<joule_per_kilogram>(1.5 * (u * turbulence_intensity).powi(2))
+        TurbulentKineticEnergy::new::<joule_per_kilogram>(
+            1.5 * (u * turbulence_intensity).r_powi(2),
+        )
     }
 }

@@ -82,6 +82,7 @@
 //! against a real two-phase energy balance is deferred to when the solver
 //! that assembles `q1`/`q2` from interfacial HTC + area exists.
 
+use petir::mathf::RealMath;
 use super::{
     phase_change_rate, phase_change_rate_value, InterfacialHeatFlux, LatentHeat, LatentHeatModel,
     PhaseChangeRateModel, SaturationModel,
@@ -133,7 +134,11 @@ fn constant_temperature_saturation_port_correctness() {
         3.0e6,
         max_relative = 1e-12
     );
-    assert_relative_eq!(model.ln_p_sat(t, p), (3.0e6_f64).ln(), max_relative = 1e-12);
+    assert_relative_eq!(
+        model.ln_p_sat(t, p),
+        (3.0e6_f64).r_ln(),
+        max_relative = 1e-12
+    );
     assert_eq!(model.p_sat_prime(t, p).value, 0.0);
 }
 
@@ -151,7 +156,7 @@ const WATER_C: f64 = 4.247368421052632;
 fn water_saturation_matches_formula() {
     let model = SaturationModel::Water;
     let t = kelvin_of(320.0);
-    let expected_p = WATER_A * (320.0 - WATER_B).powf(WATER_C);
+    let expected_p = WATER_A * (320.0 - WATER_B).r_powf(WATER_C);
     assert_relative_eq!(
         model.p_sat(t, pascal_of(0.0)).get::<pascal>(),
         expected_p,
@@ -242,12 +247,12 @@ fn water_trace_saturation_branch_2_anomaly_is_measured() {
 fn browning_potter_matches_ln_p_sat_formula() {
     let model = SaturationModel::BrowningPotter;
     let t: f64 = 900.0;
-    let expected_ln_p = (11.9463 - 12633.37 / t - 0.4672 * t.ln()) + (1.0e6_f64).ln();
+    let expected_ln_p = (11.9463 - 12633.37 / t - 0.4672 * t.r_ln()) + (1.0e6_f64).r_ln();
     let ln_p = model.ln_p_sat(kelvin_of(t), pascal_of(0.0));
     assert_relative_eq!(ln_p, expected_ln_p, max_relative = 1e-12);
     assert_relative_eq!(
         model.p_sat(kelvin_of(t), pascal_of(0.0)).get::<pascal>(),
-        expected_ln_p.exp(),
+        expected_ln_p.r_exp(),
         max_relative = 1e-12
     );
 }

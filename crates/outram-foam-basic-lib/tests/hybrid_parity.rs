@@ -171,6 +171,7 @@
 //!     --test hybrid_parity -- --ignored --nocapture --test-threads=1
 //! ```
 
+use petir::mathf::RealMath;
 use std::process::{Command, Stdio};
 use std::sync::Arc;
 use std::time::Instant;
@@ -625,7 +626,7 @@ fn random_matrix(n: usize, seed: u64) -> LduMatrix {
 fn sample_field(n: usize) -> Field<f64> {
     Field::from_fn(n, |i| {
         let t = i as f64;
-        (t * 0.618_033_988_749_89).sin() * 1.0e6 + (t * 0.123_456_789_012_345).cos() * 1.0e-7
+        (t * 0.618_033_988_749_89).r_sin() * 1.0e6 + (t * 0.123_456_789_012_345).r_cos() * 1.0e-7
     })
 }
 
@@ -634,14 +635,14 @@ fn sample_field(n: usize) -> Field<f64> {
 fn sample_field_b(n: usize) -> Field<f64> {
     Field::from_fn(n, |i| {
         let t = i as f64 + 0.5;
-        (t * 0.271_828_182_845_90).cos() * 1.0e3 + 1.5e3
+        (t * 0.271_828_182_845_90).r_cos() * 1.0e3 + 1.5e3
     })
 }
 
 fn sample_vector_field(n: usize) -> Field<Vector3> {
     Field::from_fn(n, |i| {
         let t = i as f64;
-        Vector3::new(t.sin(), t.cos(), (t * 0.5).sin())
+        Vector3::new(t.r_sin(), t.r_cos(), (t * 0.5).r_sin())
     })
 }
 
@@ -955,7 +956,7 @@ fn run_all_kernels(backend: ComputeBackend) -> Vec<KernelOutput> {
             let mut acc = x * x - t;
             if i % 11 == 0 {
                 for k in 0..64 {
-                    acc += (x * (k as f64 + 1.0)).sin() * 1.0e-18;
+                    acc += (x * (k as f64 + 1.0)).r_sin() * 1.0e-18;
                 }
             }
             acc
@@ -1051,7 +1052,7 @@ fn run_all_kernels(backend: ComputeBackend) -> Vec<KernelOutput> {
             let mut acc = 1.0 + d * d;
             if i % 13 == 0 {
                 for k in 0..48 {
-                    acc += (x * (k as f64 + 1.0)).cos() * 1.0e-18;
+                    acc += (x * (k as f64 + 1.0)).r_cos() * 1.0e-18;
                 }
             }
             acc
@@ -1140,7 +1141,7 @@ fn run_all_kernels(backend: ComputeBackend) -> Vec<KernelOutput> {
                 op::QuadratureInterval::new(a, a + rng.in_range(0.5, 3.0))
             })
             .collect();
-        let integrand = |i: usize, x: f64| (-x).exp() * (x * (1.0 + (i % 7) as f64)).sin();
+        let integrand = |i: usize, x: f64| (-x).r_exp() * (x * (1.0 + (i % 7) as f64)).r_sin();
 
         let flatten_quad = |q: &op::QuadratureBatch| {
             let mut v = Vec::with_capacity(q.len() * 4);
@@ -2168,7 +2169,7 @@ fn crossover_benchmark() {
             order: op::GaussOrder::G5,
             panels: 16,
         };
-        let f = |i: usize, x: f64| (-x).exp() * (x * (1.0 + (i % 7) as f64)).sin();
+        let f = |i: usize, x: f64| (-x).r_exp() * (x * (1.0 + (i % 7) as f64)).r_sin();
         let ser = best_of(REPS, || {
             std::hint::black_box(op::quadrature_batch(
                 &intervals,
@@ -2385,7 +2386,7 @@ fn gate_gpu_kernels_match_the_oracle() {
     let x: Vec<f64> = (0..n)
         .map(|i| {
             let t = (i as f64) * std::f64::consts::PI / 1000.0;
-            t.sin() * std::f64::consts::E + (i as f64) / 3.0
+            t.r_sin() * std::f64::consts::E + (i as f64) / 3.0
         })
         .collect();
 

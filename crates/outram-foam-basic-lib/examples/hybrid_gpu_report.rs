@@ -51,6 +51,8 @@ mod desktop {
     // is gated exactly as they are — otherwise a `--no-default-features`
     // build of this example warns about a file full of unused helpers.
     #[cfg(all(feature = "gpu", not(target_os = "android")))]
+    use petir::mathf::RealMath;
+    #[cfg(all(feature = "gpu", not(target_os = "android")))]
     use std::sync::Arc;
     #[cfg(all(feature = "gpu", not(target_os = "android")))]
     use std::time::{Duration, Instant};
@@ -147,7 +149,7 @@ mod desktop {
         (0..n)
             .map(|i| {
                 let t = (i as f64) * std::f64::consts::PI / 1000.0;
-                t.sin() * std::f64::consts::E + (i as f64) / 3.0
+                t.r_sin() * std::f64::consts::E + (i as f64) / 3.0
             })
             .collect()
     }

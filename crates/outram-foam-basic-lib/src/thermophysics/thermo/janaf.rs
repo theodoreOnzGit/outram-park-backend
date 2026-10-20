@@ -19,6 +19,7 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+use petir::mathf::RealMath;
 use super::traits::ThermoModel;
 use crate::thermophysics::constants::T_STD;
 use crate::thermophysics::eos::EquationOfState;
@@ -151,7 +152,7 @@ impl<E: EquationOfState> ThermoModel for JanafThermo<E> {
         let tv = t.get::<kelvin>().clamp(self.tlow, self.thigh);
         let a = self.coeffs(tv);
         let s_val = (((a[4] / 4.0 * tv + a[3] / 3.0) * tv + a[2] / 2.0) * tv + a[1]) * tv
-            + a[0] * tv.ln()
+            + a[0] * tv.r_ln()
             + a[6];
         SpecificHeatCapacity::new::<joule_per_kilogram_kelvin>(s_val) + self.eos.s_eos(p, t)
     }

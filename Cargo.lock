@@ -3275,6 +3275,7 @@ name = "farrer-park"
 version = "0.0.2"
 dependencies = [
  "outram-foam-basic-lib",
+ "petir",
  "thiserror 2.0.21",
  "uom",
 ]
@@ -7495,6 +7496,7 @@ dependencies = [
  "outram-foam-mesh",
  "outram-foam-multiphase",
  "outram-foam-turbulence-lib",
+ "petir",
  "serde",
  "thiserror 2.0.21",
  "uom",
@@ -7535,6 +7537,7 @@ dependencies = [
  "approx",
  "ndarray",
  "outram-foam-basic-lib",
+ "petir",
  "thiserror 2.0.21",
  "uom",
 ]
@@ -7545,6 +7548,7 @@ version = "0.0.3"
 dependencies = [
  "approx",
  "outram-foam-basic-lib",
+ "petir",
  "thiserror 2.0.21",
  "uom",
 ]
@@ -7556,6 +7560,7 @@ dependencies = [
  "approx",
  "ndarray",
  "outram-foam-basic-lib",
+ "petir",
  "thiserror 2.0.21",
  "uom",
 ]

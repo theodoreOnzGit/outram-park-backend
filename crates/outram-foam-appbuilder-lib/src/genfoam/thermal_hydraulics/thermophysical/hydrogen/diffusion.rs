@@ -26,6 +26,7 @@
 //! exercise it — per this workspace's "no orphaned dead code" rule and to
 //! avoid asserting V&V on a function with no reference data, it is not ported.
 
+use petir::mathf::RealMath;
 use super::collision_integrals::omega11_12;
 use super::constants::{W, W_H};
 
@@ -37,7 +38,7 @@ use super::constants::{W, W_H};
 #[inline]
 pub(super) fn binary_diffusion_h_h2(p: f64, t: f64) -> f64 {
     let m12 = 2.0 * W_H * W / (W_H + W);
-    2.628e-7 / (p / 101_325.0 * omega11_12(t)) * (t.powi(3) / m12).sqrt()
+    2.628e-7 / (p / 101_325.0 * omega11_12(t)) * (t.r_powi(3) / m12).sqrt()
 }
 
 #[cfg(test)]

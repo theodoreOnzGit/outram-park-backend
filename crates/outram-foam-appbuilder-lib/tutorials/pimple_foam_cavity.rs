@@ -82,6 +82,7 @@
 //! convection on the coarse 20×20 mesh (Ghia used 129×129) — the test asserts
 //! an RMS < 0.10 regression guard, not the 2 % a fine second-order mesh reaches.
 
+use petir::mathf::RealMath;
 use outram_foam_appbuilder_lib::io::control_dict::{ControlDict, StartControl, StopControl};
 use outram_foam_appbuilder_lib::io::field_reader::{
     read_vol_scalar_field_full, read_vol_vector_field, read_vol_vector_field_full,
@@ -916,12 +917,12 @@ fn cavity_ghia_grid_convergence_re100() {
          greater than |f2−f3| = {d23:.3e}; Richardson extrapolation does not apply"
     );
 
-    let p = (d12 / d23).ln() / R.ln();
-    let f_extrap = f[2] + (f[2] - f[1]) / (R.powf(p) - 1.0);
-    let gci_23 = 1.25 * ((f[2] - f[1]) / f[2]).abs() / (R.powf(p) - 1.0);
+    let p = (d12 / d23).r_ln() / R.r_ln();
+    let f_extrap = f[2] + (f[2] - f[1]) / (R.r_powf(p) - 1.0);
+    let gci_23 = 1.25 * ((f[2] - f[1]) / f[2]).abs() / (R.r_powf(p) - 1.0);
 
-    let p_err_rms_12 = (e_rms[0] / e_rms[1]).log2();
-    let p_err_rms_23 = (e_rms[1] / e_rms[2]).log2();
+    let p_err_rms_12 = (e_rms[0] / e_rms[1]).r_log2();
+    let p_err_rms_23 = (e_rms[1] / e_rms[2]).r_log2();
 
     println!("\n── Grid convergence, cavity Re = 100, U_x/U_lid at y/L = {STATION} ──");
     println!("  f(20)  = {:+.6}", f[0]);

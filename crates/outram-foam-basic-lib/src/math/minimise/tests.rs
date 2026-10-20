@@ -23,6 +23,7 @@
 //! 5. **Measurement** — `#[ignore]`d benchmarks whose printed output is the
 //!    source of every number in the constants' documentation.
 
+use petir::mathf::RealMath;
 use super::*;
 
 // ── Deterministic pseudorandom source (fixed seed, no `rand` dependency) ─────
@@ -250,7 +251,7 @@ fn flat_minimum_exposes_the_sqrt_eps_limit() {
     );
     println!(
         "sqrt(eps) = {SQRT_EPSILON:.6e}, eps^(1/4) = {:.6e}",
-        f64::EPSILON.powf(0.25)
+        f64::EPSILON.r_powf(0.25)
     );
 
     assert!(
@@ -302,7 +303,7 @@ fn golden_section_matches_analytic_transcendental_minimum() {
         Sense::Minimise,
         MinSettings::default(),
         ComputeBackend::Serial,
-        |_, x| x * x.ln(),
+        |_, x| x * x.r_ln(),
     );
 
     let s = batch.solutions()[0];
@@ -345,7 +346,7 @@ fn maximise_matches_analytic_sine_peak() {
         Sense::Maximise,
         MinSettings::default(),
         ComputeBackend::Serial,
-        |_, x| x.sin(),
+        |_, x| x.r_sin(),
     );
 
     let s = batch.solutions()[0];
@@ -432,7 +433,7 @@ fn bracket_contracts_at_the_golden_ratio() {
         );
         assert_eq!(s.iterations(), k);
 
-        let expected = w0 * GOLDEN_RATIO.powi(k as i32);
+        let expected = w0 * GOLDEN_RATIO.r_powi(k as i32);
         let deviation = (s.bracket_width() / expected - 1.0).abs();
         worst = worst.max(deviation);
         if k <= 20 {
@@ -493,8 +494,8 @@ fn bracket_contracts_at_the_golden_ratio() {
 #[test]
 fn multimodal_bracket_returns_a_local_extremum_without_warning() {
     let f = |x: f64| {
-        let narrow = -(-100.0 * (x + 1.5) * (x + 1.5)).exp();
-        let wide = -0.5 * (-(x - 1.0) * (x - 1.0)).exp();
+        let narrow = -(-100.0 * (x + 1.5) * (x + 1.5)).r_exp();
+        let wide = -0.5 * (-(x - 1.0) * (x - 1.0)).r_exp();
         narrow + wide
     };
 
@@ -1058,7 +1059,7 @@ fn minimise_batch_crossover_benchmark() {
         // equation-of-state flash. Same minimiser, so iteration counts match.
         let costly = |i: usize, x: f64| {
             let d = x - vertices[i];
-            let s = (1.0 + d * d).ln().exp().sqrt();
+            let s = (1.0 + d * d).r_ln().r_exp().sqrt();
             s * s - 1.0
         };
 

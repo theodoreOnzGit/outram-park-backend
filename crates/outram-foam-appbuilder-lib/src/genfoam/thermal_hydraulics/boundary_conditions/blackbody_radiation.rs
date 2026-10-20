@@ -61,6 +61,7 @@
 //! composite expressions with no natural `uom` type; all public signatures
 //! stay `uom`-dimensioned.
 
+use petir::mathf::RealMath;
 use uom::si::f64::{Length, Ratio, ThermalConductivity, ThermodynamicTemperature};
 use uom::si::heat_flux_density::watt_per_square_meter;
 use uom::si::length::meter;
@@ -143,8 +144,8 @@ impl BlackBodyRadiationBc {
         let q = heat_flux.get::<watt_per_square_meter>();
         let eps = self.emissivity.get::<ratio>();
         let t_a = self.ambient_temperature.get::<kelvin>();
-        let t4 = q / (STEFAN_BOLTZMANN_SIGMA * eps) + t_a.powi(4);
-        ThermodynamicTemperature::new::<kelvin>(t4.powf(0.25))
+        let t4 = q / (STEFAN_BOLTZMANN_SIGMA * eps) + t_a.r_powi(4);
+        ThermodynamicTemperature::new::<kelvin>(t4.r_powf(0.25))
     }
 
     /// One outer-iteration update step, mirroring upstream's `updateCoeffs()`
@@ -212,7 +213,7 @@ mod tests {
 
         let sigma = 5.670_374_419e-8_f64;
         let t_face_target = 1000.0_f64;
-        let q_hand = sigma * (t_face_target.powi(4) - 300.0_f64.powi(4));
+        let q_hand = sigma * (t_face_target.r_powi(4) - 300.0_f64.r_powi(4));
         assert!((q_hand - 56244.443_86).abs() < 1e-1, "q_hand = {q_hand}");
 
         let t_face = bc.face_temperature_from_flux(wpsm(q_hand));
@@ -290,8 +291,8 @@ mod tests {
             t_face_from_flux.get::<kelvin>()
         );
 
-        let hand_t4 = q_expected / (5.670_374_419e-8 * 0.78) + 10.0_f64.powi(4);
-        let hand_t = hand_t4.powf(0.25);
+        let hand_t4 = q_expected / (5.670_374_419e-8 * 0.78) + 10.0_f64.r_powi(4);
+        let hand_t = hand_t4.r_powf(0.25);
         assert!(
             (t_face_updated.get::<kelvin>() - hand_t).abs() < 1e-4,
             "updated = {} K, hand = {hand_t} K",

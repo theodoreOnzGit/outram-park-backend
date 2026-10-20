@@ -39,6 +39,7 @@
 //! metres to match the rest of the mesh layer; STL itself is unit-less, so the
 //! caller is responsible for supplying a metre-scaled file.
 
+use petir::mathf::RealMath;
 use crate::MeshError;
 use outram_foam_basic_lib::primitives::Vector3;
 
@@ -221,9 +222,9 @@ impl TriangleSoup {
             let theta = std::f64::consts::PI * ia; // 0..π  (polar angle)
             let phi = 2.0 * std::f64::consts::PI * io; // 0..2π (azimuth)
             Vector3::new(
-                centre.x + r * theta.sin() * phi.cos(),
-                centre.y + r * theta.sin() * phi.sin(),
-                centre.z + r * theta.cos(),
+                centre.x + r * theta.r_sin() * phi.r_cos(),
+                centre.y + r * theta.r_sin() * phi.r_sin(),
+                centre.z + r * theta.r_cos(),
             )
         };
         let mut tris = Vec::with_capacity(2 * n_lat * n_lon);

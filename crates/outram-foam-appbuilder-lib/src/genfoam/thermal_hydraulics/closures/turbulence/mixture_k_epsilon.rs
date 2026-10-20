@@ -53,6 +53,7 @@
 //! operate on `surfaceScalarField`s / look up sibling phase objects from the
 //! mesh registry — deferred (see the parent module doc).
 
+use petir::mathf::RealMath;
 use super::drag_coefficient_from_kd;
 use super::units::{
     dissipation_rate_of_change, mixture_bubble_production, DragCoefficient, HydraulicDiameter,
@@ -155,7 +156,7 @@ impl MixtureKEpsilonClosure {
         let beta = (6.0 * self.cmu / (4.0 * (1.5_f64).sqrt())) * (kd.value / rho_l) * (k_l / eps_l);
         let ct0 = (3.0 + beta) / (1.0 + beta + 2.0 * rho_g / rho_l);
         let f_alphad = (180.0 + (-4.71e3 + 4.26e4 * ag) * ag) * ag;
-        let ct2 = (1.0 + (ct0 - 1.0) * (-f_alphad).exp()).powi(2);
+        let ct2 = (1.0 + (ct0 - 1.0) * (-f_alphad).r_exp()).r_powi(2);
 
         Ratio::new::<ratio>(ct2)
     }
@@ -262,7 +263,7 @@ impl MixtureKEpsilonClosure {
         let ur = relative_velocity.get::<meter_per_second>();
         let dh = dh_gas.get::<meter>().max(1e-3);
 
-        let bubble_g = self.cp * al * rl * (1.0 + cd.powf(4.0 / 3.0)) * ag * ur.powi(3) / dh;
+        let bubble_g = self.cp * al * rl * (1.0 + cd.r_powf(4.0 / 3.0)) * ag * ur.r_powi(3) / dh;
 
         mixture_bubble_production(bubble_g)
     }

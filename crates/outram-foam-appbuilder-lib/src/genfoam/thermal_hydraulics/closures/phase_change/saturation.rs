@@ -32,6 +32,7 @@
 //! - `BrowningPotter`: Browning & Potter correlation, ANL-RE-95/2,
 //!   <https://www.ne.anl.gov/eda/ANL-RE-95-2.pdf>.
 
+use petir::mathf::RealMath;
 use super::SaturationPressureSlope;
 use uom::si::f64::{Pressure, ThermodynamicTemperature};
 use uom::si::pressure::pascal;
@@ -123,7 +124,8 @@ impl SaturationModel {
     /// implements it generically from [`SaturationModel::p_sat`].
     #[must_use]
     pub fn ln_p_sat(&self, t: ThermodynamicTemperature, p: Pressure) -> f64 {
-        self.p_sat_value(t.get::<kelvin>(), p.get::<pascal>()).ln()
+        self.p_sat_value(t.get::<kelvin>(), p.get::<pascal>())
+            .r_ln()
     }
 
     /// Saturation-curve slope `dp_sat/dT`.
@@ -180,7 +182,7 @@ const WATER_C: f64 = 4.247368421052632;
 
 /// `p_sat = A * (T - B)^C`.
 fn water_p_sat(t_k: f64) -> f64 {
-    WATER_A * (t_k - WATER_B).powf(WATER_C)
+    WATER_A * (t_k - WATER_B).r_powf(WATER_C)
 }
 
 /// Upstream `valuePSatPrime`: `(C - 1) * A * (T - B)^(C - 1)`.
@@ -189,12 +191,12 @@ fn water_p_sat(t_k: f64) -> f64 {
 /// `A*(T-B)^C` with respect to `T` is `C*A*(T-B)^(C-1)`, not
 /// `(C-1)*A*(T-B)^(C-1)`. Ported verbatim, not corrected (see module docs).
 fn water_p_sat_prime(t_k: f64) -> f64 {
-    (WATER_C - 1.0) * WATER_A * (t_k - WATER_B).powf(WATER_C - 1.0)
+    (WATER_C - 1.0) * WATER_A * (t_k - WATER_B).r_powf(WATER_C - 1.0)
 }
 
 /// `T_sat = (p / A)^(1/C) + B`, the algebraic inverse of [`water_p_sat`].
 fn water_t_sat(p_pa: f64) -> f64 {
-    (p_pa / WATER_A).powf(1.0 / WATER_C) + WATER_B
+    (p_pa / WATER_A).r_powf(1.0 / WATER_C) + WATER_B
 }
 
 // ---------------------------------------------------------------------------
@@ -209,18 +211,18 @@ fn water_trace_p_sat(t_k: f64) -> f64 {
     if t_k < 370.4251 {
         let ts = t_k.max(273.15);
         let (aap, bap, cap, dap) = (24821.0, 338.0, -5.3512, 20.387);
-        aap * (ts / bap).powf(cap) * (dap * (ts - bap) / ts).exp()
+        aap * (ts / bap).r_powf(cap) * (dap * (ts - bap) / ts).r_exp()
     } else if t_k < 609.62462615967 {
         // Upstream quirk (see SaturationModel::WaterTrace docs): this branch
         // is not the algebraic inverse of water_trace_t_sat's matching branch.
         let (ab, bb, cb, db) = (117.8, 1e-5, 0.223, 255.2);
-        bb * ((t_k - db) / ab).powf(1.0 / cb)
+        bb * ((t_k - db) / ab).r_powf(1.0 / cb)
     } else if t_k < 647.3 {
         let (ac, bc, cc) = (7.2166948490268e11, -8529.6481905883, 1166669.3278328);
-        ac * ((bc + cc / t_k) / t_k).exp()
+        ac * ((bc + cc / t_k) / t_k).r_exp()
     } else {
         let (ad, bd, cd) = (22.12e6, 7.6084087, 4924.9229);
-        ad * (bd - cd / t_k).exp()
+        ad * (bd - cd / t_k).r_exp()
     }
 }
 
@@ -248,18 +250,19 @@ fn water_trace_t_sat(p_pa: f64) -> f64 {
         let (aa, ba, ca, da) = (-2263.0, 0.434, 100000.0, 6.064);
         let (aap, bap, cap, dap) = (24821.0, 338.0, -5.3512, 20.387);
         let (aah, bah) = (3180619.59, 2470.2120);
-        let mut ts = aa / (ba * (ps / ca).ln() - da);
+        let mut ts = aa / (ba * (ps / ca).r_ln() - da);
         for _ in 0..2 {
             let ts_approx = ts;
             let ps_approx =
-                aap * (ts_approx / bap).powf(cap) * (dap * (ts_approx - bap) / ts_approx).exp();
+                aap * (ts_approx / bap).r_powf(cap) * (dap * (ts_approx - bap) / ts_approx).r_exp();
             let hs_approx = aah - bah * ts_approx;
-            ts = ts_approx / (1.0 - WATER_TRACE_RV * ts_approx / hs_approx * (ps / ps_approx).ln());
+            ts = ts_approx
+                / (1.0 - WATER_TRACE_RV * ts_approx / hs_approx * (ps / ps_approx).r_ln());
         }
         ts
     } else if p_pa < 13.969971285053e6 {
         let (ab, bb, cb, db) = (117.8, 1e-5, 0.223, 255.2);
-        ab * (bb * p_pa).powf(cb) + db
+        ab * (bb * p_pa).r_powf(cb) + db
     } else if p_pa < 22.12e6 {
         let (ac, bc, cc, dc) = (
             4264.8240952941,
@@ -267,10 +270,10 @@ fn water_trace_t_sat(p_pa: f64) -> f64 {
             1166669.3278328,
             27.304833093884,
         );
-        (ac + (-bc + cc * p_pa.ln()).sqrt()) / (dc - p_pa.ln())
+        (ac + (-bc + cc * p_pa.r_ln()).sqrt()) / (dc - p_pa.r_ln())
     } else {
         let (ad, bd) = (4924.9229, 24.520401);
-        ad / (bd - p_pa.ln())
+        ad / (bd - p_pa.r_ln())
     }
 }
 
@@ -281,11 +284,11 @@ fn water_trace_t_sat(p_pa: f64) -> f64 {
 /// `ln(p_sat) = A + B/T + C*ln(T)`, plus `ln(1e6)` to convert the upstream
 /// MPa-based fit constants to a Pa-based result.
 fn browning_potter_ln_p_sat(t_k: f64) -> f64 {
-    (11.9463 - 12633.37 / t_k - 0.4672 * t_k.ln()) + 1.0e6_f64.ln()
+    (11.9463 - 12633.37 / t_k - 0.4672 * t_k.r_ln()) + 1.0e6_f64.r_ln()
 }
 
 fn browning_potter_p_sat(t_k: f64) -> f64 {
-    browning_potter_ln_p_sat(t_k).exp()
+    browning_potter_ln_p_sat(t_k).r_exp()
 }
 
 fn browning_potter_p_sat_prime(t_k: f64) -> f64 {
@@ -296,5 +299,5 @@ fn browning_potter_p_sat_prime(t_k: f64) -> f64 {
 /// [`browning_potter_ln_p_sat`] (not exact — `ln(p_sat)` is not analytically
 /// invertible in `T`; see [`SaturationModel::BrowningPotter`] docs).
 fn browning_potter_t_sat(p_pa: f64) -> f64 {
-    923840.0 / (-11275.0 + (127125625.0 + 1847680.0 * (7.8270 - (p_pa / 1.0e6).ln())).sqrt())
+    923840.0 / (-11275.0 + (127125625.0 + 1847680.0 * (7.8270 - (p_pa / 1.0e6).r_ln())).sqrt())
 }

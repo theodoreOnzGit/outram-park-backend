@@ -51,6 +51,7 @@
 //! dimensions) and the vector magnitude is scaled by the dimensionless
 //! rundown factor.
 
+use petir::mathf::RealMath;
 use uom::si::f64::{Frequency, Ratio, Time};
 use uom::si::frequency::hertz;
 use uom::si::ratio::ratio;
@@ -114,7 +115,7 @@ impl VelocityRundownBc {
         }
         let dt = (t - self.start_time).get::<second>();
         let base = self.const_a.get::<ratio>() + self.coeff_b.get::<hertz>() * dt;
-        Ratio::new::<ratio>(base.powf(self.exp_c))
+        Ratio::new::<ratio>(base.r_powf(self.exp_c))
     }
 
     /// The instantaneous velocity `U(t) = U0 * f(t)`, given the reference

@@ -76,6 +76,7 @@
 //! [`crate::genfoam::neutronics::xs::nuclear_data_one_energy`] and
 //! [`crate::genfoam::multi_region::rbf_mapping`] — share this single kernel.
 
+use petir::mathf::RealMath;
 use outram_foam_basic_lib::matrix::{MatrixError, SquareMatrix};
 
 /// Polyharmonic radial basis function `phi(r)` evaluated from `r^2`.
@@ -95,9 +96,9 @@ use outram_foam_basic_lib::matrix::{MatrixError, SquareMatrix};
 pub fn polyharmonic_spline_function(r_square: f64, mode: usize) -> f64 {
     match mode {
         1 => r_square.sqrt(),
-        2 => r_square * 0.5 * r_square.ln(),
+        2 => r_square * 0.5 * r_square.r_ln(),
         3 => r_square.sqrt() * r_square,
-        4 => r_square * r_square * 0.5 * r_square.ln(),
+        4 => r_square * r_square * 0.5 * r_square.r_ln(),
         _ => 0.0,
     }
 }

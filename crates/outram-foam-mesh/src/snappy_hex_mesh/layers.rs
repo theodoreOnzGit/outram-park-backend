@@ -196,6 +196,7 @@
 //! [`PatchKind::Wall`]: outram_foam_basic_lib::mesh::PatchKind::Wall
 //! [`FvMesh`]: outram_foam_basic_lib::mesh::FvMesh
 
+use petir::mathf::RealMath;
 use std::collections::HashMap;
 
 use outram_foam_basic_lib::mesh::{BoundaryPatch, PatchKind};
@@ -288,7 +289,7 @@ impl LayerControls {
                 if n <= 1 || (self.expansion_ratio - 1.0).abs() < RATIO_UNITY_TOL {
                     final_t
                 } else {
-                    final_t / self.expansion_ratio.powi((n - 1) as i32)
+                    final_t / self.expansion_ratio.r_powi((n - 1) as i32)
                 }
             }
         }
@@ -1126,9 +1127,9 @@ mod tests {
             let theta = std::f64::consts::PI * ia;
             let phi = 2.0 * std::f64::consts::PI * io;
             Vector3::new(
-                theta.sin() * phi.cos(),
-                theta.sin() * phi.sin(),
-                theta.cos(),
+                theta.r_sin() * phi.r_cos(),
+                theta.r_sin() * phi.r_sin(),
+                theta.r_cos(),
             )
         };
         let mut tris = Vec::new();

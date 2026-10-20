@@ -108,6 +108,7 @@
 //! constraint, advection boundedness), not *validation* against experimental or
 //! reference-solver data.
 
+use petir::mathf::RealMath;
 use crate::MultiphaseError;
 use outram_foam_basic_lib::fv_operators::{fvc, fvm};
 use outram_foam_basic_lib::prelude::{
@@ -434,7 +435,7 @@ impl DragModel {
 /// `Re` is the slip Reynolds number `[-]`, assumed non-negative.
 fn schiller_naumann_cd_re(re: f64) -> f64 {
     if re < 1000.0 {
-        24.0 * (1.0 + 0.15 * re.powf(0.687))
+        24.0 * (1.0 + 0.15 * re.r_powf(0.687))
     } else {
         0.44 * re
     }
@@ -449,11 +450,11 @@ fn wen_yu_cd_re(re: f64, alpha_c: f64) -> f64 {
     let a2 = alpha_c.max(RESIDUAL_ALPHA);
     let res = a2 * re;
     let cds_res = if res < 1000.0 {
-        24.0 * (1.0 + 0.15 * res.powf(0.687))
+        24.0 * (1.0 + 0.15 * res.r_powf(0.687))
     } else {
         0.44 * res
     };
-    cds_res * a2.powf(-2.65)
+    cds_res * a2.r_powf(-2.65)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -885,7 +886,7 @@ mod tests {
         *sys.dispersed.u_mut() = VolVectorField::uniform("U", sys.mesh.clone(), vx(0.1));
 
         // Independent hand values.
-        let cd_re_hand = 24.0 * (1.0 + 0.15 * 100.0_f64.powf(0.687));
+        let cd_re_hand = 24.0 * (1.0 + 0.15 * 100.0_f64.r_powf(0.687));
         assert_relative_eq!(cd_re_hand, 109.1729, max_relative = 1e-4);
         let k_d_hand = 0.2 * 0.75 * cd_re_hand * 1000.0 * 1e-6 / (1e-3 * 1e-3);
         assert_relative_eq!(k_d_hand, 16375.94, max_relative = 1e-4);
@@ -943,7 +944,8 @@ mod tests {
             "WenYu {k_wy} should exceed SN {k_sn} at α_c=0.8"
         );
         // Hand-computed Wen-Yu CdRe = 175.33 → K_d = 0.2·0.75·175.33·1e9·1e-6/… :
-        let cd_re_wy = 24.0 * (1.0 + 0.15 * (0.8 * 100.0_f64).powf(0.687)) * 0.8_f64.powf(-2.65);
+        let cd_re_wy =
+            24.0 * (1.0 + 0.15 * (0.8 * 100.0_f64).r_powf(0.687)) * 0.8_f64.r_powf(-2.65);
         let k_d_hand = 0.2 * 0.75 * cd_re_wy * 1000.0 * 1e-6 / (1e-3 * 1e-3);
         assert_relative_eq!(k_wy, k_d_hand, max_relative = 1e-9);
     }

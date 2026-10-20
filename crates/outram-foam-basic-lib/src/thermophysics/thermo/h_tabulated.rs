@@ -142,6 +142,7 @@ impl<E: EquationOfState> ThermoModel for HTabulatedThermo<E> {
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
     use crate::thermophysics::eos::PerfectGas;
     use approx::assert_relative_eq;
@@ -162,8 +163,8 @@ mod tests {
         let cps = vec![cp, cp];
         let has = vec![cp * (200.0 - t_ref), cp * (1000.0 - t_ref)];
         let ss = vec![
-            cp * (200.0_f64 / t_ref).ln(),
-            cp * (1000.0_f64 / t_ref).ln(),
+            cp * (200.0_f64 / t_ref).r_ln(),
+            cp * (1000.0_f64 / t_ref).r_ln(),
         ];
         HTabulatedThermo::new(
             eos,

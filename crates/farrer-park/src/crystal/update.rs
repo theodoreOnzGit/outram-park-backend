@@ -64,6 +64,7 @@
 //! Stresses, slip resistances and tangent entries in pascals; strains, slips
 //! and exponents dimensionless; the time increment in seconds.
 
+use petir::mathf::RealMath;
 use outram_foam_basic_lib::matrix::SquareMatrix;
 
 use crate::crystal::elastic::CrystalElasticity;
@@ -414,7 +415,7 @@ impl CrystalPlasticity {
         // carry the start-of-step strain. See bead `op-q75c`.
         let guess_ratio_cap = (GUESS_SLIP_CAP
             / (self.flow.reference_slip_rate() * self.time_increment))
-            .powf(self.flow.rate_sensitivity_exponent())
+            .r_powf(self.flow.rate_sensitivity_exponent())
             .max(1.0);
         let mut sigma = if cs.stress == Voigt6::ZERO && cs.total_slip == 0.0 {
             sigma_trial
