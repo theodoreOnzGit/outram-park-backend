@@ -3,7 +3,12 @@ name = "tuas_boussinesq_solver"
 version = "0.1.8"
 authors.workspace = true
 edition.workspace = true
-license.workspace = true
+# HELD at GPL-3.0-only, NOT the workspace default (gh:#973). The solver this
+# crate implements is a peer-reviewed paper co-authored with Sicong Xiao and
+# Per F. Peterson (doi:10.1016/j.jandt.2025.03.006); relicensing to
+# AGPL-3.0-only needs their consent recorded on gh:#973 first. Restore
+# `license.workspace = true` once it is.
+license = "GPL-3.0-only"
 description = "Thermo-hydraulic Uniphase Solver for Advection and Convection in Salt Flows (TUAS)"
 homepage.workspace = true
 repository.workspace = true

@@ -2,6 +2,10 @@
 name = "bedok"
 version = "0.0.1"
 edition = "2021"
+# HELD at GPL-3.0-only, NOT the workspace default (gh:#973). The bulk of this
+# crate is a translation of Than Yan Ren's (SNRSI) MATLAB implementation, so
+# they hold copyright in it; relicensing to AGPL-3.0-only needs their consent,
+# and Xiao SiCong's, recorded on gh:#973 first.
 license = "GPL-3.0-only"
 description = "BEDOK — systems-level multiphysics coupling: 3-D nodal-diffusion neutronics coupled to thermal hydraulics. Rust translation of Than Yan Ren's (SNRSI) MATLAB implementation."
 repository = "https://github.com/theodoreOnzGit/outram-park-backend"

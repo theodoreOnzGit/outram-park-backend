@@ -7,7 +7,11 @@ edition.workspace = true
 # This crate is a derivative work of NJOY2016, which is itself under a modified
 # BSD 3-Clause license (GPL-compatible). The upstream notice is preserved in
 # LICENSE.njoy and NOTICE — keep both in the published package.
-license = "GPL-3.0-only"
+# Relicensed GPL-3.0-only -> AGPL-3.0-only on 2026-10-20 (gh:#973). NJOY2016 is
+# under a modified BSD 3-Clause (LANL/DOE) and the WMP material is MIT, both
+# permissive, so this translation may be conveyed under AGPL-3.0-only with the
+# upstream notices kept (`LICENSE.njoy`, `LICENSE-WMP`, `NOTICE`).
+license = "AGPL-3.0-only"
 homepage.workspace = true
 repository.workspace = true
 categories.workspace = true
