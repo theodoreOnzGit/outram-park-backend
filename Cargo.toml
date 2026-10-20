@@ -435,10 +435,9 @@ ratatui = "0.29"
 log = "0.4"
 rayon = "1.11.0"
 # 0.1.6 (gh:#985): the first no_std + alloc release; its uom is
-# `default-features = false, features = ["autoconvert","f32","f64","si"]`, so
-# it no longer turns `uom/std` on workspace-wide. 0.1.5 declared a bare
-# `uom = "0.38"` (with `std`) and had to be git-patched to the maintainer's
-# `no-std-alloc` branch for a few hours on 2026-10-20 until 0.1.6 published.
+# `default-features = false, features = ["autoconvert","f32","f64","si"]`.
+# 0.1.5 declared a bare `uom = "0.38"`, i.e. with `std`, which feature-unified
+# `uom/std` back on for the whole workspace.
 fission-yields-data = "0.1.6"
 openmc-endf-8-depletion-lib-a = "1.0.0"
 openmc-endf-8-depletion-lib-b = "1.0.0"
