@@ -75,7 +75,8 @@ fn load(case: &str) -> Option<Nuclide> {
     let root = ws();
     let (path, name) = match case {
         "U235" => (
-            root.join("reference-data/ace/reference-njoy/endf-b-viii.0/293.6K/U235.ace.gz"),
+            njoy_outram_park_fork::reference_data::reference_data_dir("ace")
+                .join("reference-njoy/endf-b-viii.0/293.6K/U235.ace.gz"),
             "U235",
         ),
         "U235_hist" => (root.join("target/ace_extra/U235_hist.ace"), "U235"),
@@ -214,7 +215,6 @@ fn correlated_cosine_distribution_matches_openmc() {
         "crates/outram-mc-libs/verification_and_validation/ace_route_physics/data/correlated_mu_cdf_openmc.csv",
     );
     let text = std::fs::read_to_string(csv).expect("reference");
-    let root = ws();
     let mut cases: Vec<(String, i32, f64, Vec<(f64, f64)>)> = Vec::new();
     for line in text.lines().filter(|l| !l.starts_with('#') && !l.is_empty()) {
         let f: Vec<&str> = line.split(',').collect();
@@ -232,8 +232,8 @@ fn correlated_cosine_distribution_matches_openmc() {
     let mut n = 0;
     for (i, (name, mt, e, pts)) in cases.iter().enumerate() {
         if !loaded.iter().any(|(c, _)| c == name) {
-            let p = root.join(format!(
-                "reference-data/ace/reference-njoy/endf-b-viii.0/293.6K/{name}.ace.gz"
+            let p = njoy_outram_park_fork::reference_data::reference_data_dir("ace").join(format!(
+                "reference-njoy/endf-b-viii.0/293.6K/{name}.ace.gz"
             ));
             let nuc = p.is_file().then(|| Nuclide::from_ace_file(&p, name).expect("loads"));
             loaded.push((name.clone(), nuc));
