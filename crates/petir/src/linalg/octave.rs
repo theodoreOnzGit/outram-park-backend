@@ -4,8 +4,10 @@
 // `Matrix::mul` PORTS GSL 2.8's cblas/source_gemm_r.h (RowMajor,
 // NoTrans/NoTrans branch, alpha = 1, beta = 0) and `Norm::One` PORTS
 // matrix/prop_source.c:166 gsl_matrix_norm1 with cblas/source_asum_r.h;
-// commit cf180cd7fbd06039a577f9c9ff0b428784765ac1, GPL-3.0-or-later,
-// Copyright (C) 1996-2000, 2007 Gerard Jungman, Brian Gough. Everything else
+// commit cf180cd7fbd06039a577f9c9ff0b428784765ac1, GPL-3.0-or-later.
+// source_gemm_r.h: Copyright (C) 2001, 2007 Brian Gough; prop_source.c:
+// (C) 1996-2000, 2007 Gerard Jungman, Brian Gough; source_asum_r.h:
+// (C) 1996-2000 Gerard Jungman. Everything else
 // here delegates to an existing port or is definitional (see the module
 // docs).
 
@@ -49,6 +51,10 @@
 //! | `A \ b` | [`Matrix::solve`] | square: [`SquareMatrix::solve`] (LU); tall: [`QrDecomposition::least_squares`] |
 //! | `A * B` | [`Matrix::mul`] | port of `cblas_dgemm` |
 //! | `A * x` | [`Matrix::mul_vec`] | existing |
+//! | `A \ B` (square `A`, matrix `B`) | [`Matrix::solve_mat`] | LU of [`SquareMatrix`], one back substitution per column |
+//! | `c * A`, `A + B`, `A - B` | [`Matrix::scale`], [`Matrix::add`], [`Matrix::sub`] | definitional (one operation per entry) |
+//! | `isdiag(A)` | [`Matrix::is_diag`] | definitional (comparison only) |
+//! | `expm(A)` | [`crate::linalg::expm()`](fn@crate::linalg::expm) | port of Octave's `expm.m` |
 //!
 //! # Where the answers differ from Octave's, and why
 //!
@@ -224,7 +230,7 @@ impl Matrix {
         }
     }
 
-    /// Octave `inv(A)`, through [`lu::inverse`](crate::linalg::lu::inverse).
+    /// Octave `inv(A)`, through [`lu::inverse`].
     ///
     /// # Errors
     ///
@@ -234,7 +240,7 @@ impl Matrix {
         Self::from_square(&lu::inverse(&s)?)
     }
 
-    /// Octave `det(A)`, through [`lu::det`](crate::linalg::lu::det).
+    /// Octave `det(A)`, through [`lu::det`].
     ///
     /// # Errors
     ///
@@ -312,6 +318,100 @@ impl Matrix {
             }
         }
         Ok(c)
+    }
+
+    /// Octave `A \ B` for a square `A` and a matrix right-hand side: one LU
+    /// factorisation ([`SquareMatrix::lu_decompose`]), then
+    /// [`SquareMatrix::lu_back_substitute`] for each column of `B`, exactly
+    /// as [`SquareMatrix::solve`] does for one.
+    ///
+    /// # Errors
+    ///
+    /// - [`PetirError::NotSquare`] if `A` is not square (only the square
+    ///   case is offered for a matrix right-hand side).
+    /// - [`PetirError::LengthMismatch`] if `B` does not have `rows` rows.
+    /// - [`PetirError::Singular`] at an exactly zero pivot column.
+    pub fn solve_mat(&self, b: &Matrix) -> Result<Self> {
+        let mut lu = self.to_square()?;
+        let n = self.rows();
+        if b.rows() != n {
+            return Err(PetirError::LengthMismatch {
+                expected: n,
+                found: b.rows(),
+            });
+        }
+        let pivot = lu.lu_decompose();
+        for i in 0..n {
+            if lu.get(i, i) == f64::EPSILON {
+                return Err(PetirError::Singular { col: i });
+            }
+        }
+        let mut x = b.clone();
+        for j in 0..b.cols() {
+            let mut col = b.column_from(j, 0);
+            lu.lu_back_substitute(&pivot, &mut col);
+            x.set_column_from(j, 0, &col);
+        }
+        Ok(x)
+    }
+
+    /// Octave `c * A`: every entry multiplied by `c`.
+    pub fn scale(&self, c: f64) -> Self {
+        let mut out = self.clone();
+        for i in 0..self.rows() {
+            for j in 0..self.cols() {
+                out.set(i, j, c * self.get(i, j));
+            }
+        }
+        out
+    }
+
+    /// Octave `A + B`.
+    ///
+    /// # Errors
+    ///
+    /// [`PetirError::LengthMismatch`] if the shapes differ (`expected` is
+    /// `rows * cols` of `self`).
+    pub fn add(&self, b: &Matrix) -> Result<Self> {
+        self.zip_with(b, |x, y| x + y)
+    }
+
+    /// Octave `A - B`.
+    ///
+    /// # Errors
+    ///
+    /// As [`Matrix::add`].
+    pub fn sub(&self, b: &Matrix) -> Result<Self> {
+        self.zip_with(b, |x, y| x - y)
+    }
+
+    fn zip_with(&self, b: &Matrix, f: impl Fn(f64, f64) -> f64) -> Result<Self> {
+        if (self.rows(), self.cols()) != (b.rows(), b.cols()) {
+            return Err(PetirError::LengthMismatch {
+                expected: self.rows() * self.cols(),
+                found: b.rows() * b.cols(),
+            });
+        }
+        let mut out = self.clone();
+        for i in 0..self.rows() {
+            for j in 0..self.cols() {
+                out.set(i, j, f(self.get(i, j), b.get(i, j)));
+            }
+        }
+        Ok(out)
+    }
+
+    /// Octave `isdiag(A)`: every off-diagonal entry is exactly zero (a `NaN`
+    /// off the diagonal is not zero).
+    pub fn is_diag(&self) -> bool {
+        for i in 0..self.rows() {
+            for j in 0..self.cols() {
+                if i != j && self.get(i, j) != 0.0 {
+                    return false;
+                }
+            }
+        }
+        true
     }
 
     /// Copy into the square type the LU routines take.
@@ -469,5 +569,21 @@ mod tests {
         // round trip through SquareMatrix
         assert_eq!(Matrix::from_square(&a.to_square().unwrap()).unwrap(), a);
         assert!(Matrix::from_square(&SquareMatrix::new(0)).is_err());
+        // matrix right-hand side, elementwise ops, isdiag
+        let b2 = Matrix::from_row_major(2, 2, vec![1.0, 0.0, 2.0, 1.0]).unwrap();
+        let x2 = a.solve_mat(&b2).unwrap();
+        let back = a.mul(&x2).unwrap();
+        for (p, q) in back.as_slice().iter().zip(b2.as_slice()) {
+            assert!((p - q).abs() < 1e-14);
+        }
+        assert!(sing.solve_mat(&b2).is_err());
+        assert!(a.solve_mat(&a23().transpose()).is_err());
+        assert!(a23().solve_mat(&b2).is_err());
+        assert_eq!(a.scale(2.0).get(0, 1), 14.0);
+        assert_eq!(a.add(&a).unwrap(), a.scale(2.0));
+        assert!(a.sub(&a).unwrap().as_slice().iter().all(|v| *v == 0.0));
+        assert!(a.add(&a23()).is_err());
+        assert!(Matrix::diag(&[1.0, 2.0]).unwrap().is_diag());
+        assert!(!a.is_diag());
     }
 }

@@ -116,6 +116,20 @@ COPYRIGHT HOLDERS
     GSL sys/hypot.c        Copyright (C) 1996, 1997, 1998, 1999, 2000, 2007
                            Gerard Jungman, Brian Gough, Patrick Alken
       -> src/linalg/eigen_nonsymm.rs (ported 2026-10-20, gh:#993)
+    GSL cblas/source_gemm_r.h
+                           Copyright (C) 2001, 2007 Brian Gough
+    GSL matrix/prop_source.c (gsl_matrix_norm1), cblas/source_asum_r.h
+                           Copyright (C) 1996, 1997, 1998, 1999, 2000, 2007
+                           Gerard Jungman, Brian Gough (asum: 1996-2000
+                           Gerard Jungman)
+      -> src/linalg/octave.rs (Matrix::mul, Norm::One; 2026-10-20, gh:#993)
+
+  GNU Octave (not GSL): scripts/linear-algebra/expm.m, Octave 11.3.0,
+  sha256 3f97a52a9c9ef91340d72f80438577fadc53438db7e6b6b914ddc6b65bef7345,
+  Copyright (C) 2008-2026 The Octave Project Developers, GPL-3.0-or-later
+  (read from the file's header; used under version 3)
+      -> src/linalg/expm.rs (ported 2026-10-20, gh:#993; balancing omitted,
+         see that file)
 
 ================================================================================
 DERIVED WORK — ARM optimized-routines

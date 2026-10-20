@@ -94,6 +94,7 @@ the evaluation.
 
 | surface | upstream | agreement | test |
 |---|---|---|---|
+| `linalg::expm` (added 2026-10-20, gh:#993; balancing step skipped, a documented deviation) | GNU Octave 11.3.0 `expm.m`, run | vs `expm.m` with balancing removed: worst 3.2e-16 normwise, 127/220 bit-identical; vs stock `expm`: identical to that except a badly scaled 3x3, 1.1e-11 (the balancing). vs PETIR's CRAM48 on a decay chain: 6.8e-16 | `octave_expm_code_to_code.rs` |
 | `fast_exp`, `fast_log`, `fast_pow` | ARM optimized-routines | **100% bit-identical** | `fast_*_vs_arm_optimized_routines.rs` |
 | the 19 verbatim lifts | `outram-foam-basic-lib` (OpenFOAM), `chem-eng` (GNU Octave) | byte-identical after documented `std`→`core` substitutions, 0 allowed deviations on 17 of 19 | `verbatim_provenance.rs` |
 | `specfunc::inc_gamma` vs `gamma_inc` | two independent lineages within PETIR | agree to 4.82e-10 | `incomplete_gamma_cross_check.rs` |

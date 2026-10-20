@@ -32,15 +32,21 @@
 //!   `linalg/householder.c` and `linalg/qr.c`.
 //! - [`cholesky`] — `A = L L^T` with solve and inverse,
 //!   `linalg/cholesky.c` (gh:#993).
-//! - [`symmtd`] and [`eigen_symm`] — symmetric tridiagonal reduction and the
+//! - [`symmtd`] and [`eigen_symm`](mod@eigen_symm) — symmetric tridiagonal reduction and the
 //!   symmetric eigensolver (values, vectors, sort), `linalg/symmtd.c`,
 //!   `eigen/symm.c`, `symmv.c`, `qrstep.c`, `sort.c` (gh:#993).
 //! - [`svd`] — Golub–Reinsch SVD and solve, `linalg/svd.c`, `svdstep.c`,
 //!   `bidiag.c` (gh:#993).
-//! - [`eigen_nonsymm`] — balancing, Hessenberg reduction and Francis
+//! - [`eigen_nonsymm`](mod@eigen_nonsymm) — balancing, Hessenberg reduction and Francis
 //!   double-shift QR eigenvalues of a general real matrix (complex results as
 //!   [`crate::depletion::Complex64`]), `eigen/nonsymm.c`, `francis.c`,
 //!   `linalg/hessenberg.c`, `balancemat.c` (gh:#993).
+//! - [`octave`] — an Octave-style vocabulary on [`Matrix`] (`eye`, `ones`,
+//!   `diag`, `kron`, `transpose`, `trace`, `norm`, `inv`, `det`, `solve`,
+//!   `mul`, ...) with a table mapping each Octave name to its PETIR method
+//!   (gh:#993).
+//! - [`expm`](fn@expm) — the matrix exponential, ported from GNU Octave's
+//!   `expm.m` without its LAPACK balancing step (gh:#993).
 //!
 //! Each gh:#993 port is bit-identical to compiled GSL 2.8 once GSL is given
 //! the same `hypot` (the `libm` crate's); see
@@ -72,6 +78,7 @@ pub mod cholesky;
 mod elem;
 pub mod eigen_nonsymm;
 pub mod eigen_symm;
+pub mod expm;
 pub mod householder;
 pub mod lu;
 pub mod octave;
@@ -91,6 +98,7 @@ pub use blas1::{asum, axpy, dot, iamax, nrm2, scal, swap};
 pub use cholesky::Cholesky;
 pub use eigen_nonsymm::{balance_matrix, eigen_nonsymm, hessenberg};
 pub use eigen_symm::{eigen_symm, eigen_symmv, eigen_symmv_sort, EigenSort};
+pub use expm::expm;
 pub use svd::Svd;
 pub use symmtd::SymmTd;
 pub use lu::{det, inverse, ln_det};

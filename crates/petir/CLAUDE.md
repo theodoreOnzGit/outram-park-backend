@@ -344,6 +344,8 @@ obliges" below.
   | `integration` (6 Kronrod rules + QAG) | 27/28 (96.4 %) | 1.82e-16 |
   | `integration::qags` (**added 2026-09-28, after the declaration**, for `buangkok`'s plume shine) | 40/42 (95.2 %); statuses and iteration counts 21/21 | results 0; error estimates 1.43e-6 |
   | `fast_exp` / `fast_log` / `fast_pow` | 100 % vs ARM optimized-routines | 0 |
+  | `linalg::{cholesky, symmtd, eigen_symm, svd, eigen_nonsymm}` (**added 2026-10-20, after the declaration**, gh:#993) | 100 % vs GSL given PETIR's `hypot` (`reference-data/gsl/libm_shim.rs`); Cholesky 100 % vs stock GSL for `n <= 24` | stock GSL differs only through `hypot` (and, for Cholesky above `n = 24`, GSL's Level-3 blocking) |
+  | `linalg::expm` (**added 2026-10-20**, gh:#993; GNU Octave `expm.m`, balancing omitted) | 127/220 vs Octave 11.3.0 without balancing | 3.2e-16 normwise; 1.1e-11 vs stock `expm` on a badly scaled matrix (the balancing) |
 
   The declaration was made on the condition "if it agrees with GSL". It does.
 

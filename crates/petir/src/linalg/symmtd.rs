@@ -22,7 +22,7 @@
 // transform`, the existing port of `gsl_linalg_householder_transform`.
 
 //! Symmetric tridiagonal decomposition `A = Q T Q^T` — GSL's
-//! `linalg/symmtd.c`, the first stage of [`crate::linalg::eigen_symm`].
+//! `linalg/symmtd.c`, the first stage of [`crate::linalg::eigen_symm`](mod@crate::linalg::eigen_symm).
 //!
 //! # Lineage
 //!
@@ -46,7 +46,7 @@
 //!   `tau[n - 2]`. Nothing reads it; PETIR writes zero.
 //! - **`n == 1` does nothing.** Upstream's `for (i = 0; i < N - 2; i++)` wraps
 //!   `N - 2` round for `N == 1`; GSL's eigensolvers special-case `N == 1`
-//!   before calling it, as [`crate::linalg::eigen_symm`] does.
+//!   before calling it, as [`crate::linalg::eigen_symm()`](fn@crate::linalg::eigen_symm) does.
 
 use alloc::vec;
 use alloc::vec::Vec;

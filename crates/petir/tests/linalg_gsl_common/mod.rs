@@ -62,8 +62,14 @@ impl Case {
 
 /// Load `reference-data/gsl/<file>`, or `None` if it is absent.
 pub fn load(file: &str) -> Option<Vec<(String, Case)>> {
+    load_in("gsl", file)
+}
+
+/// Load `reference-data/<dir>/<file>` (same line format), or `None`.
+pub fn load_in(dir: &str, file: &str) -> Option<Vec<(String, Case)>> {
     let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../reference-data/gsl")
+        .join("../../reference-data")
+        .join(dir)
         .join(file);
     let text = fs::read_to_string(path).ok()?;
     let mut out: Vec<(String, Case)> = Vec::new();
