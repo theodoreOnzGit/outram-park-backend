@@ -461,48 +461,46 @@ pub fn nuclear_graphite_ig_110_thermal_conductivity_fluence_dependent(
     Ok(unirradiated_k * damage_factor)
 }
 
+/// Enthalpy datum of [`nuclear_graphite_specific_enthalpy`]: h = 0 J/kg at
+/// 300 K, the lowest knot of the Butland & Maddison cp table. Chosen
+/// 2026-10-20 (gh:#989, maintainer decision) because it is what the
+/// pre-PETIR code actually computed; see that function's docs.
+pub const GRAPHITE_ENTHALPY_REFERENCE_TEMPERATURE_KELVIN: f64 = 300.0;
+
 /// Returns the specific enthalpy, in J/kg, of nuclear graphite (both A3
 /// matrix and IG-110 grades, which share one cp table) at the given
-/// temperature, with h = 0 at 273.15 K.
+/// temperature, with ~~h = 0 at 273.15 K~~ **h = 0 at 300 K** (see the datum
+/// section below).
 ///
 /// Integrates the Butland & Maddison cp cubic spline (see
 /// [`nuclear_graphite_specific_heat_capacity_butland_maddison_spline`];
 /// VTB HTTF deck `HTTF-SS.i` lines 368-372, CC-BY-4.0, Open tier) from
-/// 273.15 K to the given temperature, per this database's house convention
-/// (compare `copper_specific_enthalpy` /
-/// `steel_304_l_spline_specific_enthalpy_ciet_zweibaum`).
+/// the 300 K datum to the given temperature.
 ///
-/// **Below-table extrapolation note:** the cp table starts at 300 K but the
-/// integration reference is 273.15 K, so the integral's first 26.85 K uses
-/// the cubic spline's natural extrapolation below its lowest node. This only
-/// shifts the (arbitrary) enthalpy datum by a constant; enthalpy
-/// *differences* between any two temperatures at or above 300 K are
-/// unaffected. User-facing dispatch keeps `min_temperature()` at 300 K, so
-/// in-range calls never rely on extrapolated cp except through this shared
-/// datum offset.
+/// # Enthalpy datum: 300 K (gh:#989, maintainer decision 2026-10-20)
 ///
-/// Like its siblings this function performs no range check of its own
-/// (range enforcement happens in the cp/conductivity accessors and via
-/// `min_temperature()`/`max_temperature()`).
+/// The datum is [`GRAPHITE_ENTHALPY_REFERENCE_TEMPERATURE_KELVIN`], 300 K,
+/// the cp table's lowest knot. It is a **documented datum, not a clamp**:
+/// a temperature below 300 K is still refused with
+/// `TuasLibError::CorrelationRangeError`, as is one above 2000 K.
+///
+/// History, so the choice can be checked. This function used to name
+/// 273.15 K, the house convention of `copper_specific_enthalpy` and
+/// `steel_304_l_spline_specific_enthalpy_ciet_zweibaum`. ~~**Below-table
+/// extrapolation note:** the cp table starts at 300 K but the integration
+/// reference is 273.15 K, so the integral's first 26.85 K uses the cubic
+/// spline's natural extrapolation below its lowest node.~~ **CORRECTED
+/// 2026-10-20:** that never happened. peroxide 0.41.2's
+/// `CubicSpline::integrate` clipped the interval to the table, so its
+/// integral over [273.15, 300] K was exactly 0 J/kg (measured) and the
+/// values it returned were already referenced to 300 K. On PETIR the
+/// 273.15 K lower limit was refused outright. Naming 300 K reproduces what
+/// peroxide computed, to quadrature round-off (the spline coefficients now
+/// come from GSL's tridiagonal solve, not peroxide's dense inverse; see
+/// `docs/peroxide-roots-to-petir-989.md` for the measured difference).
+/// Only the datum's name changes. Enthalpy differences, and so every energy
+/// balance, are unaffected.
 #[inline]
-///
-/// # Out of the table (gh:#989, 2026-10-20)
-///
-/// The integral runs from the 273.15 K reference to `temperature` over the
-/// natural cubic spline of the cp table. Both limits must lie inside the
-/// table: outside it this returns `TuasLibError::CorrelationRangeError`.
-/// Under `peroxide` it returned a bare value and could not report that.
-/// peroxide's `integrate` also clipped silently to the table and returned 0
-/// for a reversed interval spanning a knot; see
-/// `crate::numerical_methods::NaturalCubicSpline::integral`.
-///
-/// **FINDING (gh:#989): the 273.15 K reference lies BELOW this table, which
-/// starts at 300 K**, so every call is refused. peroxide's `integrate`
-/// clipped the lower limit to the first knot without saying so, so the
-/// enthalpy it returned was in fact referenced to 300 K (measured: its
-/// integral over [273.15, 300] was exactly 0 J/kg). Neither widening the
-/// table nor moving the reference is done here; that is the maintainer's
-/// call.
 pub fn nuclear_graphite_specific_enthalpy(
     temperature: ThermodynamicTemperature,
 ) -> Result<AvailableEnergy, TuasLibError> {
@@ -524,7 +522,8 @@ pub fn nuclear_graphite_specific_enthalpy(
         "K",
     )?;
 
-    let graphite_specific_enthalpy_value = s.integral(273.15, temperature_value_kelvin)?;
+    let graphite_specific_enthalpy_value =
+        s.integral(GRAPHITE_ENTHALPY_REFERENCE_TEMPERATURE_KELVIN, temperature_value_kelvin)?;
 
     Ok(AvailableEnergy::new::<joule_per_kilogram>(graphite_specific_enthalpy_value))
 }
@@ -1124,10 +1123,12 @@ pub fn nuclear_graphite_ig_110_k_quadratic_hand_evaluation() {
 /// both variants) — the Brent-Dekker refinement recovers the forward
 /// temperature far inside the 0.005 K criterion at every point.
 ///
-/// **FAILS since 2026-10-20 (gh:#989)**: `nuclear_graphite_specific_enthalpy`
+/// ~~**FAILS since 2026-10-20 (gh:#989)**: `nuclear_graphite_specific_enthalpy`
 /// integrates cp from 273.15 K, below the cp table's first knot (300 K);
 /// PETIR refuses (`CorrelationRangeError`, value 273.15, range 300-2000 K)
-/// where peroxide silently clipped. A finding, left failing on purpose.
+/// where peroxide silently clipped. A finding, left failing on purpose.~~
+/// **RESOLVED 2026-10-20** by the maintainer's decision to make the datum
+/// 300 K explicit (`GRAPHITE_ENTHALPY_REFERENCE_TEMPERATURE_KELVIN`).
 #[test]
 pub fn nuclear_graphite_enthalpy_round_trip() {
     use uom::si::pressure::atmosphere;

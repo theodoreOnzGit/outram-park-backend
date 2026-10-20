@@ -271,6 +271,32 @@ pub(crate) fn false_position_root<F: Fn(f64) -> f64>(
     )
 }
 
+/// A bracketed root to a RELATIVE bracket width, GSL's own stopping rule:
+/// `petir::roots::BracketingSolver::solve(0.0, epsrel, max_iter)`, i.e.
+/// `gsl_root_test_interval` with `epsabs = 0`, which accepts when
+/// `|hi - lo| < epsrel * min(|lo|, |hi|)` (and ignores `epsrel` when the
+/// bracket straddles zero). There is no residual test. The bracket may be
+/// given in either order.
+///
+/// Added 2026-10-20 (gh:#989, maintainer decision) for solves whose
+/// absolute `SimpleConvergency::eps` was below one representable step of
+/// the answer and so could never be met; see
+/// `pre_built_components::gfhr_pipe_tests::multi_branch::multi_branch_solvers`.
+pub(crate) fn relative_bracketed_root<F: Fn(f64) -> f64>(
+    method: BracketingMethod,
+    f: F,
+    a: f64,
+    b: f64,
+    epsrel: f64,
+    max_iter: usize,
+    context: &str,
+) -> Result<f64, TuasLibError> {
+    let (lo, hi) = if a <= b { (a, b) } else { (b, a) };
+    BracketingSolver::new(method, f, lo, hi)
+        .and_then(|mut solver| solver.solve(0.0, epsrel, max_iter))
+        .map_err(|e| petir_error(context, e))
+}
+
 /// 20-point Gauss-Legendre quadrature of `f` over `[a, b]`, PETIR's
 /// `integration::gauss_legendre::gauss_legendre` (ported from peroxide
 /// 0.41.2, whose `Integral::GaussLegendre(20)` TUAS used for the enthalpy of

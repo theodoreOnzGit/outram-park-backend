@@ -1,6 +1,24 @@
 // `roots` 0.0.8 replaced by PETIR adapters with the same SimpleConvergency
 // semantics (gh:#989); see crate::numerical_methods.
-use crate::numerical_methods::{brent_root, false_position_root, SimpleConvergency};
+use crate::numerical_methods::{brent_root, relative_bracketed_root, SimpleConvergency};
+use petir::roots::BracketingMethod;
+
+/// Relative bracket-width tolerance for the debugging pressure solves below:
+/// four machine epsilons (8.9e-16).
+///
+/// ~~`eps: 1e-15` then `eps: 1e-12` Pa, absolute~~ **CHANGED 2026-10-20
+/// (gh:#989, maintainer decision).** The pressure solved for sits near
+/// -47001 Pa, where one representable step (ulp) is 2^-37 = 7.3e-12 Pa, so
+/// neither absolute tolerance could be met by any bracket: GSL's Brent and
+/// false position close to a one-ulp bracket and stop, and only the old
+/// `roots` residual test had let the solve through, by luck. A one-ulp
+/// bracket has relative width between EPSILON/2 and EPSILON wherever it
+/// sits in a binade, so the tolerance must exceed EPSILON to be reachable
+/// at all; four times EPSILON accepts a bracket of up to two ulps with
+/// margin, and is still a relative accuracy of ~1e-15 (4e-11 Pa at 47 kPa),
+/// far finer than anything physical in the pressure drop.
+const PRESSURE_RELATIVE_TOLERANCE: f64 = 4.0 * f64::EPSILON;
+
 use crate::array_fluid_collections::fluid_component_collection::fluid_component_collection::FluidComponentCollection;
 use crate::array_fluid_collections::fluid_component_collection::fluid_component_super_collection::FluidComponentSuperCollection;
 use crate::array_fluid_collections::fluid_component_collection::super_collection_series_and_parallel_functions::FluidComponentSuperCollectionParallelAssociatedFunctions;
@@ -237,11 +255,14 @@ pub fn calculate_pressure_change_using_guessed_branch_mass_flowrate_fhr_sim_v1_c
 
     // last ditch resort, use other root finding algos is this false
     if debugging {
-        let mut pressure_change_pascals_result_user_specified_flow = brent_root(
+        let mut pressure_change_pascals_result_user_specified_flow = relative_bracketed_root(
+            BracketingMethod::Brent,
+            &pressure_change_from_mass_flowrate_root,
             user_specified_pressure_upper_bound.value,
             user_specified_pressure_lower_bound.value,
-            &pressure_change_from_mass_flowrate_root,
-            &convergency,
+            PRESSURE_RELATIVE_TOLERANCE,
+            convergency.max_iter,
+            "gFHR multi-branch: pressure change from mass flowrate",
         );
 
         match pressure_change_pascals_result_user_specified_flow {
@@ -256,16 +277,21 @@ pub fn calculate_pressure_change_using_guessed_branch_mass_flowrate_fhr_sim_v1_c
 
         // try inverse quadratic root if not successful
         // with lower tolerance
+        // (since 2026-10-20 only `max_iter` is used on this debugging path;
+        // the tolerance is PRESSURE_RELATIVE_TOLERANCE, gh:#989)
         convergency = SimpleConvergency {
             eps: 1e-12_f64,
             max_iter: 70,
         };
 
-        pressure_change_pascals_result_user_specified_flow = brent_root(
+        pressure_change_pascals_result_user_specified_flow = relative_bracketed_root(
+            BracketingMethod::Brent,
+            &pressure_change_from_mass_flowrate_root,
             user_specified_pressure_upper_bound.value,
             user_specified_pressure_lower_bound.value,
-            &pressure_change_from_mass_flowrate_root,
-            &convergency,
+            PRESSURE_RELATIVE_TOLERANCE,
+            convergency.max_iter,
+            "gFHR multi-branch: pressure change from mass flowrate",
         );
         dbg!("inverse quadratic algo finished");
 
@@ -283,11 +309,14 @@ pub fn calculate_pressure_change_using_guessed_branch_mass_flowrate_fhr_sim_v1_c
 
         // try the regula falsi
 
-        pressure_change_pascals_result_user_specified_flow = false_position_root(
+        pressure_change_pascals_result_user_specified_flow = relative_bracketed_root(
+            BracketingMethod::FalsePosition,
+            &pressure_change_from_mass_flowrate_root,
             user_specified_pressure_upper_bound.value,
             user_specified_pressure_lower_bound.value,
-            &pressure_change_from_mass_flowrate_root,
-            &convergency,
+            PRESSURE_RELATIVE_TOLERANCE,
+            convergency.max_iter,
+            "gFHR multi-branch: pressure change from mass flowrate",
         );
         dbg!("regula falsi algo finished");
         match pressure_change_pascals_result_user_specified_flow {

@@ -64,11 +64,12 @@ or extrapolated now; out of range is `TuasLibError::CorrelationRangeError`.
 | Pyrogel cp low-T | 9.883-39.819 degC | **9.88**-39.819 degC | **yes, [9.88, 9.883) degC** | error |
 | Pyrogel DSC | 35.426-326.294 degC | **35-327** degC | **yes, [35, 35.426) and (326.294, 327] degC** | error |
 | graphite cp | 300-2000 K | identical | no | error mapped |
-| `nuclear_graphite_specific_enthalpy` | 300-2000 K, from **273.15 K** | none | **always: 273.15 K is below the table** | **signature now `Result`, every call errors** |
+| `nuclear_graphite_specific_enthalpy` | 300-2000 K, from ~~**273.15 K**~~ **300 K** (since the maintainer decision below) | none | ~~**always: 273.15 K is below the table**~~ below 300 K or above 2000 K | **signature now `Result`**; ~~every call errors~~ errors only outside the table |
 | T-from-h inversions (copper, steel, fiberglass, Pyrogel, graphite) | enthalpy at the table knots | none | yes, h outside the knot enthalpies | error (already `Result`); Brent failure that panicked (steel) or `unwrap`ped (copper, fiberglass, Pyrogel) now returns the error |
 
-**FINDING — graphite.** The graphite cp table starts at 300 K but its enthalpy
-is referenced to 273.15 K. peroxide integrated `[273.15, T]` by clipping it to
+**FINDING — graphite** (**RESOLVED 2026-10-20**, see "Maintainer decisions"
+below). The graphite cp table starts at 300 K but its enthalpy
+was referenced to 273.15 K. peroxide integrated `[273.15, T]` by clipping it to
 `[300, T]` without saying so (measured: its integral over `[273.15, 300]` was
 exactly 0 J/kg), so graphite enthalpy has in fact always been referenced to
 300 K. On PETIR every call is refused. Not fixed here; widening the table or
@@ -186,3 +187,52 @@ sets passed in the full run but their printed values were not compared.
   takes the reflector enthalpy of `NuclearGraphiteIG110` through `try_get_h`
   and panics on error, so it will panic at run time until the graphite
   reference is resolved. Not run (htgr validation re-runs are on hold).
+
+## Maintainer decisions (2026-10-20) and the final run
+
+The maintainer accepted the validation numbers above and decided the three
+open items. All three were applied on the same day.
+
+1. **Graphite: the datum is 300 K** (option a). The datum is now
+   `GRAPHITE_ENTHALPY_REFERENCE_TEMPERATURE_KELVIN = 300.0`, the cp table's
+   lowest knot. This is a documented datum, not a clamp: below 300 K and
+   above 2000 K the function still errors. It reproduces what peroxide
+   computed, which clipped [273.15, T] to [300, T]. The match is **within
+   spline/quadrature round-off, not bit-identical**. Measured before peroxide
+   was removed, the integral from 300 K to 401 points of the table was
+   bit-identical at 42/401, with a worst relative difference of 2.9e-15.
+   Results:
+   - **`nuclear_graphite_enthalpy_round_trip` passes.** The worst round-trip
+     error is 2.6147972675971687e-12 K, the same worst case as on the base
+     commit.
+   - **The htgr_sim_v1 reflector path no longer errors.** That path is
+     `try_get_h(Material::Solid(NuclearGraphiteIG110), T, 101 325 Pa)`. Its
+     own test, `the_reflector_and_rpv_capacities_are_derived`, could not be
+     run: the htgr_sim_v1 *test* target does not compile on develop, failing
+     on `r_sin`/`r_exp` imports in `app/state.rs`, `steam_generator.rs` and
+     others (from the gh:#985 sweep, unrelated). So a scratch call was used
+     instead (run, then removed). It gave:
+     - h(300 K) = 0
+     - h(600 K) = 327 307.27 J/kg
+     - h(950 K) = 882 321.55 J/kg
+     - h(2000 K) = 2 894 449.78 J/kg
+     - 299 K and 2001 K: `CorrelationRangeError`
+2. **`dracs_..._regression_test_prototype_2` is re-pinned.** The old pin was
+   ~~0.010905593698135391 kg/s, epsilon 1e-7~~. The new pin is
+   **0.010904398377899532 kg/s, epsilon 3e-6 kg/s**. The tolerance is the
+   measured sensitivity to the flow solvers' tolerance (2.197e-6 kg/s,
+   between the default eps and 1e-11), rounded up to one significant figure.
+   The derivation is in the test's doc comment.
+3. **`test_fhr_four_branch_solver_debug` now uses a relative tolerance.** The
+   debugging solves use 4 × `f64::EPSILON` (8.9e-16), replacing ~~1e-15 then
+   1e-12 Pa absolute~~. They go through the new
+   `numerical_methods::relative_bracketed_root`, which is GSL's interval test
+   with `epsabs = 0`. A one-ulp bracket has a relative width between
+   EPSILON/2 and EPSILON, so the tolerance must exceed EPSILON to be
+   reachable. Four times EPSILON accepts a two-ulp bracket. The derivation is
+   at `PRESSURE_RELATIVE_TOLERANCE` in `multi_branch_solvers.rs`. The first
+   Brent attempt now succeeds.
+
+**Final run**, after merging `origin/develop` (#991, #992, #993, #995):
+`cargo test -p tuas_boussinesq_solver --lib --tests --release`, long tests
+on, `--test-threads=6`: **343 passed, 0 failed, 46 ignored**, in 826 s.

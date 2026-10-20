@@ -26,15 +26,19 @@ use uom::si::f64::*;
 ///
 /// function appears to not be smooth in that regard
 ///
-/// **FAILS since 2026-10-20 (gh:#989)** in its debugging branch
-/// (`todo!("debugging: all root finding methods used not successful")`).
-/// The solver asks for `eps = 1e-15` then `1e-12` Pa ABSOLUTE on a pressure
-/// near -47001 Pa, where one ulp is 7.3e-12 Pa. GSL's Brent and false
-/// position both close the bracket to one ulp
-/// ([-47001.075737799845, -47001.07573779984]) and stop there, with no
-/// endpoint residual below `eps`. `roots`' inverse-quadratic solver passed
-/// only because some iterate happened to meet the residual test. The
-/// tolerance below float resolution is the defect; it is not changed here.
+/// ~~**FAILS since 2026-10-20 (gh:#989)** in its debugging branch~~
+/// ~~(`todo!("debugging: all root finding methods used not successful")`).~~
+/// ~~The solver asks for `eps = 1e-15` then `1e-12` Pa ABSOLUTE on a pressure~~
+/// ~~near -47001 Pa, where one ulp is 7.3e-12 Pa. GSL's Brent and false~~
+/// ~~position both close the bracket to one ulp~~
+/// ~~([-47001.075737799845, -47001.07573779984]) and stop there, with no~~
+/// ~~endpoint residual below `eps`. `roots`' inverse-quadratic solver passed~~
+/// ~~only because some iterate happened to meet the residual test. The~~
+/// ~~tolerance below float resolution is the defect; it is not changed here.~~
+/// **RESOLVED 2026-10-20 (gh:#989, maintainer decision):** the debugging
+/// solves now use a RELATIVE tolerance of four `f64::EPSILON`
+/// (`PRESSURE_RELATIVE_TOLERANCE` in `multi_branch_solvers.rs`, where the
+/// derivation is), and the first Brent attempt succeeds.
 #[test]
 pub fn test_fhr_four_branch_solver_debug() {
     let initial_temperature = ThermodynamicTemperature::new::<degree_celsius>(500.0);

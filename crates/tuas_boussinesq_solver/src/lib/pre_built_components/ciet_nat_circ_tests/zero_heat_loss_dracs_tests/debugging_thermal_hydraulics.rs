@@ -132,18 +132,31 @@ pub fn dracs_branch_pressure_change_test() {
 /// I'll just use simple functions instead
 /// quite lehcheh (troublesome) to type, but ok lah
 ///
-/// # Re-measured 2026-10-20 (gh:#989): FAILS after the move to PETIR
+/// # Re-pinned 2026-10-20 (gh:#989, maintainer decision)
 ///
-/// The pinned flowrate is 0.010905593698135391 kg/s at `epsilon = 1e-7`.
-/// With the `roots` Brent replaced by GSL's Brent (same bracket, same
-/// `eps`), iteration 99 gives **0.010904398377899532 kg/s** (-1.195e-6
-/// kg/s, -1.1e-4 relative). The assertion is NOT loosened. Attribution
-/// measured the same day: tightening the flow-network solvers' `eps` from
-/// 1e-8/1e-9 to 1e-11 (scratch build, not committed) moves the answer again,
-/// to 0.010902201662272466 kg/s; so this pin is tighter than the result's
-/// sensitivity to the root-finder tolerance, and the movement is that
-/// sensitivity, not a change of physics. Which value to pin is the
-/// maintainer's call. See `docs/peroxide-roots-to-petir-989.md`.
+/// | | value at iteration 99 | tolerance |
+/// |---|---|---|
+/// | ~~before~~ (`roots` Brent, peroxide) | ~~0.010905593698135391 kg/s~~ | ~~`epsilon = 1e-7`~~ |
+/// | **now** (PETIR / GSL Brent) | **0.010904398377899532 kg/s** | **`epsilon = 3e-6`** |
+///
+/// **Why the value moved.** The flow-network root finders went from the
+/// `roots` crate to GSL's Brent with the same bracket and the same
+/// `SimpleConvergency` test. Each solve now stops at a different point
+/// inside its `eps`, and 100 coupled steps carry the difference:
+/// -1.195e-6 kg/s (-1.1e-4 relative).
+///
+/// **Why the tolerance is 3e-6 kg/s, derived from the solver, not from the
+/// outcome.** Measured 2026-10-20 on a scratch build (not committed):
+/// tightening the flow solvers' tolerances from their defaults (1e-8 and
+/// 1e-9) to 1e-11 moved this value from 0.010904398377899532 to
+/// 0.010902201662272466 kg/s, a change of 2.197e-6 kg/s. That is how much
+/// the answer depends on where the root finders stop, so a pin tighter than
+/// that tests the stopping point rather than the thermal hydraulics; the old
+/// 1e-7 was 22 times tighter. The bound is that sensitivity rounded UP to
+/// one significant figure: 3e-6 kg/s (2.8e-4 relative). The old value lies
+/// 1.195e-6 kg/s from the new one, inside this bound, which is consistent
+/// with it being the same solution at a different stopping point.
+/// See `docs/peroxide-roots-to-petir-989.md`.
 #[test]
 pub fn dracs_natural_circ_thermal_hydraulics_regression_test_prototype_2() {
     // let's construct the branches with test pressures and obtain
@@ -666,8 +679,10 @@ pub fn dracs_natural_circ_thermal_hydraulics_regression_test_prototype_2() {
             use approx::assert_abs_diff_eq;
             assert_abs_diff_eq!(
                 mass_flowrate_absolute.get::<uom::si::mass_rate::kilogram_per_second>(),
-                0.010905593698135391,
-                epsilon = 1e-7
+                // ~~0.010905593698135391, epsilon = 1e-7~~ re-pinned
+                // 2026-10-20 (gh:#989); derivation in the doc comment.
+                0.010904398377899532,
+                epsilon = 3e-6
             );
         }
     }
