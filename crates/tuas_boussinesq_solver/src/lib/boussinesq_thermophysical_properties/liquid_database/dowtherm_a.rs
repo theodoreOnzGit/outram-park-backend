@@ -63,8 +63,7 @@ use uom::si::specific_heat_capacity::joule_per_kilogram_kelvin;
 use uom::si::available_energy::joule_per_kilogram;
 
 // this is for the root finding algorithms
-extern crate peroxide;
-use peroxide::prelude::*;
+use crate::numerical_methods::bisection_residual;
 
 use crate::boussinesq_thermophysical_properties::{range_check, LiquidMaterial, Material};
 use crate::tuas_lib_error::TuasLibError;
@@ -283,11 +282,19 @@ pub fn get_temperature_from_enthalpy(
     };
 
     // now solve using bisection
-    use anyhow::Result;
 
-    let fluid_temperature_degrees_cresult = bisection!(enthalpy_root, (20.0, 180.0), 100, 1e-8);
+    // peroxide `bisection!(enthalpy_root, (20.0, 180.0), 100, 1e-8)`, now
+    // on PETIR with peroxide's residual test kept: bit-identical root
+    // (see crate::numerical_methods::bisection_residual, gh:#989).
+    let fluid_temperature_degrees_cresult = bisection_residual(
+        enthalpy_root,
+        (20.0, 180.0),
+        100,
+        1e-8,
+        "Dowtherm A: temperature from specific enthalpy",
+    );
 
-    let fluid_temperature_degrees_c = fluid_temperature_degrees_cresult.unwrap();
+    let fluid_temperature_degrees_c = fluid_temperature_degrees_cresult?;
 
     return Ok(ThermodynamicTemperature::new::<degree_celsius>(
         fluid_temperature_degrees_c,

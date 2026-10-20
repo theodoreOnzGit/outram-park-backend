@@ -169,7 +169,6 @@ egui.workspace = true
 eframe.workspace = true
 env_logger.workspace = true
 local-ip-address.workspace = true
-roots.workspace = true
 egui_plot.workspace = true
 egui_extras.workspace = true
 serde.workspace = true

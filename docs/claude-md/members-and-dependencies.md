@@ -54,7 +54,7 @@ applies: only to crates declared mature".
 
 | Crate (`crates/…`) | Role | Mature |
 |---|---|---|
-| `petir` | **Core numerics** — polynomials, equations, transforms, integration, roots. `no_std`, dependency-lean, ported from GSL. Every other crate's numerics floor. Since 2026-10-02 also the workspace's RNG (OpenMC's LCG, `rng::lcg` + `wgsl::LCG`), moved from `outram-mc-libs`. Since 2026-10-17 also all depletion math (`depletion`: OpenMC's eight integrators, IPF CRAM, the burnup matrix; gh:#950), the CRAM and matrix moved from `outram-mc-libs`, which keeps the chain and operators | ✅ |
+| `petir` | **Core numerics** — polynomials, equations, transforms, integration, roots. `no_std`, dependency-lean, ported from GSL. Every other crate's numerics floor. Since 2026-10-02 also the workspace's RNG (OpenMC's LCG, `rng::lcg` + `wgsl::LCG`), moved from `outram-mc-libs`. Since 2026-10-17 also all depletion math (`depletion`: OpenMC's eight integrators, IPF CRAM, the burnup matrix; gh:#950), the CRAM and matrix moved from `outram-mc-libs`, which keeps the chain and operators. Since 2026-10-20 (gh:#991) `petir::roots` (GSL Brent) replaces the third-party `roots` crate in `outram-park-fork-dwsim-libs` (`pipe::transient`) and in the `fhr_sim` examples of `tampines-steam-tables`, `teh-o-prke`, `tampines` and `outram-park-digital-twin-engine`, all of which have dropped `roots`; `roots` stays in the root `[workspace.dependencies]` for `tuas_boussinesq_solver` until gh:#989 lands | ✅ |
 | `outram-foam-basic-lib` | OpenFOAM primitive + finite-volume layer (Layers 1–4): tensor algebra, solvers, interpolation, thermophysics, fields, mesh, FV operators | ✅ |
 | `outram-foam-turbulence-lib` | OpenFOAM turbulence closures (k-ω SST implemented; others scaffolded) | |
 | `outram-foam-appbuilder-lib` | OpenFOAM solver-application layer + case I/O; host of the **GeN-Foam** deterministic-neutronics + TH port | ✅ |
@@ -78,7 +78,7 @@ applies: only to crates declared mature".
 | `outram-park-fork-pflotran` | Pure-Rust fork of **PFLOTRAN** — subsurface flow & reactive transport. Scaffold | |
 | `outram-park-fork-cfmesh` | Pure-Rust fork of **cfMesh** — Cartesian/tet/polyhedral volume meshing with boundary layers | |
 | `outram-park-fork-moltres` | **Circulating-fuel MSR** — multigroup diffusion + precursor drift + salt heat transfer on the FV layer. Steady eigenvalue only, no consumer yet | |
-| `outram-park-fork-onix` | Pure-Rust fork of **ONIX** — Bateman/CRAM depletion + fission-product inventory | |
+| `outram-park-fork-onix` | Pure-Rust fork of **ONIX** — Bateman/CRAM depletion + fission-product inventory. Since 2026-10-20 (gh:#999) its CRAM16 arithmetic is `petir::depletion::cram16_pfd` (moved, bit-identical, ONIX attributed in PETIR's NOTICE); `num-complex` dropped from the crate and from the root `[workspace.dependencies]` | |
 | `outram-park-fork-thermochimica` | Pure-Rust fork of **ORNL Thermochimica** — molten-salt Gibbs-energy minimisation. Scaffold | |
 | `boon-lay` | TRISO-particle / Lagrangian decay simulator; includes the TRISO-ATOPS fork | |
 | `kaki-bukit` | **KAKI BUKIT** — agent-based nuclear fuel-cycle kernel, `no_std` fork of CYCLUS/CYCAMORE, numerics from `petir`. Scaffold, no human V&V | |
@@ -206,6 +206,12 @@ digital-twin engine, `sembawang`, `tampines`, `teh-o-prke`,
 `thermochimica` as `[dependencies]`; `outram-foam-cli` as a dev-dependency
 (only its tests call it). The edge is `no_std` and adds no Android or wasm
 hazard.
+**Since 2026-10-20 (gh:#999)** `outram-park-fork-onix`'s CRAM16 runs in
+`petir::depletion::onix_cram` (ONIX's partial-fraction form, kept apart from
+OpenMC's IPF CRAM in the same module); onix no longer depends on
+`num-complex`, and the root `num-complex` entry was removed, since no member
+named it any more (`cargo tree -i num-complex --workspace --depth 1` lists only
+third-party crates: `exr`, `faer`, `gemm`, `lambert_w`, `ndarray`, `pulp`, `puruspe`, …).
 The OutramFoam stack joined the same day: `outram-foam-appbuilder-lib`,
 `outram-foam-multiphase`, `outram-foam-mesh`, `outram-foam-turbulence-lib` and
 `farrer-park` depend on `petir` as `[dependencies]` (`outram-foam-basic-lib`

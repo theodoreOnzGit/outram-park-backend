@@ -1183,9 +1183,29 @@ fn assignland_matches_flexpart() {
 /// The driver generates the `calcpar` / `calcpv` inputs in double precision
 /// and rounds them once to real(4) in **both** builds, so the two fixtures
 /// echo identical values. This is what makes the real(4) attribution of those
-/// groups exact rather than statistical: the port fed the real(4) fixture's
-/// inputs must reproduce the real(8) build bit for bit (up to the known
-/// `obukhov` 1-ulp association, see [`calcpar_matches_flexpart`]).
+/// groups exact rather than statistical.
+///
+/// Two halves:
+/// - **Input echo: bit-exact, unchanged.** Every echoed input row is equal
+///   between the builds.
+/// - **Evaluation:** the port, fed the real(4) fixture's inputs, must
+///   reproduce the real(8) build's `calcpv` and `calcpar.z0water`.
+///   ~~bit for bit (`assert_eq`)~~ **CORRECTED 2026-10-20**: now to a
+///   relative difference less than `1e-10` ([`common::LESS_THAN_1E_10`]),
+///   NaN matching only NaN. That is the maintainer's acceptance criterion
+///   (2026-10-20, "I accept rounding errors in last ulp less the 1e-10"),
+///   NOT a derived bound. Bit identity held only while the port and gfortran
+///   shared glibc's `powf`/`sin`/`tan`/`cos`/`ln`. On the PETIR route
+///   (gh:#985), one `calcpv[1, 0, 11]` element differs by 1 ulp
+///   (0.6579982581113344 vs ...345).
+///
+/// Why no bound was derived: `calcpv`'s value at a level comes from a search
+/// for the theta surface in neighbouring columns (`theta_search`). Its
+/// branch and interpolation weights depend on the libm-computed `theta`
+/// there, which the test cannot see.
+///
+/// The old "up to the known `obukhov` 1-ulp association" caveat (see
+/// [`calcpar_matches_flexpart`]) is unchanged.
 #[test]
 fn calcpar_inputs_identical_in_both_builds() {
     let s = setup();
@@ -1204,18 +1224,27 @@ fn calcpar_inputs_identical_in_both_builds() {
             assert_eq!(x.args, y.args, "{name} echoes differ between builds");
         }
     }
+    let mut worst = 0.0_f64;
     for name in ["calcpv", "calcpar.z0water"] {
         let r4: Vec<&Row> = find(&s.fx.real4, name).collect();
         let r8: Vec<&Row> = find(&s.fx.real8, name).collect();
         for (a, b) in r4.iter().zip(&r8) {
-            assert_eq!(
-                evaluate(a, Precision::Real4).unwrap(),
-                b.outs,
-                "{name}{:?}",
-                a.args
-            );
+            // ~~assert_eq~~ CORRECTED 2026-10-20: the maintainer's "less than 1e-10".
+            let got = evaluate(a, Precision::Real4).unwrap();
+            assert_eq!(got.len(), b.outs.len(), "{name}{:?}", a.args);
+            for (k, (&g, &w)) in got.iter().zip(&b.outs).enumerate() {
+                if g != w && w != 0.0 && g.is_finite() {
+                    worst = worst.max((g - w).abs() / w.abs());
+                }
+                assert!(
+                    common::agrees(g, w, common::LESS_THAN_1E_10, 0.0),
+                    "{name}{:?} out[{k}]: port {g:e} vs real(8) {w:e}",
+                    a.args
+                );
+            }
         }
     }
+    println!("calcpar inputs: port on real(4) inputs vs real(8) build, max rel = {worst:.3e}");
 }
 
 fn small_wet_met() -> WetScavMet {

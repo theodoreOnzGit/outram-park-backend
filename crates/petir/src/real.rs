@@ -71,9 +71,29 @@
 //! pinned to `petir::real::{exp, ln, powf}` output at full `f64` precision
 //! needs re-baselining once, in the same way the `libm` swap itself did.
 //!
+//! **`hypot` takes a fourth route since 2026-10-20** (gh:#997): [`hypot`],
+//! [`hypotf`] and `Real::hypot` (both float types) go to [`crate::hypot`], a
+//! port of CORE-MATH's correctly rounded `cr_hypot` / `cr_hypotf`, because
+//! the `libm` crate's `hypot` misrounds by one ulp on some inputs.
+//!
 //! Everything else here stays on `libm`: ARM publishes no scalar double
 //! `log10`, `cbrt`, `cos`, `sin`, `tanh` or `atan2`, and the special functions
 //! (`erf`, `erfc`, `tgamma`, `lgamma`) are not in its scope at all.
+
+/// `sqrt(x^2 + y^2)`, **correctly rounded**, without spurious overflow or
+/// underflow: CORE-MATH's `cr_hypot`, ported in [`crate::hypot`] (gh:#997,
+/// 2026-10-20). Before that date every PETIR `hypot` route went to the
+/// `libm` crate's (musl's), which is off by one ulp on some inputs.
+#[inline]
+pub fn hypot(x: f64, y: f64) -> f64 {
+    crate::hypot::hypot(x, y)
+}
+
+/// `f32` [`hypot`]: CORE-MATH's `cr_hypotf`, correctly rounded.
+#[inline]
+pub fn hypotf(x: f32, y: f32) -> f32 {
+    crate::hypot::hypotf(x, y)
+}
 
 /// The error function `erf(x)`. Not in Rust's `std`.
 #[inline]
@@ -449,7 +469,7 @@ impl Real for f64 {
     }
     #[inline]
     fn hypot(self, other: f64) -> f64 {
-        libm::hypot(self, other)
+        crate::hypot::hypot(self, other)
     }
     #[inline]
     fn floor(self) -> f64 {
@@ -634,7 +654,7 @@ impl Real for f32 {
     }
     #[inline]
     fn hypot(self, other: f32) -> f32 {
-        libm::hypotf(self, other)
+        crate::hypot::hypotf(self, other)
     }
     #[inline]
     fn floor(self) -> f32 {

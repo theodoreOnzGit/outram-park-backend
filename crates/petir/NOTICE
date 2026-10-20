@@ -139,8 +139,29 @@ COPYRIGHT HOLDERS
   sha256 3f97a52a9c9ef91340d72f80438577fadc53438db7e6b6b914ddc6b65bef7345,
   Copyright (C) 2008-2026 The Octave Project Developers, GPL-3.0-or-later
   (read from the file's header; used under version 3)
-      -> src/linalg/expm.rs (ported 2026-10-20, gh:#993; balancing omitted,
-         see that file)
+      -> src/linalg/expm.rs (ported 2026-10-20, gh:#993; ~~balancing omitted,
+         see that file~~ balancing ported 2026-10-20, gh:#998)
+
+  GNU Octave (not GSL): liboctave/numeric/aepbalance.h (permuting_vector,
+  scaling_vector) and aepbalance.cc (the DGEBAL job letter), Octave 11.3.0
+  source tarball, Copyright (C) 1994-2026 The Octave Project Developers,
+  GPL-3.0-or-later (used under version 3)
+      -> src/linalg/gebal.rs (octave_balance; 2026-10-20, gh:#998)
+
+    GSL interpolation/linear.c, integ_eval.h
+                           Copyright (C) 1996, 1997, 1998, 1999, 2000
+                           Gerard Jungman
+    GSL interpolation/cspline.c
+                           Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001,
+                           2002, 2004 Gerard Jungman
+    GSL interpolation/gsl_interp.h
+                           Copyright (C) 1996, 1997, 1998, 1999, 2000, 2004
+                           Gerard Jungman
+    GSL interpolation/interp.c
+                           Copyright (C) 2007 Brian Gough;
+                           1996, 1997, 1998, 1999, 2000 Gerard Jungman
+      -> src/interp.rs (ported 2026-09-14; eval_integ added 2026-10-20,
+         gh:#989, read at the commit above)
 
 ================================================================================
 DERIVED WORK — ARM optimized-routines
@@ -271,6 +292,48 @@ moved with them. Ported at the maintainer's direction recorded on gh:#950.
   not official OpenMC.
 
 ================================================================================
+DERIVED WORK — ONIX (order-16 CRAM, partial-fraction form)
+================================================================================
+
+`src/depletion/onix_cram.rs` ports ONIX's `CRAM16` (`onix/salameche/cram.py`,
+lines 6-59), with its pole, residue and limit coefficients digit for digit.
+It was first ported in `outram-park-fork-onix/src/cram.rs` (2026-08-04) and
+moved here on 2026-10-20 (gh:#999), at the maintainer's direction "The cram
+from Onix can go to petir and attribute onix"; the attribution moved with
+it. ONIX is gratefully acknowledged.
+
+  Project    : ONIX
+  Upstream   : https://github.com/jlanversin/ONIX
+  Commit     : 7328dc6acf705827470819a4367ef2a98c642b74
+  Licence    : MIT
+
+      MIT License
+
+      Copyright (c) 2019-2020 Julien de Troullioud de Lanversin
+
+      Permission is hereby granted, free of charge, to any person obtaining a
+      copy of this software and associated documentation files (the
+      "Software"), to deal in the Software without restriction, including
+      without limitation the rights to use, copy, modify, merge, publish,
+      distribute, sublicense, and/or sell copies of the Software, and to
+      permit persons to whom the Software is furnished to do so, subject to
+      the following conditions:
+
+      The above copyright notice and this permission notice shall be included
+      in all copies or substantial portions of the Software.
+
+      THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+      OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+      MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+      IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+      CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+      TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+      SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+  MIT flows ONE-WAY into this crate's licence. This is an OUTRAM PARK
+  translation, not affiliated with or endorsed by the ONIX project.
+
+================================================================================
 DERIVED WORK — Clawpack / PyClaw (SSP Runge-Kutta time integrators)
 ================================================================================
 
@@ -292,6 +355,54 @@ reproduced in the file header.
   BSD-3-Clause is permissive and GPL-3.0-compatible; the flow is ONE-WAY.
   The non-endorsement clause binds: do not use the Clawpack name to promote
   this crate.
+
+================================================================================
+DERIVED WORK — Reference-LAPACK (DGEBAL, DGEBAK) and reference BLAS (DNRM2, IDAMAX)
+================================================================================
+
+`src/linalg/gebal.rs` ports LAPACK's SRC/dgebal.f and SRC/dgebak.f and the
+reference BLAS routines they call, BLAS/SRC/dnrm2.f90 and BLAS/SRC/idamax.f.
+Ported 2026-10-20 at the maintainer's direction (gh:#998: "Dgebal also
+port"), so that linalg::expm balances exactly as GNU Octave's expm.m does.
+The full modified-BSD notice is reproduced in the file header, as source
+redistribution requires.
+
+  Project    : Reference-LAPACK
+  Upstream   : https://github.com/Reference-LAPACK/lapack
+  Version    : 3.12.1, tag v3.12.1, commit
+               6ec7f2bc4ecf4c4a93496aa2fa519575bc0e39ca (2024-12-03)
+  Licence    : modified BSD (LAPACK's LICENSE file, read 2026-10-20)
+
+      Copyright (c) 1992-2023 The University of Tennessee and The University
+                              of Tennessee Research Foundation.  All rights
+                              reserved.
+      Copyright (c) 2000-2023 The University of California Berkeley. All
+                              rights reserved.
+      Copyright (c) 2006-2023 The University of Colorado Denver.  All rights
+                              reserved.
+
+  Modified BSD is permissive and GPL/AGPL-compatible; the flow is ONE-WAY.
+  The non-endorsement clause binds: do not use the copyright holders' names
+  to promote this crate.
+
+================================================================================
+DERIVED WORK — CORE-MATH (correctly rounded hypot)
+================================================================================
+
+`src/hypot.rs` ports CORE-MATH's `cr_hypot` (src/binary64/hypot/hypot.c) and
+`cr_hypotf` (src/binary32/hypot/hypotf.c). Ported 2026-10-20 at the
+maintainer's direction (gh:#997: "Port"). The full MIT notice is reproduced
+in the file header.
+
+  Project    : CORE-MATH
+  Upstream   : https://gitlab.inria.fr/core-math/core-math
+  Commit     : 7ebab73913c5a33a25402ee51c96ec06b3a18095 (2026-10-20)
+  Licence    : MIT (verified from LICENSE and both file headers)
+
+      Copyright (c) 2022-2026 Alexei Sibidanov <sibid@uvic.ca>   (hypot.c)
+      Copyright (c) 2022-2025 Alexei Sibidanov                   (hypotf.c)
+
+  MIT is permissive and GPL/AGPL-compatible; the flow is ONE-WAY.
 
 ================================================================================
 OTHER UPSTREAM SOURCES
@@ -550,6 +661,40 @@ PRIOR ART IN RUST — ACKNOWLEDGEMENT
   against a reference implementation with its own test suite. Those are
   constraints particular to this project, not deficiencies in either crate
   above.
+
+================================================================================
+DERIVED WORK — rand, rand_core, rand_distr and chacha20 (random numbers)
+================================================================================
+
+`src/rng/traits.rs`, `src/rng/chacha.rs`, `src/rng/uniform.rs`,
+`src/rng/normal.rs` and `src/rng/ziggurat_tables.rs` port the pieces of the
+Rand project's crates (and RustCrypto's `chacha20`, which `rand` re-exports
+as `rand::rngs::ChaCha8Rng`) that boon-lay's RustBCA copy used. Read from
+the crates.io registry copies of the exact versions boon-lay's `Cargo.lock`
+pinned on 2026-10-20. Ported at the maintainer's direction recorded on
+GitHub issue #995 (2026-10-20). Each file's header carries the full MIT
+notice and the copyright lines of the files it was ported from.
+
+  Project    : rand 0.10.3, rand_core 0.10.1, rand_distr 0.6.0
+  Upstream   : https://github.com/rust-random/rand,
+               https://github.com/rust-random/rand_core,
+               https://github.com/rust-random/rand_distr
+  Licence    : MIT OR Apache-2.0 (used here under MIT)
+  Copyright  : rand_core LICENSE-MIT: "Copyright (c) 2018-2026 The Rand
+               Project Developers"; rand LICENSE-MIT: "Copyright 2018
+               Developers of the Rand project", "Copyright (c) 2014 The Rust
+               Project Developers"; rand_distr LICENSE-MIT: "Copyright 2018
+               Developers of the Rand project"; plus "The Rust Project
+               Developers" (2013, 2013-2017, 2017) in individual file headers.
+
+  Project    : chacha20 0.10.2
+  Upstream   : https://github.com/RustCrypto/stream-ciphers
+  Licence    : MIT OR Apache-2.0 (used here under MIT)
+  Copyright  : "Copyright (c) 2019-2026 The RustCrypto Project Developers"
+
+  MIT is permissive and compatible with this crate's licence; the flow is
+  ONE-WAY. `ziggurat_tables.rs` is a verbatim data lift; the rest is ported
+  with the deviations listed in each file (none changes an output).
 
 ================================================================================
 NOT AFFILIATED

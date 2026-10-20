@@ -123,8 +123,9 @@ Covers:
 | ~~`oorandom`~~ | ~~Simple fast RNG for decay-chain sampling~~ **CORRECTED 2026-10-04 (gh:#531):** not a dependency (`Cargo.toml` has none); `OoRng64` in `central_limit_theorem/oorandom_rng.rs` is a local wrapper, and decay chains use `outram_mc_libs::rng::lcg::Lcg64` |
 | `serde_json` | reading upstream / GUI-written TRISO-ATOPS run files (`run_file::upstream`) |
 | `rayon` (not on wasm), `wgpu` (not on Android or wasm) | parallel ensembles; the optional, unverified GPU kernel |
-| `outram-mc-libs` | RNG (LCG + Normal + Exp distributions) — replaces `oorandom`, `rand`, `rand_core`, `rand_distr` **for boon-lay's own code**. **CORRECTED 2026-10-16:** `rand` 0.10 and `rand_distr` 0.6 are dependencies again, but only for the RustBCA copy (`src/rustbca/`), which keeps upstream's ChaCha8 RNG |
-| `petir` | `real::Real`, the libm-backed float shim for the `no_std` RustBCA copy (added 2026-10-16) |
+| `outram-mc-libs` | RNG (LCG + Normal + Exp distributions) — replaces `oorandom`, `rand`, `rand_core`, `rand_distr` **for boon-lay's own code**. ~~**CORRECTED 2026-10-16:** `rand` 0.10 and `rand_distr` 0.6 are dependencies again, but only for the RustBCA copy (`src/rustbca/`), which keeps upstream's ChaCha8 RNG~~ **CORRECTED 2026-10-20 (gh:#995):** `rand` and `rand_distr` are gone again; the RustBCA copy draws from `petir::rng`, a draw-for-draw port of the same ChaCha8 RNG |
+| `petir` | `real::Real`, the libm-backed float shim for the `no_std` RustBCA copy (added 2026-10-16); since 2026-10-20 also `rng::{ChaCha8Rng, Uniform, Normal}` for that copy (gh:#995) |
+| `getrandom` | OS entropy for RustBCA's `seed < 0` and `simple_bca`, under `rustbca-std` only (added 2026-10-20, gh:#995; was `rand`'s `thread_rng`) |
 | `serde` / `serde-xml-rs` | Deserialise the ENDF-8 XML into `SerdeNuclideData` structs |
 | `anyhow` | Error propagation in XML parsing |
 

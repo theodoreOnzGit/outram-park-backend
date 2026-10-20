@@ -1093,6 +1093,7 @@ dependencies = [
  "fission-yields-data",
  "float-cmp 0.10.0",
  "geo",
+ "getrandom 0.3.4",
  "image",
  "indicatif",
  "itertools 0.15.0",
@@ -1100,8 +1101,6 @@ dependencies = [
  "openmc-endf-8-depletion-lib-b",
  "outram-mc-libs",
  "petir",
- "rand 0.10.3",
- "rand_distr 0.6.0",
  "rayon",
  "serde",
  "serde-xml-rs",
@@ -6084,16 +6083,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "lambert_w"
-version = "1.2.34"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f5f0846ee4f0299ca4c5b9ca06ff55cf88b3430a763bf591474cc734479c9b24"
-dependencies = [
- "num-complex",
- "num-traits",
-]
-
-[[package]]
 name = "lapack-sys"
 version = "0.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6352,10 +6341,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3f607c237553f086e7043417a51df26b2eb899d3caff94e6a67592ff992fedc7"
 dependencies = [
  "autocfg",
- "num_cpus",
- "once_cell",
  "rawpointer",
- "thread-tree",
 ]
 
 [[package]]
@@ -7445,12 +7431,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "order-stat"
-version = "0.1.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "efa535d5117d3661134dbf1719b6f0ffe06f2375843b13935db186cd094105eb"
-
-[[package]]
 name = "ordered-float"
 version = "5.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7627,7 +7607,6 @@ dependencies = [
  "outram-park-fork-dwsim-libs",
  "outram-park-fork-offbeat",
  "petir",
- "roots",
  "sembawang",
  "serde",
  "tampines",
@@ -7668,7 +7647,6 @@ dependencies = [
  "approx",
  "ndarray",
  "petir",
- "roots",
  "thiserror 2.0.21",
  "uom",
  "zip",
@@ -7713,7 +7691,6 @@ dependencies = [
 name = "outram-park-fork-onix"
 version = "0.0.1"
 dependencies = [
- "num-complex",
  "petir",
  "thiserror 2.0.21",
  "uom",
@@ -7885,39 +7862,6 @@ name = "percent-encoding-rfc3986"
 version = "0.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3637c05577168127568a64e9dc5a6887da720efef07b3d9472d45f63ab191166"
-
-[[package]]
-name = "peroxide"
-version = "0.41.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a6d20133e05cdf9a2e390d34871066568f6899884b4a325d9ff9610b8dff9526"
-dependencies = [
- "anyhow",
- "matrixmultiply",
- "order-stat",
- "paste",
- "peroxide-ad",
- "peroxide-num",
- "puruspe",
- "rand 0.9.5",
- "rand_distr 0.5.1",
-]
-
-[[package]]
-name = "peroxide-ad"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f6fba8ff3f40b67996f7c745f699babaa3e57ef5c8178ec999daf7eedc51dc8c"
-dependencies = [
- "quote",
- "syn 1.0.109",
-]
-
-[[package]]
-name = "peroxide-num"
-version = "0.1.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e6b17ddf7141892147b48b5d0e2a3ab8ec7fcbaa06f186d01118f7c933a77863"
 
 [[package]]
 name = "pest"
@@ -8430,16 +8374,6 @@ name = "pulp-wasm-simd-flag"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1d8f70e07b9c3962945a74e59ca1c511bba65b6419468acc217c457d93f3c740"
-
-[[package]]
-name = "puruspe"
-version = "0.4.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2c9d62b4ad8b456f2ac8a171567bd475cae8cecd53ff5a46fce4f261eef17648"
-dependencies = [
- "lambert_w",
- "num-complex",
-]
 
 [[package]]
 name = "pxfm"
@@ -8972,12 +8906,6 @@ dependencies = [
  "typeid",
  "unicode-ident",
 ]
-
-[[package]]
-name = "roots"
-version = "0.0.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "082f11ffa03bbef6c2c6ea6bea1acafaade2fd9050ae0234ab44a2153742b058"
 
 [[package]]
 name = "ropey"
@@ -9949,7 +9877,6 @@ dependencies = [
  "outram-park-fork-dwsim-libs",
  "petir",
  "raffles",
- "roots",
  "serde",
  "tampines-steam-tables",
  "teh-o-prke",
@@ -9975,7 +9902,6 @@ dependencies = [
  "ndarray",
  "outram-foam-basic-lib",
  "petir",
- "roots",
  "serde",
  "teh-o-prke",
  "thiserror 2.0.21",
@@ -10014,7 +9940,6 @@ dependencies = [
  "local-ip-address",
  "ndarray",
  "petir",
- "roots",
  "serde",
  "thiserror 2.0.21",
  "tuas_boussinesq_solver",
@@ -10090,15 +10015,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 3.0.9",
-]
-
-[[package]]
-name = "thread-tree"
-version = "0.3.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ffbd370cb847953a25954d9f63e14824a36113f8c72eecf6eccef5dc4b45d630"
-dependencies = [
- "crossbeam-channel",
 ]
 
 [[package]]
@@ -10430,13 +10346,10 @@ dependencies = [
  "egui_extras",
  "egui_plot",
  "env_logger",
- "getrandom 0.3.4",
  "image",
  "log",
  "ndarray",
- "peroxide",
  "petir",
- "roots",
  "serde",
  "thiserror 2.0.21",
  "uom",

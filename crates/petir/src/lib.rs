@@ -131,6 +131,7 @@
 //! | [`fast_exp`], [`fast_log`], [`fast_pow`] | ported | ARM optimized-routines `exp`, `log`, `pow` — bit-identical to upstream |
 //! | [`real`] | — | The `no_std` float-math shim |
 //! | [`rng`] | ported (OpenMC, not GSL) | OpenMC's 64-bit LCG with PCG output permutation and O(log n) jump-ahead; moved here from `outram-mc-libs` 2026-10-02 |
+//! | [`rng`] (`ChaCha8Rng`, `Uniform`, `Normal`) | ported (`rand` 0.10.3 / `rand_distr` 0.6.0 / `chacha20` 0.10.2, not GSL) | the `rand` pieces `boon-lay`'s RustBCA copy uses, bit-identical to those crates (gh:#995, 2026-10-20; `tests/rng_vs_rand.rs`) |
 //! | [`scalar`] | lifted | Guard constants and machine epsilons |
 //!
 //! The epic's original scope is now COVERED. What remains are deliberate
@@ -204,6 +205,8 @@ pub mod fast_exp;
 pub mod fast_log;
 pub mod fast_pow;
 pub mod gamma_inc;
+/// Correctly rounded `hypot` (`f64`, `f32`), ported from CORE-MATH (gh:#997).
+pub mod hypot;
 pub mod integration;
 pub mod interp;
 pub mod linalg;

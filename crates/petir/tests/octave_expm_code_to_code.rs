@@ -31,7 +31,9 @@
 //! 4-nuclide decay chain (depletion's use), a badly scaled 3x3 (where
 //! balancing matters), a symmetric 4x4, and dense 6x6 and 10x10.
 //!
-//! Pass criterion: PETIR vs `RNB` within `1e-13` normwise on every case.
+//! Pass criterion: ~~PETIR vs `RNB`~~ **PETIR vs stock `R`** (since
+//! gh:#998, when `expm` stopped deviating from `expm.m`) within `1e-13`
+//! normwise on every case. The tolerance is unchanged.
 //! The stock comparison is reported, not gated, because its difference is
 //! the balancing deviation, which is a measured property of the port rather
 //! than a defect.
@@ -70,6 +72,31 @@
 //! no-balance Octave there **bit for bit**. Which of the two is closer to the
 //! exact exponential was *not* determined (no multiprecision reference was
 //! available in this environment).
+//!
+//! # gh:#998: balancing ported (LAPACK `DGEBAL`), re-measured 2026-10-20
+//!
+//! **Prediction, written before the run:** with `[d, p, aa] = balance (A)`
+//! carried out by the `DGEBAL` port (bit-identical to Reference-LAPACK
+//! 3.12.1, `tests/lapack_gebal_code_to_code.rs`), PETIR vs stock `R` on
+//! `scaled3` drops from 1.11e-11 to the ~1e-16 level of the LU / `dgemm`
+//! differences, and `chain4` (lower bidiagonal, so `DGEBAL` permutes it)
+//! from 1.7e-18 to <= 8.7e-19; every other case unchanged, since balancing
+//! is a no-op on them. The gate moves to PETIR vs stock `R`, because
+//! `expm` no longer deviates from `expm.m`.
+//!
+//! **Result:**
+//!
+//! | case | PETIR vs `R`, before -> after | PETIR vs `RNB` after |
+//! |---|---|---|
+//! | `scaled3` | **1.11e-11 -> 0** | 1.11e-11 (the balancing, now on PETIR's side) |
+//! | `chain4` | 1.7e-18 -> **0** | 8.67e-19 |
+//! | all other twelve | unchanged (0 to 3.2e-16) | unchanged |
+//!
+//! Per entry vs stock `R`: ~~117/220~~ **128/220** bit-identical; worst
+//! normwise PETIR vs `R` 3.20e-16 (`dense6`, the LU / `dgemm` difference).
+//! The prediction held, and on `scaled3` and `chain4` did better than
+//! predicted: both are now bit-identical to stock Octave normwise (every
+//! entry of `scaled3` agrees exactly).
 
 mod linalg_gsl_common;
 
@@ -87,12 +114,15 @@ fn normwise(case: &Case, tag: &str, got: &Matrix) -> f64 {
     diff / big
 }
 
-/// PETIR against Octave's `expm` with balancing removed (gated), and
-/// against stock `expm` (reported); `RNB` against `R` (reported).
+/// PETIR against stock `expm` (gated since gh:#998; before it, against
+/// `expm` with balancing removed), and against `RNB` (reported); `RNB`
+/// against `R` (reported).
 ///
 /// # Results (2026-10-20)
 ///
 /// See the module table. Worst PETIR vs `RNB`: 3.20e-16 normwise (`dense6`).
+/// **After gh:#998:** worst PETIR vs stock `R` 3.20e-16 (`dense6`);
+/// `scaled3` 0 (was 1.11e-11).
 #[test]
 fn expm_matches_octave() {
     let Some(cases) = load_in("octave", FILE) else {
@@ -102,7 +132,7 @@ fn expm_matches_octave() {
     assert_eq!(cases.len(), 14);
     let mut s_nb = Score::default();
     let mut s_r = Score::default();
-    let mut worst_nb = (0.0_f64, String::new());
+    let mut worst_st = (0.0_f64, String::new());
     for (name, case) in &cases {
         let a = case.matrix("A").unwrap();
         let r = expm(&a).unwrap();
@@ -128,8 +158,8 @@ fn expm_matches_octave() {
             "{name:12} petir-vs-nobal {nb:9.2e}   petir-vs-octave {st:9.2e}   \
              octave-nobal-vs-octave {bal:9.2e}"
         );
-        if nb > worst_nb.0 {
-            worst_nb = (nb, name.clone());
+        if st > worst_st.0 {
+            worst_st = (st, name.clone());
         }
     }
     eprintln!(
@@ -138,8 +168,8 @@ fn expm_matches_octave() {
     );
     eprintln!("{}", s_r.summary("expm vs stock Octave expm (per entry)"));
     assert!(
-        worst_nb.0 < 1e-13,
-        "worst normwise vs no-balance Octave: {worst_nb:?}"
+        worst_st.0 < 1e-13,
+        "worst normwise vs stock Octave: {worst_st:?}"
     );
 }
 

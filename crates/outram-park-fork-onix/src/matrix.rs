@@ -15,8 +15,10 @@
 //!
 //! The matrix is stored **dense, row-major**. Depletion matrices are sparse in
 //! reality, but for the modest nuclide counts of a stand-alone chain (tens to a
-//! few hundred) dense storage plus a dense complex solve in [`crate::cram`] is
-//! simple, allocation-light, and pure Rust (no BLAS).
+//! few hundred) dense storage plus a dense complex solve (reached through
+//! [`crate::cram`]; since 2026-10-20 the solve itself is
+//! `petir::depletion::cram16_pfd`, gh:#999) is simple, allocation-light, and
+//! pure Rust (no BLAS).
 //!
 //! ## Provenance (GPLv3 relicensing of MIT upstream)
 //!

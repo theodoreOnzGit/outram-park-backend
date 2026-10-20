@@ -10,7 +10,6 @@
 //! pressure in Pa); the dimensionless results are returned as `Ratio` (or a
 //! bare `f64` where a Bejan number is taken as input).
 
-extern crate peroxide;
 extern crate uom;
 
 use petir::uom_math::QuantityMath;
