@@ -227,10 +227,16 @@ Measured on this module's own conjugate test problem (12 observations of
 | 200 | 0.1 | 0.118810 | 2.4x **too tight** — over-confident |
 | 12 | 0.2 | 0.366628 | 1.27x wider than exact — the honest direction |
 
-With the sample sizes matched, tightening the tolerance walks the posterior
+~~With the sample sizes matched, tightening the tolerance walks the posterior
 sd down towards the exact value and stops there rather than sailing past it:
 0.5677 at `epsilon = 0.5`, 0.3464 at 0.2, 0.3110 at 0.05, against the exact
-0.288195. That saturation is what a correctly-posed ABC problem looks like.
+0.288195. That saturation is what a correctly-posed ABC problem looks like.~~
+**CORRECTED 2026-10-21 (gh:#985)** — that was a single seed. Over seeds
+1..=30 the mean posterior sd is 0.5910 +/- 0.0028 (SE) at `epsilon = 0.5`,
+0.3589 +/- 0.0026 at 0.2 and 0.2621 +/- 0.0096 at 0.05: tightening the
+tolerance does shrink the posterior, but at 0.05 it goes on **past** the
+exact 0.288195 (2.7 SE below it), so it does not saturate there and small
+tolerances are over-confident on average even with matched sample sizes.
 
 Both rows of that table are pinned by tests in this module, so the failure
 mode cannot quietly come back.
