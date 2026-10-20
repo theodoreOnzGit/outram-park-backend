@@ -2,9 +2,9 @@
 name = "raffles"
 version = "0.0.2"
 edition.workspace = true
-# GPL-3.0-only: upstream RAVEN is Apache-2.0, which is ONE-WAY compatible with
-# GPLv3 (Apache -> GPLv3 is allowed; GPLv3 -> Apache is not). This crate is
-# therefore GPL-3.0-only like the rest of the suite, and its code CANNOT flow
+# AGPL-3.0-only since 2026-10-20 (gh:#973; was GPL-3.0-only), a combined work:
+# its SCRAM / MPNN / pba.r ports keep GPL-3.0 (LICENSE.GPL-3.0). Upstream RAVEN
+# is Apache-2.0, ONE-WAY compatible with (A)GPLv3, so this crate's code CANNOT flow
 # back upstream to RAVEN. Full provenance, the verbatim upstream LICENSE.txt /
 # NOTICE.txt, and the required Battelle Energy Alliance / Idaho National
 # Laboratory attribution live in NOTICE, LICENSE-APACHE-RAVEN, NOTICE-RAVEN and

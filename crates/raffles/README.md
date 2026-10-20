@@ -85,20 +85,20 @@ at time of access `RAVENv3.2` (2026-03-12). Accessed 2026-08-06. Licensed
 the U.S. Department of Energy Office of Nuclear Energy under Contract
 No. DE-AC07-05ID14517.
 
-### Apache-2.0 into GPL-3.0 is ONE-WAY
+### Apache-2.0 into ~~GPL-3.0~~ AGPL-3.0 is ONE-WAY
 
-RAFFLES is **GPL-3.0-only**, the Outram Park workspace default.
+RAFFLES is ~~**GPL-3.0-only**~~ **AGPL-3.0-only** (relicensed 2026-10-20, gh:#973), the Outram Park workspace default — an AGPL-3.0-only combined work under GPLv3 §13 / AGPLv3 §13: its GPL-3.0 ports (SCRAM, Physics-guided-MPNN, pba.r) keep GPL-3.0, and the crate ships `LICENSE.GPL-3.0`.
 
 Apache-2.0 is one-way compatible with GPLv3. Apache-licensed code may be taken
 into a GPLv3 work and the result is governed by GPLv3; GPLv3 code may **not**
 be taken into an Apache-2.0 work.
 
-- Code may flow **RAVEN (Apache-2.0) into RAFFLES (GPL-3.0-only)**.
+- Code may flow **RAVEN (Apache-2.0) into RAFFLES (~~GPL-3.0-only~~ AGPL-3.0-only)**.
 - Code may **not** flow **RAFFLES into RAVEN**.
 
 So: do not contribute RAFFLES code, patches or translated files upstream to
 RAVEN, and do not offer RAFFLES code to anyone under Apache-2.0 terms. Once a
-translation lands here it is GPLv3 and it stays GPLv3. This constrains the
+translation lands here it is ~~GPLv3 and it stays GPLv3~~ AGPLv3 and stays so. This constrains the
 direction of *code* flow only — reading RAVEN's papers and documentation and
 implementing the published algorithms is unaffected.
 
@@ -131,9 +131,9 @@ be done:
 
 | Source | Licence | What that allowed |
 |---|---|---|
-| [RAVEN](https://github.com/idaholab/raven) | Apache-2.0 | Code may be ported into this GPL-3.0 crate, one-way, with the attribution header in `CLAUDE.md` |
-| [Physics-guided-MPNN](https://github.com/mikelunizar/Physics-guided-MPNN) | GPL-3.0 | Same licence as this workspace, so `gnn::mpnn` **is** a port and carries its attribution header |
-| [SCRAM](https://github.com/rakhimov/scram) | GPL-3.0-or-later | Same licence as this crate, so `scram::probability`, `scram::importance` and `scram::fault_tree`'s connective taxonomy **are** ports and carry their attribution headers. `scram::mocus` is **not** — it is the published MOCUS algorithm, verified *against* SCRAM rather than translated from it, and says so |
+| [RAVEN](https://github.com/idaholab/raven) | Apache-2.0 | Code may be ported into this ~~GPL-3.0~~ AGPL-3.0-only crate, one-way, with the attribution header in `CLAUDE.md` |
+| [Physics-guided-MPNN](https://github.com/mikelunizar/Physics-guided-MPNN) | GPL-3.0 | ~~Same licence as this workspace~~ GPL-3.0, combined with this AGPL-3.0-only crate under §13 (the ported files keep GPL-3.0), so `gnn::mpnn` **is** a port and carries its attribution header |
+| [SCRAM](https://github.com/rakhimov/scram) | GPL-3.0-or-later | ~~Same licence as this crate~~ Combined under §13 (ported files keep GPL-3.0), so `scram::probability`, `scram::importance` and `scram::fault_tree`'s connective taxonomy **are** ports and carry their attribution headers. `scram::mocus` is **not** — it is the published MOCUS algorithm, verified *against* SCRAM rather than translated from it, and says so |
 | Adolphus Lye's `Bayesian-Model-Updating-Tutorials` | GPL-3.0 (LICENSE file) | Portable, same as above; `bayesian::case_studies` **is** a port and carries its header |
 | Adolphus Lye's six other repositories (workspace issue #158) | GPL-3.0 **by direct grant** from the author, who is the copyright holder and this crate's owner — stated to the maintainer 2026-09-09, reaffirmed 2026-09-16. No `LICENSE` file in the repositories as of 2026-09-16 | Portable. Nothing has been taken from them so far: the Bayesian, distance, ABC and imprecise modules were written from the published papers, each cited with its DOI |
 | Adolphus Lye's `Computing-with-Confidence` ("Coherent systems", gh:#987) and Scott Ferson's `pba BETTER.r` | Lye's scripts: no `LICENSE` file; the author asked for them to be ported and the maintainer confirmed AGPLv3 is fine (2026-10-20). `pba.r`: GPL-3.0 ([ScottFerson/pba.r](https://github.com/ScottFerson/pba.r)). `sra.r` in the same folder: **"All rights reserved" — not read, not ported, not used** | `scram::pba` **is** a port of the pba.r operations the case studies call (`KN`, `and`, `or`, `andI`, `orI`, Fréchet and independent convolution) and carries a pba.r header; `scram::pbox_tree` and the case-study tests are original code reproducing Lye's scripts. AI-assisted draft, not reviewed by a human or the crate owner |
@@ -141,7 +141,7 @@ be done:
 Two things about that last row, kept apart because they are different claims.
 
 **The licence is settled.** Adolphus Lye owns the copyright in all seven
-repositories and has granted GPL-3.0 — the same licence as this crate — so
+repositories and has granted GPL-3.0 — ~~the same licence as this crate~~ (the crate became AGPL-3.0-only on 2026-10-20 at the maintainer's direction, gh:#973) — so
 there is no compatibility question and no one-way constraint of the kind that
 applies to the RAVEN port. A code-level port from any of the seven is
 permitted, with the attribution header in `CLAUDE.md`.
@@ -274,6 +274,6 @@ Always `--release` for builds and tests, per the workspace rule.
 
 ## License
 
-GPL-3.0-only. See the workspace root `LICENSE`, and this crate's `NOTICE`,
+~~GPL-3.0-only.~~ **AGPL-3.0-only** (relicensed 2026-10-20, gh:#973), as a combined work: the GPL-3.0 ports keep GPL-3.0, see `LICENSE.GPL-3.0`. See the workspace root `LICENSE`, and this crate's `NOTICE`,
 `LICENSE-APACHE-RAVEN` and `NOTICE-RAVEN` for upstream provenance and the
 required Apache-2.0 attribution.

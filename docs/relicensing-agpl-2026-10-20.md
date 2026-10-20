@@ -119,7 +119,11 @@ header changed**.
 below "they are colleagues" and "i know them". That direction, given in the coordinating
 session, stands in place of the per-person recorded consent this section asked for. All five
 now inherit `license.workspace = true` (AGPL-3.0-only), each with a dated NOTICE section.
-`bedok` and `raffles` are relicensed outright (raffles keeps `LICENSE-APACHE-RAVEN`);
+`bedok` ~~and `raffles` are~~ is relicensed outright; ~~(raffles keeps `LICENSE-APACHE-RAVEN`)~~
+**CORRECTED 2026-10-20:** `raffles` cannot be: it holds ports of third-party GPL-3.0 code
+(SCRAM, Rakhimov, GPL-3.0-or-later; Physics-guided-MPNN, GPL-3.0; pba.r, Ferson, GPL-3.0,
+since gh:#987), which only the upstream holders could relicense. It conveys as a combined
+work, keeps `LICENSE-APACHE-RAVEN`, and now ships `LICENSE.GPL-3.0`;
 `tuas_boussinesq_solver`, `tampines` and `tampines-steam-tables` convey as combined works,
 shipping `LICENSE.GPL-3.0`, because they contain files referring to or derived from OpenFOAM
 (GPL-3.0-or-later). Treating them as combine-only is the conservative reading, pending a

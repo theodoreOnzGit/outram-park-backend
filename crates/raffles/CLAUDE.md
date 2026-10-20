@@ -124,17 +124,17 @@ The crate `NOTICE` is the authoritative provenance record.
 `upstream_source/README.md` holds the clone command and the map from RAFFLES
 modules to upstream paths.
 
-### Apache-2.0 into GPL-3.0 is ONE-WAY — the rule you must not get wrong
+### Apache-2.0 into ~~GPL-3.0~~ AGPL-3.0 is ONE-WAY — the rule you must not get wrong
 
-RAFFLES is **GPL-3.0-only**. Apache-2.0 is one-way compatible with GPLv3:
+RAFFLES is ~~**GPL-3.0-only**~~ **AGPL-3.0-only** (relicensed 2026-10-20, gh:#973), an AGPL-3.0-only combined work under GPLv3 §13 / AGPLv3 §13: its GPL-3.0 ports (SCRAM, Physics-guided-MPNN, pba.r) keep GPL-3.0, and the crate ships `LICENSE.GPL-3.0`. Apache-2.0 is one-way compatible with GPLv3 and AGPLv3 alike:
 
-- Code may flow **RAVEN (Apache-2.0) into RAFFLES (GPL-3.0-only)**.
-- Code may **not** flow **RAFFLES (GPL-3.0-only) into RAVEN (Apache-2.0)**.
+- Code may flow **RAVEN (Apache-2.0) into RAFFLES (~~GPL-3.0-only~~ AGPL-3.0-only)**.
+- Code may **not** flow **RAFFLES (~~GPL-3.0-only~~ AGPL-3.0-only) into RAVEN (Apache-2.0)**.
 
 Never contribute RAFFLES code, patches or translated files upstream to RAVEN,
 never open a pull request against `idaholab/raven` out of this workspace, and
 never offer RAFFLES code to anyone under Apache-2.0 terms. Once a translation
-lands here it is GPLv3 and stays GPLv3. Relicensing would require every RAFFLES
+lands here it is ~~GPLv3 and stays GPLv3~~ AGPLv3 (or GPLv3, for a GPL-upstream port) and stays so. Relicensing would require every RAFFLES
 copyright holder's agreement — which no AI assistant may arrange, and no
 contributor may arrange unilaterally.
 
@@ -147,7 +147,7 @@ implementation from the paper is usually the better route anyway.
 
 `src/scram/` is ported from **[SCRAM](https://github.com/rakhimov/scram)**
 (Olzhas Rakhimov), commit `b85b78940de38996eeffec54d946824bd4280a1c`,
-accessed 2026-09-21. SCRAM is **GPL-3.0-or-later** — the same licence family
+accessed 2026-09-21. SCRAM is **GPL-3.0-or-later** — ~~the same licence family~~ **CORRECTED 2026-10-20**: since the AGPL relicence (gh:#973) the SCRAM ports stay GPL-3.0 and combine with the AGPL crate under §13; originally the same licence family
 as this crate — so it carries **none** of the one-way constraint the RAVEN
 grant does, and the Apache-2.0 header template below is **wrong** for those
 files. Use the GPL header the existing `src/scram/` files carry.

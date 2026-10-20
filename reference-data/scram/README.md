@@ -20,8 +20,9 @@ source and reasoning about what it would produce.
 | Built | 2026-09-21, GCC, Boost 1.83.0, libxml2 2.9.14, `-DCMAKE_BUILD_TYPE=Release -DBUILD_GUI=OFF -DWITH_TCMALLOC=OFF -DWITH_JEMALLOC=OFF` |
 | Models | upstream's **own** `input/` suite — not inputs invented for this port |
 
-SCRAM is GPL-3.0-or-later and RAFFLES is GPL-3.0-only, so this is a
-same-licence port. It is **not** the one-way Apache-2.0 → GPLv3 relicensing
+SCRAM is GPL-3.0-or-later and RAFFLES ~~is GPL-3.0-only, so this is a
+same-licence port~~ is AGPL-3.0-only since 2026-10-20 (gh:#973): the ported
+files keep GPL-3.0 and combine with the crate under GPLv3/AGPLv3 §13. It is **not** the one-way Apache-2.0 → GPLv3 relicensing
 that governs the RAVEN-derived parts of `raffles`.
 
 ### One build patch was needed, and it touches no arithmetic
@@ -196,8 +197,9 @@ than dropping it silently.
 `upstream-input/` holds the `.xml` inputs themselves, copied unchanged from
 upstream's `input/` at commit `b85b7894`, so that
 `crates/raffles/tests/scram_mef.rs` can read the *models* rather than a
-transcription of them. SCRAM is GPL-3.0-or-later and this repository is
-GPL-3.0-only, so the copy is same-licence; the provenance is the table at the
+transcription of them. SCRAM is GPL-3.0-or-later and the copy stays under
+it (~~this repository is GPL-3.0-only, so the copy is same-licence~~; the
+repository is AGPL-3.0-only since 2026-10-20 and combines with it under §13); the provenance is the table at the
 top of this file.
 
 Eighteen files: the nine models `oracle.txt` covers, `Aralia/das9601`,
