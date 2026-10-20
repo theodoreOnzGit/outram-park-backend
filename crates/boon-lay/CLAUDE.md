@@ -251,6 +251,14 @@ in `docs/panama-i-units-and-open-questions.md`, named for the report it audits.
   (seed 77, 30 s half-life) and checks the surviving fraction against
   `2^(-t/30)` at 0–100 s to 0.9 % relative; worst point 8.43e-3 at 60 s
   (1.5σ). Also walks Th-232 to Pb-208.
+- `lagrangian_decay_simulator/expected_inventory.rs` (added 2026-10-20,
+  gh:#999) — the **CRAM48 expected inventory** of a chain, built from the
+  same `DecayLibrary` the MC samples (PETIR `depletion::cram48`). The MC
+  stays the simulator; CRAM is its deterministic check: (a) the
+  `SingleNuclideSimulatorMC` mean over 20 000 Pb-212 atoms at 12 h against
+  CRAM48 within 4 binomial sigma per nuclide (fixed seed); (b) CRAM48 against
+  the exact Bateman answer on the Th-232 chain head, 1e-13 normwise. Measured
+  numbers are in the tests' doc comments.
 - `release_fraction_crp_6_case_1a_1b/monte_carlo_test.rs` — compares MC
   release fraction to the IAEA CRP-6 analytical solution.
 - `lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/
@@ -309,7 +317,9 @@ The neutron flux `φ` (scalar or spatially resolved) is an external input —
 coupling to `outram-mc-libs` flux maps is the natural integration point.
 
 This design scales linearly with the number of simulated atoms and requires no
-matrix exponential, no CRAM solver, and no stiffness handling.
+matrix exponential, no CRAM solver, and no stiffness handling. (The
+simulator still needs none. Since 2026-10-20, gh:#999, a CRAM48 *check* of
+its mean exists beside it: `lagrangian_decay_simulator::expected_inventory`.)
 
 ### Other planned items
 
