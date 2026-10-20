@@ -595,7 +595,7 @@ fn c2d_matched(
     // Gain matched at w_c = 0 (DC) unless a pole/zero sits within
     // tol = sqrt(eps) of j*w_c; then step w_c by 0.1/T until clear
     // (upstream loop, verbatim semantics).
-    let tol = f64::EPSILON.sqrt();
+    let tol = Real::sqrt(f64::EPSILON);
     let mut w_c = 0.0_f64;
     while p_c
         .iter()
@@ -672,7 +672,7 @@ fn d2c_matched(sys: &DiscreteTransferFn) -> Result<ContinuousTransferFn, ZDomain
 
     // upstream: z_d(abs (z_d+1) < sqrt (eps)) = [] — drop zeros at -1,
     // which are the images of continuous zeros at infinity
-    let tol = f64::EPSILON.sqrt();
+    let tol = Real::sqrt(f64::EPSILON);
     let z_d: Vec<Cplx> = z_d_orig
         .iter()
         .copied()

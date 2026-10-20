@@ -246,26 +246,26 @@ fn mod_phase(x: f32) -> (f32, f32) {
     };
     let m = 0.3125 + m;
     let p = -0.625 + p;
-    let sqx = (-x).sqrt();
-    ((m / sqx).sqrt(), PI_4 - x * sqx * p)
+    let sqx = Real::sqrt(-x);
+    (Real::sqrt(m / sqx), PI_4 - x * sqx * p)
 }
 
 /// `exp(+(2/3) x^{3/2}) Ai(x)` for `x >= 1`. Mirrors `petir_airy_aie`.
 fn aie(x: f32) -> f32 {
-    let sqx = x.sqrt();
+    let sqx = Real::sqrt(x);
     let z = 2.0 / (x * sqx) - 1.0;
-    (0.28125 + cheb(z, &AIP)) / sqx.sqrt()
+    (0.28125 + cheb(z, &AIP)) / Real::sqrt(sqx)
 }
 
 /// `exp(-(2/3) x^{3/2}) Bi(x)` for `x >= 2`. Mirrors `petir_airy_bie`.
 fn bie(x: f32) -> f32 {
-    let sqx = x.sqrt();
+    let sqx = Real::sqrt(x);
     let c = if x < 4.0 {
         cheb(8.750691 / (x * sqx) - 2.0938363, &BIP)
     } else {
         cheb(16.0 / (x * sqx) - 1.0, &BIP2)
     };
-    (0.625 + c) / sqx.sqrt()
+    (0.625 + c) / Real::sqrt(sqx)
 }
 
 /// `Ai(x)` in `f32` for all real `x`. Mirrors `petir_airy_ai`.
@@ -275,12 +275,12 @@ pub fn airy_ai(x: f32) -> f32 {
     }
     if x < -1.0 {
         let (m, t) = mod_phase(x);
-        m * t.cos()
+        m * Real::cos(t)
     } else if x <= 1.0 {
         let z = x * x * x;
         0.375 + (cheb(z, &AIF) - x * (0.25 + cheb(z, &AIG)))
     } else {
-        aie(x) * (-2.0 * x * x.sqrt() / 3.0).exp()
+        aie(x) * Real::exp(-2.0 * x * Real::sqrt(x) / 3.0)
     }
 }
 
@@ -292,12 +292,12 @@ pub fn airy_ai_scaled(x: f32) -> f32 {
     }
     if x < -1.0 {
         let (m, t) = mod_phase(x);
-        m * t.cos()
+        m * Real::cos(t)
     } else if x <= 1.0 {
         let z = x * x * x;
         let v = 0.375 + (cheb(z, &AIF) - x * (0.25 + cheb(z, &AIG)));
         if x > 0.0 {
-            v * (2.0 / 3.0 * z.sqrt()).exp()
+            v * Real::exp(2.0 / 3.0 * Real::sqrt(z))
         } else {
             v
         }
@@ -323,7 +323,7 @@ fn airy_bi_at_cut(x: f32, cut: f32) -> f32 {
     }
     if x < -1.0 {
         let (m, t) = mod_phase(x);
-        m * t.sin()
+        m * Real::sin(t)
     } else if x < 1.0 {
         let z = x * x * x;
         0.625 + cheb(z, &BIF) + x * (0.4375 + cheb(z, &BIG))
@@ -331,11 +331,11 @@ fn airy_bi_at_cut(x: f32, cut: f32) -> f32 {
         let z = (2.0 * x * x * x - 9.0) / 7.0;
         1.125 + cheb(z, &BIF2) + x * (0.625 + cheb(z, &BIG2))
     } else {
-        let y = 2.0 * x * x.sqrt() / 3.0;
+        let y = 2.0 * x * Real::sqrt(x) / 3.0;
         if y > cut {
             f32::INFINITY
         } else {
-            bie(x) * y.exp()
+            bie(x) * Real::exp(y)
         }
     }
 }
@@ -348,19 +348,20 @@ pub fn airy_bi_scaled(x: f32) -> f32 {
     }
     if x < -1.0 {
         let (m, t) = mod_phase(x);
-        m * t.sin()
+        m * Real::sin(t)
     } else if x < 1.0 {
         let z = x * x * x;
         let v = 0.625 + cheb(z, &BIF) + x * (0.4375 + cheb(z, &BIG));
         if x > 0.0 {
-            v * (-2.0 / 3.0 * z.sqrt()).exp()
+            v * Real::exp(-2.0 / 3.0 * Real::sqrt(z))
         } else {
             v
         }
     } else if x <= 2.0 {
         let x3 = x * x * x;
         let z = (2.0 * x3 - 9.0) / 7.0;
-        (-2.0 / 3.0 * x3.sqrt()).exp() * (1.125 + cheb(z, &BIF2) + x * (0.625 + cheb(z, &BIG2)))
+        Real::exp(-2.0 / 3.0 * Real::sqrt(x3))
+            * (1.125 + cheb(z, &BIF2) + x * (0.625 + cheb(z, &BIG2)))
     } else {
         bie(x)
     }

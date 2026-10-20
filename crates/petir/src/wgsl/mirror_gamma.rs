@@ -46,8 +46,8 @@ fn lngamma_lanczos(x: f32) -> f32 {
     for (k, c) in (1..).zip(tail.iter()) {
         ag += c / (z + k as f32);
     }
-    let term1 = (z + 0.5) * ((z + 7.5) / core::f32::consts::E).ln();
-    let term2 = LOG_ROOT_TWO_PI + ag.ln();
+    let term1 = (z + 0.5) * Real::ln((z + 7.5) / core::f32::consts::E);
+    let term2 = LOG_ROOT_TWO_PI + Real::ln(ag);
     term1 + (term2 - 7.0)
 }
 
@@ -122,7 +122,7 @@ pub fn lngamma(x: f32) -> f32 {
     } else {
         lngamma_lanczos(y)
     };
-    LN_PI - (PI * x).sin().abs().ln() - inner
+    LN_PI - Real::ln(Real::sin(PI * x).abs()) - inner
 }
 
 /// `Gamma(x)` in `f32`.
@@ -139,12 +139,12 @@ pub fn gamma(x: f32) -> f32 {
     }
     let lg = lngamma(x);
     if x > 0.0 {
-        return lg.exp();
+        return Real::exp(lg);
     }
-    if (PI * x).sin() < 0.0 {
-        -lg.exp()
+    if Real::sin(PI * x) < 0.0 {
+        -Real::exp(lg)
     } else {
-        lg.exp()
+        Real::exp(lg)
     }
 }
 
@@ -155,7 +155,7 @@ pub fn lnbeta(a: f32, b: f32) -> f32 {
 
 /// `B(a, b)`. Mirrors `petir_beta`.
 pub fn beta(a: f32, b: f32) -> f32 {
-    lnbeta(a, b).exp()
+    Real::exp(lnbeta(a, b))
 }
 
 #[cfg(test)]

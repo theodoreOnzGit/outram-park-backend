@@ -58,11 +58,11 @@ that drifts from its origin fails the build rather than rotting quietly.
 | Module | Lineage | Covers |
 |---|---|---|
 | `cheb`, `cheb_slice` | ported | **The whole of GSL's `cheb/`** — interpolation at the Gauss nodes, least-squares fitting at arbitrary points, Clenshaw evaluation with an error estimate, precision-mode evaluation, series derivative and integral, and borrowed-slice evaluators for both coefficient conventions |
-| `depletion` | ported (OpenMC, not GSL) | **Depletion numerics** (`openmc/deplete/`, MIT): all eight time integrators (Predictor, CE/CM, CF4, CE/LI, EPC-RK4, LE/QI, SI-CE/LI, SI-LE/QI) generic over a `TransportOperator` trait, upstream's `integrate()` drivers, IPF CRAM16/48 with substeps, and the dense burnup matrix. CRAM and the matrix **moved here from `outram-mc-libs` 2026-10-17**, bit-identical (gh:#950). Integrator logic bit-identical to OpenMC's own running code on all 40 records of a fixed-rate reference (`tests/depletion_vs_openmc.rs`); observed orders 0.99 / 2.00 / 3.98 / 2.01 / 2.00 / 3.01 / 2.00 / 2.99 against predicted 1 / 2 / 4 / 2 / 2 / 3 / 2 / 3 (`tests/depletion_integrator_orders.rs`). Every deviation is flagged in the module docs |
+| `depletion` | ported (OpenMC, not GSL) | **Depletion numerics** (`openmc/deplete/`, MIT): all eight time integrators (Predictor, CE/CM, CF4, CE/LI, EPC-RK4, LE/QI, SI-CE/LI, SI-LE/QI) generic over a `TransportOperator` trait, upstream's `integrate()` drivers, IPF CRAM16/48 with substeps, and the dense burnup matrix. CRAM and the matrix **moved here from `outram-mc-libs` 2026-10-17**, bit-identical (gh:#950). Integrator logic bit-identical to OpenMC's own running code on all 40 records of a fixed-rate reference (`tests/depletion_vs_openmc.rs`); observed orders 0.99 / 2.00 / 3.98 / 2.01 / 2.00 / 3.01 / 2.00 / 2.99 against predicted 1 / 2 / 4 / 2 / 2 / 3 / 2 / 3 (`tests/depletion_integrator_orders.rs`). Every deviation is flagged in the module docs. Also **ONIX's partial-fraction CRAM16** (`cram16_pfd`, `onix/salameche/cram.py`, MIT), moved in from `outram-park-fork-onix` 2026-10-20 (gh:#999), bit-identical to the pre-move code on all seven pinned cases and within 6.9e-15 of the IPF form |
 | `deriv` | ported | Numerical differentiation: central, forward and backward rules with automatic step refinement and an error estimate |
 | `integration` | ported | Adaptive Gauss-Kronrod quadrature (QUADPACK): six rules, the `qag` adaptive driver and the extrapolating `qags` (GSL); plus non-adaptive **Gauss-Legendre** to order 30 and **Newton-Cotes** (`peroxide`) |
-| `interp` | ported | Interpolation of tabulated data: linear and natural cubic spline, with derivatives |
-| `linalg` | lifted + ported | Dense `n×n` Crout LU with scaled partial pivoting, determinant, log-determinant, explicit inverse, level-1 BLAS, symmetric tridiagonal solve, rectangular Householder **QR with least-squares solve**, and GSL's own LU with unscaled partial pivoting and its solve (`lu_decomp`, bit-identical to compiled GSL 2.8, gh:#992) |
+| `interp` | ported | Interpolation of tabulated data: linear and natural cubic spline, with derivatives and definite integrals (`eval_integ`, added 2026-10-20) |
+| `linalg` | lifted + ported | Dense `n×n` Crout LU with scaled partial pivoting, determinant, log-determinant, explicit inverse, level-1 BLAS, symmetric tridiagonal solve, rectangular Householder **QR with least-squares solve**, and GSL's own LU with unscaled partial pivoting and its solve (`lu_decomp`, bit-identical to compiled GSL 2.8, gh:#992); since gh:#993 also **Cholesky**, **SVD**, **symmetric eigenvalues/vectors** and **nonsymmetric eigenvalues** (GSL), an **Octave-style `Matrix` vocabulary**, and **`expm`** (GNU Octave) |
 | `min` | ported | One-dimensional minimisation over a bracketing triple: golden section and Brent |
 | `ode` | ported | Initial-value ODE integration: RK4, embedded RKF45, and an adaptive driver |
 | `poly` | lifted + ported | Horner evaluation and derivatives, Newton divided differences, exact linear / quadratic / cubic root finders (OpenFOAM); closed-form **quartic** and biquadratic, and **all roots of any degree** by companion-matrix eigenvalues (the `roots` crate); polynomial **algebra** — multiply, long-divide, translate — with Lagrange interpolation and the **Legendre / Chebyshev / Hermite / Bessel** families (`peroxide`). See Prior art |
@@ -71,8 +71,12 @@ that drifts from its origin fails the build rather than rotting quietly.
 | `transfer_fn` | ported | Continuous and discrete SISO transfer functions, `c2d` / `d2c`, and the O(1) fixed-state recurrence blocks |
 | `fast_exp`, `fast_log`, `fast_pow` | ported | ARM optimized-routines `exp`, `log` and `pow` — bit-identical to upstream |
 | `real` | — | The `no_std` float-math shim |
+| `hypot` | ported (CORE-MATH, not GSL) | **Correctly rounded** `hypot` / `hypotf` (`cr_hypot`, `cr_hypotf`, MIT), the target of every PETIR `hypot` route. 0 misroundings against MPFR on 8 044 838 inputs (`tests/hypot_correct_rounding.rs`). **Added 2026-10-20** at maintainer direction (gh:#997) |
 | `rng` | ported (OpenMC, not GSL) | OpenMC's 64-bit LCG with its PCG-RXS-M-XS output permutation, O(log n) `future_seed` jump-ahead and `init_seed` stream derivation (`random_lcg.cpp`, MIT). **Moved here from `outram-mc-libs` 2026-10-02**, bit-identical (pinned by a test); `outram_mc_libs::rng::lcg` re-exports it. Its WGSL state advance is `wgsl::LCG` (`lcg.wgsl`), the one copy that `outram-mc-libs`' batched GPU kernels compose |
+| `rng` (`ChaCha8Rng`, `Uniform`, `Normal`) | ported (`rand` 0.10.3, `rand_distr` 0.6.0, `chacha20` 0.10.2; MIT) | The `rand` pieces `boon-lay`'s RustBCA copy uses: ChaCha8 with `rand_core`'s PCG32 `seed_from_u64`, `random::<f64>()`, `Uniform<f64>`, the ziggurat `Normal<f64>`. **Added 2026-10-20 (gh:#995)**; draw-for-draw identical to the upstream crates over 48 million draws (`tests/rng_vs_rand.rs`, reference in `reference-data/rand/`) |
 | `ssprk` | ported (PyClaw, not GSL) | Strong-stability-preserving Runge–Kutta steps for method-of-lines use: Shu–Osher **SSP22** and **SSP33**, Ketcheson's **SSP104** (`sharpclaw/solver.py`, BSD-3). Bit-identical to PyClaw's own `step()` on 96/96 values (`tests/ssprk_vs_pyclaw.rs`); observed orders 2.01 / 3.01 / 4.01; TVD to the SSP coefficient with a negative control just above it (`tests/ssprk_order_and_tvd.rs`). **Added 2026-10-16** at maintainer direction |
+| `sparse` | ported (faer, not GSL) | Sparse direct solvers: LU with partial pivoting and a **COLAMD** column ordering, Cholesky `LLᵀ` with an **AMD** ordering, elimination trees, sparse triangular solves (faer 0.24.4, MIT; AMD/COLAMD via SuiteSparse, BSD-3). Simplicial and (since the same day) **supernodal** paths, chosen by faer's own rule or forced with `SymbolicKind`; faer's dense SIMD kernels replayed in scalar code. ~~where faer itself picks its supernodal path the solutions agree to ≤ 4.9e-14 relative~~ **Every solution bit-identical to faer on both paths and on faer's own choice**, orderings identical (`tests/sparse_vs_faer.rs`). The supernodal path is *slower* here than the simplicial one (no SIMD; see the module docs). **Added 2026-10-20** at maintainer direction (gh #994) |
+| `faer_dense` | ported (faer, not GSL) | faer 0.24.4's dense SVD (`Mat::svd()`) for square `n <= 16`: Householder bidiagonalisation, bidiagonal QR, reflector back-transformation, with faer's SIMD kernels modelled lane by lane in scalar code (pulp V3, AVX2+FMA; no `core::arch`). **Bit-identical** to faer on 6 134 `outram-blender` covariances, 26 000 random matrices of orders 1..=16 and 17 structured cases (`tests/faer_dense_svd_vs_faer.rs`). Distinct from `linalg::svd` (GSL), not a replacement for it. **Added 2026-10-20** at maintainer direction (gh #996) |
 | `scalar` | lifted + additions | OpenFOAM guard constants, extended here with GSL's epsilon constants (`bn:op-l87q`) |
 
 **Deliberate subsets rather than gaps**, each named where it matters and
@@ -168,9 +172,33 @@ point: a crate claiming "no panics" while those held would be overclaiming.
 
 ## `no_std` is the contract
 
-The crate is `#![no_std]` unconditionally. There is no `std` feature to turn on,
-because a numerical kernel that only sometimes builds for a microcontroller is
-one refactor away from not building for one at all.
+The crate is `#![no_std]` unconditionally. ~~There is no `std` feature to turn
+on,~~ because a numerical kernel that only sometimes builds for a
+microcontroller is one refactor away from not building for one at all.
+**CHANGED 2026-10-20 (gh #994):** there is now an opt-in `std` feature, but it
+changes nothing in PETIR itself — see the `faer` backend below.
+
+### Optional features
+
+| feature | default | what it does |
+|---|---|---|
+| `transfer-fn` (implies `uom`) | on | `transfer_fn`, with `uom` sample times |
+| `wgpu` | off | the GPU runner `wgsl::gpu` (needs `std`) |
+| `faer` | off | `sparse::SparseBackend::Faer`: the real `faer` 0.24.4 as a second sparse LU/Cholesky backend |
+| `std` | off | only `faer/std`, so faer can detect the CPU at run time |
+
+**Caveats of the `faer` backend** (maintainer direction, gh #994, 2026-10-20):
+
+1. It is **`no_std` + `alloc`**: it builds for `thumbv7em-none-eabihf`, wasm
+   and Android.
+2. **Without `std`, faer cannot detect the CPU at run time**, so it runs its
+   baseline kernels unless the build enables target features
+   (`RUSTFLAGS="-C target-cpu=native"`, or `-C target-feature=+avx2,+fma`).
+   Turn on `std` too where `std` is available. Measured (bedok subset, one thread, i9-13900K, 2026-10-20 — `matlab_parity_iaea3ds` / `neacrpd1t` `the_transient_marches_without_diverging`: faer + `std` 7.2 s / 116 s; faer without `std` 16.7 s / 265 s; faer without `std` built with `-C target-cpu=native` 12.9 s / 205 s; `Ported` 137 s / 2103 s).
+3. **Its results depend on the CPU and instruction set**, so they are not
+   bit-identical across machines. **`SparseBackend::Ported` (the default) is
+   the deterministic choice.** On an AVX2+FMA x86-64 the two agree bit for bit
+   (`tests/sparse_vs_faer.rs`).
 
 Verified on every commit:
 
@@ -222,6 +250,14 @@ Adding `num-traits` with its `libm` feature does **not** fix it: `uom` never
 looks at num-traits' features, only at its own. `transfer_fn::ratio_ext`
 restores `sqrt` and `exp` for dimensionless `Ratio` instead.
 
+**Since 2026-10-20 (gh:#985) the whole workspace builds `uom` without `std`**,
+and `petir::uom_math` restores all 27 dropped methods on PETIR maths under
+`r_` names: `QuantityMath` (`r_sqrt`, `r_cbrt`, `r_powi`, `r_hypot`,
+`r_mul_add`, `r_atan2`, on any quantity, with uom's own dimension
+bookkeeping), `RatioMath` (`r_exp`, `r_ln`, the logarithms, inverse trig) and
+`AngleMath` (trig and hyperbolic). Rename `.sqrt()` to `.r_sqrt()` and import
+the trait.
+
 ## Two upstreams, two conventions
 
 GSL writes polynomial coefficients **ascending** (`c[0]` is the constant term);
@@ -264,7 +300,21 @@ A further non-GSL port, `src/ssprk.rs` from **Clawpack / PyClaw** (BSD-3-Clause,
 Clawpack Developers), was added on 2026-10-16 at the maintainer's direction; see
 `NOTICE` and the crate `CLAUDE.md`. Another, `src/depletion/` from **OpenMC**
 (`openmc/deplete/`, MIT), was added on 2026-10-17 at the maintainer's
-direction (gh:#950).
+direction (gh:#950). `src/hypot.rs` from **CORE-MATH** (MIT, Alexei
+Sibidanov) was added on 2026-10-20 at the maintainer's direction (gh:#997),
+and `src/linalg/gebal.rs` from **Reference-LAPACK 3.12.1** (`DGEBAL`,
+`DGEBAK`, reference BLAS `DNRM2`/`IDAMAX`; modified BSD) on the same day
+(gh:#998), so `linalg::expm` balances exactly as GNU Octave's `expm.m`. ONIX's
+partial-fraction CRAM16, `src/depletion/onix_cram.rs` from **ONIX** (MIT,
+Julien de Troullioud de Lanversin), moved in from `outram-park-fork-onix` on
+2026-10-20 at the maintainer's direction (gh:#999).
+`src/sparse/` from **faer** 0.24.4 (MIT, and
+through it SuiteSparse AMD/COLAMD, BSD-3) was added on 2026-10-20 at the
+maintainer's direction (gh:#994), its supernodal paths the same day with the
+arithmetic of faer's dense kernels and of **nano-gemm** 0.2.2,
+**private-gemm-x86** 0.1.22 and **pulp** 0.22.3 (all MIT, sarah quiñones). `src/faer_dense/`, faer 0.24.4's dense SVD
+(with faer-traits' `hypot` and a scalar model of pulp's AVX2 lanes, all MIT),
+was added the same day at the maintainer's direction (gh:#996).
 
 All were ported on 2026-09-15, with the full upstream notice and
 copyright kept in each file's header where source redistribution requires them.

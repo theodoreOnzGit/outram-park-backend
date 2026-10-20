@@ -163,7 +163,7 @@ fn series_2(r: f64) -> f64 {
 fn dilog_series_2(x: f64) -> f64 {
     let s = series_2(x);
     let t = if x > 0.01 {
-        (1.0 - x) * (1.0 - x).ln() / x
+        (1.0 - x) * Real::ln(1.0 - x) / x
     } else {
         // Taylor of (1-x) ln(1-x) / x about x = 0, through x^8.
         let t68 = 1.0 / 6.0 + x * (1.0 / 7.0 + x * (1.0 / 8.0));
@@ -197,16 +197,16 @@ fn dilog_series_2(x: f64) -> f64 {
 /// rather than calling a series routine.
 fn dilog_xge0(x: f64) -> f64 {
     if x > 2.0 {
-        let log_x = x.ln();
+        let log_x = Real::ln(x);
         PI2_OVER_3 - dilog_series_2(1.0 / x) - 0.5 * log_x * log_x
     } else if x > 1.01 {
-        let log_x = x.ln();
-        let log_term = log_x * ((1.0 - 1.0 / x).ln() + 0.5 * log_x);
+        let log_x = Real::ln(x);
+        let log_term = log_x * (Real::ln(1.0 - 1.0 / x) + 0.5 * log_x);
         ZETA2 + dilog_series_2(1.0 - 1.0 / x) - log_term
     } else if x > 1.0 {
         // Series about x = 1, in eps and ln(eps) together.
         let eps = x - 1.0;
-        let lne = eps.ln();
+        let lne = Real::ln(eps);
         let c0 = ZETA2;
         let c1 = 1.0 - lne;
         let c2 = -(1.0 - 2.0 * lne) / 4.0;
@@ -225,8 +225,8 @@ fn dilog_xge0(x: f64) -> f64 {
     } else if x == 1.0 {
         ZETA2
     } else if x > 0.5 {
-        let log_x = x.ln();
-        ZETA2 - dilog_series_2(1.0 - x) - log_x * (1.0 - x).ln()
+        let log_x = Real::ln(x);
+        ZETA2 - dilog_series_2(1.0 - x) - log_x * Real::ln(1.0 - x)
     } else if x > 0.25 {
         dilog_series_2(x)
     } else if x > 0.0 {

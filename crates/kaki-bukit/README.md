@@ -151,7 +151,7 @@ cargo build --release -p kaki-bukit --target wasm32-unknown-unknown
 | Kernel: nuclides, compositions, materials, products, resources | complete |
 | Resource exchange: graph, portfolios, constraints, translator, greedy solver + preconditioner | complete |
 | Toolkit: material queries, enrichment, resource buffers, commodities, symbolic functions, geodesic positions, inventory tracking | complete |
-| Decay: Uniform Taylor matrix exponential over a caller-supplied chain | complete — but see the fidelity note below |
+| Decay: ~~Uniform Taylor matrix exponential~~ **PETIR CRAM48 by default, Uniform Taylor as an explicit choice (gh:#999, 2026-10-20)** over a caller-supplied chain | complete — but see the fidelity note below |
 | Simulation: clock, six-phase loop, agent hierarchy, recipes, build/decommission scheduling | complete |
 | CYCAMORE archetypes: `Source`, `Sink` | complete |
 | CYCAMORE archetypes: `Storage`, `Enrichment`, `Reactor`, `Separations`, `FuelFab`, `Mixer`, `DeployInst`, `ManagerInst`, `GrowthRegion` | **not yet ported** |
@@ -174,12 +174,20 @@ closed-form results, and it is recorded in the doc comment of each test:
 **Decay is a known fidelity gap, not merely unvalidated.** This crate ports
 upstream's `UniformTaylor` solver, but that solver is only reachable from
 `Decayer`, which is deprecated upstream and never instantiated. Upstream's live
-decay path is CRAM (`pyne_cram_expm_multiply14`). Decay results here will
+decay path is CRAM (`pyne_cram_expm_multiply14`). ~~Decay results here will
 therefore **not** reproduce a modern Cyclus run, and the Uniform Taylor
 truncation error is one-signed, costing 0.095 % of the atom inventory per year
 at upstream's default tolerance. Use the `_with_tol` variants where a mass
 balance matters. Full detail and the reuse path — `outram-park-fork-onix`
-already has CRAM — are in `docs/port-notes.md`.
+already has CRAM — are in `docs/port-notes.md`.~~ **CORRECTED 2026-10-20
+(gh:#999):** decay now defaults to **PETIR's CRAM48** (OpenMC's order-48 CRAM),
+which is closer to upstream's CRAM14 than Taylor was and conserves atoms to
+round-off; the ported Uniform Taylor (and its one-signed 0.095 %/yr loss at
+`tol = 1e-3`) is reachable as `DecaySolver::UniformTaylor` or the `_with_tol`
+variants, and the comparison tests check one against the other. CRAM48 is
+still not PyNE's CRAM14; the expected difference is ~1e-13 of the inventory
+(see `docs/port-notes.md`). No result here has been compared against a Cyclus
+run.
 
 There is **no comparison against a Cyclus run**, and that is the single most
 valuable thing that could be added. Building upstream Cyclus and diffing a

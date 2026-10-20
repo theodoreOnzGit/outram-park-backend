@@ -60,7 +60,7 @@
 
 use crate::math::Vec3;
 use crate::mesh::Mesh;
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashSet};
 
 /// Cap every open boundary loop of `mesh` with a centroid triangle fan,
 /// returning the watertight mesh.
@@ -101,14 +101,21 @@ pub fn fill_holes(mesh: &Mesh) -> Mesh {
     }
 
     // A boundary half-edge is one whose reverse is absent. Index them by tail so
-    // we can chain each loop head-to-tail.
-    let mut next_of: HashMap<usize, usize> = HashMap::new();
-    for &(a, b) in &directed {
-        if !directed.contains(&(b, a)) {
-            // On a manifold boundary each tail has a unique outgoing boundary
-            // edge; if not (non-manifold), we keep the first seen — best effort.
-            next_of.entry(a).or_insert(b);
-        }
+    // we can chain each loop head-to-tail. Sorted first (gh #1002): which
+    // outgoing edge a non-manifold tail keeps, and the order loops are capped
+    // in, must not follow the set's randomly seeded hash order. Only the
+    // boundary is sorted; the set stays a hash set for the lookups.
+    let mut boundary: Vec<(usize, usize)> = directed
+        .iter()
+        .copied()
+        .filter(|&(a, b)| !directed.contains(&(b, a)))
+        .collect();
+    boundary.sort_unstable();
+    let mut next_of: BTreeMap<usize, usize> = BTreeMap::new();
+    for (a, b) in boundary {
+        // On a manifold boundary each tail has a unique outgoing boundary
+        // edge; if not (non-manifold), we keep the lowest head — best effort.
+        next_of.entry(a).or_insert(b);
     }
 
     // Start from the original geometry and append caps.

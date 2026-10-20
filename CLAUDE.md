@@ -326,6 +326,29 @@ is incomplete. Record results where a reader meets the test: in the `///` doc
 comment of the test/example itself, and — for iterative studies worth citing in a
 paper — in the relevant `docs/` development-history entry.
 
+### Code-to-code: round-off-level differences are acceptable below 1e-8 relative
+
+**Maintainer judgment, 2026-10-20.** When a port is compared against its upstream
+(or two routes are compared), **bit-identity is the goal, but a round-off-level
+difference — e.g. 1 ulp from a different `libm`, a vectorised `exp`, or a changed
+operation order — is acceptable when the relative difference is below 1e-8.**
+
+- **Bit-identical is still strongly preferred** (maintainer, same day): it is a
+  yes/no check that automation can judge alone. **The moment a residual appears,
+  a human has to judge it**, and review time is the scarcest resource here (see
+  "Human review is the bottleneck"). So do the work to reach bit-identity first —
+  match the operation order, the `libm`, the FMA use — and use this allowance only
+  where that is genuinely out of reach, saying why.
+- **Still report it, and flag it for the maintainer.** State the count
+  bit-identical, the worst difference and its cause; "acceptable" means it does
+  not block a merge, not that it goes unrecorded or unreviewed.
+- **Explain the cause.** An unexplained difference is a finding to investigate,
+  whatever its size; this allowance is for differences whose round-off origin is
+  understood.
+- **It does not relax physics V&V gates** (benchmark residuals, pcm, experimental
+  tolerances), nor a bit-identity pin a test already holds — moving such a pin
+  still needs the reasons the "PROCESS right first" section demands.
+
 
 ## Search the workspace before building anything (HARD RULE)
 

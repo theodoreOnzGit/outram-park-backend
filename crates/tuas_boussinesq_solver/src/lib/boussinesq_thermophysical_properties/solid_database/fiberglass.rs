@@ -1,5 +1,5 @@
-use peroxide::fuga::{CubicSpline, Spline};
-use roots::{find_root_brent, SimpleConvergency};
+use crate::numerical_methods::{bracketed_root, NaturalCubicSpline};
+use petir::roots::BracketingMethod;
 use specific_enthalpy::try_get_h;
 use uom::si::available_energy::joule_per_kilogram;
 use uom::si::f64::*;
@@ -70,12 +70,14 @@ pub fn fiberglass_thermal_conductivity_zou_zweibaum_spline(
     let thermal_conductivity_values_watt_per_meter_kelvin =
         c!(0.028616, 0.033060, 0.038916, 0.044066, 0.054366, 0.064666);
 
-    let s = CubicSpline::from_nodes(
+    let s = NaturalCubicSpline::new(
         &thermal_cond_temperature_values_kelvin,
         &thermal_conductivity_values_watt_per_meter_kelvin,
-    );
+        "fiberglass: thermal_cond_temperature_values_kelvin -> thermal_conductivity_values_watt_per_meter_kelvin",
+        "K",
+    )?;
 
-    let fiberglass_thermal_conductivity_value = s.unwrap().eval(temperature_value_kelvin);
+    let fiberglass_thermal_conductivity_value = s.eval(temperature_value_kelvin)?;
 
     return Ok(ThermalConductivity::new::<watt_per_meter_kelvin>(
         fiberglass_thermal_conductivity_value,
@@ -181,14 +183,17 @@ pub(crate) fn fiberglass_spline_temp_attempt_1_from_specific_enthalpy(
     // as an output
 
     let enthalpy_to_temperature_spline =
-        CubicSpline::from_nodes(&enthalpy_vector, &temperature_values_kelvin);
+        NaturalCubicSpline::new(
+        &enthalpy_vector,
+        &temperature_values_kelvin,
+        "fiberglass: enthalpy_vector -> temperature_values_kelvin",
+        "J/kg",
+    )?;
 
     // now let's get our enthalpy in joules_per_kg
     let h_fiberglass_joules_per_kg = h_fiberglass.get::<joule_per_kilogram>();
 
-    let temperature_from_enthalpy_kelvin = enthalpy_to_temperature_spline
-        .unwrap()
-        .eval(h_fiberglass_joules_per_kg);
+    let temperature_from_enthalpy_kelvin = enthalpy_to_temperature_spline.eval(h_fiberglass_joules_per_kg)?;
 
     // now, the fiberglass enthalpy will not be quite near
     // enough, but it is very close. We can bracket
@@ -232,18 +237,24 @@ pub(crate) fn fiberglass_spline_temp_attempt_1_from_specific_enthalpy(
 
     let lower_limit: f64 = temperature_from_enthalpy_kelvin - brent_error_bound;
 
-    let mut convergency = SimpleConvergency {
-        eps: 1e-8f64,
-        max_iter: 30,
-    };
-    let fluid_temperature_degrees_c_result =
-        find_root_brent(upper_limit, lower_limit, enthalpy_root, &mut convergency);
+    // roots::find_root_brent with SimpleConvergency { eps: 1e-8, max_iter: 30 }
+    // replaced by PETIR's GSL Brent with the same bracket and the same
+    // two-part test; see crate::numerical_methods::bracketed_root (gh:#989).
+    let fluid_temperature_degrees_c_result = bracketed_root(
+        BracketingMethod::Brent,
+        &enthalpy_root,
+        upper_limit,
+        lower_limit,
+        1e-8,
+        30,
+        "fiberglass: temperature from specific enthalpy",
+    );
 
     if let Some(e) = captured_error.into_inner() {
         return Err(e);
     }
 
-    let temperature_from_enthalpy_kelvin = fluid_temperature_degrees_c_result.unwrap();
+    let temperature_from_enthalpy_kelvin = fluid_temperature_degrees_c_result?;
 
     // return temperature
     Ok(ThermodynamicTemperature::new::<kelvin>(temperature_from_enthalpy_kelvin))

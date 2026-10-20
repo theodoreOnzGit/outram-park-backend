@@ -152,14 +152,14 @@ pub fn psi(x: f32) -> f32 {
     if y >= 2.0 {
         let c = cheb(8.0 / (y * y) - 1.0, &APSI_CS);
         if x < 0.0 {
-            let s = (PI * x).sin();
-            let co = (PI * x).cos();
+            let s = Real::sin(PI * x);
+            let co = Real::cos(PI * x);
             if s.abs() < 2.0 * SQRT_MIN {
                 return f32::NAN;
             }
-            return y.ln() - 0.5 / x + c - PI * co / s;
+            return Real::ln(y) - 0.5 / x + c - PI * co / s;
         }
-        return y.ln() - 0.5 / x + c;
+        return Real::ln(y) - 0.5 / x + c;
     }
     if x < -1.0 {
         let v = x + 2.0;
@@ -180,7 +180,7 @@ pub fn psi_1piy(y: f32) -> f32 {
     let ay = y.abs();
     if ay > 1000.0 {
         let yi2 = 1.0 / (ay * ay);
-        return ay.ln() + yi2 * (1.0 / 12.0 + 1.0 / 120.0 * yi2 + 1.0 / 252.0 * yi2 * yi2);
+        return Real::ln(ay) + yi2 * (1.0 / 12.0 + 1.0 / 120.0 * yi2 + 1.0 / 252.0 * yi2 * yi2);
     }
     if ay > 10.0 {
         let yi2 = 1.0 / (ay * ay);
@@ -193,7 +193,7 @@ pub fn psi_1piy(y: f32) -> f32 {
                                 + yi2
                                     * (1.0 / 240.0
                                         + yi2 * (1.0 / 132.0 + 691.0 / 32760.0 * yi2)))));
-        return ay.ln() + sum;
+        return Real::ln(ay) + sum;
     }
     if ay > 1.0 {
         let y2 = ay * ay;
@@ -217,18 +217,19 @@ pub fn hzeta(s: f32, q: f32) -> f32 {
     }
     let max_bits = 54.0;
     if (s > max_bits && q < 1.0) || (s > 0.5 * max_bits && q < 0.25) {
-        return q.powf(-s);
+        return Real::powf(q, -s);
     }
     if s > 0.5 * max_bits && q < 1.0 {
-        return q.powf(-s) * (1.0 + (q / (1.0 + q)).powf(s) + (q / (2.0 + q)).powf(s));
+        return Real::powf(q, -s)
+            * (1.0 + Real::powf(q / (1.0 + q), s) + Real::powf(q / (2.0 + q), s));
     }
     let kmax = 10.0_f32;
-    let pmax = (kmax + q).powf(-s);
+    let pmax = Real::powf(kmax + q, -s);
     let mut scp = s;
     let mut pcp = pmax / (kmax + q);
     let mut ans = pmax * ((kmax + q) / (s - 1.0) + 0.5);
     for k in 0..10u32 {
-        ans += (k as f32 + q).powf(-s);
+        ans += Real::powf(k as f32 + q, -s);
     }
     for (j, &cj) in (0..=12u32).zip(HZETA_C.iter().skip(1)) {
         let delta = cj * scp * pcp;
@@ -251,10 +252,10 @@ fn zeta_sgt0(s: f32) -> f32 {
     if s <= 20.0 {
         return cheb((2.0 * s - 21.0) / 19.0, &ZETA_XGT1) / (s - 1.0);
     }
-    let f2 = 1.0 - 2.0_f32.powf(-s);
-    let f3 = 1.0 - 3.0_f32.powf(-s);
-    let f5 = 1.0 - 5.0_f32.powf(-s);
-    let f7 = 1.0 - 7.0_f32.powf(-s);
+    let f2 = 1.0 - Real::powf(2.0_f32, -s);
+    let f3 = 1.0 - Real::powf(3.0_f32, -s);
+    let f5 = 1.0 - Real::powf(5.0_f32, -s);
+    let f7 = 1.0 - Real::powf(7.0_f32, -s);
     1.0 / (f2 * f3 * f5 * f7)
 }
 
@@ -263,10 +264,10 @@ fn zeta_1ms_slt0(s: f32) -> f32 {
     if s > -19.0 {
         return cheb((-19.0 - 2.0 * s) / 19.0, &ZETA_XGT1) / (-s);
     }
-    let f2 = 1.0 - 2.0_f32.powf(-(1.0 - s));
-    let f3 = 1.0 - 3.0_f32.powf(-(1.0 - s));
-    let f5 = 1.0 - 5.0_f32.powf(-(1.0 - s));
-    let f7 = 1.0 - 7.0_f32.powf(-(1.0 - s));
+    let f2 = 1.0 - Real::powf(2.0_f32, -(1.0 - s));
+    let f3 = 1.0 - Real::powf(3.0_f32, -(1.0 - s));
+    let f5 = 1.0 - Real::powf(5.0_f32, -(1.0 - s));
+    let f7 = 1.0 - Real::powf(7.0_f32, -(1.0 - s));
     1.0 / (f2 * f3 * f5 * f7)
 }
 
@@ -285,7 +286,7 @@ pub fn zeta(s: f32) -> f32 {
     let sin_term = if m == 0.0 {
         0.0
     } else {
-        (0.5 * PI * (s % 4.0)).sin() / PI
+        Real::sin(0.5 * PI * (s % 4.0)) / PI
     };
     if sin_term == 0.0 {
         return 0.0;
@@ -298,7 +299,7 @@ pub fn zeta(s: f32) -> f32 {
     let Some(&tp) = TWOPI_POW.get(n) else {
         return f32::NAN;
     };
-    let p = (2.0 * PI).powf(fs) / tp;
+    let p = Real::powf(2.0 * PI, fs) / tp;
     p * crate::wgsl::mirror_gamma::gamma(1.0 - s) * sin_term * zeta_1ms_slt0(s)
 }
 
@@ -308,14 +309,14 @@ pub fn zetam1(s: f32) -> f32 {
         return zeta(s) - 1.0;
     }
     if s < 15.0 {
-        return cheb((s - 10.0) / 5.0, &ZETAM1_INTER).exp() + 2.0_f32.powf(-s);
+        return Real::exp(cheb((s - 10.0) / 5.0, &ZETAM1_INTER)) + Real::powf(2.0_f32, -s);
     }
-    let a = 2.0_f32.powf(-s);
-    let b = 3.0_f32.powf(-s);
-    let c = 5.0_f32.powf(-s);
-    let d = 7.0_f32.powf(-s);
-    let e = 11.0_f32.powf(-s);
-    let f = 13.0_f32.powf(-s);
+    let a = Real::powf(2.0_f32, -s);
+    let b = Real::powf(3.0_f32, -s);
+    let c = Real::powf(5.0_f32, -s);
+    let d = Real::powf(7.0_f32, -s);
+    let e = Real::powf(11.0_f32, -s);
+    let f = Real::powf(13.0_f32, -s);
     let t1 = a + b + c + d + e + f;
     let t2 = a * (b + c + d + e + f) + b * (c + d + e + f) + c * (d + e + f) + d * (e + f) + e * f;
     let z = 1.0 / ((1.0 - a) * (1.0 - b) * (1.0 - c) * (1.0 - d) * (1.0 - e) * (1.0 - f));
@@ -334,7 +335,7 @@ pub fn eta(s: f32) -> f32 {
             + del
                 * (c1 + del * (-0.032_686_297 + del * (0.001_568_991_7 + del * 0.000_749_872_4)));
     }
-    (1.0 - ((1.0 - s) * LN2).exp()) * zeta(s)
+    (1.0 - Real::exp((1.0 - s) * LN2)) * zeta(s)
 }
 
 /// `psi(1, x)` in `f32`. Mirrors `petir_psi_1`.
@@ -358,7 +359,7 @@ pub fn psi_1(x: f32) -> f32 {
         }
         return hzeta(2.0, fx) + sum;
     }
-    let sp = (PI * x).sin();
+    let sp = Real::sin(PI * x);
     PI * PI / (sp * sp) - hzeta(2.0, 1.0 - x)
 }
 

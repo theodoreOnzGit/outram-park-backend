@@ -189,7 +189,7 @@ fn rescale_error(mut err: f64, result_abs: f64, result_asc: f64) -> f64 {
     err = err.abs();
 
     if result_asc != 0.0 && err != 0.0 {
-        let scale = (200.0 * err / result_asc).powf(1.5);
+        let scale = Real::powf(200.0 * err / result_asc, 1.5);
         if scale < 1.0 {
             err = result_asc * scale;
         } else {

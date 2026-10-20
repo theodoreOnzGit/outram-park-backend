@@ -29,7 +29,7 @@ pub fn silent_physics_loop<T: Geometry + Sync>(particle_input_array: Vec<particl
         .enumerate()
         .map_init(
             || if options.seed < 0 { 
-                ChaCha8Rng::seed_from_u64(rand::random())
+                ChaCha8Rng::seed_from_u64(entropy_seed())
             } else {
                 ChaCha8Rng::seed_from_u64(u64::try_from(options.seed).expect("Value Error: seed not u64."))
             },
@@ -128,7 +128,7 @@ pub fn physics_loop<T: Geometry + Sync>(particle_input_array: Vec<particle::Part
                 .enumerate()
                 .map_init(
                     || if options.seed < 0 { 
-                        ChaCha8Rng::seed_from_u64(rand::random())
+                        ChaCha8Rng::seed_from_u64(entropy_seed())
                     } else {
                         ChaCha8Rng::seed_from_u64(u64::try_from(options.seed).expect("Value Error: seed not u64."))
                     },

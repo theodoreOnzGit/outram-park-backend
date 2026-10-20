@@ -79,7 +79,7 @@ impl Cplx {
     /// Complex square root (principal branch), used by the quadratic
     /// formula. `sqrt(z) = sqrt(|z|) * exp(i * arg(z) / 2)`.
     pub fn sqrt(self) -> Self {
-        let r = self.abs().sqrt();
+        let r = Real::sqrt(self.abs());
         let half_arg = self.im.r_atan2(self.re) / 2.0;
         Cplx::new(r * half_arg.r_cos(), r * half_arg.r_sin())
     }

@@ -89,6 +89,13 @@
 //!   The first cascade of every case is re-run with its seed and must come back
 //!   bit-identical, or the program panics.
 //!
+//! **Re-run 2026-10-20 after the RNG moved from `rand` to `petir::rng`
+//! (gh:#995), 1 thread, before and after on the same machine:** every column
+//! except the timings is identical in all 11 cases (ranges, projected
+//! ranges, recoil counts, fraction leaving the birth layer, determinism),
+//! and identical to the 2026-10-16 table below. Wall time 356.7 s before,
+//! 269.4 s after, on a shared machine; not a measured speed difference.
+//!
 //! ## Predictions, written 2026-10-16 BEFORE the first run
 //!
 //! Sign and magnitude, from first-principles estimates (not from any run):
@@ -188,8 +195,7 @@ use boon_lay::rustbca::{
 use outram_mc_libs::pebble_beds::fhr_pebble::TrisoSpec;
 use outram_mc_libs::pebble_beds::htr10::{fuel_pebble_materials, BoronReading, Htr10Nuclides};
 use outram_mc_libs::perf_report::HardwareInfo;
-use rand::rngs::ChaCha8Rng;
-use rand::{RngExt, SeedableRng};
+use petir::rng::{ChaCha8Rng, RngExt, SeedableRng};
 
 // ---------------------------------------------------------------------------
 // Evaluated-data inputs (ENDF/B-VIII.0, reference-data/endf/).

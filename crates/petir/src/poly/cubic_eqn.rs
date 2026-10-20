@@ -107,7 +107,7 @@ impl CubicEqn {
 
         // Kahan-compensated p = a·c − b²/3
         let w = a * c;
-        let p = -(f64::mul_add(-a, c, w) + f64::mul_add(b, b / 3.0, -w));
+        let p = -(Real::mul_add(-a, c, w) + Real::mul_add(b, b / 3.0, -w));
         let q = b * b * b * 2.0 / 27.0 - b * c * a / 3.0 + d * a * a;
         let num_discr = p * p * p / 27.0 + q * q / 4.0;
         let discr = if num_discr.abs() > VSMALL {
@@ -118,15 +118,15 @@ impl CubicEqn {
 
         let three_real = discr < 0.0;
         let one_real_two_complex = discr > 0.0;
-        let two_real = p.abs() > SMALL.sqrt() && !(three_real || one_real_two_complex);
+        let two_real = p.abs() > Real::sqrt(SMALL) && !(three_real || one_real_two_complex);
 
-        let sqrt3 = 3.0_f64.sqrt();
+        let sqrt3 = Real::sqrt(3.0_f64);
 
         let x: f64;
 
         if three_real {
             let w_cb_re = -q / 2.0;
-            let w_cb_im = (-discr).sqrt();
+            let w_cb_im = Real::sqrt(-discr);
             let w_abs = w_cb_re.r_hypot(w_cb_im).r_cbrt();
             let w_arg = w_cb_im.r_atan2(w_cb_re) / 3.0;
             let w_re = w_abs * w_arg.r_cos();
@@ -138,7 +138,7 @@ impl CubicEqn {
                 2.0 * w_re - b / 3.0
             };
         } else if one_real_two_complex {
-            let w_cb = -q / 2.0 - sign(q) * discr.sqrt();
+            let w_cb = -q / 2.0 - sign(q) * Real::sqrt(discr);
             let w = w_cb.r_cbrt();
             let t = w - p / (3.0 * w);
 

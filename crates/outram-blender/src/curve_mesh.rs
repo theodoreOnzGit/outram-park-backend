@@ -36,7 +36,7 @@
 //! - [`skin_spline`] — a round tube along a [`Spline`] (the Skin modifier on a
 //!   curve).
 
-use std::collections::{BTreeSet, HashMap};
+use std::collections::{BTreeMap, BTreeSet};
 
 use crate::curve::{Spline, SplineType};
 use crate::curve_surface::{Bevel, CurveGeometry};
@@ -64,7 +64,9 @@ pub fn boundary_to_splines(mesh: &Mesh) -> Vec<Spline> {
 
 fn chains(mesh: &Mesh, restrict: Option<&BTreeSet<EdgeId>>) -> Vec<Spline> {
     // Adjacency restricted to the allowed edge set.
-    let mut adj: HashMap<usize, Vec<(usize, usize)>> = HashMap::new(); // v -> [(neighbour, edge)]
+    // v -> [(neighbour, edge)]; BTreeMap so leftover loops are walked in
+    // vertex order, not a randomly seeded hash order (gh #1002).
+    let mut adj: BTreeMap<usize, Vec<(usize, usize)>> = BTreeMap::new();
     for e in 0..mesh.edge_count() {
         if restrict.is_some_and(|r| !r.contains(&EdgeId(e))) {
             continue;

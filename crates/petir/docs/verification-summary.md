@@ -45,12 +45,22 @@ entirely on `yerr`, and `yerr` is what a step controller acts on.
 | `roots`, polishing (Newton, secant, Steffenson) | 33 | 33 (100.0%) | 0 | `gsl_numerics_code_to_code.rs` |
 | `min` (golden section, Brent) | 150 | 150 (100.0%) | 0 | `gsl_numerics_code_to_code.rs` |
 | `interp` (linear, natural cubic spline) | 244 | 244 (100.0%) | 0 | `gsl_numerics_code_to_code.rs` |
+| `interp::eval_integ` (linear, natural cubic spline; added 2026-10-20, gh:#989) | 566 | 566 (100.0%) | 0; all 10 GSL `EDOM` rows refused as `Domain` | `gsl_interp_integ_code_to_code.rs` |
 | `ode` (RKF45, state and error estimate) | 120 | 120 (100.0%) | 0 | `gsl_numerics_code_to_code.rs` |
 | `deriv` (central, forward, backward) | 78 | 76 (97.4%) | 3.27e-16 | `gsl_numerics_code_to_code.rs` |
 | `integration` (6 Kronrod rules + QAG) | 28 | 27 (96.4%) | 1.82e-16 | `gsl_numerics_code_to_code.rs` |
 | `integration::qags` (added 2026-09-28; 21 cases, every exit but `GSL_EFAILED`) | 42 | 40 (95.2%) | results 0; error estimates 1.43e-6 (a libm `pow` ulp amplified by `errsum` cancellation, reproduced by perturbing GSL itself) | `gsl_qags_code_to_code.rs` |
-| `linalg::qr` (factorisation, `tau`, least squares) | 85 | 81 (95.3%) | 4.27e-16 | `gsl_qr_code_to_code.rs` |
+| `linalg::qr` (factorisation, `tau`, least squares) | 85 | ~~81 (95.3%)~~ **85 (100.0%)** since the CORE-MATH `hypot` (2026-10-20, gh:#997) | ~~4.27e-16~~ **0** (solution and residual 0 too) | `gsl_qr_code_to_code.rs` |
 | `linalg::lu_decomp` (added 2026-10-20, gh:#992; factor, permutation, status, solve; 9 cases incl. a 30x30 through GSL's Level-3 path) | 1637 | 1637 (100.0%) | 0 | `gsl_lu_code_to_code.rs` |
+| `linalg::cholesky` (added 2026-10-20, gh:#993; factor, solve, inverse; `n <= 24`, GSL's Level-2 range) | 1411 | 1411 (100.0%) | 0 | `gsl_cholesky_code_to_code.rs` |
+| `linalg::cholesky`, 30x30 vs stock GSL (which blocks at Level 3 above `n = 24`; PETIR does not, a documented deviation) | 1830 | 741 (40.5%) | 1.39e-12 per entry (a near-cancelling inverse entry); normwise 3.8e-16 | `gsl_cholesky_code_to_code.rs` |
+| `linalg::cholesky`, all six cases vs GSL rebuilt with its Level-3 recursion off (`level2_rebuild.sh`) | 3241 | 3241 (100.0%) | 0 | `gsl_cholesky_code_to_code.rs` |
+| `linalg::{symmtd, eigen_symm}` (added 2026-10-20, gh:#993; decomposition, `Q`, eigenvalues and eigenvectors, unordered and sorted, nine cases) vs ~~GSL linked with the `libm` crate's `hypot`~~ **stock GSL** (since gh:#997; GSL linked with PETIR's `hypot` writes the same file byte for byte) | 6091 | 6091 (100.0%) | 0 | `gsl_eigen_symm_code_to_code.rs` |
+| `linalg::svd` (added 2026-10-20, gh:#993; `U`, `S`, `V`, solve; twelve cases reaching every branch of `svdstep.c`) vs ~~GSL linked with the `libm` crate's `hypot`~~ **stock GSL** (since gh:#997, as above) | 1428 | 1428 (100.0%) | 0 | `gsl_svd_code_to_code.rs` |
+| `linalg::svd` vs stock GSL (glibc `hypot`) | 57 singular values | ~~27 (47.4%)~~ **57 (100.0%)** since gh:#997 | ~~singular values 1.12e-15 normwise; vectors within 0.22 of their gap-scaled bound~~ **0** | `gsl_svd_code_to_code.rs` |
+| `linalg::{hessenberg, balance_matrix, eigen_nonsymm}` (added 2026-10-20, gh:#993; thirteen cases, balanced and not, complex pairs, exceptional shifts, split deflation) vs GSL linked with ~~the `libm` crate's `hypot`~~ **PETIR's CORE-MATH `hypot`** (gh:#997; `eigen-nonsymm-gsl-2.8-petir-hypot-reference.txt`) | 2419 | 2419 (100.0%) | 0 | `gsl_eigen_nonsymm_code_to_code.rs` |
+| `linalg::eigen_nonsymm` vs stock GSL (glibc `hypot`) | 320 eigenvalue components | ~~104 (32.5%)~~ **236 (73.8%)** in order since gh:#997; twelve of thirteen cases bit-identical | ~~4.54e-13 of `max|lambda|` as a multiset (Frank 8)~~ **3.73e-15** (`rand25`, where glibc 2.44 misrounds five `hypot` calls; see below) | `gsl_eigen_nonsymm_code_to_code.rs` |
+| `linalg::eigen_symm` vs stock GSL (glibc `hypot`): sorted eigenpairs | 87 eigenvalues unordered | ~~37 (42.5%)~~ **87 (100.0%)** unordered since gh:#997 | ~~sorted eigenvalues 1.73e-15 normwise; eigenvectors within 0.55 of their gap-scaled perturbation bound~~ **0** | `gsl_eigen_symm_code_to_code.rs` |
 | `cheb::eval_mode`, reduced order | 369 | 357 (96.7%) | — | `gsl_cheb_mode_code_to_code.rs` |
 | `cheb::eval_mode`, default order | 615 | 461 (75.0%) | 1.06e-15 results | `gsl_cheb_mode_code_to_code.rs` |
 | `cheb` pipeline (`init`/`eval`/`deriv`/`integ`) | 6114 | 4707 (77.0%) | — | `gsl_code_to_code.rs` |
@@ -61,10 +71,52 @@ entirely on `yerr`, and `yerr` is what a step controller acts on.
 |---|---|---|---|---|
 | `ssprk` (SSP22, SSP33, SSP104; 40 steps, `dt = 2^-4` and `0.03`) vs PyClaw `f522337e` `SharpClawSolver.step` under NumPy 2.4.6 | 96 | 96 (100.0%) | 0 | `ssprk_vs_pyclaw.rs` |
 
-Where agreement is not exact it is at the last ulp. PETIR reaches its BLAS-1
+Where agreement is not exact it is at the last ulp. ~~PETIR reaches its BLAS-1
 kernels through `petir::linalg::blas1` rather than GSL's CBLAS; the two were
 checked to be the same recurrences with the same association, but they are not
-the same object code, and that is enough to move a last bit.
+the same object code, and that is enough to move a last bit.~~ **CORRECTED
+2026-10-20 (gh:#993)** for `linalg::qr`: the cause there is `hypot`, not the
+BLAS-1 kernels. Relinking the QR driver with the `libm` crate's `hypot`
+(the one PETIR calls; `reference-data/gsl/libm_shim.rs`) makes all 85 values
+and every solution and residual entry bit-identical
+(`gsl_qr_code_to_code.rs::the_port_matches_gsl_with_the_same_hypot_bit_for_bit`).
+The same isolation makes the symmetric eigensolver bit-identical throughout
+(below). The other surfaces' last-ulp differences are *not re-checked* this
+way.
+
+**UPDATED 2026-10-20 (gh:#997): PETIR's `hypot` is now CORE-MATH's correctly
+rounded one** (`src/hypot.rs`; verified against MPFR on 8.04 million inputs
+with zero misroundings, `tests/hypot_correct_rounding.rs`). Against STOCK
+GSL, `linalg::qr`, `svd` and `eigen_symm` are now bit-identical on every value
+(GSL relinked with PETIR's `hypot`, `reference-data/gsl/petir_hypot_shim.rs`,
+writes byte-identical files). `eigen_nonsymm` is bit-identical to stock on
+twelve of thirteen cases; on `rand25` the remaining difference is
+**glibc's**: glibc 2.44's `hypot` is not correctly rounded, and returns one
+ulp off on five distinct inputs that case reaches (each checked against
+MPFR). The gh:#993 premise "glibc's `hypot` is correctly rounded" was wrong;
+the same MPFR sweep finds glibc 2.44 misrounding 23 per million uniform
+binary64 inputs and 6884 of CORE-MATH's 33174 worst cases.
+
+| `hypot` itself (gh:#997) | inputs | correctly rounded | test |
+|---|---|---|---|
+| PETIR `hypot` (f64), CORE-MATH port | 4 035 478 | 4 035 478 (100%) | `hypot_correct_rounding.rs` |
+| PETIR `hypotf` (f32), CORE-MATH port | 4 009 360 | 4 009 360 (100%) | `hypot_correct_rounding.rs` |
+| glibc 2.44 `hypot` (for comparison) | 4 035 478 | 4 027 036 | driver summary |
+| `libm` crate 0.2.16 `hypot` (PETIR's before gh:#997) | 4 035 478 | 3 878 304 | driver summary |
+
+**Workspace consumers re-run (2026-10-20, `--release --lib --tests`, 2 threads).**
+Every crate reaching `r_hypot` / `Real::hypot`:
+- Passed in full: `chem-eng` 32, `kovan-common` 345, `outram-foam-basic-lib` 553,
+  `outram-park-fork-coolprop` 324, `tampines-steam-tables` 1085.
+- Passed, run as subsets: `outram-mc-libs` lib plus the three tests that reach
+  it, 499; `kovan` digitiser 131; digital-twin-engine `excursion` 13.
+- Failed, but not because of this change: `changi` (7 failures, all in the
+  FLEXPART code-to-code tests) and `nee_soon` lib
+  (`the_default_design_builds_the_geometry_unchanged`, 43 452 cells against a
+  pinned 43 445). Both fail identically with the `hypot` routes pointed back
+  at `libm` (A/B, same tree), so the cause predates gh:#997.
+
+No test result moved with `hypot`.
 
 **One entry needs its own note.** `cheb::eval_mode`'s error *estimate* differs
 by up to 1.05e-2 where its result differs by 1.06e-15. Upstream's estimate is
@@ -78,6 +130,8 @@ the evaluation.
 
 | surface | upstream | agreement | test |
 |---|---|---|---|
+| `linalg::expm` (added 2026-10-20, gh:#993; ~~balancing step skipped, a documented deviation~~ balancing ported through `DGEBAL`, gh:#998) | GNU Octave 11.3.0 `expm.m`, run | ~~vs `expm.m` with balancing removed: worst 3.2e-16 normwise, 127/220 bit-identical; vs stock `expm`: identical to that except a badly scaled 3x3, 1.1e-11 (the balancing).~~ **Since gh:#998, vs stock `expm`: worst 3.2e-16 normwise (`dense6`), 128/220 bit-identical; the badly scaled 3x3 1.1e-11 -> 0, `chain4` 1.7e-18 -> 0.** vs PETIR's CRAM48 on a decay chain: 6.8e-16 | `octave_expm_code_to_code.rs` |
+| `linalg::{dgebal, dgebak}` (added 2026-10-20, gh:#998; every `JOB`, both `SIDE`s, 68 cases incl. Octave's `expm` inputs, safe-range and subnormal entries, sparse permutation patterns) | Reference-LAPACK 3.12.1 + reference BLAS, run (system library, checked byte-identical to the v3.12.1 sources compiled with gfortran) | **26 024/26 024 bit-identical** | `lapack_gebal_code_to_code.rs` |
 | `fast_exp`, `fast_log`, `fast_pow` | ARM optimized-routines | **100% bit-identical** | `fast_*_vs_arm_optimized_routines.rs` |
 | the 19 verbatim lifts | `outram-foam-basic-lib` (OpenFOAM), `chem-eng` (GNU Octave) | byte-identical after documented `std`→`core` substitutions, 0 allowed deviations on 17 of 19 | `verbatim_provenance.rs` |
 | `specfunc::inc_gamma` vs `gamma_inc` | two independent lineages within PETIR | agree to 4.82e-10 | `incomplete_gamma_cross_check.rs` |

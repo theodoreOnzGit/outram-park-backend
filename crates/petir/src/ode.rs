@@ -512,7 +512,7 @@ where
             // Grow the step, capped at 5x. The 0.9 is deliberate pessimism --
             // see the module docs.
             let grow = if worst_ratio > 0.0 {
-                (0.9 * worst_ratio.powf(-0.2)).min(5.0)
+                (0.9 * Real::powf(worst_ratio, -0.2)).min(5.0)
             } else {
                 5.0
             };
@@ -520,7 +520,7 @@ where
         } else {
             // Reject and retry smaller, floored at 1/5.
             rejected += 1;
-            let shrink = (0.9 * worst_ratio.powf(-0.25)).max(0.2);
+            let shrink = (0.9 * Real::powf(worst_ratio, -0.25)).max(0.2);
             h *= shrink;
 
             // A step that has shrunk into the rounding noise of `t` cannot

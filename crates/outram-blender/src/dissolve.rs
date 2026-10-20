@@ -36,7 +36,7 @@
 //!   `angle` of coplanar — the planar cleanup pass.
 //! - [`delete`] is the delete/erase matrix ([`DeleteMode`]).
 
-use std::collections::{BTreeSet, HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
 use crate::math::Vec3;
 use crate::mesh::{EdgeId, FaceId, Mesh, VertexId};
@@ -236,7 +236,9 @@ fn dissolve_groups(mesh: &Mesh, group: &mut [usize]) -> Mesh {
         x
     }
     let polys = mesh.polygons();
-    let mut buckets: HashMap<usize, BTreeSet<usize>> = HashMap::new();
+    // BTreeMap: merged faces are emitted in group-root order, not a randomly
+    // seeded hash order (gh #1002).
+    let mut buckets: BTreeMap<usize, BTreeSet<usize>> = BTreeMap::new();
     for fi in 0..polys.len() {
         let r = find(group, fi);
         buckets.entry(r).or_default().insert(fi);
@@ -284,7 +286,8 @@ fn union_boundary_ring(polys: &[Vec<VertexId>], sel: &BTreeSet<usize>) -> Option
     if dir.is_empty() {
         return None;
     }
-    let start = *dir.keys().next().unwrap();
+    // Lowest vertex, not the hash map's first key (randomly seeded, gh #1002).
+    let start = *dir.keys().min().unwrap();
     let mut ring = vec![start];
     let mut cur = start;
     loop {

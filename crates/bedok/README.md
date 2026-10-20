@@ -405,7 +405,19 @@ misleadingly as `linker 'link.exe' not found`, which reads like a missing
 compiler rather than a missing SDK.
 
 The GNU toolchain (`stable-x86_64-pc-windows-gnu`) is **not** a workaround: it
-cannot build `faer`, which needs `dlltool` from MinGW binutils.
+cannot build `faer`, which needs `dlltool` from MinGW binutils. ~~**Not
+re-checked 2026-10-20:** bedok no longer depends on `faer` (gh #994, its
+sparse LU is now `petir::sparse`), so that reason no longer applies to this
+crate~~ **CHANGED again 2026-10-20:** bedok uses faer once more, through
+`petir`'s `faer` feature (below), so assume the reason applies; not tried.
+
+**Sparse backend (gh #994, 2026-10-20).** The flux solves' sparse LU is faer
+0.24.4 itself, reached through `petir`'s opt-in `faer` and `std` features
+(`petir::sparse::SparseBackend::Faer`). It is fast, but **its results depend
+on the CPU's instruction set**, so they are not bit-identical across
+machines; call `bedok::matlab::set_sparse_backend(SparseBackend::Ported)` for
+PETIR's deterministic port (bit-identical to faer on an AVX2+FMA x86-64, much
+slower: bedok subset, one thread, i9-13900K, 2026-10-20 — `matlab_parity_iaea3ds` / `neacrpd1t` `the_transient_marches_without_diverging`: faer + `std` 7.2 s / 116 s; faer without `std` 16.7 s / 265 s; faer without `std` built with `-C target-cpu=native` 12.9 s / 205 s; `Ported` 137 s / 2103 s).
 
 **What passing tests do and do not mean.** They cover the translated utility
 layer and pin the known reference defects; the IAPWS region-1 functions agree

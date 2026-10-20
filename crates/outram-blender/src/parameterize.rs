@@ -68,7 +68,10 @@
 //! > reactor control, safety-critical, or licensing decisions.
 
 use petir::mathf::RealMath;
-use crate::laplacian::{edge_weights_from, mesh_triangles, LaplacianWeighting};
+use crate::laplacian::{
+    edge_weights_from, factor_spd_lower, mesh_triangles, solve_columns, LaplacianWeighting,
+    SpdFactorError,
+};
 use crate::math::Vec3;
 use crate::mesh::Mesh;
 use std::collections::HashMap;
@@ -131,10 +134,6 @@ pub fn parameterize(
     weighting: LaplacianWeighting,
     boundary: BoundaryShape,
 ) -> Result<Vec<(f64, f64)>, ParamError> {
-    use faer::linalg::solvers::Solve;
-    use faer::sparse::{SparseColMat, Triplet};
-    use faer::{Mat, Side};
-
     let tris = mesh_triangles(mesh);
     // Reject a closed mesh (NoBoundary) before the genus check, so the common
     // "you gave me a sphere/cube" case gets the most informative error.
@@ -172,15 +171,15 @@ pub fn parameterize(
     let weights = edge_weights_from(&tris, &ps, weighting);
     let mut diag = vec![0.0f64; n];
     let mut rhs = vec![[0.0f64; 2]; nfree];
-    let mut trips: Vec<Triplet<usize, usize, f64>> = Vec::new();
+    let mut trips: Vec<(usize, usize, f64)> = Vec::new();
 
-    for (&(gi, gj), &w) in &weights {
+    for &((gi, gj), w) in &weights {
         diag[gi] += w;
         diag[gj] += w;
         match (free_of[gi], free_of[gj]) {
             (Some(fi), Some(fj)) => {
                 let (lo, hi) = if fi < fj { (fi, fj) } else { (fj, fi) };
-                trips.push(Triplet::new(hi, lo, -w));
+                trips.push((hi, lo, -w));
             }
             (Some(fi), None) => {
                 rhs[fi][0] += w * uv[gj].0;
@@ -194,19 +193,18 @@ pub fn parameterize(
         }
     }
     for (fi, &gi) in free_verts.iter().enumerate() {
-        trips.push(Triplet::new(fi, fi, diag[gi]));
+        trips.push((fi, fi, diag[gi]));
     }
 
-    let a = SparseColMat::<usize, f64>::try_new_from_triplets(nfree, nfree, &trips)
-        .map_err(|_| ParamError::Assembly)?;
-    let llt = a
-        .sp_cholesky(Side::Lower)
-        .map_err(|_| ParamError::NotPositiveDefinite)?;
-    let b = Mat::<f64>::from_fn(nfree, 2, |i, j| rhs[i][j]);
-    let x = llt.solve(&b);
+    let to_err = |e| match e {
+        SpdFactorError::Assembly => ParamError::Assembly,
+        SpdFactorError::NotPositiveDefinite => ParamError::NotPositiveDefinite,
+    };
+    let llt = factor_spd_lower(nfree, &trips).map_err(to_err)?;
+    let x = solve_columns(&llt, &rhs).map_err(to_err)?;
 
     for (fi, &gi) in free_verts.iter().enumerate() {
-        uv[gi] = (x[(fi, 0)], x[(fi, 1)]);
+        uv[gi] = (x[fi][0], x[fi][1]);
     }
     Ok(uv)
 }

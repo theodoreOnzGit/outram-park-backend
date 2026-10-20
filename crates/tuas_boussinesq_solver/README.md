@@ -301,6 +301,11 @@ many free and open source libraries such as:
 6. thiserror
 7. csv
 
+Since 2026-10-20 (gh:#989) Peroxide and Roots are no longer dependencies:
+their root finders, quadrature, `erfc` and cubic splines were replaced by
+PETIR, this workspace's port of the GNU Scientific Library. They stay in this
+list because earlier versions used them.
+
 Most are released under Apache 2.0 and MIT 
 (uom, thiserror and peroxide)
 and roots is released under BSD 2 clause. The licensing notices

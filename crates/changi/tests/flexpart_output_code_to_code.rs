@@ -859,12 +859,30 @@ fn centerofmass_matches_upstream() {
     check_group(&setup().fx, "centerofmass", CENTRE, all, eval_stats);
 }
 
-/// Real(8) is held **bit-exact** (`tol8 = 0`): upstream's in-place
-/// `x*pi180/pi180` round trip changes four of set 7's inputs by one ulp
-/// (15.14, 30.92, 31.33, 31.74), and only a zero tolerance can see whether
-/// the port reproduces it.
+/// ~~Real(8) is held **bit-exact** (`tol8 = 0`)~~ **CORRECTED 2026-10-20**:
+/// real(8) is held to a relative difference less than `1e-10`
+/// ([`common::LESS_THAN_1E_10`]). That is the maintainer's acceptance
+/// criterion (2026-10-20, "I accept rounding errors in last ulp less the
+/// 1e-10"), NOT a derived bound. Tolerance 0 asserted that the port and
+/// gfortran called the same glibc `sin`/`cos`/`acos`/`atan2`. The port now
+/// goes through PETIR (gh:#985), which deliberately does not reproduce
+/// glibc's last bit. Measured on the PETIR route: max 1.8e-13 relative (a
+/// per-cluster rms distance). The centroids moved by about 1 ulp.
+///
+/// Why no bound was derived: the outputs come out of a k-means iteration
+/// whose assignments, centroids and stopping test feed back on themselves.
+/// The rms distances go through `acos` near 1, whose conditioning `1/theta^2`
+/// depends on the previous iteration's centroids, which the test cannot
+/// see. A first-order replay over every libm call (thousands per row) was
+/// not attempted.
+///
+/// What the old zero tolerance also caught, and still does: upstream's
+/// in-place `x*pi180/pi180` round trip changes four of set 7's inputs by one
+/// ulp (15.14, 30.92, 31.33, 31.74). Those echoed `xl`/`yl` outputs involve
+/// no libm and are still bit-exact (see the harness's bit-exact count), but
+/// a 1e-10 bound alone would no longer fail on them.
 const CLUSTER: Bounds = Bounds {
-    tol8: 0.0,
+    tol8: common::LESS_THAN_1E_10, // ~~tol 0~~ CORRECTED 2026-10-20
     floor8: 0.0,
     tol4: 1e-5,
     floor4: 0.0,

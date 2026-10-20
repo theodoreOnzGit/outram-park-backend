@@ -28,7 +28,9 @@
 //! (binaries in `src/bin/` included), for every crate directory that has a
 //! `Cargo.toml`. Files under a `tests/` directory, files named `tests.rs`, and
 //! everything after an inline `#[cfg(test)] mod … {` are test code and are
-//! skipped, exactly as in the two hot-path gates. A raw call is the method
+//! skipped, exactly as in the two hot-path gates. A test module in a file of
+//! another name (`#[cfg(test)] mod upstream_tests;`) IS scanned; that is
+//! stricter than needed, and such files are kept on PETIR too. A raw call is the method
 //! spelling `.name(` or the path spellings `f64::name` / `f32::name` (a UFCS
 //! call or a function pointer) for every name in [`RAW`]. Calls through `petir::real::Real` by trait path
 //! (`Real::asinh(x)`, the route for the inverse hyperbolics, which

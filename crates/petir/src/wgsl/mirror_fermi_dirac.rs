@@ -389,7 +389,7 @@ fn cheb(c: &[f32], x: f32) -> f32 {
 /// Goano's alternating series for an integer index. Mirrors
 /// `petir_fd_series`.
 fn series(x: f32, p: u32) -> f32 {
-    let ex = x.exp();
+    let ex = Real::exp(x);
     let mut term = ex;
     let mut sum = term;
     for n in 2..100 {
@@ -410,12 +410,12 @@ fn series(x: f32, p: u32) -> f32 {
 /// The same series for a half-integer index. Mirrors
 /// `petir_fd_series_half`.
 fn series_half(x: f32, whole: u32) -> f32 {
-    let ex = x.exp();
+    let ex = Real::exp(x);
     let mut term = ex;
     let mut sum = term;
     for n in 2..200 {
         let rat = (n as f32 - 1.0) / n as f32;
-        let mut r = rat.sqrt();
+        let mut r = Real::sqrt(rat);
         for _ in 0..whole {
             r *= rat;
         }
@@ -450,7 +450,7 @@ fn asymp(j: f32, lg: f32, x: f32) -> f32 {
         }
         seqn += add;
     }
-    2.0 * seqn * ((j + 1.0) * x.ln() - lg).exp()
+    2.0 * seqn * Real::exp((j + 1.0) * Real::ln(x) - lg)
 }
 
 /// `F_{-1}(x) = e^x/(1+e^x)`, the Fermi occupation function. Mirrors
@@ -463,10 +463,10 @@ pub fn fermi_dirac_m1(x: f32) -> f32 {
         return 0.0;
     }
     if x < 0.0 {
-        let ex = x.exp();
+        let ex = Real::exp(x);
         ex / (1.0 + ex)
     } else {
-        1.0 / (1.0 + (-x).exp())
+        1.0 / (1.0 + Real::exp(-x))
     }
 }
 
@@ -479,12 +479,12 @@ pub fn fermi_dirac_0(x: f32) -> f32 {
         return 0.0;
     }
     if x < -5.0 {
-        let ex = x.exp();
+        let ex = Real::exp(x);
         ex * (1.0 - ex * (0.5 - ex * (1.0 / 3.0 - ex * (0.25 - ex * (0.2 - ex / 6.0)))))
     } else if x < 10.0 {
-        (1.0 + x.exp()).ln()
+        Real::ln(1.0 + Real::exp(x))
     } else {
-        let ex = (-x).exp();
+        let ex = Real::exp(-x);
         x + ex * (1.0 - 0.5 * ex + ex * ex / 3.0 - ex * ex * ex / 4.0)
     }
 }
@@ -565,7 +565,7 @@ pub fn fermi_dirac_mhalf(x: f32) -> f32 {
     } else if x < 10.0 {
         cheb(&FD_MHALF_C, 1.0 / 3.0 * (x - 4.0) - 1.0)
     } else if x < 30.0 {
-        cheb(&FD_MHALF_D, 0.1 * x - 2.0) * x.sqrt()
+        cheb(&FD_MHALF_D, 0.1 * x - 2.0) * Real::sqrt(x)
     } else {
         asymp(-0.5, LG_MHALF, x)
     }
@@ -587,7 +587,7 @@ pub fn fermi_dirac_half(x: f32) -> f32 {
     } else if x < 10.0 {
         cheb(&FD_HALF_C, 1.0 / 3.0 * (x - 4.0) - 1.0)
     } else if x < 30.0 {
-        cheb(&FD_HALF_D, 0.1 * x - 2.0) * (x * x.sqrt())
+        cheb(&FD_HALF_D, 0.1 * x - 2.0) * (x * Real::sqrt(x))
     } else {
         asymp(0.5, LG_HALF, x)
     }
@@ -608,7 +608,7 @@ pub fn fermi_dirac_3half(x: f32) -> f32 {
     } else if x < 10.0 {
         cheb(&FD_3HALF_C, 1.0 / 3.0 * (x - 4.0) - 1.0)
     } else if x < 30.0 {
-        cheb(&FD_3HALF_D, 0.1 * x - 2.0) * (x * x * x.sqrt())
+        cheb(&FD_3HALF_D, 0.1 * x - 2.0) * (x * x * Real::sqrt(x))
     } else {
         asymp(1.5, LG_3HALF, x)
     }
@@ -634,6 +634,7 @@ mod tests {
     extern crate std;
     use super::*;
     use crate::specfunc::fermi_dirac as f64fd;
+    use crate::wgsl::log_budget::{log_err, worst_ulps, Sh};
 
     /// The seven mirrors beside their `f64` originals.
     const PAIRS: [(&str, fn(f32) -> f32, fn(f64) -> f64); 7] = [
@@ -647,44 +648,438 @@ mod tests {
     ];
 
     /// What `f32` costs, against the `f64` module, over 200 001 linear probes
-    /// on `[-100, 100]` — which crosses the underflow bound, the series cut,
-    /// all four Chebyshev boundaries and the asymptotic branch (2026-09-19):
+    /// on `[-100, 100]` — which crosses ~~the underflow bound,~~ the series
+    /// cut, all four Chebyshev boundaries and the asymptotic branch
+    /// (**CORRECTED 2026-10-20:** the underflow bound is -708.4, far outside
+    /// this sweep, and probes whose `f64` value is below 1e-30, `x < -69`, are
+    /// skipped).
     ///
-    /// | | worst relative | at |
+    /// # The instrument: log error against a derived budget (gh #1003)
+    ///
+    /// ~~Asserted: worst relative error under `2e-6` (`2e-5` for `F_0`) for
+    /// all seven.~~ **REPLACED 2026-10-20 for `F_0`, `F_{1/2}` and `F_{3/2}`
+    /// (gh #1003).** Those bounds were set a little above numbers measured
+    /// on 2026-09-19 (`F_{3/2}` 1.38e-6 against 2e-6), not derived, and the
+    /// measurement went through glibc: before gh #1001 the std-linked test
+    /// build resolved the mirror's `exp` and `ln` to the platform library
+    /// (three of the seven numbers moved when re-measured, below).
+    /// `F_{1/2}` and `F_{3/2}` end in `exp((j + 1) ln x - lnGamma(j + 2))`,
+    /// whose argument reaches 10.3, so every rounding of the argument costs
+    /// `|argument| * u` of the result's LOG. Maintainer direction 2026-10-20:
+    /// exp error propagation is measured in log error.
+    ///
+    /// **The metric now** is `|ln F_f32 - ln F_f64|`, at every probe, against
+    /// a budget derived from that probe's own operations by
+    /// [`crate::wgsl::log_budget::Sh`] (first order in `u = 2^-24`, every
+    /// rounding at its bound). Branch by branch:
+    ///
+    /// - **`F_0`, `x < -5`**: `e^x` faithful, then the nested Horner in
+    ///   `e^x`, each operation one rounding, `1/3` and `0.2` with their
+    ///   representation error.
+    /// - **`F_0`, `-5 <= x < 10`**: `ln(1 + e^x)`. Rounding `s = 1 + e^x`
+    ///   costs `u|s|` absolutely, which `ln` turns into `u|s|/s` absolute in a
+    ///   result as small as 6.7e-3: about `150 u` relative at `x = -5`. This is
+    ///   upstream's branch cut (next test); the budget derives it rather than
+    ///   allowing for it.
+    /// - **`F_0`, `x >= 10`**: `x + e^{-x}(...)`, `x` exact.
+    /// - **`F_{1/2}`, `F_{3/2}`, `x < -1`**: Goano's alternating series
+    ///   term by term (`(n-1)/n`, its `sqrt`, the powers, the product, the
+    ///   running sum), plus the truncation: the terms alternate and fall, so
+    ///   what the `f32` stop leaves out is at most the next term.
+    /// - **`-1 <= x < 30`**: the argument map (`2/3` and `1/3` and `0.1`
+    ///   carry their representation error into `t`), Clenshaw
+    ///   ([`crate::wgsl::log_budget::cheb_budget`]: three roundings per
+    ///   step, `u sum |c_k|` coefficient rounding, `|C'(t)| dt`), and the
+    ///   `x sqrt(x)` / `x^2 sqrt(x)` prefactor. The `f32` tables are the full
+    ///   `f64` ones here, so no truncation.
+    /// - **`x >= 30`**, the asymptotic form `2 s exp(a)` with
+    ///   `a = (j+1) ln x - lnGamma(j+2)`: `ln x` faithful (one ulp, times
+    ///   `j + 1`), the product and the difference each `u|.|`, `lnGamma`'s
+    ///   `f32` rounding, then `exp` faithful. In log error that is
+    ///   `(j+1) ulp(ln x) + u (j+1)|ln x| + u|a| + |lg' - lg| + ulp(e^a)/e^a`:
+    ///   the exponent's absolute error IS the result's log error. Plus the
+    ///   series `s` (`(1/x)/x`, two exact-factor multiplies and one
+    ///   coefficient per term, `eta(2n)`'s rounding, the running sum) and the
+    ///   terms the `f32` stop omits but the `f64` module adds, summed in
+    ///   absolute value. The reflection term the mirror drops is 1e-16 times
+    ///   `e^{-30}` here, below everything.
+    ///
+    /// The assumptions this rests on, TESTED below: `expf` faithful on
+    /// `[-70, 10.4]`, `logf` faithful on `[1, 2.3e4]` and `[30, 100]` (libm
+    /// 0.2.16's are FreeBSD's `e_expf.c` / `e_logf.c`, which document no ulp
+    /// bound). `sqrt` is correctly rounded by IEEE 754.
+    ///
+    /// The other four indices keep the old `2e-6` relative bound, not
+    /// converted (outside gh #1003's list). Re-measured 2026-10-20 they sit
+    /// 3.3x (`F_2`) to 12x (`F_{-1}`) below it.
+    ///
+    /// **Prediction, written before the run.** `F_{3/2}`'s worst is in the
+    /// asymptotic branch at `x ~ 80`, where the budget is about 2.9e-6
+    /// (`2.5 ulp(ln x) = 1.2e-6`, `u (2.5 ln x) = 6.5e-7`, `u|a| = 5.8e-7`,
+    /// the rest 4e-7), so the measured 1.37e-6 sits at 0.4 to 0.6 of it.
+    /// `F_{1/2}` the same way at `x ~ 90`: budget about 1.9e-6, ratio about
+    /// 0.4. `F_0`'s worst is the branch cut at `x = -4.999`: budget 9.6e-6
+    /// against the measured 8.5e-6, ratio about 0.9, the tightest of the
+    /// three, because one rounding of `1 + e^x` IS the error there and it
+    /// happens to land near its bound. The Chebyshev branches sit lower, 0.1
+    /// to 0.3.
+    ///
+    /// # Results, 2026-10-20, through the shipped `libm` (gh #1001)
+    ///
+    /// Every probe holds, and the budget's `f32` shadow is bit-identical to
+    /// the shipped function at every probe. Worst log error / budget, per
+    /// branch:
+    ///
+    /// | | `x < -5` / `x < -1` (series) | middle | `x >= 10` / `x >= 30` (asymptotic) |
+    /// |---|---|---|---|
+    /// | `F_0` | 0.607 at -16.63 | **0.971** at -4.549 (the cut) | 0.785 at 10.00 |
+    /// | `F_{1/2}` | **0.662** at -7.498 | 0.578 at 19.89 | 0.546 at 33.02 |
+    /// | `F_{3/2}` | **0.661** at -15.08 | 0.652 at 22.74 | 0.550 at 30.04 |
+    ///
+    /// At each function's LARGEST error (the old metric's worst point):
+    /// `F_{3/2}` **1.369e-6 against a budget of 2.731e-6, 0.501** at 79.80;
+    /// `F_{1/2}` 7.876e-7 against 1.734e-6, 0.454, at 89.52; `F_0` 8.514e-6
+    /// against 9.005e-6, 0.945, at -4.999.
+    ///
+    /// **Against the prediction.** The asymptotic budgets came out as
+    /// predicted (2.73e-6 against 2.9e-6, 1.73e-6 against 1.9e-6) and so did
+    /// the ratios there (0.50, 0.45). `F_0` at the cut: 9.0e-6 against 9.6e-6
+    /// predicted, ratio 0.945 against 0.9. **Refuted:** the worst RATIO is not
+    /// in the asymptotic branch but in the series branch (`F_{1/2}`,
+    /// `F_{3/2}`), where the budget is small (about 3u: one ulp of `e^x` and
+    /// a rounding), and the Chebyshev branches reach 0.58 to 0.65, not 0.1 to
+    /// 0.3. These budgets are tighter than the predicted ones, not looser.
+    ///
+    /// **Old metric re-measured** (relative error, same sweep, now through
+    /// libm; the 2026-09-19 numbers went through glibc, gh #1001):
+    ///
+    /// | | 2026-09-19 (glibc) | 2026-10-20 (libm) |
     /// |---|---|---|
-    /// | `F_{-1}` | 1.701e-07 | -12.46 |
-    /// | `F_{-1/2}` | 3.399e-07 | -1.938 |
-    /// | **`F_0`** | **8.514e-06** | **-4.999** |
-    /// | `F_{1/2}` | 8.085e-07 | 89.97 |
-    /// | `F_1` | 3.592e-07 | -1.310 |
-    /// | `F_{3/2}` | 1.380e-06 | 63.49 |
-    /// | `F_2` | 6.081e-07 | 4.043 |
+    /// | `F_{-1}` | 1.701e-07 at -12.46 | unchanged |
+    /// | `F_{-1/2}` | 3.399e-07 at -1.938 | **3.425e-07 at 61.53** |
+    /// | `F_0` | 8.514e-06 at -4.999 | unchanged |
+    /// | `F_{1/2}` | 8.085e-07 at 89.97 | **7.876e-07 at 89.52** |
+    /// | `F_1` | 3.592e-07 at -1.310 | unchanged |
+    /// | `F_{3/2}` | 1.380e-06 at 63.49 | **1.369e-06 at 79.80** |
+    /// | `F_2` | 6.081e-07 at 4.043 | unchanged |
     ///
-    /// Six of the seven sit at one to twelve `f32` ulp, which is ordinary.
-    /// `F_0` is the exception and it is upstream's branch cut, not this
-    /// transcription — see the next test.
+    /// The three that moved are the three with an asymptotic branch,
+    /// `exp` of an `ln`, which is where their worst points now sit; at the
+    /// other four's worst points the two libraries gave the same bits.
+    ///
+    /// **Negative controls: the budget can fail.** Ratio of log error to
+    /// budget with one defect injected, everything else as shipped:
+    ///
+    /// | defect | at | 1 ulp | 2 ulp | 3 ulp |
+    /// |---|---|---|---|---|
+    /// | `F_0`: `1 + e^x` off | -4.999 | **2.907** | 4.861 | 6.815 |
+    /// | `F_0`: `1 + e^x` off | -4.549 | 0.953 | **2.878** | 4.787 |
+    /// | `F_{1/2}`: exp argument off | 33.02 | 0.885 | **1.224** | 1.647 |
+    /// | `F_{1/2}`: exp argument off | 89.52 | 0.730 | **1.006** | 1.227 |
+    /// | `F_{3/2}`: exp argument off | 79.80 | 0.835 | **1.169** | 1.545 |
+    /// | `F_{3/2}`: exp argument off | 30.04 | 0.816 | **1.038** | 1.303 |
+    ///
+    /// So a single mis-rounded `1 + e^x` is caught at the cut, and an exp
+    /// argument two ulps off (four roundings' worth, 1.9e-6 at `x = 80`) is
+    /// caught in the asymptotic branch; one ulp is not, which is this
+    /// instrument's resolution there. The first, third and fifth rows are
+    /// asserted.
     #[test]
     fn the_f32_cost_is_what_it_was_measured_to_be() {
+        let budgets: [(&str, fn(f32) -> f32, fn(f64) -> f64, fn(f32, i32) -> Sh); 3] = [
+            ("F_0", fermi_dirac_0, f64fd::fermi_dirac_0, f0_budget),
+            (
+                "F_1/2",
+                fermi_dirac_half,
+                f64fd::fermi_dirac_half,
+                |x, k| half_budget(x, 1, k),
+            ),
+            (
+                "F_3/2",
+                fermi_dirac_3half,
+                f64fd::fermi_dirac_3half,
+                |x, k| half_budget(x, 2, k),
+            ),
+        ];
+
+        // The assumptions the budgets rest on.
+        for (name, (worst, at)) in [
+            (
+                "expf",
+                worst_ulps(<f32 as Real>::exp, <f64 as Real>::exp, -70.0, 10.4, 7),
+            ),
+            (
+                "logf",
+                worst_ulps(<f32 as Real>::ln, <f64 as Real>::ln, 1.0, 2.3e4, 7),
+            ),
+            (
+                "logf",
+                worst_ulps(<f32 as Real>::ln, <f64 as Real>::ln, 30.0, 100.0, 1),
+            ),
+        ] {
+            assert!(
+                worst < 1.0,
+                "{name} is assumed faithful; it is {worst} ulp off at {at:e}"
+            );
+        }
+
+        for (name, f, g, budget) in budgets {
+            for k in 0..=200_000 {
+                let x = -100.0 + 200.0 * k as f32 / 200_000.0;
+                let r = g(f64::from(x));
+                if r <= 1e-30 {
+                    continue;
+                }
+                let sh = budget(x, 0);
+                assert_eq!(
+                    sh.f.to_bits(),
+                    f(x).to_bits(),
+                    "{name} at {x}: the budget's f32 shadow is not the shipped \
+                     arithmetic"
+                );
+                let (l, b) = (log_err(f(x), r), sh.log_bound());
+                assert!(
+                    l <= b,
+                    "{name} at x = {x}: log error {l:e} against a derived budget of \
+                     {b:e}. More error than f32 arithmetic on this formula can \
+                     produce: a transcription defect, or a libm routine worse than \
+                     faithful"
+                );
+            }
+        }
+
+        // Not converted (outside gh #1003): the old relative bound stands.
         for (name, f, g) in PAIRS {
+            if ["F_0", "F_1/2", "F_3/2"].contains(&name) {
+                continue;
+            }
             let (mut worst, mut at) = (0.0_f64, 0.0_f32);
             for k in 0..=200_000 {
                 let x = -100.0 + 200.0 * k as f32 / 200_000.0;
-                let r = g(x as f64);
+                let r = g(f64::from(x));
                 if r > 1e-30 {
-                    let e = (((f(x) as f64) - r) / r).abs();
+                    let e = ((f64::from(f(x)) - r) / r).abs();
                     if e > worst {
                         worst = e;
                         at = x;
                     }
                 }
             }
-            let bound = if name == "F_0" { 2e-5 } else { 2e-6 };
             assert!(
-                worst < bound,
-                "{name} f32 vs f64: {worst:e} at x = {at}. The documented \
-                 figures are 1.7e-07 to 1.4e-06, with F_0 alone at 8.5e-06"
+                worst < 2e-6,
+                "{name} f32 vs f64: {worst:e} at x = {at}. Documented 1.7e-07 to \
+                 6.1e-07 (2026-10-20)"
             );
         }
+
+        // Negative controls: the budget can fail. F_0 at its largest error,
+        // with 1 + e^x one ulp off; F_{1/2} and F_{3/2} with the asymptotic
+        // exp argument two ulps off, at the points recorded in the doc.
+        let controls: [(&str, f32, fn(f64) -> f64, fn(f32, i32) -> Sh, i32, f64); 3] = [
+            (
+                "F_0",
+                -4.999_000_5,
+                f64fd::fermi_dirac_0,
+                f0_budget,
+                1,
+                2.907,
+            ),
+            (
+                "F_1/2",
+                33.015,
+                f64fd::fermi_dirac_half,
+                |x, k| half_budget(x, 1, k),
+                2,
+                1.224,
+            ),
+            (
+                "F_3/2",
+                79.796_005,
+                f64fd::fermi_dirac_3half,
+                |x, k| half_budget(x, 2, k),
+                2,
+                1.169,
+            ),
+        ];
+        for (name, x, g, budget, k, documented) in controls {
+            let b = budget(x, 0).log_bound();
+            let l = log_err(budget(x, k).f, g(f64::from(x)));
+            assert!(
+                l > b,
+                "negative control, {name} at x = {x}: the defect ({k} ulp) was \
+                 measured at {documented} of the budget; it now reads {:.3}, so the \
+                 budget can no longer see it",
+                l / b
+            );
+        }
+    }
+
+    /// `F_0`'s running error bound. `k` moves `1 + e^x` (middle branch) by
+    /// `k` ulps: the negative control's defect, an addition worse than
+    /// correctly rounded.
+    fn f0_budget(x: f32, k: i32) -> Sh {
+        let xs = Sh::exact(x);
+        let one = Sh::exact(1.0);
+        if x < -5.0 {
+            let ex = xs.exp();
+            let s = Sh::constant(0.2, 0.2).sub(ex.div(Sh::exact(6.0)));
+            let s = Sh::exact(0.25).sub(ex.mul(s));
+            let s = Sh::constant(1.0 / 3.0, 1.0 / 3.0).sub(ex.mul(s));
+            let s = Sh::exact(0.5).sub(ex.mul(s));
+            ex.mul(one.sub(ex.mul(s)))
+        } else if x < 10.0 {
+            one.add(xs.exp()).bump(k).ln()
+        } else {
+            let ex = xs.neg().exp();
+            let a = one.sub(ex.scale(0.5));
+            let b = ex.mul(ex).div(Sh::exact(3.0));
+            let c = ex.mul(ex).mul(ex).scale(0.25);
+            xs.add(ex.mul(a.add(b).sub(c)))
+        }
+    }
+
+    /// `F_{1/2}` (`whole = 1`) or `F_{3/2}` (`whole = 2`)'s running error
+    /// bound. `k` moves the asymptotic branch's exp ARGUMENT by `k` ulps: the
+    /// negative control's defect, one more rounding of the exponent than the
+    /// code makes.
+    fn half_budget(x: f32, whole: u32, k: i32) -> Sh {
+        let (a32, b32, c32, d32): (&[f32], &[f32], &[f32], &[f32]) = if whole == 1 {
+            (&FD_HALF_A, &FD_HALF_B, &FD_HALF_C, &FD_HALF_D)
+        } else {
+            (&FD_3HALF_A, &FD_3HALF_B, &FD_3HALF_C, &FD_3HALF_D)
+        };
+        let (a64, b64, c64, d64): (&[f64], &[f64], &[f64], &[f64]) = if whole == 1 {
+            (
+                &f64fd::PROBE_FD_HALF_A,
+                &f64fd::PROBE_FD_HALF_B,
+                &f64fd::PROBE_FD_HALF_C,
+                &f64fd::PROBE_FD_HALF_D,
+            )
+        } else {
+            (
+                &f64fd::PROBE_FD_3HALF_A,
+                &f64fd::PROBE_FD_3HALF_B,
+                &f64fd::PROBE_FD_3HALF_C,
+                &f64fd::PROBE_FD_3HALF_D,
+            )
+        };
+        let xs = Sh::exact(x);
+        let one = Sh::exact(1.0);
+        if x < -1.0 {
+            series_half_budget(x, whole)
+        } else if x < 1.0 {
+            xs.cheb(a32, a64)
+        } else if x < 4.0 {
+            let t = Sh::constant(2.0 / 3.0, 2.0 / 3.0).mul(xs.sub(one)).sub(one);
+            t.cheb(b32, b64)
+        } else if x < 10.0 {
+            let t = Sh::constant(1.0 / 3.0, 1.0 / 3.0)
+                .mul(xs.sub(Sh::exact(4.0)))
+                .sub(one);
+            t.cheb(c32, c64)
+        } else if x < 30.0 {
+            let t = Sh::constant(0.1, 0.1).mul(xs).sub(Sh::exact(2.0));
+            let pre = if whole == 1 {
+                xs.mul(xs.sqrt())
+            } else {
+                xs.mul(xs).mul(xs.sqrt())
+            };
+            t.cheb(d32, d64).mul(pre)
+        } else {
+            let (j, lg) = if whole == 1 {
+                (0.5_f32, LG_HALF)
+            } else {
+                (1.5_f32, LG_3HALF)
+            };
+            asymp_budget(j, lg, x, k)
+        }
+    }
+
+    /// [`series_half`]'s running error bound, plus its truncation.
+    fn series_half_budget(x: f32, whole: u32) -> Sh {
+        let ex = Sh::exact(x).exp();
+        let mut term = ex;
+        let mut sum = term;
+        for n in 2..200 {
+            let rat = Sh::exact(n as f32 - 1.0).div(Sh::exact(n as f32));
+            let mut r = rat.sqrt();
+            for _ in 0..whole {
+                r = r.mul(rat);
+            }
+            term = term.mul(ex.neg().mul(r));
+            sum = sum.add(term);
+            if (term.f / sum.f).abs() < EPS {
+                // Alternating, falling terms: what the stop leaves out is at
+                // most the next term.
+                let nf = f64::from(n as u32);
+                let ratio = Real::powf(nf / (nf + 1.0), f64::from(whole) + 0.5);
+                let next = term.v.abs() * ex.v * ratio;
+                return Sh {
+                    e: sum.e + next,
+                    ..sum
+                };
+            }
+        }
+        Sh {
+            e: f64::INFINITY,
+            ..sum
+        }
+    }
+
+    /// [`asymp`]'s running error bound, with the terms the `f32` stop omits
+    /// and the `f64` module adds. `k` moves the exp argument by `k` ulps.
+    fn asymp_budget(j: f32, lg: f32, x: f32, k: i32) -> Sh {
+        let xs = Sh::exact(x);
+        let mut seqn = Sh::exact(0.5);
+        let xm2 = Sh::exact(1.0).div(xs).div(xs);
+        let mut xgam = Sh::exact(1.0);
+        let mut add_f = f32::MAX;
+        let mut included = 0_usize;
+        for (i, &eta) in ETA.iter().enumerate() {
+            let n = i as f32 + 1.0;
+            let add_previous = add_f;
+            xgam = xgam
+                .mul(xm2)
+                .mul(Sh::exact(j + 1.0 - (2.0 * n - 2.0)))
+                .mul(Sh::exact(j + 1.0 - (2.0 * n - 1.0)));
+            let add =
+                Sh::constant(eta, crate::specfunc::zeta::eta_int(2 * (i as i32 + 1))).mul(xgam);
+            add_f = add.f;
+            if add.f.abs() > add_previous.abs() || (add.f / seqn.f).abs() < EPS {
+                break;
+            }
+            seqn = seqn.add(add);
+            included = i + 1;
+        }
+        // The f64 module's own series, term by term, to its own stop: what it
+        // adds beyond the f32 terms is model difference, bounded in absolute
+        // value.
+        let (jd, xd) = (f64::from(j), f64::from(x));
+        let (mut s64, mut g64, mut a64, mut omitted) = (0.5_f64, 1.0_f64, f64::MAX, 0.0_f64);
+        for n in 1..=200_i32 {
+            let prev = a64;
+            g64 = g64 / (xd * xd)
+                * (jd + 1.0 - f64::from(2 * n - 2))
+                * (jd + 1.0 - f64::from(2 * n - 1));
+            a64 = crate::specfunc::zeta::eta_int(2 * n) * g64;
+            if a64.abs() > prev.abs() || (a64 / s64).abs() < f64::EPSILON {
+                break;
+            }
+            s64 += a64;
+            if n as usize > included {
+                omitted += a64.abs();
+            }
+        }
+        let seqn = Sh {
+            e: seqn.e + omitted,
+            ..seqn
+        };
+        let lg_exact = crate::specfunc::gamma::ln_gamma(jd + 2.0);
+        let arg = Sh::exact(j + 1.0)
+            .mul(xs.ln())
+            .sub(Sh::constant(lg, lg_exact))
+            .bump(k);
+        seqn.scale(2.0).mul(arg.exp())
     }
 
     /// **`F_0`'s outlier is upstream's branch cut, and it costs the same

@@ -45,7 +45,8 @@
 //! |---|---|---|---|
 //! | **ARM** | [`r_exp`](RealMath::r_exp), [`r_ln`](RealMath::r_ln), [`r_powf`](RealMath::r_powf) | [`crate::fast_exp`], [`crate::fast_log`], [`crate::fast_pow`] — ports of ARM optimized-routines, verified bit-identical to upstream's own compiled C | `exp` faster, `ln` comparable, `powf` ~1.5x slower (measured, see [`crate::real`]) |
 //! | **integer power** | [`r_powi`](RealMath::r_powi) | [`crate::real::powi`] — libgcc's `__powidf2` algorithm, plain `*` and one `/` | not separately benchmarked |
-//! | **`libm`** | `r_log10`, `r_cbrt`, `r_exp_m1`, `r_ln_1p`, `r_sin`, `r_cos`, `r_tan`, `r_asin`, `r_acos`, `r_atan`, `r_atan2`, `r_hypot`, `r_sinh`, `r_cosh`, `r_tanh`, `r_log2`, `r_exp2`, `r_sin_cos` | the [`libm`] crate (a pure-Rust port of musl), through [`crate::real`]'s free functions where one exists | **slower than the platform**; by how much is not measured here |
+//! | **`libm`** | `r_log10`, `r_cbrt`, `r_exp_m1`, `r_ln_1p`, `r_sin`, `r_cos`, `r_tan`, `r_asin`, `r_acos`, `r_atan`, `r_atan2`, ~~`r_hypot`~~, `r_sinh`, `r_cosh`, `r_tanh`, `r_log2`, `r_exp2`, `r_sin_cos` | the [`libm`] crate (a pure-Rust port of musl), through [`crate::real`]'s free functions where one exists | **slower than the platform**; by how much is not measured here |
+//! | **CORE-MATH** (since 2026-10-20, gh:#997) | [`r_hypot`](RealMath::r_hypot) | [`crate::hypot`] — CORE-MATH's correctly rounded `cr_hypot` / `cr_hypotf`, moved off `libm` because musl's `hypot` is off by one ulp on some inputs | measured in `tests/hypot_correct_rounding.rs` |
 //!
 //! **EXTENDED 2026-10-20** (gh:#985): `r_log2`, `r_exp2` and `r_sin_cos` join
 //! the `libm` row, so the workspace-wide rename has a target for every `log2`,
@@ -131,7 +132,11 @@
 //! so they are **already** bit-identical on every platform~~ `abs`, `floor`,
 //! `ceil` and `round` are exact, so those are **already** bit-identical on every
 //! platform. Routing them would buy nothing and cost real time — `libm::sqrt`
-//! benchmarks 3.73x slower than the hardware instruction.
+//! benchmarks 3.73x slower than the hardware instruction. (**Qualified
+//! 2026-10-20, gh #1001:** that holds for finite `sqrt` results; the NaN that
+//! `sqrt(-x)` generates differs in sign between the instruction and libm's
+//! software path, so PETIR's own library calls `Real::sqrt`, which returns
+//! one canonical NaN.)
 //!
 //! **CORRECTED 2026-10-16 — `powi` is NOT exact.** `f64::powi` is lowered by
 //! each target's backend and its last bit differs on `x86_64-pc-windows-msvc`
@@ -226,7 +231,9 @@ pub trait RealMath: Copy {
     /// `f64::atan2`). `libm`, via [`crate::real::atan2`].
     fn r_atan2(self, x: Self) -> Self;
 
-    /// `sqrt(self^2 + other^2)` without spurious overflow. `libm::hypot`.
+    /// `sqrt(self^2 + other^2)` without spurious overflow, correctly rounded.
+    /// ~~`libm::hypot`.~~ **CHANGED 2026-10-20** (gh:#997): CORE-MATH's
+    /// `cr_hypot` / `cr_hypotf` through [`crate::real::hypot`].
     fn r_hypot(self, other: Self) -> Self;
 
     /// Hyperbolic sine. `libm::sinh`.
@@ -333,7 +340,7 @@ impl RealMath for f64 {
 
     #[inline]
     fn r_hypot(self, other: f64) -> f64 {
-        libm::hypot(self, other)
+        crate::real::hypot(self, other)
     }
 
     #[inline]
@@ -555,7 +562,7 @@ mod tests {
             eq(x.r_atan2(0.7 - x), libm::atan2(x, 0.7 - x), "atan2", x);
             eq(
                 x.r_hypot(3.0 * x - 2.0),
-                libm::hypot(x, 3.0 * x - 2.0),
+                crate::real::hypot(x, 3.0 * x - 2.0),
                 "hypot",
                 x,
             );
@@ -650,7 +657,7 @@ mod tests {
             eq(x.r_atan2(0.7 - x), libm::atan2f(x, 0.7 - x), "atan2f", x);
             eq(
                 x.r_hypot(3.0 * x - 2.0),
-                libm::hypotf(x, 3.0 * x - 2.0),
+                crate::real::hypotf(x, 3.0 * x - 2.0),
                 "hypotf",
                 x,
             );

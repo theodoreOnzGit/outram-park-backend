@@ -135,10 +135,10 @@ pub fn clausen(x: f64) -> f64 {
         // Cl_2(x) ~ x(1 - ln x) as x -> 0. Not an optimisation: the
         // Chebyshev branch below would compute ln(x) - c(t) as a difference
         // of two large quantities there.
-        x * (1.0 - x.ln())
+        x * (1.0 - Real::ln(x))
     } else {
         let t = 2.0 * (x * x / (core::f64::consts::PI * core::f64::consts::PI) - 0.5);
-        x * (crate::cheb_slice::eval_gsl(t, &ACLAUS) - x.ln())
+        x * (crate::cheb_slice::eval_gsl(t, &ACLAUS) - Real::ln(x))
     };
 
     sgn * val

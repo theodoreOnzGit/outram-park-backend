@@ -281,6 +281,22 @@ Upstream's **actual** decay path is CRAM. `Composition::NewDecay`
    against 127, because the term count grows logarithmically in the tolerance.
    This is why `decay_*_with_tol` variants exist; upstream exposes no way to
    ask. CRAM does not have this failure mode.
+
+**UPDATE 2026-10-20 (gh:#999, closes `op-i68k`).** The CRAM backend exists and
+is the default: `decay_composition` and `decay_material` solve with PETIR's
+`depletion::cram48` (OpenMC's `CRAM48`), not with onix's `cram16` as this note
+once suggested (onix's CRAM is itself moving into PETIR). Uniform Taylor stays
+as `DecaySolver::UniformTaylor { tol }` and the `*_with_tol` functions, the
+independent check. Re-measured under CRAM48 (`decay::tests::vv_report`):
+Sr-90 chain atom loss over one year **9.515e-4 (Taylor, `tol = 1e-3`) ->
+1.421e-15 (CRAM48)**; isobaric Sr-90 chain mass over five years **9.331e-4 ->
+1.599e-15**; Sr-90 -> Y-90 Bateman daughter 9.431e-4 -> 1.125e-15. Point 1 above therefore narrows from "different algorithm" to
+"different CRAM order": CRAM48 against PyNE's CRAM14. The order-14 uniform
+error bound is ~`9.289^-14 ~ 2.8e-14` of the inventory; measured CRAM16 vs
+CRAM48 here (a proxy, CRAM14 itself is not ported): at most **5.1e-16 of the inventory** (Sr-90 chain 1 a, Po-210 1 a,
+Pb-212 chain 1 d), i.e. round-off. Neither is
+visible in a fuel-cycle mass balance. PyNE CRAM14 was not ported
+(maintainer: not now).
 3. **A separate real defect sits in the same unreachable code.**
    `Decayer::BuildDecayMatrix` contains:
 

@@ -490,7 +490,11 @@ impl SparseMatrix {
         );
         let mut out = Self::zeros(self.rows, self.cols);
         for t in &self.entries {
-            out.entries.push(Triplet { i: t.i, j: t.j, v: t.v * d[t.j] });
+            out.entries.push(Triplet {
+                i: t.i,
+                j: t.j,
+                v: t.v * d[t.j],
+            });
         }
         out.compress();
         out
@@ -543,6 +547,54 @@ impl SparseMatrix {
 ///
 /// This is **not** for the large sparse systems elsewhere in the solver; those
 /// want a real sparse factorisation.
+///
+/// **Deliberately not moved to `petir::linalg` (checked 2026-10-20, gh #992 /
+/// #994).** PETIR's dense LU (`SquareMatrix::lu_decompose`, lifted from
+/// OpenFOAM) pivots on the largest entry *relative to its row's largest*
+/// (scaled partial pivoting) and writes `f64::EPSILON` into a zero pivot;
+/// this routine, like `mldivide`'s LAPACK `getrf`, pivots on the largest
+/// absolute value and returns `NaN` on a zero pivot. The semantics differ, so
+/// swapping would change which pivot is chosen, not just the rounding. ~~A port
+/// of GSL's `gsl_linalg_LU_decomp`, which pivots on the largest absolute value
+/// (as PETIR's `square_matrix.rs` docs record), would match; PETIR has none
+/// yet. gh #993 (Octave-style `solve` over GSL numerics) is where it would
+/// land.~~ **CORRECTED 2026-10-20 (gh #992):** PETIR now has that port,
+/// `petir::linalg::lu_decomp` + `lu_solve` (GSL 2.8, bit-identical to it), and
+/// it still does **not** reproduce this routine, so `solve_dense` stays:
+///
+/// - **Pivot rule: the same.** Both take the largest `|a(i, k)|` at or below
+///   the diagonal, the first on a tie (`>` here, BLAS `idamax` there).
+/// - **Multipliers: different arithmetic.** This routine forms
+///   `factor = m[i][k] / m[k][k]`. GSL (`lu.c`, `LU_decomp_L2`) scales the
+///   column by the reciprocal, `l = a(i, k) * (1 / a(k, k))` (`dscal`), and
+///   divides only when `|a(k, k)| < DBL_MIN`. Those differ in the last bit
+///   whenever `1 / a(k, k)` is inexact, and every later update inherits it.
+/// - **Updates and substitutions: the same order.** The Schur update
+///   `a - f * u` (GSL `dger`: `a + u * (-l)`, the same value), the forward
+///   elimination of the right-hand side row by row in pivot order (GSL's
+///   `dtrsv` lower, unit), and back substitution accumulating `j = i + 1..n`
+///   then dividing by the diagonal.
+/// - **Singular input: different contract.** This routine returns all-`NaN`
+///   at the first zero pivot; `lu_decomp` completes and `lu_solve` returns
+///   `PetirError::Singular`.
+///
+/// Reference-LAPACK 3.12.1's `dgetf2.f:184-188` and `dgetrf2.f:203-207` (the
+/// LU behind a dense square `mldivide`) also scale by the reciprocal when
+/// `|pivot| >= sfmin`, so switching would arguably move bedok *towards*
+/// LAPACK's arithmetic (MATLAB itself links MKL, whose small-matrix kernels
+/// were not checked). It would still move results by rounding, so it is a
+/// numbers-moving change and is left to the maintainer (gh #992).
+///
+/// **Measured 2026-10-20 (gh #992)**, with both solvers run side by side on
+/// every system the `calc_a1*` tests, `matlab_parity_iaea3ds` and
+/// `x1_frozen_nodal_static_eigenvalue_against_the_matlab` build (1 370 468
+/// systems: 460 of order 1, 806 357 of order 2, 563 651 of order 4):
+/// 250 337 solutions differ in at least one bit (65 734 of order 2, 184 603 of
+/// order 4, none of order 1), worst 2.08e-15 relative to the solution's
+/// largest entry. Swapping the GSL route in moved the IAEA-3D flux-max
+/// difference from MATLAB 1.018e-12 -> 1.015e-12 and the power-density sum
+/// 4.155e-14 -> 4.041e-14; `k_eff`, the X1 frozen-nodal case and every other
+/// printed digit were unchanged. Not bit-identical, so not switched.
 ///
 /// # Arguments
 ///
@@ -639,6 +691,30 @@ pub fn norm2(v: &[f64]) -> f64 {
 /// selects for a general (unsymmetric, non-triangular) sparse matrix — the
 /// nodal-diffusion `LHS` is unsymmetric, so no Cholesky path applies.
 ///
+/// **Backend, CHANGED again 2026-10-20 (gh #994): faer 0.24.4 itself**,
+/// through [`petir::sparse::SparseLu`] with
+/// [`petir::sparse::SparseBackend::Faer`] (petir's `faer` + `std` features),
+/// chosen by [`set_sparse_backend`]; `SparseBackend::Ported` is PETIR's
+/// deterministic port. The record below describes the ported (then
+/// simplicial-only) backend that ran between the two changes.
+///
+/// ~~**Backend, since 2026-10-20 (gh #994): [`petir::sparse::SparseLu`]**, a
+/// `no_std` port of faer 0.24.4's simplicial sparse LU with COLAMD ordering,
+/// replacing `faer::sparse::linalg::solvers::Lu`.~~ A direct solve was kept
+/// on purpose: `outram-foam-basic-lib`'s Krylov solvers were the first choice
+/// and were rejected because they converge to a tolerance, where MATLAB's
+/// `decomposition` (and this port) solve directly. The port is bit-identical
+/// to faer's *simplicial* LU (`petir/tests/sparse_vs_faer.rs`), but faer chose
+/// its *supernodal* path for the 3-D flux operator (measured on the
+/// n = 10 404 `LHS` of `x1_frozen_nodal_static_eigenvalue_against_the_matlab`:
+/// 3383/10 404 solution entries bit-identical, worst 2.2e-15 relative), so
+/// solves moved at the rounding level. What that did to every printed V&V
+/// number is recorded in this crate's `CLAUDE.md` ("faer -> petir::sparse").
+/// It is also slower to *factorise*: 1.21 s against faer's 0.17 s for that
+/// matrix on one thread (faer's own simplicial path takes 1.17-1.22 s, so
+/// the gap is simplicial against supernodal, not the port); a *solve* is
+/// 3.3 ms against faer's 4.3-4.6 ms.
+///
 /// # A singular matrix yields `NaN`, it does not error
 ///
 /// MATLAB's `decomposition` **warns** on a singular matrix and its `\` then
@@ -656,7 +732,7 @@ pub fn norm2(v: &[f64]) -> f64 {
 #[allow(clippy::large_enum_variant)]
 pub enum Decomposition {
     /// A successful LU factorisation.
-    Factorised(faer::sparse::linalg::solvers::Lu<usize, f64>),
+    Factorised(petir::sparse::SparseLu),
     /// The factorisation failed — see the type-level note on why this is not an
     /// error.
     Singular,
@@ -668,6 +744,15 @@ impl Decomposition {
     /// # Panics
     /// If `a` is not square.
     pub fn new(a: &mut SparseMatrix) -> Self {
+        Self::with_backend(a, sparse_backend())
+    }
+
+    /// Factorise with an explicit sparse backend, regardless of
+    /// [`set_sparse_backend`].
+    ///
+    /// # Panics
+    /// If `a` is not square.
+    pub fn with_backend(a: &mut SparseMatrix, backend: petir::sparse::SparseBackend) -> Self {
         assert_eq!(
             a.rows(),
             a.cols(),
@@ -676,14 +761,11 @@ impl Decomposition {
             a.cols()
         );
         let n = a.rows();
-        let triplets: Vec<faer::sparse::Triplet<usize, usize, f64>> = a
-            .find()
-            .into_iter()
-            .map(|t| faer::sparse::Triplet::new(t.i, t.j, t.v))
-            .collect();
+        let triplets: Vec<(usize, usize, f64)> =
+            a.find().into_iter().map(|t| (t.i, t.j, t.v)).collect();
 
-        match faer::sparse::SparseColMat::try_new_from_triplets(n, n, &triplets) {
-            Ok(m) => match m.sp_lu() {
+        match petir::sparse::CscMatrix::try_from_triplets(n, n, &triplets) {
+            Ok(m) => match petir::sparse::SparseLu::factorize_backend(&m, backend) {
                 Ok(lu) => Self::Factorised(lu),
                 Err(_) => Self::Singular,
             },
@@ -696,19 +778,44 @@ impl Decomposition {
     /// # Panics
     /// If `rhs` is not the matrix's dimension long.
     pub fn solve(&self, rhs: &[f64]) -> Vec<f64> {
-        use faer::prelude::Solve;
-
         match self {
             Self::Singular => vec![f64::NAN; rhs.len()],
-            Self::Factorised(lu) => {
-                let mut b = faer::Mat::<f64>::zeros(rhs.len(), 1);
-                for (i, &v) in rhs.iter().enumerate() {
-                    b[(i, 0)] = v;
-                }
-                lu.solve_in_place(&mut b);
-                (0..rhs.len()).map(|i| b[(i, 0)]).collect()
-            }
+            // PETIR returns an error rather than panicking; the only one a
+            // factorised `Decomposition` can meet is a wrong-length `rhs`,
+            // which is this method's documented panic.
+            Self::Factorised(lu) => lu
+                .solve(rhs)
+                .expect("right-hand side length must match the factorised matrix"),
         }
+    }
+}
+
+/// The sparse backend every [`Decomposition::new`] uses: 0 = faer, 1 = ported.
+static SPARSE_BACKEND: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(0);
+
+/// Choose the sparse LU behind [`Decomposition`], process-wide.
+///
+/// - [`petir::sparse::SparseBackend::Faer`] (**the default**, since
+///   2026-10-20, gh #994): faer 0.24.4 itself, as bedok used before #994,
+///   with runtime CPU detection. Fast; its results depend on the CPU's
+///   instruction set, so they are not bit-identical across machines.
+/// - [`petir::sparse::SparseBackend::Ported`]: PETIR's `no_std` port of the
+///   same algorithm, deterministic on every CPU (and bit-identical to faer on
+///   an AVX2+FMA x86-64), but slower — about 10x on the 3-D flux operator.
+///   Use it to reproduce a result exactly.
+pub fn set_sparse_backend(backend: petir::sparse::SparseBackend) {
+    let v = match backend {
+        petir::sparse::SparseBackend::Ported => 1,
+        _ => 0,
+    };
+    SPARSE_BACKEND.store(v, std::sync::atomic::Ordering::Relaxed);
+}
+
+/// The sparse backend [`Decomposition::new`] currently uses.
+pub fn sparse_backend() -> petir::sparse::SparseBackend {
+    match SPARSE_BACKEND.load(std::sync::atomic::Ordering::Relaxed) {
+        1 => petir::sparse::SparseBackend::Ported,
+        _ => petir::sparse::SparseBackend::Faer,
     }
 }
 
@@ -732,6 +839,22 @@ pub fn min_abs_finite(v: &[f64]) -> Option<f64> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_sparse_backend_is_faer_by_default_and_the_port_on_request() {
+        use petir::sparse::SparseBackend;
+        // Other tests run in parallel and rely on the default, so this one
+        // never switches the process-wide setting away from it.
+        set_sparse_backend(SparseBackend::Faer);
+        assert_eq!(sparse_backend(), SparseBackend::Faer);
+        let mut a =
+            SparseMatrix::assemble(&[0, 1, 0, 1], &[0, 0, 1, 1], &[4.0, 1.0, 2.0, 3.0], 2, 2);
+        let x_faer = Decomposition::new(&mut a).solve(&[1.0, 2.0]);
+        let x_port = Decomposition::with_backend(&mut a, SparseBackend::Ported).solve(&[1.0, 2.0]);
+        for (p, f) in x_port.iter().zip(&x_faer) {
+            assert!((p - f).abs() < 1e-14);
+        }
+    }
 
     #[test]
     fn array2_is_column_major() {

@@ -128,14 +128,14 @@ fn calc_te18(a: f64, e0: f64, _x: f64, lambda: f64, sigma: f64, phi: f64) -> f64
     const D2_1: f64 = -0.268_132_716_049_383e-02;
 
     let u = 1.0 / a;
-    let mut z = (2.0 * phi).sqrt();
+    let mut z = Real::sqrt(2.0 * phi);
     if lambda < 1.0 {
         z = -z;
     }
 
     let c2 = D2_1 * z + D2_0;
 
-    if sigma > e0 / a.sqrt() {
+    if sigma > e0 / Real::sqrt(a) {
         let z2 = z * z;
         let z3 = z2 * z;
         let z4 = z2 * z2;
@@ -167,14 +167,14 @@ pub fn inc_gamma_ratio_q(a: f64, x: f64) -> f64 {
         if (a - 0.5).abs() < f64::EPSILON {
             // (DM:Eq. 8)
             if x < 0.25 {
-                return 1.0 - c_erf(x.sqrt());
+                return 1.0 - c_erf(Real::sqrt(x));
             } else {
-                return c_erfc(x.sqrt());
+                return c_erfc(Real::sqrt(x));
             }
         } else if x < 1.1 {
             // (DM:Eq. 12)
             let alpha = if x < 0.5 {
-                (0.765_f64.sqrt().r_ln()) / x.r_ln()
+                (RealMath::r_ln(Real::sqrt(0.765_f64))) / RealMath::r_ln(x)
             } else {
                 x / 2.59
             };
@@ -206,22 +206,22 @@ pub fn inc_gamma_ratio_q(a: f64, x: f64) -> f64 {
         let phi = lambda - 1.0 - lambda.r_ln();
         let y = a * phi;
 
-        if sigma <= E0 / a.sqrt() {
+        if sigma <= E0 / Real::sqrt(a) {
             // (DM:Eq. 19)
-            let e_val = 0.5 - (1.0 - y / 3.0) * (y / PI).sqrt();
+            let e_val = 0.5 - (1.0 - y / 3.0) * Real::sqrt(y / PI);
             let te = calc_te18(a, E0, x, lambda, sigma, phi);
             return if lambda <= 1.0 {
-                1.0 - (e_val - (1.0 - y) / (2.0 * PI * a).sqrt() * te)
+                1.0 - (e_val - (1.0 - y) / Real::sqrt(2.0 * PI * a) * te)
             } else {
-                e_val + (1.0 - y) / (2.0 * PI * a).sqrt() * te
+                e_val + (1.0 - y) / Real::sqrt(2.0 * PI * a) * te
             };
         } else if sigma <= 0.4 {
             // (DM:Eq. 17)
             let te = calc_te18(a, E0, x, lambda, sigma, phi);
             return if lambda <= 1.0 {
-                1.0 - (0.5 * c_erfc(y.sqrt()) - (-y).r_exp() / (2.0 * PI * a).sqrt() * te)
+                1.0 - (0.5 * c_erfc(Real::sqrt(y)) - RealMath::r_exp(-y) / Real::sqrt(2.0 * PI * a) * te)
             } else {
-                0.5 * c_erfc(y.sqrt()) + (-y).r_exp() / (2.0 * PI * a).sqrt() * te
+                0.5 * c_erfc(Real::sqrt(y)) + RealMath::r_exp(-y) / Real::sqrt(2.0 * PI * a) * te
             };
         } else if x <= a.max(10.0_f64.r_ln()) {
             return 1.0 - calc_pe15(a, x, 20);
@@ -264,7 +264,7 @@ pub fn inc_gamma_ratio_q(a: f64, x: f64) -> f64 {
                         prod *= n as f64 - 0.5;
                         sum += x.r_powi(n) / prod;
                     }
-                    return c_erfc(x.sqrt()) + (-x).r_exp() / (PI * x).sqrt() * sum;
+                    return c_erfc(Real::sqrt(x)) + RealMath::r_exp(-x) / Real::sqrt(PI * x) * sum;
                 }
             } else if x <= a.max(10.0_f64.r_ln()) {
                 return 1.0 - calc_pe15(a, x, 20);

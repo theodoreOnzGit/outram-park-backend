@@ -253,13 +253,13 @@ fn sin_cos_eps(eps: f32) -> (f32, f32) {
             1.0 - e2 / 2.0 * (1.0 - e2 / 12.0),
         )
     } else {
-        (eps.sin(), eps.cos())
+        (Real::sin(eps), Real::cos(eps))
     }
 }
 
 /// `cos(y - pi/4 + eps)`. Mirrors `petir_bessel_cos_pi4`.
 fn cos_pi4(y: f32, eps: f32) -> f32 {
-    let (sy, cy) = (y.sin(), y.cos());
+    let (sy, cy) = (Real::sin(y), Real::cos(y));
     let (s, d) = (sy + cy, sy - cy);
     let (seps, ceps) = sin_cos_eps(eps);
     (ceps * s - seps * d) / SQRT2
@@ -267,7 +267,7 @@ fn cos_pi4(y: f32, eps: f32) -> f32 {
 
 /// `sin(y - pi/4 + eps)`. Mirrors `petir_bessel_sin_pi4`.
 fn sin_pi4(y: f32, eps: f32) -> f32 {
-    let (sy, cy) = (y.sin(), y.cos());
+    let (sy, cy) = (Real::sin(y), Real::cos(y));
     let (s, d) = (sy + cy, sy - cy);
     let (seps, ceps) = sin_cos_eps(eps);
     (ceps * d + seps * s) / SQRT2
@@ -286,7 +286,7 @@ pub fn j0(x: f32) -> f32 {
     let ca = cheb(z, &BM0);
     let ct = cheb(z, &BTH0);
     let cp = cos_pi4(y, ct / y);
-    (0.75 + ca) / y.sqrt() * cp
+    (0.75 + ca) / Real::sqrt(y) * cp
 }
 
 /// `J_1(x)` in `f32`. Mirrors `petir_bessel_j1`.
@@ -305,7 +305,7 @@ pub fn j1(x: f32) -> f32 {
     let ca = cheb(z, &BM1);
     let ct = cheb(z, &BTH1);
     let sp = sin_pi4(y, ct / y);
-    let ampl = (0.75 + ca) / y.sqrt();
+    let ampl = (0.75 + ca) / Real::sqrt(y);
     (if x < 0.0 { -ampl } else { ampl }) * sp
 }
 
@@ -317,14 +317,14 @@ pub fn y0(x: f32) -> f32 {
     if x < 4.0 {
         let j0v = j0(x);
         let c = cheb(0.125 * x * x - 1.0, &BY0);
-        return TWO_OVER_PI * (-LN2 + x.ln()) * j0v + 0.375 + c;
+        return TWO_OVER_PI * (-LN2 + Real::ln(x)) * j0v + 0.375 + c;
     }
     if x < XMAX {
         let z = 32.0 / (x * x) - 1.0;
         let c1 = cheb(z, &BM0);
         let c2 = cheb(z, &BTH0);
         let sp = sin_pi4(x, c2 / x);
-        return (0.75 + c1) / x.sqrt() * sp;
+        return (0.75 + c1) / Real::sqrt(x) * sp;
     }
     0.0
 }
@@ -337,19 +337,19 @@ pub fn y1(x: f32) -> f32 {
     if x < 2.0 * SQRT_DBL_EPSILON {
         let j1v = j1(x);
         let c = cheb(-1.0, &BY1);
-        return TWO_OVER_PI * (0.5 * x).ln() * j1v + (0.5 + c) / x;
+        return TWO_OVER_PI * Real::ln(0.5 * x) * j1v + (0.5 + c) / x;
     }
     if x < 4.0 {
         let c = cheb(0.125 * x * x - 1.0, &BY1);
         let j1v = j1(x);
-        return TWO_OVER_PI * (0.5 * x).ln() * j1v + (0.5 + c) / x;
+        return TWO_OVER_PI * Real::ln(0.5 * x) * j1v + (0.5 + c) / x;
     }
     if x < XMAX {
         let z = 32.0 / (x * x) - 1.0;
         let ca = cheb(z, &BM1);
         let ct = cheb(z, &BTH1);
         let cp = cos_pi4(x, ct / x);
-        return -(0.75 + ca) / x.sqrt() * cp;
+        return -(0.75 + ca) / Real::sqrt(x) * cp;
     }
     0.0
 }
@@ -361,12 +361,12 @@ pub fn i0_scaled(x: f32) -> f32 {
         return 1.0 - y;
     }
     if y <= 3.0 {
-        return (-y).exp() * (2.75 + cheb(y * y / 4.5 - 1.0, &BI0));
+        return Real::exp(-y) * (2.75 + cheb(y * y / 4.5 - 1.0, &BI0));
     }
     if y <= 8.0 {
-        return (0.375 + cheb((48.0 / y - 11.0) / 5.0, &AI0)) / y.sqrt();
+        return (0.375 + cheb((48.0 / y - 11.0) / 5.0, &AI0)) / Real::sqrt(y);
     }
-    (0.375 + cheb(16.0 / y - 1.0, &AI02)) / y.sqrt()
+    (0.375 + cheb(16.0 / y - 1.0, &AI02)) / Real::sqrt(y)
 }
 
 /// `I_0(x)` in `f32`; `+inf` past `|x| ~ 88`. Mirrors `petir_bessel_i0`.
@@ -378,7 +378,7 @@ pub fn i0(x: f32) -> f32 {
     if y <= 3.0 {
         return 2.75 + cheb(y * y / 4.5 - 1.0, &BI0);
     }
-    y.exp() * i0_scaled(x)
+    Real::exp(y) * i0_scaled(x)
 }
 
 /// `e^{-|x|} I_1(x)` in `f32`. Mirrors `petir_bessel_i1_scaled`.
@@ -391,14 +391,14 @@ pub fn i1_scaled(x: f32) -> f32 {
         return 0.5 * x;
     }
     if y <= 3.0 {
-        return x * (-y).exp() * (0.875 + cheb(y * y / 4.5 - 1.0, &BI1));
+        return x * Real::exp(-y) * (0.875 + cheb(y * y / 4.5 - 1.0, &BI1));
     }
     let c = if y <= 8.0 {
         cheb((48.0 / y - 11.0) / 5.0, &AI1)
     } else {
         cheb(16.0 / y - 1.0, &AI12)
     };
-    let b = (0.375 + c) / y.sqrt();
+    let b = (0.375 + c) / Real::sqrt(y);
     if x > 0.0 {
         b
     } else {
@@ -419,7 +419,7 @@ pub fn i1(x: f32) -> f32 {
     if y <= 3.0 {
         return x * (0.875 + cheb(y * y / 4.5 - 1.0, &BI1));
     }
-    y.exp() * i1_scaled(x)
+    Real::exp(y) * i1_scaled(x)
 }
 
 /// `e^{x} K_0(x)` in `f32`, `NaN` for `x <= 0`. Mirrors
@@ -431,12 +431,12 @@ pub fn k0_scaled(x: f32) -> f32 {
     if x < 1.0 {
         let x2 = x * x;
         let i0v = 1.0 + 0.25 * x2 * poly(0.25 * x2, &I0_POLY);
-        return x.exp() * (poly(x2, &K0_POLY) - x.ln() * i0v);
+        return Real::exp(x) * (poly(x2, &K0_POLY) - Real::ln(x) * i0v);
     }
     if x <= 8.0 {
-        return (1.203125 + cheb((16.0 / x - 9.0) / 7.0, &AK0)) / x.sqrt();
+        return (1.203125 + cheb((16.0 / x - 9.0) / 7.0, &AK0)) / Real::sqrt(x);
     }
-    (1.25 + cheb(16.0 / x - 1.0, &AK02)) / x.sqrt()
+    (1.25 + cheb(16.0 / x - 1.0, &AK02)) / Real::sqrt(x)
 }
 
 /// `K_0(x)` in `f32`, `NaN` for `x <= 0`. Mirrors `petir_bessel_k0`.
@@ -447,9 +447,9 @@ pub fn k0(x: f32) -> f32 {
     if x < 1.0 {
         let x2 = x * x;
         let i0v = 1.0 + 0.25 * x2 * poly(0.25 * x2, &I0_POLY);
-        return poly(x2, &K0_POLY) - x.ln() * i0v;
+        return poly(x2, &K0_POLY) - Real::ln(x) * i0v;
     }
-    (-x).exp() * k0_scaled(x)
+    Real::exp(-x) * k0_scaled(x)
 }
 
 /// `e^{x} K_1(x)` in `f32`, `NaN` for `x <= 0`. Mirrors
@@ -462,12 +462,12 @@ pub fn k1_scaled(x: f32) -> f32 {
         let x2 = x * x;
         let t = 0.25 * x2;
         let i1v = 0.5 * x * (1.0 + t * (0.5 + t * poly(t, &I1_POLY)));
-        return x.exp() * (x2 * poly(x2, &K1_POLY) + x * x.ln() * i1v + 1.0) / x;
+        return Real::exp(x) * (x2 * poly(x2, &K1_POLY) + x * Real::ln(x) * i1v + 1.0) / x;
     }
     if x <= 8.0 {
-        return (1.375 + cheb((16.0 / x - 9.0) / 7.0, &AK1)) / x.sqrt();
+        return (1.375 + cheb((16.0 / x - 9.0) / 7.0, &AK1)) / Real::sqrt(x);
     }
-    (1.25 + cheb(16.0 / x - 1.0, &AK12)) / x.sqrt()
+    (1.25 + cheb(16.0 / x - 1.0, &AK12)) / Real::sqrt(x)
 }
 
 /// `K_1(x)` in `f32`, `NaN` for `x <= 0`. Mirrors `petir_bessel_k1`.
@@ -479,15 +479,17 @@ pub fn k1(x: f32) -> f32 {
         let x2 = x * x;
         let t = 0.25 * x2;
         let i1v = 0.5 * x * (1.0 + t * (0.5 + t * poly(t, &I1_POLY)));
-        return (x2 * poly(x2, &K1_POLY) + x * x.ln() * i1v + 1.0) / x;
+        return (x2 * poly(x2, &K1_POLY) + x * Real::ln(x) * i1v + 1.0) / x;
     }
-    (-x).exp() * k1_scaled(x)
+    Real::exp(-x) * k1_scaled(x)
 }
 
 #[cfg(test)]
 mod tests {
+    extern crate std;
     use super::*;
     use crate::specfunc::bessel as f64_bessel;
+    use crate::wgsl::log_budget::{log_err, worst_ulps, Sh};
 
     /// A sweep spanning every branch: the small-argument cuts, the `3`/`4`/`8`
     /// Chebyshev boundaries, and the asymptotic tails.
@@ -526,23 +528,163 @@ mod tests {
     /// |---|---|---|
     /// | `I_0` | 1.576e-07 | 12.625 |
     /// | `I_1` | 1.748e-07 | 33.250 |
-    /// | `K_0` | 1.629e-07 | 17.500 |
+    /// | `K_0` | ~~1.629e-07~~ | ~~17.500~~ |
     /// | `K_1` | 1.736e-07 | 24.000 |
     /// | `J_0` | 2.744e-06 | 30.625 |
     /// | `J_1` | 7.354e-06 | 3.875 |
     /// | `Y_0` | 1.288e-05 | 16.500 |
     /// | `Y_1` | 2.786e-05 | 11.750 |
     ///
+    /// **Re-measured 2026-10-20 through the shipped `libm` (gh #1001):**
+    /// `K_0` is now **1.605e-07 at 44.5**; the other three `I`/`K` rows are
+    /// unchanged. The 2026-09-19 numbers went through glibc's `expf`/`logf`
+    /// (std shadowed the mirror's maths in the test build before gh #1001),
+    /// and `K_0`'s worst point is one where the two libraries differ.
+    ///
     /// Every location in the lower half is a zero: `J_0` has one at 30.635,
     /// `J_1` at 3.8317, `Y_0` at 16.5366, `Y_1` at 11.7492. See the module
     /// documentation — away from the zeros all eight sit at one `f32` ulp.
+    ///
+    /// # The instrument for `I` and `K`: log error against a derived budget (gh #1003)
+    ///
+    /// ~~Asserted: worst relative error under `3e-7` for `I_0`, `I_1`,
+    /// `K_0`, `K_1`.~~ **REPLACED 2026-10-20 (gh #1003).** `3e-7` was set a
+    /// little above the measured 1.75e-7, not derived, and measured through
+    /// glibc. Past `x = 3` (`I`) and `x = 1` (`K`) the functions are
+    /// `exp(±x)` times a scaled form, so the fair instrument is the log error
+    /// (maintainer direction 2026-10-20).
+    ///
+    /// **The metric now** is `|ln f_f32 - ln f_f64|` at every point of the
+    /// sweep, against a budget derived from that point's own operations by
+    /// [`crate::wgsl::log_budget::Sh`] (first order in `u = 2^-24`, every
+    /// rounding at its bound):
+    ///
+    /// - **`exp(±x)`**: `x` is the exact input, so the argument carries no
+    ///   rounding and `exp` contributes only its own faithful ulp, between
+    ///   `u` and `2u` of the result. (This is the case where the "`|argument|
+    ///   * u`" term is zero, and it is why `I`/`K` sit near one ulp while
+    ///   `F_{3/2}` and the synchrotron tail do not.)
+    /// - **The scaled form** `(c_0 + C(t)) / sqrt(x)`: the argument map
+    ///   (`48/x - 11` then `/5`, `16/x - 9` then `/7`, or `16/x - 1`, each
+    ///   operation one rounding, reaching `C` through `|C'(t)|`), Clenshaw
+    ///   ([`crate::wgsl::log_budget::cheb_budget`]), the dropped tail
+    ///   `sum |c_k|` of every coefficient GSL's `f64` table carries beyond
+    ///   the single-precision order (`AI0` keeps 14 of 21, `AK0` 11 of 24), the
+    ///   addition, `sqrt` (correctly rounded) and the division.
+    /// - **Small `x`** (`I` for `x <= 3`, `K` for `x < 1`): the same for the
+    ///   unscaled Chebyshev form, and for `K` the two Horner polynomials
+    ///   (each coefficient's exact distance from GSL's `f64` entry) and
+    ///   `ln x` (faithful).
+    ///
+    /// The assumptions, TESTED below: `expf` faithful on `[0.125, 50]` and
+    /// `[-50, -1]`, `logf` faithful on `[0.125, 1]`.
+    ///
+    /// `J` and `Y` are not converted (outside gh #1003; they are
+    /// oscillatory, not exp-propagated, and their bounded quantity is the
+    /// absolute error, below). They keep `5e-5` relative.
+    ///
+    /// **Prediction, written before the run.** At `I_0`'s worst point,
+    /// `x = 12.625`: one ulp of `e^x` (`1.7 u`) plus about five roundings
+    /// in the scaled form, a budget of about `6.7 u = 4.0e-7`, so the
+    /// measured 1.58e-7 sits near 0.4. All four alike: budgets 3.5e-7 to
+    /// 4.5e-7, worst ratios 0.3 to 0.5. Negative control: the measured
+    /// error is about `2.6 u` and each ulp of `e^x` adds `1` to `2 u`, so
+    /// `e^x` about three ulps off is the smallest defect caught.
+    ///
+    /// # Results, 2026-10-20, through the shipped `libm` (gh #1001)
+    ///
+    /// Every point holds, and the budget's `f32` shadow is bit-identical to
+    /// the shipped function at every point.
+    ///
+    /// | | worst log error / budget | at | largest log error | its budget | ratio |
+    /// |---|---|---|---|---|---|
+    /// | `I_0` | 0.457 | 32.5 | 1.576e-7 at 12.625 | 3.515e-7 | 0.448 |
+    /// | `I_1` | **0.563** | 33.25 | 1.748e-7 at 33.25 | 3.104e-7 | 0.563 |
+    /// | `K_0` | 0.519 | 44.5 | 1.605e-7 at 44.5 | 3.091e-7 | 0.519 |
+    /// | `K_1` | 0.514 | 24.0 | 1.736e-7 at 24.0 | 3.378e-7 | 0.514 |
+    ///
+    /// Every worst point is in the `exp(±x)` branch. **Against the
+    /// prediction:** budgets 3.1e-7 to 3.5e-7 (predicted 3.5e-7 to 4.5e-7,
+    /// so the roundings were slightly overcounted), ratios 0.45 to 0.56
+    /// (predicted 0.3 to 0.5, slightly exceeded). The new budget is about
+    /// the old `3e-7` bound: derived, it lands where the guess did.
+    ///
+    /// **Negative controls: the budget can fail.** `e^{±x}` moved `k` ulps,
+    /// in the direction that adds to the shipped error, at each function's
+    /// largest error; ratio of log error to budget:
+    ///
+    /// | | `|k| = 1` | 2 | 3 | 4 |
+    /// |---|---|---|---|---|
+    /// | `I_0` at 12.625, `k < 0` | 0.448 | 0.771 | **1.093** | 1.415 |
+    /// | `I_1` at 33.25, `k > 0` | 0.563 | 0.921 | 0.921 | **1.280** |
+    /// | `K_0` at 44.5, `k < 0` | 0.519 | 0.815 | **1.110** | 1.406 |
+    /// | `K_1` at 24.0, `k < 0` | 0.776 | **1.037** | 1.299 | 1.561 |
+    ///
+    /// So an `expf` two to four ulps off is caught, one ulp is not: that is
+    /// this instrument's resolution here (each ulp of `e^x` is one to two `u`
+    /// of the result, against a budget of about `5.5 u`). In the other
+    /// direction the defect first cancels the shipped error, and `I_0` needs
+    /// five ulps at 12.625. The four bold cells are asserted.
     #[test]
     fn the_f32_cost_is_what_it_was_measured_to_be() {
-        let cases: [(&str, fn(f32) -> f32, fn(f64) -> f64, f32); 8] = [
-            ("I_0", i0, f64_bessel::bessel_i0, 3e-7),
-            ("I_1", i1, f64_bessel::bessel_i1, 3e-7),
-            ("K_0", k0, f64_bessel::bessel_k0, 3e-7),
-            ("K_1", k1, f64_bessel::bessel_k1, 3e-7),
+        // The assumptions the budgets rest on.
+        for (name, (worst, at)) in [
+            (
+                "expf",
+                worst_ulps(<f32 as Real>::exp, <f64 as Real>::exp, 0.125, 50.0, 3),
+            ),
+            (
+                "expf",
+                worst_ulps(<f32 as Real>::exp, <f64 as Real>::exp, -50.0, -1.0, 3),
+            ),
+            (
+                "logf",
+                worst_ulps(<f32 as Real>::ln, <f64 as Real>::ln, 0.125, 1.0, 1),
+            ),
+        ] {
+            assert!(
+                worst < 1.0,
+                "{name} is assumed faithful; it is {worst} ulp off at {at:e}"
+            );
+        }
+
+        let budgeted: [(&str, fn(f32) -> f32, fn(f64) -> f64, fn(f32, i32) -> Sh); 4] = [
+            ("I_0", i0, f64_bessel::bessel_i0, |x, k| {
+                i_budget(x, false, k)
+            }),
+            ("I_1", i1, f64_bessel::bessel_i1, |x, k| {
+                i_budget(x, true, k)
+            }),
+            ("K_0", k0, f64_bessel::bessel_k0, |x, k| {
+                k_budget(x, false, k)
+            }),
+            ("K_1", k1, f64_bessel::bessel_k1, |x, k| {
+                k_budget(x, true, k)
+            }),
+        ];
+        for (name, m, e, budget) in budgeted {
+            for x in sweep() {
+                let r = e(f64::from(x));
+                let sh = budget(x, 0);
+                assert_eq!(
+                    sh.f.to_bits(),
+                    m(x).to_bits(),
+                    "{name} at {x}: the budget's f32 shadow is not the shipped \
+                     arithmetic"
+                );
+                let (l, b) = (log_err(m(x), r), sh.log_bound());
+                assert!(
+                    l <= b,
+                    "{name} at x = {x}: log error {l:e} against a derived budget of \
+                     {b:e}. More error than f32 arithmetic on this formula can \
+                     produce: a transcription defect, or a libm routine worse than \
+                     faithful"
+                );
+            }
+        }
+
+        // Not converted (outside gh #1003): the old relative bound stands.
+        let cases: [(&str, fn(f32) -> f32, fn(f64) -> f64, f32); 4] = [
             ("J_0", j0, f64_bessel::bessel_j0, 5e-5),
             ("J_1", j1, f64_bessel::bessel_j1, 5e-5),
             ("Y_0", y0, f64_bessel::bessel_y0, 5e-5),
@@ -555,6 +697,127 @@ mod tests {
                 "{name}: worst f32 relative error {worst:e} at x = {at} exceeds {budget:e}"
             );
         }
+
+        // Negative controls: the budget can fail. e^{±x} moved k ulps (away
+        // from zero for k > 0, toward it for k < 0), at each function's
+        // largest error, in the direction that adds to the shipped error.
+        let controls: [(&str, f32, fn(f64) -> f64, fn(f32, i32) -> Sh, i32, f64); 4] = [
+            (
+                "I_0",
+                12.625,
+                f64_bessel::bessel_i0,
+                |x, k| i_budget(x, false, k),
+                -3,
+                1.093,
+            ),
+            (
+                "I_1",
+                33.25,
+                f64_bessel::bessel_i1,
+                |x, k| i_budget(x, true, k),
+                4,
+                1.280,
+            ),
+            (
+                "K_0",
+                44.5,
+                f64_bessel::bessel_k0,
+                |x, k| k_budget(x, false, k),
+                -3,
+                1.110,
+            ),
+            (
+                "K_1",
+                24.0,
+                f64_bessel::bessel_k1,
+                |x, k| k_budget(x, true, k),
+                -2,
+                1.037,
+            ),
+        ];
+        for (name, x, e, budget, k, documented) in controls {
+            let b = budget(x, 0).log_bound();
+            let l = log_err(budget(x, k).f, e(f64::from(x)));
+            assert!(
+                l > b,
+                "negative control, {name} at x = {x}: e^x {k} ulps off was measured \
+                 at {documented} of the budget; it now reads {:.3}, so the budget can \
+                 no longer see it",
+                l / b
+            );
+        }
+    }
+
+    /// `I_0` (`order1 = false`) or `I_1`'s running error bound for `x > 0`.
+    /// `k` moves `e^x` by `k` ulps: the negative control's defect, an `expf`
+    /// worse than faithful.
+    fn i_budget(x: f32, order1: bool, k: i32) -> Sh {
+        let xs = Sh::exact(x);
+        let one = Sh::exact(1.0);
+        if x <= 3.0 {
+            let t = xs.mul(xs).div(Sh::exact(4.5)).sub(one);
+            return if order1 {
+                xs.mul(Sh::exact(0.875).add(t.cheb(&BI1, &f64_bessel::PROBE_BI1)))
+            } else {
+                Sh::exact(2.75).add(t.cheb(&BI0, &f64_bessel::PROBE_BI0))
+            };
+        }
+        let (c32, c64): (&[f32], &[f64]) = match (order1, x <= 8.0) {
+            (false, true) => (&AI0, &f64_bessel::PROBE_AI0),
+            (false, false) => (&AI02, &f64_bessel::PROBE_AI02),
+            (true, true) => (&AI1, &f64_bessel::PROBE_AI1),
+            (true, false) => (&AI12, &f64_bessel::PROBE_AI12),
+        };
+        let t = if x <= 8.0 {
+            Sh::exact(48.0)
+                .div(xs)
+                .sub(Sh::exact(11.0))
+                .div(Sh::exact(5.0))
+        } else {
+            Sh::exact(16.0).div(xs).sub(one)
+        };
+        let scaled = Sh::exact(0.375).add(t.cheb(c32, c64)).div(xs.sqrt());
+        xs.exp().bump(k).mul(scaled)
+    }
+
+    /// `K_0` (`order1 = false`) or `K_1`'s running error bound. `k` moves
+    /// `e^{-x}` by `k` ulps.
+    fn k_budget(x: f32, order1: bool, k: i32) -> Sh {
+        let xs = Sh::exact(x);
+        let one = Sh::exact(1.0);
+        if x < 1.0 {
+            let x2 = xs.mul(xs);
+            if order1 {
+                let t = x2.scale(0.25);
+                let p = t.horner(&I1_POLY, &f64_bessel::PROBE_I1_POLY);
+                let i1v = xs
+                    .scale(0.5)
+                    .mul(one.add(t.mul(Sh::exact(0.5).add(t.mul(p)))));
+                let a = x2.mul(x2.horner(&K1_POLY, &f64_bessel::PROBE_K1_POLY));
+                return a.add(xs.mul(xs.ln()).mul(i1v)).add(one).div(xs);
+            }
+            let q = x2.scale(0.25);
+            let i0v = one.add(q.mul(q.horner(&I0_POLY, &f64_bessel::PROBE_I0_POLY)));
+            return x2
+                .horner(&K0_POLY, &f64_bessel::PROBE_K0_POLY)
+                .sub(xs.ln().mul(i0v));
+        }
+        let (c32, c64, lead): (&[f32], &[f64], f32) = match (order1, x <= 8.0) {
+            (false, true) => (&AK0, &f64_bessel::PROBE_AK0, 1.203125),
+            (false, false) => (&AK02, &f64_bessel::PROBE_AK02, 1.25),
+            (true, true) => (&AK1, &f64_bessel::PROBE_AK1, 1.375),
+            (true, false) => (&AK12, &f64_bessel::PROBE_AK12, 1.25),
+        };
+        let t = if x <= 8.0 {
+            Sh::exact(16.0)
+                .div(xs)
+                .sub(Sh::exact(9.0))
+                .div(Sh::exact(7.0))
+        } else {
+            Sh::exact(16.0).div(xs).sub(one)
+        };
+        let scaled = Sh::exact(lead).add(t.cheb(c32, c64)).div(xs.sqrt());
+        xs.neg().exp().bump(k).mul(scaled)
     }
 
     /// Away from the zeros every function is at one `f32` ulp — which is the

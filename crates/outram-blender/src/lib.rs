@@ -85,7 +85,7 @@
 //! |---|---|---|
 //! | [`math`] | `blenlib` `BLI_math` vector types | **real** — a minimal pure-Rust [`math::Vec3`] |
 //! | [`transform`] | `Object.matrix_world` affine placement | **real** — [`transform::Affine3`] per-vertex transform (CPU reference for the GPU kernel) |
-//! | `gpu` *(feature `gpu`, default-on; never on Android)* | — (no Blender analogue) | **real** — headless `wgpu` compute (WGSL); one wired kernel (parallel affine vertex transform) with probe + graceful CPU fallback. ~~Compiled unconditionally on desktop~~ **CORRECTED 2026-10-02**: behind the default-on `gpu` feature; absent on Android, or with `--no-default-features` |
+//! | `gpu` *(feature `gpu`, default-on; never on Android)* | — (no Blender analogue) | **real** — headless `wgpu` compute (WGSL); ~~one wired kernel (parallel affine vertex transform)~~ **two wired kernels since 2026-10-20 (gh #1005)**: the parallel affine vertex transform and ARAP's per-vertex closest rotations (`arap::arap_deform_on_gpu`, `f32`, opt-in), with probe + graceful CPU fallback. ~~Compiled unconditionally on desktop~~ **CORRECTED 2026-10-02**: behind the default-on `gpu` feature; absent on Android, or with `--no-default-features` |
 //! | [`mesh`] | `bmesh` (`BMVert`/`BMEdge`/`BMLoop`/`BMFace`) | **real** — index-based half-edge topology |
 //! | [`selection`] | `editmesh_select.cc` / `BM_select_*` | **real** — select modes + flush; all/none/invert; box/sphere/lasso region; linked; mirror; edge/face loop, ring, boundary loop, shortest path; more/less; select similar; checker deselect; non-manifold / loose / interior-faces / faces-by-sides (GH issue #37 §A — `op-hzs.54.1`–`.4`) |
 //! | [`topology`] | `bmesh_queries.cc` / `bmesh_walkers_impl.cc` | **real** — precomputed radial (edge→faces) + disk (vertex→edges) adjacency; edge-loop / edge-ring / face-loop walkers; Dijkstra + BFS path helpers |
@@ -136,7 +136,7 @@
 //! | [`ops`] | `bmesh/operators/*` (`bmo_*`) mesh operators | **real** — extrude / midpoint-subdivide / vertex-bevel (flat or rounded multi-segment; boolean delegates to [`boolean`]) |
 //! | [`subdivision`] | OpenSubdiv / `MOD_subsurf` | **real** — Catmull-Clark surface subdivision (local stencils) |
 //! | [`loop_subdivision`] | `MOD_subsurf` (triangle path) | **real** — Loop subdivision surface for triangle meshes |
-//! | [`laplacian`] | `MOD_laplaciansmooth` / `bmo_smooth_laplacian` | **real** — cotangent/uniform discrete Laplacian + implicit & Taubin smoothing (first `faer` sparse solve) |
+//! | [`laplacian`] | `MOD_laplaciansmooth` / `bmo_smooth_laplacian` | **real** — cotangent/uniform discrete Laplacian + implicit & Taubin smoothing (first sparse solve; ~~`faer`~~ `petir::sparse` since 2026-10-20, gh #994) |
 //! | [`parameterize`] | UV unwrap (harmonic map) | **real** — Tutte/harmonic planar parameterization of a disk (reuses the Laplacian sparse solve) |
 //! | [`arap`] | "As Rigid As Possible" deform | **real** — ARAP handle-based deformation (local rotation fit + cotangent-Laplacian global solve) |
 //! | [`decimate`] | `MOD_decimate` (Collapse) | **real** — QEM (Garland–Heckbert) edge-collapse mesh simplification |
@@ -312,26 +312,6 @@ pub mod transform_input;
 pub mod transform_ops;
 pub mod triangulate;
 pub mod weld;
-
-/// Heavy linear-algebra backend for the *large* mesh solves the advanced
-/// operators will need — Laplacian mesh editing, ARAP deformation, and mesh
-/// parameterization all build a sparse Laplacian over the mesh and solve
-/// `A x = b`. Re-exports [`faer`], a pure-Rust, Android-safe dense **and**
-/// sparse linear-algebra library (SIMD via `pulp`, no system BLAS).
-///
-/// **Division of labour:** per-element geometry math (positions, normals,
-/// transforms) stays in the fixed-size [`math`] types — small, fast, no
-/// allocation. `faer` is only for the big systems. For interactive editing
-/// (same matrix, many right-hand sides) prefer `faer`'s sparse **Cholesky**
-/// factorization over an iterative solve. An *optional* bridge to
-/// `outram-foam-basic-lib`'s CG/GAMG iterative solvers is tracked separately for
-/// large one-off sparse solves (see beads `op-hzs`).
-///
-/// **First consumer:** [`laplacian`] — the cotangent/uniform discrete Laplacian
-/// and implicit Laplacian smoothing assemble a sparse system and solve it with
-/// `faer`'s sparse Cholesky. Future ARAP / parameterization operators reuse the
-/// same path.
-pub use faer;
 
 /// Headless GPU compute via `wgpu`. Behind the **default-on `gpu` feature**
 /// (~~compiled unconditionally on every desktop target, no cargo feature~~

@@ -10,8 +10,7 @@
 //! regimes; the Reynolds number must be strictly positive (Re = 0 or Re < 0
 //! panics).
 use petir::mathf::RealMath;
-extern crate peroxide;
-use peroxide::prelude::*;
+use crate::numerical_methods::bisection_residual;
 
 use crate::tuas_lib_error::TuasLibError;
 
@@ -266,10 +265,6 @@ pub fn get_reynolds_from_bejan(
         panic!("Be too large");
     }
 
-    let bisect = BisectionMethod {
-        max_iter: 100,
-        tol: 1e-8,
-    };
     let problem = ReynoldsFromBejanD {
         max_reynolds,
         min_reynolds,
@@ -278,10 +273,20 @@ pub fn get_reynolds_from_bejan(
         length_to_diameter,
         form_loss_k,
     };
-    let reynolds_number_result = bisect.find(&problem).unwrap();
+    // peroxide `BisectionMethod { max_iter: 100, tol: 1e-8 }` on
+    // [min_reynolds, max_reynolds], now on PETIR with peroxide's residual
+    // test kept: bit-identical root (crate::numerical_methods::bisection_residual,
+    // gh:#989). A failure is returned, where `.unwrap()` used to panic.
+    let reynolds_number_result = bisection_residual(
+        |re| problem.pressure_drop_root(re),
+        problem.initial_guess(),
+        100,
+        1e-8,
+        "Churchill: Reynolds number from Bejan number",
+    )?;
 
     // the unwrap turns the result into f64
-    let mut reynolds_number = reynolds_number_result[0];
+    let mut reynolds_number = reynolds_number_result;
 
     if is_negative {
         reynolds_number = reynolds_number * -1.0;
@@ -291,7 +296,6 @@ pub fn get_reynolds_from_bejan(
     return Ok(reynolds_number);
 }
 
-use anyhow::Result;
 
 struct ReynoldsFromBejanD {
     pub max_reynolds: f64,
@@ -318,10 +322,8 @@ impl ReynoldsFromBejanD {
     // but rather AD which stands for automatic
     // differentiation
     // https://docs.rs/peroxide/latest/peroxide/structure/ad/index.html
-    fn pressure_drop_root(&self, reynolds_number: Pt<1>) -> Result<Pt<1>> {
+    fn pressure_drop_root(&self, reynolds_double: f64) -> f64 {
         let lhs_value: f64 = self.bejan_number_d;
-
-        let reynolds_double: f64 = reynolds_number[0];
         let f_ldk_term = get_bejan_number_d(
             reynolds_double,
             self.roughness_ratio,
@@ -332,13 +334,11 @@ impl ReynoldsFromBejanD {
 
         let rhs_value = f_ldk_term;
 
-        return Ok([lhs_value - rhs_value]);
+        lhs_value - rhs_value
     }
 }
-impl RootFindingProblem<1, 1, (f64, f64)> for ReynoldsFromBejanD {
-    fn function(&self, reynolds_number: Pt<1>) -> Result<Pt<1>> {
-        self.pressure_drop_root(reynolds_number)
-    }
+impl ReynoldsFromBejanD {
+    /// The bisection bracket: `[min_reynolds, max_reynolds]`.
     fn initial_guess(&self) -> (f64, f64) {
         let upper_bound = self.max_reynolds;
         let lower_bound = self.min_reynolds;

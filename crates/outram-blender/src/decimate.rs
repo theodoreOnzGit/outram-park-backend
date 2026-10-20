@@ -298,11 +298,16 @@ impl Decimator {
 
         // Boundary edges (one incident triangle): add a perpendicular penalty
         // quadric to both endpoints so the border is preserved.
-        for (&(u, w), ts) in &edge_tris {
-            if ts.len() != 1 {
-                continue;
-            }
-            let tri = tris[ts[0]];
+        // In edge-key order: each endpoint's quadric is a floating-point sum,
+        // and the map's own order is randomly seeded (gh #1002).
+        let mut boundary: Vec<((usize, usize), usize)> = edge_tris
+            .iter()
+            .filter(|(_, ts)| ts.len() == 1)
+            .map(|(&k, ts)| (k, ts[0]))
+            .collect();
+        boundary.sort_unstable();
+        for ((u, w), t0) in boundary {
+            let tri = tris[t0];
             let nf = tri_normal(positions[tri[0]], positions[tri[1]], positions[tri[2]]);
             let e = positions[w].sub(positions[u]);
             let np = e.cross(nf).normalize();
@@ -486,7 +491,10 @@ impl Decimator {
             }
             self.collapse(e.i, e.j, e.target);
             // Re-push i's star with fresh versions.
-            let star: Vec<usize> = self.adj[e.i].iter().copied().collect();
+            // Sorted: equal-cost entries pop in push order, and a HashSet's
+            // order is randomly seeded (gh #1002).
+            let mut star: Vec<usize> = self.adj[e.i].iter().copied().collect();
+            star.sort_unstable();
             for k in star {
                 self.push_edge(&mut heap, e.i, k);
             }
