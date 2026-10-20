@@ -68,7 +68,7 @@ wasm-buildable.
 > far as possible exactly as before, and `--no-default-features` drops `wgpu`
 > (and its ~60-crate subtree) for a CPU-only build. wgpu is also target-gated
 > off Android whatever the feature says (no system Vulkan/Metal loader there). They accelerate per-vertex work in
-> single precision, while the CPU ([`math`]/[`faer`]) path stays the
+> single precision, while the CPU ([`math`]/~~[`faer`]~~ `petir`, since 2026-10-20 gh #996) path stays the
 > deterministic reference. Fallback to CPU is **graceful and automatic**: no
 > adapter, or a recoverable GPU error, routes to the CPU path
 > (`Affine3::transform_points_best_effort` is the unified try-GPU-then-CPU entry
@@ -183,7 +183,7 @@ included.
 |---|---|---|
 | `math` | `blenlib` `BLI_math` vectors | **real** — a minimal `Vec3` |
 | `transform` | `Object.matrix_world` affine placement | **real** — `Affine3` per-vertex transform; the CPU reference the GPU kernel is validated against |
-| `gpu` *(feature `gpu`, default-on; never on Android)* | — (no Blender analogue) | **real** — headless `wgpu` compute (WGSL); one wired kernel (parallel affine vertex transform), probe + graceful CPU fallback. ~~Compiled on every desktop target~~ **CORRECTED 2026-10-02**: behind the default-on `gpu` feature; target-gated off Android |
+| `gpu` *(feature `gpu`, default-on; never on Android)* | — (no Blender analogue) | **real** — headless `wgpu` compute (WGSL); ~~one wired kernel (parallel affine vertex transform)~~ **two wired kernels since 2026-10-20 (gh #1005)**: the parallel affine vertex transform and ARAP's per-vertex closest rotations (`arap::arap_deform_on_gpu`, `f32`, opt-in; 3.6x end to end on a 40 401-vertex grid), probe + graceful CPU fallback. ~~Compiled on every desktop target~~ **CORRECTED 2026-10-02**: behind the default-on `gpu` feature; target-gated off Android |
 | `mesh` | `bmesh` (`BMVert`/`BMEdge`/`BMLoop`/`BMFace`) | **real** — index-based half-edge topology |
 | `primitives` | Add-Mesh primitive operators | **real** — cube / UV-sphere / cylinder / grid, unit-tested |
 | `revolve` | Spin (`bmo_spin`) | **real** — sweep a profile polyline around an axis into a surface of revolution (pipes / vessels / cone frusta) |

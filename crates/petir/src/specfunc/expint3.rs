@@ -120,11 +120,11 @@ pub fn expint_3(x: f64) -> f64 {
         x
     } else if x <= 2.0 {
         x * cheb(x * x * x / 4.0 - 1.0, &EXPINT3)
-    } else if x < (-LOG_DBL_EPSILON).powf(1.0 / 3.0) {
+    } else if x < Real::powf(-LOG_DBL_EPSILON, 1.0 / 3.0) {
         // Past x^3 = -log(eps) the correction is below one ulp of the limit,
         // which is what the next branch relies on.
         let t = 16.0 / (x * x * x) - 1.0;
-        let s = (-x * x * x).exp() / (3.0 * x * x);
+        let s = Real::exp(-x * x * x) / (3.0 * x * x);
         VAL_INFINITY - cheb(t, &EXPINT3A) * s
     } else {
         VAL_INFINITY

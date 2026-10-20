@@ -114,9 +114,9 @@ fn atanint_with(x: f32, large_cut: f32) -> f32 {
     } else if ax <= 1.0 {
         x * cheb(2.0 * (x * x - 0.5))
     } else if ax < large_cut {
-        sgn * (PI_2 * ax.ln() + cheb(2.0 * (1.0 / (x * x) - 0.5)) / ax)
+        sgn * (PI_2 * Real::ln(ax) + cheb(2.0 * (1.0 / (x * x) - 0.5)) / ax)
     } else {
-        sgn * (PI_2 * ax.ln() + 1.0 / ax)
+        sgn * (PI_2 * Real::ln(ax) + 1.0 / ax)
     }
 }
 

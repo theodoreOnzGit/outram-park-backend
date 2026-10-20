@@ -138,6 +138,15 @@ pub fn lgamma(x: f64) -> f64 {
 // the same 200 000 points. Routing them through `libm` would buy nothing and
 // cost real time: `libm::sqrt` benchmarks 3.73x slower than the hardware
 // instruction. Use the `std` methods for those.
+//
+// **CORRECTED 2026-10-20 (gh #1001), for PETIR's own code:** finite `sqrt`
+// results are bit-identical, but the NaN that `sqrt` of a negative returns is
+// not: its sign depends on whether the instruction or libm's software path ran,
+// which libm's `arch` feature and std's presence in the graph decide. PETIR's
+// library therefore calls `Real::sqrt` (UFCS), which canonicalises the NaN; on
+// a build where libm's `arch` is off (none of the workspace's graphs) that is
+// the software sqrt and costs the 3.73x above, not re-measured. The advice to
+// consumers stands for finite values.
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// Natural logarithm. (`std`: `f64::ln`.)
@@ -343,10 +352,51 @@ pub trait Real: Copy {
     fn rem_euclid(self, rhs: Self) -> Self;
 }
 
+/// `x`, or PETIR's canonical quiet NaN, `0xfff8_0000_0000_0000`, when `x` is
+/// any NaN.
+///
+/// IEEE 754 leaves a generated NaN's sign and payload unspecified, and the
+/// `libm` crate's `sqrt` and `fma` really do differ by build: with its `arch`
+/// feature they are the x86 instructions, which return the NEGATIVE default
+/// NaN (`sqrt(-1)` = `0xfff8...`); with `force-soft-floats` (or `arch` off)
+/// they are software, which returns the positive one (`0x7ff8...`). Measured
+/// 2026-10-20, gh #1001. Cargo feature unification decides which a build
+/// gets, so [`Real::sqrt`] and [`Real::mul_add`] canonicalise to keep
+/// PETIR's output bit-identical across build graphs (maintainer direction,
+/// gh #1001: bit-identical, not "within tolerance").
+///
+/// The canonical value is the NEGATIVE one, x86 SSE's default NaN, because
+/// that is what PETIR returned before (the test graphs had `arch` on) and what
+/// the committed GSL references contain: `svd-gsl-2.8-reference.txt` holds 40
+/// `-nan` values that `gsl_svd_code_to_code` compares bit for bit. Choosing
+/// `f64::NAN` (positive) was tried first and failed those 40.
+#[inline]
+fn canonical_nan_f64(x: f64) -> f64 {
+    if x.is_nan() {
+        f64::from_bits(0xfff8_0000_0000_0000)
+    } else {
+        x
+    }
+}
+
+/// `f32` [`canonical_nan_f64`]: `0xffc0_0000` for any NaN.
+#[inline]
+fn canonical_nan_f32(x: f32) -> f32 {
+    if x.is_nan() {
+        f32::from_bits(0xffc0_0000)
+    } else {
+        x
+    }
+}
+
 impl Real for f64 {
     #[inline]
     fn sqrt(self) -> f64 {
-        libm::sqrt(self)
+        // gh #1001: a NaN result is returned as the canonical NaN. libm's
+        // `arch` feature switches this between the `sqrtsd`/`vfmadd`
+        // instruction (negative default NaN) and software (positive NaN),
+        // and the maintainer wants PETIR's bits independent of that.
+        canonical_nan_f64(libm::sqrt(self))
     }
     #[inline]
     fn cbrt(self) -> f64 {
@@ -493,7 +543,11 @@ impl Real for f64 {
     }
     #[inline]
     fn mul_add(self, a: f64, b: f64) -> f64 {
-        libm::fma(self, a, b)
+        // gh #1001: a NaN result is returned as the canonical NaN. libm's
+        // `arch` feature switches this between the `sqrtsd`/`vfmadd`
+        // instruction (negative default NaN) and software (positive NaN),
+        // and the maintainer wants PETIR's bits independent of that.
+        canonical_nan_f64(libm::fma(self, a, b))
     }
     /// `self - rhs * (self / rhs).floor()`, clamped into `[0, |rhs|)`.
     ///
@@ -534,7 +588,11 @@ impl Real for f64 {
 impl Real for f32 {
     #[inline]
     fn sqrt(self) -> f32 {
-        libm::sqrtf(self)
+        // gh #1001: a NaN result is returned as the canonical NaN. libm's
+        // `arch` feature switches this between the `sqrtsd`/`vfmadd`
+        // instruction (negative default NaN) and software (positive NaN),
+        // and the maintainer wants PETIR's bits independent of that.
+        canonical_nan_f32(libm::sqrtf(self))
     }
     #[inline]
     fn cbrt(self) -> f32 {
@@ -678,7 +736,11 @@ impl Real for f32 {
     }
     #[inline]
     fn mul_add(self, a: f32, b: f32) -> f32 {
-        libm::fmaf(self, a, b)
+        // gh #1001: a NaN result is returned as the canonical NaN. libm's
+        // `arch` feature switches this between the `sqrtsd`/`vfmadd`
+        // instruction (negative default NaN) and software (positive NaN),
+        // and the maintainer wants PETIR's bits independent of that.
+        canonical_nan_f32(libm::fmaf(self, a, b))
     }
     /// Matches `f32::rem_euclid`, mirroring the `f64` impl.
     #[inline]

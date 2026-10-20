@@ -239,19 +239,19 @@ pub fn transport(n: u32, x: f64) -> f64 {
     // Past 4, the limit minus the tail.
     let t = if x < -LOG_DBL_EPSILON {
         let numexp = ((-LOG_DBL_EPSILON) / x) as u32 + 1;
-        let s = sumexp(numexp, o.n, (-x).exp(), x);
-        nf * x.ln() - x + s.ln()
+        let s = sumexp(numexp, o.n, Real::exp(-x), x);
+        nf * Real::ln(x) - x + Real::ln(s)
     } else if x < 2.0 / DBL_EPSILON {
         let s = sumexp(1, o.n, 1.0, x);
-        nf * x.ln() - x + s.ln()
+        nf * Real::ln(x) - x + Real::ln(s)
     } else {
-        nf * x.ln() - x
+        nf * Real::ln(x) - x
     };
 
     if t < LOG_DBL_EPSILON {
         o.val_infinity
     } else {
-        o.val_infinity - t.exp()
+        o.val_infinity - Real::exp(t)
     }
 }
 

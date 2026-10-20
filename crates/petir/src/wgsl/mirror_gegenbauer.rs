@@ -80,8 +80,8 @@ pub fn gegenpoly_n(n: u32, lambda: f32, x: f32) -> f32 {
         _ => {}
     }
     if lambda == 0.0 && (-1.0..=1.0).contains(&x) {
-        let z = n as f32 * x.acos();
-        return 2.0 * z.cos() / n as f32;
+        let z = n as f32 * Real::acos(x);
+        return 2.0 * Real::cos(z) / n as f32;
     }
     let mut gkm2 = gegenpoly_2(lambda, x);
     let mut gkm1 = gegenpoly_3(lambda, x);

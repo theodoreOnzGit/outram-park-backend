@@ -316,33 +316,33 @@ fn e1_impl(x: f32, scale: bool) -> f32 {
         return f32::NAN;
     }
     if x <= -10.0 {
-        let s = 1.0 / x * if scale { 1.0 } else { (-x).exp() };
+        let s = 1.0 / x * if scale { 1.0 } else { Real::exp(-x) };
         return s * (1.0 + cheb(&AE11, 20.0 / x + 1.0));
     }
     if x <= -4.0 {
-        let s = 1.0 / x * if scale { 1.0 } else { (-x).exp() };
+        let s = 1.0 / x * if scale { 1.0 } else { Real::exp(-x) };
         return s * (1.0 + cheb(&AE12, (40.0 / x + 7.0) / 3.0));
     }
     if x <= -1.0 {
-        let ln_term = -x.abs().ln();
-        let sf = if scale { x.exp() } else { 1.0 };
+        let ln_term = -Real::ln(x.abs());
+        let sf = if scale { Real::exp(x) } else { 1.0 };
         return sf * (ln_term + cheb(&E11, (2.0 * x + 5.0) / 3.0));
     }
     if x == 0.0 {
         return f32::NAN;
     }
     if x <= 1.0 {
-        let ln_term = -x.abs().ln();
-        let sf = if scale { x.exp() } else { 1.0 };
+        let ln_term = -Real::ln(x.abs());
+        let sf = if scale { Real::exp(x) } else { 1.0 };
         // The 0.6875 is upstream's; it folds the series' own offset.
         return sf * (ln_term - 0.6875 + x + cheb(&E12, x));
     }
     if x <= 4.0 {
-        let s = 1.0 / x * if scale { 1.0 } else { (-x).exp() };
+        let s = 1.0 / x * if scale { 1.0 } else { Real::exp(-x) };
         return s * (1.0 + cheb(&AE13, (8.0 / x - 5.0) / 3.0));
     }
     if x <= XMAX || scale {
-        let s = 1.0 / x * if scale { 1.0 } else { (-x).exp() };
+        let s = 1.0 / x * if scale { 1.0 } else { Real::exp(-x) };
         return s * (1.0 + cheb(&AE14, 8.0 / x - 1.0));
     }
     0.0

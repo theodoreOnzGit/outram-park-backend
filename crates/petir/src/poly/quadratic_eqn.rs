@@ -94,7 +94,7 @@ impl QuadraticEqn {
 
         // Numerically accurate discriminant b²/4 − a·c via FMA compensation
         let w = a * c;
-        let num_discr = f64::mul_add(-a, c, w) + f64::mul_add(b, b / 4.0, -w);
+        let num_discr = Real::mul_add(-a, c, w) + Real::mul_add(b, b / 4.0, -w);
         let discr = if num_discr.abs() > VSMALL {
             num_discr
         } else {
@@ -103,12 +103,12 @@ impl QuadraticEqn {
 
         if discr > 0.0 {
             // Two distinct real roots — use numerically stable form
-            let x = -b / 2.0 - sign(b) * discr.sqrt();
+            let x = -b / 2.0 - sign(b) * Real::sqrt(discr);
             Roots::from_pair(LinearEqn::new(-a, x).roots(), LinearEqn::new(-x, c).roots())
         } else if discr < 0.0 {
             // Complex conjugate pair: Re ± Im·i
             let x_re = Roots::<1>::new(RootType::Complex, -b / 2.0 / a);
-            let x_im = Roots::<1>::new(RootType::Complex, sign(b) * (-discr).sqrt() / a);
+            let x_im = Roots::<1>::new(RootType::Complex, sign(b) * Real::sqrt(-discr) / a);
             Roots::from_pair(x_re, x_im)
         } else {
             // One repeated real root

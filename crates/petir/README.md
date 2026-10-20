@@ -76,6 +76,7 @@ that drifts from its origin fails the build rather than rotting quietly.
 | `rng` (`ChaCha8Rng`, `Uniform`, `Normal`) | ported (`rand` 0.10.3, `rand_distr` 0.6.0, `chacha20` 0.10.2; MIT) | The `rand` pieces `boon-lay`'s RustBCA copy uses: ChaCha8 with `rand_core`'s PCG32 `seed_from_u64`, `random::<f64>()`, `Uniform<f64>`, the ziggurat `Normal<f64>`. **Added 2026-10-20 (gh:#995)**; draw-for-draw identical to the upstream crates over 48 million draws (`tests/rng_vs_rand.rs`, reference in `reference-data/rand/`) |
 | `ssprk` | ported (PyClaw, not GSL) | Strong-stability-preserving Runge–Kutta steps for method-of-lines use: Shu–Osher **SSP22** and **SSP33**, Ketcheson's **SSP104** (`sharpclaw/solver.py`, BSD-3). Bit-identical to PyClaw's own `step()` on 96/96 values (`tests/ssprk_vs_pyclaw.rs`); observed orders 2.01 / 3.01 / 4.01; TVD to the SSP coefficient with a negative control just above it (`tests/ssprk_order_and_tvd.rs`). **Added 2026-10-16** at maintainer direction |
 | `sparse` | ported (faer, not GSL) | Sparse direct solvers: LU with partial pivoting and a **COLAMD** column ordering, Cholesky `LLᵀ` with an **AMD** ordering, elimination trees, sparse triangular solves (faer 0.24.4, MIT; AMD/COLAMD via SuiteSparse, BSD-3). Simplicial and (since the same day) **supernodal** paths, chosen by faer's own rule or forced with `SymbolicKind`; faer's dense SIMD kernels replayed in scalar code. ~~where faer itself picks its supernodal path the solutions agree to ≤ 4.9e-14 relative~~ **Every solution bit-identical to faer on both paths and on faer's own choice**, orderings identical (`tests/sparse_vs_faer.rs`). The supernodal path is *slower* here than the simplicial one (no SIMD; see the module docs). **Added 2026-10-20** at maintainer direction (gh #994) |
+| `faer_dense` | ported (faer, not GSL) | faer 0.24.4's dense SVD (`Mat::svd()`) for square `n <= 16`: Householder bidiagonalisation, bidiagonal QR, reflector back-transformation, with faer's SIMD kernels modelled lane by lane in scalar code (pulp V3, AVX2+FMA; no `core::arch`). **Bit-identical** to faer on 6 134 `outram-blender` covariances, 26 000 random matrices of orders 1..=16 and 17 structured cases (`tests/faer_dense_svd_vs_faer.rs`). Distinct from `linalg::svd` (GSL), not a replacement for it. **Added 2026-10-20** at maintainer direction (gh #996) |
 | `scalar` | lifted + additions | OpenFOAM guard constants, extended here with GSL's epsilon constants (`bn:op-l87q`) |
 
 **Deliberate subsets rather than gaps**, each named where it matters and
@@ -311,7 +312,9 @@ Julien de Troullioud de Lanversin), moved in from `outram-park-fork-onix` on
 through it SuiteSparse AMD/COLAMD, BSD-3) was added on 2026-10-20 at the
 maintainer's direction (gh:#994), its supernodal paths the same day with the
 arithmetic of faer's dense kernels and of **nano-gemm** 0.2.2,
-**private-gemm-x86** 0.1.22 and **pulp** 0.22.3 (all MIT, sarah quiñones).
+**private-gemm-x86** 0.1.22 and **pulp** 0.22.3 (all MIT, sarah quiñones). `src/faer_dense/`, faer 0.24.4's dense SVD
+(with faer-traits' `hypot` and a scalar model of pulp's AVX2 lanes, all MIT),
+was added the same day at the maintainer's direction (gh:#996).
 
 All were ported on 2026-09-15, with the full upstream notice and
 copyright kept in each file's header where source redistribution requires them.

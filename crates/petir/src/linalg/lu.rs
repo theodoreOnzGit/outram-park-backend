@@ -170,7 +170,7 @@ pub fn ln_det(a: &SquareMatrix) -> Result<f64> {
     let (lu, _pivot, _sign) = factorise(a)?;
     let mut acc = 0.0_f64;
     for i in 0..lu.n() {
-        acc += lu.get(i, i).abs().ln();
+        acc += Real::ln(lu.get(i, i).abs());
     }
     Ok(acc)
 }

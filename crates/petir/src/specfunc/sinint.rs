@@ -224,7 +224,7 @@ pub fn si(x: f64) -> f64 {
         let (f, g) = fg_asymp(ax);
         // No loss of precision here despite the subtraction: the leading
         // pi/2 dominates, and f, g are both O(1/x).
-        let v = core::f64::consts::FRAC_PI_2 - f * ax.cos() - g * ax.sin();
+        let v = core::f64::consts::FRAC_PI_2 - f * Real::cos(ax) - g * Real::sin(ax);
         if x < 0.0 {
             -v
         } else {
@@ -259,13 +259,13 @@ pub fn ci(x: f64) -> f64 {
         return f64::NAN;
     }
     if x <= 4.0 {
-        let lx = x.ln();
+        let lx = Real::ln(x);
         // The ln x carries the singularity; the fit carries the rest, so
         // neither has to represent the other's behaviour.
         lx - 0.5 + cheb((x * x - 8.0) * 0.125, &CI)
     } else {
         let (f, g) = fg_asymp(x);
-        f * x.sin() - g * x.cos()
+        f * Real::sin(x) - g * Real::cos(x)
     }
 }
 

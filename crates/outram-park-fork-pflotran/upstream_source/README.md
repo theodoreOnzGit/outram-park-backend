@@ -32,6 +32,12 @@ git clone --depth 1 https://bitbucket.org/pflotran/pflotran.git upstream_source/
 | Depth | shallow (`--depth 1`) |
 | Size on disk | 203 MB — 3906 files, 533 `.F90` |
 
+**Decay routines (gh:#999, gh:#1000), 2026-10-20:** read and ported at commit
+`2af572b8759c34aacc2216f56a906637f90af03e`. A shallow clone cannot check it
+out; clone in full and run `git checkout 2af572b8` in `PFLOTRAN/`.
+`verification_and_validation/upstream_decay/extract.sh` checks the SHA-256 of
+the two files it extracts from.
+
 ## License determination (2026-09-10) — VERIFIED
 
 Superseding the 2026-07-20 documentary determination, which recorded

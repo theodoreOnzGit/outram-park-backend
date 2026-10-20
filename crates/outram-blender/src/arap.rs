@@ -109,6 +109,138 @@ pub fn arap_deform(
     handles: &[(VertexId, Vec3)],
     iterations: u32,
 ) -> Result<Mesh, ArapError> {
+    let cpu = arap_core(mesh, handles, iterations, &mut cpu_rotations)?;
+    Ok(cpu.unwrap_or_else(|| unreachable!("the CPU local step never declines")))
+}
+
+/// Which arithmetic computes ARAP's local step (the per-vertex closest
+/// rotations), for [`arap_deform_with`].
+///
+/// The default, and [`arap_deform`]'s only path, is the `f64` CPU one:
+/// deterministic, bit-identical across runs and the reference. `GpuF32` is an
+/// explicit opt-in (gh #1005): the rotations run on the GPU in `f32` through
+/// PETIR's `svd3.wgsl`, while the covariances, the right-hand side and the
+/// sparse solve stay `f64` on the CPU.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ArapRotations {
+    /// `f64` on the CPU ([`petir::faer_dense::svd3`]).
+    #[default]
+    CpuF64,
+    /// `f32` on a GPU, if one is found at run time.
+    GpuF32,
+}
+
+/// The result of [`arap_deform_with`]: the deformed mesh, and which local
+/// step actually ran (a `GpuF32` request runs `CpuF64` when there is no GPU,
+/// or when GPU work fails, in which case the whole deformation is redone on
+/// the CPU so no result mixes the two).
+#[derive(Debug, Clone)]
+pub struct ArapOutcome {
+    /// The deformed mesh.
+    pub mesh: Mesh,
+    /// The local step that produced it.
+    pub rotations: ArapRotations,
+}
+
+/// [`arap_deform`] with a choice of local step (see [`ArapRotations`]).
+///
+/// `ArapRotations::GpuF32` probes for a GPU at run time (about 0.2 s on the
+/// machine measured, gh #1005); to deform several meshes, probe once and call
+/// [`arap_deform_on_gpu`] instead. With no GPU (or without the `gpu`
+/// feature, or on Android/wasm32) it runs the CPU path and says so in
+/// [`ArapOutcome::rotations`].
+///
+/// **Cost and accuracy of the GPU path, measured 2026-10-20** on an NVIDIA
+/// RTX A5000 (gh #1005): see [`arap_deform_on_gpu`].
+///
+/// # Errors
+///
+/// As [`arap_deform`].
+pub fn arap_deform_with(
+    mesh: &Mesh,
+    handles: &[(VertexId, Vec3)],
+    iterations: u32,
+    rotations: ArapRotations,
+) -> Result<ArapOutcome, ArapError> {
+    #[cfg(all(feature = "gpu", not(target_os = "android")))]
+    if rotations == ArapRotations::GpuF32 {
+        if let Some(ctx) = crate::gpu::probe() {
+            return arap_deform_on_gpu(&ctx, mesh, handles, iterations);
+        }
+    }
+    let _ = rotations;
+    Ok(ArapOutcome {
+        mesh: arap_deform(mesh, handles, iterations)?,
+        rotations: ArapRotations::CpuF64,
+    })
+}
+
+/// [`arap_deform`] with the local step's rotations on the GPU `ctx`, in
+/// `f32` (gh #1005); the covariances, right-hand side and sparse solve stay
+/// `f64` on the CPU. Falls back to the CPU path, for the whole deformation,
+/// if the kernel cannot be built for this mesh or GPU work fails; the
+/// returned [`ArapOutcome::rotations`] says which ran.
+///
+/// The kernel is [`crate::gpu::GpuClosestRotations`]: PETIR's `svd3.wgsl`, an
+/// `f32` transcription of the same faer SVD the CPU path runs in `f64`.
+///
+/// # Errors
+///
+/// As [`arap_deform`].
+#[cfg(all(feature = "gpu", not(target_os = "android")))]
+pub fn arap_deform_on_gpu(
+    ctx: &crate::gpu::GpuContext,
+    mesh: &Mesh,
+    handles: &[(VertexId, Vec3)],
+    iterations: u32,
+) -> Result<ArapOutcome, ArapError> {
+    if let Some(kernel) = crate::gpu::GpuClosestRotations::new(ctx, mesh.vertex_count()) {
+        let mut gpu = |covs: &[M3]| -> Option<Vec<M3>> {
+            let flat: Vec<f32> = covs.iter().flatten().flatten().map(|&x| x as f32).collect();
+            let out = kernel.run(ctx, &flat).ok()?;
+            Some(
+                out.chunks_exact(9)
+                    .map(|r| {
+                        [
+                            [f64::from(r[0]), f64::from(r[1]), f64::from(r[2])],
+                            [f64::from(r[3]), f64::from(r[4]), f64::from(r[5])],
+                            [f64::from(r[6]), f64::from(r[7]), f64::from(r[8])],
+                        ]
+                    })
+                    .collect(),
+            )
+        };
+        if let Some(mesh) = arap_core(mesh, handles, iterations, &mut gpu)? {
+            return Ok(ArapOutcome {
+                mesh,
+                rotations: ArapRotations::GpuF32,
+            });
+        }
+    }
+    Ok(ArapOutcome {
+        mesh: arap_deform(mesh, handles, iterations)?,
+        rotations: ArapRotations::CpuF64,
+    })
+}
+
+/// The CPU local step: [`closest_rotation`] of each covariance, `f64`.
+fn cpu_rotations(covs: &[M3]) -> Option<Vec<M3>> {
+    Some(covs.iter().map(|&s| closest_rotation(s)).collect())
+}
+
+/// The ARAP iteration with the local step's rotations supplied by `local`
+/// (covariances in, one rotation per vertex out). `Ok(None)` when `local`
+/// declines (GPU work failed), so the caller can redo the whole deformation
+/// on the CPU.
+fn arap_core<F>(
+    mesh: &Mesh,
+    handles: &[(VertexId, Vec3)],
+    iterations: u32,
+    local: &mut F,
+) -> Result<Option<Mesh>, ArapError>
+where
+    F: FnMut(&[M3]) -> Option<Vec<M3>>,
+{
     if handles.is_empty() {
         return Err(ArapError::NoConstraints);
     }
@@ -126,7 +258,7 @@ pub fn arap_deform(
     let weights = edge_weights_from(&tris, &rest, LaplacianWeighting::Cotangent);
     let mut adj: Vec<Vec<(usize, f64)>> = vec![Vec::new(); n];
     let mut diag = vec![0.0f64; n];
-    for (&(i, j), &w) in &weights {
+    for &((i, j), w) in &weights {
         adj[i].push((j, w));
         adj[j].push((i, w));
         diag[i] += w;
@@ -158,7 +290,7 @@ pub fn arap_deform(
         }
     }
     if nfree == 0 {
-        return Ok(Mesh::from_polygons(&cur, &faces));
+        return Ok(Some(Mesh::from_polygons(&cur, &faces)));
     }
 
     // Assemble the reduced Laplacian A = L_ff (lower triangle) ONCE and factor it.
@@ -166,7 +298,7 @@ pub fn arap_deform(
     // iteration-independent (handles don't move), so precompute it.
     let mut trips: Vec<(usize, usize, f64)> = Vec::new();
     let mut rhs_const = vec![[0.0f64; 3]; nfree];
-    for (&(gi, gj), &w) in &weights {
+    for &((gi, gj), w) in &weights {
         match (free_of[gi], free_of[gj]) {
             (Some(fi), Some(fj)) => {
                 let (lo, hi) = if fi < fj { (fi, fj) } else { (fj, fi) };
@@ -197,10 +329,12 @@ pub fn arap_deform(
     let llt = factor_spd_lower(nfree, &trips).map_err(to_err)?;
 
     for _ in 0..iterations {
-        // LOCAL: per-vertex optimal rotation from the current positions.
-        let rotations: Vec<M3> = (0..n)
-            .map(|i| optimal_rotation(i, &adj, &rest, &cur))
-            .collect();
+        // LOCAL: per-vertex optimal rotation from the current positions:
+        // each one-ring's covariance, then its closest rotation (`local`).
+        let covariances: Vec<M3> = (0..n).map(|i| covariance(i, &adj, &rest, &cur)).collect();
+        let Some(rotations) = local(&covariances) else {
+            return Ok(None);
+        };
 
         // GLOBAL: b_i = Σ_j (w_ij/2)(R_i + R_j)(p_i − p_j), plus the constant
         // handle-elimination term; solve L_ff x = rhs.
@@ -223,7 +357,7 @@ pub fn arap_deform(
         }
     }
 
-    Ok(Mesh::from_polygons(&cur, &faces))
+    Ok(Some(Mesh::from_polygons(&cur, &faces)))
 }
 
 /// The ARAP energy `E = Σ_i Σ_{j∈N(i)} w_ij ‖(d_i − d_j) − R_i (p_i − p_j)‖²` of a
@@ -239,7 +373,7 @@ pub fn arap_energy(rest: &Mesh, deformed: &[Vec3]) -> f64 {
     let tris = mesh_triangles(rest);
     let weights = edge_weights_from(&tris, &rp, LaplacianWeighting::Cotangent);
     let mut adj: Vec<Vec<(usize, f64)>> = vec![Vec::new(); n];
-    for (&(i, j), &w) in &weights {
+    for &((i, j), w) in &weights {
         adj[i].push((j, w));
         adj[j].push((i, w));
     }
@@ -265,16 +399,21 @@ pub fn arap_energy(rest: &Mesh, deformed: &[Vec3]) -> f64 {
 /// `S_i = Σ_j w_ij (p_i − p_j)(d_i − d_j)ᵀ` over its one-ring (rest positions
 /// `p`, deformed `d`) and return its closest rotation.
 fn optimal_rotation(i: usize, adj: &[Vec<(usize, f64)>], rest: &[Vec3], def: &[Vec3]) -> M3 {
-    // Covariance S_i = Σ w (d_i − d_j)(p_i − p_j)ᵀ (deformed ⊗ rest). Its
-    // Procrustes rotation (`closest_rotation`, R = U Vᵀ) is the rotation that
-    // best maps the rest one-ring onto the deformed one.
+    closest_rotation(covariance(i, adj, rest, def))
+}
+
+/// Vertex `i`'s one-ring covariance `S_i = Σ w (d_i − d_j)(p_i − p_j)ᵀ`
+/// (deformed ⊗ rest). Its Procrustes rotation (`closest_rotation`,
+/// R = U Vᵀ) is the rotation that best maps the rest one-ring onto the
+/// deformed one.
+fn covariance(i: usize, adj: &[Vec<(usize, f64)>], rest: &[Vec3], def: &[Vec3]) -> M3 {
     let mut s = [[0.0f64; 3]; 3];
     for &(j, w) in &adj[i] {
         let e_rest = rest[i].sub(rest[j]);
         let e_def = def[i].sub(def[j]);
         outer_add(&mut s, w, e_def, e_rest);
     }
-    closest_rotation(s)
+    s
 }
 
 /// Accumulate `w · u vᵀ` (outer product) into `s`.
@@ -294,34 +433,33 @@ fn outer_add(s: &mut M3, w: f64, u: Vec3, v: Vec3) {
 /// `det(U Vᵀ) < 0`, flipping the smallest singular direction) so `R` is a proper
 /// rotation, not a reflection. For a rotation input it returns that rotation.
 ///
-/// Uses `faer`'s dense SVD for the `3×3` decomposition, then does the small
-/// matrix products with plain arrays. **This is the last `faer` use in the
-/// crate** (2026-10-20, gh #994): it moves to PETIR's GSL SVD once that lands
-/// (gh #993; follow-up gh #996); porting faer's own dense SVD was not done because its kernels
-/// are SIMD GEMM and PETIR is getting GSL's. Returns the identity for a degenerate
-/// covariance (empty one-ring) whose SVD fails.
+/// ~~Uses `faer`'s dense SVD for the `3×3` decomposition~~ **Since 2026-10-20
+/// (gh #996)** the `3×3` decomposition is [`petir::faer_dense::svd3`], a
+/// `no_std` port of exactly the faer 0.24.4 `Mat::svd()` path this function
+/// used to call; then the small matrix products are done with plain arrays.
+/// ~~It moves to PETIR's GSL SVD once that lands (gh #993); porting faer's own
+/// dense SVD was not done because its kernels are SIMD GEMM.~~ GSL's SVD
+/// (`petir::linalg::svd`) was not used: it is a different algorithm, so `U`
+/// and `V` would differ in rounding and sign conventions. At the maintainer's
+/// direction ("Whatever faer does, port into petir") faer's own path was
+/// ported, its SIMD lanes modelled in scalar code; it is bit-identical to
+/// faer on all 6134 distinct covariances this crate's tests produce, and so
+/// every rotation is unchanged (`petir/tests/faer_dense_svd_vs_faer.rs`;
+/// also checked on 22 334 distinct covariances pooled from four runs of this
+/// crate's suite, 0 differing bits). ~~The covariances themselves vary in the
+/// last bits from run to run, because the one-ring weights are summed in
+/// `HashMap` order (pre-existing, gh #1002).~~ **Fixed 2026-10-20 (gh #1002):**
+/// the one-ring is now summed in ascending neighbour index
+/// ([`crate::laplacian`]'s `edge_weights_from` returns sorted edges), so the
+/// suite's 13 928 covariances (3 586 distinct) are the same every run; that
+/// set is `reference-data/faer/closest_rotation_inputs.txt`, also 0 differing
+/// bits against faer. Returns the identity for a
+/// degenerate covariance (empty one-ring) whose SVD fails, as before.
 fn closest_rotation(m: M3) -> M3 {
-    let a = faer::mat![
-        [m[0][0], m[0][1], m[0][2]],
-        [m[1][0], m[1][1], m[1][2]],
-        [m[2][0], m[2][1], m[2][2]],
-    ];
-    let svd = match a.svd() {
-        Ok(s) => s,
+    let (mut uu, _s, vv) = match petir::faer_dense::svd3(m) {
+        Ok(r) => r,
         Err(_) => return IDENTITY3,
     };
-    let u = svd.U();
-    let v = svd.V();
-    let mut uu: M3 = [
-        [u[(0, 0)], u[(0, 1)], u[(0, 2)]],
-        [u[(1, 0)], u[(1, 1)], u[(1, 2)]],
-        [u[(2, 0)], u[(2, 1)], u[(2, 2)]],
-    ];
-    let vv: M3 = [
-        [v[(0, 0)], v[(0, 1)], v[(0, 2)]],
-        [v[(1, 0)], v[(1, 1)], v[(1, 2)]],
-        [v[(2, 0)], v[(2, 1)], v[(2, 2)]],
-    ];
     let vt = transpose3(vv);
     // R = U Vᵀ; if it is a reflection, negate U's last column (= U·diag(1,1,−1)).
     if det3(matmul3(uu, vt)) < 0.0 {
@@ -572,5 +710,39 @@ mod tests {
             arap_deform(&grid, &[], 3),
             Err(ArapError::NoConstraints)
         ));
+    }
+
+    /// The opt-in API leaves the default path alone (gh #1005):
+    /// `arap_deform_with(.., CpuF64)` is bit-identical to `arap_deform`, and a
+    /// `GpuF32` request either runs on a GPU (and says so) or falls back to
+    /// that same bit-identical CPU result (no GPU, `gpu` feature off,
+    /// Android, wasm32). The GPU result itself is judged in
+    /// `tests/gpu_arap.rs`.
+    #[test]
+    fn opt_in_api_keeps_the_cpu_default_bit_identical() {
+        let bar = primitives::grid(16, 2, 4.0);
+        let p = bar.positions();
+        let handles: Vec<(VertexId, Vec3)> = (0..bar.vertex_count())
+            .filter(|&i| p[i].x < -1.99 || p[i].x > 1.99)
+            .map(|i| {
+                let lift = if p[i].x > 0.0 { 1.0 } else { 0.0 };
+                (VertexId(i), p[i].add(Vec3::new(0.0, 0.0, lift)))
+            })
+            .collect();
+        let bits = |m: &Mesh| -> Vec<u64> {
+            m.positions()
+                .iter()
+                .flat_map(|q| [q.x.to_bits(), q.y.to_bits(), q.z.to_bits()])
+                .collect()
+        };
+        let reference = bits(&arap_deform(&bar, &handles, 8).unwrap());
+        let cpu = arap_deform_with(&bar, &handles, 8, ArapRotations::CpuF64).unwrap();
+        assert_eq!(cpu.rotations, ArapRotations::CpuF64);
+        assert_eq!(bits(&cpu.mesh), reference);
+        let gpu = arap_deform_with(&bar, &handles, 8, ArapRotations::GpuF32).unwrap();
+        if gpu.rotations == ArapRotations::CpuF64 {
+            assert_eq!(bits(&gpu.mesh), reference);
+        }
+        assert_eq!(gpu.mesh.vertex_count(), bar.vertex_count());
     }
 }

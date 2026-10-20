@@ -95,7 +95,7 @@ fn e3_with(x: f32, cut: f32) -> f32 {
         x * cheb(&EXPINT3, x * x * x / 4.0 - 1.0)
     } else if x < cut {
         let t = 16.0 / (x * x * x) - 1.0;
-        let s = (-(x * x * x)).exp() / (3.0 * x * x);
+        let s = Real::exp(-(x * x * x)) / (3.0 * x * x);
         VAL_INFINITY - cheb(&EXPINT3A, t) * s
     } else {
         VAL_INFINITY

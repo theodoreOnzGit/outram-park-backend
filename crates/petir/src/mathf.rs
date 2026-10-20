@@ -132,7 +132,11 @@
 //! so they are **already** bit-identical on every platform~~ `abs`, `floor`,
 //! `ceil` and `round` are exact, so those are **already** bit-identical on every
 //! platform. Routing them would buy nothing and cost real time — `libm::sqrt`
-//! benchmarks 3.73x slower than the hardware instruction.
+//! benchmarks 3.73x slower than the hardware instruction. (**Qualified
+//! 2026-10-20, gh #1001:** that holds for finite `sqrt` results; the NaN that
+//! `sqrt(-x)` generates differs in sign between the instruction and libm's
+//! software path, so PETIR's own library calls `Real::sqrt`, which returns
+//! one canonical NaN.)
 //!
 //! **CORRECTED 2026-10-16 — `powi` is NOT exact.** `f64::powi` is lowered by
 //! each target's backend and its last bit differs on `x86_64-pc-windows-msvc`

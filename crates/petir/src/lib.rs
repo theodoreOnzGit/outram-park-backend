@@ -201,6 +201,9 @@ pub mod depletion;
 pub mod deriv;
 pub mod error;
 pub mod expint;
+/// faer's dense SVD (`Mat::svd()`), ported bit for bit from `faer` 0.24.4
+/// (MIT) at the maintainer's direction on gh #996.
+pub mod faer_dense;
 pub mod fast_exp;
 pub mod fast_log;
 pub mod fast_pow;

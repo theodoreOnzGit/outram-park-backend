@@ -87,9 +87,9 @@ fn calc_pe15(a: f64, x: f64, nmax: i32) -> f64 {
     let mut sum = 0.0_f64;
     for n in 1..=nmax {
         prod *= a + n as f64;
-        sum += x.powi(n) / prod;
+        sum += Real::powi(x, n) / prod;
     }
-    let r = (-x).exp() * x.powf(a) / c_gamma(a);
+    let r = Real::exp(-x) * Real::powf(x, a) / c_gamma(a);
     r / a * (1.0 + sum)
 }
 
@@ -99,9 +99,9 @@ fn calc_qe16(a: f64, x: f64, n_terms: i32) -> f64 {
     let mut sum = 0.0_f64;
     for n in 1..=(n_terms - 1) {
         an *= a - n as f64;
-        sum += an / x.powi(n);
+        sum += an / Real::powi(x, n);
     }
-    let r = (-x).exp() * x.powf(a) / c_gamma(a);
+    let r = Real::exp(-x) * Real::powf(x, a) / c_gamma(a);
     r / x * (1.0 + sum)
 }
 
@@ -125,14 +125,14 @@ fn calc_te18(a: f64, e0: f64, _x: f64, lambda: f64, sigma: f64, phi: f64) -> f64
     const D2_1: f64 = -0.268_132_716_049_383e-02;
 
     let u = 1.0 / a;
-    let mut z = (2.0 * phi).sqrt();
+    let mut z = Real::sqrt(2.0 * phi);
     if lambda < 1.0 {
         z = -z;
     }
 
     let c2 = D2_1 * z + D2_0;
 
-    if sigma > e0 / a.sqrt() {
+    if sigma > e0 / Real::sqrt(a) {
         let z2 = z * z;
         let z3 = z2 * z;
         let z4 = z2 * z2;
@@ -164,66 +164,66 @@ pub fn inc_gamma_ratio_q(a: f64, x: f64) -> f64 {
         if (a - 0.5).abs() < f64::EPSILON {
             // (DM:Eq. 8)
             if x < 0.25 {
-                return 1.0 - c_erf(x.sqrt());
+                return 1.0 - c_erf(Real::sqrt(x));
             } else {
-                return c_erfc(x.sqrt());
+                return c_erfc(Real::sqrt(x));
             }
         } else if x < 1.1 {
             // (DM:Eq. 12)
             let alpha = if x < 0.5 {
-                (0.765_f64.sqrt().ln()) / x.ln()
+                (Real::ln(Real::sqrt(0.765_f64))) / Real::ln(x)
             } else {
                 x / 2.59
             };
 
             let mut sum = 0.0;
             for n in 1i32..=10 {
-                sum += (-x).powi(n) / ((a + n as f64) * factorial(n));
+                sum += Real::powi(-x, n) / ((a + n as f64) * factorial(n));
             }
             let j = -a * sum;
 
             if a >= alpha {
                 // (DM:Eq. 9)
-                return 1.0 - (x.powf(a) * (1.0 - j)) / c_gamma(a + 1.0);
+                return 1.0 - (Real::powf(x, a) * (1.0 - j)) / c_gamma(a + 1.0);
             } else {
                 // (DM:Eq. 10)
-                let l = (a * x.ln()).exp() - 1.0;
+                let l = Real::exp(a * Real::ln(x)) - 1.0;
                 let h = 1.0 / c_gamma(a + 1.0) - 1.0;
-                return (x.powf(a) * j - l) / c_gamma(a + 1.0) - h;
+                return (Real::powf(x, a) * j - l) / c_gamma(a + 1.0) - h;
             }
         } else {
             // (DM:Eq. 11)
-            let r = (-x).exp() * x.powf(a) / c_gamma(a);
+            let r = Real::exp(-x) * Real::powf(x, a) / c_gamma(a);
             return r * calc_qe11(a, x, 30);
         }
     } else if a >= BIG {
         let sigma = (1.0 - x / a).abs();
 
         let lambda = x / a;
-        let phi = lambda - 1.0 - lambda.ln();
+        let phi = lambda - 1.0 - Real::ln(lambda);
         let y = a * phi;
 
-        if sigma <= E0 / a.sqrt() {
+        if sigma <= E0 / Real::sqrt(a) {
             // (DM:Eq. 19)
-            let e_val = 0.5 - (1.0 - y / 3.0) * (y / PI).sqrt();
+            let e_val = 0.5 - (1.0 - y / 3.0) * Real::sqrt(y / PI);
             let te = calc_te18(a, E0, x, lambda, sigma, phi);
             return if lambda <= 1.0 {
-                1.0 - (e_val - (1.0 - y) / (2.0 * PI * a).sqrt() * te)
+                1.0 - (e_val - (1.0 - y) / Real::sqrt(2.0 * PI * a) * te)
             } else {
-                e_val + (1.0 - y) / (2.0 * PI * a).sqrt() * te
+                e_val + (1.0 - y) / Real::sqrt(2.0 * PI * a) * te
             };
         } else if sigma <= 0.4 {
             // (DM:Eq. 17)
             let te = calc_te18(a, E0, x, lambda, sigma, phi);
             return if lambda <= 1.0 {
-                1.0 - (0.5 * c_erfc(y.sqrt()) - (-y).exp() / (2.0 * PI * a).sqrt() * te)
+                1.0 - (0.5 * c_erfc(Real::sqrt(y)) - Real::exp(-y) / Real::sqrt(2.0 * PI * a) * te)
             } else {
-                0.5 * c_erfc(y.sqrt()) + (-y).exp() / (2.0 * PI * a).sqrt() * te
+                0.5 * c_erfc(Real::sqrt(y)) + Real::exp(-y) / Real::sqrt(2.0 * PI * a) * te
             };
-        } else if x <= a.max(10.0_f64.ln()) {
+        } else if x <= a.max(Real::ln(10.0_f64)) {
             return 1.0 - calc_pe15(a, x, 20);
         } else if x < X0 {
-            let r = (-x).exp() * x.powf(a) / c_gamma(a);
+            let r = Real::exp(-x) * Real::powf(x, a) / c_gamma(a);
             return r * calc_qe11(a, x, 30);
         } else {
             return calc_qe16(a, x, 20);
@@ -231,10 +231,10 @@ pub fn inc_gamma_ratio_q(a: f64, x: f64) -> f64 {
     } else {
         // 1 ≤ a < BIG
         if a > x || x >= X0 {
-            if x <= a.max(10.0_f64.ln()) {
+            if x <= a.max(Real::ln(10.0_f64)) {
                 return 1.0 - calc_pe15(a, x, 20);
             } else if x < X0 {
-                let r = (-x).exp() * x.powf(a) / c_gamma(a);
+                let r = Real::exp(-x) * Real::powf(x, a) / c_gamma(a);
                 return r * calc_qe11(a, x, 30);
             } else {
                 return calc_qe16(a, x, 20);
@@ -249,9 +249,9 @@ pub fn inc_gamma_ratio_q(a: f64, x: f64) -> f64 {
                     // a is a positive integer: (DM:Eq. 14) exponential sum
                     let mut sum = 0.0;
                     for n in 0..=(a as i64 - 1) {
-                        sum += x.powi(n as i32) / factorial(n as i32);
+                        sum += Real::powi(x, n as i32) / factorial(n as i32);
                     }
-                    return (-x).exp() * sum;
+                    return Real::exp(-x) * sum;
                 } else {
                     // a = k + 0.5 for some integer k
                     let i = (a - 0.5) as i32;
@@ -259,14 +259,14 @@ pub fn inc_gamma_ratio_q(a: f64, x: f64) -> f64 {
                     let mut sum = 0.0_f64;
                     for n in 1..=i {
                         prod *= n as f64 - 0.5;
-                        sum += x.powi(n) / prod;
+                        sum += Real::powi(x, n) / prod;
                     }
-                    return c_erfc(x.sqrt()) + (-x).exp() / (PI * x).sqrt() * sum;
+                    return c_erfc(Real::sqrt(x)) + Real::exp(-x) / Real::sqrt(PI * x) * sum;
                 }
-            } else if x <= a.max(10.0_f64.ln()) {
+            } else if x <= a.max(Real::ln(10.0_f64)) {
                 return 1.0 - calc_pe15(a, x, 20);
             } else if x < X0 {
-                let r = (-x).exp() * x.powf(a) / c_gamma(a);
+                let r = Real::exp(-x) * Real::powf(x, a) / c_gamma(a);
                 return r * calc_qe11(a, x, 30);
             } else {
                 return calc_qe16(a, x, 20);

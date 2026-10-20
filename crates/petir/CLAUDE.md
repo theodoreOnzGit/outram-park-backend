@@ -35,7 +35,7 @@ When you do port, the doc comment names the **upstream file and line**, and the
 NOTICE names the copyright holder for that module — GSL's holders differ per
 file, so re-read each header rather than copying one across.
 
-### Four non-GSL ports exist, and they were maintainer-directed (~~three~~ ~~four~~ ~~five~~ ~~seven~~ eight more follow below)
+### Four non-GSL ports exist, and they were maintainer-directed (~~three~~ ~~four~~ ~~five~~ ~~seven~~ ~~eight~~ nine more follow below)
 
 Added 2026-09-15 at the maintainer's direction — "port select code from roots
 and peroxide to complement petir's capabilities, credit the author's
@@ -339,6 +339,46 @@ binds future work as follows:
 - **Duplicate triplets** are summed in input order (faer's unstable sort
   leaves that order unspecified). Neither consumer has duplicates.
 
+### A thirteenth non-GSL port: faer's dense SVD (2026-10-20)
+
+`src/faer_dense/` ports the path faer 0.24.4's `Mat::svd()` runs for a small
+square `f64` matrix (`svd_imp`, `bidiag_in_place` + `bidiag_fused_op_simd`,
+`qr_algorithm`, the block-size-1 Householder application), faer-traits
+0.24.0's scalar `hypot`, and a scalar model of the `pulp` 0.22.3 `V3` lanes
+faer's SIMD kernels run on (all MIT, sarah quiñones). **Maintainer direction on
+gh #996, 2026-10-20: "Whatever faer does, port into petir"**, replacing the
+earlier plan to move `outram-blender`'s `arap::closest_rotation` onto
+`linalg::svd` (GSL). That is the approval this section requires for a
+non-GSL source. It binds future work as follows:
+
+- **It is additive and must not be merged with `linalg::svd`.** GSL's
+  Golub–Reinsch and faer's bidiagonal QR are different algorithms with
+  different sign conventions; each is pinned to its own upstream.
+- **Pinned bit for bit against faer's compiled code** (dev-dependency):
+  `tests/faer_dense_svd_vs_faer.rs`, 0 differing bits over 6 134 blender
+  covariances (`reference-data/faer/`; **plus, since gh #1002 made
+  outram-blender's suite deterministic on 2026-10-20, its 3 586 re-captured
+  covariances, also 0**), 26 000 random matrices of orders
+  1..=16 and 17 structured cases. Two negative controls (lane-sum order,
+  unfused multiply-add) fail it by thousands of cases, so the gate can fail.
+- **The lane model is the point.** Do not "simplify" `simd.rs`: which lane an
+  element sits in, which accumulator a chunk feeds, the fused multiply-adds and
+  `(l0 + l2) + (l1 + l3)` are what make it bit-identical. No `core::arch`, no
+  CPU detection: the same bits on every target, equal to faer's on an
+  AVX2+FMA x86-64; faer itself on AVX-512, aarch64 or SSE-only x86 may differ
+  in the last bits.
+- **Scope:** square, `1 <= n <= 16` (faer's Householder block size is 1
+  there); larger `n` returns `Invalid` rather than running a different path.
+  Errors: non-finite bidiagonal -> `Domain`, iteration budget -> `MaxIterations`
+  (faer returns `NoConvergence` for both).
+- **Its `n = 3` path has an `f32` WGSL twin** (gh #1005, 2026-10-20):
+  `wgsl/shaders/svd3.wgsl` and `wgsl::mirror_svd3`, a transcription of
+  `faer_dense::svd3` plus the Kabsch sign fix, for `outram-blender`'s
+  opt-in GPU ARAP. Scalar reductions replace the lane model, so it is judged
+  by rotation angle against a derived budget (`mirror_svd3::angle_budget`),
+  not bit-identity. If `svd.rs` changes, change the shader and mirror with
+  it.
+
 **`peroxide` as a DEPENDENCY remains ruled out** (it pulls
 `blas`/`lapack`/`netcdf`/`arrow`, which the "Dependencies" section below
 forbids). That is a separate question from porting a pure-Rust routine out of
@@ -459,6 +499,23 @@ The `allow` is required, not sloppiness: under a `std`-linked build (`cargo
 test`) `f64`'s inherent methods shadow the trait ones and the import reads as
 unused. Do not "clean it up".
 
+**Call it as UFCS, `Real::exp(x)`, never `x.exp()` (gh #1001, 2026-10-20).**
+~~The shadowing happens only under `cargo test`.~~ **CORRECTED:** it happens in
+ANY build where some crate in petir's graph links `std`, which is nearly every
+real graph (`num-traits/std` arrives through `uom`; `faer`, a dev-dependency
+since #994, turns it on for every `cargo test -p petir`). An inherent method
+always beats a trait method, so `alpha.hypot(xnorm)` silently called glibc's
+`hypot`; the compiled rlib imported 95 C maths symbols. It also means every
+number a petir UNIT test (`cfg(test)`, std-linked) measured through a method
+call before 2026-10-20 went through the platform libm, not the shipped route;
+the four that failed after the fix were corrected (gh #1001), the prose of the
+others is not re-checked (follow-up issue). `crates/petir/clippy.toml` forbids
+the method form of every `Real` method that std also defines except `floor`,
+`ceil`, `round`, `trunc`, `fract` and `rem_euclid` (exact, NaN-transparent);
+the lint only fires with std in the graph, so run
+`scripts/check-std-shadowing.sh` (below) after touching numerics. `RealMath`'s
+`r_` names cannot be shadowed and are fine as methods.
+
 ## The `uom` carve-out — narrow, and keep it narrow
 
 The epic says raw `f64`. That holds for `linalg`, `poly`, `specfunc` and
@@ -511,6 +568,37 @@ step. **Bump both in the same change.**~~ **CORRECTED 2026-10-20 (gh:#985):**
 (`default-features = false`). Inheritance still only adds features, so the
 root line must never list `std`; `tests/dependency_policy.rs` checks that, and
 that PETIR inherits rather than pins.
+
+### PETIR's bits must not depend on the build graph (gh #1001, 2026-10-20)
+
+Maintainer direction: bit-identical across builds, not "within tolerance".
+Two things in the graph used to change PETIR's output, and both are now
+guarded:
+
+- **`std` anywhere in the graph** (see "Float maths goes through
+  `crate::real::Real`" above): fixed by UFCS, 595 call sites in 61 files.
+- **`libm`'s `arch` feature**, which feature unification turns on (`faer`,
+  `naga` and most graphs enable libm's default features). On x86-64 it swaps
+  `sqrt`/`sqrtf`/`fma`/`fmaf` between the instruction and software. Finite
+  results are identical (0 differences in 10 million `sqrt` and `fma` inputs),
+  but the NaN generated by `sqrt(-1)` or an invalid `fma` is `0xfff8...` from
+  the instruction and `0x7ff8...` from software. `Real::sqrt` and
+  `Real::mul_add` (both widths) return one canonical NaN, x86's default
+  `0xfff8_0000_0000_0000` / `0xffc0_0000`, which is also what the committed
+  GSL references hold (40 `-nan` in the SVD reference).
+  gh #1001 first blamed `arch` for the `eigen_nonsymm` regression; that was
+  measured and ruled out (the test passes with `arch` on and `faer` absent):
+  the regression was the `std` shadowing.
+
+**The guard.** `tests/std_shadowing_digest.rs` pins bit-exact digests of
+seven groups of public routes (hypot, linalg, poly, specfunc, WGSL mirrors,
+transfer functions, deriv/integration/ode), NaNs included. `cargo test`
+always has `std` in the graph, so it cannot build the std-free graph;
+`scripts/check-std-shadowing.sh` does (shell, needs `nm`): the clippy lint
+with std forced in, the same digests from a throwaway crate in four graphs
+(num-traits `std` on/off x libm `arch` / `force-soft-floats`), and an `nm`
+check that the std-present rlib imports no inexact C maths routine. Run it
+after touching numerics; all four graphs must print the pinned digests.
 
 Nothing may be added that pulls system BLAS/LAPACK, a C or Fortran toolchain,
 `std`, threads, or an allocator beyond `alloc`. No `rayon` — callers parallelise

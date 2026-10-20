@@ -144,7 +144,7 @@ fn series_2_raw(r: f32) -> f32 {
 fn series_2_accelerated(x: f32, cut: f32) -> f32 {
     let s = series_2_raw(x);
     let t = if x > cut {
-        (1.0 - x) * (1.0 - x).ln() / x
+        (1.0 - x) * Real::ln(1.0 - x) / x
     } else {
         let t68 = 1.0 / 6.0 + x * (1.0 / 7.0 + x * (1.0 / 8.0));
         let t38 = 1.0 / 3.0 + x * (1.0 / 4.0 + x * (1.0 / 5.0 + x * t68));
@@ -156,15 +156,15 @@ fn series_2_accelerated(x: f32, cut: f32) -> f32 {
 /// `Li_2(x)` for `x >= 0`, seven branches. Mirrors `petir_dilog_xge0`.
 fn dilog_xge0(x: f32, cut: f32) -> f32 {
     if x > 2.0 {
-        let log_x = x.ln();
+        let log_x = Real::ln(x);
         PI2_OVER_3 - series_2_accelerated(1.0 / x, cut) - 0.5 * log_x * log_x
     } else if x > 1.01 {
-        let log_x = x.ln();
-        let log_term = log_x * ((1.0 - 1.0 / x).ln() + 0.5 * log_x);
+        let log_x = Real::ln(x);
+        let log_term = log_x * (Real::ln(1.0 - 1.0 / x) + 0.5 * log_x);
         ZETA2 + series_2_accelerated(1.0 - 1.0 / x, cut) - log_term
     } else if x > 1.0 {
         let eps = x - 1.0;
-        let lne = eps.ln();
+        let lne = Real::ln(eps);
         let c1 = 1.0 - lne;
         let c2 = -(1.0 - 2.0 * lne) / 4.0;
         let c3 = (1.0 - 3.0 * lne) / 9.0;
@@ -185,8 +185,8 @@ fn dilog_xge0(x: f32, cut: f32) -> f32 {
     } else if x == 1.0 {
         ZETA2
     } else if x > 0.5 {
-        let log_x = x.ln();
-        ZETA2 - series_2_accelerated(1.0 - x, cut) - log_x * (1.0 - x).ln()
+        let log_x = Real::ln(x);
+        ZETA2 - series_2_accelerated(1.0 - x, cut) - log_x * Real::ln(1.0 - x)
     } else if x > 0.25 {
         series_2_accelerated(x, cut)
     } else if x > 0.0 {

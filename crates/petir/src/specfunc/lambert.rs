@@ -148,7 +148,7 @@ fn series_eval(r: f64) -> f64 {
 fn halley(x: f64, w_initial: f64, max_iters: u32) -> f64 {
     let mut w = w_initial;
     for _ in 0..max_iters {
-        let e = w.exp();
+        let e = Real::exp(w);
         let p = w + 1.0;
         let mut t = w * e - x;
         if w > 0.0 {
@@ -196,18 +196,18 @@ pub fn lambert_w0(x: f64) -> f64 {
         -1.0
     } else if q < 1.0e-3 {
         // Series near -1/e in sqrt(q).
-        series_eval(q.sqrt())
+        series_eval(Real::sqrt(q))
     } else {
         let w = if x < 1.0 {
             // Initial guess from the series near x = 0. No extra care needed:
             // Halley converges nicely on this branch.
-            let p = (2.0 * core::f64::consts::E * q).sqrt();
+            let p = Real::sqrt(2.0 * core::f64::consts::E * q);
             -1.0 + p * (1.0 + p * (-1.0 / 3.0 + p * 11.0 / 72.0))
         } else {
             // Rough asymptotic.
-            let mut w = x.ln();
+            let mut w = Real::ln(x);
             if x > 3.0 {
-                w -= w.ln();
+                w -= Real::ln(w);
             }
             w
         };
@@ -256,15 +256,15 @@ pub fn lambert_wm1(x: f64) -> f64 {
         // point. Upstream bails out here when q is small, because Halley
         // converges badly in finite arithmetic when p is near zero and the
         // increment alternates.
-        let v = series_eval(-q.sqrt());
+        let v = series_eval(-Real::sqrt(q));
         if q < 3.0e-3 {
             return v;
         }
         w = v;
     } else {
         // Asymptotic near zero.
-        let l1 = (-x).ln();
-        let l2 = (-l1).ln();
+        let l1 = Real::ln(-x);
+        let l2 = Real::ln(-l1);
         w = l1 - l2 + l2 / l1;
     }
     halley(x, w, 32)

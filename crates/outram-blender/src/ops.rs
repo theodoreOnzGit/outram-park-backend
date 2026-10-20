@@ -495,7 +495,8 @@ fn truncate_skeleton(mesh: &Mesh, width: f64) -> TruncSkeleton {
         let map = &links[v];
         let mut ring: Vec<usize> = Vec::new();
         if !map.is_empty() {
-            let start = *map.keys().next().expect("non-empty link map");
+            // Lowest key, not the map's first (randomly seeded, gh #1002).
+            let start = *map.keys().min().expect("non-empty link map");
             let mut cur = start;
             // Bounded by the degree so a non-manifold vertex can't loop forever.
             for _ in 0..=map.len() {

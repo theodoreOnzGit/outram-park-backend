@@ -96,9 +96,9 @@ pub(crate) fn exp_mult(x: f64, y: f64) -> f64 {
         && ay < 0.8 * SQRT_DBL_MAX
         && ay > 1.2 * SQRT_DBL_MIN
     {
-        return y * x.exp();
+        return y * Real::exp(x);
     }
-    let ly = ay.ln();
+    let ly = Real::ln(ay);
     let lnr = x + ly;
     if lnr > LOG_DBL_MAX - 0.01 {
         return if y < 0.0 {
@@ -115,7 +115,7 @@ pub(crate) fn exp_mult(x: f64, y: f64) -> f64 {
     let n = ly.floor();
     let a = x - m;
     let b = ly - n;
-    sy * (m + n).exp() * (a + b).exp()
+    sy * Real::exp(m + n) * Real::exp(a + b)
 }
 
 #[cfg(test)]

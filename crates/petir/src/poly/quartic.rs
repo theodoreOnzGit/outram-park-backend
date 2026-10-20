@@ -205,9 +205,9 @@ impl RootSet {
 #[inline]
 fn cbrt(x: f64) -> f64 {
     if x < 0.0 {
-        -(-x).powf(1.0 / 3.0)
+        -Real::powf(-x, 1.0 / 3.0)
     } else {
-        x.powf(1.0 / 3.0)
+        Real::powf(x, 1.0 / 3.0)
     }
 }
 
@@ -247,7 +247,7 @@ pub fn roots_quadratic(a2: f64, a1: f64, a0: f64) -> RootSet {
         return RootSet::One([-a1 / a2x2]);
     }
 
-    let sq = discriminant.sqrt();
+    let sq = Real::sqrt(discriminant);
     let (same_sign, diff_sign) = if a1 < 0.0 {
         (-a1 + sq, -a1 - sq)
     } else {
@@ -287,13 +287,13 @@ pub fn roots_cubic_normalized(a2: f64, a1: f64, a0: f64) -> RootSet {
     let a2_div_3 = a2 / 3.0;
 
     if d < 0.0 {
-        let phi_3 = (r / (-q3).sqrt()).acos() / 3.0;
-        let sqrt_q_2 = 2.0 * (-q).sqrt();
-        RootSet::One([sqrt_q_2 * phi_3.cos() - a2_div_3])
-            .add_root(sqrt_q_2 * (phi_3 - TWO_THIRD_PI).cos() - a2_div_3)
-            .add_root(sqrt_q_2 * (phi_3 + TWO_THIRD_PI).cos() - a2_div_3)
+        let phi_3 = Real::acos(r / Real::sqrt(-q3)) / 3.0;
+        let sqrt_q_2 = 2.0 * Real::sqrt(-q);
+        RootSet::One([sqrt_q_2 * Real::cos(phi_3) - a2_div_3])
+            .add_root(sqrt_q_2 * Real::cos(phi_3 - TWO_THIRD_PI) - a2_div_3)
+            .add_root(sqrt_q_2 * Real::cos(phi_3 + TWO_THIRD_PI) - a2_div_3)
     } else {
-        let sqrt_d = d.sqrt();
+        let sqrt_d = Real::sqrt(d);
         let s = cbrt(r + sqrt_d);
         let t = cbrt(r - sqrt_d);
 
@@ -320,7 +320,7 @@ pub fn roots_biquadratic(a4: f64, a2: f64, a0: f64) -> RootSet {
     let mut roots = RootSet::None;
     for &x in roots_quadratic(a4, a2, a0).as_slice() {
         if x > 0.0 {
-            let sqrt_x = x.sqrt();
+            let sqrt_x = Real::sqrt(x);
             roots = roots.add_root(-sqrt_x).add_root(sqrt_x);
         } else if x == 0.0 {
             roots = roots.add_root(0.0);
@@ -360,7 +360,7 @@ pub fn roots_quartic_depressed(a2: f64, a1: f64, a0: f64) -> RootSet {
 
     let a2_plus_2y = a2 + 2.0 * y;
     if a2_plus_2y > 0.0 {
-        let sqrt_a2_plus_2y = a2_plus_2y.sqrt();
+        let sqrt_a2_plus_2y = Real::sqrt(a2_plus_2y);
         let q0a = a2 + y - a1_div_2 / sqrt_a2_plus_2y;
         let q0b = a2 + y + a1_div_2 / sqrt_a2_plus_2y;
 

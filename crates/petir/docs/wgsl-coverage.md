@@ -95,6 +95,7 @@ and stays there.
 | `randist` | 102 | PORTABLE | samplers; needs the RNG below |
 | `rng` / `qrng` | 28 | PORTABLE | GSL's own generators (`mt19937`, `ranlxd`, ...) and the quasi-random sequences are not ported. ~~`outram-mc-libs` already has an LCG in WGSL~~ **CORRECTED 2026-10-02**: that LCG now lives here — see the OpenMC 64-bit LCG row below |
 | — OpenMC 64-bit LCG | — | **PORTED** (state advance) | not a GSL module: `lcg.wgsl` transcribes `petir::rng::lcg` (OpenMC `src/random_lcg.cpp`), moved here from two inline copies in `outram-mc-libs`' batched kernels on 2026-10-02. Integer state **bit-exact** against `future_seed(1, .)` — pinned off-device by `mirror_lcg`'s tests and on a device by `outram-mc-libs/tests/gpu_lcg_advance_directly.rs`. The `f32` uniform is the raw top 24 bits, **not** the CPU's PCG-permuted `prn`; the shader header measures why that is still sound |
+| — faer 3 x 3 SVD / closest rotation | — | **PORTED** (`n = 3`) | not a GSL module: `svd3.wgsl` transcribes `petir::faer_dense::svd3` (faer 0.24.4, MIT) specialised to `n = 3`, plus the Kabsch sign fix, for `outram-blender`'s ARAP local step (gh #1005, 2026-10-20). `f32` CPU mirror `mirror_svd3`, naga validation in `tests/wgsl_validation.rs`, GPU dispatch test in `tests/wgsl_gpu.rs`. Scalar left-to-right reductions replace faer's SIMD lanes, so the mirror is not bit-identical to the `f64` port by construction; judged by rotation angle against a derived budget: worst 4.6e-7 rad on the 3 586 blender covariances, 2.7e-5 rad on 20 000 random matrices, worst angle/budget 5.2e-3 |
 | `fft` | 76 | PORTABLE | a classic GPU workload; multi-dispatch |
 | `complex` | 59 | PORTABLE | as `vec2<f32>`; WGSL has no complex type |
 | `const` | — | PORTABLE | constants only |
@@ -183,7 +184,7 @@ Measured so far, on `llvmpipe (LLVM 20.1.2, 256 bits)`:
 | `Ti_2` | 1.444e-07 | 1.595e-07 |
 | `Li_2`, inversion branch (`x > 2`) | — | 5.710e-06, at `Li_2`'s zero |
 | `I_0` / `I_1` | 1.821e-06 / 1.761e-06 | 1.576e-07 / 1.748e-07 |
-| `K_0` / `K_1` | 2.242e-07 / 2.812e-07 | 1.629e-07 / 1.736e-07 |
+| `K_0` / `K_1` | 2.242e-07 / 2.812e-07 | ~~1.629e-07~~ **1.605e-07** (re-measured through `libm`, 2026-10-20, gh #1003) / 1.736e-07 |
 | `J_0` / `J_1` | 2.246e-07 / 5.695e-07 | 2.744e-06 / 7.354e-06 (at the zeros) |
 | `Y_0` / `Y_1` | 3.980e-07 / 3.329e-07 | 1.288e-05 / 2.786e-05 (at the zeros) |
 | BLAS L1 (`dot`, `nrm2`, `asum`, `iamax`) | **0** bit-identical | — |
@@ -416,17 +417,32 @@ it inward can only take away answers the hardware was willing to give. Every
 row above is asserted in `mirror_synchrotron`'s
 `the_range_guard_is_kept_because_retargeting_it_discards_answers`.
 
-**Its `f32` cost — 6.1e-04, three orders worse than any other kernel here —
+**Its `f32` cost — ~~6.1e-04~~ 6.8e-04 (re-measured through `libm`, 2026-10-20; the 6.1e-04 went through glibc's `powf`, gh #1001), three orders worse than any other kernel here —
 is upstream's cancellation, not this transcription.** On `x <= 4` GSL
 evaluates `S_1` as `x^{1/3} C_1 - x^{11/3} C_2 - (pi/sqrt 3) x`, three terms
 that grow while the answer falls: at `x = 4` the largest is **1124 times the
 result** for `S_1` and **1637 times** for `S_2`. That costs about `log2 R`
 bits, leaving `f32` roughly 13, which is the 1e-4 observed. `f64` runs the
 identical cancellation with 29 more bits to spend. Away from that boundary
-the mirror is ordinary — 8.6e-07 on the small-argument branch, 6.4e-05 on the
-exponential tail. `the_f32_cost_is_cancellation_at_the_branch_boundary`
-asserts the error tracks the measured cancellation ratio, so a real
-transcription defect would still fail it.
+the mirror is ordinary — 8.6e-07 on the small-argument branch, ~~6.4e-05 on the
+exponential tail~~ **8.2e-07 on the exponential tail (CORRECTED 2026-10-20, gh
+#1003: the 6.4e-05 was the point `x = 4` itself, which belongs to the
+cancelling branch)**. `the_f32_cost_is_what_it_was_measured_to_be` now holds
+every probe on `[1e-6, 100]` to a derived **log-error** budget per branch
+(worst 0.834, `S_2`'s small branch, where upstream's two-term form leaves out
+`3x^2/4`), and the Fermi-Dirac (`F_0`, `F_{1/2}`, `F_{3/2}`, worst 0.971 at
+`F_0`'s branch cut) and Bessel (`I_0`, `I_1`, `K_0`, `K_1`, worst 0.563)
+mirrors' cost tests do the same, each with a negative control
+(`wgsl::log_budget`). `the_f32_cost_is_cancellation_at_the_branch_boundary`
+~~asserts the error tracks the measured cancellation ratio, so a real
+transcription defect would still fail it.~~ **CORRECTED 2026-10-20 (gh
+#1003):** the old metric (relative error under 4 times the cancellation
+ratio) used a factor that was measured through glibc's `powf`, and failed at
+4.12 through the shipped `libm::powf`. The test now measures the **log
+error** `|ln S_f32 - ln S_f64|` against a budget derived by propagating each
+term's log error (`x^{11/3}` carries eleven times `x^{1/3}`'s) through the
+Clenshaw sums and the cancelling sum. Worst measured 0.380 of the budget over
+100 007 points; a `px` three ulps off breaches it (negative control).
 
 **The Fermi-Dirac integrals add the seventh and eighth kinds, and the eighth
 is the first one that is not a choice at all.**
