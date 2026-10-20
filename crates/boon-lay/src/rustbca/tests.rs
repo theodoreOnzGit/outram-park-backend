@@ -17,7 +17,7 @@ use super::*;
 #[cfg(test)]
 use float_cmp::*;
 #[cfg(test)]
-use rand::RngExt;
+use petir::rng::RngExt; // boon-lay (gh:#995): was rand::RngExt
 
 #[test]
 fn test_spherical_geometry() {

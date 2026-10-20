@@ -567,6 +567,40 @@ PRIOR ART IN RUST — ACKNOWLEDGEMENT
   above.
 
 ================================================================================
+DERIVED WORK — rand, rand_core, rand_distr and chacha20 (random numbers)
+================================================================================
+
+`src/rng/traits.rs`, `src/rng/chacha.rs`, `src/rng/uniform.rs`,
+`src/rng/normal.rs` and `src/rng/ziggurat_tables.rs` port the pieces of the
+Rand project's crates (and RustCrypto's `chacha20`, which `rand` re-exports
+as `rand::rngs::ChaCha8Rng`) that boon-lay's RustBCA copy used. Read from
+the crates.io registry copies of the exact versions boon-lay's `Cargo.lock`
+pinned on 2026-10-20. Ported at the maintainer's direction recorded on
+GitHub issue #995 (2026-10-20). Each file's header carries the full MIT
+notice and the copyright lines of the files it was ported from.
+
+  Project    : rand 0.10.3, rand_core 0.10.1, rand_distr 0.6.0
+  Upstream   : https://github.com/rust-random/rand,
+               https://github.com/rust-random/rand_core,
+               https://github.com/rust-random/rand_distr
+  Licence    : MIT OR Apache-2.0 (used here under MIT)
+  Copyright  : rand_core LICENSE-MIT: "Copyright (c) 2018-2026 The Rand
+               Project Developers"; rand LICENSE-MIT: "Copyright 2018
+               Developers of the Rand project", "Copyright (c) 2014 The Rust
+               Project Developers"; rand_distr LICENSE-MIT: "Copyright 2018
+               Developers of the Rand project"; plus "The Rust Project
+               Developers" (2013, 2013-2017, 2017) in individual file headers.
+
+  Project    : chacha20 0.10.2
+  Upstream   : https://github.com/RustCrypto/stream-ciphers
+  Licence    : MIT OR Apache-2.0 (used here under MIT)
+  Copyright  : "Copyright (c) 2019-2026 The RustCrypto Project Developers"
+
+  MIT is permissive and compatible with this crate's licence; the flow is
+  ONE-WAY. `ziggurat_tables.rs` is a verbatim data lift; the rest is ported
+  with the deviations listed in each file (none changes an output).
+
+================================================================================
 NOT AFFILIATED
 ================================================================================
 

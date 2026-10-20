@@ -219,22 +219,21 @@ thiserror = "2.0.18"
 # petir (which inherits this entry) would link std, breaking its no_std build.
 uom = { version = "0.38.0", default-features = false, features = ["autoconvert", "f32", "f64", "si"] }
 # boon-lay's copy of RustBCA (gh:#876 item 7; src/rustbca/). Versions are
-# upstream RustBCA v3.0.0's. rand and rand_distr carry default-features =
-# false here because inheritance can only ADD features: boon-lay turns on
-# `chacha` + `alloc` for the no_std core, and rand's `thread_rng` (entropy
-# seeding, pulls getrandom 0.4) only under its `rustbca-std` feature.
-# rand_distr without `std` does its float maths through num-traits' libm.
+# upstream RustBCA v3.0.0's. ~~rand and rand_distr~~ REMOVED 2026-10-20
+# (gh:#995): the pieces RustBCA used are ported into `petir::rng`, draw for
+# draw (crates/petir/tests/rng_vs_rand.rs), and nothing else in the workspace
+# depended on them directly.
 # geo, indicatif, itertools: std-only, behind `rustbca-std` (geo also a
 # dev-dependency so upstream's Mesh2D tests run). float-cmp: upstream's test
-# assertions. Licences: rand, rand_distr, geo, itertools MIT OR Apache-2.0;
+# assertions. Licences: geo, itertools MIT OR Apache-2.0;
 # indicatif MIT; float-cmp MIT -- all GPLv3-compatible.
-rand = { version = "0.10.3", default-features = false }
-rand_distr = { version = "0.6.0", default-features = false }
 geo = "0.25.1"
 indicatif = "0.18.6"
 itertools = "0.15.0"
 float-cmp = "0.10.0"
-# getrandom is never used directly by this workspace — it arrives transitively
+# ~~getrandom is never used directly by this workspace~~ CORRECTED 2026-10-20
+# (gh:#995): boon-lay's `rustbca-std` feature calls it directly for RustBCA's
+# entropy seed (it was rand's thread_rng). Otherwise it arrives transitively
 # via `peroxide` (which depends on `rand` unconditionally, with no feature to
 # switch it off) and via `uuid`. It is pinned here only so the crates that need
 # a wasm build can enable its `wasm_js` backend feature; see

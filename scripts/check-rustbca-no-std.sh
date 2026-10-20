@@ -6,8 +6,8 @@
 # (for any target, wasm32-unknown-unknown included, which HAS std) cannot show
 # that the module avoids std. Here the tree is mounted with #[path] inside a
 # throwaway `#![no_std]` crate whose only dependencies are the no_std ones the
-# module declares (rand + rand_distr without default features, petir, serde,
-# anyhow), so any `std::` path, `println!`, LazyLock, or f64 method that only
+# module declares (petir, whose `rng` replaced rand + rand_distr in gh:#995,
+# serde, anyhow), so any `std::` path, `println!`, LazyLock, or f64 method that only
 # std provides fails to compile. The `rustbca-std` feature is declared but never
 # enabled, so the std-gated layer is compiled out exactly as in boon-lay's
 # default build.
@@ -30,8 +30,8 @@ mkdir -p "$H/src"
 ver() { # version string of a root [workspace.dependencies] entry
     sed -n "s/^$1 = { *version = \"\([^\"]*\)\".*/\1/p; s/^$1 = \"\([^\"]*\)\".*/\1/p" "$ROOT/Cargo.toml" | head -n1
 }
-RAND="$(ver rand)"; RAND_DISTR="$(ver rand_distr)"; SERDE="$(ver serde)"; ANYHOW="$(ver anyhow)"
-for v in RAND RAND_DISTR SERDE ANYHOW; do
+SERDE="$(ver serde)"; ANYHOW="$(ver anyhow)"
+for v in SERDE ANYHOW; do
     [ -n "${!v}" ] || { echo "could not read the $v version from $ROOT/Cargo.toml" >&2; exit 2; }
 done
 
@@ -53,8 +53,6 @@ rustbca-std = []
 
 [dependencies]
 petir = { path = "$ROOT/crates/petir", default-features = false }
-rand = { version = "$RAND", default-features = false, features = ["chacha", "alloc"] }
-rand_distr = { version = "$RAND_DISTR", default-features = false, features = ["alloc"] }
 serde = { version = "$SERDE", default-features = false, features = ["derive", "alloc"] }
 anyhow = { version = "$ANYHOW", default-features = false }
 EOF
