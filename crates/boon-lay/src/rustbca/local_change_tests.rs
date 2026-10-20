@@ -192,7 +192,8 @@ fn std_only_constructs_are_gated() {
             }
             let inside_gate = gate_depth.is_some() || pending_gate;
             let std_use = code.contains("std::") && !code.contains("core::") || code.contains("println!")
-                || code.contains("rand::random") || code.contains("rand::rng()");
+                || code.contains("rand::random") || code.contains("rand::rng()")
+                || code.contains("getrandom::");
             if std_use && !inside_gate {
                 offenders.push(format!("{file}:{}: ungated std use: {}", n + 1, line.trim()));
             }
@@ -239,12 +240,30 @@ fn entropy_seed_panics_without_std() {
     let _ = entropy_seed();
 }
 
-/// With `rustbca-std` it is upstream's `rand::random()`: two draws differ
-/// (a 2^-64 chance of a false failure).
+/// With `rustbca-std` it is an OS-entropy `u64` (upstream: `rand::random()`;
+/// `getrandom` since gh:#995): two draws differ (a 2^-64 chance of a false
+/// failure). The same for the 32-byte seed `simple_bca` uses.
 #[cfg(feature = "rustbca-std")]
 #[test]
 fn entropy_seed_draws_from_entropy_with_std() {
     assert_ne!(entropy_seed(), entropy_seed());
+    assert_ne!(entropy_seed_bytes(), entropy_seed_bytes());
+}
+
+/// Local change 12 (gh:#995): no `rand` or `rand_distr` path remains in the
+/// copy; the generator and the distributions are `petir::rng`'s.
+#[test]
+fn no_rand_crate_paths_remain() {
+    let mut offenders = Vec::new();
+    for (file, src) in SOURCES {
+        for (n, line) in src.lines().enumerate() {
+            let code = code_of(line);
+            if code.contains("rand::") || code.contains("rand_distr") || code.contains("rand_core") {
+                offenders.push(format!("{file}:{}: {}", n + 1, line.trim()));
+            }
+        }
+    }
+    assert!(offenders.is_empty(), "rand paths left in the RustBCA copy:\n{}", offenders.join("\n"));
 }
 
 // ---------------------------------------------------------------------------
@@ -297,6 +316,59 @@ fn same_seed_gives_a_bit_identical_cascade() {
     let c = alpha_cascade_bits(20261017);
     assert_ne!(a, c);
 }
+
+// ---------------------------------------------------------------------------
+// Local change 12 (gh:#995): the RNG is petir::rng, not rand. Seeded results
+// are pinned to the bits the rand 0.10.3 / rand_distr 0.6.0 build produced.
+// ---------------------------------------------------------------------------
+
+/// FNV-1a 64 over the little-endian bytes of each value.
+fn fnv(values: impl IntoIterator<Item = u64>) -> u64 {
+    let mut h: u64 = 0xcbf2_9ce4_8422_2325;
+    for v in values {
+        for b in v.to_le_bytes() {
+            h ^= u64::from(b);
+            h = h.wrapping_mul(0x0000_0100_0000_01b3);
+        }
+    }
+    h
+}
+
+/// Every output particle of the 200 keV alpha cascade above, for three
+/// seeds, digested bit for bit, and the particle counts.
+///
+/// **Methodology.** The digests and counts were printed by this test on the
+/// base commit `38ce4d6c59`, where the copy still drew from `rand` 0.10.3
+/// (`ChaCha8Rng`, `random::<f64>()`), before the switch to `petir::rng`
+/// (gh:#995). Pass criterion: identical after the switch. A cascade draws
+/// thousands of `random::<f64>()` (azimuths, free-flight paths, collision
+/// partners), so any difference in the generator or in the float sampling
+/// changes the digest.
+///
+/// **Prediction (written before the switch):** identical, since PETIR's
+/// streams equal `rand`'s draw for draw and a cascade samples no `Normal`.
+///
+/// **Result (2026-10-20, after the switch to `petir::rng`):** identical, all
+/// three (781, 1379 and 765 particles).
+#[test]
+fn seeded_cascades_are_pinned_across_the_rng_swap() {
+    let got: Vec<(u64, usize, u64)> = [20261016u64, 1, 876]
+        .into_iter()
+        .map(|seed| {
+            let bits = alpha_cascade_bits(seed);
+            (seed, bits.len(), fnv(bits.iter().flatten().copied()))
+        })
+        .collect();
+    assert_eq!(got, PINNED_CASCADES, "seeded cascades moved: (seed, particles, digest)");
+}
+
+/// (seed, output particles, FNV-1a digest of their bits), printed on the
+/// `rand` build at `38ce4d6c59`.
+const PINNED_CASCADES: [(u64, usize, u64); 3] = [
+    (20261016, 781, 0x8dd8977ae396a0a6),
+    (1, 1379, 0x41e22a89f017be61),
+    (876, 765, 0xfcfb6a23de5aa8d1),
+];
 
 // ---------------------------------------------------------------------------
 // Local change 8: the std layer still works, with the workspace's toml 0.8.
@@ -386,3 +458,101 @@ bulk_binding_model = "AVERAGE"
     assert_eq!(finished.len(), 20);
     assert!(finished.iter().all(|p| p.incident && p.Z == 2.0));
 }
+
+/// The `rustbca-std` path the alpha test cannot reach: `process_input_file`
+/// sampling `UNIFORM` and `NORMAL` particle distributions (`Uniform<f64>`,
+/// `Normal<f64>`) from `seed_from_u64(7)`, then `silent_physics_loop`, which
+/// gives each particle its own stream with `set_stream`.
+///
+/// **Methodology.** 20 000 helium ions with a normal energy (2000 eV, sd
+/// 300 eV), a uniform-and-normal birth point and a uniform-and-normal
+/// direction, so the sampler makes 60 000 normal draws (about 16 of them in
+/// the ziggurat tail) and 60 000 uniform ones. The inputs are digested, then
+/// the first 40 are run with recoils off and their outputs digested (sorted,
+/// so the digest does not depend on thread scheduling). The constants were
+/// printed on the base commit `38ce4d6c59` (`rand` 0.10.3, `rand_distr`
+/// 0.6.0, whose `exp`/`ln` there were glibc's because `num-traits/std` was
+/// unified on). Pass criterion: identical after the switch to `petir::rng`.
+///
+/// **Prediction (written before the switch):** identical with about 93 %
+/// probability. The ~16 tail draws among the 60 000 normal ones each have a
+/// ~0.45 % chance of differing by 1 ulp (glibc `ln` before, `libm` after;
+/// measured in `petir/tests/rng_vs_rand.rs`), which would move only the
+/// input digest.
+///
+/// **Result (2026-10-20, after the switch to `petir::rng`):** identical,
+/// inputs and outputs (40 particles).
+#[cfg(all(feature = "rustbca-std", not(target_arch = "wasm32")))]
+#[test]
+fn seeded_input_sampling_and_physics_loop_are_pinned_across_the_rng_swap() {
+    let toml_text = r#"
+[options]
+name = "pin"
+track_trajectories = false
+track_recoils = false
+track_recoil_trajectories = false
+write_buffer_size = 8000
+weak_collision_order = 3
+suppress_deep_recoils = false
+high_energy_free_flight_paths = false
+electronic_stopping_mode = "LOW_ENERGY_NONLOCAL"
+mean_free_path_model = "LIQUID"
+interaction_potential = [["KR_C"]]
+scattering_integral = [["MENDENHALL_WELLER"]]
+root_finder = [[{"NEWTON"={max_iterations=100, tolerance=1E-6}}]]
+num_threads = 1
+num_chunks = 1
+seed = 7
+
+[particle_parameters]
+length_unit = "1e-6"
+energy_unit = "EV"
+mass_unit = "AMU"
+N = [ 20000,]
+m = [ 4.002602,]
+Z = [ 2,]
+E = [ {mean = 2000.0, std = 300.0},]
+Ec = [ 0.01,]
+Es = [ 0.0,]
+interaction_index = [0]
+pos = [ [ {min = -0.001, max = 0.0}, {mean = 0.0, std = 0.01}, {min = -0.01, max = 0.01},],]
+dir = [ [ {min = 0.99, max = 0.999}, {mean = 0.0, std = 0.01}, 0.0,],]
+particle_input_filename = ""
+
+[geometry_input]
+length_unit = "MICRON"
+densities = [ 3.0e+10, 6.0e+10,]
+electronic_stopping_correction_factor = 1.0
+
+[material_parameters]
+energy_unit = "EV"
+mass_unit = "AMU"
+Eb = [ 3.0, 2.58,]
+Es = [ 4.84, 2.58,]
+Ec = [ 3.5, 2.0,]
+Z = [ 22, 8,]
+m = [ 47.867, 15.9994,]
+interaction_index = [0, 0]
+surface_binding_model = {"PLANAR"={calculation="TARGET"}}
+bulk_binding_model = "AVERAGE"
+"#;
+    let input = <Input0D as InputFile>::new(toml_text);
+    let (particles, material, options, units) = input::process_input_file::<Mesh0D>(input);
+    assert_eq!(particles.len(), 20000);
+    let input_digest = fnv(particles.iter().flat_map(|p| {
+        [p.E, p.x, p.y, p.z, p.ux, p.uy, p.uz].map(f64::to_bits)
+    }));
+    let first: Vec<particle::ParticleInput> = particles.into_iter().take(40).collect();
+    let finished = physics::silent_physics_loop(first, material, options, units);
+    let mut out: Vec<[u64; 7]> = finished.iter().map(|p| [p.E.to_bits(), p.pos.x.to_bits(), p.pos.y.to_bits(),
+        p.pos.z.to_bits(), p.dir.x.to_bits(), p.dir.y.to_bits(), p.dir.z.to_bits()]).collect();
+    out.sort_unstable();
+    let output_digest = fnv(out.iter().flatten().copied());
+    assert_eq!((input_digest, finished.len(), output_digest), PINNED_STD_LAYER,
+        "seeded input sampling or physics loop moved: (input digest, outputs, output digest)");
+}
+
+/// (input digest, output particles, output digest), printed on the `rand`
+/// build at `38ce4d6c59`.
+#[cfg(all(feature = "rustbca-std", not(target_arch = "wasm32")))]
+const PINNED_STD_LAYER: (u64, usize, u64) = (0x145b812745bacc63, 40, 0x1b04f995f992001a);

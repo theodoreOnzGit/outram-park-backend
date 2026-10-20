@@ -91,7 +91,8 @@ boon-lay (TRISO release)  ->  sembawang (source term)  ->  changi (dispersion, d
 ```
 
 It depends on `outram-mc-libs` for random numbers. The exception is the
-RustBCA copy, which keeps upstream's `rand` ChaCha8 generator. Decay data are
+RustBCA copy, which keeps upstream's ChaCha8 generator, ~~from `rand`~~ since
+2026-10-20 from `petir::rng`, a draw-for-draw port of it (gh:#995). Decay data are
 ENDF/B-VIII.0, via the `openmc-endf-8-depletion-lib-b` crate.
 
 ## Verification status

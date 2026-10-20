@@ -14,7 +14,7 @@
 //                    (full list: module docs in mod.rs)
 
 use super::*;
-use rand::RngExt;
+use petir::rng::RngExt; // boon-lay (gh:#995): was rand::RngExt
 
 /// Geometrical quantities of binary collision.
 pub struct BinaryCollisionGeometry {
