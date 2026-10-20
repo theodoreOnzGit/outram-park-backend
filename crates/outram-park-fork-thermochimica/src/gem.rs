@@ -198,11 +198,11 @@
 //! the crate `CLAUDE.md`. Not for nuclear facility operation, reactor control,
 //! safety-critical, or licensing decisions. Independent OUTRAM PARK fork.
 
+use petir::mathf::RealMath;
 /// CODATA-2018 molar gas constant `R` \[J/(mol·K)\].
 ///
 /// Used to non-dimensionalise Gibbs energies (`g°/RT`) throughout the solver.
 /// Exact by the 2019 SI redefinition (`R = N_A · k_B`).
-use petir::mathf::RealMath;
 pub const R: f64 = 8.314_462_618_153_24;
 
 /// L1 penalty weight `μ` \[-\] on the atom-balance violation in the line-search

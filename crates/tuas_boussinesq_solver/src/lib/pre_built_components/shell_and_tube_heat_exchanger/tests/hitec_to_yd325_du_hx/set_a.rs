@@ -1,3 +1,6 @@
+#[cfg(test)]
+use petir::mathf::RealMath;
+
 /// shell and tube heat exchanger test set A,
 ///
 /// This is where

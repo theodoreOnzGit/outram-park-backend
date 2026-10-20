@@ -91,6 +91,7 @@
 //! `node --no-warnings scripts/wasi-run.mjs <wasm> --nocapture` from the crate
 //! directory.
 
+use petir::mathf::RealMath;
 use outram_park_fork_coolprop::{conductivity, state_ph, state_pt, viscosity, Fluid, OPCPFluidArray};
 
 use uom::si::area::square_meter;

@@ -65,9 +65,9 @@
 //!   calculations. *Nuclear Science and Engineering, 145*, 279–290 — the
 //!   power-iteration motivation.
 
+use petir::mathf::RealMath;
 /// Sokal's window constant `c`: the window `M` is the smallest with
 /// `M ≥ c·τ(M)`. Fixed in advance at Sokal's recommended `5`.
-use petir::mathf::RealMath;
 pub const SOKAL_WINDOW_C: f64 = 5.0;
 
 /// Lag-`k` sample autocorrelations `ρ_0 = 1, ρ_1, …, ρ_{max_lag}`.

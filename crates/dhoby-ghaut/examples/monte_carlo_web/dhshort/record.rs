@@ -12,9 +12,9 @@
 //! - 2026-10-02: `outram-mc-libs/verification_and_validation/ring_rpt/ring_rpt_vs_openmc.md`.
 //! - 2026-10-05: gh:#582 (delta and CLS only), and the lesson's step 5.
 
+use petir::mathf::RealMath;
 /// One arm of one record: index into [`super::model::TREATMENTS`], `k`, its
 /// σ, and the speed against the record's own delta arm (`None`: not recorded).
-use petir::mathf::RealMath;
 #[derive(Clone, Copy, Debug)]
 pub struct Arm {
     pub t: usize,

@@ -301,7 +301,6 @@ impl Widget for PipeBendVisual {
 
 #[cfg(test)]
 mod tests {
-    use petir::mathf::RealMath;
     use super::*;
 
     fn k(v: f64) -> ThermodynamicTemperature {
@@ -346,7 +345,7 @@ mod tests {
         let pts = b.sector();
         assert_eq!(pts[0], centre, "first point must be the inner corner");
         for p in &pts[1..] {
-            let r = ((p.x - centre.x).r_powi(2) + (p.y - centre.y).r_powi(2)).sqrt();
+            let r = ((p.x - centre.x).powi(2) + (p.y - centre.y).powi(2)).sqrt();
             assert!((r - 40.0).abs() < 1e-3, "arc radius {r}, expected 40.0");
         }
     }
@@ -359,7 +358,7 @@ mod tests {
         let b = bend(Vec2::new(1.0, 0.0), Vec2::new(0.0, -1.0));
         let pts = b.sector();
         let c = b.inner_corner;
-        let ang = |p: &Pos2| (p.y - c.y).r_atan2(p.x - c.x);
+        let ang = |p: &Pos2| (p.y - c.y).atan2(p.x - c.x);
         let mut sweep = (ang(pts.last().unwrap()) - ang(&pts[1])).abs();
         if sweep > std::f32::consts::PI {
             sweep = std::f32::consts::TAU - sweep;
@@ -409,7 +408,7 @@ mod tests {
 
         let dirs = |deg: f32| {
             let a = deg.to_radians();
-            (Vec2::new(1.0, 0.0), Vec2::new(a.r_cos(), -a.r_sin()))
+            (Vec2::new(1.0, 0.0), Vec2::new(a.cos(), -a.sin()))
         };
         let (d_in, d_out) = dirs(270.0);
 

@@ -107,12 +107,12 @@
 //!   departures that turn these ideal-gas values into real-fluid properties
 //!   live in [`crate::thermo::cubic_eos`], not here.
 
+use petir::mathf::RealMath;
 /// Universal gas constant `R` [J/(mol·K)] — CODATA 2018 exact value.
 ///
 /// DWSIM hard-codes the rounded `8.314`; this port uses the exact SI value.
 /// The difference only affects the `-R ln(P/P_ref)` pressure term of the
 /// entropy (≈ 5.6e-5 relative).
-use petir::mathf::RealMath;
 pub const R: f64 = 8.314_462_618_153_24;
 
 /// Ideal-gas heat capacity `Cp0(T)` of a pure compound [J/(mol·K)].

@@ -19,6 +19,7 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+use petir::mathf::RealMath;
 /// Inverse error function.
 ///
 /// Returns `x` such that `erf(x) = y`.  Valid domain: `y ∈ (−1, 1)`.
@@ -29,7 +30,6 @@
 ///
 /// Reference: S. Winitzki, "A handy approximation for the error function and
 /// its inverse", preprint 2008.
-use petir::mathf::RealMath;
 
 pub fn erf_inv(y: f64) -> f64 {
     const A: f64 = 0.147;

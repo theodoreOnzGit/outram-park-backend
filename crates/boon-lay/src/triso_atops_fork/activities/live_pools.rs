@@ -56,8 +56,8 @@
 //! (the ported forms' `C_parent`/`P_parent` are passed as zero by every caller
 //! in this workspace).
 
-/// The three primary-circuit pools and the cumulative leak, in **atoms**.
 use petir::mathf::RealMath;
+/// The three primary-circuit pools and the cumulative leak, in **atoms**.
 #[derive(Debug, Clone, Copy, Default, PartialEq)]
 pub struct PrimaryPools {
     /// Circulating in the coolant.

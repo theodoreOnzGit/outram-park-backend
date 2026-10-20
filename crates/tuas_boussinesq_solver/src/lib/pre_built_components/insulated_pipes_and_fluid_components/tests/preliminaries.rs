@@ -361,7 +361,7 @@ pub fn static_mixer_41_label_6_1_meter_test() {
     let m_cp = mass_flowrate * pipe_fluid.try_get_cp(average_expected_temp).unwrap();
 
     let analytical_outlet_temp_degc = (inlet_temp_degc - ambient_temp_degc)
-        * (-ua / m_cp).r_exp().get::<ratio>()
+        * Ratio::new::<ratio>((-ua / m_cp).value.r_exp()).get::<ratio>()
         + ambient_temp_degc;
 
     // now this is the simulation
@@ -625,7 +625,7 @@ pub fn static_mixer_41_label_6_reduced_insulation_thickness_1_meter_test() {
     let m_cp = mass_flowrate * pipe_fluid.try_get_cp(average_expected_temp).unwrap();
 
     let analytical_outlet_temp_degc = (inlet_temp_degc - ambient_temp_degc)
-        * (-ua / m_cp).r_exp().get::<ratio>()
+        * Ratio::new::<ratio>((-ua / m_cp).value.r_exp()).get::<ratio>()
         + ambient_temp_degc;
 
     // now this is the simulation
@@ -887,7 +887,7 @@ pub fn static_mixer_41_label_6_1_meter_test_reduced_insulation_thickness_ambient
     let m_cp = mass_flowrate * pipe_fluid.try_get_cp(average_expected_temp).unwrap();
 
     let analytical_outlet_temp_degc = (inlet_temp_degc - ambient_temp_degc)
-        * (-ua / m_cp).r_exp().get::<ratio>()
+        * Ratio::new::<ratio>((-ua / m_cp).value.r_exp()).get::<ratio>()
         + ambient_temp_degc;
 
     // now this is the simulation

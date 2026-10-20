@@ -22,9 +22,9 @@
 //! | [`plume_rise_stable_both_formulas`] | — | **divergence**: D6 corrected |
 //! | building wake | cannot run (`TypeError`), marked TO-DO; defect **D5** | [`building_wake_gifford`] is a **divergence** only |
 
+use petir::mathf::RealMath;
 /// Python's `v ** e` on floats: C `pow`, with the exponent hidden from LLVM so
 /// it is not strength-reduced.
-use petir::mathf::RealMath;
 fn pw(v: f64, e: f64) -> f64 {
     v.r_powf(core::hint::black_box(e))
 }

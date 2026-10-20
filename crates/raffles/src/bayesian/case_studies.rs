@@ -55,6 +55,7 @@
 //! the characteristic failure of a poorly-mixing sampler, and it looks like
 //! success from every summary statistic.
 
+use petir::mathf::RealMath;
 /// Force in a 1-degree-of-freedom linear spring: `F = -k * x`.
 ///
 /// - `stiffness` — `k`, in newtons per metre. Physically positive, though
@@ -64,7 +65,6 @@
 ///
 /// Returns the force in newtons. The sign convention is the upstream's: the
 /// restoring force opposes the displacement.
-use petir::mathf::RealMath;
 pub fn spring_force(stiffness: f64, displacement: f64) -> f64 {
     -stiffness * displacement
 }

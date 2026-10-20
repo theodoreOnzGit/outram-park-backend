@@ -132,8 +132,8 @@
 // Named type aliases — SI at the public boundary (crate `CLAUDE.md`).
 // ---------------------------------------------------------------------------
 
-/// Absolute pressure, pascals (Pa). SI.
 use petir::mathf::RealMath;
+/// Absolute pressure, pascals (Pa). SI.
 pub type Pascals = f64;
 /// Absolute temperature, kelvin (K). SI.
 pub type Kelvin = f64;

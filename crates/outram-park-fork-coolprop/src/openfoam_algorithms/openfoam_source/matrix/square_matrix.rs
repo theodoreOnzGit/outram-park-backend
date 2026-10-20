@@ -19,8 +19,8 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
-/// Error type for `SquareMatrix::solve`.
 use petir::mathf::RealMath;
+/// Error type for `SquareMatrix::solve`.
 #[derive(Debug, Clone, PartialEq)]
 pub enum MatrixError {
     /// The matrix is exactly singular: the LU decomposition found a zero pivot

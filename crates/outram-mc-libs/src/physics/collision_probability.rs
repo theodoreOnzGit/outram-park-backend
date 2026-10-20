@@ -121,9 +121,9 @@
 //! was wrong, which is the argument for keeping two independent routes to the
 //! same number even when one of them is "analytic".
 
+use crate::mathf::RealMath;
 /// First-flight collision probabilities of a concentric-sphere cell, already
 /// closed with a white outer boundary.
-use crate::mathf::RealMath;
 #[derive(Debug, Clone, PartialEq)]
 pub struct CollisionProbabilities {
     /// Number of shells (= number of flux regions).

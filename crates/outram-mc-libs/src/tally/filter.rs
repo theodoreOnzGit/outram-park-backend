@@ -1,3 +1,4 @@
+use petir::mathf::RealMath;
 /// Tally filters — constrain which phase-space events are scored.
 ///
 /// C++ source: `src/tallies/filter_*.cpp` (30+ files), `include/openmc/tallies/filter.h`.
@@ -19,7 +20,6 @@
 /// `Vec<Box<dyn Filter>>`, which violated both the "no trait objects" and "no
 /// `Box<T>`" rules and cost the exhaustiveness check that makes adding a filter
 /// safe.
-use petir::mathf::RealMath;
 use super::mesh::MeshKind;
 use crate::geometry::position::{Direction, Position};
 use crate::particle::particle::ParticleType;

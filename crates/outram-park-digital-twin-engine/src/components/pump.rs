@@ -1230,7 +1230,6 @@ impl PumpVisual {
 }
 #[cfg(test)]
 mod tests {
-    use petir::mathf::RealMath;
     use super::*;
     use uom::si::angle::radian;
     use uom::si::angular_velocity::radian_per_second;
@@ -1600,7 +1599,7 @@ mod tests {
     /// really is the tangential discharge of the drawn volute.
     #[test]
     fn the_discharge_leaves_tangentially_and_upwards() {
-        let (sx, sy) = (-CUTWATER_ANGLE.r_sin(), CUTWATER_ANGLE.r_cos());
+        let (sx, sy) = (-CUTWATER_ANGLE.sin(), CUTWATER_ANGLE.cos());
         assert!(sx.abs() < 1e-6, "tangent is not vertical: ({sx}, {sy})");
         assert!(
             sy < -0.999,

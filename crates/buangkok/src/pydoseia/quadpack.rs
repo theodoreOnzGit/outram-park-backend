@@ -38,8 +38,8 @@
 //! differs from SciPy's routine on singular integrands (the `quadpack`-group
 //! mutation test). Petir's `qags` does not have that gap.
 
-/// Machine epsilon, `np.finfo(np.float64).eps` (SciPy's `epmach`).
 use petir::mathf::RealMath;
+/// Machine epsilon, `np.finfo(np.float64).eps` (SciPy's `epmach`).
 const EPMACH: f64 = f64::EPSILON;
 /// Smallest normal positive double (SciPy's `uflow`).
 const UFLOW: f64 = f64::MIN_POSITIVE;

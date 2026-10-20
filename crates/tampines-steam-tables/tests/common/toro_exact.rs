@@ -19,8 +19,8 @@
 
 #![allow(dead_code)]
 
-/// Ratio of specific heats, as in the appbuilder copy.
 use petir::mathf::RealMath;
+/// Ratio of specific heats, as in the appbuilder copy.
 pub const GAMMA: f64 = 1.4;
 
 /// A primitive gas state: density, velocity, pressure. Unit-agnostic — feed a

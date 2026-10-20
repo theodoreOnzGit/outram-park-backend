@@ -1,3 +1,6 @@
+#[cfg(test)]
+use petir::mathf::RealMath;
+
 ///
 /// As mentioned by Du:
 /// 1/U = 1/h_t d_o/d_i + d_o/(2 lambda_w) ln (d_o/d_i)

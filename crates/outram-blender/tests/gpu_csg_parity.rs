@@ -82,12 +82,12 @@
 //! --nocapture` (`GPU_PARITY_DUMP=<dir>` writes both pictures as PNGs).
 
 #![cfg(all(
-use petir::mathf::RealMath;
     feature = "gpu",
     not(target_os = "android"),
     not(target_arch = "wasm32")
 ))]
 
+use petir::mathf::RealMath;
 use outram_blender::csg::cell::{Cell, CellFill, HalfSpaceSense, RegionToken};
 use outram_blender::csg::geometry::Geometry;
 use outram_blender::csg::gpu::flat::{flatten, flatten_with};

@@ -1,3 +1,6 @@
+#[cfg(test)]
+use petir::mathf::RealMath;
+
 /// from Du's paper
 ///
 /// Du, B. C., He, Y. L., Qiu, Y., Liang, Q., & Zhou, Y. P. (2018).

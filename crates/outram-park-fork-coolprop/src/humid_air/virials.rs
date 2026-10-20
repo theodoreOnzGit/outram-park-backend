@@ -26,8 +26,8 @@
 //! third virial `C_mix` in the pure/cross coefficients below (see [`b_mix`],
 //! [`c_mix`]).
 
-/// Second virial coefficient of dry air `B_aa(T)` \[m³/mol\].
 use petir::mathf::RealMath;
+/// Second virial coefficient of dry air `B_aa(T)` \[m³/mol\].
 pub fn b_aa(t: f64) -> f64 {
     -0.000721183853646 + 1.142682674467e-05 * t - 8.838228412173e-08 * t.r_powi(2)
         + 4.104150642775e-10 * t.r_powi(3)

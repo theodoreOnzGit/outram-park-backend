@@ -78,13 +78,13 @@
 //! the overall reaction order, exactly as in DWSIM (which leaves `A` and the
 //! rate's `VelUnit` to the user).
 
+use petir::mathf::RealMath;
 /// Universal gas constant `R` [J/(mol·K)].
 ///
 /// The literal `8.314` matches DWSIM's hard-coded value in the reactor rate
 /// laws (`PFR.vb` line 307, `CSTR.vb` line 711), retained verbatim so the port
 /// reproduces upstream numbers exactly rather than using a more precise CODATA
 /// value.
-use petir::mathf::RealMath;
 pub const R_GAS: f64 = 8.314;
 
 /// The four DWSIM reaction types (`DWSIM.Interfaces/Enums.vb`, `ReactionType`).

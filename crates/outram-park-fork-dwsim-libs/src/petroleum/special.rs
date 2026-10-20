@@ -39,9 +39,9 @@
 //! incomplete gamma. None of those is reached from the petroleum-
 //! characterization code path, so none is ported here.
 
+use petir::mathf::RealMath;
 /// Maximum iterations for the series / continued-fraction evaluations before
 /// giving up and returning the best estimate so far.
-use petir::mathf::RealMath;
 const MAX_ITERATIONS: usize = 300;
 
 /// Relative convergence tolerance for the series / continued fraction.

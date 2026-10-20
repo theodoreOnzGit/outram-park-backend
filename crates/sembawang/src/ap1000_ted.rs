@@ -83,8 +83,8 @@
 //!
 //! Pinned by `tests::digitised_peaks_match_table_3_within_one_pixel`.
 
-/// The digitised Fig. 7 series, verbatim (see the CSV header).
 use petir::mathf::RealMath;
+/// The digitised Fig. 7 series, verbatim (see the CSV header).
 const FIG7_CSV: &str =
     include_str!("../reference/lwr/dadda2024_fig7_ap1000_centreline_ted_apr_aug.csv");
 

@@ -1,7 +1,7 @@
+use petir::mathf::RealMath;
 /// Angular source distributions.
 ///
 /// C++ source: `src/distribution_angle.cpp`, `include/openmc/distribution_angle.h`.
-use petir::mathf::RealMath;
 use crate::geometry::position::Direction;
 
 /// Trait for angular distributions.

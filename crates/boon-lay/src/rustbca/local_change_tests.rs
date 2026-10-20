@@ -6,7 +6,6 @@
 
 //! Tests of boon-lay's local changes to the RustBCA copy (**not upstream**).
 
-use petir::mathf::RealMath;
 use super::*;
 
 // ---------------------------------------------------------------------------
@@ -150,7 +149,7 @@ fn no_transcendental_method_calls_remain() {
             let code = code_of(line);
             for name in names {
                 let pat = format!(".{name}(");
-                // `Real::exp(` is the routed form; `.r_exp(` preceded by `Real:` cannot occur.
+                // `Real::exp(` is the routed form; `.exp(` preceded by `Real:` cannot occur.
                 if code.contains(&pat) {
                     offenders.push(format!("{file}:{}: {}", n + 1, line.trim()));
                 }

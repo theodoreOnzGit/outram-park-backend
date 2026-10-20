@@ -48,9 +48,9 @@
 // so the bit-identity contract on the moved functions is untouched.
 // ---------------------------------------------------------------------------
 
+use petir::mathf::RealMath;
 /// Seed-ensemble consistency: `χ²/dof` of seed values against their internal
 /// `σ`, a fixed 95 % band, leave-one-out outlier flags (GitHub #494).
-use petir::mathf::RealMath;
 pub mod seed_consistency;
 /// Autocorrelation-corrected standard errors for a correlated sequence: batch
 /// means, integrated autocorrelation time, effective sample size (GitHub #495).

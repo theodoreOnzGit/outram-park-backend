@@ -1035,7 +1035,6 @@ fn coil_turns_and_stroke(span: f32, bundle_w: f32, coil_radius: f32, theta: f32)
 
 #[cfg(test)]
 mod tests {
-    use petir::mathf::RealMath;
     use super::*;
 
     fn kelvins(v: f64) -> ThermodynamicTemperature {
@@ -1151,7 +1150,7 @@ mod tests {
         // A large drawing is unaffected: turns follow tan(theta) = p / (2 pi r).
         let (bundle_w, span) = (100.0_f32, 300.0_f32);
         let (turns, width) = coil_turns_and_stroke(span, bundle_w, 34.0, theta);
-        let expected = span / (2.0 * PI * 34.0 * theta.r_tan());
+        let expected = span / (2.0 * PI * 34.0 * theta.tan());
         assert!((turns - expected).abs() < 1e-3, "{turns} vs {expected}");
         assert!((width - 15.0).abs() < 1e-3, "15 % of the bundle: {width}");
     }

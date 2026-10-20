@@ -2065,7 +2065,6 @@ pub fn pebble_handling_controls(ui: &mut Ui, id: Id) -> PebbleHandling {
 
 #[cfg(test)]
 mod tests {
-    use petir::mathf::RealMath;
     use super::*;
     use uom::si::thermodynamic_temperature::kelvin;
 
@@ -2366,7 +2365,7 @@ mod tests {
         );
         let leg = route[2] - route[1];
         assert!(leg.x > 0.0 && leg.y > 0.0, "the leg runs in and down");
-        let measured = (leg.y / leg.x).r_atan().to_degrees();
+        let measured = (leg.y / leg.x).atan().to_degrees();
         assert!((measured - dip).abs() < 1e-3, "dip {measured} deg");
         assert_eq!(route[2].x, centre_x, "the leg ends on the centreline");
         assert_eq!(
@@ -2504,7 +2503,7 @@ mod tests {
         let leg_run = CHUTE_LEG_RUN_FRACTION * DRAWN_VESSEL_RADIUS_CM;
         let leg_end = (
             -leg_run,
-            tube_end_z - leg_run * CHUTE_DIP_DEG.to_radians().r_tan(),
+            tube_end_z - leg_run * CHUTE_DIP_DEG.to_radians().tan(),
         );
         let opening_below_top = (1.0 - INTERNALS_TOP_FRACTION) * VESSEL_HEIGHT_CM
             + 0.8 * CHUTE_BAND_FRACTION * VESSEL_HEIGHT_CM;
@@ -2530,7 +2529,7 @@ mod tests {
             let (dx, dz) = (bx - ax, bz - az);
             let t = (((x - ax) * dx + (z - az) * dz) / (dx * dx + dz * dz)).clamp(0.0, 1.0);
             let (px, pz) = (ax + t * dx, az + t * dz);
-            ((x - px).r_powi(2) + (z - pz).r_powi(2)).sqrt() <= DISCHARGE_TUBE_RADIUS_CM + slack
+            ((x - px).powi(2) + (z - pz).powi(2)).sqrt() <= DISCHARGE_TUBE_RADIUS_CM + slack
         };
         let in_exit = |x: f32, z: f32| {
             (x - leg_end.0).abs() <= exit_radius + slack
