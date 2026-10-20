@@ -225,7 +225,10 @@ pub(crate) fn lower(d: &mut [f64], tsrc: Option<&[f64]>, tri: View, rhs: View) -
 }
 
 /// `U X = B` with a unit diagonal: faer reverses rows and columns of `U` and
-/// the rows of `X` and runs the unit-lower solve.
+/// the rows of `X` and runs the unit-lower solve. No sparse path calls it
+/// (faer's supernodal LU and `LLᵀ` solves use the other three); it is kept
+/// because `vs_faer` pins it against faer with the other three.
+#[allow(dead_code)]
 pub(crate) fn unit_upper(d: &mut [f64], tsrc: Option<&[f64]>, tri: View, rhs: View) -> Result<()> {
     lower_imp(d, tsrc, tri.rev_both(), rhs.rev_rows(), Diag::Unit)
 }

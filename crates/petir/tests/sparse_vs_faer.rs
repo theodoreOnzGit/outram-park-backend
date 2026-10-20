@@ -70,7 +70,7 @@ use faer::sparse::linalg::lu::{factorize_symbolic_lu, LuSymbolicParams, NumericL
 use faer::sparse::linalg::SupernodalThreshold;
 use faer::sparse::{SparseColMat, Triplet};
 use faer::{Conj, Mat, Par, Side};
-use petir::sparse::{CscMatrix, SparseLlt, SparseLu};
+use petir::sparse::{CscMatrix, SparseLlt, SparseLu, SymbolicKind};
 
 /// xorshift64*: a test-only, seeded source of matrix entries.
 struct Rng(u64);
@@ -246,23 +246,59 @@ fn check_lu(name: &str, n: usize, t: &[(usize, usize, f64)]) {
     );
     let b = rhs(n);
 
-    let lu = SparseLu::factorize(&ours).expect("petir LU");
+    let lu = SparseLu::factorize_with(&ours, SymbolicKind::Simplicial).expect("petir LU");
     let x = lu.solve(&b).unwrap();
 
     // faer, simplicial forced.
+    let xs = faer_lu_forced(&theirs, &b, SupernodalThreshold::FORCE_SIMPLICIAL, Some(lu.col_perm()), name);
+    let (bits, worst) = max_rel_diff(&x, &xs);
+    println!("RESULT lu {name} n={n}: simplicial vs faer FORCE_SIMPLICIAL {bits}/{n} bit-identical, worst rel {worst:.3e}");
+    assert_eq!(bits, n, "{name}: not bit-identical to faer's simplicial LU");
+
+    // supernodal forced, both sides.
+    let lus = SparseLu::factorize_with(&ours, SymbolicKind::Supernodal).expect("petir supernodal LU");
+    assert!(lus.is_supernodal());
+    let xsn = lus.solve(&b).unwrap();
+    let xfs = faer_lu_forced(&theirs, &b, SupernodalThreshold::FORCE_SUPERNODAL, None, name);
+    let (bits, worst) = max_rel_diff(&xsn, &xfs);
+    println!("RESULT lu {name} n={n}: supernodal vs faer FORCE_SUPERNODAL {bits}/{n} bit-identical, worst rel {worst:.3e}");
+    assert_eq!(bits, n, "{name}: not bit-identical to faer's supernodal LU");
+
+    // default (AUTO) on both sides: same path, bit for bit.
+    let lua = SparseLu::factorize(&ours).unwrap();
+    let auto_sym = factorize_symbolic_lu(theirs.symbolic(), Default::default()).unwrap();
+    let auto_simplicial = format!("{auto_sym:?}").contains("Simplicial");
+    assert_eq!(lua.is_supernodal(), !auto_simplicial, "{name}: path decision differs from faer's");
+    let xo = lua.solve(&b).unwrap();
+    let xa = theirs.sp_lu().unwrap().solve(col(&b));
+    let xa: Vec<f64> = (0..n).map(|i| xa[(i, 0)]).collect();
+    let (bits, worst) = max_rel_diff(&xo, &xa);
+    println!(
+        "RESULT lu {name} n={n}: AUTO picks {} on both; {bits}/{n} bit-identical, worst rel {worst:.3e}",
+        if auto_simplicial { "simplicial" } else { "SUPERNODAL" }
+    );
+    assert_eq!(bits, n, "{name}: AUTO not bit-identical to faer's sp_lu");
+}
+
+fn faer_lu_forced(
+    theirs: &SparseColMat<usize, f64>,
+    b: &[f64],
+    thr: SupernodalThreshold,
+    expect_perm: Option<&[usize]>,
+    name: &str,
+) -> Vec<f64> {
+    let n = b.len();
     let sym = factorize_symbolic_lu(
         theirs.symbolic(),
         LuSymbolicParams {
-            supernodal_flop_ratio_threshold: SupernodalThreshold::FORCE_SIMPLICIAL,
+            supernodal_flop_ratio_threshold: thr,
             ..Default::default()
         },
     )
     .unwrap();
-    assert_eq!(
-        lu.col_perm(),
-        sym.col_perm().arrays().0,
-        "{name}: COLAMD permutation"
-    );
+    if let Some(p) = expect_perm {
+        assert_eq!(p, sym.col_perm().arrays().0, "{name}: COLAMD permutation");
+    }
     let mut num = NumericLu::new();
     let mut mem =
         MemBuffer::new(sym.factorize_numeric_lu_scratch::<f64>(Par::Seq, Default::default()));
@@ -275,35 +311,10 @@ fn check_lu(name: &str, n: usize, t: &[(usize, usize, f64)]) {
             Default::default(),
         )
         .unwrap();
-    let mut xb = col(&b);
+    let mut xb = col(b);
     let mut mem2 = MemBuffer::new(sym.solve_in_place_scratch::<f64>(1, Par::Seq));
     flu.solve_in_place_with_conj(Conj::No, xb.as_mut(), Par::Seq, MemStack::new(&mut mem2));
-    let xs: Vec<f64> = (0..n).map(|i| xb[(i, 0)]).collect();
-    let (bits, worst) = max_rel_diff(&x, &xs);
-    println!("RESULT lu {name} n={n}: vs faer FORCE_SIMPLICIAL {bits}/{n} bit-identical, worst rel {worst:.3e}");
-    assert_eq!(bits, n, "{name}: not bit-identical to faer's simplicial LU");
-
-    // faer default (AUTO).
-    let auto_sym = factorize_symbolic_lu(theirs.symbolic(), Default::default()).unwrap();
-    let auto_simplicial = format!("{auto_sym:?}").contains("Simplicial");
-    let xa = theirs.sp_lu().unwrap().solve(col(&b));
-    let xa: Vec<f64> = (0..n).map(|i| xa[(i, 0)]).collect();
-    let (bits, worst) = max_rel_diff(&x, &xa);
-    println!(
-        "RESULT lu {name} n={n}: faer AUTO picks {}; {bits}/{n} bit-identical, worst rel {worst:.3e}",
-        if auto_simplicial { "simplicial" } else { "SUPERNODAL" }
-    );
-    if auto_simplicial {
-        assert_eq!(
-            bits, n,
-            "{name}: faer AUTO is simplicial, so must be bit-identical"
-        );
-    } else {
-        assert!(
-            worst < 1e-12,
-            "{name}: supernodal difference {worst:e} is not rounding"
-        );
-    }
+    (0..n).map(|i| xb[(i, 0)]).collect()
 }
 
 fn check_llt(name: &str, n: usize, t: &[(usize, usize, f64)]) {
@@ -321,28 +332,59 @@ fn check_llt(name: &str, n: usize, t: &[(usize, usize, f64)]) {
         !faer_simplicial,
         "{name}: the ported supernodal decision disagrees with faer's"
     );
+    assert_eq!(llt.is_supernodal(), !faer_simplicial, "{name}: path taken");
     let flu = theirs.sp_cholesky(Side::Lower).unwrap();
     let xf = flu.solve(col(&b));
     let xf: Vec<f64> = (0..n).map(|i| xf[(i, 0)]).collect();
     let (bits, worst) = max_rel_diff(&x, &xf);
     println!(
-        "RESULT llt {name} n={n}: faer picks {}; {bits}/{n} bit-identical, worst rel {worst:.3e}",
+        "RESULT llt {name} n={n}: AUTO picks {} on both; {bits}/{n} bit-identical, worst rel {worst:.3e}",
         if faer_simplicial {
             "simplicial"
         } else {
             "SUPERNODAL"
         }
     );
-    if faer_simplicial {
-        assert_eq!(
-            bits, n,
-            "{name}: faer is simplicial, so must be bit-identical"
-        );
-    } else {
-        assert!(
-            worst < 1e-12,
-            "{name}: supernodal difference {worst:e} is not rounding"
-        );
+    assert_eq!(bits, n, "{name}: AUTO not bit-identical to faer's sp_cholesky");
+
+    // Both paths forced, both sides.
+    for (kind, thr) in [
+        (SymbolicKind::Simplicial, SupernodalThreshold::FORCE_SIMPLICIAL),
+        (SymbolicKind::Supernodal, SupernodalThreshold::FORCE_SUPERNODAL),
+    ] {
+        let ours_f = SparseLlt::factorize_lower_with(&ours, kind).unwrap();
+        assert_eq!(ours_f.is_supernodal(), kind == SymbolicKind::Supernodal);
+        let xo = ours_f.solve(&b).unwrap();
+        let sym = faer::sparse::linalg::cholesky::factorize_symbolic_cholesky(
+            theirs.symbolic(),
+            Side::Lower,
+            Default::default(),
+            faer::sparse::linalg::cholesky::CholeskySymbolicParams {
+                supernodal_flop_ratio_threshold: thr,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        let mut lval = vec![0.0f64; sym.len_val()];
+        let mut mem = MemBuffer::new(sym.factorize_numeric_llt_scratch::<f64>(Par::Seq, Default::default()));
+        let lref = sym
+            .factorize_numeric_llt(
+                &mut lval,
+                theirs.as_ref(),
+                Side::Lower,
+                Default::default(),
+                Par::Seq,
+                MemStack::new(&mut mem),
+                Default::default(),
+            )
+            .unwrap();
+        let mut xb = col(&b);
+        let mut mem2 = MemBuffer::new(sym.solve_in_place_scratch::<f64>(1, Par::Seq));
+        lref.solve_in_place_with_conj(Conj::No, xb.as_mut(), Par::Seq, MemStack::new(&mut mem2));
+        let xs: Vec<f64> = (0..n).map(|i| xb[(i, 0)]).collect();
+        let (bits, worst) = max_rel_diff(&xo, &xs);
+        println!("RESULT llt {name} n={n}: {kind:?} forced on both; {bits}/{n} bit-identical, worst rel {worst:.3e}");
+        assert_eq!(bits, n, "{name}: {kind:?} not bit-identical to faer");
     }
 }
 
@@ -390,4 +432,47 @@ fn llt_grid_laplacians_and_random_spd() {
         check_amd(&format!("spd{n}"), n, &t);
         check_llt(&format!("spd{n}"), n, &t);
     }
+}
+
+/// Factorisation time against faer's, one thread (`Par::Seq` in faer, PETIR
+/// has no threads). Printed, not asserted: timing is machine-dependent. The
+/// recorded numbers are in this file's module docs.
+#[test]
+fn factorisation_time_vs_faer() {
+    use std::time::Instant;
+    let best = |f: &mut dyn FnMut()| {
+        let mut t = f64::INFINITY;
+        for _ in 0..3 {
+            let t0 = Instant::now();
+            f();
+            t = t.min(t0.elapsed().as_secs_f64());
+        }
+        t
+    };
+    for m in [12usize, 24] {
+        let n = 2 * m * m * m;
+        let t = diffusion_3d(m);
+        let ours = CscMatrix::try_from_triplets(n, n, &t).unwrap();
+        let theirs = faer_mat(n, &t);
+        let tp_s = best(&mut || {
+            SparseLu::factorize_with(&ours, SymbolicKind::Simplicial).unwrap();
+        });
+        let tp_n = best(&mut || {
+            SparseLu::factorize_with(&ours, SymbolicKind::Supernodal).unwrap();
+        });
+        let tf = best(&mut || {
+            theirs.sp_lu().unwrap();
+        });
+        println!("RESULT time lu diffusion{m}^3x2 n={n}: petir simplicial {tp_s:.3} s, petir supernodal {tp_n:.3} s, faer sp_lu (AUTO) {tf:.3} s");
+    }
+    let t = random_spd_lower(2000, 4, 9);
+    let ours = CscMatrix::try_from_triplets(2000, 2000, &t).unwrap();
+    let theirs = faer_mat(2000, &t);
+    let tp = best(&mut || {
+        SparseLlt::factorize_lower(&ours).unwrap();
+    });
+    let tf = best(&mut || {
+        theirs.sp_cholesky(Side::Lower).unwrap();
+    });
+    println!("RESULT time llt spd2000: petir (AUTO, supernodal) {tp:.3} s, faer {tf:.3} s");
 }

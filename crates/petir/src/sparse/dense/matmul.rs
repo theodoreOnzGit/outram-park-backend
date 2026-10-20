@@ -32,13 +32,16 @@
 //! choice and each kernel's rounding, in scalar code. See the
 //! [module docs](super) for what is and is not reproduced.
 
-use super::{fma, rdo, wr, Accum, View};
+use super::{fma, rd, rdo, wr, Accum, View};
+use alloc::vec::Vec;
 use crate::{PetirError, Result};
 
 /// faer's `NANO_GEMM_THRESHOLD`.
 const NANO_GEMM_THRESHOLD: usize = 16 * 16 * 16;
 /// private-gemm-x86's depth block: `kc = min(depth, 512)`.
 const PRIVATE_KC: usize = 512;
+/// Row tile of the scalar replay of private-gemm (cache blocking only).
+const ROW_TILE: usize = 96;
 /// nano-gemm's `copy_millikernel` depth block `K_BS`.
 const NANO_K_BS: usize = 64;
 
@@ -467,38 +470,73 @@ pub(crate) fn private_gemm(
         };
         Ok(dst.at(ri, cj))
     };
-    let mut k0 = 0usize;
-    let mut first = true;
-    while k0 < depth {
-        let kc = Ord::min(depth - k0, PRIVATE_KC);
+    // Every output element is an independent FMA chain over the depth (the
+    // microkernel's vector lanes and register tiles never mix elements), so
+    // the loops run column by column with the depth outside the rows: the
+    // same chain per element, with many chains in flight at once.
+    // Rows are taken in tiles so a tile of `lhs` stays in cache across the
+    // columns (cache blocking, which faer's kernels also do and which does
+    // not touch the per-element arithmetic).
+    let mut acc: Vec<f64> = Vec::new();
+    let mut r0 = 0usize;
+    while r0 < nrows {
+        let r1 = Ord::min(nrows, r0 + ROW_TILE);
         for j in 0..ncols {
-            for i in 0..nrows {
-                let keep = match kind {
-                    DstKind::Full => true,
-                    DstKind::Lower => i >= j,
-                    DstKind::Upper => i <= j,
-                };
-                if !keep {
-                    continue;
+            let (i0, i1) = match kind {
+                DstKind::Full => (0, nrows),
+                DstKind::Lower => (j, nrows),
+                DstKind::Upper => (0, Ord::min(j + 1, nrows)),
+            };
+            let (i0, i1) = (Ord::max(i0, r0), Ord::min(i1, r1));
+            if i0 >= i1 {
+                continue;
+            }
+            let rows = i1 - i0;
+            let mut k0 = 0usize;
+            let mut first = true;
+            while k0 < depth {
+                let kc = Ord::min(depth - k0, PRIVATE_KC);
+                acc.clear();
+                acc.resize(rows, 0.0);
+                {
+                    let lsl: &[f64] = ls.unwrap_or(d);
+                    let rsl: &[f64] = rsrc.unwrap_or(d);
+                    for kk in k0..k0 + kc {
+                        let b = rd(rsl, rhs.at(kk, j))?;
+                        let base = lhs.at(i0, kk);
+                        // bounds of this column segment, checked once
+                        rd(lsl, base)?;
+                        rd(lsl, base + (rows as isize - 1) * lhs.rs)?;
+                        if lhs.rs == 1 {
+                            let col = lsl
+                                .get(base as usize..base as usize + rows)
+                                .ok_or(PetirError::Invalid)?;
+                            for (a, &x) in acc.iter_mut().zip(col) {
+                                *a = fma(x, b, *a);
+                            }
+                        } else {
+                            for (t, a) in acc.iter_mut().enumerate() {
+                                let x = rd(lsl, base + t as isize * lhs.rs)?;
+                                *a = fma(x, b, *a);
+                            }
+                        }
+                    }
                 }
-                let mut acc = 0.0f64;
-                for kk in k0..k0 + kc {
-                    let a = rdo(d, ls, lhs.at(i, kk))?;
-                    let b = rdo(d, rsrc, rhs.at(kk, j))?;
-                    acc = fma(a, b, acc);
+                for (t, &a) in acc.iter().enumerate() {
+                    let a = a * alpha;
+                    let p = place(i0 + t, j)?;
+                    let y = wr(d, p)?;
+                    *y = if first && beta == Accum::Replace {
+                        a
+                    } else {
+                        a + *y
+                    };
                 }
-                acc *= alpha;
-                let p = place(i, j)?;
-                let y = wr(d, p)?;
-                *y = if first && beta == Accum::Replace {
-                    acc
-                } else {
-                    acc + *y
-                };
+                first = false;
+                k0 += kc;
             }
         }
-        first = false;
-        k0 += kc;
+        r0 = r1;
     }
     Ok(())
 }

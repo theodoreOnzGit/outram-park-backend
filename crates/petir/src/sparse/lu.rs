@@ -36,8 +36,9 @@
 // port: gh #994, 2026-10-20. See the crate NOTICE.
 //
 // Ported items (lu.rs):
-//   factorize_symbolic_lu (the COLAMD step; the supernodal decision is NOT
-//     ported, see the module docs)                      -> SparseLu::factorize
+//   factorize_symbolic_lu (COLAMD, the column etree and AᵀA column counts,
+//     the supernodal-or-simplicial decision, LU_SUPERNODAL_RATIO_FACTOR = 40,
+//     and supernodal::factorize_supernodal_symbolic_lu)  -> SparseLu::factorize_with
 //   simplicial::{depth_first_search, reach, l_incomplete_solve_sparse,
 //     factorize_simplicial_numeric_lu}                  -> the private fns below
 //   simplicial::SimplicialLu::solve_in_place_with_conj  -> SparseLu::solve_in_place
@@ -48,7 +49,10 @@
 //! `sp_lu` on its simplicial path.
 
 use super::colamd::{self, Control};
-use super::{g, m, sl, triangular, CscMatrix};
+use super::etree::{col_etree, postorder};
+use super::lu_supernodal::{self, SupernodalLu};
+use super::supernodal::{column_counts_aat, factorize_supernodal_symbolic};
+use super::{g, m, sl, triangular, CscMatrix, CscPattern, SymbolicKind};
 use crate::{PetirError, Result};
 use alloc::vec;
 use alloc::vec::Vec;
@@ -72,7 +76,13 @@ pub struct SparseLu {
     u_col_ptr: Vec<usize>,
     u_row_idx: Vec<usize>,
     u_val: Vec<f64>,
+    /// The supernodal factors, when that path was taken (the simplicial
+    /// fields above are then empty).
+    supernodal: Option<SupernodalLu>,
 }
+
+/// faer's `LU_SUPERNODAL_RATIO_FACTOR`.
+const LU_SUPERNODAL_RATIO_FACTOR: f64 = 40.0;
 
 /// The partial `L` (its first `l_ncols` columns) that the reach walks.
 struct PartialL<'a> {
@@ -155,13 +165,23 @@ fn permute_rows(x: &mut [f64], perm: &[usize]) -> Result<()> {
 }
 
 impl SparseLu {
-    /// Factorise a square sparse matrix (faer's `SparseColMat::sp_lu`).
+    /// Factorise a square sparse matrix (faer's `SparseColMat::sp_lu`): the
+    /// supernodal path when faer would take it, the simplicial one otherwise.
     ///
     /// # Errors
     /// [`PetirError::NotSquare`]; [`PetirError::Singular`] when a column has
     /// no candidate pivot (faer's `LuError::SymbolicSingular`);
     /// [`PetirError::Invalid`] on a malformed matrix.
     pub fn factorize(a: &CscMatrix) -> Result<Self> {
+        Self::factorize_with(a, SymbolicKind::Auto)
+    }
+
+    /// Factorise, choosing the numeric path explicitly
+    /// ([`SymbolicKind::Auto`] is faer's own rule, as [`Self::factorize`]).
+    ///
+    /// # Errors
+    /// As [`Self::factorize`].
+    pub fn factorize_with(a: &CscMatrix, kind: SymbolicKind) -> Result<Self> {
         if a.nrows() != a.ncols() {
             return Err(PetirError::NotSquare {
                 rows: a.nrows(),
@@ -181,9 +201,104 @@ impl SparseLu {
             u_col_ptr: vec![0; n + 1],
             u_row_idx: Vec::new(),
             u_val: Vec::new(),
+            supernodal: None,
         };
-        lu.factorize_numeric(a)?;
+        let supernode_ptr = match kind {
+            SymbolicKind::Simplicial => None,
+            _ => lu.symbolic_supernodal(a, kind)?,
+        };
+        match supernode_ptr {
+            None => lu.factorize_numeric(a)?,
+            Some(ptr) => {
+                let at = lu_supernodal::transpose(a)?;
+                let (f, row_perm, _) = lu_supernodal::factorize_numeric(
+                    a,
+                    &at,
+                    &lu.col_perm_fwd,
+                    &lu.col_perm_inv,
+                    &ptr,
+                )?;
+                lu.row_perm_fwd = row_perm;
+                lu.l_col_ptr = Vec::new();
+                lu.u_col_ptr = Vec::new();
+                lu.supernodal = Some(f);
+            }
+        }
         Ok(lu)
+    }
+
+    /// The rest of faer's `factorize_symbolic_lu` after COLAMD: the column
+    /// elimination tree, its postorder, the column counts of `AᵀA`'s
+    /// factor, the flop-ratio decision, and for the supernodal path the
+    /// supernode partition. `None` means simplicial.
+    fn symbolic_supernodal(&self, a: &CscMatrix, kind: SymbolicKind) -> Result<Option<Vec<usize>>> {
+        let (mrows, n) = (a.nrows(), a.ncols());
+        let at = lu_supernodal::transpose(a)?;
+        let at_pat = CscPattern {
+            nrows: n,
+            ncols: mrows,
+            col_ptr: &at.col_ptr,
+            row_idx: &at.row_idx,
+        };
+        let mut etree = vec![0isize; n];
+        col_etree(a.pattern(), Some(&self.col_perm_fwd), &mut etree)?;
+        let mut post = vec![0usize; n];
+        postorder(&mut post, &etree)?;
+        let mut col_counts = vec![0usize; n];
+        let mut min_row = vec![0isize; mrows];
+        column_counts_aat(
+            &mut col_counts,
+            &mut min_row,
+            at_pat,
+            Some(&self.col_perm_inv),
+            &etree,
+            &post,
+        )?;
+        let supernodal = match kind {
+            SymbolicKind::Supernodal => true,
+            SymbolicKind::Simplicial => false,
+            SymbolicKind::Auto => {
+                let mut h_col_counts = vec![0usize; n];
+                for &mc in &min_row {
+                    if mc < 0 {
+                        continue;
+                    }
+                    *m(&mut h_col_counts, mc as usize)? += 1;
+                }
+                for j in 0..n {
+                    let parent = g(&etree, j)?;
+                    if parent < 0 {
+                        continue;
+                    }
+                    let hj = g(&h_col_counts, j)?.saturating_sub(1);
+                    *m(&mut h_col_counts, parent as usize)? += hj;
+                }
+                let mut nnz = 0.0f64;
+                let mut flops = 0.0f64;
+                for (&h, &c) in h_col_counts.iter().zip(&col_counts) {
+                    let hj = h as f64;
+                    let rj = c as f64;
+                    flops += hj + hj * rj;
+                    nnz += hj + rj;
+                }
+                flops / nnz > 1.0 * LU_SUPERNODAL_RATIO_FACTOR
+            }
+        };
+        if !supernodal {
+            return Ok(None);
+        }
+        let sym = factorize_supernodal_symbolic(
+            a.pattern(),
+            Some((&self.col_perm_fwd, &min_row)),
+            &etree,
+            &col_counts,
+        )?;
+        Ok(Some(sym.supernode_begin))
+    }
+
+    /// Whether this factorisation took faer's supernodal path.
+    pub fn is_supernodal(&self) -> bool {
+        self.supernodal.is_some()
     }
 
     /// Port of faer 0.24.4 `simplicial::factorize_simplicial_numeric_lu`.
@@ -298,6 +413,10 @@ impl SparseLu {
             });
         }
         permute_rows(rhs, &self.row_perm_fwd)?;
+        if let Some(sn) = &self.supernodal {
+            sn.solve_in_place(rhs)?;
+            return permute_rows(rhs, &self.col_perm_inv);
+        }
         triangular::lower_in_place(&self.l_col_ptr, &self.l_row_idx, &self.l_val, true, rhs)?;
         triangular::upper_in_place(&self.u_col_ptr, &self.u_row_idx, &self.u_val, false, rhs)?;
         permute_rows(rhs, &self.col_perm_inv)

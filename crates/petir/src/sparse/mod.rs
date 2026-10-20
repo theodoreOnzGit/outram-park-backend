@@ -104,8 +104,11 @@ pub mod etree;
 pub mod triangular;
 
 mod cholesky;
+mod cholesky_supernodal;
 mod dense;
 mod lu;
+mod lu_supernodal;
+mod supernodal;
 
 pub use cholesky::SparseLlt;
 pub use lu::SparseLu;
@@ -114,6 +117,20 @@ use crate::{PetirError, Result};
 use alloc::vec;
 use alloc::vec::Vec;
 use core::ops::Range;
+
+/// Which numeric factorisation to run (faer's `SupernodalThreshold`:
+/// `AUTO`, `FORCE_SIMPLICIAL`, `FORCE_SUPERNODAL`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum SymbolicKind {
+    /// faer's own rule: supernodal when the factor's flops per nonzero exceed
+    /// 40 (`SupernodalThreshold::AUTO`).
+    #[default]
+    Auto,
+    /// Always the simplicial (column-by-column) path.
+    Simplicial,
+    /// Always the supernodal (dense-block) path.
+    Supernodal,
+}
 
 /// faer's `NONE` sentinel (`usize::MAX`); as a signed index it is `-1`.
 pub(crate) const NONE: usize = usize::MAX;
