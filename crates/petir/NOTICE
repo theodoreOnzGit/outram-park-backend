@@ -437,6 +437,29 @@ notices faer ships.
   promote this crate.
 
 ================================================================================
+DERIVED WORK — faer (dense SVD), faer-traits and pulp
+================================================================================
+
+`src/faer_dense/` ports the path faer 0.24.4's `Mat::svd()` runs for a small
+square f64 matrix: Householder bidiagonalisation (`svd/bidiag.rs`), the
+bidiagonal QR algorithm (`svd/bidiag_svd.rs`), the block-size-1 reflector
+application (`householder.rs`), the dot / matvec / norm / Givens kernels, the
+scalar `hypot` of faer-traits 0.24.0, and a scalar model of pulp 0.22.3's V3
+(AVX2+FMA) lane semantics that faer's SIMD kernels run on. Ported 2026-10-20
+at the maintainer's direction (gh #996: "Whatever faer does, port into
+petir"), so that `outram-blender` could drop faer. The full MIT notice is
+reproduced in every file header.
+
+  Projects   : faer 0.24.4, faer-traits 0.24.0, pulp 0.22.3
+  Upstream   : https://codeberg.org/sarah-quinones/faer (faer, faer-traits),
+               https://github.com/sarah-quinones/pulp
+  Licence    : MIT (each Cargo.toml `license = "MIT"`)
+
+      Copyright (c) sarah quiñones <sarah@veganb.tw> and the faer contributors
+
+  MIT flows ONE-WAY into this crate's licence.
+
+================================================================================
 OTHER UPSTREAM SOURCES
 ================================================================================
 

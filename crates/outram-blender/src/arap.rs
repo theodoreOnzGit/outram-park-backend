@@ -294,34 +294,28 @@ fn outer_add(s: &mut M3, w: f64, u: Vec3, v: Vec3) {
 /// `det(U Vᵀ) < 0`, flipping the smallest singular direction) so `R` is a proper
 /// rotation, not a reflection. For a rotation input it returns that rotation.
 ///
-/// Uses `faer`'s dense SVD for the `3×3` decomposition, then does the small
-/// matrix products with plain arrays. **This is the last `faer` use in the
-/// crate** (2026-10-20, gh #994): it moves to PETIR's GSL SVD once that lands
-/// (gh #993; follow-up gh #996); porting faer's own dense SVD was not done because its kernels
-/// are SIMD GEMM and PETIR is getting GSL's. Returns the identity for a degenerate
-/// covariance (empty one-ring) whose SVD fails.
+/// ~~Uses `faer`'s dense SVD for the `3×3` decomposition~~ **Since 2026-10-20
+/// (gh #996)** the `3×3` decomposition is [`petir::faer_dense::svd3`], a
+/// `no_std` port of exactly the faer 0.24.4 `Mat::svd()` path this function
+/// used to call; then the small matrix products are done with plain arrays.
+/// ~~It moves to PETIR's GSL SVD once that lands (gh #993); porting faer's own
+/// dense SVD was not done because its kernels are SIMD GEMM.~~ GSL's SVD
+/// (`petir::linalg::svd`) was not used: it is a different algorithm, so `U`
+/// and `V` would differ in rounding and sign conventions. At the maintainer's
+/// direction ("Whatever faer does, port into petir") faer's own path was
+/// ported, its SIMD lanes modelled in scalar code; it is bit-identical to
+/// faer on all 6134 distinct covariances this crate's tests produce, and so
+/// every rotation is unchanged (`petir/tests/faer_dense_svd_vs_faer.rs`;
+/// also checked on 22 334 distinct covariances pooled from four runs of this
+/// crate's suite, 0 differing bits). The covariances themselves vary in the
+/// last bits from run to run, because the one-ring weights are summed in
+/// `HashMap` order (pre-existing, gh #1002). Returns the identity for a
+/// degenerate covariance (empty one-ring) whose SVD fails, as before.
 fn closest_rotation(m: M3) -> M3 {
-    let a = faer::mat![
-        [m[0][0], m[0][1], m[0][2]],
-        [m[1][0], m[1][1], m[1][2]],
-        [m[2][0], m[2][1], m[2][2]],
-    ];
-    let svd = match a.svd() {
-        Ok(s) => s,
+    let (mut uu, _s, vv) = match petir::faer_dense::svd3(m) {
+        Ok(r) => r,
         Err(_) => return IDENTITY3,
     };
-    let u = svd.U();
-    let v = svd.V();
-    let mut uu: M3 = [
-        [u[(0, 0)], u[(0, 1)], u[(0, 2)]],
-        [u[(1, 0)], u[(1, 1)], u[(1, 2)]],
-        [u[(2, 0)], u[(2, 1)], u[(2, 2)]],
-    ];
-    let vv: M3 = [
-        [v[(0, 0)], v[(0, 1)], v[(0, 2)]],
-        [v[(1, 0)], v[(1, 1)], v[(1, 2)]],
-        [v[(2, 0)], v[(2, 1)], v[(2, 2)]],
-    ];
     let vt = transpose3(vv);
     // R = U Vᵀ; if it is a reflection, negate U's last column (= U·diag(1,1,−1)).
     if det3(matmul3(uu, vt)) < 0.0 {

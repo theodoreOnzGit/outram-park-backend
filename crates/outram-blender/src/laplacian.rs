@@ -101,7 +101,8 @@ pub enum LaplacianWeighting {
 ///
 /// The triplet order is unspecified (it comes from a hash map); the assembled
 /// matrix is independent of that order. This is the input a sparse-matrix
-/// builder ([`crate::faer`]) consumes; it is also directly testable by
+/// builder (~~[`crate::faer`]~~ `petir::sparse::CscMatrix` since 2026-10-20,
+/// gh #994; the `faer` re-export was removed with gh #996) consumes; it is also directly testable by
 /// materializing a small dense matrix (see this module's tests).
 pub fn laplacian_triplets(
     mesh: &Mesh,

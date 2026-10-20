@@ -168,17 +168,21 @@ TUAS-free; the dev-deps are `{teh-o-prke, nee_soon}` (gated off Android and
 wasm);
 **`faer` (2026-10-20, gh #994):** `bedok` no longer depends on it (its sparse
 LU is `petir::sparse::SparseLu`, through its existing `bedok → petir` edge, so
-no new internal edge); `outram-blender` keeps it only for one 3x3 dense SVD
-until PETIR's GSL SVD lands (gh #993); `petir` takes it as a
-**dev-dependency only** (`tests/sparse_vs_faer.rs`, the upstream comparison
-for its faer port). No crate takes `outram-foam-basic-lib` for this: its
+no new internal edge); ~~`outram-blender` keeps it only for one 3x3 dense SVD
+until PETIR's GSL SVD lands (gh #993)~~ **since 2026-10-20 (gh #996)
+`outram-blender` no longer depends on it either**: its 3x3 SVD is
+`petir::faer_dense::svd3`, a no_std port of faer's own dense SVD
+(maintainer: "Whatever faer does, port into petir"), bit-identical to it;
+`petir` takes it as a **dev-dependency only** (`tests/sparse_vs_faer.rs` and
+`tests/faer_dense_svd_vs_faer.rs`, the upstream comparisons for its faer
+ports), so `cargo tree -i faer --workspace` shows petir's dev edge alone. No crate takes `outram-foam-basic-lib` for this: its
 Krylov solvers did not fit either consumer (gh #994);
 `outram-mc-libs → {njoy-outram-park-fork (cross sections), petir (maths and,
 since 2026-10-02, the RNG), outram-park-fork-liggghts (DEM pebble beds,
 2026-10-02, no default features), raffles (generic statistics, 2026-10-02),
 outram-blender (CSG and tally-mesh description, GitHub #486, 2026-10-02;
-`default-features = false`, so no wgpu, but blender's mesh authoring and faer
-are always compiled — maintainer decision), outram-foam-basic-lib (coarse-mesh
+`default-features = false`, so no wgpu, but blender's mesh authoring ~~and faer~~
+are always compiled — maintainer decision; faer is gone from blender since gh #996), outram-foam-basic-lib (coarse-mesh
 steady conduction for the beginner thermal profile, GitHub #949, 2026-10-17;
 no features, no cycle since it depends only on `petir`), tampines-steam-tables
 (IAPWS-IF97 density for the beginner `model::Material::water(T, p)`, GitHub

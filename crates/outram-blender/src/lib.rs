@@ -313,33 +313,6 @@ pub mod transform_ops;
 pub mod triangulate;
 pub mod weld;
 
-/// Heavy linear-algebra backend for the *large* mesh solves the advanced
-/// operators will need — Laplacian mesh editing, ARAP deformation, and mesh
-/// parameterization all build a sparse Laplacian over the mesh and solve
-/// `A x = b`. Re-exports [`faer`], a pure-Rust, Android-safe dense **and**
-/// sparse linear-algebra library (SIMD via `pulp`, no system BLAS).
-///
-/// **Division of labour:** per-element geometry math (positions, normals,
-/// transforms) stays in the fixed-size [`math`] types — small, fast, no
-/// allocation. `faer` is only for the big systems. For interactive editing
-/// (same matrix, many right-hand sides) prefer `faer`'s sparse **Cholesky**
-/// factorization over an iterative solve. An *optional* bridge to
-/// `outram-foam-basic-lib`'s CG/GAMG iterative solvers is tracked separately for
-/// large one-off sparse solves (see beads `op-hzs`).
-///
-/// **First consumer:** [`laplacian`] — the cotangent/uniform discrete Laplacian
-/// and implicit Laplacian smoothing assemble a sparse system and solve it with
-/// ~~`faer`'s sparse Cholesky~~. Future ARAP / parameterization operators reuse the
-/// same path.
-///
-/// **CORRECTED 2026-10-20 (gh #994):** the sparse solves (Laplacian smoothing,
-/// ARAP, parameterization) now run on `petir::sparse::SparseLlt`, a `no_std`
-/// port of faer's sparse Cholesky, bit-identical to it on every system the
-/// crate's tests build. faer's only remaining use here is the 3x3 dense SVD in
-/// `arap::closest_rotation`, until PETIR's GSL SVD lands (gh #993). Nothing
-/// in the workspace uses this re-export; it goes when that last use does.
-pub use faer;
-
 /// Headless GPU compute via `wgpu`. Behind the **default-on `gpu` feature**
 /// (~~compiled unconditionally on every desktop target, no cargo feature~~
 /// **CORRECTED 2026-10-02**, GitHub issue #486) and **absent on Android**

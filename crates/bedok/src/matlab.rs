@@ -550,11 +550,47 @@ impl SparseMatrix {
 /// (scaled partial pivoting) and writes `f64::EPSILON` into a zero pivot;
 /// this routine, like `mldivide`'s LAPACK `getrf`, pivots on the largest
 /// absolute value and returns `NaN` on a zero pivot. The semantics differ, so
-/// swapping would change which pivot is chosen, not just the rounding. A port
+/// swapping would change which pivot is chosen, not just the rounding. ~~A port
 /// of GSL's `gsl_linalg_LU_decomp`, which pivots on the largest absolute value
 /// (as PETIR's `square_matrix.rs` docs record), would match; PETIR has none
 /// yet. gh #993 (Octave-style `solve` over GSL numerics) is where it would
-/// land.
+/// land.~~ **CORRECTED 2026-10-20 (gh #992):** PETIR now has that port,
+/// `petir::linalg::lu_decomp` + `lu_solve` (GSL 2.8, bit-identical to it), and
+/// it still does **not** reproduce this routine, so `solve_dense` stays:
+///
+/// - **Pivot rule: the same.** Both take the largest `|a(i, k)|` at or below
+///   the diagonal, the first on a tie (`>` here, BLAS `idamax` there).
+/// - **Multipliers: different arithmetic.** This routine forms
+///   `factor = m[i][k] / m[k][k]`. GSL (`lu.c`, `LU_decomp_L2`) scales the
+///   column by the reciprocal, `l = a(i, k) * (1 / a(k, k))` (`dscal`), and
+///   divides only when `|a(k, k)| < DBL_MIN`. Those differ in the last bit
+///   whenever `1 / a(k, k)` is inexact, and every later update inherits it.
+/// - **Updates and substitutions: the same order.** The Schur update
+///   `a - f * u` (GSL `dger`: `a + u * (-l)`, the same value), the forward
+///   elimination of the right-hand side row by row in pivot order (GSL's
+///   `dtrsv` lower, unit), and back substitution accumulating `j = i + 1..n`
+///   then dividing by the diagonal.
+/// - **Singular input: different contract.** This routine returns all-`NaN`
+///   at the first zero pivot; `lu_decomp` completes and `lu_solve` returns
+///   `PetirError::Singular`.
+///
+/// Reference-LAPACK 3.12.1's `dgetf2.f:184-188` and `dgetrf2.f:203-207` (the
+/// LU behind a dense square `mldivide`) also scale by the reciprocal when
+/// `|pivot| >= sfmin`, so switching would arguably move bedok *towards*
+/// LAPACK's arithmetic (MATLAB itself links MKL, whose small-matrix kernels
+/// were not checked). It would still move results by rounding, so it is a
+/// numbers-moving change and is left to the maintainer (gh #992).
+///
+/// **Measured 2026-10-20 (gh #992)**, with both solvers run side by side on
+/// every system the `calc_a1*` tests, `matlab_parity_iaea3ds` and
+/// `x1_frozen_nodal_static_eigenvalue_against_the_matlab` build (1 370 468
+/// systems: 460 of order 1, 806 357 of order 2, 563 651 of order 4):
+/// 250 337 solutions differ in at least one bit (65 734 of order 2, 184 603 of
+/// order 4, none of order 1), worst 2.08e-15 relative to the solution's
+/// largest entry. Swapping the GSL route in moved the IAEA-3D flux-max
+/// difference from MATLAB 1.018e-12 -> 1.015e-12 and the power-density sum
+/// 4.155e-14 -> 4.041e-14; `k_eff`, the X1 frozen-nodal case and every other
+/// printed digit were unchanged. Not bit-identical, so not switched.
 ///
 /// # Arguments
 ///
