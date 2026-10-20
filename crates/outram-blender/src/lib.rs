@@ -136,7 +136,7 @@
 //! | [`ops`] | `bmesh/operators/*` (`bmo_*`) mesh operators | **real** — extrude / midpoint-subdivide / vertex-bevel (flat or rounded multi-segment; boolean delegates to [`boolean`]) |
 //! | [`subdivision`] | OpenSubdiv / `MOD_subsurf` | **real** — Catmull-Clark surface subdivision (local stencils) |
 //! | [`loop_subdivision`] | `MOD_subsurf` (triangle path) | **real** — Loop subdivision surface for triangle meshes |
-//! | [`laplacian`] | `MOD_laplaciansmooth` / `bmo_smooth_laplacian` | **real** — cotangent/uniform discrete Laplacian + implicit & Taubin smoothing (first `faer` sparse solve) |
+//! | [`laplacian`] | `MOD_laplaciansmooth` / `bmo_smooth_laplacian` | **real** — cotangent/uniform discrete Laplacian + implicit & Taubin smoothing (first sparse solve; ~~`faer`~~ `petir::sparse` since 2026-10-20, gh #994) |
 //! | [`parameterize`] | UV unwrap (harmonic map) | **real** — Tutte/harmonic planar parameterization of a disk (reuses the Laplacian sparse solve) |
 //! | [`arap`] | "As Rigid As Possible" deform | **real** — ARAP handle-based deformation (local rotation fit + cotangent-Laplacian global solve) |
 //! | [`decimate`] | `MOD_decimate` (Collapse) | **real** — QEM (Garland–Heckbert) edge-collapse mesh simplification |
@@ -329,8 +329,15 @@ pub mod weld;
 ///
 /// **First consumer:** [`laplacian`] — the cotangent/uniform discrete Laplacian
 /// and implicit Laplacian smoothing assemble a sparse system and solve it with
-/// `faer`'s sparse Cholesky. Future ARAP / parameterization operators reuse the
+/// ~~`faer`'s sparse Cholesky~~. Future ARAP / parameterization operators reuse the
 /// same path.
+///
+/// **CORRECTED 2026-10-20 (gh #994):** the sparse solves (Laplacian smoothing,
+/// ARAP, parameterization) now run on `petir::sparse::SparseLlt`, a `no_std`
+/// port of faer's sparse Cholesky, bit-identical to it on every system the
+/// crate's tests build. faer's only remaining use here is the 3x3 dense SVD in
+/// `arap::closest_rotation`, until PETIR's GSL SVD lands (gh #993). Nothing
+/// in the workspace uses this re-export; it goes when that last use does.
 pub use faer;
 
 /// Headless GPU compute via `wgpu`. Behind the **default-on `gpu` feature**

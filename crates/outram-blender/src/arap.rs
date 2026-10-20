@@ -50,7 +50,8 @@
 //!   reduced system as [`crate::laplacian::laplacian_smooth`].
 //!
 //! Because `L` and the free/fixed partition are fixed across iterations, the
-//! sparse matrix is **factorized once** (`faer` sparse Cholesky) and only the
+//! sparse matrix is **factorized once** (sparse Cholesky: ~~`faer`~~
+//! [`petir::sparse::SparseLlt`] since 2026-10-20, gh #994) and only the
 //! right-hand side `b` is rebuilt each iteration. The energy `E` is non-increasing
 //! (each step is an exact partial minimizer); [`arap_energy`] exposes it for
 //! convergence checks.
@@ -59,7 +60,10 @@
 //! > workspace `RESPONSIBLE_USE.md`. Not for nuclear facility operation,
 //! > reactor control, safety-critical, or licensing decisions.
 
-use crate::laplacian::{edge_weights_from, mesh_triangles, LaplacianWeighting};
+use crate::laplacian::{
+    edge_weights_from, factor_spd_lower, mesh_triangles, solve_columns, LaplacianWeighting,
+    SpdFactorError,
+};
 use crate::math::Vec3;
 use crate::mesh::{Mesh, VertexId};
 
@@ -105,10 +109,6 @@ pub fn arap_deform(
     handles: &[(VertexId, Vec3)],
     iterations: u32,
 ) -> Result<Mesh, ArapError> {
-    use faer::linalg::solvers::Solve;
-    use faer::sparse::{SparseColMat, Triplet};
-    use faer::{Mat, Side};
-
     if handles.is_empty() {
         return Err(ArapError::NoConstraints);
     }
@@ -164,13 +164,13 @@ pub fn arap_deform(
     // Assemble the reduced Laplacian A = L_ff (lower triangle) ONCE and factor it.
     // The constant part of the RHS from eliminating fixed neighbours is also
     // iteration-independent (handles don't move), so precompute it.
-    let mut trips: Vec<Triplet<usize, usize, f64>> = Vec::new();
+    let mut trips: Vec<(usize, usize, f64)> = Vec::new();
     let mut rhs_const = vec![[0.0f64; 3]; nfree];
     for (&(gi, gj), &w) in &weights {
         match (free_of[gi], free_of[gj]) {
             (Some(fi), Some(fj)) => {
                 let (lo, hi) = if fi < fj { (fi, fj) } else { (fj, fi) };
-                trips.push(Triplet::new(hi, lo, -w));
+                trips.push((hi, lo, -w));
             }
             (Some(fi), None) => {
                 let c = target[gj].expect("fixed vertex has a target");
@@ -188,13 +188,13 @@ pub fn arap_deform(
         }
     }
     for (fi, &gi) in free_verts.iter().enumerate() {
-        trips.push(Triplet::new(fi, fi, diag[gi]));
+        trips.push((fi, fi, diag[gi]));
     }
-    let a = SparseColMat::<usize, f64>::try_new_from_triplets(nfree, nfree, &trips)
-        .map_err(|_| ArapError::Assembly)?;
-    let llt = a
-        .sp_cholesky(Side::Lower)
-        .map_err(|_| ArapError::NotPositiveDefinite)?;
+    let to_err = |e| match e {
+        SpdFactorError::Assembly => ArapError::Assembly,
+        SpdFactorError::NotPositiveDefinite => ArapError::NotPositiveDefinite,
+    };
+    let llt = factor_spd_lower(nfree, &trips).map_err(to_err)?;
 
     for _ in 0..iterations {
         // LOCAL: per-vertex optimal rotation from the current positions.
@@ -217,10 +217,9 @@ pub fn arap_deform(
             rhs[fi][2] += b.z;
         }
 
-        let bmat = Mat::<f64>::from_fn(nfree, 3, |i, j| rhs[i][j]);
-        let x = llt.solve(&bmat);
+        let x = solve_columns(&llt, &rhs).map_err(to_err)?;
         for (fi, &gi) in free_verts.iter().enumerate() {
-            cur[gi] = Vec3::new(x[(fi, 0)], x[(fi, 1)], x[(fi, 2)]);
+            cur[gi] = Vec3::new(x[fi][0], x[fi][1], x[fi][2]);
         }
     }
 
@@ -296,7 +295,10 @@ fn outer_add(s: &mut M3, w: f64, u: Vec3, v: Vec3) {
 /// rotation, not a reflection. For a rotation input it returns that rotation.
 ///
 /// Uses `faer`'s dense SVD for the `3×3` decomposition, then does the small
-/// matrix products with plain arrays. Returns the identity for a degenerate
+/// matrix products with plain arrays. **This is the last `faer` use in the
+/// crate** (2026-10-20, gh #994): it moves to PETIR's GSL SVD once that lands
+/// (gh #993; follow-up gh #996); porting faer's own dense SVD was not done because its kernels
+/// are SIMD GEMM and PETIR is getting GSL's. Returns the identity for a degenerate
 /// covariance (empty one-ring) whose SVD fails.
 fn closest_rotation(m: M3) -> M3 {
     let a = faer::mat![
