@@ -9,11 +9,7 @@ edition.workspace = true
 # NOTICE.txt, and the required Battelle Energy Alliance / Idaho National
 # Laboratory attribution live in NOTICE, LICENSE-APACHE-RAVEN, NOTICE-RAVEN and
 # upstream_source/README.md.
-# HELD at GPL-3.0-only, NOT the workspace default (gh:#973). This crate belongs
-# to Adolphus Lye, who owns the copyright in the ported sources and granted
-# GPL-3.0 directly; relicensing to AGPL-3.0-only needs his consent recorded on
-# gh:#973 first. Restore `license.workspace = true` once it is.
-license = "GPL-3.0-only"
+license.workspace = true
 # CRATE OWNER: Adolphus Lye (colleague of the workspace maintainer), who chose
 # the RAFFLES backronym. Direction, scope and priorities for this crate are
 # theirs. `authors` is inherited from [workspace.package]; whether to add an

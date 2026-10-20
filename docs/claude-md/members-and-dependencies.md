@@ -25,11 +25,15 @@ published versions <= 0.1.1 stay Apache-2.0 — see its `NOTICE`).~~
 **CORRECTED 2026-10-20 (gh:#973, maintainer direction): 43 of the 48 crates
 are `AGPL-3.0-only`**, and so is the root `[workspace.package]` default.
 
-- **Five are HELD at `GPL-3.0-only`** by an explicit `license` field until
+- ~~**Five are HELD at `GPL-3.0-only`** by an explicit `license` field until
   their third-party authors' consent is recorded on gh:#973 — `bedok` (Than
   Yan Ren, Xiao SiCong), `raffles` (Adolphus Lye), `tuas_boussinesq_solver`
   (Sicong Xiao, Per F. Peterson), `tampines` and `tampines-steam-tables`
-  (Ethan Yew Hoe Wong, Sicong Xiao). Do not remove those fields without it.
+  (Ethan Yew Hoe Wong, Sicong Xiao). Do not remove those fields without it.~~
+  **CORRECTED 2026-10-20 (maintainer: "All crates AGPLv3"):** all five are now
+  `AGPL-3.0-only` too, so every crate is. `tuas_boussinesq_solver`, `tampines` and
+  `tampines-steam-tables` convey as combined works (`LICENSE.GPL-3.0`). See
+  `docs/relicensing-agpl-2026-10-20.md`.
 - **Most FILES keep their GPL-3.0 SPDX header**, because a translation of a
   copyleft upstream is a derivative work and cannot be relicensed. Eighteen
   crates — PETIR, every `outram-foam-*`, `changi`, `outram-blender`,

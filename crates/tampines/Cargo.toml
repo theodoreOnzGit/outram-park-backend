@@ -11,11 +11,7 @@ authors = [
     "Repository Contributors",
 ]
 edition.workspace = true
-# HELD at GPL-3.0-only, NOT the workspace default (gh:#973). This crate's own
-# `authors` list names Ethan Yew Hoe Wong and Sicong Xiao beside the
-# maintainer; relicensing to AGPL-3.0-only needs their consent recorded on
-# gh:#973 first. Restore `license.workspace = true` once it is.
-license = "GPL-3.0-only"
+license.workspace = true
 # `docs/` is repo-only: the rustdoc->markdown API mirror and the V&V
 # write-ups. Excluded so it never ships to crates.io (size, and it is
 # not part of the published API surface).

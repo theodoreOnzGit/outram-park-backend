@@ -113,7 +113,18 @@ header changed**.
 | `chem-eng-real-time-process-control-simulator` | GNU Octave control package GPL-3.0-or-later (`z_domain`); BSD-3 | 0.0.1–0.1.1 **Apache-2.0**, 0.2.1–0.2.2 GPL-3.0-only |
 | `teh-o-prke` | `matrix::SquareMatrix` copied in, itself an OpenFOAM translation (`README.md:48`) | 0.0.1–0.1.6 |
 
-## HELD at GPL-3.0-only pending recorded third-party consent (5)
+## ~~HELD at GPL-3.0-only pending recorded third-party consent (5)~~ RELICENSED 2026-10-20
+
+**CORRECTED 2026-10-20:** the maintainer directed "All crates AGPLv3", saying of the people
+below "they are colleagues" and "i know them". That direction, given in the coordinating
+session, stands in place of the per-person recorded consent this section asked for. All five
+now inherit `license.workspace = true` (AGPL-3.0-only), each with a dated NOTICE section.
+`bedok` and `raffles` are relicensed outright (raffles keeps `LICENSE-APACHE-RAVEN`);
+`tuas_boussinesq_solver`, `tampines` and `tampines-steam-tables` convey as combined works,
+shipping `LICENSE.GPL-3.0`, because they contain files referring to or derived from OpenFOAM
+(GPL-3.0-or-later). Treating them as combine-only is the conservative reading, pending a
+file-by-file check. The original text of this section follows, kept as the record.
+
 
 **Maintainer note on gh:#973, 2026-10-20:** colleagues are expected to agree,
 but each relicence needs that person's explicit consent **recorded** — a
