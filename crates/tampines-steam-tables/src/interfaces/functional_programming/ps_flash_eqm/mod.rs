@@ -11,6 +11,7 @@ pub(crate) use boundaries_from_single_phase_regions_to_region_4_multiphase::*;
 /// this checks for boundary in between single phase regions (1 to 3)
 pub(crate) mod boundaries_between_single_phase_regions;
 pub(crate) use boundaries_between_single_phase_regions::*;
+use petir::uom_math::QuantityMath;
 use uom::si::{f64::*, pressure::megapascal, ratio::ratio, thermodynamic_temperature::kelvin};
 
 use crate::interfaces::functional_programming::ph_flash_eqm::w_two_phase_homogeneous_wood_wallis;
@@ -766,7 +767,7 @@ pub fn mass_flux_ps_eqm_throat(p: Pressure, s: SpecificHeatCapacity) -> MassFlux
     let v_minus = v_ps_eqm(p_minus, s_adjusted);
     let dp_actual = (p + dp) - p_minus;
     let dv_dp_s = (v_plus - v_minus) / dp_actual;
-    let mass_flux_eqm: MassFlux = (dv_dp_s.recip() * -1.0).sqrt();
+    let mass_flux_eqm: MassFlux = (dv_dp_s.recip() * -1.0).r_sqrt();
 
     mass_flux_eqm
 }

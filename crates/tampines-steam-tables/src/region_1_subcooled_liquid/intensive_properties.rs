@@ -1,3 +1,4 @@
+use petir::uom_math::QuantityMath;
 use petir::mathf::RealMath;
 use uom::si::temperature_coefficient::per_kelvin;
 use uom::si::thermodynamic_temperature::kelvin;
@@ -76,7 +77,7 @@ pub fn w_tp_1(t: ThermodynamicTemperature, p: Pressure) -> Velocity {
     // The multiplication by 1000 is necessary to convert R from kJ/kg.K to J/kg.K
     // however, the units of measure crate takes care of it
     let square = (specific_gas_constant_of_water()) * t * (gamma_pi.r_powi(2) / (term - gamma_pi_pi));
-    square.sqrt()
+    square.r_sqrt()
 }
 
 /// Returns the region-1 isentropic exponent

@@ -1,4 +1,4 @@
-use petir::mathf::RealMath;
+use petir::uom_math::AngleMath;
 use std::f64::consts::PI;
 
 use egui::{vec2, Color32, Pos2, Sense, Stroke, Vec2, Widget};

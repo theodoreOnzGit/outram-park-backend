@@ -1,3 +1,4 @@
+use petir::uom_math::QuantityMath;
 use uom::si::thermal_conductivity::watt_per_meter_kelvin;
 use uom::si::{f64::*, pressure::megapascal, ratio::ratio, thermodynamic_temperature::kelvin};
 
@@ -622,7 +623,7 @@ pub fn w_two_phase_homogeneous_wood_wallis(
     // Calculate mixture speed of sound
     // w_mix = sqrt(1 / (rho_mix * compressibility_term))
     let w_mix_squared = 1.0 / (rho_mix * compressibility_term);
-    let w_mix = w_mix_squared.sqrt();
+    let w_mix = w_mix_squared.r_sqrt();
 
     w_mix
 }

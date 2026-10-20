@@ -56,7 +56,7 @@ fn write_rho_h_flash_vv_report() {
         let p = Pressure::new::<bar>(p_bar_val);
         let h = AvailableEnergy::new::<kilojoule_per_kilogram>(h_kj);
 
-        let probe = std::panic::catch_unwind(|| v_ph_eqm(p, h).get::<cubic_meter_per_kilogram>());
+        let probe = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| v_ph_eqm(p, h).get::<cubic_meter_per_kilogram>()));
         let Ok(v_target) = probe else { continue };
         if !(v_target.is_finite() && v_target > 0.0) {
             continue;

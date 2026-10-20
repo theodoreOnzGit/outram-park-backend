@@ -1,3 +1,4 @@
+use petir::uom_math::QuantityMath;
 use uom::ConstZero;
 use uom::si::f64::*;
 use uom::si::mass_flux::kilogram_per_square_meter_second;
@@ -199,7 +200,7 @@ pub fn get_critical_pressure_and_mass_flux_with_stagnation_props(
         }
 
         let rho = v_ps_eqm(p_test, s0).recip();
-        let g_energy: MassFlux = rho * (2.0 * kinetic_energy).sqrt();
+        let g_energy: MassFlux = rho * (2.0 * kinetic_energy).r_sqrt();
         let g_hem: MassFlux = mass_flux_ps_eqm_throat(p_test, s0);
 
         if debug {
@@ -342,7 +343,7 @@ fn dome_crossing_interior_choke(p0: Pressure, h0: AvailableEnergy) -> Option<(Pr
             return 0.0;
         }
         let rho = v_ps_eqm(p, s0).recip();
-        (rho * (2.0 * ke).sqrt()).get::<kilogram_per_square_meter_second>()
+        (rho * (2.0 * ke).r_sqrt()).get::<kilogram_per_square_meter_second>()
     };
 
     let p0_pa = p0.get::<pascal>();
@@ -619,7 +620,7 @@ pub fn g_max_hem_analytical_ps(p: Pressure, s: SpecificHeatCapacity) -> MassFlux
     // G_max = sqrt(-1 / dv_mix_dp)
     let g_max_squared = dv_mix_dp.recip() * -1.0;
 
-    g_max_squared.sqrt()
+    g_max_squared.r_sqrt()
 }
 
 /// same as g_max_hem_analytical_ps but takes (p, h) as input
