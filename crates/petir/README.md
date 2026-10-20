@@ -222,6 +222,14 @@ Adding `num-traits` with its `libm` feature does **not** fix it: `uom` never
 looks at num-traits' features, only at its own. `transfer_fn::ratio_ext`
 restores `sqrt` and `exp` for dimensionless `Ratio` instead.
 
+**Since 2026-10-20 (gh:#985) the whole workspace builds `uom` without `std`**,
+and `petir::uom_math` restores all 27 dropped methods on PETIR maths under
+`r_` names: `QuantityMath` (`r_sqrt`, `r_cbrt`, `r_powi`, `r_hypot`,
+`r_mul_add`, `r_atan2`, on any quantity, with uom's own dimension
+bookkeeping), `RatioMath` (`r_exp`, `r_ln`, the logarithms, inverse trig) and
+`AngleMath` (trig and hyperbolic). Rename `.sqrt()` to `.r_sqrt()` and import
+the trait.
+
 ## Two upstreams, two conventions
 
 GSL writes polynomial coefficients **ascending** (`c[0]` is the constant term);

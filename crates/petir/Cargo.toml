@@ -49,7 +49,10 @@ backronym = "Polynomials, Equations, Transforms, Integration and Roots"
 # which is deliberate and must not be silently undone.
 libm.workspace = true
 
-# uom — OPTIONAL, and deliberately confined to the `transfer-fn` module.
+# uom — OPTIONAL, and deliberately confined to ~~the `transfer-fn` module~~
+# `transfer_fn` and `uom_math` (the latter added 2026-10-20, gh:#985: it holds
+# no numerics, only the 27 quantity methods no_std uom drops, forwarded to
+# `real` / `mathf`).
 #
 # The epic (bn:op-chyp) settled "Raw f64, not uom -- PETIR is dimensionless
 # numerics; uom belongs at the physics crates' API boundaries, not inside a

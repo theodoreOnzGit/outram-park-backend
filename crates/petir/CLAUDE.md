@@ -289,8 +289,12 @@ unused. Do not "clean it up".
 The epic says raw `f64`. That holds for `linalg`, `poly`, `specfunc` and
 everything that follows them, and it is not being relaxed.
 
-`uom` appears **only** in `transfer_fn`, behind the default-on `transfer-fn`
-feature, because the blocks being ported genuinely type a sample time as `Time`
+~~`uom` appears **only** in `transfer_fn`, behind the default-on `transfer-fn`
+feature,~~ **CORRECTED 2026-10-20 (gh:#985):** `uom` appears in `transfer_fn`
+and in `uom_math`, both behind the `uom` feature (which the default-on
+`transfer-fn` implies). `uom_math` holds no numerics of its own: it restores
+the 27 quantity methods `no_std` uom drops, forwarding each `.value` to
+`real::Real` / `mathf::RealMath`. `transfer_fn` uses uom because the blocks being ported genuinely type a sample time as `Time`
 and a signal as `Ratio`, and stripping that would be a regression against the
 source. Do not widen it into the numerics layers. Polynomial coefficients stay
 bare `f64` even inside `transfer_fn` — the coefficient of `s^k` carries units of
@@ -305,18 +309,33 @@ build**. The error names `Quantity` and says nothing about features.
 Adding `num-traits` with `libm` does **not** help — `uom` keys the alias on its
 own `std` feature and never consults num-traits' features. This was tried.
 `transfer_fn::ratio_ext::RatioExt` restores `sqrt` and `exp` for dimensionless
-`Ratio`, which is where every affected call site actually was. Keep it to
+`Ratio`, which is where every affected call site actually was. ~~Keep it to
 `Ratio`: a dimensioned `sqrt` must halve type-level exponents, and that is
-`uom`'s macro's job, not something to hand-roll.
+`uom`'s macro's job, not something to hand-roll.~~
+
+**CORRECTED 2026-10-20 (gh:#985).** The whole workspace now builds `uom`
+without `std` (maintainer direction), so the dimensioned case is needed.
+`uom_math` provides it without hand-rolling: `QuantityMath::r_sqrt` copies
+uom 0.38's own `typenum` bounds (`PartialDiv<P2>` per base dimension) from
+`src/system.rs`, so `Area` → `Length` and `Length.r_sqrt()` does not compile.
+`RatioMath` and `AngleMath` cover the `Ratio` and `Angle` methods. Every name
+is `r_`-prefixed: if `uom/std` were ever unified back on, a bare `sqrt` would
+lose method resolution to uom's inherent one, silently. `RatioExt` keeps its
+bare names only because the lifted transfer-function files spell the calls
+that way.
 
 ## Dependencies
 
-`libm` is inherited from the workspace. **`uom` is not, and cannot be**: the root
+`libm` is inherited from the workspace. ~~**`uom` is not, and cannot be**: the root
 entry carries default features (which include `std`), and Cargo's workspace
 inheritance can only add features, never remove them, so a `no_std` `uom` is
 unobtainable through inheritance. It is declared crate-locally with a duplicated
 version string, and `tests/dependency_policy.rs` enforces that the two stay in
-step. **Bump both in the same change.**
+step. **Bump both in the same change.**~~ **CORRECTED 2026-10-20 (gh:#985):**
+`uom` is inherited too, because the root entry is now itself `no_std`
+(`default-features = false`). Inheritance still only adds features, so the
+root line must never list `std`; `tests/dependency_policy.rs` checks that, and
+that PETIR inherits rather than pins.
 
 Nothing may be added that pulls system BLAS/LAPACK, a C or Fortran toolchain,
 `std`, threads, or an allocator beyond `alloc`. No `rayon` — callers parallelise
