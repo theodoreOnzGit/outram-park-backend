@@ -425,8 +425,15 @@ bits, leaving `f32` roughly 13, which is the 1e-4 observed. `f64` runs the
 identical cancellation with 29 more bits to spend. Away from that boundary
 the mirror is ordinary — 8.6e-07 on the small-argument branch, 6.4e-05 on the
 exponential tail. `the_f32_cost_is_cancellation_at_the_branch_boundary`
-asserts the error tracks the measured cancellation ratio, so a real
-transcription defect would still fail it.
+~~asserts the error tracks the measured cancellation ratio, so a real
+transcription defect would still fail it.~~ **CORRECTED 2026-10-20 (gh
+#1003):** the old metric (relative error under 4 times the cancellation
+ratio) used a factor that was measured through glibc's `powf`, and failed at
+4.12 through the shipped `libm::powf`. The test now measures the **log
+error** `|ln S_f32 - ln S_f64|` against a budget derived by propagating each
+term's log error (`x^{11/3}` carries eleven times `x^{1/3}`'s) through the
+Clenshaw sums and the cancelling sum. Worst measured 0.380 of the budget over
+100 007 points; a `px` three ulps off breaches it (negative control).
 
 **The Fermi-Dirac integrals add the seventh and eighth kinds, and the eighth
 is the first one that is not a choice at all.**
