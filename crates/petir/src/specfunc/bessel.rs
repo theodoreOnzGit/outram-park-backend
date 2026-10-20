@@ -1246,6 +1246,39 @@ pub fn bessel_k1(x: f64) -> f64 {
     exp_mult(-x, bessel_k1_scaled(x))
 }
 
+/// The `f64` tables, for `wgsl::mirror_bessel`'s log-error budgets (gh #1003): the
+/// coefficients its `f32` tables were rounded and truncated from. Aliases,
+/// as `dawson`'s `PROBE_DAW`, so the tables stay plain `const` for
+/// `tests/gsl_tables_audit.rs`.
+#[cfg(test)]
+pub(crate) const PROBE_BI0: [f64; 12] = BI0;
+#[cfg(test)]
+pub(crate) const PROBE_AI0: [f64; 21] = AI0;
+#[cfg(test)]
+pub(crate) const PROBE_AI02: [f64; 22] = AI02;
+#[cfg(test)]
+pub(crate) const PROBE_BI1: [f64; 11] = BI1;
+#[cfg(test)]
+pub(crate) const PROBE_AI1: [f64; 21] = AI1;
+#[cfg(test)]
+pub(crate) const PROBE_AI12: [f64; 22] = AI12;
+#[cfg(test)]
+pub(crate) const PROBE_AK0: [f64; 24] = AK0;
+#[cfg(test)]
+pub(crate) const PROBE_AK02: [f64; 14] = AK02;
+#[cfg(test)]
+pub(crate) const PROBE_AK1: [f64; 25] = AK1;
+#[cfg(test)]
+pub(crate) const PROBE_AK12: [f64; 14] = AK12;
+#[cfg(test)]
+pub(crate) const PROBE_K0_POLY: [f64; 8] = K0_POLY;
+#[cfg(test)]
+pub(crate) const PROBE_I0_POLY: [f64; 7] = I0_POLY;
+#[cfg(test)]
+pub(crate) const PROBE_K1_POLY: [f64; 9] = K1_POLY;
+#[cfg(test)]
+pub(crate) const PROBE_I1_POLY: [f64; 6] = I1_POLY;
+
 #[cfg(test)]
 mod tests {
     use super::*;
