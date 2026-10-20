@@ -1,3 +1,4 @@
+use petir::uom_math::QuantityMath;
 use csv::Writer;
 use uom::si::ratio::ratio;
 use uom::si::f64::*;
@@ -164,10 +165,10 @@ impl TransferFnSecondOrder {
         c2: Ratio,
     ) -> Result<Self, ChemEngProcessControlSimulatorError> {
         // process time
-        let tau_p: Time = (a2 / c2).sqrt();
+        let tau_p: Time = (a2 / c2).r_sqrt();
 
         // damping factor
-        let zeta: Ratio = 0.5 * b2 / (a2 * c2).sqrt();
+        let zeta: Ratio = 0.5 * b2 / (a2 * c2).r_sqrt();
 
         // process_gain
         // I assume units of c1 are dimensionless
@@ -177,7 +178,7 @@ impl TransferFnSecondOrder {
         let lambda: Frequency = 0.5 * b2 / a2;
 
         // angular frequency for decaying sinusoids
-        let omega: Frequency = (c2 / a2 - 0.25 * b2 * b2 / a2 / a2).sqrt();
+        let omega: Frequency = (c2 / a2 - 0.25 * b2 * b2 / a2 / a2).r_sqrt();
 
         let zeta_value: f64 = zeta.get::<ratio>();
 

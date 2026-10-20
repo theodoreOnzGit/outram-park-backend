@@ -196,7 +196,7 @@ fn p_rho_h_inverts_v_ph_across_the_steam_table() {
         let p = Pressure::new::<bar>(p_bar_val);
         let h = AvailableEnergy::new::<kilojoule_per_kilogram>(h_kj);
 
-        let probe = std::panic::catch_unwind(|| v_ph_eqm(p, h).get::<cubic_meter_per_kilogram>());
+        let probe = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| v_ph_eqm(p, h).get::<cubic_meter_per_kilogram>()));
         let v_target = match probe {
             Ok(v) if v.is_finite() && v > 0.0 => v,
             _ => {
@@ -771,9 +771,9 @@ fn px_rho_h_dispatcher_across_the_whole_steam_table() {
             skipped += 1;
             continue;
         }
-        let Ok(v) = std::panic::catch_unwind(|| {
+        let Ok(v) = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
             v_tp_eqm_single_phase(t_node, p_ref).get::<cubic_meter_per_kilogram>()
-        }) else {
+        })) else {
             skipped += 1;
             continue;
         };
@@ -783,9 +783,9 @@ fn px_rho_h_dispatcher_across_the_whole_steam_table() {
         }
         let rho_si = 1.0 / v;
 
-        let Ok(p_rec_pa) = std::panic::catch_unwind(|| {
+        let Ok(p_rec_pa) = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
             p_rho_h_eqm_explicit(rho_si, h.get::<joule_per_kilogram>())
-        }) else {
+        })) else {
             skipped += 1;
             continue;
         };
@@ -824,9 +824,9 @@ fn px_rho_h_dispatcher_across_the_whole_steam_table() {
             let h = AvailableEnergy::new::<kilojoule_per_kilogram>(h_kj);
             let rho_si = 1.0 / v;
 
-            let Ok(p_rec_pa) = std::panic::catch_unwind(|| {
+            let Ok(p_rec_pa) = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                 p_rho_h_eqm_explicit(rho_si, h.get::<joule_per_kilogram>())
-            }) else {
+            })) else {
                 skipped += 1;
                 continue;
             };
@@ -840,7 +840,7 @@ fn px_rho_h_dispatcher_across_the_whole_steam_table() {
             // Quality is read back at the RECOVERED pressure, so it carries the
             // pressure error — which is what a `px` caller actually experiences.
             let p_rec = Pressure::new::<pascal>(p_rec_pa);
-            let x_abs = match std::panic::catch_unwind(|| x_ph_flash(p_rec, h)) {
+            let x_abs = match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| x_ph_flash(p_rec, h))) {
                 Ok(x_rec) if x_rec.is_finite() => (x_rec - x_ref).abs(),
                 _ => 0.0,
             };

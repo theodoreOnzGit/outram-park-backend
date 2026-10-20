@@ -1,3 +1,4 @@
+use petir::uom_math::QuantityMath;
 use petir::mathf::RealMath;
 use uom::si::f64::*;
 
@@ -80,7 +81,7 @@ pub fn w_tp_2(t: ThermodynamicTemperature, p: Pressure) -> Velocity {
     let subnum = (1.0 + pi * gamma_pi_2_res(t, p) - tau * pi * gamma_pi_tau_2_res(t, p)).r_powi(2);
     let subden = tau.r_powi(2) * (gamma_tau_tau_2_ideal(t, p) + gamma_tau_tau_2_res(t, p));
     let den = 1.0 - pi.r_powi(2) * gamma_pi_pi_2_res(t, p) + subnum / subden;
-    ((specific_gas_constant_of_water() * t) * num / den).sqrt()
+    ((specific_gas_constant_of_water() * t) * num / den).r_sqrt()
 }
 
 /// Returns the region-2 isentropic exponent

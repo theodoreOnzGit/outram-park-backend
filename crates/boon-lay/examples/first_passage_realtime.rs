@@ -14,7 +14,6 @@
 //! stack. On Android the real entry point and its egui-using module are gated
 //! out and replaced by a no-op `main`, so the example target still builds there.
 
-use petir::mathf::RealMath;
 #[cfg(not(target_os = "android"))]
 fn main() -> eframe::Result<()> {
     let native_options = eframe::NativeOptions {
@@ -35,6 +34,7 @@ fn main() {
 
 #[cfg(not(target_os = "android"))]
 mod app {
+    use petir::mathf::RealMath;
     use boon_lay::compute::ComputeType;
     use boon_lay::lagrangian_decay_simulator::lagrangian_diffusion::first_passage::live::{
         LiveEnsemble, Snapshot,

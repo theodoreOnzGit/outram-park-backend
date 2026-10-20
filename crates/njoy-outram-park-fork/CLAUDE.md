@@ -897,6 +897,15 @@ a point in its walk we had not reproduced:
 Gates: `ti48_heating_number_with_heatr_is_njoy2016s`,
 `zn70_purr_heating_column_with_heatr_is_njoy2016s`.
 
+**Since 2026-10-20 (gh:#985) every `f64` transcendental in this crate** —
+src, tests and examples, 818 sites — goes through `petir::mathf::RealMath`
+(`.r_exp()`, `.r_ln()`, `.r_powf()`, `.r_powi()`, `.r_sin()`, …), never the
+platform libm. Write new code the same way. On Linux (glibc 2.39) the whole
+crate suite (1165 passed, 9 ignored) and every NJOY2016 parity gate were
+unchanged by the switch: `ace_five_route_parity` 13/13 identical in every
+word (B-10, Ti-48, Zn-70 Type-2 XSS bit-identical), `pendf_stages_vs_njoy2016`
+12 PENDFs identical in every MF=3 word, broadening band integrals 7.758e-12.
+
 **The lesson, again:** a reference made with a different deck from the code
 under test checks only what the decks share. Compare the files the runs
 actually read.

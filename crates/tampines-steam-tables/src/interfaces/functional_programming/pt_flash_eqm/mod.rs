@@ -1,3 +1,4 @@
+use petir::uom_math::QuantityMath;
 use uom::si::{f64::*, pressure::pascal, thermodynamic_temperature::kelvin};
 
 use crate::interfaces::functional_programming::ph_flash_eqm::s_ph_eqm;
@@ -285,7 +286,7 @@ pub fn w_tpx_eqm(t: ThermodynamicTemperature, p: Pressure, x: f64) -> Velocity {
             // c = v * sqrt(-1/dv_dp_s)
             // note: dv_dp_s should be negative (specific volume decreases as pressure increases)
             let v = v_ps_eqm(p, s);
-            let c_hem: Velocity = v * (dv_dp_s.recip() * -1.0).sqrt();
+            let c_hem: Velocity = v * (dv_dp_s.recip() * -1.0).r_sqrt();
 
             c_hem
         }

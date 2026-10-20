@@ -115,7 +115,7 @@ fn ph_to_t_inverse_undershoots_the_273_15_floor() {
     let t_back = t_ph_eqm(p, h).get::<kelvin>();
 
     // Reported, never asserted -- see the doc comment.
-    let lambda = std::panic::catch_unwind(|| lambda_ph_eqm(p, h));
+    let lambda = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| lambda_ph_eqm(p, h)));
 
     println!(
         "IF97 273.15 K FLOOR ROUND TRIP\n  \
@@ -193,7 +193,7 @@ fn does_lambda_ph_eqm_work_in_region_5() {
     let t_r5 = ThermodynamicTemperature::new::<kelvin>(1500.0);
     let p = Pressure::new::<pascal>(1.0e6);
 
-    let h = std::panic::catch_unwind(|| h_tp_eqm_single_phase(t_r5, p));
+    let h = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| h_tp_eqm_single_phase(t_r5, p)));
     let h = match h {
         Ok(h) => h,
         Err(_) => {
@@ -201,8 +201,8 @@ fn does_lambda_ph_eqm_work_in_region_5() {
             panic!("cannot set up the test point");
         }
     };
-    let t_back = std::panic::catch_unwind(|| t_ph_eqm(p, h));
-    let lambda = std::panic::catch_unwind(|| lambda_ph_eqm(p, h));
+    let t_back = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| t_ph_eqm(p, h)));
+    let lambda = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| lambda_ph_eqm(p, h)));
 
     println!(
         "REGION 5 PROPERTY DISPATCH (T = 1500 K, p = 1 MPa)\n  \
@@ -300,9 +300,9 @@ fn does_the_ps_flash_reach_region_5_and_does_the_checked_facade() {
     let p = Pressure::new::<pascal>(1.0e6);
 
     let s = s_tp_eqm_single_phase(t_r5, p);
-    let region = std::panic::catch_unwind(|| ps_flash_region(p, s));
-    let t_back = std::panic::catch_unwind(|| t_ps_eqm(p, s));
-    let checked = std::panic::catch_unwind(|| try_t_ps_eqm(p, s));
+    let region = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| ps_flash_region(p, s)));
+    let t_back = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| t_ps_eqm(p, s)));
+    let checked = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| try_t_ps_eqm(p, s)));
 
     println!(
         "REGION 5 (p,s) DISPATCH (T = 1500 K, p = 1 MPa)\n  \
@@ -399,7 +399,7 @@ fn the_checked_ph_facade_still_refuses_region_5_and_the_2273_k_ceiling_panics() 
 
     // Comfortably above the 2273.15 K isotherm at this pressure.
     let h_too_hot = h * 2.5;
-    let over_ceiling = std::panic::catch_unwind(|| t_ph_eqm(p, h_too_hot));
+    let over_ceiling = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| t_ph_eqm(p, h_too_hot)));
 
     println!(
         "REGION 5 EDGE CLAIMS (p = 1 MPa)\n  \

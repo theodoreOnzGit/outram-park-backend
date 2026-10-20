@@ -226,6 +226,8 @@ pub mod specfunc;
 pub mod ssprk;
 #[cfg(feature = "transfer-fn")]
 pub mod transfer_fn;
+#[cfg(feature = "uom")]
+pub mod uom_math;
 /// **WGSL kernels** — PETIR's pointwise numerics as GPU shader source, in
 /// `f32`, with an `f32` CPU mirror of each and (behind the off-by-default
 /// `wgpu` feature) a headless runner. The shader text and the mirrors are

@@ -60,12 +60,24 @@
 //!
 //! # Deliberately narrow
 //!
-//! [`Ratio`] only. `sqrt` on a dimensioned quantity has to halve its exponents
+//! [`Ratio`] only. ~~`sqrt` on a dimensioned quantity has to halve its exponents
 //! — `Area::sqrt` returns a `Length` — and that is real type-level work that
 //! `uom`'s own macro does properly. This trait does not attempt it, and must
 //! not be widened to; if a dimensioned `sqrt` is ever needed in `no_std`, the
 //! answer is a fix or a feature upstream in `uom`, not a hand-rolled
-//! exponent-halving here.
+//! exponent-halving here.~~
+//!
+//! **CORRECTED 2026-10-20 (gh:#985).** The workspace's `uom` is now `no_std`
+//! everywhere (maintainer direction), so the dimensioned case is needed and
+//! is handled in [`crate::uom_math`]. That module does not hand-roll the
+//! exponent arithmetic: it copies `uom` 0.38's own `typenum` bounds
+//! (`PartialDiv<P2>` per base dimension) from `src/system.rs`. This trait
+//! stays narrow, and its bare `sqrt`/`exp` names stay, because the lifted
+//! transfer-function files spell the calls that way and must keep diffing
+//! clean against `chem-eng`. New code uses [`crate::uom_math`]'s `r_` names.
+//! [`RatioExt::sqrt`] forwards to [`crate::uom_math::QuantityMath::r_sqrt`].
+//! [`RatioExt::exp`] stays on [`Real::exp`] (`libm`), NOT `RatioMath::r_exp`
+//! (the ARM port), so the transfer-function results do not move.
 
 // Under a std-linked build (`cargo test`) f64's inherent sqrt/exp shadow these
 // trait methods, leaving the import formally unused. See crate::real.
@@ -90,7 +102,11 @@ pub trait RatioExt {
 impl RatioExt for Ratio {
     #[inline]
     fn sqrt(self) -> Ratio {
-        Ratio::new::<ratio>(Real::sqrt(self.get::<ratio>()))
+        // Same value as the previous `Ratio::new::<ratio>(Real::sqrt(..))`:
+        // both are `libm::sqrt` of the base value. The one difference is
+        // `-0.0`, which `new::<ratio>` turned into `+0.0` and `r_sqrt` (like
+        // uom's own `Quantity::sqrt`) keeps as `-0.0`; they compare equal.
+        crate::uom_math::QuantityMath::r_sqrt(self)
     }
 
     #[inline]

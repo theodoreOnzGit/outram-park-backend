@@ -3,23 +3,27 @@
 //! # What this module is
 //!
 //! One routine, [`solve_dense`], that solves `A x = b` for a small dense square
-//! `A`. It stands in for DWSIM's `MathEx.SysLin.rsolve.rmatrixsolve`, which the
+//! `A`, through `petir::linalg`'s port of GSL's LU (gh:#992). It stands in
+//! for DWSIM's `MathEx.SysLin.rsolve.rmatrixsolve`, which the
 //! simultaneous adjust solver calls once per Newton iteration
 //! (`FlowsheetSolver.vb:2010`, `:2119`).
 //!
 //! All quantities here are **dimensionless plain `f64`** by construction: the
 //! matrix is a Jacobian `d f_i / d x_j` whose rows and columns carry whatever
-//! units the adjust variables do, so no single `uom` type applies. The callers
+//! units the adjust variables do, so no single `uom` type applies. ~~The callers
 //! ([`crate::flowsheet_solver::adjust`],
-//! [`crate::flowsheet_solver::recycle::broydn`]) document the units of their own
-//! vectors.
+//! [`crate::flowsheet_solver::recycle::broydn`])~~ **CORRECTED 2026-10-20
+//! (gh:#992):** the one caller, [`crate::flowsheet_solver::adjust`], documents
+//! the units of its own vectors; `recycle::broydn` does not call this.
 //!
 //! # Why not reuse the crate's other linear algebra
 //!
 //! `crate::columns` carries its own `linalg` module for the MESH column solvers.
 //! This one is deliberately separate and self-contained: the flowsheet solver
-//! must not depend on the column workstream's internals, and the routine is 40
-//! lines.
+//! must not depend on the column workstream's internals. ~~and the routine is
+//! 40 lines.~~ **Since 2026-10-20 (gh:#992)** the factorisation itself is
+//! PETIR's; this module keeps only the shape checks and upstream's
+//! `Boolean`-success contract.
 //!
 //! # Attribution
 //!
@@ -35,16 +39,25 @@
 //!
 //! # Excluded DWSIM behavior
 //!
-//! - **ALGLIB's `rmatrixsolve` internals.** Upstream calls into a vendored
+//! - ~~**ALGLIB's `rmatrixsolve` internals.** Upstream calls into a vendored
 //!   ALGLIB LU solve with condition-number estimation and iterative refinement.
 //!   This port implements plain **Gaussian elimination with partial pivoting**
 //!   and reports failure on an exactly-singular pivot. It therefore accepts some
-//!   ill-conditioned systems ALGLIB would reject; the Newton step that consumes
-//!   the result is damped and capped regardless
-//!   (FlowsheetSolver.vb:2013-2026), which is what upstream relies on for
-//!   robustness.
+//!   ill-conditioned systems ALGLIB would reject;~~ **CORRECTED 2026-10-20
+//!   (gh:#992), read at the pinned commit:** upstream's
+//!   `MathEx.SysLin.rsolve.rmatrixsolve` (`DWSIM.Math/SysLin.vb:118-124`) has
+//!   **no** condition estimate and **no** iterative refinement. It is
+//!   `rmatrixlu` (unblocked `rmatrixlu2` for `n <= 8`: unscaled partial
+//!   pivoting, reciprocal multipliers) then `rmatrixlusolve`, which returns
+//!   `False` only on an exactly zero `U(i,i)` — the same failure rule this
+//!   port applies. The Newton step that consumes the result is damped and
+//!   capped regardless (FlowsheetSolver.vb:2013-2026). Not reproduced: for
+//!   `n > 8` upstream's `rmatrixlu` factors in blocks of 8, which rounds
+//!   differently; PETIR's port is GSL's Level-2 path at those sizes too.
 //! - **`ndarray-linalg` / LAPACK.** Not used: the workspace's Android/Termux
 //!   rule forbids a system BLAS dependency in library code.
+
+use petir::linalg::{lu_decomp, lu_solve, Matrix};
 
 /// Solve the dense square system `A x = b`.
 ///
@@ -65,68 +78,36 @@
 ///
 /// # Method
 ///
-/// Gaussian elimination with partial pivoting followed by back substitution.
-/// `O(n^3)`; `n` is the number of simultaneously-solved adjust blocks, which is
-/// a handful in practice.
+/// [`petir::linalg::lu_decomp`] (GSL's `gsl_linalg_LU_decomp`: unscaled
+/// partial pivoting, multipliers by the pivot's reciprocal) followed by
+/// [`petir::linalg::lu_solve`]. That is the arithmetic of upstream's ALGLIB
+/// `rmatrixlu2` (`DWSIM.Math/SysLin.vb:485-550`), pivot for pivot; the solve's
+/// forward-substitution sum is accumulated in a different order from
+/// `rmatrixlusolve` (`SysLin.vb:39-89`), so the two can differ in the last
+/// ulp. `O(n^3)`; `n` is the number of simultaneously-solved adjust blocks,
+/// which is a handful in practice.
+///
+/// **Moved to PETIR 2026-10-20 (gh:#992).** Until then this was a local
+/// Gaussian elimination that divided by the pivot (`a_ij / a_jj`) where
+/// upstream multiplies by its reciprocal. Measured on this crate's adjust
+/// tests: both Newton cases are bit-identical before and after (see
+/// `two_coupled_adjusts_solve_simultaneously`).
 #[must_use]
 pub fn solve_dense(a: Vec<Vec<f64>>, b: &[f64]) -> Option<Vec<f64>> {
     let n = b.len();
     if n == 0 || a.len() != n || a.iter().any(|row| row.len() != n) {
         return None;
     }
-
-    let mut m = a;
-    let mut rhs = b.to_vec();
-
-    for col in 0..n {
-        // Partial pivot: largest magnitude in the remaining column.
-        let mut pivot = col;
-        let mut best = m[col][col].abs();
-        for (row, m_row) in m.iter().enumerate().take(n).skip(col + 1) {
-            let v = m_row[col].abs();
-            if v > best {
-                best = v;
-                pivot = row;
-            }
-        }
-        if !best.is_finite() || best == 0.0 {
-            return None;
-        }
-        if pivot != col {
-            m.swap(pivot, col);
-            rhs.swap(pivot, col);
-        }
-
-        let diag = m[col][col];
-        for row in (col + 1)..n {
-            let factor = m[row][col] / diag;
-            if factor == 0.0 {
-                continue;
-            }
-            for k in col..n {
-                m[row][k] -= factor * m[col][k];
-            }
-            rhs[row] -= factor * rhs[col];
-        }
+    // Upstream's `rmatrixsolve` returns False on a non-finite system only by
+    // way of its `a(i,i) = 0` test; refusing one up front keeps the contract
+    // this function had before gh:#992 (a non-finite pivot column -> `None`).
+    if a.iter().flatten().any(|v| !v.is_finite()) {
+        return None;
     }
-
-    // Back substitution.
-    let mut x = vec![0.0_f64; n];
-    for row in (0..n).rev() {
-        let mut acc = rhs[row];
-        for col in (row + 1)..n {
-            acc -= m[row][col] * x[col];
-        }
-        let diag = m[row][row];
-        if diag == 0.0 || !diag.is_finite() {
-            return None;
-        }
-        x[row] = acc / diag;
-        if !x[row].is_finite() {
-            return None;
-        }
-    }
-    Some(x)
+    let mut m = Matrix::from_row_major(n, n, a.into_iter().flatten().collect()).ok()?;
+    let p = lu_decomp(&mut m).ok()?;
+    let x = lu_solve(&m, &p, b).ok()?;
+    x.iter().all(|v| v.is_finite()).then_some(x)
 }
 
 /// Sum of the absolute values of a vector — DWSIM's `MathEx.Common.AbsSum`

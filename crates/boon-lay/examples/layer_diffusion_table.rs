@@ -67,11 +67,11 @@ fn main() {
                 .iter()
                 .map(|(_, layer)| {
                     let layer = *layer;
-                    std::panic::catch_unwind(move || {
+                    std::panic::catch_unwind(std::panic::AssertUnwindSafe(move || {
                         try_get_diffusion_coeff_jiang(layer, nuclide, t, Some(ArealNumberDensity::ZERO))
                             .map(|d| d.get::<square_meter_per_second>())
                             .unwrap_or(f64::NAN)
-                    })
+                    }))
                     .unwrap_or(f64::NAN)
                 })
                 .collect();

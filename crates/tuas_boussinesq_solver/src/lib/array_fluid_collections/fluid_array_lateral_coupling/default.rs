@@ -1,3 +1,4 @@
+use petir::uom_math::QuantityMath;
 use crate::boussinesq_thermophysical_properties::prandtl::try_get_prandtl;
 use crate::boussinesq_thermophysical_properties::SolidMaterial;
 use crate::boussinesq_thermophysical_properties::Material;
@@ -39,7 +40,7 @@ impl Default for FluidArray {
 
         let cross_sectional_area = Area::new::<square_meter>(0.01);
 
-        let hydraulic_diameter: Length = (4.0 * cross_sectional_area / PI).sqrt();
+        let hydraulic_diameter: Length = (4.0 * cross_sectional_area / PI).r_sqrt();
 
         let surface_roughness = SolidMaterial::SteelSS304L.surface_roughness().unwrap();
 

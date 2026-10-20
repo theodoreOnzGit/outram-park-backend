@@ -159,6 +159,32 @@ solution and residual.
 4.27e-16 on the factorisation, 4.94e-16 on the solution, 1.37e-14 on the
 residual. Replayed by `crates/petir/tests/gsl_qr_code_to_code.rs`.
 
+## `lu-gsl-2.8-reference.txt` — LU with partial pivoting and its solve
+
+- **Built:** 2026-10-20 (gh:#992), `gcc -O2`, glibc on x86_64-unknown-linux-gnu,
+  against a full static GSL built from the vendored tree
+  (`./configure --disable-shared --enable-static && make`), linked with GSL's
+  own `libgslcblas.a`.
+- **Driver:** `lu_reference_driver.c` in this directory.
+- **Routines:** `gsl_linalg_LU_decomp` and `gsl_linalg_LU_solve`.
+- **Not the system libgsl.** Arch's `gsl 2.8-1` links netlib
+  `libcblas`/`libblas`, whose `DTRSV` walks back-substitution in the opposite
+  order; the same driver linked that way differs on 44 lines of this file.
+
+```sh
+G=crates/petir/upstream_source/GSL          # the vendored clone (build a copy)
+(cd $G && ./configure --disable-shared --enable-static && make -j"$(nproc)")
+gcc -O2 -I"$G" -o ludriver reference-data/gsl/lu_reference_driver.c \
+    "$G/.libs/libgsl.a" "$G/cblas/.libs/libgslcblas.a" -lm
+./ludriver > reference-data/gsl/lu-gsl-2.8-reference.txt
+```
+
+Nine cases, inputs included in the file: 2x2, a zero leading pivot, a tie in
+the pivot column, rows six decades apart, a pivot below `DBL_MIN`, an exactly
+singular 3x3, and unstructured 6x6, 24x24 and 30x30 (the last through GSL's
+Level-3 path). **Result (2026-10-20): 1637/1637 values bit-identical**,
+including the 30x30. Replayed by `crates/petir/tests/gsl_lu_code_to_code.rs`.
+
 ## Regenerating
 
 ```sh
