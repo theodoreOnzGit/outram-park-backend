@@ -23,6 +23,9 @@
 // these trait methods, leaving the import formally unused. See crate::real.
 #[allow(unused_imports)]
 use crate::real::Real;
+// Re-lifted 2026-10-20 (gh:#985): the source now calls RealMath's `r_` methods.
+#[allow(unused_imports)]
+use crate::mathf::RealMath;
 /// Inverse error function.
 ///
 /// Returns `x` such that `erf(x) = y`.  Valid domain: `y ∈ (−1, 1)`.
@@ -37,8 +40,8 @@ pub fn erf_inv(y: f64) -> f64 {
     const A: f64 = 0.147;
     let pi = core::f64::consts::PI;
 
-    let k = 2.0 / (A * pi) + 0.5 * Real::ln(1.0 - y * y);
-    let h = Real::ln(1.0 - y * y) / A;
+    let k = 2.0 / (A * pi) + 0.5 * (1.0 - y * y).r_ln();
+    let h = (1.0 - y * y).r_ln() / A;
 
     let x = Real::sqrt(-k + Real::sqrt(k * k - h));
 

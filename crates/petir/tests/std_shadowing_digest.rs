@@ -77,6 +77,23 @@
 //! `--features uom/std` names it). Only a deliberate change to a routine's
 //! arithmetic justifies new digests, recorded here with the date and reason.
 
+//!
+//! # Re-pinned 2026-10-21: `specfunc` and `transfer_fn` (gh:#985)
+//!
+//! A deliberate change to two groups' arithmetic. gh:#985 renamed the
+//! transcendentals in the lifts' SOURCES (`outram-foam-basic-lib`, `chem-eng`)
+//! to `RealMath`'s `r_` methods, and the lifts were re-lifted to match
+//! (`tests/verbatim_provenance.rs`). `RealMath::r_exp`/`r_ln`/`r_powf` take the
+//! ARM optimized-routines ports where `Real::exp`/`ln`/`powf` take `libm`, and
+//! `r_sin_cos` is `(r_sin, r_cos)` where `Real::sin_cos` is `libm::sincos`, so
+//! the special functions (`inc_gamma`, `inv_inc_gamma`, `erf_inv`) and the
+//! transfer-function blocks moved: `specfunc` `0xa12b16066df916cf` ->
+//! `0x88ec94e3202a1c7e`, `transfer_fn` `0x142dfcde5eb88a64` ->
+//! `0x328eb18a7aceaede`. The other five groups did not move. `r_` methods
+//! cannot be shadowed (std has none), so the graph independence this test
+//! guards is unaffected; `scripts/check-std-shadowing.sh` was run on the new
+//! pins (result in the commit that made this change).
+
 #[path = "std_shadowing/digest.rs"]
 mod digest;
 
@@ -85,9 +102,11 @@ const EXPECTED: &[(&str, u64)] = &[
     ("hypot", 0xc47bf45097971ff9),
     ("linalg", 0xd8c5ccef7949ea52),
     ("poly", 0x79cf17c03ec9892a),
-    ("specfunc", 0xa12b16066df916cf),
+    // Re-pinned 2026-10-21 (gh:#985 re-lift); was 0xa12b16066df916cf.
+    ("specfunc", 0x88ec94e3202a1c7e),
     ("wgsl_mirrors", 0xea6f3ca0eb4f5ece),
-    ("transfer_fn", 0x142dfcde5eb88a64),
+    // Re-pinned 2026-10-21 (gh:#985 re-lift); was 0x142dfcde5eb88a64.
+    ("transfer_fn", 0x328eb18a7aceaede),
     ("deriv_integration_ode", 0x22cff312c7e299cd),
 ];
 

@@ -1390,6 +1390,7 @@ fn array_mass(rho: &[f64], volumes: &[f64]) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use petir::mathf::RealMath;
     use uom::si::mass_density::kilogram_per_cubic_meter;
 
     /// The HTR-10 exchanger roughly as the primary loop builds it, for tests

@@ -51,6 +51,9 @@ use alloc::vec::Vec;
 use crate::transfer_fn::ratio_ext::RatioExt;
 #[allow(unused_imports)]
 use crate::real::Real;
+// Re-lifted 2026-10-20 (gh:#985): the source now calls RealMath's `r_` methods.
+#[allow(unused_imports)]
+use crate::mathf::RealMath;
 use alloc::collections::VecDeque;
 
 use uom::si::f64::*;
@@ -234,7 +237,7 @@ impl FirstOrderStableTransferFnForZeroes {
             return;
         }
 
-        let decay_factor = Real::exp(-(time_step / self.process_time).get::<ratio>());
+        let decay_factor = (-(time_step / self.process_time).get::<ratio>()).r_exp();
         self.decaying_mode = self.decaying_mode * decay_factor;
     }
 
@@ -242,7 +245,7 @@ impl FirstOrderStableTransferFnForZeroes {
     /// `time_since_start` seconds.
     fn activate(&mut self, input_increment: Ratio, time_since_start: Time) {
         let step_magnitude = self.process_gain * input_increment;
-        let decay_factor = Real::exp(-(time_since_start / self.process_time).get::<ratio>());
+        let decay_factor = (-(time_since_start / self.process_time).get::<ratio>()).r_exp();
         self.decaying_mode += step_magnitude * decay_factor;
     }
 

@@ -30,6 +30,9 @@
 // these trait methods, leaving the import formally unused. See crate::real.
 #[allow(unused_imports)]
 use crate::real::Real;
+// Re-lifted 2026-10-20 (gh:#985): the source now calls RealMath's `r_` methods.
+#[allow(unused_imports)]
+use crate::mathf::RealMath;
 // NO DEVIATION. This file is byte-identical to its source.
 //
 // It did not start that way. outram-foam-basic-lib used to reach erf/erfc/
@@ -87,9 +90,9 @@ fn calc_pe15(a: f64, x: f64, nmax: i32) -> f64 {
     let mut sum = 0.0_f64;
     for n in 1..=nmax {
         prod *= a + n as f64;
-        sum += Real::powi(x, n) / prod;
+        sum += x.r_powi(n) / prod;
     }
-    let r = Real::exp(-x) * Real::powf(x, a) / c_gamma(a);
+    let r = (-x).r_exp() * x.r_powf(a) / c_gamma(a);
     r / a * (1.0 + sum)
 }
 
@@ -99,9 +102,9 @@ fn calc_qe16(a: f64, x: f64, n_terms: i32) -> f64 {
     let mut sum = 0.0_f64;
     for n in 1..=(n_terms - 1) {
         an *= a - n as f64;
-        sum += an / Real::powi(x, n);
+        sum += an / x.r_powi(n);
     }
-    let r = Real::exp(-x) * Real::powf(x, a) / c_gamma(a);
+    let r = (-x).r_exp() * x.r_powf(a) / c_gamma(a);
     r / x * (1.0 + sum)
 }
 
@@ -171,36 +174,36 @@ pub fn inc_gamma_ratio_q(a: f64, x: f64) -> f64 {
         } else if x < 1.1 {
             // (DM:Eq. 12)
             let alpha = if x < 0.5 {
-                (Real::ln(Real::sqrt(0.765_f64))) / Real::ln(x)
+                (RealMath::r_ln(Real::sqrt(0.765_f64))) / RealMath::r_ln(x)
             } else {
                 x / 2.59
             };
 
             let mut sum = 0.0;
             for n in 1i32..=10 {
-                sum += Real::powi(-x, n) / ((a + n as f64) * factorial(n));
+                sum += (-x).r_powi(n) / ((a + n as f64) * factorial(n));
             }
             let j = -a * sum;
 
             if a >= alpha {
                 // (DM:Eq. 9)
-                return 1.0 - (Real::powf(x, a) * (1.0 - j)) / c_gamma(a + 1.0);
+                return 1.0 - (x.r_powf(a) * (1.0 - j)) / c_gamma(a + 1.0);
             } else {
                 // (DM:Eq. 10)
-                let l = Real::exp(a * Real::ln(x)) - 1.0;
+                let l = (a * x.r_ln()).r_exp() - 1.0;
                 let h = 1.0 / c_gamma(a + 1.0) - 1.0;
-                return (Real::powf(x, a) * j - l) / c_gamma(a + 1.0) - h;
+                return (x.r_powf(a) * j - l) / c_gamma(a + 1.0) - h;
             }
         } else {
             // (DM:Eq. 11)
-            let r = Real::exp(-x) * Real::powf(x, a) / c_gamma(a);
+            let r = (-x).r_exp() * x.r_powf(a) / c_gamma(a);
             return r * calc_qe11(a, x, 30);
         }
     } else if a >= BIG {
         let sigma = (1.0 - x / a).abs();
 
         let lambda = x / a;
-        let phi = lambda - 1.0 - Real::ln(lambda);
+        let phi = lambda - 1.0 - lambda.r_ln();
         let y = a * phi;
 
         if sigma <= E0 / Real::sqrt(a) {
@@ -216,14 +219,14 @@ pub fn inc_gamma_ratio_q(a: f64, x: f64) -> f64 {
             // (DM:Eq. 17)
             let te = calc_te18(a, E0, x, lambda, sigma, phi);
             return if lambda <= 1.0 {
-                1.0 - (0.5 * c_erfc(Real::sqrt(y)) - Real::exp(-y) / Real::sqrt(2.0 * PI * a) * te)
+                1.0 - (0.5 * c_erfc(Real::sqrt(y)) - RealMath::r_exp(-y) / Real::sqrt(2.0 * PI * a) * te)
             } else {
-                0.5 * c_erfc(Real::sqrt(y)) + Real::exp(-y) / Real::sqrt(2.0 * PI * a) * te
+                0.5 * c_erfc(Real::sqrt(y)) + RealMath::r_exp(-y) / Real::sqrt(2.0 * PI * a) * te
             };
-        } else if x <= a.max(Real::ln(10.0_f64)) {
+        } else if x <= a.max(10.0_f64.r_ln()) {
             return 1.0 - calc_pe15(a, x, 20);
         } else if x < X0 {
-            let r = Real::exp(-x) * Real::powf(x, a) / c_gamma(a);
+            let r = (-x).r_exp() * x.r_powf(a) / c_gamma(a);
             return r * calc_qe11(a, x, 30);
         } else {
             return calc_qe16(a, x, 20);
@@ -231,10 +234,10 @@ pub fn inc_gamma_ratio_q(a: f64, x: f64) -> f64 {
     } else {
         // 1 ≤ a < BIG
         if a > x || x >= X0 {
-            if x <= a.max(Real::ln(10.0_f64)) {
+            if x <= a.max(10.0_f64.r_ln()) {
                 return 1.0 - calc_pe15(a, x, 20);
             } else if x < X0 {
-                let r = Real::exp(-x) * Real::powf(x, a) / c_gamma(a);
+                let r = (-x).r_exp() * x.r_powf(a) / c_gamma(a);
                 return r * calc_qe11(a, x, 30);
             } else {
                 return calc_qe16(a, x, 20);
@@ -249,9 +252,9 @@ pub fn inc_gamma_ratio_q(a: f64, x: f64) -> f64 {
                     // a is a positive integer: (DM:Eq. 14) exponential sum
                     let mut sum = 0.0;
                     for n in 0..=(a as i64 - 1) {
-                        sum += Real::powi(x, n as i32) / factorial(n as i32);
+                        sum += x.r_powi(n as i32) / factorial(n as i32);
                     }
-                    return Real::exp(-x) * sum;
+                    return (-x).r_exp() * sum;
                 } else {
                     // a = k + 0.5 for some integer k
                     let i = (a - 0.5) as i32;
@@ -259,14 +262,14 @@ pub fn inc_gamma_ratio_q(a: f64, x: f64) -> f64 {
                     let mut sum = 0.0_f64;
                     for n in 1..=i {
                         prod *= n as f64 - 0.5;
-                        sum += Real::powi(x, n) / prod;
+                        sum += x.r_powi(n) / prod;
                     }
-                    return c_erfc(Real::sqrt(x)) + Real::exp(-x) / Real::sqrt(PI * x) * sum;
+                    return c_erfc(Real::sqrt(x)) + RealMath::r_exp(-x) / Real::sqrt(PI * x) * sum;
                 }
-            } else if x <= a.max(Real::ln(10.0_f64)) {
+            } else if x <= a.max(10.0_f64.r_ln()) {
                 return 1.0 - calc_pe15(a, x, 20);
             } else if x < X0 {
-                let r = Real::exp(-x) * Real::powf(x, a) / c_gamma(a);
+                let r = (-x).r_exp() * x.r_powf(a) / c_gamma(a);
                 return r * calc_qe11(a, x, 30);
             } else {
                 return calc_qe16(a, x, 20);
@@ -305,7 +308,7 @@ mod tests {
     #[test]
     fn p_1_1() {
         let p = inc_gamma_ratio_p(1.0, 1.0);
-        assert!(approx_eq(p, 1.0 - (-1.0_f64).exp(), 1e-6), "P(1,1)={p}");
+        assert!(approx_eq(p, 1.0 - (-1.0_f64).r_exp(), 1e-6), "P(1,1)={p}");
     }
 
     // P + Q = 1

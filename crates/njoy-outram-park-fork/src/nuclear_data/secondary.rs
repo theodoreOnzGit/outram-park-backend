@@ -893,9 +893,10 @@ impl ContinuumKalbachRow {
         if root <= 0.0 {
             return 2.0 * xi - 1.0;
         }
-        let phi = r.atanh();
+        // RealMath has no atanh/asinh: petir::real::Real by trait path (libm, platform-independent), gh:#985.
+        let phi = petir::real::Real::atanh(r);
         let s = ((2.0 * xi - 1.0) * a.r_sinh() + r * a.r_cosh()) / root;
-        let mu = (s.asinh() - phi) / a;
+        let mu = (petir::real::Real::asinh(s) - phi) / a;
         if mu.is_finite() {
             mu.clamp(-1.0, 1.0)
         } else {

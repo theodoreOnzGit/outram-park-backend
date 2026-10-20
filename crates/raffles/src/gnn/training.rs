@@ -43,7 +43,6 @@
 //!   phenomenon in message passing neural PDE solvers: revisiting the CFL
 //!   condition. arXiv:2507.08861. <https://arxiv.org/abs/2507.08861>
 
-use petir::mathf::RealMath;
 use burn::optim::{AdamConfig, GradientsParams, Optimizer};
 use burn::tensor::backend::AutodiffBackend;
 use burn::tensor::{Tensor, TensorData};
@@ -308,6 +307,7 @@ mod tests {
     use crate::samplers::stream_seed;
     use burn::backend::{Autodiff, NdArray};
     use burn::prelude::Backend;
+    use petir::mathf::RealMath;
     use petir::rng::lcg::prn;
 
     type TestBackend = Autodiff<NdArray<f32>>;

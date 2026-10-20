@@ -34,6 +34,10 @@
 //! - `transport_corresponding_states.rs`, `fluid.rs`, `single_cv.rs`, the
 //!   vendored `openfoam_algorithms` copy, `humid_air`, `incompressibles`,
 //!   `mixtures`: outside S3's scope (stages S4 and S7 of the plan).
+//!
+//! **Since 2026-10-20** the workspace-wide gate
+//! `crates/petir/tests/no_platform_libm.rs` covers every crate's `src/`
+//! (gh:#985); this narrower gate stays so a failure shows up in this crate.
 
 use std::fs;
 use std::path::PathBuf;

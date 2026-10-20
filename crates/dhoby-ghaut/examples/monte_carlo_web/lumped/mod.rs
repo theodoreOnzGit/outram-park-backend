@@ -119,6 +119,7 @@ impl RungBuilder for Builder {
 #[cfg(all(test, not(target_arch = "wasm32")))]
 mod tests {
     use super::*;
+    use petir::mathf::RealMath;
     use outram_mc_libs::geometry::cell::SurfaceToken;
     use outram_mc_libs::geometry::position::{Direction, Position};
     use outram_mc_libs::physics::track_output::TrackEvent;

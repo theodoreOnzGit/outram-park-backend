@@ -99,7 +99,6 @@
 //! where a surrogate would actually earn its keep, breaks the fixed-graph
 //! assumption and is **not** covered here.
 
-use petir::mathf::RealMath;
 #[cfg(not(feature = "gnn-burn"))]
 fn main() {
     eprintln!(
@@ -115,6 +114,7 @@ fn main() {
 
 #[cfg(feature = "gnn-burn")]
 mod run {
+    use petir::mathf::RealMath;
     use outram_park_fork_liggghts::boundary::Boundary;
     use outram_park_fork_liggghts::gnn_bridge;
     use outram_park_fork_liggghts::granular::{GranularContactModel, GranularMaterial, RollingModel};

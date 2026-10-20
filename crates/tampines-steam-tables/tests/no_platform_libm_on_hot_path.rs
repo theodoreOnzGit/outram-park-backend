@@ -42,6 +42,10 @@
 //!   `surface_tension`, `openfoam_algorithms`). Stage S7 of the plan.
 //! - A call through a helper whose name is not in [`RAW`]. The gate is a text
 //!   match, not a call-graph analysis.
+//!
+//! **Since 2026-10-20** the workspace-wide gate
+//! `crates/petir/tests/no_platform_libm.rs` covers every crate's `src/`
+//! (gh:#985); this narrower gate stays so a failure shows up in this crate.
 
 use std::fs;
 use std::path::{Path, PathBuf};

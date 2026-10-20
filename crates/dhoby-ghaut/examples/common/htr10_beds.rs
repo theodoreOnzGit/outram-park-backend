@@ -447,6 +447,7 @@ pub mod bake {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use petir::mathf::RealMath;
 
     #[test]
     fn encoding_round_trips_within_the_quantisation_step() {

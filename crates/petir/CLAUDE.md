@@ -415,8 +415,30 @@ substitutions and compares substantive lines.
   what the fields mean is documented there. Documenting them properly means
   doing it upstream and re-lifting.
 - If a divergence is genuinely necessary, record it in the file's PROVENANCE
-  block **and** raise `allowed_deviations` in the test with a reason. There are
-  currently exactly two, both the `extern "C"` → `libm` FFI removal.
+  block **and** raise `allowed_deviations` in the test with a reason. ~~There are
+  currently exactly two, both the `extern "C"` → `libm` FFI removal.~~
+  **CORRECTED 2026-10-20:** every entry in `LIFTS` has `allowed_deviations: 0`
+  (checked in `tests/verbatim_provenance.rs`); the FFI removal sits in `use`
+  lines, which the comparison strips.
+- **Re-lifted 2026-10-20 (gh:#985).** The PETIR-everywhere sweep renamed the
+  sources' transcendentals to `petir::mathf::RealMath`'s `r_` methods, which
+  broke the diff for 12 lifts. The lifts now call the same `r_` methods
+  (`use crate::mathf::RealMath;`), so both copies run the same arithmetic.
+  That moved the lifts' own route for `exp`, `ln` and `powf` from `libm` (via
+  `Real`) to the ARM ports, and `sin_cos` from `libm::sincos` to
+  `(r_sin, r_cos)`. Every petir test passed unchanged after the re-lift.
+- **How the lifts meet gh #1001's UFCS rule (merge of 2026-10-21).** #1001
+  turned `x.exp()` into `Real::exp(x)` across PETIR so a `std` crate in the
+  build graph cannot shadow `Real`'s methods, and it collided with the
+  re-lift above. Transcendentals keep the source's exact text, `x.r_exp()`:
+  `r_` methods cannot be shadowed (`std` has none). `sqrt` and `mul_add` keep
+  #1001's `Real::sqrt(x)` / `Real::mul_add(..)` (one canonical NaN, the
+  maintainer's bit-identity direction), and a transcendental on the same line
+  is written `RealMath::r_exp(x)`, the source's arithmetic. Those 28 lines in
+  8 lifts are declared deviations (`UFCS_1001` in
+  `tests/verbatim_provenance.rs`). To remove them, change the SOURCE and
+  re-lift. The re-lift moved `std_shadowing_digest`'s `specfunc` and
+  `transfer_fn` digests (recorded in that test).
 
 ## GPU policy: CI is GPU-INDEPENDENT (HARD RULE)
 

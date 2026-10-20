@@ -1341,6 +1341,7 @@ fn energy_discrepancy(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use petir::mathf::RealMath;
     use uom::si::f64::MassRate;
 
     /// Cold-side pressure of every fixture here: the HTR-10 live-steam

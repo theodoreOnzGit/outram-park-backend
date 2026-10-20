@@ -444,7 +444,7 @@ fn ufd_three_generation_truncation_is_second_order_at_fixed_time() {
         errs.push(e);
     }
     let k = errs.len();
-    let order = (errs[k - 2] / errs[k - 1]).log2();
+    let order = (errs[k - 2] / errs[k - 1]).r_log2();
     println!("observed order (finest pair): {order:.3}");
     assert!((1.8..=2.2).contains(&order), "order {order}");
 }
@@ -469,7 +469,7 @@ fn ufd_three_generation_ignores_branching_like_upstream() {
     let c0 = [1000.0, 0.0, 0.0];
     let ufd = march(&chain, DecaySolver::UfdThreeGeneration, &c0, 25.0, 1);
     let cram = march(&chain, DecaySolver::Cram48, &c0, 25.0, 1);
-    let decayed = 1000.0 * (1.0 - 2f64.powf(-2.5));
+    let decayed = 1000.0 * (1.0 - 2f64.r_powf(-2.5));
     let rel = |a: f64, b: f64| (a - b).abs() / b;
     assert!(
         rel(ufd[1], decayed) < 1e-12 && rel(ufd[2], decayed) < 1e-12,
@@ -548,7 +548,7 @@ fn backward_euler_is_first_order_and_conservative() {
         errs.push(e);
     }
     let k = errs.len();
-    let order = (errs[k - 2] / errs[k - 1]).log2();
+    let order = (errs[k - 2] / errs[k - 1]).r_log2();
     println!("observed order (finest pair): {order:.3}");
     assert!((0.9..=1.1).contains(&order), "order {order}");
 

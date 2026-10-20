@@ -23,6 +23,9 @@
 // these trait methods, leaving the import formally unused. See crate::real.
 #[allow(unused_imports)]
 use crate::real::Real;
+// Re-lifted 2026-10-20 (gh:#985): the source now calls RealMath's `r_` methods.
+#[allow(unused_imports)]
+use crate::mathf::RealMath;
 use crate::scalar::VSMALL;
 
 /// Fixed-degree polynomial with an optional log term.
@@ -85,7 +88,7 @@ impl<const N: usize> Polynomial<N> {
             pow_x *= x;
         }
         if self.log_active {
-            val += self.log_coeff * Real::ln(x);
+            val += self.log_coeff * x.r_ln();
         }
         val
     }
@@ -123,7 +126,7 @@ impl<const N: usize> Polynomial<N> {
             integ += c_i / (i as f64 + 1.0) * (pow_x2 - pow_x1);
         }
         if self.log_active {
-            integ += self.log_coeff * ((x2 * Real::ln(x2) - x2) - (x1 * Real::ln(x1) - x1));
+            integ += self.log_coeff * ((x2 * x2.r_ln() - x2) - (x1 * x1.r_ln() - x1));
         }
         integ
     }

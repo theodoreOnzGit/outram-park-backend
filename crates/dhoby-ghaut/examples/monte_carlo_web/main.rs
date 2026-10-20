@@ -357,6 +357,7 @@ fn main() {
 #[cfg(all(test, not(target_os = "android"), not(target_arch = "wasm32")))]
 mod tests {
     use super::*;
+    use petir::mathf::RealMath;
     use engine::Tier;
     use outram_mc_libs::geometry::cell::SurfaceToken;
     use outram_mc_libs::geometry::position::{Direction, Position};

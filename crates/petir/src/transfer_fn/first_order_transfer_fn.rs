@@ -95,6 +95,9 @@ use alloc::vec::Vec;
 use crate::transfer_fn::ratio_ext::RatioExt;
 #[allow(unused_imports)]
 use crate::real::Real;
+// Re-lifted 2026-10-20 (gh:#985): the source now calls RealMath's `r_` methods.
+#[allow(unused_imports)]
+use crate::mathf::RealMath;
 use alloc::collections::VecDeque;
 
 use uom::{
@@ -373,7 +376,7 @@ impl FirstOrderStableTransferFnNoZeroes {
             return;
         }
 
-        let decay_factor = Real::exp(-(time_step / self.process_time).get::<ratio>());
+        let decay_factor = (-(time_step / self.process_time).get::<ratio>()).r_exp();
         self.decaying_mode = self.decaying_mode * decay_factor;
     }
 
@@ -390,7 +393,7 @@ impl FirstOrderStableTransferFnNoZeroes {
         self.offset += step_magnitude;
 
         // how much of that has yet to be realised
-        let decay_factor = Real::exp(-(time_since_start / self.process_time).get::<ratio>());
+        let decay_factor = (-(time_since_start / self.process_time).get::<ratio>()).r_exp();
         self.decaying_mode += step_magnitude * decay_factor;
     }
 
@@ -532,7 +535,7 @@ impl FirstOrderResponse {
         // otherwise, calculate as per normal
 
         // u1(t - t1) * Kp * [1-exp(- [t-t1] / tau])
-        let response: Ratio = self.steady_state_value() * (1.0 - Real::exp(exponent_ratio));
+        let response: Ratio = self.steady_state_value() * (1.0 - exponent_ratio.r_exp());
 
         return response;
     }

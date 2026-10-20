@@ -272,7 +272,8 @@ impl NordheimFuchsExactTimestepper {
         // "Known numerical edge case".
         let r_next = if gamma > 0.0 {
             let atanh_arg = (-r_k / gamma).clamp(-1.0 + 1e-14, 1.0 - 1e-14);
-            let phase = gamma * dt_s / (2.0 * lambda_s) + atanh_arg.atanh();
+            // RealMath has no atanh/asinh: petir::real::Real by trait path (libm, platform-independent), gh:#985.
+            let phase = gamma * dt_s / (2.0 * lambda_s) + petir::real::Real::atanh(atanh_arg);
             -gamma * phase.r_tanh()
         } else {
             // gamma == 0 <=> r_k == 0 and P_k == 0: exactly delayed

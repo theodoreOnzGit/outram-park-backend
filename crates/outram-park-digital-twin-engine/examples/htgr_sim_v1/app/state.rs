@@ -1149,6 +1149,7 @@ fn push_capped(buf: &mut Vec<[f64; 2]>, sample: [f64; 2]) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use petir::mathf::RealMath;
 
     fn sample_snapshot(sim_time_s: f64) -> HtgrSnapshot {
         HtgrSnapshot {

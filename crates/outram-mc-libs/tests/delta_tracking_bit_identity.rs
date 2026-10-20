@@ -35,9 +35,48 @@
 //! # Results (2026-10-06, snrsi-arch-desktop, release)
 //!
 //! Recorded in the pins below; the `k` values are printed by the test. The
-//! pins are a per-host bit-identity gate: like `stats_move_fingerprints`
+//! ~~pins are a per-host bit-identity gate: like `stats_move_fingerprints`
 //! (GitHub #578), a host with a different libm may produce different bits,
-//! in which case add that host's pin rather than loosening the comparison.
+//! in which case add that host's pin rather than loosening the comparison.~~
+//! **SUPERSEDED 2026-10-20 (gh:#985):** the platform libm is no longer
+//! called, so one pin holds for every host; see below.
+//!
+//! # Re-pinned once, 2026-10-20: every transcendental on PETIR (gh:#985)
+//!
+//! gh:#985 routed every `exp`/`ln`/`powf`/trig call in the workspace through
+//! `petir::mathf::RealMath`. That is a ROUTING change, not a physics change.
+//! All twelve pins moved; old -> new, measured on host A (i9-13900K, Arch,
+//! glibc 2.44), release, on the gh:#985 branch merged with develop
+//! `8ad7795d6`:
+//!
+//! | case | old | new |
+//! |---|---|---|
+//! | `surface_seq` | `0xed6204ee28305a13` | `0xced442c206c401d6` |
+//! | `hybrid_seq_no_tally` | `0xcddf64bd65c085f8` | `0x26fa1f95baf5d18f` |
+//! | `hybrid_seq_tentative` | `0xebed4b21c8bb7584` | `0x156e5ccf26d1bdfd` |
+//! | `hybrid_seq_real` | `0x642918b8289a2a7e` | `0x99da6a61ef5d2918` |
+//! | `hybrid_seq_progress` | `0xae10287ccab10de5` | `0x795ccb20e19aebe1` |
+//! | `hybrid_par2_tentative` | `0xb9eec0916b3bc703` | `0x06b91807b471d659` |
+//! | `keff_delta_seq` | `0x488141d4cd3e5d19` | `0xaf4c3a642ab7abfa` |
+//! | `keff_delta_stepping` | `0x5d5cd38cab27ce55` | `0x72fc9deaaff62ecc` |
+//! | `keff_delta_par2` | `0x1cd08047447a42ce` | `0x4e48c6737f2d2a7b` |
+//! | `majorants` | `0x04de1a0907930f6a` | `0xfe3bbd1a38537529` |
+//! | `bounded_delta_flight_visiting` | `0xc87fe60e12b07a66` | `0xdbb25d2f8227a29b` |
+//! | `track_to_collision` | `0xc89edf9971c39ad4` | `0xcdc41b8f380244cf` |
+//!
+//! New `k` values (single short runs, so their sigmas are large): surface
+//! 1.34204 +/- 0.05157; hybrid sequential 1.30424 +/- 0.01652 (1 429 461
+//! virtual collisions, the same bits for the no-tally, tentative, real and
+//! progress paths, as before); hybrid 2 threads 1.26248 +/- 0.03154;
+//! `keff_delta` sequential 1.24412 +/- 0.01350, 2 threads 1.23920 +/- 0.02256.
+//!
+//! **`majorants` moved too**, although the earlier partial conversion (mc-libs'
+//! six functions only, recorded on gh:#985) left it at `0x04de1a0907930f6a`.
+//! It has no trig of its own; its cross sections come from the embedded WMP
+//! data, whose evaluation in `njoy-outram-park-fork` (Faddeeva, `exp`/`cos`/
+//! `sin`) was routed to PETIR later in gh:#985. Attributed, not isolated.
+//! **Not yet measured:** a second host. If one gives different bits, the
+//! cause is a remaining platform call, not a reason to add a host pin.
 
 use petir::mathf::RealMath;
 use outram_mc_libs::geometry::cell::{Cell, CellFill, HalfSpaceSense, RegionToken};
@@ -312,7 +351,7 @@ fn hybrid_csg_paths_are_bit_identical() {
     );
     let mut fp = Fp::new();
     fp.keff(&surf);
-    check("surface_seq", fp.0, 0xed6204ee28305a13, &describe(&surf));
+    check("surface_seq", fp.0, 0xced442c206c401d6, &describe(&surf));
 
     let a = run_keff_csg_hybrid(
         &geom,
@@ -326,18 +365,18 @@ fn hybrid_csg_paths_are_bit_identical() {
     );
     let mut fp = Fp::new();
     fp.keff(&a);
-    check("hybrid_seq_no_tally", fp.0, 0xcddf64bd65c085f8, &describe(&a));
+    check("hybrid_seq_no_tally", fp.0, 0x26fa1f95baf5d18f, &describe(&a));
 
     for (name, est, pin) in [
         (
             "hybrid_seq_tentative",
             DeltaTallyEstimator::TentativeCollision,
-            0xebed4b21c8bb7584_u64,
+            0x156e5ccf26d1bdfd_u64,
         ),
         (
             "hybrid_seq_real",
             DeltaTallyEstimator::RealCollision,
-            0x642918b8289a2a7e,
+            0x99da6a61ef5d2918,
         ),
     ] {
         let mut t = tally();
@@ -372,7 +411,7 @@ fn hybrid_csg_paths_are_bit_identical() {
     let mut fp = Fp::new();
     fp.keff(&r);
     fp.fs(&ks);
-    check("hybrid_seq_progress", fp.0, 0xae10287ccab10de5, &describe(&r));
+    check("hybrid_seq_progress", fp.0, 0x795ccb20e19aebe1, &describe(&r));
 
     let mut t = tally();
     let r = run_keff_csg_hybrid(
@@ -388,7 +427,7 @@ fn hybrid_csg_paths_are_bit_identical() {
     let mut fp = Fp::new();
     fp.keff(&r);
     fp.tally(&t, n_active);
-    check("hybrid_par2_tentative", fp.0, 0xb9eec0916b3bc703, &describe(&r));
+    check("hybrid_par2_tentative", fp.0, 0x06b91807b471d659, &describe(&r));
 }
 
 #[test]
@@ -402,7 +441,7 @@ fn keff_delta_paths_are_bit_identical() {
     let r = run_keff_delta_seq_in(domain, &mats, &nucs, &maj, zone, &seq);
     let mut fp = Fp::new();
     fp.keff(&r);
-    check("keff_delta_seq", fp.0, 0x488141d4cd3e5d19, &describe(&r));
+    check("keff_delta_seq", fp.0, 0xaf4c3a642ab7abfa, &describe(&r));
 
     let mut it = DeltaPowerIteration::new(domain, &mats, &nucs, &zone, &seq);
     let mut fp = Fp::new();
@@ -413,12 +452,12 @@ fn keff_delta_paths_are_bit_identical() {
             fp.f(s);
         }
     }
-    check("keff_delta_stepping", fp.0, 0x5d5cd38cab27ce55, "per-generation k");
+    check("keff_delta_stepping", fp.0, 0x72fc9deaaff62ecc, "per-generation k");
 
     let r = run_keff_delta_par_in(domain, &mats, &nucs, &maj, zone, &seq, ThreadCount::Fixed(2));
     let mut fp = Fp::new();
     fp.keff(&r);
-    check("keff_delta_par2", fp.0, 0x1cd08047447a42ce, &describe(&r));
+    check("keff_delta_par2", fp.0, 0x4e48c6737f2d2a7b, &describe(&r));
 }
 
 #[test]
@@ -436,7 +475,7 @@ fn delta_primitives_are_bit_identical() {
         fp.f(maj.at(e));
         fp.f(bounding.at(e));
     }
-    check("majorants", fp.0, 0x04de1a0907930f6a, "Majorant::at on 2000 energies");
+    check("majorants", fp.0, 0xfe3bbd1a38537529, "Majorant::at on 2000 energies");
 
     // Flights from random points in random directions at random energies,
     // through the three zones, bounded by the reflective sphere's radius.
@@ -517,6 +556,6 @@ fn delta_primitives_are_bit_identical() {
         fp_track.u(u64::from(flight.virtual_collisions));
         fp_track.u(u64::from(flight.escaped));
     }
-    check("bounded_delta_flight_visiting", fp.0, 0xc87fe60e12b07a66, "2000 flights");
-    check("track_to_collision", fp_track.0, 0xc89edf9971c39ad4, "2000 flights");
+    check("bounded_delta_flight_visiting", fp.0, 0xdbb25d2f8227a29b, "2000 flights");
+    check("track_to_collision", fp_track.0, 0xcdc41b8f380244cf, "2000 flights");
 }

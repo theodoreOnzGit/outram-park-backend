@@ -206,7 +206,8 @@ impl BackgroundRMatrix {
                 let esum = ed + eu;
                 let ediff = eu - ed;
                 let x = (2.0 * e - esum) / ediff;
-                Ok((r0 + 2.0 * r1 * x.atanh(), r2 / ediff / (1.0 - x * x)))
+                // RealMath has no atanh/asinh: petir::real::Real by trait path (libm, platform-independent), gh:#985.
+                Ok((r0 + 2.0 * r1 * petir::real::Real::atanh(x), r2 / ediff / (1.0 - x * x)))
             }
         }
     }

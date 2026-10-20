@@ -884,9 +884,11 @@ site here, in `boon-lay` and in `nee_soon` is unchanged.
   and `gpu::batched_event::shader_source()` prepend `petir::wgsl::LCG` and the
   kernels call `petir_lcg_next`. Test probes must use `shader_source()`, not
   `include_str!` of the kernel file, which no longer compiles on its own.
-- **`rng::distributions` did not go to PETIR**: it calls `cos`/`sin` through
+- **`rng::distributions` did not go to PETIR**: ~~it calls `cos`/`sin` through
   this crate's `mathf` route (platform libm by default), which a `no_std`
-  PETIR copy could not reproduce bit for bit. (Its generic samplers later went
+  PETIR copy could not reproduce bit for bit.~~ **CORRECTED 2026-10-20 (gh:#985)**: `mathf` is PETIR's
+  `RealMath` on every build now, so that reason no longer holds; the samplers
+  simply have not moved. (Its generic samplers later went
   to RAFFLES instead, with the routing preserved — next section.)
 
 ### Geometry lives in outram-blender (2026-10-02, GitHub #486)
@@ -937,13 +939,16 @@ here.** Moved, byte for byte, and re-exported at the old paths:
   fingerprints (Godiva `run_keff`; Godiva CSG with entropy mesh and a k
   trigger; a two-group MG sphere; the FHR explicit-TRISO delta-tracking
   pebble; pure statistics; Shannon entropy), printed before the move and
-  unchanged after it, on the host that printed them. The 900 K thermal
+  unchanged after it, on the host that printed them. ~~The 900 K thermal
   cases (FHR delta pebble, #486's nested-lattice k) depend on the platform
-  libm and give other bits on another host with no code change (#578).
+  libm and give other bits on another host with no code change (#578).~~
+  **CORRECTED 2026-10-20 (gh:#985)**: no platform libm is called any more; the gate was re-pinned
+  once, one pin per case (see the test's docs).
 - **`mean_and_stderr` and `pooled` are deliberately NOT merged**:
   `sqrt(var / n)` and `sqrt(var) / sqrt(n)` differ in the last bit.
-- **`deterministic-math` forwards to `raffles/deterministic-math`**, so
-  `sample_normal`'s `cos` keeps this crate's routing.
+- ~~**`deterministic-math` forwards to `raffles/deterministic-math`**, so
+  `sample_normal`'s `cos` keeps this crate's routing.~~ **CORRECTED 2026-10-20 (gh:#985)**: both
+  features were removed; `sample_normal`'s `cos` is `petir::real::cos` always.
 - ~~**Not moved, because it does not exist:** a χ²/dof consistency check of
   seed values against their internal σ. `vv.rs` has no such function; it
   belongs with #494 when that lands.~~ **CORRECTED 2026-10-03** — #494 added

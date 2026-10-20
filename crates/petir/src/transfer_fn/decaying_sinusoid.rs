@@ -83,6 +83,9 @@ use alloc::vec::Vec;
 use crate::transfer_fn::ratio_ext::RatioExt;
 #[allow(unused_imports)]
 use crate::real::Real;
+// Re-lifted 2026-10-20 (gh:#985): the source now calls RealMath's `r_` methods.
+#[allow(unused_imports)]
+use crate::mathf::RealMath;
 use alloc::collections::VecDeque;
 
 use uom::{
@@ -334,9 +337,9 @@ impl DecayingSinusoid {
             return;
         }
 
-        let decay = Real::exp(-(time_step * self.a).get::<ratio>());
+        let decay = (-(time_step * self.a).get::<ratio>()).r_exp();
         let angle = (time_step * self.omega).get::<ratio>();
-        let (sin_angle, cos_angle) = Real::sin_cos(angle);
+        let (sin_angle, cos_angle) = angle.r_sin_cos();
 
         let previous_cosine = self.cosine_mode;
         let previous_sine = self.sine_mode;
@@ -349,9 +352,9 @@ impl DecayingSinusoid {
     fn activate(&mut self, input_increment: Ratio, time_since_start: Time) {
         let step_magnitude = self.magnitude * input_increment;
 
-        let decay = Real::exp(-(time_since_start * self.a).get::<ratio>());
+        let decay = (-(time_since_start * self.a).get::<ratio>()).r_exp();
         let angle = (time_since_start * self.omega).get::<ratio>();
-        let (sin_angle, cos_angle) = Real::sin_cos(angle);
+        let (sin_angle, cos_angle) = angle.r_sin_cos();
 
         self.cosine_mode += step_magnitude * (decay * cos_angle);
         self.sine_mode += step_magnitude * (decay * sin_angle);
@@ -499,10 +502,10 @@ impl DecaySinusoidResponse {
 
         response = match self.sinusoid_type {
             TransferFnSinusoidType::Sine => {
-                self.user_input * self.magnitude * Real::exp(-at) * Real::sin(omega_t)
+                self.user_input * self.magnitude * (-at).r_exp() * (omega_t).r_sin()
             }
             TransferFnSinusoidType::Cosine => {
-                self.user_input * self.magnitude * Real::exp(-at) * Real::cos(omega_t)
+                self.user_input * self.magnitude * (-at).r_exp() * (omega_t).r_cos()
             }
         };
 

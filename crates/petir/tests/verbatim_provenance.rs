@@ -54,6 +54,17 @@ struct Lift {
     reason: &'static str,
 }
 
+/// The deviation gh #1001 introduced into eight lifts, merged with gh:#985's
+/// re-lift on 2026-10-21. #1001 (maintainer direction: PETIR bit-identical,
+/// NaNs included) calls `sqrt` and `mul_add` by UFCS through `Real`, which
+/// returns one canonical NaN; the sources call `std`'s `.sqrt()` and
+/// `f64::mul_add`. The values are the same (both correctly rounded), the NaN
+/// sign bit aside. Lines that mix one of them with a transcendental spell the
+/// transcendental `RealMath::r_*(x)`, the same arithmetic as the source's
+/// `x.r_*()`. To remove the deviation, change the SOURCE and re-lift.
+const UFCS_1001: &str = "gh #1001: sqrt/mul_add by UFCS through Real (canonical NaN); \
+     the source calls std .sqrt()/f64::mul_add. Same value, NaN sign bit aside";
+
 const LIFTS: &[Lift] = &[
     // --- from outram-foam-basic-lib -------------------------------------
     Lift {
@@ -77,14 +88,14 @@ const LIFTS: &[Lift] = &[
     Lift {
         lifted: "poly/quadratic_eqn.rs",
         source: "outram-foam-basic-lib/src/polynomial/quadratic_eqn.rs",
-        allowed_deviations: 0,
-        reason: "true verbatim lift",
+        allowed_deviations: 3,
+        reason: UFCS_1001,
     },
     Lift {
         lifted: "poly/cubic_eqn.rs",
         source: "outram-foam-basic-lib/src/polynomial/cubic_eqn.rs",
-        allowed_deviations: 0,
-        reason: "true verbatim lift",
+        allowed_deviations: 5,
+        reason: UFCS_1001,
     },
     Lift {
         lifted: "poly/polynomial.rs",
@@ -95,29 +106,27 @@ const LIFTS: &[Lift] = &[
     Lift {
         lifted: "specfunc/erf_inv.rs",
         source: "outram-foam-basic-lib/src/math/erf_inv.rs",
-        allowed_deviations: 0,
-        reason: "true verbatim lift",
+        allowed_deviations: 1,
+        reason: UFCS_1001,
     },
     Lift {
         lifted: "specfunc/inc_gamma.rs",
         source: "outram-foam-basic-lib/src/math/inc_gamma.rs",
-        allowed_deviations: 0,
-        reason: "extern \"C\" erf/erfc/tgamma FFI replaced by the pure-Rust libm crate \
-                 the 7 lines being the `extern \"C\" {` opener, 3 `fn` declarations and 3 `unsafe` bodies; see the file DEVIATION note",
+        allowed_deviations: 12,
+        reason: UFCS_1001,
     },
     Lift {
         lifted: "specfunc/inv_inc_gamma.rs",
         source: "outram-foam-basic-lib/src/math/inv_inc_gamma.rs",
-        allowed_deviations: 0,
-        reason: "extern \"C\" tgamma/lgamma FFI replaced by the pure-Rust libm crate \
-                 the 5 lines being the `extern \"C\" {` opener, 2 `fn` declarations and 2 `unsafe` bodies; see the file DEVIATION note",
+        allowed_deviations: 3,
+        reason: UFCS_1001,
     },
     // --- from chem-eng (itself a GNU Octave control-package port) --------
     Lift {
         lifted: "transfer_fn/cplx.rs",
         source: "chem-eng-real-time-process-control-simulator/src/lib/beta_testing/z_domain/cplx.rs",
-        allowed_deviations: 0,
-        reason: "true verbatim lift",
+        allowed_deviations: 1,
+        reason: UFCS_1001,
     },
     Lift {
         lifted: "transfer_fn/polynomial.rs",
@@ -140,8 +149,8 @@ const LIFTS: &[Lift] = &[
     Lift {
         lifted: "transfer_fn/conversion.rs",
         source: "chem-eng-real-time-process-control-simulator/src/lib/beta_testing/z_domain/conversion.rs",
-        allowed_deviations: 0,
-        reason: "true verbatim lift",
+        allowed_deviations: 1,
+        reason: UFCS_1001,
     },
     Lift {
         lifted: "transfer_fn/first_order_transfer_fn.rs",
@@ -152,8 +161,8 @@ const LIFTS: &[Lift] = &[
     Lift {
         lifted: "transfer_fn/second_order_transfer_fn.rs",
         source: "chem-eng-real-time-process-control-simulator/src/lib/beta_testing/stable_transfer_functions/second_order_transfer_fn.rs",
-        allowed_deviations: 0,
-        reason: "true verbatim lift",
+        allowed_deviations: 2,
+        reason: UFCS_1001,
     },
     Lift {
         lifted: "transfer_fn/first_order_transfer_fn_with_zeroes.rs",
