@@ -10,10 +10,12 @@ window.FISSION_PENDING = {
   fragmentAccelerationS: null,
   // When the prompt gamma cascade starts after scission [s].
   promptGammaStartS: null,
-  // Ternary fissions (a light charged particle at scission) per fission. The
-  // ENDF/B-VIII.0 fission yield library carries no He-4 or H-3, so it cannot
-  // supply this; the demo makes a ternary event only when asked (?ternary=1
-  // or the panel's button).
+  // Ternary fissions (a light charged particle at scission) per fission.
+  // ENDF/B-VIII.0's fission-yield library carries no He-4 or H-3 for Pu-239
+  // (checked; nothing found for U-235 contradicts it), so it cannot supply
+  // this. While null the demo makes every tenth launch ternary (one-fission.js,
+  // TERNARY_EVERY), labelled on screen as a demo choice, not a rate; ?ternary=1
+  // or the panel's switch makes every launch ternary.
   ternaryPerFission: null,
   // The light particle's kinetic energy [MeV]. While null the demo uses a
   // stand-in RULE (EFR x 4 / A_CN, the alpha's mass share of the kinetic

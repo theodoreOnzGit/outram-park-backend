@@ -30,8 +30,11 @@
   // Shared state: the chosen parent, energy and the last event.
   var S = {
     parent: "U-235", ie: 0, speed: 1, ev: null, chains: null, seed: +(param("seed") || 1),
-    forceTernary: param("ternary") === "1", listeners: [], spectrum: null
+    forceTernary: param("ternary") === "1", listeners: [], spectrum: null, launches: 0
   };
+  var TERNARY_EVERY = 10;
+  // Defer the next slice of a long build to after the next frame.
+  function SLICE_LATER(f) { setTimeout(f, 0); }
   function notify() { S.listeners.forEach(function (f) { f(); }); }
   function Pnow() { return D().parents[S.parent]; }
 
@@ -49,7 +52,7 @@
         how: T.tauCN ? "τ = ħ/⟨Γ⟩, the mean total width of the resolved resonances" : "source pending: no resolved resonance widths at this energy" },
       { key: "neck", title: "It stretches, necks and splits", real: pend.saddleToScissionS, disp: 3, how: "saddle to scission: source pending" },
       { key: "accel", title: "The two fragments push apart", real: pend.fragmentAccelerationS, disp: 2, how: "acceleration time: source pending" },
-      { key: "fly", title: "The fragments fly apart", real: 30e-15 / vf, disp: 3, how: "30 fm at the faster fragment's speed" },
+      { key: "fly", title: "The fragments fly apart", real: 30e-15 / vf, disp: 3, illustrative: true, how: "the time the faster fragment takes for the 30 fm drawn: the picture's distance, so not on the stage timeline" },
       { key: "prompt", title: "Prompt neutrons boil off the fragments", real: null, bound: T.promptBound, disp: 4,
         how: "over 99 % of fission neutrons leave within about 10⁻¹³ s (an upper bound); not to scale" },
       { key: "gamma", title: "Prompt gamma rays", real: pend.promptGammaStartS, disp: 2, how: "start of the gamma cascade: source pending" },
@@ -62,15 +65,26 @@
     var A = { stage: -1, t: 0, playing: true, st: null };
     var readout = root.parentNode.querySelector(".fp-readout");
     function launch() {
-      var tern = S.forceTernary;
-      var ev = F.event(S.parent, S.ie, { seed: S.seed, ternary: tern });
-      S.seed += 1;
-      S.ev = ev;
-      S.chains = ev.frags.map(function (f, i) { return F.betaChain(S.parent, f.z, f.a, ev.seed * 7 + i + 1, 1e10); });
-      A.st = stages(ev); A.stage = 0; A.t = 0; A.playing = true;
-      writeReadout();
-      notify();
-      frame.play();
+      // Ternary fission is rare, and its rate is source pending
+      // (fission-pending.js). So that a reader meets one, the demo makes
+      // every TERNARY_EVERY-th launch ternary: the demo's choice, said so on
+      // screen, never a rate. The panel's switch forces it.
+      S.launches += 1;
+      var tern = S.forceTernary || S.launches % TERNARY_EVERY === 0;
+      var parent = S.parent, ie = S.ie;
+      // The first event of a parent, energy and kind builds its pair table
+      // (~30 ms): in slices between frames, so the page never blocks.
+      F.preparePairs(parent, ie, tern, function () {
+        if (parent !== S.parent || ie !== S.ie) return; // the reader moved on
+        var ev = F.event(parent, ie, { seed: S.seed, ternary: tern });
+        S.seed += 1;
+        S.ev = ev;
+        S.chains = ev.frags.map(function (f, i) { return F.betaChain(parent, f.z, f.a, ev.seed * 7 + i + 1, 1e10); });
+        A.st = stages(ev); A.stage = 0; A.t = 0; A.playing = true;
+        writeReadout();
+        notify();
+        frame.play();
+      }, SLICE_LATER, 120);
     }
     function writeReadout() {
       var ev = S.ev; if (!ev || !readout) return;
@@ -83,7 +97,7 @@
       lines.push("<b>Energy:</b> E* of " + nm(P.z, cnA) + " = S<sub>n</sub> + E<sub>cm</sub> = " + ev.I.Sn.toFixed(3) + " + " + (ev.I.Ex - ev.I.Sn).toExponential(2) + " = " + ev.I.Ex.toFixed(3) +
         " MeV. Q of this split = M(CN*) − M₁ − M₂ − ν m<sub>n</sub>" + (ev.ternary ? " − M(He-4)" : "") + " = " + ev.qSplit.toFixed(2) + " MeV. TKE = EFR (MT=458, evaluated average) = " + ev.tke.toFixed(2) +
         " MeV; excitation left for neutrons and gammas = " + (ev.qSplit - ev.tke).toFixed(2) + " MeV, shared in proportion to mass number (an assumption): " + f[0].ex.toFixed(2) + " and " + f[1].ex.toFixed(2) + " MeV.");
-      if (ev.ternary) lines.push("<b>Ternary:</b> alpha of " + ev.Talpha.toFixed(2) + " MeV" + (ev.alphaRule ? " (placeholder rule EFR × 4/A, source pending)" : "") + ", perpendicular to the fission axis. The ternary rate: source pending.");
+      if (ev.ternary) lines.push("<b>Ternary fission:</b> a light charged particle, here an alpha, left from the neck. Its energy " + ev.Talpha.toFixed(2) + " MeV" + (ev.alphaRule ? " is a placeholder rule (EFR × 4/A<sub>CN</sub>), <span class=\"pending\">source pending</span>" : "") + "; it leaves perpendicular to the fission axis. In nature ternary fission is rare; its rate is <span class=\"pending\">source pending</span>, so the demo makes one launch in " + TERNARY_EVERY + " ternary (or every launch, with the switch): <b>a demo choice, not the rate</b>.");
       var nz = f.map(function (x) {
         var zs = F.stableZ(x.A);
         return nm(x.z, x.A) + " N/Z = " + ((x.A - x.z) / x.z).toFixed(3) + " against " + ((x.A - zs) / zs).toFixed(3) + " for the stable isobar " + nm(zs, x.A);
@@ -237,7 +251,7 @@
         step.onclick = function () { if (!A.st) return; if (A.stage < A.st.length - 1) { A.stage += 1; A.t = 0; } else A.t = A.st[A.stage].disp; A.playing = false; redraw(); };
         body.append(go, play, step);
         L.slider(body, "Animation speed", -2, 2, 1, 0, function (v) { S.speed = Math.pow(2, v); return S.speed + "×"; });
-        L.toggle(body, "Make the next event ternary (forced; the rate is source pending)", S.forceTernary, function (v) { S.forceTernary = v; });
+        L.toggle(body, "Make every launch ternary (otherwise one in " + TERNARY_EVERY + ": a demo choice; the real rate is source pending)", S.forceTernary, function (v) { S.forceTernary = v; });
         body.append(el("p", { "class": "w-note" }, "Each launch samples a new event (seeded, so ?seed=N reproduces one). Every stage shows its real duration and how much it is slowed; a stage whose duration has no source yet says so."));
       }
     });
@@ -245,7 +259,7 @@
       var known = 0, pending = 0;
       for (var i = 0; i <= A.stage; i++) {
         var st = A.st[i], frac = i === A.stage ? u : 1;
-        if (st.key === "beta" || st.key === "prompt") continue;
+        if (st.key === "beta" || st.key === "prompt" || st.illustrative) continue;
         if (st.real) known += st.real * frac; else pending += 1;
       }
       var line = (A.stage + 1) + "/" + A.st.length + " · " + s.title + ". ";
@@ -273,7 +287,15 @@
       if (!A.st) return;
       var lastKnown = lo + 1;
       A.st.forEach(function (st, i) {
-        var lg = st.real ? Math.log10(st.real) : st.bound ? Math.log10(st.bound) : st.key === "beta" ? 1 : null;
+        if (st.illustrative) return;
+        if (st.key === "beta") {
+          // The beta stage is a span: the log clock's range.
+          ctx.strokeStyle = i === A.stage ? acc : fg; ctx.lineWidth = 4;
+          ctx.beginPath(); ctx.moveTo(Xt(st.log[0]), y0 + 18); ctx.lineTo(Xt(st.log[1]), y0 + 18); ctx.stroke(); ctx.lineWidth = 1;
+          if (i === A.stage) { ctx.font = "bold 11px system-ui, sans-serif"; ctx.fillStyle = acc; ctx.fillText(String(i + 1), Xt(st.log[0]) - 3, y0 + 46); ctx.font = "10px system-ui, sans-serif"; }
+          return;
+        }
+        var lg = st.real ? Math.log10(st.real) : st.bound ? Math.log10(st.bound) : null;
         var on = i === A.stage;
         if (lg === null) lg = lastKnown + 0.6; else lastKnown = lg;
         var tx = Xt(lg);
@@ -327,7 +349,8 @@
       draw: function (ctx, w, h, zoom) {
         var fg = css("--fg", "#1d2125"), mut = css("--muted", "#5b636b"), acc = css("--accent", "#1f6f78"), hot = "#b85c38";
         ctx.font = "12px system-ui, sans-serif";
-        var P = Pnow(), Y = P.yields[S.ie], ev = S.ev, x0 = 52, y0 = 60, pw = w - x0 - 14, ph = h - y0 - 36;
+        // The first ~56 px are under the widget's button bar: titles start below it.
+        var P = Pnow(), Y = P.yields[S.ie], ev = S.ev, x0 = 52, y0 = 104, pw = w - x0 - 14, ph = h - y0 - 36;
         if (view === "yield") {
           var my = {}; for (var i = 0; i < Y.a.length; i++) my[Y.a[i]] = (my[Y.a[i]] || 0) + Y.y[i];
           var X = function (a) { return x0 + (a - 66) / (172 - 66) * pw; };
@@ -346,8 +369,8 @@
             ctx.setLineDash([4, 3]); ctx.beginPath(); ctx.moveTo(X(f.A), y0); ctx.lineTo(X(f.A), y0 + ph); ctx.stroke(); ctx.setLineDash([]);
           });
           ctx.restore();
-          ctx.fillStyle = fg; ctx.fillText("Independent yield per fission, summed over Z, at " + eLabel(Y.e) + " (each fission gives two, so the curve is Y(A)/2 per fragment).", 8, 20);
-          ctx.fillStyle = mut; ctx.fillText("Solid: this event's products; dashed: its fragments before their prompt neutrons.", 8, 38);
+          ctx.fillStyle = fg; ctx.fillText("Independent yield Y(A)/2 per product, " + eLabel(Y.e), 8, 70);
+          ctx.fillStyle = mut; ctx.fillText("Solid: this event's products; dashed: its fragments before their prompt neutrons.", 8, 88);
           return S.parent + " at " + eLabel(Y.e) + ": the two humps of the mass yield, from ENDF/B-VIII.0 (fission-yields-data). The yields are counted after the prompt neutrons leave and before any beta decay.";
         }
         if (view === "nz") {
@@ -368,25 +391,27 @@
             ctx.beginPath(); ctx.arc(Xa(f.A), Yn((f.A - f.z) / f.z), 6, 0, 2 * Math.PI); ctx.fill();
             ctx.fillText(nm(f.z, f.A), Xa(f.A) - 20, Yn((f.A - f.z) / f.z) - 10);
           });
-          ctx.fillStyle = fg; ctx.fillText("N/Z against mass number: the fragments keep the parent's N/Z, the stable nuclei at their mass have less.", 8, 20);
+          ctx.fillStyle = fg; ctx.fillText("N/Z against mass number A", 8, 70);
+          ctx.fillStyle = mut; ctx.fillText("Fragments keep the compound nucleus's N/Z; stable nuclei have less.", 8, 88);
           return "The fragments inherit the compound nucleus's N/Z (dashed). The stable isobars at A ≈ 90-150 need fewer neutrons per proton, so the fragments are neutron-rich: they shed neutrons at once, then beta-decay (n → p) for seconds to years.";
         }
         if (view === "budget") {
           var e = Y.e, comps = [[1, "fragments (EFR)", "#d9822b"], [2, "prompt n (ENP)", "#2f7fd8"], [4, "prompt γ (EGP)", "#8e5bd6"], [5, "betas (EB)", "#2a9d55"], [6, "delayed γ (EGD)", "#b07cd6"], [3, "delayed n (END)", "#7fb2e8"], [7, "neutrinos (ENU)", "#9aa3ab"]];
           var vals = comps.map(function (c) { return F.mt458(P, c[0], e); }), tot = vals.reduce(function (s, v) { return s + v; }, 0);
-          var bx = 12, bw = w - 24, by = 70, bh = 40, x = bx;
+          var bx = 12, bw = w - 24, by = 96, bh = 30, x = bx;
           comps.forEach(function (c, k) {
             var ww = bw * vals[k] / tot; ctx.fillStyle = c[2]; ctx.fillRect(x, by, ww, bh); x += ww;
           });
           ctx.font = "12px system-ui, sans-serif";
           comps.forEach(function (c, k) {
-            var yy = by + bh + 22 + k * 18;
+            var yy = by + bh + 20 + k * 17;
             ctx.fillStyle = c[2]; ctx.fillRect(bx, yy - 10, 12, 12);
             ctx.fillStyle = fg; ctx.fillText(c[1] + ": " + vals[k].toFixed(3) + " MeV (" + (100 * vals[k] / tot).toFixed(1) + " %)", bx + 18, yy);
           });
           var ER = F.mt458(P, 8, e), ET = F.mt458(P, 9, e);
-          ctx.fillStyle = mut; ctx.fillText("ENDF also gives ER = " + ER.toFixed(2) + " MeV (all but the neutrinos) and ET = " + ET.toFixed(2) + " MeV (all), thermal point.", bx, by + bh + 22 + comps.length * 18 + 6);
-          ctx.fillStyle = fg; ctx.fillText("Where the energy of one fission goes: MF=1/MT=458, " + S.parent + " at " + eLabel(e), 8, 20);
+          ctx.fillStyle = mut; ctx.fillText("ER = " + ER.toFixed(2) + " MeV (all but the neutrinos),", bx, by + bh + 20 + comps.length * 17 + 2);
+          ctx.fillText("ET = " + ET.toFixed(2) + " MeV (all); thermal point.", bx, by + bh + 20 + comps.length * 17 + 18);
+          ctx.fillStyle = fg; ctx.fillText("Where one fission's energy goes (MT=458)", 8, 70);
           return "The bar sums the seven components at this energy (" + tot.toFixed(2) + " MeV). EFR, ENP, END and EGP are tabulated against energy in this evaluation (LFC = 1); EB, EGD and ENU are the thermal values.";
         }
         // Spectra: prompt MF=5/MT=18 at this energy, the six delayed groups, and the demo's sampled prompt neutrons.
@@ -412,9 +437,9 @@
           for (var b = 0; b < H.bins.length; b++) { var dens = H.bins[b] / (H.n * bwid); ctx.fillRect(Xe(b * bwid), Ys(dens), Xe((b + 1) * bwid) - Xe(b * bwid) - 1, y0 + ph - Ys(dens)); }
         }
         ctx.restore();
-        ctx.fillStyle = fg; ctx.fillText("Neutron energy spectra per MeV, " + S.parent + " at " + eLabel(Y.e), 8, 20);
-        ctx.fillStyle = hot; ctx.fillText("prompt, MF=5/MT=18", 8, 38); ctx.fillStyle = "#2171b5"; ctx.fillText("delayed groups 1-6, MF=5/MT=455", 140, 38);
-        ctx.fillStyle = "rgba(47,127,216,0.8)"; ctx.fillText("bars: this demo's sampled prompt neutrons", 350, 38);
+        ctx.fillStyle = fg; ctx.fillText("Neutron spectra per MeV, " + S.parent + ", " + eLabel(Y.e), 8, 66);
+        ctx.fillStyle = hot; ctx.fillText("prompt, MF=5/MT=18", 8, 82); ctx.fillStyle = "#2171b5"; ctx.fillText("delayed groups 1-6, MF=5/MT=455", 140, 82);
+        ctx.fillStyle = "rgba(47,127,216,0.8)"; ctx.fillText("bars: this demo's prompt neutrons", 8, 97);
         var msg = "The delayed neutrons (six precursor groups, each its own histogram) come out much softer than the prompt ones. Prompt mean (MF=5): " + (c.mean / 1e6).toFixed(3) + " MeV.";
         if (S.spectrum && S.spectrum.key === S.parent + S.ie) msg += " Demo: " + S.spectrum.n + " neutrons from " + S.spectrum.events + " events, mean " + (S.spectrum.sum / S.spectrum.n).toFixed(3) + " MeV" + (S.spectrum.done ? "." : " (sampling…)");
         return msg;
@@ -506,7 +531,7 @@
       },
       draw: function (ctx, w, h, zoom) {
         var mut = css("--muted", "#5b636b"), fg = css("--fg", "#1d2125");
-        var sc = Math.min((w - 20) / (NX + 1), (h - 70) / (NY + 1)) * zoom, ox = 10, oy = 54;
+        var sc = Math.min((w - 20) / (NX + 1), (h - 104) / (NY + 1)) * zoom, ox = 10, oy = 94;
         var X = function (x) { return ox + x * sc; }, Y = function (y) { return oy + y * sc; };
         atoms.forEach(function (a) {
           ctx.fillStyle = a.hit > 0 ? "#e04646" : (Math.hypot(a.dx, a.dy) > 0.15 ? "#c27c6a" : "rgba(128,128,128,0.55)");
@@ -522,9 +547,10 @@
           p.sparks.forEach(function (s) { if (s[2] > 0) { ctx.fillStyle = "rgba(230,200,0," + s[2] + ")"; ctx.beginPath(); ctx.arc(X(s[0]) + 6, Y(s[1]) - 6, 2.5, 0, 2 * Math.PI); ctx.fill(); } });
         });
         ctx.font = "12px system-ui, sans-serif"; ctx.fillStyle = mut;
-        ctx.fillText("Illustrative, not to scale: a grid of atoms and what each kind of particle does in it.", 10, 20);
+        ctx.fillText("Illustrative, not to scale: a grid of atoms.", 10, 66);
         var legend = [["fragment", "fragment"], ["neutron", "neutron"], ["gamma", "gamma"], ["beta", "beta"], ["neutrino", "neutrino"]], lx = 10;
-        legend.forEach(function (l) { ctx.fillStyle = KIND[l[0]].col; ctx.fillRect(lx, 30, 10, 10); ctx.fillStyle = fg; ctx.fillText(l[1], lx + 13, 39); lx += ctx.measureText(l[1]).width + 28; });
+        var ly = 76;
+        legend.forEach(function (l) { var wl = ctx.measureText(l[1]).width + 28; if (lx + wl > w) { lx = 10; ly += 14; } ctx.fillStyle = KIND[l[0]].col; ctx.fillRect(lx, ly, 10, 10); ctx.fillStyle = fg; ctx.fillText(l[1], lx + 13, ly + 9); lx += wl; });
         return "Fragment: a thick track that disorders the atoms it passes, then stops and stays as a new, foreign atom (orange ring). Neutron: bounces off nuclei. Gamma: passes, now and then knocks out an electron (yellow). Beta: a short, wandering, ionising track. Neutrino: leaves untouched. What each does is cited in the table below the picture; the picture itself is illustrative.";
       },
       panel: function (body) {
@@ -540,14 +566,41 @@
     return frame;
   }
 
-  // The "What hits the lattice" table's energy shares, from the data.
+  // The "What hits the lattice" table's energy shares, from the data: MeV
+  // and per cent of ET, U-235 at thermal energy.
   function fillShares() {
-    var P = D().parents["U-235"], e = P.yields[0].e;
+    var P = D().parents["U-235"], e = P.yields[0].e, ET = F.mt458(P, 9, e);
     document.querySelectorAll("[data-mt458]").forEach(function (n) {
       var ks = n.getAttribute("data-mt458").split("+"), v = 0;
       ks.forEach(function (k) { v += F.mt458(P, +k, e); });
-      n.textContent = v.toFixed(2) + " MeV";
+      n.textContent = v.toFixed(2) + " MeV" + (n.hasAttribute("data-pct") ? " (" + (100 * v / ET).toFixed(1) + " % of ET)" : "");
     });
+    // The other numbers the prose quotes, each computed here from the data
+    // by the functions check-fission.js checks.
+    var Y = P.yields[0], sa = 0, k;
+    for (k = 0; k < Y.a.length; k++) sa += Y.y[k] * Y.a[k];
+    var nuY = P.a + 1 - sa, nuD = F.delayedPerFission("U-235", 0);
+    var Ifor = F.initial(P, e), Ytop = P.mt458.tab["1"];
+    var vals = {
+      nuYields: nuY.toFixed(3), nup: Y.nup.toFixed(3),
+      nuDelayed: nuD.toFixed(4), nud: Y.nud.toFixed(4), nuDelayedMiss: (100 * (nuD / Y.nud - 1)).toFixed(0) + " %",
+      nzCN: ((P.a + 1 - P.z) / P.z).toFixed(3), snTable: Ifor.Sn.toFixed(3) + " MeV", snEval: (P.sn / 1e6).toFixed(3) + " MeV",
+      efrTop: (Ytop[1][Ytop[1].length - 1] / 1e6).toFixed(2) + " MeV", efrTopE: L.fmtE(Ytop[0][Ytop[0].length - 1]),
+      efrThermal: F.mt458(P, 1, e).toFixed(2) + " MeV"
+    };
+    function fill() {
+      document.querySelectorAll("[data-chk]").forEach(function (n) {
+        var v = vals[n.getAttribute("data-chk")];
+        if (v !== undefined) n.textContent = v;
+      });
+    }
+    fill();
+    // The pair construction's mean needs the pair table: built in slices.
+    F.preparePairs("U-235", 0, false, function () {
+      var nuP = F.pairs("U-235", 0, false).meanNu;
+      vals.nuPairs = nuP.toFixed(2); vals.nuPairsMiss = (100 * (1 - nuP / Y.nup)).toFixed(0) + " %";
+      fill();
+    }, SLICE_LATER, 120);
   }
 
   L.widget("onefission", oneFission);

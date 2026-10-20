@@ -155,35 +155,62 @@
 
   // Every pair the construction can draw, with its probability (liberty 1).
   var pairCache = {};
-  function pairs(name, ie, ternary) {
-    var key = name + "|" + ie + "|" + (ternary ? 3 : 2);
-    if (pairCache[key]) return pairCache[key];
+  // Built in slices (pairBuilder), so a page can spread the ~30 ms of
+  // building over several frames (preparePairs) instead of blocking one;
+  // pairs() runs the same builder to the end at once (node, and the
+  // fallback).
+  function pairBuilder(name, ie, ternary) {
     var P = D().parents[name], Y = P.yields[ie], e = Y.e;
     var I = initial(P, e), tke = mt458(P, 1, e);
     var zcn = P.z, acn = P.a + 1, dz = ternary ? 2 : 0, da = ternary ? 4 : 0;
     var byZ = {};
-    for (var i = 0; i < Y.z.length; i++) (byZ[Y.z[i]] = byZ[Y.z[i]] || []).push(i);
-    var list = [], wsum = 0;
-    for (i = 0; i < Y.z.length; i++) {
-      var z1 = Y.z[i], a1 = Y.a[i], z2 = zcn - z1 - dz, cands = byZ[z2] || [], ok = [], cw = 0;
-      for (var j = 0; j < cands.length; j++) {
-        var k = cands[j], a2 = Y.a[k], nu = acn - da - a1 - a2;
-        if (nu < 0) continue;
-        var s = split(I.Mstar, tke, z1, a1, z2, a2, nu, ternary);
-        if (!s) continue;
-        ok.push([k, s]); cw += Y.y[k];
+    for (var i0 = 0; i0 < Y.z.length; i0++) (byZ[Y.z[i0]] = byZ[Y.z[i0]] || []).push(i0);
+    var list = [], wsum = 0, i = 0;
+    // Process the next `n` first fragments; true when all are done.
+    function step(n) {
+      for (var end = Math.min(i + n, Y.z.length); i < end; i++) {
+        var z1 = Y.z[i], a1 = Y.a[i], z2 = zcn - z1 - dz, cands = byZ[z2] || [], ok = [], cw = 0;
+        for (var j = 0; j < cands.length; j++) {
+          var k = cands[j], a2 = Y.a[k], nu = acn - da - a1 - a2;
+          if (nu < 0) continue;
+          var s = split(I.Mstar, tke, z1, a1, z2, a2, nu, ternary);
+          if (!s) continue;
+          ok.push([k, s]); cw += Y.y[k];
+        }
+        for (j = 0; j < ok.length; j++) {
+          var pr = Y.y[i] * Y.y[ok[j][0]] / cw;
+          list.push({ z1: z1, a1: a1, z2: z2, a2: Y.a[ok[j][0]], nu: acn - da - a1 - Y.a[ok[j][0]], s: ok[j][1], p: pr });
+          wsum += pr;
+        }
       }
-      if (!ok.length) continue;
-      for (j = 0; j < ok.length; j++) {
-        var pr = Y.y[i] * Y.y[ok[j][0]] / cw;
-        list.push({ z1: z1, a1: a1, z2: z2, a2: Y.a[ok[j][0]], nu: acn - da - a1 - Y.a[ok[j][0]], s: ok[j][1], p: pr });
-        wsum += pr;
-      }
+      return i >= Y.z.length;
     }
-    var cum = 0;
-    list.forEach(function (x) { x.p /= wsum; cum += x.p; x.c = cum; });
-    var mean = list.reduce(function (s, x) { return s + x.p * x.nu; }, 0);
-    return (pairCache[key] = { list: list, meanNu: mean, tke: tke, I: I });
+    function finish() {
+      var cum = 0;
+      list.forEach(function (x) { x.p /= wsum; cum += x.p; x.c = cum; });
+      var mean = list.reduce(function (s, x) { return s + x.p * x.nu; }, 0);
+      return { list: list, meanNu: mean, tke: tke, I: I };
+    }
+    return { step: step, finish: finish };
+  }
+  function pairs(name, ie, ternary) {
+    var key = name + "|" + ie + "|" + (ternary ? 3 : 2);
+    if (pairCache[key]) return pairCache[key];
+    var b = pairBuilder(name, ie, ternary);
+    b.step(Infinity);
+    return (pairCache[key] = b.finish());
+  }
+  // Build the pairs in slices of `slice` first fragments, one slice per
+  // `defer` call (setTimeout on a page), then call done(). Already built:
+  // done() at once.
+  function preparePairs(name, ie, ternary, done, defer, slice) {
+    var key = name + "|" + ie + "|" + (ternary ? 3 : 2);
+    if (pairCache[key]) { done(); return; }
+    var b = pairBuilder(name, ie, ternary);
+    (function next() {
+      if (b.step(slice || 150)) { pairCache[key] = b.finish(); done(); }
+      else defer(next);
+    })();
   }
 
   // Draw ε from ε exp(−ε/T) on [0, emax].
@@ -268,7 +295,11 @@
     if (alpha) sum = add(sum, alpha);
     var dP = Math.hypot(sum[1] - I.tot[1], sum[2] - I.tot[2]), dE = sum[0] - I.tot[0];
     var restFinal = frags[0].mFinal + frags[1].mFinal + neutrons.length * MN + (alpha ? ma : 0);
-    var Q = I.tot[0] - restFinal; // kinetic + photon energy at the end [MeV]
+    // Kinetic + photon energy at the end, in the centre-of-mass frame [MeV]:
+    // the invariant mass minus the final rest masses, so it is comparable
+    // with qSplit at every incident energy (the lab total also carries the
+    // centre of mass's own motion, E_n/(A+1) of it).
+    var Q = I.Mstar - restFinal;
     return {
       parent: name, e: e, seed: opts.seed, ternary: ternary, alpha: alpha, Talpha: Talpha, alphaRule: alphaRule,
       I: I, tke: tke, pair: pr, frags: frags, neutrons: neutrons, gammas: gammas,
@@ -353,7 +384,7 @@
     MN: MN, C: C, HBAR_EVS: HBAR_EVS, R0_FM: R0_FM, PROMPT_BOUND_S: PROMPT_BOUND_S,
     deltaKeV: deltaKeV, mass: mass, u: u, sn: sn, stableZ: stableZ, linlin: linlin, mt458: mt458,
     vec: vec, minv: minv, boost: boost, twoBody: twoBody, velocity: velocity, rng: rng,
-    initial: initial, split: split, pairs: pairs, event: event, betaChain: betaChain,
+    initial: initial, split: split, pairs: pairs, preparePairs: preparePairs, event: event, betaChain: betaChain,
     nearestGroup: nearestGroup, sampleSpectrum: sampleSpectrum, delayedPerFission: delayedPerFission, timescales: timescales
   };
   W.FissionPhysics = api;

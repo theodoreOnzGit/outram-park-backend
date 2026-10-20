@@ -1,6 +1,6 @@
 //! The data readers behind the Fission products lessons (gh:#906 track,
 //! maintainer design 2026-10-20). Shared by `main.rs` (which writes the
-//! lesson data files) and `tests/lesson_fission_products.rs` (which reaches
+//! lesson data files), `spectrum.rs` and `tests/lesson_fission_products.rs` (which reaches
 //! every function here), through `#[path]`.
 //!
 //! Every value comes from a file the workspace already holds or depends on;
@@ -236,13 +236,6 @@ pub fn decay_table(csv: &str) -> BTreeMap<(u32, u32), Decay> {
         }
     }
     m
-}
-
-/// The beta-stable isobar at mass number `a`: the Z of lowest mass excess
-/// among the table's isobars (the lowest atomic mass cannot beta-decay to
-/// its neighbours).
-pub fn stable_isobar(masses: &BTreeMap<(u32, u32), f64>, a: u32) -> Option<u32> {
-    masses.iter().filter(|(&(_, aa), _)| aa == a).min_by(|x, y| x.1.total_cmp(y.1)).map(|(&(z, _), _)| z)
 }
 
 /// MF=1/MT=458, the fission energy release: the thermal-point components
