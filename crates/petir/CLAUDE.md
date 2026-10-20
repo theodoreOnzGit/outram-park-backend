@@ -169,6 +169,29 @@ follows:
   scope cuts (no restart, transfer rates, external sources, MPI, results
   file or unit conversion).
 
+### An eighth non-GSL port: the `rand` pieces RustBCA uses (2026-10-20)
+
+`src/rng/{traits,chacha,uniform,normal,ziggurat_tables}.rs` port `rand`
+0.10.3, `rand_core` 0.10.1, `rand_distr` 0.6.0 and `chacha20` 0.10.2 (MIT OR
+Apache-2.0): `ChaCha8Rng` with `seed_from_u64` / `from_rng` / `set_stream`,
+`random::<f64>()`, `Uniform<f64>` and the ziggurat `Normal<f64>`. **Maintainer
+direction on gh:#995, 2026-10-20: the `rand` functionality RustBCA uses goes
+into PETIR, and `boon-lay`'s RustBCA copy calls PETIR's version.** It binds
+future work as follows:
+
+- **Not a single random number may differ from upstream.**
+  `tests/rng_vs_rand.rs` replays `reference-data/rand/` (made by the upstream
+  crates themselves): 14 864 values and 48 digests over 48 million draws, all
+  identical. Every seeded RustBCA result depends on it.
+- **`exp`/`ln` in the normal sampler are `Real` (`libm`)**, as `rand_distr`
+  declares itself. A build with `num-traits/std` (boon-lay's was) differs in
+  9 of 8 million standard-normal draws, by 1 ulp, all in the tail; recorded in
+  the test's docs.
+- **No entropy here.** Seeding from the OS stays with the caller (boon-lay
+  uses `getrandom` behind `rustbca-std`).
+- **Additive:** only the types RustBCA uses. Port further `rand` pieces from
+  the same registry sources, never from memory.
+
 **`peroxide` as a DEPENDENCY remains ruled out** (it pulls
 `blas`/`lapack`/`netcdf`/`arrow`, which the "Dependencies" section below
 forbids). That is a separate question from porting a pure-Rust routine out of
