@@ -63,4 +63,12 @@ export CITEPROC_MODULE="$prefix/node_modules/citeproc/citeproc_commonjs.js"
 node scripts/csl-verify-citeproc-build.cjs
 node scripts/csl-reference.cjs
 node scripts/csl-testsuite-reference.cjs
-echo "csl-reference: wrote crates/kovan-literature/tests/data/csl/reference_*.json and test_suite_reference.json"
+# The intermediate-state references and the fixture contexts also read
+# items.json, so a changed .bib needs them regenerated too (2026-10-20: the
+# 238-entry bib broke build_retrieve_item's site test when only the above ran).
+# units/collation.json is NOT regenerated here: it depends on node's ICU, not
+# on the .bib, and its meta records the ICU it was made with.
+node scripts/csl-intermediate-reference.cjs
+node scripts/csl-intermediate-xml.cjs
+node scripts/csl-units/fixture_contexts.cjs
+echo "csl-reference: wrote crates/kovan-literature/tests/data/csl/reference_*.json, test_suite_reference.json, intermediate_reference*.json, intermediate_reference_xml.json and units/fixture_contexts.json"

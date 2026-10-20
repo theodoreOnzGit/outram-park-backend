@@ -1,7 +1,7 @@
 {
  "meta": {
   "engine": "citeproc-js 2.4.63",
-  "node": "v22.22.2",
+  "node": "v12.22.9",
   "style": "kovan-literature/data/csl/apa.csl",
   "locale": "kovan-literature/data/csl/locales-en-US.xml"
  },
@@ -21,10 +21,14 @@
   "bickel2014design",
   "Blondeletal2008",
   "boehm1981software",
+  "bohr1998nuclear",
+  "breit1936capture",
   "briand2006empirical",
   "briggs2003international",
   "brown2018endf8",
+  "brown2006shannon",
   "cao2026distribution",
+  "capote2009ripl",
   "castro_verification",
   "cengel2002thermodynamics",
   "cereijo_lingot_c_2020",
@@ -82,6 +86,7 @@
   "hall1978marviken",
   "hassan2025agentic",
   "Havensetal2013",
+  "haxel1949magic",
   "higham2002accuracy",
   "hill2011approximating",
   "hook2009testing",
@@ -100,8 +105,11 @@
   "kim2008simulating",
   "kim2005elimination",
   "kloss2012models",
+  "koning2026talys",
+  "krane1987introductory",
   "LancichinettiFortunato2009",
   "Lancichinettietal2008",
+  "lane1958rmatrix",
   "leipzig2021role",
   "leppanen2010delta",
   "leppanen2017delta",
@@ -121,12 +129,15 @@
   "Liuetal2014",
   "Louetal2013",
   "lou2020novel",
+  "lux1991monte",
   "njoy2016",
   "mahboob2026corium",
+  "mamdouh2001etfsi",
   "mangul2019recommendations",
   "marcondes_using_ollama_2025",
   "marzouk2020sod",
   "nnc261_matrixmarket",
+  "mayer1949closed",
   "meneely2009secure",
   "miao2025paper2agent",
   "moody1975maximum",
@@ -136,6 +147,7 @@
   "Newman2013",
   "NewmanGirvan2004",
   "ningsih2023singlish",
+  "nist2026neutronlengths",
   "novak2023coupled",
   "oktavian2025optimization",
   "ong_lingot_tuner_rust_2026",
@@ -164,6 +176,7 @@
   "Psorakisetal2011",
   "Raghavanetal2007",
   "rawte2023survey",
+  "reich1958multilevel",
   "romano2015openmc",
   "vsafarik2015speed",
   "saha1978review",
@@ -173,11 +186,13 @@
   "schappel2018modeling",
   "schmidt_hrmfoam_github",
   "schmidt2010hrmfoam",
+  "sears1992neutron",
   "skerjanc2020comparison",
   "slaughter2021code",
   "SobolevskyCampari2014",
   "sod1978survey",
   "spinellis2009evaluating",
+  "squires2012thermal",
   "steward2025neurobiology",
   "SubeljBajec2011a",
   "SubeljBajec2011b",
@@ -194,8 +209,10 @@
   "terry2005htr10benchmark",
   "teschner_discretise_nse",
   "infographics_show_ai_bill_2026",
+  "tiesinga2021codata2018",
   "toro2013riemann",
   "trajanov2026cognitive",
+  "trkov2018endf6",
   "nrc2024ai",
   "van2009astec",
   "Vehlowetal2013",
@@ -207,8 +224,10 @@
   "wang2018coupled",
   "WangLi2013",
   "wendt2026delta",
+  "wigner1947higher",
   "wong_singapore_budget_2026_ai",
   "wong2024effects",
+  "woods1954diffuse",
   "wu2022scwr",
   "xhonneux2014development",
   "xhonneux2016full",
@@ -457,6 +476,16 @@
    "narrative": "Boehm (1981)",
    "bibliography": "<div class=\"csl-entry\">Boehm, B. W. (1981). <i>Software Engineering Economics</i>. Prentice-Hall.</div>"
   },
+  "bohr1998nuclear": {
+   "parenthetical": "(Bohr &#38; Mottelson, 1998)",
+   "narrative": "Bohr &#38; Mottelson (1998)",
+   "bibliography": "<div class=\"csl-entry\">Bohr, A., &#38; Mottelson, B. R. (1998). <i>Nuclear Structure</i>. World Scientific. https://doi.org/10.1142/3530</div>"
+  },
+  "breit1936capture": {
+   "parenthetical": "(Breit &#38; Wigner, 1936)",
+   "narrative": "Breit &#38; Wigner (1936)",
+   "bibliography": "<div class=\"csl-entry\">Breit, G., &#38; Wigner, E. (1936). Capture of Slow Neutrons. <i>Physical Review</i>, <i>49</i>(7), 519–531. https://doi.org/10.1103/PhysRev.49.519</div>"
+  },
   "briand2006empirical": {
    "parenthetical": "(Briand &#38; Selby, 2006)",
    "narrative": "Briand &#38; Selby (2006)",
@@ -467,15 +496,25 @@
    "narrative": "Briggs et al. (2003)",
    "bibliography": "<div class=\"csl-entry\">Briggs, J. B., Scott, L., &#38; Nouri, A. (2003). The international criticality safety benchmark evaluation project. <i>Nuclear Science and Engineering</i>, <i>145</i>(1), 1–10.</div>"
   },
+  "brown2006shannon": {
+   "parenthetical": "(F. B. Brown, 2006)",
+   "narrative": "F. B. Brown (2006)",
+   "bibliography": "<div class=\"csl-entry\">Brown, F. B. (2006, September). On the Use of Shannon Entropy of the Fission Distribution for Assessing Convergence of Monte Carlo Criticality Calculations. <i>PHYSOR 2006: ANS Topical Meeting on Reactor Physics</i>.</div>"
+  },
   "brown2018endf8": {
-   "parenthetical": "(Brown &#38; others, 2018)",
-   "narrative": "Brown &#38; others (2018)",
+   "parenthetical": "(D. A. Brown &#38; others, 2018)",
+   "narrative": "D. A. Brown &#38; others (2018)",
    "bibliography": "<div class=\"csl-entry\">Brown, D. A. &#38; others. (2018). ENDF/B-VIII.0: The 8th Major Release of the Nuclear Reaction Data Library with CIELO-project Cross Sections, New Standards and Thermal Scattering Data. <i>Nuclear Data Sheets</i>, <i>148</i>, 1–142. https://doi.org/10.1016/j.nds.2018.02.001</div>"
   },
   "cao2026distribution": {
    "parenthetical": "(Cao &#38; Chi, 2026)",
    "narrative": "Cao &#38; Chi (2026)",
    "bibliography": "<div class=\"csl-entry\">Cao, S., &#38; Chi, Z. (2026). Distribution of Singular Data Generated by Compact Forced Navier–Stokes Blowup. <i>arXiv Preprint arXiv:2609.10262</i>. https://doi.org/10.48550/arXiv.2609.10262</div>"
+  },
+  "capote2009ripl": {
+   "parenthetical": "(Capote et al., 2009)",
+   "narrative": "Capote et al. (2009)",
+   "bibliography": "<div class=\"csl-entry\">Capote, R., Herman, M., Obložinský, P., Young, P. G., Goriely, S., Belgya, T., Ignatyuk, A. V., Koning, A. J., Hilaire, S., Plujko, V. A., Avrigeanu, M., Bersillon, O., Chadwick, M. B., Fukahori, T., Ge, Z., Han, Y., Kailas, S., Kopecky, J., Maslov, V. M., … Talou, P. (2009). RIPL – Reference Input Parameter Library for Calculation of Nuclear Reactions and Nuclear Data Evaluations. <i>Nuclear Data Sheets</i>, <i>110</i>(12), 3107–3214. https://doi.org/10.1016/j.nds.2009.10.004</div>"
   },
   "castro_verification": {
    "parenthetical": "(Castro development team, 2024)",
@@ -702,6 +741,11 @@
    "narrative": "Hassan et al. (2025)",
    "bibliography": "<div class=\"csl-entry\">Hassan, A. E., Li, H., Lin, D., Adams, B., Chen, T.-H., Kashiwa, Y., &#38; Qiu, D. (2025). Agentic software engineering: Foundational pillars and a research roadmap. <i>arXiv Preprint arXiv:2509.06216</i>.</div>"
   },
+  "haxel1949magic": {
+   "parenthetical": "(Haxel et al., 1949)",
+   "narrative": "Haxel et al. (1949)",
+   "bibliography": "<div class=\"csl-entry\">Haxel, O., Jensen, J. H. D., &#38; Suess, H. E. (1949). On the “Magic Numbers” in Nuclear Structure. <i>Physical Review</i>, <i>75</i>(11), 1766. https://doi.org/10.1103/PhysRev.75.1766.2</div>"
+  },
   "higham2002accuracy": {
    "parenthetical": "(Higham, 2002)",
    "narrative": "Higham (2002)",
@@ -792,6 +836,21 @@
    "narrative": "Kloss et al. (2012)",
    "bibliography": "<div class=\"csl-entry\">Kloss, C., Goniva, C., Hager, A., Amberger, S., &#38; Pirker, S. (2012). Models, Algorithms and Validation for Opensource DEM and CFD-DEM. <i>Progress in Computational Fluid Dynamics, An International Journal</i>, <i>12</i>(2/3), 140–152. https://doi.org/10.1504/PCFD.2012.047457</div>"
   },
+  "koning2026talys": {
+   "parenthetical": "(Koning et al., 2026)",
+   "narrative": "Koning et al. (2026)",
+   "bibliography": "<div class=\"csl-entry\">Koning, A., Hilaire, S., &#38; Goriely, S. (2026). <i>TALYS-2.24: Simulation of nuclear reactions</i> (IAEA NDS Document Series IAEA(NDS)-0255). International Atomic Energy Agency, Nuclear Data Section. https://nds.iaea.org/talys</div>"
+  },
+  "krane1987introductory": {
+   "parenthetical": "(Krane, 1987)",
+   "narrative": "Krane (1987)",
+   "bibliography": "<div class=\"csl-entry\">Krane, K. S. (1987). <i>Introductory Nuclear Physics</i>. Wiley.</div>"
+  },
+  "lane1958rmatrix": {
+   "parenthetical": "(Lane &#38; Thomas, 1958)",
+   "narrative": "Lane &#38; Thomas (1958)",
+   "bibliography": "<div class=\"csl-entry\">Lane, A. M., &#38; Thomas, R. G. (1958). R-Matrix Theory of Nuclear Reactions. <i>Reviews of Modern Physics</i>, <i>30</i>(2), 257–353. https://doi.org/10.1103/RevModPhys.30.257</div>"
+  },
   "leipzig2021role": {
    "parenthetical": "(Leipzig et al., 2021)",
    "narrative": "Leipzig et al. (2021)",
@@ -867,10 +926,20 @@
    "narrative": "L. Lou et al. (2020)",
    "bibliography": "<div class=\"csl-entry\">Lou, L., Yao, D., Chai, X., Peng, X., Li, M., Li, W., Yu, Y., &#38; Wang, L. (2020). A novel reactivity-equivalent physical transformation method for homogenization of double-heterogeneous systems. <i>Annals of Nuclear Energy</i>, <i>142</i>, 107396.</div>"
   },
+  "lux1991monte": {
+   "parenthetical": "(Lux &#38; Koblinger, 1991)",
+   "narrative": "Lux &#38; Koblinger (1991)",
+   "bibliography": "<div class=\"csl-entry\">Lux, I., &#38; Koblinger, L. (1991). <i>Monte Carlo Particle Transport Methods: Neutron and Photon Calculations</i>. CRC Press.</div>"
+  },
   "mahboob2026corium": {
    "parenthetical": "(Mahboob et al., 2026)",
    "narrative": "Mahboob et al. (2026)",
    "bibliography": "<div class=\"csl-entry\">Mahboob, K., Alkaabi, A., &#38; Addad, Y. (2026). Simulating Molten Corium Concrete Interaction: A Multiphase Approach with OpenFOAM. <i>Nuclear Engineering and Technology</i>, 104357.</div>"
+  },
+  "mamdouh2001etfsi": {
+   "parenthetical": "(Mamdouh et al., 2001)",
+   "narrative": "Mamdouh et al. (2001)",
+   "bibliography": "<div class=\"csl-entry\">Mamdouh, A., Pearson, J. M., Rayet, M., &#38; Tondeur, F. (2001). Fission barriers of neutron-rich and superheavy nuclei calculated with the ETFSI method. <i>Nuclear Physics A</i>, <i>679</i>(3–4), 337–358. https://doi.org/10.1016/S0375-9474(00)00358-4</div>"
   },
   "mangul2019recommendations": {
    "parenthetical": "(Mangul et al., 2020)",
@@ -886,6 +955,11 @@
    "parenthetical": "(Marzouk, 2020)",
    "narrative": "Marzouk (2020)",
    "bibliography": "<div class=\"csl-entry\">Marzouk, O. A. (2020). The Sod gasdynamics problem as a tool for benchmarking face flux construction in the finite volume method. <i>Scientific African</i>, <i>10</i>, e00573. https://doi.org/10.1016/j.sciaf.2020.e00573</div>"
+  },
+  "mayer1949closed": {
+   "parenthetical": "(Mayer, 1949)",
+   "narrative": "Mayer (1949)",
+   "bibliography": "<div class=\"csl-entry\">Mayer, M. G. (1949). On Closed Shells in Nuclei. II. <i>Physical Review</i>, <i>75</i>(12), 1969–1970. https://doi.org/10.1103/PhysRev.75.1969</div>"
   },
   "meneely2009secure": {
    "parenthetical": "(Meneely &#38; Williams, 2009)",
@@ -926,6 +1000,11 @@
    "parenthetical": "(Ningsih &#38; Rahman, 2023)",
    "narrative": "Ningsih &#38; Rahman (2023)",
    "bibliography": "<div class=\"csl-entry\">Ningsih, N. S., &#38; Rahman, F. (2023). Exploring the Unique Morphological and Syntactic Features of Singlish (Singapore English). <i>Journal of English in Academic and Professional Communication</i>, <i>9</i>(2), 72–80. https://doi.org/10.25047/jeapco.v9i2.3933</div>"
+  },
+  "nist2026neutronlengths": {
+   "parenthetical": "(NIST Center for Neutron Research, 2026)",
+   "narrative": "NIST Center for Neutron Research (2026)",
+   "bibliography": "<div class=\"csl-entry\">NIST Center for Neutron Research. (2026). <i>Neutron scattering lengths and cross sections</i>. https://www.ncnr.nist.gov/resources/activation/scattering_table.html</div>"
   },
   "njoy2016": {
    "parenthetical": "(MacFarlane et al., 2017)",
@@ -1072,6 +1151,11 @@
    "narrative": "Rawte et al. (2023)",
    "bibliography": "<div class=\"csl-entry\">Rawte, V., Sheth, A., &#38; Das, A. (2023). A survey of hallucination in large foundation models. <i>arXiv Preprint arXiv:2309.05922</i>.</div>"
   },
+  "reich1958multilevel": {
+   "parenthetical": "(Reich &#38; Moore, 1958)",
+   "narrative": "Reich &#38; Moore (1958)",
+   "bibliography": "<div class=\"csl-entry\">Reich, C. W., &#38; Moore, M. S. (1958). Multilevel Formula for the Fission Process. <i>Physical Review</i>, <i>111</i>(3), 929–933. https://doi.org/10.1103/PhysRev.111.929</div>"
+  },
   "romano2015openmc": {
    "parenthetical": "(Romano et al., 2015)",
    "narrative": "Romano et al. (2015)",
@@ -1112,6 +1196,11 @@
    "narrative": "Schmidt (n.d.)",
    "bibliography": "<div class=\"csl-entry\">Schmidt, D. P. (n.d.). <i>HRMFoam: Homogeneous Relaxation Model solver for OpenFOAM</i>. Retrieved July 6, 2026, from https://github.com/davidpschmidt/HRMFoam</div>"
   },
+  "sears1992neutron": {
+   "parenthetical": "(Sears, 1992)",
+   "narrative": "Sears (1992)",
+   "bibliography": "<div class=\"csl-entry\">Sears, V. F. (1992). Neutron scattering lengths and cross sections. <i>Neutron News</i>, <i>3</i>(3), 26–37. https://doi.org/10.1080/10448639208218770</div>"
+  },
   "skerjanc2020comparison": {
    "parenthetical": "(Skerjanc, 2020)",
    "narrative": "Skerjanc (2020)",
@@ -1131,6 +1220,11 @@
    "parenthetical": "(Spinellis et al., 2009)",
    "narrative": "Spinellis et al. (2009)",
    "bibliography": "<div class=\"csl-entry\">Spinellis, D., Gousios, G., Karakoidas, V., Louridas, P., Adams, P. J., Samoladas, I., &#38; Stamelos, I. (2009). Evaluating the quality of open source software. <i>Electronic Notes in Theoretical Computer Science</i>, <i>233</i>, 5–28.</div>"
+  },
+  "squires2012thermal": {
+   "parenthetical": "(Squires, 2012)",
+   "narrative": "Squires (2012)",
+   "bibliography": "<div class=\"csl-entry\">Squires, G. L. (2012). <i>Introduction to the Theory of Thermal Neutron Scattering</i> (3rd ed.). Cambridge University Press. https://doi.org/10.1017/CBO9781139107808</div>"
   },
   "steward2025neurobiology": {
    "parenthetical": "(Steward et al., 2025)",
@@ -1192,6 +1286,11 @@
    "narrative": "EDF R&#38;D (2026)",
    "bibliography": "<div class=\"csl-entry\">EDF R&#38;D. (2026). <i>ThermoSysPro: Modelica Library for Thermal-Hydraulic and Power Plant Modelling</i>. GitHub. https://github.com/ThermoSysPro/ThermoSysPro</div>"
   },
+  "tiesinga2021codata2018": {
+   "parenthetical": "(Tiesinga et al., 2021)",
+   "narrative": "Tiesinga et al. (2021)",
+   "bibliography": "<div class=\"csl-entry\">Tiesinga, E., Mohr, P. J., Newell, D. B., &#38; Taylor, B. N. (2021). CODATA recommended values of the fundamental physical constants: 2018. <i>Reviews of Modern Physics</i>, <i>93</i>(2), 025010. https://doi.org/10.1103/RevModPhys.93.025010</div>"
+  },
   "toro2013riemann": {
    "parenthetical": "(Toro, 2013)",
    "narrative": "Toro (2013)",
@@ -1201,6 +1300,11 @@
    "parenthetical": "(Trajanov &#38; Kocarev, 2026)",
    "narrative": "Trajanov &#38; Kocarev (2026)",
    "bibliography": "<div class=\"csl-entry\">Trajanov, D., &#38; Kocarev, L. (2026). <i>The Cognitive Obesity Hypothesis: AI and the Risk of Mental Atrophy</i>.</div>"
+  },
+  "trkov2018endf6": {
+   "parenthetical": "(Trkov et al., 2018)",
+   "narrative": "Trkov et al. (2018)",
+   "bibliography": "<div class=\"csl-entry\">Trkov, A., Herman, M., &#38; Brown, D. A. (2018). <i>ENDF-6 Formats Manual: Data Formats and Procedures for the Evaluated Nuclear Data Files ENDF/B-VI, ENDF/B-VII and ENDF/B-VIII</i> (Technical Report BNL-203218-2018-INRE (CSEWG Document ENDF-102)). Brookhaven National Laboratory. https://www.nndc.bnl.gov/endfdocs/ENDF-102-2018.pdf</div>"
   },
   "van2009astec": {
    "parenthetical": "(Van Dorsselaere et al., 2009)",
@@ -1242,6 +1346,11 @@
    "narrative": "Wendt (2026)",
    "bibliography": "<div class=\"csl-entry\">Wendt, K. (2026). <i>Delta tracking</i>. https://github.com/openmc-dev/openmc/pull/3971</div>"
   },
+  "wigner1947higher": {
+   "parenthetical": "(Wigner &#38; Eisenbud, 1947)",
+   "narrative": "Wigner &#38; Eisenbud (1947)",
+   "bibliography": "<div class=\"csl-entry\">Wigner, E. P., &#38; Eisenbud, L. (1947). Higher Angular Momenta and Long Range Interaction in Resonance Reactions. <i>Physical Review</i>, <i>72</i>(1), 29–41. https://doi.org/10.1103/PhysRev.72.29</div>"
+  },
   "wong2024effects": {
    "parenthetical": "(Y. Wong et al., 2024)",
    "narrative": "Y. Wong et al. (2024)",
@@ -1251,6 +1360,11 @@
    "parenthetical": "(L. Wong, 2026)",
    "narrative": "L. Wong (2026)",
    "bibliography": "<div class=\"csl-entry\">Wong, L. (2026, February). <i>Singapore Budget 2026 Statement, Section C: Harness AI as a Strategic Advantage</i>. https://singaporebudget.gov.sg</div>"
+  },
+  "woods1954diffuse": {
+   "parenthetical": "(Woods &#38; Saxon, 1954)",
+   "narrative": "Woods &#38; Saxon (1954)",
+   "bibliography": "<div class=\"csl-entry\">Woods, R. D., &#38; Saxon, D. S. (1954). Diffuse Surface Optical Model for Nucleon-Nuclei Scattering. <i>Physical Review</i>, <i>95</i>(2), 577–578. https://doi.org/10.1103/PhysRev.95.577</div>"
   },
   "wu2022scwr": {
    "parenthetical": "(Wu et al., 2022)",
