@@ -11,6 +11,11 @@ description = "Digital High-fidelity Orchestration by GUI for a Human-friendly A
 homepage.workspace = true
 repository.workspace = true
 categories.workspace = true
+# The V&V records' images and CSVs (several MB) stay in the repo but not in the
+# crates.io package, which they pushed to 11.6 MiB compressed, over the 10 MiB
+# limit (measured 2026-10-20). The markdown write-ups still ship. Nothing in
+# src/ or tests/ reads these files; the paths there are doc references.
+exclude = ["/verification_and_validation/**/*.png", "/verification_and_validation/**/*.csv"]
 
 # ---------------------------------------------------------------------------
 # ~~The library itself has NO dependencies.~~ CORRECTED 2026-10-04 (gh:#521):
@@ -57,7 +62,7 @@ path = "src/bin/dhoby-ghaut/main.rs"
 # Gated off wasm32: kovan carries gix, directories and the kopitiam crates,
 # none of which belong in the browser demos that build this library for wasm.
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-kovan = { package = "knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan", path = "../kovan", default-features = false }
+kovan = { package = "knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan", path = "../kovan", version = "0.0.2", default-features = false }
 # The recipe schema (`src/workbench/recipe.rs`): serde for the settings
 # tables, toml to read/write them, uom for the quantities that leave it.
 serde = { workspace = true }

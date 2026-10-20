@@ -1,6 +1,6 @@
 [package]
 name = "outram-park-fork-offbeat"
-version = "0.0.0"
+version = "0.0.1"
 edition.workspace = true
 license.workspace = true
 description = "Pure-Rust fork of OFFBEAT (foam-for-nuclear) — multi-dimensional nuclear fuel-performance: solid mechanics, rheology, fuel/cladding gap and contact, material property correlations, burnup and fission-gas release, on the OUTRAM-FOAM finite-volume substrate. SCAFFOLD/early: no human V&V. Independent OUTRAM PARK fork, not the official OFFBEAT."

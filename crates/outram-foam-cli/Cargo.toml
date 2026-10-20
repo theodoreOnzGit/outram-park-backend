@@ -1,6 +1,6 @@
 [package]
 name = "outram-foam-cli"
-version = "0.1.0"
+version = "0.0.1"
 edition.workspace = true
 license.workspace = true
 description = "OpenFOAM-style command-line utilities (blockMesh, pimpleFoam, gen-foam, ...) as terminal binaries -- an independent OUTRAM PARK fork, not the official OpenFOAM software"

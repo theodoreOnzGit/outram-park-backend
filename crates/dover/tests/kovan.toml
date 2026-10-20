@@ -1,6 +1,6 @@
 schema_version = 1
 kind = "code_folder"
-crate = "dover"
+crate = "deck-based-open-source-visualisation-engine-for-reactors-dover"
 dir = "crates/dover/tests"
 
 [module."smr_cstr.rs"]

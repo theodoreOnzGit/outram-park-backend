@@ -1,7 +1,7 @@
 //! Run a DOVER deck headless and print the CSV.
 //!
 //! ```text
-//! cargo run --release -p dover --example smr_cstr -- crates/dover/decks/smr_cstr.toml
+//! cargo run --release -p deck-based-open-source-visualisation-engine-for-reactors-dover --example smr_cstr -- crates/dover/decks/smr_cstr.toml
 //! ```
 //!
 //! With no argument it runs the bundled base deck. There is no GUI and no

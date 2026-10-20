@@ -1,6 +1,6 @@
 [package]
 name = "kaki-bukit"
-version = "0.0.0"
+version = "0.0.1"
 edition.workspace = true
 # GPL-3.0-only. This crate is an independent Rust translation of CYCLUS and
 # CYCAMORE, both BSD-3-Clause (verified 2026-09-16 by reading the cloned
@@ -56,7 +56,7 @@ backronym = "Kernel for Agent-based Key-resource Inventory, Backend for Utility,
 #      composition fractions, by upstream's own convention — `Material::units()`
 #      returns the literal string "kg"), so there is nothing here for `uom` to
 #      type and no reason to carry it.
-petir = { path = "../petir", default-features = false }
+petir = { path = "../petir", version = "0.0.2", default-features = false }
 
 [features]
 default = []

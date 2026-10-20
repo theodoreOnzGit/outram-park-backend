@@ -1,0 +1,9 @@
+# Version overrides for scripts/release/bump-versions.sh (gh:#971, #972).
+# `crate-name = "x.y.z"` sets that crate's next version outright. An override
+# is applied only when it is above the crate's current version, so entries
+# from a past release are inert and may stay as a record.
+
+# Release of 2026-10-20 (maintainer):
+tampines-steam-tables = "0.3.0"
+# 0.2.0 (2026-01-27) is already the highest boon-lay on crates.io.
+boon-lay = "0.2.1"

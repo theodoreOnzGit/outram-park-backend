@@ -93,6 +93,16 @@ migration notes.
 
 ## Publishing to crates.io
 
+**Lockstep (maintainer, 2026-10-20; gh:#971).** Every member crate is published
+in the same release, and the `outram-park` metacrate (separate repository,
+AGPL-3.0-only) follows straight after, depending on these crates **only by
+their crates.io versions**. Version scheme: a crate's first release is
+`0.0.1`; each release bumps every crate's patch version by one unless the
+maintainer sets another (e.g. `tampines-steam-tables` 0.3.0). Package every
+crate together with `cargo package --workspace --no-verify` (single-crate
+packaging fails until its dependencies' new versions are live), then
+`cargo publish --workspace`, which orders the crates itself.
+
 **Do not hand-maintain the publish order.** Derive it from `cargo metadata`,
 which is the only source that cannot go stale:
 

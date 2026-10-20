@@ -1,7 +1,7 @@
 # DOVER input deck — steam methane reforming in a CSTR.
 #
 # Run it:
-#   cargo run --release -p dover --example smr_cstr -- crates/dover/decks/smr_cstr.toml
+#   cargo run --release -p deck-based-open-source-visualisation-engine-for-reactors-dover --example smr_cstr -- crates/dover/decks/smr_cstr.toml
 #
 # Everything thermodynamic is DERIVED from the species table in
 # `src/species.rs`. The only fitted numbers in this file are the two

@@ -89,8 +89,8 @@ kinetics — which is exactly what
 ### Run it
 
 ```bash
-cargo run --release -p dover --example smr_cstr -- crates/dover/decks/smr_cstr.toml
-cargo run --release -p dover --example smr_cstr -- crates/dover/decks/smr_temperature_sweep.toml
+cargo run --release -p deck-based-open-source-visualisation-engine-for-reactors-dover --example smr_cstr -- crates/dover/decks/smr_cstr.toml
+cargo run --release -p deck-based-open-source-visualisation-engine-for-reactors-dover --example smr_cstr -- crates/dover/decks/smr_temperature_sweep.toml
 ```
 
 Output is CSV on stdout with a stable header and fixed precision; the committed
@@ -132,8 +132,8 @@ Do not quote a number out of this as a property of any real reactor.
 ## Build and test
 
 ```bash
-cargo build --release -p dover
-cargo test  --release -p dover --lib --tests
+cargo build --release -p deck-based-open-source-visualisation-engine-for-reactors-dover
+cargo test  --release -p deck-based-open-source-visualisation-engine-for-reactors-dover --lib --tests
 ```
 
 ## Bookkeeping status

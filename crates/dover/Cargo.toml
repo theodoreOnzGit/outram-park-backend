@@ -1,6 +1,6 @@
 [package]
-name = "dover"
-version = "0.1.0"
+name = "deck-based-open-source-visualisation-engine-for-reactors-dover"
+version = "0.0.1"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -40,3 +40,9 @@ outram-park-fork-dwsim-libs = { workspace = true }
 # The deck is a typed, validated document; serde derives it and toml parses it.
 serde = { workspace = true }
 toml = { workspace = true }
+
+# The package name spells out the backronym (`dover` on crates.io belongs to
+# another project); the library keeps the short name, so `use dover::...` works.
+[lib]
+name = "dover"
+path = "src/lib.rs"

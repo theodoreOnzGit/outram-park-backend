@@ -1,6 +1,6 @@
 [package]
 name = "outram-park-fork-moltres"
-version = "0.0.0"
+version = "0.0.1"
 edition.workspace = true
 license.workspace = true
 description = "MSR neutronics + thermal-hydraulics on the outram-foam finite-volume layer — physics formulation from the LGPL Moltres code (circulating-fuel group diffusion + delayed-neutron precursor drift + salt TH), reimplemented on outram-foam rather than MOOSE/PETSc. SCAFFOLD: no human V&V. Not affiliated with the Moltres/ARFC project."
@@ -33,4 +33,4 @@ maturity = 2
 [dependencies]
 uom.workspace = true
 thiserror.workspace = true
-outram-foam-basic-lib = { path = "../outram-foam-basic-lib" }
+outram-foam-basic-lib = { path = "../outram-foam-basic-lib", version = "0.1.5" }

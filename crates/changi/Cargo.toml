@@ -1,6 +1,6 @@
 [package]
 name = "changi"
-version = "0.0.0"
+version = "0.0.1"
 edition.workspace = true
 license.workspace = true
 description = "CHANGI — atmospheric dispersion, plume transport, deposition and ground contamination. Pure-Rust port of FLEXPART. Research, education and V&V only."

@@ -1,6 +1,6 @@
 [package]
 name = "outram-park-mpi"
-version = "0.0.0"
+version = "0.0.1"
 edition.workspace = true
 # GPL-3.0-only (workspace default). This crate is an independent pure-Rust
 # translation of a SUBSET of MPICH's semantics/algorithms — it links no MPICH C

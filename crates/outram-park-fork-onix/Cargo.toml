@@ -1,6 +1,6 @@
 [package]
 name = "outram-park-fork-onix"
-version = "0.0.0"
+version = "0.0.1"
 edition.workspace = true
 license.workspace = true
 description = "Independent pure-Rust fork/translation of ONIX (open-source depletion/burnup; MIT upstream) — Bateman/CRAM depletion + fission-product inventory for the MSRE digital twin. SCAFFOLD: no human V&V. Not affiliated with the ONIX project."
