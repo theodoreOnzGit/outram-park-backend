@@ -58,7 +58,7 @@ that drifts from its origin fails the build rather than rotting quietly.
 | Module | Lineage | Covers |
 |---|---|---|
 | `cheb`, `cheb_slice` | ported | **The whole of GSL's `cheb/`** — interpolation at the Gauss nodes, least-squares fitting at arbitrary points, Clenshaw evaluation with an error estimate, precision-mode evaluation, series derivative and integral, and borrowed-slice evaluators for both coefficient conventions |
-| `depletion` | ported (OpenMC, not GSL) | **Depletion numerics** (`openmc/deplete/`, MIT): all eight time integrators (Predictor, CE/CM, CF4, CE/LI, EPC-RK4, LE/QI, SI-CE/LI, SI-LE/QI) generic over a `TransportOperator` trait, upstream's `integrate()` drivers, IPF CRAM16/48 with substeps, and the dense burnup matrix. CRAM and the matrix **moved here from `outram-mc-libs` 2026-10-17**, bit-identical (gh:#950). Integrator logic bit-identical to OpenMC's own running code on all 40 records of a fixed-rate reference (`tests/depletion_vs_openmc.rs`); observed orders 0.99 / 2.00 / 3.98 / 2.01 / 2.00 / 3.01 / 2.00 / 2.99 against predicted 1 / 2 / 4 / 2 / 2 / 3 / 2 / 3 (`tests/depletion_integrator_orders.rs`). Every deviation is flagged in the module docs |
+| `depletion` | ported (OpenMC, not GSL) | **Depletion numerics** (`openmc/deplete/`, MIT): all eight time integrators (Predictor, CE/CM, CF4, CE/LI, EPC-RK4, LE/QI, SI-CE/LI, SI-LE/QI) generic over a `TransportOperator` trait, upstream's `integrate()` drivers, IPF CRAM16/48 with substeps, and the dense burnup matrix. CRAM and the matrix **moved here from `outram-mc-libs` 2026-10-17**, bit-identical (gh:#950). Integrator logic bit-identical to OpenMC's own running code on all 40 records of a fixed-rate reference (`tests/depletion_vs_openmc.rs`); observed orders 0.99 / 2.00 / 3.98 / 2.01 / 2.00 / 3.01 / 2.00 / 2.99 against predicted 1 / 2 / 4 / 2 / 2 / 3 / 2 / 3 (`tests/depletion_integrator_orders.rs`). Every deviation is flagged in the module docs. Also **ONIX's partial-fraction CRAM16** (`cram16_pfd`, `onix/salameche/cram.py`, MIT), moved in from `outram-park-fork-onix` 2026-10-20 (gh:#999), bit-identical to the pre-move code on all seven pinned cases and within 6.9e-15 of the IPF form |
 | `deriv` | ported | Numerical differentiation: central, forward and backward rules with automatic step refinement and an error estimate |
 | `integration` | ported | Adaptive Gauss-Kronrod quadrature (QUADPACK): six rules, the `qag` adaptive driver and the extrapolating `qags` (GSL); plus non-adaptive **Gauss-Legendre** to order 30 and **Newton-Cotes** (`peroxide`) |
 | `interp` | ported | Interpolation of tabulated data: linear and natural cubic spline, with derivatives |
@@ -278,7 +278,10 @@ direction (gh:#950). `src/hypot.rs` from **CORE-MATH** (MIT, Alexei
 Sibidanov) was added on 2026-10-20 at the maintainer's direction (gh:#997),
 and `src/linalg/gebal.rs` from **Reference-LAPACK 3.12.1** (`DGEBAL`,
 `DGEBAK`, reference BLAS `DNRM2`/`IDAMAX`; modified BSD) on the same day
-(gh:#998), so `linalg::expm` balances exactly as GNU Octave's `expm.m`.
+(gh:#998), so `linalg::expm` balances exactly as GNU Octave's `expm.m`. ONIX's
+partial-fraction CRAM16, `src/depletion/onix_cram.rs` from **ONIX** (MIT,
+Julien de Troullioud de Lanversin), moved in from `outram-park-fork-onix` on
+2026-10-20 at the maintainer's direction (gh:#999).
 
 All were ported on 2026-09-15, with the full upstream notice and
 copyright kept in each file's header where source redistribution requires them.

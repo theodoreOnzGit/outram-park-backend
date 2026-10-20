@@ -7,11 +7,15 @@
 // submodule; the notice is in NOTICE ("DERIVED WORK -- OpenMC"). PETIR's
 // seventh non-GSL source, approved by the maintainer on gh:#950
 // (2026-10-17): "Integrators can go in PETIR", then "All math moved to petir",
-// confirmed as depletion's math only.
+// confirmed as depletion's math only. One submodule is NOT OpenMC:
+// `onix_cram.rs` ports ONIX's `onix/salameche/cram.py` (MIT; notice in NOTICE,
+// "DERIVED WORK -- ONIX"), moved here from `outram-park-fork-onix` on gh:#999
+// (2026-10-20): "The cram from Onix can go to petir and attribute onix".
 // ---------------------------------------------------------------------------
 
 //! **Depletion numerics** — OpenMC's burnup time integrators, its IPF CRAM
-//! matrix-exponential solver and the dense burnup matrix they act on.
+//! matrix-exponential solver and the dense burnup matrix they act on, plus
+//! ONIX's partial-fraction CRAM16 ([`onix_cram`]).
 //!
 //! <!-- vv-unverified-banner -->
 //! > ⚠️ **Unverified until validated.** Research, education and V&V only. Not
@@ -32,6 +36,7 @@
 //! | [`cram`] | `openmc/deplete/cram.py` | ported in `outram-mc-libs` 2026-07-15, moved 2026-10-17; `substeps` added |
 //! | [`matrix_funcs`] | `openmc/deplete/_matrix_funcs.py` | ported |
 //! | [`integrators`] | `openmc/deplete/integrators.py`, `abc.py`, `pool.py` | ported |
+//! | [`onix_cram`] | ONIX `onix/salameche/cram.py` (`CRAM16`, MIT) | ported in `outram-park-fork-onix` 2026-08-04, moved 2026-10-20 (gh:#999); the partial-fraction form, kept apart from [`cram`]'s IPF form |
 //!
 //! # The eight integrators
 //!
@@ -98,6 +103,7 @@ pub mod cram;
 pub mod integrators;
 pub mod matrix;
 pub mod matrix_funcs;
+pub mod onix_cram;
 
 pub use cram::{cram16, cram48, ipf_cram, Complex64, CramSolver, DepSystemSolver, LuFactor};
 pub use integrators::{
@@ -105,3 +111,4 @@ pub use integrators::{
     StepOutcome, StepRecord, TransportOperator,
 };
 pub use matrix::{lincomb, DepletionMatrix, Sign};
+pub use onix_cram::cram16_pfd;

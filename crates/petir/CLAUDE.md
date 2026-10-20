@@ -35,7 +35,7 @@ When you do port, the doc comment names the **upstream file and line**, and the
 NOTICE names the copyright holder for that module — GSL's holders differ per
 file, so re-read each header rather than copying one across.
 
-### Four non-GSL ports exist, and they were maintainer-directed (~~three~~ ~~four~~ five more follow below)
+### Four non-GSL ports exist, and they were maintainer-directed (~~three~~ ~~four~~ ~~five~~ seven more follow below)
 
 Added 2026-09-15 at the maintainer's direction — "port select code from roots
 and peroxide to complement petir's capabilities, credit the author's
@@ -244,6 +244,35 @@ section requires for a non-GSL source. It binds future work as follows:
   reference fails if it is given the outer loop's `K` (negative control run
   2026-10-20). Do not "simplify" the loop.
 - **`expm` now matches stock Octave**: `scaled3` 1.11e-11 -> 0 normwise.
+
+### An eleventh non-GSL port: ONIX's partial-fraction CRAM16 (2026-10-20)
+
+`src/depletion/onix_cram.rs` (`cram16_pfd`) ports ONIX's `CRAM16`
+(`onix/salameche/cram.py:6-59`, commit `7328dc6`, MIT, Julien de Troullioud
+de Lanversin). It was ported in `outram-park-fork-onix` (2026-08-04) and
+**moved in** at the maintainer's direction on gh:#999, 2026-10-20: "The cram
+from Onix can go to petir and attribute onix". That is the approval this
+section requires for a non-GSL source. It binds future work as follows:
+
+- **It is not a duplicate of `depletion::cram16`, and must not be merged
+  into it.** Compared 2026-10-20: the same eight Pusa poles, but ONIX's
+  20-digit literals and OpenMC's 16-digit ones differ by 1 to 3 ulps in four
+  of sixteen components and in `alpha_0`; the residues belong to different
+  algorithms (parallel partial-fraction sum against OpenMC's sequential
+  IPF); pivoting is on `hypot` against `|z|^2`. The two agree to 6.87e-15 on
+  unit inventories, 0 of 9 entries bit-equal
+  (`onix_cram::tests::agrees_with_the_ipf_form_to_round_off`).
+- **Not one bit may move.** `outram-park-fork-onix/tests/cram16_move_fingerprints.rs`
+  holds seven fingerprints printed before the move; all seven were identical
+  after it. Do not reorder the sum, the elimination or `2*s + alpha0*n0`.
+- **Its pivot `|z|` is `real::hypot`** (CORE-MATH), where the pre-move code
+  used `num_complex`'s `norm`, i.e. the platform `hypot`. The pins show no
+  change on the cases measured; a different pivot on a near-tie is possible
+  in principle and would move results by round-off.
+- **ONIX's MIT notice is in the file header and in NOTICE** ("DERIVED WORK
+  — ONIX"). Keep both.
+- **`clamp_nonnegative` (ONIX `CRAM_density_check`) stayed in onix**: it is
+  a physicality filter on the output, not part of the approximation.
 
 **`peroxide` as a DEPENDENCY remains ruled out** (it pulls
 `blas`/`lapack`/`netcdf`/`arrow`, which the "Dependencies" section below
