@@ -48,8 +48,6 @@ petir = { workspace = true }
 approx.workspace = true
 csv.workspace = true
 ndarray.workspace = true
-peroxide.workspace = true
-roots.workspace = true
 thiserror.workspace = true
 uom.workspace = true
 
@@ -92,15 +90,6 @@ image.workspace = true
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 env_logger.workspace = true
 
-# ── wasm32: name getrandom's entropy backend ─────────────────────────────────
-# getrandom 0.3 will not build for wasm32-unknown-unknown without being told
-# where entropy comes from. The `wasm_js` FEATURE here is half of it; the other
-# half is the matching cfg flag in the workspace `.cargo/config.toml`, and
-# getrandom errors if either is missing.
-#
-# This crate does not want randomness — it arrives via `peroxide`, which pulls
-# `rand` unconditionally with no feature to disable it. Cutting the dependency
-# would mean replacing peroxide's CubicSpline across ~39 sites, which is its own
-# job; satisfying it is the smaller correct change here. Bead op-okqo.3.
-[target.'cfg(target_arch = "wasm32")'.dependencies]
-getrandom = { workspace = true, features = ["wasm_js"] }
+# ~~wasm32 getrandom shim~~ REMOVED 2026-10-20 (gh:#989): randomness arrived
+# only through peroxide (rand -> getrandom). With peroxide gone, cargo tree for
+# wasm32-unknown-unknown showed tuas itself as getrandom's sole dependant.

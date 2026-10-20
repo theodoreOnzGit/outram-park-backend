@@ -1,10 +1,9 @@
+// `roots` 0.0.8 replaced by PETIR adapters with the same SimpleConvergency
+// semantics (gh:#989); see crate::numerical_methods.
+use crate::numerical_methods::{brent_root, false_position_root, SimpleConvergency};
 use crate::array_fluid_collections::fluid_component_collection::fluid_component_collection::FluidComponentCollection;
 use crate::array_fluid_collections::fluid_component_collection::fluid_component_super_collection::FluidComponentSuperCollection;
 use crate::array_fluid_collections::fluid_component_collection::super_collection_series_and_parallel_functions::FluidComponentSuperCollectionParallelAssociatedFunctions;
-use roots::find_root_brent;
-use roots::find_root_inverse_quadratic;
-use roots::find_root_regula_falsi;
-use roots::SimpleConvergency;
 use uom::si::mass_rate::kilogram_per_second;
 use uom::si::pressure::pascal;
 use uom::si::f64::*;
@@ -238,11 +237,11 @@ pub fn calculate_pressure_change_using_guessed_branch_mass_flowrate_fhr_sim_v1_c
 
     // last ditch resort, use other root finding algos is this false
     if debugging {
-        let mut pressure_change_pascals_result_user_specified_flow = find_root_brent(
+        let mut pressure_change_pascals_result_user_specified_flow = brent_root(
             user_specified_pressure_upper_bound.value,
             user_specified_pressure_lower_bound.value,
             &pressure_change_from_mass_flowrate_root,
-            &mut convergency,
+            &convergency,
         );
 
         match pressure_change_pascals_result_user_specified_flow {
@@ -262,11 +261,11 @@ pub fn calculate_pressure_change_using_guessed_branch_mass_flowrate_fhr_sim_v1_c
             max_iter: 70,
         };
 
-        pressure_change_pascals_result_user_specified_flow = find_root_inverse_quadratic(
+        pressure_change_pascals_result_user_specified_flow = brent_root(
             user_specified_pressure_upper_bound.value,
             user_specified_pressure_lower_bound.value,
             &pressure_change_from_mass_flowrate_root,
-            &mut convergency,
+            &convergency,
         );
         dbg!("inverse quadratic algo finished");
 
@@ -284,11 +283,11 @@ pub fn calculate_pressure_change_using_guessed_branch_mass_flowrate_fhr_sim_v1_c
 
         // try the regula falsi
 
-        pressure_change_pascals_result_user_specified_flow = find_root_regula_falsi(
+        pressure_change_pascals_result_user_specified_flow = false_position_root(
             user_specified_pressure_upper_bound.value,
             user_specified_pressure_lower_bound.value,
             &pressure_change_from_mass_flowrate_root,
-            &mut convergency,
+            &convergency,
         );
         dbg!("regula falsi algo finished");
         match pressure_change_pascals_result_user_specified_flow {
@@ -301,11 +300,11 @@ pub fn calculate_pressure_change_using_guessed_branch_mass_flowrate_fhr_sim_v1_c
         todo!("debugging: all root finding methods used not successful");
     }
 
-    let pressure_change_pascals_result_user_specified_flow = find_root_brent(
+    let pressure_change_pascals_result_user_specified_flow = brent_root(
         user_specified_pressure_upper_bound.value,
         user_specified_pressure_lower_bound.value,
         &pressure_change_from_mass_flowrate_root,
-        &mut convergency,
+        &convergency,
     );
 
     let pressure_change_pascals_user_specified_flow: f64 =

@@ -15,12 +15,14 @@
 //! at the array bulk temperature, plus incline angle and internal pressure
 //! source (e.g. a simulated pump).
 
+// `roots` 0.0.8 replaced by PETIR adapters with the same SimpleConvergency
+// semantics (gh:#989); see crate::numerical_methods.
+use crate::numerical_methods::{brent_root, SimpleConvergency};
 use petir::mathf::RealMath;
 use crate::boussinesq_thermophysical_properties::density::try_get_rho;
 use crate::boussinesq_thermophysical_properties::dynamic_viscosity::try_get_mu_viscosity;
 use crate::tuas_lib_error::TuasLibError;
 use crate::fluid_mechanics_correlations::churchill_friction_factor;
-use roots::*;
 use uom::typenum::P2;
 use uom::num_traits::Zero;
 use uom::si::ratio::ratio;
@@ -281,16 +283,16 @@ impl DimensionlessDarcyLossCorrelations {
             return lhs_bejan.get::<ratio>() - rhs_bejan.get::<ratio>();
         };
 
-        let mut convergency = SimpleConvergency {
+        let convergency = SimpleConvergency {
             eps: 1e-8f64,
             max_iter: 70,
         };
 
-        let reynolds_number_result = find_root_brent(
+        let reynolds_number_result = brent_root(
             upper_limit,
             lower_limit,
             pressure_drop_root,
-            &mut convergency,
+            &convergency,
         );
 
         let reynolds_number: f64 = reynolds_number_result.unwrap();

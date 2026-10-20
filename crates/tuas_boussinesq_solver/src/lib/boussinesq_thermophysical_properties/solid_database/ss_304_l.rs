@@ -1,5 +1,6 @@
 use petir::mathf::RealMath;
-use roots::{find_root_brent, SimpleConvergency};
+use crate::numerical_methods::{bracketed_root, NaturalCubicSpline};
+use petir::roots::BracketingMethod;
 use specific_enthalpy::try_get_h;
 use uom::si::available_energy::{joule_per_gram, joule_per_kilogram};
 use uom::si::f64::*;
@@ -12,7 +13,6 @@ use crate::boussinesq_thermophysical_properties::*;
 use crate::tuas_lib_error::TuasLibError;
 use uom::si::thermodynamic_temperature::kelvin;
 
-use peroxide::prelude::*;
 /// returns specific heat capacity of stainless steel 304L in J/(kg·K)
 ///
 /// Cubic-spline interpolation of the Zou/Zweibaum tabulated values; valid for
@@ -41,12 +41,14 @@ pub fn steel_304_l_spline_specific_heat_capacity_ciet_zweibaum(
     let specific_heat_capacity_values_joule_per_kilogram_kelvin =
         c!(443.3375, 457.0361, 469.4894, 480.6974, 490.66, 500.6227, 526.7746, 551.6812);
 
-    let s = CubicSpline::from_nodes(
+    let s = NaturalCubicSpline::new(
         &thermal_cond_temperature_values_kelvin,
         &specific_heat_capacity_values_joule_per_kilogram_kelvin,
-    );
+        "ss_304_l: thermal_cond_temperature_values_kelvin -> specific_heat_capacity_values_joule_per_kilogram_kelvin",
+        "K",
+    )?;
 
-    let steel_specific_heat_capacity_value = s.unwrap().eval(temperature_value_kelvin);
+    let steel_specific_heat_capacity_value = s.eval(temperature_value_kelvin)?;
 
     return Ok(SpecificHeatCapacity::new::<joule_per_kilogram_kelvin>(
         steel_specific_heat_capacity_value,
@@ -225,12 +227,14 @@ pub fn steel_304_l_spline_thermal_conductivity(
     //    457.0361, 469.4894, 480.6974, 490.66, 500.6227, 526.7746,
     //    551.6812);
 
-    let s = CubicSpline::from_nodes(
+    let s = NaturalCubicSpline::new(
         &thermal_cond_temperature_values_kelvin,
         &thermal_conductivity_values_watt_per_meter_kelin,
-    );
+        "ss_304_l: thermal_cond_temperature_values_kelvin -> thermal_conductivity_values_watt_per_meter_kelin",
+        "K",
+    )?;
 
-    let steel_thermal_conductivity_value = s.unwrap().eval(temperature_value_kelvin);
+    let steel_thermal_conductivity_value = s.eval(temperature_value_kelvin)?;
 
     return Ok(ThermalConductivity::new::<watt_per_meter_kelvin>(
         steel_thermal_conductivity_value,
@@ -372,9 +376,19 @@ pub fn density_test_steel() {
 /// data (No. ANL/NSE-19/11). Argonne National
 /// Lab.(ANL), Argonne, IL (United States).
 #[inline]
+///
+/// # Out of the table (gh:#989, 2026-10-20)
+///
+/// The integral runs from the 273.15 K reference to `temperature` over the
+/// natural cubic spline of the cp table. Both limits must lie inside the
+/// table: outside it this returns `TuasLibError::CorrelationRangeError`.
+/// Under `peroxide` it returned a bare value and could not report that.
+/// peroxide's `integrate` also clipped silently to the table and returned 0
+/// for a reversed interval spanning a knot; see
+/// `crate::numerical_methods::NaturalCubicSpline::integral`.
 pub fn steel_304_l_spline_specific_enthalpy_ciet_zweibaum(
     temperature: ThermodynamicTemperature,
-) -> AvailableEnergy {
+) -> Result<AvailableEnergy, TuasLibError> {
     let temperature_value_kelvin: f64 = temperature.get::<kelvin>();
     // here we use a cubic spline to interpolate the values
     // it's a little calculation heavy, but don't really care now
@@ -383,14 +397,16 @@ pub fn steel_304_l_spline_specific_enthalpy_ciet_zweibaum(
     let specific_heat_capacity_values_joule_per_kilogram_kelvin =
         c!(443.3375, 457.0361, 469.4894, 480.6974, 490.66, 500.6227, 526.7746, 551.6812);
 
-    let s = CubicSpline::from_nodes(
+    let s = NaturalCubicSpline::new(
         &specific_enthalpy_temperature_values_kelvin,
         &specific_heat_capacity_values_joule_per_kilogram_kelvin,
-    );
+        "ss_304_l: specific_enthalpy_temperature_values_kelvin -> specific_heat_capacity_values_joule_per_kilogram_kelvin",
+        "K",
+    )?;
 
-    let steel_specific_enthalpy_value = s.unwrap().integrate((273.15, temperature_value_kelvin));
+    let steel_specific_enthalpy_value = s.integral(273.15, temperature_value_kelvin)?;
 
-    return AvailableEnergy::new::<joule_per_kilogram>(steel_specific_enthalpy_value);
+    Ok(AvailableEnergy::new::<joule_per_kilogram>(steel_specific_enthalpy_value))
 }
 
 ///
@@ -503,8 +519,8 @@ pub fn specific_enthalpy_test_steel_ornl_and_zweibaum_spline() {
     // now let's test the spline version
     //
     let enthalpy_spline_zweibaum =
-        steel_304_l_spline_specific_enthalpy_ciet_zweibaum(test_temperature_2)
-            - steel_304_l_spline_specific_enthalpy_ciet_zweibaum(test_temperature_1);
+        steel_304_l_spline_specific_enthalpy_ciet_zweibaum(test_temperature_2).unwrap()
+            - steel_304_l_spline_specific_enthalpy_ciet_zweibaum(test_temperature_1).unwrap();
 
     // there is about a 4.5% difference between the ornl value
     // and the spline value
@@ -585,14 +601,17 @@ pub(crate) fn steel_304_l_spline_temp_attempt_3_from_specific_enthalpy_ciet_zwei
     // as an output
 
     let enthalpy_to_temperature_spline =
-        CubicSpline::from_nodes(&enthalpy_vector, &temperature_values_kelvin);
+        NaturalCubicSpline::new(
+        &enthalpy_vector,
+        &temperature_values_kelvin,
+        "ss_304_l: enthalpy_vector -> temperature_values_kelvin",
+        "J/kg",
+    )?;
 
     // now let's get our enthalpy in joules_per_kg
     let h_steel_joules_per_kg = h_steel.get::<joule_per_kilogram>();
 
-    let temperature_from_enthalpy_kelvin = enthalpy_to_temperature_spline
-        .unwrap()
-        .eval(h_steel_joules_per_kg);
+    let temperature_from_enthalpy_kelvin = enthalpy_to_temperature_spline.eval(h_steel_joules_per_kg)?;
 
     // `find_root_brent` takes a closure returning f64, so a property
     // error inside it cannot be propagated with `?`. Capture it instead and
@@ -634,12 +653,18 @@ pub(crate) fn steel_304_l_spline_temp_attempt_3_from_specific_enthalpy_ciet_zwei
 
     let lower_limit: f64 = temperature_from_enthalpy_kelvin - brent_error_bound;
 
-    let mut convergency = SimpleConvergency {
-        eps: 1e-8f64,
-        max_iter: 30,
-    };
-    let fluid_temperature_degrees_c_result =
-        find_root_brent(upper_limit, lower_limit, enthalpy_root, &mut convergency);
+    // roots::find_root_brent with SimpleConvergency { eps: 1e-8, max_iter: 30 }
+    // replaced by PETIR's GSL Brent with the same bracket and the same
+    // two-part test; see crate::numerical_methods::bracketed_root (gh:#989).
+    let fluid_temperature_degrees_c_result = bracketed_root(
+        BracketingMethod::Brent,
+        &enthalpy_root,
+        upper_limit,
+        lower_limit,
+        1e-8,
+        30,
+        "ss_304_l: temperature from specific enthalpy",
+    );
 
     if let Some(e) = captured_error.into_inner() {
         return Err(e);
@@ -656,7 +681,9 @@ pub(crate) fn steel_304_l_spline_temp_attempt_3_from_specific_enthalpy_ciet_zwei
 
     let temperature_from_enthalpy_kelvin: f64 = match fluid_temperature_degrees_c_result {
         Ok(temperature_val) => temperature_val,
-        Err(_) => panic!("{:?}", h_steel),
+        // Was `panic!("{:?}", h_steel)` under `roots`; the function returns
+        // a Result, so the failure is returned instead (gh:#989).
+        Err(e) => return Err(e),
         //find_root_brent(upper_limit_full_range,
         //lower_limit_full_range,
         //enthalpy_root,

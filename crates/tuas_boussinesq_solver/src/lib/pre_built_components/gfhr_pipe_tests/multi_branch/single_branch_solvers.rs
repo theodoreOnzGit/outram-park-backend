@@ -1,8 +1,9 @@
+// `roots` 0.0.8 replaced by PETIR adapters with the same SimpleConvergency
+// semantics (gh:#989); see crate::numerical_methods.
+use crate::numerical_methods::{brent_root, SimpleConvergency};
 use crate::array_fluid_collections::fluid_component_collection::collection_series_and_parallel_functions::FluidComponentCollectionSeriesAssociatedFunctions;
 use crate::array_fluid_collections::fluid_component_collection::fluid_component::FluidComponent;
 use crate::array_fluid_collections::fluid_component_collection::fluid_component_collection::FluidComponentCollection;
-use roots::find_root_brent;
-use roots::SimpleConvergency;
 use uom::si::mass_rate::kilogram_per_second;
 use uom::si::f64::*;
 /// calculates mass flowrate from pressure change
@@ -172,16 +173,16 @@ pub fn calculate_mass_flowrate_from_pressure_change_for_single_branch_fhr_sim_cu
     // But having done so, I want to use the newton raphson method to
     // try and converge this result, hopefully within 30 iterations
 
-    let mut convergency = SimpleConvergency {
+    let convergency = SimpleConvergency {
         eps: 1e-8f64,
         max_iter: 70,
     };
 
-    let mut mass_flowrate_result = find_root_brent(
+    let mut mass_flowrate_result = brent_root(
         10_f64,
         -10_f64,
         &mass_flow_from_pressure_chg_root,
-        &mut convergency,
+        &convergency,
     );
 
     // the above results only work for ranges of 15 kg/s and
@@ -237,11 +238,11 @@ pub fn calculate_mass_flowrate_from_pressure_change_for_single_branch_fhr_sim_cu
     mass_flowrate_result = match mass_flowrate_result {
         Ok(_mass_flowrate) => return MassRate::new::<kilogram_per_second>(_mass_flowrate),
         Err(_error_msg) => {
-            mass_flowrate_result = find_root_brent(
+            mass_flowrate_result = brent_root(
                 10_000_f64,
                 -10_000_f64,
                 &mass_flow_from_pressure_chg_root,
-                &mut convergency,
+                &convergency,
             );
 
             mass_flowrate_result
@@ -251,11 +252,11 @@ pub fn calculate_mass_flowrate_from_pressure_change_for_single_branch_fhr_sim_cu
     mass_flowrate_result = match mass_flowrate_result {
         Ok(_mass_flowrate) => return MassRate::new::<kilogram_per_second>(_mass_flowrate),
         Err(_error_msg) => {
-            mass_flowrate_result = find_root_brent(
+            mass_flowrate_result = brent_root(
                 20_000_000_f64,
                 -20_000_000_f64,
                 &mass_flow_from_pressure_chg_root,
-                &mut convergency,
+                &convergency,
             );
 
             mass_flowrate_result
