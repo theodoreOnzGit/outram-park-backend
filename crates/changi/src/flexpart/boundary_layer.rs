@@ -18,6 +18,8 @@
 //! FLEXPART's, as bare `f64`: pressure Pa, temperature K, heights m, wind
 //! m/s, heat flux W/m², stress N/m², specific humidity kg/kg.
 
+use petir::mathf::RealMath;
+
 use super::constants::{CONVKE, CPA, GA, R_AIR, VONKARMAN};
 use super::surface_layer::{psih, psim, MetDataFormat};
 use super::thermo::ew_kelvin;
@@ -80,10 +82,10 @@ pub fn pbl_profile(
     }
 
     let ustar_at =
-        |al: f64| (VONKARMAN * deltau) / ((zml1 / 10.0).ln() - psim(zml1, al) + psim(10.0, al));
+        |al: f64| (VONKARMAN * deltau) / ((zml1 / 10.0).r_ln() - psim(zml1, al) + psim(10.0, al));
     let deltat = tml1 - t2m + 0.0098 * (zml1 - 2.0);
     let thetastar_at =
-        |al: f64| (VONKARMAN * deltat / R1) / ((zml1 / 2.0).ln() - psih(zml1, al) + psih(2.0, al));
+        |al: f64| (VONKARMAN * deltat / R1) / ((zml1 / 2.0).r_ln() - psih(zml1, al) + psih(2.0, al));
 
     if deltat.abs() <= 0.03 {
         let al = 9999.0;
@@ -150,14 +152,14 @@ const SATEIC: f64 = 0.6;
 #[must_use]
 pub fn f_esl(p: f64, t: f64) -> f64 {
     let f = SATFWA + SATFWB * p;
-    f * SATEWA * (SATEWB * (t - 273.15) / (t - SATEWC)).exp()
+    f * SATEWA * (SATEWB * (t - 273.15) / (t - SATEWC)).r_exp()
 }
 
 /// `f_esi` (`qvsat.f90`): saturation vapour pressure over ice, Pa.
 #[must_use]
 pub fn f_esi(p: f64, t: f64) -> f64 {
     let f = SATFIA + SATFIB * p;
-    f * SATEIA * (SATEIB * (t - 273.15) / (t - SATEIC)).exp()
+    f * SATEIA * (SATEIB * (t - 273.15) / (t - SATEIC)).r_exp()
 }
 
 /// `f_qvsat` (`qvsat.f90`): saturation specific humidity, kg/kg, over liquid
@@ -267,7 +269,7 @@ pub fn richardson(
         let mut tvold = tt2 * (1.0 + 0.378 * ew_kelvin(td2) / psurf);
         let mut zold = 2.0;
         let zref = zold;
-        let thetaref = tvold * (100_000.0 / pold).powf(R_AIR / CPA) + excess;
+        let thetaref = tvold * (100_000.0 / pold).r_powf(R_AIR / CPA) + excess;
         let mut thetaold = thetaref;
         let loop_start = match format {
             MetDataFormat::Ecmwf { .. } => 2,
@@ -290,11 +292,11 @@ pub fn richardson(
             let pint = akz[k - 1] + bkz[k - 1] * psurf;
             let tv = ttlev[k - 1] * (1.0 + 0.608 * qvlev[k - 1]);
             z = if (tv - tvold).abs() > 0.2 {
-                zold + konst * (pold / pint).ln() * (tv - tvold) / (tv / tvold).ln()
+                zold + konst * (pold / pint).r_ln() * (tv - tvold) / (tv / tvold).r_ln()
             } else {
-                zold + konst * (pold / pint).ln() * tv
+                zold + konst * (pold / pint).r_ln() * tv
             };
-            theta = tv * (100_000.0 / pint).powf(R_AIR / CPA);
+            theta = tv * (100_000.0 / pint).r_powf(R_AIR / CPA);
             let ri =
                 GA / thetaref * (theta - thetaref) * (z - zref) / shear(ulev[k - 1], vlev[k - 1]);
             if ri > RIC && thetaold < theta {
@@ -344,7 +346,7 @@ pub fn richardson(
         };
 
         if hf < 0.0 {
-            let wst = (-(h * GA / thetaref * hf / CPA)).powf(0.333);
+            let wst = (-(h * GA / thetaref * hf / CPA)).r_powf(0.333);
             excess = -(BS * hf / CPA / wst);
             if iter < ITMAX {
                 continue;

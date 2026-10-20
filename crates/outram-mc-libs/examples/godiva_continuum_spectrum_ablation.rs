@@ -121,7 +121,6 @@
 //!     --features endf-pebble-cases --example godiva_continuum_spectrum_ablation
 //! ```
 
-use petir::mathf::RealMath;
 #[cfg(target_os = "android")]
 fn main() {
     println!("godiva_continuum_spectrum_ablation is desktop-only (reads reference-data/endf/).");
@@ -134,6 +133,7 @@ fn main() {
 
 #[cfg(not(target_os = "android"))]
 mod desktop {
+    use petir::mathf::RealMath;
     use njoy_outram_park_fork::reference_data::reference_endf;
     use outram_mc_libs::geometry::cell::{Cell, HalfSpaceSense, RegionToken};
     use outram_mc_libs::geometry::geometry::Geometry;

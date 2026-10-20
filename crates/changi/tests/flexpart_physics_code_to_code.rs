@@ -55,6 +55,8 @@
 //! scope limit, nothing here supports emergency response or dose assessment
 //! for real populations.
 
+use petir::mathf::RealMath;
+
 use changi::flexpart::boundary_layer::{f_qvsat, pbl_profile, richardson};
 use changi::flexpart::calendar::{caldate, juldate};
 use changi::flexpart::geodesy::{distance, distance2};
@@ -311,7 +313,7 @@ fn evaluate(setup: &Setup, name: &str, a: &[f64]) -> Option<Vec<f64>> {
                     }
                     Precision::Real8 => {
                         tt[k] = 293.0 - 0.0065 * height[k];
-                        rho[k] = 1.2 * (-height[k] / 8500.0).exp();
+                        rho[k] = 1.2 * (-height[k] / 8500.0).r_exp();
                     }
                 }
             }

@@ -43,6 +43,8 @@
 //! the same size to the pointer at every zoom, as the digitiser's `8 / zoom`
 //! image-pixel tolerance already was.
 
+use petir::mathf::RealMath;
+
 use eframe::egui::{self, Color32, Pos2, Rect, Stroke, Vec2};
 
 use crate::artifact::Region;
@@ -73,7 +75,7 @@ pub(super) fn nearest_handle(
     let mut best: Option<(usize, f64)> = None;
     for (i, c) in handles.iter().enumerate() {
         if let Some((cx, cy)) = c {
-            let d = ((px - cx).powi(2) + (py - cy).powi(2)).sqrt();
+            let d = ((px - cx).r_powi(2) + (py - cy).r_powi(2)).sqrt();
             if d < tol && best.is_none_or(|(_, bd)| d < bd) {
                 best = Some((i, d));
             }

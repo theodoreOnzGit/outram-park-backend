@@ -50,7 +50,6 @@
 //!
 //! The MGXS of Step 8 are keyed by the same region ids (see [`super::mgxs`]).
 
-use petir::mathf::RealMath;
 use serde::{Deserialize, Serialize};
 
 /// Which of the three GeN-Foam meshes.
@@ -894,6 +893,7 @@ pub fn not_available() -> Vec<NotAvailable> {
 
 #[cfg(test)]
 pub(crate) mod tests {
+    use petir::mathf::RealMath;
     use super::*;
 
     pub(crate) fn htr10_like() -> RzDomain {

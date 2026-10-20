@@ -2,9 +2,7 @@ use petir::mathf::RealMath;
 use std::f64::consts::PI;
 
 use egui::{vec2, Color32, Pos2, Sense, Stroke, Vec2, Widget};
-use uom::ConstZero;
 use uom::si::angle::radian;
-use uom::si::ratio::ratio;
 use uom::si::f64::*;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -112,7 +110,7 @@ impl Widget for TurbineWidget {
                     + Angle::new::<radian>(i as f64 * (2.0 * PI) / (turbine_num_blades as f64));
 
                 let rotor_blade_y_offset: f64 =
-                    0.9 * turbine_radius as f64 * theta_plus_phase_shift.r_cos().get::<ratio>();
+                    0.9 * turbine_radius as f64 * theta_plus_phase_shift.value.r_cos();
 
                 let rotor_blade_center: Pos2 = Pos2 {
                     x: turbine_center.x + turbine_x_offset,
@@ -127,7 +125,7 @@ impl Widget for TurbineWidget {
 
                 //);
                 // only paint moving blades if turbine
-                if theta_plus_phase_shift.r_sin() > Ratio::ZERO && set_number > 0 {
+                if theta_plus_phase_shift.value.r_sin() > 0.0 && set_number > 0 {
                     // this is for set_number > 0
                     // turbine must spin in such a way that the right hand grip rule
                     // points right
@@ -165,7 +163,7 @@ impl Widget for TurbineWidget {
                     }
                 }
                 //
-                if theta_plus_phase_shift.r_sin() > Ratio::ZERO && set_number < 0 {
+                if theta_plus_phase_shift.value.r_sin() > 0.0 && set_number < 0 {
                     // this is for set_number > 0
                     // turbine must spin in such a way that the right hand grip rule
                     // points right

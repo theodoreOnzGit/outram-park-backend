@@ -144,6 +144,8 @@
 //! Verification, not validation. Nothing here supports emergency response or
 //! dose assessment for real populations.
 
+use petir::mathf::RealMath;
+
 mod common;
 
 use std::sync::OnceLock;
@@ -289,7 +291,7 @@ const EPS32: f64 = f32::EPSILON as f64 / 2.0;
 /// `f32`: `eps32 * |a| * |tan a|`, `a` in radians.
 fn kappa_cos(lat: f64) -> f64 {
     let a = lat.to_radians();
-    EPS32 * a.abs() * a.tan().abs()
+    EPS32 * a.abs() * a.r_tan().abs()
 }
 
 /// Real(4) scope of the routines taking a latitude: rows where upstream's

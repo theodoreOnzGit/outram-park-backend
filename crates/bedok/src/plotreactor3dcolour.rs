@@ -56,6 +56,8 @@
 //! collapsed map. That is not a defect — it makes the map a fraction of total
 //! core power per unit volume — but it does mean the map does not sum to 1.
 
+use petir::mathf::RealMath;
+
 use crate::types::{Geometry, Params};
 
 /// The scaled power map, and what the collapse did to get there.
@@ -147,7 +149,7 @@ mod tests {
         };
         // Group g contributes 10^g per node, so a dropped group is obvious.
         let pwrdens: Vec<f64> = (0..g_count)
-            .flat_map(|g| (0..es).map(move |_| 10f64.powi(g as i32 + 1)))
+            .flat_map(|g| (0..es).map(move |_| 10f64.r_powi(g as i32 + 1)))
             .collect();
         (params, geometry, pwrdens)
     }

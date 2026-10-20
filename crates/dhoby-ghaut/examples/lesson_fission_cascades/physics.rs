@@ -26,6 +26,8 @@
 //!   (ENDF/B-VIII.0 depletion chain, `openmc-endf-8-depletion-lib-*`).
 #![allow(dead_code)]
 
+use petir::mathf::RealMath;
+
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 
@@ -83,8 +85,8 @@ pub fn rounding_half_unit_kev(d: f64) -> f64 {
     if d == 0.0 {
         return 0.0;
     }
-    let mag = d.abs().log10().floor();
-    0.5 * 10f64.powf(mag - 2.0)
+    let mag = d.abs().r_log10().floor();
+    0.5 * 10f64.r_powf(mag - 2.0)
 }
 
 /// A value with the interval the mass rounding allows: (central, low, high).
@@ -183,7 +185,7 @@ pub fn endf_float(s: &str) -> Option<f64> {
     for i in (1..b.len()).rev() {
         if (b[i] == b'+' || b[i] == b'-') && b[i - 1] != b'e' && b[i - 1] != b'E' {
             let (m, e) = t.split_at(i);
-            return Some(m.parse::<f64>().ok()? * 10f64.powi(e.parse::<i32>().ok()?));
+            return Some(m.parse::<f64>().ok()? * 10f64.r_powi(e.parse::<i32>().ok()?));
         }
     }
     None

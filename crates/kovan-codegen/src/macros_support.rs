@@ -176,12 +176,13 @@ macro_rules! kovan_fixed_point {
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
 
     #[test]
     fn declarative_macro_finds_dottie_number() {
         // x = cos(x) -> Dottie number, via the compile-time-expanded macro.
-        let r: Option<f64> = kovan_fixed_point!(1.0_f64, 1e-12, 500, |x: f64| x.cos());
+        let r: Option<f64> = kovan_fixed_point!(1.0_f64, 1e-12, 500, |x: f64| x.r_cos());
         let r = r.unwrap();
         assert!((r - 0.739_085_133_215_160_6).abs() < 1e-10, "got {r}");
     }

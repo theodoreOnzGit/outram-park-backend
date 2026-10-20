@@ -14,6 +14,8 @@
 //! Two kernels, both pure functions of temperature, both taken from FLEXPART
 //! files that have no module dependencies at all.
 
+use petir::mathf::RealMath;
+
 use uom::si::dynamic_viscosity::pascal_second;
 use uom::si::f64::{DynamicViscosity, Pressure, ThermodynamicTemperature};
 use uom::si::pressure::pascal;
@@ -71,15 +73,15 @@ pub fn ew_kelvin(t_kelvin: f64) -> f64 {
     // arithmetic matches ew.f90 term for term.
     #[allow(clippy::approx_constant)]
     const UPSTREAM_LOG10_E: f64 = 0.434_29;
-    a += 5.028_08 * UPSTREAM_LOG10_E * y.ln();
+    a += 5.028_08 * UPSTREAM_LOG10_E * y.r_ln();
     let mut c = (1.0 - (1.0 / y)) * 11.344;
-    c = -1.0 + 10f64.powf(c);
-    c = -1.381_6 * c / 10f64.powi(7);
+    c = -1.0 + 10f64.r_powf(c);
+    c = -1.381_6 * c / 10f64.r_powi(7);
     let mut d = (1.0 - y) * 3.491_49;
-    d = -1.0 + 10f64.powf(d);
-    d = 8.132_8 * d / 10f64.powi(3);
+    d = -1.0 + 10f64.r_powf(d);
+    d = 8.132_8 * d / 10f64.r_powi(3);
     let y = a + c + d;
-    101_324.6 * 10f64.powf(y)
+    101_324.6 * 10f64.r_powf(y)
 }
 
 /// Dynamic viscosity of air, in Pa·s.
@@ -113,5 +115,5 @@ pub fn viscosity_kelvin(t_kelvin: f64) -> f64 {
     const C: f64 = 120.0;
     const T_0: f64 = 291.15;
     const ETA_0: f64 = 1.827e-5;
-    ETA_0 * (T_0 + C) / (t_kelvin + C) * (t_kelvin / T_0).powf(1.5)
+    ETA_0 * (T_0 + C) / (t_kelvin + C) * (t_kelvin / T_0).r_powf(1.5)
 }

@@ -9,7 +9,6 @@
 //! data processing are the `ugraphite` rung's ([`crate::ugraphite`]); only
 //! the geometry and the birth region differ.
 
-use petir::mathf::RealMath;
 pub mod model;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod render;

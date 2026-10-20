@@ -46,6 +46,9 @@ level = 4
 why = "transfer functions verified against Scilab in the maintainer's PhD dissertation (maintainer, 2026-10-06)"
 
 [dependencies]
+# Every transcendental routes through PETIR for cross-platform bit identity
+# (gh:#985). petir is no_std, so this edge adds nothing Android- or wasm-hostile.
+petir = { workspace = true }
 approx.workspace = true
 csv.workspace = true
 thiserror.workspace = true

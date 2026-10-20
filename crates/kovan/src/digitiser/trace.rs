@@ -11,6 +11,8 @@
 //! [`super::calibration`], applied in [`super::dataset`]) and axis-box
 //! finding ([`super::detect`]).
 
+use petir::mathf::RealMath;
+
 use serde::{Deserialize, Serialize};
 
 use super::detect::PixelRect;
@@ -175,7 +177,7 @@ fn resample_by_arc_length(stroke: &[(f64, f64)], spacing: f64) -> Vec<(f64, f64)
     for pair in stroke.windows(2) {
         let (ax, ay) = pair[0];
         let (bx, by) = pair[1];
-        let seg = (bx - ax).hypot(by - ay);
+        let seg = (bx - ax).r_hypot(by - ay);
         if seg <= f64::EPSILON {
             continue;
         }

@@ -960,6 +960,7 @@ dependencies = [
 name = "bishan"
 version = "0.0.1"
 dependencies = [
+ "petir",
  "uom",
 ]
 
@@ -1607,6 +1608,7 @@ version = "0.2.3"
 dependencies = [
  "approx",
  "csv",
+ "petir",
  "thiserror 2.0.21",
  "uom",
 ]
@@ -5788,6 +5790,7 @@ dependencies = [
  "kovan-semantics",
  "kovan-web",
  "lopdf",
+ "petir",
  "pulldown-cmark",
  "ratatui",
  "rusqlite",
@@ -5938,6 +5941,7 @@ name = "kovan-codegen"
 version = "0.0.3"
 dependencies = [
  "kovan-common",
+ "petir",
  "serde",
  "serde_json",
 ]
@@ -5953,6 +5957,7 @@ dependencies = [
  "directories 5.0.1",
  "ed25519-dalek",
  "getrandom 0.3.4",
+ "petir",
  "proc-macro2",
  "pulldown-cmark",
  "quote",
@@ -6037,6 +6042,7 @@ dependencies = [
  "js-sys",
  "kopitiam-syntax",
  "kovan-common",
+ "petir",
  "serde",
  "serde_json",
  "wasm-bindgen",

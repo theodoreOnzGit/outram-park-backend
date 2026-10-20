@@ -56,6 +56,8 @@
 //! beyond it, because an all-zero result is otherwise indistinguishable from a
 //! correct answer. A mixed set is allowed through — check [`DilutionFactors::reach`].
 
+use petir::mathf::RealMath;
+
 use uom::si::f64::{Frequency, Length, MassRate, Time};
 use uom::si::frequency::hertz;
 use uom::si::length::meter;
@@ -617,7 +619,7 @@ mod tests {
         let mut expected = 0.0;
         for a in 0..factors.n_bins() {
             let v = factors.bin(0, 0, a).seconds_per_cubic_meter();
-            expected += v * (-lambda * a as f64 * 10.0).exp();
+            expected += v * (-lambda * a as f64 * 10.0).r_exp();
         }
         let got = factors
             .dilution(0, 0, Frequency::new::<hertz>(lambda))

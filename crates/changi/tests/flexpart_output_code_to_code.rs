@@ -77,6 +77,8 @@
 //! Verification, not validation, on synthetic fields. Nothing here supports
 //! emergency response or dose assessment for real populations.
 
+use petir::mathf::RealMath;
+
 mod common;
 
 use std::collections::HashMap;
@@ -1012,7 +1014,7 @@ fn plumetraj_matches_upstreams_record() {
                 let Some(got) = got else {
                     continue; // upstream printed values it never assigned
                 };
-                let unit = 10f64.powi(-dec[col]);
+                let unit = 10f64.r_powi(-dec[col]);
                 let diff = (got - want).abs();
                 // real(8): the port must print as upstream printed (half a
                 // unit of the last digit). real(4): plus the shipped build's

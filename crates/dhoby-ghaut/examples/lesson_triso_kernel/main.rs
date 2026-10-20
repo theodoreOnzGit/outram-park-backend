@@ -60,6 +60,7 @@ fn main() -> Result<(), String> {
 
 #[cfg(not(any(target_arch = "wasm32", target_os = "android")))]
 mod native {
+    use petir::mathf::RealMath;
     use super::kernel::*;
     use boon_lay::prelude::decay_library::DecayLibrary;
     use boon_lay::Nuclide;
@@ -106,8 +107,8 @@ mod native {
         println!("  do NOT plate out: {}", plating.join(" "));
 
         // Booth curves on the reduced variables.
-        let xs: Vec<f64> = (0..=60).map(|i| 10f64.powf(-6.0 + 7.0 * i as f64 / 60.0)).collect();
-        let mus: Vec<f64> = (0..=60).map(|i| 10f64.powf(-2.0 + 6.0 * i as f64 / 60.0)).collect();
+        let xs: Vec<f64> = (0..=60).map(|i| 10f64.r_powf(-6.0 + 7.0 * i as f64 / 60.0)).collect();
+        let mus: Vec<f64> = (0..=60).map(|i| 10f64.r_powf(-2.0 + 6.0 * i as f64 / 60.0)).collect();
         // Full precision: check-fission.js compares the page's own series
         // with these to 1e-9 (at 7 figures the first run's gate failed on
         // the storage rounding alone).

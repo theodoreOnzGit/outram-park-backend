@@ -66,6 +66,8 @@
 //! input change onto a `Vec` and re-summed it on every call. See bead
 //! `op-fm5`.
 
+use petir::mathf::RealMath;
+
 use std::collections::VecDeque;
 
 use uom::{
@@ -317,9 +319,9 @@ impl DecayingSinusoid {
             return;
         }
 
-        let decay = (-(time_step * self.a).get::<ratio>()).exp();
+        let decay = (-(time_step * self.a).get::<ratio>()).r_exp();
         let angle = (time_step * self.omega).get::<ratio>();
-        let (sin_angle, cos_angle) = angle.sin_cos();
+        let (sin_angle, cos_angle) = angle.r_sin_cos();
 
         let previous_cosine = self.cosine_mode;
         let previous_sine = self.sine_mode;
@@ -332,9 +334,9 @@ impl DecayingSinusoid {
     fn activate(&mut self, input_increment: Ratio, time_since_start: Time) {
         let step_magnitude = self.magnitude * input_increment;
 
-        let decay = (-(time_since_start * self.a).get::<ratio>()).exp();
+        let decay = (-(time_since_start * self.a).get::<ratio>()).r_exp();
         let angle = (time_since_start * self.omega).get::<ratio>();
-        let (sin_angle, cos_angle) = angle.sin_cos();
+        let (sin_angle, cos_angle) = angle.r_sin_cos();
 
         self.cosine_mode += step_magnitude * (decay * cos_angle);
         self.sine_mode += step_magnitude * (decay * sin_angle);
@@ -482,10 +484,10 @@ impl DecaySinusoidResponse {
 
         response = match self.sinusoid_type {
             TransferFnSinusoidType::Sine => {
-                self.user_input * self.magnitude * (-at).exp() * (omega_t).sin()
+                self.user_input * self.magnitude * (-at).r_exp() * (omega_t).r_sin()
             }
             TransferFnSinusoidType::Cosine => {
-                self.user_input * self.magnitude * (-at).exp() * (omega_t).cos()
+                self.user_input * self.magnitude * (-at).r_exp() * (omega_t).r_cos()
             }
         };
 

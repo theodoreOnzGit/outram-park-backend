@@ -185,7 +185,6 @@
 //! helium -- `fhr_sim_v2` will pass a molten salt through the same
 //! [`CoolPropFluid`] parameter.
 
-use petir::mathf::RealMath;
 use tampines::compressible::{CompressibleFluidArray, CoolPropFluid};
 use tampines_steam_tables::TampinesSteamArray;
 use tuas_boussinesq_solver::array_fluid_collections::solid_array_lateral_coupling::SolidColumn;

@@ -11,6 +11,8 @@
 //!   PARK; see the crate README, "Permission and attribution".
 //! - **Licence:** GPL-3.0-only.
 
+use petir::mathf::RealMath;
+
 use crate::calc_transleakagexyz::Leakage;
 use crate::handle3dcoords::handle3dcoords;
 use crate::matlab::Array2;
@@ -231,7 +233,7 @@ pub fn calc_1sttransleakagexyz(
                         + (tp + 1.0) * (2.0 * tp + 1.0) * (ssource[idx] - ssource[im]))
                         / h;
 
-                    out[idx] = ll * 0.25 * width(idx).powi(2) / diffvalues[idx];
+                    out[idx] = ll * 0.25 * width(idx).r_powi(2) / diffvalues[idx];
                 }
             }
         }
@@ -255,7 +257,7 @@ pub fn calc_1sttransleakagexyz(
                     }
                     BoundaryCondition::Reflective => 6.0 * (ssource[idxplus] - ssource[idx]) / h,
                 };
-                out[idx] = value * 0.25 * width(idx).powi(2) / diffvalues[idx];
+                out[idx] = value * 0.25 * width(idx).r_powi(2) / diffvalues[idx];
             }
         }
 
@@ -277,7 +279,7 @@ pub fn calc_1sttransleakagexyz(
                     }
                     BoundaryCondition::Reflective => 6.0 * (ssource[idx] - ssource[idxminus]) / h,
                 };
-                out[idx] = value * 0.25 * width(idx).powi(2) / diffvalues[idx];
+                out[idx] = value * 0.25 * width(idx).r_powi(2) / diffvalues[idx];
             }
         }
 

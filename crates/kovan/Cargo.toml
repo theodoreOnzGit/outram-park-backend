@@ -103,6 +103,9 @@ name = "kovan-tui"
 path = "src/bin/kovan-tui.rs"
 
 [dependencies]
+# Every transcendental routes through PETIR for cross-platform bit identity
+# (gh:#985). petir is no_std, so this edge adds nothing Android- or wasm-hostile.
+petir = { workspace = true }
 kovan-common.workspace = true
 # The stamp dialog (`src/stamping/flow.rs`, #770) zeroises passphrases after
 # use. Already in the tree through kovan-common's keystore.

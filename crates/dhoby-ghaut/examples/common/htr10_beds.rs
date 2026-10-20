@@ -38,7 +38,6 @@
 // Each demo uses part of this module.
 #![allow(dead_code)]
 
-use petir::mathf::RealMath;
 use outram_park_fork_liggghts::htr10_fill::{
     surface_height_m, whole_core_fraction, PEBBLE_RADIUS_M, VALVE_Z_M,
 };

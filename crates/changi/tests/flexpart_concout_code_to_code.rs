@@ -103,6 +103,8 @@
 //! ported. Nothing here supports emergency response or dose assessment for
 //! real populations.
 
+use petir::mathf::RealMath;
+
 mod common;
 
 use std::cell::RefCell;
@@ -176,9 +178,9 @@ fn fmod(a: i64, b: i64) -> i64 {
 
 fn cscale(icase: i64) -> f64 {
     if icase == 3 {
-        2f64.powi(-56)
+        2f64.r_powi(-56)
     } else {
-        2f64.powi(-30)
+        2f64.r_powi(-30)
     }
 }
 
@@ -208,9 +210,9 @@ fn gval(
         1 + fmod(17 * l + 5 * ix + 3 * jy + kz + m + ik, 50)
     };
     let e = fmod(ix + jy + kz + ik, 5) - 2;
-    let x = k as f64 / 64.0 * 2f64.powi(e as i32) * cscale(icase);
+    let x = k as f64 / 64.0 * 2f64.r_powi(e as i32) * cscale(icase);
     if m != 6 && l == 2 {
-        x * 2f64.powi(-24)
+        x * 2f64.r_powi(-24)
     } else {
         x
     }
@@ -262,7 +264,7 @@ fn mother() -> OutputGrid {
             area.push(65536.0 * (1.0 + 0.25 * ((ix + jy) % 4) as f64));
             for k in 1..=NZO {
                 volume[ix + NXO * (jy + NYO * (k - 1))] =
-                    2f64.powi(20) * (1.0 + 0.125 * ((ix + 2 * jy + k) % 5) as f64);
+                    2f64.r_powi(20) * (1.0 + 0.125 * ((ix + 2 * jy + k) % 5) as f64);
             }
         }
     }
@@ -286,7 +288,7 @@ fn nest() -> OutputGrid {
             area.push(16384.0 * (1.0 + 0.5 * ((2 * ix + jy) % 3) as f64));
             for k in 1..=NZO {
                 volume[ix + NXN * (jy + NYN * (k - 1))] =
-                    2f64.powi(18) * (1.0 + 0.25 * ((ix + jy + 2 * k) % 3) as f64);
+                    2f64.r_powi(18) * (1.0 + 0.25 * ((ix + jy + 2 * k) % 3) as f64);
             }
         }
     }
@@ -388,7 +390,7 @@ fn case_inputs(v: Variant, icase: i64) -> CaseInputs {
     let mut xmass = vec![0.0; NPT * ns];
     for ks in 1..=ns {
         for i in 1..=nrec {
-            let c = 0.125 * ((3 * i + ks + icase as usize) % 5) as f64 * 2f64.powi(-30);
+            let c = 0.125 * ((3 * i + ks + icase as usize) % 5) as f64 * 2f64.r_powi(-30);
             creceptor[(i - 1) + nrec * (ks - 1)] = c;
             fp[6] += c;
         }

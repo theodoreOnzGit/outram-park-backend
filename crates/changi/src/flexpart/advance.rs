@@ -64,6 +64,8 @@
 //! FLEXPART's: positions in grid units (`xt`, `yt`) and m (`zt`), velocities
 //! m/s, times s.
 
+use petir::mathf::RealMath;
+
 use super::cbl::{cbl, initialize_cbl_vel, re_initialize_particle};
 use super::cmapf::{cgszll, cll2xy, cxy2ll, Strcmp};
 use super::constants::{HREF, PI180};
@@ -344,7 +346,7 @@ fn move_horizontally(
     dom: &Domain,
 ) -> Option<(f64, f64)> {
     if ngrid >= 0 {
-        let cosfact = dom.dxconst / ((p.yt * dom.dy + dom.ylat0) * PI180).cos();
+        let cosfact = dom.dxconst / ((p.yt * dom.dy + dom.ylat0) * PI180).r_cos();
         p.xt += dxm * cosfact * scale;
         p.yt += dym * dom.dyconst * scale;
         None
@@ -601,14 +603,14 @@ pub fn advance(
                 p.up = (1.0 - dt / hs.tlu) * p.up
                     + rn(rannumb, nrand) * hs.sigu * (2.0 * dt / hs.tlu).sqrt();
             } else {
-                let ru = (-dt / hs.tlu).exp();
+                let ru = (-dt / hs.tlu).r_exp();
                 p.up = ru * p.up + rn(rannumb, nrand) * hs.sigu * (1.0 - ru * ru).sqrt();
             }
             if dt / hs.tlv < 0.5 {
                 p.vp = (1.0 - dt / hs.tlv) * p.vp
                     + rn(rannumb, nrand + 1) * hs.sigv * (2.0 * dt / hs.tlv).sqrt();
             } else {
-                let rv = (-dt / hs.tlv).exp();
+                let rv = (-dt / hs.tlv).r_exp();
                 p.vp = rv * p.vp + rn(rannumb, nrand + 1) * hs.sigv * (1.0 - rv * rv).sqrt();
             }
             nrand += 2;
@@ -680,7 +682,7 @@ pub fn advance(
                             delz = p.wp * hs.sigw * dtf;
                         }
                     } else {
-                        let rw = (-dtftlw).exp();
+                        let rw = (-dtftlw).r_exp();
                         p.wp = (rw * p.wp
                             + rn(rannumb, nrand + i) * (1.0 - rw * rw).sqrt()
                             + hs.tlw * (1.0 - rw) * (hs.dsigwdz + rhoaux * hs.sigw))
@@ -688,7 +690,7 @@ pub fn advance(
                         delz = p.wp * hs.sigw * dtf;
                     }
                 } else {
-                    let rw = (-dtftlw).exp();
+                    let rw = (-dtftlw).r_exp();
                     p.wp = (rw * p.wp
                         + rn(rannumb, nrand + i) * (1.0 - rw * rw).sqrt() * hs.sigw
                         + hs.tlw * (1.0 - rw) * (hs.dsigw2dz + rhoaux * (hs.sigw * hs.sigw)))
@@ -762,7 +764,7 @@ pub fn advance(
                             vdepo[ks] = ip.interpol_vdep(grid, ks);
                         }
                         p.prob[ks] =
-                            1.0 + (p.prob[ks] - 1.0) * (-vdepo[ks] * dt.abs() / (2.0 * HREF)).exp();
+                            1.0 + (p.prob[ks] - 1.0) * (-vdepo[ks] * dt.abs() / (2.0 * HREF)).r_exp();
                     }
                 }
             }
@@ -835,7 +837,7 @@ pub fn advance(
     }
 
     // Label 99: mesoscale turbulence, alignment, horizontal move.
-    let r = (-2.0 * lsynctime.abs() as f64 / cfg.lwindinterv as f64).exp();
+    let r = (-2.0 * lsynctime.abs() as f64 / cfg.lwindinterv as f64).r_exp();
     let rs = (1.0 - r * r).sqrt();
     if nrand + 2 > maxrand {
         nrand = 1;

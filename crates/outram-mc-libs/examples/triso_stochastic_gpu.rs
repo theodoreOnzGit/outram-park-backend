@@ -174,7 +174,6 @@
 // `#[cfg(not(target_os = "android"))]`. Precedent: the crate's other GPU
 // examples and the workspace CLAUDE.md "Android / Termux portability" rule.
 // ---------------------------------------------------------------------------
-use petir::mathf::RealMath;
 #[cfg(target_os = "android")]
 fn main() {
     println!(
@@ -190,6 +189,7 @@ fn main() {
 
 #[cfg(not(target_os = "android"))]
 mod desktop {
+    use petir::mathf::RealMath;
     use outram_mc_libs::rng::lcg::{init_seed, INC, MULT};
     use outram_mc_libs::stochastic::cls::ClsMedium;
     use outram_mc_libs::stochastic::medium::MaterialId;
@@ -325,11 +325,11 @@ mod desktop {
             hi = nh;
             lo = nl;
             // f32 port of ClsMedium::sample_distance_to_boundary (-mean·ln(1-ξ)).
-            let d_bnd = -p.lambda[mat] * (1.0 - xi1).r_ln();
+            let d_bnd = -p.lambda[mat] * (1.0 - xi1).ln();
             let (nh, nl, xi2) = lcg_advance_f32(hi, lo);
             hi = nh;
             lo = nl;
-            let d_col = -xi2.r_ln() / p.sigma_t[mat];
+            let d_col = -xi2.ln() / p.sigma_t[mat];
             let d_edge = if dir > 0.0 { p.l - x } else { x };
 
             if d_edge <= d_bnd && d_edge <= d_col {

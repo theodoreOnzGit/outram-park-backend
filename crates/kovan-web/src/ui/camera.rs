@@ -11,6 +11,8 @@
 //! half-width, and there is a separate 100 % button (Fit fits, 100 % shows
 //! one world unit per point centred on the focus).
 
+use petir::mathf::RealMath;
+
 use egui::{Pos2, Rect, RichText, Vec2};
 
 /// World rectangle `[min_x, min_y, max_x, max_y]`.
@@ -128,7 +130,7 @@ impl Camera {
             None => resp.hover_pos().filter(|_| resp.hovered()),
         };
         if let Some(p) = centre {
-            let factor = zoom as f64 * (scroll as f64 * 0.0025).exp();
+            let factor = zoom as f64 * (scroll as f64 * 0.0025).r_exp();
             if (factor - 1.0).abs() > 1e-6 {
                 self.zoom_about(rect, p, factor);
             }

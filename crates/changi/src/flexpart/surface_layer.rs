@@ -25,6 +25,8 @@
 //! branch on the sign of `z/L`, and they do **not** use the same empirical
 //! constants as each other — see each function's notes.
 
+use petir::mathf::RealMath;
+
 use super::constants::{CPA, GA, HREF, KARMAN, PI, R_AIR};
 use super::thermo::ew_kelvin;
 
@@ -81,10 +83,10 @@ pub enum MetDataFormat {
 pub fn psim(z: f64, obukhov_length: f64) -> f64 {
     let zeta = z / obukhov_length;
     if zeta <= 0.0 {
-        let x = (1.0 - 15.0 * zeta).powf(0.25);
-        let a1 = ((1.0 + x) / 2.0).powi(2);
+        let x = (1.0 - 15.0 * zeta).r_powf(0.25);
+        let a1 = ((1.0 + x) / 2.0).r_powi(2);
         let a2 = (1.0 + x * x) / 2.0;
-        (a1 * a2).ln() - 2.0 * x.atan() + PI / 2.0
+        (a1 * a2).r_ln() - 2.0 * x.r_atan() + PI / 2.0
     } else {
         -4.7 * zeta
     }
@@ -145,16 +147,16 @@ pub fn psih(z: f64, obukhov_length: f64) -> f64 {
         l = -EPS;
     }
 
-    if (z.log10() - l.abs().log10()) < EPS.log10() {
+    if (z.r_log10() - l.abs().r_log10()) < EPS.r_log10() {
         return 0.0;
     }
     let zeta = z / l;
     if zeta > 0.0 {
-        -(1.0 + 0.667 * A * zeta).powf(1.5) - B * (zeta - C / D) * (-D * zeta).exp() - B * C / D
+        -(1.0 + 0.667 * A * zeta).r_powf(1.5) - B * (zeta - C / D) * (-D * zeta).r_exp() - B * C / D
             + 1.0
     } else {
-        let x = (1.0 - 16.0 * zeta).powf(0.25);
-        2.0 * ((1.0 + x * x) / 2.0).ln()
+        let x = (1.0 - 16.0 * zeta).r_powf(0.25);
+        2.0 * ((1.0 + x * x) / 2.0).r_ln()
     }
 }
 
@@ -252,7 +254,7 @@ pub fn obukhov(
         MetDataFormat::Ncep => level_pressure,
     };
 
-    let theta = level_temperature * (100_000.0 / plev).powf(R_AIR / CPA);
+    let theta = level_temperature * (100_000.0 / plev).r_powf(R_AIR / CPA);
     let ustar = if ustar <= 0.0 { 1.0e-8 } else { ustar };
     let thetastar = surface_heat_flux / (rhoa * CPA * ustar);
 
@@ -295,7 +297,7 @@ pub fn obukhov(
 /// [`scalev`] and a positive `z0` from the land-use table.
 #[must_use]
 pub fn raerod(obukhov_length: f64, ustar: f64, roughness_length: f64) -> f64 {
-    ((HREF / roughness_length).ln() - psih(HREF, obukhov_length)
+    ((HREF / roughness_length).r_ln() - psih(HREF, obukhov_length)
         + psih(roughness_length, obukhov_length))
         / (KARMAN * ustar)
 }

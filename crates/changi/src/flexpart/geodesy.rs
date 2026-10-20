@@ -17,6 +17,8 @@
 //! exactly `0`, which upstream uses to avoid `acos` of a value a rounding
 //! above 1.
 
+use petir::mathf::RealMath;
+
 /// Earth radius local to `distance*.f90`, m.
 const RERTH: f64 = 6.3712e6;
 /// `pi` local to `distance*.f90`.
@@ -25,7 +27,7 @@ const PI_LOCAL: f64 = 3.141_592_653_589_79;
 
 fn great_circle_km(clat1: f64, slat1: f64, clat2: f64, slat2: f64, cdlon: f64) -> f64 {
     let crd = slat1 * slat2 + clat1 * clat2 * cdlon;
-    RERTH * crd.acos() / 1000.0
+    RERTH * crd.r_acos() / 1000.0
 }
 
 /// `distance.f90`: great-circle distance in km between two points given in
@@ -37,11 +39,11 @@ pub fn distance(rlat1: f64, rlon1: f64, rlat2: f64, rlon2: f64) -> f64 {
         0.0
     } else {
         great_circle_km(
-            (rlat1 / dpr).cos(),
-            (rlat1 / dpr).sin(),
-            (rlat2 / dpr).cos(),
-            (rlat2 / dpr).sin(),
-            ((rlon1 - rlon2) / dpr).cos(),
+            (rlat1 / dpr).r_cos(),
+            (rlat1 / dpr).r_sin(),
+            (rlat2 / dpr).r_cos(),
+            (rlat2 / dpr).r_sin(),
+            ((rlon1 - rlon2) / dpr).r_cos(),
         )
     }
 }
@@ -54,11 +56,11 @@ pub fn distance2(rlat1: f64, rlon1: f64, rlat2: f64, rlon2: f64) -> f64 {
         0.0
     } else {
         great_circle_km(
-            rlat1.cos(),
-            rlat1.sin(),
-            rlat2.cos(),
-            rlat2.sin(),
-            (rlon1 - rlon2).cos(),
+            rlat1.r_cos(),
+            rlat1.r_sin(),
+            rlat2.r_cos(),
+            rlat2.r_sin(),
+            (rlon1 - rlon2).r_cos(),
         )
     }
 }

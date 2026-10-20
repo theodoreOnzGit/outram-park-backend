@@ -33,6 +33,7 @@
 //! given various inputs
 //!
 //!
+use petir::mathf::RealMath;
 use std::f64::consts::{PI, E};
 
 use uom::si::temperature_interval;
@@ -397,7 +398,9 @@ pub fn try_get_thermal_conductance_annular_cylinder(
 
     let outer_radius_divide_by_inner_radius: Ratio = outer_diameter / inner_diameter;
 
-    let denominator: f64 = outer_radius_divide_by_inner_radius.value.log(E);
+    let denominator: f64 = outer_radius_divide_by_inner_radius.value.r_ln() / E.r_ln();
+    // `f64::log(self, base)` is `self.ln() / base.ln()` in std; spelled out
+    // here on the PETIR route (gh:#985).
     // E here is euler's number, as in 2.718
     // a constant within f64
     //

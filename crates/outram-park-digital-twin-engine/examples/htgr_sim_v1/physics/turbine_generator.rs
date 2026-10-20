@@ -159,7 +159,6 @@
 //!
 //! This is a demonstration model, not a validated turbine-generator model.
 
-use petir::mathf::RealMath;
 use tampines_steam_tables::steam_turbine_equations::generator::ThreePhaseElectricGeneratorTurbine;
 use uom::si::angular_velocity::{radian_per_second, revolution_per_minute};
 use uom::si::area::square_meter;

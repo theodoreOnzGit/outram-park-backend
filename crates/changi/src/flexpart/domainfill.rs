@@ -115,6 +115,8 @@
 //! (upstream's `j - 1`); level indices 0-based. Positions in grid units,
 //! heights m, masses kg, winds m/s, densities kg/m³, PV in pvu.
 
+use petir::mathf::RealMath;
+
 use super::constants::{GA, PI, PI180, R_AIR, R_EARTH};
 use super::interpolation::MetFields;
 use super::release::{ParticleStore, StaticExtents, ITRA_INACTIVE};
@@ -433,8 +435,8 @@ pub fn init_domainfill<I: Iterator<Item = f64>>(
         let hzone = if ylatm < 0.0 && ylatp > 0.0 {
             1.0 / grid.dyconst
         } else {
-            let cosfactp = (ylatp * pih).cos() * R_EARTH;
-            let cosfactm = (ylatm * pih).cos() * R_EARTH;
+            let cosfactp = (ylatp * pih).r_cos() * R_EARTH;
+            let cosfactm = (ylatm * pih).r_cos() * R_EARTH;
             if cosfactp < cosfactm {
                 (R_EARTH * R_EARTH - cosfactp * cosfactp).sqrt()
                     - (R_EARTH * R_EARTH - cosfactm * cosfactm).sqrt()
@@ -448,7 +450,7 @@ pub fn init_domainfill<I: Iterator<Item = f64>>(
     if grid.sglobal {
         let ylatp = grid.ylat0 + 0.5 * grid.dy;
         let cosfactm = 0.0;
-        let cosfactp = (ylatp * pih).cos() * R_EARTH;
+        let cosfactp = (ylatp * pih).r_cos() * R_EARTH;
         let hzone = (R_EARTH * R_EARTH - cosfactm * cosfactm).sqrt()
             - (R_EARTH * R_EARTH - cosfactp * cosfactp).sqrt();
         gridarea[0] = 2.0 * PI * R_EARTH * hzone * grid.dx / 360.0;
@@ -457,7 +459,7 @@ pub fn init_domainfill<I: Iterator<Item = f64>>(
         let ylat = grid.ylat0 + nymin1 as f64 * grid.dy;
         let ylatm = ylat - 0.5 * grid.dy;
         let cosfactp = 0.0;
-        let cosfactm = (ylatm * pih).cos() * R_EARTH;
+        let cosfactm = (ylatm * pih).r_cos() * R_EARTH;
         let hzone = (R_EARTH * R_EARTH - cosfactp * cosfactp).sqrt()
             - (R_EARTH * R_EARTH - cosfactm * cosfactm).sqrt();
         gridarea[nymin1 as usize] = 2.0 * PI * R_EARTH * hzone * grid.dx / 360.0;
@@ -797,7 +799,7 @@ pub fn boundcond_domainfill<I: Iterator<Item = f64>>(
                     Side::SouthNorth => (b, state.ny_sn[k]),
                 };
                 let ylat_sn = grid.ylat0 + state.ny_sn[k] as f64 * grid.dy;
-                let cosfact = (ylat_sn * PI180).cos();
+                let cosfact = (ylat_sn * PI180).r_cos();
                 let ncol = match side {
                     Side::WestEast => state.ncol_we(k, b),
                     Side::SouthNorth => state.ncol_sn(k, b),

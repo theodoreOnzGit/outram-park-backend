@@ -39,6 +39,8 @@
 //! conductivity **W/(m·K)**. Note both are SI here, where the BEDOK callers
 //! work in cm-g-s and convert at the call site.
 
+use petir::mathf::RealMath;
+
 use super::basic::{v1_pt, v2_pt};
 use super::region4::psat_t;
 
@@ -126,9 +128,9 @@ pub fn mu_rho_t(rho: f64, t: f64) -> f64 {
     let mu0 = 100.0 * tbar.sqrt() / (HI[0] + (HI[1] + (HI[2] + HI[3] / tbar) / tbar) / tbar);
 
     let sum: f64 = (0..21)
-        .map(|k| rhobar * (1.0 / tbar - 1.0).powi(I[k]) * H[k] * (rhobar - 1.0).powi(J[k]))
+        .map(|k| rhobar * (1.0 / tbar - 1.0).r_powi(I[k]) * H[k] * (rhobar - 1.0).r_powi(J[k]))
         .sum();
-    let mu1 = sum.exp();
+    let mu1 = sum.r_exp();
 
     mu0 * mu1 * MUSTAR
 }
@@ -175,19 +177,19 @@ pub fn k_rho_t(rho: f64, t: f64) -> f64 {
     let rhobar = rho / RHOSTAR;
 
     let k0 = tbar.sqrt() * (A[0] + (A[1] + (A[2] + A[3] * tbar) * tbar) * tbar);
-    let k1 = B[0] + B[1] * rhobar + B[2] * (BB[0] * (rhobar + BB[1]).powi(2)).exp();
+    let k1 = B[0] + B[1] * rhobar + B[2] * (BB[0] * (rhobar + BB[1]).r_powi(2)).r_exp();
 
     let delta_tbar = (tbar - 1.0).abs() + C[3];
-    let q = 2.0 + C[4] / delta_tbar.powf(0.6);
+    let q = 2.0 + C[4] / delta_tbar.r_powf(0.6);
     let s = if tbar >= 1.0 {
         1.0 / delta_tbar
     } else {
-        C[5] / delta_tbar.powf(0.6)
+        C[5] / delta_tbar.r_powf(0.6)
     };
 
-    let k2 = (D[0] / tbar.powi(10) + D[1]) * rhobar.powf(1.8) * (C[0] * (1.0 - rhobar.powf(2.8))).exp()
-        + D[2] * s * rhobar.powf(q) * (q / (1.0 + q) * (1.0 - rhobar.powf(1.0 + q))).exp()
-        + D[3] * (C[1] * tbar.powf(1.5) + C[2] / rhobar.powi(5)).exp();
+    let k2 = (D[0] / tbar.r_powi(10) + D[1]) * rhobar.r_powf(1.8) * (C[0] * (1.0 - rhobar.r_powf(2.8))).r_exp()
+        + D[2] * s * rhobar.r_powf(q) * (q / (1.0 + q) * (1.0 - rhobar.r_powf(1.0 + q))).r_exp()
+        + D[3] * (C[1] * tbar.r_powf(1.5) + C[2] / rhobar.r_powi(5)).r_exp();
 
     k0 + k1 + k2
 }

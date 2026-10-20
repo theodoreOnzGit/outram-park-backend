@@ -51,7 +51,6 @@
 //! Education and research only, per the workspace `RESPONSIBLE_USE.md`. Not for
 //! reactor operation, licensing, or safety-critical decisions.
 
-use petir::mathf::RealMath;
 #[cfg(not(target_os = "android"))]
 mod anim;
 #[cfg(not(target_os = "android"))]

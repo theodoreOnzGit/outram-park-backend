@@ -926,7 +926,7 @@ pub fn main_view(app: &mut App, ui: &mut egui::Ui, run_step: bool) {
     let (rect, resp) = ui.allocate_exact_size(ui.available_size(), egui::Sense::click_and_drag());
     if resp.hovered() {
         let (scroll, zoom) = ui.input(|i| (i.smooth_scroll_delta.y, i.zoom_delta()));
-        app.mp.zoom = (app.mp.zoom * zoom * (scroll * 0.002).r_exp()).clamp(0.3, 20.0);
+        app.mp.zoom = (app.mp.zoom * zoom * (scroll * 0.002).exp()).clamp(0.3, 20.0);
     }
     if resp.double_clicked() {
         app.mp.zoom = 1.0;

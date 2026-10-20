@@ -35,6 +35,8 @@
 //! FLEXPART's, as bare `f64`: resistances s/m, velocities m/s, temperatures K
 //! except where a doc says Celsius, pressure Pa, kinematic viscosity m²/s.
 
+use petir::mathf::RealMath;
+
 use super::aerosol::AerosolBins;
 use super::calendar::caldate;
 use super::constants::{GA, KARMAN, NI, NUMCLASS};
@@ -64,7 +66,7 @@ const PR: f64 = 0.72;
 pub fn getrb(ustar: f64, nyl: f64, diffh2o: f64, reldiff: f64) -> Option<f64> {
     if reldiff > 0.0 {
         let schmidt = nyl / diffh2o * reldiff;
-        Some(2.0 * (schmidt / PR).powf(0.67) / (KARMAN * ustar))
+        Some(2.0 * (schmidt / PR).r_powf(0.67) / (KARMAN * ustar))
     } else {
         None
     }
@@ -138,7 +140,7 @@ pub fn getrc(
         rs *= 3.0;
     }
     let rdc = 100.0 * (1.0 + 1000.0 / (gr + 10.0));
-    let corr = 1000.0 * (-t - 4.0).exp();
+    let corr = 1000.0 * (-t - 4.0).r_exp();
 
     if species.reldiff <= 0.0 {
         return None;
@@ -187,10 +189,10 @@ pub fn partdep(vdep: f64, density: f64, bins: &AerosolBins, ra: f64, ustar: f64,
             let vdepj = if ustar > EPS {
                 let stokes = vset / GA * ustar * ustar / nyl;
                 let alpha = -3.0 / stokes;
-                let rdp = if alpha <= EPS.log10() {
+                let rdp = if alpha <= EPS.r_log10() {
                     1.0 / (schmi * ustar)
                 } else {
-                    1.0 / ((schmi + 10.0_f64.powf(alpha)) * ustar)
+                    1.0 / ((schmi + 10.0_f64.r_powf(alpha)) * ustar)
                 };
                 vset + 1.0 / (ra + rdp + ra * rdp * vset)
             } else {
@@ -310,7 +312,7 @@ pub fn getvdep(
     let temp = met.temp;
     let pa = met.pa;
 
-    let diffh2o = 2.11e-5 * (temp / 273.15).powf(1.94) * (101_325.0 / pa);
+    let diffh2o = 2.11e-5 * (temp / 273.15).r_powf(1.94) * (101_325.0 / pa);
     let tc = temp - 273.15;
     let myl = if tc < 0.0 {
         (1.718 + 0.0049 * tc - 1.2e-05 * (tc * tc)) * 1.0e-05
@@ -418,7 +420,7 @@ pub fn get_settling(
         let c_d = if reynolds < 1.917 {
             24.0 / reynolds
         } else if reynolds < 500.0 {
-            18.5 / reynolds.powf(0.6)
+            18.5 / reynolds.r_powf(0.6)
         } else {
             0.44
         };

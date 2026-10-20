@@ -45,6 +45,8 @@
 //! (`a356280d`), as `rustbca_cascades.rs` sets them. Options as there:
 //! `default_options(true)`, `INTERPOLATED` electronic stopping, `ck = 1`.
 
+use petir::mathf::RealMath;
+
 use boon_lay::rustbca::{bca, material, particle, ElectronicStoppingMode, Mesh1D, Options, AMU, ANGSTROM, EV, MICRON};
 use petir::rng::lcg::Lcg64;
 
@@ -93,7 +95,7 @@ fn to_track(out: &[particle::Particle]) -> Track {
     let um = |v: f64| v / MICRON;
     let mut flight = 0.0;
     for w in p.trajectory.windows(2) {
-        let ds = ((w[1].x - w[0].x).powi(2) + (w[1].y - w[0].y).powi(2) + (w[1].z - w[0].z).powi(2)).sqrt();
+        let ds = ((w[1].x - w[0].x).r_powi(2) + (w[1].y - w[0].y).r_powi(2) + (w[1].z - w[0].z).r_powi(2)).sqrt();
         let v = (2.0 * w[0].E / p.m).sqrt();
         if v > 0.0 {
             flight += ds / v;

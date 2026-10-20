@@ -158,6 +158,8 @@
 //! grid; the code-to-code driver keeps each slot's grid size fixed within a
 //! process, so it is not exercised there.
 
+use petir::mathf::RealMath;
+
 use super::boundary_layer::f_qvsat;
 use super::cmapf::{cc2gll, Strcmp};
 use super::constants::{GA, HMIXMAX, PI, PI180, R_AIR};
@@ -522,9 +524,9 @@ fn surface_tv(raw: &RawFields, ix: usize, jy: usize) -> f64 {
 /// `z(kz-1) + const*log(pold/pint)*tv`.
 fn hypsometric(zlow: f64, pold: f64, pint: f64, tv: f64, tvold: f64) -> f64 {
     if (tv - tvold).abs() > 0.2 {
-        zlow + CONST * (pold / pint).ln() * (tv - tvold) / (tv / tvold).ln()
+        zlow + CONST * (pold / pint).r_ln() * (tv - tvold) / (tv / tvold).r_ln()
     } else {
-        zlow + CONST * (pold / pint).ln() * tv
+        zlow + CONST * (pold / pint).r_ln() * tv
     }
 }
 
@@ -605,9 +607,9 @@ fn polar_caps(grid: &VertGrid, polar: &PolarCaps, gfs: bool, out: &mut ZFields) 
             let v = out.vv.at(ixc, nymin1, iz);
             let ffpol = (u * u + v * v).sqrt();
             let mut ddpol = if v < 0.0 {
-                (u / v).atan() - xlonr
+                (u / v).r_atan() - xlonr
             } else if v > 0.0 {
-                PI + (u / v).atan() - xlonr
+                PI + (u / v).r_atan() - xlonr
             } else {
                 PI / 2.0 - xlonr
             };
@@ -620,8 +622,8 @@ fn polar_caps(grid: &VertGrid, polar: &PolarCaps, gfs: bool, out: &mut ZFields) 
             let xlon = 180.0;
             let xlonr = xlon * PI / 180.0;
             let ylat = 90.0;
-            let uuaux = -(ffpol * (xlonr + ddpol).sin());
-            let vvaux = -(ffpol * (xlonr + ddpol).cos());
+            let uuaux = -(ffpol * (xlonr + ddpol).r_sin());
+            let vvaux = -(ffpol * (xlonr + ddpol).r_cos());
             let (up, vp) = cc2gll(&polar.northpolemap, ylat, xlon, uuaux, vvaux);
             for ix in 0..nx {
                 out.uupol.set(ix, nymin1, iz, up);
@@ -665,13 +667,13 @@ fn polar_caps(grid: &VertGrid, polar: &PolarCaps, gfs: bool, out: &mut ZFields) 
             let v = out.vv.at(ixc, 0, iz);
             let ffpol = (u * u + v * v).sqrt();
             let mut ddpol = if v < 0.0 {
-                (u / v).atan() + xlonr
+                (u / v).r_atan() + xlonr
             } else if v > 0.0 {
                 if gfs {
                     // quirk 7: verttransform_gfs.f90 line 456
-                    PI + (u / v).atan() - xlonr
+                    PI + (u / v).r_atan() - xlonr
                 } else {
-                    PI + (u / v).atan() + xlonr
+                    PI + (u / v).r_atan() + xlonr
                 }
             } else {
                 PI / 2.0 - xlonr
@@ -685,8 +687,8 @@ fn polar_caps(grid: &VertGrid, polar: &PolarCaps, gfs: bool, out: &mut ZFields) 
             let xlon = 180.0;
             let xlonr = xlon * PI / 180.0;
             let ylat = -90.0;
-            let uuaux = ffpol * (xlonr - ddpol).sin();
-            let vvaux = -(ffpol * (xlonr - ddpol).cos());
+            let uuaux = ffpol * (xlonr - ddpol).r_sin();
+            let vvaux = -(ffpol * (xlonr - ddpol).r_cos());
             // quirk 6: the NORTH-pole map, as upstream
             let (up, vp) = cc2gll(&polar.northpolemap, ylat, xlon, uuaux, vvaux);
             for ix in 0..nx {
@@ -1075,7 +1077,7 @@ fn eta_transform(
     // Slope of the eta levels and the vertical-wind correction.
     if ny >= 3 && nx >= 3 {
         for jy in 1..ny - 1 {
-            let cosf = 1.0 / ((jy as f64 * g.dy + g.ylat0) * PI180).cos();
+            let cosf = 1.0 / ((jy as f64 * g.dy + g.ylat0) * PI180).r_cos();
             for ix in 1..nx - 1 {
                 let mut idx = 2usize;
                 for iz in 2..nz {
@@ -1470,7 +1472,7 @@ pub fn verttransform_gfs(
     let mut klp = 0usize;
     if ny >= 3 && nx >= 3 {
         for jy in 1..ny - 1 {
-            let cosf = ((jy as f64 * g.dy + g.ylat0) * PI180).cos();
+            let cosf = ((jy as f64 * g.dy + g.ylat0) * PI180).r_cos();
             for ix in 1..nx - 1 {
                 let llev = gfs_llev(raw.ps.at(ix, jy), &hyb.akz, nuvz);
                 let kmin = llev + 1;

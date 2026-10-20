@@ -111,6 +111,8 @@
 //! `fluxoutput` is not ported. Nothing here supports emergency response or
 //! dose assessment for real populations.
 
+use petir::mathf::RealMath;
+
 mod common;
 
 use std::collections::HashMap;
@@ -363,7 +365,7 @@ fn outgrid_area_real4_residual_is_the_formulas_conditioning() {
         let k = if lm < 0.0 && lp > 0.0 {
             0.0
         } else {
-            let (cp, cm) = ((lp * pi180).cos(), (lm * pi180).cos());
+            let (cp, cm) = ((lp * pi180).r_cos(), (lm * pi180).r_cos());
             let (sp, sm) = ((1.0 - cp * cp).sqrt(), (1.0 - cm * cm).sqrt());
             let term = |c: f64, s: f64| if s == 0.0 { 0.0 } else { c * c / s };
             (term(cp, sp) + term(cm, sm) + sp + sm) / (sp - sm).abs()

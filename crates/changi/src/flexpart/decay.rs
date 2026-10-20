@@ -24,6 +24,8 @@
 //! into these functions — this module deliberately holds **no nuclide data of
 //! its own**, so the two cannot drift apart.
 
+use petir::mathf::RealMath;
+
 /// Convert a half-life to a decay constant, `lambda = ln2 / t_half`.
 ///
 /// Ports `readreleases.f90:317`, `decay(i) = 0.693147/decay(i)`.
@@ -104,7 +106,7 @@ pub fn surviving_fraction(decay_constant: f64, dt_seconds: f64) -> f64 {
     if decay_constant == 0.0 {
         return 1.0;
     }
-    (-dt_seconds * decay_constant).exp()
+    (-dt_seconds * decay_constant).r_exp()
 }
 
 /// Apply decay to a mass or activity over `dt` seconds.

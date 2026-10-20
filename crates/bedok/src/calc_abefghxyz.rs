@@ -17,6 +17,9 @@
 // crate, so `f64` carries INHERENT `sinh`/`cosh` that take precedence over a
 // trait method — writing `a.sinh()` with this trait in scope compiles, resolves
 // to the platform C library anyway, and reverts the fix silently.
+
+use petir::mathf::RealMath;
+
 use petir::real::Real;
 
 use crate::handle3dcoords::handle3dcoords;
@@ -168,12 +171,12 @@ fn abefgh(a: f64, form: crate::types::NodalCoeffForm) -> (f64, f64, f64, f64, f6
     let ch = Real::cosh(a);
 
     let ms = 3.0 * (ch / a - sh / a / a);
-    let mc = 5.0 * (sh / a - 3.0 * ch / a / a + 3.0 * sh / a.powi(3));
+    let mc = 5.0 * (sh / a - 3.0 * ch / a / a + 3.0 * sh / a.r_powi(3));
 
     // Element order matches the reference's scalar formulas exactly.
     let aa = (sh - ms) / (a * a * ms);
     let bb = (ch - sh / a - mc) / (a * a * mc);
-    let ee = sh / a / mc - 3.0 / a.powi(2);
+    let ee = sh / a / mc - 3.0 / a.r_powi(2);
     let ff = (a * ch - ms) / (a * a * ms);
     let gg = (a * sh - 3.0 * mc) / (ch - sh / a - mc);
     let hh = (a * ch - ms) / (sh - ms);
@@ -489,7 +492,7 @@ mod tests {
         // --- 1. where the closed form loses significance ---
         fn mc_closed(a: f64) -> f64 {
             5.0 * (Real::sinh(a) / a - 3.0 * Real::cosh(a) / (a * a)
-                + 3.0 * Real::sinh(a) / a.powi(3))
+                + 3.0 * Real::sinh(a) / a.r_powi(3))
         }
         // Series, derived term by term from sinh/cosh: the 1/a^2 terms and the
         // constants both cancel exactly, leaving
@@ -503,7 +506,7 @@ mod tests {
         eprintln!("  {:>8}  {:>16}  {:>16}  {:>10}", "a", "closed", "series", "rel err");
         let mut first_bad = f64::NAN;
         for e in 0..8 {
-            let a = 10f64.powi(-e);
+            let a = 10f64.r_powi(-e);
             let (c, t) = (mc_closed(a), mc_series(a));
             let rel = (c - t).abs() / t.abs();
             eprintln!("  {a:>8.0e}  {c:>16.8e}  {t:>16.8e}  {rel:>10.2e}");

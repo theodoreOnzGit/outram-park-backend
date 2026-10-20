@@ -9,6 +9,8 @@
 //! disclosed scope cut for this pass; the rename is a
 //! follow-up rename.
 
+use petir::mathf::RealMath;
+
 mod advanced_git_view;
 mod bibliography;
 mod code_map_view;
@@ -2239,7 +2241,7 @@ impl DigitiseApp {
             let (Some(x), Some(y)) = (p.x_px, p.y_px) else {
                 continue;
             };
-            let dist = ((x - px).powi(2) + (y - py).powi(2)).sqrt();
+            let dist = ((x - px).r_powi(2) + (y - py).r_powi(2)).sqrt();
             if dist <= max_px && best.is_none_or(|(_, bd)| dist < bd) {
                 best = Some((i, dist));
             }

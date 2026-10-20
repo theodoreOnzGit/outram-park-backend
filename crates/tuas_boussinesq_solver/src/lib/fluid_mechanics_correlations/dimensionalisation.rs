@@ -9,6 +9,7 @@
 //! velocity in m/s, hydraulic diameter in m, dynamic viscosity in Pa*s,
 //! pressure in Pa); the dimensionless results are returned as `Ratio` (or a
 //! bare `f64` where a Bejan number is taken as input).
+
 extern crate peroxide;
 extern crate uom;
 

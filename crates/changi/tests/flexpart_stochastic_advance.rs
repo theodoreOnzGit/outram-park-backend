@@ -62,6 +62,8 @@
 //! is not validation against measured dispersion. Nothing here supports
 //! emergency response or dose assessment for real populations.
 
+use petir::mathf::RealMath;
+
 mod common;
 
 use changi::flexpart::advance::{
@@ -290,7 +292,7 @@ fn run_port(row: &Row, base: &MetFields, seed: &mut u64, rannumb: &[f64]) -> Mom
         let mu = s1[k] / n;
         m.mean[k] = mu;
         m.m2[k] = s2[k] / n - mu * mu;
-        m.m4[k] = s4[k] / n - 4.0 * mu * s3[k] / n + 6.0 * mu * mu * s2[k] / n - 3.0 * mu.powi(4);
+        m.m4[k] = s4[k] / n - 4.0 * mu * s3[k] / n + 6.0 * mu * mu * s2[k] / n - 3.0 * mu.r_powi(4);
     }
     m
 }

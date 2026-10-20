@@ -34,3 +34,8 @@ serde_json.workspace = true
 # Placeholder stage: no macro/codegen crates yet. When implementing, `syn`,
 # `quote`, and `proc-macro2` are the expected additions for procedural macros;
 # declarative macros and `build.rs` generation need no extra deps.
+
+[dev-dependencies]
+# Only the test modules call transcendentals; they route through PETIR for
+# cross-platform bit identity (gh:#985).
+petir = { workspace = true }

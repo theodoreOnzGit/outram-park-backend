@@ -17,6 +17,8 @@
 //! which is exactly what the translation is supposed to avoid. Each field
 //! records the `.m` file it was introduced by.
 
+use petir::mathf::RealMath;
+
 /// Geometry discretisation mode, as selected by which coordinate fields the
 /// case file populated.
 ///
@@ -1337,7 +1339,7 @@ impl InletForcing {
             Self::ExponentialSubcooling { pressure, dh0, rate } => {
                 let tsat = crate::iapws_if97::region4::tsat_p(*pressure);
                 let hsat = crate::iapws_if97::basic::h1_pt(*pressure, tsat);
-                let dh = dh0 * (2.0 - (-rate * t).exp());
+                let dh = dh0 * (2.0 - (-rate * t).r_exp());
                 Some(crate::iapws_if97::backward::t_ph(*pressure, hsat - dh))
             }
         }

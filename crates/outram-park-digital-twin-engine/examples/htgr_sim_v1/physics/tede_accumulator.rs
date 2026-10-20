@@ -64,7 +64,6 @@
 //!
 //! Per `RESPONSIBLE_USE.md`, AI-assisted draft pending human review.
 
-use petir::mathf::RealMath;
 use super::atmospheric_dispersion::{RECEPTOR_COUNT, ReceptorResult};
 use super::dose_rate::{self, Pathway};
 

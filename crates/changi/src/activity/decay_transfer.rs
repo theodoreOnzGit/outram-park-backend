@@ -96,6 +96,8 @@
 //! this module exposes [`decay_is_negligible`] rather than leaving each
 //! caller to guess.
 
+use petir::mathf::RealMath;
+
 use uom::si::f64::{Ratio, Time};
 use uom::si::ratio::ratio;
 use uom::si::time::second;
@@ -194,9 +196,9 @@ pub fn bateman_two_step(
     }
     let value = if (ld - lp).abs() <= f64::EPSILON * ld.max(lp).max(1.0) {
         // Degenerate limit, taken analytically rather than numerically.
-        lp * t * (-lp * t).exp()
+        lp * t * (-lp * t).r_exp()
     } else {
-        ld / (ld - lp) * ((-lp * t).exp() - (-ld * t).exp())
+        ld / (ld - lp) * ((-lp * t).r_exp() - (-ld * t).r_exp())
     };
     Ratio::new::<ratio>(value)
 }
@@ -214,9 +216,9 @@ mod tests {
     #[test]
     fn the_gain_is_the_exponential() {
         let d = DecayTransfer::from_half_life(Time::new::<hour>(2.84)); // Kr-88
-        let lambda = 2f64.ln() / (2.84 * 3600.0);
+        let lambda = 2f64.r_ln() / (2.84 * 3600.0);
         for secs in [0.0, 100.0, 2000.0, 20_000.0] {
-            let want = (-lambda * secs).exp();
+            let want = (-lambda * secs).r_exp();
             let got = d.gain(t(secs)).get::<ratio>();
             assert!((got - want).abs() < 1e-12, "at {secs} s: {got} vs {want}");
         }
@@ -346,7 +348,7 @@ mod tests {
         let lambda = d.decay_constant();
         for secs in [600.0, 5000.0, 30_000.0] {
             let got = bateman_two_step(d, d, t(secs)).get::<ratio>();
-            let want = lambda * secs * (-lambda * secs).exp();
+            let want = lambda * secs * (-lambda * secs).r_exp();
             assert!(got.is_finite(), "must not blow up at {secs} s");
             assert!((got - want).abs() < 1e-12, "at {secs} s: {got} vs {want}");
         }

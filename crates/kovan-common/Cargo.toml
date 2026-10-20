@@ -27,6 +27,9 @@ topic = "knowledge-management"
 maturity = 1
 
 [dependencies]
+# Every transcendental routes through PETIR for cross-platform bit identity
+# (gh:#985). petir is no_std, so this edge adds nothing Android- or wasm-hostile.
+petir = { workspace = true }
 serde.workspace = true
 serde_json.workspace = true
 toml.workspace = true

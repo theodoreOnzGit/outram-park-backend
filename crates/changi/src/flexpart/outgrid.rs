@@ -84,6 +84,8 @@
 //! m² for areas, m³ for volumes; topography in m. Output columns `ix`, rows
 //! `jy` and levels `kz` are **0-based** (upstream's levels are 1-based).
 
+use petir::mathf::RealMath;
+
 use crate::flexpart::constants::{PI, PI180, R_EARTH};
 use crate::flexpart::met_fields::Field2;
 use crate::flexpart::particle_average::GridGeometry;
@@ -159,8 +161,8 @@ pub fn zone_height(outlat0: f64, dyout: f64, jy: usize) -> f64 {
     if ylatm < 0.0 && ylatp > 0.0 {
         dyout * R_EARTH * PI180
     } else {
-        let cosfactp = (ylatp * PI180).cos();
-        let cosfactm = (ylatm * PI180).cos();
+        let cosfactp = (ylatp * PI180).r_cos();
+        let cosfactm = (ylatm * PI180).r_cos();
         // `cosfact**2` is an integer power: a product.
         let hzone = if cosfactp < cosfactm {
             (1.0 - cosfactp * cosfactp).sqrt() - (1.0 - cosfactm * cosfactm).sqrt()
@@ -212,7 +214,7 @@ pub fn cell_geometry(grid: &OutputGrid, outheight: &[f64]) -> CellGeometry {
                 let i3 = g.idx3(ix, jy, kz);
                 g.volume[i3] = g.area[i2] * dh;
                 g.areaeast[i3] = grid.dyout * R_EARTH * PI180 * dh;
-                g.areanorth[i3] = (ylat * PI180).cos() * grid.dxout * R_EARTH * PI180 * dh;
+                g.areanorth[i3] = (ylat * PI180).r_cos() * grid.dxout * R_EARTH * PI180 * dh;
             }
         }
     }
@@ -363,7 +365,7 @@ mod tests {
         let h = zone_height(-1.25, 2.5, 0);
         assert_eq!(h, 2.5 * R_EARTH * PI180);
         // The exact zone height is smaller by about (pi/180 * 1.25)^2 / 6.
-        let exact = 2.0 * (1.25 * PI180).sin() * R_EARTH;
+        let exact = 2.0 * (1.25 * PI180).r_sin() * R_EARTH;
         assert!(h > exact && (h / exact - 1.0) < 1e-4);
     }
 

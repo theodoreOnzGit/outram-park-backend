@@ -76,7 +76,6 @@
 //!     --example godiva_anisotropy_ablation
 //! ```
 
-use petir::mathf::RealMath;
 #[cfg(target_os = "android")]
 fn main() {
     println!("godiva_anisotropy_ablation is desktop-only (reads reference-data/endf/).");
@@ -89,6 +88,7 @@ fn main() {
 
 #[cfg(not(target_os = "android"))]
 mod desktop {
+    use petir::mathf::RealMath;
     use njoy_outram_park_fork::reference_data::reference_endf;
     use outram_mc_libs::geometry::position::Position;
     use outram_mc_libs::material::material::{Material, NuclideComponent};

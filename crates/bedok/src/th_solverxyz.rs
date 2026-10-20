@@ -35,6 +35,8 @@
 //! the caller iterates. That is why the channel models take `th.heatflux` as an
 //! input rather than deriving it.
 
+use petir::mathf::RealMath;
+
 use crate::fuelrodheat_1dcylnd::fuelrodheat_1dcylnd;
 use crate::matlab::{norm1, Array2, Array3};
 use crate::types::{Geometry, Params, Th, ThModel};
@@ -281,11 +283,11 @@ pub fn th_solverxyz(
     // `real` then keeps only the real part. See defect T11.
     let real_pow = |x: f64, p: f64| -> f64 {
         if x >= 0.0 {
-            x.powf(p)
+            x.r_powf(p)
         } else {
             // `(-a)^p = a^p * (cos(pi p) + i sin(pi p))`; `real` keeps the
             // cosine factor.
-            (-x).powf(p) * (std::f64::consts::PI * p).cos()
+            (-x).r_powf(p) * (std::f64::consts::PI * p).r_cos()
         }
     };
 
@@ -1412,7 +1414,7 @@ mod tests {
             let solved: Vec<f64> = (0..fueln)
                 .map(|i| {
                     let r = (i as f64 + 0.5) * dr;
-                    TS + (TC - TS) * (1.0 - (r / radius).powi(2))
+                    TS + (TC - TS) * (1.0 - (r / radius).r_powi(2))
                 })
                 .collect();
 

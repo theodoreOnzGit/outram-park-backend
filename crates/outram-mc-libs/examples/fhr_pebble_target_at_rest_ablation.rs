@@ -70,7 +70,6 @@
 //!     --features endf-pebble-cases --example fhr_pebble_target_at_rest_ablation
 //! ```
 
-use petir::mathf::RealMath;
 #[cfg(target_os = "android")]
 fn main() {
     eprintln!(
@@ -86,6 +85,7 @@ fn main() {
 
 #[cfg(not(target_os = "android"))]
 mod desktop {
+    use petir::mathf::RealMath;
     use outram_mc_libs::material::material::{Material, NuclideComponent};
     use outram_mc_libs::material::nuclide::Nuclide;
     use outram_mc_libs::physics::compute::ComputeType;

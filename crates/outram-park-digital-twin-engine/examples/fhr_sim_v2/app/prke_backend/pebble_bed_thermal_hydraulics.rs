@@ -127,7 +127,7 @@ impl PebbleBedThermalHydraulics {
 
         let term2: AvailableEnergy = c2 * (fuel_temp * fuel_temp - ref_temp_298 * ref_temp_298);
 
-        let term3: AvailableEnergy = c3 * (-e_a_by_t).r_exp();
+        let term3: AvailableEnergy = c3 * Ratio::new::<ratio>((-e_a_by_t).value.r_exp());
 
         // enthalpy increment over 298K
         let enthalpy_increment_over_298_kelvin = term1 + term2 + term3;

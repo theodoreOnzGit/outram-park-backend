@@ -27,6 +27,8 @@
 //! This *is* a deliberate numerical divergence from upstream and is measured:
 //! see `docs/flexpart-code-to-code.md`.
 
+use petir::mathf::RealMath;
+
 use super::constants::{GA, NI, PI};
 
 /// Per-bin properties of a lognormal aerosol size distribution.
@@ -161,7 +163,7 @@ pub fn part0(mass_median_diameter: f64, geometric_std_dev: f64, density: f64) ->
     /// Underflow guard used in the slip-correction branch (`eps`).
     const EPS: f64 = 1.2e-38;
 
-    let xdummy = core::f64::consts::SQRT_2 * geometric_std_dev.ln();
+    let xdummy = core::f64::consts::SQRT_2 * geometric_std_dev.r_ln();
     let delta = 6.0 / NI as f64;
 
     let mut bins = AerosolBins {
@@ -171,31 +173,31 @@ pub fn part0(mass_median_diameter: f64, geometric_std_dev: f64, density: f64) ->
         cunningham: [0.0; NI],
     };
 
-    let mut d01 = mass_median_diameter * geometric_std_dev.powi(-3);
+    let mut d01 = mass_median_diameter * geometric_std_dev.r_powi(-3);
     for i in 0..NI {
         let d02 = d01;
-        d01 = mass_median_diameter * geometric_std_dev.powf(-3.0 + delta * (i + 1) as f64);
-        let x01 = (d01 / mass_median_diameter).ln() / xdummy;
-        let x02 = (d02 / mass_median_diameter).ln() / xdummy;
+        d01 = mass_median_diameter * geometric_std_dev.r_powf(-3.0 + delta * (i + 1) as f64);
+        let x01 = (d01 / mass_median_diameter).r_ln() / xdummy;
+        let x02 = (d02 / mass_median_diameter).r_ln() / xdummy;
 
         // petir's GSL-derived erf; upstream uses its own erf.f90 (see module docs).
         bins.mass_fraction[i] =
             0.5 * (petir::specfunc::erf::erf(x01) - petir::specfunc::erf::erf(x02));
 
         // Geometric-mean diameter of the class, converted micrometres -> metres.
-        let dmean = 1.0e-6 * (0.5 * (d01 * d02).ln()).exp();
+        let dmean = 1.0e-6 * (0.5 * (d01 * d02).r_ln()).r_exp();
         let kn = 2.0 * LAM / dmean;
         // Upstream guards the exponential against underflow rather than letting
         // exp(-1.1/kn) flush to zero on its own.
-        let alpha = if (-1.1 / kn) <= EPS.log10() * 10f64.ln() {
+        let alpha = if (-1.1 / kn) <= EPS.r_log10() * 10f64.r_ln() {
             1.257
         } else {
-            1.257 + 0.4 * (-1.1 / kn).exp()
+            1.257 + 0.4 * (-1.1 / kn).r_exp()
         };
         let cun = 1.0 + alpha * kn;
         let dc = KB * TR * cun / (3.0 * PI * MYL * dmean);
         let schmidt = NYL / dc;
-        bins.schmidt_factor[i] = schmidt.powf(-2.0 / 3.0);
+        bins.schmidt_factor[i] = schmidt.r_powf(-2.0 / 3.0);
         bins.settling_velocity[i] = GA * density * dmean * dmean * cun / (18.0 * MYL);
         bins.cunningham[i] = cun;
     }

@@ -59,6 +59,8 @@
 //! [`DecaySecondOrderExponentialResponse`] per input change onto a `Vec` and
 //! re-summed it on every call. See bead `op-fm5`.
 
+use petir::mathf::RealMath;
+
 use std::collections::VecDeque;
 
 use uom::{
@@ -143,8 +145,8 @@ impl SecondOrderExponentialModes {
     /// Advances the modes over `time_step` seconds. `alpha` and `beta` are
     /// the decay rates in hertz.
     fn advance(&mut self, time_step: Time, alpha: Frequency, beta: Frequency) {
-        let alpha_decay = (-(time_step * alpha).get::<ratio>()).exp();
-        let beta_decay = (-(time_step * beta).get::<ratio>()).exp();
+        let alpha_decay = (-(time_step * alpha).get::<ratio>()).r_exp();
+        let beta_decay = (-(time_step * beta).get::<ratio>()).r_exp();
 
         match self {
             Self::Overdamped {
@@ -188,8 +190,8 @@ impl SecondOrderExponentialModes {
             beta_mode,
         } = self
         {
-            *alpha_mode += alpha_magnitude * (-(time_since_start * alpha).get::<ratio>()).exp();
-            *beta_mode += beta_magnitude * (-(time_since_start * beta).get::<ratio>()).exp();
+            *alpha_mode += alpha_magnitude * (-(time_since_start * alpha).get::<ratio>()).r_exp();
+            *beta_mode += beta_magnitude * (-(time_since_start * beta).get::<ratio>()).r_exp();
         }
     }
 
@@ -209,10 +211,10 @@ impl SecondOrderExponentialModes {
             beta_mode,
         } = self
         {
-            let alpha_decay = (-(time_since_start * alpha).get::<ratio>()).exp();
+            let alpha_decay = (-(time_since_start * alpha).get::<ratio>()).r_exp();
             *t_alpha_mode += time_since_start * alpha_rate_magnitude * alpha_decay;
             *alpha_rate_mode += alpha_rate_magnitude * alpha_decay;
-            *beta_mode += beta_magnitude * (-(time_since_start * beta).get::<ratio>()).exp();
+            *beta_mode += beta_magnitude * (-(time_since_start * beta).get::<ratio>()).r_exp();
         }
     }
 }
@@ -710,7 +712,7 @@ impl DecaySecondOrderExponentialResponse {
                 // will have to do
 
                 let exponent_ratio: Ratio =
-                    lambda_t * (-lambda_t.get::<ratio>()).exp() * inverse_lambda.get::<second>();
+                    lambda_t * (-lambda_t.get::<ratio>()).r_exp() * inverse_lambda.get::<second>();
 
                 let exponent_decayed: bool =
                     at > Ratio::new::<ratio>(23.0) && bt > Ratio::new::<ratio>(23.0);
@@ -755,10 +757,10 @@ impl DecaySecondOrderExponentialResponse {
 
                 let t_exponential_response = self.magnitude_alpha_times_user_input
                     * time_elapsed.get::<second>()
-                    * (-alpha_t.get::<ratio>()).exp();
+                    * (-alpha_t.get::<ratio>()).r_exp();
 
                 let exponential_response =
-                    self.magnitude_beta_times_user_input * (-beta_t.get::<ratio>()).exp();
+                    self.magnitude_beta_times_user_input * (-beta_t.get::<ratio>()).r_exp();
 
                 t_exponential_response + exponential_response
             }
@@ -768,8 +770,8 @@ impl DecaySecondOrderExponentialResponse {
                 // magnitude_beta * exp(-beta t)
                 // user input part checks out
 
-                self.magnitude_alpha_times_user_input * (-alpha_t.get::<ratio>()).exp()
-                    + self.magnitude_beta_times_user_input * (-beta_t.get::<ratio>()).exp()
+                self.magnitude_alpha_times_user_input * (-alpha_t.get::<ratio>()).r_exp()
+                    + self.magnitude_beta_times_user_input * (-beta_t.get::<ratio>()).r_exp()
             }
         };
 

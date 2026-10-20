@@ -14,6 +14,8 @@
 //! Both routines declare their **own** `pi = 3.1415927`, not `par_mod`'s
 //! `3.14159265`; the port keeps each routine's literal.
 
+use petir::mathf::RealMath;
+
 use super::calendar::caldate;
 
 /// The `pi` literal local to `zenithangle.f90` and `photo_O1D.f90`.
@@ -50,24 +52,24 @@ pub fn zenithangle(ylat: f64, xlon: f64, jul: f64) -> f64 {
     let rnum = 2.0 * pi * ndaynum as f64 / 365.0;
     let rylat = pi * ylat / 180.0;
     let ttime = iu as f64 + minute as f64 / 60.0;
-    let dekl = 0.396 + 3.631 * rnum.sin() + 0.038 * (2.0 * rnum).sin() + 0.077 * (3.0 * rnum).sin()
-        - 22.97 * rnum.cos()
-        - 0.389 * (2.0 * rnum).cos()
-        - 0.158 * (3.0 * rnum).cos();
+    let dekl = 0.396 + 3.631 * rnum.r_sin() + 0.038 * (2.0 * rnum).r_sin() + 0.077 * (3.0 * rnum).r_sin()
+        - 22.97 * rnum.r_cos()
+        - 0.389 * (2.0 * rnum).r_cos()
+        - 0.158 * (3.0 * rnum).r_cos();
     let rdekl = pi * dekl / 180.0;
     let eq = (0.003
-        - 7.343 * rnum.sin()
-        - 9.47 * (2.0 * rnum).sin()
-        - 0.329 * (3.0 * rnum).sin()
-        - 0.196 * (4.0 * rnum).sin()
-        + 0.552 * rnum.cos()
-        - 3.020 * (2.0 * rnum).cos()
-        - 0.076 * (3.0 * rnum).cos()
-        - 0.125 * (4.0 * rnum).cos())
+        - 7.343 * rnum.r_sin()
+        - 9.47 * (2.0 * rnum).r_sin()
+        - 0.329 * (3.0 * rnum).r_sin()
+        - 0.196 * (4.0 * rnum).r_sin()
+        + 0.552 * rnum.r_cos()
+        - 3.020 * (2.0 * rnum).r_cos()
+        - 0.076 * (3.0 * rnum).r_cos()
+        - 0.125 * (4.0 * rnum).r_cos())
         / 60.0;
-    let sinsol = rylat.sin() * rdekl.sin()
-        + rylat.cos() * rdekl.cos() * ((ttime - 12.0 + xlon / 15.0 + eq) * pi / 12.0).cos();
-    let solelev = sinsol.asin() * 180.0 / pi;
+    let sinsol = rylat.r_sin() * rdekl.r_sin()
+        + rylat.r_cos() * rdekl.r_cos() * ((ttime - 12.0 + xlon / 15.0 + eq) * pi / 12.0).r_cos();
+    let solelev = sinsol.r_asin() * 180.0 / pi;
     90.0 - solelev
 }
 
@@ -92,14 +94,14 @@ pub fn photo_o1d(sza: f64) -> Option<f64> {
     let pi = PI_LOCAL;
     if sza < 90.0 {
         let ik = (0..ZANGLE.len() - 1).rev().find(|&iz| sza >= ZANGLE[iz])?;
-        let z1 = 1.0 / (ZANGLE[ik] * pi / 180.0).cos();
-        let z2 = 1.0 / (ZANGLE[ik + 1] * pi / 180.0).cos();
-        let zg = 1.0 / (sza * pi / 180.0).cos();
+        let z1 = 1.0 / (ZANGLE[ik] * pi / 180.0).r_cos();
+        let z2 = 1.0 / (ZANGLE[ik + 1] * pi / 180.0).r_cos();
+        let zg = 1.0 / (sza * pi / 180.0).r_cos();
         let dummy = (zg - z1) / (z2 - z1);
-        let f1 = FACT_PHOTO[ik].ln();
-        let f2 = FACT_PHOTO[ik + 1].ln();
-        let photo_no2 = 1.45e-2 * (-(0.4 / (sza * pi / 180.0).cos())).exp();
-        Some(photo_no2 * (f1 + (f2 - f1) * dummy).exp())
+        let f1 = FACT_PHOTO[ik].r_ln();
+        let f2 = FACT_PHOTO[ik + 1].r_ln();
+        let photo_no2 = 1.45e-2 * (-(0.4 / (sza * pi / 180.0).r_cos())).r_exp();
+        Some(photo_no2 * (f1 + (f2 - f1) * dummy).r_exp())
     } else {
         Some(0.0)
     }

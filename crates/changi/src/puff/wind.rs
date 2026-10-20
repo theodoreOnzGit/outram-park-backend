@@ -8,6 +8,8 @@
 //! Wind handling: meteorological convention to vector components, and
 //! resampling a wind series onto the simulation time step.
 
+use petir::mathf::RealMath;
+
 use uom::si::angle::degree;
 use uom::si::f64::{Angle, Time, Velocity};
 use uom::si::time::second;
@@ -67,8 +69,8 @@ pub fn wind_vector_convert(speed: Velocity, direction: Angle) -> WindComponents 
     // in the same order upstream does it.
     let theta_rad = (270.0 - direction.get::<degree>()) * core::f64::consts::PI / 180.0;
     WindComponents {
-        u: speed * theta_rad.cos(),
-        v: speed * theta_rad.sin(),
+        u: speed * theta_rad.r_cos(),
+        v: speed * theta_rad.r_sin(),
     }
 }
 
@@ -174,7 +176,7 @@ pub fn interpolate_wind(
 pub fn wind_speed(c: WindComponents) -> Velocity {
     let u = c.u.get::<meter_per_second>();
     let v = c.v.get::<meter_per_second>();
-    Velocity::new::<meter_per_second>(u.hypot(v))
+    Velocity::new::<meter_per_second>(u.r_hypot(v))
 }
 
 #[cfg(test)]

@@ -11,7 +11,6 @@
 //! - [`HtgrPlotData`] -- bounded time-history ring buffers for the plot panel,
 //!   updated by a separate plot-sampler thread.
 
-use petir::mathf::RealMath;
 /// Maximum number of samples kept in each plot history buffer.
 const MAX_PLOT_SAMPLES: usize = 4000;
 

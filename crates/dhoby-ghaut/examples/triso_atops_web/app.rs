@@ -1359,18 +1359,18 @@ fn draw_pools(painter: &egui::Painter, rect: Rect, f: &Frame, pick: u8, now_h: f
         painter.circle_filled(particle, radii[k], REGIONS[k].0);
     }
     let toward = (kernel - particle).normalized();
-    let crack_angle = toward.y.r_atan2(toward.x) + 0.6;
+    let crack_angle = toward.y.atan2(toward.x) + 0.6;
     for d in [-0.2f32, -0.07, 0.07, 0.2] {
         let a = crack_angle + d;
-        let u = Vec2::new(a.r_cos(), a.r_sin());
+        let u = Vec2::new(a.cos(), a.sin());
         painter.line_segment([particle + u * radii[2], particle + u * radii[4]], Stroke::new(1.6, Color32::from_rgb(58, 62, 70)));
     }
     let groups = dot_groups(&shares(rel::R), 2 + (norm(q_r) * 6.0).round() as usize);
     let n = groups.len().max(1);
     for (k, g) in groups.iter().enumerate() {
         let s = ((t * 0.3 + k as f64 / n as f64) % 1.0) as f32;
-        let a = crack_angle + ((k as f32 * 2.399).r_sin()) * 0.2;
-        let u = Vec2::new(a.r_cos(), a.r_sin());
+        let a = crack_angle + ((k as f32 * 2.399).sin()) * 0.2;
+        let u = Vec2::new(a.cos(), a.sin());
         painter.circle_filled(particle + u * (radii[0] * 0.3 + s * (rm - radii[0] * 0.3)), 2.0, GROUP_COLOURS[*g]);
     }
     // Leader lines: a dot on each layer, a thin line to its box.

@@ -33,6 +33,9 @@ topic = "knowledge-management"
 maturity = 1
 
 [dependencies]
+# Every transcendental routes through PETIR for cross-platform bit identity
+# (gh:#985). petir is no_std, so this edge adds nothing Android- or wasm-hostile.
+petir = { workspace = true }
 # The code map, call graph and star-layout data and geometry (wasm-clean;
 # moved out of `kovan` for this crate on 2026-10-06).
 kovan-common = { workspace = true }

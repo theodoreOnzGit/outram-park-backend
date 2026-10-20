@@ -42,6 +42,8 @@
 //! Bare `f64` in FLEXPART's units: velocities m/s, heights and `L` m, times s,
 //! density kg/m³, density gradient kg/m⁴.
 
+use petir::mathf::RealMath;
+
 use super::constants::PI;
 
 /// Upstream's `C0`, the Lagrangian structure-function constant.
@@ -60,7 +62,7 @@ const EPS: f64 = 0.000_001;
 fn cuberoot(x: f64) -> f64 {
     #[allow(clippy::excessive_precision)]
     const THIRD: f64 = 0.333_333_333;
-    x.abs().powf(THIRD).copysign(x)
+    x.abs().r_powf(THIRD).copysign(x)
 }
 
 /// What [`cbl`] returns.
@@ -118,7 +120,7 @@ pub fn cbl(
     let z = zp / h;
     let mut transition = 1.0;
     if -h / ol < 15.0 {
-        transition = ((-h / ol + 10.0) / 10.0 * PI).sin() / 2.0 + 0.5;
+        transition = ((-h / ol + 10.0) / 10.0 * PI).r_sin() / 2.0 + 0.5;
     }
 
     let w2 = sigmaw * sigmaw;
@@ -127,39 +129,39 @@ pub fn cbl(
     let wold = timedir * wp;
 
     let wst3 = wst * wst * wst;
-    let w3 = (1.2 * z * (1.0 - z).powf(1.5) + EPS) * wst3 * transition;
+    let w3 = (1.2 * z * (1.0 - z).r_powf(1.5) + EPS) * wst3 * transition;
     let dw3 = 1.2
-        * ((1.0 - z).powf(1.5) + -(z * 1.5 * (1.0 - z).powf(0.5)))
+        * ((1.0 - z).r_powf(1.5) + -(z * 1.5 * (1.0 - z).r_powf(0.5)))
         * wst3
         * (1.0 / h)
         * transition;
 
-    let skew = w3 / w2.powf(1.5);
+    let skew = w3 / w2.r_powf(1.5);
     let skew2 = skew * skew;
-    let dskew = (dw3 * w2.powf(1.5) - w3 * 1.5 * w2.powf(0.5) * dw2) / (w2 * w2 * w2);
-    let radw2 = w2.powf(0.5);
-    let dradw2 = 0.5 * w2.powf(-0.5) * dw2;
+    let dskew = (dw3 * w2.r_powf(1.5) - w3 * 1.5 * w2.r_powf(0.5) * dw2) / (w2 * w2 * w2);
+    let radw2 = w2.r_powf(0.5);
+    let dradw2 = 0.5 * w2.r_powf(-0.5) * dw2;
     let fluarw = COSTLUAR4 * cuberoot(skew);
     let fluarw2 = fluarw * fluarw;
 
     let (dfluarw, rluarw, drluarw, xluarw, dxluarw);
     if skew != 0.0 {
-        dfluarw = COSTLUAR4 * (1.0 / 3.0) * cuberoot(skew.powf(-2.0)) * dskew;
+        dfluarw = COSTLUAR4 * (1.0 / 3.0) * cuberoot(skew.r_powf(-2.0)) * dskew;
         let p1 = 1.0 + fluarw2;
         let p3 = 3.0 + fluarw2;
         let p1_2 = p1 * p1;
         let p1_3 = p1 * p1 * p1;
         let p3_2 = p3 * p3;
-        rluarw = p1.powf(3.0) * skew2 / (p3_2 * fluarw2);
-        xluarw = p1.powf(1.5) * skew / (p3 * fluarw);
+        rluarw = p1.r_powf(3.0) * skew2 / (p3_2 * fluarw2);
+        xluarw = p1.r_powf(1.5) * skew / (p3 * fluarw);
         let d2f = 2.0 * fluarw * dfluarw;
         let den = p3_2 * fluarw2;
         drluarw = ((3.0 * p1_2 * d2f * skew2 + p1_3 * 2.0 * skew * dskew) * p3_2 * fluarw2
             - p1_3 * skew2 * (2.0 * p3 * d2f * fluarw2 + p3_2 * 2.0 * fluarw * dfluarw))
             / (den * den);
         let den = p3 * fluarw;
-        dxluarw = ((1.5 * p1.powf(0.5) * d2f * skew + p1.powf(1.5) * dskew) * p3 * fluarw
-            - p1.powf(1.5) * skew * (3.0 * dfluarw + 3.0 * fluarw2 * dfluarw))
+        dxluarw = ((1.5 * p1.r_powf(0.5) * d2f * skew + p1.r_powf(1.5) * dskew) * p3 * fluarw
+            - p1.r_powf(1.5) * skew * (3.0 * dfluarw + 3.0 * fluarw2 * dfluarw))
             / (den * den);
     } else {
         dfluarw = 0.0;
@@ -169,31 +171,31 @@ pub fn cbl(
         dxluarw = 0.0;
     }
 
-    let aluarw = 0.5 * (1.0 - xluarw / (4.0 + rluarw).powf(0.5));
+    let aluarw = 0.5 * (1.0 - xluarw / (4.0 + rluarw).r_powf(0.5));
     let bluarw = 1.0 - aluarw;
     let daluarw = -(0.5
-        * (dxluarw * (4.0 + rluarw).powf(0.5)
-            - 0.5 * xluarw * (4.0 + rluarw).powf(-0.5) * drluarw)
+        * (dxluarw * (4.0 + rluarw).r_powf(0.5)
+            - 0.5 * xluarw * (4.0 + rluarw).r_powf(-0.5) * drluarw)
         / (4.0 + rluarw));
     let dbluarw = -daluarw;
 
     let p1 = 1.0 + fluarw2;
     let ra = bluarw / (aluarw * p1);
     let rb = aluarw / (bluarw * p1);
-    let sigmawa = radw2 * ra.powf(0.5);
-    let sigmawb = radw2 * rb.powf(0.5);
+    let sigmawa = radw2 * ra.r_powf(0.5);
+    let sigmawb = radw2 * rb.r_powf(0.5);
     let a_p1 = aluarw * p1;
     let b_p1 = bluarw * p1;
-    let dsigmawa = dradw2 * ra.powf(0.5)
+    let dsigmawa = dradw2 * ra.r_powf(0.5)
         + radw2
             * (0.5
-                * ra.powf(-0.5)
+                * ra.r_powf(-0.5)
                 * ((dbluarw * a_p1 - bluarw * (daluarw * p1 + aluarw * 2.0 * fluarw * dfluarw))
                     / (a_p1 * a_p1)));
-    let dsigmawb = dradw2 * rb.powf(0.5)
+    let dsigmawb = dradw2 * rb.r_powf(0.5)
         + radw2
             * (0.5
-                * rb.powf(-0.5)
+                * rb.r_powf(-0.5)
                 * ((daluarw * b_p1 - aluarw * (dbluarw * p1 + bluarw * 2.0 * fluarw * dfluarw))
                     / (b_p1 * b_p1)));
 
@@ -211,8 +213,8 @@ pub fn cbl(
 
     let ga = deltawa / sigmawa;
     let gb = deltawb / sigmawb;
-    let pa = USURAD2P * (1.0 / sigmawa) * (-(0.5 * (ga * ga))).exp();
-    let pb = USURAD2P * (1.0 / sigmawb) * (-(0.5 * (gb * gb))).exp();
+    let pa = USURAD2P * (1.0 / sigmawa) * (-(0.5 * (ga * ga))).r_exp();
+    let pb = USURAD2P * (1.0 / sigmawb) * (-(0.5 * (gb * gb))).r_exp();
     let ptot = dens * aluarw * pa + dens * bluarw * pb;
 
     let aperfa = deltawa * USURAD2 / sigmawa;
@@ -261,23 +263,23 @@ fn bigaussian(zp: f64, wst: f64, h: f64, sigmaw: f64, ol: f64) -> (f64, f64, f64
     let z = zp / h;
     let mut transition = 1.0;
     if -h / ol < 15.0 {
-        transition = ((-h / ol + 10.0) / 10.0 * PI).sin() / 2.0 + 0.5;
+        transition = ((-h / ol + 10.0) / 10.0 * PI).r_sin() / 2.0 + 0.5;
     }
     let w2 = sigmaw * sigmaw;
-    let w3 = (1.2 * z * (1.0 - z).powf(1.5) + EPS) * (wst * wst * wst) * transition;
-    let skew = w3 / w2.powf(1.5);
+    let w3 = (1.2 * z * (1.0 - z).r_powf(1.5) + EPS) * (wst * wst * wst) * transition;
+    let skew = w3 / w2.r_powf(1.5);
     let skew2 = skew * skew;
     let radw2 = w2.sqrt();
     #[allow(clippy::excessive_precision)]
-    let fluarw = COSTLUAR4 * skew.powf(0.333_333_333_333_333);
+    let fluarw = COSTLUAR4 * skew.r_powf(0.333_333_333_333_333);
     let fluarw2 = fluarw * fluarw;
     let p3 = 3.0 + fluarw2;
-    let rluarw = (1.0 + fluarw2).powf(3.0) * skew2 / (p3 * p3 * fluarw2);
-    let xluarw = rluarw.powf(0.5);
-    let aluarw = 0.5 * (1.0 - xluarw / (4.0 + rluarw).powf(0.5));
+    let rluarw = (1.0 + fluarw2).r_powf(3.0) * skew2 / (p3 * p3 * fluarw2);
+    let xluarw = rluarw.r_powf(0.5);
+    let aluarw = 0.5 * (1.0 - xluarw / (4.0 + rluarw).r_powf(0.5));
     let bluarw = 1.0 - aluarw;
-    let sigmawa = radw2 * (bluarw / (aluarw * (1.0 + fluarw2))).powf(0.5);
-    let sigmawb = radw2 * (aluarw / (bluarw * (1.0 + fluarw2))).powf(0.5);
+    let sigmawa = radw2 * (bluarw / (aluarw * (1.0 + fluarw2))).r_powf(0.5);
+    let sigmawb = radw2 * (aluarw / (bluarw * (1.0 + fluarw2))).r_powf(0.5);
     let wa = fluarw * sigmawa;
     let wb = fluarw * sigmawb;
     (aluarw, sigmawa, sigmawb, wa, wb)

@@ -116,6 +116,8 @@
 //! says the scheme represents real convection, and per the crate's scope limit
 //! nothing here supports operational or emergency use.
 
+use petir::mathf::RealMath;
+
 /// `ELCRIT`: autoconversion threshold water content, g/g.
 const ELCRIT: f64 = 0.0011;
 /// `TLCRIT`: temperature (°C) below which the autoconversion threshold is zero.
@@ -354,9 +356,9 @@ fn tlift_impl(
             let tc = tg - 273.15;
             let denom = 243.5 + tc;
             let es = if tc >= 0.0 {
-                6.112 * (17.67 * tc / denom).exp()
+                6.112 * (17.67 * tc / denom).r_exp()
             } else {
-                (23.33086 - 6111.72784 / tg + 0.15215 * tg.ln()).exp()
+                (23.33086 - 6111.72784 / tg + 0.15215 * tg.r_ln()).r_exp()
             };
             qg = EPS0 * es / (c.pk(i) - es * (1.0 - EPS0));
         }
@@ -566,7 +568,7 @@ pub fn convect(sounding: &ConvectSounding, nl: usize, delt: f64, cbmf: f64) -> C
     // ***  CALCULATE LIFTED CONDENSATION LEVEL OF AIR AT PARCEL ORIGIN LEVEL
     let rh = c.qk(nk) / c.qsk(nk);
     let chi = c.tk(nk) / (1669.0 - 122.0 * rh - c.tk(nk));
-    let plcl = c.pk(nk) * rh.powf(chi);
+    let plcl = c.pk(nk) * rh.r_powf(chi);
     // Fortran `.LT.`/`.GE.` with a NaN operand are false, as in Rust.
     if plcl < 200.0 || plcl >= 2000.0 {
         return finish(
