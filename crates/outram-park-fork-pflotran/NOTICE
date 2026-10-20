@@ -47,7 +47,7 @@ Battelle name. Appendix A below reproduces the upstream COPYRIGHT verbatim to
 satisfy that condition.
 
 
-WHY THIS CRATE IS GPL-3.0-only
+WHY THE PORTED FILES ARE GPL-3.0-only (the crate conveys as an AGPL-3.0-only combined work since 2026-10-20, gh:#973)
 
 LGPLv3 is, by its own opening sentence, the terms and conditions of version 3 of
 the GNU General Public License supplemented by additional permissions. GPLv3

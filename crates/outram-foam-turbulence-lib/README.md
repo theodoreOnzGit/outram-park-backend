@@ -119,7 +119,7 @@ crate — the models are unit-tested translations, not benchmark-validated code.
 
 ## License
 
-GPL-3.0-only (follows OpenFOAM licensing).
+~~GPL-3.0-only~~ **AGPL-3.0-only** combined work (relicensed 2026-10-20, gh:#973; ported files keep GPL-3.0 and `LICENSE.GPL-3.0` ships beside `LICENSE`; see `docs/relicensing-agpl-2026-10-20.md`). The ported files follow OpenFOAM licensing (GPL-3.0).
 
 ## Copyright
 

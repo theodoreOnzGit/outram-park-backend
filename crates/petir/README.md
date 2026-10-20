@@ -316,7 +316,7 @@ derivation record, is in [`NOTICE`](NOTICE).
 
 ## Licence
 
-GPL-3.0-only. GSL is GPL-3.0-**or-later**, verified on 2026-09-14 by reading its
+~~GPL-3.0-only~~ **AGPL-3.0-only** combined work (relicensed 2026-10-20, gh:#973; ported files keep GPL-3.0 and `LICENSE.GPL-3.0` ships beside `LICENSE`; see `docs/relicensing-agpl-2026-10-20.md`). GSL is GPL-3.0-**or-later**, verified on 2026-09-14 by reading its
 per-file headers — not its `COPYING`, whose "version 3 or later" line belongs to
 the *How to Apply These Terms* appendix and is boilerplate rather than GSL's own
 grant. Porting GPL source creates a derivative work, so the flow is **one-way**:

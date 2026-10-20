@@ -512,5 +512,5 @@ Citations appreciated:
 
 ## Licence
 
-GPL-3.0, without **any** warranty. Results are not guaranteed to be physically
+~~GPL-3.0~~ **AGPL-3.0-only** (relicensed 2026-10-20, gh:#973), without **any** warranty. Results are not guaranteed to be physically
 accurate. Use at your own risk.

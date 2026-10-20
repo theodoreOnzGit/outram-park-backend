@@ -18,7 +18,7 @@ pinned `dwsim-upstream` commit in their attribution headers.
 
 **Upstream:** DWSIM is GPL-3.0 (confirmed against the upstream repository,
 2026-07-13 — an earlier version of this note incorrectly said LGPL-3.0).
-This Rust port is GPL-3.0-only per the workspace default.
+This Rust port is ~~GPL-3.0-only~~ **AGPL-3.0-only** combined work (relicensed 2026-10-20, gh:#973; ported files keep GPL-3.0 and `LICENSE.GPL-3.0` ships beside `LICENSE`; see `docs/relicensing-agpl-2026-10-20.md`).
 
 **Language note:** DWSIM is written in C# (primary) and VB.NET (legacy modules).
 Files live in a Visual Studio solution (`DWSIM.sln`), targeting .NET 8 on Linux

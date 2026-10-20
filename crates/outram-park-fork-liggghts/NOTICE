@@ -12,8 +12,8 @@ LIGGGHTS-PUBLIC's own source headers state, verbatim (verified 2026-07-23 in
 
 "GPL version 2 **or later**" is **compatible with GPL-3.0**: the "or later"
 option lets a recipient use the work under GPLv3. LIGGGHTS-PUBLIC source may
-therefore be ported into this GPL-3.0-only crate and redistributed under
-GPL-3.0-only. (An earlier revision of this NOTICE incorrectly described the
+therefore be ported into this ~~GPL-3.0-only~~ AGPL-3.0-only crate (relicensed 2026-10-20, gh:#973) and redistributed under
+~~GPL-3.0-only~~ AGPL-3.0-only. (An earlier revision of this NOTICE incorrectly described the
 upstream as "GPL-2.0-only" and treated porting as blocked — that was a mistake;
 the source headers say "or later".)
 

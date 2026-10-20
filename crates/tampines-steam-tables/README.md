@@ -1088,7 +1088,7 @@ Starting the h,s flash algorithms.
 Also, copied some openfoam algorithms which will form the basis for which 
 the steam tables in tampines are used to solve two phase flow in transient 
 scenarios. Since OpenFOAM is licensed under 
-GNU GPLv3, tampines-steam-tables will also be licensed under GNU GPL v3.
+GNU GPLv3, tampines-steam-tables ~~will also be licensed under GNU GPL v3~~ is licensed **AGPL-3.0-only** as a combined work (relicensed 2026-10-20, gh:#973; ported files keep GPL-3.0 and `LICENSE.GPL-3.0` ships beside `LICENSE`; see `docs/relicensing-agpl-2026-10-20.md`).
 
 Note that for points near boundaries, correction factors have not been 
 applied for (p,h) and (p,s) flashes. (h,s) flashes have only been 

@@ -11,8 +11,10 @@
 //! copyright the OpenMC development team (MIT, Massachusetts Institute of
 //! Technology) and Argonne National Laboratory, licensed MIT. That license
 //! is GPL-compatible, so this translation is distributed under
-//! `GPL-3.0-only` — the same license as the rest of the OUTRAM PARK
-//! workspace, as permitted by the terms of the upstream MIT license.
+//! ~~`GPL-3.0-only`~~ **`AGPL-3.0-only`** (relicensed 2026-10-20, gh:#973;
+//! see `docs/relicensing-agpl-2026-10-20.md`) — the same license as the rest
+//! of the OUTRAM PARK workspace, as permitted by the terms of the upstream MIT
+//! license.
 //!
 //! **This is OUTRAM PARK's independent Rust translation of selected OpenMC
 //! algorithms — it is not the official OpenMC software, and is not

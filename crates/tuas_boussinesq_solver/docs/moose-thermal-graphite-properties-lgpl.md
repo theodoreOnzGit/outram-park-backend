@@ -22,7 +22,7 @@ against (see
 The excerpt is redistributed under the terms of the LGPL-2.1, which permits
 copying and redistribution provided the copyright notice and licence are kept
 (they are: the upstream header is reproduced unchanged at the top of each
-file below). LGPL-2.1 code may be combined with this GPL-3.0 workspace
+file below). LGPL-2.1 code may be combined with this ~~GPL-3.0~~ AGPL-3.0-only (2026-10-20, gh:#973; GPL-3.0 combined-work files) workspace
 (LGPL-2.1 section 3 allows conversion to the GNU GPL). **No MOOSE code is
 compiled into this workspace**: the Rust implementation in `nuclear_graphite.rs`
 is written from the published formula (Butland & Maddison 1973/74), and this

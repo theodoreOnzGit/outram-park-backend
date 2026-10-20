@@ -1,8 +1,8 @@
 # Crate Documentation
 
-**Version:** 0.1.6
+**Version:** 0.1.8
 
-**Format Version:** 60
+**Format Version:** 61
 
 # Module `tuas_boussinesq_solver`
 
@@ -18,12 +18,14 @@ with uom as well.
 This library was initially developed for
 use in my PhD thesis under supervision
 of Professor Per F. Peterson. It a thermal hydraulics
-library in Rust that is released under the GNU General Public License
-v 3.0. This is partly due to the fact that some of the libraries
+library in Rust that is released under the ~~GNU General Public License
+v 3.0~~ **AGPL-3.0-only** (see below). This is partly due to the fact that some of the libraries
 inherit from GeN-Foam and OpenFOAM, both licensed under GNU General
 Public License v3.0.
 
-As such, the entire library is released under GNU GPL v3.0. It is a strong
+As such, the entire library is released under ~~GNU GPL v3.0~~ **AGPL-3.0-only**
+(relicensed 2026-10-20, gh:#973; a combined work, ported files keep GPL-3.0,
+`LICENSE.GPL-3.0`). It is a strong
 copyleft license which means you cannot use it in proprietary software.
 
 
@@ -329,7 +331,7 @@ wrong heat transfer interaction type
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -417,7 +419,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> MatrixError { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -451,7 +453,7 @@ Fields:
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &MatrixError) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Read**
@@ -476,7 +478,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -580,7 +582,7 @@ pub struct SquareMatrix {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> SquareMatrix { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -622,7 +624,7 @@ pub struct SquareMatrix {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -642,7 +644,7 @@ pub struct SquareMatrix {
 
 **Attributes:**
 
-- `Other("#[warn(missing_docs)]")`
+- `Other("#[attr = LintCheck([LintCheck {lint_name: \"missing_docs\", kind: Warn}])]")`
 
 prelude, for easy importing
 Convenience re-export surface for `tuas_boussinesq_solver`.
@@ -840,7 +842,7 @@ pub use beta_testing::*;
 
 **Attributes:**
 
-- `Other("#[warn(missing_docs)]")`
+- `Other("#[attr = LintCheck([LintCheck {lint_name: \"missing_docs\", kind: Warn}])]")`
 
 Module specifically for thermophysical properties
 For liquids and solids with almost invariable density
@@ -3709,10 +3711,23 @@ Thermophysical property correlations for two grades of nuclear graphite:
 
 - **Matrix graphite, A3 grade** — the fuel-pebble matrix graphite of the
   HTR-10 / HTR-PM pebble-bed reactors
-  ([`SolidMaterial::NuclearGraphiteMatrixA3`]).
+  ([`SolidMaterial::NuclearGraphiteMatrixA3`]), and its
+  **high-temperature** sibling
+  ([`SolidMaterial::NuclearGraphiteMatrixA3HighTemp`], 300-3000 K, added
+  2026-09-28): Butland & Maddison polynomial cp (backed to 3000 K) with the
+  same conductivity **extrapolated above 2000 K**.
 - **IG-110** — the fine-grained isotropic reflector-grade graphite used in
   the HTTR and HTR-10 reflector structures
   ([`SolidMaterial::NuclearGraphiteIG110`]).
+
+**No high-temperature IG-110 variant, deliberately (2026-09-28).** The
+IG-110 quadratic `66.32 - 4.994e-2 T + 1.712e-5 T^2` has its minimum at
+T = 4.994e-2 / (2 x 1.712e-5) = 1458.5 K (k = 29.9 W/(m K)) and rises
+from there — to 34.9 at 2000 K and 70.6 at 3000 K. Extending it would
+return a conductivity that more than doubles past its minimum, an artefact
+of fitting a parabola, so the extension was checked and rejected rather
+than flagged. Reflector graphite stays far below 2000 K in every transient
+`htgr_sim_v1` runs, so the base window suffices there.
 
 All correlations are transcribed from the openly licensed **Virtual Test
 Bed (VTB)** input decks vendored in this workspace under
@@ -3869,6 +3884,84 @@ because the table is shared between both graphite variants.)
 pub fn nuclear_graphite_specific_heat_capacity_butland_maddison_spline(temperature: ThermodynamicTemperature) -> Result<SpecificHeatCapacity, crate::tuas_lib_error::TuasLibError> { /* ... */ }
 ```
 
+#### Function `min_temp_butland_maddison_polynomial`
+
+**Attributes:**
+
+- `Other("#[attr = Inline(Hint)]")`
+
+Lowest temperature, 250 K, at which Butland & Maddison's polynomial 3 may
+be used "with confidence" (J. Nucl. Mater. 49 (1973/74) 45-56, sect. 4).
+
+```rust
+pub fn min_temp_butland_maddison_polynomial() -> ThermodynamicTemperature { /* ... */ }
+```
+
+#### Function `max_temp_butland_maddison_polynomial`
+
+**Attributes:**
+
+- `Other("#[attr = Inline(Hint)]")`
+
+Highest temperature, 3000 K, at which Butland & Maddison's polynomial 3
+may be used "with confidence" (same paper, sect. 4).
+
+```rust
+pub fn max_temp_butland_maddison_polynomial() -> ThermodynamicTemperature { /* ... */ }
+```
+
+#### Function `nuclear_graphite_specific_heat_capacity_butland_maddison_polynomial`
+
+**Attributes:**
+
+- `Other("#[attr = Inline(Hint)]")`
+
+Returns the specific heat capacity of nuclear graphite from **Butland &
+Maddison's polynomial 3**, valid **250 K to 3000 K**.
+
+**Source:** Butland, A. T. D. & Maddison, R. J., "The specific heat of
+graphite: an evaluation of measurements", *Journal of Nuclear Materials*
+**49** (1973/74) 45-56, polynomial 3 (p. 55), with T in K and cp in
+cal/(g K):
+
+```text
+cp = 0.54212 - 2.42667e-6 T - 90.2725 T^-1 - 43449.3 T^-2
+     + 1.59309e7 T^-3 - 1.43688e9 T^-4
+```
+
+Polynomial 3 is the authors' final recommendation: their least-squares
+fit to well-graphitised specimens (polynomial 2), with the constant and
+linear terms adjusted so the derived Cv at 1800 K agrees with Page's
+phonon-spectrum prediction while Cp at 300 K is unchanged. The fit used
+data spanning 200-3500 K, but the authors state it "may only be used with
+confidence over the range 250 K - 3000 K"; outside that range this returns
+`TuasLibError::ThermophysicalPropertyTemperatureRangeError`.
+
+Coefficients read from the paper itself (maintainer's copy, restricted
+literature, 2026-09-28) and cross-checked against the same correlation as
+implemented in the MOOSE framework's `ThermalGraphiteProperties`
+(`mooseframework.inl.gov/source/solidproperties/ThermalGraphiteProperties.html`,
+Idaho National Laboratory, LGPL-2.1), which also cites Butland & Maddison.
+Only the published formula is used here; no MOOSE code was copied. The
+MOOSE source is reproduced verbatim, with its LGPL-2.1 attribution, in
+`crates/tuas_boussinesq_solver/docs/moose-thermal-graphite-properties-lgpl.md`
+(commit `9952567b`), for comparison.
+
+**Unit conversion:** 1 cal = **4.184 J** (thermochemical calorie), as MOOSE
+uses. The paper does not say which calorie it means. The VTB cp table in
+[`nuclear_graphite_specific_heat_capacity_butland_maddison_spline`] is this
+same polynomial evaluated with the International Table calorie
+(4.1868 J); the two conversions differ by 0.067 %, far inside the
+correlation's own spread (the paper reports up to 10 % scatter between
+measurements above ~800 K).
+
+**Grade:** cp of well-graphitised nuclear graphite, treated as
+grade-insensitive for both the A3 matrix and IG-110 (see the module doc).
+
+```rust
+pub fn nuclear_graphite_specific_heat_capacity_butland_maddison_polynomial(temperature: ThermodynamicTemperature) -> Result<SpecificHeatCapacity, crate::tuas_lib_error::TuasLibError> { /* ... */ }
+```
+
 #### Function `nuclear_graphite_fluence_damage_factor`
 
 **Attributes:**
@@ -3899,8 +3992,9 @@ The saturating exponential term levels off near 0.336 by `gam ~ 5`, after
 which the linear `3.5e-2*gam` term dominates and drives the factor
 through zero at `gam ~ 19` — which is unphysical (conductivity cannot be
 negative). This function therefore returns
-`TuasLibError::ThermophysicalPropertyTemperatureRangeError` for `gam`
-outside [0, 15]: at `gam = 15` the factor is still physically positive
+~~`TuasLibError::ThermophysicalPropertyTemperatureRangeError`~~
+`TuasLibError::CorrelationRangeError` (**CORRECTED 2026-09-28** to match
+the code below) for `gam` outside [0, 15]: at `gam = 15` the factor is still physically positive
 (measured 0.1390, see the unit test), leaving margin before the
 unphysical zero crossing at `gam ~ 19.0`.
 
@@ -3934,12 +4028,32 @@ interpretation, since the deck declares no unit). The correlation is
 **transcribed from the VTB HTR-PM pebble model, which names no upstream
 source** for it.
 
-Valid ranges enforced: temperature 300 K to 2000 K (the deck states no
-range; this range matches the sibling graphite cp table so all
-nuclear-graphite properties share one coded validity window), and fluence
-`gam` in [0, 15] (beyond which the damage factor heads to an unphysical
-zero crossing at `gam ~ 19`). Out-of-range inputs return
-`TuasLibError::ThermophysicalPropertyTemperatureRangeError`.
+**Upstream provenance, traced 2026-09-28 (maintainer).** The constants are
+the **A3-27, 1800 degC heat-treatment** row of Table 3.3 of PNNL-31427
+(Wells, D., Phillips, B., Geelhood, K., June 2021; US NRC ADAMS
+ML21175A152), which takes them from Hales et al. (2020); the functional
+form is Gontard & Nabielek (1990), via Miller et al. (2018). **Not
+re-checked against PNNL-31427 in this change** — the report is not held in
+this workspace, so this records the maintainer's trace rather than a
+reading made here. What the trace does NOT settle is the measured
+temperature range of Gontard & Nabielek's data (the maintainer is
+obtaining the paper).
+
+Valid ranges enforced: temperature 300 K to 2000 K — **a coding choice, not
+a stated validity range**: the deck states no range, and 300-2000 K was
+adopted to match the sibling graphite cp table so all nuclear-graphite
+properties share one coded validity window. The high-temperature sibling
+[`nuclear_graphite_matrix_a3_thermal_conductivity_high_temp_fluence_dependent`]
+evaluates the same formula to 3000 K, flagged as extrapolation above
+2000 K. Fluence `gam` is enforced in [0, 15] (beyond which the damage
+factor heads to an unphysical zero crossing at `gam ~ 19`). An
+out-of-range temperature returns
+`TuasLibError::ThermophysicalPropertyTemperatureRangeError`; an
+out-of-range fluence returns `TuasLibError::CorrelationRangeError`
+(~~"Out-of-range inputs return
+`TuasLibError::ThermophysicalPropertyTemperatureRangeError`"~~ **CORRECTED
+2026-09-28** — the fluence check in
+[`nuclear_graphite_fluence_damage_factor`] returns `CorrelationRangeError`).
 
 ```rust
 pub fn nuclear_graphite_matrix_a3_thermal_conductivity_fluence_dependent(temperature: ThermodynamicTemperature, fluence: Ratio) -> Result<ThermalConductivity, crate::tuas_lib_error::TuasLibError> { /* ... */ }
@@ -4053,6 +4167,143 @@ Like its siblings this function performs no range check of its own
 
 ```rust
 pub fn nuclear_graphite_specific_enthalpy(temperature: ThermodynamicTemperature) -> AvailableEnergy { /* ... */ }
+```
+
+#### Function `min_temp_nuclear_graphite_high_temp`
+
+**Attributes:**
+
+- `Other("#[attr = Inline(Hint)]")`
+
+Lowest temperature, 300 K, of the high-temperature A3 matrix-graphite
+variant's coded window.
+
+The cp polynomial is good from 250 K, but the conductivity correlation's
+coded window starts at 300 K (see
+[`nuclear_graphite_matrix_a3_thermal_conductivity_fluence_dependent`]), and
+a variant must not advertise a floor one of its properties refuses.
+
+```rust
+pub fn min_temp_nuclear_graphite_high_temp() -> ThermodynamicTemperature { /* ... */ }
+```
+
+#### Function `max_temp_nuclear_graphite_high_temp`
+
+**Attributes:**
+
+- `Other("#[attr = Inline(Hint)]")`
+
+Highest temperature, 3000 K, of the high-temperature A3 matrix-graphite
+variant's coded window — the published upper limit of Butland & Maddison's
+polynomial 3 ([`max_temp_butland_maddison_polynomial`]).
+
+**Only the cp is backed to 3000 K.** The conductivity above 2000 K is
+extrapolated; see
+[`nuclear_graphite_matrix_a3_thermal_conductivity_high_temp`].
+
+```rust
+pub fn max_temp_nuclear_graphite_high_temp() -> ThermodynamicTemperature { /* ... */ }
+```
+
+#### Function `nuclear_graphite_matrix_a3_high_temp_specific_heat_capacity`
+
+**Attributes:**
+
+- `Other("#[attr = Inline(Hint)]")`
+
+Returns the specific heat capacity of A3 matrix graphite for the
+high-temperature variant: Butland & Maddison polynomial 3
+([`nuclear_graphite_specific_heat_capacity_butland_maddison_polynomial`]),
+evaluated inside the variant's 300-3000 K window.
+
+The [`SolidMaterial::NuclearGraphiteMatrixA3HighTemp`] enum arm dispatches
+here. Out of window returns
+`TuasLibError::ThermophysicalPropertyTemperatureRangeError`.
+
+```rust
+pub fn nuclear_graphite_matrix_a3_high_temp_specific_heat_capacity(temperature: ThermodynamicTemperature) -> Result<SpecificHeatCapacity, crate::tuas_lib_error::TuasLibError> { /* ... */ }
+```
+
+#### Function `nuclear_graphite_matrix_a3_thermal_conductivity_high_temp_fluence_dependent`
+
+**Attributes:**
+
+- `Other("#[attr = Inline(Hint)]")`
+
+Returns the thermal conductivity, in W/(m K), of A3 matrix graphite at the
+given temperature and fast-neutron fluence, over the **high-temperature
+variant's 300-3000 K window**.
+
+**Identical formula to**
+[`nuclear_graphite_matrix_a3_thermal_conductivity_fluence_dependent`]
+(same constants, same Maxwell/density factor, same fluence factor), so at
+or below 2000 K the two return the same number to the last bit. Only the
+coded temperature window differs.
+
+# Above 2000 K this is EXTRAPOLATION — read before quoting a number
+
+**The correlation's measured range (Gontard & Nabielek 1990) is not yet
+confirmed; above 2000 K this is extrapolated.** The base variant's
+2000 K ceiling was itself a coding choice (it matched the sibling cp
+table), not a stated validity limit, so there is no published range to
+widen to — the widening to 3000 K follows the cp polynomial's range and
+nothing about the conductivity data.
+
+The fitted temperature factor `1 - 9.7556e-4 (T - 373.15) exp(-6.036e-4 (T - 273.15))`
+has its **minimum at T = 373.15 + 1/6.036e-4 = 2029.9 K** and rises above
+it. Measured at zero fluence (2026-09-28, see the unit test): k =
+21.98 W/(m K) at 2000 K, 22.91 at 2500 K and 25.25 at 3000 K — a
+**+14.9 %** rise from 2000 to 3000 K that comes from the shape of the fit,
+not from any data in that range. If the real conductivity keeps falling or
+flattens, this **over-states k** above ~2030 K, which under-states the
+temperature rise inside a pebble (the kernel reads cooler than it would).
+
+Fluence window `gam` in [0, 15] as for the base form. Out of window returns
+`TuasLibError::ThermophysicalPropertyTemperatureRangeError` (temperature)
+or `TuasLibError::CorrelationRangeError` (fluence).
+
+```rust
+pub fn nuclear_graphite_matrix_a3_thermal_conductivity_high_temp_fluence_dependent(temperature: ThermodynamicTemperature, fluence: Ratio) -> Result<ThermalConductivity, crate::tuas_lib_error::TuasLibError> { /* ... */ }
+```
+
+#### Function `nuclear_graphite_matrix_a3_thermal_conductivity_high_temp`
+
+**Attributes:**
+
+- `Other("#[attr = Inline(Hint)]")`
+
+Zero-fluence form of
+[`nuclear_graphite_matrix_a3_thermal_conductivity_high_temp_fluence_dependent`]
+— **extrapolated above 2000 K**, see there. The
+[`SolidMaterial::NuclearGraphiteMatrixA3HighTemp`] enum arm dispatches here.
+
+```rust
+pub fn nuclear_graphite_matrix_a3_thermal_conductivity_high_temp(temperature: ThermodynamicTemperature) -> Result<ThermalConductivity, crate::tuas_lib_error::TuasLibError> { /* ... */ }
+```
+
+#### Function `nuclear_graphite_matrix_a3_high_temp_specific_enthalpy`
+
+**Attributes:**
+
+- `Other("#[attr = Inline(Hint)]")`
+
+Returns the specific enthalpy, in J/kg, of the high-temperature A3
+matrix-graphite variant, `h = integral of cp dT` from 273.15 K (the
+database's house datum) with cp the Butland & Maddison polynomial 3.
+
+The integral is taken **analytically** (see
+`butland_maddison_polynomial_enthalpy_joule_per_kg`), so it is exact
+to f64 roundoff at every temperature and is consistent with
+[`nuclear_graphite_matrix_a3_high_temp_specific_heat_capacity`] by
+construction: `dh/dT = cp`. The 273.15-300 K stretch below the variant's
+coded floor is inside the polynomial's own 250-3000 K range, so the
+datum involves no extrapolation (unlike the spline variant's).
+
+Like its siblings this performs no range check; range enforcement lives in
+the cp and conductivity accessors.
+
+```rust
+pub fn nuclear_graphite_matrix_a3_high_temp_specific_enthalpy(temperature: ThermodynamicTemperature) -> AvailableEnergy { /* ... */ }
 ```
 
 ## Module `pyrogel_hps`
@@ -4352,7 +4603,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Material { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -4394,7 +4645,7 @@ Fields:
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Material) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Read**
@@ -4414,7 +4665,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -4451,6 +4702,7 @@ pub enum SolidMaterial {
     PyrogelHPS,
     NuclearGraphiteMatrixA3,
     NuclearGraphiteIG110,
+    NuclearGraphiteMatrixA3HighTemp,
     CustomSolid((ThermodynamicTemperature, ThermodynamicTemperature), fn(ThermodynamicTemperature) -> SpecificHeatCapacity, fn(ThermodynamicTemperature) -> ThermalConductivity, fn(ThermodynamicTemperature) -> MassDensity, Length),
 }
 ```
@@ -4527,6 +4779,28 @@ NEA/NSC/DOC(2006)1 table 1.27. Valid 300 K to 2000 K. See
 `solid_database::nuclear_graphite` for the correlations, including
 fluence-degraded conductivity variants not reachable from this enum.
 
+###### `NuclearGraphiteMatrixA3HighTemp`
+
+A3-grade nuclear matrix graphite, **high-temperature property set**,
+coded window 300 K to 3000 K. Added 2026-09-28 (gh:#350, gh:#351) so a
+pebble-bed transient past 2000 K keeps a property set; the base
+[`SolidMaterial::NuclearGraphiteMatrixA3`] is unchanged and other
+consumers keep it.
+
+- **cp**: Butland & Maddison (1973/74) polynomial 3, which its authors
+  state may be used with confidence over 250-3000 K (the base variant's
+  VTB table is the same polynomial stopped at 2000 K). Backed to 3000 K.
+- **Thermal conductivity**: the base variant's A3 correlation (zero
+  fluence), unchanged at or below 2000 K. **The correlation's measured
+  range (Gontard & Nabielek 1990) is not yet confirmed; above 2000 K
+  this is extrapolated.** The fitted form has a minimum at 2029.9 K and
+  rises above it (+14.9 % from 2000 to 3000 K), which is the shape of
+  the fit, not data. Not validated above 2000 K.
+- **Density**: 1730 kg/m^3, as the base variant.
+
+See `solid_database::nuclear_graphite` (the high-temperature section)
+for the functions and the measured values.
+
 ###### `CustomSolid`
 
 Custom solid, for the user to decide the correlations himself
@@ -4596,7 +4870,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> SolidMaterial { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -4648,7 +4922,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -4825,7 +5099,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> LiquidMaterial { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -4877,7 +5151,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -4919,7 +5193,7 @@ pub fn range_check(material: &Material, material_temperature: ThermodynamicTempe
 
 **Attributes:**
 
-- `Other("#[warn(missing_docs)]")`
+- `Other("#[attr = LintCheck([LintCheck {lint_name: \"missing_docs\", kind: Warn}])]")`
 
 Module for correlations of fluid mechanics
 suitable for tuas_boussinesq_solver (single phase, negligble density changes
@@ -4997,7 +5271,7 @@ pub mod fluid_mechanics_correlations { /* ... */ }
 
 **Attributes:**
 
-- `Other("#[warn(missing_docs)]")`
+- `Other("#[attr = LintCheck([LintCheck {lint_name: \"missing_docs\", kind: Warn}])]")`
 
 calculate darcy, fanning friction factor
 using churchill correlation
@@ -5072,7 +5346,7 @@ pub fn get_reynolds_from_bejan(bejan_number_d: f64, roughness_ratio: f64, length
 
 **Attributes:**
 
-- `Other("#[warn(missing_docs)]")`
+- `Other("#[attr = LintCheck([LintCheck {lint_name: \"missing_docs\", kind: Warn}])]")`
 
 contains functions and/or structs
 which help you calcualte a custom fLDK factor
@@ -5159,7 +5433,7 @@ pub fn get_reynolds(custom_darcy: &'static dyn Fn(f64, f64) -> anyhow::Result<f6
 
 **Attributes:**
 
-- `Other("#[warn(missing_docs)]")`
+- `Other("#[attr = LintCheck([LintCheck {lint_name: \"missing_docs\", kind: Warn}])]")`
 
 contains functions and/or structs
 which help you dimensionalise and nondimensionalise variables
@@ -5604,7 +5878,7 @@ pub fn get_reynolds_number(bejan_d: f64, roughness_ratio: f64, length_to_diamete
 
 **Attributes:**
 
-- `Other("#[warn(missing_docs)]")`
+- `Other("#[attr = LintCheck([LintCheck {lint_name: \"missing_docs\", kind: Warn}])]")`
 
 Module for heat transfer correlations
 suitable for tuas_boussinesq_solver (single phase, negligble density changes
@@ -6636,7 +6910,7 @@ pub struct NusseltPrandtlReynoldsData {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> NusseltPrandtlReynoldsData { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -6670,7 +6944,7 @@ pub struct NusseltPrandtlReynoldsData {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &NusseltPrandtlReynoldsData) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Read**
@@ -6690,7 +6964,7 @@ pub struct NusseltPrandtlReynoldsData {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -6773,7 +7047,7 @@ pub struct WakaoData {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> WakaoData { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -6807,7 +7081,7 @@ pub struct WakaoData {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &WakaoData) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Read**
@@ -6827,7 +7101,7 @@ pub struct WakaoData {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -6912,7 +7186,7 @@ pub struct GnielinskiData {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> GnielinskiData { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -6946,7 +7220,7 @@ pub struct GnielinskiData {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &GnielinskiData) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Read**
@@ -6966,7 +7240,7 @@ pub struct GnielinskiData {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -7362,7 +7636,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> NusseltCorrelation { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -7378,7 +7652,7 @@ Fields:
 
 - **Default**
   - ```rust
-    fn default() -> NusseltCorrelation { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
 - **Freeze**
@@ -7396,7 +7670,7 @@ Fields:
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &NusseltCorrelation) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Read**
@@ -7416,7 +7690,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -8220,7 +8494,7 @@ solid               ||                  fluid
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> CylindricalAndSphericalSolidFluidArrangement { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -8249,7 +8523,7 @@ solid               ||                  fluid
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &CylindricalAndSphericalSolidFluidArrangement) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Read**
@@ -8269,7 +8543,7 @@ solid               ||                  fluid
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -8333,7 +8607,7 @@ pub struct DataDualCartesianThermalConductanceThreeDimension {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> DataDualCartesianThermalConductanceThreeDimension { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -8362,7 +8636,7 @@ pub struct DataDualCartesianThermalConductanceThreeDimension {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &DataDualCartesianThermalConductanceThreeDimension) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Read**
@@ -8382,7 +8656,7 @@ pub struct DataDualCartesianThermalConductanceThreeDimension {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -8850,7 +9124,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> HeatTransferInteractionType { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -8883,7 +9157,7 @@ Fields:
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &HeatTransferInteractionType) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Read**
@@ -8903,7 +9177,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
   - ```rust
@@ -8965,7 +9239,7 @@ pub struct DataUserSpecifiedConvectionResistance {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> DataUserSpecifiedConvectionResistance { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -8994,7 +9268,7 @@ pub struct DataUserSpecifiedConvectionResistance {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &DataUserSpecifiedConvectionResistance) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Read**
@@ -9014,7 +9288,7 @@ pub struct DataUserSpecifiedConvectionResistance {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -9084,7 +9358,7 @@ pub struct DataAdvection {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> DataAdvection { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -9117,7 +9391,7 @@ pub struct DataAdvection {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &DataAdvection) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Read**
@@ -9137,7 +9411,7 @@ pub struct DataAdvection {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
   - ```rust
@@ -9175,7 +9449,7 @@ pub use advection::*;
 
 **Attributes:**
 
-- `Other("#[warn(missing_docs)]")`
+- `Other("#[attr = LintCheck([LintCheck {lint_name: \"missing_docs\", kind: Warn}])]")`
 
 specific dimensions for control volume construction
 Geometric dimension newtypes for control-volume construction.
@@ -9267,7 +9541,7 @@ pub struct XThicknessThermalConduction {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> XThicknessThermalConduction { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -9304,7 +9578,7 @@ pub struct XThicknessThermalConduction {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &XThicknessThermalConduction) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Read**
@@ -9324,7 +9598,7 @@ pub struct XThicknessThermalConduction {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -9379,7 +9653,7 @@ pub struct RadialCylindricalThicknessThermalConduction {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> RadialCylindricalThicknessThermalConduction { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -9416,7 +9690,7 @@ pub struct RadialCylindricalThicknessThermalConduction {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &RadialCylindricalThicknessThermalConduction) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Read**
@@ -9436,7 +9710,7 @@ pub struct RadialCylindricalThicknessThermalConduction {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -9492,7 +9766,7 @@ pub struct InnerDiameterThermalConduction {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> InnerDiameterThermalConduction { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -9529,7 +9803,7 @@ pub struct InnerDiameterThermalConduction {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &InnerDiameterThermalConduction) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Read**
@@ -9549,7 +9823,7 @@ pub struct InnerDiameterThermalConduction {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -9605,7 +9879,7 @@ pub struct OuterDiameterThermalConduction {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> OuterDiameterThermalConduction { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -9642,7 +9916,7 @@ pub struct OuterDiameterThermalConduction {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &OuterDiameterThermalConduction) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Read**
@@ -9662,7 +9936,7 @@ pub struct OuterDiameterThermalConduction {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -9717,7 +9991,7 @@ pub struct CylinderLengthThermalConduction {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> CylinderLengthThermalConduction { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -9754,7 +10028,7 @@ pub struct CylinderLengthThermalConduction {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &CylinderLengthThermalConduction) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Read**
@@ -9774,7 +10048,7 @@ pub struct CylinderLengthThermalConduction {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -9829,7 +10103,7 @@ pub struct CrossSectionalArea {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> CrossSectionalArea { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -9866,7 +10140,7 @@ pub struct CrossSectionalArea {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &CrossSectionalArea) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Read**
@@ -9886,7 +10160,7 @@ pub struct CrossSectionalArea {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -9940,7 +10214,7 @@ pub struct SurfaceArea {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> SurfaceArea { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -9977,7 +10251,7 @@ pub struct SurfaceArea {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &SurfaceArea) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Read**
@@ -9997,7 +10271,7 @@ pub struct SurfaceArea {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -10029,7 +10303,7 @@ pub const UNIT_AREA_SQ_METER_FOR_ONE_DIMENSIONAL_CALCS: f64 = 1.0;
 
 **Attributes:**
 
-- `Other("#[warn(missing_docs)]")`
+- `Other("#[attr = LintCheck([LintCheck {lint_name: \"missing_docs\", kind: Warn}])]")`
 
 Module for boundary conditions
 Thermal boundary conditions for the solver.
@@ -10135,7 +10409,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> BCType { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -10168,7 +10442,7 @@ Fields:
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &BCType) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Read**
@@ -10188,7 +10462,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
   - ```rust
@@ -10212,7 +10486,7 @@ Fields:
 
 **Attributes:**
 
-- `Other("#[warn(missing_docs)]")`
+- `Other("#[attr = LintCheck([LintCheck {lint_name: \"missing_docs\", kind: Warn}])]")`
 
 Module for single control volumes (mainly for fluid control volumes,
 but solid control volumes are set by setting flowrate to zero)
@@ -10640,7 +10914,7 @@ pub struct SingleCVNode {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> SingleCVNode { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -10655,7 +10929,7 @@ pub struct SingleCVNode {
 
 - **Default**
   - ```rust
-    fn default() -> SingleCVNode { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
 - **Freeze**
@@ -10681,7 +10955,7 @@ pub struct SingleCVNode {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &SingleCVNode) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Read**
@@ -10701,7 +10975,7 @@ pub struct SingleCVNode {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
   - ```rust
@@ -10729,7 +11003,7 @@ pub struct SingleCVNode {
 
 **Attributes:**
 
-- `Other("#[warn(missing_docs)]")`
+- `Other("#[attr = LintCheck([LintCheck {lint_name: \"missing_docs\", kind: Warn}])]")`
 
 Module for array control volumes (mainly for fluid control volumes,
 but solid control volumes are set by setting flowrate to zero)
@@ -11180,7 +11454,7 @@ pub struct CartesianConduction1DArray {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> CartesianConduction1DArray { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -11195,7 +11469,7 @@ pub struct CartesianConduction1DArray {
 
 - **Default**
   - ```rust
-    fn default() -> CartesianConduction1DArray { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
 - **Freeze**
@@ -11213,7 +11487,7 @@ pub struct CartesianConduction1DArray {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &CartesianConduction1DArray) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Read**
@@ -11233,7 +11507,7 @@ pub struct CartesianConduction1DArray {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -11627,7 +11901,7 @@ pub struct SolidColumn {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> SolidColumn { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -11668,7 +11942,7 @@ pub struct SolidColumn {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &SolidColumn) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Read**
@@ -11688,7 +11962,7 @@ pub struct SolidColumn {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
   - ```rust
@@ -12015,7 +12289,7 @@ not done yet
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> DimensionlessDarcyLossCorrelations { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -12050,7 +12324,7 @@ not done yet
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &DimensionlessDarcyLossCorrelations) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Read**
@@ -12070,7 +12344,7 @@ not done yet
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -12450,7 +12724,7 @@ pub struct FluidArray {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> FluidArray { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -12495,7 +12769,7 @@ pub struct FluidArray {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &FluidArray) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Read**
@@ -12515,7 +12789,7 @@ pub struct FluidArray {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
   - ```rust
@@ -12691,7 +12965,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> FluidComponent { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -12828,7 +13102,7 @@ Fields:
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &FluidComponent) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Read**
@@ -12848,7 +13122,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
   - ```rust
@@ -13539,7 +13813,7 @@ where
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> FluidComponentCollection { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -13578,7 +13852,7 @@ where
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &FluidComponentCollection) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Read**
@@ -13598,7 +13872,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -13660,7 +13934,7 @@ fluid components are connected in series
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> FluidComponentCollectionOreintation { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -13688,7 +13962,7 @@ fluid components are connected in series
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &FluidComponentCollectionOreintation) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Read**
@@ -13708,7 +13982,7 @@ fluid components are connected in series
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -13863,7 +14137,7 @@ pub struct FluidComponentSuperCollection {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> FluidComponentSuperCollection { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -13907,7 +14181,7 @@ pub struct FluidComponentSuperCollection {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &FluidComponentSuperCollection) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Read**
@@ -13927,7 +14201,7 @@ pub struct FluidComponentSuperCollection {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -14080,7 +14354,7 @@ pub mod super_collection_fluid_components_in_parallel { /* ... */ }
 
 **Attributes:**
 
-- `Other("#[warn(missing_docs)]")`
+- `Other("#[attr = LintCheck([LintCheck {lint_name: \"missing_docs\", kind: Warn}])]")`
 
 Module for pre-built-components
 suitable for tuas_boussinesq_solver (single phase, negligble density changes
@@ -14283,7 +14557,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> CVType { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -14327,7 +14601,7 @@ Fields:
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &CVType) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Read**
@@ -14347,7 +14621,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
   - ```rust
@@ -14806,7 +15080,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> HeatTransferEntity { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -14854,7 +15128,7 @@ Fields:
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &HeatTransferEntity) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Read**
@@ -14874,7 +15148,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
   - ```rust
@@ -15145,7 +15419,7 @@ pub struct NonInsulatedFluidComponent {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> NonInsulatedFluidComponent { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -15262,7 +15536,7 @@ pub struct NonInsulatedFluidComponent {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &NonInsulatedFluidComponent) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Read**
@@ -15282,7 +15556,7 @@ pub struct NonInsulatedFluidComponent {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -15557,7 +15831,7 @@ pub struct InsulatedFluidComponent {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> InsulatedFluidComponent { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -15674,7 +15948,7 @@ pub struct InsulatedFluidComponent {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &InsulatedFluidComponent) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Read**
@@ -15694,7 +15968,7 @@ pub struct InsulatedFluidComponent {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -15942,7 +16216,7 @@ pub struct NonInsulatedParallelFluidComponent {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> NonInsulatedParallelFluidComponent { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -16060,7 +16334,7 @@ pub struct NonInsulatedParallelFluidComponent {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &NonInsulatedParallelFluidComponent) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Read**
@@ -16080,7 +16354,7 @@ pub struct NonInsulatedParallelFluidComponent {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -16738,7 +17012,7 @@ pub struct SimpleShellAndTubeHeatExchanger {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> SimpleShellAndTubeHeatExchanger { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -16766,7 +17040,7 @@ pub struct SimpleShellAndTubeHeatExchanger {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &SimpleShellAndTubeHeatExchanger) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Read**
@@ -16786,7 +17060,7 @@ pub struct SimpleShellAndTubeHeatExchanger {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -16958,7 +17232,7 @@ pub struct SolidStructure {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> SolidStructure { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -16986,7 +17260,7 @@ pub struct SolidStructure {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &SolidStructure) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Read**
@@ -17006,7 +17280,7 @@ pub struct SolidStructure {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -17182,7 +17456,7 @@ pub struct StructuralSupport {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> StructuralSupport { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -17210,7 +17484,7 @@ pub struct StructuralSupport {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &StructuralSupport) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Read**
@@ -17230,7 +17504,7 @@ pub struct StructuralSupport {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -17458,7 +17732,7 @@ pub struct HeaterTopBottomHead {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> HeaterTopBottomHead { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -17571,7 +17845,7 @@ pub struct HeaterTopBottomHead {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &HeaterTopBottomHead) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Read**
@@ -17591,7 +17865,7 @@ pub struct HeaterTopBottomHead {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -18001,7 +18275,7 @@ pub struct InsulatedPorousMediaFluidComponent {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> InsulatedPorousMediaFluidComponent { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -18118,7 +18392,7 @@ pub struct InsulatedPorousMediaFluidComponent {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &InsulatedPorousMediaFluidComponent) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Read**
@@ -18138,7 +18412,7 @@ pub struct InsulatedPorousMediaFluidComponent {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -18545,7 +18819,7 @@ pub struct NonInsulatedPorousMediaFluidComponent {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> NonInsulatedPorousMediaFluidComponent { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -18662,7 +18936,7 @@ pub struct NonInsulatedPorousMediaFluidComponent {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &NonInsulatedPorousMediaFluidComponent) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Read**
@@ -18682,7 +18956,7 @@ pub struct NonInsulatedPorousMediaFluidComponent {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**

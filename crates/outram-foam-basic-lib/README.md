@@ -562,7 +562,7 @@ cargo test -p outram-foam-basic-lib --test matrix_bench --release -- --nocapture
 
 ## License
 
-GPL-3.0-only (matching the upstream OpenFOAM sources).
+~~GPL-3.0-only~~ **AGPL-3.0-only** combined work (relicensed 2026-10-20, gh:#973; ported files keep GPL-3.0 and `LICENSE.GPL-3.0` ships beside `LICENSE`; see `docs/relicensing-agpl-2026-10-20.md`). The ported files match the upstream OpenFOAM sources (GPL-3.0).
 
 ## Copyright
 

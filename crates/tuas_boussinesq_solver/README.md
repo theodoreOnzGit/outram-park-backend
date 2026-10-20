@@ -159,7 +159,7 @@ to build real-time educational simulators of integral effects tests such
 as the compact integral effects test (CIET).
 
 Note: This simulator is for educational purposes and demonstration of 
-the TUAS library only. It is usable under GPLv3 and without warranty. 
+the TUAS library only. It is usable under ~~GPLv3~~ AGPL-3.0-only (relicensed 2026-10-20, gh:#973) and without warranty. 
 USE AT YOUR OWN RISK.
 
 To run the simulator, clone the repository first and change directory 
@@ -312,7 +312,9 @@ library which has some code taken from GeN-Foam, an OpenFOAM
 derivative.
 OpenFOAM and GeN-Foam are released under GNU GPL v3.0. 
 As I am reliant on these libraries under the GNU GPL v3.0
-license, this software is also released under GNU GPL v3.0.
+license, this software is also released under ~~GNU GPL v3.0~~ **AGPL-3.0-only** as a combined work
+(relicensed 2026-10-20, gh:#973; ported files keep GPL-3.0, `LICENSE.GPL-3.0` ships beside `LICENSE`;
+see `docs/relicensing-agpl-2026-10-20.md`).
 
 I'm also not a representative of the Rust Foundation, nor am I affiliated 
 with them.
@@ -344,7 +346,9 @@ library which has some code taken from GeN-Foam, an OpenFOAM
 derivative.
 OpenFOAM and GeN-Foam are released under GNU GPL v3.0. 
 As I am reliant on these libraries under the GNU GPL v3.0
-license, this software is also released under GNU GPL v3.0.
+license, this software is also released under ~~GNU GPL v3.0~~ **AGPL-3.0-only** as a combined work
+(relicensed 2026-10-20, gh:#973; ported files keep GPL-3.0, `LICENSE.GPL-3.0` ships beside `LICENSE`;
+see `docs/relicensing-agpl-2026-10-20.md`).
 
 ## GNU GPL v3.0
 

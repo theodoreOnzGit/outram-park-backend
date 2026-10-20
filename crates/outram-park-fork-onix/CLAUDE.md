@@ -48,11 +48,11 @@ holds OpenMC's depletion integrators, and `outram-mc-libs` depends on it.
 ## Provenance (keep it)
 
 - `src/cram.rs` (and the other ported modules) carry the provenance header:
-  ONIX, commit `7328dc6`, MIT, relicensed as GPL-3.0-only. Keep it.
+  ONIX, commit `7328dc6`, MIT, relicensed as GPL-3.0-only (the file headers; ~~GPL-3.0-only~~ the crate is **AGPL-3.0-only** since 2026-10-20, gh:#973). Keep it.
 - `LICENSE.onix` and `upstream_source/README.md` keep the MIT notice. The
   reference clone is gitignored; only the README is tracked.
-- #973 (workspace relicence to AGPL-3.0) will change the crate licence. The
-  MIT notice stays either way.
+- ~~#973 (workspace relicence to AGPL-3.0) will change the crate licence~~ **DONE 2026-10-20**: the crate is AGPL-3.0-only (gh:#973). The
+  MIT notice stays.
 
 ## Working rules for this crate
 

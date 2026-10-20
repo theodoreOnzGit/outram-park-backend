@@ -45,8 +45,9 @@ LICENCE VERIFICATION (per bn:op-chyp.3 — verified, not asserted)
       the Free Software Foundation; either version 3 of the License, or (at
       your option) any later version.
 
-  GSL is therefore GPL-3.0-or-later. This workspace is GPL-3.0-only, which is
-  compatible: the "or later" option is exercised by choosing version 3.
+  GSL is therefore GPL-3.0-or-later. The GSL-derived files here are GPL-3.0-only, which is
+  compatible: the "or later" option is exercised by choosing version 3. (~~This workspace is GPL-3.0-only~~
+  The crate conveys as an AGPL-3.0-only combined work since 2026-10-20, gh:#973.)
 
   The flow is ONE-WAY. Code here cannot go back upstream under a different
   licence.
@@ -112,7 +113,7 @@ LICENCE VERIFICATION (read from upstream, not asserted)
       SPDX-License-Identifier: MIT OR Apache-2.0 WITH LLVM-exception
 
   Both options are permissive and GPL-3.0-compatible, so this derivative work
-  is GPL-3.0-only like the rest of the workspace. The flow is ONE-WAY: code
+  is GPL-3.0-only like the GSL-derived files (the crate conveys as an AGPL-3.0-only combined work since 2026-10-20, gh:#973). The flow is ONE-WAY: code
   here cannot go back upstream under the original licence.
 
 COPYRIGHT HOLDERS

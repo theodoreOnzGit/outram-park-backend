@@ -78,8 +78,8 @@ network, the Mathias-Copeman / Twu α-variants, the advanced-EOS tier
 
 ## License
 
-GPL-3.0-only (see the workspace root `LICENSE`), matching DWSIM's own
-upstream license directly — no relicensing step is needed. See
+~~GPL-3.0-only~~ **AGPL-3.0-only** combined work (relicensed 2026-10-20, gh:#973; ported files keep GPL-3.0 and `LICENSE.GPL-3.0` ships beside `LICENSE`; see `docs/relicensing-agpl-2026-10-20.md`); the ported files match DWSIM's own
+upstream license (GPL-3.0) directly. See
 `TRADEMARKS.md` for the full non-affiliation notice.
 
 ## Copyright

@@ -376,5 +376,5 @@ does not merely lose accuracy, it ejects particles.
 ## Licensing
 
 LIGGGHTS-PUBLIC is GPL-2-or-later (GPL-3-compatible; see `NOTICE`). This
-translation is distributed under `GPL-3.0-only`, the same as the rest of the
+translation is distributed under ~~`GPL-3.0-only`~~ **`AGPL-3.0-only`** (relicensed 2026-10-20, gh:#973), the same as the rest of the
 workspace.
