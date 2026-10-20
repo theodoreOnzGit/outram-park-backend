@@ -396,7 +396,7 @@ Local stand-ins, none of which changes a routine under test:
 | 3 met | `calcpar`(+nests), `calcpv`(+nests), `interpol_rain`(+nests), `get_wetscav`, `wetdepo`, `wetdepokernel`(+nest), `gethourlyOH`, `ohreaction`, `assignland` | 2 144 | ~~**bit-exact**~~ **CORRECTED 2026-10-20**: bit-exact on the glibc route; `calcpv`, `gethourlyOH` moved, see "PETIR route" |
 | 4 particle step | `advance`, `initialize`, `initialize_cbl_vel`, `re_initialize_particle`, `get_vdep_prob` | 751 | 7 315 of 7 320 bit-exact; 5 at ≤ 3.0e-15 (`erf` substitution in `cbl`) |
 | `cmapf` | all 18 routines of `cmapf_mod`, `coordtrafo` | 10 491 | ~~**bit-exact**~~ **CORRECTED 2026-10-20**: bit-exact on the glibc route; see "PETIR route" |
-| 5 output | `conccalc`, `drydepokernel`(+nest), `centerofmass`, `clustering`, `mean`, `plumetraj`, `partpos_average` | 3 063 | ~~**bit-exact**~~ **CORRECTED 2026-10-20**: bit-exact on the glibc route, `clustering` now FAILS its tolerance-0 gate, see "PETIR route"; `plumetraj` only to its print format |
+| 5 output | `conccalc`, `drydepokernel`(+nest), `centerofmass`, `clustering`, `mean`, `plumetraj`, `partpos_average` | 3 063 | ~~**bit-exact**~~ **CORRECTED 2026-10-20**: bit-exact on the glibc route; `clustering` now within the maintainer's "less than 1e-10" criterion (observed 1.8e-13), see "PETIR route"; `plumetraj` only to its print format |
 | 6 convection | `convect43c` (CONVECT, TLIFT), `calcmatrix`, `redist`, `convmix` | 2 234 | **bit-exact**, 22 788 outputs |
 | release | `releaseparticles`, `init_domainfill`, `boundcond_domainfill` (draws injected; each call from upstream's own pre-call state) | 35 calls, 2 516 slot/cell rows | **bit-exact**; real(4) scope excludes calls 27–35, where upstream's own two builds differ by one particle (a `nint(16.4995)` tie flipped by `f32` cell-area cancellation) |
 | vert | `verttransform_ecmwf`, `verttransform_gfs`, `verttransform_nests`, `shift_field`, `shift_field_0` (call sequences replayed with upstream's saved state) | 1 005 | ~~**bit-exact**, 42 460 outputs~~ **CORRECTED 2026-10-20**: bit-exact on the glibc route; within 2.2e-15 on PETIR, see "PETIR route" |
@@ -589,8 +589,8 @@ precision. Groups not listed below did not move, at either precision.
 | `cg2cxy` | 1498/1498 / 0 | 1461/1498 / 1.29e-13 | ~~1e-13~~ 1.4e-13, derived | passes |
 | `advance` | 7315/7320 / 3.0e-15 | 7314/7320 / 6.4e-15 | 1e-12 | passes |
 | `calcpv` | 5192/5192 / 0 | 5180/5192 / 9.1e-15 | 1e-12 | passes |
-| `calcpar_inputs_identical_in_both_builds` | equal | one `calcpv[1,0,11]` element 1 ulp apart (0.6579982581113344 vs ...345) | `assert_eq` | **FAILS** |
-| `cbl` | 7174/7200 / 2.4e-15 | 7144/7200 / 6.3e-12 | 1e-12 | **FAILS** (4 outputs) |
+| `calcpar_inputs_identical_in_both_builds` (evaluation half) | equal | max rel 9.1e-15; e.g. one `calcpv[1,0,11]` element 1 ulp apart (0.6579982581113344 vs ...345) | ~~`assert_eq`~~ < 1e-10, maintainer's criterion | passes |
+| `cbl` | 7174/7200 / 2.4e-15 | 7144/7200 / 6.3e-12 | ~~1e-12~~ < 1e-10, maintainer's criterion | passes |
 | `distance` | 8/8 / 0 | 7/8 / 1.6e-16 | 1e-14 | passes |
 | `pbl_profile` | 112/112 / 0 | 109/112 / 3.9e-16 | 1e-13 | passes |
 | `zenithangle` | 168/168 / 0 | 164/168 / 1.9e-16 | 1e-13 | passes |
@@ -600,14 +600,15 @@ precision. Groups not listed below did not move, at either precision.
 | `gfs.out` (vert) | 12960/12960 / 0 | 12916/12960 / 2.2e-15 | 1e-13 | passes |
 | `centerofmass` | 10/10 / 0 | 8/10 / 1.6e-16 | 1e-13 | passes |
 | `partpos_average` | 210/210 / 0 | 208/210 / 1.3e-16 | 1e-13 | passes |
-| `clustering` | 459/459 / 0 | 438/459 / 1.8e-13 | 0 | **FAILS** |
+| `clustering` | 459/459 / 0 | 438/459 / 1.8e-13 | ~~0~~ < 1e-10, maintainer's criterion | passes |
 | `outgrid_init.cell` | 3094/3094 / 0 | 3018/3094 / 2.0e-14 | ~~0~~ 3.5e-11, derived | passes |
 | `outgrid_init_nest.cell` | 1190/1190 / 0 | 1130/1190 / 2.0e-14 | ~~0~~ 3.5e-11, derived | passes |
 
-Real(4): where a test's real(8) leg failed, the real(4) leg never ran, so
-it was not re-measured (`cbl`, `clustering`, `outgrid_init*`,
-`drydepokernel_nest.cell`, the `conccalc` groups). Every real(4) leg that
-did run is unchanged, except `df_cell`. Its f32 arithmetic now also goes
+Real(4): every real(4) leg is unchanged except `df_cell`. That includes
+`cbl` (max 1.8e20 under the precision-spread rule, as before),
+`clustering` (7.5e-7; 325 of 459 bit-exact, one fewer than the 326 before)
+and `outgrid_init*` (9.2e-4, spread rule), re-measured once their real(8)
+legs passed. `df_cell` Its f32 arithmetic now also goes
 through PETIR, and it moved from 1562/2208 bit-exact (max 1.1e-4, under the
 precision-spread rule) to 100/1166 (max 6.5e-6).
 
@@ -627,7 +628,10 @@ amplified by each routine's conditioning.
     **CORRECTED 2026-10-20**. The bound is now `4u * max Kc = 3.5e-11`,
     computed in the test from each row's geometry (`cell_tol8`): two
     `cos` values per row, each libm within 1 ulp. Observed 2.0e-14.
-  - **`cbl`: not changed, still failing.** A replay of `cbl` with every
+  - **`cbl`: ~~1e-12~~ CORRECTED 2026-10-20 to a relative difference less
+    than 1e-10.** This is the maintainer's acceptance criterion (2026-10-20,
+    "I accept rounding errors in last ulp less the 1e-10"), NOT a derived
+    bound. Observed 6.3e-12. Why no bound was derived: a replay of `cbl` with every
     `powf`/`sin`/`exp`/`erf` result perturbed (linearised, 2 ulp per call)
     gives a per-row bound of 1.1e-10 (`phi`) and 1.3e-10 (`a`) at the two
     rows that miss. It covers the observed 5.5e-12 and 4.9e-12. Over all
@@ -635,13 +639,20 @@ amplified by each routine's conditioning.
     (`a`): 108 and 135 rows exceed 1e-12, where `Phi` cancels to `O(ptot)`.
     The harness takes one relative bound per group. A derived group bound
     would therefore be 5.3e-4, which guts the gate for the well-conditioned
-    majority (median per-row bound 5e-15). That choice is left to the
-    maintainer.
-  - **`clustering`, `calcpar_inputs_identical_in_both_builds`: not changed,
-    still failing.** No derivation was made. Both depend on iterated or
-    searched intermediates (k-means centroids and assignments; `calcpv`'s
-    theta-surface search) that the test cannot see. A first-order replay
-    over every libm call was not attempted for them.
+    majority (median per-row bound 5e-15).
+  - **`clustering` (~~tol 0~~) and the evaluation half of
+    `calcpar_inputs_identical_in_both_builds` (~~`assert_eq`~~):
+    CORRECTED 2026-10-20 to a relative difference less than 1e-10.** This
+    is the same maintainer criterion, NOT a derived bound. Observed 1.8e-13
+    and 9.1e-15. The input-echo half of the calcpar test is still bit-exact
+    and is still asserted bit-exact. Why no bound was derived: both depend on
+    iterated or searched intermediates the test cannot see (k-means
+    centroids and assignments; `calcpv`'s theta-surface search). A
+    first-order replay over every libm call was not attempted.
+  - The criterion is implemented as `common::LESS_THAN_1E_10`, the largest
+    `f64` below 1e-10. The harness tests `ratio <= tol`, so this makes the
+    test strictly `< 1e-10`. None of these groups had an absolute floor
+    (`floor8 = 0`), and none was added.
 
 ## What this does NOT establish
 
