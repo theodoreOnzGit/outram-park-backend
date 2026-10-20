@@ -1,6 +1,6 @@
 # outram-park-fork-cfmesh
 
-> **This is a fork.** `outram-park-fork-cfmesh` is an independent, GPL-licensed
+> **This is a fork.** `outram-park-fork-cfmesh` is an independent
 > **fork / Rust port of [cfMesh](https://github.com/wyldckat/cfMesh)** (Creative
 > Fields' automatic unstructured mesh generator), for the OUTRAM PARK
 > multiphysics suite. It is **not** affiliated with, endorsed by, or sanctioned
@@ -88,7 +88,7 @@ for the real predicates on degenerate input.
 
 ## Licensing & provenance
 
-- This crate is **GPL-3.0-only** (workspace default). cfMesh is GPL-3.0-only —
+- This crate is ~~**GPL-3.0-only**~~ **AGPL-3.0-only** combined work (relicensed 2026-10-20, gh:#973; ported files keep GPL-3.0 and `LICENSE.GPL-3.0` ships beside `LICENSE`; see `docs/relicensing-agpl-2026-10-20.md`). cfMesh is GPL-3.0-only —
   a Rust port is licence-clean provided the provenance header block is kept on
   any ported file. voro++ is modified-BSD (permissive, GPLv3-compatible); its
   provenance is retained in-tree and in [`NOTICE`](NOTICE).

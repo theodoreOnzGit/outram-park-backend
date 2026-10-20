@@ -1,8 +1,8 @@
 # outram-blender
 
-> **This is a fork.** `outram-blender` is an independent, GPL-licensed
+> **This is a fork.** `outram-blender` is an independent
 > **fork / derivative of [Blender](https://github.com/blender/blender)'s
-> mesh-authoring architecture**, reusing its mesh/geometry design under the GPL
+> mesh-authoring architecture**, reusing its mesh/geometry design (GPL-2.0-or-later upstream)
 > for the OUTRAM PARK multiphysics suite. It is **not** affiliated with,
 > endorsed by, or sanctioned by the Blender Foundation. No Blender source tree
 > is bundled; **exactly one file** (`src/boolean_predicates.rs`) is a literal,
@@ -143,8 +143,7 @@ included.
 
 ## Licensing & provenance
 
-- This crate is **GPL-3.0-only** (workspace default), like the other GPL
-  members of OUTRAM PARK. The full text ships as `LICENSE`.
+- This crate is ~~**GPL-3.0-only**~~ **AGPL-3.0-only** combined work (workspace default; relicensed 2026-10-20, gh:#973; ported files keep GPL-3.0 and `LICENSE.GPL-3.0` ships beside `LICENSE`; see `docs/relicensing-agpl-2026-10-20.md`). The AGPL text ships as `LICENSE`.
 - Blender is licensed **GPLv2-or-later**, which is **GPLv3-compatible** — so a
   future literal port of a Blender algorithm into this crate is license-clean,
   *provided* the GPL attribution header block (upstream project, source file,
@@ -172,7 +171,7 @@ included.
   the modifier stack, the operator naming). Design is not copyrightable, so no
   Blender copyright attaches to those files.
 - **Consequently this crate is a derivative work of `GPL-2.0-or-later` code**,
-  and distributing it as `GPL-3.0-only` is permitted by that "or later" clause
+  and distributing its ported files as `GPL-3.0` (the crate as an AGPL-3.0-only combined work) is permitted by that "or later" clause
   — the compatibility finding above is load-bearing, not just precautionary.
   The moment further real Blender code (or another third-party library's
   algorithm) is transcribed, its provenance header and a license re-check are

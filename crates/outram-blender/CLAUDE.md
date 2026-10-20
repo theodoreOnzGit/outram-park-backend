@@ -5,8 +5,8 @@ Guidance for Claude Code (and other AI assistants) working in the `outram-blende
 **What this crate is (2026-10-02, GitHub #486): geometry description +
 meshing.** It owns the CSG geometry description and its pure navigation kernel
 (`csg`), the OpenMC-port geometry plotter (`csg::plot`), the Monte Carlo tally
-mesh description (`spatial_mesh`), and the mesh-authoring frontend (a GPL fork
-of Blender's mesh architecture) with its OpenFOAM bridges. ~~It is planned to
+mesh description (`spatial_mesh`), and the mesh-authoring frontend (a fork
+of Blender's (GPL-2.0-or-later) mesh architecture) with its OpenFOAM bridges. ~~It is planned to
 become the meshing nexus for FV/FE too (#492).~~ **Since 2026-10-03 (#492) it
 is the meshing nexus:** `unstructured::UnstructuredMesh` is the one mesh
 description FV (`PolyMesh`/`FvMesh`), FE (`farrer-park`) and Monte Carlo

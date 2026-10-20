@@ -36,9 +36,8 @@ in `docs/reactor-scoping/msre.md`).
   notice. The reference clone itself
   (`upstream_source/thermochimica/`) is gitignored; only the README is
   tracked.
-- The crate is GPL-3.0-only (workspace default). BSD-3 combines one way into
-  GPL-3.0. #973 (workspace relicence to AGPL-3.0) will change the crate
-  licence. The BSD-3 notice stays either way.
+- The crate is ~~GPL-3.0-only~~ **AGPL-3.0-only** (relicensed 2026-10-20, gh:#973). BSD-3 combines one way into
+  GPL-3.0 and AGPL-3.0. The BSD-3 notice stays.
 
 ## Working rules for this crate
 

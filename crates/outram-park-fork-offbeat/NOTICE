@@ -19,8 +19,8 @@ Primary reference:
   DOI from the publisher record rather than from this file.)
 
 Upstream license: GNU General Public License, version 3 (GPL-3.0). This is the
-same license this crate is distributed under, so no relicensing step applies —
-the LICENSE file in this directory is the GPL-3.0 text. The upstream LICENSE
+same license the ported files are distributed under (the crate itself has been AGPL-3.0-only since 2026-10-20, gh:#973, see below;
+~~the LICENSE file in this directory is the GPL-3.0 text~~ `LICENSE` is now the AGPL-3.0 text, `LICENSE.GPL-3.0` the GPL-3.0 one). The upstream LICENSE
 file was retrieved from the GitLab repository on 2026-07-29 and read directly;
 this is not an inference from documentation.
 

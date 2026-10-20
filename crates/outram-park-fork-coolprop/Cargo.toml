@@ -9,7 +9,7 @@ edition.workspace = true
 # CoolProp-derived portions retain their MIT provenance in-tree (see NOTICE).
 # (Resolves bead op-kbc.5.)
 license.workspace = true
-description = "Pure-Rust fork/translation of CoolProp (Helmholtz-EOS thermophysical properties), enum-dispatched with hardcoded fluid data — no runtime JSON. An independent OUTRAM PARK fork, not the official CoolProp software. GPL-3.0 (ships OpenFOAM-derived code); no human V&V yet — use at your own risk."
+description = "Pure-Rust fork/translation of CoolProp (Helmholtz-EOS thermophysical properties), enum-dispatched with hardcoded fluid data — no runtime JSON. An independent OUTRAM PARK fork, not the official CoolProp software. AGPL-3.0-only (ships OpenFOAM-derived code that keeps its GPL-3.0 headers); no human V&V yet — use at your own risk."
 repository.workspace = true
 homepage.workspace = true
 categories.workspace = true

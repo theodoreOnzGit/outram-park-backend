@@ -57,4 +57,4 @@ separate, deliberate decision for the maintainer, and it has not been taken.
 
 ## License
 
-GPL-3.0. Part of the [OUTRAM PARK](../../README.md) workspace.
+~~GPL-3.0~~ **AGPL-3.0-only** (relicensed 2026-10-20, gh:#973). Part of the [OUTRAM PARK](../../README.md) workspace.

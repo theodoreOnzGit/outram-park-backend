@@ -1,7 +1,9 @@
 # Trademarks and Attribution
 
 Outram Park is a nuclear engineering simulation suite written in Rust,
-released under the GNU General Public License v3.0 (GPL-3.0-only).
+released under the GNU Affero General Public License v3.0 (AGPL-3.0-only)
+(~~GNU General Public License v3.0 (GPL-3.0-only)~~, relicensed 2026-10-20,
+gh:#973; see `docs/relicensing-agpl-2026-10-20.md`).
 
 Outram Park derives numerical methods and algorithms from several
 upstream open-source projects. Outram Park honours the trademarks,
@@ -27,8 +29,8 @@ affiliated with, endorsed by, or connected to any of them.
 - **Upstream URL:** https://openmc.org
 - **Upstream license:** MIT
 - Outram Park's `outram-mc-libs` crate is a Rust translation of selected
-  OpenMC transport methods, GPL-3.0 relicensed as permitted by the terms of
-  the upstream MIT license. It is not an official OpenMC product and is not
+  OpenMC transport methods, ~~GPL-3.0~~ **AGPL-3.0-only** (relicensed 2026-10-20,
+  gh:#973) as permitted by the terms of the upstream MIT license. It is not an official OpenMC product and is not
   sanctioned by MIT or Argonne National Laboratory.
 
 ### NJOY
@@ -38,8 +40,8 @@ affiliated with, endorsed by, or connected to any of them.
 - **Upstream license:** BSD-style (see NJOY2016 LICENSE)
 - Outram Park's `outram-park-njoy-fork` crate is a Rust translation of
   selected NJOY nuclear data processing modules (RECONR, BROADR, ACER),
-  GPL-3.0 relicensed as permitted by the terms of the upstream BSD
-  license. It is not an official NJOY product and is not sanctioned by
+  ~~GPL-3.0~~ **AGPL-3.0-only** (relicensed 2026-10-20, gh:#973) as permitted
+  by the terms of the upstream BSD license. It is not an official NJOY product and is not sanctioned by
   LANL or the NJOY development team.
 
 ### CoolProp
@@ -48,8 +50,9 @@ affiliated with, endorsed by, or connected to any of them.
 - **Upstream license:** MIT
 - Outram Park's `outram-park-fork-coolprop` crate is a Rust translation of
   selected CoolProp thermophysical-property methods (Helmholtz-energy-explicit
-  equations of state, incompressibles, mixtures, humid air), GPL-3.0
-  relicensed as permitted by the terms of the upstream MIT license. It is not
+  equations of state, incompressibles, mixtures, humid air),
+  ~~GPL-3.0~~ **AGPL-3.0-only** (relicensed 2026-10-20, gh:#973) as permitted
+  by the terms of the upstream MIT license. It is not
   an official CoolProp product and is not sanctioned by Ian H. Bell or the
   CoolProp development team. Individual equations of state retain their own
   original-author attribution where CoolProp itself documents one (e.g. the

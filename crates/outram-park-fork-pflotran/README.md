@@ -150,4 +150,4 @@ AI-assessed from the code; bead closure is the maintainer's decision.
 
 ## License
 
-GPL-3.0-only. See `LICENSE`, `NOTICE`, and the workspace `TRADEMARKS.md`.
+~~GPL-3.0-only~~ **AGPL-3.0-only** combined work (relicensed 2026-10-20, gh:#973; ported files keep GPL-3.0 and `LICENSE.GPL-3.0` ships beside `LICENSE`; see `docs/relicensing-agpl-2026-10-20.md`). See `LICENSE`, `NOTICE`, and the workspace `TRADEMARKS.md`.

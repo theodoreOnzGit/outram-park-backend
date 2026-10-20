@@ -59,7 +59,7 @@ substantial portions. The full licence ships as `LICENSE.crameri.pdf` at the
 crate root (the licence document from the official archive), and the notice is
 repeated in the module and table doc comments.
 
-MIT is compatible with this crate's `GPL-3.0-only`.
+MIT is compatible with this crate's ~~`GPL-3.0-only`~~ **`AGPL-3.0-only`** (relicensed 2026-10-20, gh:#973).
 
 ## Sources considered and rejected
 

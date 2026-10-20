@@ -13,12 +13,14 @@
 //! This library was initially developed for
 //! use in my PhD thesis under supervision
 //! of Professor Per F. Peterson. It a thermal hydraulics
-//! library in Rust that is released under the GNU General Public License
-//! v 3.0. This is partly due to the fact that some of the libraries
+//! library in Rust that is released under the ~~GNU General Public License
+//! v 3.0~~ **AGPL-3.0-only** (see below). This is partly due to the fact that some of the libraries
 //! inherit from GeN-Foam and OpenFOAM, both licensed under GNU General
 //! Public License v3.0.
 //!
-//! As such, the entire library is released under GNU GPL v3.0. It is a strong
+//! As such, the entire library is released under ~~GNU GPL v3.0~~ **AGPL-3.0-only**
+//! (relicensed 2026-10-20, gh:#973; a combined work, ported files keep GPL-3.0,
+//! `LICENSE.GPL-3.0`). It is a strong
 //! copyleft license which means you cannot use it in proprietary software.
 //!
 //!

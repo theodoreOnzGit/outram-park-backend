@@ -70,7 +70,7 @@ is ever wanted, it can simply be deleted (it is untracked local scratch).
 (the **T**ransport, **E**igenvalue and **H**ybrid **O**pen-source solver; named
 after "teh-O", the Southeast-Asian tea). It models reactor point kinetics with
 delayed-neutron precursor groups, reactivity feedback, and decay heat, using
-`uom` dimensioned quantities throughout. License: GPL-3.0.
+`uom` dimensioned quantities throughout. License: ~~GPL-3.0~~ **AGPL-3.0-only** combined work (relicensed 2026-10-20, gh:#973; ported files keep GPL-3.0 and `LICENSE.GPL-3.0` ships beside `LICENSE`; see `docs/relicensing-agpl-2026-10-20.md`).
 
 ## Code layout (`src/`)
 

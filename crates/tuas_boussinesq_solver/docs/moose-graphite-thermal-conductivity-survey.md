@@ -90,7 +90,7 @@ not recommended for HTR-10 (G-348 is the HTTF grade, not A3 or IG-110).
 | Files | `modules/solid_properties/include/materials/ThermalGraphiteProperties.h`, `modules/solid_properties/src/materials/ThermalGraphiteProperties.C`, `modules/solid_properties/doc/content/source/materials/ThermalGraphiteProperties.md` |
 | Commit read | `7e862aa7353b491ea5b00b76c4f7e9266acd93ef` (parent of `25c039275a`, "Convert material objects to user objects", 2022-06-20). Object introduced in `3a6b898ad453d158af7ab7f883b787b32fe57e39` (2022-06-07); conductivity replaced by H-451 in `2de3e5f1093012763898aa91b179303eeac19ed8` (2022-06-20). |
 | Copyright | Battelle Energy Alliance, LLC — "All rights reserved, see COPYRIGHT for full restrictions", <https://github.com/idaholab/moose/blob/master/COPYRIGHT> |
-| Licence | **LGPL-2.1**, <https://www.gnu.org/licenses/lgpl-2.1.html> (combinable with this GPL-3.0 workspace under LGPL-2.1 section 3) |
+| Licence | **LGPL-2.1**, <https://www.gnu.org/licenses/lgpl-2.1.html> (combinable with this ~~GPL-3.0~~ AGPL-3.0-only (2026-10-20, gh:#973; GPL-3.0 combined-work files) workspace under LGPL-2.1 section 3) |
 | Retrieved | 2026-09-28, `raw.githubusercontent.com` |
 
 Upstream file header (`.C`, unchanged):
