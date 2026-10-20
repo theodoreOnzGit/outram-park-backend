@@ -146,6 +146,9 @@
 //! Vulkan backend, warm OS disk cache). CPU is `f64`, single-threaded lookup; GPU
 //! is `f32`. Re-running regenerates the two CSVs named below.
 
+#[cfg(feature = "net-fetch")]
+use petir::mathf::RealMath;
+
 #[cfg(not(feature = "net-fetch"))]
 fn main() {
     eprintln!(

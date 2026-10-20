@@ -270,6 +270,7 @@ impl TedeAccumulator {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use petir::mathf::RealMath;
 
     fn uniform(rate: [f64; 3]) -> [[f64; 3]; RECEPTOR_COUNT] {
         [rate; RECEPTOR_COUNT]

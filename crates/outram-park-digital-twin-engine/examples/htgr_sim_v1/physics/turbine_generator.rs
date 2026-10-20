@@ -444,6 +444,7 @@ impl Default for TurbineGeneratorShaft {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use petir::mathf::RealMath;
     use uom::si::power::megawatt;
     use uom::si::time::second;
 
