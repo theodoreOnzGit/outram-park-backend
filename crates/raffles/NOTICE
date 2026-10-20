@@ -339,6 +339,27 @@ file comes from before writing its attribution header.
    docs/scram-port-verification.md.
 
 
+5. Computing with Confidence / pba.r (gh:#987)
+   Project:          Computing-with-Confidence, "Coherent systems" -- Adolphus Lye
+   Repository:       https://github.com/Adolphus8/Computing-with-Confidence
+   Accessed:         2026-10-20
+   Licence:          no LICENSE file upstream; the author (this crate's owner)
+                     asked for the port and the workspace maintainer confirmed
+                     AGPLv3 is acceptable (2026-10-20).
+   Third-party file: "pba BETTER.r" is Scott Ferson's pba.r,
+                     https://github.com/ScottFerson/pba.r, GPL-3.0. Its
+                     operations used by the scripts (KN, and, or, andI, orI,
+                     frechetconv, conv, env, complement) are ported in
+                     src/scram/pba.rs, which carries that attribution.
+   NOT USED:         sra.r in the same folder is marked "All rights reserved".
+                     It was neither read, ported, nor run. Case study 3's
+                     sra.r-dependent half is therefore not reproduced.
+   Original code:    src/scram/pbox_tree.rs and tests/computing_with_confidence*.rs.
+   Verification:     the R scripts were run with R 4.6.1; see
+                     docs/computing-with-confidence-verification.md.
+   Status:           AI-assisted draft, not reviewed by a human or the crate owner.
+
+
 INDEPENDENCE / TRADEMARK
 ========================
 
