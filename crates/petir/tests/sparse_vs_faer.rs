@@ -15,17 +15,21 @@
 //! 1. **Orderings, exactly:** petir's COLAMD column permutation against faer's
 //!    `SymbolicLu::col_perm`, and petir's AMD permutation against faer's
 //!    `SymbolicCholesky::perm`. Integer, so equality is the only pass.
-//! 2. **LU, bit for bit**, against faer's LU forced onto its simplicial path
-//!    (`SupernodalThreshold::FORCE_SIMPLICIAL`), the path this port follows.
-//! 3. **LU against faer's default `sp_lu`** (AUTO path choice): bit for bit
-//!    when faer picks simplicial; when it picks supernodal, the largest
-//!    relative difference is measured and must be at rounding level (`< 1e-12`
-//!    relative to the solution's max norm). That is the documented deviation
-//!    (see `petir::sparse` module docs), not a tolerance on the port.
-//! 4. **Cholesky against faer's default `sp_cholesky(Side::Lower)`**: bit for
-//!    bit when `SparseLlt::faer_would_use_supernodal()` is false (it also
-//!    asserts faer agrees by `Debug`-printing the symbolic factor), rounding
-//!    level otherwise.
+//! 2. **LU, bit for bit, three ways:** PETIR's simplicial path against
+//!    faer's forced simplicial (`SupernodalThreshold::FORCE_SIMPLICIAL`),
+//!    PETIR's supernodal path against faer's `FORCE_SUPERNODAL`, and PETIR's
+//!    default (`SymbolicKind::Auto`) against faer's default `sp_lu`, after
+//!    checking both pick the same path.
+//! 3. **Cholesky, bit for bit, the same three ways** against
+//!    `sp_cholesky(Side::Lower)` and `factorize_symbolic_cholesky` with each
+//!    threshold forced (the path decision is also checked against faer's).
+//!
+//! ~~3. **LU against faer's default `sp_lu`** (AUTO path choice): bit for
+//! bit when faer picks simplicial; when it picks supernodal, the largest
+//! relative difference is measured and must be at rounding level~~
+//! **CORRECTED 2026-10-20:** since the supernodal paths were ported (gh
+//! #994, "Port lah") every comparison is bit for bit; the rounding-level
+//! allowance is gone.
 //!
 //! Matrices: seeded random unsymmetric (diagonally weighted) at n = 1, 5, 40,
 //! 300, 1500; a two-group 3-D seven-point convection-diffusion operator
@@ -34,35 +38,40 @@
 //! identity (n = 30^2 and 120^2) like `outram-blender`'s `I + lambda L`, and a
 //! seeded random sparse SPD matrix.
 //!
-//! # Results (2026-10-20, faer 0.24.4, x86_64 Linux, release, 55 s)
+//! # Results
 //!
-//! From this test's `RESULT` lines:
+//! **2026-10-20, faer 0.24.4, x86_64 Linux (i9-13900K: AVX2+FMA, no
+//! AVX-512), release, after the supernodal port** — from the `RESULT` lines:
 //!
-//! | case | n | COLAMD/AMD perm | vs faer simplicial | faer AUTO picks | vs faer AUTO |
-//! |---|---|---|---|---|---|
-//! | LU random | 1, 5, 40 | identical | all bit-identical | simplicial | all bit-identical |
-//! | LU random | 300 | identical | 300/300 | supernodal | 133/300 bits, worst 7.1e-16 |
-//! | LU random | 1500 | identical | 1500/1500 | supernodal | 366/1500 bits, worst 2.8e-15 |
-//! | LU 2-group 3-D diffusion | 3456 | identical | 3456/3456 | supernodal | 204/3456 bits, worst 5.0e-15 |
-//! | LU 2-group 3-D diffusion | 27 648 | identical | 27 648/27 648 | supernodal | 32/27 648 bits, worst 4.9e-14 |
-//! | LLT 2-D Laplacian | 900, 14 400 | identical | — | simplicial | all bit-identical |
-//! | LLT random SPD | 1, 50 | identical | — | simplicial | all bit-identical |
-//! | LLT random SPD | 2000 | identical | — | supernodal | 372/2000 bits, worst 1.4e-15 |
+//! | case | n | perm | simplicial vs faer | supernodal vs faer | faer AUTO picks | AUTO vs faer |
+//! |---|---|---|---|---|---|---|
+//! | LU random | 1, 5, 40 | identical | all bits | all bits | simplicial | all bits |
+//! | LU random | 300, 1500 | identical | all bits | all bits | supernodal | all bits |
+//! | LU 2-group 3-D diffusion | 3456, 27 648 | identical | all bits | all bits | supernodal | all bits |
+//! | LLT 2-D Laplacian | 900, 14 400 | identical | all bits | all bits | simplicial | all bits |
+//! | LLT random SPD | 1, 50 | identical | all bits | all bits | simplicial | all bits |
+//! | LLT random SPD | 2000 | identical | all bits | all bits | supernodal | all bits |
 //!
-//! ("worst" is max |petir − faer| / max |faer|.) **Interpretation:** the port
-//! is exact wherever it follows the same path as faer; the only differences
-//! are the documented supernodal deviation, at the rounding level. The ported
-//! Cholesky path decision agreed with faer's on every case.
+//! Every solution entry of every case is bit-identical to faer's; the path
+//! decision agreed with faer's on every case. Before the supernodal port
+//! (same day) the AUTO column read "133/300 bits, worst 7.1e-16" (random300),
+//! "366/1500, 2.8e-15", "204/3456, 5.0e-15", "32/27 648, 4.9e-14" and, for
+//! the LLT, "372/2000, 1.4e-15"; those were the simplicial port against
+//! faer's supernodal path.
 //!
-//! Measured the same day on the consumers' real matrices (one-off probes, not
-//! kept): `bedok`'s nodal-diffusion `LHS` from
-//! `x1_frozen_nodal_static_eigenvalue_against_the_matlab` (n = 10 404,
-//! nnz = 58 786) — faer picks supernodal; 3383/10 404 bit-identical, worst
-//! 2.2e-15. Timing on that matrix, one thread: factorisation 1.21 s here,
-//! 1.17-1.22 s for faer's simplicial path, 0.17 s for faer's supernodal path;
-//! one solve 3.3 ms here, 4.3-4.6 ms in faer.
-//! `outram-blender`'s 44 SPD systems across its lib tests (n = 8 to 266) — all
-//! simplicial, all bit-identical.
+//! **Timing** (`factorisation_time_vs_faer`, best of 3, one thread, same day,
+//! before the GEMM loop interchange that took the scalar GEMM from 1.55 to
+//! 1.2-1.4 ns per FMA): LU n = 3456: PETIR simplicial 0.143 s, PETIR
+//! supernodal 0.738 s, faer AUTO (supernodal) 0.032 s; LU n = 27 648: 20.5 s,
+//! 69.5 s, 1.42 s; LLT n = 2000 (supernodal): PETIR 0.038 s, faer 0.003 s.
+//! **The supernodal path is slower than the simplicial one in PETIR**: faer's
+//! kernels do ~8 FMAs per cycle in AVX2 registers, PETIR's scalar replay one
+//! `libm::fma` call per FMA (see `petir::sparse`'s module docs).
+//!
+//! Superseded record (2026-10-20, simplicial port only): `bedok`'s n = 10 404
+//! `LHS` 3383/10 404 bit-identical to faer, worst 2.2e-15; factorisation 1.21
+//! s (faer simplicial 1.17-1.22 s, faer supernodal 0.17 s). `outram-blender`'s
+//! 44 SPD systems (n = 8 to 266): all simplicial, all bit-identical.
 
 use faer::dyn_stack::{MemBuffer, MemStack};
 use faer::linalg::solvers::Solve;
@@ -449,7 +458,9 @@ fn factorisation_time_vs_faer() {
         }
         t
     };
-    for m in [12usize, 24] {
+    // m = 24 (n = 27 648) was measured once, by hand, with `[12, 24]`: about
+    // 5 minutes, too long for every run; its numbers are in the module docs.
+    for m in [12usize] {
         let n = 2 * m * m * m;
         let t = diffusion_3d(m);
         let ours = CscMatrix::try_from_triplets(n, n, &t).unwrap();

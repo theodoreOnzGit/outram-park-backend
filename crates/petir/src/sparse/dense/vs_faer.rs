@@ -26,8 +26,11 @@
 //!
 //! # Results
 //!
-//! See the `RESULT` lines and the crate's `tests/sparse_vs_faer.rs`
-//! documentation for the date and machine they were recorded on.
+//! 2026-10-20, faer 0.24.4, i9-13900K (AVX2+FMA, no AVX-512), release:
+//! **matmul 1377/1377 cases, triangular solves 528/528, partial-pivoting LU
+//! 8/8, `LLᵀ` 11/11 — every output `f64` bit-identical to faer's.** The
+//! harness found one faer quirk on the way: `MatMut::from_row_major_slice_with_stride_mut`
+//! returns a column-major view in faer 0.24.4 (see `fmut`).
 
 // The whole file is test code (included as `#[cfg(test)] mod vs_faer;`);
 // the attribute below also tells `tests/no_panic_gate.rs` so.

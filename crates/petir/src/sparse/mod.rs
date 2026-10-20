@@ -41,9 +41,9 @@
 //   SparseColMat::try_new_from_triplets
 //     (try_new_from_indices_impl, new_from_argsort_impl) -> CscMatrix::try_from_triplets
 
-//! **Sparse direct solvers** — a `no_std` port of `faer`'s simplicial sparse
-//! LU (with COLAMD column ordering) and simplicial sparse Cholesky `LLᵀ` (with
-//! AMD ordering).
+//! **Sparse direct solvers** — a `no_std` port of `faer`'s sparse LU (with
+//! COLAMD column ordering) and sparse Cholesky `LLᵀ` (with AMD ordering),
+//! simplicial and supernodal.
 //!
 //! # Why this comes from `faer` and not from GSL
 //!
@@ -69,17 +69,48 @@
 //! | [`amd`] | `sparse/linalg/amd.rs` (itself a port of SuiteSparse AMD) |
 //! | [`etree`] | `qr::ghost_col_etree`, `cholesky::ghost_postorder`, `cholesky::simplicial::{ghost_prefactorize_symbolic_cholesky, ereach}` |
 //! | [`triangular`] | `sparse/linalg/triangular_solve.rs`, the single-column arms |
-//! | [`SparseLu`] | `sp_lu`, simplicial path (`lu.rs`, `factorize_symbolic_lu` + `simplicial`) |
-//! | [`SparseLlt`] | `sp_cholesky`, simplicial path (`cholesky.rs`, `factorize_symbolic_cholesky` + `simplicial`) |
+//! | [`SparseLu`] | `sp_lu`: `factorize_symbolic_lu` (COLAMD, `AᵀA` column counts, the path rule), the simplicial and the **supernodal** numeric LU and their solves |
+//! | [`SparseLlt`] | `sp_cholesky`: `factorize_symbolic_cholesky` (AMD, the path rule), the simplicial and the **supernodal** numeric `LLᵀ` and their solves |
+//! | `supernodal` (private) | `qr::ghost_column_counts_aat`, `cholesky::supernodal::ghost_factorize_supernodal_symbolic` (fundamental supernodes, `DEFAULT_RELAX` amalgamation) |
+//! | `dense` (private) | the dense kernels the supernodal paths call: `linalg::matmul` (and through it `nano-gemm` 0.2.2 and `private-gemm-x86` 0.1.22), `linalg::triangular_solve`, `linalg::lu::partial_pivoting`, `linalg::cholesky::llt` |
 //!
-//! **DEVIATION — simplicial only.** `faer` chooses between a *simplicial* and
-//! a *supernodal* numeric factorisation from a flops-per-nonzero ratio (above
-//! 40 it picks supernodal). The supernodal kernels run faer's SIMD dense GEMM,
-//! whose summation order cannot be reproduced without porting `gemm` as well.
-//! This port always runs the simplicial path. It is **bit-identical to faer
-//! whenever faer itself picks simplicial**, and agrees to rounding otherwise;
-//! both are measured in `tests/sparse_vs_faer.rs`. On 3-D operators with heavy
-//! fill the simplicial path is also slower (measured there).
+//! **Path choice** follows faer: [`SymbolicKind::Auto`] takes the
+//! supernodal path when the factor's flops per nonzero exceed 40 (faer's
+//! `SupernodalThreshold::AUTO` with `{LU,CHOLESKY}_SUPERNODAL_RATIO_FACTOR =
+//! 40`), and [`SparseLu::factorize_with`] / [`SparseLlt::factorize_lower_with`]
+//! force either path.
+//!
+//! ~~**DEVIATION — simplicial only.** `faer` chooses between a *simplicial*
+//! and a *supernodal* numeric factorisation from a flops-per-nonzero ratio
+//! (above 40 it picks supernodal). The supernodal kernels run faer's SIMD
+//! dense GEMM, whose summation order cannot be reproduced without porting
+//! `gemm` as well. This port always runs the simplicial path.~~
+//! **CORRECTED 2026-10-20 (gh #994, "Port lah"):** the supernodal paths are
+//! ported, and faer's SIMD dense kernels with them, their arithmetic replayed
+//! in scalar code (see `dense`'s module docs). **Every solution is
+//! bit-identical to faer's, on both forced paths and on faer's own path
+//! choice**, on all thirteen matrices of `tests/sparse_vs_faer.rs`
+//! (including the 3-D two-group operator, n = 27 648, and the SPD case that
+//! used to differ by 1.4e-15), and the dense kernels are bit-identical to
+//! faer's compiled ones on 1 377 products, 528 triangular solves, 8 LU and
+//! 11 `LLᵀ` factorisations (`dense/vs_faer.rs`). The pin holds against faer
+//! on an x86-64 CPU with AVX2+FMA and without AVX-512, which is the CPU the
+//! replay reproduces; PETIR's own numbers do not depend on the CPU.
+//!
+//! **PERFORMANCE — the supernodal path is SLOWER here, not faster.** faer's
+//! supernodal factorisation wins by doing ~8 fused multiply-adds per cycle in
+//! SIMD registers. PETIR has no SIMD and no hardware FMA instruction it can
+//! reach without `unsafe` or `std` (`#![forbid(unsafe_code)]`,
+//! `core::f64::mul_add` is unstable), so every FMA is a call to
+//! `libm::fma` (correctly rounded; about 1.2-1.4 ns each, measured), and the
+//! supernodal path's extra (dense, zero-padded) flops cost more than the
+//! simplicial path's scattered ones. Measured 2026-10-20, i9-13900K, one
+//! thread: `bedok`'s n = 10 404 flux operator, 2.13e9 FMAs in the supernodal
+//! GEMMs: simplicial 0.66-0.76 s, supernodal 7.5-8.0 s, faer (supernodal,
+//! AVX2) 0.17 s; the 3-D test operator n = 27 648: simplicial 20.5 s,
+//! supernodal 69.5 s, faer 1.4 s. So [`SymbolicKind::Auto`] reproduces
+//! faer's *numbers*, not its speed; a caller that wants speed over
+//! bit-identity with faer forces [`SymbolicKind::Simplicial`].
 //!
 //! **DEVIATION — errors instead of panics.** Every subscript of faer's source
 //! is a checked access here (PETIR's `tests/no_panic_gate.rs`): an index out of
@@ -96,7 +127,8 @@
 //! the two are identical.
 //!
 //! Everything is `f64`, `usize` indices and `alloc` only: no threads, no SIMD,
-//! no `std`.
+//! no `std`. faer's own `Par::Seq` is what is reproduced (its multithreaded
+//! kernels split some sums differently).
 
 pub mod amd;
 pub mod colamd;

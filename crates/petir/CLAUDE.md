@@ -301,16 +301,41 @@ binds future work as follows:
   Do not reorder the triangular-solve accumulations, the reciprocal-multiply
   (`x * (1 / d)`, not `x / d`) or the pivot test (`partial_cmp` keeps NaN);
   any of these changes the rounding and fails that test.
-- **One deviation, flagged where made:** faer picks a *supernodal* numeric
+- ~~**One deviation, flagged where made:** faer picks a *supernodal* numeric
   factorisation when flops per nonzero exceed 40, and its kernels use SIMD
   GEMM. This port is simplicial only. It agrees with faer's supernodal path
   to ≤ 4.9e-14 relative on the test matrices, and is **slower** on 3-D
-  operators with heavy fill. On `bedok`'s n = 10 404 flux matrix, one thread
-  (2026-10-20): factorisation 1.21 s here, 1.17–1.22 s for faer's own
-  simplicial path, 0.17 s for faer's supernodal path; a solve takes 3.3 ms
-  here against 4.3–4.6 ms in faer. So the port is as fast as the algorithm
-  it ports, and the ~7x is simplicial against supernodal. A supernodal port
-  would need faer's dense kernels too; it is not done.
+  operators with heavy fill. [...] A supernodal port would need faer's dense
+  kernels too; it is not done.~~ **CORRECTED 2026-10-20 (gh #994, "Port
+  lah"):** the supernodal LU and `LLᵀ` are ported (`supernodal.rs`,
+  `lu_supernodal.rs`, `cholesky_supernodal.rs`), and so are the dense kernels
+  they call (`dense/`): faer's `f64` matmul dispatch with the arithmetic of
+  `pulp`'s AVX2 matrix-vector/rank-1/dot kernels, `nano-gemm`'s microkernels
+  and `private-gemm-x86`'s (`kc = 512`), faer's triangular solves,
+  partial-pivoting LU and `LLᵀ`, all replayed lane by lane in scalar code,
+  FMA through `Real::mul_add`. Path choice is faer's rule
+  (`SymbolicKind::Auto`), with `SymbolicKind::{Simplicial, Supernodal}` to
+  force either.
+- **Pinned bit for bit against faer, both paths:** every solution of
+  `tests/sparse_vs_faer.rs` is bit-identical to faer's for forced
+  simplicial, forced supernodal and faer's AUTO choice, on all 13 matrices;
+  the dense kernels are bit-identical to faer's own on 1 377 products, 528
+  triangular solves, 8 LU and 11 `LLᵀ` factorisations
+  (`src/sparse/dense/vs_faer.rs`). Do not "simplify" a kernel's operation
+  order: lane accumulators, the dot product's `(l0+l2)+(l1+l3)` reduction,
+  which steps are fused, the 64- and 512-deep blocks and faer's stride-driven
+  kernel choice are all load-bearing. The pin assumes the CPU the replay
+  reproduces (x86-64, AVX2+FMA, no AVX-512); PETIR's numbers never depend on
+  the CPU.
+- **The supernodal path is SLOWER in PETIR, not faster** (measured
+  2026-10-20, i9-13900K, one thread): on `bedok`'s n = 10 404 operator,
+  simplicial 0.7 s, supernodal 7.5-8 s (2.1e9 FMAs at ~1.3 ns, each a
+  `libm::fma` call), faer's AVX2 supernodal 0.17 s. Without SIMD or an
+  inlinable hardware FMA (`unsafe` is forbidden, `core::f64::mul_add` is
+  unstable on 1.99) the zero-padded dense flops cost more than the
+  simplicial path saves. `Auto` therefore buys faer's *numbers*, not its
+  speed. Do not swap `libm::fma` for `a * b + c` to gain speed: that breaks
+  the pin by construction.
 - **Duplicate triplets** are summed in input order (faer's unstable sort
   leaves that order unspecified). Neither consumer has duplicates.
 
