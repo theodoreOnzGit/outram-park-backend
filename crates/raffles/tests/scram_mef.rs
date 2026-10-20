@@ -659,7 +659,7 @@ fn the_unported_and_the_malformed_are_refused_not_skipped() {
         r#"<opsa-mef><define-fault-tree name="F"><define-nonsense name="x"/></define-fault-tree></opsa-mef>"#,
         "unrecognised element",
     );
-    // Event trees, alignments, substitutions, extern functions.
+    // Event trees and extern functions (alignments and substitutions are read).
     refuse(
         r#"<opsa-mef><define-event-tree name="E"/></opsa-mef>"#,
         "event-tree analysis",

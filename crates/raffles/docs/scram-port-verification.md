@@ -917,10 +917,16 @@ only models that use it.
 An element `mef.rs` does not recognise is an **error**, never a skip. A
 skipped `<define-CCF-group>` would leave a model that still parses, still
 analyses, and answers a different question — which is the failure this whole
-port exists to avoid. Ten refusals are asserted, each naming its cause: CCF
+port exists to avoid. ~~Ten refusals are asserted, each naming its cause: CCF
 groups, substitutions, event trees, alignments, extern functions, an unknown
 element, a typed reference naming the wrong kind of declaration, a private
-name reached from outside, an invalid `role`, and a nested formula.
+name reached from outside, an invalid `role`, and a nested formula.~~
+**CORRECTED 2026-10-20** — CCF groups, substitutions and alignments are now
+read, so `tests/scram_mef.rs::the_unported_and_the_malformed_are_refused_not_skipped`
+asserts **seven** refusals (checked against the test body): event trees,
+extern functions, an unknown element, a typed reference naming the wrong kind
+of declaration, a private name reached from outside, an invalid `role`, and a
+nested formula.
 
 Two of upstream's models cannot be read yet — `SmallTree/SmallTree` and
 `BSCU/BSCU`, both using `<lognormal-deviate>`. The random deviates belong to
@@ -1330,8 +1336,10 @@ it says.
   does not understand is an error rather than a skip.
 - ~~**CCF groups**, substitutions, event trees and alignments are refused, not
   read.~~ **CORRECTED 2026-09-22** — CCF groups and substitutions are read and
-  applied; event trees and alignments are still refused, each refusal
-  asserted. A model using one
+  applied; ~~event trees and alignments are still refused~~ **CORRECTED
+  2026-10-20** — alignments are read and applied too (`src/scram/alignment.rs`,
+  `mef.rs` reads `<define-alignment>`, gated by `tests/scram_alignments.rs`);
+  only event trees are still refused, the refusal asserted. A model using one
   cannot be silently mis-read as a smaller model, but it also cannot be
   analysed.
 - **CCF groups are verified on two models and 30 events.** Both are small —
