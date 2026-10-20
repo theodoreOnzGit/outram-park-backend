@@ -1163,7 +1163,9 @@ fn gtn_surface_has_the_two_exact_limits() {
 
     let d = 0.15_f64;
     let q2 = gtn_params().q2;
-    let mean = 2.0 * s_star / (3.0 * q2) * (((1.0 + d * d) / (2.0 * d)).acosh());
+    // RealMath has no acosh: petir::real::Real by trait path (gh:#985).
+    let mean =
+        2.0 * s_star / (3.0 * q2) * petir::real::Real::acosh((1.0 + d * d) / (2.0 * d));
     let phi = law.yield_function(0.0, mean, s_star, d);
     println!("D = {d}: hydrostatic strength sigma_m = {mean:.6e} Pa, Phi there = {phi:.6e}");
     assert!(phi.abs() < 1.0e-12);
