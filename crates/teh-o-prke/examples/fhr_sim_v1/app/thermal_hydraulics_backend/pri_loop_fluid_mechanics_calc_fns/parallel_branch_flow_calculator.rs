@@ -1,4 +1,5 @@
-use roots::{find_root_brent, SimpleConvergency};
+use petir::roots::{BracketingMethod, BracketingSolver};
+use petir::PetirError;
 use tuas_boussinesq_solver::array_fluid_collections::fluid_component_collection::collection_series_and_parallel_functions::FluidComponentCollectionSeriesAssociatedFunctions;
 use tuas_boussinesq_solver::array_fluid_collections::fluid_component_collection::fluid_component::FluidComponent;
 use tuas_boussinesq_solver::array_fluid_collections::fluid_component_collection::fluid_component_collection::{FluidComponentCollection, FluidComponentCollectionMethods};
@@ -555,10 +556,10 @@ pub fn calculate_pressure_change_using_guessed_branch_mass_flowrate_fhr_sim_v1_c
 
     // i can't use a convergency value too strict, perhaps 1e-9 will do!
     //
-    let mut convergency = SimpleConvergency {
-        eps: 1e-9_f64,
-        max_iter: 700,
-    };
+    // Absolute bracket tolerance (Pa) and iteration cap, carried over from
+    // the `roots` SimpleConvergency { eps: 1e-9, max_iter: 700 } this
+    // replaced; see `find_root_brent_petir` for the mapping (gh:#991).
+    let (brent_epsabs_pa, brent_max_iter) = (1e-9_f64, 700_usize);
 
     dbg!(&(
         user_specified_pressure_upper_bound,
@@ -593,11 +594,12 @@ pub fn calculate_pressure_change_using_guessed_branch_mass_flowrate_fhr_sim_v1_c
     //
     //
 
-    let pressure_change_pascals_result_user_specified_flow = find_root_brent(
+    let pressure_change_pascals_result_user_specified_flow = find_root_brent_petir(
         user_specified_pressure_upper_bound.value,
         user_specified_pressure_lower_bound.value,
         &pressure_change_from_mass_flowrate_root,
-        &mut convergency,
+        brent_epsabs_pa,
+        brent_max_iter,
     );
 
     let pressure_change_pascals_user_specified_flow: f64 =
@@ -823,16 +825,17 @@ fn calculate_mass_flowrate_from_pressure_change_for_single_branch(
     // But having done so, I want to use the newton raphson method to
     // try and converge this result, hopefully within 30 iterations
 
-    let mut convergency = SimpleConvergency {
-        eps: 1e-8f64,
-        max_iter: 70,
-    };
+    // Absolute bracket tolerance (kg/s) and iteration cap, carried over from
+    // the `roots` SimpleConvergency { eps: 1e-8, max_iter: 70 } this
+    // replaced; see `find_root_brent_petir` for the mapping (gh:#991).
+    let (brent_epsabs_kg_per_s, brent_max_iter) = (1e-8_f64, 70_usize);
 
-    let mut mass_flowrate_result = find_root_brent(
+    let mut mass_flowrate_result = find_root_brent_petir(
         10_f64,
         -10_f64,
         &mass_flow_from_pressure_chg_root,
-        &mut convergency,
+        brent_epsabs_kg_per_s,
+        brent_max_iter,
     );
 
     // the above results only work for ranges of 15 kg/s and
@@ -888,11 +891,12 @@ fn calculate_mass_flowrate_from_pressure_change_for_single_branch(
     mass_flowrate_result = match mass_flowrate_result {
         Ok(_mass_flowrate) => return MassRate::new::<kilogram_per_second>(_mass_flowrate),
         Err(_error_msg) => {
-            mass_flowrate_result = find_root_brent(
+            mass_flowrate_result = find_root_brent_petir(
                 10_000_f64,
                 -10_000_f64,
                 &mass_flow_from_pressure_chg_root,
-                &mut convergency,
+                brent_epsabs_kg_per_s,
+                brent_max_iter,
             );
 
             mass_flowrate_result
@@ -902,11 +906,12 @@ fn calculate_mass_flowrate_from_pressure_change_for_single_branch(
     mass_flowrate_result = match mass_flowrate_result {
         Ok(_mass_flowrate) => return MassRate::new::<kilogram_per_second>(_mass_flowrate),
         Err(_error_msg) => {
-            mass_flowrate_result = find_root_brent(
+            mass_flowrate_result = find_root_brent_petir(
                 20_000_000_f64,
                 -20_000_000_f64,
                 &mass_flow_from_pressure_chg_root,
-                &mut convergency,
+                brent_epsabs_kg_per_s,
+                brent_max_iter,
             );
 
             mass_flowrate_result
@@ -914,4 +919,91 @@ fn calculate_mass_flowrate_from_pressure_change_for_single_branch(
     };
     //return mass_flowrate.unwrap();
     return MassRate::new::<kilogram_per_second>(mass_flowrate_result.unwrap());
+}
+
+/// Relative bracket tolerance passed to PETIR alongside each call's absolute
+/// one: `4 * f64::EPSILON`. See [`find_root_brent_petir`] for why it is needed.
+const BRENT_FLOOR_EPSREL: f64 = 4.0 * f64::EPSILON;
+
+/// Brent root finding on the bracket spanned by `x0` and `x1`, through
+/// `petir::roots::BracketingSolver` (a port of GSL `roots/brent.c`, verified
+/// iterate-for-iterate against compiled GSL 2.8). It replaces the `roots`
+/// crate's `find_root_brent` (Vorotilov, 0.0.8) here (gh:#991, epic #990).
+///
+/// # How the old call maps onto PETIR
+///
+/// | | `roots` 0.0.8 `find_root_brent` + `SimpleConvergency { eps, max_iter }` | this function |
+/// |---|---|---|
+/// | bracket | either order; endpoints swapped so the larger `\|f\|` is first | sorted to `x_lower <= x_upper`, as GSL requires |
+/// | no sign change | `SearchError::NoBracketing` | `PetirError::Invalid` (GSL "endpoints do not straddle y=0") |
+/// | stops on residual | yes: `\|f(a)\| < eps` or `\|f(b)\| < eps` | **no** |
+/// | stops on bracket | `\|a - b\| < eps` (absolute) | `\|x_upper - x_lower\| < eps + 4 eps_machine * min(\|x_lower\|, \|x_upper\|)` (GSL `gsl_root_test_interval`, `epsabs = eps`, `epsrel = 4 eps_machine`; the relative term is dropped when the bracket straddles zero) |
+/// | iteration cap | `max_iter` Brent steps, else `NoConvergency` | `max_iter` GSL steps, else `PetirError::MaxIterations` |
+/// | returned root | `c`, the previous best point, on bracket convergence | `b`, GSL's current best estimate |
+/// | non-finite `f` | carried on silently | `PetirError::Domain` |
+///
+/// # Why this is at least as strict
+///
+/// - **The residual exit is dropped.** `roots` used one `eps` for both
+///   `|f|` and `|x|`, although here `f` and `x` carry different units (a
+///   mass-flow error against a pressure, and a pressure error against a mass
+///   flow). PETIR stops only on the bracket, so it never stops earlier than
+///   `roots` would on that account.
+/// - **The bracket test is the same absolute `eps`**, plus a relative floor of
+///   four machine epsilons. The floor is required, not a loosening of
+///   convenience: GSL's Brent stops shrinking once half the bracket is within
+///   `0.5 * DBL_EPSILON * |b|` (`brent.c:114,126`), so a bracket on a root of
+///   magnitude `|x|` can never get narrower than about `DBL_EPSILON * |x|`. For
+///   the pressure call (`eps = 1e-9 Pa`, roots up to ~6e7 Pa) that floor,
+///   ~1.3e-8 Pa, is wider than `eps`, so a pure absolute test could never pass
+///   and every call would exhaust `max_iter`. The floor only matters where
+///   `eps` itself is unattainable in `f64`; there the root is located to the
+///   last bits the arithmetic allows, which is as tight as any criterion can be.
+fn find_root_brent_petir<F>(
+    x0: f64,
+    x1: f64,
+    f: F,
+    epsabs: f64,
+    max_iter: usize,
+) -> Result<f64, PetirError>
+where
+    F: Fn(f64) -> f64,
+{
+    let (x_lower, x_upper) = if x0 <= x1 { (x0, x1) } else { (x1, x0) };
+    let mut solver = BracketingSolver::new(BracketingMethod::Brent, f, x_lower, x_upper)?;
+    solver.solve(epsabs, BRENT_FLOOR_EPSREL, max_iter)
+}
+
+#[cfg(test)]
+mod find_root_brent_petir_tests {
+    use super::*;
+
+    /// The bracket may be given in either order, as `roots` allowed, and the
+    /// root comes back to the absolute tolerance.
+    #[test]
+    fn finds_root_with_reversed_bracket() {
+        let f = |x: f64| x * x - 2.0;
+        let r = find_root_brent_petir(10.0, 0.0, f, 1e-9, 70).unwrap();
+        assert!((r - 2.0_f64.sqrt()).abs() < 1e-9, "r = {r}");
+    }
+
+    /// At a root of magnitude ~6e7 an absolute 1e-9 is below the f64 spacing;
+    /// the relative floor lets the solve finish instead of hitting the cap.
+    #[test]
+    fn large_root_converges_at_the_floating_point_floor() {
+        let root = 6.2e7_f64;
+        let f = |x: f64| (x - root) * 1e-7;
+        let r = find_root_brent_petir(-6.3e7, 6.3e7, f, 1e-9, 700).unwrap();
+        assert!((r - root).abs() <= 4.0 * f64::EPSILON * root, "r = {r}");
+    }
+
+    /// No sign change is an error, as it was under `roots`.
+    #[test]
+    fn unbracketed_interval_is_an_error() {
+        let f = |x: f64| x * x + 1.0;
+        assert_eq!(
+            find_root_brent_petir(-1.0, 1.0, f, 1e-9, 70).unwrap_err(),
+            PetirError::Invalid
+        );
+    }
 }
