@@ -338,6 +338,7 @@ obliges" below.
   | `cheb::eval_mode`, default `order_sp` | 461/615 (75.0 %) | 1.06e-15 results, 1.05e-2 error estimates |
   | `cheb::eval_mode`, reduced `order_sp` | 357/369 (96.7 %) | — |
   | `linalg::qr` factorisation and least squares | 81/85 (95.3 %) | 4.27e-16 factor, 4.94e-16 solution |
+  | `linalg::lu_decomp` (**added 2026-10-20, after the declaration**, gh:#992) | 1637/1637 (100 %) | 0 |
   | `expint`, `gamma_inc` | see `gsl_expint.rs`, `gsl_gamma_inc.rs` | — |
   | `roots` (bracketing / polishing), `min`, `interp`, `ode` (RKF45) | 100 % — every iterate, value and error estimate | 0 |
   | `deriv` | 76/78 (97.4 %) | 3.27e-16 |
