@@ -118,8 +118,19 @@ corrosion "is not generally taken into consideration". Figs. 7 and 8 of the
 report show it worth one to two decades in release at 1600 °C
 ([`grain_boundary.rs`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/grain_boundary.rs)).
 The repo does not name palladium as the attacking species there.
-`[citation needed: maintainer to supply the evidence that Pd is the principal
-attacker of SiC.]`
+~~`[citation needed]`~~ **Sourced 2026-10-21 (proprietary-folder sources).**
+NUREG/CR-6844 (*TRISO-Coated Particle Fuel PIRTs*, U.S. NRC, 2004, p. 2-19
+and p. 2-47) names the lanthanides and palladium as the major concerns for
+fission product attack of the SiC; says Pd, a noble metal, cannot be tied up in
+the kernel and migrates to the SiC at higher temperatures, where it attacks the
+layer, which limits normal operating temperature to below about 1300 °C; and
+calls it the noble metal of greatest concern. IAEA-TECDOC-978 (*Fuel
+performance and fission product behaviour in gas cooled reactors*, IAEA,
+Vienna, 1997) takes a Pd–SiC penetration depth below the SiC thickness as a
+design criterion (p. 29), and reports a JAERI measurement that the depth
+scales with the cube root of the Pd released from the kernel (p. 47). So
+palladium is the species of greatest concern in these reports, with the
+lanthanides also named. They do not call it the sole attacker.
 
 ## What we assumed
 

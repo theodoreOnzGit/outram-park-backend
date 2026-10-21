@@ -77,7 +77,19 @@ rub. A common physical picture is that abrasion makes fine graphite dust,
 that dust carries sorbed fission products, and that it is carried round the
 circuit with the helium and can settle or be stirred up again. That picture is
 general knowledge, and **this repo has no source for dust generation, size or
-loading** [citation needed: maintainer to supply]. What the repo does have:
+loading**. ~~[citation needed]~~ **Partly sourced 2026-10-21
+(proprietary-folder sources).** IAEA-TECDOC-978 (IAEA, Vienna, 1997, p. 265)
+says that in a pebble-bed HTGR graphite dust forms by abrasion during
+fuel-ball recirculation and is a major transport medium for fission products
+besides the coolant itself. For the German reactors it reports (p. 269) an AVR
+dust production of about 3 kg per operating year and about 60 kg in the primary
+circuit at the end of 1988, 0.5 to 2 % of the gas-borne dust deposited per
+recirculation, and a THTR-300 estimate of 13 to 400 kg (expected 25 kg) of fine
+dust in 300 days at full power. IAEA-TECDOC-1674 (IAEA, Vienna, 2012, p. 209)
+gives AVR cold-gas-filter dust concentrations of 4 to 40 µg/Nm³, and (p. 537)
+notes that a MELCOR-type calculation needs a dust generation rate and size
+distribution as input. These are AVR and THTR-300 values, not HTR-10's. What
+the repo does have:
 
 - **A dust inventory fraction in the HTR-10 accident stage of the digital
   twin, not in boon-lay.** The `htgr_sim_v1` blowdown stage takes the fraction

@@ -120,11 +120,18 @@ underestimated interlayer transport rates.
 Cs-138 "can be more than 1%", while its Table 4 ratios differ from 1 by
 at most 0.5%. Both are the paper's words; the table is the data.
 
-> **[citation needed: maintainer to supply]** FRESCO-II's origin
-> as the paper gives it is Krohn and Finken, Jül-Spez-212, 1983, but
-> its development history, its place in later code packages and its
-> validation record are **not** taken from this repository's sources
-> and are not described here.
+> ~~**[citation needed: maintainer to supply]**~~ **Partly sourced
+> 2026-10-21.** FRESCO-II's origin as the paper gives it is Krohn and Finken,
+> Jül-Spez-212, 1983. IAEA-TECDOC-1645 (IAEA, Vienna, 2010, reference 156)
+> lists the same report as Krohn, H. et al., *FRESCO II: Ein Rechenprogramm
+> zur Berechnung der Spaltproduktfreisetzung aus kugelförmigen HTR
+> Brennelementen in Bestrahlungs- und Ausheizexperimenten*, Jül-Spez-212,
+> Forschungszentrum Jülich, June 1983. IAEA-TECDOC-978 (1997, chapter 3, p. 57)
+> calls FRESCO "the pebble version of the KFA diffusion model", widely used for
+> metallic fission-product release from a spherical element. Its place in
+> later code packages beyond what Fang et al. state (step 11), and its
+> validation record, are still **not** described here. Both IAEA reports are
+> proprietary-folder sources.
 
 ### Where boon-lay stands against it
 
