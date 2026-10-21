@@ -564,7 +564,7 @@ outram-park-fork-offbeat = { path = "crates/outram-park-fork-offbeat", version =
 teh-o-prke = { path = "crates/teh-o-prke", version = "0.1.7" }
 tuas_boussinesq_solver = { path = "crates/tuas_boussinesq_solver", version = "0.1.8" }
 tampines-steam-tables = { path = "crates/tampines-steam-tables", version = "0.3.0" }
-outram-foam-basic-lib        = { path = "crates/outram-foam-basic-lib",        version = "0.1.6" }
+outram-foam-basic-lib        = { path = "crates/outram-foam-basic-lib",        version = "0.1.7" }
 raffles                      = { path = "crates/raffles",                      version = "0.0.3" }
 petir                        = { path = "crates/petir",                        version = "0.0.3" }
 changi                       = { path = "crates/changi",                       version = "0.0.2" }
