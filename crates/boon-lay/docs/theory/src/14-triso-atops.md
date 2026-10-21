@@ -145,7 +145,9 @@ Reasons it must be limited:
   $3 \times 10^{-4}$ (15 times) recorded for HTR-10 (Step 12). Noble-gas and
   halogen release is linear in it.
 - **A different size.** Case A and B are 350 and 600 MWth. HTR-10's power is
-  not stated on the pages I read here [citation needed: maintainer to supply].
+  ~~not stated on the pages I read here~~ 10 MWt (Choo and Xiao 2023, abstract
+  and p. 1; proceedings of VINANST-15, Nha Trang, 2023; proprietary-folder copy),
+  about 35 to 60 times smaller than Case A and B. Checked 2026-10-21.
 - **Rates depend on the circuit.** Plate-out and clean-up depend on surface,
   temperature and purification flow, which are different in HTR-10. The
   HTR-10-specific rates in the twin are a separate set.

@@ -114,8 +114,14 @@ and the MHTGR example tracks chosen nuclides.
   does not.
 - *When it fails:* a short-lived parent that is a **mobile** gas (a precursor)
   can leave the particle before it turns into a less mobile daughter. Dropping
-  it shifts where the daughter is born. `[citation needed: maintainer to
-  supply a source for precursor effects in TRISO release.]`
+  it shifts where the daughter is born. ~~`[citation needed]`~~ **Partly
+  sourced 2026-10-21:** IAEA-TECDOC-978 (*Fuel performance and fission product
+  behaviour in gas cooled reactors*, IAEA, Vienna, 1997, p. 57) says gaseous
+  precursors of metallic fission products, in particular Sr-89, must be
+  considered, and that it is "not clearly known" how much of the Cs-137 and
+  Sr-90 in the coolant comes from precursors, from contaminated dust, or from
+  direct release. It gives no size for the effect on a single particle's
+  release. Proprietary-folder source.
 
 ## Simplification 3: decay only, fixed flux
 
