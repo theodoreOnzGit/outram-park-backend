@@ -153,9 +153,14 @@ const SETTLE_STEPS: usize = 8_000;
 const BATCHES: usize = 12;
 
 fn data_path(name: &str) -> std::path::PathBuf {
-    std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../reference-data/liggghts")
-        .join(name)
+    // This port's own settled bed lives beside the examples, not in
+    // reference-data/ and not on crates.io (gh:#1008, 2026-10-21).
+    let dir = if name == "htr10_settled_ours.csv" {
+        "examples/data"
+    } else {
+        "../../reference-data/liggghts"
+    };
+    std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(dir).join(name)
 }
 
 fn load_positions(name: &str) -> Option<Vec<Vec3>> {
@@ -348,7 +353,7 @@ const PLACE_CLEARANCE: f64 = 1.0e-4;
 )]
 fn slow_recirculation_through_the_discharge_system() {
     let Some(init) = load_positions("htr10_settled_ours.csv") else {
-        eprintln!("skipping: reference-data/liggghts/htr10_settled_ours.csv not present");
+        eprintln!("skipping: crates/outram-park-fork-liggghts/examples/data/htr10_settled_ours.csv not present");
         return;
     };
     let stl = match std::fs::read_to_string(data_path("htr10_discharge.stl")) {

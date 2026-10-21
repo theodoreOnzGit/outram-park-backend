@@ -247,7 +247,7 @@ are different claims and this entry keeps them apart.
   associative, *every run gave a different answer*. Three identical 200-step
   runs of the settled bed gave kinetic energies `2.81519841188424304e-2`,
   `…18857e-2`, `…32977e-2` — the 13th significant figure, in a system chaotic
-  over 50 000 steps. **`htr10_settled_ours.csv` could not be regenerated
+  over 50 000 steps. **`htr10_settled_ours.csv` (now in `examples/data/`, ~~`reference-data/liggghts/`~~ **MOVED 2026-10-21 gh:#1008**, excluded from the crates.io package) could not be regenerated
   exactly**, and the single 2.91e-2 m outlier in the per-particle comparison
   above is consistent with this mechanism. Replaced by a deterministic
   counting-sorted flat cell list. Bead `op-t3l.9`.
