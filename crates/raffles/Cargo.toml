@@ -1,6 +1,6 @@
 [package]
 name = "raffles"
-version = "0.0.2"
+version = "0.0.3"
 edition.workspace = true
 # AGPL-3.0-only since 2026-10-20 (gh:#973; was GPL-3.0-only), a combined work:
 # its SCRAM / MPNN / pba.r ports keep GPL-3.0 (LICENSE.GPL-3.0). Upstream RAVEN
