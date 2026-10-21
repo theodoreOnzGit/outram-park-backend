@@ -316,9 +316,11 @@ pub struct HtgrSnapshot {
     /// runs hotter.
     pub peak_kernel_temperature_k: f64,
     /// Running MAXIMUM of [`Self::peak_kernel_temperature_k`] since the plant
-    /// was built or **Reset peak** was last pressed \[K\] (gh:#964); `NAN`
-    /// until a kernel has been resolved. Shown on the main page as "Peak fuel
-    /// (kernel of a core-average pebble)" -- **not the core hot spot**, see
+    /// was built or **Reset max** (Diagnostics tab) was last pressed \[K\] (gh:#964); `NAN`
+    /// until a kernel has been resolved. ~~Shown on the main page as "Peak fuel
+    /// (kernel of a core-average pebble)"~~ **MOVED 2026-10-21 (maintainer)**:
+    /// shown on the Diagnostics tab with its reset button; the main page now
+    /// shows the live [`Self::peak_kernel_temperature_k`]. **Not the core hot spot**, see
     /// [`crate::physics::PeakFuelRecord`] for the recorded gap against Gao &
     /// Shi (2002) and gh:#965 for the shape function that would close it.
     pub peak_kernel_max_k: f64,

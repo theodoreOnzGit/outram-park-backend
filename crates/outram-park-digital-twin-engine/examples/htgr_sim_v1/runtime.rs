@@ -77,7 +77,7 @@ pub struct PlantControls {
     /// A one-shot trip-reset request. The runtime consumes it — see
     /// [`PlantRuntime::submit`] on why this cannot latch.
     pub trip_reset_requested: bool,
-    /// A one-shot **Reset peak** request (gh:#964): restart the running
+    /// A one-shot **Reset max** (Diagnostics tab) request (gh:#964): restart the running
     /// maximum of the peak fuel kernel from its current value. Consumed by
     /// [`PlantRuntime::submit`], like the trip reset.
     pub peak_fuel_reset_requested: bool,
@@ -319,7 +319,7 @@ mod tests {
     }
 
     /// The peak-fuel record is exposed by the runtime (so by headless mode),
-    /// follows the plant, and a submitted one-shot **Reset peak** restarts it
+    /// follows the plant, and a submitted one-shot **Reset max** (Diagnostics tab) restarts it
     /// from the current value and is consumed rather than latched (gh:#964).
     #[test]
     fn peak_fuel_reset_is_exposed_and_consumed() {
