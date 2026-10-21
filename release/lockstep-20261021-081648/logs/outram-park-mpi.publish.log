@@ -1,0 +1,18 @@
+    Updating crates.io index
+   Packaging outram-park-mpi v0.0.1 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/crates/outram-park-mpi)
+    Updating crates.io index
+    Packaged 19 files, 234.0KiB (67.9KiB compressed)
+   Verifying outram-park-mpi v0.0.1 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/crates/outram-park-mpi)
+   Compiling proc-macro2 v1.0.107
+   Compiling quote v1.0.47
+   Compiling unicode-ident v1.0.27
+   Compiling thiserror v2.0.21
+   Compiling syn v3.0.9
+   Compiling thiserror-impl v2.0.21
+   Compiling outram-park-mpi v0.0.1 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/target/package/outram-park-mpi-0.0.1)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 2.72s
+   Uploading outram-park-mpi v0.0.1 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/crates/outram-park-mpi)
+    Uploaded outram-park-mpi v0.0.1 to registry `crates-io`
+note: waiting for outram-park-mpi v0.0.1 to be available at registry `crates-io`
+help: you may press ctrl-c to skip waiting; the crate should be available shortly
+   Published outram-park-mpi v0.0.1 at registry `crates-io`

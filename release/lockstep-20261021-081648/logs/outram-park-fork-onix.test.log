@@ -1,0 +1,46 @@
+   Compiling outram-park-fork-onix v0.0.1 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/crates/outram-park-fork-onix)
+    Finished `release` profile [optimized] target(s) in 0.50s
+     Running unittests src/lib.rs (target/release/deps/outram_park_fork_onix-624ea2de55cdcdbc)
+
+running 18 tests
+test chain::tests::half_life_to_lambda ... ok
+test chain::tests::percent_yields_scaled ... ok
+test chain::tests::xs_flux_applies_1e_minus_24 ... ok
+test cram::tests::clamp_zeros_small_and_negative ... ok
+test cram::tests::dimension_mismatch_is_reported ... ok
+test cram::tests::petir_errors_map_onto_cram_errors ... ok
+test cram::tests::single_nuclide_exponential_decay ... ok
+test driver::tests::build_matrix_two_step_decay_chain ... ok
+test driver::tests::capture_off_diagonal_uses_rate ... ok
+test matrix::tests::column_sums_zero_for_pure_transfer ... ok
+test matrix::tests::mul_vec_matches_hand_calc ... ok
+test nuclide::tests::neutron_number_and_physicality ... ok
+test nuclide::tests::zamid_round_trip_am242m ... ok
+test nuclide::tests::zamid_round_trip_u235 ... ok
+test reactions::tests::alpha_drops_z2_a4 ... ok
+test reactions::tests::beta_minus_raises_z ... ok
+test reactions::tests::fission_has_no_single_daughter ... ok
+test reactions::tests::ngamma_captures_a_neutron ... ok
+
+test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/cram16_move_fingerprints.rs (target/release/deps/cram16_move_fingerprints-21717c093806c240)
+
+running 1 test
+test cram16_move_is_bit_identical ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/vv_bateman.rs (target/release/deps/vv_bateman-a9ff85d6e2077a45)
+
+running 7 tests
+test burnup_step_transmutation ... ok
+test cram16_stiff_diagonal ... ok
+test decay_chain_matches_bateman ... ok
+test multi_step_equals_single_step ... ok
+test secular_equilibrium ... ok
+test fission_yield_assembly ... ok
+test total_atom_conservation ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

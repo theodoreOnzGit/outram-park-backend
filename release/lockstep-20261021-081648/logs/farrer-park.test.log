@@ -1,0 +1,149 @@
+   Compiling farrer-park v0.0.3 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/crates/farrer-park)
+    Finished `release` profile [optimized] target(s) in 3.44s
+     Running unittests src/lib.rs (target/release/deps/farrer_park-67cf962640aaddaa)
+
+running 71 tests
+test assembly::tests::bbar_global_tangent_matches_finite_difference_of_internal_force ... ok
+test assembly::tests::bbar_genuinely_changes_a_bilinear_quadrilateral ... ok
+test assembly::tests::global_tangent_matches_finite_difference_of_internal_force ... ok
+test assembly::tests::bbar_is_exactly_a_no_op_on_constant_strain_triangles ... ok
+test assembly::tests::manufactured_body_forces_are_minus_divergence_of_their_own_stress ... ok
+test assembly::tests::rigid_translation_produces_no_force ... ok
+test assembly::tests::invalid_option_combinations_are_rejected ... ok
+test assembly::tests::uniform_body_force_integrates_to_load_times_volume ... ok
+test bc::tests::bore_pressure_pushes_outward ... ok
+test bc::tests::elimination_is_exact_and_symmetric ... ok
+test assembly::tests::stiffness_is_symmetric_and_annihilates_translations ... ok
+test bc::tests::penalty_error_falls_like_one_over_beta ... ok
+test bc::tests::uniform_traction_integrates_to_the_total_load ... ok
+test crystal::flow::tests::flow_and_hardening_parameters_are_range_checked ... ok
+test crystal::flow::tests::hardening_clamps_at_saturation_and_never_produces_nan ... ok
+test crystal::flow::tests::latent_hardening_limits ... ok
+test crystal::flow::tests::power_law_derivative_matches_a_central_difference ... ok
+test crystal::flow::tests::power_law_is_odd_and_zero_at_zero ... ok
+test crystal::orient::tests::improper_matrices_are_rejected ... ok
+test crystal::orient::tests::rotating_a_symmetric_tensor_preserves_its_invariants ... ok
+test crystal::orient::tests::orientation_constructors_agree_and_are_proper_rotations ... ok
+test dof::tests::dof_numbering_round_trips ... ok
+test dof::tests::pattern_is_symmetric_sorted_and_has_a_full_diagonal ... ok
+test dof::tests::single_element_pattern_is_dense ... ok
+test element::tests::derivatives_match_finite_difference ... ok
+test element::tests::facet_measures ... ok
+test element::tests::inverted_element_is_rejected ... ok
+test element::tests::jacobian_of_known_geometry ... ok
+test element::tests::kronecker_delta_at_nodes ... ok
+test element::tests::partition_of_unity ... ok
+test material::tests::bad_parameters_are_rejected ... ok
+test material::tests::consistent_tangent_is_symmetric ... ok
+test material::tests::consistent_tangent_matches_numerical_jacobian ... ok
+test material::tests::elastic_constant_identities ... ok
+test material::tests::elastic_tangent_matches_numerical_jacobian ... ok
+test material::tests::j2_reduces_to_elasticity_below_yield ... ok
+test material::tests::perfect_plasticity_caps_the_von_mises_stress ... ok
+test material::tests::plane_stress_and_plane_strain_differ ... ok
+test material::tests::plane_stress_elastic_matrix_is_the_textbook_one ... ok
+test material::tests::plane_stress_j2_tangent_matches_numerical_jacobian ... ok
+test material::tests::returned_stress_lies_on_the_yield_surface ... ok
+test material::tests::unloading_is_elastic ... ok
+test material::tests::uom_boundary_round_trips ... ok
+test mesh::tests::annulus_area_converges_second_order ... ok
+test mesh::tests::all_generators_produce_positively_oriented_elements ... ok
+test mesh::tests::annulus_inner_facets_cover_the_arc ... ok
+test mesh::tests::out_of_range_node_is_rejected ... ok
+test mesh::tests::tri6_midsides_are_shared_and_exact ... ok
+test mesh::tests::measured_volumes_match_analytic ... ok
+test operator::tests::csr_solves_through_gmres_and_bicgstab ... ok
+test operator::tests::csr_solves_through_the_shared_krylov_layer ... ok
+test quadrature::tests::default_rules_match_documented_point_counts ... ok
+test quadrature::tests::facet_rules_have_correct_measure ... ok
+test quadrature::tests::tensor_product_exactness_orders_hold ... ok
+test quadrature::tests::tetrahedron_exactness_orders_hold ... ok
+test quadrature::tests::triangle_exactness_orders_hold ... ok
+test quadrature::tests::triangle_rules_are_not_better_than_claimed ... ok
+test quadrature::tests::weights_sum_to_reference_measure ... ok
+test solver::tests::linear_elastic_converges_in_one_iteration ... ok
+test sparse::tests::ilu0_on_a_dense_pattern_is_an_exact_solve ... ok
+test solver::tests::penalty_and_elimination_agree ... ok
+test sparse::tests::jacobi_inverts_the_diagonal ... ok
+test sparse::tests::mesh_pattern_accepts_every_element_entry ... ok
+test sparse::tests::scatter_gather_round_trip ... ok
+test sparse::tests::spmv_matches_dense ... ok
+test tensor::tests::isotropic_action_on_strain ... ok
+test tensor::tests::isotropic_matches_lame ... ok
+test tensor::tests::projectors_behave ... ok
+test tensor::tests::symm_tensor_round_trip ... ok
+test tensor::tests::von_mises_limits ... ok
+test tensor::tests::work_conjugacy ... ok
+
+test result: ok. 71 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/analytical.rs (target/release/deps/analytical-143bfce780165cc3)
+
+running 2 tests
+test thick_walled_cylinder_against_lame ... ok
+test cantilever_tip_deflection_against_beam_theory ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.20s
+
+     Running tests/crystal.rs (target/release/deps/crystal-a97a7bcaf0f749c9)
+
+running 9 tests
+test consistent_tangent_against_richardson_extrapolated_jacobian ... ok
+test crystal_stiffness_rotation_invariants ... ok
+test fatemi_socie_fatigue_indicator_parameter ... ok
+test frame_indifference_under_rigid_rotation ... ok
+test crystal_plasticity_in_the_finite_element_solver ... ok
+test schmid_factors_and_resolved_shear_identity ... ok
+test single_crystal_single_slip_against_schmid_yield_stress ... ok
+test slip_system_geometry_invariants ... ok
+test polycrystal_aggregate_approaches_isotropy ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.58s
+
+     Running tests/locking.rs (target/release/deps/locking-94790b2fb201b404)
+
+running 4 tests
+test fully_plastic_limit_load_full_integration_over_predicts_bbar_does_not ... ok
+test nearly_incompressible_quad4_locks_under_full_integration_but_not_under_bbar ... ok
+test shear_locking_in_quad4_is_measured_and_bbar_does_not_cure_it ... ok
+test nearly_incompressible_hex8_locks_under_full_integration_but_not_under_bbar ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.83s
+
+     Running tests/mms.rs (target/release/deps/mms-65b22f8f52059d37)
+
+running 3 tests
+test mms_convergence_quadratic_elements ... ok
+test mms_convergence_linear_elements ... ok
+test mms_convergence_three_dimensional ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+
+     Running tests/patch.rs (target/release/deps/patch-aa434c5bbd7a650d)
+
+running 3 tests
+test patch_test_holds_under_bbar ... ok
+test patch_test_penalty_is_limited_by_the_penalty_factor ... ok
+test patch_test_all_element_types ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/plane_stress.rs (target/release/deps/plane_stress-9dcd2f598662e285)
+
+running 4 tests
+test plane_stress_j2_equibiaxial_against_closed_form ... ok
+test plane_stress_j2_uniaxial_against_closed_form ... ok
+test thin_plate_uniaxial_tension_plane_stress_and_plane_strain ... ok
+test plane_stress_matches_transformed_plane_strain ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/plasticity.rs (target/release/deps/plasticity-6a0a8c330cc33d98)
+
+running 3 tests
+test consistent_tangent_by_numerical_perturbation ... ok
+test uniaxial_j2_against_closed_form ... ok
+test newton_converges_quadratically_with_the_consistent_tangent ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+

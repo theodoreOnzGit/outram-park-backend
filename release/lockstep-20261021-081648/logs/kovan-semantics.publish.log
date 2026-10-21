@@ -1,0 +1,15 @@
+    Updating crates.io index
+   Packaging kovan-semantics v0.0.3 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/crates/kovan-semantics)
+    Updating crates.io index
+    Packaged 44 files, 849.9KiB (230.3KiB compressed)
+   Verifying kovan-semantics v0.0.3 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/crates/kovan-semantics)
+ Downloading crates ...
+  Downloaded kovan-discovery v0.0.4
+   Compiling kovan-discovery v0.0.4
+   Compiling kovan-semantics v0.0.3 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/target/package/kovan-semantics-0.0.3)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 5.44s
+   Uploading kovan-semantics v0.0.3 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/crates/kovan-semantics)
+    Uploaded kovan-semantics v0.0.3 to registry `crates-io`
+note: waiting for kovan-semantics v0.0.3 to be available at registry `crates-io`
+help: you may press ctrl-c to skip waiting; the crate should be available shortly
+   Published kovan-semantics v0.0.3 at registry `crates-io`

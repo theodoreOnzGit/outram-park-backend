@@ -1,0 +1,15 @@
+    Updating crates.io index
+   Packaging outram-park-fork-thermochimica v0.0.1 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/crates/outram-park-fork-thermochimica)
+    Updating crates.io index
+    Packaged 16 files, 155.0KiB (49.5KiB compressed)
+   Verifying outram-park-fork-thermochimica v0.0.1 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/crates/outram-park-fork-thermochimica)
+ Downloading crates ...
+  Downloaded petir v0.0.3
+   Compiling petir v0.0.3
+   Compiling outram-park-fork-thermochimica v0.0.1 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/target/package/outram-park-fork-thermochimica-0.0.1)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 4.38s
+   Uploading outram-park-fork-thermochimica v0.0.1 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/crates/outram-park-fork-thermochimica)
+    Uploaded outram-park-fork-thermochimica v0.0.1 to registry `crates-io`
+note: waiting for outram-park-fork-thermochimica v0.0.1 to be available at registry `crates-io`
+help: you may press ctrl-c to skip waiting; the crate should be available shortly
+   Published outram-park-fork-thermochimica v0.0.1 at registry `crates-io`

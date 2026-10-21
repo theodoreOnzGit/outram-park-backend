@@ -1,0 +1,150 @@
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+   Compiling bytemuck v1.25.2
+   Compiling async-io v2.6.0
+   Compiling kurbo v0.13.1
+   Compiling async-signal v0.2.14
+   Compiling font-types v0.12.7
+   Compiling color v0.3.3
+   Compiling peniko v0.6.1
+   Compiling async-process v2.5.0
+   Compiling read-fonts v0.41.0
+   Compiling zbus v5.19.0
+   Compiling vello_common v0.1.0
+   Compiling emath v0.36.2
+   Compiling half v2.7.1
+   Compiling fnv v1.0.7
+   Compiling darling_core v0.20.11
+   Compiling naga v30.0.1
+   Compiling ecolor v0.36.2
+   Compiling atspi-common v0.13.0
+   Compiling vello_cpu v0.1.0
+   Compiling harfrust v0.12.0
+   Compiling skrifa v0.44.0
+   Compiling wgpu-types v30.0.1
+   Compiling epaint v0.36.2
+   Compiling wgpu-naga-bridge v30.0.1
+   Compiling darling_macro v0.20.11
+   Compiling wgpu-hal v30.0.1
+   Compiling egui v0.36.2
+   Compiling darling v0.20.11
+   Compiling atspi-proxies v0.13.0
+   Compiling winit v0.30.13
+   Compiling tiny-skia-path v0.11.4
+   Compiling accesskit_atspi_common v0.18.1
+   Compiling image v0.25.10
+   Compiling atspi v0.29.0
+   Compiling derive_builder_core v0.20.2
+   Compiling wgpu-core-deps-windows-linux-android v30.0.1
+   Compiling kurbo v0.11.3
+   Compiling svgtypes v0.15.3
+   Compiling wgpu-core v30.0.1
+   Compiling derive_builder_macro v0.20.2
+   Compiling accesskit_unix v0.21.1
+   Compiling either v1.19.0
+   Compiling usvg v0.45.1
+   Compiling neli-proc-macros v0.2.2
+   Compiling accesskit_winit v0.32.2
+   Compiling derive_builder v0.20.2
+   Compiling wgpu v30.0.1
+   Compiling tiny-skia v0.11.4
+   Compiling arboard v3.7.0
+   Compiling rgb v0.8.53
+   Compiling num-complex v0.4.6
+   Compiling num-integer v0.1.47
+   Compiling getset v0.1.7
+   Compiling neli v0.7.4
+   Compiling ndarray v0.17.2
+   Compiling resvg v0.45.1
+   Compiling egui-winit v0.36.2
+   Compiling egui-wgpu v0.36.2
+   Compiling eframe v0.36.2
+   Compiling egui_extras v0.36.2
+   Compiling tuas_boussinesq_solver v0.1.8 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/crates/tuas_boussinesq_solver)
+warning: unused import: `uom::si::f64::*`
+ --> crates/tuas_boussinesq_solver/src/lib/boussinesq_thermophysical_properties/solid_database/ss_304_l.rs:6:5
+  |
+6 | use uom::si::f64::*;
+  |     ^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `uom::si::f64::*`
+  --> crates/tuas_boussinesq_solver/src/lib/boussinesq_thermophysical_properties/solid_database/ss_304_l_high_temp.rs:79:5
+   |
+79 | use uom::si::f64::*;
+   |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `uom::si::f64::*`
+ --> crates/tuas_boussinesq_solver/src/lib/boussinesq_thermophysical_properties/solid_database/copper.rs:5:5
+  |
+5 | use uom::si::f64::*;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `uom::si::f64::*`
+ --> crates/tuas_boussinesq_solver/src/lib/boussinesq_thermophysical_properties/solid_database/fiberglass.rs:5:5
+  |
+5 | use uom::si::f64::*;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `uom::si::f64::*`
+  --> crates/tuas_boussinesq_solver/src/lib/boussinesq_thermophysical_properties/solid_database/nuclear_graphite.rs:53:5
+   |
+53 | use uom::si::f64::*;
+   |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `uom::si::f64::*`
+ --> crates/tuas_boussinesq_solver/src/lib/boussinesq_thermophysical_properties/solid_database/pyrogel_hps.rs:5:5
+  |
+5 | use uom::si::f64::*;
+  |     ^^^^^^^^^^^^^^^
+
+warning: function `relative_bracketed_root` is never used
+   --> crates/tuas_boussinesq_solver/src/lib/numerical_methods.rs:285:15
+    |
+285 | pub(crate) fn relative_bracketed_root<F: Fn(f64) -> f64>(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+   Compiling local-ip-address v0.6.13
+   Compiling egui_plot v0.37.0
+warning: `tuas_boussinesq_solver` (lib) generated 7 warnings (run `cargo fix --lib -p tuas_boussinesq_solver` to apply 6 suggestions)
+   Compiling teh-o-prke v0.1.7 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/crates/teh-o-prke)
+    Finished `release` profile [optimized] target(s) in 1m 43s
+     Running unittests src/lib.rs (target/release/deps/teh_o_prke-c8063fdb89e732a9)
+
+running 30 tests
+test control_rod_feedback::test_halfway_insertion ... ok
+test decay_heat::tests::burst_function_decreases_monotonically ... ok
+test decay_heat::tests::cold_state_produces_no_decay_heat ... ok
+test decay_heat::tests::equilibrium_state_does_not_drift ... ok
+test decay_heat::tests::shutdown_decay_heat_has_the_expected_magnitude_and_falls ... ok
+test decay_heat::tests::tabulated_parameters_are_well_formed ... ok
+test decay_heat::tests::total_decay_energy_per_fission_is_physical ... ok
+test delayed_neutron_layer::tests::a_bank_seeded_at_equilibrium_is_a_fixed_point ... ok
+test delayed_neutron_layer::tests::a_rescaled_bank_keeps_its_shape_and_sums_to_the_supplied_total ... ok
+test delayed_neutron_layer::tests::constant_power_source_settles ... ok
+test delayed_neutron_layer::tests::power_step_source_lags ... ok
+test decay_heat::tests::constant_irradiation_matches_published_integral_equation ... ok
+test delayed_neutron_layer::tests::rejects_non_positive_decay_constant ... ok
+test delayed_neutron_layer::tests::rejects_non_positive_lambda ... ok
+test delayed_neutron_layer::tests::u235_five_group_total_beta_is_0_0065 ... ok
+test fuel_temperature_feedback::fuel_temperature_feedback_test ... ok
+test matrix::tests::lu_solve_2x2 ... ok
+test matrix::tests::lu_solve_3x3 ... ok
+test matrix::tests::lu_solve_needs_pivoting ... ok
+test matrix::tests::scaled_pivoting_large_row_contrast ... ok
+test matrix::tests::singular_matrix_returns_err ... ok
+test nordheim_fuchs::tests::first_order_lag_reactivity_driver_smoke_test ... ok
+test nordheim_fuchs::tests::gamma_invariant_is_conserved ... ok
+test nordheim_fuchs::tests::negative_feedback_turns_over_a_prompt_excursion ... ok
+test nordheim_fuchs::tests::rejects_non_negative_feedback_coefficient ... ok
+test delayed_neutron_layer::tests::precursor_update_is_o1_per_step ... ok
+test zero_power_prke::tests::test_pu239_total_delayed_frac ... ok
+test zero_power_prke::tests::test_u233_total_delayed_frac ... ok
+test zero_power_prke::tests::test_u235_total_delayed_frac ... ok
+test zero_power_prke::tests::prke_test_zero_reactivity ... ok
+
+test result: ok. 30 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+

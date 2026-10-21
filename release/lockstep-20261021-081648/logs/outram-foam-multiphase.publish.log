@@ -1,0 +1,12 @@
+    Updating crates.io index
+   Packaging outram-foam-multiphase v0.0.4 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/crates/outram-foam-multiphase)
+    Updating crates.io index
+    Packaged 24 files, 656.5KiB (180.9KiB compressed)
+   Verifying outram-foam-multiphase v0.0.4 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/crates/outram-foam-multiphase)
+   Compiling outram-foam-multiphase v0.0.4 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/target/package/outram-foam-multiphase-0.0.4)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.38s
+   Uploading outram-foam-multiphase v0.0.4 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/crates/outram-foam-multiphase)
+    Uploaded outram-foam-multiphase v0.0.4 to registry `crates-io`
+note: waiting for outram-foam-multiphase v0.0.4 to be available at registry `crates-io`
+help: you may press ctrl-c to skip waiting; the crate should be available shortly
+   Published outram-foam-multiphase v0.0.4 at registry `crates-io`

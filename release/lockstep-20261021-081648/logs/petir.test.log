@@ -1,0 +1,1200 @@
+   Compiling libm v0.2.16
+   Compiling autocfg v1.5.1
+   Compiling num-traits v0.2.19
+   Compiling bytemuck v1.25.2
+   Compiling nano-gemm-codegen v0.2.1
+   Compiling num-complex v0.4.6
+   Compiling bitflags v2.13.2
+   Compiling version_check v0.9.5
+   Compiling cfg-if v1.0.5
+   Compiling paste v1.0.15
+   Compiling pulp v0.22.3
+   Compiling raw-cpuid v11.6.0
+   Compiling reborrow v0.5.5
+   Compiling pulp-wasm-simd-flag v0.1.1
+   Compiling dyn-stack-macros v0.1.3
+   Compiling dyn-stack v0.13.2
+   Compiling syn v2.0.119
+   Compiling once_cell v1.21.4
+   Compiling seq-macro v0.3.6
+   Compiling syn v1.0.109
+   Compiling nano-gemm-core v0.2.1
+   Compiling gemm-common v0.19.0
+   Compiling libc v0.2.191
+   Compiling nano-gemm-f64 v0.2.1
+   Compiling nano-gemm-c32 v0.2.1
+   Compiling interpol v0.2.1
+   Compiling nano-gemm-c64 v0.2.1
+   Compiling nano-gemm-f32 v0.2.1
+   Compiling foldhash v0.2.0
+   Compiling thiserror v2.0.21
+   Compiling zerocopy v0.8.63
+   Compiling defer v0.2.1
+   Compiling private-gemm-x86 v0.1.22
+   Compiling hashbrown v0.17.1
+   Compiling equator-macro v0.2.1
+   Compiling zerocopy-derive v0.8.63
+   Compiling equivalent v1.0.3
+   Compiling cfg_aliases v0.2.2
+   Compiling naga v30.0.1
+   Compiling indexmap v2.14.2
+   Compiling equator v0.2.2
+   Compiling num_cpus v1.17.0
+   Compiling gemm-c32 v0.19.0
+   Compiling gemm-c64 v0.19.0
+   Compiling gemm-f32 v0.19.0
+   Compiling gemm-f64 v0.19.0
+   Compiling qd v0.8.0
+   Compiling bit-vec v0.9.1
+   Compiling typenum v1.20.1
+   Compiling unicode-width v0.2.0
+   Compiling equator-macro v0.6.0
+   Compiling rustc-hash v1.1.0
+   Compiling generativity v1.2.1
+   Compiling equator v0.6.0
+   Compiling faer-traits v0.24.0
+   Compiling naga-types v30.0.1
+   Compiling codespan-reporting v0.13.1
+   Compiling uom v0.38.0
+   Compiling bit-set v0.10.0
+   Compiling gemm v0.19.0
+   Compiling nano-gemm v0.2.2
+   Compiling half v2.7.1
+   Compiling log v0.4.34
+   Compiling arrayvec v0.7.8
+   Compiling unicode-ident v1.0.27
+   Compiling faer v0.24.4
+   Compiling approx v0.5.1
+   Compiling petir v0.0.3 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/crates/petir)
+    Finished `release` profile [optimized] target(s) in 58.82s
+     Running unittests src/lib.rs (target/release/deps/petir-87542ab25376f76c)
+
+running 619 tests
+test cheb_slice::tests::dense_tensor_product_factorises ... ok
+test cheb_slice::tests::eval_gsl_matches_the_owning_series_bit_for_bit ... ok
+test cheb_slice::tests::sparse_agrees_with_dense ... ok
+test cheb_slice::tests::the_two_conventions_differ_by_half_the_constant_term ... ok
+test depletion::cram::tests::complex_arithmetic ... ok
+test depletion::cram::tests::degenerate_cases_and_errors ... ok
+test depletion::cram::tests::long_chain_atom_conservation ... ok
+test depletion::cram::tests::lu_replays_the_direct_solve_bit_for_bit ... ok
+test depletion::cram::tests::single_nuclide_decay_half_life ... ok
+test depletion::cram::tests::solver_enum_is_the_free_functions ... ok
+test depletion::cram::tests::stiff_two_nuclide_system ... ok
+test depletion::cram::tests::substeps_reproduce_the_exponential ... ok
+test depletion::cram::tests::three_nuclide_chain_and_conservation ... ok
+test depletion::cram::tests::two_nuclide_chain_bateman ... ok
+test depletion::integrators::tests::errors_are_reported ... ok
+test depletion::integrators::tests::names_round_trip ... ok
+test depletion::integrators::tests::exact_on_a_constant_matrix ... ok
+test depletion::integrators::tests::si_average_weights ... ok
+test depletion::matrix::tests::lincomb_is_left_to_right ... ok
+test depletion::matrix::tests::out_of_range_is_reported_not_panicked ... ok
+test depletion::matrix_funcs::tests::coefficient_sums ... ok
+test depletion::matrix_funcs::tests::leqi_equal_steps ... ok
+test depletion::onix_cram::tests::a_singular_resolvent_is_an_error_not_a_nan ... ok
+test depletion::onix_cram::tests::agrees_with_the_ipf_form_to_round_off ... ok
+test depletion::onix_cram::tests::single_nuclide_matches_the_exponential ... ok
+test depletion::onix_cram::tests::wrong_length_inventory_is_reported ... ok
+test error::tests::display_reports_the_offending_index ... ok
+test error::tests::gsl_symbols_match_upstream_gsl_errno_h ... ok
+test error::tests::implements_the_core_error_trait ... ok
+test depletion::integrators::tests::operator_call_counts ... ok
+test faer_dense::kernels::tests::faer_hypot_is_the_scaled_three_way_form ... ok
+test faer_dense::kernels::tests::strided_and_contiguous_norms_agree_to_rounding ... ok
+test faer_dense::simd::tests::batch_assignment_follows_simd_iter ... ok
+test faer_dense::simd::tests::chunking_matches_faer_simd_ctx ... ok
+test faer_dense::simd::tests::reduce_sum_pairs_lanes_as_pulp_v3 ... ok
+test faer_dense::svd::tests::reconstructs_a_general_3x3 ... ok
+test faer_dense::svd::tests::svd3_is_svd_square_in_row_major ... ok
+test faer_dense::svd::tests::zero_matrix_gives_identity_vectors_and_bad_input_errors ... ok
+test hypot::tests::hypot_one_sqrt3_is_two ... ok
+test hypot::tests::special_values ... ok
+test integration::gauss_legendre::tests::degenerate_inputs_are_handled ... ok
+test integration::gauss_legendre::tests::gauss_legendre_agrees_with_gsl_gauss_kronrod ... ok
+test integration::gauss_legendre::tests::gauss_legendre_is_exact_to_degree_two_n_minus_one ... ok
+test integration::gauss_legendre::tests::newton_cotes_reproduces_trapezoid_and_simpson ... ok
+test integration::gauss_legendre::tests::the_table_lookup_covers_its_documented_range ... ok
+test integration::gauss_legendre::tests::newton_cotes_diverges_on_runge_and_gauss_legendre_does_not ... ok
+test integration::qags::tests::qelg_on_a_short_table_returns_the_last_entry ... ok
+test integration::qags::tests::subinterval_too_small_flags_only_degenerate_intervals ... ok
+test integration::tests::the_tables_have_the_lengths_the_algorithm_assumes ... ok
+test linalg::blas1::tests::asum_is_the_one_norm ... ok
+test linalg::blas1::tests::axpy_accumulates_in_place ... ok
+test linalg::blas1::tests::axpy_reports_a_length_mismatch ... ok
+test linalg::blas1::tests::axpy_with_unit_alpha_is_plain_addition ... ok
+test linalg::blas1::tests::axpy_with_zero_alpha_leaves_y_untouched_even_against_nan ... ok
+test linalg::blas1::tests::dot_matches_the_hand_computed_value ... ok
+test linalg::blas1::tests::dot_reports_a_length_mismatch_rather_than_truncating ... ok
+test linalg::blas1::tests::iamax_compares_magnitudes_not_values ... ok
+test linalg::blas1::tests::iamax_returns_the_first_index_among_ties ... ok
+test linalg::blas1::tests::nrm2_is_invariant_to_ordering_and_sign ... ok
+test linalg::blas1::tests::nrm2_matches_the_pythagorean_answer ... ok
+test linalg::blas1::tests::nrm2_survives_the_overflow_and_underflow_the_naive_form_does_not ... ok
+test linalg::blas1::tests::scal_multiplies_in_place_and_short_circuits_on_one ... ok
+test linalg::blas1::tests::swap_exchanges_both_ways ... ok
+test linalg::cholesky::tests::refusals_follow_gsl ... ok
+test linalg::cholesky::tests::solve_and_invert_reproduce_the_identity ... ok
+test linalg::cholesky::tests::the_textbook_example_factors_exactly ... ok
+test linalg::eigen_nonsymm::tests::balancing_and_hypot_and_shapes ... ok
+test linalg::eigen_nonsymm::tests::companion_matrix_eigenvalues ... ok
+test linalg::eigen_nonsymm::tests::cyclic_permutations_reach_the_exceptional_shift ... ok
+test linalg::eigen_symm::tests::eigenpairs_satisfy_the_definition ... ok
+test linalg::eigen_symm::tests::one_by_one_and_bad_shapes ... ok
+test linalg::elem::tests::out_of_range_reads_nan_and_writes_are_discarded ... ok
+test linalg::expm::tests::octaves_own_assertions ... ok
+test linalg::expm::tests::trace_shift_and_neg_inf_paths ... ok
+test linalg::gebal::tests::dnrm2_matches_the_plain_norm_and_survives_extremes ... ok
+test linalg::gebal::tests::idamax_takes_the_first_largest ... ok
+test linalg::gebal::tests::upper_triangular_is_fully_permuted_and_scale_is_noop_on_symmetric ... ok
+test linalg::householder::tests::a_reflection_annihilates_the_tail_it_was_built_from ... ok
+test linalg::householder::tests::a_reflection_preserves_the_norm ... ok
+test linalg::householder::tests::degenerate_inputs_give_the_identity ... ok
+test linalg::householder::tests::gsl_sign_treats_zero_as_positive ... ok
+test linalg::householder::tests::hm_and_hv_agree_on_a_single_column ... ok
+test linalg::lu::tests::det_gets_the_permutation_sign_right ... ok
+test linalg::lu::tests::det_matches_the_closed_form_for_small_matrices ... ok
+test linalg::lu::tests::det_of_a_triangular_matrix_is_the_diagonal_product ... ok
+test linalg::lu::tests::det_reports_singularity_with_the_offending_column ... ok
+test linalg::lu::tests::inverse_columns_agree_with_solve ... ok
+test linalg::lu::tests::inverse_of_the_inverse_is_the_original ... ok
+test linalg::lu::tests::inverse_reports_singularity_rather_than_returning_infinities ... ok
+test linalg::lu::tests::inverse_reproduces_the_two_by_two_closed_form ... ok
+test linalg::lu::tests::inverse_times_the_original_is_the_identity ... ok
+test linalg::lu::tests::ln_det_agrees_with_the_log_of_det_where_both_are_computable ... ok
+test linalg::lu::tests::ln_det_survives_where_det_is_unrepresentable ... ok
+test linalg::lu::tests::zero_order_matrices_are_rejected ... ok
+test linalg::lu_decomp::tests::a_singular_matrix_factors_but_refuses_to_solve ... ok
+test linalg::lu_decomp::tests::permute_matches_its_definition_on_a_three_cycle ... ok
+test linalg::lu_decomp::tests::shape_errors_are_reported ... ok
+test linalg::lu_decomp::tests::solves_a_system_that_needs_a_row_swap ... ok
+test linalg::lu_decomp::tests::ties_take_the_first_row_and_the_sign_counts_swaps ... ok
+test linalg::matrix::tests::an_out_of_range_column_does_not_alias_the_next_row ... ok
+test linalg::matrix::tests::column_extraction_and_write_back_round_trip ... ok
+test linalg::matrix::tests::dimensions_and_element_access_round_trip ... ok
+test linalg::matrix::tests::malformed_construction_is_reported ... ok
+test linalg::matrix::tests::matrix_vector_product_matches_the_hand_computed_value ... ok
+test linalg::matrix::tests::out_of_range_reads_nan_and_writes_are_discarded ... ok
+test linalg::octave::tests::constructors ... ok
+test linalg::octave::tests::inv_det_solve_mul ... ok
+test linalg::octave::tests::norms ... ok
+test linalg::octave::tests::transpose_kron_trace ... ok
+test linalg::qr::tests::a_rank_deficient_system_is_reported ... ok
+test linalg::qr::tests::a_square_system_solves_exactly ... ok
+test linalg::qr::tests::malformed_input_is_reported ... ok
+test linalg::qr::tests::q_times_r_reproduces_the_original_matrix ... ok
+test linalg::qr::tests::the_least_squares_residual_is_orthogonal_to_the_columns ... ok
+test linalg::qr::tests::the_reported_residual_equals_b_minus_ax ... ok
+test linalg::square_matrix::tests::fully_zero_matrix_returns_err ... ok
+test linalg::square_matrix::tests::hilbert_5x5_residual_acceptable ... ok
+test linalg::square_matrix::tests::lu_identity ... ok
+test linalg::square_matrix::tests::lu_multiple_rhs ... ok
+test linalg::square_matrix::tests::lu_solve_2x2 ... ok
+test linalg::square_matrix::tests::lu_solve_3x3 ... ok
+test linalg::square_matrix::tests::lu_solve_needs_pivoting ... ok
+test linalg::square_matrix::tests::scaled_pivoting_large_row_contrast ... ok
+test linalg::square_matrix::tests::singular_matrix_returns_err ... ok
+test linalg::svd::tests::decomposition_reproduces_a_and_solves ... ok
+test linalg::svd::tests::special_paths ... ok
+test linalg::symmtd::tests::a_non_square_input_is_refused ... ok
+test linalg::symmtd::tests::q_t_qt_reproduces_a ... ok
+test linalg::tridiag::tests::a_one_by_one_system_is_just_a_division ... ok
+test linalg::tridiag::tests::a_zero_pivot_is_reported ... ok
+test linalg::tridiag::tests::agrees_with_the_dense_lu_solver ... ok
+test linalg::tridiag::tests::malformed_input_is_reported ... ok
+test linalg::tridiag::tests::solves_a_hand_checkable_system ... ok
+test linalg::tridiag::tests::the_residual_vanishes_on_a_larger_system ... ok
+test mathf::tests::r_log2_r_exp2_and_r_sin_cos_exact_cases ... ok
+test mathf::tests::r_powi_is_the_powidf2_route ... ok
+test mathf::tests::the_f32_exact_cases_and_special_values_pass_through ... ok
+test mathf::tests::the_f32_methods_are_bit_identical_to_libm_single_precision ... ok
+test mathf::tests::the_methods_are_bit_identical_to_the_free_functions ... ok
+test mathf::tests::the_route_is_the_arm_port ... ok
+test mathf::tests::the_special_values_pass_through ... ok
+test poly::companion::tests::a_real_double_root_is_reported_not_lost ... ok
+test poly::companion::tests::all_roots_are_found_well_past_the_quartic ... ok
+test mathf::tests::the_libm_and_powi_methods_are_bit_identical_to_what_they_forward_to ... ok
+test poly::companion::tests::complex_roots_come_back_as_conjugate_pairs ... ok
+test poly::companion::tests::degenerate_inputs_are_handled ... ok
+test poly::companion::tests::the_adapter_agrees_with_the_closed_form_quartic ... ok
+test poly::companion::tests::upstreams_own_doctest_passes ... ok
+test poly::cubic_eqn::tests::degenerate_nan_tag ... ok
+test poly::cubic_eqn::tests::degenerate_to_quadratic ... ok
+test poly::cubic_eqn::tests::one_real_two_complex ... ok
+test poly::cubic_eqn::tests::one_real_two_complex_root_type_tags ... ok
+test poly::cubic_eqn::tests::three_real_integer ... ok
+test poly::cubic_eqn::tests::triple_root ... ok
+test poly::cubic_eqn::tests::value_at_real_roots ... ok
+test poly::dense::tests::derivative_inverts_integral ... ok
+test poly::dense::tests::division_inverts_multiplication ... ok
+test poly::dense::tests::every_upstream_panic_became_an_error ... ok
+test poly::dense::tests::lagrange_agrees_with_the_exact_polynomial_and_with_gsl ... ok
+test poly::dense::tests::legendre_roots_are_the_gauss_legendre_nodes ... ok
+test poly::dense::tests::legendre_polynomials_are_orthogonal_on_minus_one_to_one ... ok
+test poly::dense::tests::the_classical_families_match_their_published_coefficients ... ok
+test poly::dense::tests::translate_x_reexpands_about_a_shifted_origin ... ok
+test poly::dense::tests::trimmed_drops_leading_zeros ... ok
+test poly::eval::tests::divided_difference_passes_through_every_node ... ok
+test poly::eval::tests::divided_difference_rejects_malformed_input ... ok
+test poly::eval::tests::divided_difference_reproduces_a_known_quadratic ... ok
+test poly::eval::tests::empty_and_constant_polynomials ... ok
+test poly::eval::tests::eval_derivs_reproduces_hand_differentiated_values ... ok
+test poly::eval::tests::eval_derivs_zeroth_entry_is_just_eval ... ok
+test poly::eval::tests::horner_matches_the_direct_sum_on_well_scaled_input ... ok
+test poly::eval::tests::single_point_interpolation_is_the_constant ... ok
+test poly::eval::tests::to_taylor_about_a_shifted_point_still_reproduces_the_polynomial ... ok
+test poly::eval::tests::to_taylor_recovers_the_monomial_coefficients ... ok
+test poly::linear_eqn::tests::degenerate_zero_leading ... ok
+test poly::linear_eqn::tests::overflow_root ... ok
+test poly::linear_eqn::tests::simple_root ... ok
+test poly::linear_eqn::tests::value_and_error ... ok
+test poly::polynomial::tests::constant_poly ... ok
+test poly::polynomial::tests::integral_additivity ... ok
+test poly::polynomial::tests::integral_minus1_log_term ... ok
+test poly::polynomial::tests::linear_poly ... ok
+test poly::polynomial::tests::quadratic_poly ... ok
+test poly::quadratic_eqn::tests::degenerate_falls_back_to_linear ... ok
+test poly::quadratic_eqn::tests::repeated_real_root ... ok
+test poly::quadratic_eqn::tests::two_complex_roots ... ok
+test poly::quadratic_eqn::tests::two_distinct_real ... ok
+test poly::quadratic_eqn::tests::value_at_root ... ok
+test poly::quartic::tests::a_quartic_agrees_with_the_openfoam_cubic ... ok
+test poly::dense::tests::legendre_satisfies_its_endpoint_identities ... ok
+test poly::quartic::tests::degenerate_inputs_are_handled ... ok
+test poly::quartic::tests::every_returned_root_satisfies_the_polynomial ... ok
+test poly::quartic::tests::roots_are_ordered_and_distinct ... ok
+test poly::quartic::tests::upstreams_own_test_cases_pass ... ok
+test poly::roots::tests::concat_2 ... ok
+test poly::roots::tests::concat_3 ... ok
+test poly::roots::tests::encoding_round_trip ... ok
+test poly::roots::tests::uniform_3 ... ok
+test real::tests::erf_and_erfc_are_complementary ... ok
+test real::tests::known_values ... ok
+test real::tests::powi_is_libgcc_square_and_multiply_then_one_reciprocal ... ok
+test rng::chacha::tests::next_u64_straddle_and_fill_bytes_agree_with_words ... ok
+test rng::chacha::tests::quarter_round_matches_rfc7539_2_1_1 ... ok
+test rng::chacha::tests::set_stream_rewinds_and_selects ... ok
+test rng::lcg::tests::future_seed_matches_sequential ... ok
+test rng::lcg::tests::future_seed_n_steps ... ok
+test rng::lcg::tests::init_seed_consecutive_ids_are_one_full_stride_apart ... ok
+test rng::lcg::tests::init_seed_matches_openmc_golden_values ... ok
+test rng::lcg::tests::init_seed_offset_selects_an_independent_run ... ok
+test rng::lcg::tests::init_seed_streams_do_not_overlap ... ok
+test rng::lcg::tests::equidistribution_1d_2d_3d ... ok
+test rng::lcg::tests::lattice_structure_lag1 ... ok
+test rng::lcg::tests::moved_stream_is_pinned ... ok
+test rng::lcg::tests::output_does_not_expose_internal_state ... ok
+test rng::lcg::tests::prn_in_unit_interval ... ok
+test rng::lcg::tests::serial_correlation_lags_1_to_8 ... ok
+test rng::normal::tests::construction_matches_upstream ... ok
+test rng::lcg::tests::lattice_structure_lag2 ... ok
+test rng::traits::tests::seed_expansion_chunks_and_remainder ... ok
+test rng::traits::tests::standard_f64_edge_cases_match_upstream ... ok
+test rng::uniform::tests::open01_edge_cases_match_upstream ... ok
+test rng::uniform::tests::samples_stay_in_range_and_errors_are_reported ... ok
+test roots::convergence::tests::a_small_residual_can_coexist_with_an_inaccurate_root ... ok
+test roots::convergence::tests::delta_test_converges_on_a_stalled_iteration ... ok
+test roots::convergence::tests::delta_tolerance_scales_with_the_iterate ... ok
+test roots::convergence::tests::interval_test_converges_when_narrow ... ok
+test roots::convergence::tests::interval_test_rejects_bad_input ... ok
+test roots::convergence::tests::relative_tolerance_is_dropped_when_the_interval_straddles_zero ... ok
+test roots::convergence::tests::residual_test_examines_only_the_function_value ... ok
+test scalar::tests::root_epsilon_constants_are_the_roots_they_claim ... ok
+test sparse::cholesky::tests::solves_a_small_spd_system_and_rejects_an_indefinite_one ... ok
+test rng::normal::tests::moments_and_tail_are_plausible ... ok
+test sparse::dense::factor::tests::partial_pivoting_lu_reconstructs_the_matrix ... ok
+test sparse::dense::matmul::tests::every_kernel_computes_a_product ... ok
+test sparse::dense::matmul::tests::lower_and_scatter_destinations ... ok
+test sparse::dense::trsm::tests::solves_lower_and_upper_systems_of_every_blocking ... ok
+test sparse::dense::factor::tests::llt_reconstructs_spd_matrices_and_rejects_indefinite_ones ... ok
+test sparse::dense::vs_faer::llt_is_bit_identical_to_faer ... ok
+test sparse::dense::vs_faer::partial_pivoting_lu_is_bit_identical_to_faer ... ok
+test sparse::dense::vs_faer::matmul_is_bit_identical_to_faer ... ok
+test sparse::lu::tests::an_empty_column_is_structurally_singular_and_a_rectangle_is_refused ... ok
+test sparse::lu::tests::solves_a_small_unsymmetric_system ... ok
+test sparse::tests::triplets_sort_rows_sum_duplicates_and_keep_zeros ... ok
+test specfunc::airy::tests::bi_overflows_where_upstream_says_and_the_scaled_form_does_not ... ok
+test specfunc::airy::tests::both_functions_satisfy_the_defining_differential_equation ... ok
+test specfunc::airy::tests::nan_propagates ... ok
+test specfunc::airy::tests::the_branch_boundaries_join ... ok
+test specfunc::airy::tests::the_residual_is_the_difference_scheme_not_the_functions ... ok
+test specfunc::airy::tests::the_scaled_forms_reach_their_algebraic_asymptotes ... ok
+test specfunc::airy::tests::the_scalings_are_the_documented_ones_and_are_not_symmetric ... ok
+test specfunc::airy::tests::the_shape_and_the_first_zeros_are_right ... ok
+test specfunc::airy::tests::the_values_at_the_origin_are_the_published_ones ... ok
+test specfunc::airy::tests::the_wronskian_is_one_over_pi ... ok
+test specfunc::atanint::tests::it_matches_the_defining_power_series ... ok
+test specfunc::atanint::tests::its_derivative_is_arctan_over_x ... ok
+test specfunc::atanint::tests::the_known_values_and_shape_are_right ... ok
+test specfunc::atanint::tests::the_reflection_is_the_branch_structure ... ok
+test sparse::dense::vs_faer::triangular_solves_are_bit_identical_to_faer ... ok
+test specfunc::bessel::tests::i1_overflows_with_the_sign_of_its_argument ... ok
+test specfunc::bessel::tests::i0_and_i1_match_their_integral_representations ... ok
+test specfunc::bessel::tests::j0_and_j1_match_their_integral_representations ... ok
+test specfunc::bessel::tests::nan_propagates_through_every_entry_point ... ok
+test specfunc::bessel::tests::poly_eval_is_horner ... ok
+test specfunc::bessel::tests::the_i_k_wronskian_holds ... ok
+test specfunc::bessel::tests::the_j_y_wronskian_holds ... ok
+test specfunc::bessel::tests::the_parities_hold_exactly ... ok
+test specfunc::bessel::tests::the_pi4_helpers_agree_with_the_naive_form_at_small_argument ... ok
+test specfunc::bessel::tests::the_scaled_forms_agree_with_the_unscaled_ones ... ok
+test specfunc::bessel::tests::the_scaled_forms_survive_where_the_plain_ones_cannot ... ok
+test specfunc::bessel::tests::the_second_kind_functions_reject_non_positive_arguments ... ok
+test specfunc::bessel::tests::the_small_argument_branches_give_the_leading_terms ... ok
+test specfunc::bessel::tests::k0_and_k1_match_their_integral_representations ... ok
+test specfunc::bessel::tests::y0_matches_the_neumann_series ... ok
+test specfunc::clausen::tests::the_duplication_formula_holds ... ok
+test specfunc::clausen::tests::the_known_values_are_reproduced ... ok
+test specfunc::clausen::tests::the_refusal_is_inherited_from_the_reduction ... ok
+test specfunc::clausen::tests::the_small_argument_branch_joins ... ok
+test specfunc::clausen::tests::the_symmetries_hold ... ok
+test specfunc::dawson::tests::it_satisfies_its_own_ode ... ok
+test specfunc::dawson::tests::the_bounds_are_what_upstream_declares ... ok
+test specfunc::dawson::tests::the_defining_integral_is_reproduced ... ok
+test specfunc::dawson::tests::the_maximum_is_where_the_literature_puts_it ... ok
+test specfunc::dawson::tests::the_shape_and_the_edges ... ok
+test specfunc::dawson::tests::upstreams_truncation_costs_at_most_eight_ulp ... ok
+test specfunc::debye::tests::every_order_decreases_monotonically ... ok
+test specfunc::debye::tests::every_order_is_one_at_the_origin ... ok
+test specfunc::debye::tests::every_order_matches_its_defining_integral ... ok
+test specfunc::debye::tests::negative_arguments_and_nan_are_rejected ... ok
+test specfunc::debye::tests::past_the_underflow_cut_only_the_tail_remains ... ok
+test specfunc::debye::tests::the_branch_boundaries_agree_with_the_integral ... ok
+test specfunc::debye::tests::the_named_entry_points_match_debye_n ... ok
+test specfunc::debye::tests::the_six_orders_differ_only_in_their_constants ... ok
+test specfunc::debye::tests::the_tail_is_n_times_factorial_times_zeta ... ok
+test specfunc::dilog::tests::every_branch_matches_the_defining_series ... ok
+test specfunc::dilog::tests::landens_reflection_holds_across_the_branches ... ok
+test specfunc::dilog::tests::nan_propagates ... ok
+test specfunc::dilog::tests::the_branch_boundaries_join ... ok
+test specfunc::dilog::tests::the_closed_form_values_are_reproduced ... ok
+test specfunc::dilog::tests::the_duplication_formula_holds_across_branch_boundaries ... ok
+test specfunc::dilog::tests::the_large_argument_tail_is_logarithmic ... ok
+test specfunc::dilog::tests::the_shape_is_right ... ok
+test specfunc::dilog::tests::the_value_at_one_agrees_with_the_zeta_module ... ok
+test specfunc::ellint::tests::legendres_relation_holds ... ok
+test specfunc::ellint::tests::the_carlson_degenerate_identities_are_exact ... ok
+test specfunc::ellint::tests::the_defining_integrals_are_reproduced ... ok
+test specfunc::ellint::tests::the_domain_refusals_match_upstream ... ok
+test specfunc::ellint::tests::the_legendre_forms_reduce_to_one_another ... ok
+test specfunc::ellint::tests::the_periodicity_is_carried ... ok
+test specfunc::ellint::tests::the_single_precision_mode_costs_what_it_was_measured_to_cost ... ok
+test specfunc::ellint::tests::the_tabulated_values_match ... ok
+test specfunc::elljac::tests::both_reflection_branches_are_exercised ... ok
+test specfunc::elljac::tests::sn_inverts_the_incomplete_integral_of_the_first_kind ... ok
+test specfunc::elljac::tests::the_defining_identities_hold ... ok
+test specfunc::elljac::tests::the_degenerate_limits_are_circular_and_hyperbolic ... ok
+test specfunc::elljac::tests::the_descent_is_shorter_than_upstreams_cap ... ok
+test specfunc::elljac::tests::the_recurrence_matches_a_literal_transcription ... ok
+test specfunc::elljac::tests::the_refusals_are_nan_where_upstream_returns_zeros ... ok
+test specfunc::erf::tests::erf_is_odd_and_erfc_is_its_complement ... ok
+test specfunc::erf::tests::erf_matches_published_values ... ok
+test specfunc::erf::tests::erfc_keeps_precision_where_one_minus_erf_collapses ... ok
+test specfunc::erf::tests::erfcx_agrees_with_the_direct_product_where_both_are_computable ... ok
+test specfunc::erf::tests::erfcx_at_zero_is_one ... ok
+test specfunc::erf::tests::erfcx_branches_agree_across_the_crossover ... ok
+test specfunc::erf::tests::erfcx_is_defined_where_erfc_has_underflowed ... ok
+test specfunc::erf::tests::erfcx_matches_the_asymptotic_series_far_out ... ok
+test specfunc::erf::tests::erfcx_reflection_holds_for_negative_argument ... ok
+test specfunc::erf_inv::tests::known_values ... ok
+test specfunc::erf_inv::tests::monotone_and_positive ... ok
+test specfunc::exp_mult_tests::exp_mult_agrees_with_the_direct_product_and_extends_past_it ... ok
+test specfunc::expint3::tests::the_defining_integral_is_reproduced ... ok
+test specfunc::expint3::tests::the_saturation_cut_is_exactly_placed ... ok
+test specfunc::expint3::tests::the_saturation_value_is_a_correctly_rounded_gamma_four_thirds ... ok
+test specfunc::expint3::tests::the_shape_and_the_domain ... ok
+test specfunc::fermi_dirac::tests::each_member_is_the_derivative_of_the_next ... ok
+test specfunc::fermi_dirac::tests::the_carry_reformulation_of_fd_whiz_is_upstreams_loop ... ok
+test specfunc::fermi_dirac::tests::the_closed_forms_are_the_closed_forms ... ok
+test specfunc::fermi_dirac::tests::the_cube_root_bounds_are_cube_roots ... ok
+test specfunc::fermi_dirac::tests::the_defining_integral_is_reproduced ... ok
+test specfunc::fermi_dirac::tests::the_half_integer_tails_converge_to_sommerfeld_at_fourth_order ... ok
+test specfunc::fermi_dirac::tests::the_integer_reflection_identities_hold ... ok
+test specfunc::fermi_dirac::tests::the_series_acceleration_is_unreachable_from_this_module ... ok
+test specfunc::fermi_dirac::tests::the_shape_and_the_edges ... ok
+test specfunc::fermi_dirac::tests::the_zero_argument_values_match_the_zeta_identity ... ok
+test specfunc::fermi_dirac::tests::upstreams_far_field_cut_is_exact_for_f_1_and_six_orders_early_for_f_2 ... ok
+test specfunc::gamma::tests::beta_matches_its_closed_forms ... ok
+test specfunc::gamma::tests::beta_rejects_non_positive_arguments ... ok
+test specfunc::gamma::tests::choose_is_exact_for_small_arguments ... ok
+test specfunc::gamma::tests::choose_is_symmetric_and_survives_the_naive_overflow ... ok
+test specfunc::gamma::tests::factorials_are_exact_where_f64_allows ... ok
+test specfunc::gamma::tests::gamma_alternates_sign_on_the_negative_axis ... ok
+test specfunc::gamma::tests::gamma_has_no_value_at_the_poles ... ok
+test specfunc::gamma::tests::gamma_reproduces_the_exact_closed_forms ... ok
+test specfunc::gamma::tests::just_outside_the_pade_window_lanczos_accuracy_returns ... ok
+test specfunc::gamma::tests::ln_factorial_survives_where_factorial_overflows ... ok
+test specfunc::gamma::tests::ln_gamma_agrees_with_independent_fdlibm_lgamma ... ok
+test specfunc::gamma::tests::ln_gamma_reflection_agrees_with_fdlibm_on_the_negative_axis ... ok
+test specfunc::gamma::tests::pade_branches_make_the_zeros_of_ln_gamma_exact ... ok
+test specfunc::gegenbauer::tests::lambda_one_gives_chebyshev_of_the_second_kind ... ok
+test specfunc::gegenbauer::tests::lambda_one_half_gives_the_legendre_polynomials ... ok
+test specfunc::gegenbauer::tests::the_generating_function_reproduces_the_recurrence ... ok
+test specfunc::gegenbauer::tests::the_lambda_zero_closed_forms_are_upstreams_normalisation ... ok
+test specfunc::gegenbauer::tests::the_refusals_and_the_growth_are_right ... ok
+test specfunc::inc_gamma::tests::p_1_1 ... ok
+test specfunc::inc_gamma::tests::pq_sum_to_one ... ok
+test specfunc::inc_gamma::tests::q_at_zero ... ok
+test specfunc::inc_gamma::tests::unnormalised_consistency ... ok
+test specfunc::inv_inc_gamma::tests::a_eq_1_explicit ... ok
+test specfunc::inv_inc_gamma::tests::round_trips_large_a ... ok
+test specfunc::inv_inc_gamma::tests::round_trips_moderate_a ... ok
+test specfunc::inv_inc_gamma::tests::round_trips_small_a ... ok
+test specfunc::lambert::tests::below_the_branch_point_is_a_refusal_not_an_answer ... ok
+test specfunc::lambert::tests::both_branches_satisfy_the_defining_identity ... ok
+test specfunc::lambert::tests::every_branch_is_reached ... ok
+test specfunc::lambert::tests::the_branch_point_is_the_series_not_the_iteration ... ok
+test specfunc::lambert::tests::the_known_values_are_reproduced ... ok
+test specfunc::lambert::tests::the_monotonicity_is_right ... ok
+test specfunc::lambert::tests::the_two_branches_are_distinct_roots ... ok
+test specfunc::lambert::tests::wm1_delegates_to_w0_on_the_positive_axis ... ok
+test specfunc::legendre::tests::m_zero_gives_the_ordinary_legendre_polynomials ... ok
+test specfunc::legendre::tests::the_checked_form_agrees_exactly_and_reports_the_overflow ... ok
+test specfunc::legendre::tests::the_closed_forms_for_the_seed_are_right ... ok
+test specfunc::legendre::tests::the_orthogonality_relation_holds ... ok
+test specfunc::legendre::tests::the_overflow_guard_has_upstreams_hole_at_l_equals_m ... ok
+test specfunc::legendre::tests::the_refusals_match_upstream ... ok
+test specfunc::psi::tests::psi_1_matches_the_closed_forms ... ok
+test specfunc::psi::tests::psi_1_satisfies_its_recurrence ... ok
+test specfunc::psi::tests::psi_1_satisfies_the_reflection_formula ... ok
+test specfunc::psi::tests::psi_1piy_is_even_and_its_branches_agree_at_the_cut ... ok
+test specfunc::psi::tests::psi_1piy_matches_its_defining_series ... ok
+test specfunc::psi::tests::psi_and_psi_1_disagree_about_the_pole_at_minus_three ... ok
+test specfunc::psi::tests::psi_int_matches_the_harmonic_numbers ... ok
+test specfunc::psi::tests::psi_matches_the_closed_forms ... ok
+test specfunc::psi::tests::psi_n_forwards_the_low_orders_exactly ... ok
+test specfunc::psi::tests::psi_n_matches_its_defining_sum ... ok
+test specfunc::psi::tests::psi_satisfies_its_recurrence ... ok
+test specfunc::psi::tests::psi_satisfies_the_duplication_formula ... ok
+test specfunc::psi::tests::psi_satisfies_the_reflection_formula ... ok
+test specfunc::psi::tests::the_domain_errors_are_what_the_docs_say ... ok
+test specfunc::psi::tests::the_psi_1_integer_table_agrees_with_the_continuous_function ... ok
+test specfunc::psi::tests::the_psi_integer_table_agrees_with_the_continuous_function ... ok
+test specfunc::shint::tests::chi_matches_its_defining_integral_and_its_zero ... ok
+test specfunc::shint::tests::chi_minus_shi_is_minus_e1 ... ok
+test specfunc::shint::tests::shi_plus_chi_is_ei ... ok
+test specfunc::shint::tests::shi_reproduces_its_defining_integral ... ok
+test specfunc::shint::tests::shi_reproduces_its_power_series_across_the_branch_cut ... ok
+test specfunc::shint::tests::the_checked_forms_agree_exactly_and_name_the_refusal ... ok
+test specfunc::shint::tests::the_single_precision_order_is_the_full_order_and_that_is_upstreams ... ok
+test specfunc::shint::tests::the_symmetry_and_the_refusals_are_right ... ok
+test specfunc::shint::tests::the_two_integrals_always_fail_together ... ok
+test specfunc::sinint::tests::both_defining_integrals_are_reproduced ... ok
+test specfunc::sinint::tests::the_bounds_are_what_upstream_declares ... ok
+test specfunc::sinint::tests::the_derivative_identities_hold ... ok
+test specfunc::sinint::tests::the_far_field_guards_fire_early_and_that_is_upstreams ... ok
+test specfunc::sinint::tests::the_landmarks_match_the_literature ... ok
+test specfunc::sinint::tests::the_shape_and_the_domain ... ok
+test specfunc::clausen::tests::it_matches_the_defining_fourier_series ... ok
+test specfunc::synchrotron::tests::s2_is_x_times_the_modified_bessel_function ... ok
+test specfunc::synchrotron::tests::the_asymptotes_are_right ... ok
+test specfunc::synchrotron::tests::the_branch_boundaries_join ... ok
+test specfunc::synchrotron::tests::the_double_integral_reference_is_what_limits_the_s1_check ... ok
+test specfunc::synchrotron::tests::the_refusals_are_right ... ok
+test specfunc::synchrotron::tests::the_shape_and_the_underflow_are_right ... ok
+test specfunc::transport::tests::every_order_is_monotone_below_its_limit ... ok
+test specfunc::transport::tests::every_order_matches_its_defining_integral ... ok
+test specfunc::transport::tests::the_branch_boundaries_join ... ok
+test specfunc::transport::tests::the_limits_are_n_factorial_times_zeta ... ok
+test specfunc::transport::tests::the_refusals_are_right ... ok
+test specfunc::transport::tests::the_residual_is_the_quadrature_not_the_integrals ... ok
+test specfunc::trig::tests::past_the_loss_cut_both_refuse ... ok
+test specfunc::trig::tests::the_reduction_is_congruent_modulo_two_pi ... ok
+test specfunc::trig::tests::the_results_are_in_the_stated_intervals ... ok
+test specfunc::trig::tests::the_three_way_split_beats_the_naive_reduction_until_1e8 ... ok
+test specfunc::trig::tests::the_two_reductions_use_the_same_split ... ok
+test specfunc::zeta::tests::eta_matches_its_relation_to_zeta ... ok
+test specfunc::zeta::tests::hzeta_reduces_to_zeta_and_matches_summation ... ok
+test specfunc::zeta::tests::the_domain_errors_are_what_the_docs_say ... ok
+test specfunc::zeta::tests::the_eta_integer_table_agrees_with_the_continuous_function ... ok
+test specfunc::zeta::tests::the_eta_series_branch_agrees_with_the_general_one_at_the_cut ... ok
+test specfunc::zeta::tests::the_integer_table_agrees_with_the_continuous_function ... ok
+test specfunc::zeta::tests::the_integer_tables_clamp_to_one_past_their_end ... ok
+test specfunc::zeta::tests::the_intermediate_series_stops_at_the_order_gsl_declares ... ok
+test specfunc::zeta::tests::the_trivial_zeros_are_exact ... ok
+test specfunc::zeta::tests::zeta_matches_direct_summation_above_one ... ok
+test specfunc::zeta::tests::zeta_matches_the_closed_forms_at_the_even_integers ... ok
+test specfunc::zeta::tests::zeta_satisfies_the_functional_equation_below_one ... ok
+test specfunc::zeta::tests::zetam1_is_continuous_across_its_branches ... ok
+test specfunc::zeta::tests::zetam1_is_more_accurate_than_the_naive_difference ... ok
+test ssprk::tests::empty_and_mismatched_states_are_errors_not_panics ... ok
+test ssprk::tests::stage_counts_and_times_match_upstream ... ok
+test transfer_fn::ratio_ext::tests::exp_matches_the_underlying_f64 ... ok
+test transfer_fn::ratio_ext::tests::round_trips_hold ... ok
+test transfer_fn::ratio_ext::tests::sqrt_matches_the_underlying_f64 ... ok
+test transfer_fn::ratio_ext::tests::sqrt_of_a_negative_ratio_is_nan ... ok
+test transfer_fn::verification_tests::discrete_block_state_size_does_not_grow ... ok
+test transfer_fn::verification_tests::error_paths_return_documented_variants ... ok
+test transfer_fn::verification_tests::filt_docstring_example_impulse_response ... ok
+test transfer_fn::verification_tests::matched_maps_poles_zeros_and_matches_dc_gain ... ok
+test transfer_fn::verification_tests::matched_round_trip_recovers_continuous_coefficients ... ok
+test transfer_fn::verification_tests::prewarp_matches_continuous_frequency_response_at_w0 ... ok
+test transfer_fn::verification_tests::tustin_integrator_is_trapezoidal_rule ... ok
+test transfer_fn::verification_tests::tustin_round_trip_recovers_continuous_coefficients ... ok
+test transfer_fn::verification_tests::zoh_first_order_coefficients_match_analytic_closed_form ... ok
+test transfer_fn::verification_tests::zoh_first_order_reproduces_o1_recurrence_block ... ok
+test transfer_fn::verification_tests::zoh_second_order_step_response_exact_at_samples ... ok
+test uom_math::tests::angle_methods_forward_bit_identically ... ok
+test uom_math::tests::atan2_is_r_atan2_in_radians ... ok
+test uom_math::tests::cbrt_thirds_dimensions_and_is_r_cbrt ... ok
+test uom_math::tests::hypot_is_r_hypot ... ok
+test uom_math::tests::mul_add_is_fma_and_types_the_product ... ok
+test uom_math::tests::powi_multiplies_dimensions_and_p2_is_x_times_x ... ok
+test uom_math::tests::ratio_methods_forward_bit_identically ... ok
+test uom_math::tests::sqrt_halves_dimensions_and_is_libm_sqrt ... ok
+test wgsl::mirror::tests::compensated_horner_is_not_worse_than_plain ... ok
+test wgsl::mirror::tests::the_f32_clenshaw_mirror_tracks_the_f64_series ... ok
+test wgsl::mirror::tests::the_f32_horner_mirror_tracks_the_f64_original ... ok
+test wgsl::mirror::tests::the_f32_legendre_mirror_satisfies_its_identities ... ok
+test wgsl::mirror::tests::the_legendre_derivative_agrees_with_a_finite_difference ... ok
+test wgsl::mirror::tests::truncated_clenshaw_clamps_and_agrees_when_untruncated ... ok
+test wgsl::mirror_airy::tests::the_f32_cost_is_what_it_was_measured_to_be ... ok
+test wgsl::mirror_airy::tests::the_f64_overflow_threshold_is_the_correct_one_in_f32 ... ok
+test wgsl::mirror_airy::tests::the_phase_is_what_costs_the_oscillatory_branch ... ok
+test wgsl::mirror_airy::tests::the_scalings_are_the_documented_ones_and_are_not_symmetric ... ok
+test wgsl::mirror_airy::tests::the_shape_and_the_refusals_survive_f32 ... ok
+test wgsl::mirror_atanint::tests::the_f32_cost_is_what_it_was_measured_to_be ... ok
+test wgsl::mirror_atanint::tests::the_known_values_and_shape_survive_f32 ... ok
+test wgsl::mirror_atanint::tests::the_large_cut_changes_which_branch_runs_and_nothing_else ... ok
+test wgsl::mirror_atanint::tests::the_shader_and_this_mirror_agree_on_their_constants ... ok
+test wgsl::mirror_bessel::tests::away_from_the_zeros_every_function_is_at_the_f32_floor ... ok
+test wgsl::mirror_bessel::tests::the_asymptotic_branch_is_no_worse_than_the_chebyshev_one ... ok
+test wgsl::mirror_bessel::tests::the_f32_cost_is_what_it_was_measured_to_be ... ok
+test wgsl::mirror_bessel::tests::the_i_k_wronskian_holds_in_f32 ... ok
+test wgsl::mirror_bessel::tests::the_j_y_wronskian_holds_in_f32 ... ok
+test wgsl::mirror_bessel::tests::the_modified_functions_overflow_f32_near_88_and_the_scaled_ones_do_not ... ok
+test wgsl::mirror_bessel::tests::the_oscillatory_functions_are_bounded_in_absolute_error ... ok
+test wgsl::mirror_bessel::tests::the_parities_hold_exactly ... ok
+test wgsl::mirror_bessel::tests::the_scaled_forms_agree_with_the_unscaled_ones ... ok
+test wgsl::mirror_bessel::tests::the_second_kind_functions_reject_non_positive_arguments_and_nan ... ok
+test wgsl::mirror_clausen::tests::the_f32_cost_is_what_it_was_measured_to_be ... ok
+test wgsl::mirror_clausen::tests::the_shader_and_this_mirror_agree_on_their_constants ... ok
+test wgsl::mirror_clausen::tests::the_split_beats_the_naive_reduction_to_the_refusal ... ok
+test wgsl::mirror_clausen::tests::the_values_symmetries_and_refusal_survive_f32 ... ok
+test wgsl::mirror_dawson::tests::deleting_the_underflow_guard_gains_answers ... ok
+test wgsl::mirror_dawson::tests::the_retargeted_constants_are_what_they_claim ... ok
+test wgsl::mirror_dawson::tests::the_shader_and_this_mirror_agree ... ok
+test wgsl::mirror_dawson::tests::the_shape_survives_f32 ... ok
+test wgsl::mirror_dawson::tests::the_single_precision_order_costs_what_it_was_measured_to_cost ... ok
+test wgsl::mirror_debye::tests::every_order_starts_at_one_and_decreases ... ok
+test wgsl::mirror_debye::tests::the_asymptotic_constant_is_n_times_n_factorial_times_zeta ... ok
+test wgsl::mirror_debye::tests::the_branches_join ... ok
+test wgsl::mirror_debye::tests::the_f32_cost_is_what_it_was_measured_to_be ... ok
+test wgsl::mirror_debye::tests::the_recomputed_counter_beats_the_decremented_one ... ok
+test wgsl::mirror_debye::tests::the_refusals_match_the_f64_module ... ok
+test wgsl::mirror_dilog::tests::landens_reflection_holds_in_f32 ... ok
+test wgsl::mirror_dilog::tests::the_absolute_error_is_bounded_across_the_zero ... ok
+test wgsl::mirror_dilog::tests::the_closed_form_values_survive_f32 ... ok
+test wgsl::mirror_dilog::tests::the_cut_is_upstreams_because_moving_it_buys_nothing ... ok
+test wgsl::mirror_dilog::tests::the_f32_cost_is_what_it_was_measured_to_be ... ok
+test wgsl::mirror_dilog::tests::the_inversion_branch_is_cancellation_at_the_zero ... ok
+test wgsl::mirror_dilog::tests::the_shader_and_this_mirror_agree_on_their_three_constants ... ok
+test wgsl::mirror_dilog::tests::the_shape_and_the_refusal_are_right ... ok
+test wgsl::mirror_ellint::tests::legendres_relation_survives_f32 ... ok
+test wgsl::mirror_ellint::tests::the_carlson_degenerate_identities_survive_f32 ... ok
+test wgsl::mirror_ellint::tests::the_closed_forms_and_reductions_survive_f32 ... ok
+test wgsl::mirror_ellint::tests::the_domain_bounds_are_what_the_formulae_give ... ok
+test wgsl::mirror_ellint::tests::the_domain_refusals_match_the_f64_module ... ok
+test wgsl::mirror_ellint::tests::the_f32_cost_is_what_it_was_measured_to_be ... ok
+test wgsl::mirror_ellint::tests::the_iteration_cap_is_enough_and_was_measured_not_guessed ... ok
+test wgsl::mirror_ellint::tests::the_shader_and_this_mirror_agree_on_their_constants ... ok
+test wgsl::mirror_elljac::tests::the_defining_identities_hold_in_f32 ... ok
+test wgsl::mirror_elljac::tests::the_degenerate_limits_are_circular_and_hyperbolic ... ok
+test wgsl::mirror_elljac::tests::the_descent_is_shorter_in_f32_than_in_f64 ... ok
+test wgsl::mirror_elljac::tests::the_f32_cost_is_what_it_was_measured_to_be ... ok
+test wgsl::mirror_elljac::tests::the_f64_degenerate_windows_would_be_dead_code_here ... ok
+test wgsl::mirror_elljac::tests::the_refusals_and_the_selector_are_right ... ok
+test wgsl::mirror_elljac::tests::the_shader_and_this_mirror_agree_on_their_constants ... ok
+test wgsl::mirror_erf::tests::erf_and_erfc_are_complementary_in_f32 ... ok
+test wgsl::mirror_erf::tests::f32_erf_tracks_the_f64_erf ... ok
+test wgsl::mirror_erf::tests::f32_erfc_tracks_the_f64_erfc_across_every_branch ... ok
+test wgsl::mirror_erf::tests::known_values_and_edges ... ok
+test wgsl::mirror_expint3::tests::the_constants_and_the_orders_are_right ... ok
+test wgsl::mirror_expint3::tests::the_f32_cost_is_what_it_was_measured_to_be ... ok
+test wgsl::mirror_expint3::tests::the_retargeted_saturation_cut_is_as_exactly_placed_as_upstreams ... ok
+test wgsl::mirror_expint3::tests::the_shape_and_the_domain_survive_f32 ... ok
+test wgsl::mirror_expint::tests::the_four_entry_points_agree_with_the_f64_modules ... ok
+test wgsl::mirror_expint::tests::the_identities_hold_in_f32 ... ok
+test wgsl::mirror_expint::tests::the_refusals_match_the_f64_modules ... ok
+test wgsl::mirror_expint::tests::the_scaled_forms_stay_in_range_where_the_plain_ones_do_not ... ok
+test wgsl::mirror_expint::tests::the_shader_and_this_mirror_agree_on_their_machine_constants ... ok
+test wgsl::mirror_fermi_dirac::tests::f_0s_outlier_is_upstreams_branch_cut_and_scales_with_epsilon ... ok
+test specfunc::synchrotron::tests::s1_matches_its_defining_double_integral ... ok
+test wgsl::mirror_fermi_dirac::tests::the_f_2_far_cut_corrects_upstream_and_it_is_worth_189x ... ok
+test wgsl::mirror_fermi_dirac::tests::the_overflow_guards_could_not_be_kept_at_all ... ok
+test wgsl::mirror_fermi_dirac::tests::the_shader_and_this_mirror_agree_on_their_constants ... ok
+test wgsl::mirror_fermi_dirac::tests::the_shape_survives_f32 ... ok
+test wgsl::mirror_fermi_dirac::tests::the_underflow_guard_is_kept_because_retargeting_it_discards_answers ... ok
+test wgsl::mirror_gamma::tests::beta_is_symmetric_and_matches_known_values ... ok
+test wgsl::mirror_gamma::tests::f32_lngamma_tracks_the_f64_lngamma ... ok
+test wgsl::mirror_gamma::tests::gamma_reproduces_factorials_and_overflows_where_f32_must ... ok
+test wgsl::mirror_gamma::tests::the_error_is_worst_in_the_reflection_branch ... ok
+test wgsl::mirror_gamma::tests::the_reflection_identity_holds ... ok
+test wgsl::mirror_gegenbauer::tests::the_f32_cost_is_bounded_by_a_linear_in_n_envelope ... ok
+test wgsl::mirror_gegenbauer::tests::the_lambda_zero_branch_is_upstreams_normalisation ... ok
+test wgsl::mirror_gegenbauer::tests::the_refusals_match_upstream ... ok
+test wgsl::mirror_gegenbauer::tests::the_shader_has_the_same_branches_and_no_constants ... ok
+test wgsl::mirror_gegenbauer::tests::the_special_cases_survive_f32 ... ok
+test wgsl::mirror_lambert::tests::both_branches_satisfy_the_defining_identity_in_f32 ... ok
+test wgsl::mirror_lambert::tests::the_f32_cost_is_bounded ... ok
+test wgsl::mirror_lambert::tests::the_known_values_and_refusals_survive_f32 ... ok
+test wgsl::mirror_lambert::tests::the_shader_and_this_mirror_agree_on_their_constants ... ok
+test wgsl::mirror_lambert::tests::the_two_branches_are_distinct_roots_in_f32 ... ok
+test wgsl::mirror_lambert::tests::upstreams_stopping_rule_fails_twice_over_in_f32 ... ok
+test wgsl::mirror_lcg::tests::the_emulated_advance_is_bit_exact_against_the_cpu_lcg ... ok
+test wgsl::mirror_lcg::tests::the_emulated_multiply_is_exact ... ok
+test wgsl::mirror_legendre_plm::tests::m_zero_reduces_to_the_ordinary_legendre_polynomials ... ok
+test wgsl::mirror_legendre_plm::tests::the_closed_forms_for_the_seed_survive_f32 ... ok
+test wgsl::mirror_legendre_plm::tests::the_f32_cost_is_what_it_was_measured_to_be ... ok
+test wgsl::mirror_legendre_plm::tests::the_refusals_match_the_f64_module ... ok
+test wgsl::mirror_legendre_plm::tests::the_shader_and_this_mirror_agree_on_the_guard ... ok
+test wgsl::mirror_legendre_plm::tests::the_upstream_guard_hole_arrives_sooner_in_f32 ... ok
+test wgsl::mirror_matrix::tests::element_wise_operations_and_transpose ... ok
+test wgsl::mirror_matrix::tests::gemm_agrees_with_gemv_applied_per_column ... ok
+test wgsl::mirror_matrix::tests::gemv_agrees_with_row_dot_products ... ok
+test wgsl::mirror_matrix::tests::level_one_kernels_are_exact_on_small_integers ... ok
+test wgsl::mirror_matrix::tests::out_of_range_access_is_nan_not_a_panic ... ok
+test wgsl::mirror_matrix::tests::the_gpu_order_and_gsls_order_differ_only_by_reassociation ... ok
+test wgsl::mirror_matrix::tests::the_scaled_norm_survives_where_the_naive_one_overflows ... ok
+test wgsl::mirror_psi_zeta::tests::hzeta_reduces_to_zeta_in_f32 ... ok
+test wgsl::mirror_psi_zeta::tests::pow_is_not_what_costs_hzeta_its_digits ... ok
+test wgsl::mirror_psi_zeta::tests::psi_1piy_is_even_in_f32 ... ok
+test wgsl::mirror_psi_zeta::tests::the_domain_errors_match_the_f64_modules ... ok
+test wgsl::mirror_psi_zeta::tests::the_exact_values_are_still_exact_in_f32 ... ok
+test wgsl::mirror_psi_zeta::tests::the_f32_cost_is_what_it_was_measured_to_be ... ok
+test wgsl::mirror_psi_zeta::tests::the_recurrences_hold_in_f32 ... ok
+test wgsl::mirror_psi_zeta::tests::the_reflection_branch_is_what_costs_digits ... ok
+test wgsl::mirror_psi_zeta::tests::zeta_refuses_below_minus_34_where_f32_cannot_carry_the_route ... ok
+test wgsl::mirror_sinint::tests::the_argument_reduction_was_measured_and_rejected ... ok
+test wgsl::mirror_sinint::tests::the_f32_cost_is_what_it_was_measured_to_be ... ok
+test wgsl::mirror_sinint::tests::the_far_field_guards_are_deleted_and_that_gains_answers ... ok
+test wgsl::mirror_sinint::tests::the_kernel_is_faithful_but_the_argument_is_not ... ok
+test wgsl::mirror_sinint::tests::the_shader_and_this_mirror_agree ... ok
+test wgsl::mirror_sinint::tests::the_shape_and_the_domain_survive_f32 ... ok
+test wgsl::mirror_svd3::tests::degenerate_inputs_take_faers_exits ... ok
+test wgsl::mirror_svd3::tests::matches_the_f64_port_on_a_general_matrix ... ok
+test wgsl::mirror_synchrotron::tests::the_f32_cost_is_cancellation_at_the_branch_boundary ... ok
+test wgsl::mirror_synchrotron::tests::the_f32_cost_is_what_it_was_measured_to_be ... ok
+test wgsl::mirror_synchrotron::tests::the_precision_constant_is_retargeted ... ok
+test wgsl::mirror_synchrotron::tests::the_range_guard_is_kept_because_retargeting_it_discards_answers ... ok
+test wgsl::mirror_synchrotron::tests::the_shader_and_this_mirror_agree_on_their_constants ... ok
+test wgsl::mirror_synchrotron::tests::the_shape_survives_f32 ... ok
+test wgsl::mirror_transport::tests::the_f32_cost_is_what_it_was_measured_to_be ... ok
+test wgsl::mirror_transport::tests::the_retargeting_halves_the_work_and_changes_nothing_else ... ok
+test wgsl::mirror_transport::tests::the_shader_and_this_mirror_agree_on_their_constants ... ok
+test wgsl::mirror_transport::tests::the_shape_and_refusals_survive_f32 ... ok
+test wgsl::tests::every_shader_declares_its_licence_and_lineage ... ok
+test wgsl::tests::the_binding_prelude_matches_the_generated_kernel ... ok
+test wgsl::tests::the_generated_kernel_has_the_pieces_a_shader_needs ... ok
+test zip::tests::a_short_input_truncates_rather_than_padding ... ok
+test zip::tests::every_arity_yields_a_flat_tuple_in_argument_order ... ok
+test wgsl::mirror_fermi_dirac::tests::the_f32_cost_is_what_it_was_measured_to_be ... ok
+
+test result: ok. 619 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.07s
+
+     Running tests/dependency_policy.rs (target/release/deps/dependency_policy-33c35b5501bc83f8)
+
+running 3 tests
+test petir_uom_is_no_std ... ok
+test libm_is_inherited_from_the_workspace ... ok
+test uom_is_inherited_from_the_workspace ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/depletion_integrator_orders.rs (target/release/deps/depletion_integrator_orders-c2505a5fef4a9668)
+
+running 3 tests
+test the_by_hand_cf4_harness_reproduces_the_integrator ... ok
+test the_recorded_orders_reproduce ... ok
+test observed_orders_of_convergence ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.27s
+
+     Running tests/depletion_vs_openmc.rs (target/release/deps/depletion_vs_openmc-82316faff67d5d6a)
+
+running 2 tests
+test pow_two_equals_square_on_the_reference_steps ... ok
+test integrators_match_openmc_running_code ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/expm_vs_cram48_stiff_chain.rs (target/release/deps/expm_vs_cram48_stiff_chain-e1518de930fca370)
+
+running 2 tests
+test both_methods_reach_secular_equilibrium ... ok
+test expm_vs_cram48_on_the_uranium_series ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/faer_dense_svd_vs_faer.rs (target/release/deps/faer_dense_svd_vs_faer-ef7947dce05d23f8)
+
+running 3 tests
+test blender_closest_rotation_inputs_are_bit_identical ... ok
+test structured_cases_are_bit_identical ... ok
+test random_matrices_of_every_order_are_bit_identical ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.26s
+
+     Running tests/fast_exp_vs_arm_optimized_routines.rs (target/release/deps/fast_exp_vs_arm_optimized_routines-6f1ab167c5e7adc3)
+
+running 3 tests
+test fast_exp_is_bit_identical_to_arm_optimized_routines ... ok
+test fast_exp_is_within_one_ulp_of_the_platform_exp ... ok
+test the_two_backends_agree ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/fast_log_vs_arm_optimized_routines.rs (target/release/deps/fast_log_vs_arm_optimized_routines-dca8e5e16006635e)
+
+running 3 tests
+test fast_log_is_bit_identical_to_arm_optimized_routines ... ok
+test fast_log_is_close_to_the_platform_ln ... ok
+test the_two_backends_agree ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/fast_math_speed.rs (target/release/deps/fast_math_speed-284a53fa87799284)
+
+running 1 test
+test exp_log_pow_are_faster_than_the_libm_route ... ignored, a timing measurement, not a correctness check -- run with --ignored
+
+test result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/fast_pow_vs_arm_optimized_routines.rs (target/release/deps/fast_pow_vs_arm_optimized_routines-96f19c36b110bf6e)
+
+running 3 tests
+test fast_pow_is_bit_identical_to_arm_optimized_routines ... ok
+test fast_pow_is_close_to_the_platform_powf ... ok
+test pow_agrees_with_exp_of_y_times_log_x ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/gauss_legendre_table_audit.rs (target/release/deps/gauss_legendre_table_audit-29fa9e401d6693e1)
+
+running 3 tests
+test every_table_has_the_structure_a_gauss_rule_must_have ... ok
+test out_of_range_orders_return_none ... ok
+test every_tabulated_value_is_correct ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/gsl_cheb_fit.rs (target/release/deps/gsl_cheb_fit-fdab54ad12f42db9)
+
+running 7 tests
+test a_fit_rejects_a_perturbation_orthogonal_to_its_basis ... ok
+test a_higher_degree_fits_runges_function_better ... ok
+test a_polynomial_is_recovered_exactly_from_non_chebyshev_points ... ok
+test fit_reproduces_the_interpolant_at_the_nodes ... ok
+test malformed_input_is_reported ... ok
+test samples_that_do_not_determine_the_degree_are_reported ... ok
+test the_reported_residual_matches_the_fitted_series ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/gsl_cheb_mode_code_to_code.rs (target/release/deps/gsl_cheb_mode_code_to_code-cef35e3c5ff92c07)
+
+running 3 tests
+test the_gsl_chebyshev_header_has_no_entry_point_petir_lacks ... ok
+test the_default_mode_path_matches_gsl_bit_for_bit ... ok
+test the_reduced_order_path_matches_gsl ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/gsl_cheb_suite.rs (target/release/deps/gsl_cheb_suite-6ecd0800fc50b13f)
+
+running 7 tests
+test derivative_and_integral_error_estimates ... ignored, upstream leaves TEST_DERIVATIVE_ERR / TEST_INTEGRAL_ERR undefined
+test chebyshev_polynomials_have_unit_expansions ... ok
+test derivative_of_the_sin_series_is_cos ... ok
+test integral_of_the_sin_series_is_minus_one_plus_cos ... ok
+test sin_coefficients_match_gsls_published_values ... ok
+test low_order_cases ... ok
+test sin_series_evaluates_and_bounds_its_own_error ... ok
+
+test result: ok. 6 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/gsl_cholesky_code_to_code.rs (target/release/deps/gsl_cholesky_code_to_code-7d66bd19692f6906)
+
+running 3 tests
+test cholesky_above_the_crossover_agrees_with_stock_gsl_normwise ... ok
+test cholesky_matches_gsl_at_level_2_bit_for_bit_at_every_size ... ok
+test cholesky_matches_gsl_bit_for_bit_at_or_below_the_crossover ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/gsl_code_to_code.rs (target/release/deps/gsl_code_to_code-1eef27684ad2e04a)
+
+running 2 tests
+test gsl_coefficients_through_our_evaluator_are_bit_exact ... ok
+test petir_reproduces_gsl_2_8_output ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/gsl_deriv.rs (target/release/deps/gsl_deriv-3738c2588ff3045e)
+
+running 9 tests
+test central_differences_match_the_analytic_derivative ... ok
+test backward_differences_match_the_analytic_derivative ... ok
+test central_is_more_accurate_than_one_sided ... ok
+test forward_and_backward_agree_on_a_smooth_function ... ok
+test forward_differences_match_the_analytic_derivative ... ok
+test no_step_size_reaches_machine_precision ... ok
+test the_central_rule_never_evaluates_the_centre_point ... ok
+test the_reported_error_bounds_the_true_error ... ok
+test the_step_is_refined_downward_but_not_upward ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/gsl_eigen_nonsymm_code_to_code.rs (target/release/deps/gsl_eigen_nonsymm_code_to_code-6d220d8397a03a3d)
+
+running 2 tests
+test nonsymm_eigenvalues_agree_with_stock_gsl ... ok
+test nonsymm_matches_gsl_with_the_same_hypot_bit_for_bit ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/gsl_eigen_symm_code_to_code.rs (target/release/deps/gsl_eigen_symm_code_to_code-30063eb6cbff83fb)
+
+running 2 tests
+test sorted_eigenpairs_agree_with_stock_gsl ... ok
+test everything_matches_gsl_with_the_same_hypot_bit_for_bit ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/gsl_expint.rs (target/release/deps/gsl_expint-1f484d27be4ce119)
+
+running 3 tests
+test domain_and_range_failures_are_reported_not_fatal ... ok
+test error_estimates_are_finite_and_nonnegative ... ok
+test expint_e1_reproduces_gsl_2_8 ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/gsl_gamma_inc.rs (target/release/deps/gsl_gamma_inc-6d35572508fb47bc)
+
+running 3 tests
+test the_a_equals_three_halves_path_is_exact ... ok
+test unported_branches_refuse ... ok
+test gamma_inc_reproduces_gsl_2_8 ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/gsl_integration.rs (target/release/deps/gsl_integration-3184fa4f64b2fe35)
+
+running 14 tests
+test a_high_order_rule_wins_on_an_oscillatory_integrand ... ok
+test adaptive_quadrature_matches_elementary_closed_forms ... ok
+test adaptive_quadrature_matches_the_closed_form_for_gsl_f1 ... ok
+test adaptivity_concentrates_subdivision_where_the_error_is ... ok
+test every_rule_has_weights_summing_to_the_interval ... ok
+test an_endpoint_singularity_is_reported_not_silently_wrong ... ok
+test every_rule_integrates_low_degree_polynomials_exactly ... ok
+test malformed_input_is_reported ... ok
+test qags_handles_the_endpoint_singularity_qag_cannot ... ok
+test qags_malformed_input_is_reported ... ok
+test reversing_the_limits_negates_the_result ... ok
+test qags_reproduces_gsls_own_assertions ... ok
+test rule_point_counts_are_what_they_claim ... ok
+test the_reported_error_bounds_the_true_error ... ok
+
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/gsl_interp.rs (target/release/deps/gsl_interp-74657781347a0109)
+
+running 15 tests
+test accessors_report_the_construction_data ... ok
+test both_methods_are_exact_on_a_straight_line ... ok
+test cubic_spline_matches_gsl_test_cspline ... ok
+test cubic_spline_matches_gsl_test_cspline2 ... ok
+test every_method_reproduces_the_knots_exactly ... ok
+test extrapolation_is_refused ... ok
+test linear_matches_gsl_test_linear ... ok
+test linear_never_overshoots ... ok
+test malformed_input_is_reported ... ok
+test minimum_sizes_are_what_the_methods_need ... ok
+test the_cubic_spline_does_overshoot_as_documented ... ok
+test the_interpolant_is_continuous_across_every_knot ... ok
+test the_natural_boundary_condition_holds ... ok
+test the_spline_derivative_is_continuous_and_the_linear_one_is_not ... ok
+test the_spline_converges_at_order_four_inside_and_order_two_at_the_boundary ... ok
+
+test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/gsl_interp_integ_code_to_code.rs (target/release/deps/gsl_interp_integ_code_to_code-33a12212434f0d28)
+
+running 2 tests
+test eval_integ_refuses_nan_limits ... ok
+test eval_integ_matches_compiled_gsl ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/gsl_lu_code_to_code.rs (target/release/deps/gsl_lu_code_to_code-7acfac0579f812de)
+
+running 1 test
+test lu_decomp_and_solve_reproduce_compiled_gsl ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/gsl_min.rs (target/release/deps/gsl_min-c86dbd0e78211411)
+
+running 10 tests
+test a_triple_that_does_not_enclose_a_minimum_is_rejected ... ok
+test a_valid_bracketing_triple_is_accepted ... ok
+test asking_for_better_than_the_sqrt_eps_floor_reports_max_iterations ... ok
+test both_methods_find_an_off_origin_minimum ... ok
+test both_methods_find_the_minimum_of_cos ... ok
+test both_methods_find_the_minimum_of_x_to_the_fourth ... ok
+test both_methods_handle_an_infinite_derivative_at_the_minimum ... ok
+test brent_converges_in_fewer_iterations_than_golden_section ... ok
+test golden_section_shrinks_the_bracket_at_a_steady_rate ... ok
+test the_bracket_shrinks_and_keeps_enclosing_the_minimum ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/gsl_numerics_code_to_code.rs (target/release/deps/gsl_numerics_code_to_code-b7378511728f93f4)
+
+running 7 tests
+test numerical_differentiation_matches_gsl ... ok
+test interpolation_matches_gsl ... ok
+test ode_stepping_matches_gsl ... ok
+test quadrature_matches_gsl ... ok
+test the_bracketing_root_finders_follow_gsls_iterates ... ok
+test the_minimisers_follow_gsls_iterates ... ok
+test the_polishing_root_finders_follow_gsls_iterates ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/gsl_ode.rs (target/release/deps/gsl_ode-89209c62a4f15f95)
+
+running 14 tests
+test a_single_rk4_step_shows_fifth_order_local_error ... ok
+test a_single_rkf45_step_shows_sixth_order_local_error ... ok
+test a_stiff_system_exhausts_the_step_budget_as_documented ... ok
+test a_tighter_tolerance_gives_a_more_accurate_answer ... ok
+test adaptive_integration_reproduces_the_exponential ... ok
+test adaptive_integration_reproduces_the_harmonic_oscillator ... ok
+test integrating_backwards_returns_to_the_initial_condition ... ok
+test malformed_input_is_reported ... ok
+test rk4_shows_fourth_order_global_error_over_a_fixed_interval ... ok
+test the_controller_rejects_steps_when_the_initial_guess_is_too_large ... ok
+test the_embedded_error_estimate_bounds_the_true_error ... ok
+test the_oscillator_conserves_its_invariant ... ok
+test the_trajectory_is_ordered_and_starts_at_the_initial_condition ... ok
+test a_diverging_system_is_reported ... ok
+
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/gsl_qags_code_to_code.rs (target/release/deps/gsl_qags_code_to_code-df1f5a2a7cc51960)
+
+running 1 test
+test qags_matches_compiled_gsl ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/gsl_qr_code_to_code.rs (target/release/deps/gsl_qr_code_to_code-0f13ecd9e760c974)
+
+running 3 tests
+test the_factorisation_matches_gsl_entry_for_entry ... ok
+test the_least_squares_solution_matches_gsl ... ok
+test the_port_matches_gsl_with_the_same_hypot_bit_for_bit ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/gsl_roots.rs (target/release/deps/gsl_roots-0df8717155fa2c92)
+
+running 16 tests
+test a_bracket_that_does_not_straddle_zero_is_rejected ... ok
+test a_root_exactly_at_an_endpoint_is_found ... ok
+test a_zero_derivative_is_reported ... ok
+test all_bracketing_methods_find_a_small_root_with_relative_tolerance ... ok
+test all_bracketing_methods_find_the_flat_root_of_x_exp_minus_x ... ok
+test all_bracketing_methods_find_the_root_of_x20_minus_1 ... ok
+test all_bracketing_methods_handle_an_infinite_derivative_at_the_root ... ok
+test all_polishing_methods_find_the_root_of_x20_minus_1 ... ok
+test all_polishing_methods_find_the_root_of_x_exp_minus_x ... ok
+test bisection_halves_the_interval_every_step ... ok
+test bracketing_and_polishing_agree_on_the_same_root ... ok
+test bracketing_survives_a_root_of_multiplicity_seven ... ok
+test brent_converges_in_fewer_iterations_than_bisection ... ok
+test newton_converges_quadratically_from_a_good_guess ... ok
+test newton_diverges_on_a_hostile_function_without_complaint ... ok
+test secant_evaluates_the_true_derivative_only_once ... ok
+
+test result: ok. 16 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/gsl_svd_code_to_code.rs (target/release/deps/gsl_svd_code_to_code-df5247b909d4f518)
+
+running 2 tests
+test svd_matches_gsl_with_the_same_hypot_bit_for_bit ... ok
+test svd_agrees_with_stock_gsl_as_a_decomposition ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/gsl_tables_audit.rs (target/release/deps/gsl_tables_audit-a8ee10d5ac6d4769)
+
+running 7 tests
+test every_coefficient_is_bit_identical_to_the_vendored_gsl ... ok
+test every_module_with_a_table_is_in_the_audited_list ... ok
+test every_series_uses_its_whole_array ... ok
+test the_local_lambert_series_matches_upstream ... ok
+test the_local_twopi_table_matches_upstream ... ok
+test the_series_shorter_than_their_arrays ... ok
+test every_rust_table_is_audited ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/hypot_correct_rounding.rs (target/release/deps/hypot_correct_rounding-4c35fb0d22ceeade)
+
+running 4 tests
+test every_route_is_the_core_math_port ... ok
+test explicit_cases_match_mpfr_bit_for_bit ... ok
+test every_sweep_hashes_to_mpfr ... ok
+test speed_per_call ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.40s
+
+     Running tests/incomplete_gamma_cross_check.rs (target/release/deps/incomplete_gamma_cross_check-712f86c943e332cb)
+
+running 4 tests
+test both_have_the_right_limits ... ok
+test both_reproduce_the_exponential_closed_form ... ok
+test gsl_port_and_openfoam_lift_agree_on_p ... ok
+test the_lifts_p_and_q_are_complementary ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/lapack_gebal_code_to_code.rs (target/release/deps/lapack_gebal_code_to_code-dc4d2d088bc9f436)
+
+running 1 test
+test gebal_and_gebak_match_reference_lapack_bit_for_bit ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/libm_vs_platform.rs (target/release/deps/libm_vs_platform-c7336ac79b1b56a3)
+
+running 1 test
+test petir_real_agrees_with_the_platform_libm_to_a_few_ulp ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/no_panic_gate.rs (target/release/deps/no_panic_gate-cf044cbf5b9d65e0)
+
+running 4 tests
+test library_code_contains_no_explicit_panic ... ok
+test the_lifted_list_matches_the_provenance_tests ... ok
+test the_public_fallible_api_returns_result ... ok
+test no_subscript_in_the_crate_can_fail_at_runtime ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/no_platform_libm.rs (target/release/deps/no_platform_libm-f001e5f0e299a167)
+
+running 4 tests
+test every_exclusion_is_live ... ok
+test the_gate_flags_raw_calls_and_only_raw_calls ... ok
+test the_walk_honours_exclusions_and_only_them ... ok
+test no_platform_libm_in_any_converted_crate ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.21s
+
+     Running tests/octave_expm_code_to_code.rs (target/release/deps/octave_expm_code_to_code-db968033c3aff624)
+
+running 2 tests
+test expm_agrees_with_cram48_on_a_decay_chain ... ok
+test expm_matches_octave ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/rng_vs_rand.rs (target/release/deps/rng_vs_rand-87f3a67aff1df31d)
+
+running 1 test
+test petir_rng_streams_equal_rand_draw_for_draw ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.39s
+
+     Running tests/roots_companion_code_to_code.rs (target/release/deps/roots_companion_code_to_code-40cb56c6405d9983)
+
+running 4 tests
+test every_returned_root_satisfies_its_polynomial ... ok
+test the_reference_set_is_present_and_substantial ... ok
+test petir_agrees_with_upstream_roots_0_0_8 ... ok
+test the_upstream_sturm_defect_is_still_present ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/sparse_vs_faer.rs (target/release/deps/sparse_vs_faer-feacfd2349e44698)
+
+running 4 tests
+test llt_grid_laplacians_and_random_spd ... ok
+test factorisation_time_vs_faer ... ok
+test lu_random_unsymmetric ... ok
+test lu_two_group_3d_diffusion has been running for over 60 seconds
+test lu_two_group_3d_diffusion ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 140.09s
+
+     Running tests/ssprk_order_and_tvd.rs (target/release/deps/ssprk_order_and_tvd-770b365f8df40694)
+
+running 3 tests
+test observed_order_matches_formal_order ... ok
+test negative_control_tv_grows_above_the_ssp_coefficient ... ok
+test total_variation_does_not_increase_up_to_the_ssp_coefficient ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/ssprk_vs_pyclaw.rs (target/release/deps/ssprk_vs_pyclaw-2822e3ab91a1274c)
+
+running 2 tests
+test power_of_two_dt_is_bit_identical_to_pyclaw ... ok
+test non_power_of_two_dt_agrees_with_pyclaw ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/std_shadowing_digest.rs (target/release/deps/std_shadowing_digest-91d38578885063d7)
+
+running 1 test
+test petir_output_does_not_depend_on_the_build_graph ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/tampines_interop.rs (target/release/deps/tampines_interop-031387acff696194)
+
+running 6 tests
+test basis_is_bit_identical_to_the_old_implementation ... ok
+test eval_plain_is_bit_identical_to_the_old_cheb1 ... ok
+test mixing_the_conventions_is_wrong_by_exactly_half_the_constant_term ... ok
+test petir_reproduces_tampines_on_its_own_committed_coefficients ... ok
+test the_scaling_change_is_at_most_one_ulp ... ok
+test tensor_product_is_bit_identical_to_the_old_implementation ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/verbatim_provenance.rs (target/release/deps/verbatim_provenance-c81a89a3bcc92c2d)
+
+running 2 tests
+test the_lift_inventory_is_complete ... ok
+test every_lifted_file_still_matches_its_source ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/wgsl_gpu.rs (target/release/deps/wgsl_gpu-91b7c8a9fbb8c40a)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/wgsl_validation.rs (target/release/deps/wgsl_validation-199bdcc31c093410)
+
+running 9 tests
+test all_and_all_names_are_the_same_length ... ok
+test every_documented_function_is_defined ... ok
+test every_shader_file_is_listed_here ... ok
+test every_generated_shader_and_its_mirror_hold_the_same_constants ... ok
+test every_shader_parses_and_validates_under_naga ... ok
+test every_shader_validates_against_baseline_webgpu_capabilities ... ok
+test the_coverage_ledger_lists_every_shipped_shader ... ok
+test the_cpu_mirror_answers_with_no_gpu_and_no_feature ... ok
+test svd3_mirror_tracks_the_f64_port_within_the_derived_angle_budget ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+

@@ -113,14 +113,16 @@ done
 classify() {  # $1 crate, $2 exit code; writes pass|known|fail and known list
     local c=$1 rc=$2 f="$logs/$1.test.log" names n bad=0 known=""
     if [ "$rc" = 0 ]; then echo pass >"$st/$c.test"; return; fi
-    names=$(sed -nE 's/^test (.*) \.\.\. FAILED$/\1/p' "$f" | sort -u)
+    # name<TAB>test binary, so a known failure is matched by test name, test
+    # binary (e.g. tests/csl_vs_citeproc_js.rs) or panic message.
+    names=$(awk '/^ +Running /{bin=$2} /^test .* \.\.\. FAILED$/{sub(/^test /,""); sub(/ \.\.\. FAILED$/,""); print $0 "\t" bin}' "$f" | sort -u)
     if [ -z "$names" ] || grep -qE '^error(\[E[0-9]+\])?: (could not compile|aborting)' "$f"; then
         echo fail >"$st/$c.test"; return
     fi
-    for n in $names; do
+    while IFS=$'\t' read -r n bin; do
         block=$(awk -v h="---- $n stdout ----" '$0==h{p=1;next} /^---- .* stdout ----$/{p=0} /^failures:$/{p=0} p' "$f")
-        if printf '%s\n%s\n' "$n" "$block" | grep -qE "$KNOWN_ENV_FAILURES"; then known+="$n "; else bad=1; fi
-    done
+        if printf '%s\n%s\n%s\n' "$n" "$bin" "$block" | grep -qE "$KNOWN_ENV_FAILURES"; then known+="$n "; else bad=1; fi
+    done <<<"$names"
     # Every failed binary must be explained by a failed test (no crashes).
     if [ $bad = 0 ] && ! grep -qE 'process didn.t exit successfully: .*(signal|SIG)' "$f"; then
         echo "$known" >"$st/$c.known"; echo known >"$st/$c.test"

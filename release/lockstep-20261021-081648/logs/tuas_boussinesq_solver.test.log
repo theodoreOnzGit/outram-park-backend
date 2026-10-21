@@ -1,0 +1,648 @@
+   Compiling serde_core v1.0.229
+   Compiling num-traits v0.2.19
+   Compiling bytemuck v1.25.2
+   Compiling arrayvec v0.7.8
+   Compiling profiling-procmacros v1.0.18
+   Compiling profiling v1.0.18
+   Compiling concurrent-queue v2.5.0
+   Compiling half v2.7.1
+   Compiling serde v1.0.229
+   Compiling bitflags v2.13.2
+   Compiling rustix v1.1.5
+   Compiling smallvec v1.16.3
+   Compiling uuid v1.28.0
+   Compiling zvariant_utils v4.2.0
+   Compiling polling v3.11.0
+   Compiling wayland-backend v0.3.17
+   Compiling wayland-client v0.31.15
+   Compiling parking_lot_core v0.9.12
+   Compiling enumflags2 v0.7.12
+   Compiling zcheapstr v1.1.0
+   Compiling num-integer v0.1.47
+   Compiling zvariant v5.15.1
+   Compiling parking_lot v0.12.5
+   Compiling wayland-protocols v0.32.13
+   Compiling equator-macro v0.4.2
+   Compiling equator v0.4.2
+   Compiling async-io v2.6.0
+   Compiling zbus_names v4.3.5
+   Compiling async-channel v2.5.0
+   Compiling polycool v0.4.0
+   Compiling anyhow v1.0.104
+   Compiling accesskit v0.24.1
+   Compiling kurbo v0.13.1
+   Compiling async-signal v0.2.14
+   Compiling aligned-vec v0.6.4
+   Compiling num-bigint v0.4.8
+   Compiling font-types v0.12.7
+   Compiling color v0.3.3
+   Compiling euclid v0.22.14
+   Compiling peniko v0.6.1
+   Compiling as-slice v0.2.1
+   Compiling guillotiere v0.7.0
+   Compiling async-process v2.5.0
+   Compiling read-fonts v0.41.0
+   Compiling num-rational v0.4.2
+   Compiling ahash v0.8.12
+   Compiling v_frame v0.3.9
+   Compiling blocking v1.7.0
+   Compiling zbus_xml v5.2.1
+   Compiling async-executor v1.14.0
+   Compiling num-complex v0.4.6
+   Compiling av-scenechange v0.14.1
+   Compiling built v0.8.1
+   Compiling rav1e v0.8.1
+   Compiling wayland-csd-frame v0.3.0
+   Compiling wayland-cursor v0.31.14
+   Compiling zbus v5.19.0
+   Compiling rustix v0.38.44
+   Compiling vello_common v0.1.0
+   Compiling zbus-lockstep v0.5.2
+   Compiling aligned v0.4.3
+   Compiling wayland-protocols-wlr v0.3.12
+   Compiling emath v0.36.2
+   Compiling spirv v0.4.0+sdk-1.4.341.0
+   Compiling pulp v0.22.3
+   Compiling nom v8.0.0
+   Compiling no_std_io2 v0.9.4
+   Compiling ring v0.17.14
+   Compiling arg_enum_proc_macro v0.3.4
+   Compiling y4m v0.8.0
+   Compiling pastey v0.1.1
+   Compiling quick-error v2.0.1
+   Compiling av1-grain v0.2.5
+   Compiling bitstream-io v4.10.0
+   Compiling naga v30.0.1
+   Compiling ecolor v0.36.2
+   Compiling atspi-common v0.13.0
+   Compiling calloop v0.13.0
+   Compiling vello_cpu v0.1.0
+   Compiling maybe-rayon v0.1.1
+   Compiling skrifa v0.44.0
+   Compiling harfrust v0.12.0
+   Compiling wgpu-types v30.0.1
+   Compiling gethostname v1.1.0
+   Compiling raw-cpuid v11.6.0
+   Compiling itertools v0.14.0
+   Compiling rgb v0.8.53
+   Compiling num-derive v0.4.2
+   Compiling simd_helpers v0.1.0
+   Compiling noop_proc_macro v0.3.0
+   Compiling pulp-wasm-simd-flag v0.1.1
+   Compiling zune-core v0.5.3
+   Compiling imgref v1.12.3
+   Compiling rustls-pki-types v1.15.1
+   Compiling zune-jpeg v0.5.15
+   Compiling epaint v0.36.2
+   Compiling loop9 v0.1.5
+   Compiling x11rb v0.13.2
+   Compiling wgpu-naga-bridge v30.0.1
+   Compiling ron v0.12.2
+   Compiling calloop-wayland-source v0.3.0
+   Compiling zune-inflate v0.2.54
+   Compiling avif-serialize v0.8.9
+   Compiling ordered-float v5.5.0
+   Compiling lebe v0.5.3
+   Compiling color_quant v1.1.0
+   Compiling fax v0.2.7
+   Compiling httparse v1.10.1
+   Compiling untrusted v0.9.0
+   Compiling float-cmp v0.9.0
+   Compiling bit_field v0.10.3
+   Compiling unicase v2.10.0
+   Compiling exr v1.74.2
+   Compiling phf_shared v0.11.3
+   Compiling strict-num v0.1.1
+   Compiling wgpu-hal v30.0.1
+   Compiling image-webp v0.2.4
+   Compiling tiff v0.11.3
+   Compiling moxcms v0.8.1
+   Compiling gif v0.14.2
+   Compiling ravif v0.13.0
+   Compiling egui v0.36.2
+   Compiling smithay-client-toolkit v0.19.2
+   Compiling atspi-proxies v0.13.0
+   Compiling xkbcommon-dl v0.4.2
+   Compiling png v0.18.1
+   Compiling accesskit_consumer v0.36.0
+   Compiling wayland-protocols-plasma v0.3.12
+   Compiling calloop v0.14.5
+   Compiling qoi v0.4.1
+   Compiling arrayref v0.3.9
+   Compiling rustls v0.23.46
+   Compiling bytes v1.12.1
+   Compiling http v1.5.0
+   Compiling winit v0.30.13
+   Compiling calloop-wayland-source v0.4.1
+   Compiling tiny-skia-path v0.11.4
+   Compiling image v0.25.10
+   Compiling accesskit_atspi_common v0.18.1
+   Compiling atspi v0.29.0
+   Compiling wgpu-core-deps-windows-linux-android v30.0.1
+   Compiling rustls-webpki v0.103.15
+   Compiling phf v0.11.3
+   Compiling wayland-protocols-misc v0.3.12
+   Compiling wayland-protocols-experimental v20250721.0.1
+   Compiling kurbo v0.11.3
+   Compiling bitflags v1.3.2
+   Compiling base64 v0.23.1
+   Compiling ureq-proto v0.6.5
+   Compiling uom v0.38.0
+   Compiling png v0.17.16
+   Compiling svgtypes v0.15.3
+   Compiling smithay-client-toolkit v0.20.0
+   Compiling mime_guess2 v2.3.1
+   Compiling wgpu-core v30.0.1
+   Compiling accesskit_unix v0.21.1
+   Compiling webpki-roots v1.0.10
+   Compiling csv-core v0.1.13
+   Compiling simplecss v0.2.2
+   Compiling xmlwriter v0.1.0
+   Compiling roxmltree v0.20.0
+   Compiling utf8-zero v0.8.1
+   Compiling data-url v0.3.2
+   Compiling pico-args v0.5.0
+   Compiling imagesize v0.13.0
+   Compiling csv v1.4.0
+   Compiling usvg v0.45.1
+   Compiling ureq v3.4.2
+   Compiling wgpu v30.0.1
+   Compiling accesskit_winit v0.32.2
+   Compiling smithay-clipboard v0.7.3
+   Compiling petir v0.0.3 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/crates/petir)
+   Compiling tiny-skia v0.11.4
+   Compiling arboard v3.7.0
+   Compiling approx v0.5.1
+   Compiling enum-map-derive v0.17.0
+   Compiling mime v0.3.17
+   Compiling enum-map v2.7.3
+   Compiling egui-winit v0.36.2
+   Compiling resvg v0.45.1
+   Compiling egui-wgpu v0.36.2
+   Compiling ehttp v0.7.1
+   Compiling ndarray v0.17.2
+   Compiling eframe v0.36.2
+   Compiling egui_extras v0.36.2
+   Compiling chem-eng-real-time-process-control-simulator v0.2.4 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/crates/chem-eng-real-time-process-control-simulator)
+   Compiling egui_plot v0.37.0
+   Compiling tuas_boussinesq_solver v0.1.8 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/crates/tuas_boussinesq_solver)
+warning: unused import: `uom::si::f64::*`
+ --> crates/tuas_boussinesq_solver/src/lib/boussinesq_thermophysical_properties/solid_database/ss_304_l.rs:6:5
+  |
+6 | use uom::si::f64::*;
+  |     ^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `uom::si::f64::*`
+  --> crates/tuas_boussinesq_solver/src/lib/boussinesq_thermophysical_properties/solid_database/ss_304_l_high_temp.rs:79:5
+   |
+79 | use uom::si::f64::*;
+   |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `uom::si::f64::*`
+ --> crates/tuas_boussinesq_solver/src/lib/boussinesq_thermophysical_properties/solid_database/copper.rs:5:5
+  |
+5 | use uom::si::f64::*;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `uom::si::f64::*`
+ --> crates/tuas_boussinesq_solver/src/lib/boussinesq_thermophysical_properties/solid_database/fiberglass.rs:5:5
+  |
+5 | use uom::si::f64::*;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `uom::si::f64::*`
+  --> crates/tuas_boussinesq_solver/src/lib/boussinesq_thermophysical_properties/solid_database/nuclear_graphite.rs:53:5
+   |
+53 | use uom::si::f64::*;
+   |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `uom::si::f64::*`
+ --> crates/tuas_boussinesq_solver/src/lib/boussinesq_thermophysical_properties/solid_database/pyrogel_hps.rs:5:5
+  |
+5 | use uom::si::f64::*;
+  |     ^^^^^^^^^^^^^^^
+
+warning: function `relative_bracketed_root` is never used
+   --> crates/tuas_boussinesq_solver/src/lib/numerical_methods.rs:285:15
+    |
+285 | pub(crate) fn relative_bracketed_root<F: Fn(f64) -> f64>(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `tuas_boussinesq_solver` (lib) generated 7 warnings (run `cargo fix --lib -p tuas_boussinesq_solver` to apply 6 suggestions)
+warning: `tuas_boussinesq_solver` (lib test) generated 6 warnings (6 duplicates)
+    Finished `release` profile [optimized] target(s) in 3m 17s
+     Running unittests src/lib/lib.rs (target/release/deps/tuas_boussinesq_solver-bf291444fb021ac4)
+
+running 389 tests
+test array_fluid_collections::fluid_array_lateral_coupling::fluid_component_calculation::unit_test_darcy_loss_correlations::dimensionless_darcy_loss_correlation_get_be ... ok
+test array_fluid_collections::fluid_array_lateral_coupling::fluid_component_calculation::unit_test_darcy_loss_correlations::dimensionless_darcy_loss_correlation_get_re_from_be ... ok
+test array_fluid_collections::fluid_array_lateral_coupling::fluid_component_calculation::unit_test_dimensionless_darcy_loss::dimensionless_darcy_loss_correlation_get_mass_flowrate_from_pressure_loss ... ok
+test array_fluid_collections::fluid_array_lateral_coupling::fluid_component_calculation::unit_test_dimensionless_darcy_loss::dimensionless_darcy_loss_correlation_get_pressure_loss ... ok
+test array_fluid_collections::fluid_array_lateral_coupling::tests::parasitic_heat_loss::cp_for_therminol_vp_1 ... ok
+test array_fluid_collections::fluid_array_lateral_coupling::tests::parasitic_heat_loss::parasitic_heat_loss_integration_test_with_hte_1m ... ok
+test array_fluid_collections::fluid_array_lateral_coupling::tests::parasitic_heat_loss::parasitic_heat_loss_integration_test_with_hte_3m ... ok
+test array_fluid_collections::fluid_array_lateral_coupling::tests::parasitic_heat_loss::parasitic_heat_loss_integration_test_with_hte_5m ... ok
+test array_fluid_collections::fluid_array_lateral_coupling::tests::parasitic_heat_loss::parasitic_heat_loss_integration_test_with_hte_7m ... ok
+test array_fluid_collections::fluid_array_lateral_coupling::tests::joint_mixing::fluid_array_adiabatic_mixing_joint_test ... ok
+test array_fluid_collections::fluid_component_collection::fluid_component_traits::unit_test_fluid_component_traits::test_custom_fluid_component_mass_flow_from_pressure_loss ... ok
+test array_fluid_collections::fluid_component_collection::fluid_component_traits::unit_test_fluid_component_traits::test_custom_fluid_component_mass_flowrate_from_pressure_change ... ok
+test array_fluid_collections::fluid_component_collection::fluid_component_traits::unit_test_fluid_component_traits::test_custom_fluid_component_pressure_change ... ok
+test array_fluid_collections::fluid_component_collection::fluid_component_traits::unit_test_fluid_component_traits::test_custom_fluid_component_pressure_loss ... ok
+test array_fluid_collections::fluid_component_collection::tests_and_examples::air_pipe_example::simple_fluid_pipe_example_1 ... ok
+test array_fluid_collections::fluid_component_collection::tests_and_examples::collection_fluid_components_in_parallel::simple_fluid_collection_example_6 ... ok
+test array_fluid_collections::fluid_component_collection::tests_and_examples::collection_fluid_components_in_series::simple_fluid_collection_example_5 ... ok
+test array_fluid_collections::fluid_component_collection::tests_and_examples::concurrency_and_multithreading_example::coriolis_flowmeter_empirical_custom_component_example_3 ... ok
+test array_fluid_collections::fluid_component_collection::tests_and_examples::coriolis_flowmeter_example::coriolis_flowmeter_empirical_custom_component_example_3 ... ok
+test array_fluid_collections::fluid_array_lateral_coupling::tests::parasitic_heat_loss::parasitic_heat_loss_integration_test_with_hte_9m ... ok
+test array_fluid_collections::fluid_component_collection::tests_and_examples::water_pipe_example::water_pipe_with_internal_pump_example_2 ... ok
+test array_fluid_collections::solid_array_lateral_coupling::tests::arraycv_transient_conduction_copper_medium_with_assert_only ... ok
+test array_fluid_collections::fluid_component_collection::tests_and_examples::super_collection_fluid_components_in_parallel::super_fluid_collection_example_7 ... ok
+test array_fluid_collections::standalone_fluid_nodes::core_fluid_node::fluid_node_backflow_calculation_initial_test ... ok
+test array_fluid_collections::standalone_fluid_nodes::core_fluid_node::fluid_node_calculation_initial_test ... ok
+test boussinesq_thermophysical_properties::liquid_database::custom_liquid_material::test_custom_fluid_enthalpy ... ok
+test boussinesq_thermophysical_properties::liquid_database::custom_liquid_material::test_custom_fluid_temperature_from_enthalpy ... ok
+test boussinesq_thermophysical_properties::liquid_database::dowtherm_a::dynamic_viscosity_test_dowtherm_a ... ok
+test boussinesq_thermophysical_properties::liquid_database::flibe::flibe_prandtl_number ... ok
+test boussinesq_thermophysical_properties::liquid_database::flibe::flibe_salt_test_viscosity ... ok
+test boussinesq_thermophysical_properties::liquid_database::flinak::test_flinak_thermal_conductivity_correlation_unit_in_kelvin ... ok
+test boussinesq_thermophysical_properties::liquid_database::hitec_nitrate_salt::hitec_nitrate_salt_test_viscosity ... ok
+test boussinesq_thermophysical_properties::momentum_diffusivity::check_that_prandtl_is_nu_divide_by_alpha ... ok
+test boussinesq_thermophysical_properties::solid_database::copper::copper_temperature_from_enthalpy_test_spline_2 ... ok
+test boussinesq_thermophysical_properties::solid_database::fiberglass::fiberglass_enthalpy_test ... ok
+test boussinesq_thermophysical_properties::solid_database::fiberglass::fiberglass_temperature_from_enthalpy_test_spline_1 ... ok
+test boussinesq_thermophysical_properties::solid_database::nuclear_graphite::butland_maddison_polynomial_covers_250_to_3000_k_and_refuses_outside ... ok
+test boussinesq_thermophysical_properties::solid_database::nuclear_graphite::butland_maddison_polynomial_reproduces_the_vtb_table_up_to_the_calorie ... ok
+test boussinesq_thermophysical_properties::solid_database::nuclear_graphite::nuclear_graphite_a3_high_temp_enthalpy_is_the_integral_of_cp_and_inverts ... ok
+test boussinesq_thermophysical_properties::solid_database::nuclear_graphite::nuclear_graphite_a3_high_temp_variant_dispatch_and_window ... ok
+test boussinesq_thermophysical_properties::solid_database::nuclear_graphite::nuclear_graphite_cp_spline_reproduces_butland_maddison_nodes ... ok
+test boussinesq_thermophysical_properties::solid_database::nuclear_graphite::nuclear_graphite_enthalpy_round_trip ... ok
+test boussinesq_thermophysical_properties::solid_database::nuclear_graphite::nuclear_graphite_enum_variants_dispatch_at_600_k ... ok
+test boussinesq_thermophysical_properties::solid_database::nuclear_graphite::nuclear_graphite_fluence_damage_factor_behaviour ... ok
+test boussinesq_thermophysical_properties::solid_database::nuclear_graphite::nuclear_graphite_ig_110_k_quadratic_hand_evaluation ... ok
+test boussinesq_thermophysical_properties::solid_database::nuclear_graphite::nuclear_graphite_matrix_a3_k_zero_fluence_matches_closed_form ... ok
+test boussinesq_thermophysical_properties::solid_database::ss_304_l::density_test_steel ... ok
+test boussinesq_thermophysical_properties::solid_database::ss_304_l::specific_enthalpy_test_steel_ornl ... ok
+test boussinesq_thermophysical_properties::solid_database::ss_304_l::specific_enthalpy_test_steel_ornl_and_zweibaum_spline ... ok
+test boussinesq_thermophysical_properties::solid_database::ss_304_l::specific_heat_capacity_test_steel ... ok
+test boussinesq_thermophysical_properties::solid_database::ss_304_l::steel_temperature_from_enthalpy_test_spline_3 ... ok
+test boussinesq_thermophysical_properties::solid_database::ss_304_l::verify_libreoffice_splines_work ... ok
+test boussinesq_thermophysical_properties::solid_database::ss_304_l_high_temp::existing_ss304l_zou_zweibaum_material_is_unchanged ... ok
+test boussinesq_thermophysical_properties::solid_database::ss_304_l_high_temp::kim_304l_covers_htgr_envelope_through_public_api ... ok
+test boussinesq_thermophysical_properties::solid_database::ss_304_l_high_temp::kim_304l_density_reproduces_kim_table_7 ... ok
+test boussinesq_thermophysical_properties::solid_database::ss_304_l_high_temp::kim_304l_enthalpy_temperature_round_trip_is_exact ... ok
+test boussinesq_thermophysical_properties::solid_database::ss_304_l_high_temp::kim_304l_specific_enthalpy_reproduces_kim_table_2 ... ok
+test boussinesq_thermophysical_properties::solid_database::ss_304_l_high_temp::kim_304l_specific_heat_reproduces_kim_table_2 ... ok
+test boussinesq_thermophysical_properties::solid_database::ss_304_l_high_temp::kim_304l_thermal_conductivity_reproduces_kim_table_10 ... ok
+test boussinesq_thermophysical_properties::thermal_conductivity::thermal_conductivity_test_steel ... ok
+test heat_transfer_correlations::heat_transfer_interactions::advection::test_advection_signs ... ok
+test heat_transfer_correlations::heat_transfer_interactions::tests::radial_conductance_solid_inside_liquid_inside_test ... ok
+test heat_transfer_correlations::heat_transfer_interactions::tests::radial_conductance_solid_inside_liquid_outside_test ... ok
+test heat_transfer_correlations::heat_transfer_interactions::tests::radial_conductance_solid_test ... ok
+test heat_transfer_correlations::heat_transfer_interactions::tests::radiation_conductance_unit_test ... ok
+test heat_transfer_correlations::nusselt_number_correlations::tests::du_correlation_empirical_test ... ok
+test heat_transfer_correlations::nusselt_number_correlations::tests::du_interpolated_correlation_empirical_test ... ok
+test heat_transfer_correlations::nusselt_number_correlations::tests::du_nusselt_enum_correlation_empirical_test ... ok
+test heat_transfer_correlations::nusselt_number_correlations::tests::wakao_correlation_published_form_test ... ok
+test heat_transfer_correlations::nusselt_number_correlations::tests::wakao_correlation_transposed_exponent_regression_guard ... ok
+test heat_transfer_correlations::view_factors::cocentric_cylinders::cocentric_cylinders_view_factor_shld_equal_one_for_inner_cyl ... ok
+test heat_transfer_correlations::view_factors::cocentric_cylinders::cocentric_cylinders_view_factor_shld_equal_one_for_outer_cyl ... ok
+test matrix::tests::lu_solve_2x2 ... ok
+test matrix::tests::lu_solve_3x3 ... ok
+test matrix::tests::lu_solve_needs_pivoting ... ok
+test matrix::tests::scaled_pivoting_large_row_contrast ... ok
+test matrix::tests::singular_matrix_returns_err ... ok
+test numerical_methods::tests::bisection_residual_reports_no_bracket_and_non_convergence ... ok
+test numerical_methods::tests::bisection_residual_reproduces_peroxide_bit_for_bit ... ok
+test numerical_methods::tests::bracketed_root_meets_its_tolerance_in_either_bracket_order ... ok
+test numerical_methods::tests::gauss_legendre_20_is_exact_for_a_cubic ... ok
+test numerical_methods::tests::spline_refuses_out_of_table_and_integrates_signed ... ok
+test pre_built_components::ciet_isothermal_test_components::isothermal_ctah_heater_branch_test::ctah_branch_test ... ok
+test pre_built_components::ciet_isothermal_test_components::isothermal_ctah_heater_branch_test::debugging_tests::ctah_branch_pressure_change_regression_test ... ok
+test pre_built_components::ciet_isothermal_test_components::isothermal_ctah_heater_branch_test::debugging_tests::ctah_pump_should_give_zero_resistance ... ok
+test pre_built_components::ciet_isothermal_test_components::isothermal_ctah_heater_branch_test::debugging_tests::heater_branch_pressure_change_regression_test ... ok
+test array_fluid_collections::standalone_solid_nodes::shell_solid_node::fluid_solid_node_calculation_initial_test ... ok
+test pre_built_components::ciet_isothermal_test_components::isothermal_ctah_heater_branch_test::debugging_tests::partial_ctah_branch_test ... ok
+test pre_built_components::ciet_isothermal_test_components::isothermal_ctah_heater_branch_test::heater_branch_with_heater_v2_test ... ok
+test pre_built_components::ciet_isothermal_test_components::isothermal_ctah_heater_branch_test::debugging_tests::isothermal_ctah_and_heater_branch_parallel_associated_functions_regression_test ... ok
+test pre_built_components::ciet_isothermal_test_components::isothermal_ctah_heater_branch_test::isothermal_ctah_and_heater_branch_code_to_code_verification_test ... ok
+test pre_built_components::ciet_isothermal_test_components::isothermal_ctah_heater_dhx_branch_test::debugging_tests::dhx_branch_pressure_change_regression_test ... ok
+test pre_built_components::ciet_isothermal_test_components::isothermal_ctah_heater_branch_test::isothermal_ctah_and_heater_branch_validation_test ... ok
+test pre_built_components::ciet_isothermal_test_components::isothermal_ctah_heater_dhx_branch_test::isothermal_dhx_ctah_and_heater_branch_code_to_code_verification_test ... ok
+test pre_built_components::ciet_nat_circ_tests::coupled_dracs_loop_tests::dataset_a::ciet_coupled_nat_circ_set_a1 ... ok
+test pre_built_components::ciet_nat_circ_tests::coupled_dracs_loop_tests::dataset_a::ciet_coupled_nat_circ_set_a2 ... ok
+test pre_built_components::ciet_nat_circ_tests::coupled_dracs_loop_tests::dataset_a::ciet_coupled_nat_circ_set_a3 ... ok
+test pre_built_components::ciet_nat_circ_tests::coupled_dracs_loop_tests::dataset_a::ciet_coupled_nat_circ_set_a4 ... ok
+test pre_built_components::ciet_nat_circ_tests::coupled_dracs_loop_tests::dataset_a::ciet_coupled_nat_circ_set_a5 ... ok
+test pre_built_components::ciet_nat_circ_tests::coupled_dracs_loop_tests::dataset_a::ciet_coupled_nat_circ_set_a6 ... ok
+test pre_built_components::ciet_nat_circ_tests::coupled_dracs_loop_tests::dataset_b::ciet_coupled_nat_circ_set_b1 ... ok
+test pre_built_components::ciet_nat_circ_tests::coupled_dracs_loop_tests::dataset_a::ciet_coupled_nat_circ_set_a7 ... ok
+test pre_built_components::ciet_nat_circ_tests::coupled_dracs_loop_tests::dataset_b::ciet_coupled_nat_circ_set_b2 ... ok
+test pre_built_components::ciet_nat_circ_tests::coupled_dracs_loop_tests::dataset_b::ciet_coupled_nat_circ_set_b3 ... ok
+test pre_built_components::ciet_nat_circ_tests::coupled_dracs_loop_tests::dataset_b::ciet_coupled_nat_circ_set_b4 ... ok
+test pre_built_components::ciet_nat_circ_tests::coupled_dracs_loop_tests::dataset_b::ciet_coupled_nat_circ_set_b5 ... ok
+test pre_built_components::ciet_nat_circ_tests::coupled_dracs_loop_tests::dataset_b::ciet_coupled_nat_circ_set_b6 ... ok
+test pre_built_components::ciet_nat_circ_tests::coupled_dracs_loop_tests::dataset_b::ciet_coupled_nat_circ_set_b7 ... ok
+test pre_built_components::ciet_nat_circ_tests::coupled_dracs_loop_tests::dataset_b::ciet_coupled_nat_circ_set_b8 ... ok
+test pre_built_components::ciet_nat_circ_tests::coupled_dracs_loop_tests::dataset_b::ciet_coupled_nat_circ_set_b9 ... ok
+test pre_built_components::ciet_nat_circ_tests::coupled_dracs_loop_tests::dataset_c::ciet_coupled_nat_circ_set_c1 ... ok
+test pre_built_components::ciet_nat_circ_tests::coupled_dracs_loop_tests::dataset_c::ciet_coupled_nat_circ_set_c2 ... ok
+test pre_built_components::ciet_nat_circ_tests::coupled_dracs_loop_tests::dataset_c::ciet_coupled_nat_circ_set_c3 ... ok
+test pre_built_components::ciet_nat_circ_tests::coupled_dracs_loop_tests::dataset_c::ciet_coupled_nat_circ_set_c4 ... ok
+test pre_built_components::ciet_nat_circ_tests::coupled_dracs_loop_tests::dataset_c::ciet_coupled_nat_circ_set_c5 ... ok
+test pre_built_components::ciet_nat_circ_tests::coupled_dracs_loop_tests::dataset_c::ciet_coupled_nat_circ_set_c6 ... ok
+test pre_built_components::ciet_nat_circ_tests::coupled_dracs_loop_tests::dataset_c::ciet_coupled_nat_circ_set_c7 ... ok
+test pre_built_components::ciet_nat_circ_tests::coupled_dracs_loop_tests::dataset_c::ciet_coupled_nat_circ_set_c8 ... ok
+test pre_built_components::ciet_nat_circ_tests::coupled_dracs_loop_tests::isolated_dracs_loop_resistance_calibration::case_c_tchx_out_313_kelvin_40_celsius_test1 ... ok
+test pre_built_components::ciet_nat_circ_tests::coupled_dracs_loop_tests::isolated_dracs_loop_resistance_calibration::case_c_tchx_out_313_kelvin_40_celsius_test2 ... ok
+test pre_built_components::ciet_nat_circ_tests::coupled_dracs_loop_tests::isolated_dracs_loop_resistance_calibration::case_c_tchx_out_313_kelvin_40_celsius_test3 ... ok
+test pre_built_components::ciet_nat_circ_tests::coupled_dracs_loop_tests::isolated_dracs_loop_resistance_calibration::case_c_tchx_out_313_kelvin_40_celsius_test4 ... ok
+test pre_built_components::ciet_nat_circ_tests::coupled_dracs_loop_tests::isolated_dracs_loop_resistance_calibration::case_c_tchx_out_313_kelvin_40_celsius_test5 ... ok
+test pre_built_components::ciet_nat_circ_tests::coupled_dracs_loop_tests::isolated_dracs_loop_resistance_calibration::case_c_tchx_out_313_kelvin_40_celsius_test6 ... ok
+test pre_built_components::ciet_nat_circ_tests::coupled_dracs_loop_tests::dataset_c::ciet_coupled_nat_circ_set_c9 ... ok
+test pre_built_components::ciet_nat_circ_tests::coupled_dracs_loop_tests::isolated_dracs_loop_resistance_calibration::case_c_tchx_out_313_kelvin_40_celsius_test7 ... ok
+test pre_built_components::ciet_nat_circ_tests::coupled_dracs_loop_tests::isolated_dracs_loop_resistance_calibration::case_c_tchx_out_313_kelvin_40_celsius_test8 ... ok
+test pre_built_components::ciet_nat_circ_tests::coupled_dracs_loop_tests::sam_vs_tuas_vs_experiment_summary::generate_coupled_natcirc_sam_vs_tuas_vs_experiment_md ... ok
+test pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::dhx_sthe_calibration::dhx_regression_set_c1 ... ok
+test pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::dhx_sthe_calibration::dhx_regression_set_c2 ... ok
+test pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::dhx_sthe_calibration::dhx_regression_set_c3 ... ok
+test pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::dhx_sthe_calibration::dhx_regression_set_c4 ... ok
+test pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::dhx_sthe_calibration::dhx_regression_set_c5 ... ok
+test pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::dhx_sthe_calibration::dhx_regression_set_c6 ... ok
+test pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::dhx_sthe_calibration::dhx_regression_set_c7 ... ok
+test pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::dhx_sthe_calibration::dhx_regression_set_c8 ... ok
+test pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::dhx_sthe_calibration::dhx_regression_set_c9 ... ok
+test pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::dracs_loop_heat_loss_calib::cold_leg_calibration::cold_leg_regression_set_c1 ... ok
+test pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::dracs_loop_heat_loss_calib::cold_leg_calibration::cold_leg_regression_set_c2 ... ok
+test pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::dracs_loop_heat_loss_calib::cold_leg_calibration::cold_leg_regression_set_c3 ... ok
+test pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::dracs_loop_heat_loss_calib::cold_leg_calibration::cold_leg_regression_set_c4 ... ok
+test pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::dracs_loop_heat_loss_calib::cold_leg_calibration::cold_leg_regression_set_c5 ... ok
+test pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::dracs_loop_heat_loss_calib::cold_leg_calibration::cold_leg_regression_set_c6 ... ok
+test pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::dracs_loop_heat_loss_calib::cold_leg_calibration::cold_leg_regression_set_c7 ... ok
+test pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::dracs_loop_heat_loss_calib::cold_leg_calibration::cold_leg_regression_set_c8 ... ok
+test pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::dracs_loop_heat_loss_calib::cold_leg_calibration::cold_leg_regression_set_c9 ... ok
+test pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::dracs_loop_heat_loss_calib::hot_leg_calibration::hot_leg_regression_set_c1 ... ok
+test pre_built_components::ciet_nat_circ_tests::coupled_dracs_loop_tests::isolated_dracs_loop_resistance_calibration::case_c_tchx_out_313_kelvin_40_celsius_test9 ... ok
+test pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::dracs_loop_heat_loss_calib::hot_leg_calibration::hot_leg_regression_set_c2 ... ok
+test pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::dracs_loop_heat_loss_calib::hot_leg_calibration::hot_leg_regression_set_c3 ... ok
+test pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::dracs_loop_heat_loss_calib::hot_leg_calibration::hot_leg_regression_set_c4 ... ok
+test pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::dracs_loop_heat_loss_calib::hot_leg_calibration::hot_leg_regression_set_c5 ... ok
+test pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::dracs_loop_heat_loss_calib::hot_leg_calibration::hot_leg_regression_set_c6 ... ok
+test pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::dracs_loop_heat_loss_calib::hot_leg_calibration::hot_leg_regression_set_c7 ... ok
+test pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::dracs_loop_heat_loss_calib::hot_leg_calibration::hot_leg_regression_set_c8 ... ok
+test pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::dracs_loop_heat_loss_calib::hot_leg_calibration::hot_leg_regression_set_c9 ... ok
+test pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::dracs_loop_v1_uncalibrated::quick_test_uncalibrated_dracs_loop ... ok
+test pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::dracs_loop_v1_uncalibrated::long_test_uncalibrated_dracs_loop ... ok
+test pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::dracs_loop_v1_uncalibrated::regression_long_test_uncalibrated_dracs_loop_set_c ... ok
+test pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::dracs_loop_v2_calibrated::regression_long_test_calibrated_ver2_set_c1 ... ok
+test pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::dracs_loop_v2_calibrated::regression_long_test_calibrated_ver2_set_c2 ... ok
+test pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::dracs_loop_v2_calibrated::regression_long_test_calibrated_ver2_set_c3 ... ok
+test pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::dracs_loop_v2_calibrated::regression_long_test_calibrated_ver2_set_c4 ... ok
+test pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::dracs_loop_v2_calibrated::regression_long_test_calibrated_ver2_set_c5 ... ok
+test pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::dracs_loop_v2_calibrated::regression_long_test_calibrated_ver2_set_c6 ... ok
+test pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::dracs_loop_v2_calibrated::regression_long_test_calibrated_ver2_set_c7 ... ok
+test pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::dracs_loop_v2_calibrated::regression_long_test_calibrated_ver2_set_c8 ... ok
+test pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::dracs_loop_v3_calibrated::regression_long_test_calibrated_ver3_set_c1 ... ignored, legacy test used for debugging
+test pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::dracs_loop_v3_calibrated::regression_long_test_calibrated_ver3_set_c2 ... ignored, legacy test used for debugging
+test pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::dracs_loop_v3_calibrated::regression_long_test_calibrated_ver3_set_c3 ... ignored, legacy test used for debugging
+test pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::dracs_loop_v3_calibrated::regression_long_test_calibrated_ver3_set_c4 ... ignored, legacy test used for debugging
+test pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::dracs_loop_v3_calibrated::regression_long_test_calibrated_ver3_set_c5 ... ignored, legacy test used for debugging
+test pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::dracs_loop_v3_calibrated::regression_long_test_calibrated_ver3_set_c6 ... ignored, legacy test used for debugging
+test pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::dracs_loop_v3_calibrated::regression_long_test_calibrated_ver3_set_c6_extra_extra_extra_long ... ignored, legacy test used for debugging
+test pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::dracs_loop_v3_calibrated::regression_long_test_calibrated_ver3_set_c6_extra_extra_long ... ignored, legacy test used for debugging
+test pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::dracs_loop_v3_calibrated::regression_long_test_calibrated_ver3_set_c6_extra_long ... ignored, legacy test used for debugging
+test pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::dracs_loop_v3_calibrated::regression_long_test_calibrated_ver3_set_c6_shorter ... ignored, legacy test used for debugging
+test pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::dracs_loop_v3_calibrated::regression_long_test_calibrated_ver3_set_c7 ... ignored, legacy test used for debugging
+test pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::dracs_loop_v3_calibrated::regression_long_test_calibrated_ver3_set_c8 ... ignored, legacy test used for debugging
+test pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::dracs_loop_v3_calibrated::regression_long_test_calibrated_ver3_set_c9 ... ignored, legacy test used for debugging
+test pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::dracs_loop_v6_calibrated::regression_long_test_calibrated_ver6_set_c1 ... ignored, legacy test used for debugging
+test pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::dracs_loop_v6_calibrated::regression_long_test_calibrated_ver6_set_c2 ... ignored, legacy test used for debugging
+test pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::dracs_loop_v6_calibrated::regression_long_test_calibrated_ver6_set_c3 ... ignored, legacy test used for debugging
+test pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::dracs_loop_v6_calibrated::regression_long_test_calibrated_ver6_set_c4 ... ignored, legacy test used for debugging
+test pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::dracs_loop_v6_calibrated::regression_long_test_calibrated_ver6_set_c5 ... ignored, legacy test used for debugging
+test pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::dracs_loop_v6_calibrated::regression_long_test_calibrated_ver6_set_c6 ... ignored, legacy test used for debugging
+test pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::dracs_loop_v6_calibrated::regression_long_test_calibrated_ver6_set_c7 ... ignored, legacy test used for debugging
+test pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::dracs_loop_v6_calibrated::regression_long_test_calibrated_ver6_set_c8 ... ignored, legacy test used for debugging
+test pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::dracs_loop_v6_calibrated::regression_long_test_calibrated_ver6_set_c9 ... ignored, legacy test used for debugging
+test pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::primary_loop_heat_loss_calib::heat_transfer_ambient_calib::hot_leg_htc_to_ambient_calibration_v1_failed ... ok
+test pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::primary_loop_heat_loss_calib::insul_calib::cold_leg_validation::cold_leg_regression_set_c1 ... ok
+test pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::primary_loop_heat_loss_calib::insul_calib::cold_leg_validation::cold_leg_regression_set_c2 ... ok
+test pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::primary_loop_heat_loss_calib::insul_calib::cold_leg_validation::cold_leg_validation_set_c3 ... ok
+test pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::primary_loop_heat_loss_calib::insul_calib::cold_leg_validation::cold_leg_validation_set_c4 ... ok
+test pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::primary_loop_heat_loss_calib::insul_calib::cold_leg_validation::cold_leg_validation_set_c5 ... ok
+test pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::primary_loop_heat_loss_calib::insul_calib::cold_leg_validation::cold_leg_validation_set_c6 ... ok
+test pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::primary_loop_heat_loss_calib::insul_calib::cold_leg_validation::cold_leg_validation_set_c7 ... ok
+test pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::primary_loop_heat_loss_calib::insul_calib::cold_leg_validation::cold_leg_validation_set_c8 ... ok
+test pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::primary_loop_heat_loss_calib::insul_calib::cold_leg_validation::cold_leg_validation_set_c9 ... ok
+test pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::primary_loop_heat_loss_calib::insul_calib::hot_leg_calibration::hot_leg_insulation_thickness_calibration_v1 ... ok
+test pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::primary_loop_heat_loss_calib::insul_calib::hot_leg_calibration::hot_leg_validation_set_c1 ... ok
+test pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::primary_loop_heat_loss_calib::insul_calib::hot_leg_calibration::hot_leg_validation_set_c2 ... ok
+test pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::primary_loop_heat_loss_calib::insul_calib::hot_leg_calibration::hot_leg_validation_set_c3 ... ok
+test pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::primary_loop_heat_loss_calib::insul_calib::hot_leg_calibration::hot_leg_validation_set_c4 ... ok
+test pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::primary_loop_heat_loss_calib::insul_calib::hot_leg_calibration::hot_leg_validation_set_c5 ... ok
+test pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::primary_loop_heat_loss_calib::insul_calib::hot_leg_calibration::hot_leg_validation_set_c6 ... ok
+test pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::primary_loop_heat_loss_calib::insul_calib::hot_leg_calibration::hot_leg_validation_set_c7 ... ok
+test pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::primary_loop_heat_loss_calib::insul_calib::hot_leg_calibration::hot_leg_validation_set_c8 ... ok
+test pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::primary_loop_heat_loss_calib::insul_calib::hot_leg_calibration::hot_leg_validation_set_c9 ... ok
+test pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::primary_loop_heat_loss_calib::pipe_nusselt_number_calibration::hot_leg_nusselt_calibration_failed ... ok
+test pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::wall_correction_isolated_dracs_loop_regression::parasitic_heat_loss_regression_tchx_out_319_kelvin_46_celsius ... ignored, legacy test for debugging
+test pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::dracs_loop_v2_calibrated::regression_long_test_calibrated_ver2_set_c9 ... ok
+test pre_built_components::ciet_nat_circ_tests::zero_heat_loss_dracs_tests::case_a::case_a_tchx_out_319_kelvin_46_celsius ... ok
+test pre_built_components::ciet_nat_circ_tests::zero_heat_loss_dracs_tests::case_b::case_b_tchx_out_308_kelvin_35_celsius ... ok
+test pre_built_components::ciet_nat_circ_tests::zero_heat_loss_dracs_tests::debugging_pid_controller::dracs_natural_circ_thermal_hydraulics_pid_test_prototype_1 ... ok
+test pre_built_components::ciet_nat_circ_tests::zero_heat_loss_dracs_tests::debugging_thermal_hydraulics::dracs_branch_pressure_change_test ... ok
+test pre_built_components::ciet_nat_circ_tests::zero_heat_loss_dracs_tests::debugging_thermal_hydraulics::dracs_natural_circ_thermal_hydraulics_regression_test_prototype_2 ... ok
+test pre_built_components::ciet_nat_circ_tests::zero_heat_loss_dracs_tests::debugging_thermal_hydraulics::dracs_natural_circ_thermal_hydraulics_test_prototype_1 ... ok
+test pre_built_components::ciet_nat_circ_tests::zero_heat_loss_dracs_tests::dracs_mesh_refinement::mesh_refinement_10_times::mesh_refined_case_c1_tchx_out_313_kelvin_40_celsius ... ignored, regression test takes several hours
+test pre_built_components::ciet_nat_circ_tests::zero_heat_loss_dracs_tests::dracs_mesh_refinement::mesh_refinement_10_times::mesh_refined_case_c2_tchx_out_313_kelvin_40_celsius ... ignored, regression test takes several hours
+test pre_built_components::ciet_nat_circ_tests::zero_heat_loss_dracs_tests::dracs_mesh_refinement::mesh_refinement_10_times::mesh_refined_case_c3_tchx_out_313_kelvin_40_celsius ... ignored, regression test takes several hours
+test pre_built_components::ciet_nat_circ_tests::zero_heat_loss_dracs_tests::dracs_mesh_refinement::mesh_refinement_10_times::mesh_refined_case_c4_tchx_out_313_kelvin_40_celsius ... ignored, regression test takes several hours
+test pre_built_components::ciet_nat_circ_tests::zero_heat_loss_dracs_tests::dracs_mesh_refinement::mesh_refinement_10_times::mesh_refined_case_c5_tchx_out_313_kelvin_40_celsius ... ignored, regression test takes several hours
+test pre_built_components::ciet_nat_circ_tests::zero_heat_loss_dracs_tests::dracs_mesh_refinement::mesh_refinement_10_times::mesh_refined_case_c6_tchx_out_313_kelvin_40_celsius ... ignored, regression test takes several hours
+test pre_built_components::ciet_nat_circ_tests::zero_heat_loss_dracs_tests::dracs_mesh_refinement::mesh_refinement_10_times::mesh_refined_case_c7_tchx_out_313_kelvin_40_celsius ... ignored, regression test takes several hours
+test pre_built_components::ciet_nat_circ_tests::zero_heat_loss_dracs_tests::dracs_mesh_refinement::mesh_refinement_10_times::mesh_refined_case_c8_tchx_out_313_kelvin_40_celsius ... ignored, regression test takes several hours
+test pre_built_components::ciet_nat_circ_tests::zero_heat_loss_dracs_tests::dracs_mesh_refinement::mesh_refinement_10_times::mesh_refined_case_c9_tchx_out_313_kelvin_40_celsius ... ignored, regression test takes several hours
+test pre_built_components::ciet_nat_circ_tests::zero_heat_loss_dracs_tests::dracs_mesh_refinement::mesh_refinement_20_times::mesh_refined_case_c1_tchx_out_313_kelvin_40_celsius ... ignored, regression test takes several hours
+test pre_built_components::ciet_nat_circ_tests::zero_heat_loss_dracs_tests::dracs_mesh_refinement::mesh_refinement_20_times::mesh_refined_case_c2_tchx_out_313_kelvin_40_celsius ... ignored, regression test takes several hours
+test pre_built_components::ciet_nat_circ_tests::zero_heat_loss_dracs_tests::dracs_mesh_refinement::mesh_refinement_20_times::mesh_refined_case_c3_tchx_out_313_kelvin_40_celsius ... ignored, regression test takes several hours
+test pre_built_components::ciet_nat_circ_tests::zero_heat_loss_dracs_tests::dracs_mesh_refinement::mesh_refinement_20_times::mesh_refined_case_c4_tchx_out_313_kelvin_40_celsius ... ignored, regression test takes several hours
+test pre_built_components::ciet_nat_circ_tests::zero_heat_loss_dracs_tests::dracs_mesh_refinement::mesh_refinement_20_times::mesh_refined_case_c5_tchx_out_313_kelvin_40_celsius ... ignored, regression test takes several hours
+test pre_built_components::ciet_nat_circ_tests::zero_heat_loss_dracs_tests::dracs_mesh_refinement::mesh_refinement_20_times::mesh_refined_case_c6_tchx_out_313_kelvin_40_celsius ... ignored, regression test takes several hours
+test pre_built_components::ciet_nat_circ_tests::zero_heat_loss_dracs_tests::dracs_mesh_refinement::mesh_refinement_20_times::mesh_refined_case_c7_tchx_out_313_kelvin_40_celsius ... ignored, regression test takes several hours
+test pre_built_components::ciet_nat_circ_tests::zero_heat_loss_dracs_tests::dracs_mesh_refinement::mesh_refinement_20_times::mesh_refined_case_c8_tchx_out_313_kelvin_40_celsius ... ignored, regression test takes several hours
+test pre_built_components::ciet_nat_circ_tests::zero_heat_loss_dracs_tests::dracs_mesh_refinement::mesh_refinement_20_times::mesh_refined_case_c9_tchx_out_313_kelvin_40_celsius ... ignored, regression test takes several hours
+test pre_built_components::ciet_nat_circ_tests::zero_heat_loss_dracs_tests::case_c::case_c_tchx_out_313_kelvin_40_celsius ... ok
+test pre_built_components::ciet_nat_circ_tests::zero_heat_loss_dracs_tests::dracs_mesh_refinement::mesh_refinement_five_times::mesh_refined_case_c1_tchx_out_313_kelvin_40_celsius has been running for over 60 seconds
+test pre_built_components::ciet_nat_circ_tests::zero_heat_loss_dracs_tests::dracs_mesh_refinement::mesh_refinement_five_times::mesh_refined_case_c2_tchx_out_313_kelvin_40_celsius has been running for over 60 seconds
+test pre_built_components::ciet_nat_circ_tests::zero_heat_loss_dracs_tests::dracs_mesh_refinement::mesh_refinement_five_times::mesh_refined_case_c1_tchx_out_313_kelvin_40_celsius ... ok
+test pre_built_components::ciet_nat_circ_tests::zero_heat_loss_dracs_tests::dracs_mesh_refinement::mesh_refinement_five_times::mesh_refined_case_c2_tchx_out_313_kelvin_40_celsius ... ok
+test pre_built_components::ciet_nat_circ_tests::zero_heat_loss_dracs_tests::dracs_mesh_refinement::mesh_refinement_five_times::mesh_refined_case_c3_tchx_out_313_kelvin_40_celsius has been running for over 60 seconds
+test pre_built_components::ciet_nat_circ_tests::zero_heat_loss_dracs_tests::dracs_mesh_refinement::mesh_refinement_five_times::mesh_refined_case_c4_tchx_out_313_kelvin_40_celsius has been running for over 60 seconds
+test pre_built_components::ciet_nat_circ_tests::zero_heat_loss_dracs_tests::dracs_mesh_refinement::mesh_refinement_five_times::mesh_refined_case_c3_tchx_out_313_kelvin_40_celsius ... ok
+test pre_built_components::ciet_nat_circ_tests::zero_heat_loss_dracs_tests::dracs_mesh_refinement::mesh_refinement_five_times::mesh_refined_case_c4_tchx_out_313_kelvin_40_celsius ... ok
+test pre_built_components::ciet_nat_circ_tests::zero_heat_loss_dracs_tests::dracs_mesh_refinement::mesh_refinement_five_times::mesh_refined_case_c5_tchx_out_313_kelvin_40_celsius has been running for over 60 seconds
+test pre_built_components::ciet_nat_circ_tests::zero_heat_loss_dracs_tests::dracs_mesh_refinement::mesh_refinement_five_times::mesh_refined_case_c6_tchx_out_313_kelvin_40_celsius has been running for over 60 seconds
+test pre_built_components::ciet_nat_circ_tests::zero_heat_loss_dracs_tests::dracs_mesh_refinement::mesh_refinement_five_times::mesh_refined_case_c5_tchx_out_313_kelvin_40_celsius ... ok
+test pre_built_components::ciet_nat_circ_tests::zero_heat_loss_dracs_tests::dracs_mesh_refinement::mesh_refinement_five_times::mesh_refined_case_c6_tchx_out_313_kelvin_40_celsius ... ok
+test pre_built_components::ciet_nat_circ_tests::zero_heat_loss_dracs_tests::dracs_mesh_refinement::mesh_refinement_five_times::mesh_refined_case_c7_tchx_out_313_kelvin_40_celsius has been running for over 60 seconds
+test pre_built_components::ciet_nat_circ_tests::zero_heat_loss_dracs_tests::dracs_mesh_refinement::mesh_refinement_five_times::mesh_refined_case_c8_tchx_out_313_kelvin_40_celsius has been running for over 60 seconds
+test pre_built_components::ciet_nat_circ_tests::zero_heat_loss_dracs_tests::dracs_mesh_refinement::mesh_refinement_five_times::mesh_refined_case_c7_tchx_out_313_kelvin_40_celsius ... ok
+test pre_built_components::ciet_nat_circ_tests::zero_heat_loss_dracs_tests::dracs_mesh_refinement::mesh_refinement_five_times::mesh_refined_case_c8_tchx_out_313_kelvin_40_celsius ... ok
+test pre_built_components::ciet_nat_circ_tests::zero_heat_loss_dracs_tests::dracs_mesh_refinement::mesh_refinement_two_times::mesh_refined_case_c1_tchx_out_313_kelvin_40_celsius ... ok
+test pre_built_components::ciet_nat_circ_tests::zero_heat_loss_dracs_tests::dracs_mesh_refinement::mesh_refinement_two_times::mesh_refined_case_c2_tchx_out_313_kelvin_40_celsius ... ok
+test pre_built_components::ciet_nat_circ_tests::zero_heat_loss_dracs_tests::dracs_mesh_refinement::mesh_refinement_two_times::mesh_refined_case_c3_tchx_out_313_kelvin_40_celsius ... ok
+test pre_built_components::ciet_nat_circ_tests::zero_heat_loss_dracs_tests::dracs_mesh_refinement::mesh_refinement_five_times::mesh_refined_case_c9_tchx_out_313_kelvin_40_celsius has been running for over 60 seconds
+test pre_built_components::ciet_nat_circ_tests::zero_heat_loss_dracs_tests::dracs_mesh_refinement::mesh_refinement_two_times::mesh_refined_case_c4_tchx_out_313_kelvin_40_celsius ... ok
+test pre_built_components::ciet_nat_circ_tests::zero_heat_loss_dracs_tests::dracs_mesh_refinement::mesh_refinement_two_times::mesh_refined_case_c5_tchx_out_313_kelvin_40_celsius ... ok
+test pre_built_components::ciet_nat_circ_tests::zero_heat_loss_dracs_tests::dracs_mesh_refinement::mesh_refinement_two_times::mesh_refined_case_c6_tchx_out_313_kelvin_40_celsius ... ok
+test pre_built_components::ciet_nat_circ_tests::zero_heat_loss_dracs_tests::dracs_mesh_refinement::mesh_refinement_two_times::mesh_refined_case_c7_tchx_out_313_kelvin_40_celsius ... ok
+test pre_built_components::ciet_nat_circ_tests::zero_heat_loss_dracs_tests::dracs_mesh_refinement::mesh_refinement_two_times::mesh_refined_case_c8_tchx_out_313_kelvin_40_celsius ... ok
+test pre_built_components::ciet_nat_circ_tests::zero_heat_loss_dracs_tests::dracs_mesh_refinement::mesh_refinement_two_times::mesh_refined_case_c9_tchx_out_313_kelvin_40_celsius ... ok
+test pre_built_components::ciet_nat_circ_tests::zero_heat_loss_dracs_tests::dracs_natural_circ_thermal_hydraulics_pid_test_prototype_2 ... ok
+test pre_built_components::ciet_nat_circ_tests::zero_heat_loss_dracs_tests::misc_debugging::steel_properties_debugging ... ok
+test pre_built_components::ciet_three_branch_plus_dracs::ciet_educational_simulator_loop_prototypes::regression_tests::ciet_coupled_nat_circ_set_a1_for_three_branch ... ignored, legacy test used for debugging
+test pre_built_components::ciet_three_branch_plus_dracs::ciet_educational_simulator_loop_prototypes::regression_tests::flow_diode_fwd_flow_for_three_branch_ver1 ... ok
+test pre_built_components::ciet_three_branch_plus_dracs::ciet_educational_simulator_loop_prototypes::regression_tests::flow_diode_reverse_flow_for_three_branch_ver1 ... ok
+test pre_built_components::ciet_three_branch_plus_dracs::ciet_educational_simulator_loop_prototypes::regression_tests::zero_flow_for_three_branch_ver_1 ... ok
+test pre_built_components::ciet_three_branch_plus_dracs::ciet_educational_simulator_loop_prototypes::version_1::ciet_coupled_nat_circ_set_a1_for_three_branch ... ignored, legacy test used for debugging
+test pre_built_components::ciet_three_branch_plus_dracs::ciet_educational_simulator_loop_prototypes::version_1::flow_diode_fwd_flow_for_three_branch_ver1 ... ok
+test pre_built_components::ciet_three_branch_plus_dracs::ciet_educational_simulator_loop_prototypes::version_1::flow_diode_reverse_flow_for_three_branch_ver1 ... ok
+test pre_built_components::ciet_three_branch_plus_dracs::ciet_educational_simulator_loop_prototypes::version_1::zero_flow_for_three_branch_ver_1 ... ok
+test pre_built_components::ciet_three_branch_plus_dracs::ciet_educational_simulator_loop_prototypes::version_2::ctah_flow_short_test_dhx_blocked ... ok
+test pre_built_components::ciet_three_branch_plus_dracs::ciet_educational_simulator_loop_prototypes::version_2::ctah_flow_short_test_reverse_diode_effect ... ok
+test pre_built_components::ciet_three_branch_plus_dracs::ciet_educational_simulator_loop_prototypes::version_2::ctah_flow_steady_state_test ... ignored, deprecated, older single threaded version of ciet simulator
+test pre_built_components::ciet_three_branch_plus_dracs::ciet_educational_simulator_loop_prototypes::version_3::ctah_flow_short_test_dhx_blocked ... ok
+test pre_built_components::ciet_three_branch_plus_dracs::ciet_educational_simulator_loop_prototypes::version_3::ctah_flow_short_test_reverse_diode_effect ... ok
+test pre_built_components::ciet_three_branch_plus_dracs::ciet_educational_simulator_loop_prototypes::version_3::ctah_flow_steady_state_test ... ignored, legacy test used for debugging
+test pre_built_components::gfhr_pipe_tests::multi_branch::debug::test_fhr_four_branch_solver_debug ... ok
+test pre_built_components::gfhr_pipe_tests::multi_branch::isothermal_flow::test_fhr_four_branch_solver_pri_and_intrmd_loop_isothermal_check ... ok
+test pre_built_components::gfhr_pipe_tests::multi_branch::isothermal_flow::test_fhr_four_branch_solver_pri_and_intrmd_loop_zero_flow ... ok
+test pre_built_components::gfhr_pipe_tests::multi_branch::regression::isothermal_test_fhr_four_branch_solver_regression_library ... ok
+test pre_built_components::gfhr_pipe_tests::multi_branch::regression::test_fhr_four_branch_solver_pri_and_intrmd_loop_full_th_short_regression ... ok
+test pre_built_components::ciet_nat_circ_tests::zero_heat_loss_dracs_tests::dracs_mesh_refinement::mesh_refinement_five_times::mesh_refined_case_c9_tchx_out_313_kelvin_40_celsius ... ok
+test pre_built_components::gfhr_pipe_tests::single_branch::ihx_branch_test_get_mass_flowrate_from_pressure_change ... ok
+test pre_built_components::gfhr_pipe_tests::single_branch::ihx_branch_test_get_pressure_change_from_mass_flowrate ... ok
+test pre_built_components::gfhr_pipe_tests::single_branch::reactor_branch_test_get_mass_flowrate_from_pressure_change ... ok
+test pre_built_components::gfhr_pipe_tests::single_branch::reactor_branch_test_get_pressure_change_from_mass_flowrate ... ok
+test pre_built_components::gfhr_pipe_tests::single_pipe_tests::single_pipe_flibe_internal_pressure_change_check ... ok
+test pre_built_components::gfhr_pipe_tests::single_pipe_tests::single_pipe_flibe_mass_flow_1200_kg_per_s ... ok
+test pre_built_components::gfhr_pipe_tests::single_pipe_tests::single_pipe_flibe_pressure_drop_for_mass_flow_1200_kg_per_s ... ok
+test pre_built_components::heat_transfer_entities::tests::ciet_heater_v2_speedup_using_fluid_array_solid_column_hte ... ok
+test pre_built_components::heat_transfer_entities::tests::mixing_joints::fwd_flow::adiabatic_mixing_joint_test_hte_single_cv_only ... ok
+test pre_built_components::heat_transfer_entities::tests::mixing_joints::fwd_flow::adiabatic_mixing_joint_test_link_to_front_and_back ... ok
+test pre_built_components::heat_transfer_entities::tests::mixing_joints::fwd_flow::adiabatic_mixing_joint_test_link_to_front_only ... ok
+test pre_built_components::heat_transfer_entities::tests::mixing_joints::reverse_flow::adiabatic_mixing_joint_test_hte_single_cv_only ... ok
+test pre_built_components::heat_transfer_entities::tests::mixing_joints::reverse_flow::adiabatic_mixing_joint_test_link_to_front_and_back_reverse_flow ... ok
+test pre_built_components::insulated_pipes_and_fluid_components::tests::axial_conduction_verification::reduced_thickness_increased_ua_test_check_fluid_array_and_insulation_array ... ok
+test pre_built_components::insulated_pipes_and_fluid_components::tests::axial_conduction_verification::reduced_thickness_increased_ua_test_interal_thermal_resistance_check_fluid_array_only ... ok
+test pre_built_components::insulated_pipes_and_fluid_components::tests::axial_conduction_verification::static_mixer_41_label_6_1_meter_test_reduced_thickness_increased_ua ... ok
+test pre_built_components::insulated_pipes_and_fluid_components::tests::axial_conduction_verification::static_mixer_41_label_6_1_meter_test_reduced_thickness_increased_ua_fluid_array_only ... ok
+test pre_built_components::insulated_pipes_and_fluid_components::tests::fluid_mechanics::single_pipe_internal_pressure_change_check ... ok
+test pre_built_components::insulated_pipes_and_fluid_components::tests::length_tests::static_mixer_3_meter_test_reduced_insulation_thickness_ambient_resistance_and_increase_nusselt ... ok
+test pre_built_components::insulated_pipes_and_fluid_components::tests::length_tests::static_mixer_41_label_6_1_meter_test_reduced_insulation_thickness_ambient_resistance_and_increase_nusselt ... ok
+test pre_built_components::insulated_pipes_and_fluid_components::tests::length_tests::static_mixer_5_meter_test_reduced_insulation_thickness_ambient_resistance_and_increase_nusselt ... ok
+test pre_built_components::gfhr_pipe_tests::multi_branch::test_fhr_four_branch_full_th_long_regression ... ok
+test pre_built_components::insulated_pipes_and_fluid_components::tests::length_tests::static_mixer_9_meter_test_reduced_insulation_thickness_ambient_resistance_and_increase_nusselt ... ok
+test pre_built_components::insulated_pipes_and_fluid_components::tests::length_tests::static_mixer_7_meter_test_reduced_insulation_thickness_ambient_resistance_and_increase_nusselt ... ok
+test pre_built_components::insulated_pipes_and_fluid_components::tests::preliminaries::assert_nodalised_ua_calcs ... ok
+test pre_built_components::insulated_pipes_and_fluid_components::tests::preliminaries::cp_for_therminol_vp_1 ... ok
+test pre_built_components::insulated_pipes_and_fluid_components::tests::preliminaries::static_mixer_41_label_6_1_meter_test ... ok
+test pre_built_components::insulated_pipes_and_fluid_components::tests::preliminaries::static_mixer_41_label_6_1_meter_test_reduced_insulation_thickness_ambient_resistance_and_increase_nusselt ... ok
+test pre_built_components::insulated_pipes_and_fluid_components::tests::preliminaries::static_mixer_41_label_6_reduced_insulation_thickness_1_meter_test ... ok
+test pre_built_components::insulated_pipes_and_fluid_components::tutorials::tutorial_1::fluid_mechanics_basics ... ok
+test pre_built_components::insulated_pipes_and_fluid_components::tutorials::tutorial_2::fluid_mechanics_get_mass_flowrate_from_pressure_drop ... ok
+test pre_built_components::insulated_pipes_and_fluid_components::tutorials::tutorial_3::fluid_mechanics_get_mass_flowrate_from_pressure_chg ... ok
+test pre_built_components::insulated_pipes_and_fluid_components::tutorials::tutorial_4::heated_flow_through_a_pipe ... ok
+test pre_built_components::insulated_pipes_and_fluid_components::tutorials::tutorial_5::thermal_hydraulics_flow_through_a_pipe ... ok
+test pre_built_components::insulated_pipes_and_fluid_components::tutorials::tutorial_6::gfhr_pipe_with_custom_graphite_material ... ok
+test pre_built_components::insulated_porous_media_fluid_components::tests::assert_if_hydraulic_diameter_of_heater_v1_is_correct ... ok
+test pre_built_components::insulated_porous_media_fluid_components::tests::check_if_number_of_nodes_is_correct ... ok
+test pre_built_components::insulated_porous_media_fluid_components::tests::regression_heater_v1_porous_and_non_porous_conductance_pipe_to_insulation_arr ... ok
+test pre_built_components::insulated_porous_media_fluid_components::tests::regression_heater_v2_insulated_and_non_insulated_conductance_fluid_arr_to_pipe ... ok
+test pre_built_components::insulated_porous_media_fluid_components::tests::regression_heater_v2_insulated_and_non_insulated_conductance_twisted_tape_to_pipe_fluid_array ... ok
+test pre_built_components::insulated_porous_media_fluid_components::tests::steady_state_validation::steady_state_test_for_heater_v1_eight_nodes_validation ... ok
+test pre_built_components::insulated_porous_media_fluid_components::tests::test_to_assert_if_conductance_from_insulation_to_ambient_is_correct ... ok
+test pre_built_components::insulated_porous_media_fluid_components::tests::transient_validation::transient_test_stepdown_4050s_fig_2_21_zweibaum_thesis_for_heater_v1_eight_nodes_validation ... ok
+test pre_built_components::insulated_porous_media_fluid_components::tests::transient_validation::transient_test_stepup_4050s_fig_2_21_zweibaum_thesis_for_heater_v1_eight_nodes_validation ... ok
+test pre_built_components::non_insul_porous_media_fluid::tests::heated_section_only::example_heated_section_test ... ok
+test pre_built_components::non_insul_porous_media_fluid::tests::heated_section_only::heated_section_test_v2_10kw ... ok
+test pre_built_components::non_insul_porous_media_fluid::tests::heated_section_only::heated_section_test_v2_3kw ... ok
+test pre_built_components::non_insul_porous_media_fluid::tests::heated_section_only::heated_section_test_v2_4kw ... ok
+test pre_built_components::non_insul_porous_media_fluid::tests::heated_section_only::heated_section_test_v2_6kw ... ok
+test pre_built_components::non_insul_porous_media_fluid::tests::heated_section_only::heated_section_test_v2_8kw ... ok
+test pre_built_components::non_insul_porous_media_fluid::tests::heated_section_regression::example_heated_section_regression_new_and_old ... ok
+test pre_built_components::non_insul_porous_media_fluid::tests::heated_section_regression::regression_new_and_old_nodal_conductance_steel_shell_to_ambient ... ok
+test pre_built_components::non_insul_porous_media_fluid::tests::heated_section_regression::regression_new_and_old_nodal_conductance_steel_shell_to_pipe_fluid_array ... ok
+test pre_built_components::non_insul_porous_media_fluid::tests::heated_section_regression::regression_new_and_old_nodal_conductance_twisted_tape_to_pipe_fluid_array ... ok
+test pre_built_components::non_insul_porous_media_fluid::tests::heated_section_top_bottom_mx10_struct_supports::heater_plus_mx_10_with_supports ... ok
+test pre_built_components::non_insul_porous_media_fluid::tests::heated_section_with_top_bottom_heads::test_inclusive_heater_top_bottom_head ... ok
+test pre_built_components::non_insul_porous_media_fluid::tests::heated_section_with_top_bottom_heads_and_mx10::heater_plus_mx_10_without_supports ... ok
+test pre_built_components::non_insul_porous_media_fluid::tests::heater_example_with_data_record::example_heater_with_struct_supports_and_mx10 ... ok
+test pre_built_components::non_insulated_fluid_components::tests::heated_section_only::heated_section_test_v2_10kw ... ok
+test pre_built_components::non_insulated_fluid_components::tests::heated_section_only::heated_section_test_v2_3kw ... ok
+test pre_built_components::non_insulated_fluid_components::tests::heated_section_only::heated_section_test_v2_4kw ... ok
+test pre_built_components::non_insulated_fluid_components::tests::heated_section_only::heated_section_test_v2_6kw ... ok
+test pre_built_components::non_insulated_fluid_components::tests::heated_section_only::heated_section_test_v2_8kw ... ok
+test pre_built_components::non_insulated_parallel_fluid_components::tests::parallel_bare_pipes_debugging_heat_addition ... ok
+test pre_built_components::non_insulated_parallel_fluid_components::tests::parallel_bare_pipes_debugging_heat_addition_with_parasitic_heat_loss ... ok
+test pre_built_components::non_insulated_parallel_fluid_components::tests::parallel_bare_pipes_debugging_parasitic_heat_loss_thermal_inertia ... ok
+test pre_built_components::non_insulated_parallel_fluid_components::tests::parallel_fluid_component_test ... ok
+test pre_built_components::shell_and_tube_heat_exchanger::tests::basic_postprocessing::overall_htc_postprocessing_basic_test_shell_and_tube_heat_exchanger ... ok
+test pre_built_components::shell_and_tube_heat_exchanger::tests::basic_postprocessing::shell_side_tube_bundle_area_basic_test_shell_and_tube_heat_exchanger ... ok
+test pre_built_components::shell_and_tube_heat_exchanger::tests::calibration_functions::calibration_regression_set_c9_no_heat_loss ... ok
+test pre_built_components::shell_and_tube_heat_exchanger::tests::calibration_functions::calibration_regression_set_c9_no_heat_loss_mesh_refined ... ok
+test pre_built_components::shell_and_tube_heat_exchanger::tests::constructor_tests::du_heat_exchanger_constructor_test ... ok
+test pre_built_components::shell_and_tube_heat_exchanger::tests::constructor_tests::insulated_sthe_constructor_test ... ok
+test pre_built_components::shell_and_tube_heat_exchanger::tests::heat_transfer_verification::basic_test_shell_and_tube_heat_exchanger ... ok
+test pre_built_components::shell_and_tube_heat_exchanger::tests::heat_transfer_verification::basic_test_shell_and_tube_heat_exchanger_set_three ... ok
+test pre_built_components::shell_and_tube_heat_exchanger::tests::heat_transfer_verification::basic_test_shell_and_tube_heat_exchanger_set_two ... ok
+test pre_built_components::shell_and_tube_heat_exchanger::tests::hitec_to_yd325_du_hx::dimension_checks::check_shell_side_fluid_hydraulic_diameter ... ok
+test pre_built_components::shell_and_tube_heat_exchanger::tests::hitec_to_yd325_du_hx::dimension_checks::check_shell_side_heat_trf_area ... ok
+test pre_built_components::shell_and_tube_heat_exchanger::tests::hitec_to_yd325_du_hx::dimension_checks::check_tube_side_reynolds_number_diffusivity ... ok
+test pre_built_components::shell_and_tube_heat_exchanger::tests::hitec_to_yd325_du_hx::heat_transfer_correlations_checks::check_high_bound_and_low_bound_shell_heat_trf_coeff ... ok
+test pre_built_components::shell_and_tube_heat_exchanger::tests::hitec_to_yd325_du_hx::heat_transfer_correlations_checks::check_wall_side_htc ... ok
+test pre_built_components::shell_and_tube_heat_exchanger::tests::hitec_to_yd325_du_hx::set_a::du_test_shell_and_tube_heat_exchanger_set_a ... ok
+test pre_built_components::shell_and_tube_heat_exchanger::tests::hitec_to_yd325_du_hx::set_b::du_test_shell_and_tube_heat_exchanger_set_b ... ok
+test pre_built_components::shell_and_tube_heat_exchanger::tests::hitec_to_yd325_du_hx::set_c::du_test_shell_and_tube_heat_exchanger_set_c ... ok
+test pre_built_components::shell_and_tube_heat_exchanger::tests::hitec_to_yd325_du_hx::thermophsyical_property_checks::hitec_thermal_cond_at_200_and_240_celsius ... ok
+test pre_built_components::shell_and_tube_heat_exchanger::tests::hitec_to_yd325_du_hx::thermophsyical_property_checks::prandtl_number_range_check ... ok
+test pre_built_components::shell_and_tube_heat_exchanger::tests::hitec_to_yd325_du_hx::thermophsyical_property_checks::prandtl_number_range_from_200_to_240_celsius ... ok
+test pre_built_components::shell_and_tube_heat_exchanger::tests::hitec_to_yd325_du_hx::thermophsyical_property_checks::yd325_thermal_cond_at_75_and_110_celsius ... ok
+test pre_built_components::shell_and_tube_heat_exchanger::tests::hitec_to_yd325_du_hx::thermophsyical_property_checks::yd325_tube_reynolds_prandtl_nusselt ... ok
+test pre_built_components::uw_madison_flibe_loop_components::flibe_loop_iteration_one::parasitic_heat_loss_calibration::heater_check_if_four_heater_test1 ... ok
+test pre_built_components::uw_madison_flibe_loop_components::flibe_loop_iteration_one::parasitic_heat_loss_calibration::heater_check_if_four_heater_test10 ... ok
+test pre_built_components::uw_madison_flibe_loop_components::flibe_loop_iteration_one::parasitic_heat_loss_calibration::heater_check_if_four_heater_test5 ... ok
+test pre_built_components::uw_madison_flibe_loop_components::flibe_loop_iteration_one::parasitic_heat_loss_calibration::parasitic_heat_loss_calibration_dry_run_1 ... ok
+test single_control_vol::tests::automatic_timestep_using_lumped_capacitance::lumped_capacitance_timestep_adjustment ... ok
+test single_control_vol::tests::automatic_timestep_using_lumped_capacitance::lumped_capacitance_timestep_adjustment_improved_api ... ok
+test single_control_vol::tests::automatic_timestep_using_lumped_capacitance::short_version_lumped_capacitance_timestep_adjustment_improved_api ... ok
+test single_control_vol::tests::conjugate_heat_transfer_tests::ciet_heater_v2_single_cv::ciet_heater_v_2_0_test_steady_state_functional_test_v_1_0 ... ok
+test single_control_vol::tests::conjugate_heat_transfer_tests::ciet_heater_v2_single_cv::ciet_heater_v_2_0_test_steady_state_v_1_0 ... ok
+test single_control_vol::tests::conjugate_heat_transfer_tests::ciet_heater_v2_single_cv_speedup_multithreading::ciet_heater_v_2_0_test_steady_state_functional_test_v_1_1 ... ok
+test single_control_vol::tests::conjugate_heat_transfer_tests::ciet_heater_v2_single_cv_speedup_multithreading::ciet_heater_v_2_0_test_steady_state_v_1_1_speedup_threads ... ok
+test single_control_vol::tests::conjugate_heat_transfer_tests::ciet_heater_v2_single_cv_speedup_one_radial_steel_shell_node::ciet_heater_v_2_0_test_steady_state_functional_test_v_1_2_one_steel_node ... ok
+test single_control_vol::tests::conjugate_heat_transfer_tests::ciet_heater_v2_single_cv_speedup_three_axial_nodes::ciet_heater_v_2_0_test_steady_state_v_1_2_three_nodes ... ok
+test single_control_vol::tests::conjugate_heat_transfer_tests::one_dimension_heater::one_dimension_ciet_heater_v_1_0_auto_timestep_test ... ok
+test single_control_vol::tests::conjugate_heat_transfer_tests::one_dimension_heater::one_dimension_ciet_heater_v_1_0_functional_test ... ok
+test single_control_vol::tests::conjugate_heat_transfer_tests::one_dimension_heater::one_dimension_ciet_heater_v_1_0_test_for_better_sampling_frequency ... ignored, takes about 20min, only use for data collection
+test single_control_vol::tests::lumped_heat_capacitance::lumped_heat_capacitance_steel_ball_in_air ... ok
+test single_control_vol::tests::lumped_heat_capacitance::lumped_heat_capacitance_steel_ball_in_air_improved_api ... ok
+test single_control_vol::tests::mixing_joint::adiabatic_mixing_joint_test_single_cv_only ... ok
+test single_control_vol::tests::semi_infinite_one_dimension_transient_conduction::arraycv_transient_conduction_copper_medium ... ok
+test single_control_vol::tests::semi_infinite_one_dimension_transient_conduction::transient_conduction_semi_infinite_copper_medium ... ok
+test tuas_lib_error::tests::correlation_range_error_does_not_claim_a_temperature_failed ... ok
+test tuas_lib_error::tests::temperature_range_error_names_material_temperature_and_both_bounds ... ok
+test pre_built_components::insulated_pipes_and_fluid_components::tests::length_tests::static_mixer_9_meter_test_reduced_insulation_thickness_ambient_resistance_and_increase_nusselt_extra_time has been running for over 60 seconds
+test pre_built_components::insulated_pipes_and_fluid_components::tests::length_tests::static_mixer_9_meter_test_reduced_insulation_thickness_ambient_resistance_and_increase_nusselt_extra_time ... ok
+
+test result: ok. 343 passed; 0 failed; 46 ignored; 0 measured; 0 filtered out; finished in 1746.93s
+
+     Running unittests src/main.rs (target/release/deps/tuas_boussinesq_solver-3b464907632c3016)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
