@@ -1,0 +1,29 @@
+    Updating crates.io index
+   Packaging outram-foam-basic-lib v0.1.7 (/home/teddy0/Documents/research/outram-park-backend/crates/outram-foam-basic-lib)
+    Updating crates.io index
+    Packaged 250 files, 5.8MiB (1.3MiB compressed)
+   Verifying outram-foam-basic-lib v0.1.7 (/home/teddy0/Documents/research/outram-park-backend/crates/outram-foam-basic-lib)
+   Compiling autocfg v1.5.1
+   Compiling proc-macro2 v1.0.107
+   Compiling unicode-ident v1.0.27
+   Compiling quote v1.0.47
+   Compiling libm v0.2.16
+   Compiling rawpointer v0.2.1
+   Compiling thiserror v2.0.21
+   Compiling typenum v1.20.1
+   Compiling num-traits v0.2.19
+   Compiling matrixmultiply v0.3.11
+   Compiling syn v3.0.9
+   Compiling num-complex v0.4.6
+   Compiling uom v0.38.0
+   Compiling num-integer v0.1.47
+   Compiling ndarray v0.17.2
+   Compiling thiserror-impl v2.0.21
+   Compiling petir v0.0.3
+   Compiling outram-foam-basic-lib v0.1.7 (/home/teddy0/Documents/research/outram-park-backend/target/package/outram-foam-basic-lib-0.1.7)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 12.72s
+   Uploading outram-foam-basic-lib v0.1.7 (/home/teddy0/Documents/research/outram-park-backend/crates/outram-foam-basic-lib)
+    Uploaded outram-foam-basic-lib v0.1.7 to registry `crates-io`
+note: waiting for outram-foam-basic-lib v0.1.7 to be available at registry `crates-io`
+help: you may press ctrl-c to skip waiting; the crate should be available shortly
+   Published outram-foam-basic-lib v0.1.7 at registry `crates-io`

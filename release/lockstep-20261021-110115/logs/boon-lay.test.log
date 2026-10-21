@@ -1,0 +1,498 @@
+   Compiling petir v0.0.3 (/home/teddy0/Documents/research/outram-park-backend/crates/petir)
+   Compiling nom v8.0.0
+   Compiling no_std_io2 v0.9.4
+   Compiling winit v0.30.13
+   Compiling bitstream-io v4.10.0
+   Compiling hash32 v0.2.1
+   Compiling heapless v0.7.17
+   Compiling hdf5-pure v0.20.1
+   Compiling av1-grain v0.2.5
+   Compiling rav1e v0.8.1
+   Compiling ravif v0.13.0
+   Compiling image v0.25.10
+   Compiling outram-foam-basic-lib v0.1.7 (/home/teddy0/Documents/research/outram-park-backend/crates/outram-foam-basic-lib)
+   Compiling raffles v0.0.3 (/home/teddy0/Documents/research/outram-park-backend/crates/raffles)
+   Compiling njoy-outram-park-fork v0.0.6 (/home/teddy0/Documents/research/outram-park-backend/crates/njoy-outram-park-fork)
+   Compiling tampines-steam-tables v0.3.0 (/home/teddy0/Documents/research/outram-park-backend/crates/tampines-steam-tables)
+warning: ambiguous glob re-exports
+  --> crates/tampines-steam-tables/src/prelude.rs:24:9
+   |
+24 | pub use crate::interfaces::functional_programming::hs_flash_eqm::*;
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the name `validity_range` in the type namespace is first re-exported here
+25 | pub use crate::interfaces::functional_programming::ph_flash_eqm::*;
+26 | pub use crate::interfaces::functional_programming::ps_flash_eqm::*;
+   |         ---------------------------------------------------------- but the name `validity_range` in the type namespace is also re-exported here
+   |
+   = note: `#[warn(ambiguous_glob_reexports)]` on by default
+
+   Compiling arboard v3.7.0
+warning: constant `LIQUID_SNAP_PRESSURE_FRACTION` is never used
+    --> crates/tampines-steam-tables/src/interfaces/functional_programming/rho_h_flash_eqm/mod.rs:1132:7
+     |
+1132 | const LIQUID_SNAP_PRESSURE_FRACTION: f64 = 0.05;
+     |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+   Compiling accesskit_winit v0.32.2
+   Compiling outram-blender v0.0.6 (/home/teddy0/Documents/research/outram-park-backend/crates/outram-blender)
+warning: `tampines-steam-tables` (lib) generated 2 warnings
+   Compiling outram-park-fork-liggghts v0.0.2 (/home/teddy0/Documents/research/outram-park-backend/crates/outram-park-fork-liggghts)
+   Compiling rstar v0.10.0
+   Compiling serde_json v1.0.154
+   Compiling geo-types v0.7.20
+   Compiling outram-mc-libs v0.0.6 (/home/teddy0/Documents/research/outram-park-backend/crates/outram-mc-libs)
+   Compiling egui-winit v0.36.2
+warning: associated function `new_from_fission` is never used
+   --> crates/outram-mc-libs/src/physics/transport_csg.rs:182:19
+    |
+169 | impl Site {
+    | --------- associated function in this implementation
+...
+182 |     pub(crate) fn new_from_fission(
+    |                   ^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+   Compiling egui-wgpu v0.36.2
+   Compiling geo v0.25.1
+   Compiling eframe v0.36.2
+   Compiling csv v1.4.0
+   Compiling egui_extras v0.36.2
+   Compiling boon-lay v0.2.1 (/home/teddy0/Documents/research/outram-park-backend/crates/boon-lay)
+warning: `outram-mc-libs` (lib) generated 1 warning
+    Finished `release` profile [optimized] target(s) in 1m 08s
+     Running unittests src/lib.rs (target/release/deps/boon_lay-4c68bc3d1a0b5813)
+
+running 319 tests
+test chemistry::graphite_air::tests::table_3_is_transcribed_and_supply_binds_at_core_temperature ... ok
+test chemistry::graphite_steam::tests::the_blh_fit_is_transcribed_and_behaves ... ok
+test chemistry::graphite_steam::tests::the_reaction_enthalpy_is_the_formation_enthalpy_difference ... ok
+test chemistry::kernel_hydrolysis::tests::eq_5_2_is_transcribed_and_clamped ... ok
+test compute::tests::default_is_cpu_single_thread ... ok
+test compute::tests::next_cycles_through_all_three ... ok
+test fuel_failure::booth::tests::dimensionless_time_is_the_product ... ok
+test compute::tests::resolve_is_always_at_least_one ... ok
+test compute::tests::fraction_one_matches_auto ... ok
+test fuel_failure::booth::tests::eq_4_reduces_to_f_at_zero_accident_time ... ok
+test fuel_failure::booth::tests::the_analytic_limits_are_recovered ... ok
+test fuel_failure::booth::tests::figure_1_is_reproduced ... ok
+test fuel_failure::booth::tests::the_literal_grouping_is_excluded ... ok
+test fuel_failure::corrosion::tests::a_varying_history_accumulates_at_each_steps_own_temperature ... ok
+test fuel_failure::booth::tests::the_thousand_term_cap_is_the_binding_one ... ok
+test fuel_failure::corrosion::tests::figure_4_is_reproduced_with_the_corrected_prefactor ... ok
+test fuel_failure::corrosion::tests::stepping_matches_a_single_call_at_constant_temperature ... ok
+test fuel_failure::corrosion::tests::the_printed_prefactor_is_excluded_by_the_figure ... ok
+test fuel_failure::corrosion::tests::the_rate_is_monotone_and_safe_at_zero ... ok
+test fuel_failure::decomposition::tests::a_varying_history_is_dominated_by_its_hot_leg ... ok
+test fuel_failure::decomposition::tests::alpha_ln2_makes_unit_action_the_median ... ok
+test fuel_failure::decomposition::tests::eq_13_is_a_monotone_fraction ... ok
+test fuel_failure::decomposition::tests::figure_6_excludes_the_loose_particle_calibration ... ok
+test fuel_failure::decomposition::tests::phi_2_is_negligible_at_1600_degc ... ok
+test fuel_failure::decomposition::tests::the_action_integral_telescopes_at_constant_temperature ... ok
+test fuel_failure::decomposition::tests::the_activation_energy_spans_benzs_measurement_range ... ok
+test fuel_failure::decomposition::tests::the_rate_constant_scales_inversely_with_thickness ... ok
+test fuel_failure::diffusion::tests::the_correlations_are_monotone_in_the_right_directions ... ok
+test fuel_failure::diffusion::tests::the_degenerate_inputs_are_limits_not_nans ... ok
+test fuel_failure::diffusion::tests::the_thorium_curves_recover_their_own_burnup_labels ... ok
+test fuel_failure::diffusion::tests::the_thorium_curves_reproduce_figure_2 ... ok
+test fuel_failure::diffusion::tests::the_uo2_equation_sits_above_the_figures_dashed_curve ... ok
+test fuel_failure::geometry::tests::cbrt_mean_radius_is_the_cube_root_mean ... ok
+test fuel_failure::geometry::tests::impossible_corrosion_inputs_are_refused ... ok
+test fuel_failure::geometry::tests::impossible_radii_are_refused ... ok
+test fuel_failure::grain_boundary::tests::corrosion_lifts_the_failure_fraction_as_figs_7_and_8_show ... ok
+test fuel_failure::grain_boundary::tests::eq_10b_runs_from_m_o_down_to_0_44_m_o ... ok
+test fuel_failure::grain_boundary::tests::the_exposure_reduces_to_the_printed_form_when_isothermal ... ok
+test fuel_failure::grain_boundary::tests::the_rate_is_monotone_and_safe_at_zero ... ok
+test fuel_failure::history::tests::figure_6_recovers_one_common_stress_history ... ok
+test fuel_failure::history::tests::figure_7_brackets_the_measurement ... ok
+test fuel_failure::history::tests::figure_7_redigitised_brackets_the_measurement ... ok
+test fuel_failure::history::tests::figure_7_redigitised_two_curves_connect_at_the_true_scale ... ok
+test fuel_failure::history::tests::figure_8_brackets_the_measurement ... ok
+test fuel_failure::booth::tests::eq_4_is_a_monotone_fraction ... ok
+test fuel_failure::history::tests::figure_8_excludes_the_uranium_oxide_oxygen_correlation ... ok
+test fuel_failure::history::tests::figure_8_redigitised_brackets_the_measurement ... ok
+test fuel_failure::history::tests::figure_8_redigitised_excludes_the_uranium_oxide_oxygen_correlation ... ok
+test fuel_failure::history::tests::figure_7_redigitised_reproduces_the_staged_history_then_drifts ... ok
+test fuel_failure::history::tests::figure_8_redigitised_two_curves_connect_at_the_true_scale ... ok
+test fuel_failure::history::tests::figure_8_two_curves_expose_a_log_axis_calibration_error ... ok
+test fuel_failure::history::tests::grain_boundary_corrosion_is_opt_in ... ok
+test fuel_failure::history::tests::phi_1_starts_from_the_end_of_irradiation_value ... ok
+test fuel_failure::history::tests::the_reported_rates_are_delta_phi_over_delta_t ... ok
+test fuel_failure::history::tests::figure_7_reproduces_the_staged_history_then_drifts ... ok
+test fuel_failure::history::tests::the_two_mechanisms_are_stepped_differently ... ok
+test fuel_failure::htr10::qualification::tests::the_burn_leach_table_is_consistent_with_its_own_counts ... ok
+test fuel_failure::history::tests::figure_8_isothermal_drift_reappears ... ok
+test fuel_failure::htr10::qualification::tests::the_triso_atops_placeholders_bracket_the_german_record ... ok
+test fuel_failure::htr10::tests::normal_operation_failure_is_negligible_against_the_placeholder ... ok
+test fuel_failure::htr10::qualification::tests::the_burnup_ordering_at_1600c_matches_and_the_level_does_not ... ok
+test fuel_failure::htr10::tests::the_derived_inputs_follow_from_the_published_design_data ... ok
+test fuel_failure::molar_volume::tests::the_printed_quotients_are_exact ... ok
+test fuel_failure::molar_volume::tests::the_three_compounds_differ ... ok
+test fuel_failure::molar_volume::tests::the_uco_value_is_the_one_printed_under_a_second_6b ... ok
+test fuel_failure::oxygen::tests::figure_3_is_reproduced ... ok
+test fuel_failure::oxygen::tests::reading_t_b_as_days_collapses_the_answer ... ok
+test fuel_failure::oxygen::tests::table_2_oxygen_per_fission_is_reproduced ... ok
+test fuel_failure::oxygen::tests::the_cap_and_the_degenerate_cases_hold ... ok
+test fuel_failure::oxygen::tests::the_heating_term_vanishes_at_the_irradiation_temperature ... ok
+test fuel_failure::oxygen::tests::the_thoria_curve_has_the_right_temperature_dependence ... ok
+test fuel_failure::pressure::tests::pressure_is_the_ideal_gas_law ... ok
+test fuel_failure::strength::tests::table_1_is_reproduced_exactly ... ok
+test fuel_failure::strength::tests::table_2_is_reproduced_at_a_different_fluence ... ok
+test fuel_failure::strength::tests::the_celsius_reading_of_t_b_is_excluded ... ok
+test fuel_failure::strength::tests::the_floors_hold_at_high_fluence ... ok
+test fuel_failure::strength::tests::the_modulus_degrades_faster_than_the_strength ... ok
+test fuel_failure::stress::tests::a_negative_corrosion_rate_is_refused_by_both_routes ... ok
+test fuel_failure::stress::tests::stress_rises_monotonically_as_the_layer_thins ... ok
+test fuel_failure::stress::tests::the_two_routes_to_the_stress_agree_exactly ... ok
+test fuel_failure::stress::tests::with_no_corrosion_it_is_the_plain_thin_shell_stress ... ok
+test fuel_failure::tests::failure_populations_combine_by_survival ... ok
+test fuel_failure::tests::the_chain_composes_end_to_end ... ok
+test fuel_failure::weibull::tests::a_larger_modulus_sharpens_the_transition ... ok
+test fuel_failure::weibull::tests::failure_is_monotone_in_stress ... ok
+test fuel_failure::weibull::tests::median_is_the_scale_parameter ... ok
+test fuel_failure::history::tests::the_step_length_does_not_matter_at_constant_temperature ... ok
+test fuel_failure::htr10::tests::the_accident_sweep_is_where_fuel_failure_has_something_to_say ... ok
+test gpu::tests::theta_table_is_monotonic ... ok
+test gpu::tests::best_effort_matches_crank ... ok
+test lagrangian_decay_simulator::expected_inventory::tests::cram48_matches_bateman_on_the_th232_chain ... ok
+test lagrangian_decay_simulator::lagrangian_diffusion::chatgpt_5_diffusion_normal_dist_central_limit_theorem_simulator::diffusion_gaussian_sum ... ok
+test lagrangian_decay_simulator::lagrangian_diffusion::chatgpt_5_diffusion_normal_dist_central_limit_theorem_simulator_time_based::isotropic_scattering_time_summation ... ok
+test lagrangian_decay_simulator::lagrangian_diffusion::chatgpt_5_diffusion_simulator::chat_gpt_sim ... ok
+test lagrangian_decay_simulator::lagrangian_diffusion::chatgpt_5_list_of_vectors_uniformly_distributed_on_spherical_shell::rng_test ... ok
+test lagrangian_decay_simulator::lagrangian_diffusion::chatgpt_5_list_of_vectors_uniformly_distributed_on_spherical_shell::test_for_filtering ... ok
+test lagrangian_decay_simulator::expected_inventory::tests::monte_carlo_mean_matches_cram48_expected_inventory ... ok
+test lagrangian_decay_simulator::lagrangian_diffusion::first_passage::depletion::tests::decay_changes_nuclide_to_higher_z_daughter ... ok
+test lagrangian_decay_simulator::expected_inventory::tests::stable_start_and_bad_inputs ... ok
+test lagrangian_decay_simulator::lagrangian_diffusion::first_passage::depletion::tests::sample_event_time_has_mean_inverse_rate ... ok
+test lagrangian_decay_simulator::lagrangian_diffusion::first_passage::ensemble::tests::history_seeds_are_distinct ... ok
+test lagrangian_decay_simulator::lagrangian_diffusion::first_passage::ensemble::tests::parallel_kernel_release_matches_crank ... ok
+test lagrangian_decay_simulator::lagrangian_diffusion::first_passage::ensemble::tests::parallel_run_is_reproducible ... ok
+test lagrangian_decay_simulator::lagrangian_diffusion::first_passage::interface::tests::does_transmit_frequency_matches_probability ... ok
+test lagrangian_decay_simulator::lagrangian_diffusion::first_passage::interface::tests::equal_coefficients_split_evenly ... ok
+test lagrangian_decay_simulator::lagrangian_diffusion::first_passage::interface::tests::impenetrable_interface_reflects ... ok
+test lagrangian_decay_simulator::lagrangian_diffusion::first_passage::interface::tests::partition_shifts_transmission ... ok
+test lagrangian_decay_simulator::lagrangian_diffusion::first_passage::interface::tests::sic_is_a_strong_barrier ... ok
+test fuel_failure::history::tests::figure_8_redigitised_isothermal_drift_reappears ... ok
+test lagrangian_decay_simulator::lagrangian_diffusion::first_passage::depletion::tests::irradiation_transmutes_a_stable_target ... ok
+test lagrangian_decay_simulator::lagrangian_diffusion::first_passage::live::tests::micrometres_helper_is_um ... ok
+test lagrangian_decay_simulator::lagrangian_diffusion::first_passage::live::tests::snapshot_starts_full_in_kernel ... ok
+test lagrangian_decay_simulator::lagrangian_diffusion::first_passage::sphere_fpt::tests::mean_fpt_matches_r2_over_6d ... ok
+test lagrangian_decay_simulator::lagrangian_diffusion::first_passage::sphere_fpt::tests::sampled_dimensionless_mean_is_one_sixth ... ok
+test lagrangian_decay_simulator::lagrangian_diffusion::first_passage::sphere_fpt::tests::sampled_physical_fpt_mean_matches_analytic ... ok
+test lagrangian_decay_simulator::lagrangian_diffusion::first_passage::sphere_fpt::tests::survival_endpoints_and_monotonicity ... ok
+test lagrangian_decay_simulator::lagrangian_diffusion::first_passage::walk_on_spheres::tests::absorbing_sphere_release_matches_crank ... ok
+test lagrangian_decay_simulator::lagrangian_diffusion::first_passage::walk_on_spheres::tests::buffer_midpoint_bounded_on_both_sides ... ok
+test lagrangian_decay_simulator::lagrangian_diffusion::first_passage::walk_on_spheres::tests::fuel_center_hop_reaches_kernel_surface ... ok
+test lagrangian_decay_simulator::lagrangian_diffusion::first_passage::walk_on_spheres::tests::hop_releases_at_outer_surface ... ok
+test lagrangian_decay_simulator::lagrangian_diffusion::first_passage::live::tests::cpu_single_and_multi_advance_time_and_agree ... ok
+test lagrangian_decay_simulator::lagrangian_diffusion::first_passage::walk_on_spheres::tests::multilayer_walk_transmits_across_interfaces ... ok
+test lagrangian_decay_simulator::lagrangian_diffusion::first_passage::walk_on_spheres::tests::outside_particle_has_no_shell ... ok
+test lagrangian_decay_simulator::lagrangian_diffusion::single_particle_simulator::interaction_with_decaying_nuclide_simulator::tests_for_auto_timestepping::diffusion_fourier_number_calc ... ok
+test lagrangian_decay_simulator::lagrangian_diffusion::single_particle_simulator::release_fraction_analytical_solution::tests::test_analytical_fraction_released ... ok
+test lagrangian_decay_simulator::lagrangian_diffusion::single_particle_simulator::release_fraction_analytical_solution::tests::test_analytical_fraction_released_at_t_zero ... ok
+test lagrangian_decay_simulator::lagrangian_diffusion::single_particle_simulator::release_fraction_analytical_solution::tests::test_analytical_fraction_released_zero_radius_panics - should panic ... ok
+test lagrangian_decay_simulator::lagrangian_diffusion::single_particle_simulator::release_fraction_analytical_solution::verification::test_cs_release_1200c_200h ... ok
+test lagrangian_decay_simulator::lagrangian_diffusion::single_particle_simulator::release_fraction_analytical_solution::verification::test_cs_release_1600c_200h ... ok
+test lagrangian_decay_simulator::lagrangian_diffusion::single_particle_simulator::release_fraction_crp_6_case_1a_1b::monte_carlo_test::crp6_case1a_cs_release_1200c_matches_crank ... ok
+test lagrangian_decay_simulator::lagrangian_diffusion::single_particle_simulator::release_fraction_crp_6_case_1a_1b::monte_carlo_test::crp6_case1b_cs_release_1600c_matches_crank ... ok
+test lagrangian_decay_simulator::lagrangian_diffusion::single_particle_simulator::release_fraction_crp_6_case_1a_1b::verification::test_cs_release_1200c_200h ... ok
+test lagrangian_decay_simulator::lagrangian_diffusion::single_particle_simulator::release_fraction_crp_6_case_1a_1b::verification::test_cs_release_1600c_200h ... ok
+test lagrangian_decay_simulator::lagrangian_diffusion::temperature_dependent_collisions::boltzmann_test ... ok
+test lagrangian_decay_simulator::lagrangian_diffusion::temperature_dependent_collisions::diffusion_coeffs::cesium_tests::test_diffusion_coeff_jiang_matches_tabulated_cs_in_buffer ... ok
+test lagrangian_decay_simulator::lagrangian_diffusion::temperature_dependent_collisions::diffusion_coeffs::cesium_tests::test_diffusion_coeff_jiang_matches_tabulated_cs_in_kernel ... ok
+test lagrangian_decay_simulator::lagrangian_diffusion::temperature_dependent_collisions::diffusion_coeffs::cesium_tests::test_diffusion_coeff_jiang_matches_tabulated_cs_in_pyc ... ok
+test lagrangian_decay_simulator::lagrangian_diffusion::temperature_dependent_collisions::diffusion_coeffs::cesium_tests::test_diffusion_coeff_jiang_matches_tabulated_cs_in_sic ... ok
+test lagrangian_decay_simulator::lagrangian_diffusion::temperature_dependent_collisions::diffusion_coeffs::silver_tests::test_diffusion_coeff_jiang_matches_tabulated_ag110m_in_buffer ... ok
+test lagrangian_decay_simulator::lagrangian_diffusion::temperature_dependent_collisions::diffusion_coeffs::silver_tests::test_diffusion_coeff_jiang_matches_tabulated_ag110m_in_kernel ... ok
+test lagrangian_decay_simulator::lagrangian_diffusion::temperature_dependent_collisions::diffusion_coeffs::silver_tests::test_diffusion_coeff_jiang_matches_tabulated_ag110m_in_pyc ... ok
+test lagrangian_decay_simulator::lagrangian_diffusion::temperature_dependent_collisions::diffusion_coeffs::silver_tests::test_diffusion_coeff_jiang_matches_tabulated_ag110m_in_sic ... ok
+test lagrangian_decay_simulator::lagrangian_diffusion::temperature_dependent_collisions::diffusion_coeffs::strontium_tests::test_diffusion_coeff_jiang_matches_tabulated_sr_in_buffer ... ok
+test lagrangian_decay_simulator::lagrangian_diffusion::temperature_dependent_collisions::diffusion_coeffs::strontium_tests::test_diffusion_coeff_jiang_matches_tabulated_sr_in_kernel ... ok
+test lagrangian_decay_simulator::lagrangian_diffusion::temperature_dependent_collisions::diffusion_coeffs::strontium_tests::test_diffusion_coeff_jiang_matches_tabulated_sr_in_pyc ... ok
+test lagrangian_decay_simulator::lagrangian_diffusion::temperature_dependent_collisions::diffusion_coeffs::strontium_tests::test_diffusion_coeff_jiang_matches_tabulated_sr_in_sic ... ok
+test lagrangian_decay_simulator::lagrangian_diffusion::first_passage::walk_on_spheres::tests::interface_rule_gives_uniform_equilibrium_density ... ok
+test lagrangian_decay_simulator::monte_carlo_single_radionuclide_decay_simulator::tests::stochastic_half_life_calculator ... ok
+test lagrangian_decay_simulator::lagrangian_diffusion::first_passage::live::tests::gpu_selection_is_safe_and_advances ... ok
+test lagrangian_decay_simulator::lagrangian_diffusion::first_passage::depletion::tests::no_field_leaves_a_stable_nuclide_unchanged ... ok
+test lagrangian_decay_simulator::monte_carlo_single_radionuclide_decay_simulator::tests::decay_chain_th232 ... ok
+test lagrangian_decay_simulator::tests::half_life_ba137m ... ok
+test lagrangian_decay_simulator::tests::half_life_co60 ... ok
+test lagrangian_decay_simulator::tests::half_life_c14 ... ok
+test lagrangian_decay_simulator::tests::half_life_cs137 ... ok
+test lagrangian_decay_simulator::tests::half_life_h3 ... ok
+test lagrangian_decay_simulator::tests::half_life_i131 ... ok
+test lagrangian_decay_simulator::tests::half_life_k40 ... ok
+test lagrangian_decay_simulator::tests::half_life_kr85 ... ok
+test lagrangian_decay_simulator::tests::half_life_na22 ... ok
+test lagrangian_decay_simulator::tests::half_life_po210 ... ok
+test lagrangian_decay_simulator::tests::half_life_pu239 ... ok
+test lagrangian_decay_simulator::tests::half_life_ra226 ... ok
+test lagrangian_decay_simulator::tests::half_life_rn222 ... ok
+test lagrangian_decay_simulator::tests::half_life_test_tritium ... ok
+test lagrangian_decay_simulator::tests::half_life_sr90 ... ok
+test lagrangian_decay_simulator::tests::half_life_th232 ... ok
+test nuclide_reaction_and_decay_data::actinides_test::test_actinides_parsing ... ok
+test lagrangian_decay_simulator::tests::half_life_u235 ... ok
+test nuclide_reaction_and_decay_data::alkali_metals_and_hydrogen::test_cesium_parsing ... ok
+test nuclide_reaction_and_decay_data::alkali_metals_and_hydrogen::test_hydrogen_parsing ... ok
+test nuclide_reaction_and_decay_data::alkali_metals_and_hydrogen::test_lithium_parsing ... ok
+test nuclide_reaction_and_decay_data::alkali_metals_and_hydrogen::test_francium_parsing ... ok
+test nuclide_reaction_and_decay_data::alkali_metals_and_hydrogen::test_potassium_parsing ... ok
+test nuclide_reaction_and_decay_data::alkali_metals_and_hydrogen::test_sodium_parsing ... ok
+test nuclide_reaction_and_decay_data::alkaline_earth_metals::test_barium_parsing ... ok
+test nuclide_reaction_and_decay_data::alkaline_earth_metals::test_beryllium_parsing ... ok
+test nuclide_reaction_and_decay_data::alkaline_earth_metals::test_calcium_parsing ... ok
+test nuclide_reaction_and_decay_data::alkaline_earth_metals::test_magnesium_parsing ... ok
+test nuclide_reaction_and_decay_data::alkali_metals_and_hydrogen::test_rubidium_parsing ... ok
+test nuclide_reaction_and_decay_data::alkaline_earth_metals::test_radium_parsing ... ok
+test nuclide_reaction_and_decay_data::alkaline_earth_metals::test_strontium_parsing ... ok
+test nuclide_reaction_and_decay_data::carbon_group_test::test_carbon_group_parsing ... ok
+test nuclide_reaction_and_decay_data::chalcogens_test::test_oxygen_parsing ... ok
+test nuclide_reaction_and_decay_data::chalcogens_test::test_polonium_parsing ... ok
+test nuclide_reaction_and_decay_data::boron_group_test::test_boron_group_parsing ... ok
+test nuclide_reaction_and_decay_data::chalcogens_test::test_sulfur_parsing ... ok
+test nuclide_reaction_and_decay_data::chalcogens_test::test_tellurium_parsing ... ok
+test lagrangian_decay_simulator::tests::half_life_u238 ... ok
+test nuclide_reaction_and_decay_data::chalcogens_test::test_selenium_parsing ... ok
+test lagrangian_decay_simulator::tests::half_life_xe135 ... ok
+test nuclide_reaction_and_decay_data::halogens_test::test_astatine_parsing ... ok
+test nuclide_reaction_and_decay_data::halogens_test::test_bromine_parsing ... ok
+test nuclide_reaction_and_decay_data::halogens_test::test_chlorine_parsing ... ok
+test nuclide_reaction_and_decay_data::halogens_test::test_fluorine_parsing ... ok
+test nuclide_reaction_and_decay_data::halogens_test::test_iodine_parsing ... ok
+test nuclide_reaction_and_decay_data::heavier_than_actinides::test_rutherfordium_to_roentgenium_parsing ... ok
+test nuclide_reaction_and_decay_data::lanthanides_test::test_lanthanides_parsing ... ok
+test nuclide_reaction_and_decay_data::noble_gases_test::test_argon_parsing ... ok
+test nuclide_reaction_and_decay_data::noble_gases_test::test_helium_parsing ... ok
+test nuclide_reaction_and_decay_data::noble_gases_test::test_krypton_parsing ... ok
+test nuclide_reaction_and_decay_data::noble_gases_test::test_neon_parsing ... ok
+test nuclide_reaction_and_decay_data::noble_gases_test::test_radon_parsing ... ok
+test nuclide_reaction_and_decay_data::noble_gases_test::test_xenon_parsing ... ok
+test nuclide_reaction_and_decay_data::pnictogens_test::test_antimony_parsing ... ok
+test nuclide_reaction_and_decay_data::pnictogens_test::test_arsenic_parsing ... ok
+test nuclide_reaction_and_decay_data::pnictogens_test::test_bismuth_parsing ... ok
+test nuclide_reaction_and_decay_data::pnictogens_test::test_nitrogen_parsing ... ok
+test nuclide_reaction_and_decay_data::pnictogens_test::test_phosphorous_parsing ... ok
+test nuclide_reaction_and_decay_data::transition_metals_test::test_chromium_parsing ... ok
+test nuclide_reaction_and_decay_data::transition_metals_test::test_cobalt_parsing ... ok
+test nuclide_reaction_and_decay_data::transition_metals_test::test_copper_parsing ... ok
+test nuclide_reaction_and_decay_data::transition_metals_test::test_iron_parsing ... ok
+test nuclide_reaction_and_decay_data::transition_metals_test::test_manganese_parsing ... ok
+test nuclide_reaction_and_decay_data::transition_metals_test::test_nickel_parsing ... ok
+test nuclide_reaction_and_decay_data::transition_metals_test::test_ruthenium_parsing ... ok
+test nuclide_reaction_and_decay_data::transition_metals_test::test_scandium_parsing ... ok
+test nuclide_reaction_and_decay_data::transition_metals_test::test_titanium_parsing ... ok
+test nuclide_reaction_and_decay_data::transition_metals_test::test_transition_metals_parsing_y_to_hg_excl_ru ... ok
+test nuclide_reaction_and_decay_data::transition_metals_test::test_vanadium_parsing ... ok
+test nuclide_reaction_and_decay_data::transition_metals_test::test_zinc_parsing ... ok
+test rustbca::local_change_tests::entropy_seed_panics_without_std - should panic ... ok
+test rustbca::local_change_tests::every_copied_file_carries_the_provenance_header ... ok
+test rustbca::local_change_tests::lazylock_replacements_match_upstream_tables ... ok
+test rustbca::local_change_tests::ls_constant_lookup_still_panics_past_the_table - should panic ... ok
+test rustbca::local_change_tests::mean_ionisation_lookup_still_panics_past_z_max - should panic ... ok
+test rustbca::local_change_tests::no_rand_crate_paths_remain ... ok
+test rustbca::local_change_tests::no_transcendental_method_calls_remain ... ok
+test rustbca::local_change_tests::same_seed_gives_a_bit_identical_cascade ... ok
+test rustbca::local_change_tests::screening_length_lookup_still_panics_past_z_max - should panic ... ok
+test rustbca::local_change_tests::seeded_cascades_are_pinned_across_the_rng_swap ... ok
+test rustbca::local_change_tests::std_only_constructs_are_gated ... ok
+test rustbca::tests::test_geometry ... ok
+test rustbca::tests::test_momentum_conservation ... ok
+test rustbca::tests::test_particle_advance ... ok
+test rustbca::tests::test_quadrature ... ok
+test rustbca::tests::test_rotate ... ok
+test rustbca::tests::test_spherical_geometry ... ok
+test rustbca::tests::test_surface_binding_energy_barrier ... ok
+test rustbca::tests::test_surface_refraction ... ok
+test rustbca::tests::test_triangle_contains ... ok
+test rustbca::tests::test_triangle_distance_to ... ok
+test triso_atops_extensions::normal_operation::tests::one_group_or_element_changes_only_itself ... ok
+test triso_atops_extensions::normal_operation::tests::upstream_rates_reproduce_the_port_bit_for_bit ... ok
+test triso_atops_extensions::removal_rates::tests::a_whole_cycle_fraction_is_refused - should panic ... ok
+test triso_atops_extensions::removal_rates::tests::element_overrides_its_group ... ok
+test triso_atops_extensions::removal_rates::tests::liu_cao_table_matches_the_record ... ok
+test triso_atops_extensions::removal_rates::tests::per_cycle_fractions_become_first_order_rates ... ok
+test triso_atops_extensions::removal_rates::tests::per_cycle_rates_with_reported_fallbacks ... ok
+test triso_atops_extensions::removal_rates::tests::upstream_routes_as_trisoatops ... ok
+test triso_atops_fork::accident::tests::circuit_inventory_is_not_scaled_by_the_vent_fraction ... ok
+test triso_atops_fork::accident::tests::coolant_release_vents_only_while_heating_and_pins_the_first_sample ... ok
+test triso_atops_fork::accident::tests::curie_conversion_matches_the_upstream_literal ... ok
+test triso_atops_fork::accident::tests::diffusive_release_is_scaled_by_the_vent_fraction ... ok
+test triso_atops_fork::accident::tests::fraction_sums_match_the_upstream_slices ... ok
+test triso_atops_fork::accident::tests::graphite_release_reads_the_graphite_channel_only ... ok
+test triso_atops_fork::accident::tests::inventory_splits_evenly_and_conserves ... ok
+test triso_atops_fork::accident::tests::mean_rate_is_zero_at_the_first_sample_and_matches_a_linear_ramp ... ok
+test triso_atops_fork::accident::tests::pressure_does_not_affect_the_fraction ... ok
+test triso_atops_fork::accident::tests::the_cadmium_typo_changes_palladium ... ok
+test triso_atops_fork::activities::coolant_activity::tests::circulating_steadystate_matches_upstream ... ok
+test triso_atops_fork::activities::coolant_activity::tests::circulating_transient_reaches_steady_state ... ok
+test triso_atops_fork::activities::coolant_activity::tests::clean_up_matches_upstream ... ok
+test triso_atops_fork::activities::coolant_activity::tests::plate_out_matches_upstream ... ok
+test triso_atops_fork::activities::coolant_activity::tests::plate_out_zero_when_no_removal ... ok
+test triso_atops_fork::activities::live_pools::tests::atoms_are_conserved_and_small_steps_equal_one_big_step ... ok
+test triso_atops_fork::activities::live_pools::tests::one_step_from_empty_reproduces_the_ported_closed_forms ... ok
+test triso_atops_fork::activities::source_terms::tests::base_activities_special_metal_matches_upstream ... ok
+test triso_atops_fork::activities::source_terms::tests::base_activities_volatile_no_graphite ... ok
+test triso_atops_fork::activities::source_terms::tests::release_rate_longlived_special_metal_matches_upstream ... ok
+test triso_atops_fork::activities::source_terms::tests::release_rate_shortlived_noble_gas_matches_upstream ... ok
+test triso_atops_fork::activities::source_terms::tests::the_hand_entered_path_is_untouched ... ok
+test triso_atops_fork::activities::tests::activity_equals_lambda_times_count ... ok
+test triso_atops_fork::activities::tests::curie_becquerel_conversion ... ok
+test triso_atops_fork::diffusion::tests::cesium_kernel_temperature_clamped_below_700c ... ok
+test triso_atops_fork::diffusion::tests::constant_temperature_integral_is_d_times_t ... ok
+test triso_atops_fork::diffusion::tests::iodine_high_temperature_branch_is_two_term_sum ... ok
+test triso_atops_fork::diffusion::tests::iodine_low_temperature_branch_matches_hand_calc ... ok
+test triso_atops_fork::diffusion::tests::other_elements_get_fixed_nominal ... ok
+test triso_atops_fork::diffusion::tests::silver_sic_matches_hand_calc ... ok
+test triso_atops_fork::normal_operation::tests::cs137_node_matches_upstream ... ok
+test triso_atops_fork::normal_operation::tests::i131_node_matches_upstream ... ok
+test triso_atops_fork::normal_operation::tests::kr88_node_matches_upstream ... ok
+test triso_atops_fork::nuclide_model::nuclide_database::tests::half_life_round_trips_to_seconds ... ok
+test triso_atops_fork::nuclide_model::nuclide_database::tests::known_parent_chains_present ... ok
+test triso_atops_fork::nuclide_model::nuclide_database::tests::table_has_expected_count ... ok
+test triso_atops_fork::nuclide_model::nuclide_database::tests::unknown_nuclide_is_none ... ok
+test triso_atops_fork::nuclide_model::tests::decay_constant_is_ln2_over_half_life ... ok
+test triso_atops_fork::nuclide_model::tests::element_group_classification_matches_upstream_lists ... ok
+test triso_atops_fork::release_models::steady_state::tests::attenuation_factor_ge_one_and_capped ... ok
+test triso_atops_fork::release_models::steady_state::tests::booth_longlived_early_time_matches_analytic ... ok
+test triso_atops_fork::release_models::steady_state::tests::booth_longlived_saturates_to_one ... ok
+test triso_atops_fork::release_models::steady_state::tests::booth_shortlived_large_x_limit ... ok
+test triso_atops_fork::release_models::steady_state::tests::booth_shortlived_small_x_limit ... ok
+test triso_atops_fork::release_models::steady_state::tests::breakthrough_model_clamped_and_small_early ... ok
+test triso_atops_fork::release_models::tests::graphite_release_zero_for_volatiles ... ok
+test triso_atops_fork::release_models::tests::kernel_release_metal_saturates_for_large_integral ... ok
+test triso_atops_fork::release_models::tests::rb_fail_other_metal_is_nominal ... ok
+test triso_atops_fork::release_models::transient::tests::booth_transient_large_integral_saturates ... ok
+test triso_atops_fork::release_models::transient::tests::booth_transient_zero_integral_is_zero ... ok
+test triso_atops_fork::release_models::transient::tests::breakthrough_transient_zero_guard ... ok
+test triso_atops_fork::release_models::transient::tests::rf_graph_saturates_to_one ... ok
+test triso_atops_fork::run_file::tests::a_good_run_file_converts_and_carries_years_into_seconds ... ok
+test triso_atops_fork::run_file::tests::accident_keys_are_only_required_when_the_accident_runs ... ok
+test triso_atops_fork::run_file::tests::every_problem_is_reported_not_just_the_first ... ok
+test triso_atops_fork::run_file::tests::k_clean_is_forced_to_zero_when_the_hps_is_off ... ok
+test triso_atops_fork::run_file::tests::round_trips_through_json ... ok
+test triso_atops_fork::run_file::tests::time_units_match_upstream_factors ... ok
+test triso_atops_fork::run_selection::tests::a_parent_absent_from_the_run_always_disables_coupling ... ok
+test triso_atops_fork::run_selection::tests::accident_selection_keeps_long_lived_and_drops_the_rest ... ok
+test triso_atops_fork::run_selection::tests::accident_selection_skips_unknown_instead_of_panicking ... ok
+test triso_atops_fork::run_selection::tests::names_normalise_like_upstream_regex ... ok
+test triso_atops_fork::run_selection::tests::parent_decay_policies_differ_on_rh105 ... ok
+test triso_atops_fork::run_selection::tests::parents_are_moved_ahead_of_daughters ... ok
+test triso_atops_fork::run_selection::tests::short_lived_classification_uses_the_upstream_ratio ... ok
+test triso_atops_fork::run_selection::tests::unknown_and_unparseable_names_are_reported_not_panicked ... ok
+test nuclide_reaction_and_decay_data::decay_library::tests::index_tritium ... ok
+test nuclide_reaction_and_decay_data::get_decay_info::tests::test_decay_chain ... ok
+test nuclide_reaction_and_decay_data::get_decay_info::tests::test_rng ... ok
+
+test result: ok. 319 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.87s
+
+     Running tests/mhtgr_stoyer_workflow.rs (target/release/deps/mhtgr_stoyer_workflow-437eae96e4c0024a)
+
+running 4 tests
+test port_against_the_paper_tables_is_reported ... ok
+test port_matches_upstream_on_both_mhtgr_cases ... ok
+test accident_final_releases_port_upstream_and_paper has been running for over 60 seconds
+test accident_series_port_matches_upstream_for_figs_6_and_7 has been running for over 60 seconds
+test accident_series_port_matches_upstream_for_figs_6_and_7 ... ok
+test accident_final_releases_port_upstream_and_paper ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 471.35s
+
+     Running tests/triso_atops_booth_vs_crp6.rs (target/release/deps/triso_atops_booth_vs_crp6-9116b67194a418ad)
+
+running 3 tests
+test crp6_case1_booth_equals_the_crank_series ... ok
+test where_the_floor_bites_at_htgr_sim_v1_inputs ... ok
+test booth_longlived_has_the_predicted_truncation_floor_at_small_tau ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/triso_atops_code_to_code.rs (target/release/deps/triso_atops_code_to_code-af3bb53063c256b0)
+
+running 51 tests
+test accident_case_nuclide_selection_matches_upstream ... ok
+test attenuation_factor_matches_upstream ... ok
+test accident_case_total_matches_upstream ... ok
+test base_activities_graphite_matches_upstream ... ok
+test base_activities_source_matches_upstream ... ok
+test booth_longlived_matches_upstream ... ok
+test booth_shortlived_matches_upstream ... ok
+test booth_transient_matches_upstream ... ok
+test booth_transient_zero_floor_is_unreachable ... ok
+test breakthrough_model_matches_upstream ... ok
+test breakthrough_model_transient_matches_upstream ... ok
+test accident_case_nodal_graphite_matches_upstream ... ok
+test accident_case_nodal_kernel_matches_upstream ... ok
+test circulating_matches_upstream ... ok
+test clean_up_without_guard_is_nan_where_upstream_raises ... ok
+test circulating_steadystate_matches_upstream ... ok
+test clean_up_matches_upstream ... ok
+test clean_up_steadystate_matches_upstream ... ok
+test convert_time_factors_match_upstream ... ok
+test coolant_mean_temperature_rate_matches_upstream ... ok
+test coolant_release_fraction_matches_upstream ... ok
+test coolant_release_knife_edge_divergence_is_representation_noise ... ok
+test coolant_release_vent_times_match_upstream ... ok
+test diffusion_coefficient_graphite_matches_upstream ... ok
+test diffusion_coefficient_kernel_matches_upstream ... ok
+test diffusion_coefficient_sic_ag_matches_upstream ... ok
+test integrate_graphite_matches_upstream ... ok
+test every_nuclide_decay_constant_matches_upstream ... ok
+test noble_gases_upstream_cannot_evaluate_use_the_xenon_fit ... ok
+test integrate_kernel_matches_upstream ... ok
+test inventory_processing_matches_upstream ... ok
+test name_normalisation_matches_upstream_regex ... ok
+test node_circulating_activity_matches_upstream ... ok
+test node_clean_up_activity_matches_upstream ... ok
+test node_graphite_activity_matches_upstream ... ok
+test node_plate_out_activity_matches_upstream ... ok
+test nuclide_accident_retention_matches_upstream ... ok
+test node_release_rate_matches_upstream ... ok
+test node_source_rate_matches_upstream ... ok
+test nuclide_short_lived_classification_matches_upstream ... ok
+test plate_out_matches_upstream ... ok
+test plate_out_steadystate_matches_upstream ... ok
+test rb_fail_dispatcher_matches_upstream ... ok
+test rb_fail_noble_gases_matches_upstream ... ok
+test release_activity_graphite_matches_upstream ... ok
+test release_activity_kernel_matches_upstream ... ok
+test release_fraction_graphite_matches_upstream ... ok
+test release_rate_matches_upstream ... ok
+test rf_graph_matches_upstream ... ok
+test release_fraction_kernel_matches_upstream ... ok
+test upstream_nuclide_sort_never_reorders ... ok
+
+test result: ok. 51 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.09s
+
+     Running tests/triso_atops_fork_verification.rs (target/release/deps/triso_atops_fork_verification-ef49182e273d220a)
+
+running 9 tests
+test booth_longlived_early_time_law ... ok
+test activity_units_ci_bq_and_lambda_n ... ok
+test cs137_decay_constant_from_database ... ok
+test iodine_kernel_diffusion_matches_correlation ... ok
+test booth_longlived_analytical_limits_via_public_api ... ok
+test normal_operation_node_i131_via_prelude ... ok
+test silver_sic_diffusion_matches_correlation ... ok
+test xenon_graphite_release_is_zero ... ok
+test supported_nuclide_table_complete ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/triso_atops_upstream_run_file.rs (target/release/deps/triso_atops_upstream_run_file-a9494035f9dfda94)
+
+running 1 test
+test every_case_agrees_with_upstream_process_run_file ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/wasm_fallback.rs (target/release/deps/wasm_fallback-6db87c89c12bdf75)
+
+running 3 tests
+test history_seeding_is_independent_of_worker_count ... ok
+test parallel_ensemble_runs_and_is_physical ... ok
+test ensemble_is_reproducible_across_repeated_runs ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

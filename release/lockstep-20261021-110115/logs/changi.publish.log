@@ -1,0 +1,18 @@
+    Updating crates.io index
+   Packaging changi v0.0.2 (/home/teddy0/Documents/research/outram-park-backend/crates/changi)
+    Updating crates.io index
+    Packaged 142 files, 27.8MiB (3.9MiB compressed)
+   Verifying changi v0.0.2 (/home/teddy0/Documents/research/outram-park-backend/crates/changi)
+   Compiling crossbeam-utils v0.8.23
+   Compiling crossbeam-epoch v0.9.21
+   Compiling crossbeam-deque v0.8.8
+   Compiling rayon-core v1.13.0
+   Compiling either v1.19.0
+   Compiling rayon v1.12.0
+   Compiling changi v0.0.2 (/home/teddy0/Documents/research/outram-park-backend/target/package/changi-0.0.2)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 4.33s
+   Uploading changi v0.0.2 (/home/teddy0/Documents/research/outram-park-backend/crates/changi)
+    Uploaded changi v0.0.2 to registry `crates-io`
+note: waiting for changi v0.0.2 to be available at registry `crates-io`
+help: you may press ctrl-c to skip waiting; the crate should be available shortly
+   Published changi v0.0.2 at registry `crates-io`

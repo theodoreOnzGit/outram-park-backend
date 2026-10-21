@@ -1,0 +1,350 @@
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+   Compiling petir v0.0.3 (/home/teddy0/Documents/research/outram-park-backend/crates/petir)
+   Compiling raffles v0.0.3 (/home/teddy0/Documents/research/outram-park-backend/crates/raffles)
+    Finished `release` profile [optimized] target(s) in 11.68s
+     Running unittests src/lib.rs (target/release/deps/raffles-a29ce1dae31dbe61)
+
+running 171 tests
+test abc::tests::a_failing_simulator_makes_a_point_impossible ... ok
+test abc::tests::kernels_match_their_definitions ... ok
+test abc::tests::malformed_configuration_is_refused ... ok
+test abc::tests::abc_matching_the_observed_sample_size_recovers_the_right_width ... ok
+test abc::tests::rejection_abc_is_reproducible ... ok
+test abc::tests::the_approximate_likelihood_is_deterministic_in_theta ... ok
+test bayesian::case_studies::tests::the_eigenvalue_problem_finds_both_of_its_exact_modes ... ok
+test bayesian::case_studies::tests::the_models_match_their_upstream_formulas ... ok
+test bayesian::case_studies::tests::the_spring_mass_posterior_matches_its_closed_form ... ok
+test bayesian::case_studies::tests::the_tangent_case_has_no_second_mode ... ok
+test bayesian::mcmc::tests::a_chain_can_escape_an_impossible_start ... ok
+test abc::tests::rejection_abc_agrees_with_the_sampler_based_route ... ok
+test bayesian::mcmc::tests::ensemble_move_reproduces_a_standard_normal ... ok
+test bayesian::mcmc::tests::ensemble_move_is_affine_invariant_where_metropolis_hastings_is_not ... ok
+test bayesian::mcmc::tests::runs_are_reproducible_from_the_seed ... ok
+test bayesian::mcmc::tests::stretch_draws_match_their_density ... ok
+test bayesian::mcmc::tests::undersized_population_is_rejected ... ok
+test bayesian::tests::joint_log_density_is_the_sum_of_marginals ... ok
+test bayesian::tests::nan_likelihood_is_impossible_and_counted ... ok
+test bayesian::tests::outside_the_support_is_negative_infinity ... ok
+test bayesian::mcmc::tests::metropolis_hastings_reproduces_a_standard_normal ... ok
+test bayesian::tests::prior_draws_reproduce_the_marginals ... ok
+test bayesian::transitional::tests::a_malformed_tempering_criterion_is_refused ... ok
+test bayesian::transitional::tests::a_prior_that_never_overlaps_the_data_is_an_error ... ok
+test bayesian::transitional::tests::a_singular_covariance_is_regularised_and_counted ... ok
+test bayesian::transitional::tests::cholesky_reproduces_its_matrix ... ok
+test bayesian::transitional::tests::effective_sample_size_and_weight_cov_are_the_same_criterion ... ok
+test bayesian::transitional::tests::ensemble_kernel_refuses_an_undersized_population ... ok
+test bayesian::tests::standard_normal_draws_are_standard_normal ... ok
+test bayesian::transitional::tests::evidence_increment_matches_the_matlab ... ok
+test bayesian::transitional::tests::runs_are_reproducible_from_the_seed ... ok
+test bayesian::transitional::tests::systematic_resampling_respects_the_weights ... ok
+test bayesian::transitional::tests::evidence_carries_the_occam_factor_of_a_wider_prior ... ok
+test bayesian::transitional::tests::temcmc_finds_all_four_himmelblau_peaks ... ok
+test bayesian::transitional::tests::temcmc_matches_the_conjugate_normal_posterior ... ok
+test bayesian::transitional::tests::tempering_solver_matches_the_matlab_up_to_the_std_convention ... ok
+test bayesian::transitional::tests::the_effective_sample_size_criterion_holds_at_every_stage ... ok
+test bayesian::transitional::tests::the_two_tempering_criteria_reach_the_same_posterior ... ok
+test bayesian::transitional::tests::temcmc_ensemble_matches_the_matlab_ensemble ... ok
+test bayesian::transitional::tests::tmcmc_matches_the_conjugate_normal_posterior ... ok
+test distance::tests::an_unaffordable_grid_is_refused ... ok
+test bayesian::transitional::tests::tmcmc_ensemble_matches_the_matlab_ensemble ... ok
+test distance::tests::disjoint_samples_hit_the_exact_bounds ... ok
+test distance::tests::binned_estimates_match_the_gaussian_closed_forms ... ok
+test distance::tests::euclidean_is_blind_to_a_shape_the_others_see ... ok
+test distance::tests::every_metric_is_symmetric ... ok
+test distance::tests::every_metric_is_zero_against_itself ... ok
+test distance::tests::malformed_input_is_refused ... ok
+test distance::tests::multivariate_samples_and_the_bin_budget ... ok
+test abc::tests::an_oversampled_simulator_makes_the_posterior_over_confident ... ok
+test distance::tests::distances_increase_as_the_samples_separate ... ok
+test distributions::seeded::tests::sample_exp_mean ... ok
+test distributions::seeded::tests::sample_normal_mean_and_variance ... ok
+test distributions::seeded::tests::uniform_stays_in_range ... ok
+test distributions::tests::cdf_ppf_round_trip ... ok
+test distributions::tests::distribution_identities ... ok
+test distributions::tests::enum_dispatch_is_transparent ... ok
+test distributions::tests::invalid_parameters_are_rejected ... ok
+test distance::tests::true_metrics_satisfy_the_triangle_inequality ... ok
+test distributions::tests::inverse_transform_sampling_reproduces_cdf ... ok
+test distributions::tests::moments_match_quadrature ... ok
+test distributions::tests::ppf_cdf_round_trip ... ok
+test distributions::tests::probabilities_outside_unit_interval_are_rejected ... ok
+test distributions::tests::published_quantile_reference_values ... ok
+test distributions::tests::special_function_reference_values ... ok
+test distributions::tests::standard_normal_reference_points ... ok
+test distributions::tests::truncated_normal_matches_closed_form ... ok
+test distributions::tests::truncated_structure_holds ... ok
+test distributions::tests::pdf_integrates_to_unity ... ok
+test estimators::autocorrelation::tests::naive_sigma_is_kept_and_bookkeeping_is_exact ... ok
+test estimators::autocorrelation::tests::white_noise_is_not_inflated ... ok
+test estimators::normality::tests::dagostino_pearson_matches_scipy ... ok
+test estimators::autocorrelation::tests::ar1_recovers_the_exact_autocorrelation_time ... ok
+test estimators::normality::tests::invalid_input_is_an_error ... ok
+test estimators::normality::tests::moments_match_hand_calculation_and_scipy ... ok
+test estimators::normality::tests::uniform_windows_are_rejected_more_often_than_nominal ... ok
+test estimators::seed_consistency::tests::band_matches_published_quantiles ... ok
+test estimators::seed_consistency::tests::degenerate_inputs_are_refused ... ok
+test estimators::seed_consistency::tests::group_bookkeeping ... ok
+test estimators::seed_consistency::tests::hand_computed_chi2 ... ok
+test estimators::seed_consistency::tests::verdicts_and_outliers ... ok
+test estimators::stationarity::tests::short_traces_are_refused ... ok
+test estimators::stationarity::tests::step_change_is_located ... ok
+test estimators::stationarity::tests::transient_is_found_and_tail_passes ... ok
+test estimators::tests::degenerate_inputs ... ok
+test estimators::tests::hand_computed_values ... ok
+test estimators::tests::propagation ... ok
+test gnn::bound::tests::a_disconnected_mesh_has_no_elliptic_bound ... ok
+test gnn::bound::tests::an_unchecked_model_is_not_reported_as_failing ... ok
+test gnn::bound::tests::an_under_reaching_configuration_is_caught_and_quantified ... ok
+test gnn::bound::tests::malformed_bound_inputs_are_refused ... ok
+test gnn::bound::tests::refining_the_mesh_raises_the_elliptic_bound ... ok
+test gnn::bound::tests::the_elliptic_bound_is_the_graph_diameter ... ok
+test gnn::bound::tests::the_hyperbolic_bound_is_the_cfl_number_rounded_up ... ok
+test gnn::dataset::tests::a_compressed_archive_is_refused ... ok
+test gnn::dataset::tests::a_contiguous_float_tensor_reads_back_exactly ... ok
+test gnn::dataset::tests::a_short_storage_is_refused ... ok
+test gnn::dataset::tests::a_transposed_edge_index_is_not_scrambled ... ok
+test gnn::dataset::tests::an_unsupported_opcode_is_refused ... ok
+test gnn::dataset::tests::malformed_archives_are_refused ... ok
+test gnn::dataset::tests::the_upstream_data_files_read_correctly ... ok
+test gnn::graph::tests::a_disconnected_graph_is_reported_not_hidden ... ok
+test gnn::graph::tests::a_lattice_radius_graph_has_the_expected_connectivity ... ok
+test gnn::graph::tests::a_path_has_the_diameter_it_should ... ok
+test gnn::graph::tests::a_wider_radius_shrinks_the_diameter ... ok
+test gnn::graph::tests::malformed_graphs_are_refused ... ok
+test gnn::graph::tests::the_receptive_field_is_the_hop_ball ... ok
+test imprecise::tests::a_precise_pbox_is_its_distribution ... ok
+test imprecise::tests::a_series_system_from_two_confidence_boxes ... ok
+test imprecise::tests::a_vacuous_pbox_asserts_only_its_range ... ok
+test imprecise::tests::frechet_bounds_contain_the_independent_answer ... ok
+test imprecise::tests::independent_systems_match_the_textbook_formulas ... ok
+test imprecise::tests::interval_arithmetic_is_rigorous ... ok
+test imprecise::tests::k_out_of_n_matches_its_closed_form ... ok
+test imprecise::tests::malformed_pboxes_are_refused ... ok
+test imprecise::tests::more_data_tightens_the_confidence_box ... ok
+test imprecise::tests::the_confidence_box_reproduces_clopper_pearson ... ok
+test imprecise::tests::zero_observed_failures_does_not_give_a_confident_zero ... ok
+test model_selection::tests::a_failed_sampler_is_refused_not_ranked_last ... ok
+test model_selection::tests::a_single_candidate_is_not_a_comparison ... ok
+test model_selection::tests::bayes_factors_and_model_probabilities_are_what_they_should_be ... ok
+test model_selection::tests::enormous_negative_log_evidences_do_not_underflow ... ok
+test model_selection::tests::model_selection_picks_the_model_the_data_came_from ... ok
+test model_selection::tests::the_interpretation_scale_has_the_published_boundaries ... ok
+test samplers::tests::all_samplers_stay_inside_the_unit_interval ... ok
+test samplers::tests::constructors_reject_invalid_arguments ... ok
+test samplers::tests::designs_are_reproducible_from_a_seed ... ok
+test samplers::tests::enum_dispatch_agrees_with_the_concrete_strategies ... ok
+test samplers::tests::equally_spaced_levels_match_linspace ... ok
+test samplers::tests::grid_matches_the_tensor_product_exactly ... ok
+test samplers::tests::latin_hypercube_has_exactly_one_point_per_stratum ... ok
+test samplers::tests::latin_hypercube_reduces_variance_on_an_additive_integrand ... ok
+test samplers::tests::latin_hypercube_sorted_column_walks_the_strata ... ok
+test distance::tests::wasserstein_matches_the_mean_shift_of_equal_variance_normals ... ok
+test samplers::tests::monte_carlo_mean_converges_to_one_half ... ok
+test samplers::tests::monte_carlo_error_decays_as_inverse_sqrt_n ... ok
+test samplers::tests::per_dimension_streams_are_distinct_and_uncorrelated ... ok
+test scram::mocus::tests::a_house_event_decides_which_parts_of_the_tree_are_live ... ok
+test scram::mocus::tests::a_non_minimal_cut_set_is_absorbed ... ok
+test scram::mocus::tests::a_null_gate_passes_its_argument_through_unchanged ... ok
+test scram::mocus::tests::a_repeated_basic_event_collapses_rather_than_squaring ... ok
+test samplers::tests::workspace_rng_stays_in_range ... ok
+test scram::mocus::tests::an_atleast_gate_expands_to_its_combinations ... ok
+test scram::mocus::tests::the_result_does_not_depend_on_declaration_order ... ok
+test scram::pba::tests::complement_envelope_clamp_identities ... ok
+test scram::pba::tests::frechet_encloses_independence_and_bad_inputs_are_rejected ... ok
+test scram::pba::tests::kn_matches_cbox_binomial_in_the_interior ... ok
+test scram::pba::tests::precise_inputs_reduce_to_probability_formulas ... ok
+test scram::pbox_tree::tests::connectives_and_refusals ... ok
+test scram::pbox_tree::tests::edge_construction_encloses_independent_result ... ok
+test scram::pbox_tree::tests::precise_tree_reduces_to_probability_formula ... ok
+test scram::pbox_tree::tests::repeated_events_are_refused_or_bounded ... ok
+test scram::mocus::tests::a_wide_and_of_ors_produces_exactly_two_to_the_n_cut_sets ... ok
+test sensitivity::tests::caller_shape_errors_are_reported_not_panicked ... ok
+test sensitivity::tests::correlations_match_exact_constructions ... ok
+test sensitivity::tests::additive_model_has_no_interactions ... ok
+test sensitivity::tests::layout_and_design_assembly_are_exact ... ok
+test sensitivity::tests::ranking_and_column_wise_wrappers_are_correct ... ok
+test sensitivity::tests::ishigami_matches_analytic_indices ... ok
+test surrogate::polynomial::tests::a_polynomial_is_reproduced_exactly ... ok
+test surrogate::polynomial::tests::a_rank_deficient_design_is_refused_not_guessed ... ok
+test surrogate::polynomial::tests::badly_scaled_inputs_still_fit ... ok
+test surrogate::polynomial::tests::malformed_fits_are_refused ... ok
+test surrogate::polynomial::tests::over_fitting_shows_up_out_of_sample ... ok
+test surrogate::polynomial::tests::the_basis_has_the_size_the_formula_says ... ok
+test sensitivity::tests::sudret_polynomial_matches_exact_rational_indices ... ok
+test surrogate::validation::tests::exact_polynomial_has_zero_loo_error ... ok
+test surrogate::validation::tests::wrong_degree_shows_up_in_loo_error ... ok
+test surrogate::polynomial::tests::the_ishigami_fit_reports_honest_out_of_sample_accuracy ... ok
+test estimators::normality::tests::size_at_alpha_005_matches_scipy_and_is_mildly_liberal ... ok
+test abc::tests::a_smaller_tolerance_tightens_the_posterior ... ok
+
+test result: ok. 171 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.42s
+
+     Running tests/computing_with_confidence.rs (target/release/deps/computing_with_confidence-649524955e098886)
+
+running 6 tests
+test case_study_2_triga_matches_r ... ok
+test frechet_cuts_enclose_independence_cuts ... ok
+test case_study_1_pressure_tank_matches_r ... ok
+test case_study_3_bridge_boolean_route_matches_r ... ok
+test illustrative_example_matches_r ... ok
+test case_study_4_radiation_release_matches_r ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.59s
+
+     Running tests/computing_with_confidence_mc.rs (target/release/deps/computing_with_confidence_mc-40594406add79ff3)
+
+running 1 test
+test independence_is_an_outer_bound_of_monte_carlo_and_converges ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.38s
+
+     Running tests/scram_alignments.rs (target/release/deps/scram_alignments-3a1ae51a6165bf6e)
+
+running 3 tests
+test a_phase_scales_the_mission_time_and_sets_its_house_events ... ok
+test the_malformed_are_refused_with_upstreams_reasons ... ok
+test every_phase_matches_scrams ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/scram_bdd_oracle.rs (target/release/deps/scram_bdd_oracle-81c6c9f9261fdc3e)
+
+running 9 tests
+test das9601_e18_sign_diagnostic ... ignored, diagnostic, not a gate
+test the_bdd_gets_the_non_coherent_answer_that_cut_sets_cannot ... ok
+test the_diagram_satisfies_the_identities_it_must ... ok
+test exact_probability_matches_scrams_bdd_on_every_model ... ok
+test the_graph_zbdd_route_matches_scram_and_the_bdd_route ... ok
+test the_bdd_and_inclusion_exclusion_agree_where_both_can_run ... ok
+test zbdd_cut_sets_match_scram_and_mocus ... ok
+test bdd_importance_factors_match_scram_including_the_non_coherent_models ... ok
+test the_graph_zbdd_route_handles_das9601_slowly_but_correctly has been running for over 60 seconds
+test the_graph_zbdd_route_handles_das9601_slowly_but_correctly ... ok
+
+test result: ok. 8 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 77.94s
+
+     Running tests/scram_ccf.rs (target/release/deps/scram_ccf-221755d4240661d1)
+
+running 4 tests
+test ccf_is_applied_by_default_and_the_ablation_is_the_independent_analysis ... ok
+test the_generated_ccf_events_match_scrams ... ok
+test factor_levels_are_upstreams_and_the_malformed_are_refused ... ok
+test the_rewritten_tree_matches_scrams ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/scram_cross_code.rs (target/release/deps/scram_cross_code-2156fdc691c35e74)
+
+running 5 tests
+test importance_factors_match_scram ... ok
+test cut_set_probabilities_match_scram ... ok
+test top_event_probability_matches_scram_in_all_three_modes ... ok
+test the_approximations_bound_the_exact_answer_from_above ... ok
+test malformed_input_is_refused ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/scram_deviates.rs (target/release/deps/scram_deviates-0ce575ce2639f84b)
+
+running 7 tests
+test each_deviate_value_matches_its_closed_form ... ok
+test is_deviate_reaches_through_the_whole_expression ... ok
+test intervals_are_upstreams_and_are_what_makes_the_domain_checks_bite ... ok
+test the_domain_checks_are_upstreams ... ok
+test the_normal_quantile_substitution_is_the_identity_it_claims ... ok
+test every_deviate_value_matches_scrams ... ok
+test the_two_upstream_lognormal_models_are_no_longer_refused ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/scram_expressions.rs (target/release/deps/scram_expressions-ed636d2c9365ca06)
+
+running 3 tests
+test each_formula_matches_its_closed_form ... ok
+test the_operators_and_their_domain_checks_behave ... ok
+test hipps_basic_event_probabilities_match_scrams_computed_values ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/scram_mef.rs (target/release/deps/scram_mef-24f75f66d22bbe03)
+
+running 9 tests
+test the_mef_only_constructs_match_scram ... ok
+test probabilities_evaluated_from_the_xml_match_scrams ... ok
+test the_unported_and_the_malformed_are_refused_not_skipped ... ok
+test three_motor_is_unlocked_by_the_private_namespace_rule ... ok
+test the_non_coherent_models_read_and_price_as_scram_does ... ok
+test xi_include_and_cross_fault_tree_references_resolve ... ok
+test cut_sets_generated_from_the_xml_match_scrams ... ok
+test totals_from_the_xml_match_scrams ... ok
+test importance_from_the_xml_matches_scrams ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.18s
+
+     Running tests/scram_mocus_oracle.rs (target/release/deps/scram_mocus_oracle-9a991ac5606295f1)
+
+running 6 tests
+test generated_cut_sets_match_the_ones_scram_found ... ok
+test the_unported_and_the_malformed_are_refused_not_guessed ... ok
+test generated_cut_sets_are_minimal_by_construction_not_by_luck ... ok
+test ranking_generated_cut_sets_reproduces_scrams_importance_factors ... ok
+test quantifying_generated_cut_sets_reproduces_scrams_totals ... ok
+test truncating_by_order_drops_exactly_the_long_cut_sets ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.29s
+
+     Running tests/scram_noncoherent.rs (target/release/deps/scram_noncoherent-c0b10795c40c86f3)
+
+running 5 tests
+test das9601_is_beyond_this_algorithm_and_says_so ... ignored, reproduces a measured scale limit; ~57 s. See docs/scram-port-verification.md
+test complement_elimination_handles_the_cases_no_oracle_model_reaches ... ok
+test generated_cut_sets_of_a_non_coherent_tree_match_scram ... ok
+test our_exact_value_exceeds_scrams_because_cut_sets_are_conservative ... ok
+test quantifying_4259_cut_sets_matches_scram ... ok
+
+test result: ok. 4 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/scram_oracle_suite.rs (target/release/deps/scram_oracle_suite-6f40049349591dae)
+
+running 4 tests
+test cut_set_probabilities_sum_to_scrams_rare_event_total ... ok
+test every_model_total_probability_matches_scram ... ok
+test rrw_diverges_from_upstream_only_at_the_singularity ... ok
+test every_importance_factor_matches_scram ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+     Running tests/scram_prime_implicants.rs (target/release/deps/scram_prime_implicants-a393ce03f6b0409d)
+
+running 3 tests
+test prime_implicants_are_tighter_than_cut_sets_on_a_non_coherent_tree ... ok
+test prime_implicants_match_scram ... ok
+test on_a_coherent_tree_prime_implicants_are_the_minimal_cut_sets ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/scram_substitutions.rs (target/release/deps/scram_substitutions-43467906275bff38)
+
+running 6 tests
+test the_declarative_model_totals_match_scrams ... ok
+test the_inferred_substitution_type_matches_the_declared_one ... ok
+test the_declarative_model_importance_is_upstreams_magnitudes_with_the_signs_flipped ... ok
+test products_after_substitution_match_scrams ... ok
+test the_non_declarative_model_has_no_exact_total ... ok
+test the_malformed_are_refused_with_upstreams_reasons ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/scram_uncertainty.rs (target/release/deps/scram_uncertainty-4cb59f49166d69db)
+
+running 6 tests
+test a_model_with_no_deviate_is_refused ... ok
+test the_quantiles_describe_the_same_distribution ... ok
+test the_statistics_are_upstreams_formulas ... ok
+test each_deviate_samples_its_own_distribution ... ok
+test the_monte_carlo_spread_agrees_with_scrams ... ok
+test the_monte_carlo_mean_agrees_with_scrams_within_both_runs_error ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.04s
+

@@ -1,0 +1,261 @@
+    Blocking waiting for file lock on build directory
+   Compiling serde_core v1.0.229
+   Compiling csv-core v0.1.13
+warning: ambiguous glob re-exports
+  --> crates/tampines-steam-tables/src/prelude.rs:24:9
+   |
+24 | pub use crate::interfaces::functional_programming::hs_flash_eqm::*;
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the name `validity_range` in the type namespace is first re-exported here
+25 | pub use crate::interfaces::functional_programming::ph_flash_eqm::*;
+26 | pub use crate::interfaces::functional_programming::ps_flash_eqm::*;
+   |         ---------------------------------------------------------- but the name `validity_range` in the type namespace is also re-exported here
+   |
+   = note: `#[warn(ambiguous_glob_reexports)]` on by default
+
+warning: constant `LIQUID_SNAP_PRESSURE_FRACTION` is never used
+    --> crates/tampines-steam-tables/src/interfaces/functional_programming/rho_h_flash_eqm/mod.rs:1132:7
+     |
+1132 | const LIQUID_SNAP_PRESSURE_FRACTION: f64 = 0.05;
+     |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `tampines-steam-tables` (lib) generated 2 warnings
+   Compiling outram-foam-turbulence-lib v0.1.4 (/home/teddy0/Documents/research/outram-park-backend/crates/outram-foam-turbulence-lib)
+   Compiling outram-foam-multiphase v0.0.4 (/home/teddy0/Documents/research/outram-park-backend/crates/outram-foam-multiphase)
+   Compiling serde v1.0.229
+   Compiling csv v1.4.0
+   Compiling serde_json v1.0.154
+   Compiling serde-xml-rs v0.8.2
+   Compiling outram-foam-appbuilder-lib v0.1.6 (/home/teddy0/Documents/research/outram-park-backend/crates/outram-foam-appbuilder-lib)
+   Compiling openmc-endf-8-depletion-lib-a v1.0.1
+   Compiling chem-eng-real-time-process-control-simulator v0.2.4 (/home/teddy0/Documents/research/outram-park-backend/crates/chem-eng-real-time-process-control-simulator)
+   Compiling openmc-endf-8-depletion-lib-b v1.0.0
+   Compiling outram-mc-libs v0.0.6 (/home/teddy0/Documents/research/outram-park-backend/crates/outram-mc-libs)
+   Compiling teh-o-prke v0.1.7 (/home/teddy0/Documents/research/outram-park-backend/crates/teh-o-prke)
+warning: associated function `new_from_fission` is never used
+   --> crates/outram-mc-libs/src/physics/transport_csg.rs:182:19
+    |
+169 | impl Site {
+    | --------- associated function in this implementation
+...
+182 |     pub(crate) fn new_from_fission(
+    |                   ^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+   Compiling nee_soon v0.0.4 (/home/teddy0/Documents/research/outram-park-backend/crates/nee_soon)
+warning: `outram-mc-libs` (lib) generated 1 warning
+    Finished `release` profile [optimized] target(s) in 1m 05s
+     Running unittests src/lib.rs (target/release/deps/nee_soon-90aaaac4673272f3)
+
+running 126 tests
+test blender_bridge::tests::mc_geometry_maps_a_convex_faceted_plane ... ok
+test htr10_mgxs::cases::tests::the_registry_is_consistent ... ok
+test det_six_factor::tests::deterministic_six_factors_telescope_to_production_over_absorption ... ok
+test blender_bridge::tests::mc_geometry_export_box_and_sphere ... ok
+test htr10_mgxs::cells::tests::rings_out_of_range_are_refused ... ok
+test htr10_mgxs::groups::tests::tally_structure_is_wims69_plus_one ... ok
+test htr10_mgxs::groups::tests::every_collapse_nests_in_the_tally_structure ... ok
+test htr10_mgxs::record::tests::a_record_round_trips_through_its_folder ... ok
+test htr10_mgxs::record::tests::the_index_lists_finished_and_unfinished_cases ... ok
+test htr10_mgxs::run::tests::balance_residual_is_the_worst_group ... ok
+test htr10_mgxs::run::tests::checks_fail_on_the_defect_they_name ... ok
+test htr10_rmc::bed::hex_lattice_tests::every_prefix_carries_the_right_mixture ... ok
+test htr10_rmc::bed::hex_lattice_tests::every_tile_resolves_a_shared_ball_to_one_position ... ok
+test htr10_rmc::bed::hex_lattice_tests::ring_sizes_match_what_the_lattice_expects ... ok
+test htr10_rmc::bed::hex_lattice_tests::the_assignment_is_deterministic ... ok
+test htr10_rmc::bed::hex_lattice_tests::the_fuel_fraction_matches_the_paper_to_within_one_tile ... ok
+test htr10_rmc::bed::seker_cell_tests::a_seker_bed_of_n_layers_is_as_tall_as_the_tabulated_height ... ok
+test htr10_rmc::bed::hex_lattice_tests::a_taller_loading_does_not_reshuffle_the_balls_below ... ok
+test htr10_rmc::bed::seker_cell_tests::every_seker_tile_resolves_a_shared_ball_to_one_position ... ok
+test htr10_rmc::bed::seker_cell_tests::seker_balls_never_overlap_and_touch_where_the_figure_shows ... ok
+test htr10_rmc::bed::seker_cell_tests::the_23_sites_are_every_ball_that_reaches_into_a_tile ... ok
+test htr10_rmc::bed::seker_cell_tests::every_kept_seker_ball_is_whole ... ok
+test htr10_rmc::bed::seker_cell_tests::the_seker_cell_has_the_derived_dimensions ... ok
+test htr10_rmc::control_rod::tests::published_rod_travel_is_consistent ... ok
+test htr10_rmc::control_rod::tests::smeared_rod_composition_follows_the_published_geometry ... ok
+test htr10_rmc::core_design::tests::a_design_that_does_not_nest_is_refused ... ok
+test htr10_rmc::bed::seker_cell_tests::the_seker_bed_reproduces_table_3_per_plane_counts ... ok
+test htr10_mgxs::cells::tests::single_pebble_holds_the_core_pebble_at_simple_cubic_packing ... ok
+test htr10_rmc::core_design::tests::the_default_design_is_the_record_model ... ok
+test htr10_rmc::core_design::tests::the_default_design_builds_the_geometry_unchanged ... FAILED
+test htr10_rmc::core_design::tests::inserted_rods_are_in_the_assembled_geometry ... ok
+test htr10_rmc::core_design::tests::the_design_fuel_fraction_and_particle_count_are_built ... ok
+test htr10_rmc::data::tests::full_rod_metal_places_real_nickel_and_iron ... ok
+test htr10_rmc::data::tests::every_component_names_a_planned_slot ... ok
+test htr10_rmc::data::tests::helium_coolant_is_natural_helium_at_one_atmosphere ... ok
+test htr10_rmc::data::tests::natural_carbon_is_conserved_and_split_in_every_material ... ok
+test htr10_rmc::data::tests::simplified_rod_metal_maps_atom_for_atom ... ok
+test htr10_rmc::data::tests::the_endf7_arm_keeps_elemental_natural_carbon ... ok
+test htr10_rmc::data::tests::the_full_case_is_refused_until_gh339_is_fixed ... ok
+test htr10_rmc::data::tests::thermal_laws_bind_to_both_carbon_isotopes ... ok
+test htr10_rmc::data_jobs::tests::every_slot_has_exactly_one_job_for_its_tape_and_law ... ok
+test htr10_rmc::data::tests::tapes_resolve_from_a_chosen_folder_by_identity ... ok
+test htr10_rmc::data_jobs::tests::the_jobs_path_builds_the_whole_core_set ... ignored, processes every HTR-10 tape twice (minutes); run with --ignored
+test htr10_rmc::explicit_bed::tests::a_centre_outside_the_container_is_refused - should panic ... ok
+test htr10_rmc::explicit_bed::tests::a_dem_csv_is_read_and_cut_to_a_ball_count ... ok
+test htr10_rmc::data::load_failed_reason_tests::load_failed_carries_the_njoy_reason ... ok
+test htr10_rmc::explicit_bed::tests::a_fuel_zone_cutting_overlap_is_refused - should panic ... ok
+test htr10_mgxs::cells::tests::seker_clusters_hold_seker_packing_and_the_core_fuel_rule ... ok
+test htr10_rmc::explicit_bed::tests::an_overlapping_pair_is_split_by_its_bisector ... ok
+test htr10_rmc::explicit_bed::tests::a_seker_bed_rebuilt_from_its_centres_is_the_same_bed ... ok
+test htr10_rmc::explicit_bed::tests::the_lens_volume_has_the_right_limits ... ok
+test htr10_rmc::explicit_bed::tests::the_paper_assignment_leaves_the_conus_dummy ... ok
+test htr10_rmc::keff_vs_height::script::tests::script_is_deterministic_and_carries_no_timing ... ok
+test htr10_rmc::keff_vs_height::script::tests::table_reports_residual_with_sigma ... ok
+test htr10_rmc::keff_vs_height::tests::curve_reads_rows_exactly_and_refuses_to_extrapolate ... ok
+test htr10_rmc::keff_vs_height::tests::every_sweep_height_has_all_three_references ... ok
+test htr10_rmc::keff_vs_height::tests::statistics_are_the_issue_501_settings ... ok
+test htr10_rmc::reflector::tests::boronated_and_plain_bricks_are_distinguishable ... ok
+test htr10_rmc::reflector::tests::every_zone_is_listed_exactly_once_except_the_cavity ... ok
+test htr10_rmc::reflector::tests::no_zone_is_denser_than_solid_reflector_graphite ... ok
+test htr10_rmc::reflector_geometry::channel_layout_tests::the_channel_layout_is_sekers_fig_4 ... ok
+test htr10_rmc::reflector_geometry::channel_layout_tests::the_hot_gas_duct_clears_every_channel_at_its_height ... ok
+test htr10_rmc::tests::every_boron_bearing_material_carries_natural_b11 ... ok
+test htr10_rmc::explicit_bed::tests::a_liggghts_bed_builds_with_one_cell_per_point ... ok
+test htr10_rmc::tests::every_stated_quantity_closes_against_its_derivation ... ok
+test htr10_rmc::tests::every_piece_of_a_built_ball_has_one_identity ... ok
+test htr10_rmc::explicit_bed::tests::the_dem_bed_cut_to_the_lattice_ball_count_is_the_beds_view_cut ... ok
+test htr10_rmc::tests::no_two_balls_of_the_built_bed_overlap ... ok
+test htr10_rmc::tests::the_built_bed_is_57_percent_fuel_balls_and_the_conus_none ... ok
+test htr10_rmc::tests::the_cell_predicts_the_stated_core_inventory_without_being_told_it ... ok
+test htr10_rmc::tests::the_default_graphite_law_is_30p_reactor_graphite ... ok
+test htr10_rmc::tests::the_fuel_moderator_split_partitions_the_core ... ok
+test htr10_rmc::tests::the_layer_height_is_two_close_packed_layers ... ok
+test htr10_rmc::tests::the_mcnp_columns_reproduce_the_papers_relative_differences ... ok
+test htr10_rmc::tests::the_reconstructed_cell_is_a_real_packing ... ok
+test htr10_rmc::tests::the_reference_curve_implies_a_critical_height ... ok
+test htr10_rmc::tests::the_reference_curve_is_monotonic_and_brackets_criticality ... ok
+test htr10_rmc::tests::the_built_triso_lattice_holds_the_stated_8335_particles ... ok
+test htr10_rmc::tests::the_reference_is_matched_to_the_bed_by_ball_count ... ok
+test httr::tests::a_kernel_in_b04_layer_1_is_6_7_percent ... ok
+test httr::tests::a_rod_holds_r1s_188_58_g_of_uranium ... ok
+test httr::tests::a_rotated_column_carries_its_bp_pins_rotated ... ok
+test httr::tests::material_totals_are_r1s_tables ... ok
+test httr::tests::no_point_of_the_model_is_lost ... ok
+test httr::tests::the_centre_rod_sits_at_its_critical_height ... ok
+test httr::tests::the_compact_kernel_fraction_is_the_specified_one ... ok
+test httr::tests::the_core_map_has_rings_a_to_e ... ok
+test httr::tests::the_layer_pattern_holds_333_whole_particles ... ok
+test mgxs::tests::a_library_without_sigma_must_balance_exactly ... ok
+test mgxs::tests::a_small_balance_residual_is_a_large_absorption_error ... ok
+test mgxs::tests::bin_count_mismatch_is_rejected ... ok
+test mgxs::tests::collapse_conserves_rates_and_k_inf ... ok
+test mgxs::tests::collapse_refuses_a_structure_that_does_not_nest ... ok
+test mgxs::tests::condense_divides_the_right_rate_by_the_right_flux ... ok
+test mgxs::tests::condense_estimates_standard_errors_from_the_bins ... ok
+test mgxs::tests::condense_reads_scatter_only_and_derived_libraries_carry_it ... ok
+test mgxs::tests::descending_energy_view_reverses_both_matrix_axes ... ok
+test mgxs::tests::group_structure_rejects_non_ascending_edges ... ok
+test mgxs::tests::k_inf_counts_the_nxn_gain ... ok
+test mgxs::tests::library_round_trips_through_json_and_validates_edges ... ok
+test mgxs::tests::multiplicity_is_attached_by_default_and_ablated_by_name ... ok
+test mgxs::tests::no_scatter_only_is_refused_unless_ablated ... ok
+test mgxs::tests::non_fissile_zero_chi_converts_but_fissile_zero_chi_does_not ... ok
+test mgxs::tests::nu_scatter_below_scatter_is_refused ... ok
+test mgxs::tests::rebalancing_moves_the_residual_off_the_absorption ... ok
+test mgxs::tests::removal_and_diffusion_follow_their_definitions ... ok
+test mgxs::tests::residual_is_judged_against_the_standard_errors ... ok
+test mgxs::tests::scatter_matrix_is_not_transposed ... ok
+test mgxs::tests::to_physics_mg_reverses_groups_and_flattens_row_major ... ok
+test mgxs::tests::zero_flux_group_yields_zeros_not_nan ... ok
+test rod_insertion::tests::one_over_v_average_reproduces_the_law ... ok
+test rod_insertion::tests::rod_insertion_lowers_k_and_preserves_the_balance ... ok
+test sim::tests::atom_density_formula_is_correct ... ok
+test htr10_rmc::tests::the_axial_stack_matches_terry_at_every_loading ... ok
+test sim::tests::build_materials_dedups_and_indexes ... ok
+test sim::tests::authored_sphere_csg_runs_and_is_near_critical ... ok
+test sim::tests::cell_flux_tally_accumulates ... ok
+test sim::tests::godiva_bare_sphere_is_near_critical ... ok
+test sim::tests::no_materials_is_an_error ... ok
+test tests::prompt_excursion_model_matches_direct_teh_o_prke_construction ... ok
+test xin_wang_sp3_workflow::tests::every_stage_run_is_a_beaded_placeholder ... ok
+test xin_wang_sp3_workflow::tests::fig_4_29_reference_curve_is_loaded_and_below_safety_limit ... ok
+test xin_wang_sp3_workflow::tests::stage_three_targets_sp3_neutronics ... ok
+test xin_wang_sp3_workflow::tests::workflow_exposes_eight_group_structure ... ok
+test htr10_rmc::tests::the_sampled_bed_has_the_papers_packing_and_fuel_ball_fraction ... ok
+test htr10_rmc::data_jobs::tests::the_jobs_path_builds_the_loaders_nuclides ... ok
+
+failures:
+
+---- htr10_rmc::core_design::tests::the_default_design_builds_the_geometry_unchanged stdout ----
+
+thread 'htr10_rmc::core_design::tests::the_default_design_builds_the_geometry_unchanged' (847439) panicked at crates/nee_soon/src/htr10_rmc/core_design.rs:190:13:
+assertion `left == right` failed
+  left: (43452, 22974, 1502)
+ right: (43445, 22974, 1502)
+
+
+failures:
+    htr10_rmc::core_design::tests::the_default_design_builds_the_geometry_unchanged
+
+test result: FAILED. 124 passed; 1 failed; 1 ignored; 0 measured; 0 filtered out; finished in 26.27s
+
+error: test failed, to rerun pass `-p nee_soon --lib`
+     Running tests/coupling_api.rs (target/release/deps/coupling_api-6cc3b0fc7f03f820)
+
+running 2 tests
+test defaults_are_usable_and_failures_are_actionable ... ok
+test the_documented_three_call_path_works ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.39s
+
+     Running tests/direct_coupling_steady_state.rs (target/release/deps/direct_coupling_steady_state-7e2fa4df47ff7622)
+
+running 2 tests
+test a_non_converging_solve_reports_its_residuals ... ok
+test monte_carlo_and_genfoam_reach_a_coupled_steady_state ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.71s
+
+     Running tests/htr10_correct_physics_is_default.rs (target/release/deps/htr10_correct_physics_is_default-31ac04da5d088a44)
+
+running 2 tests
+test the_default_htr10_data_configuration_is_the_correct_physics ... ok
+test the_default_materials_carry_c13_helium_and_nickel ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/htr10_geometry_integrity.rs (target/release/deps/htr10_geometry_integrity-463e3025209ccadb)
+
+running 4 tests
+test the_bed_reproduces_the_published_ball_inventory ... ok
+test the_reflector_covers_every_zone_the_model_can_reference ... ok
+test the_tile_assignment_agrees_with_the_continuum_split ... ok
+test the_triso_array_matches_the_adjudicated_geometry ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+     Running tests/htr10_single_pebble_vs_dh_universe.rs (target/release/deps/htr10_single_pebble_vs_dh_universe-b451ab5698aa9ac7)
+
+running 1 test
+test csg_single_pebble_matches_the_dh_universe_pebble has been running for over 60 seconds
+test csg_single_pebble_matches_the_dh_universe_pebble ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 431.76s
+
+     Running tests/mc_to_genfoam_kinf.rs (target/release/deps/mc_to_genfoam_kinf-68aaaebc4bdd08d9)
+
+running 1 test
+test genfoam_reproduces_the_monte_carlo_kinf_from_its_own_mgxs ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.36s
+
+     Running tests/mgxs_from_monte_carlo.rs (target/release/deps/mgxs_from_monte_carlo-ab44985d7aeff566)
+
+running 2 tests
+test mgxs_from_a_monte_carlo_run_satisfies_neutron_balance ... ok
+test condensed_constants_run_through_the_multigroup_kernel ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.71s
+
+     Running tests/mgxs_multiplicity_infinite_medium.rs (target/release/deps/mgxs_multiplicity_infinite_medium-50a05a67bf384233)
+
+running 1 test
+test multiplicity_closes_the_infinite_medium_eigenvalue ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 41.24s
+
+error: 1 target failed:
+    `-p nee_soon --lib`

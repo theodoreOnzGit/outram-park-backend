@@ -1,0 +1,39 @@
+    Updating crates.io index
+   Packaging outram-foam-cli v0.0.1 (/home/teddy0/Documents/research/outram-park-backend/crates/outram-foam-cli)
+    Updating crates.io index
+    Packaged 37 files, 367.0KiB (116.0KiB compressed)
+   Verifying outram-foam-cli v0.0.1 (/home/teddy0/Documents/research/outram-park-backend/crates/outram-foam-cli)
+ Downloading crates ...
+  Downloaded outram-foam-mesh v0.1.2
+  Downloaded outram-foam-appbuilder-lib v0.1.6
+   Compiling syn v3.0.9
+   Compiling serde_core v1.0.229
+   Compiling utf8parse v0.2.2
+   Compiling anstyle v1.0.14
+   Compiling anstyle-parse v1.0.0
+   Compiling serde v1.0.229
+   Compiling colorchoice v1.0.5
+   Compiling is_terminal_polyfill v1.70.2
+   Compiling anstyle-query v1.1.5
+   Compiling anstream v1.0.0
+   Compiling heck v0.5.0
+   Compiling strsim v0.11.1
+   Compiling clap_lex v1.1.1
+   Compiling clap_builder v4.6.7
+   Compiling thiserror-impl v2.0.21
+   Compiling serde_derive v1.0.229
+   Compiling clap_derive v4.6.7
+   Compiling thiserror v2.0.21
+   Compiling outram-foam-basic-lib v0.1.7
+   Compiling clap v4.6.7
+   Compiling outram-foam-turbulence-lib v0.1.4
+   Compiling outram-foam-multiphase v0.0.4
+   Compiling outram-foam-mesh v0.1.2
+   Compiling outram-foam-appbuilder-lib v0.1.6
+   Compiling outram-foam-cli v0.0.1 (/home/teddy0/Documents/research/outram-park-backend/target/package/outram-foam-cli-0.0.1)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 10.07s
+   Uploading outram-foam-cli v0.0.1 (/home/teddy0/Documents/research/outram-park-backend/crates/outram-foam-cli)
+    Uploaded outram-foam-cli v0.0.1 to registry `crates-io`
+note: waiting for outram-foam-cli v0.0.1 to be available at registry `crates-io`
+help: you may press ctrl-c to skip waiting; the crate should be available shortly
+   Published outram-foam-cli v0.0.1 at registry `crates-io`

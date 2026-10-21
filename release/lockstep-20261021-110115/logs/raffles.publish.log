@@ -1,0 +1,16 @@
+    Updating crates.io index
+   Packaging raffles v0.0.3 (/home/teddy0/Documents/research/outram-park-backend/crates/raffles)
+    Updating crates.io index
+    Packaged 101 files, 2.7MiB (755.3KiB compressed)
+   Verifying raffles v0.0.3 (/home/teddy0/Documents/research/outram-park-backend/crates/raffles)
+   Compiling num-traits v0.2.19
+   Compiling xml-rs v0.8.29
+   Compiling uom v0.38.0
+   Compiling petir v0.0.3
+   Compiling raffles v0.0.3 (/home/teddy0/Documents/research/outram-park-backend/target/package/raffles-0.0.3)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 10.83s
+   Uploading raffles v0.0.3 (/home/teddy0/Documents/research/outram-park-backend/crates/raffles)
+    Uploaded raffles v0.0.3 to registry `crates-io`
+note: waiting for raffles v0.0.3 to be available at registry `crates-io`
+help: you may press ctrl-c to skip waiting; the crate should be available shortly
+   Published raffles v0.0.3 at registry `crates-io`
