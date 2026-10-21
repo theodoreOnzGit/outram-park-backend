@@ -1,0 +1,444 @@
+   Compiling outram-foam-multiphase v0.0.4 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/crates/outram-foam-multiphase)
+   Compiling outram-foam-turbulence-lib v0.1.4 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/crates/outram-foam-turbulence-lib)
+   Compiling outram-foam-appbuilder-lib v0.1.6 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/crates/outram-foam-appbuilder-lib)
+    Finished `release` profile [optimized] target(s) in 12.70s
+     Running unittests src/lib.rs (target/release/deps/outram_foam_appbuilder_lib-35a24d93a46a3339)
+
+running 320 tests
+test case_runner::tests::non_end_time_stop_controls_run_no_steps ... ok
+test case_runner::tests::missing_case_directory_is_an_io_error ... ok
+test case_runner::tests::solver_names_accept_snake_case_and_are_case_insensitive ... ok
+test case_runner::tests::solver_names_round_trip ... ok
+test case_runner::tests::only_the_incompressible_and_density_based_solvers_are_case_wired ... ok
+test case_runner::tests::time_formatting_matches_openfoam_directory_names ... ok
+test case_runner::tests::time_span_lifts_start_and_end ... ok
+test case_runner::tests::time_span_of_a_default_control_is_runnable ... ok
+test case_runner::tests::unwired_solvers_refuse_before_reading_the_case ... ok
+test genfoam::common::interpolate_table::tests::build_validation ... ok
+test genfoam::common::interpolate_table::tests::error_policy_rejects_out_of_range ... ok
+test genfoam::common::interpolate_table::tests::extrapolation_extends_linearly ... ok
+test genfoam::common::interpolate_table::tests::fixed_clamps ... ok
+test genfoam::common::interpolate_table::tests::integral_cartesian_trapezoid ... ok
+test genfoam::common::interpolate_table::tests::integral_step_rectangles ... ok
+test genfoam::common::interpolate_table::tests::linear_between_knots ... ok
+test genfoam::common::interpolate_table::tests::next_and_last_point ... ok
+test genfoam::common::interpolate_table::tests::step_holds_previous_value ... ok
+test genfoam::common::time_profile::tests::constant_profile_is_flat ... ok
+test genfoam::common::time_profile::tests::length_mismatch_rejected ... ok
+test genfoam::common::time_profile::tests::non_ascending_times_rejected ... ok
+test genfoam::common::time_profile::tests::start_time_offset_shifts_query ... ok
+test genfoam::common::time_profile::tests::table_clamps_out_of_range ... ok
+test genfoam::common::time_profile::tests::table_linear_interpolation ... ok
+test genfoam::common::time_profile::tests::too_few_points_rejected ... ok
+test genfoam::multi_region::coupling_fields::tests::coupling_conserves_total_power ... ok
+test genfoam::multi_region::coupling_fields::tests::fuel_temperature_feedback_maps_back ... ok
+test genfoam::multi_region::coupling_fields::tests::duplicate_region_rejected ... ok
+test genfoam::multi_region::coupling_fields::tests::interpolate_these_restricts_to_named_regions ... ok
+test genfoam::multi_region::coupling_fields::tests::missing_field_reported ... ok
+test genfoam::multi_region::mesh_region::tests::coupled_power_conservation_across_meshes ... ok
+test genfoam::multi_region::mesh_region::tests::coupled_steady_state_negative_feedback ... ok
+test genfoam::multi_region::mesh_to_mesh::tests::accumulate_adds_onto_target ... ok
+test genfoam::multi_region::mesh_to_mesh::tests::cell_volume_weight_conserves_integral ... ok
+test genfoam::multi_region::mesh_region::tests::mesh_doppler_feedback_lowers_keff ... ok
+test genfoam::multi_region::mesh_to_mesh::tests::conformal_identity_reproduces_field ... ok
+test genfoam::multi_region::mesh_to_mesh::tests::inverse_distance_tracks_linear ... ok
+test genfoam::multi_region::mesh_to_mesh::tests::vector_conformal_identity ... ok
+test genfoam::multi_region::outer_iteration::tests::picard_loop_converges_consistently ... ok
+test genfoam::multi_region::outer_iteration::tests::prescribed_region_is_inert ... ok
+test genfoam::multi_region::rbf_mapping::tests::build_rejects_collinear_samples ... ok
+test genfoam::multi_region::rbf_mapping::tests::build_rejects_empty ... ok
+test genfoam::multi_region::rbf_mapping::tests::interpolates_samples_exactly ... ok
+test genfoam::multi_region::rbf_mapping::tests::linear_reproduction_exact ... ok
+test genfoam::multi_region::rbf_mapping::tests::map_onto_column_linear ... ok
+test genfoam::multi_region::reactivity_feedback::tests::multiterm_superposition_and_log_law ... ok
+test genfoam::multi_region::reactivity_feedback::tests::spatial_profile_negative_feedback ... ok
+test genfoam::multi_region::reactivity_feedback::tests::uniform_field_reduces_to_lumped ... ok
+test genfoam::neutronics::albedo::tests::a_non_physical_diffusion_coefficient_degrades_to_vacuum ... ok
+test genfoam::neutronics::albedo::tests::the_albedo_coefficient_reproduces_its_two_limits ... ok
+test genfoam::neutronics::albedo::tests::the_discretised_weight_matches_the_analytic_robin_face_value ... ok
+test genfoam::neutronics::albedo::tests::the_limits_reduce_to_zero_gradient_and_to_fixed_value ... ok
+test genfoam::neutronics::albedo::tests::the_weight_tracks_the_groups_own_diffusion_coefficient ... ok
+test genfoam::neutronics::diffusion::precursor_drift::tests::a_zero_velocity_field_reproduces_the_chi_eff_collapse ... ok
+test genfoam::multi_region::outer_iteration::tests::negative_feedback_reduces_power ... ok
+test genfoam::neutronics::diffusion::precursor_drift::tests::drift_conserves_the_total_delayed_source ... ok
+test genfoam::neutronics::diffusion::precursor_drift::tests::precursor_diffusion_smooths_a_cosine_source_instead_of_amplifying_it ... ok
+test genfoam::neutronics::diffusion::tests::keff_bare_slab_critical_buckling ... ok
+test genfoam::neutronics::diffusion::precursor_drift::tests::drift_lowers_k_eff_and_the_effect_grows_with_the_flow ... ok
+test genfoam::neutronics::diffusion::tests::kinf_infinite_medium ... ok
+test genfoam::neutronics::diffusion::tests::keff_bare_slab_mesh_convergence ... ok
+test genfoam::neutronics::diffusion::tests::null_transient_holds_steady ... ok
+test genfoam::neutronics::point_kinetics::tests::mismatched_group_lengths_error ... ok
+test genfoam::neutronics::point_kinetics::tests::non_positive_time_step_error ... ok
+test genfoam::neutronics::diffusion::tests::warm_start_reaches_the_same_k_in_fewer_iterations ... ok
+test genfoam::neutronics::point_kinetics::tests::reactivity_sign_moves_power_correctly ... ok
+test genfoam::neutronics::point_kinetics::tests::total_delayed_fraction_sums_groups ... ok
+test genfoam::neutronics::sn::quadrature::tests::level_symmetric_sets_reproduce_sphere_moments ... ok
+test genfoam::neutronics::sn::tests::scaffold_reports_not_implemented ... ok
+test genfoam::neutronics::point_kinetics::tests::null_transient_holds_steady ... ok
+test genfoam::neutronics::sn::tests::sn_kinf_no_scatter ... ok
+test genfoam::neutronics::sn::tests::sn_kinf_with_scatter ... ok
+test genfoam::neutronics::sn::tests::sn_order_convergence ... ok
+test genfoam::neutronics::sp3::tests::approaches_diffusion_as_slab_grows ... ok
+test genfoam::neutronics::sp3::tests::differs_on_small_slab ... ok
+test genfoam::neutronics::sp3::tests::kinf_reduces_to_diffusion ... ok
+test genfoam::neutronics::sp3::tests::null_transient_holds_steady ... ok
+test genfoam::neutronics::sp3::tests::scaffold_reports_not_implemented ... ok
+test genfoam::neutronics::state::tests::keff_round_trips_through_uom ... ok
+test genfoam::neutronics::state::tests::new_allocates_group_fields_with_unit_flux ... ok
+test genfoam::neutronics::tests::dispatch_kind_and_keff_across_variants ... ok
+test genfoam::neutronics::tests::point_kinetics_model_steps ... ok
+test genfoam::neutronics::tests::scaffolds_report_not_implemented ... ok
+test genfoam::neutronics::xs::tests::do_not_parametrize_suppresses_feedback ... ok
+test genfoam::neutronics::xs::tests::doppler_log_interpolation_hits_arithmetic_mean_at_geometric_mean_temperature ... ok
+test genfoam::neutronics::xs::tests::one_energy_constant_parameter_falls_back_to_reference ... ok
+test genfoam::neutronics::xs::tests::one_energy_reproduces_nodes ... ok
+test genfoam::neutronics::xs::tests::one_energy_two_point_is_linear ... ok
+test genfoam::neutronics::xs::tests::precursor_constants_sum_beta ... ok
+test genfoam::neutronics::xs::tests::rbf_basis_function_closed_forms ... ok
+test genfoam::neutronics::xs::tests::reference_group_constants_match_input ... ok
+test genfoam::neutronics::xs::tests::rejects_length_mismatch ... ok
+test genfoam::neutronics::xs::tests::rejects_missing_reference_variable ... ok
+test genfoam::neutronics::xs::tests::rejects_non_reference_first_state ... ok
+test genfoam::neutronics::xs::tests::rejects_out_of_range_indices ... ok
+test genfoam::neutronics::xs::tests::scattering_matrix_reproduces_reference ... ok
+test genfoam::thermal_hydraulics::boundary_conditions::blackbody_radiation::tests::face_temperature_from_flux_matches_stefan_boltzmann_closed_form ... ok
+test genfoam::thermal_hydraulics::boundary_conditions::blackbody_radiation::tests::fourier_heat_flux_matches_hand_calculation ... ok
+test genfoam::thermal_hydraulics::boundary_conditions::blackbody_radiation::tests::update_face_temperature_matches_composed_half_steps ... ok
+test genfoam::thermal_hydraulics::boundary_conditions::blackbody_radiation::tests::update_face_temperature_skips_uninitialised_cell_temperature ... ok
+test genfoam::thermal_hydraulics::boundary_conditions::time_field_table::tests::clamps_outside_tabulated_range ... ok
+test genfoam::thermal_hydraulics::boundary_conditions::time_field_table::tests::inconsistent_row_length_rejected ... ok
+test genfoam::thermal_hydraulics::boundary_conditions::time_field_table::tests::length_mismatch_rejected ... ok
+test genfoam::thermal_hydraulics::boundary_conditions::time_field_table::tests::linear_interpolation_between_rows ... ok
+test genfoam::thermal_hydraulics::boundary_conditions::time_field_table::tests::too_few_time_points_rejected ... ok
+test genfoam::thermal_hydraulics::boundary_conditions::time_field_table::tests::zero_face_table_still_validates_time_axis ... ok
+test genfoam::thermal_hydraulics::boundary_conditions::velocity_rundown::tests::holds_reference_velocity_before_and_at_trip_time ... ok
+test genfoam::thermal_hydraulics::boundary_conditions::velocity_rundown::tests::linear_ramp_down_to_zero ... ok
+test genfoam::thermal_hydraulics::boundary_conditions::velocity_rundown::tests::power_law_rundown_matches_hand_calculation ... ok
+test genfoam::thermal_hydraulics::closures::ff_drag::tests::autruffe_floor_clamp_at_pure_vapour ... ok
+test genfoam::thermal_hydraulics::closures::ff_drag::tests::bestion_co_equals_one_skips_velocity_slip_factor ... ok
+test genfoam::thermal_hydraulics::closures::ff_drag::tests::bestion_trace_reproduces_formula ... ok
+test genfoam::thermal_hydraulics::closures::ff_drag::tests::kaiser74_at_x_equals_one ... ok
+test genfoam::thermal_hydraulics::closures::ff_drag::tests::lockhart_martinelli_chisholm_limits ... ok
+test genfoam::thermal_hydraulics::closures::ff_drag::tests::lottes_flinn_homogeneous_form ... ok
+test genfoam::thermal_hydraulics::closures::ff_drag::tests::no_kazimi_geometry_coefficient ... ok
+test genfoam::thermal_hydraulics::closures::ff_drag::tests::schiller_naumann_matches_classical_times_1_5 ... ok
+test genfoam::thermal_hydraulics::closures::ff_drag::tests::single_phase_clamp_thresholds ... ok
+test genfoam::thermal_hydraulics::closures::ff_drag::tests::wallis_pure_vapour_endpoint ... ok
+test genfoam::thermal_hydraulics::closures::ff_drag::tests::x_clamp_port_correctness ... ok
+test genfoam::thermal_hydraulics::closures::fs_drag::tests::algebraic_fits_reproduce_formulae ... ok
+test genfoam::thermal_hydraulics::closures::fs_drag::tests::baxi_dalle_donne_geometry_coefficients ... ok
+test genfoam::thermal_hydraulics::closures::fs_drag::tests::bundle_blend_is_continuous_at_re_400 ... ok
+test genfoam::thermal_hydraulics::closures::fs_drag::tests::churchill_matches_colebrook_white_smooth_pipe ... ok
+test genfoam::thermal_hydraulics::closures::fs_drag::tests::churchill_recovers_laminar_hagen_poiseuille ... ok
+test genfoam::thermal_hydraulics::closures::fs_drag::tests::engel_laminar_constant_is_99 ... ok
+test genfoam::thermal_hydraulics::closures::heat_transfer::tests::basu_onb_nonzero_htc_reproduces_formula ... ok
+test genfoam::thermal_hydraulics::closures::heat_transfer::tests::basu_onb_zero_htc_limit_is_saturation_temperature ... ok
+test genfoam::thermal_hydraulics::closures::heat_transfer::tests::chen_flow_enhancement_factor ... ok
+test genfoam::thermal_hydraulics::closures::heat_transfer::tests::chen_suppression_factor ... ok
+test genfoam::thermal_hydraulics::closures::heat_transfer::tests::cobra_tf_flow_enhancement_and_mixture_reynolds_number ... ok
+test genfoam::thermal_hydraulics::closures::heat_transfer::tests::cobra_tf_suppression_factor_and_limits ... ok
+test genfoam::thermal_hydraulics::closures::heat_transfer::tests::constant_chf_passes_through ... ok
+test genfoam::thermal_hydraulics::closures::heat_transfer::tests::constant_subcooled_boiling_fraction_passes_through ... ok
+test genfoam::thermal_hydraulics::closures::heat_transfer::tests::ff_nusselt_hydraulic_diameter_floor ... ok
+test genfoam::thermal_hydraulics::closures::heat_transfer::tests::ff_nusselt_reproduces_source_formula ... ok
+test genfoam::thermal_hydraulics::closures::heat_transfer::tests::gorenflo_delta_t_and_heat_flux_forms_are_self_consistent ... ok
+test genfoam::thermal_hydraulics::closures::heat_transfer::tests::gorenflo_reproduces_reference_state ... ok
+test genfoam::thermal_hydraulics::closures::heat_transfer::tests::leidenfrost_groeneveld_stewart_continuous_at_9_mpa ... ok
+test genfoam::thermal_hydraulics::closures::heat_transfer::tests::leidenfrost_groeneveld_stewart_low_pressure_branch ... ok
+test genfoam::thermal_hydraulics::closures::heat_transfer::tests::multi_regime_below_saturation_high_void_fraction_is_full_condensation ... ok
+test genfoam::thermal_hydraulics::closures::heat_transfer::tests::multi_regime_below_saturation_low_void_fraction_ignores_condensation ... ok
+test genfoam::thermal_hydraulics::closures::heat_transfer::tests::multi_regime_below_saturation_no_condensation_model ... ok
+test genfoam::thermal_hydraulics::closures::heat_transfer::tests::multi_regime_between_saturation_and_onb_is_plain_convection ... ok
+test genfoam::thermal_hydraulics::closures::heat_transfer::tests::multi_regime_condensation_blend_matches_literal_upstream_formula ... ok
+test genfoam::thermal_hydraulics::closures::heat_transfer::tests::multi_regime_nucleate_boiling_flux_superposition_n1 ... ok
+test genfoam::thermal_hydraulics::closures::heat_transfer::tests::multi_regime_nucleate_boiling_flux_superposition_n2 ... ok
+test genfoam::thermal_hydraulics::closures::heat_transfer::tests::multi_regime_nucleate_boiling_htc_superposition ... ok
+test genfoam::thermal_hydraulics::closures::heat_transfer::tests::multi_regime_nucleate_boiling_with_suppression_factor ... ok
+test genfoam::thermal_hydraulics::closures::heat_transfer::tests::nusselt_and_wall_series_combination_and_limit ... ok
+test genfoam::thermal_hydraulics::closures::heat_transfer::tests::nusselt_peclet_fast_path_matches_general_form ... ok
+test genfoam::thermal_hydraulics::closures::heat_transfer::tests::nusselt_reproduces_dittus_boelter ... ok
+test genfoam::thermal_hydraulics::closures::heat_transfer::tests::nusselt_wall_fluid_temperature_ratio_term ... ok
+test genfoam::thermal_hydraulics::closures::heat_transfer::tests::nusselt_zero_b_and_missing_temperatures_are_no_ops ... ok
+test genfoam::thermal_hydraulics::closures::heat_transfer::tests::rezkallah_sims_flow_enhancement_factor ... ok
+test genfoam::thermal_hydraulics::closures::heat_transfer::tests::saha_zuber_deeply_subcooled_clamps_to_zero ... ok
+test genfoam::thermal_hydraulics::closures::heat_transfer::tests::saha_zuber_subcooled_boiling_fraction_matches_published_formula ... ok
+test genfoam::thermal_hydraulics::closures::heat_transfer::tests::shah_coefficient_blend_matches_literature_endpoints_and_is_continuous ... ok
+test genfoam::thermal_hydraulics::closures::heat_transfer::tests::shah_nonpositive_delta_t_returns_zero ... ok
+test genfoam::thermal_hydraulics::closures::heat_transfer::tests::superposition_nucleate_boiling_is_linear_combination ... ok
+test genfoam::thermal_hydraulics::closures::interfacial::tests::annular_cutoff_branch_has_a_documented_jump_discontinuity ... ok
+test genfoam::thermal_hydraulics::closures::interfacial::tests::bubble_diameter_reproduces_ideal_gas_scaling ... ok
+test genfoam::thermal_hydraulics::closures::interfacial::tests::contact_partition_endpoints_and_composition ... ok
+test genfoam::thermal_hydraulics::closures::interfacial::tests::dispersion_fluid1_fluid2_resolution_and_composition ... ok
+test genfoam::thermal_hydraulics::closures::interfacial::tests::film_diameter_reproduces_endpoint_values ... ok
+test genfoam::thermal_hydraulics::closures::interfacial::tests::gap_interior_blends_linearly_summing_to_one ... ok
+test genfoam::thermal_hydraulics::closures::interfacial::tests::gap_junction_sharp_edges_are_reproduced_faithfully ... ok
+test genfoam::thermal_hydraulics::closures::interfacial::tests::gap_quadratic_blend_matches_documented_formula ... ok
+test genfoam::thermal_hydraulics::closures::interfacial::tests::outermost_regimes_extend_to_the_sentinel_not_their_declared_edge ... ok
+test genfoam::thermal_hydraulics::closures::interfacial::tests::outermost_window_sentinel_does_not_yield_nan ... ok
+test genfoam::thermal_hydraulics::closures::interfacial::tests::rod_bundle_geometry_constructors_reproduce_formulae ... ok
+test genfoam::thermal_hydraulics::closures::interfacial::tests::single_regime_map_claims_every_parameter ... ok
+test genfoam::thermal_hydraulics::closures::interfacial::tests::spherical_and_annular_reproduce_zuber_limit ... ok
+test genfoam::thermal_hydraulics::closures::interfacial::tests::spherical_cutoff_branch_is_continuous ... ok
+test genfoam::thermal_hydraulics::closures::interfacial::tests::virtual_mass_coefficient_pass_through ... ok
+test genfoam::thermal_hydraulics::closures::phase_change::tests::browning_potter_matches_ln_p_sat_formula ... ok
+test genfoam::thermal_hydraulics::closures::phase_change::tests::browning_potter_t_sat_round_trip_is_approximate ... ok
+test genfoam::thermal_hydraulics::closures::phase_change::tests::constant_temperature_saturation_port_correctness ... ok
+test genfoam::thermal_hydraulics::closures::phase_change::tests::fink_leibowitz_matches_sodium_reference_and_clamps ... ok
+test genfoam::thermal_hydraulics::closures::phase_change::tests::forced_constant_ignores_heat_fluxes ... ok
+test genfoam::thermal_hydraulics::closures::phase_change::tests::from_thermophysical_properties_is_exact_subtraction ... ok
+test genfoam::thermal_hydraulics::closures::phase_change::tests::heat_driven_conduction_limited_matches_formula ... ok
+test genfoam::thermal_hydraulics::closures::phase_change::tests::heat_driven_mixed_driven_matches_formula ... ok
+test genfoam::thermal_hydraulics::closures::phase_change::tests::heat_driven_one_phase_driven_selects_correct_flux ... ok
+test genfoam::thermal_hydraulics::closures::phase_change::tests::heat_driven_two_phase_driven_matches_formula ... ok
+test genfoam::thermal_hydraulics::closures::phase_change::tests::phase_change_rate_helpers_round_trip ... ok
+test genfoam::thermal_hydraulics::closures::phase_change::tests::water_latent_heat_matches_physical_references ... ok
+test genfoam::thermal_hydraulics::closures::phase_change::tests::water_saturation_matches_formula ... ok
+test genfoam::thermal_hydraulics::closures::phase_change::tests::water_saturation_reproduces_normal_boiling_point ... ok
+test genfoam::thermal_hydraulics::closures::phase_change::tests::water_saturation_round_trip_is_exact ... ok
+test genfoam::thermal_hydraulics::closures::phase_change::tests::water_trace_saturation_branch_2_anomaly_is_measured ... ok
+test genfoam::thermal_hydraulics::closures::phase_change::tests::water_trace_saturation_reproduces_normal_boiling_point ... ok
+test genfoam::thermal_hydraulics::closures::phase_change::tests::water_trace_saturation_round_trip_branches_1_3_4 ... ok
+test genfoam::thermal_hydraulics::closures::turbulence::tests::drag_coefficient_degenerate_case_is_finite_not_nan ... ok
+test genfoam::thermal_hydraulics::closures::turbulence::tests::drag_coefficient_round_trips_through_kd ... ok
+test genfoam::thermal_hydraulics::closures::turbulence::tests::lahey_bubble_induced_eddy_viscosity_reference_value ... ok
+test genfoam::thermal_hydraulics::closures::turbulence::tests::lahey_bubble_terms_vanish_at_zero_void_fraction ... ok
+test genfoam::thermal_hydraulics::closures::turbulence::tests::mixture_ct0_tends_to_one_as_beta_grows ... ok
+test genfoam::thermal_hydraulics::closures::turbulence::tests::mixture_ct2_collapses_to_ct0_squared_at_zero_void_fraction ... ok
+test genfoam::thermal_hydraulics::closures::turbulence::tests::mixture_effective_gas_density_reference_value ... ok
+test genfoam::thermal_hydraulics::closures::turbulence::tests::mixture_quantities_reduce_to_liquid_only_at_alpha_liquid_one ... ok
+test genfoam::thermal_hydraulics::closures::turbulence::tests::nut_stabilization_vanishes_as_laminar_re_struct_grows ... ok
+test genfoam::thermal_hydraulics::closures::turbulence::tests::porous_2phase_equilibrium_k_reduces_to_1phase_at_zero_alpha_coeff ... ok
+test genfoam::thermal_hydraulics::closures::turbulence::tests::porous_equilibrium_epsilon_matches_openfoam_mixing_length_correlation ... ok
+test genfoam::thermal_hydraulics::closures::turbulence::tests::porous_equilibrium_k_matches_openfoam_intensity_correlation ... ok
+test genfoam::thermal_hydraulics::function_objects::field_diff_extents::tests::empty_mask_falls_back_to_degenerate_box_at_reference ... ok
+test genfoam::thermal_hydraulics::function_objects::field_diff_extents::tests::mask_selects_cells_where_field_exceeds_mask_field_unsigned ... ok
+test genfoam::thermal_hydraulics::function_objects::field_diff_extents::tests::patch_mask_and_extents_use_face_centres ... ok
+test genfoam::thermal_hydraulics::function_objects::field_integral::tests::volume_integral_matches_hand_computed_sum ... ok
+test genfoam::thermal_hydraulics::function_objects::field_integral::tests::volume_integral_over_cells_selects_a_subset ... ok
+test genfoam::thermal_hydraulics::function_objects::mass_flow::tests::faces_region_matches_patch_region_for_same_faces ... ok
+test genfoam::thermal_hydraulics::function_objects::mass_flow::tests::region_area_sums_three_unit_faces ... ok
+test genfoam::thermal_hydraulics::function_objects::mass_flow::tests::total_mass_flow_matches_hand_computed_sum ... ok
+test genfoam::thermal_hydraulics::function_objects::patch_geometry::tests::three_unit_faces_sum_to_area_three ... ok
+test genfoam::thermal_hydraulics::function_objects::patch_scalar_value::tests::patch_scalar_value_reductions_match_hand_computed_values ... ok
+test genfoam::thermal_hydraulics::function_objects::pressure_drop::tests::patch_average_of_single_face_is_the_face_value ... ok
+test genfoam::thermal_hydraulics::function_objects::pressure_drop::tests::pressure_drop_vs_reference_matches_patch_minus_constant ... ok
+test genfoam::thermal_hydraulics::function_objects::stop_if_max_field_diff::tests::does_not_trigger_when_field1_never_exceeds_field2 ... ok
+test genfoam::thermal_hydraulics::function_objects::stop_if_max_field_diff::tests::triggers_stop_when_field1_exceeds_field2_anywhere ... ok
+test genfoam::thermal_hydraulics::function_objects::t_bulk::tests::bulk_temperature_matches_hand_computed_enthalpy_weighted_mean ... ok
+test genfoam::thermal_hydraulics::function_objects::t_bulk::tests::zero_flow_patch_floors_at_minimum_weight_without_nan ... ok
+test genfoam::thermal_hydraulics::phase::fluid::tests::correct_alpha_rho_mag_u_matches_hand_calc ... ok
+test genfoam::thermal_hydraulics::phase::fluid::tests::correct_mag_velocity_matches_hand_calc ... ok
+test genfoam::thermal_hydraulics::phase::fluid::tests::correct_thermo_residual_markers_partition_cells ... ok
+test genfoam::thermal_hydraulics::phase::fluid::tests::new_sets_gen_foam_defaults ... ok
+test genfoam::thermal_hydraulics::phase::fluid::tests::nu_matches_hand_calc ... ok
+test genfoam::thermal_hydraulics::phase::fluid::tests::rho_boussinesq_selection ... ok
+test genfoam::thermal_hydraulics::phase::fluid::tests::state_of_matter_dispatch ... ok
+test genfoam::thermal_hydraulics::phase::phase_pair::tests::ff_relative_velocity_and_reynolds ... ok
+test genfoam::thermal_hydraulics::phase::phase_pair::tests::fs_reynolds_applies_floor ... ok
+test genfoam::thermal_hydraulics::phase::phase_pair::tests::fs_reynolds_matches_hand_calc ... ok
+test genfoam::thermal_hydraulics::solver::porous_drag::tests::laminar_drag_matches_stokes_darcy_limit ... ok
+test genfoam::thermal_hydraulics::solver::tests::laminar_darcy_spinup_terminal_velocity ... ok
+test genfoam::thermal_hydraulics::solver::tests::porous_energy_equilibrates_to_wall_temperature ... ok
+test genfoam::thermal_hydraulics::solver::tests::turbulent_darcy_weisbach_pressure_drop ... ok
+test genfoam::thermal_hydraulics::structure::heat_exchanger::tests::struct_wrapper_matches_free_function ... ok
+test genfoam::thermal_hydraulics::structure::heat_exchanger::tests::symmetric_hx_wall_temperature ... ok
+test genfoam::thermal_hydraulics::structure::heat_exchanger::tests::zero_coefficients_do_not_nan ... ok
+test genfoam::thermal_hydraulics::structure::heat_source::tests::explicit_source_matches_hand_calc ... ok
+test genfoam::thermal_hydraulics::structure::heat_source::tests::passive_structure_relaxes_to_fluid_temperature ... ok
+test genfoam::thermal_hydraulics::structure::heat_source::tests::wall_heat_flux_matches_definition ... ok
+test genfoam::thermal_hydraulics::structure::nuclear_steady_state_pebble::tests::every_rise_is_linear_in_the_power_density ... ok
+test genfoam::thermal_hydraulics::structure::nuclear_steady_state_pebble::tests::the_gfhr_minimum_peak_fuel_temperature_reproduces_upstream ... ok
+test genfoam::thermal_hydraulics::structure::nuclear_steady_state_pebble::tests::the_gfhr_pebble_rise_fits_inside_upstreams_reported_temperatures ... ok
+test genfoam::thermal_hydraulics::structure::nuclear_steady_state_pebble::tests::the_maxwell_effective_conductivity_is_bounded_by_its_phases ... ok
+test genfoam::thermal_hydraulics::structure::nuclear_steady_state_pebble::tests::the_temperature_chain_increases_monotonically_inward ... ok
+test genfoam::thermal_hydraulics::structure::power_model::tests::fixed_power_adiabatic_step_matches_hand_calc ... ok
+test genfoam::thermal_hydraulics::structure::power_model::tests::fixed_power_steady_state_matches_hand_calc ... ok
+test genfoam::thermal_hydraulics::structure::power_model::tests::fixed_temperature_evaluates_profile ... ok
+test genfoam::thermal_hydraulics::structure::power_model::tests::power_off_zeroes_source ... ok
+test genfoam::thermal_hydraulics::structure::power_model::tests::power_profile_scales_initial_density ... ok
+test genfoam::thermal_hydraulics::structure::power_off::tests::field_value_above_threshold_no_delay ... ok
+test genfoam::thermal_hydraulics::structure::power_off::tests::field_value_below_threshold ... ok
+test genfoam::thermal_hydraulics::structure::power_off::tests::field_value_honours_confirmation_delay ... ok
+test genfoam::thermal_hydraulics::structure::power_off::tests::timer_fires_at_or_after_trigger ... ok
+test genfoam::thermal_hydraulics::structure::pump::tests::coast_down_scales_source ... ok
+test genfoam::thermal_hydraulics::structure::pump::tests::constant_pump_is_time_invariant ... ok
+test genfoam::thermal_hydraulics::structure::tests::integrated_steady_state_energy_balance ... ok
+test genfoam::thermal_hydraulics::structure::tests::pump_momentum_source_passthrough ... ok
+test genfoam::thermal_hydraulics::structure::tests::scram_relaxes_structure_to_fluid ... ok
+test genfoam::thermal_hydraulics::thermophysical::hydrogen::diffusion::tests::diffusivity_matches_upstream_regression_fixture ... ok
+test genfoam::thermal_hydraulics::thermophysical::hydrogen::dissociation::tests::mole_fraction_matches_upstream_regression_fixture ... ok
+test genfoam::thermal_hydraulics::thermophysical::hydrogen::equation_of_state::tests::density_matches_upstream_regression_fixture ... ok
+test genfoam::thermal_hydraulics::thermophysical::hydrogen::heat_capacity::tests::cp_matches_upstream_regression_fixture ... ok
+test genfoam::thermal_hydraulics::thermophysical::hydrogen::heat_capacity::tests::cv_matches_upstream_regression_fixture ... ok
+test genfoam::thermal_hydraulics::thermophysical::hydrogen::thermal_conductivity::tests::thermal_conductivity_is_positive_and_order_of_magnitude_sane ... ok
+test genfoam::thermal_hydraulics::thermophysical::hydrogen::thermodynamics::tests::enthalpy_matches_upstream_regression_fixture ... ok
+test genfoam::thermal_hydraulics::thermophysical::hydrogen::thermodynamics::tests::entropy_matches_upstream_regression_fixture ... ok
+test genfoam::thermal_hydraulics::thermophysical::hydrogen::viscosity::tests::viscosity_matches_upstream_regression_fixture ... ok
+test genfoam::thermo_mechanics::feedback::tests::cumulative_profile_matches_free_expansion_at_tip ... ok
+test genfoam::thermo_mechanics::feedback::tests::free_expansion_matches_analytical ... ok
+test genfoam::thermo_mechanics::feedback::tests::mesh_displacement_replaces_axial_component ... ok
+test genfoam::thermo_mechanics::material::tests::lame_parameters_match_hand_computation ... ok
+test genfoam::thermo_mechanics::material::tests::rejects_incompressible_poisson_ratio ... ok
+test genfoam::thermo_mechanics::material::tests::thermal_diffusivity_matches_hand_computation ... ok
+test genfoam::thermo_mechanics::mesh_solve::tests::deqn_linear_temperature_constrained_bar ... ok
+test genfoam::thermo_mechanics::mesh_solve::tests::deqn_uniform_heating_constrained_bar_thermal_stress ... ok
+test genfoam::thermo_mechanics::mesh_solve::tests::mesh_displacement_wires_axial_expansion ... ok
+test genfoam::thermo_mechanics::mesh_solve::tests::teqn_conduction_with_source_matches_parabola ... ok
+test genfoam::thermo_mechanics::stress::tests::free_expansion_is_stress_free ... ok
+test genfoam::thermo_mechanics::stress::tests::fully_constrained_bar_thermal_stress ... ok
+test genfoam::thermo_mechanics::stress::tests::uniaxial_stress_von_mises_equals_magnitude ... ok
+test genfoam::thermo_mechanics::tests::dispatch_constrained_bar ... ok
+test genfoam::thermo_mechanics::tests::model_axial_expansion_wired ... ok
+test io::nuclear_data::tests::a_first_state_that_is_not_reference_is_rejected ... ok
+test io::nuclear_data::tests::a_perturbed_state_inherits_the_reference_parameters_it_omits ... ok
+test io::nuclear_data::tests::a_wrong_array_length_is_rejected_where_the_file_name_is_still_known ... ok
+test io::nuclear_data::tests::an_include_is_spliced_relative_to_the_including_file ... ok
+test io::nuclear_data::tests::an_unknown_variable_law_is_rejected_by_name ... ok
+test io::nuclear_data::tests::the_minimal_dictionary_round_trips_into_cross_section_data ... ok
+test io::nuclear_data::writer::tests::written_nuclear_data_reads_back_identically ... ok
+test solvers::hrm_foam::tests::default_relaxation_time_matches_downar_zapolski_constants ... ok
+test solvers::hrm_foam::tests::enthalpy_diffusion_decays_at_the_analytic_rate ... ok
+test solvers::hrm_foam::tests::gas_fraction_diffusion_decays_at_the_analytic_rate ... ok
+test solvers::hrm_foam::tests::momentum_diffusion_follows_the_hbya_closed_form ... ok
+test solvers::hrm_foam::tests::relaxation_time_respects_configured_floor ... ok
+test solvers::melt_foam::tests::attached_model_contributes_to_both_equations_after_stepping ... ok
+test solvers::melt_foam::tests::boussinesq_coefficients_convert_to_kinematic_units ... ok
+test solvers::melt_foam::tests::hot_wall_drives_melting_with_bounded_liquid_fraction ... ok
+test solvers::melt_foam::tests::runs_without_any_fv_model ... ok
+test solvers::melt_foam::tests::temperature_solver_defaults_to_a_tight_tolerance ... ok
+test solvers::melt_foam::tests::velocity_field_keeps_its_name_after_correction ... ok
+test solvers::melt_foam::tests::wall_face_fluxes_are_constrained_to_the_velocity_bc ... ok
+test solvers::reacting_two_phase_euler_foam::tests::arrhenius_reaction_burns_fuel_and_heats_gas ... ok
+test solvers::reacting_two_phase_euler_foam::tests::inert_species_conserve_sum ... ok
+test solvers::reacting_two_phase_euler_foam::tests::mass_transfer_moves_volume_fraction ... ok
+test solvers::reacting_two_phase_euler_foam::tests::ranz_marshall_nusselt_hand_value ... ok
+test solvers::reacting_two_phase_euler_foam::tests::reaction_heat_raises_phase_temperature ... ok
+test solvers::reacting_two_phase_euler_foam::tests::rejects_mesh_mismatch ... ok
+test solvers::reacting_two_phase_euler_foam::tests::thermal_equilibration_conserves_energy ... ok
+test solvers::rho_pimple_foam::tests::compressible_lid_cavity_stays_stable ... ok
+test solvers::schemes::tests::backward_ddt_matches_the_bdf2_formula ... ok
+test solvers::schemes::tests::linear_div_adds_the_exact_central_difference_correction ... ok
+test solvers::schemes::tests::unimplemented_schemes_error_rather_than_falling_back ... ok
+test solvers::sonic_foam::tests::momentum_diffusion_follows_the_hbya_closed_form ... ok
+test turbulence::tests::compressible_conversion_uses_mu_t_equals_rho_nu_t ... ok
+test turbulence::tests::every_closure_variant_syncs_and_corrects ... ok
+test turbulence::tests::laminar_default_is_the_plain_molecular_laplacian ... ok
+test turbulence::tests::momentum_operator_picks_up_turbulent_viscosity ... ok
+test genfoam::neutronics::sn::tests::sn_approaches_diffusion_limit ... ok
+
+test result: ok. 320 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.43s
+
+     Running tests/foam_vv_cases/main.rs (target/release/deps/foam_vv_cases-4a54445cccd3f0d2)
+
+running 3 tests
+test drift_flux_dahl_settling_column ... ok
+test two_fluid_bubble_column_terminal_slip ... ok
+test genfoam_slab_1g_diffusion_is_critical ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/fv_scheme_selection.rs (target/release/deps/fv_scheme_selection-80886a79659cbce1)
+
+running 2 tests
+test backward_ddt_selection_is_live_and_not_worse_against_ghia ... ok
+test gauss_linear_convection_beats_upwind_against_ghia_1982 ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.55s
+
+     Running tests/genfoam_gfhr_pebble_vs_upstream.rs (target/release/deps/genfoam_gfhr_pebble_vs_upstream-9d270a3786e270c8)
+
+running 1 test
+test the_ported_pebble_chain_reproduces_upstreams_gfhr_fields ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+     Running tests/genfoam_point_kinetics_inhour.rs (target/release/deps/genfoam_point_kinetics_inhour-28979e3a14b4b8d4)
+
+running 2 tests
+test null_transient_control ... ok
+test asymptotic_period_matches_inhour_equation ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/genfoam_psbt_closures.rs (target/release/deps/genfoam_psbt_closures-3e7ce472ea29b934)
+
+running 2 tests
+test the_two_phase_cells_show_the_multiplier_the_single_phase_relation_omits ... ok
+test the_ported_wall_friction_reproduces_upstreams_psbt_drag ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/genfoam_tutorial_keff.rs (target/release/deps/genfoam_tutorial_keff-3b481019f933ba6a)
+
+running 8 tests
+test esfr_reference_state_keff_against_upstream ... ok
+test esfr_keff_against_upstream_run_at_its_converged_state ... ok
+test msfr_keff_against_upstream_run_at_its_converged_state ... ok
+test msfr_keff_against_upstream_with_precursor_drift ... ok
+test msfr_keff_with_upstreams_albedo_boundary ... ok
+test msfr_keff_against_upstream_with_per_cell_cross_sections ... ok
+test msfr_reactivity_coefficients_from_upstreams_perturbed_states ... ok
+test msfr_reference_state_keff_brackets_upstream ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/melting_vv_cases/main.rs (target/release/deps/melting_vv_cases-e74deae4091180cc)
+
+running 3 tests
+test enthalpy_porosity_conserves_energy ... ok
+test stefan_problem_matches_similarity_solution ... ok
+test gallium_melting_cavity_gau_viskanta_configuration ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 14.74s
+
+     Running tests/sod_shock_tube_validation/main.rs (target/release/deps/sod_shock_tube_validation-18286fae8c712305)
+
+running 4 tests
+test exact_riemann_reproduces_sod_star_state ... ok
+test exact_riemann_matches_sod_table_ii ... ok
+test rho_central_foam_matches_sod_table_ii ... ok
+test sod_shock_tube_timed_series ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.52s
+
+     Running tests/turbulence_coupling.rs (target/release/deps/turbulence_coupling-2cc63278fd7e8052)
+
+running 2 tests
+test attaching_a_closure_changes_the_momentum_solution ... ok
+test homogeneous_decay_matches_analytic_k_omega_solution ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.36s
+
+     Running tutorials/pimple_foam_cavity.rs (target/release/deps/tutorial_pimple_foam_cavity-669290c19d9c9765)
+
+running 6 tests
+test cavity_ghia_benchmark_re100 ... ok
+test cavity_ghia_benchmark_re100_fine_mesh ... ok
+test cavity_mesh_loads ... ok
+test cavity_ghia_grid_convergence_re100 has been running for over 60 seconds
+test cavity_pressure_solver_comparison_fine_mesh ... ok
+test cavity_velocity_matches_icofoam ... ok
+test cavity_ghia_grid_convergence_re100 ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 123.18s
+
+     Running tutorials/rho_central_foam_shock_tube.rs (target/release/deps/tutorial_rho_central_foam_shock_tube-a125096291e046df)
+
+running 4 tests
+test shock_tube_mesh_loads ... ok
+test shock_tube_pressure_matches_openfoam ... ok
+test shock_tube_openfoam_vs_rust_csv ... ok
+test shock_tube_shock_position ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.30s
+
+     Running tutorials/rho_pimple_foam_aerofoil_naca0012.rs (target/release/deps/tutorial_rho_pimple_foam_aerofoil_naca0012-267b0cf77b5f38a9)
+
+running 4 tests
+test aerofoil_cl_matches_openfoam ... ignored, test body is an unimplemented TODO (asserts nothing), REFERENCE_CL is a placeholder, and CL needs turbulence wall functions — see module doc
+test aerofoil_cp_matches_openfoam ... ignored, test body is an unimplemented TODO (asserts nothing), and a boundary-layer Cp comparison additionally needs turbulence wall functions — see module doc
+test aerofoil_mass_conservation ... ignored, test body is an unimplemented TODO (asserts nothing); also needs a 16 000-cell x 7 500-step run, not a test-suite-sized case — see module doc
+test aerofoil_mesh_loads ... ok
+
+test result: ok. 1 passed; 0 failed; 3 ignored; 0 measured; 0 filtered out; finished in 0.05s
+

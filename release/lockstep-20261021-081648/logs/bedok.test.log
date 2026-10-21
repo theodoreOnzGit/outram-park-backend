@@ -1,0 +1,321 @@
+   Compiling num-complex v0.4.6
+   Compiling pulp v0.22.3
+   Compiling nano-gemm-c64 v0.2.1
+   Compiling gemm-common v0.19.0
+   Compiling gemm-f64 v0.19.0
+   Compiling gemm-f32 v0.19.0
+   Compiling gemm-c32 v0.19.0
+   Compiling gemm-c64 v0.19.0
+   Compiling qd v0.8.0
+   Compiling nano-gemm-c32 v0.2.1
+   Compiling faer-traits v0.24.0
+   Compiling gemm v0.19.0
+   Compiling nano-gemm v0.2.2
+   Compiling faer v0.24.4
+   Compiling petir v0.0.3 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/crates/petir)
+   Compiling bedok v0.0.2 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/crates/bedok)
+    Finished `release` profile [optimized] target(s) in 37.51s
+     Running unittests src/lib.rs (target/release/deps/bedok-fcf88c27868d862c)
+
+running 293 tests
+test calc_1sttransleakagexyz::tests::a_reflective_face_uses_the_six_over_h_form ... ok
+test calc_1sttransleakagexyz::tests::an_axis_is_not_driven_by_its_own_leakage ... ok
+test calc_1sttransleakagexyz::tests::interior_stencil_is_a_centred_difference_on_a_uniform_mesh ... ok
+test calc_1sttransleakagexyz::tests::vacuum_faces_are_one_sided_differences ... ok
+test calc_1sttransleakagexyz::tests::void_nodes_stay_zero ... ok
+test calc_2ndtransleakagexyz::tests::a_quadratic_source_gives_the_expected_curvature ... ok
+test calc_2ndtransleakagexyz::tests::a_linear_source_has_zero_second_moment ... ok
+test calc_2ndtransleakagexyz::tests::a_reflective_face_uses_the_two_over_h_form ... ok
+test calc_2ndtransleakagexyz::tests::an_axis_is_not_driven_by_its_own_leakage ... ok
+test calc_2ndtransleakagexyz::tests::vacuum_faces_stay_zero ... ok
+test calc_a1234_expansionxyz::tests::the_expansion_chain_produces_finite_coefficients ... ok
+test calc_a1234_expansionxyz::tests::the_a2_block_solve_satisfies_its_system ... ok
+test calc_a1234_expansionxyz::tests::the_void_guard_keeps_ssource_finite ... ok
+test calc_a1_expansionxyz::tests::absent_adf_is_equivalent_to_ones ... ok
+test calc_a1_expansionxyz::tests::all_three_boundary_conditions_differ ... ok
+test calc_a1_expansionxyz::tests::buckling_blocks_reach_the_assembled_system ... ok
+test calc_a1_expansionxyz::tests::first_variants_are_written_only_at_low_boundary_nodes ... ok
+test calc_abefghxyz::tests::axes_differ_only_through_node_width ... ok
+test calc_abefghxyz::tests::hh_matches_a_hand_evaluation_at_alpha_one ... ok
+test calc_abefghxyz::tests::n9_where_the_small_alpha_cancellation_bites_and_whether_cases_reach_it ... ok
+test calc_abefghxyz::tests::small_alpha_stays_finite_but_is_not_trusted ... ok
+test calc_abefghxyz::tests::void_nodes_are_left_at_zero ... ok
+test calc_bucklingxyz::tests::a_warm_cache_is_bit_identical_to_a_cold_one ... ok
+test calc_bucklingxyz::tests::buckling_entries_match_a_hand_computation ... ok
+test calc_bucklingxyz::tests::changing_sigma_triggers_a_rebuild ... ok
+test calc_bucklingxyz::tests::keff_scales_only_the_fission_contribution ... ok
+test calc_bucklingxyz::tests::void_nodes_are_skipped ... ok
+test calc_relpower3d::tests::multigroup_input_is_collapsed_over_groups ... ok
+test calc_relpower3d::tests::uniform_power_normalises_to_one ... ok
+test calc_relpower3d::tests::zero_nodes_are_excluded_from_the_average ... ok
+test calc_sanodalxyz::tests::a_fuelled_node_the_z_pass_missed_aborts_the_assembly - should panic ... ok
+test calc_sanodalxyz::tests::a_zero_flux_falls_back_to_no_nodal_correction ... ok
+test calc_sanodalxyz::tests::the_nodal_chain_produces_a_finite_operator ... ok
+test calc_transleakagexyz::tests::a_reflective_low_face_drops_the_outward_terms ... ok
+test calc_transleakagexyz::tests::interior_row_uses_all_three_coefficients ... ok
+test calc_transleakagexyz::tests::void_lines_contribute_nothing ... ok
+test calc_transleakagexyz::tests::zeroflux_and_vacuum_agree ... ok
+test calcdiffvalues3d::tests::default_mode_gives_one_over_three_sigma ... ok
+test calcdiffvalues3d::tests::explicit_mode_uses_the_general_formula ... ok
+test calcdiffvalues3d::tests::material_identifiers_are_offset_by_one ... ok
+test calcdiffvalues3d::tests::nodes_without_material_stay_zero ... ok
+test convert_grid3d::tests::a_single_precursor_family_maps_correctly ... ok
+test convert_grid3d::tests::groups_are_numbered_consecutively_within_a_node ... ok
+test convert_grid3d::tests::only_fuelled_nodes_are_numbered ... ok
+test convert_grid3d::tests::precursor_indices_collide_when_nc_exceeds_one ... ok
+test convertindexc2d::tests::edge_indices_convert_to_half_integers ... ok
+test convertindexc2d::tests::plain_to_plain_is_the_identity ... ok
+test convertindexc2d::tests::round_trip_is_not_the_identity_reference_defect ... ok
+test convertsparseformat2d::tests::plain_to_plain_preserves_the_matrix ... ok
+test convertsparseformat2d::tests::values_are_not_remapped ... ok
+test convertsparsekey3d::tests::a_non_unit_entry_on_an_absent_node_fails - should panic ... ok
+test convertsparsekey3d::tests::entries_are_renumbered_through_the_key ... ok
+test convertsparsekey3d::tests::unit_diagonal_on_an_absent_node_is_skipped ... ok
+test criticalboron_xyz::tests::does_the_g1_correction_fix_x1 ... ignored, G1/X1 experiment; a coupled solve, several minutes
+test criticalboron_xyz::tests::matlab_parity_a2_phase_zero_on_the_hem_path ... ignored, MATLAB parity gate; a coupled solve, several minutes
+test criticalboron_xyz::tests::matlab_parity_criticalboron_on_a2 ... ignored, MATLAB parity on the boron search; several minutes
+test calc_abefghxyz::tests::n9_the_series_is_accurate_where_the_closed_form_is_not ... ok
+test criticalboron_xyz::tests::matlab_parity_neacrpa1t_super_prompt ... ignored, MATLAB parity on the super-prompt ejection; several minutes
+test criticalboron_xyz::tests::matlab_parity_neacrpa2t_rod_ejection ... ignored, MATLAB parity on the rod-ejection transient; several minutes
+test criticalboron_xyz::tests::matlab_parity_neacrpd1_bwr ... ignored, MATLAB parity on D1; a coupled solve, several minutes
+test criticalboron_xyz::tests::matlab_parity_neacrpd1t_full_twenty_seconds ... ignored, MATLAB parity on the full 20 s transient; many minutes
+test criticalboron_xyz::tests::matlab_parity_neacrpd1t_transient ... ignored, MATLAB parity on the transient path; several minutes
+test criticalboron_xyz::tests::the_sanity_guard_rejects_poisoned_eigenvalues ... ok
+test criticalboron_xyz::tests::matlab_parity_iaea3ds ... ok
+test criticalboron_xyz::tests::the_search_on_case_a1_gives_a_second_data_point_for_x1 ... ignored, expensive X1 diagnostic (~10 min); run deliberately
+test criticalboron_xyz::tests::under_relaxation_touches_only_the_four_reference_fields ... ok
+test criticalboron_xyz::tests::x1_bisect_which_feedback_channel_destabilises_the_loop ... ignored, X1 bisect; seven coupled solves, ~20 min
+test criticalboron_xyz::tests::x1_converged_th_state_against_the_matlab ... ignored, X1 bisection; a coupled solve, several minutes
+test criticalboron_xyz::tests::x1_does_a_stable_nodal_interval_make_the_codes_agree ... ignored, X1 resolution; a coupled solve, several minutes
+test criticalboron_xyz::tests::x1_does_the_feedback_handler_match_the_matlab ... ok
+test criticalboron_xyz::tests::x1_frozen_nodal_static_eigenvalue_against_the_matlab ... ok
+test criticalboron_xyz::tests::x1_per_pass_trace_of_the_coupled_loop ... ignored, X1 per-pass trace; a coupled solve, several minutes
+test criticalboron_xyz::tests::x1_sweep_the_nodal_update_interval ... ok
+test criticalboron_xyz::tests::x1_what_one_th_pass_does_on_a2_versus_d1 ... ok
+test criticalboron_xyz::tests::x1_what_the_phase_zero_solve_does_on_a2_versus_a1 ... ignored, X1 diagnostic; two coupled solves, several minutes
+test diffusion_solverxyz::tests::a_symmetric_problem_has_zero_asymmetry ... ok
+test diffusion_solverxyz::tests::a_uniform_cube_converges_below_k_inf ... ok
+test diffusion_solverxyz::tests::the_fundamental_mode_is_positive_and_centre_peaked ... ok
+test diffusion_solverxyz::tests::the_gmres_branch_is_an_explicit_error ... ok
+test diffusion_solverxyz::tests::the_initial_k_eff_guess_does_not_move_the_answer ... ok
+test diffusion_solverxyz::tests::the_power_density_is_the_source_times_the_volume ... ok
+test diffusion_solverxyz::tests::the_relative_power_map_is_normalised ... ok
+test driftflux6_solverstatic1d::tests::each_phase_is_forced_onto_its_own_branch ... ok
+test driftflux6_solverstatic1d::tests::t10_the_corrected_quality_matches_the_hem_definition ... ok
+test criticalboron_xyz::tests::the_search_finds_a_critical_boron_on_the_pwr_case has been running for over 60 seconds
+test driftflux6_solverstatic1d::tests::t10_the_two_th_paths_disagree_about_quality has been running for over 60 seconds
+test driftflux6_solverstatic1d::tests::t10_the_two_th_paths_disagree_about_quality ... ok
+test driftflux6_solverstatic1d::tests::the_derived_field_tail_recovers_a_consistent_liquid_state ... ok
+test driftflux6_solverstatic1d::tests::the_missing_file_error_names_both_files ... ok
+test driftflux6_solverstatic1d::tests::the_missing_solver_is_reported_per_channel ... ok
+test driftflux6_solverstatic1d::tests::the_warm_start_policy_admits_only_converged_unchanged_channels ... ok
+test fiss_src_extrapolatexyz::tests::a_converging_sequence_is_extrapolated_to_its_limit ... ok
+test fiss_src_extrapolatexyz::tests::a_diverging_ratio_is_clamped_rather_than_blowing_up ... ok
+test fiss_src_extrapolatexyz::tests::a_non_asymptotic_sequence_is_left_alone ... ok
+test fiss_src_extrapolatexyz::tests::a_stagnant_source_is_not_extrapolated ... ok
+test fixinfnan::tests::a_finite_vector_is_returned_untouched ... ok
+test fixinfnan::tests::all_non_finite_input_falls_back_to_zero ... ok
+test fixinfnan::tests::c5_the_substitution_is_counted_without_changing_the_patch ... ok
+test fixinfnan::tests::default_mode_zeroes_non_finite_entries ... ok
+test fixinfnan::tests::special_mode_substitutes_smallest_finite_magnitude ... ok
+test fixnegativematrix::tests::an_all_positive_matrix_is_unchanged ... ok
+test fixnegativematrix::tests::negative_entries_are_zeroed_and_positives_kept ... ok
+test fuelrodheat_1dcylnd::tests::a_higher_boundary_conductance_lowers_the_whole_profile ... ok
+test fuelrodheat_1dcylnd::tests::a_temps_vector_sized_from_maxir_is_too_short - should panic ... ok
+test fuelrodheat_1dcylnd::tests::an_unpowered_rod_sits_at_the_coolant_temperature ... ok
+test fuelrodheat_1dcylnd::tests::t1_the_gap_dummy_is_locatable_and_skippable ... ok
+test fuelrodheat_1dcylnd::tests::t9_is_the_doubled_interface_conductance_correct ... ok
+test fuelrodheat_1dcylnd::tests::the_centre_temperature_rise_is_linear_in_power ... ok
+test fuelrodheat_1dcylnd::tests::the_gap_node_is_a_dummy_pinned_at_one_kelvin ... ok
+test fuelrodheat_1dcylnd::tests::the_profile_falls_from_centre_to_surface ... ok
+test fuelrodheat_1dcylnd::tests::the_unknown_count_matches_the_interface_doubling ... ok
+test fuelrodheattime_1dcylnd::tests::a_large_time_step_reproduces_the_steady_solver ... ok
+test fuelrodheattime_1dcylnd::tests::a_material_without_a_heat_capacity_is_rejected - should panic ... ok
+test fuelrodheattime_1dcylnd::tests::a_tiny_time_step_freezes_the_rod ... ok
+test fuelrodheattime_1dcylnd::tests::marching_from_cold_converges_on_the_steady_solution ... ok
+test fuelrodheattime_1dcylnd::tests::the_gap_node_is_still_a_dummy_at_one_kelvin ... ok
+test fuelrodheattime_1dcylnd::tests::the_heat_up_timescale_is_seconds ... ok
+test geom2dxycase1::tests::the_fuel_square_is_centred_and_one_ninth_of_the_domain ... ok
+test geom2dxycase1::tests::the_geometry_and_cross_sections_match_the_reference ... ok
+test geom2dxycase1::tests::the_quoted_eigenvalue_is_recorded_for_a_future_two_dimensional_solver ... ok
+test geometry_ends3d::tests::a_full_line_reports_the_whole_span ... ok
+test geometry_ends3d::tests::an_empty_line_is_reported_as_the_full_span ... ok
+test geometry_ends3d::tests::bounds_track_a_contiguous_run ... ok
+test geometry_ends3d::tests::material_after_a_gap_is_excluded ... ok
+test handle2dcoords::tests::cartesian_pair_is_x_and_y ... ok
+test handle2dcoords::tests::cylindrical_pair_is_r_and_z ... ok
+test handle2dcoords::tests::unmatched_params_are_an_error_not_a_default ... ok
+test handle3dcoords::tests::cartesian_branch_is_taken_for_the_benchmark_cases ... ok
+test handle3dcoords::tests::cylindrical_branch_wins_when_both_are_populated ... ok
+test handle3dcoords::tests::generic_branch_reproduces_the_maxix_defect ... ok
+test handle3dcoords::tests::unmatched_params_fall_back_to_ones ... ok
+test criticalboron_xyz::tests::the_search_finds_a_critical_boron_on_the_pwr_case ... ok
+test iaea3ds::tests::the_cross_sections_reconstruct_the_published_specification ... ok
+test iaea3ds::tests::the_converged_flux_is_positive_and_peaks_inside_the_core ... ok
+test iaea3ds::tests::the_embedded_maps_parse_to_seventeen_square ... ok
+test iaea3ds::tests::the_material_map_has_the_expected_axial_structure ... ok
+test iaea3ds::tests::the_mesh_is_the_benchmarks_own ... ok
+test iapws_if97::backward::tests::above_the_region_boundary_is_nan_pending_region_three ... ok
+test iapws_if97::backward::tests::region1_backward_matches_published_values ... ok
+test iapws_if97::backward::tests::region2_backward_matches_published_values ... ok
+test iapws_if97::backward::tests::the_2b_2c_boundary_is_continuous ... ok
+test iapws_if97::backward::tests::the_liquid_backward_equation_inverts_the_forward_one ... ok
+test iapws_if97::backward::tests::the_region_23_boundary_passes_through_its_anchor ... ok
+test iapws_if97::backward::tests::the_two_phase_region_returns_the_saturation_temperature ... ok
+test iapws_if97::backward::tests::the_vapour_backward_equation_inverts_through_the_dispatcher ... ok
+test iapws_if97::basic::tests::above_the_region_boundary_is_nan_pending_region_three ... ok
+test iapws_if97::basic::tests::liquid_enthalpy_matches_published_values ... ok
+test iapws_if97::basic::tests::saturated_enthalpies_at_one_atmosphere_are_the_right_magnitude ... ok
+test iapws_if97::basic::tests::the_latent_heat_shrinks_towards_the_critical_point ... ok
+test iapws_if97::basic::tests::vapour_enthalpy_matches_published_values ... ok
+test iapws_if97::region1::tests::region1_matches_published_verification_values ... ok
+test iapws_if97::region1::tests::region1_specific_heat_matches_published_values ... ok
+test iapws_if97::region2::tests::mixed_derivative_agrees_with_a_finite_difference ... ok
+test iapws_if97::region2::tests::region2_matches_published_verification_values ... ok
+test iapws_if97::region4::tests::out_of_range_gives_nan_not_an_error ... ok
+test iapws_if97::region4::tests::saturation_pressure_matches_published_values ... ok
+test iapws_if97::region4::tests::saturation_temperature_matches_published_values ... ok
+test iapws_if97::region4::tests::the_benchmark_operating_points_saturate_where_expected ... ok
+test iapws_if97::region4::tests::the_region_boundary_pressure_is_as_documented ... ok
+test iapws_if97::region4::tests::the_two_directions_are_mutual_inverses ... ok
+test iapws_if97::transport::tests::region_three_is_nan_pending_the_region_three_equations ... ok
+test iapws_if97::transport::tests::the_benchmark_coolant_states_are_plausible ... ok
+test iapws_if97::transport::tests::the_region_23_boundary_inverts ... ok
+test iapws_if97::transport::tests::thermal_conductivity_is_the_right_magnitude_and_trend ... ok
+test iapws_if97::transport::tests::viscosity_matches_the_published_check_values ... ok
+test iapws_if97::transport::tests::viscosity_through_the_pt_entry_point_switches_phase_at_saturation ... ok
+test makegrad_dxyz::tests::a_fuelled_diagonal_does_not_retain_the_identity ... ok
+test makegrad_dxyz::tests::a_fuelled_node_outside_the_bounds_keeps_a_spurious_identity ... ok
+test makegrad_dxyz::tests::boundary_conditions_set_the_outward_coefficient ... ok
+test makegrad_dxyz::tests::g1_the_corrected_operator_converges_like_the_reference_on_a2 ... ignored, G1/G3 convergence guard; two coupled A2 solves, many minutes
+test makegrad_dxyz::tests::g1_what_the_conservative_operator_does_to_every_k_eff ... ignored, G1 correction sweep across every case; minutes
+test makegrad_dxyz::tests::g1_what_the_conservative_operator_does_to_the_a1_critical_boron ... ignored, G1 on case A1; four coupled HZP solves, minutes
+test makegrad_dxyz::tests::g1_what_the_conservative_operator_does_to_the_critical_boron ... ignored, G1 in the coupled solve; four coupled A2 solves, many minutes
+test makegrad_dxyz::tests::g2_gradterms_must_agree_with_the_operator_it_was_built_with ... ok
+test makegrad_dxyz::tests::gradterms_carry_the_final_doubling ... ok
+test makegrad_dxyz::tests::the_conservative_correction_is_exact_on_uniform_and_fixes_graded ... ok
+test makegrad_dxyz::tests::the_correction_repairs_the_swapped_harmonic_mean_too ... ok
+test makegrad_dxyz::tests::the_face_coupling_is_inconsistent_on_a_non_uniform_mesh ... ok
+test makegrad_dxyz::tests::void_nodes_keep_the_identity_diagonal ... ok
+test makeheatlaplacian_1dcylnd::tests::a_solid_rod_gives_a_tridiagonal_operator ... ok
+test makeheatlaplacian_1dcylnd::tests::a_void_innermost_node_has_no_conductivity - should panic ... ok
+test makeheatlaplacian_1dcylnd::tests::a_void_outer_node_writes_outside_the_declared_shape - should panic ... ok
+test makeheatlaplacian_1dcylnd::tests::conductances_grow_outward ... ok
+test makeheatlaplacian_1dcylnd::tests::interior_rows_conserve_energy ... ok
+test makesigmadfxyz::tests::absent_fp_becomes_zeros ... ok
+test makesigmadfxyz::tests::diagonals_carry_total_within_group_scattering_and_bare_fission ... ok
+test makesigmadfxyz::tests::fission_operator_applies_chi_and_nu ... ok
+test makesigmadfxyz::tests::half_index_mode_truncates_the_axial_extent ... ok
+test makesigmadfxyz::tests::nu_vector_takes_the_group_one_value_everywhere ... ok
+test makesigmadfxyz::tests::scattering_is_indexed_destination_first ... ok
+test matlab::tests::array2_is_column_major ... ok
+test matlab::tests::array3_linear_layout_matches_matlab ... ok
+test matlab::tests::min_abs_ignores_non_finite ... ok
+test matlab::tests::sparse_sums_duplicates_and_drops_zeros ... ok
+test matlab::tests::the_sparse_backend_is_faer_by_default_and_the_port_on_request ... ok
+test neacrpa1t::tests::both_pwr_cases_undershoot_the_published_critical_boron ... ok
+test neacrpa1t::tests::the_hzp_configuration_differs_from_a2_in_exactly_five_ways ... ok
+test neacrpa1t::tests::the_rod_pattern_is_the_figure_3_1_near_all_in_configuration ... ok
+test neacrpa2::tests::all_five_feedback_channels_are_wired ... ok
+test neacrpa2::tests::the_control_rod_banks_are_mapped_and_partially_inserted ... ok
+test neacrpa2::tests::the_cross_sections_close_against_absorption ... ok
+test neacrpa2::tests::the_graded_axial_mesh_quantifies_the_gradd_inconsistency ... ok
+test neacrpa2::tests::the_material_map_has_the_expected_axial_layering ... ok
+test neacrpa2t::tests::the_critical_boron_differs_from_the_published_benchmark ... ok
+test neacrpa2t::tests::the_steady_half_matches_the_static_case_apart_from_boron ... ok
+test neacrpa2t::tests::the_transient_data_matches_the_specification ... ok
+test neacrpd1::tests::k9_the_feedback_channels_match_the_benchmark_specification ... ok
+test iaea3ds::tests::the_eigenvalue_matches_the_published_benchmark ... ok
+test neacrpd1::tests::the_cross_sections_close_against_absorption ... ok
+test neacrpd1::tests::the_fuel_node_volumes_are_wrong_as_the_reference_computes_them ... ok
+test neacrpd1::tests::the_coupled_loop_runs_on_the_benchmark_case ... ok
+test neacrpd1::tests::the_inlet_state_and_rod_geometry_match_the_reference_arithmetic ... ok
+test neacrpd1::tests::the_material_map_is_a_right_prism_over_the_column_outline ... ok
+test neacrpd1t::tests::the_inlet_forcing_is_continuous_at_zero_and_doubles_the_subcooling ... ok
+test neacrpd1t::tests::the_prompt_fission_operator_is_proportional_to_the_fission_source ... ok
+test neacrpd1t::tests::the_time_grid_has_no_zero_length_steps ... ok
+test neacrpd1t::tests::the_transient_data_matches_the_specification ... ok
+test neacrpd1::tests::the_hem_path_heats_the_coolant_along_each_channel has been running for over 60 seconds
+test neacrpd1t::tests::the_transient_marches_without_diverging has been running for over 60 seconds
+test neacrpd1::tests::the_hem_path_heats_the_coolant_along_each_channel ... ok
+test neacrpd1t::tests::the_transient_marches_without_diverging ... ok
+test pauseonnan::tests::clean_input_passes ... ok
+test pauseonnan::tests::infinity_passes_the_guard ... ok
+test pauseonnan::tests::nan_is_rejected ... ok
+test plotreactor3dcolour::tests::more_than_two_groups_drops_the_middle_ones ... ok
+test plotreactor3dcolour::tests::one_group_yields_an_all_zero_map ... ok
+test plotreactor3dcolour::tests::two_groups_collapse_correctly ... ok
+test sanodaldiffusion_solverxyz::tests::a_loose_inner_tolerance_stops_earlier ... ok
+test sanodaldiffusion_solverxyz::tests::a_misshapen_warm_start_is_ignored ... ok
+test sanodaldiffusion_solverxyz::tests::a_narrow_warm_start_is_replicated ... ignored, 1e-6 warm/cold agreement is not a property inside the N1 regime; see GitHub issue #224
+test sanodaldiffusion_solverxyz::tests::a_nodal_update_interval_of_one_does_not_converge ... ignored, asserts a chaotic regime's symptom, not N1 itself; see GitHub issue #224
+test sanodaldiffusion_solverxyz::tests::a_uniform_cube_converges_near_finite_difference ... ok
+test sanodaldiffusion_solverxyz::tests::a_warm_start_does_not_move_the_answer ... ok
+test sanodaldiffusion_solverxyz::tests::a_warm_start_does_not_reliably_reduce_the_iteration_count ... ok
+test sanodaldiffusion_solverxyz::tests::c5_no_real_case_needs_a_non_finite_substitution ... ok
+test sanodaldiffusion_solverxyz::tests::n1_the_effective_nodal_interval_is_reported ... ok
+test sanodaldiffusion_solverxyz::tests::the_debug_diagnostics_are_gated_and_carry_the_references_nan ... ok
+test sanodaldiffusion_solverxyz::tests::the_default_interval_is_one_on_a_small_mesh ... ignored, asserts a chaotic regime's symptom, not N1 itself; see GitHub issue #224
+test sanodaldiffusion_solverxyz::tests::the_gmres_branch_is_an_explicit_error ... ok
+test sanodaldiffusion_solverxyz::tests::the_nodal_update_interval_is_honoured ... ok
+test sanodaldiffusion_solverxyz::tests::the_output_flux_is_the_whole_history ... ok
+test sigmavalupd3d::tests::a_negative_currval_under_a_root_law_stays_finite ... ok
+test sigmavalupd3d::tests::each_fuelled_node_gets_its_own_material_row ... ok
+test sigmavalupd3d::tests::negative_arguments_follow_matlabs_complex_power ... ok
+test sigmavalupd3d::tests::nu_and_chi_are_copied_not_perturbed ... ok
+test sigmavalupd3d::tests::void_nodes_are_excluded ... ok
+test sigmavalupd3d_handler::tests::a_first_column_c1_occurrence_is_an_error ... ok
+test sigmavalupd3d_handler::tests::a_fully_withdrawn_bank_inherits_the_previous_columns_level ... ok
+test sigmavalupd3d_handler::tests::a_tip_inside_a_node_gives_a_partial_fraction ... ok
+test sigmavalupd3d_handler::tests::c1_which_cases_trip_the_carry_over_and_what_it_costs ... ok
+test sigmavalupd3d_handler::tests::negative_absorption_is_taken_out_of_self_scattering ... ok
+test sigmavalupd3d_handler::tests::no_feedback_leaves_the_cross_sections_alone ... ok
+test sigmavalupd3d_handler::tests::the_boron_channel_applies_a_scalar_feedback ... ok
+test sigmavalupd3d_handler::tests::the_fuel_temperature_channel_uses_the_square_root_law ... ok
+test sigmavalupd3d_handler::tests::the_rod_fraction_is_one_above_the_tip ... ok
+test sigmavalupd3d_handler::tests::two_channels_both_apply ... ok
+test singleflow1devap::tests::a_boiling_channel_plateaus_at_saturation_and_generates_void ... ok
+test singleflow1devap::tests::an_unpowered_channel_is_left_at_the_inlet_state ... ok
+test singleflow1devap::tests::downward_flow_mirrors_the_profile ... ok
+test singleflow1devap::tests::the_enthalpy_march_closes_the_energy_balance ... ok
+test singleflow1devap::tests::the_homogeneous_switch_changes_the_void_fraction ... ok
+test singleflow1devap::tests::the_transport_properties_are_in_cm_g_s_units ... ok
+test singleflow1devaptime::tests::a_converged_transient_state_is_a_fixed_point ... ok
+test singleflow1devaptime::tests::a_large_time_step_reproduces_the_steady_solution ... ok
+test singleflow1devaptime::tests::a_power_step_is_followed_with_thermal_inertia ... ok
+test singleflow1devaptime::tests::a_tiny_time_step_freezes_the_enthalpy ... ok
+test singleflow1devaptime::tests::the_face_enthalpies_bracket_the_cell_centres ... ok
+test th_solvertimexyz::tests::a_large_time_step_reproduces_the_steady_driver ... ok
+test th_solvertimexyz::tests::a_null_transient_does_not_drift ... ok
+test th_solvertimexyz::tests::a_power_ramp_is_followed_with_fuel_thermal_inertia ... ok
+test th_solvertimexyz::tests::the_transient_ignores_the_channel_model_gate ... ok
+test th_solverxyz::tests::a_steady_pass_produces_an_ordered_feedback_state ... ok
+test th_solverxyz::tests::a_void_bottom_node_skips_the_whole_column ... ok
+test th_solverxyz::tests::c4_the_two_whichsigma_call_sites_give_identical_results ... ok
+test th_solverxyz::tests::more_power_means_hotter_fuel_and_more_wall_flux ... ok
+test th_solverxyz::tests::only_the_hem_model_actually_solves_the_coolant ... ok
+test th_solverxyz::tests::t9_the_volume_average_does_not_disturb_the_doppler_feedback ... ignored, T9 on a real case; two coupled D1 solves, several minutes
+test th_solverxyz::tests::the_doppler_weight_interpolates_centre_to_pellet_surface ... ok
+test th_solverxyz::tests::the_pellet_volume_average_matches_the_analytic_parabolic_result ... ok
+test th_solverxyz::tests::the_power_density_normalisation_is_scale_invariant ... ok
+test th_solverxyz::tests::the_stored_and_recomputed_subarea_can_disagree ... ok
+test thdiffusion_solverxyz::tests::the_coupled_loop_converges ... ignored, this synthetic fixture is not a well-posed coupled problem; the loop converges on the real NEACRP case - see Verification status
+test thdiffusion_solverxyz::tests::the_density_feedback_moves_the_eigenvalue ... ignored, this synthetic fixture is not a well-posed coupled problem; the loop converges on the real NEACRP case - see Verification status
+test neacrpd1t::tests::the_two_kinetics_schemes_agree_on_a_gentle_window has been running for over 60 seconds
+test thdiffusion_solverxyz::tests::the_discarded_chf_is_returned ... ok
+test thdiffusion_solverxyz::tests::the_iteration_cap_is_reported_not_hidden ... ok
+test thdiffusion_solverxyz::tests::under_relaxation_does_not_move_the_fixed_point ... ignored, this synthetic fixture is not a well-posed coupled problem; the loop converges on the real NEACRP case - see Verification status
+test w3chf::tests::a_zero_heat_flux_reports_zero_margin_not_infinite_margin ... ok
+test w3chf::tests::t5_what_correcting_the_k4_enthalpy_does_to_a_real_case ... ignored, T5/T6 on a real case; one coupled A2 solve, minutes
+test w3chf::tests::the_chf_corrections_together_on_neacrp_a2 ... ignored, the CHF corrections on a real case; one coupled A2 solve, minutes
+test w3chf::tests::the_critical_heat_flux_is_physically_plausible_for_a_pwr ... ok
+test w3chf::tests::the_dnbr_falls_as_the_wall_flux_rises ... ok
+test w3chf::tests::the_interior_nodes_are_self_consistent ... ok
+test w3chf::tests::the_upwind_enthalpy_is_halved_and_overpredicts_the_flux ... ok
+test w3chfhottest::tests::a_diagonal_hot_channel_is_found_correctly ... ok
+test w3chfhottest::tests::a_uniform_core_keeps_the_first_channel ... ok
+test w3chfhottest::tests::an_off_diagonal_hot_channel_is_misidentified ... ok
+test neacrpd1t::tests::the_two_kinetics_schemes_agree_on_a_gentle_window ... ok
+
+test result: ok. 266 passed; 0 failed; 27 ignored; 0 measured; 0 filtered out; finished in 456.02s
+

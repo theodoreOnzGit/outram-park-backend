@@ -1,0 +1,32 @@
+    Updating crates.io index
+   Packaging tampines-steam-tables v0.3.0 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/crates/tampines-steam-tables)
+    Updating crates.io index
+    Packaged 692 files, 13.0MiB (2.5MiB compressed)
+   Verifying tampines-steam-tables v0.3.0 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/crates/tampines-steam-tables)
+   Compiling tampines-steam-tables v0.3.0 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/target/package/tampines-steam-tables-0.3.0)
+warning: ambiguous glob re-exports
+  --> src/prelude.rs:24:9
+   |
+24 | pub use crate::interfaces::functional_programming::hs_flash_eqm::*;
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the name `validity_range` in the type namespace is first re-exported here
+25 | pub use crate::interfaces::functional_programming::ph_flash_eqm::*;
+26 | pub use crate::interfaces::functional_programming::ps_flash_eqm::*;
+   |         ---------------------------------------------------------- but the name `validity_range` in the type namespace is also re-exported here
+   |
+   = note: `#[warn(ambiguous_glob_reexports)]` on by default
+
+warning: constant `LIQUID_SNAP_PRESSURE_FRACTION` is never used
+    --> src/interfaces/functional_programming/rho_h_flash_eqm/mod.rs:1132:7
+     |
+1132 | const LIQUID_SNAP_PRESSURE_FRACTION: f64 = 0.05;
+     |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `tampines-steam-tables` (lib) generated 2 warnings
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 8.27s
+   Uploading tampines-steam-tables v0.3.0 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/crates/tampines-steam-tables)
+    Uploaded tampines-steam-tables v0.3.0 to registry `crates-io`
+note: waiting for tampines-steam-tables v0.3.0 to be available at registry `crates-io`
+help: you may press ctrl-c to skip waiting; the crate should be available shortly
+   Published tampines-steam-tables v0.3.0 at registry `crates-io`

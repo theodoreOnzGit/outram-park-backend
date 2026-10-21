@@ -1,7 +1,7 @@
 {
  "meta": {
   "engine": "citeproc-js 2.4.63",
-  "node": "v22.22.2",
+  "node": "v26.12.0",
   "generator": "scripts/csl-intermediate-reference.cjs",
   "sections": [
    "style",
@@ -45816,6 +45816,42 @@
      "type": "article-journal",
      "volume": "45"
     },
+    "doe1993hdbk1017v1": {
+     "author": [
+      {
+       "literal": "U.S. Department of Energy"
+      }
+     ],
+     "genre": "Handbook",
+     "id": "doe1993hdbk1017v1",
+     "issued": {
+      "month": 1,
+      "year": 1993
+     },
+     "number": "DOE-HDBK-1017/1-93",
+     "publisher": "U.S. Department of Energy",
+     "publisher-place": "Washington, D.C.",
+     "title": "DOE Fundamentals Handbook: Material Science, Volume 1 of 2",
+     "type": "report"
+    },
+    "doe1993hdbk1017v2": {
+     "author": [
+      {
+       "literal": "U.S. Department of Energy"
+      }
+     ],
+     "genre": "Handbook",
+     "id": "doe1993hdbk1017v2",
+     "issued": {
+      "month": 1,
+      "year": 1993
+     },
+     "number": "DOE-HDBK-1017/2-93",
+     "publisher": "U.S. Department of Energy",
+     "publisher-place": "Washington, D.C.",
+     "title": "DOE Fundamentals Handbook: Material Science, Volume 2 of 2",
+     "type": "report"
+    },
     "doe1993hdbk1019v1": {
      "author": [
       {
@@ -46277,6 +46313,36 @@
      "title": "NekRS, a GPU-accelerated spectral element Navier–Stokes solver",
      "type": "article-journal",
      "volume": "114"
+    },
+    "flowers2019chemistry2e": {
+     "ISBN": "978-1-947172-61-6",
+     "URL": "https://openstax.org/details/books/chemistry-2e",
+     "author": [
+      {
+       "family": "Flowers",
+       "given": "Paul"
+      },
+      {
+       "family": "Theopold",
+       "given": "Klaus"
+      },
+      {
+       "family": "Langley",
+       "given": "Richard"
+      },
+      {
+       "family": "Robinson",
+       "given": "William R."
+      }
+     ],
+     "id": "flowers2019chemistry2e",
+     "issued": {
+      "year": 2019
+     },
+     "publisher": "OpenStax",
+     "publisher-place": "Houston, Texas",
+     "title": "Chemistry 2e",
+     "type": "book"
     },
     "friant2023state": {
      "author": [
@@ -46822,6 +46888,20 @@
      },
      "title": "The Marviken Critical Flow Test—A Description and Early Results",
      "type": "paper-conference"
+    },
+    "ham1958": {
+     "author": [
+      {
+       "family": "Ham",
+       "given": "F. S."
+      }
+     ],
+     "id": "ham1958",
+     "issued": {
+      "year": 1958
+     },
+     "title": "Journal of Physics and Chemistry of Solids, 6, 335-351",
+     "type": "article-journal"
     },
     "hassan2025agentic": {
      "author": [
@@ -47727,6 +47807,32 @@
      "title": "Introduction to Moltres: an application for simulation of Molten Salt Reactors",
      "type": "article-journal",
      "volume": "114"
+    },
+    "ling2016universityphysics2": {
+     "ISBN": "978-1-947172-21-0",
+     "URL": "https://openstax.org/details/books/university-physics-volume-2",
+     "author": [
+      {
+       "family": "Ling",
+       "given": "Samuel J."
+      },
+      {
+       "family": "Sanny",
+       "given": "Jeff"
+      },
+      {
+       "family": "Moebs",
+       "given": "William"
+      }
+     ],
+     "id": "ling2016universityphysics2",
+     "issued": {
+      "year": 2016
+     },
+     "publisher": "OpenStax",
+     "publisher-place": "Houston, Texas",
+     "title": "University Physics, Volume 2",
+     "type": "book"
     },
     "ling2016universityphysics3": {
      "ISBN": "978-1-947172-22-7",
@@ -49172,6 +49278,29 @@
      "title": "HRMFoam: Homogeneous Relaxation Model solver for OpenFOAM",
      "type": "document"
     },
+    "sciantix2344575": {
+     "URL": "https://github.com/sciantix/sciantix-official",
+     "author": [
+      {
+       "family": "Pizzocri",
+       "given": "Davide"
+      },
+      {
+       "family": "Barani",
+       "given": "Tommaso"
+      },
+      {
+       "family": "Luzzi",
+       "given": "Lelio"
+      }
+     ],
+     "id": "sciantix2344575",
+     "issued": {
+      "year": 2018
+     },
+     "title": "SCIANTIX",
+     "type": "software"
+    },
     "sears1992neutron": {
      "DOI": "10.1080/10448639208218770",
      "author": [
@@ -49267,6 +49396,41 @@
      "title": "A survey of several finite difference methods for systems of nonlinear hyperbolic conservation laws",
      "type": "article-journal",
      "volume": "27"
+    },
+    "soffer1995nureg1465": {
+     "author": [
+      {
+       "family": "Soffer",
+       "given": "L."
+      },
+      {
+       "family": "Burson",
+       "given": "S. B."
+      },
+      {
+       "family": "Ferrell",
+       "given": "C. M."
+      },
+      {
+       "family": "Lee",
+       "given": "R. Y."
+      },
+      {
+       "family": "Ridgely",
+       "given": "J. N."
+      }
+     ],
+     "genre": "Report",
+     "id": "soffer1995nureg1465",
+     "issued": {
+      "month": 2,
+      "year": 1995
+     },
+     "number": "NUREG-1465",
+     "publisher": "U.S. Nuclear Regulatory Commission, Office of Nuclear Regulatory Research",
+     "publisher-place": "Washington, D.C.",
+     "title": "Accident Source Terms for Light-Water Nuclear Power Plants, Final Report",
+     "type": "report"
     },
     "spinellis2009evaluating": {
      "author": [
@@ -49663,6 +49827,20 @@
      "title": "ThermoSysPro: Modelica Library for Thermal-Hydraulic and Power Plant Modelling",
      "type": "document"
     },
+    "tian2026mate664": {
+     "URL": "https://github.com/tiangroup-uofa/mate664-kinetics-of-materials",
+     "author": [
+      {
+       "literal": "Tian group, University of Alberta"
+      }
+     ],
+     "id": "tian2026mate664",
+     "issued": {
+      "year": 2026
+     },
+     "title": "MATE 664: Kinetics of Materials, lecture notes",
+     "type": "document"
+    },
     "tiesinga2021codata2018": {
      "DOI": "10.1103/RevModPhys.93.025010",
      "author": [
@@ -49755,6 +49933,37 @@
      "publisher": "Brookhaven National Laboratory",
      "title": "ENDF-6 Formats Manual: Data Formats and Procedures for the Evaluated Nuclear Data Files ENDF/B-VI, ENDF/B-VII and ENDF/B-VIII",
      "type": "report"
+    },
+    "turnbull1971": {
+     "author": [
+      {
+       "family": "Turnbull",
+       "given": "J. A."
+      }
+     ],
+     "id": "turnbull1971",
+     "issued": {
+      "year": 1971
+     },
+     "title": "Journal of Nuclear Materials, 38, 203",
+     "type": "article-journal"
+    },
+    "turnbull1988iwgfpt32": {
+     "author": [
+      {
+       "family": "Turnbull",
+       "given": "J. A."
+      },
+      {
+       "literal": "others"
+      }
+     ],
+     "id": "turnbull1988iwgfpt32",
+     "issued": {
+      "year": 1988
+     },
+     "title": "IWGFPT-32, Preston, UK, September 18-22",
+     "type": "paper-conference"
     },
     "van2009astec": {
      "author": [
@@ -52229,6 +52438,28 @@
       }
      ]
     },
+    "doe1993hdbk1017v1": {
+     "author": [
+      {
+       "static_ordering": true,
+       "name": {
+        "comma-dropping-particle": "",
+        "literal": "U.S. Department of Energy"
+       }
+      }
+     ]
+    },
+    "doe1993hdbk1017v2": {
+     "author": [
+      {
+       "static_ordering": true,
+       "name": {
+        "comma-dropping-particle": "",
+        "literal": "U.S. Department of Energy"
+       }
+      }
+     ]
+    },
     "doe1993hdbk1019v1": {
      "author": [
       {
@@ -52776,6 +53007,42 @@
        "name": {
         "comma-dropping-particle": "",
         "literal": "others"
+       }
+      }
+     ]
+    },
+    "flowers2019chemistry2e": {
+     "author": [
+      {
+       "static_ordering": false,
+       "name": {
+        "comma-dropping-particle": "",
+        "family": "Flowers",
+        "given": "Paul"
+       }
+      },
+      {
+       "static_ordering": false,
+       "name": {
+        "comma-dropping-particle": "",
+        "family": "Theopold",
+        "given": "Klaus"
+       }
+      },
+      {
+       "static_ordering": false,
+       "name": {
+        "comma-dropping-particle": "",
+        "family": "Langley",
+        "given": "Richard"
+       }
+      },
+      {
+       "static_ordering": false,
+       "name": {
+        "comma-dropping-particle": "",
+        "family": "Robinson",
+        "given": "William R."
        }
       }
      ]
@@ -53445,6 +53712,18 @@
         "comma-dropping-particle": "",
         "family": "Ericson",
         "given": "Leif"
+       }
+      }
+     ]
+    },
+    "ham1958": {
+     "author": [
+      {
+       "static_ordering": false,
+       "name": {
+        "comma-dropping-particle": "",
+        "family": "Ham",
+        "given": "F. S."
        }
       }
      ]
@@ -54439,6 +54718,34 @@
         "comma-dropping-particle": "",
         "family": "Huff",
         "given": "Kathryn"
+       }
+      }
+     ]
+    },
+    "ling2016universityphysics2": {
+     "author": [
+      {
+       "static_ordering": false,
+       "name": {
+        "comma-dropping-particle": "",
+        "family": "Ling",
+        "given": "Samuel J."
+       }
+      },
+      {
+       "static_ordering": false,
+       "name": {
+        "comma-dropping-particle": "",
+        "family": "Sanny",
+        "given": "Jeff"
+       }
+      },
+      {
+       "static_ordering": false,
+       "name": {
+        "comma-dropping-particle": "",
+        "family": "Moebs",
+        "given": "William"
        }
       }
      ]
@@ -55955,6 +56262,34 @@
       }
      ]
     },
+    "sciantix2344575": {
+     "author": [
+      {
+       "static_ordering": false,
+       "name": {
+        "comma-dropping-particle": "",
+        "family": "Pizzocri",
+        "given": "Davide"
+       }
+      },
+      {
+       "static_ordering": false,
+       "name": {
+        "comma-dropping-particle": "",
+        "family": "Barani",
+        "given": "Tommaso"
+       }
+      },
+      {
+       "static_ordering": false,
+       "name": {
+        "comma-dropping-particle": "",
+        "family": "Luzzi",
+        "given": "Lelio"
+       }
+      }
+     ]
+    },
     "sears1992neutron": {
      "author": [
       {
@@ -56039,6 +56374,50 @@
         "comma-dropping-particle": "",
         "family": "Sod",
         "given": "Gary A."
+       }
+      }
+     ]
+    },
+    "soffer1995nureg1465": {
+     "author": [
+      {
+       "static_ordering": false,
+       "name": {
+        "comma-dropping-particle": "",
+        "family": "Soffer",
+        "given": "L."
+       }
+      },
+      {
+       "static_ordering": false,
+       "name": {
+        "comma-dropping-particle": "",
+        "family": "Burson",
+        "given": "S. B."
+       }
+      },
+      {
+       "static_ordering": false,
+       "name": {
+        "comma-dropping-particle": "",
+        "family": "Ferrell",
+        "given": "C. M."
+       }
+      },
+      {
+       "static_ordering": false,
+       "name": {
+        "comma-dropping-particle": "",
+        "family": "Lee",
+        "given": "R. Y."
+       }
+      },
+      {
+       "static_ordering": false,
+       "name": {
+        "comma-dropping-particle": "",
+        "family": "Ridgely",
+        "given": "J. N."
        }
       }
      ]
@@ -56458,6 +56837,17 @@
       }
      ]
     },
+    "tian2026mate664": {
+     "author": [
+      {
+       "static_ordering": true,
+       "name": {
+        "comma-dropping-particle": "",
+        "literal": "Tian group, University of Alberta"
+       }
+      }
+     ]
+    },
     "tiesinga2021codata2018": {
      "author": [
       {
@@ -56550,6 +56940,37 @@
         "comma-dropping-particle": "",
         "family": "Brown",
         "given": "David A."
+       }
+      }
+     ]
+    },
+    "turnbull1971": {
+     "author": [
+      {
+       "static_ordering": false,
+       "name": {
+        "comma-dropping-particle": "",
+        "family": "Turnbull",
+        "given": "J. A."
+       }
+      }
+     ]
+    },
+    "turnbull1988iwgfpt32": {
+     "author": [
+      {
+       "static_ordering": false,
+       "name": {
+        "comma-dropping-particle": "",
+        "family": "Turnbull",
+        "given": "J. A."
+       }
+      },
+      {
+       "static_ordering": true,
+       "name": {
+        "comma-dropping-particle": "",
+        "literal": "others"
        }
       }
      ]
@@ -61341,6 +61762,124 @@
       }
      }
     },
+    "doe1993hdbk1017v1": {
+     "number": {
+      "number": {
+       "collapsible": false,
+       "numeric": false,
+       "plural": 0,
+       "values": [
+        {
+         "collapsible": false,
+         "joiningSuffix": "-",
+         "label": "var:number",
+         "labelSuffix": "",
+         "labelVisibility": false,
+         "numeric": false,
+         "origLabel": "",
+         "particle": "",
+         "plural": 0,
+         "value": "DOE"
+        },
+        {
+         "collapsible": false,
+         "joiningSuffix": "-",
+         "label": "var:number",
+         "labelSuffix": "",
+         "labelVisibility": false,
+         "numeric": false,
+         "origLabel": "",
+         "particle": "",
+         "plural": 0,
+         "value": "HDBK"
+        },
+        {
+         "collapsible": false,
+         "joiningSuffix": "-",
+         "label": "var:number",
+         "labelSuffix": "",
+         "labelVisibility": false,
+         "numeric": false,
+         "origLabel": "",
+         "particle": "",
+         "plural": 0,
+         "value": "1017/1"
+        },
+        {
+         "collapsible": false,
+         "joiningSuffix": "",
+         "label": "var:number",
+         "labelSuffix": "",
+         "labelVisibility": false,
+         "numeric": false,
+         "origLabel": "",
+         "particle": "",
+         "plural": 0,
+         "value": "93"
+        }
+       ]
+      }
+     }
+    },
+    "doe1993hdbk1017v2": {
+     "number": {
+      "number": {
+       "collapsible": false,
+       "numeric": false,
+       "plural": 0,
+       "values": [
+        {
+         "collapsible": false,
+         "joiningSuffix": "-",
+         "label": "var:number",
+         "labelSuffix": "",
+         "labelVisibility": false,
+         "numeric": false,
+         "origLabel": "",
+         "particle": "",
+         "plural": 0,
+         "value": "DOE"
+        },
+        {
+         "collapsible": false,
+         "joiningSuffix": "-",
+         "label": "var:number",
+         "labelSuffix": "",
+         "labelVisibility": false,
+         "numeric": false,
+         "origLabel": "",
+         "particle": "",
+         "plural": 0,
+         "value": "HDBK"
+        },
+        {
+         "collapsible": false,
+         "joiningSuffix": "-",
+         "label": "var:number",
+         "labelSuffix": "",
+         "labelVisibility": false,
+         "numeric": false,
+         "origLabel": "",
+         "particle": "",
+         "plural": 0,
+         "value": "1017/2"
+        },
+        {
+         "collapsible": false,
+         "joiningSuffix": "",
+         "label": "var:number",
+         "labelSuffix": "",
+         "labelVisibility": false,
+         "numeric": false,
+         "origLabel": "",
+         "particle": "",
+         "plural": 0,
+         "value": "93"
+        }
+       ]
+      }
+     }
+    },
     "doe1993hdbk1019v1": {
      "number": {
       "number": {
@@ -62191,6 +62730,7 @@
       }
      }
     },
+    "flowers2019chemistry2e": {},
     "friant2023state": {
      "page": {
       "page": {
@@ -63186,6 +63726,7 @@
     },
     "hales2020bison": {},
     "hall1978marviken": {},
+    "ham1958": {},
     "hassan2025agentic": {},
     "haxel1949magic": {
      "page": {
@@ -64874,6 +65415,7 @@
       }
      }
     },
+    "ling2016universityphysics2": {},
     "ling2016universityphysics3": {},
     "linuxkernel2026cve": {},
     "linuxkernel2026security": {},
@@ -66887,6 +67429,7 @@
      }
     },
     "schmidt_hrmfoam_github": {},
+    "sciantix2344575": {},
     "sears1992neutron": {
      "page": {
       "page": {
@@ -67189,6 +67732,41 @@
          "particle": "",
          "plural": 0,
          "value": "1"
+        }
+       ]
+      }
+     }
+    },
+    "soffer1995nureg1465": {
+     "number": {
+      "number": {
+       "collapsible": false,
+       "numeric": false,
+       "plural": 0,
+       "values": [
+        {
+         "collapsible": false,
+         "joiningSuffix": "-",
+         "label": "var:number",
+         "labelSuffix": "",
+         "labelVisibility": false,
+         "numeric": false,
+         "origLabel": "",
+         "particle": "",
+         "plural": 0,
+         "value": "NUREG"
+        },
+        {
+         "collapsible": false,
+         "joiningSuffix": "",
+         "label": "var:number",
+         "labelSuffix": "",
+         "labelVisibility": false,
+         "numeric": false,
+         "origLabel": "",
+         "particle": "",
+         "plural": 0,
+         "value": "1465"
         }
        ]
       }
@@ -67914,6 +68492,7 @@
     },
     "teschner_discretise_nse": {},
     "thermosyspro_github": {},
+    "tian2026mate664": {},
     "tiesinga2021codata2018": {
      "page": {
       "page": {
@@ -68099,6 +68678,8 @@
       }
      }
     },
+    "turnbull1971": {},
+    "turnbull1988iwgfpt32": {},
     "van2009astec": {
      "page": {
       "page": {

@@ -1,7 +1,7 @@
 {
  "meta": {
   "engine": "citeproc-js 2.4.63",
-  "node": "v22.22.2",
+  "node": "v26.12.0",
   "style": "kovan-literature/data/csl/apa.csl",
   "locale": "kovan-literature/data/csl/locales-en-US.xml"
  },
@@ -63,6 +63,7 @@
   "ferreira2021femfvm",
   "fiorina2015gen",
   "fischer2022nekrs",
+  "flowers2019chemistry2e",
   "Fortunato2010",
   "FortunatoBarthelemy2007",
   "friant2023state",
@@ -84,6 +85,7 @@
   "hackbarth2010assessing",
   "hales2020bison",
   "hall1978marviken",
+  "ham1958",
   "hassan2025agentic",
   "Havensetal2013",
   "haxel1949magic",
@@ -121,6 +123,7 @@
   "liang2013chord",
   "lin2025supercharging",
   "lindsay2018introduction",
+  "ling2016universityphysics2",
   "ling2016universityphysics3",
   "linuxkernel2026cve",
   "linuxkernel2026security",
@@ -174,6 +177,7 @@
   "orgogozo2014open",
   "palmblad2026agentic",
   "pessiglione2025fatigue",
+  "sciantix2344575",
   "price2012golden",
   "Psorakisetal2011",
   "Raghavanetal2007",
@@ -193,6 +197,7 @@
   "slaughter2021code",
   "SobolevskyCampari2014",
   "sod1978survey",
+  "soffer1995nureg1465",
   "spinellis2009evaluating",
   "squires2012thermal",
   "steward2025neurobiology",
@@ -212,10 +217,15 @@
   "terry2005htr10benchmark",
   "teschner_discretise_nse",
   "infographics_show_ai_bill_2026",
+  "tian2026mate664",
   "tiesinga2021codata2018",
   "toro2013riemann",
   "trajanov2026cognitive",
   "trkov2018endf6",
+  "turnbull1971",
+  "turnbull1988iwgfpt32",
+  "doe1993hdbk1017v1",
+  "doe1993hdbk1017v2",
   "doe1993hdbk1019v1",
   "nrc2024ai",
   "van2009astec",
@@ -580,10 +590,20 @@
    "narrative": "Devkota &#38; Imberger (2009)",
    "bibliography": "<div class=\"csl-entry\">Devkota, B. H., &#38; Imberger, J. (2009). Lagrangian modeling of advection-diffusion transport in open channel flow. <i>Water Resources Research</i>, <i>45</i>(12).</div>"
   },
+  "doe1993hdbk1017v1": {
+   "parenthetical": "(U.S. Department of Energy, 1993a)",
+   "narrative": "U.S. Department of Energy (1993a)",
+   "bibliography": "<div class=\"csl-entry\">U.S. Department of Energy. (1993a). <i>DOE Fundamentals Handbook: Material Science, Volume 1 of 2</i> (Handbook DOE-HDBK-1017/1-93). U.S. Department of Energy.</div>"
+  },
+  "doe1993hdbk1017v2": {
+   "parenthetical": "(U.S. Department of Energy, 1993b)",
+   "narrative": "U.S. Department of Energy (1993b)",
+   "bibliography": "<div class=\"csl-entry\">U.S. Department of Energy. (1993b). <i>DOE Fundamentals Handbook: Material Science, Volume 2 of 2</i> (Handbook DOE-HDBK-1017/2-93). U.S. Department of Energy.</div>"
+  },
   "doe1993hdbk1019v1": {
-   "parenthetical": "(U.S. Department of Energy, 1993)",
-   "narrative": "U.S. Department of Energy (1993)",
-   "bibliography": "<div class=\"csl-entry\">U.S. Department of Energy. (1993). <i>DOE Fundamentals Handbook: Nuclear Physics and Reactor Theory, Volume 1 of 2</i> (Handbook DOE-HDBK-1019/1-93). U.S. Department of Energy.</div>"
+   "parenthetical": "(U.S. Department of Energy, 1993c)",
+   "narrative": "U.S. Department of Energy (1993c)",
+   "bibliography": "<div class=\"csl-entry\">U.S. Department of Energy. (1993c). <i>DOE Fundamentals Handbook: Nuclear Physics and Reactor Theory, Volume 1 of 2</i> (Handbook DOE-HDBK-1019/1-93). U.S. Department of Energy.</div>"
   },
   "du2018investigation": {
    "parenthetical": "(Du et al., 2018)",
@@ -654,6 +674,11 @@
    "parenthetical": "(Fischer et al., 2022)",
    "narrative": "Fischer et al. (2022)",
    "bibliography": "<div class=\"csl-entry\">Fischer, P., Kerkemeier, S., Min, M., Lan, Y.-H., Phillips, M., Rathnayake, T., Merzari, E., Tomboulides, A., Karakus, A., Chalmers, N., &#38; others. (2022). NekRS, a GPU-accelerated spectral element Navier–Stokes solver. <i>Parallel Computing</i>, <i>114</i>, 102982.</div>"
+  },
+  "flowers2019chemistry2e": {
+   "parenthetical": "(Flowers et al., 2019)",
+   "narrative": "Flowers et al. (2019)",
+   "bibliography": "<div class=\"csl-entry\">Flowers, P., Theopold, K., Langley, R., &#38; Robinson, W. R. (2019). <i>Chemistry 2e</i>. OpenStax. https://openstax.org/details/books/chemistry-2e</div>"
   },
   "friant2023state": {
    "parenthetical": "(Friant et al., 2023)",
@@ -744,6 +769,11 @@
    "parenthetical": "(Hall &#38; Ericson, 1978)",
    "narrative": "Hall &#38; Ericson (1978)",
    "bibliography": "<div class=\"csl-entry\">Hall, D. G., &#38; Ericson, L. (1978). The Marviken Critical Flow Test—A Description and Early Results. <i>ENS/ANS International Topical Meeting on Nuclear Power Reactor Safety, Belgium</i>.</div>"
+  },
+  "ham1958": {
+   "parenthetical": "(Ham, 1958)",
+   "narrative": "Ham (1958)",
+   "bibliography": "<div class=\"csl-entry\">Ham, F. S. (1958). <i>Journal of Physics and Chemistry of Solids, 6, 335-351</i>.</div>"
   },
   "hassan2025agentic": {
    "parenthetical": "(Hassan et al., 2025)",
@@ -915,10 +945,15 @@
    "narrative": "Lindsay et al. (2018)",
    "bibliography": "<div class=\"csl-entry\">Lindsay, A., Ridley, G., Rykhlevskii, A., &#38; Huff, K. (2018). Introduction to Moltres: an application for simulation of Molten Salt Reactors. <i>Annals of Nuclear Energy</i>, <i>114</i>, 530–540.</div>"
   },
+  "ling2016universityphysics2": {
+   "parenthetical": "(Ling et al., 2016a)",
+   "narrative": "Ling et al. (2016a)",
+   "bibliography": "<div class=\"csl-entry\">Ling, S. J., Sanny, J., &#38; Moebs, W. (2016a). <i>University Physics, Volume 2</i>. OpenStax. https://openstax.org/details/books/university-physics-volume-2</div>"
+  },
   "ling2016universityphysics3": {
-   "parenthetical": "(Ling et al., 2016)",
-   "narrative": "Ling et al. (2016)",
-   "bibliography": "<div class=\"csl-entry\">Ling, S. J., Sanny, J., &#38; Moebs, W. (2016). <i>University Physics, Volume 3</i>. OpenStax. https://openstax.org/details/books/university-physics-volume-3</div>"
+   "parenthetical": "(Ling et al., 2016b)",
+   "narrative": "Ling et al. (2016b)",
+   "bibliography": "<div class=\"csl-entry\">Ling, S. J., Sanny, J., &#38; Moebs, W. (2016b). <i>University Physics, Volume 3</i>. OpenStax. https://openstax.org/details/books/university-physics-volume-3</div>"
   },
   "linuxkernel2026cve": {
    "parenthetical": "(Linux Kernel Developers, 2026a)",
@@ -1220,6 +1255,11 @@
    "narrative": "Schmidt (n.d.)",
    "bibliography": "<div class=\"csl-entry\">Schmidt, D. P. (n.d.). <i>HRMFoam: Homogeneous Relaxation Model solver for OpenFOAM</i>. Retrieved July 6, 2026, from https://github.com/davidpschmidt/HRMFoam</div>"
   },
+  "sciantix2344575": {
+   "parenthetical": "(Pizzocri et al., 2018)",
+   "narrative": "Pizzocri et al. (2018)",
+   "bibliography": "<div class=\"csl-entry\">Pizzocri, D., Barani, T., &#38; Luzzi, L. (2018). <i>SCIANTIX</i> [Computer software]. https://github.com/sciantix/sciantix-official</div>"
+  },
   "sears1992neutron": {
    "parenthetical": "(Sears, 1992)",
    "narrative": "Sears (1992)",
@@ -1239,6 +1279,11 @@
    "parenthetical": "(Sod, 1978)",
    "narrative": "Sod (1978)",
    "bibliography": "<div class=\"csl-entry\">Sod, G. A. (1978). A survey of several finite difference methods for systems of nonlinear hyperbolic conservation laws. <i>Journal of Computational Physics</i>, <i>27</i>(1), 1–31. https://doi.org/10.1016/0021-9991(78)90023-2</div>"
+  },
+  "soffer1995nureg1465": {
+   "parenthetical": "(Soffer et al., 1995)",
+   "narrative": "Soffer et al. (1995)",
+   "bibliography": "<div class=\"csl-entry\">Soffer, L., Burson, S. B., Ferrell, C. M., Lee, R. Y., &#38; Ridgely, J. N. (1995). <i>Accident Source Terms for Light-Water Nuclear Power Plants, Final Report</i> (Report NUREG-1465). U.S. Nuclear Regulatory Commission, Office of Nuclear Regulatory Research.</div>"
   },
   "spinellis2009evaluating": {
    "parenthetical": "(Spinellis et al., 2009)",
@@ -1310,6 +1355,11 @@
    "narrative": "EDF R&#38;D (2026)",
    "bibliography": "<div class=\"csl-entry\">EDF R&#38;D. (2026). <i>ThermoSysPro: Modelica Library for Thermal-Hydraulic and Power Plant Modelling</i>. GitHub. https://github.com/ThermoSysPro/ThermoSysPro</div>"
   },
+  "tian2026mate664": {
+   "parenthetical": "(Tian group, University of Alberta, 2026)",
+   "narrative": "Tian group, University of Alberta (2026)",
+   "bibliography": "<div class=\"csl-entry\">Tian group, University of Alberta. (2026). <i>MATE 664: Kinetics of Materials, lecture notes</i>. https://github.com/tiangroup-uofa/mate664-kinetics-of-materials</div>"
+  },
   "tiesinga2021codata2018": {
    "parenthetical": "(Tiesinga et al., 2021)",
    "narrative": "Tiesinga et al. (2021)",
@@ -1329,6 +1379,16 @@
    "parenthetical": "(Trkov et al., 2018)",
    "narrative": "Trkov et al. (2018)",
    "bibliography": "<div class=\"csl-entry\">Trkov, A., Herman, M., &#38; Brown, D. A. (2018). <i>ENDF-6 Formats Manual: Data Formats and Procedures for the Evaluated Nuclear Data Files ENDF/B-VI, ENDF/B-VII and ENDF/B-VIII</i> (Technical Report BNL-203218-2018-INRE (CSEWG Document ENDF-102)). Brookhaven National Laboratory. https://www.nndc.bnl.gov/endfdocs/ENDF-102-2018.pdf</div>"
+  },
+  "turnbull1971": {
+   "parenthetical": "(Turnbull, 1971)",
+   "narrative": "Turnbull (1971)",
+   "bibliography": "<div class=\"csl-entry\">Turnbull, J. A. (1971). <i>Journal of Nuclear Materials, 38, 203</i>.</div>"
+  },
+  "turnbull1988iwgfpt32": {
+   "parenthetical": "(Turnbull &#38; others, 1988)",
+   "narrative": "Turnbull &#38; others (1988)",
+   "bibliography": "<div class=\"csl-entry\">Turnbull, J. A. &#38; others. (1988). <i>IWGFPT-32, Preston, UK, September 18-22</i>.</div>"
   },
   "van2009astec": {
    "parenthetical": "(Van Dorsselaere et al., 2009)",

@@ -1,0 +1,81 @@
+   Compiling quote v1.0.47
+   Compiling indexmap v2.14.2
+   Compiling syn v3.0.9
+   Compiling naga-types v30.0.1
+   Compiling naga v30.0.1
+   Compiling zvariant_utils v4.2.0
+   Compiling zvariant v5.15.1
+   Compiling wgpu-types v30.0.1
+   Compiling zbus_names v4.3.5
+   Compiling zbus_xml v5.2.1
+   Compiling zbus v5.19.0
+   Compiling zbus-lockstep v0.5.2
+   Compiling wgpu-naga-bridge v30.0.1
+   Compiling wgpu-hal v30.0.1
+   Compiling atspi-common v0.13.0
+   Compiling atspi-proxies v0.13.0
+   Compiling accesskit_atspi_common v0.18.1
+   Compiling atspi v0.29.0
+   Compiling wgpu-core-deps-windows-linux-android v30.0.1
+   Compiling wgpu-core v30.0.1
+   Compiling accesskit_unix v0.21.1
+   Compiling toml_datetime v0.6.11
+   Compiling serde_spanned v0.6.9
+   Compiling curve25519-dalek-derive v0.1.1
+   Compiling toml_edit v0.22.27
+   Compiling curve25519-dalek v4.1.3
+   Compiling wgpu v30.0.1
+   Compiling accesskit_winit v0.32.2
+   Compiling pulldown-cmark v0.12.2
+   Compiling egui-wgpu v0.36.2
+   Compiling serde_json v1.0.154
+   Compiling chrono v0.4.45
+   Compiling ed25519-dalek v2.2.0
+   Compiling egui-winit v0.36.2
+   Compiling toml v0.8.23
+   Compiling syn v2.0.119
+   Compiling eframe v0.36.2
+   Compiling kovan-common v0.0.4 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/crates/kovan-common)
+   Compiling kopitiam-syntax v0.2.5
+   Compiling kovan-web v0.0.3 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/crates/kovan-web)
+    Finished `release` profile [optimized] target(s) in 1m 28s
+     Running unittests src/lib.rs (target/release/deps/kovan_web-46a5c00716a2d41b)
+
+running 34 tests
+test data::tests::a_partial_call_graph_is_shown ... ok
+test data::tests::deep_dives_belong_to_the_crate_folder_they_live_in ... ok
+test model::tests::blocked_by_lists_callees_without_a_valid_stamp ... ok
+test model::tests::deep_links_round_trip ... ok
+test model::tests::links_back_to_the_site ... ok
+test model::tests::rustdoc_urls_follow_rustdocs_scheme ... ok
+test model::tests::tests_are_callers_and_their_callees_unfold ... ok
+test model::tests::the_crate_view_layout_places_every_module_without_overlap ... ok
+test model::tests::the_published_slice_keeps_tests_and_their_calls ... ok
+test model::tests::the_tree_follows_the_mod_structure ... ok
+test model::tests::types_and_constants_are_listed_with_the_functions ... ok
+test model::tests::unfolding_draws_each_function_once ... ok
+test search::tests::a_crate_is_found_by_its_backronym ... ok
+test search::tests::path_fragments_and_name_find_the_function ... ok
+test syntax::tests::a_block_comment_carries_across_lines ... ok
+test syntax::tests::a_rust_line_is_cut_into_kinds_that_rebuild_it ... ok
+test syntax::tests::bad_spans_never_lose_or_split_text ... ok
+test syntax::tests::every_kind_has_a_colour ... ok
+test syntax::tests::the_language_comes_from_the_extension ... ok
+test ui::bar::tests::an_unreviewed_function_is_red ... ok
+test ui::bar::tests::stamp_is_disabled_while_blocked_bottom_up ... ok
+test ui::canvas::tests::the_dark_palette_keeps_the_original_card_colours ... ok
+test ui::canvas::tests::under_a_light_theme_the_cards_are_light_and_readable ... ok
+test ui::ivv::tests::lines_show_pass_reasons_links_flag_and_warnings ... ok
+test ui::source::tests::identifiers_are_split_with_their_columns ... ok
+test ui::syntax_ui::tests::job_keeps_the_text ... ok
+test ui::tests::a_drill_in_is_not_undone_by_the_next_frame_natively ... ok
+test ui::tests::focused_crate_follows_the_view ... ok
+test ui::tests::navigate_opens_a_function_once_the_map_is_loaded ... ok
+test ui::tests::quick_stamp_queues_a_reconfirm_request ... ok
+test ui::tests::selected_function_and_open_later_for_the_host ... ok
+test ui::tests::set_stamps_replaces_the_stamp_states_read_by_the_views ... ok
+test ui::tests::stamp_queues_a_host_request_in_desktop_mode_only ... ok
+test data::tests::loads_land_in_the_background ... ok
+
+test result: ok. 34 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+

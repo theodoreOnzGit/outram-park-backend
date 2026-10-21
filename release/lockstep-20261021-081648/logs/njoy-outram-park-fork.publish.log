@@ -1,0 +1,287 @@
+    Updating crates.io index
+warning: both package.include and package.exclude are specified; the exclude list will be ignored
+   Packaging njoy-outram-park-fork v0.0.6 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/crates/njoy-outram-park-fork)
+warning: ignoring example `ace_blocks_vs_reference` as `examples/ace_blocks_vs_reference.rs` is not included in the published package
+warning: ignoring example `ace_vs_njoy2016` as `examples/ace_vs_njoy2016.rs` is not included in the published package
+warning: ignoring example `ace_word_parity` as `examples/ace_word_parity.rs` is not included in the published package
+warning: ignoring example `bake_mgxs` as `examples/bake_mgxs.rs` is not included in the published package
+warning: ignoring example `bake_wmp` as `examples/bake_wmp.rs` is not included in the published package
+warning: ignoring example `dosimetry_ace_vs_njoy2016` as `examples/dosimetry_ace_vs_njoy2016.rs` is not included in the published package
+warning: ignoring example `download_endf` as `examples/download_endf.rs` is not included in the published package
+warning: ignoring example `endf_to_broadened_xs` as `examples/endf_to_broadened_xs.rs` is not included in the published package
+warning: ignoring example `extract_u238_doppler_ref` as `examples/extract_u238_doppler_ref.rs` is not included in the published package
+warning: ignoring example `gpu_wmp_bench` as `examples/gpu_wmp_bench.rs` is not included in the published package
+warning: ignoring example `graphite_sab_generation` as `examples/graphite_sab_generation.rs` is not included in the published package
+warning: ignoring example `heatr_driver_vs_njoy` as `examples/heatr_driver_vs_njoy.rs` is not included in the published package
+warning: ignoring example `lesson_bound` as `examples/lesson_bound.rs` is not included in the published package
+warning: ignoring example `lesson_dbrc` as `examples/lesson_dbrc.rs` is not included in the published package
+warning: ignoring example `lesson_doppler` as `examples/lesson_doppler.rs` is not included in the published package
+warning: ignoring example `lesson_leapr` as `examples/lesson_leapr.rs` is not included in the published package
+warning: ignoring example `lesson_purr` as `examples/lesson_purr.rs` is not included in the published package
+warning: ignoring example `lesson_reactions` as `examples/lesson_reactions.rs` is not included in the published package
+warning: ignoring example `lesson_resonances` as `examples/lesson_resonances.rs` is not included in the published package
+warning: ignoring example `lesson_slowing_down` as `examples/lesson_slowing_down.rs` is not included in the published package
+warning: ignoring example `lesson_total_xs` as `examples/lesson_total_xs.rs` is not included in the published package
+warning: ignoring example `lesson_unresolved` as `examples/lesson_unresolved.rs` is not included in the published package
+warning: ignoring example `pendf_stage_vs_njoy` as `examples/pendf_stage_vs_njoy.rs` is not included in the published package
+warning: ignoring example `photoatomic_ace_vs_njoy2016` as `examples/photoatomic_ace_vs_njoy2016.rs` is not included in the published package
+warning: ignoring example `photoatomic_grid_ulp_probe` as `examples/photoatomic_grid_ulp_probe.rs` is not included in the published package
+warning: ignoring example `photoatomic_iheat_conditioning` as `examples/photoatomic_iheat_conditioning.rs` is not included in the published package
+warning: ignoring example `photonuclear_ace_vs_njoy2016` as `examples/photonuclear_ace_vs_njoy2016.rs` is not included in the published package
+warning: ignoring example `seam_stage_probe` as `examples/seam_stage_probe.rs` is not included in the published package
+warning: ignoring example `temperature_thinning_study` as `examples/temperature_thinning_study.rs` is not included in the published package
+warning: ignoring example `thermal_ace_vs_njoy2016` as `examples/thermal_ace_vs_njoy2016.rs` is not included in the published package
+warning: ignoring example `tutorial_resonance_to_groups` as `examples/tutorial_resonance_to_groups.rs` is not included in the published package
+warning: ignoring example `urr_kernel_dump` as `examples/urr_kernel_dump.rs` is not included in the published package
+warning: ignoring example `write_ace` as `examples/write_ace.rs` is not included in the published package
+warning: ignoring example `write_ace_library` as `examples/write_ace_library.rs` is not included in the published package
+warning: ignoring test `ace_ce_decode_reference_library` as `tests/ace_ce_decode_reference_library.rs` is not included in the published package
+warning: ignoring test `ace_compare` as `tests/ace_compare.rs` is not included in the published package
+warning: ignoring test `ace_dlw_law_family` as `tests/ace_dlw_law_family.rs` is not included in the published package
+warning: ignoring test `ace_dlw_law_family_vs_njoy2016` as `tests/ace_dlw_law_family_vs_njoy2016.rs` is not included in the published package
+warning: ignoring test `ace_file_formats_vs_openmc` as `tests/ace_file_formats_vs_openmc.rs` is not included in the published package
+warning: ignoring test `ace_five_route_parity` as `tests/ace_five_route_parity.rs` is not included in the published package
+warning: ignoring test `ace_nu_single_block_with_dnu` as `tests/ace_nu_single_block_with_dnu.rs` is not included in the published package
+warning: ignoring test `ace_photon_production_read` as `tests/ace_photon_production_read.rs` is not included in the published package
+warning: ignoring test `ace_read_type1_vs_type2` as `tests/ace_read_type1_vs_type2.rs` is not included in the published package
+warning: ignoring test `ace_reconstructed_total_light_nuclides` as `tests/ace_reconstructed_total_light_nuclides.rs` is not included in the published package
+warning: ignoring test `acer` as `tests/acer.rs` is not included in the published package
+warning: ignoring test `acer_acesix_vs_njoy2016_ace` as `tests/acer_acesix_vs_njoy2016_ace.rs` is not included in the published package
+warning: ignoring test `acer_broadening_vs_njoy2016` as `tests/acer_broadening_vs_njoy2016.rs` is not included in the published package
+warning: ignoring test `acer_ce_esz_vs_njoy2016` as `tests/acer_ce_esz_vs_njoy2016.rs` is not included in the published package
+warning: ignoring test `acer_dosimetry_vs_njoy2016` as `tests/acer_dosimetry_vs_njoy2016.rs` is not included in the published package
+warning: ignoring test `acer_photoatomic_vs_njoy2016` as `tests/acer_photoatomic_vs_njoy2016.rs` is not included in the published package
+warning: ignoring test `acer_photonuclear_vs_njoy2016` as `tests/acer_photonuclear_vs_njoy2016.rs` is not included in the published package
+warning: ignoring test `acer_thermal_ifeng_vs_njoy2016` as `tests/acer_thermal_ifeng_vs_njoy2016.rs` is not included in the published package
+warning: ignoring test `acer_thermal_temperature_parity` as `tests/acer_thermal_temperature_parity.rs` is not included in the published package
+warning: ignoring test `acer_thermal_vs_njoy2016` as `tests/acer_thermal_vs_njoy2016.rs` is not included in the published package
+warning: ignoring test `acer_thermal_word_parity` as `tests/acer_thermal_word_parity.rs` is not included in the published package
+warning: ignoring test `acer_thermal_word_parity_large` as `tests/acer_thermal_word_parity_large.rs` is not included in the published package
+warning: ignoring test `broadr_light_nuclide_pendf_golden` as `tests/broadr_light_nuclide_pendf_golden.rs` is not included in the published package
+warning: ignoring test `broadr_u238_urr_seam` as `tests/broadr_u238_urr_seam.rs` is not included in the published package
+warning: ignoring test `continuum_law_coverage_survey` as `tests/continuum_law_coverage_survey.rs` is not included in the published package
+warning: ignoring test `covr_boxer_golden` as `tests/covr_boxer_golden.rs` is not included in the published package
+warning: ignoring test `delayed_blocks_write_vs_njoy2016` as `tests/delayed_blocks_write_vs_njoy2016.rs` is not included in the published package
+warning: ignoring test `depletion_chain_xml_vs_openmc` as `tests/depletion_chain_xml_vs_openmc.rs` is not included in the published package
+warning: ignoring test `dtfr_u238_claw_full_golden` as `tests/dtfr_u238_claw_full_golden.rs` is not included in the published package
+warning: ignoring test `dtfr_u238_claw_njoy_golden` as `tests/dtfr_u238_claw_njoy_golden.rs` is not included in the published package
+warning: ignoring test `endf_he4` as `tests/endf_he4.rs` is not included in the published package
+warning: ignoring test `endf_u235` as `tests/endf_u235.rs` is not included in the published package
+warning: ignoring test `errorr_mf32_ar37_golden` as `tests/errorr_mf32_ar37_golden.rs` is not included in the published package
+warning: ignoring test `errorr_mf32_cl35_rml_golden` as `tests/errorr_mf32_cl35_rml_golden.rs` is not included in the published package
+warning: ignoring test `errorr_mf32_j33u238_lrf3_golden` as `tests/errorr_mf32_j33u238_lrf3_golden.rs` is not included in the published package
+warning: ignoring test `errorr_mf33_golden` as `tests/errorr_mf33_golden.rs` is not included in the published package
+warning: ignoring test `gaminr_vs_njoy2016` as `tests/gaminr_vs_njoy2016.rs` is not included in the published package
+warning: ignoring test `gaspr_vs_njoy2016` as `tests/gaspr_vs_njoy2016.rs` is not included in the published package
+warning: ignoring test `groupr_u235_mf10_golden` as `tests/groupr_u235_mf10_golden.rs` is not included in the published package
+warning: ignoring test `groupr_u238_derived_quantities_golden` as `tests/groupr_u238_derived_quantities_golden.rs` is not included in the published package
+warning: ignoring test `groupr_u238_elastic_matrix_golden` as `tests/groupr_u238_elastic_matrix_golden.rs` is not included in the published package
+warning: ignoring test `groupr_u238_gendf_golden` as `tests/groupr_u238_gendf_golden.rs` is not included in the published package
+warning: ignoring test `groupr_u238_inelastic_matrix_golden` as `tests/groupr_u238_inelastic_matrix_golden.rs` is not included in the published package
+warning: ignoring test `heatr_driver_vs_njoy2016` as `tests/heatr_driver_vs_njoy2016.rs` is not included in the published package
+warning: ignoring test `heatr_kerma_vs_kinematics` as `tests/heatr_kerma_vs_kinematics.rs` is not included in the published package
+warning: ignoring test `heatr_mt442_vs_njoy2016` as `tests/heatr_mt442_vs_njoy2016.rs` is not included in the published package
+warning: ignoring test `heatr_vs_njoy2016` as `tests/heatr_vs_njoy2016.rs` is not included in the published package
+warning: ignoring test `leapr_coher_general_self_consistency` as `tests/leapr_coher_general_self_consistency.rs` is not included in the published package
+warning: ignoring test `leapr_cold_hydrogen_njoy_oracle` as `tests/leapr_cold_hydrogen_njoy_oracle.rs` is not included in the published package
+warning: ignoring test `leapr_d2o_skold_njoy_oracle` as `tests/leapr_d2o_skold_njoy_oracle.rs` is not included in the published package
+warning: ignoring test `leapr_frequency_h2o` as `tests/leapr_frequency_h2o.rs` is not included in the published package
+warning: ignoring test `leapr_graphite_coherent_elastic_parity` as `tests/leapr_graphite_coherent_elastic_parity.rs` is not included in the published package
+warning: ignoring test `leapr_graphite_deck_parity` as `tests/leapr_graphite_deck_parity.rs` is not included in the published package
+warning: ignoring test `leapr_h2o_njoy_oracle` as `tests/leapr_h2o_njoy_oracle.rs` is not included in the published package
+warning: ignoring test `leapr_h2o_secondary_scatterer` as `tests/leapr_h2o_secondary_scatterer.rs` is not included in the published package
+warning: ignoring test `leapr_run_at_temperature` as `tests/leapr_run_at_temperature.rs` is not included in the published package
+warning: ignoring test `leapr_run_driver_njoy_oracle` as `tests/leapr_run_driver_njoy_oracle.rs` is not included in the published package
+warning: ignoring test `leapr_sic_coherent_elastic_oracle` as `tests/leapr_sic_coherent_elastic_oracle.rs` is not included in the published package
+warning: ignoring test `leapr_sio2_mixed_moderator_oracle` as `tests/leapr_sio2_mixed_moderator_oracle.rs` is not included in the published package
+warning: ignoring test `leapr_temperature_block_selection` as `tests/leapr_temperature_block_selection.rs` is not included in the published package
+warning: ignoring test `mf4_linearisation_tolerance_study` as `tests/mf4_linearisation_tolerance_study.rs` is not included in the published package
+warning: ignoring test `mf4_mean_cosine_vs_legendre_a1` as `tests/mf4_mean_cosine_vs_legendre_a1.rs` is not included in the published package
+warning: ignoring test `mf6_continuum_angular_vs_endf` as `tests/mf6_continuum_angular_vs_endf.rs` is not included in the published package
+warning: ignoring test `mf6_continuum_emission_vs_tape` as `tests/mf6_continuum_emission_vs_tape.rs` is not included in the published package
+warning: ignoring test `mf6_law6_phase_space` as `tests/mf6_law6_phase_space.rs` is not included in the published package
+warning: ignoring test `mf6_law7_conversion` as `tests/mf6_law7_conversion.rs` is not included in the published package
+warning: ignoring test `mf6_law7_mu_weights` as `tests/mf6_law7_mu_weights.rs` is not included in the published package
+warning: ignoring test `mf6_subsection_scan_sweep` as `tests/mf6_subsection_scan_sweep.rs` is not included in the published package
+warning: ignoring test `mgxs_write_read_by_openmc` as `tests/mgxs_write_read_by_openmc.rs` is not included in the published package
+warning: ignoring test `mixr_h2_be9_njoy_golden` as `tests/mixr_h2_be9_njoy_golden.rs` is not included in the published package
+warning: ignoring test `moder_vs_njoy2016` as `tests/moder_vs_njoy2016.rs` is not included in the published package
+warning: ignoring test `no_endf_inside_crates` as `tests/no_endf_inside_crates.rs` is not included in the published package
+warning: ignoring test `nuclear_data_library_is_process` as `tests/nuclear_data_library_is_process.rs` is not included in the published package
+warning: ignoring test `nuclide_h5_vs_openmc` as `tests/nuclide_h5_vs_openmc.rs` is not included in the published package
+warning: ignoring test `openmc_notebooks_data` as `tests/openmc_notebooks_data/main.rs` is not included in the published package
+warning: ignoring test `pendf_stages_vs_njoy2016` as `tests/pendf_stages_vs_njoy2016.rs` is not included in the published package
+warning: ignoring test `photon` as `tests/photon.rs` is not included in the published package
+warning: ignoring test `process_api` as `tests/process_api.rs` is not included in the published package
+warning: ignoring test `process_elastic_0k_and_stages` as `tests/process_elastic_0k_and_stages.rs` is not included in the published package
+warning: ignoring test `purr_u235_urr` as `tests/purr_u235_urr.rs` is not included in the published package
+warning: ignoring test `purr_u238_ptables_vs_njoy` as `tests/purr_u238_ptables_vs_njoy.rs` is not included in the published package
+warning: ignoring test `purr_u238_urr` as `tests/purr_u238_urr.rs` is not included in the published package
+warning: ignoring test `reconr_ar37` as `tests/reconr_ar37.rs` is not included in the published package
+warning: ignoring test `reconr_ar37_mlbw_njoy_golden` as `tests/reconr_ar37_mlbw_njoy_golden.rs` is not included in the published package
+warning: ignoring test `reconr_cl35_rml_njoy_golden` as `tests/reconr_cl35_rml_njoy_golden.rs` is not included in the published package
+warning: ignoring test `reconr_h2` as `tests/reconr_h2.rs` is not included in the published package
+warning: ignoring test `reconr_lrf7_threshold_channels_vs_njoy2016` as `tests/reconr_lrf7_threshold_channels_vs_njoy2016.rs` is not included in the published package
+warning: ignoring test `reconr_mt152_all_unresolved_cases_vs_njoy2016` as `tests/reconr_mt152_all_unresolved_cases_vs_njoy2016.rs` is not included in the published package
+warning: ignoring test `reconr_mt152_vs_njoy2016` as `tests/reconr_mt152_vs_njoy2016.rs` is not included in the published package
+warning: ignoring test `reconr_mt152_writer_vs_njoy2016` as `tests/reconr_mt152_writer_vs_njoy2016.rs` is not included in the published package
+warning: ignoring test `reconr_mt1_is_the_sum_of_its_parts` as `tests/reconr_mt1_is_the_sum_of_its_parts.rs` is not included in the published package
+warning: ignoring test `reconr_si30_inter_resonance_capture` as `tests/reconr_si30_inter_resonance_capture.rs` is not included in the published package
+warning: ignoring test `reconr_sr88_lrf7_kbk_njoy_golden` as `tests/reconr_sr88_lrf7_kbk_njoy_golden.rs` is not included in the published package
+warning: ignoring test `reconr_u234_unresolved_njoy_golden` as `tests/reconr_u234_unresolved_njoy_golden.rs` is not included in the published package
+warning: ignoring test `reconr_u235` as `tests/reconr_u235.rs` is not included in the published package
+warning: ignoring test `reconr_urr_kernel_vs_njoy2016` as `tests/reconr_urr_kernel_vs_njoy2016.rs` is not included in the published package
+warning: ignoring test `reconr_urr_njoy_converges_to_ours` as `tests/reconr_urr_njoy_converges_to_ours.rs` is not included in the published package
+warning: ignoring test `resxsr_h2_njoy_golden` as `tests/resxsr_h2_njoy_golden.rs` is not included in the published package
+warning: ignoring test `thermal_ace` as `tests/thermal_ace.rs` is not included in the published package
+warning: ignoring test `thermal_ace_read_round_trip` as `tests/thermal_ace_read_round_trip.rs` is not included in the published package
+warning: ignoring test `thermal_ace_tolerance` as `tests/thermal_ace_tolerance.rs` is not included in the published package
+warning: ignoring test `thermal_ace_zrh` as `tests/thermal_ace_zrh.rs` is not included in the published package
+warning: ignoring test `thermal_graphite_coherent` as `tests/thermal_graphite_coherent.rs` is not included in the published package
+warning: ignoring test `thermal_h2o_sab` as `tests/thermal_h2o_sab.rs` is not included in the published package
+warning: ignoring test `thermal_temperature_thinning` as `tests/thermal_temperature_thinning.rs` is not included in the published package
+warning: ignoring test `thermr_calcem_sigl_vs_quadrature` as `tests/thermr_calcem_sigl_vs_quadrature.rs` is not included in the published package
+warning: ignoring test `thermr_calcem_vs_njoy2016_golden` as `tests/thermr_calcem_vs_njoy2016_golden.rs` is not included in the published package
+warning: ignoring test `thermr_iform1_continuous_law` as `tests/thermr_iform1_continuous_law.rs` is not included in the published package
+warning: ignoring test `thermr_kernel_vs_njoy2016_matrix` as `tests/thermr_kernel_vs_njoy2016_matrix.rs` is not included in the published package
+warning: ignoring test `u238_doppler_verification` as `tests/u238_doppler_verification/main.rs` is not included in the published package
+warning: ignoring test `unr_block_write_vs_njoy2016` as `tests/unr_block_write_vs_njoy2016.rs` is not included in the published package
+warning: ignoring test `urr_from_ace_unr_block` as `tests/urr_from_ace_unr_block.rs` is not included in the published package
+warning: ignoring test `wasm_fallback` as `tests/wasm_fallback.rs` is not included in the published package
+warning: ignoring test `wasm_process_runtime` as `tests/wasm_process_runtime.rs` is not included in the published package
+warning: ignoring test `wimsr_u238_njoy_golden` as `tests/wimsr_u238_njoy_golden.rs` is not included in the published package
+warning: ignoring test `wmp_arbitrary_temperature` as `tests/wmp_arbitrary_temperature.rs` is not included in the published package
+warning: ignoring test `wmp_h5_vs_openmc` as `tests/wmp_h5_vs_openmc.rs` is not included in the published package
+warning: ignoring test `wmp_h5_write_round_trip` as `tests/wmp_h5_write_round_trip.rs` is not included in the published package
+warning: ignoring test `wmp_u238` as `tests/wmp_u238.rs` is not included in the published package
+    Updating crates.io index
+    Packaged 503 files, 17.6MiB (7.4MiB compressed)
+   Verifying njoy-outram-park-fork v0.0.6 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/crates/njoy-outram-park-fork)
+   Compiling unicode-ident v1.0.27
+   Compiling libc v0.2.191
+   Compiling proc-macro2 v1.0.107
+   Compiling quote v1.0.47
+   Compiling syn v3.0.9
+   Compiling libm v0.2.16
+   Compiling num-traits v0.2.19
+   Compiling cfg_aliases v0.2.2
+   Compiling syn v2.0.119
+   Compiling foldhash v0.2.0
+   Compiling bitflags v2.13.2
+   Compiling thiserror-impl v2.0.21
+   Compiling thiserror v2.0.21
+   Compiling hashbrown v0.17.1
+   Compiling libloading v0.8.9
+   Compiling zerocopy v0.8.63
+   Compiling parking_lot_core v0.9.12
+   Compiling allocator-api2 v0.2.21
+   Compiling zerocopy-derive v0.8.63
+   Compiling indexmap v2.14.2
+   Compiling scopeguard v1.2.0
+   Compiling smallvec v1.16.3
+   Compiling rustc-hash v1.1.0
+   Compiling unicode-width v0.2.0
+   Compiling static_assertions v1.1.0
+   Compiling naga-types v30.0.1
+   Compiling lock_api v0.4.14
+   Compiling bytemuck_derive v1.12.1
+   Compiling naga v30.0.1
+   Compiling bit-vec v0.9.1
+   Compiling once_cell v1.21.4
+   Compiling version_check v0.9.5
+   Compiling ash v0.38.0+1.3.281
+   Compiling rustversion v1.0.23
+   Compiling pkg-config v0.3.34
+   Compiling wayland-sys v0.31.11
+   Compiling generic-array v0.14.7
+   Compiling bit-set v0.10.0
+   Compiling bytemuck v1.25.2
+   Compiling parking_lot v0.12.5
+   Compiling codespan-reporting v0.13.1
+   Compiling half v2.7.1
+   Compiling spirv v0.4.0+sdk-1.4.341.0
+   Compiling arrayvec v0.7.8
+   Compiling crossbeam-utils v0.8.23
+   Compiling khronos-egl v6.0.0
+   Compiling raw-window-handle v0.6.2
+   Compiling wgpu-types v30.0.1
+   Compiling hashbrown v0.16.1
+   Compiling dlib v0.5.3
+   Compiling wgpu-hal v30.0.1
+   Compiling errno v0.3.14
+   Compiling signal-hook v0.3.18
+   Compiling ident_case v1.0.1
+   Compiling strsim v0.11.1
+   Compiling crossbeam-epoch v0.9.21
+   Compiling presser v0.3.1
+   Compiling gpu-allocator v0.28.0
+   Compiling darling_core v0.24.1
+   Compiling signal-hook-registry v1.4.8
+   Compiling wgpu-naga-bridge v30.0.1
+   Compiling ordered-float v5.5.0
+   Compiling glow v0.17.0
+   Compiling either v1.19.0
+   Compiling rustix v0.38.44
+   Compiling crossbeam-deque v0.8.8
+   Compiling crc32fast v1.5.2
+   Compiling profiling v1.0.18
+   Compiling renderdoc-sys v1.1.0
+   Compiling darling_macro v0.24.1
+   Compiling mio v1.2.4
+   Compiling wgpu-core v30.0.1
+   Compiling simd-adler32 v0.3.10
+   Compiling litrs v1.0.1
+   Compiling paste v1.0.15
+   Compiling rayon-core v1.13.0
+   Compiling heck v0.5.0
+   Compiling linux-raw-sys v0.4.15
+   Compiling foldhash v0.1.5
+   Compiling hashbrown v0.15.5
+   Compiling wgpu-core-deps-windows-linux-android v30.0.1
+   Compiling strum_macros v0.26.4
+   Compiling document-features v0.2.12
+   Compiling miniz_oxide v0.9.1
+   Compiling signal-hook-mio v0.2.5
+   Compiling darling v0.24.1
+   Compiling itertools v0.13.0
+   Compiling block-buffer v0.10.4
+   Compiling crypto-common v0.1.7
+   Compiling castaway v0.2.4
+   Compiling wgpu v30.0.1
+   Compiling num-complex v0.4.6
+   Compiling num-integer v0.1.47
+   Compiling hdf5-pure v0.20.1
+   Compiling unicode-width v0.1.14
+   Compiling itoa v1.0.18
+   Compiling indoc v2.0.8
+   Compiling option-ext v0.2.0
+   Compiling unicode-segmentation v1.13.3
+   Compiling ryu v1.0.23
+   Compiling unicode-truncate v1.1.0
+   Compiling compact_str v0.8.2
+   Compiling instability v0.3.14
+   Compiling dirs-sys v0.4.1
+   Compiling ndarray v0.17.2
+   Compiling digest v0.10.7
+   Compiling flate2 v1.1.10
+   Compiling crossterm v0.28.1
+   Compiling strum v0.26.3
+   Compiling lru v0.12.5
+   Compiling uom v0.38.0
+   Compiling cpufeatures v0.2.17
+   Compiling byteorder v1.5.0
+   Compiling njoy-outram-park-fork v0.0.6 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/target/package/njoy-outram-park-fork-0.0.6)
+   Compiling cassowary v0.3.0
+   Compiling ratatui v0.29.0
+   Compiling petir v0.0.3
+   Compiling sha2 v0.10.9
+   Compiling rayon v1.12.0
+   Compiling directories v5.0.1
+   Compiling miniz_oxide v0.8.9
+   Compiling fs2 v0.4.3
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 36.61s
+   Uploading njoy-outram-park-fork v0.0.6 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/crates/njoy-outram-park-fork)
+    Uploaded njoy-outram-park-fork v0.0.6 to registry `crates-io`
+note: waiting for njoy-outram-park-fork v0.0.6 to be available at registry `crates-io`
+help: you may press ctrl-c to skip waiting; the crate should be available shortly
+   Published njoy-outram-park-fork v0.0.6 at registry `crates-io`

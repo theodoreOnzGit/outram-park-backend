@@ -1,0 +1,47 @@
+   Compiling proc-macro2 v1.0.107
+   Compiling quote v1.0.47
+   Compiling unicode-ident v1.0.27
+   Compiling thiserror v2.0.21
+   Compiling syn v3.0.9
+   Compiling thiserror-impl v2.0.21
+   Compiling outram-park-mpi v0.0.1 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/crates/outram-park-mpi)
+    Finished `release` profile [optimized] target(s) in 2.57s
+     Running unittests src/lib.rs (target/release/deps/outram_park_mpi-61c37e5c00563b5e)
+
+running 33 tests
+test datatype::tests::datatype_sizes_match_rust ... ok
+test datatype::tests::datatype_tag_is_correct ... ok
+test datatype::tests::empty_slice_roundtrips ... ok
+test datatype::tests::encode_decode_roundtrips_f64 ... ok
+test datatype::tests::encode_decode_roundtrips_i32 ... ok
+test tests::all_gather_concatenates_on_every_rank ... ok
+test tests::all_reduce_sum_lands_on_everyone ... ok
+test tests::barrier_completes_on_all_ranks ... ok
+test tests::cart_create_coords_and_rank_roundtrip ... ok
+test tests::broadcast_delivers_root_data_to_all ... ok
+test tests::cart_create_rejects_bad_shapes_and_surplus ... ok
+test tests::collectives_do_not_cross_match_user_pt2p ... ok
+test tests::cart_shift_finds_neighbours_with_and_without_periodicity ... ok
+test tests::comm_group_and_create_from_group_roundtrip ... ok
+test tests::dup_isolates_from_the_original_communicator ... ok
+test tests::dup_preserves_rank_and_size ... ok
+test tests::group_set_operations_are_local ... ok
+test tests::each_rank_sees_its_rank_and_size ... ok
+test tests::nonblocking_isend_irecv_complete_with_wait ... ok
+test tests::point_to_point_send_recv_between_two_ranks ... ok
+test tests::recv_into_truncation_is_an_error ... ok
+test tests::run_rejects_nonpositive_ranks ... ok
+test tests::reduce_sum_and_max_land_on_root ... ok
+test tests::scatter_then_gather_roundtrips ... ok
+test tests::split_by_color_forms_subgroups_that_can_communicate ... ok
+test tests::split_key_orders_new_ranks ... ok
+test tests::type_mismatch_is_detected ... ok
+test tests::split_undefined_color_yields_no_communicator ... ok
+test transport::tests::different_comm_id_does_not_match ... ok
+test tests::wildcard_recv_reports_actual_source_and_tag ... ok
+test transport::tests::post_then_recv_try_matches_by_src_tag_comm ... ok
+test transport::tests::same_src_tag_are_fifo_non_overtaking ... ok
+test transport::tests::wildcards_match_any_src_and_tag ... ok
+
+test result: ok. 33 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

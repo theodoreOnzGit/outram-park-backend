@@ -1,0 +1,50 @@
+    Updating crates.io index
+   Packaging bedok v0.0.2 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/crates/bedok)
+    Updating crates.io index
+    Packaged 88 files, 2.9MiB (771.8KiB compressed)
+   Verifying bedok v0.0.2 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/crates/bedok)
+   Compiling bytemuck v1.25.2
+   Compiling nano-gemm-codegen v0.2.1
+   Compiling num-complex v0.4.6
+   Compiling pulp v0.22.3
+   Compiling raw-cpuid v11.6.0
+   Compiling pulp-wasm-simd-flag v0.1.1
+   Compiling reborrow v0.5.5
+   Compiling dyn-stack-macros v0.1.3
+   Compiling dyn-stack v0.13.2
+   Compiling syn v1.0.109
+   Compiling once_cell v1.21.4
+   Compiling seq-macro v0.3.6
+   Compiling nano-gemm-core v0.2.1
+   Compiling gemm-common v0.19.0
+   Compiling interpol v0.2.1
+   Compiling nano-gemm-c64 v0.2.1
+   Compiling nano-gemm-c32 v0.2.1
+   Compiling nano-gemm-f32 v0.2.1
+   Compiling nano-gemm-f64 v0.2.1
+   Compiling syn v2.0.119
+   Compiling defer v0.2.1
+   Compiling private-gemm-x86 v0.1.22
+   Compiling num_cpus v1.17.0
+   Compiling equator-macro v0.2.1
+   Compiling equator v0.2.2
+   Compiling gemm-f32 v0.19.0
+   Compiling gemm-c32 v0.19.0
+   Compiling gemm-f64 v0.19.0
+   Compiling gemm-c64 v0.19.0
+   Compiling qd v0.8.0
+   Compiling generativity v1.2.1
+   Compiling equator-macro v0.6.0
+   Compiling equator v0.6.0
+   Compiling faer-traits v0.24.0
+   Compiling gemm v0.19.0
+   Compiling nano-gemm v0.2.2
+   Compiling faer v0.24.4
+   Compiling petir v0.0.3
+   Compiling bedok v0.0.2 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/target/package/bedok-0.0.2)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 24.56s
+   Uploading bedok v0.0.2 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/crates/bedok)
+    Uploaded bedok v0.0.2 to registry `crates-io`
+note: waiting for bedok v0.0.2 to be available at registry `crates-io`
+help: you may press ctrl-c to skip waiting; the crate should be available shortly
+   Published bedok v0.0.2 at registry `crates-io`

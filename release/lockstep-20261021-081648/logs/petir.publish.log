@@ -1,0 +1,17 @@
+    Updating crates.io index
+   Packaging petir v0.0.3 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/crates/petir)
+    Updating crates.io index
+    Packaged 273 files, 6.8MiB (1.7MiB compressed)
+   Verifying petir v0.0.3 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/crates/petir)
+   Compiling autocfg v1.5.1
+   Compiling libm v0.2.16
+   Compiling typenum v1.20.1
+   Compiling num-traits v0.2.19
+   Compiling uom v0.38.0
+   Compiling petir v0.0.3 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/target/package/petir-0.0.3)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 8.78s
+   Uploading petir v0.0.3 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/crates/petir)
+    Uploaded petir v0.0.3 to registry `crates-io`
+note: waiting for petir v0.0.3 to be available at registry `crates-io`
+help: you may press ctrl-c to skip waiting; the crate should be available shortly
+   Published petir v0.0.3 at registry `crates-io`

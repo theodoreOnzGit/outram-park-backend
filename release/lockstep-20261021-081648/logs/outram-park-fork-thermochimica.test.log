@@ -1,0 +1,18 @@
+   Compiling num-traits v0.2.19
+   Compiling libm v0.2.16
+   Compiling uom v0.38.0
+   Compiling petir v0.0.3 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/crates/petir)
+   Compiling outram-park-fork-thermochimica v0.0.1 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/crates/outram-park-fork-thermochimica)
+    Finished `release` profile [optimized] target(s) in 9.71s
+     Running unittests src/lib.rs (target/release/deps/outram_park_fork_thermochimica-d3a657eac30b851b)
+
+running 6 tests
+test gem::tests::linear_solver_and_error_paths ... ok
+test gem::tests::ideal_binary_nernst_partition ... ok
+test gem::tests::molten_fluoride_flibe_ideal_mixing ... ok
+test gem::tests::pure_component_trivial_limit ... ok
+test gem::tests::redlich_kister_activity_coefficient_identity ... ok
+test gem::tests::regular_solution_partition_in_solver ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

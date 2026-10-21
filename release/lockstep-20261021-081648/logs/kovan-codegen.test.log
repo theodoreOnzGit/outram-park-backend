@@ -1,0 +1,63 @@
+   Compiling pulldown-cmark v0.12.2
+   Compiling kovan-common v0.0.4 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/crates/kovan-common)
+   Compiling kovan-codegen v0.0.4 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/crates/kovan-codegen)
+    Finished `release` profile [optimized] target(s) in 21.65s
+     Running unittests src/lib.rs (target/release/deps/kovan_codegen-56777c63ba9d3b57)
+
+running 46 tests
+test linear::tests::generate_is_deterministic ... ok
+test linear::tests::lu_detects_singular_matrix ... ok
+test linear::tests::lu_requires_pivoting_when_leading_pivot_is_zero ... ok
+test linear::tests::lu_solves_known_3x3_system ... ok
+test linear::tests::unimplemented_variants_error ... ok
+test macros_support::tests::declarative_macro_finds_dottie_number ... ok
+test macros_support::tests::declarative_scaffold_contains_the_macro ... ok
+test macros_support::tests::scaffold_is_deterministic_and_nonempty ... ok
+test nonlinear::tests::fixed_point_finds_dottie_number ... ok
+test nonlinear::tests::generate_is_deterministic ... ok
+test nonlinear::tests::newton_system_solves_2d ... ok
+test nonlinear::tests::unimplemented_variants_error ... ok
+test ode::tests::backward_euler_is_stable_on_stiff_decay ... ok
+test ode::tests::generate_is_deterministic ... ok
+test ode::tests::rk2_beats_euler_at_same_step ... ok
+test ode::tests::rk4_matches_exponential ... ok
+test ode::tests::unimplemented_variants_error ... ok
+test patterns::tests::generate_is_deterministic ... ok
+test patterns::tests::relative_change_is_scale_free_and_zero_safe ... ok
+test patterns::tests::rms_norm_of_known_vector ... ok
+test patterns::tests::under_relaxation_blends_correctly ... ok
+test pde::tests::generate_is_deterministic ... ok
+test pde::tests::poisson_1d_recovers_sine_solution ... ok
+test pde::tests::unimplemented_variants_error ... ok
+test root_finding::tests::bad_bracket_returns_none ... ok
+test root_finding::tests::bisection_finds_sqrt2 ... ok
+test root_finding::tests::brent_finds_sqrt2 ... ok
+test root_finding::tests::generate_is_deterministic ... ok
+test root_finding::tests::newton_finds_sqrt2 ... ok
+test root_finding::tests::regula_falsi_finds_sqrt2 ... ok
+test root_finding::tests::secant_finds_sqrt2 ... ok
+test root_finding::tests::unimplemented_variants_error ... ok
+test tests::emitted_source_is_the_compiled_reference_verbatim ... ok
+test tests::generate_artifact_packages_source_and_provenance ... ok
+test tests::generate_artifact_propagates_unimplemented ... ok
+test tests::generate_dispatches_to_each_family ... ok
+test tests::generate_is_deterministic_across_families ... ok
+test tests::methods_compose_from_families ... ok
+test tests::unimplemented_catalogue_entries_report_the_method ... ok
+test zotero::ordered_json::tests::duplicate_key_keeps_last_value_at_first_position ... ok
+test zotero::ordered_json::tests::object_member_order_is_document_order ... ok
+test zotero::tests::malformed_input_is_an_error_not_a_panic ... ok
+test zotero::tests::generation_is_deterministic ... ok
+test zotero::tests::mini_schema_fails_on_field_only_known_to_meta ... ok
+test zotero::tests::variant_names_are_idiomatic ... ok
+test zotero::tests::mini_schema_generates_in_schema_order ... ok
+
+test result: ok. 46 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/zotero_schema_regen.rs (target/release/deps/zotero_schema_regen-2ed4eb48ca9dea69)
+
+running 1 test
+test committed_schema_tables_regenerate_identically ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+

@@ -1,0 +1,12 @@
+    Updating crates.io index
+   Packaging kovan-metrics v0.0.3 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/crates/kovan-metrics)
+    Updating crates.io index
+    Packaged 37 files, 565.1KiB (169.3KiB compressed)
+   Verifying kovan-metrics v0.0.3 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/crates/kovan-metrics)
+   Compiling kovan-metrics v0.0.3 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/target/package/kovan-metrics-0.0.3)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 2.87s
+   Uploading kovan-metrics v0.0.3 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/crates/kovan-metrics)
+    Uploaded kovan-metrics v0.0.3 to registry `crates-io`
+note: waiting for kovan-metrics v0.0.3 to be available at registry `crates-io`
+help: you may press ctrl-c to skip waiting; the crate should be available shortly
+   Published kovan-metrics v0.0.3 at registry `crates-io`

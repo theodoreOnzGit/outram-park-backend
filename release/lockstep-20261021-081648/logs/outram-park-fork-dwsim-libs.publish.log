@@ -1,0 +1,34 @@
+    Updating crates.io index
+   Packaging outram-park-fork-dwsim-libs v0.0.4 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/crates/outram-park-fork-dwsim-libs)
+    Updating crates.io index
+    Packaged 236 files, 7.5MiB (2.3MiB compressed)
+   Verifying outram-park-fork-dwsim-libs v0.0.4 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/crates/outram-park-fork-dwsim-libs)
+   Compiling num-traits v0.2.19
+   Compiling crc32fast v1.5.2
+   Compiling cfg-if v1.0.5
+   Compiling simd-adler32 v0.3.10
+   Compiling matrixmultiply v0.3.11
+   Compiling adler2 v2.0.1
+   Compiling miniz_oxide v0.9.1
+   Compiling bumpalo v3.20.3
+   Compiling log v0.4.34
+   Compiling equivalent v1.0.3
+   Compiling zip v2.6.1
+   Compiling rawpointer v0.2.1
+   Compiling hashbrown v0.17.1
+   Compiling indexmap v2.14.2
+   Compiling uom v0.38.0
+   Compiling flate2 v1.1.10
+   Compiling zopfli v0.8.4
+   Compiling num-integer v0.1.47
+   Compiling num-complex v0.4.6
+   Compiling memchr v2.8.3
+   Compiling ndarray v0.17.2
+   Compiling petir v0.0.3
+   Compiling outram-park-fork-dwsim-libs v0.0.4 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/target/package/outram-park-fork-dwsim-libs-0.0.4)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 11.60s
+   Uploading outram-park-fork-dwsim-libs v0.0.4 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/crates/outram-park-fork-dwsim-libs)
+    Uploaded outram-park-fork-dwsim-libs v0.0.4 to registry `crates-io`
+note: waiting for outram-park-fork-dwsim-libs v0.0.4 to be available at registry `crates-io`
+help: you may press ctrl-c to skip waiting; the crate should be available shortly
+   Published outram-park-fork-dwsim-libs v0.0.4 at registry `crates-io`

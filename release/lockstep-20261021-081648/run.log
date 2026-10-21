@@ -1,0 +1,103 @@
+2026-10-21T08:16:48+08:00 held: boon-lay buangkok changi dhoby-ghaut nee_soon outram-blender outram-foam-cli outram-mc-libs outram-park-digital-twin-engine outram-park-fork-liggghts outram-park-fork-offbeat pasir-ris raffles sembawang tampines 
+2026-10-21T08:16:48+08:00 release order (33): outram-park-mpi petir redhill outram-park-fork-thermochimica outram-park-fork-onix outram-park-fork-dwsim-libs outram-foam-basic-lib njoy-outram-park-fork kovan-common kaki-bukit chem-eng-real-time-process-control-simulator bishan bedok deck-based-open-source-visualisation-engine-for-reactors-dover outram-park-fork-moltres outram-park-fork-coolprop outram-park-fork-cfmesh outram-foam-turbulence-lib outram-foam-multiphase outram-foam-mesh farrer-park kovan-web kovan-literature kovan-discovery kovan-codegen tuas_boussinesq_solver outram-foam-appbuilder-lib kovan-semantics kovan-metrics teh-o-prke knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan tampines-steam-tables outram-park-fork-pflotran
+2026-10-21T08:18:20+08:00 test start outram-park-mpi
+2026-10-21T08:18:23+08:00 test end   outram-park-mpi: pass (exit 0)
+2026-10-21T08:18:23+08:00 test start petir
+2026-10-21T08:18:56+08:00 publish outram-park-mpi 0.0.1: published
+2026-10-21T08:21:51+08:00 test end   petir: pass (exit 0)
+2026-10-21T08:21:51+08:00 test start redhill
+2026-10-21T08:21:51+08:00 test end   redhill: pass (exit 0)
+2026-10-21T08:21:51+08:00 test start outram-park-fork-thermochimica
+2026-10-21T08:22:00+08:00 test end   outram-park-fork-thermochimica: pass (exit 0)
+2026-10-21T08:22:00+08:00 test start outram-park-fork-onix
+2026-10-21T08:22:01+08:00 test end   outram-park-fork-onix: pass (exit 0)
+2026-10-21T08:22:01+08:00 test start outram-park-fork-dwsim-libs
+2026-10-21T08:22:10+08:00 publish petir 0.0.3: published
+2026-10-21T08:22:13+08:00 publish redhill 0.0.2: published
+2026-10-21T08:22:20+08:00 publish outram-park-fork-thermochimica 0.0.1: published
+2026-10-21T08:22:25+08:00 publish outram-park-fork-onix 0.0.1: published
+2026-10-21T08:22:48+08:00 test end   outram-park-fork-dwsim-libs: pass (exit 0)
+2026-10-21T08:22:48+08:00 test start outram-foam-basic-lib
+2026-10-21T08:23:03+08:00 test end   outram-foam-basic-lib: pass (exit 0)
+2026-10-21T08:23:03+08:00 test start njoy-outram-park-fork
+2026-10-21T08:23:11+08:00 publish outram-park-fork-dwsim-libs 0.0.4: published
+2026-10-21T08:23:22+08:00 publish outram-foam-basic-lib 0.1.6: published
+2026-10-21T08:36:14+08:00 test end   njoy-outram-park-fork: pass (exit 0)
+2026-10-21T08:36:14+08:00 test start kovan-common
+2026-10-21T08:37:05+08:00 publish njoy-outram-park-fork 0.0.6: published
+2026-10-21T08:37:26+08:00 test end   kovan-common: pass (exit 0)
+2026-10-21T08:37:26+08:00 test start kaki-bukit
+2026-10-21T08:37:35+08:00 test end   kaki-bukit: pass (exit 0)
+2026-10-21T08:37:35+08:00 test start chem-eng-real-time-process-control-simulator
+2026-10-21T08:37:39+08:00 test end   chem-eng-real-time-process-control-simulator: pass (exit 0)
+2026-10-21T08:37:39+08:00 test start bishan
+2026-10-21T08:37:39+08:00 test end   bishan: pass (exit 0)
+2026-10-21T08:37:39+08:00 test start bedok
+2026-10-21T08:37:56+08:00 publish kovan-common 0.0.4: published
+2026-10-21T08:38:03+08:00 publish kaki-bukit 0.0.2: published
+2026-10-21T08:38:10+08:00 publish chem-eng-real-time-process-control-simulator 0.2.4: published
+2026-10-21T08:38:13+08:00 publish bishan 0.0.2: published
+2026-10-21T08:45:53+08:00 test end   bedok: pass (exit 0)
+2026-10-21T08:45:53+08:00 test start deck-based-open-source-visualisation-engine-for-reactors-dover
+2026-10-21T08:45:58+08:00 test end   deck-based-open-source-visualisation-engine-for-reactors-dover: pass (exit 0)
+2026-10-21T08:45:58+08:00 test start outram-park-fork-moltres
+2026-10-21T08:46:06+08:00 test end   outram-park-fork-moltres: pass (exit 0)
+2026-10-21T08:46:06+08:00 test start outram-park-fork-coolprop
+2026-10-21T08:46:51+08:00 publish bedok 0.0.2: published
+2026-10-21T08:47:01+08:00 publish deck-based-open-source-visualisation-engine-for-reactors-dover 0.0.1: published
+2026-10-21T08:47:09+08:00 publish outram-park-fork-moltres 0.0.1: published
+2026-10-21T08:47:45+08:00 test end   outram-park-fork-coolprop: pass (exit 0)
+2026-10-21T08:47:45+08:00 test start outram-park-fork-cfmesh
+2026-10-21T08:48:16+08:00 publish outram-park-fork-coolprop 0.1.3: published
+2026-10-21T08:50:21+08:00 test end   outram-park-fork-cfmesh: pass (exit 0)
+2026-10-21T08:50:21+08:00 test start outram-foam-turbulence-lib
+2026-10-21T08:50:22+08:00 test end   outram-foam-turbulence-lib: pass (exit 0)
+2026-10-21T08:50:22+08:00 test start outram-foam-multiphase
+2026-10-21T08:50:23+08:00 test end   outram-foam-multiphase: pass (exit 0)
+2026-10-21T08:50:23+08:00 test start outram-foam-mesh
+2026-10-21T08:50:29+08:00 test end   outram-foam-mesh: pass (exit 0)
+2026-10-21T08:50:29+08:00 test start farrer-park
+2026-10-21T08:50:35+08:00 test end   farrer-park: pass (exit 0)
+2026-10-21T08:50:35+08:00 test start kovan-web
+2026-10-21T08:50:53+08:00 publish outram-park-fork-cfmesh 0.0.3: published
+2026-10-21T08:51:58+08:00 publish outram-foam-turbulence-lib 0.1.4: published
+2026-10-21T08:52:03+08:00 test end   kovan-web: pass (exit 0)
+2026-10-21T08:52:03+08:00 test start kovan-literature
+2026-10-21T08:53:03+08:00 publish outram-foam-multiphase 0.0.4: published
+2026-10-21T08:54:09+08:00 publish outram-foam-mesh 0.1.2: published
+2026-10-21T08:55:15+08:00 publish farrer-park 0.0.3: published
+2026-10-21T08:56:01+08:00 test end   kovan-literature: fail (exit 101)
+2026-10-21T08:56:01+08:00 test start kovan-discovery
+2026-10-21T08:56:44+08:00 publish kovan-web 0.0.3: published
+2026-10-21T08:56:44+08:00 publish kovan-literature 0.0.3: not-published:tests-red
+2026-10-21T08:57:04+08:00 test end   kovan-discovery: pass (exit 0)
+2026-10-21T08:57:04+08:00 test start kovan-codegen
+2026-10-21T08:57:25+08:00 test end   kovan-codegen: pass (exit 0)
+2026-10-21T08:57:25+08:00 test start tuas_boussinesq_solver
+2026-10-21T08:58:13+08:00 publish kovan-discovery 0.0.4: published
+2026-10-21T08:59:24+08:00 publish kovan-codegen 0.0.4: published
+2026-10-21T09:29:49+08:00 test end   tuas_boussinesq_solver: pass (exit 0)
+2026-10-21T09:29:49+08:00 test start outram-foam-appbuilder-lib
+2026-10-21T09:30:12+08:00 publish tuas_boussinesq_solver 0.1.8: published
+2026-10-21T09:32:30+08:00 test end   outram-foam-appbuilder-lib: pass (exit 0)
+2026-10-21T09:32:30+08:00 test start kovan-semantics
+2026-10-21T09:32:37+08:00 test end   kovan-semantics: pass (exit 0)
+2026-10-21T09:32:37+08:00 test start kovan-metrics
+2026-10-21T09:32:43+08:00 test end   kovan-metrics: pass (exit 0)
+2026-10-21T09:32:43+08:00 test start teh-o-prke
+2026-10-21T09:32:51+08:00 publish outram-foam-appbuilder-lib 0.1.6: published
+2026-10-21T09:34:00+08:00 publish kovan-semantics 0.0.3: published
+2026-10-21T09:34:26+08:00 test end   teh-o-prke: pass (exit 0)
+2026-10-21T09:34:26+08:00 test start knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan
+2026-10-21T09:35:07+08:00 publish kovan-metrics 0.0.3: published
+2026-10-21T09:35:37+08:00 test end   knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan: pass (exit 0)
+2026-10-21T09:35:37+08:00 test start tampines-steam-tables
+2026-10-21T09:36:15+08:00 publish teh-o-prke 0.1.7: published
+2026-10-21T09:36:15+08:00 publish knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan 0.0.3: blocked-by:kovan-literature
+2026-10-21T09:39:38+08:00 test end   tampines-steam-tables: pass (exit 0)
+2026-10-21T09:39:38+08:00 test start outram-park-fork-pflotran
+2026-10-21T09:39:45+08:00 restoring test-modified tracked files in crates/tampines-steam-tables
+2026-10-21T09:39:58+08:00 publish tampines-steam-tables 0.3.0: published
+2026-10-21T09:40:16+08:00 test end   outram-park-fork-pflotran: pass (exit 0)
+2026-10-21T09:40:49+08:00 publish outram-park-fork-pflotran 0.0.1: published
+2026-10-21T09:40:49+08:00 done; summary in release/lockstep-20261021-081648/summary.tsv

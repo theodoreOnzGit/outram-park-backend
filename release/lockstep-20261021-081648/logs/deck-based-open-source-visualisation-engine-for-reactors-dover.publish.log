@@ -1,0 +1,21 @@
+    Updating crates.io index
+   Packaging deck-based-open-source-visualisation-engine-for-reactors-dover v0.0.1 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/crates/dover)
+    Updating crates.io index
+    Packaged 26 files, 208.3KiB (70.6KiB compressed)
+   Verifying deck-based-open-source-visualisation-engine-for-reactors-dover v0.0.1 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/crates/dover)
+ Downloading crates ...
+  Downloaded outram-park-fork-dwsim-libs v0.0.4
+   Compiling serde_derive v1.0.229
+   Compiling outram-park-fork-dwsim-libs v0.0.4
+   Compiling serde v1.0.229
+   Compiling toml_datetime v0.6.11
+   Compiling serde_spanned v0.6.9
+   Compiling toml_edit v0.22.27
+   Compiling toml v0.8.23
+   Compiling deck-based-open-source-visualisation-engine-for-reactors-dover v0.0.1 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/target/package/deck-based-open-source-visualisation-engine-for-reactors-dover-0.0.1)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 6.48s
+   Uploading deck-based-open-source-visualisation-engine-for-reactors-dover v0.0.1 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/crates/dover)
+    Uploaded deck-based-open-source-visualisation-engine-for-reactors-dover v0.0.1 to registry `crates-io`
+note: waiting for deck-based-open-source-visualisation-engine-for-reactors-dover v0.0.1 to be available at registry `crates-io`
+help: you may press ctrl-c to skip waiting; the crate should be available shortly
+   Published deck-based-open-source-visualisation-engine-for-reactors-dover v0.0.1 at registry `crates-io`

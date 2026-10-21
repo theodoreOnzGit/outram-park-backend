@@ -1,0 +1,75 @@
+   Compiling outram-foam-multiphase v0.0.4 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/crates/outram-foam-multiphase)
+    Finished `release` profile [optimized] target(s) in 1.38s
+     Running unittests src/lib.rs (target/release/deps/outram_foam_multiphase-4b88d522123f3e82)
+
+running 67 tests
+test chf::tests::biasi_range_flag ... ok
+test chf::tests::biasi_reference_point ... ok
+test chf::tests::biasi_rejects_nonphysical ... ok
+test chf::tests::bowring_construction_and_range ... ok
+test chf::tests::bowring_reference_point ... ok
+test chf::tests::enum_dispatch_matches_concrete ... ok
+test chf::tests::lut_clamps_out_of_range ... ok
+test chf::tests::lut_csv_rejects_malformed ... ok
+test chf::tests::lut_csv_round_trip ... ok
+test chf::tests::lut_diameter_factor ... ok
+test chf::tests::lut_exact_at_nodes ... ok
+test chf::tests::lut_midpoint_is_exact_for_linear_data ... ok
+test chf::tests::sample_lut_via_enum ... ok
+test chf::tests::w3_reference_point ... ok
+test chf::tests::w3_subcooling_factor ... ok
+test drift_flux::tests::alpha_clamped_under_extreme_drift ... ok
+test drift_flux::tests::alpha_advects_downstream_and_stays_bounded ... ok
+test drift_flux::tests::alpha_unchanged_with_no_flow_no_drift ... ok
+test drift_flux::tests::constructor_rejects_bad_inputs ... ok
+test drift_flux::tests::mixture_density_formula_is_exact ... ok
+test drift_flux::tests::mixture_property_limits ... ok
+test drift_flux::tests::mixture_viscosity_formula_is_exact ... ok
+test drift_flux::tests::terminal_velocity_hindered_settling ... ok
+test drift_flux::tests::user_defined_drift_velocity ... ok
+test drift_flux::tests::zuber_findlay_drift_velocity ... ok
+test dryout::tests::critical_void_fraction_onset_indicator ... ok
+test dryout::tests::critical_void_fraction_rejects_bad_alpha_crit ... ok
+test dryout::tests::dougall_rohsenow_htc_matches_hand_computation ... ok
+test dryout::tests::dougall_rohsenow_rejects_bad_inputs ... ok
+test dryout::tests::reserved_onset_variants_not_implemented ... ok
+test dryout::tests::reserved_post_dryout_variants_not_implemented ... ok
+test heat_transfer::tests::gunn_collapses_to_the_stagnant_limit_in_the_dilute_limit ... ok
+test heat_transfer::tests::ranz_marshall_recovers_the_stagnant_sphere_limit ... ok
+test heat_transfer::tests::spherical_conduction_reads_only_the_dispersed_side ... ok
+test heat_transfer::tests::unphysical_inputs_are_refused ... ok
+test pimple::tests::alpha_stays_bounded_under_coupling ... ok
+test pimple::tests::one_step_stays_finite_and_bounded ... ok
+test pimple::tests::quiescent_stays_at_rest ... ok
+test two_fluid::tests::advance_rejects_nonpositive_dt ... ok
+test two_fluid::tests::alpha_constraint_holds_on_construction ... ok
+test two_fluid::tests::constant_drag_model ... ok
+test two_fluid::tests::dispersed_alpha_advects_downstream_and_stays_bounded ... ok
+test two_fluid::tests::dispersed_alpha_clamped_under_extreme_advection ... ok
+test two_fluid::tests::dispersed_alpha_unchanged_with_no_flow ... ok
+test two_fluid::tests::interfacial_force_scaffolds_are_not_implemented ... ok
+test two_fluid::tests::kinematic_viscosity_is_mu_over_rho ... ok
+test two_fluid::tests::phase_constructor_rejects_bad_inputs ... ok
+test two_fluid::tests::reynolds_number_hand_computed ... ok
+test two_fluid::tests::reynolds_number_rejects_zero_nu ... ok
+test two_fluid::tests::schiller_naumann_drag_hand_computed ... ok
+test two_fluid::tests::schiller_naumann_newton_branch ... ok
+test two_fluid::tests::wen_yu_amplifies_at_finite_loading ... ok
+test two_fluid::tests::wen_yu_reduces_to_schiller_naumann_dilute ... ok
+test pimple::tests::hydrostatic_pressure_gradient ... ok
+test two_fluid_pimple::tests::one_step_stays_finite_and_bounded ... ok
+test two_fluid_pimple::tests::quiescent_stays_at_rest ... ok
+test two_fluid_pimple::tests::saturation_constraint_holds_under_coupling ... ok
+test two_fluid_pimple::tests::solve_rejects_bad_controls ... ok
+test two_fluid_pimple::tests::strong_drag_equilibrates_phase_velocities ... ok
+test wall_boiling::tests::departure_diameter_hand_check ... ok
+test wall_boiling::tests::departure_frequency_hand_check ... ok
+test wall_boiling::tests::enum_dispatch_reaches_every_variant ... ok
+test wall_boiling::tests::nucleation_site_density_hand_check ... ok
+test wall_boiling::tests::rpi_partition_conserves_and_is_nonnegative ... ok
+test wall_boiling::tests::rpi_partition_rejects_bad_inputs ... ok
+test wall_boiling::tests::rpi_partition_zero_at_saturation_no_drive ... ok
+test two_fluid_pimple::tests::hydrostatic_pressure_gradient ... ok
+
+test result: ok. 67 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
