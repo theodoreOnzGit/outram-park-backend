@@ -26,6 +26,7 @@
 //! precisely to exercise that path — on a thermal lattice, getting it wrong
 //! shifts `k` in the way that is hardest to notice.
 
+use petir::mathf::RealMath;
 use njoy_outram_park_fork::reference_data::reference_endf;
 use outram_mc_libs::material::nuclide::Nuclide;
 
@@ -38,7 +39,7 @@ fn probe_energies() -> Vec<f64> {
     // 1e-5 eV to 20 MeV, 400 points, logarithmic.
     for i in 0..=400 {
         let f = i as f64 / 400.0;
-        es.push(1.0e-5 * (2.0e7_f64 / 1.0e-5).powf(f));
+        es.push(1.0e-5 * (2.0e7_f64 / 1.0e-5).r_powf(f));
     }
     // The thermal region densely: this is where the bound-atom override lives.
     for i in 0..=100 {

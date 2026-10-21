@@ -3,6 +3,7 @@
 //! trials per placement as placement goes. Only interpolation and drawing
 //! happen here; the packing is done in the worker (the no-lag rule).
 
+use petir::mathf::RealMath;
 use super::{params, MSG_PLAN, MSG_REPLAY, PER_PLACEMENT};
 use crate::walkdemo::{split, Outgoing};
 use dhoby_ghaut::web_demo::platform::now_s;
@@ -195,13 +196,13 @@ impl PackingView {
         let (r_p, big_r, _, _) = params();
         let n = (self.shown.floor() as usize).min(self.placements.len());
         let half = big_r + r_p;
-        let v = 4.0 / 3.0 * std::f64::consts::PI * r_p.powi(3);
+        let v = 4.0 / 3.0 * std::f64::consts::PI * r_p.r_powi(3);
         Counts {
             placed: n,
             kept: self.kept_prefix.get(n).copied().unwrap_or(0) as usize,
-            cube_fraction: n as f64 * v / (2.0 * half).powi(3),
+            cube_fraction: n as f64 * v / (2.0 * half).r_powi(3),
             ball_fraction: self.kept_prefix.get(n).copied().unwrap_or(0) as f64
-                * (r_p / big_r).powi(3),
+                * (r_p / big_r).r_powi(3),
             last_trials: n
                 .checked_sub(1)
                 .and_then(|i| self.placements.get(i))
@@ -574,9 +575,9 @@ fn draw_chart(painter: &egui::Painter, rect: Rect, v: &PackingView, target: f64)
     let total = v.placements.len().max(1);
     let n = (v.shown.floor() as usize).min(v.placements.len());
     let (r_p, big_r, _, _) = params();
-    let vol = 4.0 / 3.0 * std::f64::consts::PI * r_p.powi(3);
-    let cube = (2.0 * (big_r + r_p)).powi(3);
-    let unit_ball = (r_p / big_r).powi(3);
+    let vol = 4.0 / 3.0 * std::f64::consts::PI * r_p.r_powi(3);
+    let cube = (2.0 * (big_r + r_p)).r_powi(3);
+    let unit_ball = (r_p / big_r).r_powi(3);
     let grey = Color32::from_rgb(150, 156, 170);
     let font = |s: f32| egui::FontId::proportional(s);
     let (top, bottom) = rect.split_top_bottom_at_fraction(0.6);
@@ -772,7 +773,7 @@ mod tests {
         assert_eq!((c.placed, c.kept, c.last_trials), (4, 2, 7));
         assert!(!v.playing);
         let (r_p, big_r, _, _) = params();
-        assert!((c.ball_fraction - 2.0 * (r_p / big_r).powi(3)).abs() < 1e-15);
+        assert!((c.ball_fraction - 2.0 * (r_p / big_r).r_powi(3)).abs() < 1e-15);
         v.set_mode(CutMode::Fix);
         assert_eq!(v.wanted_attempt(), Some(1));
         assert_eq!(v.pump(), vec![Outgoing::Walk(vec![MSG_REPLAY, 1.0])]);

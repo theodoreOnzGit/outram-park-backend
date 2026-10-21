@@ -66,6 +66,7 @@
 //! That is upstream's `nmcri2` residual verbatim, where its `1.5*deuxmu` is
 //! `1.5 × 2μ = 3μ`.
 
+use petir::mathf::RealMath;
 use crate::error::{OffbeatError, Result};
 use crate::rheology::aster::hardening::IsotropicHardening;
 use crate::rheology::aster::integration::{brent, LocalSolution, SolverControl};
@@ -343,7 +344,7 @@ impl NortonHoffLimitAnalysis {
     /// direction.
     #[must_use]
     pub fn exponent(pseudo_time: f64) -> f64 {
-        1.0 + 10.0_f64.powf(1.0 - pseudo_time)
+        1.0 + 10.0_f64.r_powf(1.0 - pseudo_time)
     }
 
     /// Stress \[Pa\] from total strain, at pseudo-time `t` \[-\].
@@ -370,14 +371,14 @@ impl NortonHoffLimitAnalysis {
 
         let m = Self::exponent(pseudo_time);
         // A = sy * sqrt(2/3)^m, upstream `am = sy*rac23**m`.
-        let amplitude = self.yield_stress * (2.0_f64 / 3.0).sqrt().powf(m);
+        let amplitude = self.yield_stress * (2.0_f64 / 3.0).sqrt().r_powf(m);
         let norm = strain.norm();
 
         // Upstream `line = inst .eq. 1 .or. epsno .eq. 0.d0`.
         let coefficient = if pseudo_time == 1.0 || norm == 0.0 {
             amplitude
         } else {
-            amplitude * norm.powf(m - 2.0)
+            amplitude * norm.r_powf(m - 2.0)
         };
 
         // Mandel scaling is linear, so scaling the six-vector componentwise is

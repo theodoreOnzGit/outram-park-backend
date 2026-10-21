@@ -16,6 +16,7 @@
 //!
 //! Printed by the test.
 
+use petir::mathf::RealMath;
 use std::fs::File;
 
 use njoy_outram_park_fork::acer::thermal::ThermalAceOptions;
@@ -44,7 +45,7 @@ fn a_thermal_scatterer_builds_from_ace_and_matches_the_tape() {
 
     let ne = 40;
     let grid: Vec<f64> = (0..ne)
-        .map(|i| 1.0e-4 * (4.0_f64 / 1.0e-4).powf(i as f64 / (ne - 1) as f64))
+        .map(|i| 1.0e-4 * (4.0_f64 / 1.0e-4).r_powf(i as f64 / (ne - 1) as f64))
         .collect();
     let built = AceTable::thermal_from_mf7(
         &mf7,

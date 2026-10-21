@@ -178,6 +178,7 @@ fn main() {
 
 #[cfg(not(target_os = "android"))]
 mod desktop {
+    use petir::mathf::RealMath;
     use outram_mc_libs::material::material::{Material, NuclideComponent};
     use outram_mc_libs::material::nuclide::Nuclide;
     use outram_mc_libs::physics::compute::ComputeType;
@@ -708,8 +709,8 @@ mod desktop {
              ~{} of them lie in the r < {R_FUEL_ZONE} cm fuel sphere, which carries \
              pf {achieved:.4}",
             packed.len(),
-            (packed.len() as f64 * (4.0 / 3.0 * std::f64::consts::PI * R_FUEL_ZONE.powi(3))
-                / (2.0 * pack_half).powi(3))
+            (packed.len() as f64 * (4.0 / 3.0 * std::f64::consts::PI * R_FUEL_ZONE.r_powi(3))
+                / (2.0 * pack_half).r_powi(3))
             .round() as usize
         );
 
@@ -970,7 +971,7 @@ mod desktop {
         if search_radius {
             use outram_mc_libs::physics::search::{search_for_keff, SearchMethod, SearchSettings};
 
-            let r_inner_max = (R_FUEL_ZONE.powi(3) * (1.0 - spec.packing_fraction)).cbrt();
+            let r_inner_max = (R_FUEL_ZONE.r_powi(3) * (1.0 - spec.packing_fraction)).r_cbrt();
             eprintln!("\n── RPT inner-radius search (target = this code's explicit-TRISO k) ──");
             eprintln!(
                 "  target k = {:.5} ± {:.5}   geometric ceiling on r_inner = {r_inner_max:.4} cm",
@@ -1007,7 +1008,7 @@ mod desktop {
                 // Residual tolerance ~ the combined 1σ of the two eigenvalues
                 // being compared: stop as soon as the ring-RPT pebble is
                 // statistically indistinguishable from the explicit one.
-                k_tol: (explicit.k_std.powi(2) + explicit.k_std.powi(2)).sqrt(),
+                k_tol: (explicit.k_std.r_powi(2) + explicit.k_std.r_powi(2)).sqrt(),
                 max_iterations: 8,
                 method: SearchMethod::Bisect,
             };
@@ -1203,7 +1204,7 @@ mod desktop {
                 if b <= a {
                     continue;
                 }
-                let w = (b / a).ln();
+                let w = (b / a).r_ln();
                 num += sp.flux_per_lethargy[i].mean * w;
                 du += w;
             }

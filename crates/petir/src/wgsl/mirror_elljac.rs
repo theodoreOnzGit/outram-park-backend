@@ -133,7 +133,7 @@ fn hypot(x: f32, y: f32) -> f32 {
     }
     let (big, small) = if ax > ay { (ax, ay) } else { (ay, ax) };
     let r = small / big;
-    big * (1.0 + r * r).sqrt()
+    big * Real::sqrt(1.0 + r * r)
 }
 
 /// WGSL's `sign`, which is `0.0` at zero where [`f32::signum`] is `1.0`.
@@ -160,15 +160,15 @@ fn elljac_with(u: f32, m: f32, nmax: usize) -> Jacobi {
     }
     if m.abs() < DEGEN {
         return Jacobi {
-            sn: u.sin(),
-            cn: u.cos(),
+            sn: Real::sin(u),
+            cn: Real::cos(u),
             dn: 1.0,
         };
     }
     if (m - 1.0).abs() < DEGEN {
-        let cn = 1.0 / u.cosh();
+        let cn = 1.0 / Real::cosh(u);
         return Jacobi {
-            sn: u.tanh(),
+            sn: Real::tanh(u),
             cn,
             dn: cn,
         };
@@ -180,7 +180,7 @@ fn elljac_with(u: f32, m: f32, nmax: usize) -> Jacobi {
         return Jacobi::NAN;
     };
     *m0 = 1.0;
-    *n0 = (1.0 - m).sqrt();
+    *n0 = Real::sqrt(1.0 - m);
 
     let mut n = 0usize;
     loop {
@@ -190,7 +190,7 @@ fn elljac_with(u: f32, m: f32, nmax: usize) -> Jacobi {
         if (mn - nn).abs() <= 4.0 * EPS * (mn + nn).abs() {
             break;
         }
-        let (next_mu, next_nu) = (0.5 * (mn + nn), (mn * nn).sqrt());
+        let (next_mu, next_nu) = (0.5 * (mn + nn), Real::sqrt(mn * nn));
         let Some(slot) = mu.get_mut(n + 1) else {
             return Jacobi::NAN;
         };
@@ -209,8 +209,8 @@ fn elljac_with(u: f32, m: f32, nmax: usize) -> Jacobi {
     let Some(&mu_n) = mu.get(n) else {
         return Jacobi::NAN;
     };
-    let sin_umu = (u * mu_n).sin();
-    let cos_umu = (u * mu_n).cos();
+    let sin_umu = Real::sin(u * mu_n);
+    let cos_umu = Real::cos(u * mu_n);
     let reflected = sin_umu.abs() < cos_umu.abs();
     let t = if reflected {
         sin_umu / cos_umu
@@ -229,7 +229,7 @@ fn elljac_with(u: f32, m: f32, nmax: usize) -> Jacobi {
         d = (r + nu_k) / (r + mu_k);
     }
 
-    let root = (1.0 - m).sqrt();
+    let root = Real::sqrt(1.0 - m);
     if reflected {
         let dn = root / d;
         let cn = dn * wgsl_sign(cos_umu) / hypot(1.0, c);

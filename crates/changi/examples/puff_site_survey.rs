@@ -41,6 +41,8 @@
 //! a radionuclide application would build on, and prints the methane ppm
 //! alongside only to show what upstream would have returned.
 
+use petir::mathf::RealMath;
+
 use changi::puff::climatology::{SingaporeWind, MEAN_WIND_SPEED_M_PER_S};
 use changi::puff::concentration::{gaussian_puff_concentration, METHANE_PPM_PER_KG_PER_M3};
 use changi::puff::simulate::{
@@ -287,7 +289,7 @@ fn part_3_the_one_deliberate_divergence() {
                 wind.u.get::<meter_per_second>(),
                 wind.v.get::<meter_per_second>(),
             );
-            let norm = wu.hypot(wv);
+            let norm = wu.r_hypot(wv);
             let receptors = vec![Receptor {
                 x: m(50.0 * wu / norm),
                 y: m(50.0 * wv / norm),

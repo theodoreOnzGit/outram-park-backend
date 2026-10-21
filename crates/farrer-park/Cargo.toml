@@ -1,6 +1,6 @@
 [package]
 name = "farrer-park"
-version = "0.0.2"
+version = "0.0.3"
 edition.workspace = true
 # GPL-3.0-only. All three upstreams (MOOSE, PRISMS-Plasticity, PRISMS-Fatigue)
 # are LGPL-2.1, and LGPL-2.1 section 3 lets a licensee relicense under the
@@ -35,6 +35,8 @@ maturity = 2
 backronym = "Finite-element Analysis for Reactor Reliability, Engineering Response, Plasticity And RisK"
 
 [dependencies]
+# Deterministic transcendentals (gh:#985): petir::mathf::RealMath, no_std.
+petir = { workspace = true }
 # Pure-Rust, Android-safe deps only (no BLAS, no C/Fortran toolchain).
 # `uom` types the physical-quantity API boundary; `thiserror` the error enum.
 uom.workspace = true

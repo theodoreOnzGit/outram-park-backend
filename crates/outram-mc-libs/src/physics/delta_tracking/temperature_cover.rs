@@ -326,7 +326,7 @@ impl Majorant {
         // the node's angular neighbourhood.
         let mut yk = vec![f64::NEG_INFINITY; nn];
         for (k, v) in yk.iter_mut().enumerate() {
-            let th = |t: f64| (std::f64::consts::PI * t / nn as f64).cos();
+            let th = |t: f64| (std::f64::consts::PI * t / nn as f64).r_cos();
             let (x_hi, x_lo) = (th(k as f64), th(k as f64 + 1.0));
             // intervals overlapping [x_lo, x_hi]
             let first = xs.partition_point(|&x| x <= x_lo).saturating_sub(1);
@@ -343,7 +343,7 @@ impl Majorant {
             let s: f64 = (0..nn)
                 .map(|k| {
                     let ang = std::f64::consts::PI * (k as f64 + 0.5) / nn as f64;
-                    yk[k] * (j as f64 * ang).cos()
+                    yk[k] * (j as f64 * ang).r_cos()
                 })
                 .sum();
             *c = 2.0 * s / nn as f64;
@@ -463,12 +463,12 @@ mod tests {
         let mut e = 1.0e-3_f64;
         while e < 1.0e7 {
             let bg = 2.0 / e.sqrt().max(1e-2);
-            let peak = if (e / 6.67).ln().abs() < 0.01 {
+            let peak = if (e / 6.67).r_ln().abs() < 0.01 {
                 800.0
             } else {
                 0.0
             };
-            let peak2 = if (e / 3.0e3).ln().abs() < 0.003 {
+            let peak2 = if (e / 3.0e3).r_ln().abs() < 0.003 {
                 4000.0
             } else {
                 0.0
@@ -487,7 +487,7 @@ mod tests {
         let b = table(&[(1.0, 1.0), (5.0, 1.0), (10.0, 4.0), (100.0, 1.0)]);
         let m = Majorant::over_temperature_tables(&[a.clone(), b.clone()], 0.1);
         for k in 0..400 {
-            let e = 1.0 * (100.0_f64).powf(k as f64 / 400.0);
+            let e = 1.0 * (100.0_f64).r_powf(k as f64 / 400.0);
             assert!(m.at(e) >= a.at(e).max(b.at(e)) * 1.1 - 1e-12, "e={e}");
         }
         assert!(Majorant::over_temperature_tables(&[], 0.0).is_empty());
@@ -530,7 +530,7 @@ mod tests {
             let mut s = 0.0;
             let k = 2000;
             for i in 0..k {
-                let e = 1.0e-2 * (1.0e8_f64).powf(i as f64 / k as f64);
+                let e = 1.0e-2 * (1.0e8_f64).r_powf(i as f64 / k as f64);
                 s += m.at(e) / t.at(e);
             }
             s / k as f64
@@ -566,7 +566,7 @@ mod tests {
             let k = 4000;
             (0..k)
                 .map(|i| {
-                    let e = 2.0e-3 * (4.0e9_f64).powf(i as f64 / k as f64);
+                    let e = 2.0e-3 * (4.0e9_f64).r_powf(i as f64 / k as f64);
                     c.at(e) / t.at(e)
                 })
                 .sum::<f64>()

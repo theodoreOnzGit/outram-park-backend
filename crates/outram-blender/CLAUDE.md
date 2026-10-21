@@ -5,8 +5,8 @@ Guidance for Claude Code (and other AI assistants) working in the `outram-blende
 **What this crate is (2026-10-02, GitHub #486): geometry description +
 meshing.** It owns the CSG geometry description and its pure navigation kernel
 (`csg`), the OpenMC-port geometry plotter (`csg::plot`), the Monte Carlo tally
-mesh description (`spatial_mesh`), and the mesh-authoring frontend (a GPL fork
-of Blender's mesh architecture) with its OpenFOAM bridges. ~~It is planned to
+mesh description (`spatial_mesh`), and the mesh-authoring frontend (a fork
+of Blender's (GPL-2.0-or-later) mesh architecture) with its OpenFOAM bridges. ~~It is planned to
 become the meshing nexus for FV/FE too (#492).~~ **Since 2026-10-03 (#492) it
 is the meshing nexus:** `unstructured::UnstructuredMesh` is the one mesh
 description FV (`PolyMesh`/`FvMesh`), FE (`farrer-park`) and Monte Carlo
@@ -93,10 +93,101 @@ worked example. For meshes, plot the mesh itself (cells, patches, zones).
   **`raffles` must not depend on this crate** (or on `outram-mc-libs`); the
   edge runs geometry -> RAFFLES only.
 - **There is no `mesh` feature** (maintainer decision 2026-10-02): mesh
-  authoring and `faer` are always compiled, even for `default-features =
-  false` dependents such as outram-mc-libs. `faer` is target-split in
-  `Cargo.toml` instead (no `rayon`/`rand` on wasm32) so the whole crate builds
+  authoring ~~and `faer`~~ ~~are~~ is always compiled, even for `default-features =
+  false` dependents such as outram-mc-libs. ~~`faer` is target-split in
+  `Cargo.toml` instead (no `rayon`/`rand` on wasm32)~~ (faer was removed
+  2026-10-20, gh #996) so the whole crate builds
   for `wasm32-unknown-unknown`; it is in `scripts/check-wasm.sh`.
+- **Sparse solves run on `petir::sparse` (2026-10-20, gh #994).** Laplacian
+  smoothing, ARAP and parameterization factorise through
+  `laplacian::factor_spd_lower` (`petir::sparse::SparseLlt`, a `no_std` port
+  of faer's sparse Cholesky), bit-identical to faer on all 44 systems the lib
+  tests build. `outram-foam-basic-lib`'s PCG was considered and rejected: it
+  cannot report a non-SPD system, which these operators' error types promise,
+  and making that optional dependency mandatory would also pull it into
+  `outram-mc-libs`. ~~**`faer` remains only for the 3x3 SVD in
+  `arap::closest_rotation`**, until PETIR's GSL SVD (gh #993) replaces it (follow-up gh #996).~~
+  **faer is no longer a dependency (2026-10-20, gh #996).** The 3x3 SVD in
+  `arap::closest_rotation` is `petir::faer_dense::svd3`, a no_std port of the
+  faer 0.24.4 `Mat::svd()` path it called (maintainer: "Whatever faer does,
+  port into petir"; GSL's `linalg::svd` was not used, being a different
+  algorithm). Bit-identical to faer on all 6134 distinct covariances the test
+  suite produced in one pre-gh #1002 run (`petir/tests/faer_dense_svd_vs_faer.rs`),
+  and on 22 334 pooled from four runs. ~~The suite's covariances themselves
+  change in the last bits from run to run (one-ring weights summed in
+  `HashMap` order, gh #1002, pre-existing).~~ **Fixed 2026-10-20 (gh #1002),
+  see below:** the suite now gives the same 3 586 distinct covariances every
+  run, re-captured in `reference-data/faer/closest_rotation_inputs.txt`, 0
+  differing bits against faer. The `pub use faer;` re-export went with it.
+
+## Never let a hash map's iteration order reach a result (gh #1002, 2026-10-20)
+
+`std::collections::HashMap`/`HashSet` are randomly seeded: each map visits
+its entries in a different order, between two calls in one process as well
+as between processes. Before gh #1002, code in 17 source files here summed floats,
+numbered new vertices or emitted faces in that order. Measured on the old
+code: ARAP, Laplacian/Taubin smoothing, `laplacian_triplets`, decimate, Loop
+subdivision, both bevels, `bevel_vertices`, the hull, fill-holes,
+`tris_to_quads`, the rip/split/separate operators, solidify, extrude,
+dissolve and `merge_edges` gave different bits or face orders from call to
+call. (`parameterize` on a regular grid, `beauty_fill` and `mesh_to_splines`
+did not on the inputs tried: exact sums, or the order-dependent branch not
+reached.) Rules that follow:
+
+- **Hash maps are for lookups.** Where order reaches an output, iterate an
+  index-ordered `Vec`, sort the keys once (`laplacian::edge_weights_from`
+  returns edges sorted by `(min, max)`), or use a `BTreeMap` when the map is
+  only built and walked once. Never pick "the first key" of a hash map
+  (`keys().next()`); take the minimum.
+- **Cost was measured, not assumed**: single core, interleaved before/after,
+  median of 5-7 rounds; no operator got measurably slower (ARAP -2 %,
+  Laplacian smoothing -8 %, Loop subdivision -10 %, decimate within its
+  ±3 % round-to-round spread). Numbers on gh #1002.
+- **`tests/hash_order_determinism.rs` is the gate**: it digests every
+  affected operator twice in-process and in two child processes, and pins
+  the ARAP bar result bit for bit. It fails on the pre-fix code (negative
+  control run 2026-10-20). Add a new operator to it when it builds a hash
+  map and iterates it.
+
+## GPU kernels from PETIR: measure first, opt in, CPU stays the default (gh #1005, 2026-10-20)
+
+Profiled first (one core, release, `grid(200, 200)`, 40 401 vertices, 10
+ARAP iterations): ARAP took 2.36 s, of which **1.77 s was
+`Mesh::from_polygons`** rebuilding the result, because `add_face` found each
+edge by a linear scan (`O(E^2)`; Loop subdivision of the same grid took
+77 s). That was fixed on the CPU first (`from_polygons` now looks edges up in
+a map; same ids, same mesh, `mesh::tests::from_polygons_matches_face_by_face_add_face`),
+taking ARAP to 0.59 s. The local step (covariance + `closest_rotation` per
+vertex) was then 45 ms of the 51 ms per iteration, the factorisation 56 ms
+once, the solves 6 ms per iteration. Laplacian smoothing is solve-bound and
+was not ported.
+
+- **ARAP's rotations can run on the GPU, opt-in:** `arap_deform_with(..,
+  ArapRotations::GpuF32)` (probes at run time) or `arap_deform_on_gpu(ctx,
+  ..)` (reuses a context). `arap_deform` and `ArapRotations::CpuF64` are the
+  default, unchanged and bit-identical (`opt_in_api_keeps_the_cpu_default_bit_identical`,
+  `tests/hash_order_determinism.rs`). No GPU, a kernel too large for the
+  device, or a failed readback all run the CPU path for the whole
+  deformation, and `ArapOutcome::rotations` says which ran.
+- **The kernel is PETIR's** (`petir::wgsl::SVD3`, an `f32` transcription of
+  the same faer SVD the CPU path runs in `f64`), wrapped by
+  `gpu::GpuClosestRotations` on this crate's existing `gpu::GpuContext`. Only
+  the rotations move to the GPU; covariances, right-hand side and solve stay
+  `f64`.
+- **Measured on an NVIDIA RTX A5000** (`tests/gpu_arap.rs`, SKIPs without a
+  GPU): 40 401 vertices, 10 iterations, 0.604 s CPU against 0.169 s GPU
+  (**3.6x**, context reused; a probe adds about 0.08-0.2 s); 289 vertices,
+  0.0038 s against 0.0030 s (1.3x, not worth a probe). Deformed positions
+  differ from the `f64` result by at most 9.2e-9 (40 401 vertices) and
+  2.6e-8 (289) of the mesh size; the ARAP energies by 1e-8, against a
+  change of 7e-4 to 4e-3 from one more iteration.
+- **Kernel accuracy is checked in PETIR**: mirror vs `f64` within a derived
+  rotation-angle budget (`tests/wgsl_validation.rs`; worst 4.6e-7 rad on
+  this crate's 3 586 test covariances), and GPU vs mirror on the device
+  (`tests/wgsl_gpu.rs`; 487 of 3 586 bit-identical, worst 7.9e-7 rad, within
+  the same budget; the device's FMA contraction and WGSL's non-correctly-rounded
+  division and `sqrt` are the likely cause, not verified on a
+  correctly-rounding device).
 
 ## CSG description and tally meshes: what lives here, what does not (GitHub #486)
 

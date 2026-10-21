@@ -1,9 +1,9 @@
-# Step 18 — The Gaussian puff, then the Gaussian plume
+# Step 19 — The Gaussian puff, then the Gaussian plume
 
 > **Research, education and V&V only.** Not for reactor operation, licensing, safety decisions or emergency response.
 > **Review status: first draft, 2026-10-18, AI-assisted (Claude Sonnet), not yet reviewed by a human.**
 
-**The question this page answers.** [Step 17](./17-dispersion-reality.md)
+**The question this page answers.** [Step 18](./17-dispersion-reality.md)
 showed that the faithful models need weather fields, fine meshes and long
 runs. *What is the cheapest model that still shows a cloud moving, and what
 is the cheapest that gives a number at a distance?*
@@ -22,7 +22,7 @@ fidelity ladder. It links to them and does not repeat them.
 
 ## 1. The first simplification: from FLEXPART to a puff
 
-**What is dropped relative to Step 17.** Gridded weather, the turbulent
+**What is dropped relative to Step 18.** Gridded weather, the turbulent
 velocity process, and mass-by-particle bookkeeping. In their place:
 a release is cut into a train of *puffs*. Each puff is one Gaussian blob of
 mass $Q$ at height $H$. It travels with the wind sampled when it was emitted.
@@ -122,7 +122,7 @@ short-lived nuclides screened out, and three nuclides TRISO-ATOPS lacks.
 
 This is the same logic as the building page: the choices are made to err high,
 not just to be cheap, and the price is over-prediction. See
-[Step 16](./16-building-and-bounds.md).
+[Step 17](./16-building-and-bounds.md).
 
 ## 4. Dispersion is the third worked example of the ladder
 
@@ -133,7 +133,7 @@ not just to be cheap, and the price is over-prediction. See
 | Cheap, time-varying | Gaussian puff train (`changi::puff`) | weather fields, turbulence process, particles |
 | Cheapest | Gaussian plume (`buangkok::pydoseia`) | time dependence |
 
-[Step 19](./19-levels-of-fidelity.md) puts this next to the particle and the
+[Step 20](./19-levels-of-fidelity.md) puts this next to the particle and the
 coolant ladders. The part to take from it: what the cheaper models drop is
 exactly what the fewest-assumption models spend their cost on.
 
@@ -150,4 +150,4 @@ exactly what the fewest-assumption models spend their cost on.
 
 One ladder per link of the chain has now been shown. What do the ladders have
 in common, and how is a bounding choice different from a cheaper one?
-[Step 19](./19-levels-of-fidelity.md).
+[Step 20](./19-levels-of-fidelity.md).

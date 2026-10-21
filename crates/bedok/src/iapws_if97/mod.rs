@@ -11,8 +11,8 @@
 //!   into the `main_exec_diff3d_standalone` snapshot)
 //! - **Copyright:** Copyright (c) 2013, Mark Mikofski
 //! - **Licence:** BSD-2-Clause, reproduced in full in the crate `NOTICE`
-//! - **Compatibility:** BSD-2-Clause is GPL-3.0-compatible, so the combined
-//!   work ships GPL-3.0-only while these terms continue to govern this module.
+//! - **Compatibility:** BSD-2-Clause is AGPL-3.0-compatible, so the combined
+//!   work ships ~~GPL-3.0-only~~ **AGPL-3.0-only** while these terms continue to govern this module.
 //!
 //! The vendored copy renders the copyright line as "Mark Mifofski"; the
 //! upstream repository and its `license.txt` both give **Mikofski**, which is

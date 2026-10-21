@@ -1,0 +1,64 @@
+    Updating crates.io index
+   Packaging tampines v0.0.3 (/home/teddy0/Documents/research/outram-park-backend/crates/tampines)
+    Updating crates.io index
+    Packaged 136 files, 2.6MiB (710.6KiB compressed)
+   Verifying tampines v0.0.3 (/home/teddy0/Documents/research/outram-park-backend/crates/tampines)
+ Downloading crates ...
+  Downloaded outram-park-fork-coolprop v0.1.3
+  Downloaded tuas_boussinesq_solver v0.1.8
+  Downloaded boon-lay v0.2.1
+   Compiling log v0.4.34
+   Compiling indexmap v2.14.2
+   Compiling memchr v2.8.3
+   Compiling crc32fast v1.5.2
+   Compiling simd-adler32 v0.3.10
+   Compiling gpu-allocator v0.28.0
+   Compiling wayland-sys v0.31.11
+   Compiling naga-types v30.0.1
+   Compiling miniz_oxide v0.9.1
+   Compiling naga v30.0.1
+   Compiling wgpu-types v30.0.1
+   Compiling flate2 v1.1.10
+   Compiling mio v1.2.4
+   Compiling aho-corasick v1.1.5
+   Compiling signal-hook-mio v0.2.5
+   Compiling regex-syntax v0.8.11
+   Compiling regex-automata v0.4.18
+   Compiling serde-xml-rs v0.8.2
+   Compiling crossterm v0.28.1
+   Compiling hdf5-pure v0.20.1
+   Compiling ratatui v0.29.0
+   Compiling regex v1.13.1
+   Compiling openmc-endf-8-depletion-lib-a v1.0.1
+   Compiling csv-core v0.1.13
+   Compiling zip v2.6.1
+   Compiling jiff-core v0.1.1
+   Compiling bumpalo v3.20.3
+   Compiling anstream v1.0.0
+   Compiling wgpu-naga-bridge v30.0.1
+   Compiling wgpu-hal v30.0.1
+   Compiling jiff v0.2.38
+   Compiling zopfli v0.8.4
+   Compiling csv v1.4.0
+   Compiling openmc-endf-8-depletion-lib-b v1.0.0
+   Compiling wgpu-core-deps-windows-linux-android v30.0.1
+   Compiling wgpu-core v30.0.1
+   Compiling env_filter v2.0.0
+   Compiling serde_json v1.0.154
+   Compiling env_logger v0.11.11
+   Compiling tuas_boussinesq_solver v0.1.8
+   Compiling outram-park-fork-dwsim-libs v0.0.4
+   Compiling chem-eng-real-time-process-control-simulator v0.2.4
+   Compiling outram-park-fork-coolprop v0.1.3
+   Compiling wgpu v30.0.1
+   Compiling outram-park-fork-liggghts v0.0.2
+   Compiling njoy-outram-park-fork v0.0.6
+   Compiling outram-mc-libs v0.0.6
+   Compiling boon-lay v0.2.1
+   Compiling tampines v0.0.3 (/home/teddy0/Documents/research/outram-park-backend/target/package/tampines-0.0.3)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 25.14s
+   Uploading tampines v0.0.3 (/home/teddy0/Documents/research/outram-park-backend/crates/tampines)
+    Uploaded tampines v0.0.3 to registry `crates-io`
+note: waiting for tampines v0.0.3 to be available at registry `crates-io`
+help: you may press ctrl-c to skip waiting; the crate should be available shortly
+   Published tampines v0.0.3 at registry `crates-io`

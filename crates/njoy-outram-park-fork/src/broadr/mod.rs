@@ -47,6 +47,7 @@ pub mod broadn;
 pub mod joint;
 pub use broadn::{broadn_section, lab_threshold, BroadnTolerances};
 
+use petir::mathf::RealMath;
 use crate::{
     common::phys::BK_EV_PER_K,
     reconr::{ReconrResult, ReconrSection},
@@ -90,7 +91,7 @@ fn erfc_nonneg(x: f64) -> f64 {
                 break;
             }
         }
-        1.0 - two_over_sqrt_pi * (-x2).exp() * sum
+        1.0 - two_over_sqrt_pi * (-x2).r_exp() * sum
     } else {
         // Continued fraction evaluated bottom-up: erfc(x) = e^{-x²}/(x√π) K,
         // K = 1/(1 + (1/2)/x² /(1 + (2/2)/x² /(1 + ...))).
@@ -99,7 +100,7 @@ fn erfc_nonneg(x: f64) -> f64 {
         for m in (1..=80).rev() {
             k = 1.0 + (m as f64) * inv_2x2 / k;
         }
-        (-x * x).exp() / (x * SQRT_PI) / k
+        (-x * x).r_exp() / (x * SQRT_PI) / k
     }
 }
 
@@ -118,7 +119,7 @@ fn f_funcs(a: f64) -> [f64; 5] {
         return [0.0; 5];
     }
     let asq = a * a;
-    let expo = (-asq).exp() / SQRT_PI; // exp(-a²)/√π
+    let expo = (-asq).r_exp() / SQRT_PI; // exp(-a²)/√π
     let f0 = 0.5 * erfc_nonneg(a);
     let f1 = 0.5 * expo;
     let expoa = expo * a; // a·exp(-a²)/√π
@@ -694,7 +695,7 @@ mod tests {
                 break;
             }
             let w = if k == 0 || k == n { 0.5 } else { 1.0 };
-            let kern = (-(x - y).powi(2)).exp() - (-(x + y).powi(2)).exp();
+            let kern = (-(x - y).r_powi(2)).r_exp() - (-(x + y).r_powi(2)).r_exp();
             acc += w * sig(x) * x * x * kern;
         }
         acc * dx / (y * y * SQRT_PI)

@@ -160,15 +160,15 @@ fn cheb(c: &[f32], x: f32) -> f32 {
 /// reduce.
 fn sin_cos_with(x: f32, reduced: bool) -> (f32, f32) {
     if !reduced {
-        return (x.sin(), x.cos());
+        return (Real::sin(x), Real::cos(x));
     }
     let r = crate::wgsl::mirror_clausen::reduce(x);
     if r.is_nan() {
         // Past the reduction's loss cut there is nothing better to do than
         // hand the raw argument to the library.
-        return (x.sin(), x.cos());
+        return (Real::sin(x), Real::cos(x));
     }
-    (r.sin(), r.cos())
+    (Real::sin(r), Real::cos(r))
 }
 
 /// The asymptotic pair `(f, g)` for `x >= 4`. Mirrors `petir_si_fg_asymp`.
@@ -230,7 +230,7 @@ fn ci_with(x: f32, reduced: bool) -> f32 {
         return f32::NAN;
     }
     if x <= 4.0 {
-        let lx = x.ln();
+        let lx = Real::ln(x);
         return lx - 0.5 + cheb(&CI, (x * x - 8.0) * 0.125);
     }
     let (f, g) = fg_asymp(x);

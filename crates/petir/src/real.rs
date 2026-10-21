@@ -71,9 +71,29 @@
 //! pinned to `petir::real::{exp, ln, powf}` output at full `f64` precision
 //! needs re-baselining once, in the same way the `libm` swap itself did.
 //!
+//! **`hypot` takes a fourth route since 2026-10-20** (gh:#997): [`hypot`],
+//! [`hypotf`] and `Real::hypot` (both float types) go to [`crate::hypot`], a
+//! port of CORE-MATH's correctly rounded `cr_hypot` / `cr_hypotf`, because
+//! the `libm` crate's `hypot` misrounds by one ulp on some inputs.
+//!
 //! Everything else here stays on `libm`: ARM publishes no scalar double
 //! `log10`, `cbrt`, `cos`, `sin`, `tanh` or `atan2`, and the special functions
 //! (`erf`, `erfc`, `tgamma`, `lgamma`) are not in its scope at all.
+
+/// `sqrt(x^2 + y^2)`, **correctly rounded**, without spurious overflow or
+/// underflow: CORE-MATH's `cr_hypot`, ported in [`crate::hypot`] (gh:#997,
+/// 2026-10-20). Before that date every PETIR `hypot` route went to the
+/// `libm` crate's (musl's), which is off by one ulp on some inputs.
+#[inline]
+pub fn hypot(x: f64, y: f64) -> f64 {
+    crate::hypot::hypot(x, y)
+}
+
+/// `f32` [`hypot`]: CORE-MATH's `cr_hypotf`, correctly rounded.
+#[inline]
+pub fn hypotf(x: f32, y: f32) -> f32 {
+    crate::hypot::hypotf(x, y)
+}
 
 /// The error function `erf(x)`. Not in Rust's `std`.
 #[inline]
@@ -118,6 +138,15 @@ pub fn lgamma(x: f64) -> f64 {
 // the same 200 000 points. Routing them through `libm` would buy nothing and
 // cost real time: `libm::sqrt` benchmarks 3.73x slower than the hardware
 // instruction. Use the `std` methods for those.
+//
+// **CORRECTED 2026-10-20 (gh #1001), for PETIR's own code:** finite `sqrt`
+// results are bit-identical, but the NaN that `sqrt` of a negative returns is
+// not: its sign depends on whether the instruction or libm's software path ran,
+// which libm's `arch` feature and std's presence in the graph decide. PETIR's
+// library therefore calls `Real::sqrt` (UFCS), which canonicalises the NaN; on
+// a build where libm's `arch` is off (none of the workspace's graphs) that is
+// the software sqrt and costs the 3.73x above, not re-measured. The advice to
+// consumers stands for finite values.
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// Natural logarithm. (`std`: `f64::ln`.)
@@ -243,8 +272,13 @@ pub fn atan2(y: f64, x: f64) -> f64 {
 
 /// The float operations `core` lacks, provided for `no_std` builds.
 ///
-/// Implemented for [`f64`] only — PETIR is a double-precision library
-/// throughout, matching GSL's and Octave's default storage type. Every method
+/// ~~Implemented for [`f64`] only — PETIR is a double-precision library
+/// throughout, matching GSL's and Octave's default storage type.~~
+/// **CORRECTED 2026-10-20** — implemented for [`f64`] and, since 2026-09-19
+/// (commit `4b9a9a52d1`, the WGSL kernels), for [`f32`] too: the `impl Real
+/// for f32` below routes to `libm`'s single-precision functions (`sinf`,
+/// `expf`, …) and backs the `f32` CPU mirrors in [`crate::wgsl`]. The
+/// numerics layers remain `f64`. Every method
 /// has the same contract, argument order and edge-case behaviour as the
 /// identically named [`f64`] inherent method in `std`.
 pub trait Real: Copy {
@@ -318,10 +352,51 @@ pub trait Real: Copy {
     fn rem_euclid(self, rhs: Self) -> Self;
 }
 
+/// `x`, or PETIR's canonical quiet NaN, `0xfff8_0000_0000_0000`, when `x` is
+/// any NaN.
+///
+/// IEEE 754 leaves a generated NaN's sign and payload unspecified, and the
+/// `libm` crate's `sqrt` and `fma` really do differ by build: with its `arch`
+/// feature they are the x86 instructions, which return the NEGATIVE default
+/// NaN (`sqrt(-1)` = `0xfff8...`); with `force-soft-floats` (or `arch` off)
+/// they are software, which returns the positive one (`0x7ff8...`). Measured
+/// 2026-10-20, gh #1001. Cargo feature unification decides which a build
+/// gets, so [`Real::sqrt`] and [`Real::mul_add`] canonicalise to keep
+/// PETIR's output bit-identical across build graphs (maintainer direction,
+/// gh #1001: bit-identical, not "within tolerance").
+///
+/// The canonical value is the NEGATIVE one, x86 SSE's default NaN, because
+/// that is what PETIR returned before (the test graphs had `arch` on) and what
+/// the committed GSL references contain: `svd-gsl-2.8-reference.txt` holds 40
+/// `-nan` values that `gsl_svd_code_to_code` compares bit for bit. Choosing
+/// `f64::NAN` (positive) was tried first and failed those 40.
+#[inline]
+fn canonical_nan_f64(x: f64) -> f64 {
+    if x.is_nan() {
+        f64::from_bits(0xfff8_0000_0000_0000)
+    } else {
+        x
+    }
+}
+
+/// `f32` [`canonical_nan_f64`]: `0xffc0_0000` for any NaN.
+#[inline]
+fn canonical_nan_f32(x: f32) -> f32 {
+    if x.is_nan() {
+        f32::from_bits(0xffc0_0000)
+    } else {
+        x
+    }
+}
+
 impl Real for f64 {
     #[inline]
     fn sqrt(self) -> f64 {
-        libm::sqrt(self)
+        // gh #1001: a NaN result is returned as the canonical NaN. libm's
+        // `arch` feature switches this between the `sqrtsd`/`vfmadd`
+        // instruction (negative default NaN) and software (positive NaN),
+        // and the maintainer wants PETIR's bits independent of that.
+        canonical_nan_f64(libm::sqrt(self))
     }
     #[inline]
     fn cbrt(self) -> f64 {
@@ -444,7 +519,7 @@ impl Real for f64 {
     }
     #[inline]
     fn hypot(self, other: f64) -> f64 {
-        libm::hypot(self, other)
+        crate::hypot::hypot(self, other)
     }
     #[inline]
     fn floor(self) -> f64 {
@@ -468,7 +543,11 @@ impl Real for f64 {
     }
     #[inline]
     fn mul_add(self, a: f64, b: f64) -> f64 {
-        libm::fma(self, a, b)
+        // gh #1001: a NaN result is returned as the canonical NaN. libm's
+        // `arch` feature switches this between the `sqrtsd`/`vfmadd`
+        // instruction (negative default NaN) and software (positive NaN),
+        // and the maintainer wants PETIR's bits independent of that.
+        canonical_nan_f64(libm::fma(self, a, b))
     }
     /// `self - rhs * (self / rhs).floor()`, clamped into `[0, |rhs|)`.
     ///
@@ -509,7 +588,11 @@ impl Real for f64 {
 impl Real for f32 {
     #[inline]
     fn sqrt(self) -> f32 {
-        libm::sqrtf(self)
+        // gh #1001: a NaN result is returned as the canonical NaN. libm's
+        // `arch` feature switches this between the `sqrtsd`/`vfmadd`
+        // instruction (negative default NaN) and software (positive NaN),
+        // and the maintainer wants PETIR's bits independent of that.
+        canonical_nan_f32(libm::sqrtf(self))
     }
     #[inline]
     fn cbrt(self) -> f32 {
@@ -629,7 +712,7 @@ impl Real for f32 {
     }
     #[inline]
     fn hypot(self, other: f32) -> f32 {
-        libm::hypotf(self, other)
+        crate::hypot::hypotf(self, other)
     }
     #[inline]
     fn floor(self) -> f32 {
@@ -653,7 +736,11 @@ impl Real for f32 {
     }
     #[inline]
     fn mul_add(self, a: f32, b: f32) -> f32 {
-        libm::fmaf(self, a, b)
+        // gh #1001: a NaN result is returned as the canonical NaN. libm's
+        // `arch` feature switches this between the `sqrtsd`/`vfmadd`
+        // instruction (negative default NaN) and software (positive NaN),
+        // and the maintainer wants PETIR's bits independent of that.
+        canonical_nan_f32(libm::fmaf(self, a, b))
     }
     /// Matches `f32::rem_euclid`, mirroring the `f64` impl.
     #[inline]

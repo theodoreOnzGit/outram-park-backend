@@ -2,6 +2,7 @@
 //!
 //! Ported from the read path of `contio`/`lineio`/`a11` in NJOY2016 `endf.f90`.
 
+use petir::mathf::RealMath;
 use crate::NjoyError;
 
 /// Parse one ENDF 11-column float field.
@@ -148,13 +149,13 @@ fn format_a11_normal(x: f64) -> String {
     // endf.f90:921 — `n=int(log10(abs(xx)))`. Fortran `int()` truncates
     // toward zero; `as i32` on f64 does the same, so this matches exactly.
     let xx = x;
-    let n0 = xx.abs().log10() as i32;
+    let n0 = xx.abs().r_log10() as i32;
 
     let (f, s, n);
     if xx.abs() < ONE {
         // endf.f90:933-944 (label 110)
         let mut nn = 1 - n0;
-        let mut ff = xx * TEN.powi(nn);
+        let mut ff = xx * TEN.r_powi(nn);
         if within_a11_bound(nn, ff, TOP7, TOP6, TOP5) {
             s = '-';
         } else {
@@ -167,7 +168,7 @@ fn format_a11_normal(x: f64) -> String {
     } else {
         // endf.f90:922-932 (fallthrough from label 100)
         let mut nn = n0;
-        let mut ff = xx / TEN.powi(nn);
+        let mut ff = xx / TEN.r_powi(nn);
         if !within_a11_bound(nn, ff, TOP7, TOP6, TOP5) {
             ff = ff / TEN + UP;
             nn += 1;
@@ -218,7 +219,7 @@ fn format_a11_extended(x: f64) -> String {
     const TENTH: f64 = 0.1;
 
     // endf.f90:956 — `n=int(log10(abs(x)))`
-    let n0 = x.abs().log10() as i32;
+    let n0 = x.abs().r_log10() as i32;
 
     let (f, s, mut n);
     if x.abs() < ONEM {
@@ -228,7 +229,7 @@ fn format_a11_extended(x: f64) -> String {
         n = -1;
     } else {
         // endf.f90:958-964
-        let mut ff = x / TEN.powi(n0);
+        let mut ff = x / TEN.r_powi(n0);
         let mut nn = n0;
         let bound = if nn.abs() < 10 { TOP9 } else { BOT9 };
         if ff.abs() >= bound {
@@ -245,7 +246,7 @@ fn format_a11_extended(x: f64) -> String {
     // decimal digits = 8 - max(n,0), field width always 11.
     let scale = n.max(0);
     let decimals = (8 - scale) as usize;
-    let displayed = f * TEN.powi(scale);
+    let displayed = f * TEN.r_powi(scale);
     let mut hx = format!("{:11.decimals$}", displayed);
 
     // endf.f90:976 — relabel the exponent before the fallback checks below.

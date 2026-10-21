@@ -105,6 +105,7 @@
 //! - **No validation.** Condensing correctly is not the same as the group
 //!   constants reproducing a reference eigenvalue. Nothing here is validated.
 
+use petir::mathf::RealMath;
 use outram_mc_libs::tally::tally::{ScoreType, Tally, TallyBin};
 use serde::{Deserialize, Serialize};
 
@@ -298,9 +299,9 @@ impl GroupStructure {
         if n == 0 || !(e_lo > 0.0) || !(e_hi > e_lo) {
             return Err(MgxsError::TooFewEdges { n: n + 1 });
         }
-        let (l0, l1) = (e_lo.ln(), e_hi.ln());
+        let (l0, l1) = (e_lo.r_ln(), e_hi.r_ln());
         let edges = (0..=n)
-            .map(|i| (l0 + (l1 - l0) * i as f64 / n as f64).exp())
+            .map(|i| (l0 + (l1 - l0) * i as f64 / n as f64).r_exp())
             .collect();
         Self::new(edges)
     }
@@ -1031,7 +1032,7 @@ impl MgxsLibrary {
         if d_refl <= 0.0 || l_refl <= 0.0 {
             return None;
         }
-        Some((d_core / d_refl) * l_refl * (refl_thickness_cm / l_refl).tanh())
+        Some((d_core / d_refl) * l_refl * (refl_thickness_cm / l_refl).r_tanh())
     }
 
     /// `k_inf` recomputed with the absorption the **bridge infers** rather than
@@ -1867,7 +1868,7 @@ mod tests {
         let names = vec!["fuel".to_string(), "moderator".to_string()];
         // flux = 10^(z+1) * (g+1); rate_s = flux * (s as the "cross section")
         let scalar = scalar_with(2, 2, |z, gg, s| {
-            let phi = 10f64.powi(z as i32 + 1) * (gg as f64 + 1.0);
+            let phi = 10f64.r_powi(z as i32 + 1) * (gg as f64 + 1.0);
             if s == 0 {
                 phi
             } else {
@@ -1876,7 +1877,7 @@ mod tests {
         });
         // scatter[z][gi][go] rate = flux_in * (gi + 1) * (go + 2)
         let matrix = matrix_with(2, 2, |z, gi, go| {
-            let phi = 10f64.powi(z as i32 + 1) * (gi as f64 + 1.0);
+            let phi = 10f64.r_powi(z as i32 + 1) * (gi as f64 + 1.0);
             phi * (gi as f64 + 1.0) * (go as f64 + 2.0)
         });
 
@@ -1886,7 +1887,7 @@ mod tests {
         for (z, zone) in lib.zones.iter().enumerate() {
             assert_eq!(zone.name, names[z]);
             for gg in 0..2 {
-                let phi = 10f64.powi(z as i32 + 1) * (gg as f64 + 1.0);
+                let phi = 10f64.r_powi(z as i32 + 1) * (gg as f64 + 1.0);
                 assert!((zone.flux[gg] - phi).abs() < 1e-12, "flux z{z} g{gg}");
                 // score index 1 = Total, 2 = Absorption, 3 = NuFission, 4 = Kappa
                 assert!((zone.total[gg] - 1.0).abs() < 1e-12, "total z{z} g{gg}");

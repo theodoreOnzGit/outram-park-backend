@@ -225,7 +225,7 @@ pub fn debye_n(n: u32, x: f32) -> f32 {
     }
     if x < SUMCUT {
         let nexp = (XCUT / x).floor();
-        let ex = (-x).exp();
+        let ex = Real::exp(-x);
         let mut sum = 0.0_f32;
         let mut rk = nexp;
         let mut i = nexp;
@@ -249,7 +249,7 @@ pub fn debye_n(n: u32, x: f32) -> f32 {
         for &c in o.fall.iter() {
             poly = poly * x + c;
         }
-        return (o.vinf - n as f32 * poly * (-x).exp()) / pow_n(x, n);
+        return (o.vinf - n as f32 * poly * Real::exp(-x)) / pow_n(x, n);
     }
     o.vinf / pow_n(x, n)
 }

@@ -91,6 +91,7 @@
 //! file keeps the dispatch logic and the [`NeutronGroupStructure`] enum. The
 //! split moved the constants verbatim — no values or logic changed.
 
+use petir::mathf::RealMath;
 use crate::NjoyError;
 
 /// Return the neutron group-boundary structure selected by `ign`, in eV.
@@ -199,19 +200,19 @@ pub fn neutron_group_structure(ign: i32) -> Result<Vec<f64>, NjoyError> {
             }
             let mut u = U187A;
             for ig in 49..=59usize {
-                egn[ig - 1] = EZERO * u.exp();
+                egn[ig - 1] = EZERO * u.r_exp();
                 u += EIGHTH;
             }
             egn[60 - 1] = E187E;
             u = U187B;
             for ig in 61..=126usize {
-                egn[ig - 1] = EZERO * u.exp();
+                egn[ig - 1] = EZERO * u.r_exp();
                 u += EIGHTH;
             }
             egn[127 - 1] = E187D;
             u = U187C;
             for ig in 128..=175usize {
-                egn[ig - 1] = EZERO * u.exp();
+                egn[ig - 1] = EZERO * u.r_exp();
                 u += EIGHTH;
             }
             for ig in 176..=188usize {
@@ -258,7 +259,7 @@ pub fn neutron_group_structure(ign: i32) -> Result<Vec<f64>, NjoyError> {
             let mut egn = vec![0.0f64; ngp];
             let mut u = UU80;
             for ig in 1..=ngp {
-                egn[(82 - ig) - 1] = EZERO * u.exp();
+                egn[(82 - ig) - 1] = EZERO * u.r_exp();
                 if ig <= ngn {
                     u -= U80[ig - 1];
                 }
@@ -384,7 +385,7 @@ pub fn neutron_group_structure(ign: i32) -> Result<Vec<f64>, NjoyError> {
                 egn[ig] = EG20A[ig];
                 egn[ig + 392] = EG20B[ig];
             }
-            let f = (1.0f64 / 120.0f64).exp();
+            let f = (1.0f64 / 120.0f64).r_exp();
             for ig in 785..=ngp {
                 egn[ig - 1] = egn[(ig - 1) - 1] * f;
             }
@@ -402,7 +403,7 @@ pub fn neutron_group_structure(ign: i32) -> Result<Vec<f64>, NjoyError> {
     // Convert lethargy grid to energies (groupr.f90:4562-4567).
     if lflag {
         for e in egn.iter_mut() {
-            *e = sigfig(EZERO * (-*e).exp(), 7, 0);
+            *e = sigfig(EZERO * (-*e).r_exp(), 7, 0);
         }
     }
 

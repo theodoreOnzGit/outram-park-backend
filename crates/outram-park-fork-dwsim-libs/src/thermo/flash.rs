@@ -75,6 +75,7 @@
 //! it is the caller's responsibility. AI-assisted port — untrusted draft
 //! material until human-reviewed per the crate `CLAUDE.md`.
 
+use petir::mathf::RealMath;
 use crate::thermo::Component;
 
 /// A converged (or best-effort) two-phase VLE flash result.
@@ -181,7 +182,7 @@ pub fn wilson_k_values(components: &[Component], temperature: f64, pressure: f64
         .map(|c| {
             (c.critical_pressure / pressure)
                 * (5.373 * (1.0 + c.acentric_factor) * (1.0 - c.critical_temperature / temperature))
-                    .exp()
+                    .r_exp()
         })
         .collect()
 }

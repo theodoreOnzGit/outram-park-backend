@@ -371,6 +371,7 @@ pub fn krylov_solve_prepared(
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
 
     /// Asymmetric tridiagonal `A` with distinct lower/upper off-diagonals —
@@ -389,7 +390,7 @@ mod tests {
     fn every_method_preconditioner_pair_solves_an_asymmetric_system() {
         let n = 50;
         let a = asym_tridiag(n, 2.10, -1.2, -0.8);
-        let x_true: Vec<f64> = (0..n).map(|i| ((i as f64) * 0.37).sin()).collect();
+        let x_true: Vec<f64> = (0..n).map(|i| ((i as f64) * 0.37).r_sin()).collect();
         let b = a.multiply(&x_true);
         let settings = SolverSettings {
             tolerance: 1e-10,

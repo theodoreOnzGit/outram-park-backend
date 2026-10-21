@@ -207,6 +207,7 @@ impl Rkf45 {
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
 
     struct DecayOde;
@@ -232,6 +233,52 @@ mod tests {
         }
     }
 
+    /// `y' = -y`, but the derivative is NaN once `|y| > 2`: finite on the
+    /// whole true trajectory, non-finite only at the overshot stage states an
+    /// oversized trial step visits.
+    struct DecayNanOutsideRange;
+    impl OdeSystem for DecayNanOutsideRange {
+        fn n_eqns(&self) -> usize {
+            1
+        }
+        fn derivatives(&self, _x: f64, y: &[f64], dydx: &mut Vec<f64>) {
+            dydx[0] = if y[0].abs() > 2.0 { f64::NAN } else { -y[0] };
+        }
+    }
+
+    /// **Methodology.** A trial step that overflows while the accepted state is
+    /// finite must be rejected and retried with a smaller step, as upstream
+    /// `Foam::adaptiveSolver::solve` does (`err = inf` -> `scale = minScale`).
+    /// Starting `y(0) = 1` with a first step `dx = 10` sends RKF45's later
+    /// stages beyond `|y| = 2`, where the derivative is NaN. Pass criterion:
+    /// `Ok`, and `y(1)` within `1e-6` of `e^{-1}`. Before 2026-10-21 (gh:#985)
+    /// the op-ad6h guard returned `Err(NonFiniteState)` on the first trial,
+    /// which is what broke offbeat's VISCOCHAB relaxation test.
+    ///
+    /// **Result (2026-10-21).** Passes; the solver recovers and the error is
+    /// below `1e-6`.
+    #[test]
+    fn rkf45_recovers_from_a_trial_step_that_overflows() {
+        let mut solver = Rkf45::new(1, 1e-8, 1e-6);
+        let mut y = vec![1.0_f64];
+        let mut dx = 10.0;
+        solver
+            .integrate(&DecayNanOutsideRange, 0.0, 1.0, &mut y, &mut dx)
+            .unwrap();
+        assert!((y[0] - (-1.0_f64).r_exp()).abs() < 1e-6, "y = {}", y[0]);
+    }
+
+    /// The other half of op-ad6h is kept: a derivative that is NaN at the
+    /// ACCEPTED state is still reported as `NonFiniteState`, never `Ok`.
+    #[test]
+    fn rkf45_reports_a_non_finite_derivative_at_the_accepted_state() {
+        let mut solver = Rkf45::new(1, 1e-8, 1e-6);
+        let mut y = vec![3.0_f64];
+        let mut dx = 0.1;
+        let outcome = solver.integrate(&DecayNanOutsideRange, 0.0, 1.0, &mut y, &mut dx);
+        assert_eq!(outcome, Err(OdeError::NonFiniteState));
+    }
+
     #[test]
     fn rkf45_exponential_decay() {
         // y' = -y, y(0) = 1  →  y(1) = e^{-1}
@@ -240,7 +287,7 @@ mod tests {
         let mut y = vec![1.0_f64];
         let mut dx = 0.1;
         solver.integrate(&ode, 0.0, 1.0, &mut y, &mut dx).unwrap();
-        let expected = (-1.0_f64).exp();
+        let expected = (-1.0_f64).r_exp();
         assert!(
             (y[0] - expected).abs() < 1e-6,
             "y={:.10}, expected={:.10}",
@@ -257,7 +304,7 @@ mod tests {
         let mut y = vec![1.0_f64];
         let mut dx = 0.1;
         solver.integrate(&ode, 0.0, 5.0, &mut y, &mut dx).unwrap();
-        let expected = (-5.0_f64).exp();
+        let expected = (-5.0_f64).r_exp();
         assert!(
             (y[0] - expected).abs() < 1e-7,
             "y={:.12}, expected={:.12}",
@@ -285,7 +332,7 @@ mod tests {
         // This RKF45 propagates with the 5th-order (B) solution (Dormand-Prince convention).
         // Force fixed-step by setting abs_tol=1 >> expected error so every step is accepted,
         // then manually supply dx_try = h at each iteration.
-        let exact = (-1.0_f64).exp();
+        let exact = (-1.0_f64).r_exp();
 
         let run = |n: usize| -> f64 {
             let ode = DecayOde;

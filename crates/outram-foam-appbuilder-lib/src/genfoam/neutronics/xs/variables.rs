@@ -47,6 +47,7 @@
 //! the query point at evaluation time, so the interpolation is carried out
 //! entirely in transformed space (see [`super::CrossSectionData`]).
 
+use petir::mathf::RealMath;
 /// The transform applied to a feedback parameter before interpolation.
 ///
 /// Parsed from the `xsVariables` law keyword; see the module documentation for
@@ -96,7 +97,7 @@ impl VariableLaw {
     pub fn transform(self, value: f64) -> f64 {
         match self {
             Self::Linear => value,
-            Self::Log => value.ln(),
+            Self::Log => value.r_ln(),
             Self::Sqrt => value.sqrt(),
         }
     }

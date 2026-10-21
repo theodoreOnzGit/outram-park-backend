@@ -4,6 +4,7 @@
 //! when `eta` isn't large enough for [`super::dispatch::bigeta`]'s Bessel-
 //! function approach.
 
+use petir::mathf::RealMath;
 use crate::common::phys::{EULER, PI};
 
 /// Coulomb phase shift `sigma_L = arg(Gamma(L+1+i*eta))` for `L=0..=lmax`
@@ -29,9 +30,9 @@ pub fn xsigll(eta: f64, lmax: i32) -> Vec<f64> {
             let xi = i as f64;
             let m = 2 * i - 1;
             let xm = m as f64;
-            sum += BER[i - 1] / (2.0 * xi * xm * peta.powi(m as i32));
+            sum += BER[i - 1] / (2.0 * xi * xm * peta.r_powi(m as i32));
         }
-        sigma0 = PI / 4.0 + peta * (peta.ln() - 1.0) - sum;
+        sigma0 = PI / 4.0 + peta * (peta.r_ln() - 1.0) - sum;
     } else {
         let mut sumas = 0.0_f64;
         for is in 1..=MMMXXX {
@@ -39,14 +40,14 @@ pub fn xsigll(eta: f64, lmax: i32) -> Vec<f64> {
             let temp1 = peta / s;
             let as_;
             if s <= 2.0 * peta {
-                as_ = temp1 - temp1.atan();
+                as_ = temp1 - temp1.r_atan();
             } else {
                 let mut acc = 0.0_f64;
                 let mut k = 0;
                 for j in 1..=MMMXXX {
                     let m = j + j + 1;
                     let xm = m as f64;
-                    let add = temp1.powi(m as i32) / xm;
+                    let add = temp1.r_powi(m as i32) / xm;
                     if k == 0 {
                         acc += add;
                         k = 1;
@@ -75,7 +76,7 @@ pub fn xsigll(eta: f64, lmax: i32) -> Vec<f64> {
     sigma[0] = sigma0;
     for ll in 1..=lmax {
         let xl = ll as f64;
-        sigma[ll as usize] = sigma[(ll - 1) as usize] + (eta / xl).atan();
+        sigma[ll as usize] = sigma[(ll - 1) as usize] + (eta / xl).r_atan();
     }
     sigma
 }
@@ -84,30 +85,30 @@ pub fn xsigll(eta: f64, lmax: i32) -> Vec<f64> {
 /// `eta` — ported from `asymp1` (`samm.f90:4401-4427`, Abramowitz & Stegun
 /// Eqs. 14.5.12b/14.5.13b).
 pub fn asymp1(eta: f64) -> (f64, f64, f64) {
-    let ceta = eta.powf(1.0 / 3.0);
+    let ceta = eta.r_powf(1.0 / 3.0);
     let seta = ceta.sqrt();
     let temp = 1.0 / (ceta * ceta);
     let u = 1.223_404_016
         * seta
         * (1.0
-            + temp.powi(2)
+            + temp.r_powi(2)
                 * (0.049_595_701_65
                     + temp
                         * (-0.008_888_888_889
-                            + temp.powi(2)
+                            + temp.r_powi(2)
                                 * (0.002_455_199_181
                                     + temp
                                         * (-0.000_910_895_806_1
-                                            + temp.powi(2) * 0.000_253_468_411_5)))));
+                                            + temp.r_powi(2) * 0.000_253_468_411_5)))));
     let upr = -0.707_881_773_4
         * (1.0
             + temp
                 * (-0.172_826_036_9
-                    + temp.powi(2)
+                    + temp.r_powi(2)
                         * (0.000_317_460_317_4
                             + temp
                                 * (-0.003_581_214_850
-                                    + temp.powi(2)
+                                    + temp.r_powi(2)
                                         * (0.000_311_782_468_0 - temp * 0.000_907_396_642_7)))))
         / seta;
     let rhoi = 2.0 * eta;
@@ -168,9 +169,9 @@ pub fn asymp2(eta: f64, rho: f64, sigma0: f64) -> (f64, f64, f64) {
             if icheck == 4 {
                 jcheck += 1;
                 if jcheck >= 4 {
-                    let phi = rhoi - eta * (2.0 * rhoi).ln() + sigma0;
-                    let cosphi = phi.cos();
-                    let sinphi = phi.sin();
+                    let phi = rhoi - eta * (2.0 * rhoi).r_ln() + sigma0;
+                    let cosphi = phi.r_cos();
+                    let sinphi = phi.r_sin();
                     let g0 = z[0] * cosphi - z[1] * sinphi;
                     let g0pr = z[2] * cosphi - z[3] * sinphi;
                     return (g0, g0pr, rhoi);
@@ -226,8 +227,8 @@ pub fn taylor(eta: f64, rho: f64, u_in: f64, upr_in: f64, rhoi_in: f64) -> (f64,
                 let xn = (n - 1) as f64;
                 if n >= nstart {
                     let a_n = -(delta * (xn - 1.0) * (xn - 2.0) * a[(n - 1) as usize]
-                        + (rhoi - 2.0 * eta) * delta.powi(2) * a[(n - 2) as usize]
-                        + delta.powi(3) * a[(n - 3) as usize])
+                        + (rhoi - 2.0 * eta) * delta.r_powi(2) * a[(n - 2) as usize]
+                        + delta.r_powi(3) * a[(n - 3) as usize])
                         / (rhoi * (xn - 1.0) * xn);
                     a[n as usize] = a_n;
                     if a_n > BIGGER {
@@ -333,7 +334,7 @@ pub fn getfg(
         let xl = (l - 1) as f64;
         let temp1 = (xl * xl + eta * eta).sqrt();
         let gl = (2.0 * xl - 1.0) / temp1 * (eta / (xl - 1.0) + xl / rho) * g[(l - 2) as usize]
-            - xl / temp1 * (1.0 + (eta / (xl - 1.0)).powi(2)).sqrt() * g[(l - 3) as usize];
+            - xl / temp1 * (1.0 + (eta / (xl - 1.0)).r_powi(2)).sqrt() * g[(l - 3) as usize];
         g[(l - 1) as usize] = gl;
         if gl.abs() > BIG && l > lll {
             limit = l;
@@ -353,7 +354,7 @@ pub fn getfg(
         let xl = jj as f64;
         let temp1 = (xl * xl + eta * eta).sqrt();
         gm = (2.0 * xl - 1.0) / temp1 * (eta / (xl - 1.0) + xl / rho) * gm1
-            - xl / temp1 * (1.0 + (eta / (xl - 1.0)).powi(2)).sqrt() * gm2;
+            - xl / temp1 * (1.0 + (eta / (xl - 1.0)).r_powi(2)).sqrt() * gm2;
         if (g[(limit - 1) as usize] / gm).abs() > 1.0e-4 {
             il = -2;
         }
@@ -374,9 +375,9 @@ pub fn getfg(
     for _ in 0..n1 {
         l -= 1;
         let xl = l as f64;
-        let temp2 = ((xl + 1.0).powi(2) + eta * eta).sqrt();
+        let temp2 = ((xl + 1.0).r_powi(2) + eta * eta).sqrt();
         let fp = ((2.0 * xl + 3.0) * (eta / (xl + 2.0) + (xl + 1.0) / rho) * fp1
-            - (xl + 1.0) * (1.0 + (eta / (xl + 2.0)).powi(2)).sqrt() * fp2)
+            - (xl + 1.0) * (1.0 + (eta / (xl + 2.0)).r_powi(2)).sqrt() * fp2)
             / temp2;
         fp2 = fp1;
         fp1 = fp;
@@ -388,9 +389,9 @@ pub fn getfg(
     for _ in 0..(limit + 2) {
         l -= 1;
         let xl = l as f64;
-        let temp2 = ((xl + 1.0).powi(2) + eta * eta).sqrt();
+        let temp2 = ((xl + 1.0).r_powi(2) + eta * eta).sqrt();
         let fp = ((2.0 * xl + 3.0) * (eta / (xl + 2.0) + (xl + 1.0) / rho) * fp1
-            - (xl + 1.0) * (1.0 + (eta / (xl + 2.0)).powi(2)).sqrt() * fp2)
+            - (xl + 1.0) * (1.0 + (eta / (xl + 2.0)).r_powi(2)).sqrt() * fp2)
             / temp2;
         f[l as usize] = fp;
         fp2 = fp1;
@@ -403,7 +404,7 @@ pub fn getfg(
     for l in 2..=limit {
         let xl = l as f64;
         fpr[(l - 1) as usize] = (xl / rho + eta / xl) * f[(l - 1) as usize]
-            - (1.0 + (eta / xl).powi(2)).sqrt() * f[l as usize];
+            - (1.0 + (eta / xl).r_powi(2)).sqrt() * f[l as usize];
         let temp1 = eta / (xl - 1.0);
         gpr[(l - 1) as usize] = (1.0 + temp1 * temp1).sqrt() * g[(l - 2) as usize]
             - ((xl - 1.0) / rho + temp1) * g[(l - 1) as usize];

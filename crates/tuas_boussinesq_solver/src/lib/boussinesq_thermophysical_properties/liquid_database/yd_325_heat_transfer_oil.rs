@@ -1,3 +1,4 @@
+use petir::mathf::RealMath;
 #[warn(missing_docs)]
 // This library was developed for use in my PhD thesis under supervision
 // of Professor Per F. Peterson. It is part of a thermal hydraulics
@@ -64,8 +65,7 @@ use uom::si::specific_heat_capacity::joule_per_kilogram_kelvin;
 use uom::si::available_energy::joule_per_kilogram;
 
 // this is for the root finding algorithms
-extern crate peroxide;
-use peroxide::prelude::*;
+use crate::numerical_methods::bisection_residual;
 
 use crate::boussinesq_thermophysical_properties::{range_check, LiquidMaterial, Material};
 use crate::tuas_lib_error::TuasLibError;
@@ -160,9 +160,9 @@ pub fn get_yd325_dynamic_viscosity(
     // a + bT + cT^2 + dT^3 + eT^4;
     let viscosity_value_pascal_second = a
         + b * fluid_temp_kelvin
-        + c * fluid_temp_kelvin.powf(2.0)
-        + d * fluid_temp_kelvin.powf(3.0)
-        + e * fluid_temp_kelvin.powf(4.0);
+        + c * fluid_temp_kelvin.r_powf(2.0)
+        + d * fluid_temp_kelvin.r_powf(3.0)
+        + e * fluid_temp_kelvin.r_powf(4.0);
 
     Ok(DynamicViscosity::new::<pascal_second>(
         viscosity_value_pascal_second,
@@ -238,9 +238,9 @@ pub fn get_yd325_thermal_conductivity(
     // a + bT + cT^2 + dT^3 + eT^4;
     let thermal_conductivity_value = a
         + b * fluid_temp_kelvin
-        + c * fluid_temp_kelvin.powf(2.0)
-        + d * fluid_temp_kelvin.powf(3.0)
-        + e * fluid_temp_kelvin.powf(4.0);
+        + c * fluid_temp_kelvin.r_powf(2.0)
+        + d * fluid_temp_kelvin.r_powf(3.0)
+        + e * fluid_temp_kelvin.r_powf(4.0);
 
     return Ok(ThermalConductivity::new::<watt_per_meter_kelvin>(
         thermal_conductivity_value,
@@ -294,9 +294,9 @@ pub fn get_yd325_specific_enthalpy(
 
     let enthalpy_value_joule_per_kg_calc = |fluid_temp_kelvin: f64| {
         a + b * fluid_temp_kelvin
-            + c * fluid_temp_kelvin.powf(2.0)
-            + d * fluid_temp_kelvin.powf(3.0)
-            + e * fluid_temp_kelvin.powf(4.0)
+            + c * fluid_temp_kelvin.r_powf(2.0)
+            + d * fluid_temp_kelvin.r_powf(3.0)
+            + e * fluid_temp_kelvin.r_powf(4.0)
     };
 
     // this is slightly more computationally expensive than other calcs,
@@ -370,11 +370,19 @@ pub fn get_temperature_from_enthalpy(
     // now solve using bisection
     // the range is from 323 K - 523 K
 
-    use anyhow::Result;
     let fluid_temperature_degrees_kelvin_result =
-        bisection!(enthalpy_root, (323.0, 523.0), 100, 1e-8);
+        // peroxide `bisection!(enthalpy_root, (323.0, 523.0), 100, 1e-8)`, now
+    // on PETIR with peroxide's residual test kept: bit-identical root
+    // (see crate::numerical_methods::bisection_residual, gh:#989).
+    bisection_residual(
+        enthalpy_root,
+        (323.0, 523.0),
+        100,
+        1e-8,
+        "YD-325: temperature from specific enthalpy",
+    );
 
-    let fluid_temperature_degrees_kelvin = fluid_temperature_degrees_kelvin_result.unwrap();
+    let fluid_temperature_degrees_kelvin = fluid_temperature_degrees_kelvin_result?;
 
     return Ok(ThermodynamicTemperature::new::<kelvin>(
         fluid_temperature_degrees_kelvin,

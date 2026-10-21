@@ -21,6 +21,7 @@
 //! which has no caller until angular distributions are built alongside
 //! `ERRORR`.
 
+use petir::mathf::RealMath;
 use crate::samm::betset::{beta_triangular_index, ResonanceAmplitudes};
 use crate::samm::context::ChannelKinematics;
 use crate::samm::linpack::PackedComplexMatrix;
@@ -269,7 +270,7 @@ pub fn setr(
                             }
                         }
                     }
-                    sinsqr[i - 1] = sinphi.powi(2);
+                    sinsqr[i - 1] = sinphi.r_powi(2);
                     sin2ph[i - 1] = 2.0 * sinphi * cosphi;
                 }
 

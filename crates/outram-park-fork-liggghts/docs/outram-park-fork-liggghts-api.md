@@ -1,8 +1,8 @@
 # Crate Documentation
 
-**Version:** 0.0.0
+**Version:** 0.0.2
 
-**Format Version:** 60
+**Format Version:** 61
 
 # Module `outram_park_fork_liggghts`
 
@@ -18,7 +18,8 @@ CFD-DEM coupling deferred to a future explicit seam).
 > **Licensing (see `NOTICE`).** LIGGGHTS-PUBLIC's source headers declare
 > **"GNU Public License, version 2 or later"**, which **is compatible with
 > GPL-3.0** (the "or later" option permits use under GPLv3) — so
-> LIGGGHTS-PUBLIC source may be ported into this GPL-3.0-only crate.
+> LIGGGHTS-PUBLIC source may be ported into this ~~GPL-3.0-only~~ **AGPL-3.0-only** (relicensed
+> 2026-10-20, gh:#973) crate.
 > (Correcting an earlier note that wrongly said "GPL-2.0-only / blocked".)
 > When porting, confirm the specific file's "or later" header and keep its
 > attribution + provenance. LAMMPS-proper headers are version-unspecified
@@ -284,7 +285,7 @@ pub struct BondForce {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> BondForce { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -319,7 +320,7 @@ pub struct BondForce {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &BondForce) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -356,7 +357,7 @@ pub struct BondForce {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -496,7 +497,7 @@ pub struct Bond {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Bond { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -531,7 +532,7 @@ pub struct Bond {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Bond) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -568,7 +569,7 @@ pub struct Bond {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -653,7 +654,7 @@ caller can hold a uniform `BondModel` per pair and represent "unbonded"
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> BondModel { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -688,7 +689,7 @@ caller can hold a uniform `BondModel` per pair and represent "unbonded"
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &BondModel) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -725,7 +726,7 @@ caller can hold a uniform `BondModel` per pair and represent "unbonded"
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -904,7 +905,7 @@ pub struct Contact {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Contact { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -939,7 +940,7 @@ pub struct Contact {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Contact) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -976,7 +977,7 @@ pub struct Contact {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1176,7 +1177,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Boundary { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -1211,7 +1212,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Boundary) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -1248,7 +1249,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1442,7 +1443,7 @@ the CPU reference, never trusted above it.
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ComputeType { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -1458,7 +1459,7 @@ the CPU reference, never trusted above it.
 
 - **Default**
   - ```rust
-    fn default() -> ComputeType { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
 - **Downcast**
@@ -1482,7 +1483,7 @@ the CPU reference, never trusted above it.
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &ComputeType) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -1519,7 +1520,7 @@ the CPU reference, never trusted above it.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1616,7 +1617,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ThreadCount { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -1632,7 +1633,7 @@ Fields:
 
 - **Default**
   - ```rust
-    fn default() -> ThreadCount { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
 - **Downcast**
@@ -1656,7 +1657,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &ThreadCount) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -1693,7 +1694,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1874,7 +1875,7 @@ pub struct ContactForce {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ContactForce { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -1909,7 +1910,7 @@ pub struct ContactForce {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &ContactForce) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -1946,7 +1947,7 @@ pub struct ContactForce {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -2038,7 +2039,7 @@ pub struct HookeContact {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> HookeContact { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -2090,7 +2091,7 @@ pub struct HookeContact {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &HookeContact) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -2127,7 +2128,7 @@ pub struct HookeContact {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -2246,7 +2247,7 @@ pub struct HertzContact {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> HertzContact { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -2298,7 +2299,7 @@ pub struct HertzContact {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &HertzContact) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -2335,7 +2336,7 @@ pub struct HertzContact {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -2418,7 +2419,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ContactModel { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -2453,7 +2454,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &ContactModel) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -2490,7 +2491,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -2724,7 +2725,7 @@ fluid equations (dense regime). See the type docs.
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> CouplingScheme { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -2769,7 +2770,7 @@ fluid equations (dense regime). See the type docs.
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &CouplingScheme) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -2806,7 +2807,7 @@ fluid equations (dense regime). See the type docs.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -2890,7 +2891,7 @@ pub struct LocalFluidState {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> LocalFluidState { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -2925,7 +2926,7 @@ pub struct LocalFluidState {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &LocalFluidState) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -2962,7 +2963,7 @@ pub struct LocalFluidState {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -3037,7 +3038,7 @@ pub struct CouplingExchange {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> CouplingExchange { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -3072,7 +3073,7 @@ pub struct CouplingExchange {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &CouplingExchange) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -3109,7 +3110,7 @@ pub struct CouplingExchange {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -3165,7 +3166,7 @@ pub struct ReservedFluidSource;
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ReservedFluidSource { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -3181,7 +3182,7 @@ pub struct ReservedFluidSource;
 
 - **Default**
   - ```rust
-    fn default() -> ReservedFluidSource { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
 - **Downcast**
@@ -3220,7 +3221,7 @@ pub struct ReservedFluidSource;
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &ReservedFluidSource) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -3257,7 +3258,7 @@ pub struct ReservedFluidSource;
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -3311,7 +3312,7 @@ pub struct ReservedDragModel;
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ReservedDragModel { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -3327,7 +3328,7 @@ pub struct ReservedDragModel;
 
 - **Default**
   - ```rust
-    fn default() -> ReservedDragModel { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
 - **DemCouplingResponse**
@@ -3370,7 +3371,7 @@ pub struct ReservedDragModel;
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &ReservedDragModel) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -3407,7 +3408,7 @@ pub struct ReservedDragModel;
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -3491,7 +3492,7 @@ where
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ReservedCoupling { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -3536,7 +3537,7 @@ where
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &ReservedCoupling) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -3573,7 +3574,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -3668,7 +3669,7 @@ This trait is implemented for the following types:
 
 **Attributes:**
 
-- `Other("#[attr = CfgTrace([NameValue { name: \"feature\", value: Some(\"gnn\"), span: crates/outram-park-fork-liggghts/src/lib.rs:106:7: 106:22 (#0) }])]")`
+- `Other("#[attr = CfgTrace([NameValue { name: \"feature\", value: Some(\"gnn\"), span: crates/outram-park-fork-liggghts/src/lib.rs:107:7: 107:22 (#0) }])]")`
 
 Bridge to RAFFLES's graph-neural-network layer: the contact graph, and how
 much message-passing reach a DEM surrogate needs.
@@ -3776,7 +3777,7 @@ pub fn reach_bound(particles: &[crate::particle::Particle], youngs_modulus: f64,
 
 **Attributes:**
 
-- `Other("#[attr = CfgTrace([All([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-park-fork-liggghts/src/lib.rs:108:15: 108:36 (#0) }, crates/outram-park-fork-liggghts/src/lib.rs:108:14: 108:37 (#0)), Not(NameValue { name: \"target_arch\", value: Some(\"wasm32\"), span: crates/outram-park-fork-liggghts/src/lib.rs:108:43: 108:65 (#0) }, crates/outram-park-fork-liggghts/src/lib.rs:108:42: 108:66 (#0))], crates/outram-park-fork-liggghts/src/lib.rs:108:10: 108:67 (#0))])]")`
+- `Other("#[attr = CfgTrace([All([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-park-fork-liggghts/src/lib.rs:109:15: 109:36 (#0) }, crates/outram-park-fork-liggghts/src/lib.rs:109:14: 109:37 (#0)), Not(NameValue { name: \"target_arch\", value: Some(\"wasm32\"), span: crates/outram-park-fork-liggghts/src/lib.rs:109:43: 109:65 (#0) }, crates/outram-park-fork-liggghts/src/lib.rs:109:42: 109:66 (#0))], crates/outram-park-fork-liggghts/src/lib.rs:109:10: 109:67 (#0))])]")`
 
 Optional headless GPU compute for this crate's one embarrassingly-parallel
 kernel: the [`crate::rdf`] pair-separation histogram.
@@ -3910,7 +3911,7 @@ pub struct GpuContext {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -4171,7 +4172,7 @@ pub struct GranularMaterial {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> GranularMaterial { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -4206,7 +4207,7 @@ pub struct GranularMaterial {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &GranularMaterial) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -4243,7 +4244,7 @@ pub struct GranularMaterial {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -4349,7 +4350,7 @@ pub struct ContactKinematics {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ContactKinematics { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -4384,7 +4385,7 @@ pub struct ContactKinematics {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &ContactKinematics) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -4421,7 +4422,7 @@ pub struct ContactKinematics {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -4496,7 +4497,7 @@ pub struct NormalOutcome {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> NormalOutcome { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -4531,7 +4532,7 @@ pub struct NormalOutcome {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &NormalOutcome) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -4568,7 +4569,7 @@ pub struct NormalOutcome {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -4680,7 +4681,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> GranularNormalModel { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -4715,7 +4716,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &GranularNormalModel) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -4752,7 +4753,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -4817,7 +4818,7 @@ dashpot only, no spring. Equivalent to what [`crate::contact`] does.
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> TangentialModel { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -4862,7 +4863,7 @@ dashpot only, no spring. Equivalent to what [`crate::contact`] does.
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &TangentialModel) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -4899,7 +4900,7 @@ dashpot only, no spring. Equivalent to what [`crate::contact`] does.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -5016,7 +5017,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ContactKey { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -5066,7 +5067,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &ContactKey) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -5103,7 +5104,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -5209,7 +5210,7 @@ pub struct ShearHistory {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ShearHistory { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -5224,7 +5225,7 @@ pub struct ShearHistory {
 
 - **Default**
   - ```rust
-    fn default() -> ShearHistory { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
 - **Downcast**
@@ -5248,7 +5249,7 @@ pub struct ShearHistory {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &ShearHistory) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -5285,7 +5286,7 @@ pub struct ShearHistory {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -5357,7 +5358,7 @@ pub struct BuildContactHasher;
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> BuildContactHasher { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -5373,7 +5374,7 @@ pub struct BuildContactHasher;
 
 - **Default**
   - ```rust
-    fn default() -> BuildContactHasher { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
 - **Downcast**
@@ -5428,7 +5429,7 @@ pub struct BuildContactHasher;
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -5483,7 +5484,7 @@ pub struct ContactHasher(/* private field */);
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ContactHasher { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -5499,7 +5500,7 @@ pub struct ContactHasher(/* private field */);
 
 - **Default**
   - ```rust
-    fn default() -> ContactHasher { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
 - **Downcast**
@@ -5575,7 +5576,7 @@ pub struct ContactHasher(/* private field */);
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -5683,7 +5684,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> RollingModel { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -5718,7 +5719,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &RollingModel) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -5755,7 +5756,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -5835,7 +5836,7 @@ pub struct GranularForce {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> GranularForce { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -5870,7 +5871,7 @@ pub struct GranularForce {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &GranularForce) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -5907,7 +5908,7 @@ pub struct GranularForce {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -6003,7 +6004,7 @@ pub struct GranularContactModel {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> GranularContactModel { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -6038,7 +6039,7 @@ pub struct GranularContactModel {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &GranularContactModel) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -6075,7 +6076,7 @@ pub struct GranularContactModel {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -6305,7 +6306,7 @@ pub struct GranularSystem {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> GranularSystem { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -6339,7 +6340,7 @@ pub struct GranularSystem {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &GranularSystem) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -6376,7 +6377,7 @@ pub struct GranularSystem {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -6516,7 +6517,7 @@ pub struct Htr10FillSettings {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Htr10FillSettings { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -6557,7 +6558,7 @@ pub struct Htr10FillSettings {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Htr10FillSettings) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -6594,7 +6595,7 @@ pub struct Htr10FillSettings {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -6665,7 +6666,7 @@ pub struct FillProgress {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> FillProgress { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -6700,7 +6701,7 @@ pub struct FillProgress {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &FillProgress) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -6737,7 +6738,7 @@ pub struct FillProgress {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -6826,7 +6827,7 @@ pub struct Htr10Fill {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Htr10Fill { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -6891,7 +6892,7 @@ pub struct Htr10Fill {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -7198,7 +7199,7 @@ pub struct VelocityVerlet {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> VelocityVerlet { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -7233,7 +7234,7 @@ pub struct VelocityVerlet {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &VelocityVerlet) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -7270,7 +7271,7 @@ pub struct VelocityVerlet {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -7492,7 +7493,7 @@ pub struct Triangle {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Triangle { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -7527,7 +7528,7 @@ pub struct Triangle {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Triangle) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -7564,7 +7565,7 @@ pub struct Triangle {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -7660,7 +7661,7 @@ pub struct MeshWall {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> MeshWall { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -7694,7 +7695,7 @@ pub struct MeshWall {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &MeshWall) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -7731,7 +7732,7 @@ pub struct MeshWall {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -7817,7 +7818,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> WallGeometry { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -7851,7 +7852,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &WallGeometry) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -7888,7 +7889,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -8003,7 +8004,7 @@ pub struct MovingBoundary {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> MovingBoundary { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -8037,7 +8038,7 @@ pub struct MovingBoundary {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &MovingBoundary) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -8074,7 +8075,7 @@ pub struct MovingBoundary {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -8252,7 +8253,7 @@ pub struct Vec3 {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Vec3 { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -8287,7 +8288,7 @@ pub struct Vec3 {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Vec3) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -8324,7 +8325,7 @@ pub struct Vec3 {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -8440,7 +8441,7 @@ pub struct Particle {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Particle { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -8475,7 +8476,7 @@ pub struct Particle {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Particle) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -8512,7 +8513,7 @@ pub struct Particle {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -8689,7 +8690,7 @@ pub struct RdfDomain {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> RdfDomain { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -8724,7 +8725,7 @@ pub struct RdfDomain {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &RdfDomain) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -8761,7 +8762,7 @@ pub struct RdfDomain {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -8829,7 +8830,7 @@ pub struct RdfSettings {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> RdfSettings { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -8864,7 +8865,7 @@ pub struct RdfSettings {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &RdfSettings) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -8901,7 +8902,7 @@ pub struct RdfSettings {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -8987,7 +8988,7 @@ pub struct Rdf {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Rdf { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -9021,7 +9022,7 @@ pub struct Rdf {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Rdf) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -9058,7 +9059,7 @@ pub struct Rdf {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -9264,7 +9265,7 @@ pub struct RollingTorque {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> RollingTorque { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -9299,7 +9300,7 @@ pub struct RollingTorque {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &RollingTorque) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -9336,7 +9337,7 @@ pub struct RollingTorque {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -9503,7 +9504,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> RollingModel { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -9538,7 +9539,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &RollingModel) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -9575,7 +9576,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -9726,7 +9727,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> CohesionModel { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -9761,7 +9762,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &CohesionModel) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -9798,7 +9799,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -10084,7 +10085,7 @@ pub struct DemSimulation {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> DemSimulation { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -10118,7 +10119,7 @@ pub struct DemSimulation {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &DemSimulation) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -10155,7 +10156,7 @@ pub struct DemSimulation {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -10368,7 +10369,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ThermalModel { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -10403,7 +10404,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &ThermalModel) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -10440,7 +10441,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -10891,7 +10892,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> RadiationModel { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -10926,7 +10927,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &RadiationModel) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -10963,7 +10964,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -11272,7 +11273,7 @@ pub struct TimestepEstimate {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> TimestepEstimate { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -11307,7 +11308,7 @@ pub struct TimestepEstimate {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &TimestepEstimate) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -11344,7 +11345,7 @@ pub struct TimestepEstimate {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -11555,7 +11556,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**

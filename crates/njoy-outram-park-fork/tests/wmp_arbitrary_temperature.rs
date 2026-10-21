@@ -94,6 +94,7 @@
 //! end and died with a bare libgfortran backtrace and no diagnostic. The fix is
 //! `125 0/`. A crash there is a malformed deck, not a broken NJOY.
 
+use petir::mathf::RealMath;
 use njoy_outram_park_fork::wmp::WmpLibrary;
 
 /// U-238's 6.674 eV capture resonance.
@@ -288,7 +289,7 @@ fn the_sqrt_t_interpolation_error_is_measured_not_assumed() {
         (293.6, 1200.0),
     ] {
         // Midpoint in sqrt(T), the worst case for a linear interpolant.
-        let t = ((t1.sqrt() + t2.sqrt()) / 2.0).powi(2);
+        let t = ((t1.sqrt() + t2.sqrt()) / 2.0).r_powi(2);
         let (p1, p2) = (
             w.evaluate(E_PEAK, t1).absorption,
             w.evaluate(E_PEAK, t2).absorption,

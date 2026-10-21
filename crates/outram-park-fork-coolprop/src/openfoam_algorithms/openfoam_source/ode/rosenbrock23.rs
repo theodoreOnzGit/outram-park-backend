@@ -19,6 +19,7 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+use petir::mathf::RealMath;
 use super::{OdeError, OdeSystem, OdeSolverConfig, integrate_interval, normalize_error};
 use crate::openfoam_algorithms::openfoam_source::SquareMatrix;
 
@@ -175,7 +176,7 @@ impl Rosenbrock23 {
             if err <= 1.0 {
                 break err;
             }
-            let scale = (cfg.safe_scale * err.powf(-cfg.alpha_dec)).max(cfg.min_scale);
+            let scale = (cfg.safe_scale * err.r_powf(-cfg.alpha_dec)).max(cfg.min_scale);
             dx *= scale;
             if dx.abs() < f64::EPSILON {
                 self.y_temp = y_temp;
@@ -187,10 +188,10 @@ impl Rosenbrock23 {
         std::mem::swap(y, &mut y_temp);
         self.y_temp = y_temp;
 
-        let threshold = (cfg.max_scale / cfg.safe_scale).powf(-1.0 / cfg.alpha_inc);
+        let threshold = (cfg.max_scale / cfg.safe_scale).r_powf(-1.0 / cfg.alpha_inc);
         *dx_try = if err > threshold {
             let scale =
-                (cfg.safe_scale * err.powf(-cfg.alpha_inc)).clamp(cfg.min_scale, cfg.max_scale);
+                (cfg.safe_scale * err.r_powf(-cfg.alpha_inc)).clamp(cfg.min_scale, cfg.max_scale);
             dx * scale
         } else {
             dx * cfg.safe_scale * cfg.max_scale
@@ -281,7 +282,7 @@ mod tests {
         let mut y = vec![1.0_f64];
         let mut dx = 0.01;
         solver.integrate(&ode, 0.0, 0.01, &mut y, &mut dx).unwrap();
-        let expected = (-10.0_f64).exp(); // e^{-1000 * 0.01}
+        let expected = (-10.0_f64).r_exp(); // e^{-1000 * 0.01}
         assert!(
             (y[0] - expected).abs() < 1e-5,
             "y={:.10}, expected={:.10}",
@@ -298,7 +299,7 @@ mod tests {
         let mut y = vec![1.0_f64];
         let mut dx = 0.1;
         solver.integrate(&ode, 0.0, 1.0, &mut y, &mut dx).unwrap();
-        let expected = (-1.0_f64).exp();
+        let expected = (-1.0_f64).r_exp();
         assert!(
             (y[0] - expected).abs() < 1e-6,
             "y={:.10}, expected={:.10}",

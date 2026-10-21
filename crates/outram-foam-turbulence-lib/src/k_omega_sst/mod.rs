@@ -42,6 +42,7 @@
 //! `RhoPimpleFoam` and turbulence wall-function boundary conditions, both
 //! tracked in `outram-foam-appbuilder-lib/TODO.md`.
 
+use petir::mathf::RealMath;
 use crate::traits::TurbulenceModel;
 use outram_foam_basic_lib::fv_operators::{fvc, fvm};
 use outram_foam_basic_lib::prelude::{
@@ -316,9 +317,9 @@ impl TurbulenceModel for KOmegaSST {
             let arg1 = (k.sqrt() / (BETA_STAR * w * y))
                 .max(500.0 * nc / (y * y * w))
                 .min(4.0 * SIGMA_W2 * k / (cd * y * y));
-            f1[c] = arg1.powi(4).tanh();
+            f1[c] = arg1.r_powi(4).r_tanh();
             let arg2 = (2.0 * k.sqrt() / (BETA_STAR * w * y)).max(500.0 * nc / (y * y * w));
-            f2[c] = (arg2 * arg2).tanh();
+            f2[c] = (arg2 * arg2).r_tanh();
         }
         self.f1.internal = Field::new(f1.clone());
         self.f2.internal = Field::new(f2.clone());

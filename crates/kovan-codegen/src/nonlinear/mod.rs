@@ -60,12 +60,13 @@ pub fn generate_fixed_point() -> String {
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
 
     #[test]
     fn fixed_point_finds_dottie_number() {
         // x = cos(x) converges to the Dottie number, 0.7390851332151607.
-        let r = reference::fixed_point::fixed_point(|x| x.cos(), 1.0, 1e-12, 500).unwrap();
+        let r = reference::fixed_point::fixed_point(|x| x.r_cos(), 1.0, 1e-12, 500).unwrap();
         assert!((r - 0.739_085_133_215_160_6).abs() < 1e-10, "got {r}");
     }
 

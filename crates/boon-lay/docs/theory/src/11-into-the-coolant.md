@@ -1,14 +1,14 @@
-# Step 11 — Into the coolant: fission products, tramp uranium and dust
+# Step 12 — Into the coolant: fission products, tramp uranium and dust
 
 > **Research, education and V&V only.** Not for reactor operation, licensing, safety decisions or emergency response.
 > **Review status: first draft, 2026-10-18, AI-assisted (Claude Sonnet), not yet reviewed by a human.**
 
-**The question this page answers.** Steps 1 to 10 stayed inside the
+**The question this page answers.** Steps 1 to 11 stayed inside the
 particle. Atoms that leave it enter a flowing coolant, helium in an HTGR or
 a molten salt in a salt-cooled reactor. *What is in that coolant, where did
 it come from, and what carries it?*
 
-**The question from the previous step.** [Step 10](./10-stacy-boon-lay.md)
+**The question from the previous step.** [Step 11](./10-stacy-boon-lay.md)
 said the aim is one tool from generation to the source term. This page opens
 the second half of the book: the part after the particle wall.
 
@@ -19,8 +19,8 @@ earlier steps described.
 
 | Source | What it is | Where this book treated it |
 |---|---|---|
-| **Release through intact coatings** | Atoms diffuse out of the kernel and through the layers | Steps 2 to 7 |
-| **Failed particles** | A particle whose SiC is breached lets the kernel inventory out | Step 9 |
+| **Release through intact coatings** | Atoms diffuse out of the kernel and through the layers | Steps 2 to 4 and 8 to 10 |
+| **Failed particles** | A particle whose SiC is breached lets the kernel inventory out | Step 7 |
 | **Tramp uranium** | Uranium that sits *outside* an intact kernel, so its fission products are born outside the SiC | below |
 
 "Tramp uranium" is the maintainer's term. The code's term is **heavy-metal
@@ -32,7 +32,7 @@ defective SiC), `f_inc` (in-service failure) and `f_inc_sic` (in-service
 SiC-only failure).
 
 ~~For HTR-10 the repo records a free-uranium value of $3 \times 10^{-4}$~~
-**CORRECTED 2026-10-18** (found by the Step 20 review of `htgr_sim_v1`): there
+**CORRECTED 2026-10-18** (found by the Step 21 review of `htgr_sim_v1`): there
 are two HTR-10 numbers. The sembawang bounding example uses a design
 specification of $3 \times 10^{-4}$ for `f_hm`, from Liu & Cao (2002)
 section 2.1
@@ -63,12 +63,12 @@ $$\frac{\partial c_s}{\partial t} + \nabla \cdot (\mathbf{u} c_s) = \nabla \cdot
 
 with flow velocity $\mathbf{u}$, molecular and turbulent diffusivity $D_s$,
 sources $S_s$ (the three routes above), decay $\lambda_s$, ingrowth from
-parents $p$, and removal $R_s$ to walls, filters and leaks (Step 12). The
+parents $p$, and removal $R_s$ to walls, filters and leaks (Step 13). The
 pages that follow say what each term costs, and what is thrown away to avoid
 paying it.
 
 That equation is an assumption-light statement of the physics, not something
-the repo solves. Step 13 lists what solving it would take.
+the repo solves. Step 14 lists what solving it would take.
 
 ## 3. Graphite dust
 
@@ -77,7 +77,19 @@ rub. A common physical picture is that abrasion makes fine graphite dust,
 that dust carries sorbed fission products, and that it is carried round the
 circuit with the helium and can settle or be stirred up again. That picture is
 general knowledge, and **this repo has no source for dust generation, size or
-loading** [citation needed: maintainer to supply]. What the repo does have:
+loading**. ~~[citation needed]~~ **Partly sourced 2026-10-21
+(proprietary-folder sources).** IAEA-TECDOC-978 (IAEA, Vienna, 1997, p. 265)
+says that in a pebble-bed HTGR graphite dust forms by abrasion during
+fuel-ball recirculation and is a major transport medium for fission products
+besides the coolant itself. For the German reactors it reports (p. 269) an AVR
+dust production of about 3 kg per operating year and about 60 kg in the primary
+circuit at the end of 1988, 0.5 to 2 % of the gas-borne dust deposited per
+recirculation, and a THTR-300 estimate of 13 to 400 kg (expected 25 kg) of fine
+dust in 300 days at full power. IAEA-TECDOC-1674 (IAEA, Vienna, 2012, p. 209)
+gives AVR cold-gas-filter dust concentrations of 4 to 40 µg/Nm³, and (p. 537)
+notes that a MELCOR-type calculation needs a dust generation rate and size
+distribution as input. These are AVR and THTR-300 values, not HTR-10's. What
+the repo does have:
 
 - **A dust inventory fraction in the HTR-10 accident stage of the digital
   twin, not in boon-lay.** The `htgr_sim_v1` blowdown stage takes the fraction
@@ -91,7 +103,7 @@ loading** [citation needed: maintainer to supply]. What the repo does have:
   ([limitations](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/docs/lessons/src/limitations.md)).
   The only place the fork's source mentions dust is that same statement, that
   there is none (module doc of `triso_atops_fork`). Dust is
-  therefore **not modelled** by the cheap model of Step 14.
+  therefore **not modelled** by the cheap model of Step 15.
 - **No dust physics at all**: no generation rate, no size distribution, no
   deposition or resuspension model, anywhere in the workspace I searched.
 
@@ -124,7 +136,7 @@ how each is removed.
 
 | Simplification | Kind | Justification |
 |---|---|---|
-| Groups stand in for chemical species | (b) and (d) | Species-resolved chemistry needs data the repo lacks, and one equation per species is costly (Step 13). Error is **open** |
+| Groups stand in for chemical species | (b) and (d) | Species-resolved chemistry needs data the repo lacks, and one equation per species is costly (Step 14). Error is **open** |
 | Tramp uranium as one fraction | (d) | Only the HTR-10 design value is recorded; no spatial or time dependence is available |
 | Dust as a fixed share, or absent | (d) | The repo has no dust generation or loading data. Called neither negligible nor small: **open** |
 | Species do not react with each other | **Open** | Not examined here |
@@ -142,4 +154,4 @@ how each is removed.
 ## Next question
 
 Atoms in the coolant leave it again, by several routes at different rates.
-[Step 12](./12-escape-and-removal.md) lists the routes and what drives each.
+[Step 13](./12-escape-and-removal.md) lists the routes and what drives each.

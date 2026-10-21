@@ -34,6 +34,7 @@
 //! [`FvMesh`] built here directly. Exporting a [`VoxelMesh`] to the neutral
 //! mesh is left to the crate that owns that dependency.
 
+use petir::mathf::RealMath;
 use std::sync::Arc;
 
 use uom::si::area::square_meter;
@@ -100,7 +101,7 @@ impl RadialGeometry {
             Self::Cylinder { height } => {
                 std::f64::consts::PI * height.get::<meter>() * (r2 * r2 - r1 * r1)
             }
-            Self::Sphere => 4.0 / 3.0 * std::f64::consts::PI * (r2.powi(3) - r1.powi(3)),
+            Self::Sphere => 4.0 / 3.0 * std::f64::consts::PI * (r2.r_powi(3) - r1.r_powi(3)),
         }
     }
 }

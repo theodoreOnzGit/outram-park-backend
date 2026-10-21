@@ -80,6 +80,7 @@
 //! > safety-critical, or licensing decisions. Independent OUTRAM PARK fork, not
 //! > the official DWSIM.
 
+use petir::mathf::RealMath;
 use crate::thermo::cubic_eos::{BinaryInteraction, CubicEos, Phase, R};
 use crate::thermo::eos_variants::prsv_kappa0;
 use crate::thermo::pr1978::pr78_kappa;
@@ -216,7 +217,7 @@ pub fn z_factor(
 ) -> Option<f64> {
     let am = prsv2_a_mix(comps, k1, k2, k3, z, t, kij);
     let bm = CubicEos::PengRobinson.b_mix(comps, z);
-    let a = am * p / (R * t).powi(2);
+    let a = am * p / (R * t).r_powi(2);
     let b = bm * p / (R * t);
     match phase {
         Phase::Vapor => CubicEos::PengRobinson.z_vapor(a, b),
@@ -262,7 +263,7 @@ pub fn ln_phi(
         })
         .collect();
 
-    let a = am * p / (R * t).powi(2);
+    let a = am * p / (R * t).r_powi(2);
     let b = bm * p / (R * t);
     let zf = match phase {
         Phase::Vapor => eos.z_vapor(a, b),
@@ -271,11 +272,11 @@ pub fn ln_phi(
 
     let u = eos.u();
     let sq = eos.sqrt_disc();
-    let lg = ((2.0 * zf + b * (u + sq)) / (2.0 * zf + b * (u - sq))).ln();
+    let lg = ((2.0 * zf + b * (u + sq)) / (2.0 * zf + b * (u - sq))).r_ln();
     let mut out = vec![0.0; n];
     for i in 0..n {
         let t1 = bi[i] * (zf - 1.0) / bm;
-        let t2 = -(zf - b).ln();
+        let t2 = -(zf - b).r_ln();
         let t3 = a * (2.0 * apart[i] / am - bi[i] / bm) / (b * sq);
         out[i] = t1 + t2 - t3 * lg;
     }
@@ -382,7 +383,7 @@ fn departure_parts(
     let eos = CubicEos::PengRobinson;
     let am = prsv2_a_mix(comps, k1, k2, k3, z, t, kij);
     let bm = eos.b_mix(comps, z);
-    let a = am * p / (R * t).powi(2);
+    let a = am * p / (R * t).r_powi(2);
     let b = bm * p / (R * t);
     let zf = match phase {
         Phase::Vapor => eos.z_vapor(a, b),
@@ -391,9 +392,9 @@ fn departure_parts(
     let da = dadt(comps, k1, k2, k3, z, t, kij);
     let u = eos.u();
     let sq = eos.sqrt_disc();
-    let lg = ((2.0 * zf + b * (u - sq)) / (2.0 * zf + b * (u + sq))).ln();
-    let da_res = am / (bm * sq) * lg - R * t * ((zf - b) / zf).ln() - R * t * zf.ln();
-    let ds_res = R * ((zf - b) / zf).ln() + R * zf.ln() - 1.0 / (sq * bm) * da * lg;
+    let lg = ((2.0 * zf + b * (u - sq)) / (2.0 * zf + b * (u + sq))).r_ln();
+    let da_res = am / (bm * sq) * lg - R * t * ((zf - b) / zf).r_ln() - R * t * zf.r_ln();
+    let ds_res = R * ((zf - b) / zf).r_ln() + R * zf.r_ln() - 1.0 / (sq * bm) * da * lg;
     Some((da_res, ds_res, zf))
 }
 
@@ -429,7 +430,7 @@ pub fn vapor_pressure(
     let z = [1.0];
     let (k1, k2, k3) = ([kappa1], [kappa2], [kappa3]);
     // Wilson initial guess.
-    let mut p = pc * (5.373 * (1.0 + comp.acentric_factor) * (1.0 - tc / t)).exp();
+    let mut p = pc * (5.373 * (1.0 + comp.acentric_factor) * (1.0 - tc / t)).r_exp();
     for _ in 0..200 {
         let lp_l = ln_phi(&comps, &k1, &k2, &k3, &z, t, p, Phase::Liquid, None)?;
         let lp_v = ln_phi(&comps, &k1, &k2, &k3, &z, t, p, Phase::Vapor, None)?;
@@ -438,7 +439,7 @@ pub fn vapor_pressure(
             return Some(p);
         }
         // f = φ_L/φ_V; at equilibrium f = 1. Update P by the fugacity ratio.
-        p *= diff.exp();
+        p *= diff.r_exp();
         if !(p.is_finite() && p > 0.0) {
             return None;
         }
@@ -542,7 +543,7 @@ mod tests {
         let one_atm = 101_325.0;
         assert_relative_eq!(psat, one_atm, max_relative = 0.10);
         // Antoine (NIST) cross-check reference number.
-        let antoine = 10f64.powf(3.95405 - 663.720 / (tb - 16.469)) * 1.0e5; // bar → Pa
+        let antoine = 10f64.r_powf(3.95405 - 663.720 / (tb - 16.469)) * 1.0e5; // bar → Pa
         assert_relative_eq!(antoine, 1.012e5, max_relative = 0.01);
         assert_relative_eq!(psat, antoine, max_relative = 0.10);
     }

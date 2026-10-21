@@ -12,6 +12,7 @@
 //! (see its `CLAUDE.md`); every item here is `pub(super)` and belongs to
 //! `getmf6` (`groupr.f90:7527-8133`).
 
+use petir::mathf::RealMath;
 use crate::endf::records::{SectionCursor, Tab1};
 use crate::groupr::kinematics::{Cm6Point, Law1LabTable};
 use crate::mixr::mix::sigfig;
@@ -202,7 +203,7 @@ pub(super) fn law1_low_energy_patch(
     if buf.len() < 10 || 6 + ncyc >= buf.len() {
         return;
     }
-    let floor = buf[1] / (awr + 1.0).powi(2);
+    let floor = buf[1] / (awr + 1.0).r_powi(2);
     let mut j = 0;
     if buf[6 + ncyc] < floor {
         j = 1;
@@ -256,8 +257,8 @@ pub(super) fn ismooth_histogram(buf: &mut Vec<f64>, messages: &mut Vec<String>) 
             break;
         }
         let cxx = cx + buf[7 + ncyc] * (e2 - e1);
-        let ref_ = cx / e1.powf(1.5);
-        if (cxx / e2.powf(1.5) - ref_).abs() > ref_ / 50.0 {
+        let ref_ = cx / e1.r_powf(1.5);
+        if (cxx / e2.r_powf(1.5) - ref_).abs() > ref_ / 50.0 {
             break;
         }
         buf[7] = (buf[7] * e1 + buf[7 + ncyc] * (e2 - e1)) / e2;

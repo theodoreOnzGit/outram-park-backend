@@ -25,6 +25,7 @@
 //! [`sumh`]/`sjbes` is the dimensionless argument `b' * wavenumber`; all outputs
 //! are dimensionless.
 
+use petir::mathf::RealMath;
 use crate::common::phys::{EV_ERG, HBAR_ERG_S};
 use crate::leapr::discrete::{bfill, exts, sint};
 use crate::leapr::input::{ColdOption, LeaprInput};
@@ -43,7 +44,7 @@ use crate::leapr::SabMatrix;
 pub fn bt(j: i32, x: f64) -> f64 {
     let jf = j as f64;
     let yy = 0.5 * jf * (jf + 1.0);
-    let a = (2.0 * jf + 1.0) * (-yy * x).exp();
+    let a = (2.0 * jf + 1.0) * (-yy * x).r_exp();
     let mut b = 0.0_f64;
     for i in 1..=10 {
         let mut k = 2 * i - 2;
@@ -52,7 +53,7 @@ pub fn bt(j: i32, x: f64) -> f64 {
         }
         let kf = k as f64;
         let yyk = 0.5 * kf * (kf + 1.0);
-        b += (2.0 * kf + 1.0) * (-yyk * x).exp();
+        b += (2.0 * kf + 1.0) * (-yyk * x).r_exp();
     }
     a / (2.0 * b)
 }
@@ -84,10 +85,10 @@ pub fn cn(jj: i32, ll: i32, nn: i32) -> f64 {
     let sqrt_fact = |k: i32| -> f64 {
         let mut s = 0.0_f64;
         for i in 1..=k {
-            s += (i as f64).ln();
+            s += (i as f64).r_ln();
         }
         if s > 0.0 {
-            s.exp().sqrt()
+            s.r_exp().sqrt()
         } else {
             1.0
         }
@@ -95,10 +96,10 @@ pub fn cn(jj: i32, ll: i32, nn: i32) -> f64 {
     let fact = |k: i32| -> f64 {
         let mut s = 0.0_f64;
         for i in 1..=k {
-            s += (i as f64).ln();
+            s += (i as f64).r_ln();
         }
         if s > 0.0 {
-            s.exp()
+            s.r_exp()
         } else {
             1.0
         }
@@ -157,7 +158,7 @@ pub fn sjbes(n: i32, x: f64) -> f64 {
             let y = x * x;
             1.0 - y * (1.0 - y / 20.0) / 6.0
         } else {
-            x.sin() / x
+            x.r_sin() / x
         };
         if n == 0 {
             bessel = w;
@@ -362,7 +363,7 @@ pub fn add_cold_hydrogen(
         if input.lat {
             be = be * THERM / tev;
         }
-        exb[i] = (-be / 2.0).exp();
+        exb[i] = (-be / 2.0).r_exp();
         betan[i] = be;
     }
     let (bex, rdbex, nbx) = bfill(&betan);
@@ -518,8 +519,8 @@ mod tests {
     #[test]
     fn sjbes_closed_forms() {
         let x = 1.0_f64;
-        let j0 = x.sin() / x;
-        let j1 = x.sin() / (x * x) - x.cos() / x;
+        let j0 = x.r_sin() / x;
+        let j1 = x.r_sin() / (x * x) - x.r_cos() / x;
         assert!((sjbes(0, x) - j0).abs() < 1e-5, "j0(1) = {}", sjbes(0, x));
         assert!((sjbes(1, x) - j1).abs() < 1e-5, "j1(1) = {}", sjbes(1, x));
     }

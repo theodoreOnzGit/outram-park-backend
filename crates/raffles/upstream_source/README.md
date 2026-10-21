@@ -44,8 +44,8 @@ per-file attribution headers can name a real source file):
 ## Licensing note
 
 Upstream is **Apache-2.0**, which is **one-way** compatible with GPLv3: Apache
-code may be taken into a GPLv3 work, but **not** the reverse. This crate is
-distributed as **GPL-3.0-only** (the OUTRAM PARK workspace default), and its
+code may be taken into an (A)GPLv3 work, but **not** the reverse. This crate is
+distributed as ~~**GPL-3.0-only**~~ **AGPL-3.0-only** (since 2026-10-20, gh:#973; the OUTRAM PARK workspace default), and its
 code therefore **cannot flow back to RAVEN**. Ported files carry the upstream
 provenance header block per the workspace provenance rule — see the crate
 `NOTICE` and `CLAUDE.md`.

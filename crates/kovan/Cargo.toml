@@ -6,7 +6,7 @@
 # and `cargo install` use the long package name.
 name = "knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan"
 description = "KOVAN (Knowledge Oriented V&V Analysis for Nuclear Sciences): CLI (agent-facing), TUI and GUI (human-facing) front ends over the KOVAN knowledge layer."
-version = "0.0.2"
+version = "0.0.3"
 edition.workspace = true
 # AGPL-3.0-only, NOT `license.workspace = true` (GPL-3.0-only) — deliberate,
 # maintainer-directed divergence from the workspace default (2026-08-21) to
@@ -103,6 +103,9 @@ name = "kovan-tui"
 path = "src/bin/kovan-tui.rs"
 
 [dependencies]
+# Every transcendental routes through PETIR for cross-platform bit identity
+# (gh:#985). petir is no_std, so this edge adds nothing Android- or wasm-hostile.
+petir = { workspace = true }
 kovan-common.workspace = true
 # The stamp dialog (`src/stamping/flow.rs`, #770) zeroises passphrases after
 # use. Already in the tree through kovan-common's keystore.

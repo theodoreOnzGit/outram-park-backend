@@ -99,6 +99,7 @@ fn main() {
 
 #[cfg(not(target_os = "android"))]
 mod desktop {
+    use petir::mathf::RealMath;
     use njoy_outram_park_fork::reference_data::reference_endf;
     use outram_mc_libs::geometry::cell::{Cell, HalfSpaceSense, RegionToken};
     use outram_mc_libs::geometry::geometry::Geometry;
@@ -131,9 +132,9 @@ mod desktop {
     ];
 
     fn log_grid(n: usize) -> Vec<f64> {
-        let (l0, l1) = (E_LO.ln(), E_HI.ln());
+        let (l0, l1) = (E_LO.r_ln(), E_HI.r_ln());
         (0..=n)
-            .map(|i| (l0 + (l1 - l0) * i as f64 / n as f64).exp())
+            .map(|i| (l0 + (l1 - l0) * i as f64 / n as f64).r_exp())
             .collect()
     }
 

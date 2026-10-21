@@ -106,6 +106,7 @@
 //!
 //! [`GibbsReactor`]: outram_park_fork_dwsim_libs::reactors::GibbsReactor
 
+use petir::mathf::RealMath;
 use outram_park_fork_dwsim_libs::reactors::{GibbsFormation, GibbsReactor, ReactorFeed};
 use outram_park_fork_dwsim_libs::thermo::gibbs::{FugacityModel, GibbsOptions, GibbsSystem};
 use outram_park_fork_dwsim_libs::thermo::ideal_props::R;
@@ -306,7 +307,7 @@ fn shifted(c: f64) -> [f64; 5] {
 /// Upstream's Lagrange-path extra term `ln(P/P0)/(8.314·T)` (`Gibbs.vb:1998`,
 /// `:2132`, `:2246`), added to every species' `g°/RT`.
 fn lagrange_slip(p: f64) -> f64 {
-    (p / P0_UPSTREAM).ln() / (R_UPSTREAM * T)
+    (p / P0_UPSTREAM).r_ln() / (R_UPSTREAM * T)
 }
 
 /// Gate for the Lagrange comparison: it must resolve the 2.5e-4 to 3.3e-4

@@ -1410,6 +1410,7 @@ impl Model {
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
 
     /// The progress line carries OpenMC's columns, and the running average
@@ -1539,7 +1540,7 @@ mod tests {
             ((s >> 11) as f64 + 0.5) / (1u64 << 53) as f64
         };
         let gauss = |u: &mut dyn FnMut() -> f64| {
-            (-2.0 * u().ln()).sqrt() * (2.0 * std::f64::consts::PI * u()).cos()
+            (-2.0 * u().r_ln()).sqrt() * (2.0 * std::f64::consts::PI * u()).r_cos()
         };
         let h: Vec<f64> = (0..30).map(|_| 6.0 + 1e-4 * (u() - 0.5)).collect();
         let normal: Vec<f64> = (0..30).map(|_| 1.0 + 0.01 * gauss(&mut u)).collect();

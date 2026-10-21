@@ -88,6 +88,7 @@
 //! Recorded below the test, and written per batch to
 //! `reference-data/liggghts/htr10_recirculation.csv`.
 
+use petir::mathf::RealMath;
 use outram_park_fork_liggghts::boundary::Boundary;
 use outram_park_fork_liggghts::compute::{ComputeType, ThreadCount};
 use outram_park_fork_liggghts::granular::{GranularContactModel, GranularMaterial, RollingModel};
@@ -152,9 +153,14 @@ const SETTLE_STEPS: usize = 8_000;
 const BATCHES: usize = 12;
 
 fn data_path(name: &str) -> std::path::PathBuf {
-    std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../reference-data/liggghts")
-        .join(name)
+    // This port's own settled bed lives beside the examples, not in
+    // reference-data/ and not on crates.io (gh:#1008, 2026-10-21).
+    let dir = if name == "htr10_settled_ours.csv" {
+        "examples/data"
+    } else {
+        "../../reference-data/liggghts"
+    };
+    std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(dir).join(name)
 }
 
 fn load_positions(name: &str) -> Option<Vec<Vec3>> {
@@ -204,7 +210,7 @@ fn core_ke_ratio(sys: &GranularSystem, e_drop: f64) -> f64 {
 }
 
 fn pebble(x: Vec3) -> Particle {
-    let m = RHO * 4.0 / 3.0 * std::f64::consts::PI * R_P.powi(3);
+    let m = RHO * 4.0 / 3.0 * std::f64::consts::PI * R_P.r_powi(3);
     Particle::new(
         x,
         Vec3::zero(),
@@ -235,7 +241,7 @@ fn bulk_solid_fraction(centres: &[Vec3]) -> (f64, f64) {
         if hi <= lo {
             return 0.0;
         }
-        let f = |z: f64| std::f64::consts::PI * (R_P * R_P * (z - zc) - (z - zc).powi(3) / 3.0);
+        let f = |z: f64| std::f64::consts::PI * (R_P * R_P * (z - zc) - (z - zc).r_powi(3) / 3.0);
         f(hi) - f(lo)
     };
     let solid: f64 = centres.iter().map(|c| cap(c.z)).sum();
@@ -284,7 +290,7 @@ fn insertion_site(s: usize) -> (f64, f64) {
     // sqrt maps a uniform fraction to uniform AREA density over the disc.
     let r = 0.85 * frac.sqrt();
     let theta = golden * s as f64;
-    (r * theta.cos(), r * theta.sin())
+    (r * theta.r_cos(), r * theta.r_sin())
 }
 
 /// Clearance above the tangency point when placing a pebble `[m]`.
@@ -347,7 +353,7 @@ const PLACE_CLEARANCE: f64 = 1.0e-4;
 )]
 fn slow_recirculation_through_the_discharge_system() {
     let Some(init) = load_positions("htr10_settled_ours.csv") else {
-        eprintln!("skipping: reference-data/liggghts/htr10_settled_ours.csv not present");
+        eprintln!("skipping: crates/outram-park-fork-liggghts/examples/data/htr10_settled_ours.csv not present");
         return;
     };
     let stl = match std::fs::read_to_string(data_path("htr10_discharge.stl")) {
@@ -396,7 +402,7 @@ fn slow_recirculation_through_the_discharge_system() {
     )]);
 
     let started = std::time::Instant::now();
-    let m_pebble = RHO * 4.0 / 3.0 * std::f64::consts::PI * R_P.powi(3);
+    let m_pebble = RHO * 4.0 / 3.0 * std::f64::consts::PI * R_P.r_powi(3);
     // Gravitational energy of a one-radius drop, per pebble — the yardstick for
     // "is this quasi-static?".
     let e_drop = m_pebble * 9.81 * R_P;
@@ -489,13 +495,13 @@ fn slow_recirculation_through_the_discharge_system() {
                 fresh
                     .iter()
                     .filter(|p: &&Particle| {
-                        (p.position.x - x).powi(2) + (p.position.y - y).powi(2)
-                            < (2.0 * R_P).powi(2)
+                        (p.position.x - x).r_powi(2) + (p.position.y - y).r_powi(2)
+                            < (2.0 * R_P).r_powi(2)
                     })
                     .map(|p: &Particle| {
                         p.position.z
-                            + ((2.0 * R_P).powi(2)
-                                - ((p.position.x - x).powi(2) + (p.position.y - y).powi(2)))
+                            + ((2.0 * R_P).r_powi(2)
+                                - ((p.position.x - x).r_powi(2) + (p.position.y - y).r_powi(2)))
                             .sqrt()
                     })
                     .fold(f64::NEG_INFINITY, f64::max),

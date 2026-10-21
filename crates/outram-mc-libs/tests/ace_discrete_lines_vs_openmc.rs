@@ -33,6 +33,7 @@
 //!
 //! Printed by the test and recorded in the #365 thread.
 
+use petir::mathf::RealMath;
 use outram_mc_libs::geometry::position::Direction;
 use outram_mc_libs::material::nuclide::Nuclide;
 use std::path::PathBuf;
@@ -63,7 +64,7 @@ fn discrete_lines_sample_as_openmc() {
             .map(|_| nuc.sample_inelastic_emission(16, e, u, 0.0, &mut seed).0)
             .collect();
         let m = xs.iter().sum::<f64>() / N as f64;
-        let var = xs.iter().map(|x| (x - m).powi(2)).sum::<f64>() / (N - 1) as f64;
+        let var = xs.iter().map(|x| (x - m).r_powi(2)).sum::<f64>() / (N - 1) as f64;
         let z = (m - want) / (var / N as f64).sqrt();
         println!(
             "E = {:.2} MeV: <E'> {:.2} keV (OpenMC {:.2} keV), z {z:+.2}",

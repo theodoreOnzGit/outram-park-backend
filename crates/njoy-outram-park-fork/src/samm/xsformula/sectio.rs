@@ -20,6 +20,7 @@
 //! "Entrance channel, ipp=2 ... crss(1)"; "Ipp=1 term, sort-of ...
 //! crss(2)"), not a translation artifact — ported literally.
 
+use petir::mathf::RealMath;
 use crate::samm::context::GroupQuantumInfo;
 
 /// Compute this group's contribution to `crss[pair_index]` (0-indexed by
@@ -61,13 +62,13 @@ pub fn sectio(
     let mut ii = 0usize;
     let mut termn_total = 0.0_f64;
     for i in 1..=nent {
-        let zz = zke[i - 1].powi(2);
+        let zz = zke[i - 1].r_powi(2);
         ii += i;
         let mut termn = sinsqr[i - 1] * (1.0 - 2.0 * xxxxi[ii - 1]) - sin2ph[i - 1] * xxxxr[ii - 1];
         termn /= zz;
         for j in 1..=i {
             let ij = packed(j, i);
-            let mut ar = (xxxxr[ij].powi(2) + xxxxi[ij].powi(2)) / zz;
+            let mut ar = (xxxxr[ij].r_powi(2) + xxxxi[ij].r_powi(2)) / zz;
             if i != j {
                 ar += ar;
             }
@@ -82,11 +83,11 @@ pub fn sectio(
     let mut terma_total = 0.0_f64;
     for i in 1..=nent {
         ii += i;
-        let zz = zke[i - 1].powi(2);
+        let zz = zke[i - 1].r_powi(2);
         let mut terma = xxxxi[ii - 1] / zz;
         for j in 1..=i {
             let ij = packed(j, i);
-            let mut ar = (-xxxxr[ij].powi(2) - xxxxi[ij].powi(2)) / zz;
+            let mut ar = (-xxxxr[ij].r_powi(2) - xxxxi[ij].r_powi(2)) / zz;
             if i != j {
                 ar += ar;
             }
@@ -103,9 +104,9 @@ pub fn sectio(
         if j <= nchan {
             let ip = particle_pair[j - 1];
             for i in 1..=nent {
-                let zz = zke[i - 1].powi(2);
+                let zz = zke[i - 1].r_powi(2);
                 let ij = (j * (j - 1)) / 2 + i - 1; // ijkl(i,j), i<j always here
-                crss[ip - 1] += (xxxxr[ij].powi(2) + xxxxi[ij].powi(2)) / zz;
+                crss[ip - 1] += (xxxxr[ij].r_powi(2) + xxxxi[ij].r_powi(2)) / zz;
             }
         }
     }

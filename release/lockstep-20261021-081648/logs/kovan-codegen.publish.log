@@ -1,0 +1,13 @@
+    Updating crates.io index
+   Packaging kovan-codegen v0.0.4 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/crates/kovan-codegen)
+    Updating crates.io index
+    Packaged 58 files, 278.7KiB (79.7KiB compressed)
+   Verifying kovan-codegen v0.0.4 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/crates/kovan-codegen)
+   Compiling kovan-common v0.0.4
+   Compiling kovan-codegen v0.0.4 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/target/package/kovan-codegen-0.0.4)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 8.44s
+   Uploading kovan-codegen v0.0.4 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/crates/kovan-codegen)
+    Uploaded kovan-codegen v0.0.4 to registry `crates-io`
+note: waiting for kovan-codegen v0.0.4 to be available at registry `crates-io`
+help: you may press ctrl-c to skip waiting; the crate should be available shortly
+   Published kovan-codegen v0.0.4 at registry `crates-io`

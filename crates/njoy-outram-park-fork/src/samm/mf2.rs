@@ -21,6 +21,7 @@
 //! upstream Fortran, corrected here in [`reorder_eliminated_channel`] (bug
 //! op-cjw.3); see its doc comment for the derivation and verification.
 
+use petir::mathf::RealMath;
 use crate::endf::interp::eval_tab1;
 use crate::endf::records::{SectionCursor, Tab1};
 use crate::NjoyError;
@@ -197,7 +198,7 @@ impl BackgroundRMatrix {
                 s1,
             } => {
                 let real = r0 - s1 * (eu - ed) + (r1 + r2 * e) * e
-                    - (s0 + s1 * e) * ((eu - e) / (e - ed)).ln();
+                    - (s0 + s1 * e) * ((eu - e) / (e - ed)).r_ln();
                 Ok((real, 0.0))
             }
             // samm.f90:3286-3292.
@@ -205,7 +206,8 @@ impl BackgroundRMatrix {
                 let esum = ed + eu;
                 let ediff = eu - ed;
                 let x = (2.0 * e - esum) / ediff;
-                Ok((r0 + 2.0 * r1 * x.atanh(), r2 / ediff / (1.0 - x * x)))
+                // RealMath has no atanh/asinh: petir::real::Real by trait path (libm, platform-independent), gh:#985.
+                Ok((r0 + 2.0 * r1 * petir::real::Real::atanh(x), r2 / ediff / (1.0 - x * x)))
             }
         }
     }

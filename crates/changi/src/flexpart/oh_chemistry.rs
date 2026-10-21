@@ -61,6 +61,8 @@
 //! OH in molecules/cm³, rate constants as in the SPECIES file
 //! (`k = C T^N exp(-D/T)` in cm³/molecule/s), temperatures K, times s.
 
+use petir::mathf::RealMath;
+
 use super::calendar::caldate;
 use super::met_fields::Field3;
 use super::solar::{photo_o1d, zenithangle};
@@ -352,10 +354,10 @@ pub fn ohreaction(
             for (k, sp) in species.iter().enumerate() {
                 if sp.ohcconst > 0.0 {
                     let ohrate = sp.ohcconst
-                        * temp.powf(sp.ohnconst)
-                        * (-(sp.ohdconst / temp)).exp()
+                        * temp.r_powf(sp.ohnconst)
+                        * (-(sp.ohdconst / temp)).r_exp()
                         * oh_average;
-                    let restmass = p.xmass1[k] * (-ohrate * ltsample.abs() as f64).exp();
+                    let restmass = p.xmass1[k] * (-ohrate * ltsample.abs() as f64).r_exp();
                     p.xmass1[k] = if restmass > f64::MIN_POSITIVE {
                         restmass
                     } else {

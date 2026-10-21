@@ -454,6 +454,7 @@ mod tests {
     //! and no comparison against a DWSIM benchmark case.
     //!
     //! **Results (2026-08-11, release build):** recorded per test.
+    use petir::mathf::RealMath;
 
     use super::*;
     use crate::flowsheet::ObjectType;
@@ -537,6 +538,13 @@ mod tests {
     /// `w_1 = 8.108108108 kg/s` and `w_2 = 9.459459459 kg/s` — both matching
     /// `600/74` and `700/74` to nine decimals — with error norm
     /// `3.16e-24 K^2` and **46** flowsheet solves (`9 * (1 + 2*2) + 1`).
+    ///
+    /// **Re-measured 2026-10-20 (gh:#992), when `solve_dense` moved to
+    /// `petir::linalg::lu_decomp`:** bit-identical before and after —
+    /// `w_1` bits `0x40203759f229834e`, `w_2` bits `0x4022eb3e45306f40`,
+    /// 9 iterations, error norm `3.1568572596262033e-24 K^2`. The
+    /// one-variable case above is bit-identical too (`w = 5.0` exactly,
+    /// 5 iterations).
     #[test]
     fn two_coupled_adjusts_solve_simultaneously() {
         let mut fs = Flowsheet::new();
@@ -625,7 +633,7 @@ mod tests {
         let (sf, sp) = (feed.clone(), product.clone());
         let mut resolve = move |fs: &mut Flowsheet| -> Result<(), SolverError> {
             let w = FlowsheetVariable::MassFlow.get(fs, &sf)?;
-            FlowsheetVariable::Temperature.set(fs, &sp, 300.0 + 50.0 * w.tanh())
+            FlowsheetVariable::Temperature.set(fs, &sp, 300.0 + 50.0 * w.r_tanh())
         };
 
         let err = solve_simultaneous_adjusts(&mut fs, &adjusts, &mut resolve, &AbortFlag::new())

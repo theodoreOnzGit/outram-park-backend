@@ -130,6 +130,7 @@
 //! activity code and no `dyn` dispatch. Compositions owned by value; documented
 //! raw `f64` (SI: K, Pa, mole fractions \[-\]) in the inner loops.
 
+use petir::mathf::RealMath;
 use crate::thermo::cubic_eos::CubicEos;
 use crate::thermo::flash::{FlashError, FlashResult};
 use crate::thermo::flash_insideout::{inside_out_flash, InsideOutOptions};
@@ -376,8 +377,8 @@ where
 
     let mut k1 = k1_init.to_vec();
     let mut k2 = k2_init.to_vec();
-    let mut u1: Vec<f64> = k1.iter().map(|&ki| ki.ln()).collect();
-    let mut u2: Vec<f64> = k2.iter().map(|&ki| ki.ln()).collect();
+    let mut u1: Vec<f64> = k1.iter().map(|&ki| ki.r_ln()).collect();
+    let mut u2: Vec<f64> = k2.iter().map(|&ki| ki.r_ln()).collect();
 
     // Inner ("inside") frozen-K three-phase split — no property-model call.
     let mut split = solve_3p_fixed_k(z, &k1, &k2, l1_est, l2_est, opts.inner)?;
@@ -401,8 +402,8 @@ where
         }
 
         // (b) Outer residual: summed absolute change in the log-K variables.
-        let u1_new: Vec<f64> = k1_new.iter().map(|&ki| ki.ln()).collect();
-        let u2_new: Vec<f64> = k2_new.iter().map(|&ki| ki.ln()).collect();
+        let u1_new: Vec<f64> = k1_new.iter().map(|&ki| ki.r_ln()).collect();
+        let u2_new: Vec<f64> = k2_new.iter().map(|&ki| ki.r_ln()).collect();
         let residual: f64 = u1
             .iter()
             .zip(u1_new.iter())

@@ -27,6 +27,7 @@
 //! and `m`, and they are **verified against the report's own Table 1** — see
 //! `tests::table_1_is_reproduced_exactly`.
 
+use petir::mathf::RealMath;
 use uom::si::f64::{Pressure, ThermodynamicTemperature};
 use uom::si::pressure::pascal;
 use uom::si::thermodynamic_temperature::kelvin;
@@ -66,7 +67,7 @@ pub fn irradiated_strength(
     irradiation_temperature: ThermodynamicTemperature,
 ) -> Pressure {
     let t_b = irradiation_temperature.get::<kelvin>();
-    let gamma_s = 10f64.powf(0.556 + 0.065e4 / t_b);
+    let gamma_s = 10f64.r_powf(0.556 + 0.065e4 / t_b);
     let sigma = unirradiated.get::<pascal>() * (1.0 - fluence_e25_per_m2 / gamma_s);
     Pressure::new::<pascal>(sigma.max(MIN_TENSILE_STRENGTH_MPA * 1.0e6))
 }
@@ -93,7 +94,7 @@ pub fn irradiated_weibull_modulus(
     irradiation_temperature: ThermodynamicTemperature,
 ) -> f64 {
     let t_b = irradiation_temperature.get::<kelvin>();
-    let gamma_m = 10f64.powf(0.394 + 0.065e4 / t_b);
+    let gamma_m = 10f64.r_powf(0.394 + 0.065e4 / t_b);
     (unirradiated * (1.0 - fluence_e25_per_m2 / gamma_m)).max(MIN_WEIBULL_MODULUS)
 }
 

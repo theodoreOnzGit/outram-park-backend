@@ -38,6 +38,7 @@
 //! GeN-Foam's Doppler feedback reads. Separating fuel, moderator and coolant
 //! temperatures needs per-material data temperatures (gh:#595).
 
+use petir::mathf::RealMath;
 use serde::{Deserialize, Serialize};
 
 /// How cross sections are interpolated between state points (GeN-Foam's
@@ -57,7 +58,7 @@ impl InterpLaw {
     #[must_use]
     pub fn transform(self, t_k: f64) -> f64 {
         match self {
-            Self::LnT => t_k.ln(),
+            Self::LnT => t_k.r_ln(),
             Self::SqrtT => t_k.sqrt(),
             Self::Linear => t_k,
         }

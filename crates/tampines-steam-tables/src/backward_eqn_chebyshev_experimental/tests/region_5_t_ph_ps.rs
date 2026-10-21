@@ -26,8 +26,8 @@ const T_MAX_K: f64 = 2273.15;
 /// The grid is deterministic (no RNG), so the reported numbers are
 /// reproducible.
 fn round_trip_error_statistics(n_p: usize, n_t: usize) -> ((f64, f64), (f64, f64)) {
-    let log_p_min = P_MIN_MPA.log10();
-    let log_p_max = P_MAX_MPA.log10();
+    let log_p_min = P_MIN_MPA.r_log10();
+    let log_p_max = P_MAX_MPA.r_log10();
 
     let mut ph_max = 0.0_f64;
     let mut ph_sq_sum = 0.0_f64;

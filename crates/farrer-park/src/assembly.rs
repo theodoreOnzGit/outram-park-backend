@@ -79,6 +79,7 @@
 //! internal force vector in newtons, the stiffness matrix in newton per metre,
 //! body force in newton per cubic metre.
 
+use petir::mathf::RealMath;
 use std::sync::Arc;
 
 use crate::dof::{DofMap, SparsityPattern};
@@ -485,16 +486,16 @@ impl BodyForce {
             BodyForce::Uniform(b) => *b,
             BodyForce::ManufacturedSine(lambda, mu) => {
                 let pi = std::f64::consts::PI;
-                let a = (pi * x[0]).sin() * (pi * x[1]).sin();
-                let c = (pi * x[0]).cos() * (pi * x[1]).cos();
+                let a = (pi * x[0]).r_sin() * (pi * x[1]).r_sin();
+                let c = (pi * x[0]).r_cos() * (pi * x[1]).r_cos();
                 let f = pi * pi * ((lambda + 3.0 * mu) * a - (lambda + mu) * c);
                 [f, f, 0.0]
             }
             BodyForce::ManufacturedSine3d(lambda, mu) => {
                 let pi = std::f64::consts::PI;
-                let (sa, ca) = ((pi * x[0]).sin(), (pi * x[0]).cos());
-                let (sb, cb) = ((pi * x[1]).sin(), (pi * x[1]).cos());
-                let (sc, cc) = ((pi * x[2]).sin(), (pi * x[2]).cos());
+                let (sa, ca) = ((pi * x[0]).r_sin(), (pi * x[0]).r_cos());
+                let (sb, cb) = ((pi * x[1]).r_sin(), (pi * x[1]).r_cos());
+                let (sc, cc) = ((pi * x[2]).r_sin(), (pi * x[2]).r_cos());
                 let abc = sa * sb * sc;
                 let d_xy = ca * cb * sc;
                 let d_xz = ca * sb * cc;
@@ -520,9 +521,9 @@ impl BodyForce {
         match self {
             BodyForce::ManufacturedSine(_, _) => {
                 let pi = std::f64::consts::PI;
-                let u = (pi * x[0]).sin() * (pi * x[1]).sin();
-                let dudx = pi * (pi * x[0]).cos() * (pi * x[1]).sin();
-                let dudy = pi * (pi * x[0]).sin() * (pi * x[1]).cos();
+                let u = (pi * x[0]).r_sin() * (pi * x[1]).r_sin();
+                let dudx = pi * (pi * x[0]).r_cos() * (pi * x[1]).r_sin();
+                let dudy = pi * (pi * x[0]).r_sin() * (pi * x[1]).r_cos();
                 let mut g = [[0.0; 3]; 3];
                 g[0][0] = dudx;
                 g[0][1] = dudy;
@@ -532,9 +533,9 @@ impl BodyForce {
             }
             BodyForce::ManufacturedSine3d(_, _) => {
                 let pi = std::f64::consts::PI;
-                let (sa, ca) = ((pi * x[0]).sin(), (pi * x[0]).cos());
-                let (sb, cb) = ((pi * x[1]).sin(), (pi * x[1]).cos());
-                let (sc, cc) = ((pi * x[2]).sin(), (pi * x[2]).cos());
+                let (sa, ca) = ((pi * x[0]).r_sin(), (pi * x[0]).r_cos());
+                let (sb, cb) = ((pi * x[1]).r_sin(), (pi * x[1]).r_cos());
+                let (sc, cc) = ((pi * x[2]).r_sin(), (pi * x[2]).r_cos());
                 let u = sa * sb * sc;
                 let d = [pi * ca * sb * sc, pi * sa * cb * sc, pi * sa * sb * cc];
                 let mut g = [[0.0; 3]; 3];
@@ -1035,9 +1036,9 @@ impl System {
                     }
                 }
                 for c in 0..dim {
-                    l2 += w * (uh[c] - u_ex[c]).powi(2);
+                    l2 += w * (uh[c] - u_ex[c]).r_powi(2);
                     for j in 0..dim {
-                        h1 += w * (gh[c][j] - g_ex[c][j]).powi(2);
+                        h1 += w * (gh[c][j] - g_ex[c][j]).r_powi(2);
                     }
                 }
             }

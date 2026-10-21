@@ -30,6 +30,7 @@
 //! for a long-term release (discharge in Bq/year); [`EffectiveDose`] carries
 //! the mSv value either way. Research-grade only (`RESPONSIBLE_USE.md`).
 
+use petir::mathf::RealMath;
 use uom::si::f64::Radioactivity;
 use uom::si::radioactivity::becquerel;
 
@@ -183,7 +184,7 @@ pub fn effective_buildup_time_s(
             decay_constant_per_s + w
         }
     };
-    (1.0 - (-lr_effective * exposure_period).exp()) / lr_effective
+    (1.0 - (-lr_effective * exposure_period).r_exp()) / lr_effective
 }
 
 /// Ground-shine dose for one nuclide, upstream's arithmetic:

@@ -10,6 +10,7 @@
 //!
 //! Methodology, predictions and results are in each test's doc comment.
 
+use petir::mathf::RealMath;
 use std::time::Instant;
 
 use outram_mc_libs::geometry::cell::{Cell, CellFill, HalfSpaceSense, RegionToken};
@@ -70,7 +71,7 @@ fn materials(t: f64) -> Vec<Material> {
 fn log_grid(n: usize) -> Vec<f64> {
     let (lo, hi) = (1.0e-5_f64, 2.0e7_f64);
     (0..n)
-        .map(|i| (lo.ln() + (hi.ln() - lo.ln()) * i as f64 / (n - 1) as f64).exp())
+        .map(|i| (lo.r_ln() + (hi.r_ln() - lo.r_ln()) * i as f64 / (n - 1) as f64).r_exp())
         .collect()
 }
 
@@ -158,7 +159,7 @@ fn cube(h: f64) -> SourceBox {
 
 fn z(a: &KeffResult, b: &KeffResult) -> (f64, f64) {
     let dk = (a.k_mean - b.k_mean) * 1.0e5;
-    let s = (a.k_std.powi(2) + b.k_std.powi(2)).sqrt() * 1.0e5;
+    let s = (a.k_std.r_powi(2) + b.k_std.r_powi(2)).sqrt() * 1.0e5;
     (dk, dk.abs() / s.max(1.0e-12))
 }
 
@@ -408,13 +409,13 @@ fn cell_filter_in_a_delta_region_matches_surface_track_length() {
             let (xs, xh) = (&t_surf.bins[i + 1], &t_hyb.bins[i + 1]);
             let sf = (fs.mean(n), fs.mean(n) * fs.rel_std_dev(n));
             let hf = (fh.mean(n), fh.mean(n) * fh.rel_std_dev(n));
-            let zf = (hf.0 - sf.0).abs() / (sf.1.hypot(hf.1)).max(1.0e-300);
+            let zf = (hf.0 - sf.0).abs() / (sf.1.r_hypot(hf.1)).max(1.0e-300);
             let sig = |f: &TallyBin, x: &TallyBin| {
                 let v = x.mean(n) / f.mean(n);
-                (v, v * f.rel_std_dev(n).hypot(x.rel_std_dev(n)))
+                (v, v * f.rel_std_dev(n).r_hypot(x.rel_std_dev(n)))
             };
             let (ss, hs) = (sig(fs, xs), sig(fh, xh));
-            let zs = (hs.0 - ss.0).abs() / (ss.1.hypot(hs.1)).max(1.0e-300);
+            let zs = (hs.0 - ss.0).abs() / (ss.1.r_hypot(hs.1)).max(1.0e-300);
             println!(
                 "cell {c} group {g}: flux surface {:.5e} hybrid {:.5e} ({zf:.2} σ) | Σ_t surface {:.5} hybrid {:.5} ({zs:.2} σ)",
                 sf.0, hf.0, ss.0, hs.0
@@ -525,13 +526,13 @@ fn keff_delta_run_temperature_worth() {
     let stats = |v: &[f64]| {
         let n = v.len() as f64;
         let m = v.iter().sum::<f64>() / n;
-        let sd = (v.iter().map(|x| (x - m).powi(2)).sum::<f64>() / (n - 1.0)).sqrt();
+        let sd = (v.iter().map(|x| (x - m).r_powi(2)).sum::<f64>() / (n - 1.0)).sqrt();
         (m, sd / n.sqrt())
     };
     let (a, b) = (arm(T_HOT), arm(T_COLD));
     let ((ma, sa), (mb, sb)) = (stats(&a), stats(&b));
     let d = (mb - ma) * 1.0e5;
-    let s = sa.hypot(sb) * 1.0e5;
+    let s = sa.r_hypot(sb) * 1.0e5;
     println!(
         "run T {T_HOT} K: k = {ma:.6} ± {sa:.6}; run T {T_COLD} K: k = {mb:.6} ± {sb:.6}; difference {d:+.0} ± {s:.0} pcm ({:.1} σ)",
         d.abs() / s

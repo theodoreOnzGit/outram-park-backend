@@ -24,6 +24,7 @@
 
 mod common;
 
+use petir::mathf::RealMath;
 use common::elastic_newton_with;
 use farrer_park::assembly::System;
 use farrer_park::prelude::*;
@@ -212,8 +213,8 @@ fn thick_walled_cylinder_against_lame() {
     for (nr, nt) in [(4usize, 8usize), (8, 16), (16, 32), (32, 64)] {
         let (er, et, eu, nd) = run_cylinder(a, b, p, nr, nt);
         let worst = er.max(et);
-        let ord_s = prev_s.map_or(f64::NAN, |p0: f64| (p0 / worst).log2());
-        let ord_u = prev_u.map_or(f64::NAN, |p0: f64| (p0 / eu).log2());
+        let ord_s = prev_s.map_or(f64::NAN, |p0: f64| (p0 / worst).r_log2());
+        let ord_u = prev_u.map_or(f64::NAN, |p0: f64| (p0 / eu).r_log2());
         println!(
             "{nr:>5} {nt:>8} {nd:>7} {er:>13.5e} {et:>13.5e} {ord_s:>7.3} {eu:>13.5e} {ord_u:>7.3}"
         );
@@ -367,7 +368,7 @@ fn run_cantilever(length: f64, height: f64, load: f64, nx: usize, ny: usize) -> 
 fn cantilever_tip_deflection_against_beam_theory() {
     let height = 0.1_f64;
     let load = 1000.0_f64;
-    let inertia = height.powi(3) / 12.0;
+    let inertia = height.r_powi(3) / 12.0;
     let shear_modulus = E_PA / 2.0; // nu = 0
     println!("\nCANTILEVER TIP DEFLECTION, H = {height} m, P = {load} N, nu = 0");
     println!(
@@ -381,7 +382,7 @@ fn cantilever_tip_deflection_against_beam_theory() {
         let ny = 4;
         let (delta, nd) = run_cantilever(length, height, load, nx, ny);
         let delta = -delta; // downwards positive
-        let eb = load * length.powi(3) / (3.0 * E_PA * inertia);
+        let eb = load * length.r_powi(3) / (3.0 * E_PA * inertia);
         let timo = eb + load * length / ((5.0 / 6.0) * shear_modulus * height);
         let r_eb = delta / eb;
         let r_ti = delta / timo;

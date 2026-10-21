@@ -16,8 +16,8 @@
 //                    (full list: module docs in mod.rs)
 
 use super::*;
-use rand::distr::{Uniform};
-use rand_distr::{Normal, Distribution};
+// boon-lay (gh:#995): petir::rng, a port of rand 0.10.3 / rand_distr 0.6.0.
+use petir::rng::{Uniform, Normal};
 
 pub trait InputFile: GeometryInput {
     #[cfg(feature = "rustbca-std")]

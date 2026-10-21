@@ -29,6 +29,7 @@
 //! | Oracle | `reference-data/scram/oracle-deviates.txt`, from the compiled binary |
 //! | Mission time | SCRAM's default, 8760 h |
 
+use petir::mathf::RealMath;
 use raffles::scram::expression::{Expression, Interval, Parameters, DEFAULT_MISSION_TIME};
 use raffles::distributions::ContinuousDistribution1D;
 use raffles::scram::mef::MefModel;
@@ -177,7 +178,7 @@ fn each_deviate_value_matches_its_closed_form() {
     // The two-argument flavour's mean is exp(mu + sigma^2 / 2).
     let (mu, sigma) = (-12.0_f64, 0.5_f64);
     let l2 = Expression::lognormal_deviate_normal(float(mu), float(sigma));
-    let expected = (mu + sigma * sigma / 2.0).exp();
+    let expected = (mu + sigma * sigma / 2.0).r_exp();
     assert!((value(&l2) - expected).abs() / expected < 1e-12);
 
     let g = Expression::gamma_deviate(float(2.0), float(1.0e-6));
@@ -402,7 +403,7 @@ fn intervals_are_upstreams_and_are_what_makes_the_domain_checks_bite() {
         "left-open at zero: {l}"
     );
     assert!(
-        (l.upper() - (-10.5f64).exp()).abs() / l.upper() < 1e-12,
+        (l.upper() - (-10.5f64).r_exp()).abs() / l.upper() < 1e-12,
         "{l}"
     );
     assert!(l.is_positive(), "a log-normal rate is strictly positive");

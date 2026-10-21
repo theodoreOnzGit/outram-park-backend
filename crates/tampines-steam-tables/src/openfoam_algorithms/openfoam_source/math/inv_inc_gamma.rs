@@ -209,12 +209,12 @@ pub fn inv_inc_gamma(a: f64, p: f64) -> f64 {
                 let v = p.r_ln() + c_lgamma(ap1);
                 z = ((v + w) / a).r_exp();
                 // Two iterations with two-term ln(1 + ...)
-                let s_ = (z / ap1 * (1.0 + z / ap2)).ln_1p();
+                let s_ = (z / ap1 * (1.0 + z / ap2)).r_ln_1p();
                 z = ((v + z - s_) / a).r_exp();
-                let s_ = (z / ap1 * (1.0 + z / ap2)).ln_1p();
+                let s_ = (z / ap1 * (1.0 + z / ap2)).r_ln_1p();
                 z = ((v + z - s_) / a).r_exp();
                 // Final iteration with three-term ln(1 + ...)
-                let s_ = (z / ap1 * (1.0 + z / ap2 * (1.0 + z / (a + 3.0)))).ln_1p();
+                let s_ = (z / ap1 * (1.0 + z / ap2 * (1.0 + z / (a + 3.0)))).r_ln_1p();
                 z = ((v + z - s_) / a).r_exp();
             }
 

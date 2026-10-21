@@ -1,10 +1,10 @@
 [package]
 name = "outram-foam-multiphase"
-version = "0.0.3"
+version = "0.0.4"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "OUTRAM-FOAM Phase II multiphysics CFD (the crate name keeps its old \"multiphase\" label and still works) — pure-Rust translation of OpenFOAM's multiphase solvers (drift-flux first; Euler-Euler two-fluid, wall boiling, CHF, dryout planned). Reference high-fidelity physics from which TAMPINES 1D reduced-order models are derived. SCAFFOLD/early: no human V&V. Independent OUTRAM PARK fork, not the official OpenFOAM."
+description = "OUTRAM-FOAM Phase II multiphase CFD — pure-Rust translation of OpenFOAM's multiphase solvers (drift-flux first; Euler-Euler two-fluid, wall boiling, CHF, dryout planned). Reference high-fidelity physics from which TAMPINES 1D reduced-order models are derived. SCAFFOLD/early: no human V&V. Independent OUTRAM PARK fork, not the official OpenFOAM."
 homepage.workspace = true
 repository.workspace = true
 readme = "README.md"
@@ -30,6 +30,8 @@ fidelity = 3
 maturity = 1
 
 [dependencies]
+# Deterministic transcendentals (gh:#985): petir::mathf::RealMath, no_std.
+petir = { workspace = true }
 # Pure-Rust, Android-safe deps only (no BLAS / C). `uom` types the physical
 # API boundary; `thiserror` the crate error enum. The finite-volume framework
 # (FvMesh, VolScalarField, fvc/fvm operators) is reused from the Layer-1-4

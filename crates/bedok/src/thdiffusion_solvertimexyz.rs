@@ -106,6 +106,8 @@
 //! cross-scheme consistency only. Do not describe the transient path as
 //! validated.
 
+use petir::mathf::RealMath;
+
 use crate::error::Result;
 use crate::matlab::{norm1, norm2, Array2, Array3, Decomposition, SparseMatrix};
 use crate::sigmavalupd3d_handler::{sigmavalupd3d_handler, FeedbackTables};
@@ -150,7 +152,7 @@ fn gexp0(x: f64) -> f64 {
     if x.abs() < 1e-4 {
         0.5 + x / 6.0 + x * x / 24.0
     } else {
-        (x.exp() - 1.0 - x) / (x * x)
+        (x.r_exp() - 1.0 - x) / (x * x)
     }
 }
 
@@ -162,7 +164,7 @@ fn gexp1(x: f64) -> f64 {
     if x.abs() < 1e-4 {
         0.5 - x / 6.0 + x * x / 24.0
     } else {
-        (x - 1.0 + (-x).exp()) / (x * x)
+        (x - 1.0 + (-x).r_exp()) / (x * x)
     }
 }
 
@@ -179,7 +181,7 @@ fn expfreq(phinew: &[f64], phiold: &[f64], dt: f64, invv: &[f64]) -> Vec<f64> {
         .zip(invv)
         .map(|((new, old), iv)| {
             if new.is_finite() && old.is_finite() && *new > 0.0 && *old > 0.0 && *iv > 0.0 {
-                (new / old).ln() / dt
+                (new / old).r_ln() / dt
             } else {
                 0.0
             }
@@ -782,7 +784,7 @@ pub fn thdiffusion_solvertimexyz(
                                         }
                                         if num.is_finite() && den.is_finite() && num > 0.0 && den > 0.0
                                         {
-                                            let val = (num / den).ln() / dt;
+                                            let val = (num / den).r_ln() / dt;
                                             for i in 0..es {
                                                 if invv[lo + i] > 0.0 {
                                                     w[lo + i] = val;
@@ -819,7 +821,7 @@ pub fn thdiffusion_solvertimexyz(
                         let mut ff1 = vec![0.0; philenf];
                         // V0 term, Eq. (12).
                         let mut rhs: Vec<f64> = (0..philenf)
-                            .map(|r| invv[r] * omegadt[r].exp() * phiold[r] / dt)
+                            .map(|r| invv[r] * omegadt[r].r_exp() * phiold[r] / dt)
                             .collect();
                         f1 = Array2::<f64>::zeros(philenf, ndnp);
                         del0 = Array2::<f64>::zeros(philenf, ndnp);
@@ -827,7 +829,7 @@ pub fn thdiffusion_solvertimexyz(
                             let f0i: Vec<f64> = (0..philenf)
                                 .map(|r| {
                                     let x = (lambda[i] + omega[r]) * dt;
-                                    beta[i] * dt * (-lambda[i] * dt).exp() * gexp0(x)
+                                    beta[i] * dt * (-lambda[i] * dt).r_exp() * gexp0(x)
                                 })
                                 .collect();
                             let f1i: Vec<f64> = (0..philenf)
@@ -844,7 +846,7 @@ pub fn thdiffusion_solvertimexyz(
                                 del0.set(r, i, d0[r] / k0);
                                 ff1[r] += lambda[i] * f1i[r];
                                 rhs[r] += lambda[i]
-                                    * ((-lambda[i] * dt).exp() * cold.get(r, i) + d0[r] / k0);
+                                    * ((-lambda[i] * dt).r_exp() * cold.get(r, i) + d0[r] / k0);
                             }
                         }
 
@@ -871,7 +873,7 @@ pub fn thdiffusion_solvertimexyz(
                         let weighted: Vec<f64> =
                             (0..philenf).map(|r| f1.get(r, i) * phi[r]).collect();
                         let prod = sigma.f.mul_vec(&weighted);
-                        let decay = (-l * dt).exp();
+                        let decay = (-l * dt).r_exp();
                         for (r, pr) in prod.iter().enumerate() {
                             c_conc.set(
                                 r,

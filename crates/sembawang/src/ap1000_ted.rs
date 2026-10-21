@@ -83,6 +83,7 @@
 //!
 //! Pinned by `tests::digitised_peaks_match_table_3_within_one_pixel`.
 
+use petir::mathf::RealMath;
 /// The digitised Fig. 7 series, verbatim (see the CSV header).
 const FIG7_CSV: &str =
     include_str!("../reference/lwr/dadda2024_fig7_ap1000_centreline_ted_apr_aug.csv");
@@ -147,8 +148,8 @@ impl GroupCurve {
         }
         let i = p.windows(2).position(|w| x_km <= w[1].0)?;
         let ((x0, y0), (x1, y1)) = (p[i], p[i + 1]);
-        let t = (x_km.ln() - x0.ln()) / (x1.ln() - x0.ln());
-        Some((y0.ln() + t * (y1.ln() - y0.ln())).exp())
+        let t = (x_km.r_ln() - x0.r_ln()) / (x1.r_ln() - x0.r_ln());
+        Some((y0.r_ln() + t * (y1.r_ln() - y0.r_ln())).r_exp())
     }
 
     /// The largest digitised point `(distance_km, ted_sv)`.
@@ -253,9 +254,9 @@ pub fn total_ted_scaled(x_km: &[f64], thermal_power_mwth: f64) -> Vec<TotalTed> 
 
 /// A log-spaced grid of `n >= 2` points over `[lo_km, hi_km]`.
 pub fn log_grid_km(lo_km: f64, hi_km: f64, n: usize) -> Vec<f64> {
-    let (a, b) = (lo_km.ln(), hi_km.ln());
+    let (a, b) = (lo_km.r_ln(), hi_km.r_ln());
     (0..n)
-        .map(|k| (a + (b - a) * k as f64 / (n - 1) as f64).exp())
+        .map(|k| (a + (b - a) * k as f64 / (n - 1) as f64).r_exp())
         .collect()
 }
 
@@ -286,7 +287,7 @@ mod tests {
         for (name, table) in TABLE_3_MAX_TED_SV {
             let (x, v) = c.iter().find(|g| g.group == name).unwrap().peak();
             sum += v;
-            let dev = (v / table).log10();
+            let dev = (v / table).r_log10();
             assert!(
                 dev.abs() <= GATE_TOLERANCE_DECADES,
                 "{name}: {v} Sv at {x} km vs {table}: {dev} decades"
@@ -298,7 +299,7 @@ mod tests {
         }
         let tsum: f64 = TABLE_3_MAX_TED_SV.iter().map(|(_, v)| v).sum();
         assert!((tsum - TABLE_3_TOTAL_SV).abs() < 0.05);
-        assert!((sum / TABLE_3_TOTAL_SV).log10().abs() <= GATE_TOLERANCE_DECADES);
+        assert!((sum / TABLE_3_TOTAL_SV).r_log10().abs() <= GATE_TOLERANCE_DECADES);
         assert!((sum - 39.376).abs() < 1e-3, "{sum}");
     }
 

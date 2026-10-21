@@ -1,8 +1,8 @@
 # Crate Documentation
 
-**Version:** 0.0.5
+**Version:** 0.0.6
 
-**Format Version:** 60
+**Format Version:** 61
 
 # Module `outram_mc_libs`
 
@@ -19,8 +19,10 @@ This crate is a **derivative work** of [OpenMC](https://openmc.org),
 copyright the OpenMC development team (MIT, Massachusetts Institute of
 Technology) and Argonne National Laboratory, licensed MIT. That license
 is GPL-compatible, so this translation is distributed under
-`GPL-3.0-only` — the same license as the rest of the OUTRAM PARK
-workspace, as permitted by the terms of the upstream MIT license.
+~~`GPL-3.0-only`~~ **`AGPL-3.0-only`** (relicensed 2026-10-20, gh:#973;
+see `docs/relicensing-agpl-2026-10-20.md`) — the same license as the rest
+of the OUTRAM PARK workspace, as permitted by the terms of the upstream MIT
+license.
 
 **This is OUTRAM PARK's independent Rust translation of selected OpenMC
 algorithms — it is not the official OpenMC software, and is not
@@ -582,7 +584,7 @@ pub struct BuildReport {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> BuildReport { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -597,7 +599,7 @@ pub struct BuildReport {
 
 - **Default**
   - ```rust
-    fn default() -> BuildReport { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
 - **DistributionExt**
@@ -633,7 +635,7 @@ pub struct BuildReport {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &BuildReport) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -670,7 +672,7 @@ pub struct BuildReport {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -802,7 +804,7 @@ pub struct VirtualLattice {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> VirtualLattice { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -838,7 +840,7 @@ pub struct VirtualLattice {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &VirtualLattice) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -875,7 +877,7 @@ pub struct VirtualLattice {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1021,7 +1023,7 @@ pub struct DistribcellOffsets {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> DistribcellOffsets { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -1057,7 +1059,7 @@ pub struct DistribcellOffsets {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &DistribcellOffsets) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -1094,7 +1096,7 @@ pub struct DistribcellOffsets {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1232,7 +1234,7 @@ pub struct SurfaceCrossing {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> SurfaceCrossing { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -1300,7 +1302,7 @@ pub struct SurfaceCrossing {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1540,7 +1542,7 @@ A material, counted at the leaf.
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> VolumeDomain { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -1587,7 +1589,7 @@ A material, counted at the leaf.
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &VolumeDomain) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -1624,7 +1626,7 @@ A material, counted at the leaf.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1702,7 +1704,7 @@ pub struct BoundingBox {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> BoundingBox { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -1770,7 +1772,7 @@ pub struct BoundingBox {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1851,7 +1853,7 @@ pub struct VolumeResult {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> VolumeResult { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -1888,7 +1890,7 @@ pub struct VolumeResult {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &VolumeResult) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -1925,7 +1927,7 @@ pub struct VolumeResult {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -2007,7 +2009,7 @@ pub struct VolumeCalculation {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> VolumeCalculation { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -2074,7 +2076,7 @@ pub struct VolumeCalculation {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -2175,7 +2177,7 @@ pub enum ParticleType {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ParticleType { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -2222,7 +2224,7 @@ pub enum ParticleType {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &ParticleType) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -2259,7 +2261,7 @@ pub enum ParticleType {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -2341,7 +2343,7 @@ pub enum TallyEvent {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> TallyEvent { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -2388,7 +2390,7 @@ pub enum TallyEvent {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &TallyEvent) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -2425,7 +2427,7 @@ pub enum TallyEvent {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -2566,7 +2568,7 @@ pub struct Particle {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -2649,7 +2651,7 @@ pub struct BankSite {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> BankSite { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -2717,7 +2719,7 @@ pub struct BankSite {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -2850,7 +2852,7 @@ pub struct Bank {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -2888,6 +2890,8 @@ Materials and the nuclear data behind them.
 - [`reaction`]: reaction identifiers used across the above.
 - [`speed`]: [`SpeedTier`](speed::SpeedTier), trading accuracy for speed in
   nuclear-data processing and cross-section lookup.
+- [`temperature_interpolation`]: OpenMC's stochastic choice between tables
+  at bracketing temperatures (GitHub #947). Not on a transport path yet.
 
 Geometry, sources and tallies live in their own modules; transport itself
 is in [`crate::physics`].
@@ -2960,7 +2964,7 @@ pub struct NuclideComponent {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> NuclideComponent { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -3027,7 +3031,7 @@ pub struct NuclideComponent {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -3109,7 +3113,7 @@ pub struct MacroXs {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> MacroXs { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -3125,7 +3129,7 @@ pub struct MacroXs {
 
 - **Default**
   - ```rust
-    fn default() -> MacroXs { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
 - **DistributionExt**
@@ -3182,7 +3186,7 @@ pub struct MacroXs {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -3226,7 +3230,7 @@ pub struct Material {
 | `id` | `i32` |  |
 | `name` | `String` |  |
 | `components` | `Vec<NuclideComponent>` |  |
-| `temperature` | `f64` | Temperature in Kelvin, passed to every cross-section lookup for this<br>material. **Only windowed-multipole (`Core`) nuclides use it** (the WMP<br>Doppler evaluator); a pointwise nuclide (from ENDF reconstruction or an<br>ACE table) is already broadened at its build temperature and ignores<br>it. Verified 2026-09-27: set to 1200 K on ACE nuclides, `k` is<br>bit-identical (`tests/temperature_precedence.rs`,<br>`docs/temperatures.md`). |
+| `temperature` | `f64` | Temperature in Kelvin, passed to every cross-section lookup for this<br>material. ~~**Only windowed-multipole (`Core`) nuclides use it**~~<br>**Only windowed-multipole data use it** (corrected 2026-10-18, GitHub<br>#948): the LOW (`Core`) tier, and a pointwise nuclide with WMP<br>attached by `Nuclide::with_multipole` (inside its WMP range, and for<br>its elastic kinematics at every energy). A pointwise nuclide without<br>WMP (from ENDF reconstruction or an ACE table) is already broadened at<br>its build temperature and ignores it. Verified 2026-09-27: set to 1200 K on ACE nuclides, `k` is<br>bit-identical (`tests/temperature_precedence.rs`,<br>`docs/temperatures.md`). |
 
 ##### Implementations
 
@@ -3236,6 +3240,11 @@ pub struct Material {
   pub fn macro_xs(self: &Self, e: f64, nuclides: &[Nuclide]) -> MacroXs { /* ... */ }
   ```
   Macroscopic cross sections at energy `e` \[eV\], summed over all nuclides.
+
+- ```rust
+  pub fn macro_xs_urr(self: &Self, e: f64, nuclides: &[Nuclide], urr_seed: u64) -> MacroXs { /* ... */ }
+  ```
+  [`Self::macro_xs`] as a neutron carrying the URR stream seed `urr_seed`
 
 - ```rust
   pub fn nu_fission_prompt(xs: &MacroXs) -> f64 { /* ... */ }
@@ -3297,7 +3306,7 @@ pub struct Material {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Material { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -3373,7 +3382,7 @@ pub struct Material {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -3496,7 +3505,7 @@ pub struct MicroXS {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> MicroXS { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -3512,7 +3521,7 @@ pub struct MicroXS {
 
 - **Default**
   - ```rust
-    fn default() -> MicroXS { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
 - **DistributionExt**
@@ -3569,7 +3578,7 @@ pub struct MicroXS {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -3667,7 +3676,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Inelastic { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -3735,7 +3744,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -3790,6 +3799,31 @@ pub struct Nuclide {
 ##### Implementations
 
 ###### Methods
+
+- ```rust
+  pub fn with_multipole(self: Self, wmp: WindowedMultipole) -> Result<Self, MultipoleAttachError> { /* ... */ }
+  ```
+  **Attach windowed-multipole data**, so the resolved range is evaluated
+
+- ```rust
+  pub fn with_core_multipole(self: Self) -> Result<Self, MultipoleAttachError> { /* ... */ }
+  ```
+  [`Self::with_multipole`] with this nuclide's set from the embedded
+
+- ```rust
+  pub fn without_multipole(self: Self) -> Self { /* ... */ }
+  ```
+  This nuclide **without** its multipole data: the tables at their build
+
+- ```rust
+  pub fn multipole(self: &Self) -> Option<&WindowedMultipole> { /* ... */ }
+  ```
+  The attached multipole set, if any (always `None` on the LOW tier,
+
+- ```rust
+  pub fn multipole_consistency(self: &Self, wmp: &WindowedMultipole) -> Result<MultipoleConsistency, MultipoleAttachError> { /* ... */ }
+  ```
+  Compare `wmp` with this nuclide's own tables at the tables'
 
 - ```rust
   pub fn from_core(name: &str) -> Result<Self, NjoyError> { /* ... */ }
@@ -4009,22 +4043,32 @@ pub struct Nuclide {
 - ```rust
   pub fn process_evaluation(tape: &njoy_outram_park_fork::endf::tape::Tape, mat: i32, temp_k: f64, tolerance: f64, broadr_errthn: f64) -> Result<crate::material::processed::ProcessedEvaluation, NjoyError> { /* ... */ }
   ```
-  **The expensive half of [`Self::from_tape`]**: RECONR at 0 K, the 0 K
+  **The expensive half of [`Self::from_tape`]**: RECONR at 0 K, BROADR
+
+- ```rust
+  pub fn process_evaluation_with(tape: &njoy_outram_park_fork::endf::tape::Tape, mat: i32, temperature: uom::si::f64::ThermodynamicTemperature, settings: &njoy_outram_park_fork::process::CrossSectionSettings) -> Result<crate::material::processed::ProcessedEvaluation, NjoyError> { /* ... */ }
+  ```
+  [`Self::process_evaluation`] with any `process` settings: one
+
+- ```rust
+  pub fn process_evaluation_pre_931(tape: &njoy_outram_park_fork::endf::tape::Tape, mat: i32, temp_k: f64, tolerance: f64, broadr_errthn: f64) -> Result<crate::material::processed::ProcessedEvaluation, NjoyError> { /* ... */ }
+  ```
+  **Ablation: route 4's data as made before gh:#931**, kept so the move
 
 - ```rust
   pub fn reconstruct_0k(tape: &njoy_outram_park_fork::endf::tape::Tape, mat: i32, tolerance: f64) -> Result<ReconrResult, NjoyError> { /* ... */ }
   ```
-  **Stage 1 of [`Self::process_evaluation`]**: RECONR at 0 K, at
+  **Stage 1 of [`Self::process_evaluation_pre_931`]**: RECONR at 0 K, at
 
 - ```rust
   pub fn urr_tables(tape: &njoy_outram_park_fork::endf::tape::Tape, mat: i32, temp_k: f64) -> Result<Option<UrrProbabilityTables>, NjoyError> { /* ... */ }
   ```
-  **Stage 2 of [`Self::process_evaluation`]**: PURR's URR probability
+  **Stage 2 of [`Self::process_evaluation_pre_931`]**: PURR's URR probability
 
 - ```rust
   pub fn process_from_stages(recon0: &ReconrResult, urr: Option<UrrProbabilityTables>, temp_k: f64, broadr_errthn: f64) -> crate::material::processed::ProcessedEvaluation { /* ... */ }
   ```
-  **The rest of [`Self::process_evaluation`]**, from its two stages: the
+  **The rest of [`Self::process_evaluation_pre_931`]**, from its two stages: the
 
 - ```rust
   pub fn from_processed(tape: &njoy_outram_park_fork::endf::tape::Tape, mat: i32, name: &str, temp_k: f64, processed: crate::material::processed::ProcessedEvaluation) -> Result<Self, NjoyError> { /* ... */ }
@@ -4290,7 +4334,7 @@ pub struct Nuclide {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Nuclide { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -4357,7 +4401,7 @@ pub struct Nuclide {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -4435,7 +4479,7 @@ pub struct OtherEmission {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> OtherEmission { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -4503,7 +4547,7 @@ pub struct OtherEmission {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -4634,7 +4678,7 @@ pub struct DelayedData {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> DelayedData { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -4701,7 +4745,7 @@ pub struct DelayedData {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -4909,9 +4953,18 @@ pub fn sample_continuum_outgoing_energy(chi: &njoy_outram_park_fork::nuclear_dat
 
 #### Constant `URR_TABLE_SETTINGS`
 
-PURR's table settings for every nuclide, `(nbin, nladr, nsamp)`: 20
-probability bins from 16 ladders of 2000 samples
-([`Nuclide::urr_tables`]). A web demo's cache key names them.
+PURR's table settings of the pre-gh:#931 chain, `(nbin, nladr, nsamp)`:
+20 probability bins from 16 ladders of 2000 samples
+([`Nuclide::urr_tables`], [`Nuclide::process_evaluation_pre_931`]). A web
+~~demo's cache key names them; the browser demos stay on them until gh:#932.~~
+demo's cache key named them until gh:#932 (2026-10-18), which moved the
+browser demos onto `process` (20 / 64 / 10 000 after HEATR); nothing in a
+demo uses these settings now.
+
+~~PURR's table settings for every nuclide~~ **CORRECTED 2026-10-17
+(gh:#931):** route 4 ([`Nuclide::process_evaluation`], and so
+[`Nuclide::from_tape`] and [`Nuclide::from_endf_file`]) now takes
+`process`'s defaults, 20 / 64 / 10 000 with HEATR first.
 
 ```rust
 pub const URR_TABLE_SETTINGS: (usize, usize, usize) = _;
@@ -4950,13 +5003,34 @@ grid ends.
 pub const DBRC_DEFAULT_E_MAX_EV: f64 = 1.0e3;
 ```
 
+### Re-exports
+
+#### Re-export `MultipoleAttachError`
+
+```rust
+pub use multipole::MultipoleAttachError;
+```
+
+#### Re-export `MultipoleConsistency`
+
+```rust
+pub use multipole::MultipoleConsistency;
+```
+
+#### Re-export `MULTIPOLE_EVALUATION_TOLERANCE`
+
+```rust
+pub use multipole::MULTIPOLE_EVALUATION_TOLERANCE;
+```
+
 ## Module `processed`
 
 **A nuclide's processed evaluation, as plain numbers** (gh:#786).
 
 [`Nuclide::from_tape`](crate::material::nuclide::Nuclide::from_tape) is two
 halves: [`Nuclide::process_evaluation`](crate::material::nuclide::Nuclide::process_evaluation)
-(RECONR, BROADR and PURR, which is nearly all the time) and
+(RECONR, BROADR, HEATR and PURR, through njoy's `process` since gh:#931,
+which is nearly all the time) and
 [`Nuclide::from_processed`](crate::material::nuclide::Nuclide::from_processed)
 (everything else, read off the tape). [`ProcessedEvaluation`] is what
 passes between them, and [`ProcessedEvaluation::to_f64s`] /
@@ -4995,13 +5069,18 @@ pub struct ProcessedEvaluation {
 | Name | Type | Documentation |
 |------|------|---------------|
 | `recon` | `njoy_outram_park_fork::reconr::ReconrResult` | RECONR's sections, Doppler-broadened to [`Self::temp_k`] by BROADR. |
-| `elastic_0k` | `Vec<(f64, f64)>` | The 0 K elastic cross section up to<br>[`DBRC_GRID_MAX_EV`](crate::material::nuclide::DBRC_GRID_MAX_EV),<br>`(E [eV], σ [b])`, kept for DBRC. |
+| `elastic_0k` | `Vec<(f64, f64)>` | The 0 K elastic cross section, `(E [eV], σ [b])`, kept for DBRC.<br>From [`Nuclide::process_evaluation`](crate::material::nuclide::Nuclide::process_evaluation)<br>it is `process`'s: the whole energy range, through the PENDF text<br>field (gh:#931). ~~up to `DBRC_GRID_MAX_EV`~~ **CORRECTED 2026-10-17**:<br>that cap holds only for<br>[`Nuclide::process_evaluation_pre_931`](crate::material::nuclide::Nuclide::process_evaluation_pre_931),<br>which keeps RECONR's raw values up to<br>[`DBRC_GRID_MAX_EV`](crate::material::nuclide::DBRC_GRID_MAX_EV);<br>`from_processed` applies it in either case. Empty without an MT=2. |
 | `urr` | `Option<njoy_outram_park_fork::purr::UrrProbabilityTables>` | PURR's unresolved-resonance probability tables, `None` for an<br>evaluation with no unresolved range. |
 | `temp_k` | `f64` | Temperature the data were broadened to \[K\]. |
 
 ##### Implementations
 
 ###### Methods
+
+- ```rust
+  pub fn from_cross_sections(xs: njoy_outram_park_fork::process::NuclearCrossSections) -> Self { /* ... */ }
+  ```
+  What [`Nuclide::from_processed`](crate::material::nuclide::Nuclide::from_processed)
 
 - ```rust
   pub fn to_f64s(self: &Self) -> Vec<f64> { /* ... */ }
@@ -5038,7 +5117,7 @@ pub struct ProcessedEvaluation {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ProcessedEvaluation { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -5105,7 +5184,7 @@ pub struct ProcessedEvaluation {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -5226,7 +5305,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ReactionMT { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -5278,7 +5357,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &ReactionMT) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -5315,7 +5394,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -5505,7 +5584,7 @@ thermal bias of that order.
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> SpeedTier { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -5521,7 +5600,7 @@ thermal bias of that order.
 
 - **Default**
   - ```rust
-    fn default() -> SpeedTier { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
 - **Display**
@@ -5574,7 +5653,7 @@ thermal bias of that order.
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &SpeedTier) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -5616,7 +5695,7 @@ thermal bias of that order.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -5640,6 +5719,688 @@ thermal bias of that order.
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
+## Module `temperature_interpolation`
+
+**Stochastic interpolation between tabulated temperatures** — a port of
+OpenMC's `temperature_method = "interpolation"` (GitHub #947, step 1 of
+#945). **Not on any transport path yet**: nothing in this crate calls it,
+so every existing result is unchanged (pinned by
+`tests/temperature_interpolation_947.rs::existing_paths_are_unchanged`).
+
+# What upstream does
+
+OpenMC (`/home/teddy0/Documents/research/openmc`, commit `d7d3284a`) keeps
+one table per tabulated temperature and, at each cross-section lookup,
+uses **one** of the two tables that bracket the particle's temperature:
+
+- **Loading** (`src/nuclide.cpp:171-183`): for each temperature in the
+  model, the bracketing pair `T_j <= T < T_{j+1}` is read.
+- **Pointwise lookup** (`src/nuclide.cpp:686-708`,
+  `Nuclide::calculate_xs`):
+
+  ```text
+  f = (kT - kT_i) / (kT_{i+1} - kT_i)
+  if (f > prn(seed)) ++i_temp;
+  ```
+
+  so the upper table is used with probability `f`. The **expected** cross
+  section is therefore linear in `kT`, i.e. linear in `T`. ~~Upstream's
+  interpolation is linear in `sqrt(T)`~~ — a claim made in
+  `njoy-outram-park-fork/verification_and_validation/temperature_interpolation/`
+  and on #269, **corrected 2026-10-17**: the code above is linear in `kT`.
+- **Unresolved resonances** (`src/nuclide.cpp:826-828`): the probability
+  table used is `urr_data_[micro.index_temp]`, the **same** index the
+  pointwise draw picked. One draw serves both. Here that is automatic:
+  [`TemperatureTables::pick`] returns a whole [`Nuclide`], whose URR
+  tables are the ones processed at that table's temperature.
+- **Target motion** (`src/physics.cpp:697`): free-gas kinematics use
+  `kTs_[i_temp]`, the picked table's temperature. Here also automatic,
+  through [`Nuclide::free_gas_kt`] on the picked table.
+- **S(α,β)** (`src/thermal.cpp:195-215`,
+  `ThermalScattering::calculate_xs`): the same rule with its **own**
+  random number, and a `while (kTs_[i+1] < kT && i+1 < n-1) ++i` search.
+  That search and `nuclide.cpp`'s give the same table at every `T`
+  (at a tabulated interior `T_j` the first gives `i = j-1, f = 1`, the
+  second `i = j, f = 0`; both pick `j`), so one [`bracket`] serves both.
+
+# Where this port departs from upstream, deliberately
+
+1. **Outside the tabulated range it refuses.** Upstream snaps to the end
+   table (`src/nuclide.cpp:688-696`). #945's acceptance says a field the
+   data cannot cover is an error, never silently clamped:
+   [`NjoyError::TemperatureOutOfRange`].
+2. **At exactly the top temperature** upstream's pointwise loop exits with
+   `i_temp = n-1` and then reads `kTs_[n]`, one past the end
+   (`src/nuclide.cpp:700-704`); here `T = T_max` brackets as
+   `(n-2, f = 1)` and always picks the top table, which is what the
+   thermal rule does.
+3. **The interpolation variable is a choice**, [`InterpolationVariable`]:
+   `Kt` is upstream's and the default; `SqrtT` and `LogT` exist so #947 can
+   measure them. Only the probability `f` changes; the table search does
+   not, because all three are monotone in `T`.
+
+# What the expectation is, and what it is not
+
+For any quantity **linear** in the table (a cross section at one energy,
+a reaction rate in a fixed flux), the mean over draws is the linear
+interpolant `(1-f) x_i + f x_{i+1}` ([`TableBracket::weights`],
+[`TemperatureTables::expected_xs`]). For anything **nonlinear** in the
+cross sections — a collision's reaction probability `σ_x/σ_t`, the flight
+length, a self-shielded rate — it is not: transport draws per lookup, so
+it sees `E[g(σ)]`, not `g(E[σ])`. #947's V&V measures both.
+
+# The fourth arm: a polynomial in temperature
+
+[`chebyshev_nodes_k`] and [`chebyshev_value`] are the "smooth fit in
+temperature" the maintainer asked #947 to consider (#945): process the data
+at the `n` Chebyshev nodes of `[T_lo, T_hi]` in the chosen variable, and
+evaluate the degree-`n-1` interpolating Chebyshev series at any `T` in the
+range, energy point by energy point. It is **deterministic** (no draw),
+uses PETIR's port of GSL's `gsl_cheb_init` (`petir::ChebSeries::new`), and
+is a measurement aid here, not a transport path.
+
+```rust
+pub mod temperature_interpolation { /* ... */ }
+```
+
+### Types
+
+#### Enum `InterpolationVariable`
+
+The variable the selection probability `f` is linear in.
+
+```rust
+pub enum InterpolationVariable {
+    Kt,
+    SqrtT,
+    LogT,
+}
+```
+
+##### Variants
+
+###### `Kt`
+
+`kT` (equivalently `T`): **OpenMC's**, `src/nuclide.cpp:704`.
+
+###### `SqrtT`
+
+`sqrt(T)`: the Doppler width's own scaling. A hypothesis (#945), not
+upstream's.
+
+###### `LogT`
+
+`ln(T)`: exact for a pure power law `σ ∝ T^p` in log-log, but
+`f` is still applied to σ linearly. Measured for #947.
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn coordinate(self: Self, t_k: f64) -> f64 { /* ... */ }
+  ```
+  The coordinate `x(T)` the probability is linear in, for `t_k` \[K\] > 0.
+
+- ```rust
+  pub fn temperature(self: Self, x: f64) -> f64 { /* ... */ }
+  ```
+  The temperature \[K\] at coordinate `x` (inverse of [`Self::coordinate`]).
+
+- ```rust
+  pub fn label(self: Self) -> &'static str { /* ... */ }
+  ```
+  A short label for tables: `"T"`, `"sqrt T"`, `"log T"`.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `TableBracket`
+
+The two tables bracketing a temperature, and the probability of the upper.
+
+```rust
+pub struct TableBracket {
+    pub lower: usize,
+    pub upper_probability: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `lower` | `usize` | Index of the lower table, `T_lower <= T`. |
+| `upper_probability` | `f64` | Probability `f` in `[0, 1]` of using table `lower + 1`. Zero when only<br>one table exists (and then `lower + 1` is never returned). |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn pick(self: Self, xi: f64) -> usize { /* ... */ }
+  ```
+  Upstream's draw, `src/nuclide.cpp:705-707`: `if (f > prn) ++i_temp`.
+
+- ```rust
+  pub fn weights(self: Self) -> [(usize, f64); 2] { /* ... */ }
+  ```
+  `[(lower, 1-f), (lower+1, f)]`: the probabilities [`Self::pick`]
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `TemperatureTables`
+
+One kind of table (a [`Nuclide`], a
+[`ThermalScattering`](crate::material::thermal::ThermalScattering), ...)
+at several temperatures, chosen between stochastically as OpenMC does.
+
+Generic rather than a trait object (workspace rule): `D` is the concrete
+table type.
+
+```rust
+pub struct TemperatureTables<D> {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(temps_k: Vec<f64>, tables: Vec<D>, variable: InterpolationVariable) -> Result<Self, NjoyError> { /* ... */ }
+  ```
+  Hold `tables[j]`, processed at `temps_k[j]` \[K\], interpolated in
+
+- ```rust
+  pub fn temperatures_k(self: &Self) -> &[f64] { /* ... */ }
+  ```
+  The tabulated temperatures \[K\], ascending.
+
+- ```rust
+  pub fn tables(self: &Self) -> &[D] { /* ... */ }
+  ```
+  The tables, in temperature order.
+
+- ```rust
+  pub fn variable(self: &Self) -> InterpolationVariable { /* ... */ }
+  ```
+  The interpolation variable.
+
+- ```rust
+  pub fn bracket(self: &Self, t_k: f64) -> Result<TableBracket, NjoyError> { /* ... */ }
+  ```
+  The bracket of `t_k` \[K\]; see [`bracket`].
+
+- ```rust
+  pub fn pick(self: &Self, t_k: f64, xi: f64) -> Result<(usize, &D), NjoyError> { /* ... */ }
+  ```
+  The table a lookup at `t_k` \[K\] uses for the uniform variate `xi`,
+
+- ```rust
+  pub fn expectation<G>(self: &Self, t_k: f64, g: G) -> Result<f64, NjoyError>
+where
+    G: FnMut(&D) -> f64 { /* ... */ }
+  ```
+  The expectation over the draw of a quantity `g` computed from one
+
+- ```rust
+  pub fn expected_xs(self: &Self, e: f64, t_k: f64) -> Result<MicroXS, NjoyError> { /* ... */ }
+  ```
+  The **expected** micro cross sections at energy `e` \[eV\] and
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `bracket`
+
+The bracket of `t_k` \[K\] in the ascending `temps_k` \[K\], with the
+upper table's probability linear in `variable`.
+
+One table: `t_k` must equal it (to 1e-9 relative), and the bracket is
+`(0, 0)`.
+
+# Errors
+
+[`NjoyError::InvalidInput`] for an empty or non-ascending list or a
+non-positive or non-finite `t_k`; [`NjoyError::TemperatureOutOfRange`]
+for `t_k` outside `[temps_k[0], temps_k[n-1]]` (upstream snaps; see the
+module docs).
+
+```rust
+pub fn bracket(temps_k: &[f64], t_k: f64, variable: InterpolationVariable) -> Result<TableBracket, njoy_outram_park_fork::NjoyError> { /* ... */ }
+```
+
+#### Function `chebyshev_nodes_k`
+
+The `n` temperatures \[K\] at the Chebyshev nodes of `[t_lo_k, t_hi_k]`
+in `variable`, in the order `petir::ChebSeries::new` samples them
+(`x_k = cos(π (k + ½)/n)`, descending in the coordinate, so descending in
+`T`). Process the data at these, then [`chebyshev_value`].
+
+# Errors
+
+[`NjoyError::InvalidInput`] for `n == 0` or a range that is not
+`0 < t_lo_k < t_hi_k`.
+
+```rust
+pub fn chebyshev_nodes_k(n: usize, t_lo_k: f64, t_hi_k: f64, variable: InterpolationVariable) -> Result<Vec<f64>, njoy_outram_park_fork::NjoyError> { /* ... */ }
+```
+
+#### Function `chebyshev_value`
+
+The degree-`n-1` Chebyshev interpolant through `values[k]`, the value at
+node `k` of [`chebyshev_nodes_k`]`(n, t_lo_k, t_hi_k, variable)`,
+evaluated at `t_k` \[K\] inside the range.
+
+Built by `petir::ChebSeries::new` (a port of GSL's `gsl_cheb_init`), whose
+sampling points are those nodes; each sample is matched to its node by
+position, never by interpolation.
+
+# Errors
+
+[`NjoyError::InvalidInput`] for an empty `values`, a bad range, or `t_k`
+outside it.
+
+```rust
+pub fn chebyshev_value(values: &[f64], t_lo_k: f64, t_hi_k: f64, variable: InterpolationVariable, t_k: f64) -> Result<f64, njoy_outram_park_fork::NjoyError> { /* ... */ }
+```
+
+#### Function `chebyshev_weights`
+
+The weights `w_k` with `chebyshev_value(values, ..) = Σ_k w_k values[k]`
+at `t_k` \[K\], for `n` nodes: the interpolant is linear in the node
+values, so the weights are its values on the unit vectors. Compute them
+once per temperature and apply them to every energy point.
+
+# Errors
+
+As [`chebyshev_value`].
+
+```rust
+pub fn chebyshev_weights(n: usize, t_lo_k: f64, t_hi_k: f64, variable: InterpolationVariable, t_k: f64) -> Result<Vec<f64>, njoy_outram_park_fork::NjoyError> { /* ... */ }
+```
+
 ## Module `thermal`
 
 S(α,β) thermal scattering tables — the bound-atom scattering treatment.
@@ -5814,7 +6575,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ThermalElastic { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -5881,7 +6642,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -5981,7 +6742,7 @@ pub struct CoherentElasticTable {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> CoherentElasticTable { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -6048,7 +6809,7 @@ pub struct CoherentElasticTable {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -6136,7 +6897,7 @@ pub struct IncoherentElasticTable {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> IncoherentElasticTable { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -6203,7 +6964,7 @@ pub struct IncoherentElasticTable {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -6387,7 +7148,7 @@ pub struct ThermalScattering {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ThermalScattering { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -6454,7 +7215,7 @@ pub struct ThermalScattering {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -6565,7 +7326,7 @@ pub struct SourceSite {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> SourceSite { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -6602,7 +7363,7 @@ pub struct SourceSite {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &SourceSite) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -6639,7 +7400,7 @@ pub struct SourceSite {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -6762,7 +7523,7 @@ pub struct IndependentSource {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -6885,7 +7646,7 @@ pub struct PointSource {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -7002,7 +7763,7 @@ pub struct BoxSource {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -7122,7 +7883,7 @@ pub struct SphericalSource {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -7271,7 +8032,7 @@ Fields:
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -7421,7 +8182,7 @@ pub struct Monoenergetic {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -7539,7 +8300,7 @@ pub struct MaxwellSpectrum {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -7660,7 +8421,7 @@ pub struct WattSpectrum {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -7796,7 +8557,7 @@ pub struct TabulatedEnergy {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -7952,7 +8713,7 @@ Fields:
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -8120,7 +8881,7 @@ pub struct MeshSource {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> MeshSource { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -8156,7 +8917,7 @@ pub struct MeshSource {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &MeshSource) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -8193,7 +8954,7 @@ pub struct MeshSource {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -8276,7 +9037,7 @@ pub struct SurfaceCrossing {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> SurfaceCrossing { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -8313,7 +9074,7 @@ pub struct SurfaceCrossing {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &SurfaceCrossing) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -8350,7 +9111,7 @@ pub struct SurfaceCrossing {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -8466,7 +9227,7 @@ pub struct SurfaceSource {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> SurfaceSource { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -8481,7 +9242,7 @@ pub struct SurfaceSource {
 
 - **Default**
   - ```rust
-    fn default() -> SurfaceSource { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
 - **DistributionExt**
@@ -8507,7 +9268,7 @@ pub struct SurfaceSource {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &SurfaceSource) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -8544,7 +9305,7 @@ pub struct SurfaceSource {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -8627,7 +9388,7 @@ pub struct FileSource {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> FileSource { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -8642,7 +9403,7 @@ pub struct FileSource {
 
 - **Default**
   - ```rust
-    fn default() -> FileSource { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
 - **DistributionExt**
@@ -8668,7 +9429,7 @@ pub struct FileSource {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &FileSource) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -8705,7 +9466,7 @@ pub struct FileSource {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -8796,7 +9557,7 @@ pub struct SourceConstraints {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> SourceConstraints { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -8811,7 +9572,7 @@ pub struct SourceConstraints {
 
 - **Default**
   - ```rust
-    fn default() -> SourceConstraints { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
 - **DistributionExt**
@@ -8837,7 +9598,7 @@ pub struct SourceConstraints {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &SourceConstraints) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -8874,7 +9635,7 @@ pub struct SourceConstraints {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -8952,7 +9713,7 @@ pub struct IndependentSpatial {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> IndependentSpatial { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -8988,7 +9749,7 @@ pub struct IndependentSpatial {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &IndependentSpatial) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -9025,7 +9786,7 @@ pub struct IndependentSpatial {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -9141,7 +9902,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ScalarSpatial { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -9177,7 +9938,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &ScalarSpatial) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -9214,7 +9975,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -9330,7 +10091,7 @@ pub struct IsotropicAngle;
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -9445,7 +10206,7 @@ pub struct MonodirectionalAngle {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -9591,7 +10352,7 @@ Fields:
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -9687,7 +10448,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ScalarDist { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -9724,7 +10485,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &ScalarDist) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -9761,7 +10522,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -9872,7 +10633,7 @@ pub struct PolarAzimuthalAngle {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> PolarAzimuthalAngle { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -9909,7 +10670,7 @@ pub struct PolarAzimuthalAngle {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &PolarAzimuthalAngle) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -9946,7 +10707,7 @@ pub struct PolarAzimuthalAngle {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -10148,7 +10909,7 @@ provenance.
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ScoreType { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -10195,7 +10956,7 @@ provenance.
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &ScoreType) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -10232,7 +10993,7 @@ provenance.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -10331,7 +11092,7 @@ pub struct TallyBin {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> TallyBin { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -10346,7 +11107,7 @@ pub struct TallyBin {
 
 - **Default**
   - ```rust
-    fn default() -> TallyBin { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
 - **DistributionExt**
@@ -10372,7 +11133,7 @@ pub struct TallyBin {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &TallyBin) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -10409,7 +11170,7 @@ pub struct TallyBin {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -10491,7 +11252,7 @@ pub struct Tally {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Tally { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -10527,7 +11288,7 @@ pub struct Tally {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Tally) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -10564,7 +11325,7 @@ pub struct Tally {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -10692,7 +11453,7 @@ pub struct FilterEvent {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> FilterEvent { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -10734,7 +11495,7 @@ pub struct FilterEvent {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &FilterEvent) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -10771,7 +11532,7 @@ pub struct FilterEvent {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -10844,7 +11605,7 @@ pub struct SecondarySite {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> SecondarySite { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -10881,7 +11642,7 @@ pub struct SecondarySite {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &SecondarySite) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -10918,7 +11679,7 @@ pub struct SecondarySite {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -10998,7 +11759,7 @@ pub struct CellFilter {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> CellFilter { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -11043,7 +11804,7 @@ pub struct CellFilter {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &CellFilter) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -11080,7 +11841,7 @@ pub struct CellFilter {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -11151,7 +11912,7 @@ pub struct MaterialFilter {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> MaterialFilter { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -11196,7 +11957,7 @@ pub struct MaterialFilter {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &MaterialFilter) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -11233,7 +11994,7 @@ pub struct MaterialFilter {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -11315,7 +12076,7 @@ pub struct EnergyFilter {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> EnergyFilter { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -11360,7 +12121,7 @@ pub struct EnergyFilter {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &EnergyFilter) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -11397,7 +12158,7 @@ pub struct EnergyFilter {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -11483,7 +12244,7 @@ pub struct EnergyOutFilter {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> EnergyOutFilter { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -11528,7 +12289,7 @@ pub struct EnergyOutFilter {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &EnergyOutFilter) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -11565,7 +12326,7 @@ pub struct EnergyOutFilter {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -11632,7 +12393,7 @@ pub struct UniverseFilter {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> UniverseFilter { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -11677,7 +12438,7 @@ pub struct UniverseFilter {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &UniverseFilter) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -11714,7 +12475,7 @@ pub struct UniverseFilter {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -11804,7 +12565,7 @@ pub struct MeshFilter {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> MeshFilter { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -11854,7 +12615,7 @@ pub struct MeshFilter {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &MeshFilter) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -11891,7 +12652,7 @@ pub struct MeshFilter {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -11971,7 +12732,7 @@ Expand along the z coordinate.
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> LegendreAxis { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -12018,7 +12779,7 @@ Expand along the z coordinate.
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &LegendreAxis) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -12055,7 +12816,7 @@ Expand along the z coordinate.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -12156,7 +12917,7 @@ pub struct SpatialLegendreFilter {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> SpatialLegendreFilter { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -12207,7 +12968,7 @@ pub struct SpatialLegendreFilter {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &SpatialLegendreFilter) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -12244,7 +13005,7 @@ pub struct SpatialLegendreFilter {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -12321,7 +13082,7 @@ pub struct SurfaceFilter {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> SurfaceFilter { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -12366,7 +13127,7 @@ pub struct SurfaceFilter {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &SurfaceFilter) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -12403,7 +13164,7 @@ pub struct SurfaceFilter {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -12479,7 +13240,7 @@ pub struct MuFilter {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> MuFilter { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -12524,7 +13285,7 @@ pub struct MuFilter {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &MuFilter) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -12561,7 +13322,7 @@ pub struct MuFilter {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -12640,7 +13401,7 @@ pub struct PolarAzimuthalFilter {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> PolarAzimuthalFilter { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -12685,7 +13446,7 @@ pub struct PolarAzimuthalFilter {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &PolarAzimuthalFilter) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -12722,7 +13483,7 @@ pub struct PolarAzimuthalFilter {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -12796,7 +13557,7 @@ pub struct TimeFilter {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> TimeFilter { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -12841,7 +13602,7 @@ pub struct TimeFilter {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &TimeFilter) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -12878,7 +13639,7 @@ pub struct TimeFilter {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -12953,7 +13714,7 @@ pub struct ParticleFilter {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ParticleFilter { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -12998,7 +13759,7 @@ pub struct ParticleFilter {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &ParticleFilter) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -13035,7 +13796,7 @@ pub struct ParticleFilter {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -13119,7 +13880,7 @@ pub struct DelayedGroupFilter {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> DelayedGroupFilter { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -13165,7 +13926,7 @@ pub struct DelayedGroupFilter {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &DelayedGroupFilter) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -13202,7 +13963,7 @@ pub struct DelayedGroupFilter {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -13294,7 +14055,7 @@ pub struct ZernikeFilter {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ZernikeFilter { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -13343,7 +14104,7 @@ pub struct ZernikeFilter {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &ZernikeFilter) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -13380,7 +14141,7 @@ pub struct ZernikeFilter {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -13458,7 +14219,7 @@ pub struct SphericalHarmonicsFilter {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> SphericalHarmonicsFilter { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -13507,7 +14268,7 @@ pub struct SphericalHarmonicsFilter {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &SphericalHarmonicsFilter) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -13544,7 +14305,7 @@ pub struct SphericalHarmonicsFilter {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -13994,7 +14755,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> FilterKind { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -14030,7 +14791,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &FilterKind) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -14067,7 +14828,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -14291,7 +15052,7 @@ Temperature \[K\]. WMP tier only — see the module docs.
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> DerivativeVariable { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -14328,7 +15089,7 @@ Temperature \[K\]. WMP tier only — see the module docs.
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &DerivativeVariable) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -14365,7 +15126,7 @@ Temperature \[K\]. WMP tier only — see the module docs.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -14447,7 +15208,7 @@ pub struct TallyDerivative {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> TallyDerivative { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -14484,7 +15245,7 @@ pub struct TallyDerivative {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &TallyDerivative) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -14521,7 +15282,7 @@ pub struct TallyDerivative {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -14594,7 +15355,7 @@ pub struct FluxDerivative {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> FluxDerivative { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -14610,7 +15371,7 @@ pub struct FluxDerivative {
 
 - **Default**
   - ```rust
-    fn default() -> FluxDerivative { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
 - **DistributionExt**
@@ -14636,7 +15397,7 @@ pub struct FluxDerivative {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &FluxDerivative) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -14673,7 +15434,7 @@ pub struct FluxDerivative {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -14782,7 +15543,7 @@ pub struct ReactionFilter {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ReactionFilter { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -14828,7 +15589,7 @@ pub struct ReactionFilter {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &ReactionFilter) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -14865,7 +15626,7 @@ pub struct ReactionFilter {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -14936,7 +15697,7 @@ pub struct CollisionFilter {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> CollisionFilter { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -14981,7 +15742,7 @@ pub struct CollisionFilter {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &CollisionFilter) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -15018,7 +15779,7 @@ pub struct CollisionFilter {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -15085,7 +15846,7 @@ pub struct CellFromFilter {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> CellFromFilter { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -15130,7 +15891,7 @@ pub struct CellFromFilter {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &CellFromFilter) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -15167,7 +15928,7 @@ pub struct CellFromFilter {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -15234,7 +15995,7 @@ pub struct CellBornFilter {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> CellBornFilter { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -15279,7 +16040,7 @@ pub struct CellBornFilter {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &CellBornFilter) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -15316,7 +16077,7 @@ pub struct CellBornFilter {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -15384,7 +16145,7 @@ pub struct MaterialFromFilter {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> MaterialFromFilter { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -15429,7 +16190,7 @@ pub struct MaterialFromFilter {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &MaterialFromFilter) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -15466,7 +16227,7 @@ pub struct MaterialFromFilter {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -15539,7 +16300,7 @@ pub struct WeightFilter {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> WeightFilter { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -15584,7 +16345,7 @@ pub struct WeightFilter {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &WeightFilter) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -15621,7 +16382,7 @@ pub struct WeightFilter {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -15701,7 +16462,7 @@ pub struct MuSurfaceFilter {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> MuSurfaceFilter { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -15746,7 +16507,7 @@ pub struct MuSurfaceFilter {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &MuSurfaceFilter) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -15783,7 +16544,7 @@ pub struct MuSurfaceFilter {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -15875,7 +16636,7 @@ pub struct EnergyFunctionFilter {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> EnergyFunctionFilter { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -15925,7 +16686,7 @@ pub struct EnergyFunctionFilter {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &EnergyFunctionFilter) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -15962,7 +16723,7 @@ pub struct EnergyFunctionFilter {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -16053,7 +16814,7 @@ pub struct LegendreFilter {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> LegendreFilter { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -16112,7 +16873,7 @@ pub struct LegendreFilter {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &LegendreFilter) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -16149,7 +16910,7 @@ pub struct LegendreFilter {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -16222,7 +16983,7 @@ pub struct MeshBornFilter {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> MeshBornFilter { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -16267,7 +17028,7 @@ pub struct MeshBornFilter {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &MeshBornFilter) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -16304,7 +17065,7 @@ pub struct MeshBornFilter {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -16377,7 +17138,7 @@ pub struct ParentNuclideFilter {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ParentNuclideFilter { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -16432,7 +17193,7 @@ pub struct ParentNuclideFilter {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &ParentNuclideFilter) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -16469,7 +17230,7 @@ pub struct ParentNuclideFilter {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -16551,7 +17312,7 @@ pub struct CellInstanceFilter {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> CellInstanceFilter { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -16606,7 +17367,7 @@ pub struct CellInstanceFilter {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &CellInstanceFilter) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -16643,7 +17404,7 @@ pub struct CellInstanceFilter {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -16716,7 +17477,7 @@ pub struct MeshMaterialFilter {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> MeshMaterialFilter { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -16761,7 +17522,7 @@ pub struct MeshMaterialFilter {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &MeshMaterialFilter) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -16798,7 +17559,7 @@ pub struct MeshMaterialFilter {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -16883,7 +17644,7 @@ pub struct ParticleProductionFilter {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ParticleProductionFilter { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -16928,7 +17689,7 @@ pub struct ParticleProductionFilter {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &ParticleProductionFilter) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -16965,7 +17726,7 @@ pub struct ParticleProductionFilter {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -17055,7 +17816,7 @@ pub struct MeshSurfaceFilter {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> MeshSurfaceFilter { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -17100,7 +17861,7 @@ pub struct MeshSurfaceFilter {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &MeshSurfaceFilter) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -17137,7 +17898,7 @@ pub struct MeshSurfaceFilter {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -17220,7 +17981,7 @@ pub struct DistribcellFilter {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> DistribcellFilter { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -17275,7 +18036,7 @@ pub struct DistribcellFilter {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &DistribcellFilter) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -17312,7 +18073,7 @@ pub struct DistribcellFilter {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -17451,7 +18212,7 @@ Standard deviation of the mean.
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> TriggerMetric { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -17498,7 +18259,7 @@ Standard deviation of the mean.
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &TriggerMetric) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -17535,7 +18296,7 @@ Standard deviation of the mean.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -17607,7 +18368,7 @@ pub struct Trigger {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Trigger { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -17644,7 +18405,7 @@ pub struct Trigger {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Trigger) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -17681,7 +18442,7 @@ pub struct Trigger {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -18176,7 +18937,7 @@ An extra neutron emitted by the same collision.
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ScatterEmission { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -18223,7 +18984,7 @@ An extra neutron emitted by the same collision.
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &ScatterEmission) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -18260,7 +19021,7 @@ An extra neutron emitted by the same collision.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -18308,7 +19069,7 @@ pub fn neutron_speed_cm_per_s(e: f64) -> f64 { /* ... */ }
 
 **Attributes:**
 
-- `Other("#[allow(clippy::too_many_arguments)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0,\nlint_name: \"too_many_arguments\", kind: Allow}])]")`
 
 Score one streamed free-flight segment into the **per-batch** accumulator
 `batch` via the **track-length estimator**.
@@ -18364,7 +19125,7 @@ pub fn score_track_length(batch: &mut [f64], tally: &super::tally::Tally, cell_i
 
 **Attributes:**
 
-- `Other("#[allow(clippy::too_many_arguments)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0,\nlint_name: \"too_many_arguments\", kind: Allow}])]")`
 
 A **collision-estimator** score at one point (gh:#598): deposits
 `w·inv_sigma` as flux and `w·inv_sigma·Σ_x` as each reaction rate, binned
@@ -18422,7 +19183,7 @@ pub fn score_fission_birth(batch: &mut [f64], tally: &super::tally::Tally, cell_
 
 **Attributes:**
 
-- `Other("#[allow(clippy::too_many_arguments)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0,\nlint_name: \"too_many_arguments\", kind: Allow}])]")`
 
 Score one **scattering event** into a per-batch accumulator, carrying both
 the incoming and the outgoing energy.
@@ -18523,7 +19284,7 @@ pub fn flush_bins(bins: &mut [super::tally::TallyBin], batch: &mut [f64]) { /* .
 
 **Attributes:**
 
-- `Other("#[allow(clippy::too_many_arguments)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0,\nlint_name: \"too_many_arguments\", kind: Allow}])]")`
 
 Score one real collision into `tally` via the collision estimator.
 
@@ -18775,7 +19536,7 @@ pub struct DerivedTally {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> DerivedTally { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -18811,7 +19572,7 @@ pub struct DerivedTally {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &DerivedTally) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -18848,7 +19609,7 @@ pub struct DerivedTally {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -19086,7 +19847,7 @@ only and are held to a tolerance against the CPU reference.
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ComputeType { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -19102,7 +19863,7 @@ only and are held to a tolerance against the CPU reference.
 
 - **Default**
   - ```rust
-    fn default() -> ComputeType { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
 - **DistributionExt**
@@ -19128,7 +19889,7 @@ only and are held to a tolerance against the CPU reference.
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &ComputeType) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -19165,7 +19926,7 @@ only and are held to a tolerance against the CPU reference.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -19273,7 +20034,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ThreadCount { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -19289,7 +20050,7 @@ Fields:
 
 - **Default**
   - ```rust
-    fn default() -> ThreadCount { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
 - **DistributionExt**
@@ -19315,7 +20076,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &ThreadCount) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -19352,7 +20113,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -19520,7 +20281,7 @@ A virtual (delta) collision — no physics; continue the flight.
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> DeltaEvent { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -19567,7 +20328,7 @@ A virtual (delta) collision — no physics; continue the flight.
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &DeltaEvent) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -19604,7 +20365,7 @@ A virtual (delta) collision — no physics; continue the flight.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -19677,7 +20438,7 @@ pub struct DeltaFlight {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> DeltaFlight { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -19745,7 +20506,7 @@ pub struct DeltaFlight {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -19840,7 +20601,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Advance { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -19877,7 +20638,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Advance) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -19914,7 +20675,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -20000,7 +20761,7 @@ honestly, so the history is lost and reported as such.
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> SiteContent { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -20052,7 +20813,7 @@ honestly, so the history is lost and reported as such.
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &SiteContent) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -20089,7 +20850,7 @@ honestly, so the history is lost and reported as such.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -20171,7 +20932,7 @@ pub struct TentativeSite {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> TentativeSite { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -20208,7 +20969,7 @@ pub struct TentativeSite {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &TentativeSite) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -20245,7 +21006,7 @@ pub struct TentativeSite {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -20368,7 +21129,7 @@ pub struct BoundedRay<D, M> {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -20448,7 +21209,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> SiteTotal { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -20495,7 +21256,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &SiteTotal) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -20532,7 +21293,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -20645,7 +21406,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> FlightEnd { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -20686,7 +21447,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &FlightEnd) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -20723,7 +21484,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -20848,7 +21609,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> DeltaStep { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -20889,7 +21650,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &DeltaStep) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -20926,7 +21687,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -21077,7 +21838,7 @@ where
 
 **Attributes:**
 
-- `Other("#[allow(clippy::too_many_arguments)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0,\nlint_name: \"too_many_arguments\", kind: Allow}])]")`
 
 **The delta-tracking flight loop** (Woodcock et al. 1965; the form of
 Leppänen 2010, Ann. Nucl. Energy 37, 715-722). NEW WORK: OpenMC has no
@@ -21122,7 +21883,7 @@ where
 
 **Attributes:**
 
-- `Other("#[allow(clippy::too_many_arguments)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0,\nlint_name: \"too_many_arguments\", kind: Allow}])]")`
 
 [`fly`] reporting every step to `observe` (gh:#784): each flight sampled
 on the majorant ([`TraceEvent::Flight`], with its variate), and each
@@ -21194,7 +21955,7 @@ where
 
 **Attributes:**
 
-- `Other("#[allow(clippy::too_many_arguments)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0,\nlint_name: \"too_many_arguments\", kind: Allow}])]")`
 
 [`bounded_delta_flight`] for a neutron carrying a URR stream seed: the real
 `Σ_t` at each tentative site is the **band** total
@@ -21214,7 +21975,7 @@ where
 
 **Attributes:**
 
-- `Other("#[allow(clippy::too_many_arguments)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0,\nlint_name: \"too_many_arguments\", kind: Allow}])]")`
 
 [`bounded_delta_flight_urr`] that also calls `visit(position, material,
 majorant)` at **every tentative collision site** inside the region, virtual
@@ -21397,7 +22158,7 @@ a finite run sees a void's flux as rare enormous scores or not at all.
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> DeltaTallyEstimator { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -21413,7 +22174,7 @@ a finite run sees a void's flux as rare enormous scores or not at all.
 
 - **Default**
   - ```rust
-    fn default() -> DeltaTallyEstimator { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
 - **DistributionExt**
@@ -21449,7 +22210,7 @@ a finite run sees a void's flux as rare enormous scores or not at all.
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &DeltaTallyEstimator) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -21486,7 +22247,7 @@ a finite run sees a void's flux as rare enormous scores or not at all.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -21640,6 +22401,31 @@ pub struct Majorant {
   ```
   The majorant Σ_maj \[cm⁻¹\] at energy `e` \[eV\] — conservative (takes the
 
+- ```rust
+  pub fn over_temperature_tables(tables: &[Majorant], t_margin: f64) -> Majorant { /* ... */ }
+  ```
+  **The bound over a set of temperature tables**: the pointwise maximum
+
+- ```rust
+  pub fn chebyshev_cover(self: &Self, settings: CoverSettings) -> Majorant { /* ... */ }
+  ```
+  **A Chebyshev cover of this majorant**: a few bands, each a
+
+- ```rust
+  pub fn cover_bands(self: &Self) -> usize { /* ... */ }
+  ```
+  Number of bands in a Chebyshev cover (0 for a node table).
+
+- ```rust
+  pub fn audit_over_temperatures(self: &Self, sets: &[(&[Material], &[Nuclide])], e_lo: f64, e_hi: f64, n_log: usize) -> TemperatureAudit { /* ... */ }
+  ```
+  **Audit this majorant across temperatures**: [`Self::audit`] against
+
+- ```rust
+  pub fn mean_overhead(self: &Self, materials: &[Material], nuclides: &[Nuclide], energies: &[f64], weights: &[f64]) -> f64 { /* ... */ }
+  ```
+  **Virtual-collision overhead proxy**: `Σ_maj / Σ_t` averaged over
+
 ###### Trait Implementations
 
 - **Any**
@@ -21665,7 +22451,7 @@ pub struct Majorant {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Majorant { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -21680,7 +22466,7 @@ pub struct Majorant {
 
 - **Default**
   - ```rust
-    fn default() -> Majorant { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
 - **DistributionExt**
@@ -21737,7 +22523,7 @@ pub struct Majorant {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -21810,7 +22596,7 @@ pub struct MajorantAudit {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> MajorantAudit { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -21878,7 +22664,7 @@ pub struct MajorantAudit {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -21908,7 +22694,7 @@ pub struct MajorantAudit {
 
 **Attributes:**
 
-- `Other("#[allow(clippy::too_many_arguments)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0,\nlint_name: \"too_many_arguments\", kind: Allow}])]")`
 
 The caller audit for GitHub #585, run on a caller's own materials and
 settings. It builds [`Majorant::bounding`] and the pre-#585
@@ -21923,6 +22709,529 @@ that caller was measured on an under-bound majorant.
 
 ```rust
 pub fn bounding_audit_line(label: &str, materials: &[crate::material::material::Material], nuclides: &[crate::material::nuclide::Nuclide], e_min: f64, e_max: f64, n_bins: usize, subsamples: usize, margin: f64) -> String { /* ... */ }
+```
+
+## Module `temperature_cover`
+
+**A majorant that covers a temperature range** (gh #945, stage 3):
+`Σ_maj(E) ≥ Σ_t(E, T)` for every `T` in `[T_min, T_max]` and every `E`.
+
+Maintainer direction (gh #945, 2026-10-17): "chebyshev polynomial to cover
+logE and neutron T. Don't have to fit exactly but have to cover
+everything", refined to "a few regions", with the region count and degree
+a cost-versus-cost choice exposed only through `advanced` (#942). It is a
+**cover, not a fit**: looseness costs virtual collisions, an under-bound
+anywhere is a defect.
+
+# The construction, in two steps
+
+**Step 1, the T axis: [`Majorant::over_temperature_tables`].** Process the
+nuclides at tables spanning the range (`T_1 = T_min < ... < T_n = T_max`),
+build a [`Majorant::bounding`] for each (a bound by construction on
+pointwise and S(α,β) data at that table's temperature), and take their
+**pointwise maximum on the union of all their grids**, times
+`1 + t_margin`. Doppler broadening lowers resonance peaks and raises their
+wings, so no end of the range is enough; the maximum over the tables is
+the bound the issue asks for ("the largest Σ_t(E, T) over T at each E").
+
+*What is guaranteed and what is not.* At each table temperature the
+bound holds by construction. **Between** tables it does not follow from
+the construction: at a fixed `E` near a resonance's half-width crossover
+`Σ_t(T)` is not monotone in `T` (the peak falls while the wing rises), so
+its maximum over a temperature interval can exceed both bracketing
+tables. That excess is bounded by `t_margin`, which is **measured, not
+proven**: `Majorant::audit` against data processed exactly at
+temperatures *between* the tables (`tests/majorant_temperature_cover.rs`,
+`verification_and_validation/region_temperature_945/README.md`, section
+of 2026-10-19). The excess shrinks as the tables get closer; the default
+margin is set from that measurement, with a safety factor.
+
+**Step 2, the energy axis: [`Majorant::chebyshev_cover`].** The step-1
+table is a node list of up to a few hundred thousand points. The cover
+replaces it by a handful of bands, each `exp(P_b(ln E) + s_b)` with `P_b`
+a Chebyshev polynomial of `x = ln E` scaled to `[-1, 1]` and `s_b` a shift.
+`P_b` is the interpolant, at the Chebyshev nodes, of the band's upper
+envelope of `ln Σ_maj`. **That is a fit, and a fit can dip below.** The
+shift `s_b` is what makes it a bound, and it is **proven, not sampled**:
+
+1. The table's value on node interval `[E_i, E_{i+1}]` is the larger of its
+   two end nodes (what [`Majorant::at`] returns), a constant `y_i`.
+2. `|T_j'(x)| <= j^2` on `[-1, 1]`, so `|P'| <= L = Σ j^2 |c_j|`. On an
+   interval of width `w` (in `x`), `min P >= min(P at its ends) - L w / 2`.
+   Intervals wider than `W_MAX` are subdivided first, so the term stays
+   small.
+3. `s_b = max_i ( y_i - (min P on interval i, as bounded in 2) )`, plus
+   1e-12 for round-off. Then `P_b + s_b >= y_i` on every interval, hence
+   the cover is `>=` the step-1 table everywhere, hence `>=` the bound it
+   covers. Below the first node the 1/v extrapolation of [`Majorant::at`]
+   is kept; above the last node the last band's end value holds.
+
+This is a guarantee against the step-1 table, **not** an independent
+guarantee against the data: the data-level guarantee is step 1's.
+
+# Cost, which is the point of the knobs
+
+Resonances are thousands of times above the background in `Σ_t`. A band
+that contains a resolved resonance must sit above its peak everywhere, so
+the cover is **very loose** across the resolved range: that is the price
+of replacing a few hundred thousand nodes by a few coefficients. More
+bands cost build time and `at` time and buy tightness; the measured
+trade-off is in the V&V record. The band edges are equal in `ln E`,
+snapped to table nodes; the data-driven edges the maintainer named
+(S(α,β) cutoff, resolved/unresolved limits) are a refinement the
+equal-log default does not use.
+
+```rust
+pub mod temperature_cover { /* ... */ }
+```
+
+### Types
+
+#### Struct `CoverSettings`
+
+**The cover's two knobs**, set through `advanced` only (gh #945, #942).
+
+`regions` is the number of energy bands (each its own polynomial in
+`ln E`); `degree` is each polynomial's degree. Accuracy does not change
+with either as long as the cover holds (it is a bound, not a fit); only
+the build cost and the virtual-collision cost do.
+
+```rust
+pub struct CoverSettings {
+    pub regions: usize,
+    pub degree: usize,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `regions` | `usize` | Number of energy bands, at least 1. |
+| `degree` | `usize` | Polynomial degree in each band, at least 0. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+    **256 bands of degree 4**, from the sweep of 2026-10-19
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `CoverBand`
+
+One band of a Chebyshev cover: `exp(P(x(E)) + shift)` on `[e_lo, e_hi]`.
+
+```rust
+pub struct CoverBand {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `TemperatureAudit`
+
+The result of [`Majorant::audit_over_temperatures`].
+
+```rust
+pub struct TemperatureAudit {
+    pub worst_ratio: f64,
+    pub energy_ev: f64,
+    pub temperature_k: f64,
+    pub energies_checked: usize,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `worst_ratio` | `f64` | Worst `Σ_t / Σ_maj` over every set and energy. Above 1 is an<br>under-bound. |
+| `energy_ev` | `f64` | Energy \[eV\] of that worst ratio. |
+| `temperature_k` | `f64` | Temperature \[K\] (`materials[0].temperature` of the set) it was found at. |
+| `energies_checked` | `usize` | Energies checked in total, summed over the sets. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Constants and Statics
+
+#### Constant `DEFAULT_T_MARGIN`
+
+**The default extra margin** of [`Majorant::over_temperature_tables`]:
+1 %. The worst between-table excess measured with no margin at all was
+0.127 % (graphite + UO2, two tables 1207 K apart, at 1.69 MeV, where the
+data are not Doppler-broadened and the difference is the processing
+tolerance of separate RECONR/BROADR runs, 1e-3), 0.049 % with three
+tables and 0.023 % with five; U-238 alone showed none to 1e-7. So 1 % is
+8x the worst measured excess. It is a floor for cases not measured
+(water, other nuclides), not a derived bound.
+
+```rust
+pub const DEFAULT_T_MARGIN: f64 = 0.01;
 ```
 
 ### Re-exports
@@ -22065,6 +23374,24 @@ pub use majorant::Majorant;
 pub use majorant::MajorantAudit;
 ```
 
+#### Re-export `CoverSettings`
+
+```rust
+pub use temperature_cover::CoverSettings;
+```
+
+#### Re-export `TemperatureAudit`
+
+```rust
+pub use temperature_cover::TemperatureAudit;
+```
+
+#### Re-export `DEFAULT_T_MARGIN`
+
+```rust
+pub use temperature_cover::DEFAULT_T_MARGIN;
+```
+
 ## Module `transport`
 
 ```rust
@@ -22128,7 +23455,9 @@ tentative collision with `w/Σ_maj` ([`DeltaTallyEstimator`], gh:#598).
 **S(α,β) thermal scattering (bead op-6tz.12).** A moderator nuclide carrying a
 [`crate::material::thermal::ThermalScattering`] table (attached via
 [`Nuclide::with_thermal_scattering`]) now thermalizes correctly: below the
-table's cutoff (~4 eV) the scatter branch samples the bound-atom S(α,β) law
+table's cutoff (~~4 eV~~ **CORRECTED 2026-10-18:** the table's own last
+energy, 10 eV for ENDF/B-VIII.0 H-in-H₂O since gh:#459; checked on the
+ACE tables our port writes, 10 eV for water and 4.9 eV for graphite) the scatter branch samples the bound-atom S(α,β) law
 ([`Nuclide::sample_thermal`]) — lab-frame outgoing energy and cosine, with the
 up-scatter that builds a Maxwellian — instead of the free-gas elastic kernel.
 Nuclides without a table (fuel, O, clad) stay free-gas/CE. This makes a
@@ -22254,7 +23583,7 @@ pub struct SourceSite {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> SourceSite { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -22291,7 +23620,7 @@ pub struct SourceSite {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &SourceSite) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -22328,7 +23657,7 @@ pub struct SourceSite {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -22418,7 +23747,7 @@ pub struct GenerationChunk {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> GenerationChunk { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -22454,7 +23783,7 @@ pub struct GenerationChunk {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &GenerationChunk) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -22491,7 +23820,7 @@ pub struct GenerationChunk {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -22578,7 +23907,7 @@ pub struct ChunkCounts {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ChunkCounts { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -22594,7 +23923,7 @@ pub struct ChunkCounts {
 
 - **Default**
   - ```rust
-    fn default() -> ChunkCounts { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
 - **DistributionExt**
@@ -22620,7 +23949,7 @@ pub struct ChunkCounts {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &ChunkCounts) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -22657,7 +23986,7 @@ pub struct ChunkCounts {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -22746,7 +24075,7 @@ pub struct ChunkResult {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ChunkResult { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -22782,7 +24111,7 @@ pub struct ChunkResult {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &ChunkResult) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -22819,7 +24148,7 @@ pub struct ChunkResult {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -22900,7 +24229,7 @@ pub struct DistributedGeneration {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> DistributedGeneration { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -22936,7 +24265,7 @@ pub struct DistributedGeneration {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &DistributedGeneration) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -22973,7 +24302,7 @@ pub struct DistributedGeneration {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -23103,7 +24432,7 @@ pub struct DistributedPowerIteration {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> DistributedPowerIteration { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -23165,7 +24494,7 @@ pub struct DistributedPowerIteration {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -23283,7 +24612,7 @@ pub struct SourceBox {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> SourceBox { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -23351,7 +24680,7 @@ pub struct SourceBox {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -23430,7 +24759,7 @@ pub struct GenerationProgress {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> GenerationProgress { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -23467,7 +24796,7 @@ pub struct GenerationProgress {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &GenerationProgress) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -23504,7 +24833,7 @@ pub struct GenerationProgress {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -23580,7 +24909,7 @@ pub struct CsgGenerationReport {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> CsgGenerationReport { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -23617,7 +24946,7 @@ pub struct CsgGenerationReport {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &CsgGenerationReport) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -23654,7 +24983,7 @@ pub struct CsgGenerationReport {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -23719,6 +25048,11 @@ pub struct CsgPowerIteration {
   Sample the initial source as [`run_keff_csg_seq`] does: points
 
 - ```rust
+  pub fn with_majorants(self: Self, majorants: Vec<Majorant>) -> Self { /* ... */ }
+  ```
+  **Delta-track the regions that ask for it** (gh #926, the beginner
+
+- ```rust
   pub fn step(self: &mut Self, geom: &Geometry, materials: &[Material], nuclides: &[Nuclide]) -> Option<CsgGenerationReport> { /* ... */ }
   ```
   Transport one generation and resample its fission bank into the next
@@ -23763,6 +25097,21 @@ pub struct CsgPowerIteration {
   ```
   Neutrons per generation the next [`Self::step`] transports.
 
+- ```rust
+  pub fn enable_ifp(self: &mut Self, settings: crate::physics::ifp::IfpSettings) -> Result<(), String> { /* ... */ }
+  ```
+  **Carry IFP lineage** from now on (OpenMC's `ifp_n_generation` and
+
+- ```rust
+  pub fn step_scored(self: &mut Self, geom: &Geometry, materials: &[Material], nuclides: &[Nuclide], extra: &mut ExtraScoring) -> Option<(CsgGenerationReport, GenerationTotals)> { /* ... */ }
+  ```
+  **One generation, scoring `extra` and returning its totals**
+
+- ```rust
+  pub fn step_par(self: &mut Self, geom: &Geometry, materials: &[Material], nuclides: &[Nuclide], extra: Option<&mut ExtraScoring>) -> Option<(CsgGenerationReport, GenerationTotals)> { /* ... */ }
+  ```
+  **[`Self::step_scored`] with the histories run in parallel** on
+
 ###### Trait Implementations
 
 - **Any**
@@ -23788,7 +25137,7 @@ pub struct CsgPowerIteration {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> CsgPowerIteration { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -23850,7 +25199,393 @@ pub struct CsgPowerIteration {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `ExtraScoring`
+
+**More tallies and leakage grids, scored on one run beside each other**
+(gh #940, the beginner `Diagnostics`).
+
+The transport kernel takes one tally; a run that answers several
+questions at once (a six-factor split, a fine spectrum, a mesh map) needs
+several, each with its own filters. Each tally here gets its own
+per-generation batch, and each leakage grid its own per-generation
+accumulator; [`CsgPowerIteration::step_scored`] fills them, and the caller
+either [`Self::flush`]es a generation into the persistent bins as one
+realization (an active generation) or [`Self::discard`]s it (an inactive
+one).
+
+**Scoring draws no random number**, so adding or removing a tally changes
+no history: every tally sees exactly the events it would see alone, and
+gives the same numbers bit for bit (pinned by
+`extra_scoring_changes_nothing_and_matches_a_lone_tally`).
+
+Only surface tracking scores extras. ~~[`CsgPowerIteration`] runs without
+majorants, so the delta-tracking estimators never apply.~~ **CORRECTED
+2026-10-18 (gh #926):** it carries majorants when given
+[`CsgPowerIteration::with_majorants`]; extras are still not scored inside
+a delta-tracked region, so the beginner run refuses diagnostics on a
+model that has one.
+
+```rust
+pub struct ExtraScoring {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new() -> Self { /* ... */ }
+  ```
+  Nothing to score yet.
+
+- ```rust
+  pub fn add_tally(self: &mut Self, tally: Tally) -> usize { /* ... */ }
+  ```
+  Add a tally (its bins are reset); returns its index.
+
+- ```rust
+  pub fn add_leak_grid(self: &mut Self, edges: Vec<f64>) -> usize { /* ... */ }
+  ```
+  Add a leakage grid: ascending energy edges \[eV\], `edges.len() - 1`
+
+- ```rust
+  pub fn tallies(self: &Self) -> &[Tally] { /* ... */ }
+  ```
+  Every tally, in the order added.
+
+- ```rust
+  pub fn leak_grids(self: &Self) -> &[Vec<f64>] { /* ... */ }
+  ```
+  Every leakage grid's edges, in the order added.
+
+- ```rust
+  pub fn tally(self: &Self, i: usize) -> &Tally { /* ... */ }
+  ```
+  Tally `i`, with its persistent (flushed) bins.
+
+- ```rust
+  pub fn batch(self: &Self, i: usize) -> &[f64] { /* ... */ }
+  ```
+  Tally `i`'s scores of the generation just stepped, not yet flushed.
+
+- ```rust
+  pub fn leak_edges(self: &Self, i: usize) -> &[f64] { /* ... */ }
+  ```
+  Leakage grid `i`'s edges \[eV\].
+
+- ```rust
+  pub fn leak_bins(self: &Self, i: usize) -> &[TallyBin] { /* ... */ }
+  ```
+  Leakage grid `i`'s persistent bins.
+
+- ```rust
+  pub fn leak_batch(self: &Self, i: usize) -> &[f64] { /* ... */ }
+  ```
+  Leakage grid `i`'s counts of the generation just stepped.
+
+- ```rust
+  pub fn flush(self: &mut Self) { /* ... */ }
+  ```
+  Close the generation as one realization of every tally and grid.
+
+- ```rust
+  pub fn discard(self: &mut Self) { /* ... */ }
+  ```
+  Drop the generation's scores (an inactive generation).
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `GenerationTotals`
+
+**What one generation's histories did**, beside `k` (gh #940): how each
+neutron ended, the run-health counters, and (with IFP on) the IFP
+scores of this generation.
+
+```rust
+pub struct GenerationTotals {
+    pub histories: u64,
+    pub ends: crate::physics::keff::HistoryCounts,
+    pub collisions: u64,
+    pub lost_locate: u64,
+    pub stuck_events: u64,
+    pub leak_vacuum: u64,
+    pub leak_infinity: u64,
+    pub neg_dist: u64,
+    pub ifp: crate::physics::ifp::IfpTallies,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `histories` | `u64` | Source histories transported. |
+| `ends` | `crate::physics::keff::HistoryCounts` | How every neutron ended: leaked, captured, fissioned (analog ends;<br>see [`crate::physics::keff::HistoryCounts`]). |
+| `collisions` | `u64` | Real collisions. |
+| `lost_locate` | `u64` | Histories ended because no cell held the particle (scored as leaks). |
+| `stuck_events` | `u64` | Histories ended by the event cap (scored as leaks). |
+| `leak_vacuum` | `u64` | Escapes through a vacuum surface (the genuine leaks). |
+| `leak_infinity` | `u64` | Escapes with no surface ahead (a geometry not closed by vacuum). |
+| `neg_dist` | `u64` | Negative distances to a boundary. |
+| `ifp` | `crate::physics::ifp::IfpTallies` | This generation's IFP scores; all zero with IFP off. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -23964,7 +25699,7 @@ pub fn run_keff_csg(geom: &crate::geometry::geometry::Geometry, materials: &[cra
 
 **Attributes:**
 
-- `Other("#[allow(clippy::too_many_arguments)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0,\nlint_name: \"too_many_arguments\", kind: Allow}])]")`
 
 **One surface-tracked history, step by step** (gh:#784): the neutron at
 `r`, `u`, `e` is transported by the same kernel a [`run_keff_csg`]
@@ -23989,7 +25724,7 @@ pub fn trace_csg_history<O: FnMut(crate::physics::tracking_trace::TraceEvent)>(r
 
 **Attributes:**
 
-- `Other("#[allow(clippy::too_many_arguments)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0,\nlint_name: \"too_many_arguments\", kind: Allow}])]")`
 
 [`run_keff_csg_hybrid`], calling `on_generation` after every generation.
 The callback runs between generations, never inside the parallel history
@@ -24004,7 +25739,7 @@ pub fn run_keff_csg_hybrid_with_progress<G: FnMut(GenerationProgress) + Send>(ge
 
 **Attributes:**
 
-- `Other("#[allow(clippy::too_many_arguments)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0,\nlint_name: \"too_many_arguments\", kind: Allow}])]")`
 
 [`run_keff_csg_seq_progress`] without a progress callback: the scalar,
 bit-reproducible reference path (its full documentation is there).
@@ -24017,7 +25752,7 @@ pub fn run_keff_csg_seq(geom: &crate::geometry::geometry::Geometry, materials: &
 
 **Attributes:**
 
-- `Other("#[allow(clippy::too_many_arguments)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0,\nlint_name: \"too_many_arguments\", kind: Allow}])]")`
 
 [`run_keff_csg_par_progress`] without a progress callback (its full
 documentation is there).
@@ -24030,7 +25765,7 @@ pub fn run_keff_csg_par(geom: &crate::geometry::geometry::Geometry, materials: &
 
 **Attributes:**
 
-- `Other("#[allow(clippy::too_many_arguments)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0,\nlint_name: \"too_many_arguments\", kind: Allow}])]")`
 
 Like [`run_keff_csg`], but also accumulates a **leakage spectrum** on the
 energy grid `leak_edges` into `leak_bins` — one [`TallyBin`] per energy bin,
@@ -24060,7 +25795,7 @@ pub fn run_keff_csg_reactor_physics(geom: &crate::geometry::geometry::Geometry, 
 
 **Attributes:**
 
-- `Other("#[allow(clippy::too_many_arguments)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0,\nlint_name: \"too_many_arguments\", kind: Allow}])]")`
 
 Scalar, single-thread CSG power iteration — the **trusted, deterministic,
 bit-reproducible reference** backend ([`ComputeType::CpuSingleThread`]).
@@ -24086,7 +25821,7 @@ pub fn run_keff_csg_seq_progress<G: FnMut(GenerationProgress) + Send>(geom: &cra
 
 **Attributes:**
 
-- `Other("#[allow(clippy::too_many_arguments)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0,\nlint_name: \"too_many_arguments\", kind: Allow}])]")`
 
 Rayon-parallel CSG power iteration ([`ComputeType::CpuMultiThread`]).
 
@@ -24258,7 +25993,7 @@ pub struct ParticleRestart {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ParticleRestart { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -24295,7 +26030,7 @@ pub struct ParticleRestart {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &ParticleRestart) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -24332,7 +26067,7 @@ pub struct ParticleRestart {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -24513,7 +26248,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ScatterRepresentation { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -24560,7 +26295,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &ScatterRepresentation) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -24597,7 +26332,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -24719,7 +26454,7 @@ pub struct LegendreKernel {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> LegendreKernel { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -24755,7 +26490,7 @@ pub struct LegendreKernel {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &LegendreKernel) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -24792,7 +26527,7 @@ pub struct LegendreKernel {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -24899,7 +26634,7 @@ pub struct TabularKernel {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> TabularKernel { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -24935,7 +26670,7 @@ pub struct TabularKernel {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &TabularKernel) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -24972,7 +26707,7 @@ pub struct TabularKernel {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -25083,7 +26818,7 @@ pub struct HistogramKernel {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> HistogramKernel { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -25119,7 +26854,7 @@ pub struct HistogramKernel {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &HistogramKernel) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -25156,7 +26891,7 @@ pub struct HistogramKernel {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -25313,7 +27048,7 @@ pub struct StatePoint {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> StatePoint { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -25349,7 +27084,7 @@ pub struct StatePoint {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &StatePoint) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -25386,7 +27121,7 @@ pub struct StatePoint {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -25483,7 +27218,7 @@ pub struct RunSummary {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> RunSummary { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -25519,7 +27254,7 @@ pub struct RunSummary {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &RunSummary) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -25556,7 +27291,7 @@ pub struct RunSummary {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -25631,7 +27366,7 @@ pub struct MaterialSummary {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> MaterialSummary { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -25667,7 +27402,7 @@ pub struct MaterialSummary {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &MaterialSummary) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -25704,7 +27439,7 @@ pub struct MaterialSummary {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -25852,7 +27587,7 @@ A track that ends here is a defect report, not a history.
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> TrackEvent { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -25899,7 +27634,7 @@ A track that ends here is a defect report, not a history.
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &TrackEvent) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -25936,7 +27671,7 @@ A track that ends here is a defect report, not a history.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -26019,7 +27754,7 @@ pub struct TrackState {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> TrackState { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -26056,7 +27791,7 @@ pub struct TrackState {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &TrackState) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -26093,7 +27828,7 @@ pub struct TrackState {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -26175,7 +27910,7 @@ pub struct Track {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Track { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -26190,7 +27925,7 @@ pub struct Track {
 
 - **Default**
   - ```rust
-    fn default() -> Track { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
 - **DistributionExt**
@@ -26220,7 +27955,7 @@ pub struct Track {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Track) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -26257,7 +27992,7 @@ pub struct Track {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -26370,7 +28105,7 @@ pub struct TrackRecorder {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> TrackRecorder { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -26406,7 +28141,7 @@ pub struct TrackRecorder {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &TrackRecorder) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -26443,7 +28178,7 @@ pub struct TrackRecorder {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -26693,7 +28428,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> TraceEvent { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -26730,7 +28465,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &TraceEvent) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -26767,7 +28502,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -26875,7 +28610,7 @@ pub struct TraceCounts {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> TraceCounts { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -26891,7 +28626,7 @@ pub struct TraceCounts {
 
 - **Default**
   - ```rust
-    fn default() -> TraceCounts { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
 - **DistributionExt**
@@ -26927,7 +28662,7 @@ pub struct TraceCounts {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &TraceCounts) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -26964,7 +28699,7 @@ pub struct TraceCounts {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -27118,7 +28853,7 @@ pub struct UfsWeights {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> UfsWeights { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -27154,7 +28889,7 @@ pub struct UfsWeights {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &UfsWeights) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -27191,7 +28926,7 @@ pub struct UfsWeights {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -27331,7 +29066,7 @@ pub struct VarianceReduction {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> VarianceReduction { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -27373,7 +29108,7 @@ pub struct VarianceReduction {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &VarianceReduction) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -27410,7 +29145,7 @@ pub struct VarianceReduction {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -27615,7 +29350,7 @@ pub struct WeightWindow {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> WeightWindow { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -27657,7 +29392,7 @@ pub struct WeightWindow {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &WeightWindow) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -27694,7 +29429,7 @@ pub struct WeightWindow {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -27796,7 +29531,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> WindowOutcome { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -27832,7 +29567,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &WindowOutcome) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -27869,7 +29604,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -27947,7 +29682,7 @@ pub struct WindowState {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> WindowState { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -27989,7 +29724,7 @@ pub struct WindowState {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &WindowState) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -28026,7 +29761,7 @@ pub struct WindowState {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -28133,7 +29868,7 @@ pub struct WeightWindows {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> WeightWindows { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -28169,7 +29904,7 @@ pub struct WeightWindows {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &WeightWindows) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -28206,7 +29941,7 @@ pub struct WeightWindows {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -28437,7 +30172,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> FixedSource { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -28504,7 +30239,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -28583,7 +30318,7 @@ pub struct FixedSourceSettings {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> FixedSourceSettings { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -28655,7 +30390,7 @@ pub struct FixedSourceSettings {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -28727,7 +30462,7 @@ pub struct FixedSourceResult {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> FixedSourceResult { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -28795,7 +30530,7 @@ pub struct FixedSourceResult {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -29058,7 +30793,7 @@ pub struct DbrcTable {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> DbrcTable { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -29125,7 +30860,7 @@ pub struct DbrcTable {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -29206,7 +30941,7 @@ says. The ablation arm — this is how the law's reactivity worth gets
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ContinuumAngularMode { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -29253,7 +30988,7 @@ says. The ablation arm — this is how the law's reactivity worth gets
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &ContinuumAngularMode) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -29290,7 +31025,7 @@ says. The ablation arm — this is how the law's reactivity worth gets
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -29925,7 +31660,7 @@ pub struct KeffSettings {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> KeffSettings { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -29998,7 +31733,7 @@ pub struct KeffSettings {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -30103,7 +31838,7 @@ pub struct KeffResult {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> KeffResult { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -30170,7 +31905,7 @@ pub struct KeffResult {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -30280,7 +32015,7 @@ pub struct HistoryCounts {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> HistoryCounts { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -30296,7 +32031,7 @@ pub struct HistoryCounts {
 
 - **Default**
   - ```rust
-    fn default() -> HistoryCounts { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
 - **DistributionExt**
@@ -30332,7 +32067,7 @@ pub struct HistoryCounts {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &HistoryCounts) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -30369,7 +32104,7 @@ pub struct HistoryCounts {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -30451,7 +32186,7 @@ pub struct GenerationReport {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> GenerationReport { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -30488,7 +32223,7 @@ pub struct GenerationReport {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &GenerationReport) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -30525,7 +32260,7 @@ pub struct GenerationReport {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -30673,7 +32408,7 @@ pub struct PowerIteration {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> PowerIteration { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -30740,7 +32475,7 @@ pub struct PowerIteration {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -31192,7 +32927,7 @@ pub struct IfpSettings {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> IfpSettings { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -31245,7 +32980,7 @@ pub struct IfpSettings {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &IfpSettings) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -31282,7 +33017,7 @@ pub struct IfpSettings {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -31388,7 +33123,7 @@ pub struct IfpLineage {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> IfpLineage { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -31403,7 +33138,7 @@ pub struct IfpLineage {
 
 - **Default**
   - ```rust
-    fn default() -> IfpLineage { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
 - **DistributionExt**
@@ -31439,7 +33174,7 @@ pub struct IfpLineage {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &IfpLineage) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -31476,7 +33211,7 @@ pub struct IfpLineage {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -31540,7 +33275,12 @@ pub struct IfpTallies {
 - ```rust
   pub fn generation_time(self: &Self, settings: &IfpSettings) -> Result<f64, String> { /* ... */ }
   ```
-  Adjoint-weighted generation time `Λ` \[s\].
+  ~~Adjoint-weighted generation time `Λ` \[s\].~~ **CORRECTED
+
+- ```rust
+  pub fn generation_time_with_k(self: &Self, settings: &IfpSettings, k_eff: f64) -> Result<f64, String> { /* ... */ }
+  ```
+  **Adjoint-weighted generation time `Λ_eff` \[s\]** as OpenMC defines it:
 
 - ```rust
   pub fn scoring_fraction(self: &Self) -> f64 { /* ... */ }
@@ -31572,7 +33312,7 @@ pub struct IfpTallies {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> IfpTallies { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -31587,7 +33327,7 @@ pub struct IfpTallies {
 
 - **Default**
   - ```rust
-    fn default() -> IfpTallies { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
 - **DistributionExt**
@@ -31613,7 +33353,7 @@ pub struct IfpTallies {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &IfpTallies) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -31650,7 +33390,7 @@ pub struct IfpTallies {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -31778,7 +33518,7 @@ pub struct KineticsParameters {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> KineticsParameters { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -31814,7 +33554,7 @@ pub struct KineticsParameters {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &KineticsParameters) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -31851,7 +33591,7 @@ pub struct KineticsParameters {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -31927,7 +33667,7 @@ than silently replacing it.
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> KineticsMethod { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -31974,7 +33714,7 @@ than silently replacing it.
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &KineticsMethod) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -32011,7 +33751,7 @@ than silently replacing it.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -32269,7 +34009,7 @@ straddling sub-interval is always retained. Usually converges in fewer
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> SearchMethod { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -32316,7 +34056,7 @@ straddling sub-interval is always retained. Usually converges in fewer
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &SearchMethod) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -32353,7 +34093,7 @@ straddling sub-interval is always retained. Usually converges in fewer
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -32432,7 +34172,7 @@ pub struct SearchSettings {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> SearchSettings { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -32506,7 +34246,7 @@ pub struct SearchSettings {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -32582,7 +34322,7 @@ pub struct SearchIteration {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> SearchIteration { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -32650,7 +34390,7 @@ pub struct SearchIteration {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -32725,7 +34465,7 @@ pub struct SearchResult {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> SearchResult { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -32792,7 +34532,7 @@ pub struct SearchResult {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -32890,7 +34630,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> SearchError { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -32932,7 +34672,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &SearchError) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -32974,7 +34714,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -33289,7 +35029,7 @@ pub struct Mgxs {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Mgxs { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -33356,7 +35096,7 @@ pub struct Mgxs {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -33457,7 +35197,7 @@ pub struct ScatterMultiplicity {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ScatterMultiplicity { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -33493,7 +35233,7 @@ pub struct ScatterMultiplicity {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &ScatterMultiplicity) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -33530,7 +35270,7 @@ pub struct ScatterMultiplicity {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -33640,7 +35380,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ScatterAngle { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -33676,7 +35416,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &ScatterAngle) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -33713,7 +35453,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -33805,7 +35545,7 @@ pub struct MgxsLibrary {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> MgxsLibrary { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -33872,7 +35612,7 @@ pub struct MgxsLibrary {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -33947,7 +35687,7 @@ pub struct MgSettings {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> MgSettings { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -34020,7 +35760,7 @@ pub struct MgSettings {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -34193,7 +35933,7 @@ pub struct Estimate {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Estimate { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -34230,7 +35970,7 @@ pub struct Estimate {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Estimate) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -34267,7 +36007,7 @@ pub struct Estimate {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -34346,7 +36086,7 @@ pub struct ReactorPhysicsConfig {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ReactorPhysicsConfig { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -34418,7 +36158,7 @@ pub struct ReactorPhysicsConfig {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -34508,7 +36248,7 @@ Discriminant value: `2`
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Group { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -34555,7 +36295,7 @@ Discriminant value: `2`
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Group) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -34592,7 +36332,7 @@ Discriminant value: `2`
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -34690,7 +36430,7 @@ pub struct SixFactors {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> SixFactors { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -34757,7 +36497,7 @@ pub struct SixFactors {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -34832,7 +36572,7 @@ pub struct LethargySpectrum {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> LethargySpectrum { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -34899,7 +36639,7 @@ pub struct LethargySpectrum {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -34978,7 +36718,7 @@ pub struct ReactorPhysicsReport {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ReactorPhysicsReport { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -35045,7 +36785,7 @@ pub struct ReactorPhysicsReport {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -35084,10 +36824,11 @@ pub enum ReactorPhysicsError {
 
 ###### `NoFuelMaterial`
 
-No material contains a nuclide whose name starts with `"U23"`, so the
-fuel cannot be identified and the thermal-utilisation factor f is
-undefined. (Mirrors the reference `_fuel_materials`; MOX/Pu fuel and
-U-233 are not detected.)
+No material contains a fissionable nuclide, so the fuel cannot be
+identified and the thermal-utilisation factor f is undefined.
+(~~a nuclide whose name starts with `"U23"`; MOX/Pu fuel and U-233
+are not detected~~ CORRECTED 2026-10-17, gh #940: any nuclide with
+`Nuclide::is_fissionable`, so Pu and Th fuels are found.)
 
 ###### `BadEnergyGrid`
 
@@ -35122,7 +36863,7 @@ is violated.
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ReactorPhysicsError { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -35174,7 +36915,7 @@ is violated.
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &ReactorPhysicsError) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -35216,7 +36957,7 @@ is violated.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -35279,7 +37020,8 @@ track-length tally plus explicit leakage accounting.
 `nuclides` is the global nuclide array the materials index into.
 
 # Errors
-- [`ReactorPhysicsError::NoFuelMaterial`] — no `U23*` material is present.
+- [`ReactorPhysicsError::NoFuelMaterial`] — no material holds a
+  fissionable nuclide.
 - [`ReactorPhysicsError::BadEnergyGrid`] — the energy grid is ill-posed.
 
 # Caveats
@@ -35498,7 +37240,7 @@ pub struct MixComponent {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> MixComponent { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -35566,7 +37308,7 @@ pub struct MixComponent {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -35640,7 +37382,7 @@ pub struct SlowingDownBand {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> SlowingDownBand { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -35708,7 +37450,7 @@ pub struct SlowingDownBand {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -35797,7 +37539,7 @@ pub struct SlowingDownResult {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> SlowingDownResult { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -35833,7 +37575,7 @@ pub struct SlowingDownResult {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &SlowingDownResult) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -35870,7 +37612,7 @@ pub struct SlowingDownResult {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -35957,7 +37699,7 @@ target's own thermal motion sampled below `400·kT`.
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ScatterKernel { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -36004,7 +37746,7 @@ target's own thermal motion sampled below `400·kT`.
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &ScatterKernel) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -36041,7 +37783,7 @@ target's own thermal motion sampled below `400·kT`.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -36121,7 +37863,7 @@ pub struct SlowingDownGrid {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> SlowingDownGrid { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -36188,7 +37930,7 @@ pub struct SlowingDownGrid {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -36255,6 +37997,13 @@ pub struct InfiniteMediumMc {
   Follow `histories` neutrons from `band.e_top` until each is absorbed or
 
 - ```rust
+  pub fn run_with_tables<S>(self: &Self, nuclides: &[Nuclide], mix: &[MixComponent], band: SlowingDownBand, temp_k: f64, select: S) -> SlowingDownResult
+where
+    S: FnMut(usize, f64, &mut u64) -> usize { /* ... */ }
+  ```
+  [`Self::run`] with the table each component uses chosen **per
+
+- ```rust
   pub fn stderr_of(self: &Self, p: f64) -> f64 { /* ... */ }
   ```
   1σ on a scored fraction `p` from `histories` independent binomial trials.
@@ -36284,7 +38033,7 @@ pub struct InfiniteMediumMc {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> InfiniteMediumMc { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -36357,7 +38106,7 @@ pub struct InfiniteMediumMc {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -36512,7 +38261,7 @@ pub struct LumpCellMc {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> LumpCellMc { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -36585,7 +38334,7 @@ pub struct LumpCellMc {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -36664,7 +38413,7 @@ Retained so the defect stays reproducible.
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> CellBoundary { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -36711,7 +38460,7 @@ Retained so the defect stays reproducible.
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &CellBoundary) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -36748,7 +38497,7 @@ Retained so the defect stays reproducible.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -36828,7 +38577,7 @@ pub struct LumpCellResult {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> LumpCellResult { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -36864,7 +38613,7 @@ pub struct LumpCellResult {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &LumpCellResult) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -36901,7 +38650,7 @@ pub struct LumpCellResult {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -36993,7 +38742,7 @@ pub struct ShellCell {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ShellCell { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -37029,7 +38778,7 @@ pub struct ShellCell {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &ShellCell) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -37066,7 +38815,7 @@ pub struct ShellCell {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -37149,7 +38898,7 @@ pub struct MultiRegionResult {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> MultiRegionResult { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -37185,7 +38934,7 @@ pub struct MultiRegionResult {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &MultiRegionResult) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -37222,7 +38971,7 @@ pub struct MultiRegionResult {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -37331,7 +39080,7 @@ pub fn refine_lethargy_grid(grid_ev: &[f64]) -> Vec<f64> { /* ... */ }
 
 **Attributes:**
 
-- `Other("#[allow(clippy::too_many_arguments)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0,\nlint_name: \"too_many_arguments\", kind: Allow}])]")`
 
 Solve the slowing-down equation on a **concentric-sphere cell** — the lumped
 problem — deterministically, with no Monte Carlo anywhere in it.
@@ -37595,7 +39344,7 @@ pub struct CollisionProbabilities {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> CollisionProbabilities { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -37631,7 +39380,7 @@ pub struct CollisionProbabilities {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &CollisionProbabilities) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -37668,7 +39417,7 @@ pub struct CollisionProbabilities {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -38347,7 +40096,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> DhTreatment { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -38384,7 +40133,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &DhTreatment) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -38421,7 +40170,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -38575,7 +40324,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -38681,7 +40430,7 @@ pub struct PebbleParams {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> PebbleParams { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -38748,7 +40497,7 @@ pub struct PebbleParams {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -38824,7 +40573,7 @@ pub struct DispersedParams {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> DispersedParams { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -38891,7 +40640,7 @@ pub struct DispersedParams {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -39071,7 +40820,7 @@ pub struct DhUniverse {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -39194,7 +40943,7 @@ pub struct DhPowerIteration {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -39283,7 +41032,7 @@ pub struct RingRptFit {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> RingRptFit { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -39351,7 +41100,7 @@ pub struct RingRptFit {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -39427,7 +41176,7 @@ pub struct BallPackingAttempt {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> BallPackingAttempt { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -39464,7 +41213,7 @@ pub struct BallPackingAttempt {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &BallPackingAttempt) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -39501,7 +41250,7 @@ pub struct BallPackingAttempt {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -39574,7 +41323,7 @@ pub struct BallPacking {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> BallPacking { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -39641,7 +41390,7 @@ pub struct BallPacking {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -39819,6 +41568,10 @@ Two families of technique make this tractable, and both live here:
   (`outram-park-fork-liggghts`, a dependency since 2026-10-02) converted to
   pebble centres in cm, with monodispersity enforced and the soft-sphere
   overlap measured and reported. It does not yet build a CSG geometry.
+- **[`triso_lattice`]** — randomly packed particles placed in a CSG
+  tracking lattice (a port of OpenMC's `create_triso_lattice`), so a
+  random packing can be surface- or delta-tracked through the ordinary CSG
+  geometry; the beginner `model::DhRegion` lowers to it.
 - **[`keff_delta`]** — the assembly: a fission-source k-eigenvalue power
   iteration over a reflective cube of packed kernels, with every history
   streamed by delta tracking ([`keff_delta::run_keff_delta`]). This is the
@@ -40020,7 +41773,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> CrpError { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -40062,7 +41815,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &CrpError) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -40104,7 +41857,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -40412,7 +42165,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> DemBedError { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -40454,7 +42207,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &DemBedError) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -40496,7 +42249,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -40620,7 +42373,7 @@ pub struct DemBed {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> DemBed { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -40656,7 +42409,7 @@ pub struct DemBed {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &DemBed) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -40693,7 +42446,7 @@ pub struct DemBed {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -40848,7 +42601,7 @@ pub struct TrisoSpec {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> TrisoSpec { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -40885,7 +42638,7 @@ pub struct TrisoSpec {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &TrisoSpec) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -40922,7 +42675,7 @@ pub struct TrisoSpec {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -41010,7 +42763,7 @@ Outer pyrolytic carbon.
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> TrisoLayer { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -41057,7 +42810,7 @@ Outer pyrolytic carbon.
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &TrisoLayer) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -41094,7 +42847,7 @@ Outer pyrolytic carbon.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -41213,7 +42966,7 @@ pub struct ExplicitTrisoPebble {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ExplicitTrisoPebble { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -41280,7 +43033,7 @@ pub struct ExplicitTrisoPebble {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -41370,7 +43123,7 @@ pub fn rpt_fuel_outer_radius(inner_radius: f64, fuel_zone_radius: f64, packing_f
 
 **Attributes:**
 
-- `Other("#[allow(clippy::too_many_arguments)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0,\nlint_name: \"too_many_arguments\", kind: Allow}])]")`
 
 Concentric-shell geometry of one FHR pebble, for the CSG drivers.
 
@@ -41608,7 +43361,7 @@ The mistake: ppm read as **elemental B-10**, over-absorbing 5.43x.
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> BoronReading { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -41655,7 +43408,7 @@ The mistake: ppm read as **elemental B-10**, over-absorbing 5.43x.
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &BoronReading) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -41692,7 +43445,7 @@ The mistake: ppm read as **elemental B-10**, over-absorbing 5.43x.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -41832,7 +43585,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> CarbonSlot { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -41879,7 +43632,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &CarbonSlot) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -41916,7 +43669,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -42024,7 +43777,7 @@ pub struct Htr10Nuclides {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Htr10Nuclides { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -42092,7 +43845,7 @@ pub struct Htr10Nuclides {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -42165,7 +43918,7 @@ pub struct BoronHost {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> BoronHost { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -42202,7 +43955,7 @@ pub struct BoronHost {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &BoronHost) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -42239,7 +43992,7 @@ pub struct BoronHost {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -42772,7 +44525,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> DeltaDomain { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -42809,7 +44562,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &DeltaDomain) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -42846,7 +44599,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -42920,7 +44673,7 @@ pub struct DeltaGenerationReport {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> DeltaGenerationReport { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -42957,7 +44710,7 @@ pub struct DeltaGenerationReport {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &DeltaGenerationReport) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -42994,7 +44747,7 @@ pub struct DeltaGenerationReport {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -43094,7 +44847,7 @@ pub struct DeltaPowerIteration {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> DeltaPowerIteration { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -43156,7 +44909,7 @@ pub struct DeltaPowerIteration {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -43339,7 +45092,7 @@ where
 
 **Attributes:**
 
-- `Other("#[allow(clippy::too_many_arguments)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0,\nlint_name: \"too_many_arguments\", kind: Allow}])]")`
 
 **One delta-tracked history, step by step** (gh:#784): the neutron at
 `r`, `u`, `e` is transported exactly as a generation of
@@ -43477,7 +45230,7 @@ pub struct Reference {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Reference { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -43524,7 +45277,7 @@ pub struct Reference {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Reference) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -43561,7 +45314,7 @@ pub struct Reference {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -43740,7 +45493,7 @@ pub struct Sphere {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Sphere { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -43777,7 +45530,7 @@ pub struct Sphere {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Sphere) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -43814,7 +45567,7 @@ pub struct Sphere {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -43900,7 +45653,7 @@ Ref: [`super::references::TAN2026_ODR_DEM`].
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> PackingMethod { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -43947,7 +45700,7 @@ Ref: [`super::references::TAN2026_ODR_DEM`].
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &PackingMethod) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -43984,7 +45737,7 @@ Ref: [`super::references::TAN2026_ODR_DEM`].
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -44069,7 +45822,7 @@ pub struct PackingConfig {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> PackingConfig { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -44137,7 +45890,7 @@ pub struct PackingConfig {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -44258,7 +46011,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> PackingError { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -44300,7 +46053,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &PackingError) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -44342,7 +46095,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -44415,7 +46168,7 @@ pub struct RsaPlacement {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> RsaPlacement { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -44452,7 +46205,7 @@ pub struct RsaPlacement {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &RsaPlacement) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -44489,7 +46242,7 @@ pub struct RsaPlacement {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -44628,7 +46381,7 @@ pub struct PackedSpheres {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> PackedSpheres { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -44695,7 +46448,7 @@ pub struct PackedSpheres {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -44865,6 +46618,383 @@ rather than spinning forever.
 
 ```rust
 pub const MAX_PF_RSA: f64 = 0.38;
+```
+
+## Module `triso_lattice`
+
+**Randomly packed particles in a tracking lattice**: a port of OpenMC's
+`openmc.model.create_triso_lattice` (gh #926, tutorial 5 on #943).
+
+# Provenance
+
+OpenMC (MIT), `openmc/model/triso.py`: `create_triso_lattice` (line 805)
+and `TRISO.classify` (line 74), with `RectLattice.find_element` /
+`get_local_coordinates` (`openmc/lattice.py:502`, `:528`); commit
+`d7d3284a1b13d7cae020e0d8fea9f1e60d91b18b` of the local checkout at
+`/home/teddy0/Documents/research/openmc/`. Copyright (c) 2011-2025
+Massachusetts Institute of Technology, UChicago Argonne LLC, and OpenMC
+contributors; MIT licence (see `geometry::virtual_lattice` for the full
+notice). This Rust translation is GPL-3.0-only.
+
+# What it does
+
+Randomly packed particles do not sit one per lattice tile. OpenMC's answer
+is a **tracking lattice**: a rectangular grid laid over the particles, in
+which each tile's universe holds a copy of **every particle that overlaps
+the tile** (by its bounding box, `TRISO.classify`), each copy a cell
+`inside(sphere)` filled with the particle's universe and translated to the
+particle's centre in tile-local coordinates; a background cell (`outside`
+every copy) is the matrix. A particle crossing a tile face is in both
+tiles, and each tile draws only its own piece, so the particle is whole.
+It changes only how fast a neutron finds the next surface (a few spheres
+per tile instead of all of them), never the geometry.
+
+# Where this differs from upstream, and why
+
+- **Tiles that no particle touches share one universe**, which is also the
+  lattice's `outer` (upstream makes a fresh universe per empty tile and
+  another for `outer`). Same geometry, fewer cells.
+- **An empty region here is a far plane's `-p ∪ +p`** (`x = 1e30` cm):
+  in this crate an empty token stream is FALSE, not "everywhere"
+  (nee_soon's TRISO matrix universe records the hole that left), so the
+  background of an empty tile needs a region that holds every point. It
+  is the first surface of the output, made once.
+- Particles whose bounding box leaves the lattice are counted
+  ([`TrisoLattice::partly_outside`]) where upstream warns.
+
+```rust
+pub mod triso_lattice { /* ... */ }
+```
+
+### Types
+
+#### Struct `TrisoLatticeBase`
+
+Where the output starts in the caller's arrays, so it can be appended
+as is: every surface, cell and universe index in the output is absolute.
+
+```rust
+pub struct TrisoLatticeBase {
+    pub surface: usize,
+    pub cell: usize,
+    pub universe: usize,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `surface` | `usize` | Index of the first surface the output adds. |
+| `cell` | `usize` | Index of the first cell the output adds. |
+| `universe` | `usize` | Index of the first universe the output adds. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `TrisoLattice`
+
+What [`create_triso_lattice`] builds, to append to a geometry.
+
+```rust
+pub struct TrisoLattice {
+    pub surfaces: Vec<crate::geometry::surface::SurfaceKind>,
+    pub cells: Vec<crate::geometry::cell::Cell>,
+    pub universes: Vec<crate::geometry::universe::Universe>,
+    pub lattice: crate::geometry::lattice::RectLattice,
+    pub background_cells: Vec<usize>,
+    pub copy_cells: Vec<usize>,
+    pub partly_outside: usize,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `surfaces` | `Vec<crate::geometry::surface::SurfaceKind>` | New surfaces: the far plane, then one sphere per particle copy. |
+| `cells` | `Vec<crate::geometry::cell::Cell>` | New cells: the empty tile's background, then per occupied tile its<br>background cell and its particle copies. |
+| `universes` | `Vec<crate::geometry::universe::Universe>` | New universes: the empty universe (also `outer`), then one per<br>occupied tile, in natural order (x fastest). |
+| `lattice` | `crate::geometry::lattice::RectLattice` | The lattice (`universes` index the caller's universe array). |
+| `background_cells` | `Vec<usize>` | Absolute indices of the background (matrix) cells. |
+| `copy_cells` | `Vec<usize>` | Absolute indices of the particle-copy cells (filled with the<br>particle universe). |
+| `partly_outside` | `usize` | Particles whose bounding box leaves the lattice (upstream warns<br>"partially or completely outside of the lattice"); their copies in<br>the missing tiles are not made. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `create_triso_lattice`
+
+**Attributes:**
+
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0,\nlint_name: \"too_many_arguments\", kind: Allow}])]")`
+
+**OpenMC's `create_triso_lattice`** (see the module docs).
+
+- `centres`: the particle centres, in the frame the lattice is placed in.
+- `particle_radius`: the radius of the region each copy fills (the
+  particle's outermost sphere).
+- `particle_universe`: the universe of one particle centred at its origin
+  (its layers, and a matrix cell outside them so a point on the outer
+  surface is never lost, as `build_triso_particle`'s matrix cell does).
+- `lower_left`, `pitch`, `shape`: the lattice.
+- `background`: the matrix material index; `temperature` \[K\] for the
+  cells.
+- `base`, `lattice_id`: where the output starts (see
+  [`TrisoLatticeBase`]).
+
+```rust
+pub fn create_triso_lattice(centres: &[crate::geometry::position::Position], particle_radius: f64, particle_universe: usize, lower_left: crate::geometry::position::Position, pitch: [f64; 3], shape: [usize; 3], background: usize, temperature: f64, base: TrisoLatticeBase, lattice_id: i32) -> TrisoLattice { /* ... */ }
 ```
 
 ## Module `stochastic`
@@ -45086,7 +47216,7 @@ pub struct BenchmarkResult {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> BenchmarkResult { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -45123,7 +47253,7 @@ pub struct BenchmarkResult {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &BenchmarkResult) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -45160,7 +47290,7 @@ pub struct BenchmarkResult {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -45250,7 +47380,7 @@ pub struct AbsorptionBenchmark {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> AbsorptionBenchmark { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -45287,7 +47417,7 @@ pub struct AbsorptionBenchmark {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &AbsorptionBenchmark) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -45324,7 +47454,7 @@ pub struct AbsorptionBenchmark {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -45537,7 +47667,7 @@ pub struct ClsMedium {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ClsMedium { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -45573,7 +47703,7 @@ pub struct ClsMedium {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &ClsMedium) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -45610,7 +47740,7 @@ pub struct ClsMedium {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -45862,7 +47992,7 @@ pub struct MaterialId(pub usize);
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> MaterialId { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -45919,17 +48049,17 @@ pub struct MaterialId(pub usize);
 - **IntoEither**
 - **Ord**
   - ```rust
-    fn cmp(self: &Self, other: &MaterialId) -> $crate::cmp::Ordering { /* ... */ }
+    fn cmp(self: &Self, other: &Self) -> $crate::cmp::Ordering { /* ... */ }
     ```
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &MaterialId) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **PartialOrd**
   - ```rust
-    fn partial_cmp(self: &Self, other: &MaterialId) -> $crate::option::Option<$crate::cmp::Ordering> { /* ... */ }
+    fn partial_cmp(self: &Self, other: &Self) -> $crate::option::Option<$crate::cmp::Ordering> { /* ... */ }
     ```
 
 - **Pointable**
@@ -45967,7 +48097,7 @@ pub struct MaterialId(pub usize);
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -46042,7 +48172,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> MediumError { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -46084,7 +48214,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &MediumError) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -46126,7 +48256,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -46224,7 +48354,7 @@ pub struct RsaMedium {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> RsaMedium { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -46291,7 +48421,7 @@ pub struct RsaMedium {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -46411,7 +48541,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> StochasticMedium { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -46478,7 +48608,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -46638,7 +48768,7 @@ pub struct ParticleHistory {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ParticleHistory { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -46675,7 +48805,7 @@ pub struct ParticleHistory {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &ParticleHistory) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -46712,7 +48842,7 @@ pub struct ParticleHistory {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -46798,7 +48928,7 @@ pub struct FlightSegment {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> FlightSegment { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -46835,7 +48965,7 @@ pub struct FlightSegment {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &FlightSegment) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -46872,7 +49002,7 @@ pub struct FlightSegment {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -46967,7 +49097,7 @@ pub struct InclusionSphere {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> InclusionSphere { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -47004,7 +49134,7 @@ pub struct InclusionSphere {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &InclusionSphere) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -47041,7 +49171,7 @@ pub struct InclusionSphere {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -47186,7 +49316,7 @@ pub struct SclsMedium {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> SclsMedium { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -47222,7 +49352,7 @@ pub struct SclsMedium {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &SclsMedium) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -47259,7 +49389,7 @@ pub struct SclsMedium {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -47369,7 +49499,7 @@ pub struct AdaptiveRadius {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> AdaptiveRadius { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -47406,7 +49536,7 @@ pub struct AdaptiveRadius {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &AdaptiveRadius) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -47443,7 +49573,7 @@ pub struct AdaptiveRadius {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -47564,7 +49694,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> IndexError { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -47606,7 +49736,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &IndexError) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -47648,7 +49778,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -47765,7 +49895,7 @@ pub struct BruteForceIndex {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> BruteForceIndex { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -47780,7 +49910,7 @@ pub struct BruteForceIndex {
 
 - **Default**
   - ```rust
-    fn default() -> BruteForceIndex { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
 - **DistributionExt**
@@ -47806,7 +49936,7 @@ pub struct BruteForceIndex {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &BruteForceIndex) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -47843,7 +49973,7 @@ pub struct BruteForceIndex {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -47947,7 +50077,7 @@ pub struct KdTreeIndex {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> KdTreeIndex { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -47962,7 +50092,7 @@ pub struct KdTreeIndex {
 
 - **Default**
   - ```rust
-    fn default() -> KdTreeIndex { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
 - **DistributionExt**
@@ -47988,7 +50118,7 @@ pub struct KdTreeIndex {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &KdTreeIndex) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -48025,7 +50155,7 @@ pub struct KdTreeIndex {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -48154,7 +50284,7 @@ workspace-level dependency + Termux-portability decision, kept as the honest
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> SpatialIndex { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -48190,7 +50320,7 @@ workspace-level dependency + Termux-portability decision, kept as the honest
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &SpatialIndex) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -48227,7 +50357,7 @@ workspace-level dependency + Termux-portability decision, kept as the honest
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -48453,7 +50583,7 @@ pub struct TransferRate {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> TransferRate { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -48489,7 +50619,7 @@ pub struct TransferRate {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &TransferRate) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -48526,7 +50656,7 @@ pub struct TransferRate {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -48614,7 +50744,7 @@ pub struct OneGroupOperator {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> OneGroupOperator { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -48690,7 +50820,7 @@ pub struct OneGroupOperator {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -48785,7 +50915,7 @@ pub struct MicroXs {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> MicroXs { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -48821,7 +50951,7 @@ pub struct MicroXs {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &MicroXs) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -48858,7 +50988,7 @@ pub struct MicroXs {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -49321,7 +51451,7 @@ according to its [`NuclideData`] fission yields.
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ReactionKind { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -49368,7 +51498,7 @@ according to its [`NuclideData`] fission yields.
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &ReactionKind) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -49405,7 +51535,7 @@ according to its [`NuclideData`] fission yields.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -49474,7 +51604,7 @@ pub struct DecayBranch {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> DecayBranch { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -49510,7 +51640,7 @@ pub struct DecayBranch {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &DecayBranch) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -49547,7 +51677,7 @@ pub struct DecayBranch {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -49617,7 +51747,7 @@ pub struct NeutronReaction {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> NeutronReaction { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -49653,7 +51783,7 @@ pub struct NeutronReaction {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &NeutronReaction) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -49690,7 +51820,7 @@ pub struct NeutronReaction {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -49771,7 +51901,7 @@ pub struct NuclideData {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> NuclideData { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -49807,7 +51937,7 @@ pub struct NuclideData {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &NuclideData) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -49844,7 +51974,7 @@ pub struct NuclideData {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -49932,7 +52062,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> UnmodelledReason { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -49969,7 +52099,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &UnmodelledReason) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -50006,7 +52136,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -50077,7 +52207,7 @@ pub struct UnmodelledChannel {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> UnmodelledChannel { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -50113,7 +52243,7 @@ pub struct UnmodelledChannel {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &UnmodelledChannel) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -50150,7 +52280,7 @@ pub struct UnmodelledChannel {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -50255,7 +52385,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ChainImportError { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -50297,7 +52427,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &ChainImportError) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -50339,7 +52469,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -50490,7 +52620,7 @@ pub struct DepletionChain {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> DepletionChain { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -50526,7 +52656,7 @@ pub struct DepletionChain {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &DepletionChain) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -50563,7 +52693,7 @@ pub struct DepletionChain {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -50700,7 +52830,7 @@ pub struct BurnupSettings {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> BurnupSettings { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -50772,7 +52902,7 @@ pub struct BurnupSettings {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -50932,7 +53062,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> OneGroupWeighting { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -50968,7 +53098,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &OneGroupWeighting) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -51005,7 +53135,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -51079,7 +53209,7 @@ pub struct OneGroupXs {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> OneGroupXs { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -51095,7 +53225,7 @@ pub struct OneGroupXs {
 
 - **Default**
   - ```rust
-    fn default() -> OneGroupXs { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
 - **DistributionExt**
@@ -51121,7 +53251,7 @@ pub struct OneGroupXs {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &OneGroupXs) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -51158,7 +53288,7 @@ pub struct OneGroupXs {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -51240,7 +53370,7 @@ pub struct BurnupStep {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> BurnupStep { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -51307,7 +53437,7 @@ pub struct BurnupStep {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -51392,7 +53522,7 @@ pub struct BurnupResult {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> BurnupResult { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -51459,7 +53589,7 @@ pub struct BurnupResult {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -51719,7 +53849,7 @@ pub struct MicroRate {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> MicroRate { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -51735,7 +53865,7 @@ pub struct MicroRate {
 
 - **Default**
   - ```rust
-    fn default() -> MicroRate { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
 - **DistributionExt**
@@ -51761,7 +53891,7 @@ pub struct MicroRate {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &MicroRate) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -51798,7 +53928,7 @@ pub struct MicroRate {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -51896,7 +54026,7 @@ pub struct ReactionRates {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ReactionRates { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -51911,7 +54041,7 @@ pub struct ReactionRates {
 
 - **Default**
   - ```rust
-    fn default() -> ReactionRates { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
 - **DistributionExt**
@@ -51968,7 +54098,7 @@ pub struct ReactionRates {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -52194,7 +54324,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Regions { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -52240,7 +54370,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Regions) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -52277,7 +54407,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -52357,7 +54487,7 @@ pub struct InventoryPoint {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> InventoryPoint { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -52373,7 +54503,7 @@ pub struct InventoryPoint {
 
 - **Default**
   - ```rust
-    fn default() -> InventoryPoint { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
 - **DistributionExt**
@@ -52399,7 +54529,7 @@ pub struct InventoryPoint {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &InventoryPoint) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -52436,7 +54566,7 @@ pub struct InventoryPoint {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -52527,7 +54657,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> InventorySource { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -52573,7 +54703,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &InventorySource) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -52610,7 +54740,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -52700,7 +54830,7 @@ pub struct Amount {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Amount { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -52737,7 +54867,7 @@ pub struct Amount {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Amount) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -52774,7 +54904,7 @@ pub struct Amount {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -52868,7 +54998,7 @@ pub struct NuclideEntry {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> NuclideEntry { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -52904,7 +55034,7 @@ pub struct NuclideEntry {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &NuclideEntry) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -52941,7 +55071,7 @@ pub struct NuclideEntry {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -53084,7 +55214,7 @@ A non-positive or non-finite volume.
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> InventoryError { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -53126,7 +55256,7 @@ A non-positive or non-finite volume.
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &InventoryError) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -53168,7 +55298,7 @@ A non-positive or non-finite volume.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -53291,7 +55421,7 @@ pub struct RadionuclideInventory {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> RadionuclideInventory { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -53327,7 +55457,7 @@ pub struct RadionuclideInventory {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &RadionuclideInventory) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -53364,7 +55494,7 @@ pub struct RadionuclideInventory {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -53627,7 +55757,7 @@ pub struct Tabulated1D {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Tabulated1D { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -53663,7 +55793,7 @@ pub struct Tabulated1D {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Tabulated1D) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -53700,7 +55830,7 @@ pub struct Tabulated1D {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -53774,7 +55904,7 @@ pub struct Polynomial {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Polynomial { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -53810,7 +55940,7 @@ pub struct Polynomial {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Polynomial) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -53847,7 +55977,7 @@ pub struct Polynomial {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -53938,7 +56068,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Function1D { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -53974,7 +56104,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Function1D) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -54011,7 +56141,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -54138,7 +56268,7 @@ A photon.
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Particle { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -54185,7 +56315,7 @@ A photon.
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Particle) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -54222,7 +56352,7 @@ A photon.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -54300,7 +56430,7 @@ pub enum EmissionMode {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> EmissionMode { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -54347,7 +56477,7 @@ pub enum EmissionMode {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &EmissionMode) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -54384,7 +56514,7 @@ pub enum EmissionMode {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -54455,7 +56585,7 @@ pub struct Product {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Product { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -54491,7 +56621,7 @@ pub struct Product {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Product) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -54528,7 +56658,7 @@ pub struct Product {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -54605,7 +56735,7 @@ pub struct PlotReaction {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> PlotReaction { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -54641,7 +56771,7 @@ pub struct PlotReaction {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &PlotReaction) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -54678,7 +56808,7 @@ pub struct PlotReaction {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -54776,7 +56906,7 @@ pub struct IncidentNeutronData {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> IncidentNeutronData { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -54812,7 +56942,7 @@ pub struct IncidentNeutronData {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &IncidentNeutronData) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -54849,7 +56979,7 @@ pub struct IncidentNeutronData {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -54944,7 +57074,7 @@ pub struct XsLibrary {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> XsLibrary { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -54959,7 +57089,7 @@ pub struct XsLibrary {
 
 - **Default**
   - ```rust
-    fn default() -> XsLibrary { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
 - **DistributionExt**
@@ -55016,7 +57146,7 @@ pub struct XsLibrary {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -55235,7 +57365,7 @@ pub struct FigureKwargs {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> FigureKwargs { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -55250,7 +57380,7 @@ pub struct FigureKwargs {
 
 - **Default**
   - ```rust
-    fn default() -> FigureKwargs { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
 - **DistributionExt**
@@ -55276,7 +57406,7 @@ pub struct FigureKwargs {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &FigureKwargs) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -55313,7 +57443,7 @@ pub struct FigureKwargs {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -55403,7 +57533,7 @@ pub struct PyScript {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> PyScript { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -55470,7 +57600,7 @@ pub struct PyScript {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -55620,7 +57750,7 @@ pub struct PlotTrack {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> PlotTrack { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -55635,7 +57765,7 @@ pub struct PlotTrack {
 
 - **Default**
   - ```rust
-    fn default() -> PlotTrack { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
 - **DistributionExt**
@@ -55665,7 +57795,7 @@ pub struct PlotTrack {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &PlotTrack) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -55702,7 +57832,7 @@ pub struct PlotTrack {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -55879,7 +58009,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> XsType { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -55939,7 +58069,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &XsType) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -55981,7 +58111,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -56054,7 +58184,7 @@ Weight fraction (`'wo'`). Not supported by this port (needs atomic masses).
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> PercentType { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -56101,7 +58231,7 @@ Weight fraction (`'wo'`). Not supported by this port (needs atomic masses).
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &PercentType) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -56138,7 +58268,7 @@ Weight fraction (`'wo'`). Not supported by this port (needs atomic masses).
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -56261,7 +58391,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> MaterialDensity { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -56298,7 +58428,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &MaterialDensity) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -56335,7 +58465,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -56406,7 +58536,7 @@ pub struct MaterialNuclide {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> MaterialNuclide { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -56442,7 +58572,7 @@ pub struct MaterialNuclide {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &MaterialNuclide) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -56479,7 +58609,7 @@ pub struct MaterialNuclide {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -56583,7 +58713,7 @@ pub struct PlotMaterial {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> PlotMaterial { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -56619,7 +58749,7 @@ pub struct PlotMaterial {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &PlotMaterial) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -56656,7 +58786,7 @@ pub struct PlotMaterial {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -56740,7 +58870,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> PlotTarget { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -56780,7 +58910,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &PlotTarget) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -56817,7 +58947,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -56895,7 +59025,7 @@ pub enum EnergyAxisUnits {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> EnergyAxisUnits { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -56911,7 +59041,7 @@ pub enum EnergyAxisUnits {
 
 - **Default**
   - ```rust
-    fn default() -> EnergyAxisUnits { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
 - **DistributionExt**
@@ -56947,7 +59077,7 @@ pub enum EnergyAxisUnits {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &EnergyAxisUnits) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -56984,7 +59114,7 @@ pub enum EnergyAxisUnits {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -57061,7 +59191,7 @@ pub struct PlotXsOptions {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> PlotXsOptions { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -57102,7 +59232,7 @@ pub struct PlotXsOptions {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &PlotXsOptions) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -57139,7 +59269,7 @@ pub struct PlotXsOptions {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -57210,7 +59340,7 @@ pub struct XsLine {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> XsLine { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -57246,7 +59376,7 @@ pub struct XsLine {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &XsLine) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -57283,7 +59413,7 @@ pub struct XsLine {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -57369,7 +59499,7 @@ pub struct XsFigure {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> XsFigure { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -57405,7 +59535,7 @@ pub struct XsFigure {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &XsFigure) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -57442,7 +59572,7 @@ pub struct XsFigure {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -57633,7 +59763,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> PlotError { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -57675,7 +59805,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &PlotError) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -57717,7 +59847,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -57969,7 +60099,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> SlicePlane { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -58006,7 +60136,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &SlicePlane) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -58043,7 +60173,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -58117,7 +60247,7 @@ at the peak; the outside grey.
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> SliceColour { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -58164,7 +60294,7 @@ at the peak; the outside grey.
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &SliceColour) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -58201,7 +60331,7 @@ at the peak; the outside grey.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -58293,7 +60423,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ThermalProfileError { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -58319,7 +60449,7 @@ Fields:
 
 - **Error**
   - ```rust
-    fn source(self: &Self) -> ::core::option::Option<&dyn ::thiserror::__private18::Error + ''static> { /* ... */ }
+    fn source(self: &Self) -> ::core::option::Option<&dyn ::thiserror::__private21::Error + ''static> { /* ... */ }
     ```
 
 - **Freeze**
@@ -58343,7 +60473,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &ThermalProfileError) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -58385,7 +60515,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -58469,7 +60599,7 @@ pub struct ThermalRegion {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ThermalRegion { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -58506,7 +60636,7 @@ pub struct ThermalRegion {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &ThermalRegion) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -58543,7 +60673,7 @@ pub struct ThermalRegion {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -58615,7 +60745,7 @@ pub struct ThermalMesh {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ThermalMesh { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -58652,7 +60782,7 @@ pub struct ThermalMesh {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &ThermalMesh) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -58689,7 +60819,7 @@ pub struct ThermalMesh {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -58758,7 +60888,7 @@ coarse voxel mesh. Not a thermal-hydraulic analysis.
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ProfileKind { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -58805,7 +60935,7 @@ coarse voxel mesh. Not a thermal-hydraulic analysis.
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &ProfileKind) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -58842,7 +60972,7 @@ coarse voxel mesh. Not a thermal-hydraulic analysis.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -58916,7 +61046,7 @@ pub struct HeatRemovalUsed {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> HeatRemovalUsed { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -58953,7 +61083,7 @@ pub struct HeatRemovalUsed {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &HeatRemovalUsed) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -58990,7 +61120,7 @@ pub struct HeatRemovalUsed {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -59076,7 +61206,7 @@ pub struct ThermalProblem {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ThermalProblem { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -59113,7 +61243,7 @@ pub struct ThermalProblem {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &ThermalProblem) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -59150,7 +61280,7 @@ pub struct ThermalProblem {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -59235,6 +61365,13 @@ pub struct ThermalProfile {
   ```
   Number of voxels in the conducting body.
 
+- ```rust
+  pub fn mean_temperature_by<F>(self: &Self, n_keys: usize, key_of: F) -> Vec<Option<(ThermodynamicTemperature, usize)>>
+where
+    F: Fn(Position) -> Option<usize> { /* ... */ }
+  ```
+  **Volume-mean temperature per key** (gh #945, stage 1: one fixed
+
 ###### Trait Implementations
 
 - **Any**
@@ -59260,7 +61397,7 @@ pub struct ThermalProfile {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ThermalProfile { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -59327,7 +61464,7 @@ pub struct ThermalProfile {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -59572,7 +61709,7 @@ Anything the driver did not classify.
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> DeviceClass { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -59619,7 +61756,7 @@ Anything the driver did not classify.
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &DeviceClass) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -59656,7 +61793,7 @@ Anything the driver did not classify.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -59768,7 +61905,7 @@ pub struct GpuLimits {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> GpuLimits { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -59814,7 +61951,7 @@ pub struct GpuLimits {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &GpuLimits) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -59851,7 +61988,7 @@ pub struct GpuLimits {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -59932,7 +62069,7 @@ pub struct HardwareCapabilities {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> HardwareCapabilities { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -59978,7 +62115,7 @@ pub struct HardwareCapabilities {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &HardwareCapabilities) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -60015,7 +62152,7 @@ pub struct HardwareCapabilities {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -60117,7 +62254,7 @@ A capability-derived starting share — see [`SplitPolicy::auto_fraction`].
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> SplitPolicy { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -60154,7 +62291,7 @@ A capability-derived starting share — see [`SplitPolicy::auto_fraction`].
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &SplitPolicy) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -60191,7 +62328,7 @@ A capability-derived starting share — see [`SplitPolicy::auto_fraction`].
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -60276,7 +62413,7 @@ Work was divided between both devices.
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> SplitReason { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -60323,7 +62460,7 @@ Work was divided between both devices.
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &SplitReason) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -60360,7 +62497,7 @@ Work was divided between both devices.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -60448,7 +62585,7 @@ pub struct WorkSplit {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> WorkSplit { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -60495,7 +62632,7 @@ pub struct WorkSplit {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &WorkSplit) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -60532,7 +62669,7 @@ pub struct WorkSplit {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -60858,7 +62995,7 @@ pub struct EncodedSurfaces {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -60931,7 +63068,7 @@ pub struct SurfaceQuery {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> SurfaceQuery { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -60999,7 +63136,7 @@ pub struct SurfaceQuery {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -61371,7 +63508,7 @@ pub struct UnionTotalXs {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -61559,7 +63696,7 @@ pub struct FlightBatch {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -61637,7 +63774,7 @@ pub struct FlightSphere {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> FlightSphere { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -61674,7 +63811,7 @@ pub struct FlightSphere {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &FlightSphere) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -61711,7 +63848,7 @@ pub struct FlightSphere {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -61791,7 +63928,7 @@ been advanced to the collision site; the caller does the collision physics.
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> FlightOutcome { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -61828,7 +63965,7 @@ been advanced to the collision site; the caller does the collision physics.
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &FlightOutcome) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -61865,7 +64002,7 @@ been advanced to the collision site; the caller does the collision physics.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -62194,7 +64331,7 @@ pub struct CollisionTables {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -62402,7 +64539,7 @@ pub struct EventBatch {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -62477,7 +64614,7 @@ pub struct EventSphere {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> EventSphere { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -62514,7 +64651,7 @@ pub struct EventSphere {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &EventSphere) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -62551,7 +64688,7 @@ pub struct EventSphere {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -62681,7 +64818,7 @@ pub struct EventTablesF32 {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -62935,7 +65072,7 @@ pub struct HardwareInfo {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> HardwareInfo { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -63002,7 +65139,7 @@ pub struct HardwareInfo {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -63089,7 +65226,7 @@ pub struct PerfRow {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> PerfRow { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -63156,7 +65293,7 @@ pub struct PerfRow {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -63258,7 +65395,7 @@ pub struct PerfReport {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> PerfReport { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -63325,7 +65462,7 @@ pub struct PerfReport {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -63490,7 +65627,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> DataSource { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -63536,7 +65673,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &DataSource) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -63573,7 +65710,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -63648,7 +65785,7 @@ pub struct DataItem {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> DataItem { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -63715,7 +65852,7 @@ pub struct DataItem {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -63784,7 +65921,7 @@ pub struct Phase {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Phase { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -63851,7 +65988,7 @@ pub struct Phase {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -63995,7 +66132,7 @@ pub struct RunDiagnostics {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> RunDiagnostics { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -64062,7 +66199,7 @@ pub struct RunDiagnostics {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -64947,6 +67084,435 @@ energy by a factor of 29.
 pub const GRAPHITE_KERNEL_WIDTH_BROAD_CEILING: f64 = 0.012;
 ```
 
+## Module `temperature_interpolation_947`
+
+Instruments for the temperature-interpolation error study (GitHub #947).
+Measuring instruments for GitHub #947: how far stochastic interpolation
+between tabulated temperatures
+([`crate::material::temperature_interpolation`]) lands from data processed
+exactly at the intermediate temperature.
+
+Everything here works on plain slices on one shared energy grid, so it is
+tested on closed forms (`#[cfg(test)]` below) and the study example
+(`examples/temperature_interpolation_947.rs`) only supplies nuclear data.
+Methodology and results: `verification_and_validation/temperature_interpolation_947/`.
+
+# The three things measured, and why each
+
+1. [`pointwise`]: the expected cross section `E[σ](E)` against the exact
+   `σ(E, T)`, energy by energy — the largest relative error in a band,
+   both signs, and where.
+2. [`lethargy_integral`] of `σ`: an infinitely-dilute band integral
+   `∫ σ dE/E`. Doppler broadening nearly conserves resonance area, so
+   this is **expected to hide** the error; it is reported to show that.
+3. [`ShieldedIntegrals`]: the narrow-resonance self-shielded integrals
+   `N = ∫ σ_x/(σ_t+σ_0) dE/E`, `D = ∫ 1/(σ_t+σ_0) dE/E`. These are what
+   a collision sees: per lookup a transport code draws one table, so in an
+   infinite medium the rate is the **mixture of the two tables' `N` and
+   `D`** ([`ShieldedIntegrals::mix`]), not `N` of the mixed σ. Both are
+   reported.
+
+The transport quantity proper — a resonance escape probability — uses
+[`crate::physics::slowing_down`]; [`mix_slowing_down_grids`] forms the
+stochastic arm's grid from the per-table grids.
+
+```rust
+pub mod temperature_interpolation_947 { /* ... */ }
+```
+
+### Types
+
+#### Struct `PointwiseError`
+
+The largest relative errors of `approx` against `exact` over grid points
+with `e_lo <= E <= e_hi`.
+
+```rust
+pub struct PointwiseError {
+    pub max_over: f64,
+    pub e_over: f64,
+    pub max_under: f64,
+    pub e_under: f64,
+    pub points: usize,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `max_over` | `f64` | Largest `approx/exact - 1` (most positive; 0 if none positive). |
+| `e_over` | `f64` | Energy \[eV\] of [`Self::max_over`]. |
+| `max_under` | `f64` | Most negative `approx/exact - 1` (0 if none negative). |
+| `e_under` | `f64` | Energy \[eV\] of [`Self::max_under`]. |
+| `points` | `usize` | Points compared. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn max_abs(self: &Self) -> f64 { /* ... */ }
+  ```
+  The larger magnitude of the two signs.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `ShieldedIntegrals`
+
+Narrow-resonance self-shielded integrals at background `σ_0` \[b\]:
+`N = ∫ σ_x/(σ_t+σ_0) dE/E` and `D = ∫ 1/(σ_t+σ_0) dE/E`, whose ratio is
+the flux-weighted (Bondarenko) `σ_x,eff`.
+
+```rust
+pub struct ShieldedIntegrals {
+    pub n: f64,
+    pub d: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `n` | `f64` | `∫ σ_x/(σ_t+σ_0) dE/E` \[b\]. |
+| `d` | `f64` | `∫ 1/(σ_t+σ_0) dE/E` \[1/b\]. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn of(grid: &[f64], sigma_x: &[f64], sigma_t: &[f64], sigma0: f64, e_lo: f64, e_hi: f64) -> Self { /* ... */ }
+  ```
+  The integrals of one table (or of a plugged-in σ) over `[e_lo, e_hi]`.
+
+- ```rust
+  pub fn mix(parts: &[(ShieldedIntegrals, f64)]) -> Self { /* ... */ }
+  ```
+  What a per-lookup draw between tables gives: each integral is linear
+
+- ```rust
+  pub fn effective(self: &Self) -> f64 { /* ... */ }
+  ```
+  The flux-weighted effective cross section `N / D` \[b\].
+
+- ```rust
+  pub fn resonance_integral(self: &Self, sigma0: f64) -> f64 { /* ... */ }
+  ```
+  `σ_0 · N`: the NR **resonance integral** of channel `x` \[b\], the
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `pointwise`
+
+Pointwise relative error over `[e_lo, e_hi]` \[eV\]; points where `exact`
+is not positive are skipped (a relative error is undefined there).
+
+```rust
+pub fn pointwise(grid: &[f64], approx: &[f64], exact: &[f64], e_lo: f64, e_hi: f64) -> PointwiseError { /* ... */ }
+```
+
+#### Function `lethargy_integral`
+
+`∫ y dE/E` over `[e_lo, e_hi]` by the trapezoid rule in lethargy on the
+grid points inside the band (the same quadrature for every arm, so arm
+differences are not quadrature differences).
+
+```rust
+pub fn lethargy_integral(grid: &[f64], y: &[f64], e_lo: f64, e_hi: f64) -> f64 { /* ... */ }
+```
+
+#### Function `mix_slowing_down_grids`
+
+The slowing-down grid a per-collision draw between tables sees: every
+collision fraction is the weighted sum of the tables'. All grids must
+share their lethargy points and α (build them with the same band, energy
+grid and mixture).
+
+# Panics
+
+If the grids do not share lethargy points, mixture size or α: mixing them
+would mean nothing, and this is only called by the study's own code.
+
+```rust
+pub fn mix_slowing_down_grids(parts: &[(&crate::physics::slowing_down::SlowingDownGrid, f64)]) -> crate::physics::slowing_down::SlowingDownGrid { /* ... */ }
+```
+
+#### Function `slowing_down_grid_from`
+
+The slowing-down grid on `lethargy` (from a grid already built, with
+source energy `e_top` \[eV\]) when each component's macroscopic
+`(Σ_scatter, Σ_absorb)` \[1/cm\] at grid point j, energy E, is `sigma(j, E)[i]`. For arms
+whose cross sections are not one table's (a plugged-in mixture, a fit).
+
+```rust
+pub fn slowing_down_grid_from<F>(lethargy: &[f64], e_top: f64, alpha: &[f64], sigma: F) -> crate::physics::slowing_down::SlowingDownGrid
+where
+    F: FnMut(usize, f64) -> Vec<(f64, f64)> { /* ... */ }
+```
+
+#### Function `urr_band_weights`
+
+The URR band intervals behind
+[`UrrProbabilityTables::band_representatives`](njoy_outram_park_fork::purr::UrrProbabilityTables::band_representatives):
+`(xi, weight)` pairs, one per interval of `xi` on which the band choice is
+constant, weight = the interval's length. `reps` must be that function's
+output (cuts `0, c_1, ..` and the midpoints between them, in any order).
+
+Returns `None` if `reps` is not of that form, so a change upstream is
+noticed rather than integrated wrongly.
+
+```rust
+pub fn urr_band_weights(reps: &[f64]) -> Option<Vec<(f64, f64)>> { /* ... */ }
+```
+
 ## Module `ugraphite`
 
 The uranium-graphite compositions of tutorial rungs 2 and 3 (GitHub #524,
@@ -65048,7 +67614,7 @@ pub struct Mix {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Mix { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -65085,7 +67651,7 @@ pub struct Mix {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Mix) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -65122,7 +67688,7 @@ pub struct Mix {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -65196,7 +67762,7 @@ pub struct PebbleInventory {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> PebbleInventory { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -65233,7 +67799,7 @@ pub struct PebbleInventory {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &PebbleInventory) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -65270,7 +67836,7 @@ pub struct PebbleInventory {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -66241,7 +68807,7 @@ pub struct TraceDiagnosis {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> TraceDiagnosis { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -66277,7 +68843,7 @@ pub struct TraceDiagnosis {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &TraceDiagnosis) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -66314,7 +68880,7 @@ pub struct TraceDiagnosis {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -66409,7 +68975,7 @@ pub struct SourceConvergence {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> SourceConvergence { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -66445,7 +69011,7 @@ pub struct SourceConvergence {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &SourceConvergence) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -66482,7 +69048,7 @@ pub struct SourceConvergence {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -66631,7 +69197,7 @@ pub struct KeffUncertainty {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> KeffUncertainty { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -66667,7 +69233,7 @@ pub struct KeffUncertainty {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &KeffUncertainty) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -66704,7 +69270,7 @@ pub struct KeffUncertainty {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -66795,7 +69361,7 @@ pub struct TallyBatchRecorder {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> TallyBatchRecorder { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -66831,7 +69397,7 @@ pub struct TallyBatchRecorder {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &TallyBatchRecorder) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -66868,7 +69434,7 @@ pub struct TallyBatchRecorder {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -66999,7 +69565,7 @@ pub struct SeedRun {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> SeedRun { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -67036,7 +69602,7 @@ pub struct SeedRun {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &SeedRun) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -67073,7 +69639,7 @@ pub struct SeedRun {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -67167,7 +69733,7 @@ pub struct EnsembleReport {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> EnsembleReport { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -67203,7 +69769,7 @@ pub struct EnsembleReport {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &EnsembleReport) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -67240,7 +69806,7 @@ pub struct EnsembleReport {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -67454,7 +70020,7 @@ pub struct LearnedImportanceSettings {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> LearnedImportanceSettings { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -67495,7 +70061,7 @@ pub struct LearnedImportanceSettings {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &LearnedImportanceSettings) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -67532,7 +70098,7 @@ pub struct LearnedImportanceSettings {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -67611,7 +70177,7 @@ pub struct GroupFill {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> GroupFill { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -67647,7 +70213,7 @@ pub struct GroupFill {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &GroupFill) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -67684,7 +70250,7 @@ pub struct GroupFill {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -67774,7 +70340,7 @@ pub struct VrArm {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> VrArm { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -67811,7 +70377,7 @@ pub struct VrArm {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &VrArm) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -67848,7 +70414,7 @@ pub struct VrArm {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -67929,7 +70495,7 @@ pub struct FomComparison {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> FomComparison { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -67966,7 +70532,7 @@ pub struct FomComparison {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &FomComparison) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -68003,7 +70569,7 @@ pub struct FomComparison {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -68175,7 +70741,7 @@ pub struct SweepRun {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> SweepRun { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -68211,7 +70777,7 @@ pub struct SweepRun {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &SweepRun) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -68248,7 +70814,7 @@ pub struct SweepRun {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -68323,7 +70889,7 @@ pub struct SurrogatePrediction {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> SurrogatePrediction { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -68359,7 +70925,7 @@ pub struct SurrogatePrediction {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &SurrogatePrediction) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -68396,7 +70962,7 @@ pub struct SurrogatePrediction {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -68478,7 +71044,7 @@ pub struct LooGate {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> LooGate { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -68515,7 +71081,7 @@ pub struct LooGate {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &LooGate) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -68552,7 +71118,7 @@ pub struct LooGate {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -68648,7 +71214,7 @@ pub struct SweepSurrogate {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> SweepSurrogate { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -68684,7 +71250,7 @@ pub struct SweepSurrogate {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &SweepSurrogate) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -68721,7 +71287,7 @@ pub struct SweepSurrogate {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -68848,7 +71414,7 @@ pub struct UncertainInput {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> UncertainInput { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -68884,7 +71450,7 @@ pub struct UncertainInput {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &UncertainInput) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -68921,7 +71487,7 @@ pub struct UncertainInput {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -69000,7 +71566,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> DesignKind { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -69037,7 +71603,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &DesignKind) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -69074,7 +71640,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -69164,7 +71730,7 @@ where
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> UqDesign { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -69200,7 +71766,7 @@ where
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &UqDesign) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -69237,7 +71803,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -69310,7 +71876,7 @@ pub struct InputSensitivity {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> InputSensitivity { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -69346,7 +71912,7 @@ pub struct InputSensitivity {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &InputSensitivity) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -69383,7 +71949,7 @@ pub struct InputSensitivity {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -69473,7 +72039,7 @@ pub struct UqReport {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> UqReport { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -69509,7 +72075,7 @@ pub struct UqReport {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &UqReport) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -69546,7 +72112,7 @@ pub struct UqReport {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -69628,7 +72194,7 @@ pub struct DirectPerturbation {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> DirectPerturbation { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -69665,7 +72231,7 @@ pub struct DirectPerturbation {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &DirectPerturbation) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -69702,7 +72268,7 @@ pub struct DirectPerturbation {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -69778,23 +72344,62 @@ nuclide indices and run-size integers stay in the lower-level modules.
 Two kinds of choice, two treatments (maintainer, #925):
 
 - **Physics** (URR, DBRC, the thermal laws): always on and hidden here.
-  Ablation will live behind one explicit `advanced` entry (#942, not yet
-  built). The run's [`RunProvenance`] records what was on.
+  Ablation lives behind one explicit `advanced` entry ([`advanced`], #942;
+  ~~not yet built~~ built 2026-10-17). The run's [`RunProvenance`] records what was on.
 - **The user's statement of their input** ([`Basis`], [`PpmOf`],
   [`Placement`], enrichment, fuel family, temperature): required, no
   defaults, no warnings.
 
+## Diagnostics, the report and `advanced` (wave 2: #940, #941, #942)
+
+- [`Diagnostics`]: what to collect beside k (six factors, spectra,
+  balance, EALF, leakage, kinetics by IFP, maps), passed as
+  `KeffSettings::new(mc, Some(Diagnostics::default()))`; results by
+  `run.six_factors()?`, `run.spectrum(Region::Component(core))?`, ...
+- [`DiagnosticsReport`]: `run.diagnostics_report().write_zip("out/x.zip")`
+  (native) or `.to_zip_bytes()` (anywhere, wasm included): `report.md`
+  with embedded CSV, `data/*.csv` and PNG plots.
+- [`advanced`]: physics ablation (`model.advanced().without_dbrc()`) and
+  maps on your own mesh. The only place either lives.
+
+## Repeated structures (#926)
+
+A TRISO particle is concentric spheres, one `.containing` per statement;
+a unit cell is a [`Cube`] of matrix containing it, with
+`.boundary(Boundary::Reflective)` for a k-infinity; a [`Lattice`]
+repeats tiles, its row order named by its constructor; and
+[`AssembledModel::census`] counts the copies the assembled geometry
+places (never from constants). A [`Cylinder`] (finite, or a *rod* that
+runs through its lattice tile) and a lattice as a tile of a lattice
+build LCT-008's core, a 7 x 7 lattice of 15 x 15 pin lattices cut by a
+cylinder (tutorial 6). A [`HexPrism`] tile repeated by [`Lattice::hex`]
+is Şeker's layer (tutorial 7); [`Lattice::hex_bed`] stacks it in a
+[`Hopper`] (a cylinder, a cone and a tube) with **whole-ball rejection**,
+and [`AssembledModel::bed_census`] counts the balls kept and rejected
+(tutorial 8).
+
 ## Not yet here
 
-Diagnostics (#940; [`Diagnostics`] is a placeholder with no values, so
-`None` is the only choice), the report zip (#941), `advanced` (#942),
-repeated structures (#926), position-dependent temperature (#945), and
+~~Repeated structures (#926)~~ (lattices and unit cells landed
+2026-10-18; ~~still to come on #926: random packing and the
+double-heterogeneity region `DhRegion` of tutorial 5, lattices in a
+sphere with whole-particle rejection,~~ landed the same day: `DhRegion`,
+`Packing`, `Lattice::covering`; ~~hex lattices~~ **landed 2026-10-18
+(tutorial 7: [`HexPrism`], [`Lattice::hex`], one tile repeated without
+end)**; still to come: the
+chord-length tracking and the `ring_rpt()` / `naive_homogenisation()`
+conversions of #943), temperature varying inside a region (#945
+stages 2-3; ~~position-dependent temperature~~ **stage 1 landed
+2026-10-18**: one fixed temperature per region,
+`Shape::at_temperature`, `Model::set_component_temperature` and
+`Model::take_temperatures_from` a `ThermalProfile`, each nuclide
+processed exactly at each temperature present), and
 the njoy → outram-mc data contract, which is open on #925
 ([`NuclearData`] wraps today's path so it can be swapped).
 
 ## Names shared with the lower level
 
-`Material`, `Sphere` and `KeffSettings` also name lower-level types in
+`Material`, `Sphere`, `Lattice` and `KeffSettings` also name lower-level types in
 `outram_mc_libs::prelude`. Use `outram_mc_libs::model::prelude::*` for
 this API; the crate prelude re-exports the rest of it under its own
 names.
@@ -69805,240 +72410,49 @@ pub mod model { /* ... */ }
 
 ### Modules
 
-## Module `data`
+## Module `advanced`
 
-**Where the nuclear data comes from**: one small handle,
-[`NuclearData`], over today's loading path.
+**The `advanced` entry** (gh #942, epic #925): the one place where the
+beginner API lets you change physics or choose your own mesh.
 
-# What this is, and what it deliberately does not settle
+Correct physics is **on and hidden** at the high level (root CLAUDE.md,
+"Correct physics is the DEFAULT SETTING"; maintainer decisions on #925,
+2026-10-17). Switching any of it off is an explicit, visible act that
+goes through this module, so a reviewer finds every ablation by
+searching for one word, `advanced`:
 
-The njoy → outram-mc contract is **open on epic #925**: (a) one
-njoy-owned processed object, (b) ACE as the interchange format, or (c)
-both with one master copy; and the library-from-a-zip loader is #935.
-This handle does not choose. It wraps the path the crate's recorded
-benchmarks use today, so it can be swapped later without touching a
-model:
+```no_run
+use outram_mc_libs::model::prelude::*;
+# fn f(godiva: Model) -> Result<(), Box<dyn std::error::Error>> {
+let ablated = godiva.advanced().without_dbrc().without_urr();
+let run = ablated.keff(KeffSettings::new(MCSettings::Fast, None))?;
+assert!(!run.provenance.ablations.is_empty());   // the run says what was off
+# Ok(()) }
+```
 
-- each needed nuclide's ENDF tape is found **by the identity in its own
-  header** (Z, A and `LISO` from the MF1/MT451 HEAD records, sub-library
-  `NSUB = 10`), never by file name;
-- it is processed by [`Nuclide::from_tape_with_speed`] at the model's
-  temperature with the default (exact) [`SpeedTier::Fast`]: RECONR +
-  BROADR at NJOY's 0.001, with URR probability tables and DBRC **on**, as
-  every ordinary constructor gives them;
-- a thermal law is regenerated by LEAPR from the ENDF/B-VIII.0 deck
-  compiled into njoy ([`ThermalScattering::from_embedded_leapr_deck`];
-  LEAPR always, the `tsl-*` tapes are oracles, maintainer 2026-10-14).
+**Maps on a mesh you choose** (both the spatial mesh and its energy
+groups, decided on #925) are built here too: [`mesh_divisions`] /
+[`mesh_cells`] and [`fission_map`] / [`flux_map`]. The
+`Diagnostics::reactor_physics` preset keeps its own 15³ maps without
+any of this.
 
-# Native and browser
-
-[`NuclearData::endf_folder`] and [`NuclearData::workspace_reference`]
-read files and are **native only** (`std::fs` compiles on
-`wasm32-unknown-unknown` and then fails at run time).
-[`NuclearData::from_endf_bytes`] takes tapes as bytes and touches no
-file: the in-memory path a browser upload would use.
+The approximate double-heterogeneity trackings and the other `advanced`
+choices named on #943 arrive with the shapes that need them (#926).
 
 ```rust
-pub mod data { /* ... */ }
+pub mod advanced { /* ... */ }
 ```
 
 ### Types
 
-#### Enum `DataError`
+#### Struct `AdvancedModel`
 
-Why nuclear data could not be found or processed.
-
-```rust
-pub enum DataError {
-    NotInLibrary {
-        library: String,
-        isotope: super::isotope::Isotope,
-    },
-    Ambiguous {
-        library: String,
-        isotope: super::isotope::Isotope,
-        files: Vec<String>,
-    },
-    NoTapes(String),
-    Njoy {
-        what: String,
-        source: njoy_outram_park_fork::NjoyError,
-    },
-}
-```
-
-##### Variants
-
-###### `NotInLibrary`
-
-No tape in the library is this nuclide.
-
-Fields:
-
-| Name | Type | Documentation |
-|------|------|---------------|
-| `library` | `String` | The library. |
-| `isotope` | `super::isotope::Isotope` | The nuclide. |
-
-###### `Ambiguous`
-
-Several tapes are this nuclide and none is preferred.
-
-Fields:
-
-| Name | Type | Documentation |
-|------|------|---------------|
-| `library` | `String` | The library. |
-| `isotope` | `super::isotope::Isotope` | The nuclide. |
-| `files` | `Vec<String>` | The candidates. |
-
-###### `NoTapes`
-
-A folder with no readable ENDF tape.
-
-Fields:
-
-| Index | Type | Documentation |
-|-------|------|---------------|
-| 0 | `String` |  |
-
-###### `Njoy`
-
-Reading or processing a tape failed.
-
-Fields:
-
-| Name | Type | Documentation |
-|------|------|---------------|
-| `what` | `String` | Which nuclide or law. |
-| `source` | `njoy_outram_park_fork::NjoyError` | The njoy error. |
-
-##### Implementations
-
-###### Trait Implementations
-
-- **Any**
-  - ```rust
-    fn type_id(self: &Self) -> TypeId { /* ... */ }
-    ```
-
-- **Borrow**
-  - ```rust
-    fn borrow(self: &Self) -> &T { /* ... */ }
-    ```
-
-- **BorrowMut**
-  - ```rust
-    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
-    ```
-
-- **ByRef**
-  - ```rust
-    fn by_ref(self: &Self) -> &T { /* ... */ }
-    ```
-
-- **CastableFrom**
-- **Debug**
-  - ```rust
-    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
-    ```
-
-- **Display**
-  - ```rust
-    fn fmt(self: &Self, __formatter: &mut ::core::fmt::Formatter<''_>) -> ::core::fmt::Result { /* ... */ }
-    ```
-
-- **DistributionExt**
-- **Downcast**
-  - ```rust
-    fn downcast(self: &Self) -> &T { /* ... */ }
-    ```
-
-- **Error**
-  - ```rust
-    fn source(self: &Self) -> ::core::option::Option<&dyn ::thiserror::__private18::Error + ''static> { /* ... */ }
-    ```
-
-- **Freeze**
-- **From**
-  - ```rust
-    fn from(t: T) -> T { /* ... */ }
-    ```
-    Returns the argument unchanged.
-
-  - ```rust
-    fn from(source: DataError) -> Self { /* ... */ }
-    ```
-
-- **Imply**
-- **Into**
-  - ```rust
-    fn into(self: Self) -> U { /* ... */ }
-    ```
-    Calls `U::from(self)`.
-
-- **IntoEither**
-- **Pointable**
-  - ```rust
-    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn drop(ptr: usize) { /* ... */ }
-    ```
-
-- **Read**
-- **RefUnwindSafe**
-- **Same**
-- **Send**
-- **Sync**
-- **ToString**
-  - ```rust
-    fn to_string(self: &Self) -> String { /* ... */ }
-    ```
-
-- **TryFrom**
-  - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
-    ```
-
-- **TryInto**
-  - ```rust
-    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
-    ```
-
-- **Unpin**
-- **UnsafeUnpin**
-- **UnwindSafe**
-- **Upcast**
-  - ```rust
-    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **VZip**
-  - ```rust
-    fn vzip(self: Self) -> V { /* ... */ }
-    ```
-
-- **WasmNotSend**
-- **WasmNotSendSync**
-- **WasmNotSync**
-#### Struct `NuclearData`
-
-**A nuclear-data library**: the incident-neutron ENDF tapes a model's
-nuclides are processed from. See the module docs for what it does and
-what it leaves open.
+**A model with physics switched off on purpose.** Made by
+[`Model::advanced`]; every switch is a `without_*` call, and every run
+records them in `RunProvenance::ablations`.
 
 ```rust
-pub struct NuclearData {
+pub struct AdvancedModel {
     // Some fields omitted
 }
 ```
@@ -70054,39 +72468,49 @@ pub struct NuclearData {
 ###### Methods
 
 - ```rust
-  pub fn endf_folder(dir: &Path) -> Result<Self, DataError> { /* ... */ }
+  pub fn without_dbrc(self: Self) -> Self { /* ... */ }
   ```
-  **Every incident-neutron ENDF tape in `dir`** (`*.endf`, `*.dat`, and
+  **Ablate DBRC**: resonance elastic scattering on the
 
 - ```rust
-  pub fn workspace_reference() -> Result<Self, DataError> { /* ... */ }
+  pub fn without_urr(self: Self) -> Self { /* ... */ }
   ```
-  **The workspace's reference tapes** (`reference-data/endf/`, or
+  **Ablate URR self-shielding**: infinitely dilute unresolved-range
 
 - ```rust
-  pub fn from_endf_bytes</* synthetic */ impl IntoIterator<Item = (String, Vec<u8>)>: IntoIterator<Item = (String, Vec<u8>)>>(label: &str, tapes: impl IntoIterator<Item = (String, Vec<u8>)>) -> Result<Self, DataError> { /* ... */ }
+  pub fn without_thermal_scattering(self: Self) -> Self { /* ... */ }
   ```
-  **Tapes given as bytes** (`(file name, contents)`), for a browser
+  **Ablate the thermal scattering laws**: bound atoms (H in water, C in
 
 - ```rust
-  pub fn label(self: &Self) -> &str { /* ... */ }
+  pub fn with_majorant_cover(self: Self, settings: CoverSettings) -> Self { /* ... */ }
   ```
-  What this library is, for a run's provenance.
+  **Cover each delta-tracked region's majorant with Chebyshev bands**
 
 - ```rust
-  pub fn tape_file(self: &Self, isotope: Isotope) -> Result<&str, DataError> { /* ... */ }
+  pub fn majorant_cover(self: &Self) -> Option<CoverSettings> { /* ... */ }
   ```
-  The file name of the tape `isotope` is processed from.
+  The cover requested through [`Self::with_majorant_cover`], if any.
 
 - ```rust
-  pub fn atomic_masses(self: &Self) -> AtomicMasses { /* ... */ }
+  pub fn assemble(self: &Self) -> Result<AssembledModel, ModelError> { /* ... */ }
   ```
-  **The nuclides this library can supply, with their masses** (each
+  The model assembled with this entry's choices (the majorant cover)
 
 - ```rust
-  pub fn load_nuclide(self: &Self, isotope: Isotope, temperature_k: f64, law: Option<SabMaterial>) -> Result<Nuclide, DataError> { /* ... */ }
+  pub fn model(self: &Self) -> &Model { /* ... */ }
   ```
-  **Process one nuclide** at `temperature_k`, with the thermal law `law`
+  The model underneath.
+
+- ```rust
+  pub fn ablations(self: &Self) -> Vec<String> { /* ... */ }
+  ```
+  What is switched off, in words (empty: nothing).
+
+- ```rust
+  pub fn keff(self: &Self, settings: KeffSettings) -> Result<KeffRun, RunError> { /* ... */ }
+  ```
+  **Run k_eff with the ablations**, as [`Model::keff`] otherwise. The
 
 ###### Trait Implementations
 
@@ -70113,7 +72537,7 @@ pub struct NuclearData {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> NuclearData { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -70180,7 +72604,6538 @@ pub struct NuclearData {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `mesh_divisions`
+
+**A mesh of `n` cells per axis** over `bounds`.
+
+```rust
+pub fn mesh_divisions(n: [usize; 3], bounds: super::diagnostics::MeshBounds) -> super::diagnostics::Mesh { /* ... */ }
+```
+
+#### Function `mesh_cells`
+
+**A mesh of cells of the given size** over `bounds`; the cell count per
+axis is rounded up and the box grown to fit, so every cell keeps the
+size asked for.
+
+```rust
+pub fn mesh_cells(cell: [uom::si::f64::Length; 3], bounds: super::diagnostics::MeshBounds) -> super::diagnostics::Mesh { /* ... */ }
+```
+
+#### Function `fission_map`
+
+**A fission-rate map** on your mesh.
+
+```rust
+pub fn fission_map(mesh: super::diagnostics::Mesh) -> super::diagnostics::MCDiagnostic { /* ... */ }
+```
+
+#### Function `flux_map`
+
+**A flux map** on your mesh and energy groups.
+
+```rust
+pub fn flux_map(mesh: super::diagnostics::Mesh, grid: super::diagnostics::EnergyGrid) -> super::diagnostics::MCDiagnostic { /* ... */ }
+```
+
+### Re-exports
+
+#### Re-export `CoverSettings`
+
+```rust
+pub use crate::physics::delta_tracking::CoverSettings;
+```
+
+## Module `census`
+
+**What the assembled geometry holds: copies and volumes** (gh #926).
+
+Counted from the **assembled** CSG, never from the numbers the model was
+built with: the HTR-10 history had a TRISO lattice holding 8240
+particles while the model reported 8340 (gh:#316, +353 pcm), because the
+count came from a constant. Here the copies of each cell are counted by a
+walk of the geometry's universe and lattice graph from the root, and each
+copy's volume is exact (a shape's solid minus the solids it contains,
+from the lowering).
+
+**A copy is a distinct place in space.** ~~The copies of each cell are the
+distributed-cell instance count (`DistribcellOffsets`).~~ **CHANGED
+2026-10-18 (#926, random packing):** a randomly packed particle that
+straddles a tracking-lattice face is drawn in both tiles (OpenMC's
+`create_triso_lattice`), so it is reached by two paths, and a path count
+(distribcell's) would count it twice. The walk keeps each universe's
+**placements** (its origin in the root frame, to 1e-9 cm) and counts
+distinct ones. Where no universe is reached twice at one place (every
+model before random packing), this is the distribcell count, and
+`tests/model_repeated_structures.rs` still pins it. A lattice's `outer`
+is counted once per placement of the lattice, as before.
+
+**A ball that crosses a hexagonal tile's face** (`Lattice::hex`, tutorial
+7) is one ball with a piece in each tile it touches. The census counts the
+ball once, in the tile that holds its centre, with its whole volume; the
+pieces the lattice shows from the neighbouring tiles (and their particles)
+are left out, so a count of balls is a count of balls and the volumes add
+up to the periodic cell's inventory.
+
+**Pooled volumes.** The matrix cells of a sphere filled with whole
+particles (a lattice in a sphere, a `DhRegion`) are clipped by the
+sphere, so none has an exact volume of its own. Their rows say
+[`RowKind::Pooled`] with no volume, and one [`RowKind::Pool`] row per
+sphere carries the matrix's exact volume: the sphere less the whole
+particles in it. [`Census::packings`] reports each such sphere: the
+particles counted from the geometry and the packing fraction they
+realise, beside the one asked for.
+
+```rust
+pub mod census { /* ... */ }
+```
+
+### Types
+
+#### Enum `RowKind`
+
+How a census row's volume is counted.
+
+```rust
+pub enum RowKind {
+    Cell,
+    Pooled {
+        pool_cell: usize,
+    },
+    Pool,
+}
+```
+
+##### Variants
+
+###### `Cell`
+
+An ordinary cell: `volume_each` is exact.
+
+###### `Pooled`
+
+A matrix cell clipped by the sphere it fills: no volume of its own
+(`volume_each` is zero); the [`RowKind::Pool`] row of the sphere's
+fill cell `pool_cell` carries it.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `pool_cell` | `usize` | The fill cell whose pool row carries this cell's volume. |
+
+###### `Pool`
+
+The matrix of a sphere filled with whole particles, all its cells
+together: `volume_each` is the sphere less its particles, exact;
+`copies` the placements of the sphere.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `CensusRow`
+
+One material cell of the assembled geometry (or one pool; see
+[`RowKind`]).
+
+```rust
+pub struct CensusRow {
+    pub cell: usize,
+    pub material: String,
+    pub component: Option<super::shape::Component>,
+    pub component_label: Option<String>,
+    pub copies: usize,
+    pub volume_each: uom::si::f64::Volume,
+    pub kind: RowKind,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `cell` | `usize` | The cell's index in the assembled geometry (for a pool row, the<br>sphere's fill cell). |
+| `material` | `String` | Its material's name. |
+| `component` | `Option<super::shape::Component>` | Its component, if its shape had one. |
+| `component_label` | `Option<String>` | That component's label. |
+| `copies` | `usize` | How many copies of the cell the geometry places: distinct places in<br>space, through every lattice tile and nested universe. |
+| `volume_each` | `uom::si::f64::Volume` | The exact volume of one copy (zero for a pooled cell). |
+| `kind` | `RowKind` | How the volume is counted. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn volume(self: &Self) -> Volume { /* ... */ }
+  ```
+  `copies × volume_each`.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `Arrangement`
+
+How the particles of a packed sphere are arranged.
+
+```rust
+pub enum Arrangement {
+    RegularLattice {
+        pitch_cm: [f64; 3],
+        grid: [usize; 3],
+        offset: Option<[f64; 3]>,
+    },
+    Random {
+        seed: u64,
+        tracking_pitch_cm: f64,
+        grid: [usize; 3],
+    },
+    HexBed {
+        pitch_cm: f64,
+        height_cm: f64,
+        rings: usize,
+        levels: usize,
+    },
+}
+```
+
+##### Variants
+
+###### `RegularLattice`
+
+A regular lattice of tiles with whole-particle rejection.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `pitch_cm` | `[f64; 3]` | The pitch \[cm\]. |
+| `grid` | `[usize; 3]` | The grid laid over the sphere. |
+| `offset` | `Option<[f64; 3]>` | The offset in pitches, for a covering lattice. |
+
+###### `Random`
+
+Random sequential addition (`pack_in_ball`), placed in a tracking
+lattice (`create_triso_lattice`).
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `seed` | `u64` | The packing seed. |
+| `tracking_pitch_cm` | `f64` | The tracking lattice's pitch \[cm\] (a speed choice only). |
+| `grid` | `[usize; 3]` | The tracking grid. |
+
+###### `HexBed`
+
+Balls on a stacked hexagonal lattice with whole-ball rejection
+(`Lattice::hex_bed`, tutorial 8).
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `pitch_cm` | `f64` | The tile's flat-to-flat pitch \[cm\]. |
+| `height_cm` | `f64` | The tile's height \[cm\]. |
+| `rings` | `usize` | Hexagonal rings of tiles. |
+| `levels` | `usize` | Axial levels of tiles. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `PackingRow`
+
+**A sphere filled with whole particles**: what the geometry holds,
+against what was asked for.
+
+```rust
+pub struct PackingRow {
+    pub cell: usize,
+    pub component: Option<super::shape::Component>,
+    pub component_label: Option<String>,
+    pub arrangement: Arrangement,
+    pub delta_tracked: bool,
+    pub placements: usize,
+    pub particles: usize,
+    pub particle_volume: uom::si::f64::Volume,
+    pub region_volume: uom::si::f64::Volume,
+    pub requested: uom::si::f64::Ratio,
+    pub realised: uom::si::f64::Ratio,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `cell` | `usize` | The sphere's fill cell. |
+| `component` | `Option<super::shape::Component>` | The matrix's component. |
+| `component_label` | `Option<String>` | That component's label. |
+| `arrangement` | `Arrangement` | The arrangement. |
+| `delta_tracked` | `bool` | Whether the sphere is delta-tracked (a `DhRegion`). |
+| `placements` | `usize` | Placements of the sphere in the geometry. |
+| `particles` | `usize` | **Particles counted from the assembled geometry** (every placement). |
+| `particle_volume` | `uom::si::f64::Volume` | Their volume, together. |
+| `region_volume` | `uom::si::f64::Volume` | The spheres' volume, together. |
+| `requested` | `uom::si::f64::Ratio` | The packing fraction asked for: the random packing's fraction, or a<br>lattice's infinite-array fraction (particle over tile volume). |
+| `realised` | `uom::si::f64::Ratio` | **The packing fraction the geometry realises**: particle volume over<br>sphere volume. It differs from `requested` by whole-particle<br>rejection (a lattice) or by the packer's tolerance (random). |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `Census`
+
+**Every material cell, how many copies the geometry places, and their
+volumes**, plus every sphere filled with particles. Made by
+[`AssembledModel::census`].
+
+```rust
+pub struct Census {
+    pub rows: Vec<CensusRow>,
+    pub packings: Vec<PackingRow>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `rows` | `Vec<CensusRow>` | One row per material cell, in cell order, then one<br>[`RowKind::Pool`] row per packed sphere. |
+| `packings` | `Vec<PackingRow>` | One row per sphere filled with whole particles. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn copies(self: &Self, component: Component) -> usize { /* ... */ }
+  ```
+  **How many shapes of `component` the geometry places**: the copies of
+
+- ```rust
+  pub fn volume(self: &Self, component: Component) -> Volume { /* ... */ }
+  ```
+  The total volume of `component`'s cells.
+
+- ```rust
+  pub fn total_volume(self: &Self) -> Volume { /* ... */ }
+  ```
+  The volume of every material cell together (void excluded).
+
+- ```rust
+  pub fn volume_fraction(self: &Self, component: Component) -> Ratio { /* ... */ }
+  ```
+  `component`'s share of [`Self::total_volume`].
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Display**
+  - ```rust
+    fn fmt(self: &Self, f: &mut std::fmt::Formatter<''_>) -> std::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **ToString**
+  - ```rust
+    fn to_string(self: &Self) -> String { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+## Module `collect`
+
+**How [`Diagnostics`] become tallies, and tallies become results**
+(gh #940). Internal to the beginner API: the public types are the result
+structs below and [`MCDiagnosticResult`].
+
+# The plan
+
+Each diagnostic asks for the tallies (`tally::Tally`, filters × scores)
+and leakage grids it reads; a request equal to one already made shares
+it. All are scored on the same histories by
+[`CsgPowerIteration::step_scored`](crate::physics::transport_csg::CsgPowerIteration::step_scored).
+
+| diagnostic | tally filters | scores | leakage grid |
+|---|---|---|---|
+| NeutronBalance | cell | flux, absorption, fission, ν-fission | `[0, ∞)` |
+| Ealf | energy (preset 1000-bin grid) | fission | — |
+| Leakage | — | — | the grid, with under/overflow |
+| SixFactors | energy (3 groups, `[0, ∞)`), material | absorption, ν-fission | the 3 groups |
+| Spectrum | energy (grid, with under/overflow), cell (region) | flux | — |
+| Kinetics | — (IFP lineage on the power iteration) | — | — |
+| FissionMap | mesh | fission | — |
+| FluxMap | mesh, energy | flux | — |
+
+# Statistics
+
+Every quantity is **per source neutron** (the generation's population).
+A quantity built from several bins (a group sum, a region's spectrum, a
+ratio) is formed **per active generation** and its mean and standard
+error taken over the generations, so correlations between bins are
+carried rather than assumed away. Ratios and products (the six factors,
+EALF, β_eff, Λ, the balance closure) use the delta method with the full
+covariance of their inputs across generations ([`delta_method`]). One
+bin on its own (a spectrum bin, a map cell) takes its standard error from
+its tally bin. Standard errors ignore cycle-to-cycle correlation, as
+`k`'s does (see `RunProvenance::sigma_batch_means`).
+
+```rust
+pub mod collect { /* ... */ }
+```
+
+### Types
+
+#### Struct `RunHealth`
+
+**Run health**: is the run itself trustworthy?
+
+```rust
+pub struct RunHealth {
+    pub k_by_cycle: Vec<f64>,
+    pub entropy_by_cycle: Vec<Option<f64>>,
+    pub particles_by_cycle: Vec<usize>,
+    pub inactive_cycles: usize,
+    pub converged: bool,
+    pub histories: u64,
+    pub collisions_per_history: f64,
+    pub lost_locate: u64,
+    pub stuck_events: u64,
+    pub leak_infinity: u64,
+    pub negative_distances: u64,
+    pub transport_seconds: Option<f64>,
+    pub hardware: String,
+    pub threads: usize,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `k_by_cycle` | `Vec<f64>` | k per cycle, inactive first. |
+| `entropy_by_cycle` | `Vec<Option<f64>>` | Source entropy \[bits\] per cycle. |
+| `particles_by_cycle` | `Vec<usize>` | Neutrons per cycle. |
+| `inactive_cycles` | `usize` | Inactive cycles. |
+| `converged` | `bool` | The convergence verdict (see `RunProvenance::convergence`). |
+| `histories` | `u64` | Source histories over all cycles. |
+| `collisions_per_history` | `f64` | Real collisions per source history. |
+| `lost_locate` | `u64` | Histories lost (no cell found), scored as leaks. Should be 0. |
+| `stuck_events` | `u64` | Histories ended by the event cap, scored as leaks. Should be 0. |
+| `leak_infinity` | `u64` | Escapes with no surface ahead (a model not closed). Should be 0. |
+| `negative_distances` | `u64` | Negative distances to a boundary. Should be 0. |
+| `transport_seconds` | `Option<f64>` | Transport wall time \[s\] (all cycles; not measured on wasm32). |
+| `hardware` | `String` | The machine (`perf_report::HardwareInfo::headline`). |
+| `threads` | `usize` | Threads the transport used. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn clean(self: &Self) -> bool { /* ... */ }
+  ```
+  Whether every "should be 0" counter is 0.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `BalanceRow`
+
+One row of a [`NeutronBalance`]: rates per source neutron.
+
+```rust
+pub struct BalanceRow {
+    pub label: String,
+    pub absorption: crate::physics::reactor_physics::Estimate,
+    pub fission: crate::physics::reactor_physics::Estimate,
+    pub capture: crate::physics::reactor_physics::Estimate,
+    pub production: crate::physics::reactor_physics::Estimate,
+    pub flux: crate::physics::reactor_physics::Estimate,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `label` | `String` | What the row covers (a material, a component, or "total"). |
+| `absorption` | `crate::physics::reactor_physics::Estimate` | Absorption (capture + fission, MT=27 as OpenMC). |
+| `fission` | `crate::physics::reactor_physics::Estimate` | Fission. |
+| `capture` | `crate::physics::reactor_physics::Estimate` | Capture = absorption − fission. |
+| `production` | `crate::physics::reactor_physics::Estimate` | ν-fission production. |
+| `flux` | `crate::physics::reactor_physics::Estimate` | Track-length flux, volume-integrated \[cm per source neutron\]. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `NeutronBalance`
+
+**Where neutrons end**, per source neutron.
+
+```rust
+pub struct NeutronBalance {
+    pub by: super::diagnostics::BalanceBy,
+    pub rows: Vec<BalanceRow>,
+    pub total: BalanceRow,
+    pub leakage: crate::physics::reactor_physics::Estimate,
+    pub analog_fission: crate::physics::reactor_physics::Estimate,
+    pub analog_capture: crate::physics::reactor_physics::Estimate,
+    pub analog_leakage: crate::physics::reactor_physics::Estimate,
+    pub ends_per_source: crate::physics::reactor_physics::Estimate,
+    pub closure: crate::physics::reactor_physics::Estimate,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `by` | `super::diagnostics::BalanceBy` | The split asked for. |
+| `rows` | `Vec<BalanceRow>` | One row per material or component (empty for `BalanceBy::Total`). |
+| `total` | `BalanceRow` | The whole model. |
+| `leakage` | `crate::physics::reactor_physics::Estimate` | Leakage (every escape). |
+| `analog_fission` | `crate::physics::reactor_physics::Estimate` | Analog counts of how neutrons ended, per source neutron: fission,<br>capture, leakage, and their sum (`1 +` the net (n,xn) gain). |
+| `analog_capture` | `crate::physics::reactor_physics::Estimate` | See [`Self::analog_fission`]. |
+| `analog_leakage` | `crate::physics::reactor_physics::Estimate` | See [`Self::analog_fission`]. |
+| `ends_per_source` | `crate::physics::reactor_physics::Estimate` | See [`Self::analog_fission`]. |
+| `closure` | `crate::physics::reactor_physics::Estimate` | **The balance check**: `(absorption + leakage) / ends − 1`, the<br>track-length losses against the analog count of ends. Zero within<br>statistics when the balance closes. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `Ealf`
+
+**The energy of the average lethargy causing fission.**
+
+```rust
+pub struct Ealf {
+    pub ealf_ev: crate::physics::reactor_physics::Estimate,
+    pub discretisation_bound_ln: f64,
+    pub fission_outside_grid: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `ealf_ev` | `crate::physics::reactor_physics::Estimate` | EALF \[eV\]. |
+| `discretisation_bound_ln` | `f64` | The binning bound: each fission is placed at its bin's lethargy<br>midpoint, so `|ln EALF − ln EALF_exact| ≤` this (half the widest bin<br>in lethargy). |
+| `fission_outside_grid` | `f64` | Fraction of the fission rate outside the grid (not counted). |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn energy(self: &Self) -> uom::si::f64::Energy { /* ... */ }
+  ```
+  EALF as an energy.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `Leakage`
+
+**Leakage**, per source neutron.
+
+```rust
+pub struct Leakage {
+    pub per_source: crate::physics::reactor_physics::Estimate,
+    pub fraction_of_ends: crate::physics::reactor_physics::Estimate,
+    pub edges_ev: Vec<f64>,
+    pub per_bin: Vec<crate::physics::reactor_physics::Estimate>,
+    pub outside_grid: (f64, f64),
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `per_source` | `crate::physics::reactor_physics::Estimate` | Neutrons leaking per source neutron (all energies). |
+| `fraction_of_ends` | `crate::physics::reactor_physics::Estimate` | Leaked / ended (the leakage probability of a neutron). |
+| `edges_ev` | `Vec<f64>` | The grid's edges \[eV\]. |
+| `per_bin` | `Vec<crate::physics::reactor_physics::Estimate>` | Leakage per source neutron in each bin. |
+| `outside_grid` | `(f64, f64)` | Leakage below / above the grid per source neutron. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `SixFactors`
+
+**The six-factor formula** on a three-group split, from one run.
+`η·f·p·ε·P_FNL·P_TNL = P / (A + L)` exactly
+(`physics::reactor_physics::assemble_six_factors`); see
+[`Self::k_tracklength`] for how that compares with k.
+
+**Undefined in a fast system.** The factors divide by thermal rates
+(η by the fuel's thermal absorption, ε by the thermal production, ...).
+Where no neutron is absorbed below the thermal edge (Godiva) every
+factor is 0/0: they are then `NaN` and [`Self::undefined_because`] says
+why, rather than a zero that reads as a result. The group rates and
+[`Self::production_over_losses`] stay defined.
+
+```rust
+pub struct SixFactors {
+    pub eta: crate::physics::reactor_physics::Estimate,
+    pub f: crate::physics::reactor_physics::Estimate,
+    pub p: crate::physics::reactor_physics::Estimate,
+    pub epsilon: crate::physics::reactor_physics::Estimate,
+    pub p_fnl: crate::physics::reactor_physics::Estimate,
+    pub p_tnl: crate::physics::reactor_physics::Estimate,
+    pub k_from_factors: crate::physics::reactor_physics::Estimate,
+    pub production_over_losses: crate::physics::reactor_physics::Estimate,
+    pub undefined_because: Option<String>,
+    pub k_tracklength: crate::physics::reactor_physics::Estimate,
+    pub absorption: [crate::physics::reactor_physics::Estimate; 3],
+    pub production: [crate::physics::reactor_physics::Estimate; 3],
+    pub leakage: [crate::physics::reactor_physics::Estimate; 3],
+    pub thermal_absorption_fuel: crate::physics::reactor_physics::Estimate,
+    pub edges_ev: (f64, f64),
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `eta` | `crate::physics::reactor_physics::Estimate` | Reproduction factor. |
+| `f` | `crate::physics::reactor_physics::Estimate` | Thermal utilisation. |
+| `p` | `crate::physics::reactor_physics::Estimate` | Resonance escape probability (three-group, leakage-corrected). |
+| `epsilon` | `crate::physics::reactor_physics::Estimate` | Fast fission factor. |
+| `p_fnl` | `crate::physics::reactor_physics::Estimate` | Fast (+ resonance) non-leakage probability. |
+| `p_tnl` | `crate::physics::reactor_physics::Estimate` | Thermal non-leakage probability. |
+| `k_from_factors` | `crate::physics::reactor_physics::Estimate` | The product of the six factors (`NaN` when undefined). |
+| `production_over_losses` | `crate::physics::reactor_physics::Estimate` | `P / (A + L)`, computed directly: what the product telescopes to,<br>defined whether or not the factors are. |
+| `undefined_because` | `Option<String>` | Why the factors are undefined (`None` when they are defined). |
+| `k_tracklength` | `crate::physics::reactor_physics::Estimate` | The track-length ν-fission production per source neutron, `P`: the<br>track-length estimate of k. `k_from_factors × (A + L) = P` exactly;<br>`A + L = 1 +` the net (n,xn) gain, so `k_from_factors` sits below k<br>by that gain, and `P` is the number to compare with k. |
+| `absorption` | `[crate::physics::reactor_physics::Estimate; 3]` | Absorption per source neutron, `[thermal, resonance, fast]`. |
+| `production` | `[crate::physics::reactor_physics::Estimate; 3]` | ν-fission production per source neutron, same groups. |
+| `leakage` | `[crate::physics::reactor_physics::Estimate; 3]` | Leakage per source neutron, same groups. |
+| `thermal_absorption_fuel` | `crate::physics::reactor_physics::Estimate` | Thermal absorption in the fuel (materials holding heavy metal). |
+| `edges_ev` | `(f64, f64)` | The edges \[eV\]: `(thermal, fast)`. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `Spectrum`
+
+**A flux spectrum** in a region.
+
+```rust
+pub struct Spectrum {
+    pub region: super::diagnostics::Region,
+    pub label: String,
+    pub edges_ev: Vec<f64>,
+    pub flux: Vec<crate::physics::reactor_physics::Estimate>,
+    pub per_lethargy: Vec<crate::physics::reactor_physics::Estimate>,
+    pub total_in_grid: crate::physics::reactor_physics::Estimate,
+    pub outside_grid: (f64, f64),
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `region` | `super::diagnostics::Region` | Where. |
+| `label` | `String` | The region's label ("whole model" or the component's). |
+| `edges_ev` | `Vec<f64>` | The grid's edges \[eV\]. |
+| `flux` | `Vec<crate::physics::reactor_physics::Estimate>` | Track-length flux per bin, volume-integrated \[cm per source<br>neutron\]. |
+| `per_lethargy` | `Vec<crate::physics::reactor_physics::Estimate>` | Flux per unit lethargy, normalised to unit area over the grid<br>(`Σ ψ_i Δu_i = 1`). The σ is the bin's own; the normalisation is<br>taken as exact. |
+| `total_in_grid` | `crate::physics::reactor_physics::Estimate` | `Σ φ_i` over the grid \[cm per source neutron\]. |
+| `outside_grid` | `(f64, f64)` | Flux below / above the grid \[cm per source neutron\]. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `Kinetics`
+
+**Kinetics by IFP.**
+
+```rust
+pub struct Kinetics {
+    pub beta_eff: crate::physics::reactor_physics::Estimate,
+    pub generation_time_s: crate::physics::reactor_physics::Estimate,
+    pub ifp_generations: usize,
+    pub scoring_cycles: usize,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `beta_eff` | `crate::physics::reactor_physics::Estimate` | Adjoint-weighted delayed-neutron fraction. |
+| `generation_time_s` | `crate::physics::reactor_physics::Estimate` | Adjoint-weighted generation time Λ \[s\] =<br>time numerator / (denominator × k), as OpenMC<br>(`docs/source/usersguide/kinetics.rst`, eq. `lambda_eff`). |
+| `ifp_generations` | `usize` | Generations of lineage. |
+| `scoring_cycles` | `usize` | Active cycles whose fissions scored (lineage deep enough). |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn generation_time(self: &Self) -> uom::si::f64::Time { /* ... */ }
+  ```
+  Λ as a time.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `MeshMap`
+
+**A map on a regular mesh**: one value per cell, x fastest, then y, z.
+
+```rust
+pub struct MeshMap {
+    pub mesh: crate::tally::mesh::RegularMesh,
+    pub cell_cm: [f64; 3],
+    pub quantity: String,
+    pub group_edges_ev: Vec<f64>,
+    pub values: Vec<Vec<crate::physics::reactor_physics::Estimate>>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `mesh` | `crate::tally::mesh::RegularMesh` | The mesh. |
+| `cell_cm` | `[f64; 3]` | The cell size \[cm\]. |
+| `quantity` | `String` | What the values are. |
+| `group_edges_ev` | `Vec<f64>` | The energy-group edges \[eV\] (one group for a fission map). |
+| `values` | `Vec<Vec<crate::physics::reactor_physics::Estimate>>` | `values[g][cell]` per source neutron per cm³ of cell, for each group;<br>for a flux map the last entry is the total. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn cell_size(self: &Self) -> [uom::si::f64::Length; 3] { /* ... */ }
+  ```
+  The cell size as lengths.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `MCDiagnosticResult`
+
+**One diagnostic's result**, the variant matching its [`MCDiagnostic`].
+
+```rust
+pub enum MCDiagnosticResult {
+    RunHealth(RunHealth),
+    NeutronBalance(NeutronBalance),
+    Ealf(Ealf),
+    Leakage(Leakage),
+    SixFactors(SixFactors),
+    Spectrum(Spectrum),
+    Kinetics(Kinetics),
+    FissionMap(MeshMap),
+    FluxMap(MeshMap),
+}
+```
+
+##### Variants
+
+###### `RunHealth`
+
+[`MCDiagnostic::RunHealth`].
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `RunHealth` |  |
+
+###### `NeutronBalance`
+
+[`MCDiagnostic::NeutronBalance`].
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `NeutronBalance` |  |
+
+###### `Ealf`
+
+[`MCDiagnostic::Ealf`].
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `Ealf` |  |
+
+###### `Leakage`
+
+[`MCDiagnostic::Leakage`].
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `Leakage` |  |
+
+###### `SixFactors`
+
+[`MCDiagnostic::SixFactors`].
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `SixFactors` |  |
+
+###### `Spectrum`
+
+[`MCDiagnostic::Spectrum`].
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `Spectrum` |  |
+
+###### `Kinetics`
+
+[`MCDiagnostic::Kinetics`].
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `Kinetics` |  |
+
+###### `FissionMap`
+
+[`MCDiagnostic::FissionMap`].
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `MeshMap` |  |
+
+###### `FluxMap`
+
+[`MCDiagnostic::FluxMap`].
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `MeshMap` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+## Module `data`
+
+**Where the nuclear data comes from**: one small handle,
+[`NuclearData`], over the ways data can come in.
+
+# What this is, and what it deliberately does not settle
+
+The njoy → outram-mc contract is **open on epic #925**: (a) one
+njoy-owned processed object, (b) ACE as the interchange format, or (c)
+both with one master copy. This handle does not choose; it offers both
+ways in behind one type, so a model never sees which one fed it:
+
+| constructor | data | what happens at [`NuclearData::load_nuclide`] |
+|---|---|---|
+| [`NuclearData::workspace_reference`] | `reference-data/endf` (ENDF/B-VIII only) | ENDF processed at the model temperature |
+| [`NuclearData::from_folder`] (native) | a whole library folder (#935) | the same |
+| [`NuclearData::from_zip_bytes`] | the library's zip, as bytes (#935) | the same |
+| [`NuclearData::from_files`] | uploaded files or a folder upload (#935) | the same |
+| [`NuclearData::endf_folder`], [`NuclearData::from_endf_bytes`] | loose tapes, every one counted | the same |
+| [`NuclearData::from_ace_files`] | ACE files as bytes (#936) | **read only**: temperature, nuclide and law fixed by the files |
+
+The ENDF ways:
+
+- each needed nuclide's ENDF tape is found **by the identity in its own
+  header** (Z, A and `LISO` from the MF1/MT451 HEAD records, sub-library
+  `NSUB = 10`), never by file name. A whole library (folder, zip, upload)
+  is indexed by `njoy_outram_park_fork::endf_library`: the layout comes
+  from the names, and only the tapes of the library most of them belong
+  to (each tape's `HSUB` line) are used;
+- it is processed by [`Nuclide::from_tape_with_speed`] at the model's
+  temperature with the default (exact) [`SpeedTier::Fast`]: RECONR +
+  BROADR at NJOY's 0.001, with URR probability tables and DBRC **on**, as
+  every ordinary constructor gives them;
+- a thermal law is regenerated by LEAPR from the ENDF/B-VIII.0 deck
+  compiled into njoy ([`ThermalScattering::from_embedded_leapr_deck`];
+  LEAPR always, the `tsl-*` tapes are oracles, maintainer 2026-10-14).
+
+The ACE way (#936) processes nothing; see [`NuclearData::from_ace_files`]
+for how tables are matched, DBRC's 0 K companion, and thermal tables.
+
+# Native and browser
+
+[`NuclearData::endf_folder`], [`NuclearData::from_folder`] and
+[`NuclearData::workspace_reference`] read files and are **native only**
+(`std::fs` compiles on `wasm32-unknown-unknown` and then fails at run
+time). Every `from_*_bytes` / `from_*files` constructor takes bytes and
+touches no file: the path a browser upload uses, run in headless Chromium
+by `verification_and_validation/nuclear_data_loading_web/`.
+
+```rust
+pub mod data { /* ... */ }
+```
+
+### Types
+
+#### Enum `DataError`
+
+Why nuclear data could not be found or processed.
+
+```rust
+pub enum DataError {
+    NotInLibrary {
+        library: String,
+        isotope: super::isotope::Isotope,
+    },
+    Ambiguous {
+        library: String,
+        isotope: super::isotope::Isotope,
+        files: Vec<String>,
+    },
+    NoTapes(String),
+    Njoy {
+        what: String,
+        source: njoy_outram_park_fork::NjoyError,
+    },
+    Ace {
+        library: String,
+        what: String,
+        reason: String,
+    },
+}
+```
+
+##### Variants
+
+###### `NotInLibrary`
+
+No tape in the library is this nuclide.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `library` | `String` | The library. |
+| `isotope` | `super::isotope::Isotope` | The nuclide. |
+
+###### `Ambiguous`
+
+Several tapes are this nuclide and none is preferred.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `library` | `String` | The library. |
+| `isotope` | `super::isotope::Isotope` | The nuclide. |
+| `files` | `Vec<String>` | The candidates. |
+
+###### `NoTapes`
+
+A folder with no readable ENDF tape.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `Njoy`
+
+Reading or processing a tape failed.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `what` | `String` | Which nuclide or law. |
+| `source` | `njoy_outram_park_fork::NjoyError` | The njoy error. |
+
+###### `Ace`
+
+The ACE files hold no usable table for a nuclide or law at the
+model's temperature: none at all, only at other temperatures (a
+mismatch is refused, never accepted), or several.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `library` | `String` | The ACE set. |
+| `what` | `String` | The nuclide or law, and the temperature asked for. |
+| `reason` | `String` | Why. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Display**
+  - ```rust
+    fn fmt(self: &Self, __formatter: &mut ::core::fmt::Formatter<''_>) -> ::core::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Error**
+  - ```rust
+    fn source(self: &Self) -> ::core::option::Option<&dyn ::thiserror::__private21::Error + ''static> { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+  - ```rust
+    fn from(source: DataError) -> Self { /* ... */ }
+    ```
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToString**
+  - ```rust
+    fn to_string(self: &Self) -> String { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `NuclearData`
+
+**A nuclear-data library**: the incident-neutron ENDF tapes a model's
+nuclides are processed from. See the module docs for what it does and
+what it leaves open.
+
+```rust
+pub struct NuclearData {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn endf_folder(dir: &Path) -> Result<Self, DataError> { /* ... */ }
+  ```
+  **Every incident-neutron ENDF tape in `dir`** (`*.endf`, `*.dat`, and
+
+- ```rust
+  pub fn workspace_reference() -> Result<Self, DataError> { /* ... */ }
+  ```
+  **The workspace's reference tapes** (`reference-data/endf/`, or
+
+- ```rust
+  pub fn from_folder(dir: &Path) -> Result<Self, DataError> { /* ... */ }
+  ```
+  **A whole ENDF library from a folder** (#935): the extracted archive
+
+- ```rust
+  pub fn from_zip_bytes(label: &str, bytes: Vec<u8>) -> Result<Self, DataError> { /* ... */ }
+  ```
+  **A whole ENDF library from its zip, as bytes** (#935): the same as
+
+- ```rust
+  pub fn from_files(label: &str, files: Vec<(String, Vec<u8>)>) -> Result<Self, DataError> { /* ... */ }
+  ```
+  **A library uploaded as files** (`(path, contents)`, paths relative to
+
+- ```rust
+  pub fn from_ace_files(label: &str, files: Vec<(String, Vec<u8>)>) -> Result<Self, DataError> { /* ... */ }
+  ```
+  **The ACE way in** (#936): nuclides read from ACE files **as they
+
+- ```rust
+  pub fn with_thermal_table(self: Self, law: SabMaterial, stem: &str) -> Self { /* ... */ }
+  ```
+  **Bind a thermal table to a law** by its ZAID name (`stem`, the part
+
+- ```rust
+  pub fn from_endf_bytes</* synthetic */ impl IntoIterator<Item = (String, Vec<u8>)>: IntoIterator<Item = (String, Vec<u8>)>>(label: &str, tapes: impl IntoIterator<Item = (String, Vec<u8>)>) -> Result<Self, DataError> { /* ... */ }
+  ```
+  **Tapes given as bytes** (`(file name, contents)`), for a browser
+
+- ```rust
+  pub fn label(self: &Self) -> &str { /* ... */ }
+  ```
+  What this library is, for a run's provenance.
+
+- ```rust
+  pub fn tape_file(self: &Self, isotope: Isotope) -> Result<&str, DataError> { /* ... */ }
+  ```
+  The file name of the tape `isotope` is processed from.
+
+- ```rust
+  pub fn atomic_masses(self: &Self) -> AtomicMasses { /* ... */ }
+  ```
+  **The nuclides this library can supply, with their masses** (each
+
+- ```rust
+  pub fn load_nuclide(self: &Self, isotope: Isotope, temperature_k: f64, law: Option<SabMaterial>) -> Result<Nuclide, DataError> { /* ... */ }
+  ```
+  **Process one nuclide** at `temperature_k`, with the thermal law `law`
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+## Module `diagnostics`
+
+**What to collect beside k_eff**: [`Diagnostics`], a list of
+[`MCDiagnostic`]s (gh #940, epic #925).
+
+```no_run
+use outram_mc_libs::model::prelude::*;
+# fn f(model: Model) -> Result<(), Box<dyn std::error::Error>> {
+let diagnostics = Diagnostics::default()
+    .with_spectrum_per_component(&model, EnergyGrid::default_spectrum());
+let run = model.keff(KeffSettings::new(MCSettings::Auto, Some(diagnostics)))?;
+let factors = run.six_factors()?;              // Err if not requested
+run.diagnostics_report().write_zip("out/godiva.zip")?;
+# Ok(()) }
+```
+
+# Two presets, and constructors for everything else
+
+Defaults live **only** in the two presets (maintainer decisions on #925,
+2026-10-17); every constructor takes every argument:
+
+| preset | diagnostics |
+|---|---|
+| [`Diagnostics::default`] | RunHealth, NeutronBalance (by material), Ealf, Leakage (spectrum grid), SixFactors (0.625 eV, 0.1 MeV), Spectrum (whole model, 1000 equal-lethargy bins, 1e-3 eV to 20 MeV) |
+| [`Diagnostics::reactor_physics`] | the default set plus Kinetics (IFP, 10 generations), FissionMap and FluxMap on a 15 × 15 × 15 mesh over the model's bounding box, flux as total + three groups |
+
+Maps on a mesh **you** choose (spatial and energy) are an `advanced`
+choice ([`super::advanced`]). Physics is never a diagnostic setting:
+nothing here turns URR, DBRC or a thermal law on or off.
+
+# How it runs
+
+[`Diagnostics`] orchestrates the existing tallies (`tally::Tally`,
+filters × scores) and leakage accounting of the CSG transport: each
+diagnostic asks for the tallies it reads, identical requests are shared,
+and all are scored on the same histories through
+[`crate::physics::transport_csg::CsgPowerIteration::step_scored`].
+Scoring draws no random number, so **a diagnostic gives the same numbers
+bit for bit whether it is requested alone or beside others**, and `k` is
+the k of a run with no diagnostics at all.
+
+Not here: MGXS (the medium-level API, #845 / #848), per-nuclide reaction
+rates (no nuclide filter exists in `tally` yet).
+
+```rust
+pub mod diagnostics { /* ... */ }
+```
+
+### Types
+
+#### Enum `DiagnosticError`
+
+Why a diagnostic could not be built, run or read.
+
+```rust
+pub enum DiagnosticError {
+    Invalid(String),
+    Component(String),
+    NotRequested {
+        variant: &'static str,
+        how: &'static str,
+    },
+    NoValue(String),
+}
+```
+
+##### Variants
+
+###### `Invalid`
+
+A setting out of range (edges not ascending, zero bins, ...).
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `Component`
+
+A component made by another model, or used by no shape.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `NotRequested`
+
+A result was asked for that the run did not collect.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `variant` | `&'static str` | The variant to add. |
+| `how` | `&'static str` | How to add it. |
+
+###### `NoValue`
+
+The run collected it but it has no value (e.g. IFP with too few
+active cycles).
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Display**
+  - ```rust
+    fn fmt(self: &Self, __formatter: &mut ::core::fmt::Formatter<''_>) -> ::core::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Error**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+  - ```rust
+    fn from(source: DiagnosticError) -> Self { /* ... */ }
+    ```
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **ToString**
+  - ```rust
+    fn to_string(self: &Self) -> String { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `EnergyGrid`
+
+**An energy grid** for a spectrum, a leakage spectrum or a map.
+
+```rust
+pub enum EnergyGrid {
+    EqualLethargy {
+        bins: usize,
+        e_min: uom::si::f64::Energy,
+        e_max: uom::si::f64::Energy,
+    },
+    Edges(Vec<uom::si::f64::Energy>),
+    OneGroup,
+    TotalAndThreeGroup {
+        thermal_edge: uom::si::f64::Energy,
+        fast_edge: uom::si::f64::Energy,
+    },
+}
+```
+
+##### Variants
+
+###### `EqualLethargy`
+
+`bins` bins equally spaced in lethargy (log energy) from `e_min` to
+`e_max`.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `bins` | `usize` | Number of bins (> 0). |
+| `e_min` | `uom::si::f64::Energy` | Lower edge (> 0). |
+| `e_max` | `uom::si::f64::Energy` | Upper edge (> `e_min`). |
+
+###### `Edges`
+
+Explicit ascending edges (at least two).
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `Vec<uom::si::f64::Energy>` |  |
+
+###### `OneGroup`
+
+One group: every energy.
+
+###### `TotalAndThreeGroup`
+
+Three groups split at the two edges (thermal < `thermal_edge` <
+resonance < `fast_edge` < fast), plus their total: the maps' grid.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `thermal_edge` | `uom::si::f64::Energy` | Thermal / resonance edge. |
+| `fast_edge` | `uom::si::f64::Energy` | Resonance / fast edge. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn default_spectrum() -> Self { /* ... */ }
+  ```
+  **The preset spectrum grid**, named so a hand-built diagnostic can
+
+- ```rust
+  pub fn default_three_group() -> Self { /* ... */ }
+  ```
+  The preset three-group grid of the maps (the six-factor edges).
+
+- ```rust
+  pub fn edges_ev(self: &Self) -> Result<Vec<f64>, DiagnosticError> { /* ... */ }
+  ```
+  The bin edges \[eV\], checked. `OneGroup` and `TotalAndThreeGroup`
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `Region`
+
+**Where a spectrum is taken.**
+
+```rust
+pub enum Region {
+    WholeModel,
+    Component(super::shape::Component),
+}
+```
+
+##### Variants
+
+###### `WholeModel`
+
+Every cell of the model, voids included (the preset).
+
+###### `Component`
+
+Every shape in one [`Component`] (the core, the reflector, all the
+control rods together).
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `super::shape::Component` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `BalanceBy`
+
+How [`MCDiagnostic::NeutronBalance`] splits the absorption.
+
+```rust
+pub enum BalanceBy {
+    Total,
+    Material,
+    Component,
+}
+```
+
+##### Variants
+
+###### `Total`
+
+The whole model only.
+
+###### `Material`
+
+Per material (the preset), plus the total.
+
+###### `Component`
+
+Per component, plus the total (shapes with no component are a row of
+their own).
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `Mesh`
+
+**A spatial mesh for a map.** The presets make the model-relative 15³
+one; any other mesh is an advanced choice
+([`super::advanced::mesh_divisions`], [`super::advanced::mesh_cells`]).
+
+```rust
+pub struct Mesh {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `MeshBounds`
+
+**What a mesh covers.**
+
+```rust
+pub enum MeshBounds {
+    FitModel,
+    Explicit {
+        lower: [uom::si::f64::Length; 3],
+        upper: [uom::si::f64::Length; 3],
+    },
+}
+```
+
+##### Variants
+
+###### `FitModel`
+
+The model's own bounding box.
+
+###### `Explicit`
+
+A box given in lengths.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `lower` | `[uom::si::f64::Length; 3]` | Lower corner. |
+| `upper` | `[uom::si::f64::Length; 3]` | Upper corner. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `MCDiagnostic`
+
+**One thing to collect beside k_eff.** Each variant carries its own
+settings; build them with the constructors (no hidden defaults), or take
+a preset ([`Diagnostics::default`], [`Diagnostics::reactor_physics`]).
+
+```rust
+pub enum MCDiagnostic {
+    RunHealth,
+    NeutronBalance {
+        by: BalanceBy,
+    },
+    Ealf,
+    Leakage {
+        grid: EnergyGrid,
+    },
+    SixFactors {
+        thermal_edge: uom::si::f64::Energy,
+        fast_edge: uom::si::f64::Energy,
+    },
+    Spectrum {
+        region: Region,
+        grid: EnergyGrid,
+    },
+    Kinetics {
+        ifp_generations: usize,
+    },
+    FissionMap {
+        mesh: Mesh,
+    },
+    FluxMap {
+        mesh: Mesh,
+        grid: EnergyGrid,
+    },
+}
+```
+
+##### Variants
+
+###### `RunHealth`
+
+k and the source entropy per cycle, the convergence verdict, lost and
+stuck histories, collisions, wall time and hardware.
+
+###### `NeutronBalance`
+
+Where neutrons end: fission, capture and leakage per source neutron,
+by track length and by analog count, and whether they balance.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `by` | `BalanceBy` | The split. |
+
+###### `Ealf`
+
+The energy of the average lethargy causing fission (EALF), a
+spectral index used in criticality-safety validation (NUREG-1520
+Rev. 2, 2015, §5; standard open corpus
+`nrc/nureg-1520-rev2-2015.pdf`).
+
+###### `Leakage`
+
+The leakage per source neutron and its energy spectrum.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `grid` | `EnergyGrid` | The spectrum's grid. |
+
+###### `SixFactors`
+
+The six-factor formula (η, f, p, ε, P_FNL, P_TNL) on a three-group
+split (`physics::reactor_physics::assemble_six_factors`).
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `thermal_edge` | `uom::si::f64::Energy` | Thermal / resonance edge. |
+| `fast_edge` | `uom::si::f64::Energy` | Resonance / fast edge. |
+
+###### `Spectrum`
+
+The lethargy-normalised flux spectrum in a region.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `region` | `Region` | Where. |
+| `grid` | `EnergyGrid` | On which grid. |
+
+###### `Kinetics`
+
+Adjoint-weighted β_eff and Λ by iterated fission probability (IFP,
+`physics::ifp`, OpenMC `src/ifp.cpp`).
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `ifp_generations` | `usize` | Generations of lineage (> 0). |
+
+###### `FissionMap`
+
+The fission rate per mesh cell.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `mesh` | `Mesh` | The mesh. |
+
+###### `FluxMap`
+
+The flux per mesh cell and energy group.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `mesh` | `Mesh` | The mesh. |
+| `grid` | `EnergyGrid` | The groups. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn run_health() -> Self { /* ... */ }
+  ```
+  [`MCDiagnostic::RunHealth`].
+
+- ```rust
+  pub fn neutron_balance(by: BalanceBy) -> Self { /* ... */ }
+  ```
+  [`MCDiagnostic::NeutronBalance`], split `by`.
+
+- ```rust
+  pub fn ealf() -> Self { /* ... */ }
+  ```
+  [`MCDiagnostic::Ealf`].
+
+- ```rust
+  pub fn leakage(grid: EnergyGrid) -> Self { /* ... */ }
+  ```
+  [`MCDiagnostic::Leakage`] with its spectrum on `grid`.
+
+- ```rust
+  pub fn six_factors(thermal_edge: Energy, fast_edge: Energy) -> Result<Self, DiagnosticError> { /* ... */ }
+  ```
+  [`MCDiagnostic::SixFactors`] split at the two edges.
+
+- ```rust
+  pub fn spectrum(region: Region, grid: EnergyGrid) -> Self { /* ... */ }
+  ```
+  [`MCDiagnostic::Spectrum`] in `region` on `grid`.
+
+- ```rust
+  pub fn kinetics(ifp_generations: usize) -> Result<Self, DiagnosticError> { /* ... */ }
+  ```
+  [`MCDiagnostic::Kinetics`] with `ifp_generations` of lineage. The run
+
+- ```rust
+  pub fn name(self: &Self) -> &'static str { /* ... */ }
+  ```
+  The variant's name, as the report and errors print it.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `Diagnostics`
+
+**The high-level outputs to collect**, passed as
+`KeffSettings::new(mc, Some(diagnostics))`. `None` there means k_eff
+only. Two of one kind are allowed (spectra in several regions, six
+factors at several edges); their results are told apart by their
+settings.
+
+```rust
+pub struct Diagnostics {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new() -> Self { /* ... */ }
+  ```
+  Empty: k_eff only, as `None` would be. Add diagnostics with
+
+- ```rust
+  pub fn reactor_physics() -> Self { /* ... */ }
+  ```
+  **The reactor-physics set**: [`Diagnostics::default`] plus Kinetics
+
+- ```rust
+  pub fn with(self: Self, d: MCDiagnostic) -> Self { /* ... */ }
+  ```
+  Add one diagnostic.
+
+- ```rust
+  pub fn with_spectrum_per_component(self: Self, model: &Model, grid: EnergyGrid) -> Self { /* ... */ }
+  ```
+  **One spectrum per component** of `model` that some shape is in, on
+
+- ```rust
+  pub fn items(self: &Self) -> &[MCDiagnostic] { /* ... */ }
+  ```
+  The diagnostics, in the order they were added.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+    **"Wanted by everyone"** (maintainer, #925): RunHealth,
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Constants and Statics
+
+#### Constant `SIX_FACTOR_THERMAL_EDGE_EV`
+
+The thermal / resonance group edge of the preset six-factor split and
+flux map \[eV\].
+
+**Source.** The value is the existing `ReactorPhysicsConfig` default,
+kept by maintainer decision (#925, 2026-10-17). It is a conventional
+group edge: NJOY2016's own GROUPR example deck uses `0.625` among its
+group bounds (LA-UR-17-20093, the NJOY2016 manual, standard open corpus
+`lanl/2022laur1720093.pdf`, ERRORJ/GROUPR test input). The six factors
+themselves follow DOE-HDBK-1019/2-93 (*Nuclear Physics and Reactor
+Theory*, vol. 2, "Six Factor Formula"; standard open corpus
+`us-doe/doe-hdbk-1019-2-93-nuclear-physics-reactor-theory.pdf`), which
+defines "thermal" without an energy. **No corpus source defines 0.625 eV
+as the cadmium cut-off**; that sentence is not made here (open on #940).
+
+```rust
+pub const SIX_FACTOR_THERMAL_EDGE_EV: f64 = 0.625;
+```
+
+#### Constant `SIX_FACTOR_FAST_EDGE_EV`
+
+The resonance / fast group edge of the preset six-factor split \[eV\]
+(0.1 MeV). The existing `ReactorPhysicsConfig` default, kept by
+maintainer decision (#925). The same NJOY2016 GROUPR example group
+structure carries `1.e5` as a bound (LA-UR-17-20093); no corpus source
+defines it as *the* fast edge (open on #940).
+
+```rust
+pub const SIX_FACTOR_FAST_EDGE_EV: f64 = 1.0e5;
+```
+
+#### Constant `SPECTRUM_BINS`
+
+Bins of the preset spectrum: 1000, equal in lethargy (maintainer, #925).
+
+```rust
+pub const SPECTRUM_BINS: usize = 1000;
+```
+
+#### Constant `SPECTRUM_E_MIN_EV`
+
+Lower edge of the preset spectrum \[eV\] (the existing
+`ReactorPhysicsConfig` range; "assumed unless the maintainer says
+otherwise", #925).
+
+```rust
+pub const SPECTRUM_E_MIN_EV: f64 = 1.0e-3;
+```
+
+#### Constant `SPECTRUM_E_MAX_EV`
+
+Upper edge of the preset spectrum \[eV\] (20 MeV, the top of the
+ENDF/B-VIII.0 neutron sub-library).
+
+```rust
+pub const SPECTRUM_E_MAX_EV: f64 = 2.0e7;
+```
+
+#### Constant `IFP_GENERATIONS`
+
+IFP lineage length of the preset kinetics: OpenMC's default
+`ifp_n_generation` (`IfpSettings::default`, upstream `settings.cpp`).
+
+```rust
+pub const IFP_GENERATIONS: usize = 10;
+```
+
+#### Constant `MAP_DIVISIONS`
+
+Divisions per side of the preset maps' mesh over the model's bounding
+box: 15, so 3 375 cells for any model (maintainer, #925).
+
+```rust
+pub const MAP_DIVISIONS: usize = 15;
+```
+
+## Module `dh_region`
+
+**A double-heterogeneity region: particles packed in a sphere** (gh #926,
+tutorial 5 on #943).
+
+The maintainer's decisions (#943, 2026-10-17), which this module follows:
+
+- **A `DhRegion` is built as its own object**, from the outset: a sphere
+  of matrix with particles packed in it. The code never detects double
+  heterogeneity by itself.
+- **Packing:** random (the workspace's existing RSA,
+  [`crate::pebble_beds::sphere_packing::pack_spheres`] through
+  [`crate::dh_universe::pack_in_ball`]) or a regular lattice, **both with
+  whole-particle rejection** (no cut particle, ever). The census reports
+  the achieved packing fraction against the requested one.
+- **Its tracking is required**, set by hand: `.delta_tracking()`; a
+  region without it is refused by `assemble()`. (The chord-length family
+  behind `.advanced().tracking(..)`, and the conversions `ring_rpt()` and
+  `naive_homogenisation()`, are decided on #943 but not built: the
+  chord-length methods live in `DhUniverse`'s own transport, not in the
+  CSG run this model lowers to.)
+
+```
+use outram_mc_libs::model::prelude::*;
+use uom::si::{f64::{Length, Ratio}, length::centimeter, ratio::percent};
+let cm = Length::new::<centimeter>;
+let graphite = Material::from_atom_densities([(C12, atoms_per_barn_cm(0.08))]);
+let fuel = Material::from_atom_densities([(U235, atoms_per_barn_cm(0.04))]);
+let particle = Sphere::radius(cm(0.05)).filled_with(fuel);
+let fuel_zone = DhRegion::new(Sphere::radius(cm(1.0)), graphite.clone())
+    .with_particles(particle, Packing::Random { fraction: Ratio::new::<percent>(5.0), seed: 7 })
+    .delta_tracking();
+let pebble = Sphere::radius(cm(1.2)).filled_with(graphite).containing(fuel_zone);
+assert_eq!(pebble.contained().len(), 1);
+```
+
+## How it lowers
+
+Both packings lower to a CSG `RectLattice` covering the zone, in the
+zone's cell, with the cell's tracking set to delta tracking against a
+majorant over the materials the zone holds
+([`super::AssembledModel::majorants`]):
+
+- **Lattice**: one tile, a cube of matrix around the particle, repeated
+  by [`super::Lattice::covering`] with whole-particle rejection. The same
+  lowering as `Sphere::containing_lattice` (nee_soon's HTR-10 TRISO
+  lattice, `htr10_rmc::core_shell::TrisoBuild`).
+- **Random**: the particle centres from `pack_in_ball` (the packing
+  `DhUniverse::pebble` uses, with the same arguments, so the same seed
+  gives the same particles), placed in a tracking lattice by
+  [`crate::pebble_beds::triso_lattice::create_triso_lattice`], a port of
+  OpenMC's `openmc.model.create_triso_lattice`.
+
+```rust
+pub mod dh_region { /* ... */ }
+```
+
+### Types
+
+#### Enum `Packing`
+
+**How the particles of a [`DhRegion`] are arranged.** Every arrangement
+keeps whole particles only.
+
+```rust
+pub enum Packing {
+    Random {
+        fraction: uom::si::f64::Ratio,
+        seed: u64,
+    },
+    Lattice {
+        pitch: uom::si::f64::Length,
+        offset: [f64; 3],
+    },
+    LatticeOfCount {
+        particles: usize,
+        offset: [f64; 3],
+    },
+}
+```
+
+##### Variants
+
+###### `Random`
+
+**Random sequential addition** to a packing fraction, OpenMC's
+`pack_spheres` as ported in
+[`crate::pebble_beds::sphere_packing::pack_spheres`], through
+[`crate::dh_universe::pack_in_ball`]: generated in the cube around
+the zone, whole particles kept, the request rescaled until the
+fraction **inside the zone** is within 0.2 % of `fraction`. RSA jams
+near 38 % ([`crate::pebble_beds::sphere_packing::MAX_PF_RSA`]); a
+fraction above that is refused.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `fraction` | `uom::si::f64::Ratio` | The packing fraction asked for (particle volume over zone<br>volume). |
+| `seed` | `u64` | The packing seed: the same seed gives the same particles. |
+
+###### `Lattice`
+
+**A simple-cubic lattice** of `pitch`, one particle centre at
+`offset` pitches from the zone's centre, whole-particle rejection.
+See [`super::Lattice::covering`].
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `pitch` | `uom::si::f64::Length` | The lattice pitch (centre to centre). |
+| `offset` | `[f64; 3]` | Offset of the grid, in pitches. |
+
+###### `LatticeOfCount`
+
+**A simple-cubic lattice placing exactly `particles` whole
+particles**, its pitch found by
+[`super::Cube::for_whole_particles_in_sphere`] (refused when no
+pitch gives that count at this offset).
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `particles` | `usize` | The number of whole particles wanted. |
+| `offset` | `[f64; 3]` | Offset of the grid, in pitches. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `DhRegion`
+
+**A double-heterogeneity region**: a sphere of matrix with particles
+packed in it, and the tracking it is transported with. Put it in a shape
+with `.containing(region)`. See the module docs.
+
+```rust
+pub struct DhRegion {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(zone: Sphere, matrix: Material) -> Self { /* ... */ }
+  ```
+  A `zone` of `matrix`, with no particles yet.
+
+- ```rust
+  pub fn in_component(self: Self, component: Component) -> Self { /* ... */ }
+  ```
+  Put the matrix in `component`. (The particle's layers keep their
+
+- ```rust
+  pub fn with_particles(self: Self, particle: Shape, packing: Packing) -> Self { /* ... */ }
+  ```
+  **The particle and how it is packed.** `particle` is any shape whose
+
+- ```rust
+  pub fn delta_tracking(self: Self) -> Self { /* ... */ }
+  ```
+  **Transport this region by delta (Woodcock) tracking**, against a
+
+- ```rust
+  pub fn at_temperature(self: Self, temperature: Temperature) -> Self { /* ... */ }
+  ```
+  **Give the region its own temperature** (gh #945, stage 1): the
+
+- ```rust
+  pub fn zone(self: &Self) -> Sphere { /* ... */ }
+  ```
+  The zone.
+
+- ```rust
+  pub fn packing(self: &Self) -> Option<Packing> { /* ... */ }
+  ```
+  The packing, if particles were given.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+  - ```rust
+    fn from(r: DhRegion) -> Shape { /* ... */ }
+    ```
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+## Module `bed`
+
+**Which balls of a stacked hexagonal lattice are loaded** (tutorial 8 on
+#943, epic #925): whole-ball rejection against a [`Hopper`], the fuel and
+moderator identity of every kept ball, and the census of both.
+
+This is the arithmetic of `nee_soon::htr10_rmc::bed::SekerBed`
+(gh:#472), ported for any tile of balls on a hexagonal lattice:
+
+- **axial layout** (`SekerBed::new`): a basal plane of ball centres sits
+  one radius above the hopper's floor, the next `m` tile heights above it;
+  the lattice reaches from one tile below the hopper's bottom to two above
+  its top;
+- **tile centres** (`bed::tile_xy`): `[sqrt(3)/2 a p, (b + a/2) p]` for
+  skewed coordinates `(a, b)` of a lattice of flat-to-flat pitch `p` whose
+  faces are normal to y;
+- **rejection** (`SekerBed::reject`, `containment`): a ball is kept only
+  if it lies wholly inside the hopper filled to the bed top
+  ([`Hopper::contains_ball`]). Şeker & Çolak (2003) p.267: *"If any ball
+  intersects with the reflector surface, it is rejected"*, *"Balls
+  intersect with cone or discharge tube surface are rejected."* Nothing is
+  ever cut (a cut pebble is wrong physics, maintainer 2026-10-01);
+- **identity** (`SekerBed::assign`): of the kept balls whose centre is
+  above the floor, ordered by half-layer, then distance from the axis
+  squared, then angle, ball `n` (from 0) is fuel when `floor((n+1) f) >
+  floor(n f)`, `f` the fuel fraction; every ball below the floor (the cone
+  and the tube) is moderator (Terry et al. 2005 section 2; TECDOC-1382
+  p.235; Şeker & Çolak p.267).
+
+A ball is named by the tile that owns it: skewed coordinates `(a, b)`, the
+tile's level, and which of the tile's balls it is.
+
+```rust
+pub mod bed { /* ... */ }
+```
+
+### Types
+
+#### Struct `RejectedBall`
+
+**A ball the stack rejected** (its centre is inside the hopper, but the
+ball would cross a wall), for the picture and the census.
+
+```rust
+pub struct RejectedBall {
+    pub centre_cm: [f64; 3],
+    pub wall: super::hopper::Wall,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `centre_cm` | `[f64; 3]` | Centre \[cm\]. |
+| `wall` | `super::hopper::Wall` | The wall it would have crossed (the nearest). |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `KeptBall`
+
+**A ball the stack kept**: where it is and which kind it is.
+
+```rust
+pub struct KeptBall {
+    pub centre_cm: [f64; 3],
+    pub fuel: bool,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `centre_cm` | `[f64; 3]` | Centre \[cm\]. |
+| `fuel` | `bool` | Fuel (`true`) or moderator. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `BedCensus`
+
+**What a stacked bed holds, counted from the lattice the model was
+assembled with** ([`super::AssembledModel::bed_census`]): the balls kept,
+the balls rejected and why, the fuel and moderator split, the bed's
+height as Şeker & Çolak define it and the filling fraction.
+
+A ball is **rejected** when its centre is inside the container but the
+ball would cross a wall, the top of the loaded bed, the cone or the tube.
+Balls whose centre is already outside the container are simply not
+there, and are not counted as rejected (they are the rest of the
+lattice).
+
+```rust
+pub struct BedCensus {
+    pub floor_z_cm: f64,
+    pub requested_top_cm: f64,
+    pub ball_radius_cm: f64,
+    pub loaded_balls: usize,
+    pub bed_balls: usize,
+    pub cone_and_tube_balls: usize,
+    pub fuel_balls: usize,
+    pub moderator_balls_in_bed: usize,
+    pub rejected_balls: usize,
+    pub rejected_at_top: usize,
+    pub rejected_at_side_wall: usize,
+    pub rejected_at_cone: usize,
+    pub rejected_at_tube_wall: usize,
+    pub rejected_at_tube_bottom: usize,
+    pub rejected_in_bed: usize,
+    pub rejected: Vec<RejectedBall>,
+    pub kept: Vec<KeptBall>,
+    pub bed_height_cm: f64,
+    pub planes: Vec<(f64, usize)>,
+    pub filling_fraction: f64,
+    pub rings: usize,
+    pub levels: usize,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `floor_z_cm` | `f64` | The floor of the bed (the top of the cone) \[cm\]. |
+| `requested_top_cm` | `f64` | The top the bed was loaded to \[cm\]. |
+| `ball_radius_cm` | `f64` | Ball radius \[cm\]. |
+| `loaded_balls` | `usize` | Balls kept anywhere in the container: the bed, the cone and the tube. |
+| `bed_balls` | `usize` | Of those, the balls centred above the floor: the bed proper, which<br>is the count Şeker & Çolak's Table 3 tabulates. |
+| `cone_and_tube_balls` | `usize` | Balls kept in the cone and the tube (all moderator). |
+| `fuel_balls` | `usize` | Fuel balls (all in the bed). |
+| `moderator_balls_in_bed` | `usize` | Moderator balls in the bed. |
+| `rejected_balls` | `usize` | **Rejected balls**, total: centre inside the container, ball crossing<br>a wall. |
+| `rejected_at_top` | `usize` | Of those, by the wall that was nearest. |
+| `rejected_at_side_wall` | `usize` | ... the cylinder's side wall. |
+| `rejected_at_cone` | `usize` | ... the cone. |
+| `rejected_at_tube_wall` | `usize` | ... the outlet tube's wall. |
+| `rejected_at_tube_bottom` | `usize` | ... the bottom of the tube. |
+| `rejected_in_bed` | `usize` | Rejected balls whose centre is above the floor (the bed proper). |
+| `rejected` | `Vec<RejectedBall>` | Every rejected ball, for drawing. |
+| `kept` | `Vec<KeptBall>` | Every ball kept, in the bed, the cone and the tube, for drawing and<br>for checking against the geometry. |
+| `bed_height_cm` | `f64` | **The bed's height as Şeker & Çolak define it**: from the bottom of<br>the lowest ball above the floor to the top of the highest kept ball<br>\[cm\] (`9.798 N + 6` cm for `N` layers of 6 cm balls). |
+| `planes` | `Vec<(f64, usize)>` | Balls kept above the floor, per plane of ball centres, lowest first:<br>`(z of the plane, balls)`. Şeker's Table 3 has 733 per basal plane<br>and 613 per central plane. |
+| `filling_fraction` | `f64` | Volume of the kept bed balls over the volume of the bed cylinder<br>(radius of the hopper, from the floor to the top of the highest<br>ball): the filling fraction (Şeker's "61 %"). |
+| `rings` | `usize` | Lattice rings and axial levels the lattice was sized to. |
+| `levels` | `usize` | See [`Self::rings`]. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn bed_balls_against(self: &Self, reference: usize) -> i64 { /* ... */ }
+  ```
+  `loaded bed balls - reference`, signed: how many fewer (negative) or
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Display**
+  - ```rust
+    fn fmt(self: &Self, f: &mut std::fmt::Formatter<''_>) -> std::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **ToString**
+  - ```rust
+    fn to_string(self: &Self) -> String { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+## Module `hex`
+
+**A hexagonal prism, and the plane geometry that goes with it**
+(tutorial 7 on #943, epic #925).
+
+The tile of a hexagonal lattice, and the container that holds one. Its
+faces are six planes and two z-planes; the hexagon is named by which way
+its faces point ([`HexFaces`]), because the lower level's `HexOrientation`
+names (`Y`, `X`) were once documented backwards (corrected 2026-09-25 in
+`outram_blender::csg::lattice::hex`).
+
+The helpers at the bottom are the 2-D convex-polygon tests the solid
+relations ([`super::Solid::encloses`], [`super::Solid::overlaps`]) use for
+a prism against a sphere, a box, a cylinder or another prism. They are
+exact (no sampling).
+
+```rust
+pub mod hex { /* ... */ }
+```
+
+### Types
+
+#### Enum `HexFaces`
+
+**Which way the faces of a hexagon point.** Named after the axis the
+faces are *perpendicular* to, which is OpenMC's own wording
+(`openmc/lattice.py`, `HexLattice.orientation`: "each lattice element has
+two faces that are perpendicular to the y-axis" for the `y`
+orientation).
+
+```rust
+pub enum HexFaces {
+    NormalToY,
+    NormalToX,
+}
+```
+
+##### Variants
+
+###### `NormalToY`
+
+Two faces perpendicular to y (flat top and bottom, vertices pointing
+along +-x). Neighbour centres at `(0, +-pitch)` and
+`(+-sqrt(3)/2, +-1/2) pitch`. OpenMC's default, and Şeker & Çolak's
+cell.
+
+###### `NormalToX`
+
+Two faces perpendicular to x. Neighbour centres at `(+-pitch, 0)`.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `HexPrism`
+
+**A hexagonal prism** (z axis along its length): a flat-to-flat pitch, a
+height, which way its faces point and, optionally, a centre (the origin
+otherwise). The tile of [`super::Lattice::hex`] and the container that
+holds it.
+
+```
+use outram_mc_libs::model::prelude::*;
+use uom::si::{f64::Length, length::centimeter};
+let cm = Length::new::<centimeter>;
+let tile = HexPrism::flat_to_flat(cm(16.392), cm(9.798));
+assert!((tile.apothem_cm() - 8.196).abs() < 1e-12);
+assert!((tile.volume_cm3() - 3.0_f64.sqrt() / 2.0 * 16.392 * 16.392 * 9.798).abs() < 1e-9);
+assert_eq!(tile.faces_kind(), HexFaces::NormalToY);
+```
+
+```rust
+pub struct HexPrism {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn flat_to_flat(pitch: Length, height: Length) -> Self { /* ... */ }
+  ```
+  A prism of flat-to-flat distance `pitch` and length `height`, faces
+
+- ```rust
+  pub fn faces(self: Self, faces: HexFaces) -> Self { /* ... */ }
+  ```
+  Turn the faces: [`HexFaces::NormalToY`] or [`HexFaces::NormalToX`].
+
+- ```rust
+  pub fn centred_at(self: Self, x: Length, y: Length, z: Length) -> Self { /* ... */ }
+  ```
+  Move the centre to `(x, y, z)`.
+
+- ```rust
+  pub fn filled_with(self: Self, material: Material) -> Shape { /* ... */ }
+  ```
+  Fill it with `material`.
+
+- ```rust
+  pub fn pitch_cm(self: &Self) -> f64 { /* ... */ }
+  ```
+  Flat-to-flat distance \[cm\] (the lattice pitch).
+
+- ```rust
+  pub fn apothem_cm(self: &Self) -> f64 { /* ... */ }
+  ```
+  Centre to face \[cm\].
+
+- ```rust
+  pub fn height_cm(self: &Self) -> f64 { /* ... */ }
+  ```
+  Length along z \[cm\].
+
+- ```rust
+  pub fn faces_kind(self: &Self) -> HexFaces { /* ... */ }
+  ```
+  Which way the faces point.
+
+- ```rust
+  pub fn centre_cm(self: &Self) -> [f64; 3] { /* ... */ }
+  ```
+  Centre \[cm\].
+
+- ```rust
+  pub fn volume_cm3(self: &Self) -> f64 { /* ... */ }
+  ```
+  Volume \[cm³\]: `2 sqrt(3) apothem² height`.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+## Module `hopper`
+
+**A hopper: a cylinder that narrows through a cone into an outlet tube**
+(tutorial 8 on #943, epic #925).
+
+The container of a pebble bed that is not a box: HTR-10's core cavity is
+a cylinder (radius 90 cm), a cone below it (36.946 cm tall, narrowing to
+the 25 cm discharge tube) and the tube (to the bottom of the model). It is
+a solid of revolution about the z axis. Its **floor** is the plane where
+the cylinder ends and the cone begins (the top of the cone): a pebble bed
+rests on it.
+
+The one exact test a bed needs is [`Hopper::contains_ball`]: **a sphere
+lies inside a solid of revolution exactly when its meridional disc lies
+inside the profile**, i.e. its centre is inside the profile polygon and
+no farther than its radius from the nearest profile edge. That is
+`nee_soon::htr10_rmc::bed::SekerBed::containment` (gh:#472), expression
+for expression, so the set of balls a bed keeps is that crate's.
+
+```rust
+pub mod hopper { /* ... */ }
+```
+
+### Types
+
+#### Enum `Wall`
+
+**Which wall of a hopper a ball would have crossed.**
+
+```rust
+pub enum Wall {
+    Top,
+    SideWall,
+    Cone,
+    TubeWall,
+    TubeBottom,
+}
+```
+
+##### Variants
+
+###### `Top`
+
+The top of the loaded bed.
+
+###### `SideWall`
+
+The cylinder's side wall.
+
+###### `Cone`
+
+The cone.
+
+###### `TubeWall`
+
+The outlet tube's wall.
+
+###### `TubeBottom`
+
+The bottom of the outlet tube.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `Hopper`
+
+**A hopper**: a cylinder of radius `R` from its floor up `height`, a cone
+below the floor narrowing to the outlet radius, and an outlet tube below
+that. Build it with [`Hopper::new`] and the builders, fill it with
+[`Hopper::filled_with`].
+
+```
+use outram_mc_libs::model::prelude::*;
+use uom::si::{f64::Length, length::centimeter};
+let cm = Length::new::<centimeter>;
+// HTR-10's core cavity: cylinder 90 cm in radius and 221.818 cm tall above
+// the floor, a 36.946 cm cone down to a 25 cm tube 221.236 cm deep.
+let cavity = Hopper::new(cm(90.0), cm(221.818))
+    .conical_floor(cm(36.946), cm(25.0))
+    .outlet_tube(cm(221.236));
+assert!((cavity.bottom_z_cm() + 258.182).abs() < 1e-9);
+assert!(cavity.volume_cm3() > 5.6e6);
+```
+
+```rust
+pub struct Hopper {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(radius: Length, height: Length) -> Self { /* ... */ }
+  ```
+  A plain cylinder of `radius` and `height`, its floor at `z = 0`, the
+
+- ```rust
+  pub fn conical_floor(self: Self, height: Length, outlet_radius: Length) -> Self { /* ... */ }
+  ```
+  Narrow the floor through a cone `height` tall, from the cylinder's
+
+- ```rust
+  pub fn outlet_tube(self: Self, depth: Length) -> Self { /* ... */ }
+  ```
+  Continue the outlet below the cone as a tube `depth` long. Needs a
+
+- ```rust
+  pub fn floor_at(self: Self, z: Length) -> Self { /* ... */ }
+  ```
+  Put the floor (the top of the cone) at height `z`.
+
+- ```rust
+  pub fn filled_with(self: Self, material: Material) -> Shape { /* ... */ }
+  ```
+  Fill it with `material`.
+
+- ```rust
+  pub fn radius_cm(self: &Self) -> f64 { /* ... */ }
+  ```
+  Cylinder radius \[cm\].
+
+- ```rust
+  pub fn height_cm(self: &Self) -> f64 { /* ... */ }
+  ```
+  Height of the cylinder above the floor \[cm\].
+
+- ```rust
+  pub fn cone_height_cm(self: &Self) -> f64 { /* ... */ }
+  ```
+  Height of the cone \[cm\] (zero when there is none).
+
+- ```rust
+  pub fn outlet_radius_cm(self: &Self) -> f64 { /* ... */ }
+  ```
+  Radius of the outlet \[cm\] (zero when there is no cone).
+
+- ```rust
+  pub fn tube_depth_cm(self: &Self) -> f64 { /* ... */ }
+  ```
+  Depth of the outlet tube \[cm\].
+
+- ```rust
+  pub fn floor_z_cm(self: &Self) -> f64 { /* ... */ }
+  ```
+  The floor, the top of the cone \[cm\].
+
+- ```rust
+  pub fn top_z_cm(self: &Self) -> f64 { /* ... */ }
+  ```
+  The top of the cylinder \[cm\].
+
+- ```rust
+  pub fn cone_bottom_z_cm(self: &Self) -> f64 { /* ... */ }
+  ```
+  The bottom of the cone \[cm\] (the floor when there is no cone).
+
+- ```rust
+  pub fn bottom_z_cm(self: &Self) -> f64 { /* ... */ }
+  ```
+  The lowest point \[cm\]: the bottom of the tube, or of the cone, or
+
+- ```rust
+  pub fn has_cone(self: &Self) -> bool { /* ... */ }
+  ```
+  Whether there is a cone.
+
+- ```rust
+  pub fn volume_cm3(self: &Self) -> f64 { /* ... */ }
+  ```
+  Exact volume \[cm³\]: the cylinder, the frustum (`pi h (R² + R r +
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -70233,7 +79188,7 @@ pub mod isotope { /* ... */ }
 
 **Attributes:**
 
-- `Other("#[allow(non_upper_case_globals)]")`
+- `Other("#[attr = LintCheck([LintCheck {lint_name: \"non_upper_case_globals\",\nkind: Allow}])]")`
 
 Named nuclides: `use outram_mc_libs::model::isotopes::*;` and write
 `U235`. Any nuclide not listed is [`Isotope::new`]`(z, a)`.
@@ -70739,7 +79694,7 @@ pub struct Isotope {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Isotope { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -70805,17 +79760,17 @@ pub struct Isotope {
 - **IntoEither**
 - **Ord**
   - ```rust
-    fn cmp(self: &Self, other: &Isotope) -> $crate::cmp::Ordering { /* ... */ }
+    fn cmp(self: &Self, other: &Self) -> $crate::cmp::Ordering { /* ... */ }
     ```
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Isotope) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **PartialOrd**
   - ```rust
-    fn partial_cmp(self: &Self, other: &Isotope) -> $crate::option::Option<$crate::cmp::Ordering> { /* ... */ }
+    fn partial_cmp(self: &Self, other: &Self) -> $crate::option::Option<$crate::cmp::Ordering> { /* ... */ }
     ```
 
 - **Pointable**
@@ -70858,7 +79813,7 @@ pub struct Isotope {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -70946,7 +79901,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> IsotopeError { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -70998,7 +79953,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &IsotopeError) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -71040,7 +79995,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -71170,6 +80125,30 @@ pub enum Element {
     Uranium = 92,
     Neptunium = 93,
     Plutonium = 94,
+    Americium = 95,
+    Curium = 96,
+    Berkelium = 97,
+    Californium = 98,
+    Einsteinium = 99,
+    Fermium = 100,
+    Mendelevium = 101,
+    Nobelium = 102,
+    Lawrencium = 103,
+    Rutherfordium = 104,
+    Dubnium = 105,
+    Seaborgium = 106,
+    Bohrium = 107,
+    Hassium = 108,
+    Meitnerium = 109,
+    Darmstadtium = 110,
+    Roentgenium = 111,
+    Copernicium = 112,
+    Nihonium = 113,
+    Flerovium = 114,
+    Moscovium = 115,
+    Livermorium = 116,
+    Tennessine = 117,
+    Oganesson = 118,
 }
 ```
 
@@ -71927,6 +80906,198 @@ Discriminant: `94`
 
 Discriminant value: `94`
 
+###### `Americium`
+
+Z = 95 (Am).
+
+Discriminant: `95`
+
+Discriminant value: `95`
+
+###### `Curium`
+
+Z = 96 (Cm).
+
+Discriminant: `96`
+
+Discriminant value: `96`
+
+###### `Berkelium`
+
+Z = 97 (Bk).
+
+Discriminant: `97`
+
+Discriminant value: `97`
+
+###### `Californium`
+
+Z = 98 (Cf).
+
+Discriminant: `98`
+
+Discriminant value: `98`
+
+###### `Einsteinium`
+
+Z = 99 (Es).
+
+Discriminant: `99`
+
+Discriminant value: `99`
+
+###### `Fermium`
+
+Z = 100 (Fm).
+
+Discriminant: `100`
+
+Discriminant value: `100`
+
+###### `Mendelevium`
+
+Z = 101 (Md).
+
+Discriminant: `101`
+
+Discriminant value: `101`
+
+###### `Nobelium`
+
+Z = 102 (No).
+
+Discriminant: `102`
+
+Discriminant value: `102`
+
+###### `Lawrencium`
+
+Z = 103 (Lr).
+
+Discriminant: `103`
+
+Discriminant value: `103`
+
+###### `Rutherfordium`
+
+Z = 104 (Rf).
+
+Discriminant: `104`
+
+Discriminant value: `104`
+
+###### `Dubnium`
+
+Z = 105 (Db).
+
+Discriminant: `105`
+
+Discriminant value: `105`
+
+###### `Seaborgium`
+
+Z = 106 (Sg).
+
+Discriminant: `106`
+
+Discriminant value: `106`
+
+###### `Bohrium`
+
+Z = 107 (Bh).
+
+Discriminant: `107`
+
+Discriminant value: `107`
+
+###### `Hassium`
+
+Z = 108 (Hs).
+
+Discriminant: `108`
+
+Discriminant value: `108`
+
+###### `Meitnerium`
+
+Z = 109 (Mt).
+
+Discriminant: `109`
+
+Discriminant value: `109`
+
+###### `Darmstadtium`
+
+Z = 110 (Ds).
+
+Discriminant: `110`
+
+Discriminant value: `110`
+
+###### `Roentgenium`
+
+Z = 111 (Rg).
+
+Discriminant: `111`
+
+Discriminant value: `111`
+
+###### `Copernicium`
+
+Z = 112 (Cn).
+
+Discriminant: `112`
+
+Discriminant value: `112`
+
+###### `Nihonium`
+
+Z = 113 (Nh).
+
+Discriminant: `113`
+
+Discriminant value: `113`
+
+###### `Flerovium`
+
+Z = 114 (Fl).
+
+Discriminant: `114`
+
+Discriminant value: `114`
+
+###### `Moscovium`
+
+Z = 115 (Mc).
+
+Discriminant: `115`
+
+Discriminant value: `115`
+
+###### `Livermorium`
+
+Z = 116 (Lv).
+
+Discriminant: `116`
+
+Discriminant value: `116`
+
+###### `Tennessine`
+
+Z = 117 (Ts).
+
+Discriminant: `117`
+
+Discriminant value: `117`
+
+###### `Oganesson`
+
+Z = 118 (Og).
+
+Discriminant: `118`
+
+Discriminant value: `118`
+
 ##### Implementations
 
 ###### Methods
@@ -71934,7 +81105,7 @@ Discriminant value: `94`
 - ```rust
   pub fn from_z(z: u8) -> Option<Self> { /* ... */ }
   ```
-  The element with proton number `z`, if it is one of the 94
+  The element with proton number `z` (1..=118, hydrogen to
 
 - ```rust
   pub fn symbol(self: Self) -> &'static str { /* ... */ }
@@ -71982,7 +81153,7 @@ Discriminant value: `94`
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Element { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -72039,17 +81210,17 @@ Discriminant value: `94`
 - **IntoEither**
 - **Ord**
   - ```rust
-    fn cmp(self: &Self, other: &Element) -> $crate::cmp::Ordering { /* ... */ }
+    fn cmp(self: &Self, other: &Self) -> $crate::cmp::Ordering { /* ... */ }
     ```
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Element) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **PartialOrd**
   - ```rust
-    fn partial_cmp(self: &Self, other: &Element) -> $crate::option::Option<$crate::cmp::Ordering> { /* ... */ }
+    fn partial_cmp(self: &Self, other: &Self) -> $crate::option::Option<$crate::cmp::Ordering> { /* ... */ }
     ```
 
 - **Pointable**
@@ -72087,7 +81258,7 @@ Discriminant value: `94`
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -72175,7 +81346,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Species { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -72236,7 +81407,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Species) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -72278,7 +81449,278 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+## Module `lattice`
+
+**Repeated structures: a lattice of tiles** (gh #926, epic #925).
+
+A tile is an ordinary [`Shape`]: a [`Cuboid`](super::Cuboid) (its sides
+are the lattice pitch) filled with a background material, containing
+whatever repeats (a TRISO particle, a pin). A [`Lattice`] arranges tiles
+on a rectangular grid; a container holds it with
+[`Shape::containing_lattice`]. The beginner never meets a universe: each
+distinct tile is lowered once to a universe, and the grid to the CSG
+[`RectLattice`](crate::geometry::lattice::RectLattice) every lattice
+model in this crate uses.
+
+**Row order is said out loud** (#926, the LCT-008 trap): OpenMC's
+`universes` array runs **top row first** (`openmc/lattice.py:382-388`),
+outram's CSG lattice starts at the **lower-left** (`rect.rs:45-47`), and
+the LCT-008 port needed a `reverse_rows` flag for it
+(`examples/common/lct008_model.rs:440`). Here the reader picks the order
+by the constructor's name: [`Lattice::from_rows_top_down`] (as a picture
+of the lattice is drawn, and as OpenMC's input reads) or
+[`Lattice::from_natural_order`] (lower-left first, x fastest).
+
+**A hexagonal lattice** (tutorial 7, [`Lattice::hex`]) is one
+[`HexPrism`] tile repeated without end, the periodic cell of an infinite
+hexagonal lattice; a ball may cross the tile's faces (see
+[`Lattice::hex`]).
+
+Tracking is surface tracking (the default for every region, decided on
+#938/#943). The optional per-lattice override (`.tracking(..)`, e.g.
+delta tracking over a dense lattice) needs majorants the beginner run
+does not carry yet, so it is not offered; see #926.
+
+```rust
+pub mod lattice { /* ... */ }
+```
+
+### Types
+
+#### Struct `Lattice`
+
+**A rectangular lattice of tiles.** Build it with one of the named
+constructors; [`super::Model::assemble`] checks it (every tile a box of
+the same sides centred on its own origin, every pattern entry naming a
+tile, the pattern the size of the grid) and refuses it otherwise.
+
+```
+use outram_mc_libs::model::prelude::*;
+use uom::si::{f64::Length, length::centimeter};
+let cm = Length::new::<centimeter>;
+let graphite = Material::from_atom_densities([(C12, atoms_per_barn_cm(0.08))]);
+let fuel = Material::from_atom_densities([(U235, atoms_per_barn_cm(0.04))]);
+let ball = Sphere::radius(cm(0.4)).filled_with(fuel);
+let tile = Cube::side(cm(1.0)).filled_with(graphite.clone()).containing(ball);
+let lattice = Lattice::copies_of(tile, [3, 3, 3]);
+assert_eq!(lattice.dimensions(), [3, 3, 3]);
+let block = Cube::side(cm(3.0)).filled_with(graphite).containing_lattice(lattice);
+```
+
+```rust
+pub struct Lattice {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn copies_of(tile: Shape, n: [usize; 3]) -> Self { /* ... */ }
+  ```
+  **`n[0] x n[1] x n[2]` copies of one tile.** The pitch is the tile's
+
+- ```rust
+  pub fn covering(tile: Shape, offset: [f64; 3]) -> Self { /* ... */ }
+  ```
+  **As many copies of one tile as cover the sphere that holds it**
+
+- ```rust
+  pub fn hex(tile: Shape) -> Self { /* ... */ }
+  ```
+  **An infinite hexagonal lattice of one tile** (tutorial 7): the tile
+
+- ```rust
+  pub fn hex_bed(tile: Shape, moderator: Shape, fuel_fraction: Ratio, bed_top: Length) -> Self { /* ... */ }
+  ```
+  **A hexagonal lattice stacked in a container that is not a box**
+
+- ```rust
+  pub fn is_hex(self: &Self) -> bool { /* ... */ }
+  ```
+  Whether this is a [`Lattice::hex`] lattice (a [`Lattice::hex_bed`] is
+
+- ```rust
+  pub fn is_hex_bed(self: &Self) -> bool { /* ... */ }
+  ```
+  Whether this is a [`Lattice::hex_bed`] lattice.
+
+- ```rust
+  pub fn hex_prism(self: &Self) -> Option<HexPrism> { /* ... */ }
+  ```
+  The hexagonal prism of a [`Lattice::hex`] tile, if it is one.
+
+- ```rust
+  pub fn covering_offset(self: &Self) -> Option<[f64; 3]> { /* ... */ }
+  ```
+  The offset of a [`Self::covering`] lattice, in pitches; `None` for a
+
+- ```rust
+  pub fn from_natural_order(tiles: Vec<Shape>, n: [usize; 3], pattern: Vec<usize>) -> Self { /* ... */ }
+  ```
+  **Tiles in natural order**: `pattern[nx*ny*iz + nx*iy + ix]` is the
+
+- ```rust
+  pub fn from_rows_top_down(tiles: Vec<Shape>, rows: Vec<Vec<usize>>) -> Self { /* ... */ }
+  ```
+  **One layer of tiles, written as you would draw it: the first row is
+
+- ```rust
+  pub fn dimensions(self: &Self) -> [usize; 3] { /* ... */ }
+  ```
+  Tiles per axis (`[0, 0, 0]` for a [`Self::covering`] lattice before
+
+- ```rust
+  pub fn tiles(self: &Self) -> &[Shape] { /* ... */ }
+  ```
+  The distinct tiles.
+
+- ```rust
+  pub fn pattern(self: &Self) -> &[usize] { /* ... */ }
+  ```
+  Per grid position in natural order, the tile index.
+
+- ```rust
+  pub fn tile_at(self: &Self, ix: usize, iy: usize, iz: usize) -> Option<&Shape> { /* ... */ }
+  ```
+  The tile at `(ix, iy, iz)` from the lower-left, if in range.
+
+- ```rust
+  pub fn pitch_cm(self: &Self) -> Option<[f64; 3]> { /* ... */ }
+  ```
+  The pitch \[cm\]: the first tile's sides (all must agree), or `None`
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -72396,7 +81838,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> MassSource { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -72447,7 +81889,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &MassSource) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -72489,7 +81931,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -72591,7 +82033,7 @@ pub struct AtomicMasses {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> AtomicMasses { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -72627,7 +82069,7 @@ pub struct AtomicMasses {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &AtomicMasses) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -72664,7 +82106,7 @@ pub struct AtomicMasses {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -72748,7 +82190,7 @@ each one.
 Thermal scattering is attached from the material's description
 ([`Material::bound_in`]), never named by the user. Nothing here switches
 physics off; ablation is reserved for an explicit `advanced` entry (gh
-#942, not yet built).
+#942, ~~not yet built~~ built 2026-10-17: `super::advanced`).
 
 The numbers are turned into atom densities only when the material meets
 a nuclear-data library (see [`super::resolve`]), because weight bases need
@@ -72820,7 +82262,7 @@ Number (atom) fraction.
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Basis { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -72867,7 +82309,7 @@ Number (atom) fraction.
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Basis) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -72904,7 +82346,7 @@ Number (atom) fraction.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -72984,7 +82426,7 @@ U-233 (thorium-cycle fuel).
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> FissileUranium { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -73031,7 +82473,7 @@ U-233 (thorium-cycle fuel).
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &FissileUranium) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -73068,7 +82510,7 @@ U-233 (thorium-cycle fuel).
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -73170,7 +82612,7 @@ pub struct Enrichment {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Enrichment { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -73207,7 +82649,7 @@ pub struct Enrichment {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Enrichment) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -73244,7 +82686,7 @@ pub struct Enrichment {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -73335,7 +82777,7 @@ pub struct PuVector {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> PuVector { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -73371,7 +82813,7 @@ pub struct PuVector {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &PuVector) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -73408,7 +82850,7 @@ pub struct PuVector {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -73512,7 +82954,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> HeavyMetal { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -73548,7 +82990,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &HeavyMetal) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -73585,7 +83027,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -73662,7 +83104,7 @@ LiF-NaF-KF.
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> SaltCarrier { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -73709,7 +83151,7 @@ LiF-NaF-KF.
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &SaltCarrier) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -73746,7 +83188,7 @@ LiF-NaF-KF.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -73882,7 +83324,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> FuelForm { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -73919,7 +83361,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &FuelForm) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -73956,7 +83398,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -74041,7 +83483,7 @@ it exists so the reading is said plainly.
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> PpmOf { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -74088,7 +83530,7 @@ it exists so the reading is said plainly.
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &PpmOf) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -74125,7 +83567,7 @@ it exists so the reading is said plainly.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -74214,7 +83656,7 @@ basis. Keeps the enrichment ratio.
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Placement { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -74261,7 +83703,7 @@ basis. Keeps the enrichment ratio.
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Placement) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -74298,7 +83740,7 @@ basis. Keeps the enrichment ratio.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -74400,7 +83842,7 @@ pub struct Contaminant {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Contaminant { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -74437,7 +83879,7 @@ pub struct Contaminant {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Contaminant) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -74474,7 +83916,7 @@ pub struct Contaminant {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -74554,7 +83996,7 @@ Reactor graphite, 30 % porosity (`tsl-reactor-graphite-30P`).
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> GraphiteKind { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -74601,7 +84043,7 @@ Reactor graphite, 30 % porosity (`tsl-reactor-graphite-30P`).
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &GraphiteKind) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -74638,7 +84080,7 @@ Reactor graphite, 30 % porosity (`tsl-reactor-graphite-30P`).
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -74679,6 +84121,7 @@ pub enum Moderator {
     Graphite(GraphiteKind),
     Polyethylene,
     ZirconiumHydride,
+    SiliconCarbide,
 }
 ```
 
@@ -74709,6 +84152,16 @@ Polyethylene: H-1 takes H in CH2.
 ###### `ZirconiumHydride`
 
 Zirconium hydride: H-1 takes H in ZrH, every zirconium nuclide Zr in ZrH.
+
+###### `SiliconCarbide`
+
+Silicon carbide (a TRISO particle's SiC layer): every silicon nuclide
+takes Si in SiC and every carbon nuclide C in SiC (ENDF/B-VIII.0
+`tsl-SiinSiC`, MAT 43, and `tsl-CinSiC`, MAT 44, both regenerated by
+LEAPR from the decks in njoy). Not the graphite law: SiC is a
+different lattice (`outram_blender::csg::triso_particle` docs), and
+HTR-10's SiC binds both atoms the same way
+(`pebble_beds::htr10::Htr10Nuclides::c_sic`, `si28`).
 
 ##### Implementations
 
@@ -74745,7 +84198,7 @@ Zirconium hydride: H-1 takes H in ZrH, every zirconium nuclide Zr in ZrH.
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Moderator { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -74792,7 +84245,7 @@ Zirconium hydride: H-1 takes H in ZrH, every zirconium nuclide Zr in ZrH.
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Moderator) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -74829,7 +84282,7 @@ Zirconium hydride: H-1 takes H in ZrH, every zirconium nuclide Zr in ZrH.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -74967,7 +84420,7 @@ pub struct Material {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Material { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -75003,7 +84456,7 @@ pub struct Material {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Material) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -75040,7 +84493,7 @@ pub struct Material {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -75093,7 +84546,7 @@ pub fn to_atoms_per_barn_cm(density: AtomDensity) -> f64 { /* ... */ }
 
 **Attributes:**
 
-- `Other("#[allow(clippy::module_inception)]")`
+- `Other("#[attr = LintCheck([LintCheck {tool: clippy#0, lint_name: \"module_inception\",\nkind: Allow}])]")`
 
 **The [`Model`]**: data, shapes, components and temperature, lowered to
 today's CSG and handed to the existing transport (gh #938, #939).
@@ -75103,16 +84556,23 @@ produces the same [`Geometry`], low-level
 [`Material`](crate::material::material::Material)s and nuclide list a
 hand-written model would, and the run goes through
 [`CsgPowerIteration`](crate::physics::transport_csg::CsgPowerIteration),
-the single-thread CSG power iteration that is bit for bit
-`run_keff_csg` (gh:#549).
+~~the single-thread CSG power iteration that is bit for bit
+`run_keff_csg` (gh:#549)~~ **CORRECTED 2026-10-18 (gh #955)**: the CSG
+power iteration stepped in parallel by default (bit for bit
+`run_keff_csg` with `ComputeType::CpuMultiThread`, the same k on any
+number of threads), or on one thread when asked (bit for bit
+`ComputeType::CpuSingleThread`); see `run`'s "Run backend".
 
 # Lowering (what the user never sees)
 
 Shapes are visited inside out (each shape after the shapes it contains).
-Each sphere is one surface and one cell: `inside(self)` and, per
-contained shape, `outside(child)`, in the token order the crate's
-concentric builders use (`outside(child), inside(self), ∩`). One outermost
-shape gets the **vacuum** boundary; several get a void sphere around them
+Each shape is its surfaces (a sphere, or a box's six planes) and one
+cell: `inside(self)` and, per contained shape, `outside(child)`, in the
+token order the crate's concentric builders use (`outside(child),
+inside(self), ∩`); a lattice is one universe per distinct tile and a CSG
+`RectLattice` (the details are in the private `lower` module). One
+outermost shape gets the **vacuum** boundary, or the reflective one it
+asks for; several get a void sphere around them
 with the vacuum boundary on it, so a neutron leaving one can still reach
 another. Materials are numbered in first-use order (equal materials share
 one entry), nuclides likewise, keyed by nuclide and thermal law.
@@ -75125,10 +84585,14 @@ pub mod model { /* ... */ }
 
 #### Enum `Temperature`
 
-**The temperature of the model**, set on the geometry only (maintainer
-decision, #937/#938, 2026-10-17). One variant today: one temperature
-everywhere. Position-dependent temperature (fields, fixed points) is
-#945.
+**A temperature, set on the geometry only** (maintainer decision,
+#937/#938, 2026-10-17): on the whole model
+([`Model::set_temperature`]), on one shape and what it contains
+([`Shape::at_temperature`]), or on a component
+([`Model::set_component_temperature`],
+[`Model::take_temperatures_from`]). One variant today: one temperature
+over what it is set on. Temperature varying inside a region (fields,
+fixed points) is a later stage of #945.
 
 ```rust
 pub enum Temperature {
@@ -75140,8 +84604,8 @@ pub enum Temperature {
 
 ###### `Uniform`
 
-The same temperature in every shape. Every nuclide is processed at
-it.
+The same temperature everywhere it is set. Every nuclide there is
+processed at it.
 
 Fields:
 
@@ -75177,7 +84641,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Temperature { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -75214,7 +84678,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Temperature) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -75251,7 +84715,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -75378,7 +84842,7 @@ Fields:
 
 - **Error**
   - ```rust
-    fn source(self: &Self) -> ::core::option::Option<&dyn ::thiserror::__private18::Error + ''static> { /* ... */ }
+    fn source(self: &Self) -> ::core::option::Option<&dyn ::thiserror::__private21::Error + ''static> { /* ... */ }
     ```
 
 - **Freeze**
@@ -75433,7 +84897,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -75503,7 +84967,7 @@ pub struct GeometryProblem {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> GeometryProblem { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -75580,7 +85044,7 @@ pub struct GeometryProblem {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -75643,6 +85107,11 @@ pub struct Model {
 ###### Methods
 
 - ```rust
+  pub fn advanced(self: Self) -> AdvancedModel { /* ... */ }
+  ```
+  **The advanced entry**: physics ablation (`without_dbrc`, ...). An
+
+- ```rust
   pub fn new(data: NuclearData) -> Self { /* ... */ }
   ```
   A new, empty model over `data`.
@@ -75665,7 +85134,22 @@ pub struct Model {
 - ```rust
   pub fn set_temperature(self: &mut Self, temperature: Temperature) { /* ... */ }
   ```
-  **Set the temperature** (on the geometry; materials carry none).
+  **Set the temperature** (on the geometry; materials carry none). It
+
+- ```rust
+  pub fn set_component_temperature(self: &mut Self, component: Component, temperature: Temperature) { /* ... */ }
+  ```
+  **Give every shape in `component` its own temperature** (gh #945,
+
+- ```rust
+  pub fn component_temperature(self: &Self, component: Component) -> Option<Temperature> { /* ... */ }
+  ```
+  The temperature set on `component`, if any.
+
+- ```rust
+  pub fn take_temperatures_from(self: &mut Self, profile: &crate::thermal_profile::ThermalProfile) -> Result<Vec<(Component, ThermodynamicTemperature)>, ModelError> { /* ... */ }
+  ```
+  **Take each component's temperature from a solved thermal profile**
 
 - ```rust
   pub fn data(self: &Self) -> &NuclearData { /* ... */ }
@@ -75712,7 +85196,7 @@ pub struct Model {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Model { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -75779,7 +85263,7 @@ pub struct Model {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -75805,12 +85289,19 @@ pub struct Model {
 - **WasmNotSync**
 #### Struct `NuclideKey`
 
-One transport nuclide: which nuclide, and the thermal law it carries.
+One transport nuclide: which nuclide, the thermal law it carries, and
+the temperature its data are processed at (gh #945: one entry per
+distinct temperature the nuclide is present at, so each nuclide x
+temperature is processed once).
+
+~~`Eq`~~ **CHANGED 2026-10-18 (gh #945)**: the temperature made the key
+`PartialEq` only.
 
 ```rust
 pub struct NuclideKey {
     pub isotope: super::isotope::Isotope,
     pub law: Option<njoy_outram_park_fork::leapr::decks::SabMaterial>,
+    pub temperature: uom::si::f64::ThermodynamicTemperature,
 }
 ```
 
@@ -75820,6 +85311,7 @@ pub struct NuclideKey {
 |------|------|---------------|
 | `isotope` | `super::isotope::Isotope` | The nuclide. |
 | `law` | `Option<njoy_outram_park_fork::leapr::decks::SabMaterial>` | The bound-atom law, when its material's [`super::Moderator`] gives one. |
+| `temperature` | `uom::si::f64::ThermodynamicTemperature` | The temperature the data are processed at: the temperature of every<br>region whose materials index this entry. |
 
 ##### Implementations
 
@@ -75849,7 +85341,7 @@ pub struct NuclideKey {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> NuclideKey { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -75858,6 +85350,593 @@ pub struct NuclideKey {
     ```
 
 - **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `AssembledModel`
+
+**A model lowered to the transport's own types**, before nuclear data is
+processed. Everything here can be inspected and drawn.
+
+```rust
+pub struct AssembledModel {
+    pub geometry: crate::geometry::geometry::Geometry,
+    pub materials: Vec<crate::material::material::Material>,
+    pub resolved: Vec<super::resolve::ResolvedMaterial>,
+    pub nuclides: Vec<NuclideKey>,
+    pub source_box: crate::physics::transport_csg::SourceBox,
+    pub temperature_k: f64,
+    pub cell_components: Vec<Option<super::shape::Component>>,
+    pub cell_volumes_cm3: Vec<Option<f64>>,
+    pub component_labels: Vec<String>,
+    pub data_label: String,
+    pub bounds: ([f64; 3], [f64; 3]),
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `geometry` | `crate::geometry::geometry::Geometry` | The CSG geometry. |
+| `materials` | `Vec<crate::material::material::Material>` | Low-level materials; `components[j].nuclide_idx` indexes [`Self::nuclides`]. |
+| `resolved` | `Vec<super::resolve::ResolvedMaterial>` | The resolved description of each material, same order. |
+| `nuclides` | `Vec<NuclideKey>` | The transport nuclides, in the order the materials index them. |
+| `source_box` | `crate::physics::transport_csg::SourceBox` | Where the first generation starts: the bounding box of the shapes whose<br>material holds heavy metal (all shapes if none does). The sampler keeps<br>only points in fissionable material, so the start is uniform over it. |
+| `temperature_k` | `f64` | The model's temperature \[K\]: every region that sets none of its<br>own (gh #945). [`Self::temperatures_k`] lists every temperature the<br>data are processed at. |
+| `cell_components` | `Vec<Option<super::shape::Component>>` | Per cell: the component of the shape it came from. |
+| `cell_volumes_cm3` | `Vec<Option<f64>>` | Per cell: the exact volume of **one placed copy** \[cm³\] (the<br>shape's solid minus the solids it contains); `None` for a cell filled<br>with a lattice, or the void around several outermost shapes. Times<br>the copies the geometry places gives a total<br>([`AssembledModel::census`]). |
+| `component_labels` | `Vec<String>` | Component labels, by component index. |
+| `data_label` | `String` | The library's label (for provenance). |
+| `bounds` | `([f64; 3], [f64; 3])` | Bounding box of the whole model \[cm\]. |
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn bed_census(self: &Self) -> Result<super::bed::BedCensus, ModelError> { /* ... */ }
+  ```
+  **What the stacked bed holds** (`Lattice::hex_bed`, tutorial 8): the
+
+- ```rust
+  pub fn bed_censuses(self: &Self) -> &[super::bed::BedCensus] { /* ... */ }
+  ```
+  Every stacked bed's census, in the order the beds were lowered.
+
+- ```rust
+  pub fn census(self: &Self) -> Result<Census, ModelError> { /* ... */ }
+  ```
+  **Count and measure what the assembled geometry holds** (see the
+
+- ```rust
+  pub fn delta_regions(self: &Self) -> &[Vec<usize>] { /* ... */ }
+  ```
+  **Per delta-tracked region** (a [`DhRegion`]): the indices into
+
+- ```rust
+  pub fn majorants(self: &Self, nuclides: &[Nuclide]) -> Vec<Majorant> { /* ... */ }
+  ```
+  **The majorant of each delta-tracked region**, on `nuclides` (in
+
+- ```rust
+  pub fn draw_slice(self: &Self, basis: PlotBasis, pixels: usize, title: &str) -> ImageData { /* ... */ }
+  ```
+  **Draw what the solver sees**: a material-coloured slice of the
+
+- ```rust
+  pub fn draw_window(self: &Self, basis: PlotBasis, centre: Position, width_cm: [f64; 2], pixels: usize, title: &str) -> ImageData { /* ... */ }
+  ```
+  As [`Self::draw_slice`], at a chosen centre \[cm\] and width \[cm\]
+
+- ```rust
+  pub fn temperatures_k(self: &Self) -> Vec<f64> { /* ... */ }
+  ```
+  **Every temperature the data are processed at** \[K\], ascending and
+
+- ```rust
+  pub fn load_nuclides(self: &Self, data: &NuclearData) -> Result<Vec<Nuclide>, DataError> { /* ... */ }
+  ```
+  **Process every nuclide** this model needs from `data`, each at the
+
+- ```rust
+  pub fn load_nuclides_with(self: &Self, data: &NuclearData, progress: super::run::Progress) -> Result<Vec<Nuclide>, DataError> { /* ... */ }
+  ```
+  [`Self::load_nuclides`], printing each nuclide as its data finishes
+
+- ```rust
+  pub fn entropy_mesh(self: &Self) -> RegularMesh { /* ... */ }
+  ```
+  The entropy mesh the watcher uses: the source box, divided
+
+- ```rust
+  pub fn keff_with(self: &Self, nuclides: &[Nuclide], settings: &KeffSettings) -> Result<KeffRun, RunError> { /* ... */ }
+  ```
+  **Run k_eff on already-processed nuclides** (in [`Self::nuclides`]
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+## Module `report`
+
+**The diagnostics report**: one zip holding `report.md`, CSV tables and
+PNG plots (gh #941, decisions on #925, 2026-10-17).
+
+```text
+godiva.zip
+├── report.md                ← the front page: what ran, the results, the plots
+├── k.png, entropy.png, spectrum_*.png, leakage.png, *_map_*.png
+└── data/run_summary.csv, data/spectrum_*.csv, data/*_map.csv, ...
+```
+
+- **No JSON.** Small tables appear in `report.md` twice, as a Markdown
+  table to read and as a fenced `csv` block to copy; big ones (the
+  1000-bin spectrum, the maps) are linked as `data/*.csv`. Plots are
+  embedded by relative link. `report.md` is GitHub Markdown with no math
+  (`docs/claude-md/markdown-format.md`).
+- **Everything is made in memory** ([`DiagnosticsReport::files`],
+  [`DiagnosticsReport::to_zip_bytes`]), so the same code serves the CLI
+  and the browser (wasm). Writing to a path
+  ([`DiagnosticsReport::write_zip`],
+  [`DiagnosticsReport::write_unzipped_to_dir`]) is a thin native-only
+  wrapper: `std::fs` compiles on `wasm32-unknown-unknown` and then fails
+  at run time.
+- **No new dependency**: PNGs by outram-blender's own encoder over
+  `miniz_oxide`, the zip by [`zip`] over the same.
+
+```rust
+pub mod report { /* ... */ }
+```
+
+### Modules
+
+## Module `zip`
+
+**A small ZIP writer** over `miniz_oxide` (gh #941): DEFLATE entries,
+no dependency beyond what every build already has (maintainer decision on
+#925: "no new dependencies"; the optional `zip` crate is gated with
+`ureq` and was not used).
+
+The container follows PKWARE's APPNOTE.TXT (6.3.10): one local file
+header (signature `0x04034b50`) and the compressed data per entry, a
+central directory (`0x02014b50`) and the end-of-central-directory record
+(`0x06054b50`). Method 8 (DEFLATE, raw, `miniz_oxide::deflate::compress_to_vec`
+at level 6) unless DEFLATE does not shrink an entry, then method 0
+(stored). CRC-32 is outram-blender's (the PNG one). Every timestamp is
+the DOS epoch (1980-01-01 00:00), so the same report always gives the
+same bytes. No ZIP64: entries and the archive stay under 4 GiB, which a
+diagnostics report does by orders of magnitude (checked; an `Err` past
+it).
+
+```rust
+pub mod zip { /* ... */ }
+```
+
+### Types
+
+#### Enum `ZipError`
+
+Why the archive could not be written.
+
+```rust
+pub enum ZipError {
+    TooLarge(String),
+}
+```
+
+##### Variants
+
+###### `TooLarge`
+
+An entry or the archive passed a 32-bit ZIP limit.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Display**
+  - ```rust
+    fn fmt(self: &Self, __formatter: &mut ::core::fmt::Formatter<''_>) -> ::core::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Error**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **ToString**
+  - ```rust
+    fn to_string(self: &Self) -> String { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Types
+
+#### Struct `OutputFile`
+
+One file of the report: a path inside the zip and its bytes.
+
+```rust
+pub struct OutputFile {
+    pub path: String,
+    pub bytes: Vec<u8>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `path` | `String` | Path inside the archive (`report.md`, `data/spectrum.csv`, ...). |
+| `bytes` | `Vec<u8>` | Contents. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -75896,7 +85975,7 @@ pub struct NuclideKey {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &NuclideKey) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -75933,7 +86012,7 @@ pub struct NuclideKey {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -75957,23 +86036,14 @@ pub struct NuclideKey {
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
-#### Struct `AssembledModel`
+#### Struct `DiagnosticsReport`
 
-**A model lowered to the transport's own types**, before nuclear data is
-processed. Everything here can be inspected and drawn.
+**Everything a run produced, as files**: `report.md`, CSVs and PNGs.
+Make it with [`KeffRun::diagnostics_report`].
 
 ```rust
-pub struct AssembledModel {
-    pub geometry: crate::geometry::geometry::Geometry,
-    pub materials: Vec<crate::material::material::Material>,
-    pub resolved: Vec<super::resolve::ResolvedMaterial>,
-    pub nuclides: Vec<NuclideKey>,
-    pub source_box: crate::physics::transport_csg::SourceBox,
-    pub temperature_k: f64,
-    pub cell_components: Vec<Option<super::shape::Component>>,
-    pub component_labels: Vec<String>,
-    pub data_label: String,
-    pub bounds: ([f64; 3], [f64; 3]),
+pub struct DiagnosticsReport {
+    // Some fields omitted
 }
 ```
 
@@ -75981,45 +86051,41 @@ pub struct AssembledModel {
 
 | Name | Type | Documentation |
 |------|------|---------------|
-| `geometry` | `crate::geometry::geometry::Geometry` | The CSG geometry. |
-| `materials` | `Vec<crate::material::material::Material>` | Low-level materials; `components[j].nuclide_idx` indexes [`Self::nuclides`]. |
-| `resolved` | `Vec<super::resolve::ResolvedMaterial>` | The resolved description of each material, same order. |
-| `nuclides` | `Vec<NuclideKey>` | The transport nuclides, in the order the materials index them. |
-| `source_box` | `crate::physics::transport_csg::SourceBox` | Where the first generation starts: the bounding box of the shapes whose<br>material holds heavy metal (all shapes if none does). The sampler keeps<br>only points in fissionable material, so the start is uniform over it. |
-| `temperature_k` | `f64` | The temperature every nuclide is processed at \[K\]. |
-| `cell_components` | `Vec<Option<super::shape::Component>>` | Per cell: the component of the shape it came from. |
-| `component_labels` | `Vec<String>` | Component labels, by component index. |
-| `data_label` | `String` | The library's label (for provenance). |
-| `bounds` | `([f64; 3], [f64; 3])` | Bounding box of the whole model \[cm\]. |
+| *private fields* | ... | *Some fields have been omitted* |
 
 ##### Implementations
 
 ###### Methods
 
 - ```rust
-  pub fn draw_slice(self: &Self, basis: PlotBasis, pixels: usize, title: &str) -> ImageData { /* ... */ }
+  pub fn files(self: &Self) -> &[OutputFile] { /* ... */ }
   ```
-  **Draw what the solver sees**: a material-coloured slice of the
+  The files, `report.md` first.
 
 - ```rust
-  pub fn draw_window(self: &Self, basis: PlotBasis, centre: Position, width_cm: [f64; 2], pixels: usize, title: &str) -> ImageData { /* ... */ }
+  pub fn file(self: &Self, path: &str) -> Option<&OutputFile> { /* ... */ }
   ```
-  As [`Self::draw_slice`], at a chosen centre \[cm\] and width \[cm\]
+  One file by path.
 
 - ```rust
-  pub fn load_nuclides(self: &Self, data: &NuclearData) -> Result<Vec<Nuclide>, DataError> { /* ... */ }
+  pub fn to_zip_bytes(self: &Self) -> Result<Vec<u8>, zip::ZipError> { /* ... */ }
   ```
-  **Process every nuclide** this model needs from `data` at its
+  **The zip, in memory** (CLI and browser alike).
 
 - ```rust
-  pub fn entropy_mesh(self: &Self) -> RegularMesh { /* ... */ }
+  pub fn read_zip(bytes: &[u8]) -> Result<Vec<OutputFile>, String> { /* ... */ }
   ```
-  The entropy mesh the watcher uses: the source box, divided
+  Read an archive written by [`Self::to_zip_bytes`] back into files,
 
 - ```rust
-  pub fn keff_with(self: &Self, nuclides: &[Nuclide], settings: &KeffSettings) -> Result<KeffRun, RunError> { /* ... */ }
+  pub fn write_zip</* synthetic */ impl AsRef<std::path::Path>: AsRef<std::path::Path>>(self: &Self, path: impl AsRef<std::path::Path>) -> std::io::Result<()> { /* ... */ }
   ```
-  **Run k_eff on already-processed nuclides** (in [`Self::nuclides`]
+  **Write the zip** to `path` (native only), creating its folder.
+
+- ```rust
+  pub fn write_unzipped_to_dir</* synthetic */ impl AsRef<std::path::Path>: AsRef<std::path::Path>>(self: &Self, dir: impl AsRef<std::path::Path>) -> std::io::Result<()> { /* ... */ }
+  ```
+  **Write the files unzipped** under `dir` (native only; an explicit
 
 ###### Trait Implementations
 
@@ -76046,7 +86112,7 @@ pub struct AssembledModel {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> AssembledModel { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -76080,6 +86146,11 @@ pub struct AssembledModel {
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
 - **Pointable**
   - ```rust
     unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
@@ -76101,6 +86172,7 @@ pub struct AssembledModel {
 - **RefUnwindSafe**
 - **Same**
 - **Send**
+- **StructuralPartialEq**
 - **Sync**
 - **ToOwned**
   - ```rust
@@ -76113,7 +86185,7 @@ pub struct AssembledModel {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -76203,7 +86275,8 @@ pub enum MaterialError {
     NoNaturalComposition(super::isotope::Element),
     CannotExpand {
         element: super::isotope::Element,
-        missing: super::isotope::Isotope,
+        missing: Vec<super::isotope::Isotope>,
+        library: String,
     },
     Empty(String),
     WaterNotLiquid {
@@ -76335,14 +86408,15 @@ Fields:
 
 ###### `CannotExpand`
 
-A natural isotope the library lacks and that OpenMC's rules cannot fold.
+Natural isotopes the library lacks and that OpenMC's rules cannot fold.
 
 Fields:
 
 | Name | Type | Documentation |
 |------|------|---------------|
 | `element` | `super::isotope::Element` | The element. |
-| `missing` | `super::isotope::Isotope` | The isotope missing. |
+| `missing` | `Vec<super::isotope::Isotope>` | The natural isotopes the library does not contain. |
+| `library` | `String` | Where the library came from, when known (its label, which names<br>the folder or archive it was loaded from). |
 
 ###### `Empty`
 
@@ -76402,7 +86476,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> MaterialError { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -76448,7 +86522,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &MaterialError) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -76490,7 +86564,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -76565,7 +86639,7 @@ pub struct MaterialReport {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> MaterialReport { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -76601,7 +86675,7 @@ pub struct MaterialReport {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &MaterialReport) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -76638,7 +86712,7 @@ pub struct MaterialReport {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -76724,7 +86798,7 @@ pub struct ResolvedMaterial {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ResolvedMaterial { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -76760,7 +86834,7 @@ pub struct ResolvedMaterial {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &ResolvedMaterial) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -76797,7 +86871,7 @@ pub struct ResolvedMaterial {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -76875,7 +86949,7 @@ pub struct NumberDensityComparison {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> NumberDensityComparison { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -76916,7 +86990,7 @@ pub struct NumberDensityComparison {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &NumberDensityComparison) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -76958,7 +87032,7 @@ pub struct NumberDensityComparison {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -76993,6 +87067,7 @@ the Auto entropy watcher, and the [`KeffRun`] result with its provenance
 | preset | inactive | active |
 |---|---|---|
 | [`MCSettings::Auto`] | watcher at 1 000 / cycle, then settle and re-confirm at 10 000 | 250 cycles × 10 000 |
+| [`MCSettings::Smoke`] | the same watcher, all at 1 000 | 50 cycles × 1 000 (**does it run at all**) |
 | [`MCSettings::Fast`] | the same watcher, re-confirm at 5 000 | 120 cycles × 5 000 (**a smoke test**) |
 | [`MCSettings::Pcm`] | the same watcher, re-confirm at 10 000 | 10 000 / cycle until the correlation-aware σ reaches the tolerance |
 | [`MCSettings::High`] | the same watcher, re-confirm at 50 000 | 1 500 cycles × 50 000 |
@@ -77017,19 +87092,70 @@ The Auto watcher (window, check interval, settling length, entropy mesh)
 is implemented with **named constants whose values have no measured
 justification yet**: the experiments that are to justify them, against
 standard practice (10 000 neutrons per inactive cycle until k and H
-converge), are gh #927, and the **normality** half of the criterion
+converge), are gh #927. ~~the **normality** half of the criterion
 (skewness and kurtosis on the window) needs a raffles estimator that does
 not exist yet (gh #944). Until then the watcher applies the
-**stationarity** half only (MSER-5 and Geweke on k and H over the window,
-`stats::convergence`), and every result says so
-([`NormalityCheck::NotYetAvailable`]). **Auto is not validated.**
+**stationarity** half only ... every result says so
+([`NormalityCheck::NotYetAvailable`]).~~ **CORRECTED 2026-10-18 (gh #944):**
+the raffles D'Agostino-Pearson test exists
+(`raffles::estimators::normality`), and a window now passes only when
+**both** hold: k and H are stationary (MSER-5 and Geweke,
+`stats::convergence`) **and** the k window is not rejected as normal at
+[`WATCH_NORMALITY_ALPHA`]. Every result carries the deciding window's
+statistic, p-value and size ([`NormalityCheck::Tested`]).
+
+**What the normality gate can and cannot see at 30 cycles** (measured
+2026-10-18, 20 000 windows per cell, n = 30, alpha = 0.05, AR(1)
+autocorrelation rho in {0, 0.3, 0.5} on the trace): rejection rate on
+normal data 0.057 / 0.055 / 0.055 (the test is mildly liberal, as the
+raffles docs say); on Student t5 0.30 / 0.26 / 0.21; t3 0.51 / 0.45 /
+0.37; lognormal (sigma 0.5) 0.60 / 0.52 / 0.39; a 90/10 scale mixture
+0.62 / 0.57 / 0.47; a symmetric bimodal (+-1.5, sd 0.5) 0.96 / 0.74 /
+0.16. So the test has real power against gross skew and heavy tails and
+is **weak against mild departures and against autocorrelated bimodality**:
+it is a gate on gross non-normality, and a pass means "no evidence
+against", never "is Gaussian". It also refuses a stationary, normal window
+about 5.5 % of the time, which only delays the pass to the next check
+(every [`WATCH_EVERY_CYCLES`]). The raw trace is autocorrelated, which the
+test assumes away (raffles docs); the sizes above show the effect on the
+rejection rate is small for rho up to 0.5.
 
 # Run backend
 
-The single-thread CSG power iteration
+~~The single-thread CSG power iteration
 ([`CsgPowerIteration`]), bit for bit `run_keff_csg` with
-`ComputeType::CpuSingleThread` when the population is not changed. Lost
-histories are not counted on this path (gh #699); the result says so.
+`ComputeType::CpuSingleThread` when the population is not changed.~~
+**CORRECTED 2026-10-18 (gh #955):** the run is **multi-threaded by
+default** ([`RunBackend::MultiThread`]): the CSG power iteration
+([`CsgPowerIteration::step_par`]) transports each generation's histories
+on rayon's **current** pool, the global one (sized by
+`RAYON_NUM_THREADS`, else every logical core) or the one the caller
+`install`s. It reuses the parallel history loop of `run_keff_csg_par`
+(`transport_csg::transport_generation_par`), so:
+
+- **the same seed gives the same k on any number of threads, bit for
+  bit**: history `i` of generation `g` runs on its own random stream
+  derived from `(seed, g, i)`, and every generation is reduced in history
+  order; `tests/model_repeated_structures.rs` pins it at 1, 2 and 4 threads
+  with every reactor-physics diagnostic on;
+- at a fixed population (`Custom`) it is `run_keff_csg` with
+  `ComputeType::CpuMultiThread` bit for bit;
+- it is **not** the single-thread k: a different, statistically
+  equivalent set of random streams. [`RunBackend::SingleThread`]
+  ([`KeffSettings::single_thread`]) keeps the old path, bit for bit
+  `run_keff_csg` with `ComputeType::CpuSingleThread`.
+
+Diagnostics (extra tallies, leakage grids, IFP kinetics) run on both
+backends; in parallel each chunk of histories scores into its own copy,
+added back in a fixed order, so their sums do not depend on the thread
+count either. [`RunProvenance::backend`] and [`RunProvenance::threads`]
+record which ran. Lost histories are not counted on either path
+(gh #699); the result says so.
+
+A model with a delta-tracked `DhRegion` (gh #926) passes its majorants
+([`AssembledModel::majorants`]) on both backends, which makes it
+`run_keff_csg_hybrid` (multi-thread: its `CpuMultiThread` route; one
+thread: its `CpuSingleThread` route).
 
 ```rust
 pub mod run { /* ... */ }
@@ -77094,7 +87220,7 @@ pub struct ReactivityTolerance {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ReactivityTolerance { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -77131,7 +87257,7 @@ pub struct ReactivityTolerance {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &ReactivityTolerance) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -77168,7 +87294,7 @@ pub struct ReactivityTolerance {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -77242,7 +87368,7 @@ pub struct CustomRun {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> CustomRun { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -77289,7 +87415,7 @@ pub struct CustomRun {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &CustomRun) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -77326,7 +87452,7 @@ pub struct CustomRun {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -77358,6 +87484,7 @@ module docs for each preset's numbers and their sources.
 ```rust
 pub enum MCSettings {
     Auto,
+    Smoke,
     Fast,
     Pcm(ReactivityTolerance),
     High,
@@ -77372,6 +87499,14 @@ pub enum MCSettings {
 The watcher at 1 000 neutrons per inactive cycle (cap 100), then 250
 active cycles at 10 000. The watcher's thresholds are not yet
 justified (#927, #944); see the module docs.
+
+###### `Smoke`
+
+**Does it run at all**: [`SMOKE_PARTICLES`] per cycle throughout and
+[`SMOKE_ACTIVE_CYCLES`] active cycles, about Brown's trial run
+(LA-UR-08-06558, Conclusions). For checking a model builds and
+transports, and for tutorials' first look; k carries a large σ and
+is **not a result to quote**. The result says so.
 
 ###### `Fast`
 
@@ -77437,7 +87572,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> MCSettings { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -77474,7 +87609,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &MCSettings) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -77511,7 +87646,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -77535,21 +87670,211 @@ Fields:
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
-#### Enum `Diagnostics`
+#### Struct `KeffSettings`
 
-**High-level outputs to collect** (six factors, spectrum, ...).
-
-**Not yet implemented** (gh #940). This type has no values, so the only
-thing [`KeffSettings::new`] accepts for it today is `None` (k_eff only);
-the signature is the decided one so code written now keeps compiling when
-#940 lands.
+**What to run**: a run size, the diagnostics to collect, and whether to
+print progress while it runs.
 
 ```rust
-pub enum Diagnostics {
+pub struct KeffSettings {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(mc: MCSettings, diagnostics: Option<Diagnostics>) -> Self { /* ... */ }
+  ```
+  `KeffSettings::new(MCSettings::Auto, None)`: `None` means k_eff
+
+- ```rust
+  pub fn single_thread(self: Self) -> Self { /* ... */ }
+  ```
+  The same settings, run on **one thread** ([`RunBackend::SingleThread`]),
+
+- ```rust
+  pub fn backend(self: &Self) -> RunBackend { /* ... */ }
+  ```
+  The backend the run uses.
+
+- ```rust
+  pub fn silent(self: Self) -> Self { /* ... */ }
+  ```
+  The same settings, printing nothing while the run goes
+
+- ```rust
+  pub fn progress(self: &Self) -> Progress { /* ... */ }
+  ```
+  Whether progress is printed.
+
+- ```rust
+  pub fn mc(self: &Self) -> MCSettings { /* ... */ }
+  ```
+  The run size.
+
+- ```rust
+  pub fn diagnostics(self: &Self) -> Option<&Diagnostics> { /* ... */ }
+  ```
+  The diagnostics requested.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `RunBackend`
+
+**How the histories of a generation are run** (gh #955).
+
+The answer for a given seed does not depend on the number of threads
+(module docs, "Run backend"); it does depend on the backend, since the
+two draw their random numbers in different streams.
+
+```rust
+pub enum RunBackend {
+    MultiThread,
+    SingleThread,
 }
 ```
 
 ##### Variants
+
+###### `MultiThread`
+
+Histories in parallel on rayon's current pool (the default): the
+global pool, sized by `RAYON_NUM_THREADS` (else every logical core),
+or a pool the caller `install`s around the run.
+
+###### `SingleThread`
+
+One thread, one random stream: bit for bit `run_keff_csg` with
+`ComputeType::CpuSingleThread`.
 
 ##### Implementations
 
@@ -77579,7 +87904,7 @@ pub enum Diagnostics {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Diagnostics { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -77591,6 +87916,11 @@ pub enum Diagnostics {
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
     ```
 
 - **DistributionExt**
@@ -77626,7 +87956,7 @@ pub enum Diagnostics {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Diagnostics) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -77663,7 +87993,7 @@ pub enum Diagnostics {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -77687,40 +88017,35 @@ pub enum Diagnostics {
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
-#### Struct `KeffSettings`
+#### Enum `Progress`
 
-**What to run**: a run size and the diagnostics to collect.
+**Progress printed while a run goes** (maintainer direction, 2026-10-18:
+"by default as keff runs, should print statistics like OpenMC").
+
+[`Progress::Print`] is the default: each nuclide as its data is
+processed, then one line per generation in OpenMC's layout (generation,
+population, k, Shannon entropy, and, in the active cycles, the running
+average k ± σ), plus a line whenever the Auto watcher changes phase. It
+goes to standard output, so a long run can be watched with `tail -f`.
 
 ```rust
-pub struct KeffSettings {
-    // Some fields omitted
+pub enum Progress {
+    Print,
+    Silent,
 }
 ```
 
-##### Fields
+##### Variants
 
-| Name | Type | Documentation |
-|------|------|---------------|
-| *private fields* | ... | *Some fields have been omitted* |
+###### `Print`
+
+Print as the run goes (the default).
+
+###### `Silent`
+
+Print nothing.
 
 ##### Implementations
-
-###### Methods
-
-- ```rust
-  pub fn new(mc: MCSettings, diagnostics: Option<Diagnostics>) -> Self { /* ... */ }
-  ```
-  `KeffSettings::new(MCSettings::Auto, None)`: `None` means k_eff only
-
-- ```rust
-  pub fn mc(self: &Self) -> MCSettings { /* ... */ }
-  ```
-  The run size.
-
-- ```rust
-  pub fn diagnostics(self: &Self) -> Option<Diagnostics> { /* ... */ }
-  ```
-  The diagnostics requested (always `None` until #940).
 
 ###### Trait Implementations
 
@@ -77748,7 +88073,7 @@ pub struct KeffSettings {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> KeffSettings { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -77762,10 +88087,25 @@ pub struct KeffSettings {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
 - **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
     ```
 
 - **Freeze**
@@ -77785,7 +88125,7 @@ pub struct KeffSettings {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &KeffSettings) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -77822,7 +88162,7 @@ pub struct KeffSettings {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -77863,7 +88203,14 @@ pub enum RunError {
         got: usize,
         wanted: usize,
     },
+    NuclideTemperature {
+        index: usize,
+        nuclide: String,
+        got_k: f64,
+        wanted_k: f64,
+    },
     PopulationDied(usize),
+    Diagnostic(super::diagnostics::DiagnosticError),
 }
 ```
 
@@ -77921,6 +88268,22 @@ Fields:
 | `got` | `usize` | Given. |
 | `wanted` | `usize` | Needed. |
 
+###### `NuclideTemperature`
+
+A nuclide's data were processed at another temperature than the
+regions using it are at (gh #945). Its cross sections, and the
+majorant of any delta-tracked region holding it, would be at the
+wrong temperature; the run refuses rather than transport on them.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `index` | `usize` | Index into [`AssembledModel::nuclides`]. |
+| `nuclide` | `String` | Its name. |
+| `got_k` | `f64` | The temperature of the data given \[K\]. |
+| `wanted_k` | `f64` | The temperature its key asks for \[K\]. |
+
 ###### `PopulationDied`
 
 The neutron population died out.
@@ -77930,6 +88293,16 @@ Fields:
 | Index | Type | Documentation |
 |-------|------|---------------|
 | 0 | `usize` |  |
+
+###### `Diagnostic`
+
+A diagnostic could not be planned or assembled.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `super::diagnostics::DiagnosticError` |  |
 
 ##### Implementations
 
@@ -77974,7 +88347,7 @@ Fields:
 
 - **Error**
   - ```rust
-    fn source(self: &Self) -> ::core::option::Option<&dyn ::thiserror::__private18::Error + ''static> { /* ... */ }
+    fn source(self: &Self) -> ::core::option::Option<&dyn ::thiserror::__private21::Error + ''static> { /* ... */ }
     ```
 
 - **Freeze**
@@ -77990,6 +88363,10 @@ Fields:
 
   - ```rust
     fn from(source: DataError) -> Self { /* ... */ }
+    ```
+
+  - ```rust
+    fn from(source: DiagnosticError) -> Self { /* ... */ }
     ```
 
 - **Imply**
@@ -78029,7 +88406,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -78053,23 +88430,30 @@ Fields:
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
-#### Enum `NormalityCheck`
+#### Struct `NormalityResult`
 
-**The normality half of the watcher's criterion.** Needs a raffles
-skewness/kurtosis estimator and normality test (gh #944), which does not
-exist yet.
+The D'Agostino-Pearson normality test on one k window
+(`raffles::estimators::normality`, gh #944).
 
 ```rust
-pub enum NormalityCheck {
-    NotYetAvailable,
+pub struct NormalityResult {
+    pub n: usize,
+    pub k2: f64,
+    pub p_value: f64,
+    pub alpha: f64,
+    pub consistent_with_normal: bool,
 }
 ```
 
-##### Variants
+##### Fields
 
-###### `NotYetAvailable`
-
-Not applied: #944 not yet built. Only stationarity was checked.
+| Name | Type | Documentation |
+|------|------|---------------|
+| `n` | `usize` | Cycles in the window. |
+| `k2` | `f64` | The omnibus statistic K^2 (chi-squared, 2 d.o.f. under normality). |
+| `p_value` | `f64` | Upper-tail p-value, `exp(-K^2/2)`. |
+| `alpha` | `f64` | The significance level the window was judged at<br>([`WATCH_NORMALITY_ALPHA`]). |
+| `consistent_with_normal` | `bool` | `true` when normality is **not** rejected (`p >= alpha`): "no evidence<br>against", never "is Gaussian". |
 
 ##### Implementations
 
@@ -78099,7 +88483,7 @@ Not applied: #944 not yet built. Only stationarity was checked.
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> NormalityCheck { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -78119,16 +88503,6 @@ Not applied: #944 not yet built. Only stationarity was checked.
     fn downcast(self: &Self) -> &T { /* ... */ }
     ```
 
-- **Eq**
-- **Equivalent**
-  - ```rust
-    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
-    ```
-
-  - ```rust
-    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
-    ```
-
 - **Freeze**
 - **From**
   - ```rust
@@ -78146,7 +88520,7 @@ Not applied: #944 not yet built. Only stationarity was checked.
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &NormalityCheck) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -78183,7 +88557,162 @@ Not applied: #944 not yet built. Only stationarity was checked.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `NormalityCheck`
+
+**The normality half of the watcher's criterion** (gh #944, 2026-10-18):
+the test on the deciding k window.
+
+```rust
+pub enum NormalityCheck {
+    NotTested,
+    Tested(NormalityResult),
+}
+```
+
+##### Variants
+
+###### `NotTested`
+
+No window could be tested (none reached full size, or k was constant).
+
+###### `Tested`
+
+The deciding window: the one that passed, else the last one examined
+(at the production population if any was, else at the low one).
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `NormalityResult` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -78236,7 +88765,7 @@ Fields:
 |------|------|---------------|
 | `low_population_passed_at` | `Option<usize>` | Inactive cycle (1-based) at which the window first passed at the<br>low population; `None` if it never did before the switch. |
 | `production_passed_at` | `Option<usize>` | Inactive cycle at which the window passed at the production<br>population; `None` = **not converged** (the cap was reached and<br>active cycles started on an unconfirmed source). |
-| `normality` | `NormalityCheck` | The normality check (not yet available, #944). |
+| `normality` | `NormalityCheck` | The normality test on the deciding k window (gh #944). |
 
 ###### `NotWatched`
 
@@ -78285,7 +88814,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Convergence { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -78321,7 +88850,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Convergence) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -78358,7 +88887,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -78387,9 +88916,13 @@ Fields:
 The physics one transport nuclide carried (always on in this API; this
 records it so a reader can check).
 
+~~`Eq`~~ **CHANGED 2026-10-18 (gh #945)**: the temperature made it
+`PartialEq` only.
+
 ```rust
 pub struct NuclidePhysics {
     pub nuclide: String,
+    pub temperature_k: f64,
     pub urr_probability_tables: bool,
     pub dbrc: Result<(), String>,
     pub thermal_law: Option<String>,
@@ -78401,6 +88934,7 @@ pub struct NuclidePhysics {
 | Name | Type | Documentation |
 |------|------|---------------|
 | `nuclide` | `String` | Nuclide name. |
+| `temperature_k` | `f64` | The temperature its data were processed at \[K\] (gh #945: one entry<br>per nuclide and temperature present). |
 | `urr_probability_tables` | `bool` | Unresolved-resonance probability tables attached. |
 | `dbrc` | `Result<(), String>` | DBRC attached; when not, why. |
 | `thermal_law` | `Option<String>` | The thermal scattering law, if any. |
@@ -78432,7 +88966,7 @@ pub struct NuclidePhysics {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> NuclidePhysics { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -78449,16 +88983,6 @@ pub struct NuclidePhysics {
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
-    ```
-
-- **Eq**
-- **Equivalent**
-  - ```rust
-    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
-    ```
-
-  - ```rust
-    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
     ```
 
 - **Freeze**
@@ -78478,7 +89002,7 @@ pub struct NuclidePhysics {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &NuclidePhysics) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -78515,7 +89039,7 @@ pub struct NuclidePhysics {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -78557,8 +89081,11 @@ pub struct RunProvenance {
     pub physics: Vec<NuclidePhysics>,
     pub data_library: String,
     pub temperature_k: f64,
+    pub temperatures_k: Vec<f64>,
     pub backend: &'static str,
+    pub threads: usize,
     pub notes: Vec<String>,
+    pub ablations: Vec<String>,
 }
 ```
 
@@ -78577,9 +89104,12 @@ pub struct RunProvenance {
 | `pcm_tolerance_reached` | `Option<bool>` | `Pcm` only: whether the tolerance was reached before the cap. |
 | `physics` | `Vec<NuclidePhysics>` | Per transport nuclide: the physics it carried. |
 | `data_library` | `String` | The nuclear-data library. |
-| `temperature_k` | `f64` | The temperature every nuclide was processed at \[K\]. |
+| `temperature_k` | `f64` | The model's temperature \[K\]: every region that set none of its own.<br>~~The temperature every nuclide was processed at~~ until gh #945<br>(2026-10-18); [`Self::temperatures_k`] lists them all. |
+| `temperatures_k` | `Vec<f64>` | Every temperature the data were processed at \[K\], ascending (gh<br>#945): `[temperature_k]` when no region sets its own. |
 | `backend` | `&'static str` | What ran it. |
+| `threads` | `usize` | Threads the run's histories were spread over: rayon's current pool<br>for [`RunBackend::MultiThread`] (1 on `wasm32`), 1 for<br>[`RunBackend::SingleThread`]. k does not depend on it. |
 | `notes` | `Vec<String>` | Statements every reader should see (smoke test, unjustified<br>thresholds, what is not counted). |
+| `ablations` | `Vec<String>` | **Physics switched off on purpose** through [`super::advanced`]<br>(`without_dbrc`, ...). Empty for every ordinary run: correct physics<br>is on and hidden (#942). |
 
 ##### Implementations
 
@@ -78608,7 +89138,7 @@ pub struct RunProvenance {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> RunProvenance { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -78644,7 +89174,7 @@ pub struct RunProvenance {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &RunProvenance) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -78681,7 +89211,7 @@ pub struct RunProvenance {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -78751,7 +89281,7 @@ pub struct Keff {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Keff { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -78793,7 +89323,7 @@ pub struct Keff {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Keff) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -78835,7 +89365,7 @@ pub struct Keff {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -78869,6 +89399,7 @@ pub struct KeffRun {
     pub entropy_by_cycle: Vec<Option<f64>>,
     pub particles_by_cycle: Vec<usize>,
     pub provenance: RunProvenance,
+    pub diagnostics: Vec<(super::diagnostics::MCDiagnostic, super::collect::MCDiagnosticResult)>,
     // Some fields omitted
 }
 ```
@@ -78881,6 +89412,7 @@ pub struct KeffRun {
 | `entropy_by_cycle` | `Vec<Option<f64>>` | Shannon entropy \[bits\] of the source each cycle left, on the<br>watcher's mesh. |
 | `particles_by_cycle` | `Vec<usize>` | Neutrons per cycle. |
 | `provenance` | `RunProvenance` | How it was made. |
+| `diagnostics` | `Vec<(super::diagnostics::MCDiagnostic, super::collect::MCDiagnosticResult)>` | Each requested diagnostic with its result, in request order (empty<br>for `None`). |
 | *private fields* | ... | *Some fields have been omitted* |
 
 ##### Implementations
@@ -78888,9 +89420,69 @@ pub struct KeffRun {
 ###### Methods
 
 - ```rust
+  pub fn diagnostics_report(self: &Self) -> DiagnosticsReport { /* ... */ }
+  ```
+  **The diagnostics report** of this run, titled "k_eff run".
+
+- ```rust
+  pub fn diagnostics_report_titled(self: &Self, title: &str) -> DiagnosticsReport { /* ... */ }
+  ```
+  The report with your own title (e.g. "Godiva").
+
+- ```rust
   pub fn keff(self: &Self) -> Keff { /* ... */ }
   ```
   k_eff ± σ.
+
+- ```rust
+  pub fn six_factors(self: &Self) -> Result<&SixFactors, DiagnosticError> { /* ... */ }
+  ```
+  **The six factors** (the first `SixFactors` requested).
+
+- ```rust
+  pub fn six_factors_with_edges(self: &Self, thermal_edge: uom::si::f64::Energy, fast_edge: uom::si::f64::Energy) -> Result<&SixFactors, DiagnosticError> { /* ... */ }
+  ```
+  The six factors split at exactly these edges.
+
+- ```rust
+  pub fn spectrum(self: &Self, region: Region) -> Result<&Spectrum, DiagnosticError> { /* ... */ }
+  ```
+  **The spectrum in `region`** (the first one requested there).
+
+- ```rust
+  pub fn run_health(self: &Self) -> Result<&RunHealth, DiagnosticError> { /* ... */ }
+  ```
+  Run health.
+
+- ```rust
+  pub fn neutron_balance(self: &Self) -> Result<&NeutronBalance, DiagnosticError> { /* ... */ }
+  ```
+  The neutron balance (the first requested).
+
+- ```rust
+  pub fn ealf(self: &Self) -> Result<&Ealf, DiagnosticError> { /* ... */ }
+  ```
+  EALF.
+
+- ```rust
+  pub fn leakage(self: &Self) -> Result<&Leakage, DiagnosticError> { /* ... */ }
+  ```
+  Leakage (the first requested).
+
+- ```rust
+  pub fn kinetics(self: &Self) -> Result<&Kinetics, DiagnosticError> { /* ... */ }
+  ```
+  Kinetics (β_eff, Λ by IFP).
+
+- ```rust
+  pub fn fission_map(self: &Self) -> Result<&MeshMap, DiagnosticError> { /* ... */ }
+  ```
+  The fission map (the first requested).
+
+- ```rust
+  pub fn flux_map(self: &Self) -> Result<&MeshMap, DiagnosticError> { /* ... */ }
+  ```
+  The flux map (the first requested).
 
 ###### Trait Implementations
 
@@ -78917,7 +89509,7 @@ pub struct KeffRun {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> KeffRun { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -78958,7 +89550,7 @@ pub struct KeffRun {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &KeffRun) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -79000,7 +89592,7 @@ pub struct KeffRun {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -79063,6 +89655,18 @@ The watcher looks every this many cycles. **Not yet justified** (#927).
 pub const WATCH_EVERY_CYCLES: usize = 5;
 ```
 
+#### Constant `WATCH_NORMALITY_ALPHA`
+
+Significance level of the watcher's normality gate on the k window: the
+window is refused when the D'Agostino-Pearson p-value is below this.
+The test is mildly liberal (about 0.057 actual at a nominal 0.05, n = 30).
+**Not yet justified** (#927): 0.05 is the conventional value, chosen
+before any measurement of how often it delays or refuses real runs.
+
+```rust
+pub const WATCH_NORMALITY_ALPHA: f64 = 0.05;
+```
+
 #### Constant `SETTLE_CYCLES`
 
 Cycles discarded right after raising the population, before the
@@ -79110,6 +89714,24 @@ hundred").
 
 ```rust
 pub const AUTO_ACTIVE_CYCLES: usize = 250;
+```
+
+#### Constant `SMOKE_PARTICLES`
+
+Smoke's population (maintainer direction, 2026-10-18: "1000 particles
+per batch"); Brown's trial-run size, a fifth of his production minimum.
+
+```rust
+pub const SMOKE_PARTICLES: usize = 1_000;
+```
+
+#### Constant `SMOKE_ACTIVE_CYCLES`
+
+Smoke's active cycles: with the watched inactive cycles, about Brown's
+~100-cycle trial run (LA-UR-08-06558, Conclusions). Chosen, not measured.
+
+```rust
+pub const SMOKE_ACTIVE_CYCLES: usize = 50;
 ```
 
 #### Constant `FAST_PARTICLES`
@@ -79173,18 +89795,29 @@ pub const PCM_MAX_ACTIVE_CYCLES: usize = 5_000;
 
 ## Module `shape`
 
-**Beginner geometry: shapes filled with materials** (gh #938, epic #925).
+**Beginner geometry: shapes filled with materials** (gh #938, #926,
+epic #925).
 
 A beginner says "the critical sphere is this shape and this composition"
 and never meets a cell, a region, a universe or the root (maintainer
 decision on #925, 2026-10-17). Nesting is explicit:
 [`Shape::containing`], one call per inner shape, and the outer shape
 fills only what its children leave. Outside the outermost shape is vacuum
-automatically. [`super::Model::assemble`] lowers it all to today's CSG
+automatically, or reflective when the outermost shape says so
+([`Shape::boundary`], decided on #943 for tutorial 4).
+[`super::Model::assemble`] lowers it all to today's CSG
 [`Geometry`](crate::geometry::geometry::Geometry).
 
-Only spheres today; more primitives and repeated structures (lattices,
-TRISO) follow on #926.
+~~Three solids today~~ **Four solids (tutorial 7, 2026-10-18)**: [`Sphere`],
+[`Cuboid`] (a box; [`Cube`] makes one
+with equal sides), [`Cylinder`] (axis along z: a finite cylinder with
+a height, or a **rod** without one that runs through whatever holds it,
+a pin in a lattice tile) and [`HexPrism`](super::HexPrism) (the tile of a
+hexagonal lattice). **Repeated structures** (#926) are a [`Lattice`] of
+tiles, each tile an ordinary shape (a cube of matrix containing a TRISO
+particle, say), placed in a container with [`Shape::containing_lattice`].
+A TRISO particle itself needs nothing new: it is concentric spheres, one
+`.containing` per statement (maintainer, #926, 2026-10-17).
 
 ```rust
 pub mod shape { /* ... */ }
@@ -79241,7 +89874,7 @@ pub struct Component {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Component { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -79293,7 +89926,7 @@ pub struct Component {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Component) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -79330,7 +89963,168 @@ pub struct Component {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `Boundary`
+
+**What a neutron meets at the outside of the outermost shape** (set with
+[`Shape::boundary`]). Vacuum is the automatic default and never needs
+saying (decided on #943, tutorial 4).
+
+```rust
+pub enum Boundary {
+    Vacuum,
+    Reflective,
+}
+```
+
+##### Variants
+
+###### `Vacuum`
+
+Neutrons that leave are lost (leakage).
+
+###### `Reflective`
+
+Neutrons are mirrored back in: no leakage. A reflective cube around
+one TRISO particle is an infinite regular array of them, so its k is
+a k-infinity.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -79433,7 +90227,7 @@ pub struct Sphere {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Sphere { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -79470,7 +90264,7 @@ pub struct Sphere {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Sphere) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -79507,7 +90301,7 @@ pub struct Sphere {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -79531,13 +90325,23 @@ pub struct Sphere {
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
-#### Struct `Shape`
+#### Struct `Cuboid`
 
-**A shape filled with a material**, possibly containing other shapes and
-belonging to a [`Component`].
+**A box** with faces normal to x, y and z: three side lengths and,
+optionally, a centre (the origin otherwise). [`Cube::side`] makes one with
+equal sides.
+
+```
+use outram_mc_libs::model::prelude::*;
+use uom::si::{f64::Length, length::centimeter};
+let cm = Length::new::<centimeter>;
+let b = Cuboid::sides(cm(1.0), cm(2.0), cm(3.0));
+assert_eq!(b.sides_cm(), [1.0, 2.0, 3.0]);
+assert!((b.volume_cm3() - 6.0).abs() < 1e-12);
+```
 
 ```rust
-pub struct Shape {
+pub struct Cuboid {
     // Some fields omitted
 }
 ```
@@ -79553,34 +90357,34 @@ pub struct Shape {
 ###### Methods
 
 - ```rust
-  pub fn in_component(self: Self, component: Component) -> Self { /* ... */ }
+  pub fn sides(x: Length, y: Length, z: Length) -> Self { /* ... */ }
   ```
-  Put this shape in `component` (for per-component output; #940).
+  A box of sides `x`, `y`, `z` centred at the origin. Each side must be
 
 - ```rust
-  pub fn containing(self: Self, inner: Shape) -> Self { /* ... */ }
+  pub fn centred_at(self: Self, x: Length, y: Length, z: Length) -> Self { /* ... */ }
   ```
-  **Put `inner` inside this shape.** This shape then fills only the
+  Move the centre to `(x, y, z)`.
 
 - ```rust
-  pub fn sphere(self: &Self) -> &Sphere { /* ... */ }
+  pub fn filled_with(self: Self, material: Material) -> Shape { /* ... */ }
   ```
-  The sphere.
+  Fill it with `material`.
 
 - ```rust
-  pub fn material(self: &Self) -> &Material { /* ... */ }
+  pub fn sides_cm(self: &Self) -> [f64; 3] { /* ... */ }
   ```
-  The material.
+  Side lengths \[cm\].
 
 - ```rust
-  pub fn component(self: &Self) -> Option<Component> { /* ... */ }
+  pub fn centre_cm(self: &Self) -> [f64; 3] { /* ... */ }
   ```
-  The component, if one was given.
+  Centre \[cm\].
 
 - ```rust
-  pub fn contained(self: &Self) -> &[Shape] { /* ... */ }
+  pub fn volume_cm3(self: &Self) -> f64 { /* ... */ }
   ```
-  The shapes directly inside.
+  Volume \[cm³\].
 
 ###### Trait Implementations
 
@@ -79589,6 +90393,7 @@ pub struct Shape {
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
+- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -79607,7 +90412,7 @@ pub struct Shape {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Shape { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -79615,6 +90420,7 @@ pub struct Shape {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Copy**
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -79643,7 +90449,7 @@ pub struct Shape {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Shape) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -79680,7 +90486,751 @@ pub struct Shape {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `Cylinder`
+
+**A cylinder with its axis along z**: a radius and, optionally, a centre
+(the origin otherwise) and a height.
+
+- **With a height** ([`Cylinder::height`]) it is a finite solid, centred
+  on its centre: a reactor core, a tank.
+- **Without one it is a rod**: it runs the whole height of whatever holds
+  it. That is what a fuel pin is in a lattice tile, where the lattice
+  (and the container the lattice fills) decide how tall it is. A rod is
+  only allowed inside a lattice tile; anywhere else
+  [`super::Model::assemble`] refuses it and asks for a height.
+
+```
+use outram_mc_libs::model::prelude::*;
+use uom::si::{f64::Length, length::centimeter};
+let cm = Length::new::<centimeter>;
+let pin = Cylinder::radius(cm(0.5149));
+assert!(pin.is_rod());
+let core = Cylinder::radius(cm(76.2)).height(cm(163.3));
+assert_eq!(core.height_cm(), Some(163.3));
+assert!((core.volume_cm3().unwrap() - std::f64::consts::PI * 76.2 * 76.2 * 163.3).abs() < 1e-6);
+```
+
+```rust
+pub struct Cylinder {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn radius(radius: Length) -> Self { /* ... */ }
+  ```
+  A rod of `radius` on the z axis (give it a height with
+
+- ```rust
+  pub fn height(self: Self, height: Length) -> Self { /* ... */ }
+  ```
+  Give it a height (its z extent, centred on its centre): now a finite
+
+- ```rust
+  pub fn centred_at(self: Self, x: Length, y: Length, z: Length) -> Self { /* ... */ }
+  ```
+  Move the centre to `(x, y, z)`. The z of a rod means nothing (it has
+
+- ```rust
+  pub fn filled_with(self: Self, material: Material) -> Shape { /* ... */ }
+  ```
+  Fill it with `material`.
+
+- ```rust
+  pub fn radius_cm(self: &Self) -> f64 { /* ... */ }
+  ```
+  Radius \[cm\].
+
+- ```rust
+  pub fn height_cm(self: &Self) -> Option<f64> { /* ... */ }
+  ```
+  Height \[cm\], `None` for a rod.
+
+- ```rust
+  pub fn centre_cm(self: &Self) -> [f64; 3] { /* ... */ }
+  ```
+  Centre \[cm\].
+
+- ```rust
+  pub fn is_rod(self: &Self) -> bool { /* ... */ }
+  ```
+  Whether it has no height: it runs through whatever holds it.
+
+- ```rust
+  pub fn volume_cm3(self: &Self) -> Option<f64> { /* ... */ }
+  ```
+  Volume \[cm³\], `None` for a rod (it has no height of its own).
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `Cube`
+
+**A cube**: makes a [`Cuboid`] with three equal sides, from a length or
+from a packing fraction (both decided for the regular unit cell on #943,
+tutorial 4).
+
+```rust
+pub struct Cube;
+```
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn side(side: Length) -> Cuboid { /* ... */ }
+  ```
+  A cube of side `side`, centred at the origin.
+
+- ```rust
+  pub fn with_packing_fraction(particle: &Shape, packing_fraction: Ratio) -> Cuboid { /* ... */ }
+  ```
+  **The cube a particle fills to `packing_fraction`**: side
+
+- ```rust
+  pub fn for_whole_particles_in_sphere(particle: &Shape, zone: Sphere, count: usize, offset: [f64; 3]) -> Result<Cuboid, ModelError> { /* ... */ }
+  ```
+  **The tile of a simple-cubic lattice that places exactly `count`
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `Solid`
+
+**The solid a [`Shape`] occupies**: a [`Sphere`], a [`Cuboid`], a
+[`Cylinder`] or a [`HexPrism`]. Enum dispatch (workspace rule: no trait objects).
+
+```rust
+pub enum Solid {
+    Sphere(Sphere),
+    Cuboid(Cuboid),
+    Cylinder(Cylinder),
+    HexPrism(super::hex::HexPrism),
+    Hopper(super::hopper::Hopper),
+}
+```
+
+##### Variants
+
+###### `Sphere`
+
+A sphere.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `Sphere` |  |
+
+###### `Cuboid`
+
+A box.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `Cuboid` |  |
+
+###### `Cylinder`
+
+A cylinder along z, finite or a rod.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `Cylinder` |  |
+
+###### `HexPrism`
+
+A hexagonal prism along z: the tile of a hexagonal lattice.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `super::hex::HexPrism` |  |
+
+###### `Hopper`
+
+A cylinder narrowing through a cone into a tube: the container of a
+pebble bed (tutorial 8).
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `super::hopper::Hopper` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn volume_cm3(self: &Self) -> f64 { /* ... */ }
+  ```
+  Volume \[cm³\], exact (infinite for a rod: see
+
+- ```rust
+  pub fn centre_cm(self: &Self) -> [f64; 3] { /* ... */ }
+  ```
+  Centre \[cm\].
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `Shape`
+
+**A shape filled with a material**, possibly containing other shapes or
+a lattice, belonging to a [`Component`], and (outermost only) with a
+[`Boundary`].
+
+```rust
+pub struct Shape {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn at_temperature(self: Self, temperature: Temperature) -> Self { /* ... */ }
+  ```
+  **Give this shape its own temperature** (gh #945, stage 1: one fixed
+
+- ```rust
+  pub fn own_temperature(self: &Self) -> Option<Temperature> { /* ... */ }
+  ```
+  This shape's own temperature, if one was set.
+
+- ```rust
+  pub fn in_component(self: Self, component: Component) -> Self { /* ... */ }
+  ```
+  Put this shape in `component` (for per-component output; #940).
+
+- ```rust
+  pub fn containing</* synthetic */ impl Into<Shape>: Into<Shape>>(self: Self, inner: impl Into<Shape>) -> Self { /* ... */ }
+  ```
+  **Put `inner` inside this shape.** This shape then fills only the
+
+- ```rust
+  pub fn containing_lattice(self: Self, lattice: Lattice) -> Self { /* ... */ }
+  ```
+  **Fill this shape with a [`Lattice`]** of tiles (#926). The lattice is
+
+- ```rust
+  pub fn boundary(self: Self, boundary: Boundary) -> Self { /* ... */ }
+  ```
+  **The boundary condition on this shape's outer surface.** Only for an
+
+- ```rust
+  pub fn solid(self: &Self) -> &Solid { /* ... */ }
+  ```
+  The solid.
+
+- ```rust
+  pub fn material(self: &Self) -> &Material { /* ... */ }
+  ```
+  The material.
+
+- ```rust
+  pub fn component(self: &Self) -> Option<Component> { /* ... */ }
+  ```
+  The component, if one was given.
+
+- ```rust
+  pub fn contained(self: &Self) -> &[Shape] { /* ... */ }
+  ```
+  The shapes directly inside.
+
+- ```rust
+  pub fn contained_lattice(self: &Self) -> Option<&Lattice> { /* ... */ }
+  ```
+  The lattice this shape is filled with, if any.
+
+- ```rust
+  pub fn boundary_condition(self: &Self) -> Option<Boundary> { /* ... */ }
+  ```
+  The boundary set on this shape, if any.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+  - ```rust
+    fn from(r: DhRegion) -> Shape { /* ... */ }
+    ```
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -79728,6 +91278,12 @@ pub use super::atoms_per_barn_cm;
 pub use super::to_atoms_per_barn_cm;
 ```
 
+#### Re-export `AdvancedModel`
+
+```rust
+pub use super::AdvancedModel;
+```
+
 #### Re-export `AssembledModel`
 
 ```rust
@@ -79740,16 +91296,88 @@ pub use super::AssembledModel;
 pub use super::AtomDensity;
 ```
 
+#### Re-export `BalanceBy`
+
+```rust
+pub use super::BalanceBy;
+```
+
+#### Re-export `BedCensus`
+
+```rust
+pub use super::BedCensus;
+```
+
 #### Re-export `Basis`
 
 ```rust
 pub use super::Basis;
 ```
 
+#### Re-export `Boundary`
+
+```rust
+pub use super::Boundary;
+```
+
+#### Re-export `Census`
+
+```rust
+pub use super::Census;
+```
+
+#### Re-export `CensusRow`
+
+```rust
+pub use super::CensusRow;
+```
+
 #### Re-export `Component`
 
 ```rust
 pub use super::Component;
+```
+
+#### Re-export `Cube`
+
+```rust
+pub use super::Cube;
+```
+
+#### Re-export `Cuboid`
+
+```rust
+pub use super::Cuboid;
+```
+
+#### Re-export `Cylinder`
+
+```rust
+pub use super::Cylinder;
+```
+
+#### Re-export `DhRegion`
+
+```rust
+pub use super::DhRegion;
+```
+
+#### Re-export `Lattice`
+
+```rust
+pub use super::Lattice;
+```
+
+#### Re-export `Packing`
+
+```rust
+pub use super::Packing;
+```
+
+#### Re-export `Solid`
+
+```rust
+pub use super::Solid;
 ```
 
 #### Re-export `Contaminant`
@@ -79776,10 +91404,28 @@ pub use super::CustomRun;
 pub use super::DataError;
 ```
 
+#### Re-export `DiagnosticError`
+
+```rust
+pub use super::DiagnosticError;
+```
+
 #### Re-export `Diagnostics`
 
 ```rust
 pub use super::Diagnostics;
+```
+
+#### Re-export `DiagnosticsReport`
+
+```rust
+pub use super::DiagnosticsReport;
+```
+
+#### Re-export `EnergyGrid`
+
+```rust
+pub use super::EnergyGrid;
 ```
 
 #### Re-export `Element`
@@ -79818,6 +91464,24 @@ pub use super::GraphiteKind;
 pub use super::HeavyMetal;
 ```
 
+#### Re-export `HexFaces`
+
+```rust
+pub use super::HexFaces;
+```
+
+#### Re-export `HexPrism`
+
+```rust
+pub use super::HexPrism;
+```
+
+#### Re-export `Hopper`
+
+```rust
+pub use super::Hopper;
+```
+
 #### Re-export `Isotope`
 
 ```rust
@@ -79840,6 +91504,12 @@ pub use super::KeffRun;
 
 ```rust
 pub use super::KeffSettings;
+```
+
+#### Re-export `MCDiagnostic`
+
+```rust
+pub use super::MCDiagnostic;
 ```
 
 #### Re-export `MCSettings`
@@ -79908,6 +91578,18 @@ pub use super::PuVector;
 pub use super::ReactivityTolerance;
 ```
 
+#### Re-export `Region`
+
+```rust
+pub use super::Region;
+```
+
+#### Re-export `RunBackend`
+
+```rust
+pub use super::RunBackend;
+```
+
 #### Re-export `RunError`
 
 ```rust
@@ -79938,6 +91620,90 @@ pub use super::Sphere;
 pub use super::Temperature;
 ```
 
+#### Re-export `advanced`
+
+```rust
+pub use super::advanced;
+```
+
+#### Re-export `BalanceRow`
+
+```rust
+pub use super::BalanceRow;
+```
+
+#### Re-export `Ealf`
+
+```rust
+pub use super::Ealf;
+```
+
+#### Re-export `Kinetics`
+
+```rust
+pub use super::Kinetics;
+```
+
+#### Re-export `Leakage`
+
+```rust
+pub use super::Leakage;
+```
+
+#### Re-export `MCDiagnosticResult`
+
+```rust
+pub use super::MCDiagnosticResult;
+```
+
+#### Re-export `Mesh`
+
+```rust
+pub use super::Mesh;
+```
+
+#### Re-export `MeshBounds`
+
+```rust
+pub use super::MeshBounds;
+```
+
+#### Re-export `MeshMap`
+
+```rust
+pub use super::MeshMap;
+```
+
+#### Re-export `NeutronBalance`
+
+```rust
+pub use super::NeutronBalance;
+```
+
+#### Re-export `OutputFile`
+
+```rust
+pub use super::OutputFile;
+```
+
+#### Re-export `RunHealth`
+
+```rust
+pub use super::RunHealth;
+```
+
+#### Re-export `SixFactors`
+
+```rust
+pub use super::SixFactors;
+```
+
+#### Re-export `Spectrum`
+
+```rust
+pub use super::Spectrum;
+```
+
 #### Re-export `super::isotopes::*`
 
 ```rust
@@ -79945,6 +91711,132 @@ pub use super::isotopes::*;
 ```
 
 ### Re-exports
+
+#### Re-export `AdvancedModel`
+
+```rust
+pub use advanced::AdvancedModel;
+```
+
+#### Re-export `BalanceRow`
+
+```rust
+pub use collect::BalanceRow;
+```
+
+#### Re-export `Ealf`
+
+```rust
+pub use collect::Ealf;
+```
+
+#### Re-export `Kinetics`
+
+```rust
+pub use collect::Kinetics;
+```
+
+#### Re-export `Leakage`
+
+```rust
+pub use collect::Leakage;
+```
+
+#### Re-export `MCDiagnosticResult`
+
+```rust
+pub use collect::MCDiagnosticResult;
+```
+
+#### Re-export `MeshMap`
+
+```rust
+pub use collect::MeshMap;
+```
+
+#### Re-export `NeutronBalance`
+
+```rust
+pub use collect::NeutronBalance;
+```
+
+#### Re-export `RunHealth`
+
+```rust
+pub use collect::RunHealth;
+```
+
+#### Re-export `SixFactors`
+
+```rust
+pub use collect::SixFactors;
+```
+
+#### Re-export `Spectrum`
+
+```rust
+pub use collect::Spectrum;
+```
+
+#### Re-export `BalanceBy`
+
+```rust
+pub use diagnostics::BalanceBy;
+```
+
+#### Re-export `DiagnosticError`
+
+```rust
+pub use diagnostics::DiagnosticError;
+```
+
+#### Re-export `Diagnostics`
+
+```rust
+pub use diagnostics::Diagnostics;
+```
+
+#### Re-export `EnergyGrid`
+
+```rust
+pub use diagnostics::EnergyGrid;
+```
+
+#### Re-export `MCDiagnostic`
+
+```rust
+pub use diagnostics::MCDiagnostic;
+```
+
+#### Re-export `Mesh`
+
+```rust
+pub use diagnostics::Mesh;
+```
+
+#### Re-export `MeshBounds`
+
+```rust
+pub use diagnostics::MeshBounds;
+```
+
+#### Re-export `Region`
+
+```rust
+pub use diagnostics::Region;
+```
+
+#### Re-export `DiagnosticsReport`
+
+```rust
+pub use report::DiagnosticsReport;
+```
+
+#### Re-export `OutputFile`
+
+```rust
+pub use report::OutputFile;
+```
 
 #### Re-export `DataError`
 
@@ -80186,12 +92078,6 @@ pub use run::Convergence;
 pub use run::CustomRun;
 ```
 
-#### Re-export `Diagnostics`
-
-```rust
-pub use run::Diagnostics;
-```
-
 #### Re-export `Keff`
 
 ```rust
@@ -80222,6 +92108,18 @@ pub use run::MCSettings;
 pub use run::NormalityCheck;
 ```
 
+#### Re-export `NormalityResult`
+
+```rust
+pub use run::NormalityResult;
+```
+
+#### Re-export `Progress`
+
+```rust
+pub use run::Progress;
+```
+
 #### Re-export `NuclidePhysics`
 
 ```rust
@@ -80232,6 +92130,12 @@ pub use run::NuclidePhysics;
 
 ```rust
 pub use run::ReactivityTolerance;
+```
+
+#### Re-export `RunBackend`
+
+```rust
+pub use run::RunBackend;
 ```
 
 #### Re-export `RunError`
@@ -80246,16 +92150,136 @@ pub use run::RunError;
 pub use run::RunProvenance;
 ```
 
+#### Re-export `Arrangement`
+
+```rust
+pub use census::Arrangement;
+```
+
+#### Re-export `Census`
+
+```rust
+pub use census::Census;
+```
+
+#### Re-export `CensusRow`
+
+```rust
+pub use census::CensusRow;
+```
+
+#### Re-export `PackingRow`
+
+```rust
+pub use census::PackingRow;
+```
+
+#### Re-export `RowKind`
+
+```rust
+pub use census::RowKind;
+```
+
+#### Re-export `DhRegion`
+
+```rust
+pub use dh_region::DhRegion;
+```
+
+#### Re-export `Packing`
+
+```rust
+pub use dh_region::Packing;
+```
+
+#### Re-export `HexFaces`
+
+```rust
+pub use hex::HexFaces;
+```
+
+#### Re-export `HexPrism`
+
+```rust
+pub use hex::HexPrism;
+```
+
+#### Re-export `Hopper`
+
+```rust
+pub use hopper::Hopper;
+```
+
+#### Re-export `Wall`
+
+```rust
+pub use hopper::Wall;
+```
+
+#### Re-export `BedCensus`
+
+```rust
+pub use bed::BedCensus;
+```
+
+#### Re-export `KeptBall`
+
+```rust
+pub use bed::KeptBall;
+```
+
+#### Re-export `RejectedBall`
+
+```rust
+pub use bed::RejectedBall;
+```
+
+#### Re-export `Lattice`
+
+```rust
+pub use lattice::Lattice;
+```
+
+#### Re-export `Boundary`
+
+```rust
+pub use shape::Boundary;
+```
+
 #### Re-export `Component`
 
 ```rust
 pub use shape::Component;
 ```
 
+#### Re-export `Cube`
+
+```rust
+pub use shape::Cube;
+```
+
+#### Re-export `Cuboid`
+
+```rust
+pub use shape::Cuboid;
+```
+
+#### Re-export `Cylinder`
+
+```rust
+pub use shape::Cylinder;
+```
+
 #### Re-export `Shape`
 
 ```rust
 pub use shape::Shape;
+```
+
+#### Re-export `Solid`
+
+```rust
+pub use shape::Solid;
 ```
 
 #### Re-export `Sphere`
@@ -80630,6 +92654,24 @@ pub use crate::material::processed::ProcessedEvaluation;
 
 ```rust
 pub use crate::material::speed::SpeedTier;
+```
+
+#### Re-export `InterpolationVariable`
+
+```rust
+pub use crate::material::temperature_interpolation::InterpolationVariable;
+```
+
+#### Re-export `TableBracket`
+
+```rust
+pub use crate::material::temperature_interpolation::TableBracket;
+```
+
+#### Re-export `TemperatureTables`
+
+```rust
+pub use crate::material::temperature_interpolation::TemperatureTables;
 ```
 
 #### Re-export `CoherentElasticTable`
@@ -81292,6 +93334,24 @@ pub use crate::pebble_beds::crp_packing::CrpError;
 pub use crate::pebble_beds::crp_packing::MAX_PF_CRP;
 ```
 
+#### Re-export `create_triso_lattice`
+
+```rust
+pub use crate::pebble_beds::triso_lattice::create_triso_lattice;
+```
+
+#### Re-export `TrisoLattice`
+
+```rust
+pub use crate::pebble_beds::triso_lattice::TrisoLattice;
+```
+
+#### Re-export `TrisoLatticeBase`
+
+```rust
+pub use crate::pebble_beds::triso_lattice::TrisoLatticeBase;
+```
+
 #### Re-export `DemBed`
 
 ```rust
@@ -81440,7 +93500,7 @@ pub use crate::gpu::GpuContext;
 
 **Attributes:**
 
-- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/prelude.rs:113:11: 113:32 (#0) }, crates/outram-mc-libs/src/prelude.rs:113:10: 113:33 (#0))])]")`
+- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/prelude.rs:115:11: 115:32 (#0) }, crates/outram-mc-libs/src/prelude.rs:115:10: 115:33 (#0))])]")`
 
 ```rust
 pub use crate::gpu::xs_interp::interp_xs_gpu;
@@ -81486,7 +93546,7 @@ pub use crate::gpu::surface_distance::SURF_STRIDE;
 
 **Attributes:**
 
-- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/prelude.rs:123:11: 123:32 (#0) }, crates/outram-mc-libs/src/prelude.rs:123:10: 123:33 (#0))])]")`
+- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/prelude.rs:125:11: 125:32 (#0) }, crates/outram-mc-libs/src/prelude.rs:125:10: 125:33 (#0))])]")`
 
 ```rust
 pub use crate::gpu::surface_distance::surface_distance_gpu;
@@ -81520,7 +93580,7 @@ pub use crate::gpu::batched_flight::FlightSphere;
 
 **Attributes:**
 
-- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/prelude.rs:131:11: 131:32 (#0) }, crates/outram-mc-libs/src/prelude.rs:131:10: 131:33 (#0))])]")`
+- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/prelude.rs:133:11: 133:32 (#0) }, crates/outram-mc-libs/src/prelude.rs:133:10: 133:33 (#0))])]")`
 
 ```rust
 pub use crate::gpu::batched_flight::advance_flight_gpu;
@@ -81572,7 +93632,7 @@ pub use crate::gpu::batched_event::FISS_NONE;
 
 **Attributes:**
 
-- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/prelude.rs:143:11: 143:32 (#0) }, crates/outram-mc-libs/src/prelude.rs:143:10: 143:33 (#0))])]")`
+- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/prelude.rs:145:11: 145:32 (#0) }, crates/outram-mc-libs/src/prelude.rs:145:10: 145:33 (#0))])]")`
 
 ```rust
 pub use crate::gpu::batched_event::advance_generation_gpu;
@@ -81788,10 +93848,40 @@ pub use crate::model::AtomicMasses;
 pub use crate::model::Basis;
 ```
 
+#### Re-export `Boundary`
+
+```rust
+pub use crate::model::Boundary;
+```
+
+#### Re-export `Census`
+
+```rust
+pub use crate::model::Census;
+```
+
+#### Re-export `CensusRow`
+
+```rust
+pub use crate::model::CensusRow;
+```
+
 #### Re-export `Component`
 
 ```rust
 pub use crate::model::Component;
+```
+
+#### Re-export `Cube`
+
+```rust
+pub use crate::model::Cube;
+```
+
+#### Re-export `Cuboid`
+
+```rust
+pub use crate::model::Cuboid;
 ```
 
 #### Re-export `Contaminant`
@@ -82026,6 +94116,90 @@ pub use crate::model::Species;
 
 ```rust
 pub use crate::model::Temperature;
+```
+
+#### Re-export `AdvancedModel`
+
+```rust
+pub use crate::model::AdvancedModel;
+```
+
+#### Re-export `BalanceBy`
+
+```rust
+pub use crate::model::BalanceBy;
+```
+
+#### Re-export `BalanceRow`
+
+```rust
+pub use crate::model::BalanceRow;
+```
+
+#### Re-export `DiagnosticError`
+
+```rust
+pub use crate::model::DiagnosticError;
+```
+
+#### Re-export `DiagnosticsReport`
+
+```rust
+pub use crate::model::DiagnosticsReport;
+```
+
+#### Re-export `Ealf`
+
+```rust
+pub use crate::model::Ealf;
+```
+
+#### Re-export `EnergyGrid`
+
+```rust
+pub use crate::model::EnergyGrid;
+```
+
+#### Re-export `MCDiagnostic`
+
+```rust
+pub use crate::model::MCDiagnostic;
+```
+
+#### Re-export `MCDiagnosticResult`
+
+```rust
+pub use crate::model::MCDiagnosticResult;
+```
+
+#### Re-export `MeshBounds`
+
+```rust
+pub use crate::model::MeshBounds;
+```
+
+#### Re-export `MeshMap`
+
+```rust
+pub use crate::model::MeshMap;
+```
+
+#### Re-export `NeutronBalance`
+
+```rust
+pub use crate::model::NeutronBalance;
+```
+
+#### Re-export `OutputFile`
+
+```rust
+pub use crate::model::OutputFile;
+```
+
+#### Re-export `RunHealth`
+
+```rust
+pub use crate::model::RunHealth;
 ```
 
 #### Re-export `za`

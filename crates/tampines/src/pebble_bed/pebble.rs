@@ -70,6 +70,7 @@
 //! conductivity ([`super::zbs`]), or the convective boundary condition
 //! ([`super::cht`]).
 
+use petir::mathf::RealMath;
 use std::f64::consts::PI;
 
 use uom::si::f64::{
@@ -216,7 +217,7 @@ impl DispersionModel {
             DispersionModel::ChiewGlandt => {
                 1.0 + 2.0 * beta * phi
                     + (2.0 * beta * beta * beta - 0.1 * beta) * phi * phi
-                    + 0.05 * phi * phi * phi * (4.5 * beta).exp()
+                    + 0.05 * phi * phi * phi * (4.5 * beta).r_exp()
             }
         };
 
@@ -1078,7 +1079,7 @@ mod tests {
             worst_chiew_excursion,
             worst_chiew_case.0,
             worst_chiew_case.1,
-            0.05 * worst_chiew_case.1.powi(3)
+            0.05 * worst_chiew_case.1.r_powi(3)
         );
 
         // the two models in the HTR-10 dilute limit

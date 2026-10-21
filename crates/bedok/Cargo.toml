@@ -1,8 +1,8 @@
 [package]
 name = "bedok"
-version = "0.0.1"
+version = "0.0.2"
 edition = "2021"
-license = "GPL-3.0-only"
+license.workspace = true
 description = "BEDOK — systems-level multiphysics coupling: 3-D nodal-diffusion neutronics coupled to thermal hydraulics. Rust translation of Than Yan Ren's (SNRSI) MATLAB implementation."
 repository = "https://github.com/theodoreOnzGit/outram-park-backend"
 readme = "README.md"
@@ -39,6 +39,9 @@ backronym = "Broad-scope Environment for Dual-phase advanced reactor Operation s
 # oversubscription (each test runs faer/rayon in parallel internally, and the
 # harness ran 14 of them at once), not a slow test: the whole lib suite takes
 # 1509 s at `--test-threads=4` (14 then 10 cores). See CLAUDE.md.
+# **CHANGED 2026-10-20 (gh #994):** the sparse solves moved from faer (rayon)
+# to the serial `petir::sparse`, so each test is now single-threaded; the
+# timings above predate that and are re-measured in CLAUDE.md.
 default = ["long-tests"]
 long-tests = []
 
@@ -47,7 +50,8 @@ long-tests = []
 #
 # Expected additions, with the module that will pull each one in:
 #   csv                     -> the benchmark case files (neacrpd1, iaea3ds, ...)
-#   faer                    -> the sparse solves in diffusion_solverxyz
+#   ~~faer                  -> the sparse solves in diffusion_solverxyz~~
+#                           (landed, then replaced by petir::sparse, gh #994)
 #   plotters (workspace dep -> plotreactor3dcolour
 #     to be added)
 #
@@ -66,8 +70,20 @@ thiserror.workspace = true
 # solve's convergence path and move k_eff by 14 pcm. PETIR routes them through
 # the pure-Rust `libm` (fdlibm) instead, one fixed implementation on every
 # platform. See GitHub issue #222 and `petir::real`.
-petir.workspace = true
-# Sparse linear algebra, for the two flux solvers.
+#
+# `faer` + `std` (2026-10-20, gh #994, maintainer: "bring faer into petir
+# under a feature, then wire it into bedok"; "You can give petir a std feature
+# also"): the sparse solves run on the real faer through
+# `petir::sparse::SparseBackend::Faer`, with faer's runtime CPU detection.
+# Results then depend on the CPU; `matlab::set_sparse_backend(Ported)` gives
+# PETIR's deterministic port instead. See CLAUDE.md.
+petir = { workspace = true, features = ["faer", "std"] }
+# Sparse linear algebra, for the two flux solvers: ~~`faer`~~ ~~**since
+# 2026-10-20 (gh #994) `petir::sparse`**, a no_std port of faer 0.24.4's
+# simplicial sparse LU (COLAMD ordering), reached through the `petir`
+# dependency above. faer is no longer a dependency of this crate.~~
+# **CHANGED again 2026-10-20 (gh #994):** faer itself, reached through
+# `petir`'s `faer` feature (above), by default; PETIR's port on request.
 #
 # Everything ported before them avoided a sparse solve: the A2 system in
 # calc_a1234_expansionxyz only *looks* like a philen-square solve and is in fact
@@ -76,7 +92,3 @@ petir.workspace = true
 # sanodaldiffusion_solverxyz solve the full flux system, which couples nodes
 # spatially, and both factorise LHS once and reuse that factorisation across
 # power iterations (MATLAB `decomposition`).
-# The root workspace entry is `default-features = false` (GitHub #486,
-# 2026-10-02, so outram-blender can build faer for wasm32); this names faer's
-# own default features so bedok's build is unchanged.
-faer = { workspace = true, features = ["std", "rayon", "sparse-linalg", "rand", "npy"] }

@@ -444,6 +444,7 @@ impl Default for TurbineGeneratorShaft {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use petir::mathf::RealMath;
     use uom::si::power::megawatt;
     use uom::si::time::second;
 
@@ -722,7 +723,7 @@ mod tests {
         }
 
         let measured = shaft.angular_velocity().get::<radian_per_second>();
-        let analytical = omega_0 * (-30.0 / tau).exp();
+        let analytical = omega_0 * (-30.0 / tau).r_exp();
         let relative = (measured - analytical).abs() / analytical;
         assert!(
             relative < 1e-2,

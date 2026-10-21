@@ -94,6 +94,7 @@
 //! thermodynamic loops; the quantities here are plain scalars, so no `uom`
 //! type-aliasing is needed (contrast the crate's EOS public surface).
 
+use petir::mathf::RealMath;
 use std::collections::HashMap;
 
 /// Coordination number `z` of the UNIFAC/UNIQUAC lattice (dimensionless).
@@ -222,7 +223,7 @@ impl ModfacParameters {
     /// `main_m`, `main_n` main-group ids and `temperature` in K.
     /// Ported from `TAU` (`MODFAC.vb:358-396`).
     pub fn psi(&self, main_m: usize, main_n: usize, temperature: f64) -> f64 {
-        (-self.interaction_a(main_m, main_n, temperature) / temperature).exp()
+        (-self.interaction_a(main_m, main_n, temperature) / temperature).r_exp()
     }
 
     /// Public-literature subset of the **Modified UNIFAC (Dortmund)** table.
@@ -352,7 +353,7 @@ pub fn ln_gamma_combinatorial(
         .collect();
 
     let sum_x_r: f64 = (0..n).map(|i| x[i] * rq[i].0).sum();
-    let sum_x_r34: f64 = (0..n).map(|i| x[i] * rq[i].0.powf(0.75)).sum();
+    let sum_x_r34: f64 = (0..n).map(|i| x[i] * rq[i].0.r_powf(0.75)).sum();
     let sum_x_q: f64 = (0..n).map(|i| x[i] * rq[i].1).sum();
     let z2 = COORDINATION_NUMBER / 2.0;
 
@@ -360,10 +361,10 @@ pub fn ln_gamma_combinatorial(
         .map(|i| {
             let (r_i, q_i) = rq[i];
             let j_i = r_i / sum_x_r; // J_i  (ordinary volume fraction / x_i)
-            let jp_i = r_i.powf(0.75) / sum_x_r34; // J'_i (3/4-power volume fraction / x_i)
+            let jp_i = r_i.r_powf(0.75) / sum_x_r34; // J'_i (3/4-power volume fraction / x_i)
             let l_i = q_i / sum_x_q; // L_i  (surface-area fraction / x_i)
             let j_over_l = j_i / l_i;
-            1.0 - jp_i + jp_i.ln() - z2 * q_i * (1.0 - j_over_l + j_over_l.ln())
+            1.0 - jp_i + jp_i.r_ln() - z2 * q_i * (1.0 - j_over_l + j_over_l.r_ln())
         })
         .collect()
 }
@@ -439,7 +440,7 @@ pub fn group_ln_gamma(
             })
             .sum();
 
-        out.insert(k, q_k * (1.0 - s1.ln() - s2));
+        out.insert(k, q_k * (1.0 - s1.r_ln() - s2));
     }
     out
 }
@@ -514,7 +515,7 @@ pub fn activity_coefficients(
     let ln_r = ln_gamma_residual(params, components, x, temperature);
     ln_c.iter()
         .zip(ln_r.iter())
-        .map(|(c, r)| (c + r).exp())
+        .map(|(c, r)| (c + r).r_exp())
         .collect()
 }
 

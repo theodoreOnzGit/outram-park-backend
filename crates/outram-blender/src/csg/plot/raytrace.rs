@@ -47,6 +47,7 @@
 //!    and opacity tables with `MATERIAL_VOID = -1` — out of bounds. Here a void
 //!    segment is fully transparent and never opaque.
 
+use petir::mathf::RealMath;
 #[cfg(not(target_arch = "wasm32"))]
 use rayon::prelude::*;
 
@@ -174,7 +175,7 @@ impl Camera {
             Projection::Perspective { horizontal_fov_deg } => {
                 const DEGREE_TO_RADIAN: f64 = std::f64::consts::PI / 180.0;
                 let horiz_fov_radians = horizontal_fov_deg * DEGREE_TO_RADIAN;
-                let dx = 2.0 * FOCAL_PLANE_DIST * (0.5 * horiz_fov_radians).tan();
+                let dx = 2.0 * FOCAL_PLANE_DIST * (0.5 * horiz_fov_radians).r_tan();
                 let dy = p1 / p0 * dx;
                 let mut v = [
                     FOCAL_PLANE_DIST,
@@ -630,7 +631,7 @@ impl WireframeRayTracePlot {
                         let Some(id) = segs[i].id else { continue };
                         let sc = scheme.colours[id];
                         let s = [f64::from(sc.r), f64::from(sc.g), f64::from(sc.b)];
-                        let mixing = (-self.xs[id] * (segs[i + 1].length - segs[i].length)).exp();
+                        let mixing = (-self.xs[id] * (segs[i + 1].length - segs[i].length)).r_exp();
                         for ch in 0..3 {
                             c[ch] = c[ch] * mixing + (1.0 - mixing) * s[ch];
                         }

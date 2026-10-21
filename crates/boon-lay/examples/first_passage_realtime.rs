@@ -34,6 +34,7 @@ fn main() {
 
 #[cfg(not(target_os = "android"))]
 mod app {
+    use petir::mathf::RealMath;
     use boon_lay::compute::ComputeType;
     use boon_lay::lagrangian_decay_simulator::lagrangian_diffusion::first_passage::live::{
         LiveEnsemble, Snapshot,
@@ -197,7 +198,7 @@ mod app {
         (0..=72)
             .map(|k| {
                 let a = std::f64::consts::TAU * k as f64 / 72.0;
-                [radius_um * a.cos(), radius_um * a.sin()]
+                [radius_um * a.r_cos(), radius_um * a.r_sin()]
             })
             .collect()
     }

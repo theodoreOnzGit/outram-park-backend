@@ -19,6 +19,7 @@
 //! All round trips recover `T` and `ρ` to ≤1e-6 relative; the CV getters and the
 //! mass identity hold to machine precision.
 
+use petir::mathf::RealMath;
 use outram_park_fork_coolprop::{
     density_pt, state_ph, state_ps, state_pt, state_trho, Fluid, OPCPFluidSingleCV,
 };
@@ -208,7 +209,7 @@ fn equilibrium_speed_of_sound_matches_kieffer_fig9_at_1_bar() {
         );
         assert!(c.is_finite() && c > 0.0);
         assert!(
-            (c / c_ref).log10().abs() < 0.1,
+            (c / c_ref).r_log10().abs() < 0.1,
             "x = {x}: {c} m/s vs {c_ref} m/s"
         );
     }

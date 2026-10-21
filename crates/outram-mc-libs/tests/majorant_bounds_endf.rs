@@ -66,6 +66,7 @@
 //! URR tables (~70 s each) and the 3 M-energy audits. The two ENDF tests are
 //! therefore behind `long-tests`.
 
+use petir::mathf::RealMath;
 use njoy_outram_park_fork::reference_data::reference_endf;
 use outram_mc_libs::material::material::{Material, NuclideComponent};
 use outram_mc_libs::material::nuclide::Nuclide;
@@ -204,7 +205,7 @@ fn htr10_kernel_and_matrix_are_bounded_on_endf() {
     // GitHub #589: `from_materials` / `over_indices` on a plain 4096-point log
     // grid with margin 0.3, as `nee_soon`'s HTR-10 `bed_majorant` builds it.
     let log_grid: Vec<f64> = (0..4096)
-        .map(|i| (1.0e-4_f64.ln() + (2.0e7_f64.ln() - 1.0e-4_f64.ln()) * i as f64 / 4095.0).exp())
+        .map(|i| (1.0e-4_f64.r_ln() + (2.0e7_f64.r_ln() - 1.0e-4_f64.r_ln()) * i as f64 / 4095.0).r_exp())
         .collect();
     let fm = Majorant::from_materials(&mats, &nuclides, &log_grid, 0.3);
     let a_fm = fm.audit(&mats, &nuclides, AUDIT_LO, AUDIT_HI, AUDIT_N);
@@ -287,7 +288,7 @@ fn union_grid_majorant_is_never_below_the_sampled_one() {
     let old = Majorant::bounding_without_breakpoints(&mats, &nuclides, 1.0e-4, 2.0e7, 4096, 32, 0.1);
     let n = 400_000;
     for i in 0..=n {
-        let e = 1.0e-6 * (2.0e13_f64).powf(i as f64 / n as f64);
+        let e = 1.0e-6 * (2.0e13_f64).r_powf(i as f64 / n as f64);
         assert!(
             new.at(e) >= old.at(e),
             "new majorant {} below old {} at {e:e} eV",

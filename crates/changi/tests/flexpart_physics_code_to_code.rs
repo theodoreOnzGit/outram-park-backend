@@ -55,6 +55,8 @@
 //! scope limit, nothing here supports emergency response or dose assessment
 //! for real populations.
 
+use petir::mathf::RealMath;
+
 use changi::flexpart::boundary_layer::{f_qvsat, pbl_profile, richardson};
 use changi::flexpart::calendar::{caldate, juldate};
 use changi::flexpart::geodesy::{distance, distance2};
@@ -307,11 +309,11 @@ fn evaluate(setup: &Setup, name: &str, a: &[f64]) -> Option<Vec<f64>> {
                     Precision::Real4 => {
                         let h = height[k] as f32;
                         tt[k] = (293.0_f32 - 0.0065_f32 * h) as f64;
-                        rho[k] = (1.2_f32 * (-h / 8500.0_f32).exp()) as f64;
+                        rho[k] = (1.2_f32 * (-h / 8500.0_f32).r_exp()) as f64;
                     }
                     Precision::Real8 => {
                         tt[k] = 293.0 - 0.0065 * height[k];
-                        rho[k] = 1.2 * (-height[k] / 8500.0).exp();
+                        rho[k] = 1.2 * (-height[k] / 8500.0).r_exp();
                     }
                 }
             }
@@ -479,8 +481,23 @@ fn windalign_matches_flexpart() {
 ///
 /// # Tolerances, and a finding about upstream's single precision
 ///
-/// Against real8 the bound is `1e-12`. The measured maximum is `2.4e-15`, and
-/// the residual is the `erf` substitution (petir vs the gfortran intrinsic).
+/// Against real8 the bound is ~~`1e-12`~~ **CORRECTED 2026-10-20**: a
+/// relative difference less than `1e-10`
+/// ([`common::LESS_THAN_1E_10`]). That is the maintainer's acceptance
+/// criterion (2026-10-20, "I accept rounding errors in last ulp less the
+/// 1e-10"), NOT a derived bound. On the glibc route the measured maximum was
+/// `2.4e-15`, and the residual was the `erf` substitution (petir vs the
+/// gfortran intrinsic). On the PETIR route (gh:#985) every transcendental
+/// differs from glibc in the last bits, and the maximum is `6.3e-12`.
+///
+/// Why no bound was derived: a replay of `cbl` with every
+/// `powf`/`sin`/`exp`/`erf` result perturbed (linearised sensitivity, 2 ulp
+/// per call) gives a per-row bound of 1.1e-10 (`Phi`) and 1.3e-10 (`a`) at
+/// the two rows that missed 1e-12, against an observed 5.5e-12 and 4.9e-12.
+/// Over all 1 200 rows the per-row bound reaches 1.6e-5 (`Phi`) and 5.3e-4
+/// (`a`): in 108 (`Phi`) and 135 (`a`) rows it exceeds 1e-12, the rows where
+/// `Phi` cancels to `O(ptot)` (see below). One group-wide derived bound would
+/// have to be 5.3e-4. The median per-row bound is 5e-15.
 ///
 /// Against the shipped real4 build, the flux term `Phi` and the drift `a`
 /// **cannot** be held to any relative bound. Where the particle velocity
@@ -496,7 +513,8 @@ fn windalign_matches_flexpart() {
 /// above is what shows the translation is right.
 #[test]
 fn cbl_matches_flexpart() {
-    check_both_rule("cbl", 1e-12, 0.0, 1e-4, 0.0, Real4Rule::PrecisionSpread);
+    // ~~1e-12~~ CORRECTED 2026-10-20: the maintainer's "less than 1e-10".
+    check_both_rule("cbl", common::LESS_THAN_1E_10, 0.0, 1e-4, 0.0, Real4Rule::PrecisionSpread);
 }
 
 // ── dry deposition ────────────────────────────────────────────────────────────

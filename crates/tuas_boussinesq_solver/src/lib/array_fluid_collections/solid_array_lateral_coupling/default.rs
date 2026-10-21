@@ -1,3 +1,4 @@
+use petir::uom_math::QuantityMath;
 use crate::boussinesq_thermophysical_properties::Material;
 use crate::boussinesq_thermophysical_properties::LiquidMaterial;
 use crate::single_control_vol::SingleCVNode;
@@ -32,7 +33,7 @@ impl Default for SolidColumn {
 
         let cross_sectional_area = Area::new::<square_meter>(0.01);
 
-        let diameter: Length = (4.0 * cross_sectional_area / PI).sqrt();
+        let diameter: Length = (4.0 * cross_sectional_area / PI).r_sqrt();
 
         let default_heat_cv_node: SingleCVNode = SingleCVNode::new_cylinder(
             0.5 * default_length,

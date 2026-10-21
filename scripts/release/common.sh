@@ -2,6 +2,12 @@
 # run. Shell, not Python, per the workspace "No Python for documentation or
 # accounting" rule.
 
+# jq, or jaq (`cargo install jaq`) where jq is not installed; the filters used
+# here behave the same in both.
+if ! command -v jq >/dev/null 2>&1 && command -v jaq >/dev/null 2>&1; then
+    jq() { jaq "$@"; }
+fi
+
 UA="outram-park-release (https://github.com/theodoreOnzGit/outram-park-backend)"
 CRATES_API="https://crates.io/api/v1/crates"
 OWNER="theodoreOnzGit"

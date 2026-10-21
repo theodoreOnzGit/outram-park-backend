@@ -1,8 +1,8 @@
 # outram-blender
 
-> **This is a fork.** `outram-blender` is an independent, GPL-licensed
+> **This is a fork.** `outram-blender` is an independent
 > **fork / derivative of [Blender](https://github.com/blender/blender)'s
-> mesh-authoring architecture**, reusing its mesh/geometry design under the GPL
+> mesh-authoring architecture**, reusing its mesh/geometry design (GPL-2.0-or-later upstream)
 > for the OUTRAM PARK multiphysics suite. It is **not** affiliated with,
 > endorsed by, or sanctioned by the Blender Foundation. No Blender source tree
 > is bundled; **exactly one file** (`src/boolean_predicates.rs`) is a literal,
@@ -68,7 +68,7 @@ wasm-buildable.
 > far as possible exactly as before, and `--no-default-features` drops `wgpu`
 > (and its ~60-crate subtree) for a CPU-only build. wgpu is also target-gated
 > off Android whatever the feature says (no system Vulkan/Metal loader there). They accelerate per-vertex work in
-> single precision, while the CPU ([`math`]/[`faer`]) path stays the
+> single precision, while the CPU ([`math`]/~~[`faer`]~~ `petir`, since 2026-10-20 gh #996) path stays the
 > deterministic reference. Fallback to CPU is **graceful and automatic**: no
 > adapter, or a recoverable GPU error, routes to the CPU path
 > (`Affine3::transform_points_best_effort` is the unified try-GPU-then-CPU entry
@@ -97,7 +97,7 @@ wasm-buildable.
 > types, not just local mirrors; since 2026-10-02 `export::to_csg_geometry`
 > emits a native `csg::geometry::Geometry` with no feature. The vertex bevel now rounds (a multi-segment
 > spherical cap) as well as single-chamfers. A family of **sparse-solve
-> geometry-processing operators** (built on `faer` sparse Cholesky) has landed:
+> geometry-processing operators** (built on ~~`faer`~~ sparse Cholesky, since 2026-10-20 `petir::sparse::SparseLlt`, gh #994) has landed:
 > the cotangent/uniform discrete **Laplacian** with implicit and Taubin
 > (shrinkage-free) **smoothing**, **harmonic/Tutte parameterization** (UV
 > unwrap), and **ARAP** (as-rigid-as-possible) handle-based **deformation**.
@@ -143,8 +143,7 @@ included.
 
 ## Licensing & provenance
 
-- This crate is **GPL-3.0-only** (workspace default), like the other GPL
-  members of OUTRAM PARK. The full text ships as `LICENSE`.
+- This crate is ~~**GPL-3.0-only**~~ **AGPL-3.0-only** combined work (workspace default; relicensed 2026-10-20, gh:#973; ported files keep GPL-3.0 and `LICENSE.GPL-3.0` ships beside `LICENSE`; see `docs/relicensing-agpl-2026-10-20.md`). The AGPL text ships as `LICENSE`.
 - Blender is licensed **GPLv2-or-later**, which is **GPLv3-compatible** — so a
   future literal port of a Blender algorithm into this crate is license-clean,
   *provided* the GPL attribution header block (upstream project, source file,
@@ -172,7 +171,7 @@ included.
   the modifier stack, the operator naming). Design is not copyrightable, so no
   Blender copyright attaches to those files.
 - **Consequently this crate is a derivative work of `GPL-2.0-or-later` code**,
-  and distributing it as `GPL-3.0-only` is permitted by that "or later" clause
+  and distributing its ported files as `GPL-3.0` (the crate as an AGPL-3.0-only combined work) is permitted by that "or later" clause
   — the compatibility finding above is load-bearing, not just precautionary.
   The moment further real Blender code (or another third-party library's
   algorithm) is transcribed, its provenance header and a license re-check are
@@ -184,14 +183,14 @@ included.
 |---|---|---|
 | `math` | `blenlib` `BLI_math` vectors | **real** — a minimal `Vec3` |
 | `transform` | `Object.matrix_world` affine placement | **real** — `Affine3` per-vertex transform; the CPU reference the GPU kernel is validated against |
-| `gpu` *(feature `gpu`, default-on; never on Android)* | — (no Blender analogue) | **real** — headless `wgpu` compute (WGSL); one wired kernel (parallel affine vertex transform), probe + graceful CPU fallback. ~~Compiled on every desktop target~~ **CORRECTED 2026-10-02**: behind the default-on `gpu` feature; target-gated off Android |
+| `gpu` *(feature `gpu`, default-on; never on Android)* | — (no Blender analogue) | **real** — headless `wgpu` compute (WGSL); ~~one wired kernel (parallel affine vertex transform)~~ **two wired kernels since 2026-10-20 (gh #1005)**: the parallel affine vertex transform and ARAP's per-vertex closest rotations (`arap::arap_deform_on_gpu`, `f32`, opt-in; 3.6x end to end on a 40 401-vertex grid), probe + graceful CPU fallback. ~~Compiled on every desktop target~~ **CORRECTED 2026-10-02**: behind the default-on `gpu` feature; target-gated off Android |
 | `mesh` | `bmesh` (`BMVert`/`BMEdge`/`BMLoop`/`BMFace`) | **real** — index-based half-edge topology |
 | `primitives` | Add-Mesh primitive operators | **real** — cube / UV-sphere / cylinder / grid, unit-tested |
 | `revolve` | Spin (`bmo_spin`) | **real** — sweep a profile polyline around an axis into a surface of revolution (pipes / vessels / cone frusta) |
 | `ops` | `bmesh/operators` (`bmo_*`) | **real** — extrude / midpoint-subdivide / vertex-bevel (single chamfer or rounded multi-segment spherical cap; boolean delegates to `boolean`) |
 | `subdivision` | OpenSubdiv / `MOD_subsurf` | **real** — Catmull-Clark surface subdivision (local stencils) |
 | `loop_subdivision` | `MOD_subsurf` (triangle path) | **real** — Loop subdivision surface for triangle meshes |
-| `laplacian` | `MOD_laplaciansmooth` / `bmo_smooth_laplacian` | **real** — cotangent/uniform discrete Laplacian + implicit & Taubin (shrinkage-free) smoothing (first `faer` sparse Cholesky solve) |
+| `laplacian` | `MOD_laplaciansmooth` / `bmo_smooth_laplacian` | **real** — cotangent/uniform discrete Laplacian + implicit & Taubin (shrinkage-free) smoothing (first sparse Cholesky solve; ~~`faer`~~ `petir::sparse` since 2026-10-20, gh #994) |
 | `parameterize` | UV unwrap (harmonic map) | **real** — Tutte/harmonic planar parameterization of a disk (reuses the Laplacian sparse solve) |
 | `arap` | "As Rigid As Possible" deform | **real** — handle-based ARAP deformation (local Procrustes rotation via 3×3 SVD + cotangent-Laplacian global solve) |
 | `decimate` | `MOD_decimate` (Collapse) | **real** — QEM (Garland–Heckbert) edge-collapse mesh simplification |

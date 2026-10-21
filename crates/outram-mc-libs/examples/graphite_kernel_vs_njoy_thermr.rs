@@ -42,6 +42,7 @@
 //!     --example graphite_kernel_vs_njoy_thermr
 //! ```
 
+use petir::mathf::RealMath;
 use outram_mc_libs::material::thermal::ThermalScattering;
 
 const TEMP: f64 = 600.0;
@@ -111,7 +112,7 @@ fn main() {
             }
             if ep > 0.0 {
                 sum_ratio += ep / e;
-                sum_xi += (e / ep).ln();
+                sum_xi += (e / ep).r_ln();
                 n_inel += 1;
             }
         }
@@ -165,7 +166,7 @@ fn moments_from_matrix(pairs: &[(f64, f64)], e: f64) -> (f64, f64) {
         norm += 0.5 * (f0 + f1) * de;
         m1 += 0.5 * (f0 * e0 + f1 * e1) * de;
         if e0 > 0.0 {
-            mlog += 0.5 * (f0 * (e / e0).ln() + f1 * (e / e1).ln()) * de;
+            mlog += 0.5 * (f0 * (e / e0).r_ln() + f1 * (e / e1).r_ln()) * de;
         }
     }
     if norm <= 0.0 {

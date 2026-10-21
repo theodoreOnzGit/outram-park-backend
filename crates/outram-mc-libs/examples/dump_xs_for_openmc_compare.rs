@@ -32,6 +32,7 @@ fn main() {
 
 #[cfg(not(target_os = "android"))]
 mod desktop {
+    use petir::mathf::RealMath;
     use njoy_outram_park_fork::reference_data::reference_endf;
     use outram_mc_libs::material::nuclide::Nuclide;
 
@@ -49,7 +50,7 @@ mod desktop {
     fn grid() -> Vec<f64> {
         let (lo, hi, n) = (1.0e-4_f64, 1.9e7_f64, 2000usize);
         (0..=n)
-            .map(|i| lo * (hi / lo).powf(i as f64 / n as f64))
+            .map(|i| lo * (hi / lo).r_powf(i as f64 / n as f64))
             .collect()
     }
 

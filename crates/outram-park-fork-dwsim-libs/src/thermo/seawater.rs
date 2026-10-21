@@ -112,6 +112,7 @@
 //! facility operation, reactor control, safety-critical, or licensing
 //! decisions. Independent OUTRAM PARK fork, not the official DWSIM.
 
+use petir::mathf::RealMath;
 use uom::si::f64::{
     MassDensity, Pressure, SpecificHeatCapacity, SurfaceTension, TemperatureInterval,
     ThermalConductivity, ThermodynamicTemperature,
@@ -483,7 +484,7 @@ fn density_kg_m3(s: f64, t_k: f64) -> f64 {
     let a3 = -6.162e-3;
     let a4 = 2.261e-5;
     let a5 = -4.657e-8;
-    let rho_w = a1 + a2 * t + a3 * t * t + a4 * t.powi(3) + a5 * t.powi(4);
+    let rho_w = a1 + a2 * t + a3 * t * t + a4 * t.r_powi(3) + a5 * t.r_powi(4);
 
     // Salinity contribution.
     let b1 = 8.020e2;
@@ -491,7 +492,7 @@ fn density_kg_m3(s: f64, t_k: f64) -> f64 {
     let b3 = 1.677e-2;
     let b4 = -3.060e-5;
     let b5 = -1.613e-5;
-    rho_w + s_w * (b1 + b2 * t + b3 * t * t + b4 * t.powi(3) + b5 * s_w * t * t)
+    rho_w + s_w * (b1 + b2 * t + b3 * t * t + b4 * t.r_powi(3) + b5 * s_w * t * t)
 }
 
 /// Specific-heat kernel [J/(kg·K)]; `s` in g/kg, `t_k` in K. Sharqawy 2010
@@ -504,7 +505,7 @@ fn specific_heat_j_per_kg_k(s: f64, t_k: f64) -> f64 {
     let c = 9.6e-6 - 1.927e-6 * s + 8.23e-9 * s * s;
     let d = 2.5e-9 + 1.666e-9 * s - 7.125e-12 * s * s;
 
-    let cp_kj = a + b * t68 + c * t68 * t68 + d * t68.powi(3); // kJ/(kg·K)
+    let cp_kj = a + b * t68 + c * t68 * t68 + d * t68.r_powi(3); // kJ/(kg·K)
     cp_kj * 1000.0 // J/(kg·K)
 }
 
@@ -516,12 +517,12 @@ fn thermal_conductivity_w_m_k(s: f64, t_k: f64) -> f64 {
     let t68_c = 1.00024 * t_c; // T_90 → T_68 [°C]
     let t68_k = t68_c + CELSIUS_OFFSET_K;
 
-    let log10k = (240.0 + 0.0002 * s_p).log10()
+    let log10k = (240.0 + 0.0002 * s_p).r_log10()
         + 0.434
             * (2.3 - (343.5 + 0.037 * s_p) / t68_k)
-            * (1.0 - t68_k / (647.3 + 0.03 * s_p)).powf(1.0 / 3.0)
+            * (1.0 - t68_k / (647.3 + 0.03 * s_p)).r_powf(1.0 / 3.0)
         - 3.0;
-    10f64.powf(log10k)
+    10f64.r_powf(log10k)
 }
 
 /// Dynamic-viscosity kernel [Pa·s]; `s` in g/kg, `t_k` in K.
@@ -541,7 +542,7 @@ fn viscosity_pa_s(s: f64, t_k: f64) -> f64 {
     let a9 = -0.075614568881;
     let a10 = 0.00047237011074;
 
-    let mu_w = a4 + 1.0 / (a1 * (t + a2).powi(2) + a3);
+    let mu_w = a4 + 1.0 / (a1 * (t + a2).r_powi(2) + a3);
     let big_a = a5 + a6 * t + a7 * t * t;
     let big_b = a8 + a9 * t + a10 * t * t;
     mu_w * (1.0 + big_a * s_w + big_b * s_w * s_w)
@@ -557,7 +558,7 @@ fn vapour_pressure_pa(s: f64, t_k: f64) -> f64 {
     let a5 = -0.000000014452093;
     let a6 = 6.5459673;
 
-    let pv_w = (a1 / t_k + a2 + a3 * t_k + a4 * t_k * t_k + a5 * t_k.powi(3) + a6 * t_k.ln()).exp();
+    let pv_w = (a1 / t_k + a2 + a3 * t_k + a4 * t_k * t_k + a5 * t_k.r_powi(3) + a6 * t_k.r_ln()).r_exp();
     pv_w / (1.0 + 0.57357 * (s / (1000.0 - s)))
 }
 
@@ -567,12 +568,12 @@ fn surface_tension_n_m(s: f64, t_k: f64) -> f64 {
     let t = t_k - CELSIUS_OFFSET_K; // °C
 
     let tr = 1.0 - t_k / 647.096;
-    let sigma_w = 0.2358 * tr.powf(1.256) * (1.0 - 0.625 * tr);
+    let sigma_w = 0.2358 * tr.r_powf(1.256) * (1.0 - 0.625 * tr);
 
     let a1 = 0.00022637334337;
     let a2 = 0.0094579521377;
     let a3 = 0.033104954843;
-    sigma_w * (1.0 + (a1 * t + a2) * (1.0 + a3 * s).ln())
+    sigma_w * (1.0 + (a1 * t + a2) * (1.0 + a3 * s).r_ln())
 }
 
 /// Solve `Pv(s, T) = p` for the boiling temperature `T` [K] by bisection.

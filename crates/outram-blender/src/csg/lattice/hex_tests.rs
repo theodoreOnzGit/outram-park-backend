@@ -1,3 +1,4 @@
+use petir::mathf::RealMath;
 use super::*;
 use super::hex::*;
 #[allow(unused_imports)]
@@ -116,7 +117,7 @@ fn distance_from_center_matches_hex_face_geometry() {
 
     // +x → beta face at 30° → half-pitch / cos(30°), cross into [+1,0,0].
     let (dx, tx) = lat.distance(Position::ZERO, Direction::new(1.0, 0.0, 0.0), centre);
-    let expect_x = half / (30.0_f64.to_radians().cos());
+    let expect_x = half / (30.0_f64.to_radians().r_cos());
     assert!(
         (dx - expect_x).abs() < 1e-9,
         "+x distance {dx} should be {expect_x}"
@@ -217,7 +218,7 @@ fn x_orientation_round_trip() {
     // Distance from the central tile.
     let centre = [1, 1, 0];
     let half = 0.5 * lat.pitch[0]; // 0.5
-    let slant = half / 30.0_f64.to_radians().cos(); // 1/√3 ≈ 0.57735
+    let slant = half / 30.0_f64.to_radians().r_cos(); // 1/√3 ≈ 0.57735
     let (dx, tx) = lat.distance(Position::ZERO, Direction::new(1.0, 0.0, 0.0), centre);
     assert!(
         (dx - half).abs() < 1e-9,

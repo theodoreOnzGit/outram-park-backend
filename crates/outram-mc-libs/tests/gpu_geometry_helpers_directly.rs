@@ -102,6 +102,7 @@
 
 #![cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))]
 
+use petir::mathf::RealMath;
 use outram_mc_libs::gpu::{probe, GpuContext};
 
 /// The shader under test, included verbatim so it cannot drift from the one
@@ -618,7 +619,7 @@ fn the_torus_reference_and_the_case_set_are_sound() {
         hits += 1;
         // On the surface: F(t) = 0, scaled by the size of its own terms.
         let (f, _) = torus_f(t, p, u, a, b, c);
-        let scale = (a * a + b * b + 1.0).powi(2);
+        let scale = (a * a + b * b + 1.0).r_powi(2);
         worst_residual = worst_residual.max(f.abs() / scale);
     }
     assert!(
@@ -1026,7 +1027,7 @@ fn gpu_poly_abs_scale_is_the_sum_of_absolute_horner_terms() {
     for (k, (c, n, x)) in cases.iter().enumerate() {
         // The closed form, in f64 and without Horner.
         let want: f64 = (0..*n)
-            .map(|i| (c[i] as f64).abs() * (*x as f64).abs().powi((*n - 1 - i) as i32))
+            .map(|i| (c[i] as f64).abs() * (*x as f64).abs().r_powi((*n - 1 - i) as i32))
             .sum();
         let got = out[k] as f64;
         worst = worst.max((got - want).abs() / want.max(1.0));

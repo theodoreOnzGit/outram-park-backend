@@ -32,6 +32,7 @@
 //! other vertex within `radius` of a grabbed vertex moves by
 //! `falloff(dist / radius) · displacement_of_nearest_grabbed`.
 
+use petir::mathf::RealMath;
 use std::collections::BinaryHeap;
 
 use crate::math::Vec3;
@@ -71,7 +72,7 @@ impl Falloff {
             Falloff::Sphere => (1.0 - t * t).max(0.0).sqrt(),
             Falloff::Root => (1.0 - t).max(0.0).sqrt(),
             Falloff::InverseSquare => (1.0 - t) * (1.0 - t),
-            Falloff::Sharp => (1.0 - t).powi(3),
+            Falloff::Sharp => (1.0 - t).r_powi(3),
             Falloff::Linear => 1.0 - t,
             Falloff::Constant => 1.0,
             Falloff::Random => 1.0 - t, // scaled by the RNG in `proportional_move`

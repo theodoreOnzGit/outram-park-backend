@@ -78,6 +78,7 @@
 //!   to the same constant; `Σ V φ` of a linear field is conserved both ways
 //!   (the property GeN-Foam's power and temperature coupling rely on).
 
+use petir::mathf::RealMath;
 #[cfg(not(target_arch = "wasm32"))]
 use rayon::prelude::*;
 
@@ -268,10 +269,10 @@ impl MeshOverlap {
         let st = tgt.unit().cm_per_unit();
         let to_src_unit = st / ss;
         let src_volumes: Vec<f64> = (0..src.n_cells())
-            .map(|c| src.cell_volume(c) * ss.powi(3))
+            .map(|c| src.cell_volume(c) * ss.r_powi(3))
             .collect();
         let tgt_volumes: Vec<f64> = (0..tgt.n_cells())
-            .map(|c| tgt.cell_volume(c) * st.powi(3))
+            .map(|c| tgt.cell_volume(c) * st.r_powi(3))
             .collect();
         let src_tets: Vec<Vec<(f64, [P; 4], [P; 2])>> = (0..src.n_cells())
             .into_par_iter()
@@ -381,7 +382,7 @@ pub fn apply(weights: &[Vec<(usize, f64)>], field: &[f64], result: &mut [f64]) {
 
 /// Convenience: cell volumes of `m` in cm³.
 pub fn cell_volumes_cm3(m: &UnstructuredMesh) -> Vec<f64> {
-    let s = m.unit().cm_per_unit().powi(3);
+    let s = m.unit().cm_per_unit().r_powi(3);
     (0..m.n_cells()).map(|c| m.cell_volume(c) * s).collect()
 }
 

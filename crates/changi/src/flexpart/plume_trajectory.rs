@@ -72,6 +72,8 @@
 //! Longitudes/latitudes in degrees (inputs and outputs), heights in m,
 //! distances (`rms`, `rmsclust`, `rmsdist`) in km, fractions in percent.
 
+use petir::mathf::RealMath;
+
 use crate::flexpart::constants::PI180;
 use crate::flexpart::geodesy::{distance, distance2};
 use crate::flexpart::particle_average::{
@@ -92,9 +94,9 @@ pub fn centerofmass(xl: &[f64], yl: &[f64]) -> (f64, f64) {
     for l in 0..n {
         let xll = xl[l] * PI180;
         let yll = yl[l] * PI180;
-        let x = yll.cos() * xll.sin();
-        let y = -yll.cos() * xll.cos();
-        let z = yll.sin();
+        let x = yll.r_cos() * xll.r_sin();
+        let y = -yll.r_cos() * xll.r_cos();
+        let z = yll.r_sin();
         xav += x;
         yav += y;
         zav += z;
@@ -102,8 +104,8 @@ pub fn centerofmass(xl: &[f64], yl: &[f64]) -> (f64, f64) {
     xav /= n as f64;
     yav /= n as f64;
     zav /= n as f64;
-    let xcenter = xav.atan2(-yav);
-    let ycenter = zav.atan2((xav * xav + yav * yav).sqrt());
+    let xcenter = xav.r_atan2(-yav);
+    let ycenter = zav.r_atan2((xav * xav + yav * yav).sqrt());
     (xcenter / PI180, ycenter / PI180)
 }
 
@@ -213,9 +215,9 @@ pub fn clustering(xl: &mut [f64], yl: &mut [f64], zl: &[f64]) -> Option<Clusters
             let distances = distance2(yl[i], xl[i], yclust[c], xclust[c]);
             rms += distances * distances;
             rmsclust[c] += distances * distances;
-            let x = yl[i].cos() * xl[i].sin();
-            let y = -yl[i].cos() * xl[i].cos();
-            let z = yl[i].sin();
+            let x = yl[i].r_cos() * xl[i].r_sin();
+            let y = -yl[i].r_cos() * xl[i].r_cos();
+            let z = yl[i].r_sin();
             xav[c] += x;
             yav[c] += y;
             zav[c] += z;
@@ -229,8 +231,8 @@ pub fn clustering(xl: &mut [f64], yl: &mut [f64], zl: &[f64]) -> Option<Clusters
                 xav[j] /= numb[j] as f64;
                 yav[j] /= numb[j] as f64;
                 zav[j] /= numb[j] as f64;
-                xclust[j] = xav[j].atan2(-yav[j]);
-                yclust[j] = zav[j].atan2((xav[j] * xav[j] + yav[j] * yav[j]).sqrt());
+                xclust[j] = xav[j].r_atan2(-yav[j]);
+                yclust[j] = zav[j].r_atan2((xav[j] * xav[j] + yav[j] * yav[j]).sqrt());
             }
         }
 

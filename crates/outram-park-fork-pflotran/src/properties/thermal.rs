@@ -31,6 +31,7 @@
 //! human reviews it: no human V&V has been done and the correlations have not
 //! been checked against a published PFLOTRAN TH reference case.
 
+use petir::mathf::RealMath;
 use crate::error::PflotranError;
 use crate::units::{FluidDensity, FluidPressure, FluidTemperature, FluidViscosity};
 use uom::si::dynamic_viscosity::pascal_second;
@@ -269,7 +270,7 @@ impl ThermalWaterProperties {
     pub fn viscosity(&self, t: FluidTemperature) -> FluidViscosity {
         let t_k = t.get::<kelvin>();
         let mu = self.reference_viscosity
-            * (VISCOSITY_ANDRADE_B_KELVIN * (1.0 / t_k - 1.0 / self.reference_temperature)).exp();
+            * (VISCOSITY_ANDRADE_B_KELVIN * (1.0 / t_k - 1.0 / self.reference_temperature)).r_exp();
         DynamicViscosity::new::<pascal_second>(mu)
     }
 
@@ -288,7 +289,7 @@ impl ThermalWaterProperties {
     fn density_si(&self, p_pa: f64, t_k: f64) -> f64 {
         let exponent = self.compressibility * (p_pa - self.reference_pressure)
             - self.thermal_expansion * (t_k - self.reference_temperature);
-        self.reference_density * exponent.exp()
+        self.reference_density * exponent.r_exp()
     }
 }
 

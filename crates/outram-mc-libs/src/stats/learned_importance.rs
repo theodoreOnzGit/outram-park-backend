@@ -67,6 +67,7 @@
 //! **Result: NOT YET MEASURED (testing deferred by maintainer, 2026-10-03).**
 //! Protocol: `verification_and_validation/stats_epic_493/497_learned_importance.md`.
 
+use petir::mathf::RealMath;
 use crate::physics::weight_windows::WeightWindows;
 use crate::tally::mesh::{unflatten, RegularMesh};
 use raffles::surrogate::validation::LeaveOneOut;
@@ -197,7 +198,7 @@ pub fn learned_weight_windows(
             .iter()
             .map(|&m| axes.iter().map(|&a| centres[m][a]).collect())
             .collect();
-        let ys: Vec<f64> = resolved.iter().map(|&m| lower[m].ln()).collect();
+        let ys: Vec<f64> = resolved.iter().map(|&m| lower[m].r_ln()).collect();
         let loo = match LeaveOneOut::fit(&xs, &ys, settings.degree, settings.ridge) {
             Ok(l) => l,
             Err(err) => {
@@ -225,7 +226,7 @@ pub fn learned_weight_windows(
                 fill.filled += 1;
                 fill.empty -= 1;
             }
-            lower[m] = c.exp();
+            lower[m] = c.r_exp();
         }
         fills.push(fill);
     }
@@ -308,9 +309,9 @@ pub struct FomComparison {
 impl FomComparison {
     /// Compare `vr` against `analog`.
     pub fn new(analog: VrArm, vr: VrArm) -> Self {
-        let z = (vr.mean - analog.mean) / (analog.sigma.powi(2) + vr.sigma.powi(2)).sqrt();
+        let z = (vr.mean - analog.mean) / (analog.sigma.r_powi(2) + vr.sigma.r_powi(2)).sqrt();
         let fom_ratio = vr.fom() / analog.fom();
-        let rel = (analog.fom_relative_sigma().powi(2) + vr.fom_relative_sigma().powi(2)).sqrt();
+        let rel = (analog.fom_relative_sigma().r_powi(2) + vr.fom_relative_sigma().r_powi(2)).sqrt();
         Self {
             z,
             unbiased: z.abs() <= UNBIASED_Z_BAND,
@@ -358,7 +359,7 @@ mod tests {
         let mut sum = vec![0.0; 20];
         let mut sum_sq = vec![0.0; 20];
         for m in 0..12 {
-            let phi = (-0.5 * (m as f64 + 0.5)).exp();
+            let phi = (-0.5 * (m as f64 + 0.5)).r_exp();
             // Ten batches scoring phi*(1 ± 0.01): resolved, rel err ~0.3 %.
             for b in 0..n {
                 let v = phi * (1.0 + if b % 2 == 0 { 0.01 } else { -0.01 });
@@ -383,9 +384,9 @@ mod tests {
         for m in 0..12 {
             assert_eq!(ww.lower[m].to_bits(), magic.lower[m].to_bits());
         }
-        let scale = magic.lower[0] / (-0.25_f64).exp();
+        let scale = magic.lower[0] / (-0.25_f64).r_exp();
         for m in 12..20 {
-            let want = scale * (-0.5 * (m as f64 + 0.5)).exp();
+            let want = scale * (-0.5 * (m as f64 + 0.5)).r_exp();
             assert!(((ww.lower[m] - want) / want).abs() < 1e-9, "cell {m}");
             assert_eq!(ww.upper[m], 5.0 * ww.lower[m]);
         }
@@ -426,7 +427,7 @@ mod tests {
         let c = FomComparison::new(a, v);
         assert!((c.fom_ratio - 4.0).abs() < 1e-12);
         assert!(c.unbiased);
-        let biased = VrArm { mean: 1.0 + 3.0 * (0.02_f64.powi(2) + 0.01_f64.powi(2)).sqrt(), ..v };
+        let biased = VrArm { mean: 1.0 + 3.0 * (0.02_f64.r_powi(2) + 0.01_f64.r_powi(2)).sqrt(), ..v };
         assert!(!FomComparison::new(a, biased).unbiased);
     }
 }

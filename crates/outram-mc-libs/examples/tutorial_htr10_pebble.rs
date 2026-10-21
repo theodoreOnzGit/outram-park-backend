@@ -120,6 +120,7 @@
 //!   surface (`physics::delta_tracking::handoff`), so it is not the fast
 //!   path; `DhUniverse` is 15x faster on this pebble.
 
+use petir::mathf::RealMath;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
@@ -265,7 +266,7 @@ fn pebble_model(data: NuclearData, arm: Arm) -> (Model, [Component; 4]) {
         .containing(sic);
 
     // ── The fuel zone: a DhRegion, built by hand ────────────────────────────
-    let pf = PARTICLES_PER_PEBBLE as f64 * (r.opyc / FUEL_ZONE_R_CM).powi(3);
+    let pf = PARTICLES_PER_PEBBLE as f64 * (r.opyc / FUEL_ZONE_R_CM).r_powi(3);
     let packing = match arm {
         Arm::Random => Packing::Random {
             fraction: Ratio::new::<ratio>(pf),
@@ -456,7 +457,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 census.volume(c).get::<uom::si::volume::cubic_centimeter>()
             );
         }
-        let pf = PARTICLES_PER_PEBBLE as f64 * (TrisoRadii::HTR10.opyc / FUEL_ZONE_R_CM).powi(3);
+        let pf = PARTICLES_PER_PEBBLE as f64 * (TrisoRadii::HTR10.opyc / FUEL_ZONE_R_CM).r_powi(3);
         let pitch = match (arm, p.arrangement) {
             (Arm::Regular, Arrangement::RegularLattice { pitch_cm, .. }) => {
                 assert_eq!(p.particles, PARTICLES_PER_PEBBLE, "8335 whole particles");
@@ -568,7 +569,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 t.elapsed().as_secs_f64()
             );
             let z =
-                (run.keff().mean - r.k_mean) / (run.keff().std.powi(2) + r.k_std.powi(2)).sqrt();
+                (run.keff().mean - r.k_mean) / (run.keff().std.r_powi(2) + r.k_std.r_powi(2)).sqrt();
             println!(
                 "  model − DhUniverse = {:+.0} pcm ({z:+.2} sigma)",
                 (run.keff().mean - r.k_mean) * 1e5
@@ -583,7 +584,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!(
             "\nregular − random = {:+.0} ± {:.0} pcm ({:+.2} sigma)",
             (kg.mean - kr.mean) * 1e5,
-            (kg.std.powi(2) + kr.std.powi(2)).sqrt() * 1e5,
+            (kg.std.r_powi(2) + kr.std.r_powi(2)).sqrt() * 1e5,
             z(kg.mean, kg.std, kr.mean, kr.std)
         );
         // The crate's nearest records (none is this model; see the docs):

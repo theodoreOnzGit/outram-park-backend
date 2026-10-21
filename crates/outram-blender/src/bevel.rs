@@ -44,7 +44,7 @@
 //! *selected-subset* bevel needs partial-boundary handling and is also
 //! follow-up.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 use crate::math::Vec3;
 use crate::mesh::Mesh;
@@ -211,7 +211,9 @@ pub fn bevel(mesh: &Mesh, opts: BevelOptions) -> Mesh {
 
     // (c) vertex caps — fan-fill the umbrella boundary ring (concatenated rail
     // arcs) from its centroid, so a rounded corner connects to every strip.
-    let mut vert_corners: HashMap<usize, Vec<(usize, usize)>> = HashMap::new();
+    // BTreeMap: the caps are emitted in vertex order, not a randomly seeded
+    // hash order, so the output face order is reproducible (gh #1002).
+    let mut vert_corners: BTreeMap<usize, Vec<(usize, usize)>> = BTreeMap::new();
     for (f, poly) in polys.iter().enumerate() {
         for (i, &v) in poly.iter().enumerate() {
             vert_corners.entry(v).or_default().push((f, i));

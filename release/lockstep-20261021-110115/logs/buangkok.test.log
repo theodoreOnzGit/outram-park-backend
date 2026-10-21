@@ -1,0 +1,139 @@
+warning: ambiguous glob re-exports
+  --> crates/tampines-steam-tables/src/prelude.rs:24:9
+   |
+24 | pub use crate::interfaces::functional_programming::hs_flash_eqm::*;
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the name `validity_range` in the type namespace is first re-exported here
+25 | pub use crate::interfaces::functional_programming::ph_flash_eqm::*;
+26 | pub use crate::interfaces::functional_programming::ps_flash_eqm::*;
+   |         ---------------------------------------------------------- but the name `validity_range` in the type namespace is also re-exported here
+   |
+   = note: `#[warn(ambiguous_glob_reexports)]` on by default
+
+warning: constant `LIQUID_SNAP_PRESSURE_FRACTION` is never used
+    --> crates/tampines-steam-tables/src/interfaces/functional_programming/rho_h_flash_eqm/mod.rs:1132:7
+     |
+1132 | const LIQUID_SNAP_PRESSURE_FRACTION: f64 = 0.05;
+     |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `tampines-steam-tables` (lib) generated 2 warnings
+warning: associated function `new_from_fission` is never used
+   --> crates/outram-mc-libs/src/physics/transport_csg.rs:182:19
+    |
+169 | impl Site {
+    | --------- associated function in this implementation
+...
+182 |     pub(crate) fn new_from_fission(
+    |                   ^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `outram-mc-libs` (lib) generated 1 warning
+   Compiling boon-lay v0.2.1 (/home/teddy0/Documents/research/outram-park-backend/crates/boon-lay)
+   Compiling buangkok v0.0.1 (/home/teddy0/Documents/research/outram-park-backend/crates/buangkok)
+    Finished `release` profile [optimized] target(s) in 4.14s
+     Running unittests src/lib.rs (target/release/deps/buangkok-90dc97b9d23d5299)
+
+running 40 tests
+test published::accident_dose_by_distance::tests::every_column_falls_strictly_from_0_25_km ... ok
+test coefficients::tests::cs137_carries_ba137m_in_secular_equilibrium ... ok
+test coefficients::tests::missing_coefficients_are_none_not_zero ... ok
+test coefficients::tests::shipped_coefficients_match_the_reports ... ok
+test published::accident_dose_by_distance::tests::every_dose_is_below_the_lowest_sheltering_level_the_paper_compares_against ... ok
+test published::accident_dose_by_distance::tests::every_entry_is_positive_and_finite ... ok
+test published::accident_dose_by_distance::tests::spot_checks_against_the_published_table ... ok
+test published::accident_dose_by_distance::tests::the_table_has_all_thirteen_published_distances ... ok
+test published::accident_dose_by_distance::tests::water_ingress_exceeds_depressurization_and_thyroid_exceeds_whole_body ... ok
+test published::normal_operation_dose_by_distance::tests::every_entry_is_positive_and_finite ... ok
+test published::normal_operation_dose_by_distance::tests::spot_checks_against_the_published_table ... ok
+test published::normal_operation_dose_by_distance::tests::the_curve_rises_to_1_5_km_then_falls_strictly ... ok
+test published::normal_operation_dose_by_distance::tests::the_maximum_is_the_value_the_text_states_and_sits_at_1_5_km ... ok
+test published::normal_operation_dose_by_distance::tests::the_table_has_all_twelve_published_distances ... ok
+test pydoseia::assessment::tests::plume_maxima_take_the_first_largest_and_skip_nan ... ok
+test pydoseia::assessment::tests::sums_follow_numpy_and_pandas ... ok
+test pydoseia::dcf::tests::age_bracket_boundaries_follow_upstream ... ok
+test pydoseia::dcf::tests::substring_daughter_lookup_takes_the_larger_match ... ok
+test pydoseia::dcf_screening::tests::alternate_names_pick_by_file_words ... ok
+test pydoseia::dcf_screening::tests::delimited_match_follows_the_regex ... ok
+test pydoseia::dispersion::tests::a_higher_release_lowers_the_centreline_ground_concentration_nearby ... ok
+test pydoseia::dispersion::tests::sigma_z_band_edges_are_nearly_continuous ... ok
+test pydoseia::dispersion::tests::stability_codes_round_trip ... ok
+test pydoseia::dose::tests::infant_breathing_rate_is_lower ... ok
+test pydoseia::dispersion::tests::d3_correction_divides_each_class_by_its_mean_speed_in_m_per_s ... ok
+test pydoseia::dose::tests::noble_gases_give_no_ground_shine ... ok
+test pydoseia::met::tests::letter_codes_match_upstream ... ok
+test pydoseia::met::tests::linear_quantile_matches_numpy_on_a_small_case ... ok
+test pydoseia::nuclide::tests::primary_units ... ok
+test pydoseia::nuclide::tests::progeny_units_use_a_365_day_year ... ok
+test pydoseia::plume_rise::tests::upstream_stable_rise_ignores_class_e ... ok
+test pydoseia::plume_rise::tests::wake_never_drops_below_a_third ... ok
+test pydoseia::met::tests::histogram_edges_follow_numpy ... ok
+test pydoseia::plume_shine::tables::tests::interp_edges_follow_numpy ... ok
+test pydoseia::plume_shine::tables::tests::missing_nuclide_gets_the_placeholder_line ... ok
+test pydoseia::quadpack::tests::endpoint_singularity_uses_extrapolation ... ok
+test pydoseia::quadpack::tests::polynomial_is_exact ... ok
+test pydoseia::units::tests::dose_unit_conversions_round_trip ... ok
+test tests::the_scope_is_recorded ... ok
+test pydoseia::quadpack::tests::triple_integral_of_a_product ... ok
+
+test result: ok. 40 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/changi_puff_train_vs_plume.rs (target/release/deps/changi_puff_train_vs_plume-202261a9ab4d7a6d)
+
+running 4 tests
+test report_the_sigma_fit_difference ... ok
+test gate_2_train_vs_plume_matches_the_derived_residual ... ok
+test chi_over_q_is_independent_of_puff_spacing ... ok
+test gate_1_changi_train_equals_the_independent_age_sum ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.15s
+
+     Running tests/liu_cao_external_dose_cross_check.rs (target/release/deps/liu_cao_external_dose_cross_check-274c9cac2fc969d5)
+
+running 4 tests
+test the_external_dose_is_linear_in_the_release ... ok
+test normal_operation_external_band_against_table_7 ... ok
+test accident_external_band_against_table_9_whole_body ... ok
+test the_ba137m_branching_agrees_with_the_decay_library ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.26s
+
+     Running tests/plume_mass_flux_conservation.rs (target/release/deps/plume_mass_flux_conservation-5c3703d2dc68140f)
+
+running 2 tests
+test the_image_is_present_whole_line_carries_twice_the_release ... ok
+test every_crosswind_plane_carries_the_whole_release ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/plume_shine_petir_vs_quadpack.rs (target/release/deps/plume_shine_petir_vs_quadpack-89fca88fd38b25e2)
+
+running 2 tests
+test plain_qag_measurement_on_the_fixture_cases ... ok
+test petir_qags_matches_the_quadpack_reference_within_the_requested_tolerance ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.14s
+
+     Running tests/pydoseia_code_to_code.rs (target/release/deps/pydoseia_code_to_code-a736dcc902e9a055)
+
+running 16 tests
+test decay_constants_match_the_fixture_half_life_rows ... ok
+test every_known_difference_names_one_fixture_row ... ok
+test every_fixture_value_is_reproduced_within_its_group_tolerance ... ok
+test mutation_corrected_ingestion_driver_is_rejected ... ok
+test mutation_exact_daughter_lookup_is_rejected ... ok
+test mutation_corrected_calm_correction_is_rejected ... ok
+test mutation_age_bracket_shift_is_rejected ... ok
+test mutation_exact_sector_width_is_rejected ... ok
+test mutation_intended_zeroing_is_rejected ... ok
+test mutation_petir_qag_instead_of_dqagse_is_rejected ... ok
+test mutation_single_counted_summary_ingestion_is_rejected ... ok
+test the_fixture_contains_nan_cases ... ok
+test upstream_hukkoo_self_test_table_is_reproduced_exactly ... ok
+test petir_plume_shine_also_reproduces_the_fixture ... ok
+test mutation_exact_gamma_line_lookup_is_rejected ... ok
+test mutation_true_ln2_is_rejected ... ok
+
+test result: ok. 16 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 12.73s
+

@@ -82,7 +82,7 @@ impl PengRobinsonGas {
     /// Soave α function: `(1 + κ·(1 − √Tr))²`.
     fn alpha(&self, tr: f64) -> f64 {
         let kappa = self.kappa();
-        (1.0 + kappa * (1.0 - tr.sqrt())).powi(2)
+        (1.0 + kappa * (1.0 - tr.sqrt())).r_powi(2)
     }
 
     fn kappa(&self) -> f64 {
@@ -105,7 +105,7 @@ impl PengRobinsonGas {
     fn a_spec(&self, t: f64) -> f64 {
         let r = self.r_spec();
         let tr = t / self.tc;
-        0.45724 * (r * self.tc).powi(2) / self.pc * self.alpha(tr)
+        0.45724 * (r * self.tc).r_powi(2) / self.pc * self.alpha(tr)
     }
 
     /// Per-kg co-volume `b = 0.07780·R·Tc/Pc`.
@@ -207,7 +207,7 @@ impl EquationOfState for PengRobinsonGas {
 
         let _ = tr; // silence unused-var warning
         SpecificHeatCapacity::new::<joule_per_kilogram_kelvin>(
-            r * (m - n).powi(2) / (m * m - 2.0 * a_dim * (z + b_dim)),
+            r * (m - n).r_powi(2) / (m * m - 2.0 * a_dim * (z + b_dim)),
         )
     }
 

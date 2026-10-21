@@ -1,3 +1,4 @@
+use petir::mathf::RealMath;
 use std::ops::DerefMut;
 use std::sync::Arc;
 use std::sync::Mutex;
@@ -983,8 +984,8 @@ fn heat_transfer_coefficient_ciet_v_2_0(
 // nusselt number correlation
 #[inline]
 fn ciet_heater_v_2_0_nusselt_number(reynolds: Ratio, prandtl: Ratio) -> Ratio {
-    let reynolds_power_0_836 = reynolds.value.powf(0.836);
-    let prandtl_power_0_333 = prandtl.value.powf(0.333333333333333);
+    let reynolds_power_0_836 = reynolds.value.r_powf(0.836);
+    let prandtl_power_0_333 = prandtl.value.r_powf(0.333333333333333);
 
     Ratio::new::<ratio>(0.04179 * reynolds_power_0_836 * prandtl_power_0_333)
 }

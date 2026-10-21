@@ -119,6 +119,7 @@
 //! benchmark. Full write-up:
 //! `docs/ai-fleet-review/op-6tz-triso-finish/REVIEW_MANIFEST.md`.
 
+use petir::mathf::RealMath;
 use outram_mc_libs::geometry::cell::{Cell, CellFill, HalfSpaceSense, RegionToken, SurfaceToken};
 use outram_mc_libs::geometry::geometry::{Crossing, Geometry};
 use outram_mc_libs::geometry::lattice::{Lattice, RectLattice};
@@ -603,8 +604,8 @@ fn triso_random_packing_is_valid() {
         PackedSpheres::pack(PACK_R, PACK_HALF, PACK_PF, PACK_SEED).expect("RSA packs at pf 0.30");
 
     // Exactly the floor-formula count.
-    let v_sphere = 4.0 / 3.0 * std::f64::consts::PI * PACK_R.powi(3);
-    let v_box = (2.0 * PACK_HALF).powi(3);
+    let v_sphere = 4.0 / 3.0 * std::f64::consts::PI * PACK_R.r_powi(3);
+    let v_box = (2.0 * PACK_HALF).r_powi(3);
     let expected_n = (PACK_PF * v_box / v_sphere).floor() as usize;
     assert_eq!(packed.len(), expected_n, "placed kernel count");
     assert!(

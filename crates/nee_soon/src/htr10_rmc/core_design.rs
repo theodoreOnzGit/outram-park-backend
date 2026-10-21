@@ -144,6 +144,7 @@ impl Htr10CoreDesign {
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
 
     /// The default is the record's model, and the rod travel is TECDOC's.
@@ -288,7 +289,7 @@ mod tests {
         let c = assemble_explicit_triso_with(14, 5, 0, &d);
         let (mut n, mut fuel, mut conus_fuel) = (0usize, 0usize, 0usize);
         for (p, flags) in built_balls(&built_ball_pieces(&c)) {
-            if p[0].hypot(p[1]) > c.bed_radius {
+            if p[0].r_hypot(p[1]) > c.bed_radius {
                 continue;
             }
             if p[2] > -c.bed_half_height && p[2] < c.bed_half_height {

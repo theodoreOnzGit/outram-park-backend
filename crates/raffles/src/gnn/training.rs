@@ -307,6 +307,7 @@ mod tests {
     use crate::samplers::stream_seed;
     use burn::backend::{Autodiff, NdArray};
     use burn::prelude::Backend;
+    use petir::mathf::RealMath;
     use petir::rng::lcg::prn;
 
     type TestBackend = Autodiff<NdArray<f32>>;
@@ -363,8 +364,8 @@ mod tests {
             let f: Vec<f64> = (0..nodes)
                 .map(|i| {
                     let x = (i as f64 + 1.0) / (nodes as f64 + 1.0);
-                    a * (core::f64::consts::PI * x).sin()
-                        + b * (2.0 * core::f64::consts::PI * x).sin()
+                    a * (core::f64::consts::PI * x).r_sin()
+                        + b * (2.0 * core::f64::consts::PI * x).r_sin()
                 })
                 .collect();
             let u = poisson_1d(&f);
@@ -468,7 +469,7 @@ mod tests {
                 let prediction: Vec<f32> =
                     trained.forward(&graph, input).into_data().to_vec().unwrap();
                 for (i, target_row) in target.iter().enumerate() {
-                    squared += (prediction[i] as f64 - target_row[0]).powi(2);
+                    squared += (prediction[i] as f64 - target_row[0]).r_powi(2);
                     count += 1;
                 }
             }

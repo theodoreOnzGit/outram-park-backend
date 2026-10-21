@@ -170,6 +170,7 @@
 // would hide genuinely unused code.
 #![allow(dead_code)]
 
+use petir::mathf::RealMath;
 use super::{CrossRepairError, CrossRepairInputs, CrossRepairOutcome};
 
 use outram_park_fork_dwsim_libs::heat_exchanger::lmtd::{lmtd as dwsim_lmtd, FlowArrangement};
@@ -1055,7 +1056,7 @@ fn rebuild_profiles(
             let integral = if kappa.abs() * delta_xi < 1.0e-12 {
                 ua_total * delta_hi * delta_xi
             } else {
-                ua_total * delta_hi * (1.0 - (-kappa * delta_xi).exp()) / kappa
+                ua_total * delta_hi * (1.0 - (-kappa * delta_xi).r_exp()) / kappa
             };
             zone.q_at_hi_end_w + integral
         };

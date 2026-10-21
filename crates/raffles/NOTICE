@@ -1,3 +1,22 @@
+Relicense: GPL-3.0-only -> AGPL-3.0-only (2026-10-20)
+------------------------------------------------------
+
+At the maintainer direction 2026-10-20 ("All crates AGPLv3"; "they are colleagues";
+"i know them"), given in the coordinating session in place of the
+per-person recorded consent the HELD entry asked for, this crate is licensed AGPL-3.0-only from this
+date, and `LICENSE` is the AGPL-3.0 text. **CORRECTED 2026-10-20:** not an
+outright relicence: RAFFLES contains ports of third-party GPL-3.0 code
+(SCRAM, GPL-3.0-or-later; Physics-guided-MPNN, GPL-3.0; pba.r, GPL-3.0),
+which cannot become AGPL. Those files keep GPL-3.0 and the crate conveys as
+an AGPL-3.0-only COMBINED WORK under GPLv3 section 13 / AGPLv3 section 13;
+`LICENSE.GPL-3.0` ships beside `LICENSE` as GPLv3 section 4 requires. The maintainer vouches for the
+other copyright holders: Adolphus Lye (crate owner; RAVEN material is Apache-2.0, see LICENSE-APACHE-RAVEN).
+
+Every upstream notice and attribution header is kept unchanged. Versions
+already published to crates.io keep the licence they were published
+under, forever; this affects future versions only. No version was bumped.
+Record: `docs/relicensing-agpl-2026-10-20.md`; gh:#973.
+
 raffles
 Part of Outram Park (outram-park-backend).
 
@@ -84,18 +103,20 @@ analysis) must carry the *BSD* attribution, not the Apache-2.0 one. Check
 which upstream component a file comes from before writing its header.
 
 
-LICENCE DIRECTION — APACHE-2.0 INTO GPL-3.0 IS ONE-WAY
+LICENCE DIRECTION — APACHE-2.0 INTO (A)GPL-3.0 IS ONE-WAY
 ======================================================
 
-RAFFLES is distributed under GPL-3.0-only, the Outram Park workspace default.
+RAFFLES is distributed under ~~GPL-3.0-only~~ AGPL-3.0-only (relicensed
+2026-10-20, gh:#973; a combined work, see the top of this file), the Outram
+Park workspace default. Everything below holds for AGPLv3 as for GPLv3.
 
 Apache-2.0 is one-way compatible with GPLv3: Apache-2.0 code may be
 incorporated into a GPLv3 work, and the combined result is governed by GPLv3.
 The reverse does not hold — GPLv3 is not compatible with Apache-2.0, and
 Apache-2.0 alone cannot satisfy GPLv3's terms. Concretely:
 
-  * Code may flow  RAVEN (Apache-2.0)  ->  RAFFLES (GPL-3.0-only).
-  * Code may NOT flow  RAFFLES (GPL-3.0-only)  ->  RAVEN (Apache-2.0).
+  * Code may flow  RAVEN (Apache-2.0)  ->  RAFFLES (AGPL-3.0-only).
+  * Code may NOT flow  RAFFLES (AGPL-3.0-only)  ->  RAVEN (Apache-2.0).
 
 Do not contribute RAFFLES code, patches, or translated files upstream to
 RAVEN, and do not offer RAFFLES code to anyone under Apache-2.0 terms. Once a
@@ -127,7 +148,8 @@ OTHER UPSTREAMS — GPL-3.0, NOT COVERED BY THE APACHE-2.0 GRANT ABOVE
 ====================================================================
 
 RAFFLES has taken in work from three upstreams besides RAVEN. All three are
-GPL-3.0, the same licence as this crate, so none carries the one-way
+GPL-3.0 (~~the same licence as this crate~~ since 2026-10-20 combined with
+the AGPL-3.0-only crate under section 13), so none carries the one-way
 restriction the Apache-2.0 grant above does. The Apache-2.0 licence text in
 LICENSE-APACHE-RAVEN does NOT apply to any of them — check which upstream a
 file comes from before writing its attribution header.
@@ -314,8 +336,10 @@ file comes from before writing its attribution header.
 
    UPSTREAM INPUT MODELS ARE REDISTRIBUTED, unchanged, under
    reference-data/scram/upstream-input/ -- fifteen .xml files from upstream's
-   own input/ directory at the commit above. SCRAM is GPL-3.0-or-later and
-   this repository is GPL-3.0-only, so the copy is same-licence. They are
+   own input/ directory at the commit above. SCRAM is GPL-3.0-or-later; the
+   copy stays under it (~~this repository is GPL-3.0-only, so the copy is
+   same-licence~~; the repository is AGPL-3.0-only since 2026-10-20 and
+   combines with it under section 13). They are
    there so that the tests can read the models themselves rather than a
    transcription of them. reference-data/ is outside crates/ and so is never
    part of a published crate tarball.
@@ -323,6 +347,27 @@ file comes from before writing its attribution header.
    VERIFICATION: upstream was built from source and run; the oracles are in
    reference-data/scram/ with their own README, and the full record is in
    docs/scram-port-verification.md.
+
+
+5. Computing with Confidence / pba.r (gh:#987)
+   Project:          Computing-with-Confidence, "Coherent systems" -- Adolphus Lye
+   Repository:       https://github.com/Adolphus8/Computing-with-Confidence
+   Accessed:         2026-10-20
+   Licence:          no LICENSE file upstream; the author (this crate's owner)
+                     asked for the port and the workspace maintainer confirmed
+                     AGPLv3 is acceptable (2026-10-20).
+   Third-party file: "pba BETTER.r" is Scott Ferson's pba.r,
+                     https://github.com/ScottFerson/pba.r, GPL-3.0. Its
+                     operations used by the scripts (KN, and, or, andI, orI,
+                     frechetconv, conv, env, complement) are ported in
+                     src/scram/pba.rs, which carries that attribution.
+   NOT USED:         sra.r in the same folder is marked "All rights reserved".
+                     It was neither read, ported, nor run. Case study 3's
+                     sra.r-dependent half is therefore not reproduced.
+   Original code:    src/scram/pbox_tree.rs and tests/computing_with_confidence*.rs.
+   Verification:     the R scripts were run with R 4.6.1; see
+                     docs/computing-with-confidence-verification.md.
+   Status:           AI-assisted draft, not reviewed by a human or the crate owner.
 
 
 INDEPENDENCE / TRADEMARK

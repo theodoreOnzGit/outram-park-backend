@@ -29,7 +29,7 @@
 //! | Version, commit | v3.0.0, `a356280d564bbdfbe74b97f32db0776444da58a5` (2026-10-02) |
 //! | Authors | "Jon Drobny <drobny2@illinois.edu>", "Jon Drobny <jdrobny@tae.com>" (upstream `Cargo.toml` `authors`). The JOSS paper's authors are Jon T. Drobny and Davide Curreli. Upstream states no copyright line. |
 //! | Paper | J. T. Drobny and D. Curreli, "RustBCA: A High-Performance Binary-Collision-Approximation Code for Ion-Material Interactions", *Journal of Open Source Software* **6**(64), 3298 (2021), doi:10.21105/joss.03298 |
-//! | Licence | GNU GPL v3; upstream's `LICENSE` is copied as `src/rustbca/LICENSE`. Upstream does not say "-only" or "-or-later"; either is compatible with boon-lay's GPL-3.0. |
+//! | Licence | GNU GPL v3; upstream's `LICENSE` is copied as `src/rustbca/LICENSE`. Upstream does not say "-only" or "-or-later"; either is compatible with boon-lay's ~~GPL-3.0~~ **AGPL-3.0-only** combined work. |
 //!
 //! Every copied file carries the workspace provenance header. The README beside
 //! this file repeats the attribution for readers browsing the tree.
@@ -57,8 +57,9 @@
 //! ## `no_std` + `alloc`
 //!
 //! Everything compiled without the `rustbca-std` feature uses only `core`,
-//! `alloc` and `no_std` dependencies (`rand` and `rand_distr` without default
-//! features, `petir`, `serde`, `anyhow`), so the tree builds inside a
+//! `alloc` and `no_std` dependencies (~~`rand` and `rand_distr` without default
+//! features,~~ `petir` (its `real` and, since gh:#995, its `rng`), `serde`,
+//! `anyhow`), so the tree builds inside a
 //! `#![no_std]` crate. boon-lay itself stays `std` and re-exports this module;
 //! `scripts/check-rustbca-no-std.sh` (at the workspace root) proves the claim
 //! by compiling this exact tree as a `#![no_std]` library.
@@ -139,12 +140,21 @@
 //!    structs, `Input2D`, `InputHomogeneous2D` and the matching `MaterialType`
 //!    variants are gated on `any(test, feature = "rustbca-std")`.
 //! 9. **Entropy seeding.** `process_input_file` with `seed < 0` called
-//!    `rand::random()`. It now calls [`entropy_seed`], which does the same
-//!    under `rustbca-std` and panics with an explanation without it (a `no_std`
-//!    build has no entropy source). Seeds `>= 0` are unchanged.
-//! 10. **Dependencies:** `rand` 0.10 (`chacha`, `alloc`; `thread_rng` only
+//!    `rand::random()`. It now calls [`entropy_seed`], which ~~does the same~~
+//!    draws an OS-entropy `u64` (since gh:#995, item 12) under `rustbca-std`
+//!    and panics with an explanation without it (a `no_std` build has no
+//!    entropy source). Seeds `>= 0` are unchanged. Since gh:#995 the two
+//!    `physics.rs` batch drivers call [`entropy_seed`] too (upstream:
+//!    `rand::random()`), and `simple.rs` seeds from [`entropy_seed_bytes`]
+//!    (upstream: `ChaCha8Rng::from_rng(&mut rand::rng())`).
+//! 10. **Dependencies:** ~~`rand` 0.10 (`chacha`, `alloc`; `thread_rng` only
 //!     under `rustbca-std`) and `rand_distr` 0.6 (`alloc`; its `num-traits`
-//!     maths is `libm`) without default features; `anyhow`, `serde` from the
+//!     maths is `libm`) without default features;~~ **CORRECTED 2026-10-20
+//!     (gh:#995):** `rand` and `rand_distr` are gone (item 12), and the
+//!     parenthesis was wrong while they were here: in boon-lay's build
+//!     `num-traits/std` was unified on, so `rand_distr`'s `exp`/`ln` were the
+//!     platform libm, not `libm` (checked with `cargo tree -e features -i
+//!     num-traits`). `getrandom` 0.3 only under `rustbca-std`; `anyhow`, `serde` from the
 //!     workspace; `itertools`, `indicatif`, `geo` 0.25 and `toml` only under
 //!     `rustbca-std` (`geo` also as a dev-dependency); `float-cmp` 0.10 as a
 //!     dev-dependency for upstream's tests. All versions live in the root
@@ -154,6 +164,24 @@
 //!     it pins the local changes above (table bit-identity, `no_std` source
 //!     scan, provenance headers, entropy seeding, determinism, and, under
 //!     `rustbca-std`, an upstream TOML input parsed and run).
+//! 12. **The random numbers come from `petir::rng`, not `rand`** (gh:#995,
+//!     maintainer direction 2026-10-20). `ChaCha8Rng`, `SeedableRng`,
+//!     `RngExt::random`, `Uniform` and `Normal` are PETIR's ports of
+//!     `rand` 0.10.3 / `rand_core` 0.10.1 / `rand_distr` 0.6.0 /
+//!     `chacha20` 0.10.2, and the edits here are the `use` lines (`input.rs`,
+//!     `bca.rs`, `material.rs`, `tests.rs`, this file), `Uniform`/`Normal`
+//!     losing the `Distribution` trait import (`sample` is inherent), and
+//!     the entropy calls of item 9. **No seeded number moved:** PETIR's
+//!     streams equal `rand`'s draw for draw (`petir/tests/rng_vs_rand.rs`,
+//!     48 million draws), and
+//!     `local_change_tests::seeded_cascades_are_pinned_across_the_rng_swap`
+//!     and `seeded_input_sampling_and_physics_loop_are_pinned_across_the_rng_swap`
+//!     hold digests printed on the `rand` build. One caveat, measured: a
+//!     `Normal` tail draw (`|z| > 3.654`, ~2.6e-4 of draws) can differ by
+//!     1 ulp from the old build, because `rand_distr` reached glibc's `ln`
+//!     there and PETIR uses `libm`'s (9 of 8 million standard-normal draws;
+//!     see the PETIR test's docs). Upstream RustBCA samples `Normal` only for
+//!     input distributions, never inside a cascade.
 //!
 //! The physics code itself (collision kinematics, scattering integrals,
 //! stopping powers, geometry logic) is otherwise unchanged.
@@ -195,7 +223,8 @@ use std::io::BufWriter;
 use itertools::{izip};
 
 //RNG
-use rand::{SeedableRng, rngs::ChaCha8Rng};
+// boon-lay (gh:#995): petir::rng, a port of rand 0.10.3's ChaCha8Rng.
+use petir::rng::{SeedableRng, ChaCha8Rng};
 
 //Math
 use core::f64::consts::FRAC_2_SQRT_PI;
@@ -246,19 +275,38 @@ pub use self::simple::{simple_bca, simple_compound_bca};
 
 /// A seed for `options.seed < 0`, which upstream reads as "seed from entropy".
 ///
-/// **boon-lay local change** (item 9 of the module docs). With `rustbca-std`
-/// this is upstream's `rand::random()`. Without it there is no entropy source
-/// in a `no_std` build, so it panics and says why; pass a seed `>= 0`.
+/// **boon-lay local change** (items 9 and 12 of the module docs). Upstream
+/// calls `rand::random()`, a `u64` from `rand`'s thread-local ChaCha12
+/// generator, itself keyed from the OS. With `rustbca-std` this takes the
+/// `u64` from the OS directly (`getrandom::u64`), as `rand` is no longer a
+/// dependency (gh:#995). Without it there is no entropy source in a `no_std`
+/// build, so it panics and says why; pass a seed `>= 0`. Panics, as
+/// upstream's `ThreadRng` does, if the OS refuses entropy.
 #[cfg(feature = "rustbca-std")]
 pub fn entropy_seed() -> u64 {
-    rand::random()
+    getrandom::u64().expect("the OS entropy source failed (getrandom)")
+}
+
+/// A full 32-byte ChaCha seed from the OS, for `simple_bca` and
+/// `simple_compound_bca`.
+///
+/// **boon-lay local change** (item 12 of the module docs). Upstream wrote
+/// `ChaCha8Rng::from_rng(&mut rand::rng())`, which is `from_seed` of the
+/// thread-local generator's next 32 bytes; this is `from_seed` of 32 bytes
+/// from the OS.
+#[cfg(feature = "rustbca-std")]
+pub fn entropy_seed_bytes() -> [u8; 32] {
+    let mut seed = [0u8; 32];
+    getrandom::fill(&mut seed).expect("the OS entropy source failed (getrandom)");
+    seed
 }
 
 /// A seed for `options.seed < 0`, which upstream reads as "seed from entropy".
 ///
 /// **boon-lay local change** (item 9 of the module docs). With `rustbca-std`
-/// this is upstream's `rand::random()`. Without it there is no entropy source
-/// in a `no_std` build, so it panics and says why; pass a seed `>= 0`.
+/// this is an OS-entropy `u64` (upstream: `rand::random()`). Without it
+/// there is no entropy source in a `no_std` build, so it panics and says
+/// why; pass a seed `>= 0`.
 #[cfg(not(feature = "rustbca-std"))]
 pub fn entropy_seed() -> u64 {
     panic!("Input error: seed < 0 asks for an entropy seed, which a no_std build cannot supply; \

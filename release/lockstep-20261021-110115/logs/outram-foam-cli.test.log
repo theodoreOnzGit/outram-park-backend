@@ -1,0 +1,112 @@
+   Compiling syn v3.0.9
+   Compiling thiserror-impl v2.0.21
+   Compiling serde_derive v1.0.229
+   Compiling clap_derive v4.6.7
+   Compiling thiserror v2.0.21
+   Compiling outram-foam-basic-lib v0.1.7 (/home/teddy0/Documents/research/outram-park-backend/crates/outram-foam-basic-lib)
+   Compiling clap v4.6.7
+   Compiling serde v1.0.229
+   Compiling outram-foam-multiphase v0.0.4 (/home/teddy0/Documents/research/outram-park-backend/crates/outram-foam-multiphase)
+   Compiling outram-foam-turbulence-lib v0.1.4 (/home/teddy0/Documents/research/outram-park-backend/crates/outram-foam-turbulence-lib)
+   Compiling outram-foam-mesh v0.1.2 (/home/teddy0/Documents/research/outram-park-backend/crates/outram-foam-mesh)
+   Compiling outram-foam-appbuilder-lib v0.1.6 (/home/teddy0/Documents/research/outram-park-backend/crates/outram-foam-appbuilder-lib)
+   Compiling outram-park-fork-offbeat v0.0.1 (/home/teddy0/Documents/research/outram-park-backend/crates/outram-park-fork-offbeat)
+   Compiling outram-foam-cli v0.0.1 (/home/teddy0/Documents/research/outram-park-backend/crates/outram-foam-cli)
+    Finished `release` profile [optimized] target(s) in 10.04s
+     Running unittests src/lib.rs (target/release/deps/outram_foam_cli-47c691a060602731)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/bin/block_mesh.rs (target/release/deps/blockMesh-3be9782c1dc6f12e)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/bin/gen_foam.rs (target/release/deps/gen_foam-3d0c6c4a1b7cc4e2)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/bin/ideas_unv_to_foam.rs (target/release/deps/ideasUnvToFoam-87243c88f6cc2b66)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/bin/pimple_foam.rs (target/release/deps/pimpleFoam-5832754171d5bb92)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/bin/poly_dual_mesh.rs (target/release/deps/polyDualMesh-b01b9081f716c1b2)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/bin/rho_central_foam.rs (target/release/deps/rhoCentralFoam-703dec61427732f1)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/bin/rho_pimple_foam.rs (target/release/deps/rhoPimpleFoam-76fb8c2d322bba48)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/bin/sonic_foam.rs (target/release/deps/sonicFoam-1786ce8fa44f04a2)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/ci_smoke/main.rs (target/release/deps/ci_smoke-0ed9e74470a3fc13)
+
+running 10 tests
+test cavity::cavity_ghia_grid_convergence_re100 ... ignored, CI smoke copy: 297 s study; runs in the source tutorials/pimple_foam_cavity.rs
+test cavity::cavity_pressure_solver_comparison_fine_mesh ... ignored, CI smoke copy: 123 s study; runs in the source tutorials/pimple_foam_cavity.rs
+test cavity::cavity_mesh_loads ... ok
+test sod::exact_riemann_matches_sod_table_ii ... ok
+test sod::exact_riemann_reproduces_sod_star_state ... ok
+test cavity::cavity_velocity_matches_icofoam ... ok
+test sod::rho_central_foam_matches_sod_table_ii ... ok
+test sod::sod_shock_tube_timed_series ... ok
+test cavity::cavity_ghia_benchmark_re100 ... ok
+test cavity::cavity_ghia_benchmark_re100_fine_mesh ... ok
+
+test result: ok. 8 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 12.57s
+
+     Running tests/mechanics_code_to_code.rs (target/release/deps/mechanics_code_to_code-834a68b805bc7268)
+
+running 4 tests
+test genfoam_and_offbeat_agree_on_the_clamped_thermoelastic_bar ... ok
+test the_two_codes_disagree_on_the_thermal_load_at_a_dirichlet_boundary ... ok
+test the_two_codes_agree_through_a_transient_elastic_response ... ok
+test the_agreement_and_the_convergence_order_survive_refinement ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.78s
+
+     Running tests/mesh_tools.rs (target/release/deps/mesh_tools-9cee79763c000e3b)
+
+running 3 tests
+test ideas_unv_to_foam_single_hex ... ok
+test poly_dual_mesh_box_roundtrip ... ok
+test block_mesh_cavity_roundtrip ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/solvers.rs (target/release/deps/solvers-8f0737dd2d985f6b)
+
+running 2 tests
+test rho_central_foam_end_to_end ... ok
+test stubbed_solvers_fail_honestly ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

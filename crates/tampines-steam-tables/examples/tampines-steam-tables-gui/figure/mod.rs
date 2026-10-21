@@ -30,6 +30,7 @@
 //! session — runs with no display present. `--export-all` on the command line
 //! uses exactly the same code the GUI's export buttons do.
 
+use petir::mathf::RealMath;
 pub mod csv_export;
 pub mod font;
 pub mod layout;
@@ -144,7 +145,7 @@ impl AxisScale {
             Self::Linear => Some(value),
             Self::Log10 => {
                 if value > 0.0 {
-                    Some(value.log10())
+                    Some(value.r_log10())
                 } else {
                     None
                 }
@@ -156,7 +157,7 @@ impl AxisScale {
     pub fn inverse(self, mapped: f64) -> f64 {
         match self {
             Self::Linear => mapped,
-            Self::Log10 => 10.0_f64.powf(mapped),
+            Self::Log10 => 10.0_f64.r_powf(mapped),
         }
     }
 }

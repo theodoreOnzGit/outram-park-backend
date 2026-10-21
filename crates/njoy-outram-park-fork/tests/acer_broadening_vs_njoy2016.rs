@@ -26,15 +26,22 @@
 //!
 //! # Results (2026-09-20, U-235 ENDF/B-VIII.0 at 293.6 K, 167 bands)
 //!
-//! | column | worst relative difference |
-//! |---|---|
-//! | total | 4.393e-4 |
-//! | absorption | 4.088e-4 |
-//! | elastic | 3.174e-4 |
+//! | column | ~~worst relative difference (2026-09-20)~~ | worst relative difference (2026-10-20) |
+//! |---|---|---|
+//! | total | ~~4.393e-4~~ | 7.758e-12 |
+//! | absorption | ~~4.088e-4~~ | 7.765e-12 |
+//! | elastic | ~~3.174e-4~~ | 1.579e-12 |
 //!
 //! All inside `errthn = 1e-3`, the thinning tolerance each table is written
 //! to — so the two codes' broadened cross sections agree to better than either
 //! table individually promises.
+//!
+//! **CORRECTED 2026-10-20** — the 2026-09-20 column was stale: the gate
+//! already printed ~7.8e-12 on 2026-10-06 (gh:#616, recorded in the root
+//! `CLAUDE.md`). The 2026-10-20 column is this test's own printed output
+//! (`--nocapture`, 167 bands, worst band from 7.7482e-6 MeV for total and
+//! absorption, 1.7321e-5 MeV for elastic), measured after every
+//! transcendental in this crate was routed through PETIR (gh:#985).
 //!
 //! **Runtime: 69 s** (RECONR + BROADR on the 36 MB U-235 tape), measured
 //! 2026-09-20 on 4 cores. Under the workspace's 5-minute threshold, so this is

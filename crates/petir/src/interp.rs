@@ -24,6 +24,15 @@
 //   interpolation/linear.c      linear_eval / linear_eval_deriv
 //   interpolation/cspline.c     cspline_init / cspline_eval / cspline_eval_deriv
 //                               and its `coeff_calc` helper
+//
+// Added 2026-10-20 (gh:#989), same commit, read that day:
+//   interpolation/interp.c      gsl_interp_eval_integ -> Interp::eval_integ
+//                               (Copyright (C) 2007 Brian Gough;
+//                                1996-2000 Gerard Jungman)
+//   interpolation/linear.c      linear_eval_integ
+//   interpolation/cspline.c     cspline_eval_integ
+//   interpolation/integ_eval.h  integ_eval -> integ_eval
+//                               (Copyright (C) 1996-2000 Gerard Jungman)
 
 //! Interpolation of tabulated data — GSL's `interpolation/`.
 //!
@@ -77,6 +86,14 @@
 //! If the ends matter, either extend the data past the region you care about so
 //! the boundary layer falls outside it, or use a spline whose end condition you
 //! can set. PETIR has only the natural variant today.
+//!
+//! # Integrals
+//!
+//! [`Interp::eval_integ`] integrates the interpolant itself in closed form,
+//! GSL's `gsl_interp_eval_integ`. Like GSL it refuses `a > b` and limits
+//! outside the table. Verified bit-identical against compiled GSL on 566
+//! values (`tests/gsl_interp_integ_code_to_code.rs`, 2026-10-20).
+//!
 //! # Extrapolation is refused, not guessed
 //!
 //! Evaluating outside `[x[0], x[n-1]]` returns [`PetirError::Domain`]. GSL does
@@ -403,6 +420,119 @@ impl Interp {
         }
     }
 
+    /// The definite integral of the interpolant from `a` to `b`.
+    ///
+    /// Translates GSL 2.8's `gsl_interp_eval_integ` (`interpolation/interp.c`
+    /// lines 255-278) and the two per-method kernels it dispatches to:
+    /// `linear_eval_integ` (`interpolation/linear.c` lines 135-183) and
+    /// `cspline_eval_integ` (`interpolation/cspline.c` lines 389-443), the
+    /// latter through `integ_eval` (`interpolation/integ_eval.h` lines
+    /// 24-36). Read 2026-10-20 at the commit named in the file header.
+    ///
+    /// The integral is **exact for the interpolant** — it integrates the
+    /// piecewise line or piecewise cubic in closed form, segment by segment.
+    /// It is not a quadrature of the underlying function, so it carries the
+    /// interpolant's own error (including the cubic spline's overshoot) and
+    /// nothing more.
+    ///
+    /// # Order of the limits
+    ///
+    /// GSL refuses `a > b` with `GSL_EDOM` rather than returning the negated
+    /// integral, and so does this. `a == b` returns exactly `0.0`, as GSL
+    /// does, without touching the knots. A caller that wants the signed
+    /// integral swaps the limits and negates.
+    ///
+    /// # Errors
+    ///
+    /// - [`PetirError::Domain`] if `a > b`, if either limit lies outside
+    ///   `[x[0], x[n-1]]`, or if either is `NaN`. Extrapolation is refused —
+    ///   see the module docs. **Deviation, NaN only:** GSL's guard
+    ///   (`a > b || a < xmin || b > xmax`) is false for a `NaN` limit, so GSL
+    ///   lets it through and returns a `NaN` integral; here it is a `Domain`
+    ///   error, the same choice [`Self::eval`] already makes.
+    /// - [`PetirError::Invalid`] where `cspline_eval_integ` returns
+    ///   `GSL_EINVAL` for a zero-width segment. [`Self::new`] rejects repeated
+    ///   abscissae, so this cannot be reached through the public API.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use petir::interp::{Interp, InterpMethod};
+    /// // A linear interpolant of y = 2x is exact, so the integral is x^2.
+    /// let s = Interp::new(InterpMethod::Linear, &[0.0, 1.0, 3.0], &[0.0, 2.0, 6.0]).unwrap();
+    /// assert!((s.eval_integ(0.5, 2.0).unwrap() - 3.75).abs() < 1e-14);
+    /// assert_eq!(s.eval_integ(1.0, 1.0).unwrap(), 0.0);
+    /// assert!(s.eval_integ(2.0, 0.5).is_err(), "a > b is refused, as in GSL");
+    /// assert!(s.eval_integ(0.0, 4.0).is_err(), "extrapolation is refused");
+    /// ```
+    pub fn eval_integ(&self, a: f64, b: f64) -> Result<f64> {
+        // gsl_interp_eval_integ's guard. check_range additionally rejects NaN.
+        self.check_range(a)?;
+        self.check_range(b)?;
+        if a > b {
+            return Err(PetirError::Domain);
+        }
+        if a == b {
+            return Ok(0.0);
+        }
+
+        // Both kernels: `index_a = gsl_interp_bsearch(x_array, a, 0, size-1)`
+        // and likewise for `b` (the accelerator, when present, finds the same
+        // index, so it does not change the answer).
+        let index_a = self.bracket_index(a);
+        let index_b = self.bracket_index(b);
+
+        let mut result = 0.0_f64;
+        // `for (i = index_a; i <= index_b; i++)`, reading x[i], x[i+1],
+        // y[i], y[i+1]. bracket_index returns at most n-2, so `i + 1` is in
+        // range; `get` keeps that a checked fact rather than a subscript.
+        for i in index_a..=index_b {
+            let (Some(&x_lo), Some(&x_hi), Some(&y_lo), Some(&y_hi)) = (
+                self.xa.get(i),
+                self.xa.get(i + 1),
+                self.ya.get(i),
+                self.ya.get(i + 1),
+            ) else {
+                return Err(PetirError::Invalid);
+            };
+            let dx = x_hi - x_lo;
+
+            match self.method {
+                InterpMethod::Linear => {
+                    // linear.c skips a zero-width segment silently.
+                    if dx != 0.0 {
+                        if i == index_a || i == index_b {
+                            let x1 = if i == index_a { a } else { x_lo };
+                            let x2 = if i == index_b { b } else { x_hi };
+                            let d = (y_hi - y_lo) / dx;
+                            result += (x2 - x1) * (y_lo + 0.5 * d * ((x2 - x_lo) + (x1 - x_lo)));
+                        } else {
+                            result += 0.5 * dx * (y_lo + y_hi);
+                        }
+                    }
+                }
+                InterpMethod::CubicSpline => {
+                    let dy = y_hi - y_lo;
+                    if dx != 0.0 {
+                        let (b_i, c_i, d_i) = self.coeff_calc(dy, dx, i)?;
+                        if i == index_a || i == index_b {
+                            let x1 = if i == index_a { a } else { x_lo };
+                            let x2 = if i == index_b { b } else { x_hi };
+                            result += integ_eval(y_lo, b_i, c_i, d_i, x_lo, x1, x2);
+                        } else {
+                            result +=
+                                dx * (y_lo + dx * (0.5 * b_i + dx * (c_i / 3.0 + 0.25 * d_i * dx)));
+                        }
+                    } else {
+                        // cspline.c: `*result = 0.0; return GSL_EINVAL;`
+                        return Err(PetirError::Invalid);
+                    }
+                }
+            }
+        }
+        Ok(result)
+    }
+
     /// The method this interpolant uses.
     pub fn method(&self) -> InterpMethod {
         self.method
@@ -431,4 +561,20 @@ impl Interp {
     pub fn x_max(&self) -> f64 {
         self.xa.last().copied().unwrap_or(f64::NAN)
     }
+}
+
+/// The integral of one cubic piece `a + b r + c r^2 + d r^3`, `r = x - xi`,
+/// from `x = a` to `x = b`.
+///
+/// Translates GSL's `integ_eval` (`interpolation/integ_eval.h` lines 24-36)
+/// term for term; the grouping is upstream's and is kept so the rounding
+/// matches compiled GSL.
+fn integ_eval(ai: f64, bi: f64, ci: f64, di: f64, xi: f64, a: f64, b: f64) -> f64 {
+    let r1 = a - xi;
+    let r2 = b - xi;
+    let r12 = r1 + r2;
+    let bterm = 0.5 * bi * r12;
+    let cterm = (1.0 / 3.0) * ci * (r1 * r1 + r2 * r2 + r1 * r2);
+    let dterm = 0.25 * di * r12 * (r1 * r1 + r2 * r2);
+    (b - a) * (ai + bterm + cterm + dterm)
 }

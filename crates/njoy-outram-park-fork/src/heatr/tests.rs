@@ -1,5 +1,6 @@
 //! Unit tests for `heatr` (moved verbatim out of `heatr/mod.rs` on split).
 
+use petir::mathf::RealMath;
 use super::damage::*;
 use super::kerma::*;
 use super::spectra::*;
@@ -184,7 +185,7 @@ fn single_neutron_at_q_zero_matches_elastic_formula() {
         &[],
     );
     let h = kerma.eval(1.0e6);
-    let expected = 3.0 * 1.0e6 * 2.0 * awr / (awr + 1.0).powi(2);
+    let expected = 3.0 * 1.0e6 * 2.0 * awr / (awr + 1.0).r_powi(2);
     assert!(
         (h - expected).abs() / expected < 1.0e-9,
         "H={h}, want {expected}"
@@ -213,12 +214,12 @@ fn discrete_level_heating_is_reduced_by_negative_q() {
         &[],
     );
     let h = kerma.eval(1.0e7);
-    let expected = 1.0 * (1.0e7 * 2.0 * awr / (awr + 1.0).powi(2) + q / (awr + 1.0));
+    let expected = 1.0 * (1.0e7 * 2.0 * awr / (awr + 1.0).r_powi(2) + q / (awr + 1.0));
     assert!(
         (h - expected).abs() / expected.abs() < 1.0e-9,
         "H={h}, want {expected}"
     );
-    let h_elastic_only = 1.0 * 1.0e7 * 2.0 * awr / (awr + 1.0).powi(2);
+    let h_elastic_only = 1.0 * 1.0e7 * 2.0 * awr / (awr + 1.0).r_powi(2);
     assert!(
         h < h_elastic_only,
         "negative Q must reduce heating below the Q=0 term"
@@ -245,7 +246,7 @@ fn nn_alpha_family_uses_single_neutron_formula() {
         &[],
     );
     let h = kerma.eval(8.0e6);
-    let expected = 0.2 * (8.0e6 * 2.0 * awr / (awr + 1.0).powi(2) + q / (awr + 1.0));
+    let expected = 0.2 * (8.0e6 * 2.0 * awr / (awr + 1.0).r_powi(2) + q / (awr + 1.0));
     assert!(
         (h - expected).abs() / expected.abs() < 1.0e-9,
         "H={h}, want {expected}"
@@ -281,7 +282,7 @@ fn all_three_phases_sum_additively() {
         &[],
     );
     let h = kerma.eval(1.0e6);
-    let f = 2.0 * awr / (awr + 1.0).powi(2);
+    let f = 2.0 * awr / (awr + 1.0).r_powi(2);
     let h_elastic = 10.0 * 1.0e6 * f;
     let h_capture = 1.0 * (1.0e6 + 6.0e6);
     let h_level = 0.3 * (1.0e6 * f + (-1.0e6) / (awr + 1.0));
@@ -316,7 +317,7 @@ fn elastic_and_capture_sum_additively() {
         &[],
     );
     let h = kerma.eval(1.0e6);
-    let h_elastic = 10.0 * 1.0e6 * 2.0 * awr / (awr + 1.0).powi(2);
+    let h_elastic = 10.0 * 1.0e6 * 2.0 * awr / (awr + 1.0).r_powi(2);
     let h_capture = 1.0 * (1.0e6 + 6.0e6);
     assert!(
         (h - (h_elastic + h_capture)).abs() < 1.0,
@@ -468,7 +469,7 @@ fn all_four_phases_sum_additively() {
     );
     let h = kerma.eval(1.0e6);
 
-    let f = 2.0 * awr / (awr + 1.0).powi(2);
+    let f = 2.0 * awr / (awr + 1.0).r_powi(2);
     let h_elastic = 10.0 * 1.0e6 * f;
     let h_capture = 1.0 * (1.0e6 + 6.0e6);
     let h_level = 0.3 * (1.0e6 * f + (-1.0e6) / (awr + 1.0));
@@ -685,7 +686,7 @@ fn h5_sums_additively_with_all_prior_phases() {
     );
     let h = kerma.eval(e);
 
-    let f = 2.0 * awr / (awr + 1.0).powi(2);
+    let f = 2.0 * awr / (awr + 1.0).r_powi(2);
     let mean_chi = 1.5 * 0.988e6 + 0.25 * 0.988e6 * 0.988e6 * 2.249e-6;
     let mean_n2n = 1.5 * a + 0.25 * a * a * b;
     let expected = 5.0 * e * f
@@ -767,7 +768,7 @@ fn elastic_damage_is_bounded_by_heating() {
     // E_max at 100 eV: 4·56/57²·100 ≈ 6.9 eV < E_d=40 ⇒ no damage.
     assert_eq!(dmg.eval(1.0e2), 0.0, "below-threshold recoil ⇒ zero damage");
 
-    let f = 2.0 * awr / (awr + 1.0).powi(2); // H1 heating factor
+    let f = 2.0 * awr / (awr + 1.0).r_powi(2); // H1 heating factor
     let mut prev = 0.0;
     for &e in &[1.0e5, 1.0e6, 1.4e7] {
         let d = dmg.eval(e);
@@ -806,7 +807,7 @@ fn damage_empty_without_recoil_channels() {
 fn two_body_recoil_bounds_narrow_with_negative_q() {
     let awr = 56.0_f64;
     let e = 5.0e6_f64;
-    let c = awr / (awr + 1.0).powi(2) * e;
+    let c = awr / (awr + 1.0).r_powi(2) * e;
     let (el_min, el_max) = two_body_recoil_bounds(e, 0.0, awr);
     assert!((el_min).abs() < 1.0, "elastic E_min≈0, got {el_min}");
     assert!(

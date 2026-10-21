@@ -373,6 +373,7 @@ pub fn read_nuclide<P: AsRef<Path>>(path: P) -> Result<ReadNuclide, NjoyError> {
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
 
     /// **Round trip: what this crate writes, this crate reads back.**
@@ -388,8 +389,8 @@ mod tests {
 
         let energy: Vec<f64> = (0..32)
             .map(|i| {
-                let (lo, hi) = (1.0e-5_f64.ln(), 2.0e7_f64.ln());
-                (lo + (hi - lo) * i as f64 / 31.0).exp()
+                let (lo, hi) = (1.0e-5_f64.r_ln(), 2.0e7_f64.r_ln());
+                (lo + (hi - lo) * i as f64 / 31.0).r_exp()
             })
             .collect();
         let n = energy.len();

@@ -607,6 +607,7 @@ fn location_index(loc: BoundaryLocation) -> usize {
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
     use crate::grid::CartesianGrid;
     use crate::transport::{
@@ -864,9 +865,9 @@ mod tests {
             }
             // Mass action for each secondary.
             for (i, row) in stoich.iter().enumerate() {
-                let mut ma = 10f64.powf(log10_k[i]);
+                let mut ma = 10f64.r_powf(log10_k[i]);
                 for j in 0..2 {
-                    ma *= sp.primary[j].powf(row[j]);
+                    ma *= sp.primary[j].r_powf(row[j]);
                 }
                 assert!(
                     (sp.secondary[i] - ma).abs() <= 1e-8 + 1e-8 * ma.abs(),

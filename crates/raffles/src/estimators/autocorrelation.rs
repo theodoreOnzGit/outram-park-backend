@@ -65,6 +65,7 @@
 //!   calculations. *Nuclear Science and Engineering, 145*, 279–290 — the
 //!   power-iteration motivation.
 
+use petir::mathf::RealMath;
 /// Sokal's window constant `c`: the window `M` is the smallest with
 /// `M ≥ c·τ(M)`. Fixed in advance at Sokal's recommended `5`.
 pub const SOKAL_WINDOW_C: f64 = 5.0;
@@ -82,7 +83,7 @@ pub fn autocorrelation(x: &[f64], max_lag: usize) -> Vec<f64> {
         return Vec::new();
     }
     let mean = x.iter().sum::<f64>() / n as f64;
-    let c0: f64 = x.iter().map(|v| (v - mean).powi(2)).sum::<f64>() / n as f64;
+    let c0: f64 = x.iter().map(|v| (v - mean).r_powi(2)).sum::<f64>() / n as f64;
     if !(c0 > 0.0) {
         return Vec::new();
     }

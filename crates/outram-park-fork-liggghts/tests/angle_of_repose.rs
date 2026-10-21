@@ -124,6 +124,7 @@
 //! cargo quick-test -p outram-park-fork-liggghts   # skips it
 //! ```
 
+use petir::mathf::RealMath;
 use outram_park_fork_liggghts::boundary::Boundary;
 use outram_park_fork_liggghts::granular::{GranularContactModel, GranularMaterial, RollingModel};
 use outram_park_fork_liggghts::granular_system::GranularSystem;
@@ -205,7 +206,7 @@ fn repose_angle(centres: &[Vec3], min_count: usize) -> Option<(f64, f64, f64)> {
     let slope = (n * sxy - sx * sy) / (n * sxx - sx * sx);
     let apex = prof.first().map(|p| p.1).unwrap_or(0.0);
     let outer = pts.last().expect("non-empty").0;
-    Some((slope.abs().atan().to_degrees(), apex, outer))
+    Some((slope.abs().r_atan().to_degrees(), apex, outer))
 }
 
 /// Raise the cylinder off a settled column and measure the heap it leaves.
@@ -229,7 +230,7 @@ fn lifting_cylinder_heap_matches_liggghts() {
     };
     let mesh = MeshWall::from_ascii_stl(&stl).expect("valid cylinder stl");
 
-    let mass = RHO * 4.0 / 3.0 * std::f64::consts::PI * R_P.powi(3);
+    let mass = RHO * 4.0 / 3.0 * std::f64::consts::PI * R_P.r_powi(3);
     let particles: Vec<Particle> = init
         .iter()
         .map(|(x, v)| {

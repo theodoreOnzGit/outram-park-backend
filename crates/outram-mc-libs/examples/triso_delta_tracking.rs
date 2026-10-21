@@ -62,6 +62,7 @@
 //! change above; **not re-run since** (salvaged from the `rung5-528` branch,
 //! gh:#786).
 
+use petir::mathf::RealMath;
 use outram_mc_libs::geometry::position::Position;
 use outram_mc_libs::material::material::{Material, NuclideComponent};
 use outram_mc_libs::material::nuclide::Nuclide;
@@ -122,7 +123,7 @@ fn main() {
     println!(
         "Packed {} HEU kernels into a {:.0} cm³ box — realized packing fraction {:.4}.",
         packed.len(),
-        (2.0 * half).powi(3),
+        (2.0 * half).r_powi(3),
         packed.packing_fraction()
     );
 

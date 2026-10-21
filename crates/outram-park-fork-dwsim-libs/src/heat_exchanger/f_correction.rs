@@ -6,6 +6,7 @@
 //! shell-side correlations are not ported, see `op-qo2.7`). Standard TEMA
 //! reference formula (Bowman, Mueller & Nagle 1940).
 
+use petir::mathf::RealMath;
 use uom::si::f64::{Ratio, ThermodynamicTemperature};
 use uom::si::ratio::ratio;
 use uom::si::thermodynamic_temperature::kelvin;
@@ -36,19 +37,19 @@ pub fn f_correction_factor(
     let p = (t_t_out - t_t_in) / (t_s_in - t_t_in);
 
     let f = if (r - 1.0).abs() > 1e-9 {
-        let alpha = ((1.0 - r * p) / (1.0 - p)).powf(1.0 / n);
+        let alpha = ((1.0 - r * p) / (1.0 - p)).r_powf(1.0 / n);
         let sf = (alpha - 1.0) / (alpha - r);
         let sqrt_r2_1 = (r * r + 1.0).sqrt();
-        (sqrt_r2_1 * ((1.0 - sf) / (1.0 - r * sf)).ln())
+        (sqrt_r2_1 * ((1.0 - sf) / (1.0 - r * sf)).r_ln())
             / ((r - 1.0)
-                * ((2.0 - sf * (r + 1.0 - sqrt_r2_1)) / (2.0 - sf * (r + 1.0 + sqrt_r2_1))).ln())
+                * ((2.0 - sf * (r + 1.0 - sqrt_r2_1)) / (2.0 - sf * (r + 1.0 + sqrt_r2_1))).r_ln())
     } else {
         let sf = p / (n * (1.0 - p) + p);
         (sf * std::f64::consts::SQRT_2)
             / ((1.0 - sf)
                 * ((2.0 * (1.0 - sf) + sf * std::f64::consts::SQRT_2)
                     / (2.0 * (1.0 - sf) - sf * std::f64::consts::SQRT_2))
-                    .ln())
+                    .r_ln())
     };
     Ratio::new::<ratio>(f)
 }

@@ -332,6 +332,7 @@ mod tests {
     //! atom conservation. These are **verification** against algebra and a second
     //! solver, **not** validation against measured data — untrusted AI-assisted
     //! draft, pending human review (workspace `RESPONSIBLE_USE.md`).
+    use petir::mathf::RealMath;
 
     use super::*;
     use crate::reactions::{
@@ -365,7 +366,7 @@ mod tests {
         let gout = reactor.solve(&feed).unwrap();
 
         // Closed form with the minimiser's (CODATA) R.
-        let k = (-dg / (R * t)).exp();
+        let k = (-dg / (R * t)).r_exp();
         let nb = k / (1.0 + k);
         assert!(
             (gout.molar_flows[1] - nb).abs() < 1e-9,
@@ -430,7 +431,7 @@ mod tests {
         let feed = ReactorFeed::new(vec![1.0, 1.0, 0.0, 0.0], t, 1.0e5, 0.0);
         let out = reactor.solve(&feed).unwrap();
 
-        let k = (-dg / (R * t)).exp();
+        let k = (-dg / (R * t)).r_exp();
         let sk = k.sqrt();
         let xi = sk / (1.0 + sk);
         let expect = [1.0 - xi, 1.0 - xi, xi, xi];
@@ -482,7 +483,7 @@ mod tests {
         let feed = ReactorFeed::new(vec![1.0, 0.0], t, 1.0e5, 0.0);
         let out = reactor.solve(&feed).unwrap();
 
-        let k = (-dh_b / (R * t)).exp();
+        let k = (-dh_b / (R * t)).r_exp();
         let nb = k / (1.0 + k);
         let expected_heat = nb * dh_b; // (F_out,B - 0)*ΔH_f,B
         assert!(out.heat_of_reaction < 0.0, "should be exothermic");

@@ -151,4 +151,4 @@ cargo test  --release -p deck-based-open-source-visualisation-engine-for-reactor
 
 ## Licence
 
-GPL-3.0-only, inherited from the workspace.
+~~GPL-3.0-only~~ **AGPL-3.0-only** (relicensed 2026-10-20, gh:#973), inherited from the workspace.

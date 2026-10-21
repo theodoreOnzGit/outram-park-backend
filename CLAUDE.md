@@ -326,6 +326,29 @@ is incomplete. Record results where a reader meets the test: in the `///` doc
 comment of the test/example itself, and — for iterative studies worth citing in a
 paper — in the relevant `docs/` development-history entry.
 
+### Code-to-code: round-off-level differences are acceptable below 1e-8 relative
+
+**Maintainer judgment, 2026-10-20.** When a port is compared against its upstream
+(or two routes are compared), **bit-identity is the goal, but a round-off-level
+difference — e.g. 1 ulp from a different `libm`, a vectorised `exp`, or a changed
+operation order — is acceptable when the relative difference is below 1e-8.**
+
+- **Bit-identical is still strongly preferred** (maintainer, same day): it is a
+  yes/no check that automation can judge alone. **The moment a residual appears,
+  a human has to judge it**, and review time is the scarcest resource here (see
+  "Human review is the bottleneck"). So do the work to reach bit-identity first —
+  match the operation order, the `libm`, the FMA use — and use this allowance only
+  where that is genuinely out of reach, saying why.
+- **Still report it, and flag it for the maintainer.** State the count
+  bit-identical, the worst difference and its cause; "acceptable" means it does
+  not block a merge, not that it goes unrecorded or unreviewed.
+- **Explain the cause.** An unexplained difference is a finding to investigate,
+  whatever its size; this allowance is for differences whose round-off origin is
+  understood.
+- **It does not relax physics V&V gates** (benchmark residuals, pcm, experimental
+  tolerances), nor a bit-identity pin a test already holds — moving such a pin
+  still needs the reasons the "PROCESS right first" section demands.
+
 
 ## Search the workspace before building anything (HARD RULE)
 
@@ -577,6 +600,12 @@ gh issue comment <number> --body "..."           # progress
 
 ## Build & test
 
+**Toolchain: Rust 1.99.1** (maintainer direction, 2026-10-20: "make 1.99 the
+standard"), pinned in the root `rust-toolchain.toml`, so rustup selects it for
+every cargo command in the repo. The Pages build stays on its own pinned 1.98.0
+(`RUSTUP_TOOLCHAIN` in `.github/workflows/pages.yml`, gh:#772) until that pin is
+bumped deliberately. Historical records keep the toolchain they were run with.
+
 > Measured evidence, the CI-trigger investigation and the long-tests worked
 > examples: [`docs/claude-md-rationale/build-test-and-ci.md`](docs/claude-md-rationale/build-test-and-ci.md).
 
@@ -729,7 +758,7 @@ Several crates that used to live as independent GitHub repositories under
 `github.com/theodoreOnzGit` are now consolidated here under `crates/` and are
 built, tested, and published from this single repository.
 
-~~**47 member crates**~~ **48 member crates** (`kovan-web` added 2026-10-06), all GPL-3.0 except ~~`kovan` (AGPL-3.0-only)~~ the **whole kovan family** (`kovan`, `kovan-web`, and since 2026-10-07 `kovan-common`, `kovan-literature`, `kovan-discovery`, `kovan-semantics`, `kovan-metrics`, `kovan-codegen`) and, since 2026-10-05, `dhoby-ghaut`, which depends on `kovan` (all AGPL-3.0-only). The roster,
+~~**47 member crates**~~ **48 member crates** (`kovan-web` added 2026-10-06). ~~All GPL-3.0 except the whole kovan family (`kovan`, `kovan-web`, and since 2026-10-07 `kovan-common`, `kovan-literature`, `kovan-discovery`, `kovan-semantics`, `kovan-metrics`, `kovan-codegen`) and, since 2026-10-05, `dhoby-ghaut`, which depends on `kovan` (all AGPL-3.0-only).~~ **CORRECTED 2026-10-20 (gh:#973, maintainer direction): 43 of the 48 are now `AGPL-3.0-only`**, and the root `[workspace.package]` default is too. ~~**Five are HELD at `GPL-3.0-only` by an explicit `license` field** until their third-party authors' consent is recorded on gh:#973 — `bedok`, `raffles`, `tampines`, `tampines-steam-tables`, `tuas_boussinesq_solver`. **Most FILES still carry a GPL-3.0 SPDX header and must keep it**: a translation of a copyleft upstream (OpenFOAM, GSL, cfMesh, DWSIM, FLEXPART, Blender, RustBCA, PFLOTRAN, MOOSE/PRISMS, Moltres, the Octave control package) cannot be relicensed, so 18 crates — PETIR among them — convey as **AGPL combined works under GPLv3 §13 / AGPLv3 §13** and ship `LICENSE.GPL-3.0` beside `LICENSE`. The per-crate record, with the published versions each crate grandfathers, is [`docs/relicensing-agpl-2026-10-20.md`](docs/relicensing-agpl-2026-10-20.md).~~ **CORRECTED AGAIN 2026-10-20 (maintainer: "All crates AGPLv3"): all 48 are `AGPL-3.0-only`**; `tuas_boussinesq_solver`, `tampines` and `tampines-steam-tables` convey as combined works with `LICENSE.GPL-3.0`. Record: `docs/relicensing-agpl-2026-10-20.md`. The roster,
 maturity marks, internal dependency edges and the dependency policy (all
 versions in the root `[workspace.dependencies]`) are in
 [`docs/claude-md/members-and-dependencies.md`](docs/claude-md/members-and-dependencies.md).

@@ -96,8 +96,8 @@ Citations appreciated.
 
 ## Licenses 
 
-This crate is released under the **GNU General Public License v3.0 only
-(GPL-3.0-only)** — see the `LICENSE` file.
+This crate is released under the ~~**GNU General Public License v3.0 only
+(GPL-3.0-only)**~~ **GNU Affero General Public License v3.0 only (AGPL-3.0-only)**, as a combined work (relicensed 2026-10-20, gh:#973; the `z_domain` port keeps GPL-3.0-or-later and `LICENSE.GPL-3.0` ships beside `LICENSE`; see `docs/relicensing-agpl-2026-10-20.md`) — see the `LICENSE` file.
 
 It was **relicensed from Apache-2.0 to GPL-3.0-only on 2026-08-11** at the
 direction of the maintainer, who is the sole copyright holder (verified

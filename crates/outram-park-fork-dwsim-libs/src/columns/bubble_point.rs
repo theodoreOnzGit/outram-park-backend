@@ -98,6 +98,7 @@
 //!   therefore always false and the update is the unconditional 50 % average
 //!   `T = (T_new + T_old)/2`. Preserved.
 
+use petir::mathf::RealMath;
 use ndarray::Array2;
 
 use crate::columns::linalg::{broyden_root, lu_solve, RootFindOptions};
@@ -797,7 +798,7 @@ impl WangHenkeSolver {
                 }
             }
 
-            t_error = (0..n).map(|i| (tj[i] - tj_ant[i]).powi(2)).sum();
+            t_error = (0..n).map(|i| (tj[i] - tj_ant[i]).r_powi(2)).sum();
 
             // step6 — vapour compositions with stage efficiency (lines 1441-1457).
             for i in (0..n).rev() {

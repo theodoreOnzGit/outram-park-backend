@@ -26,6 +26,8 @@
 //! round-trip at tolerance 1e-4), the corresponding test here checks the
 //! same identity at a tighter tolerance.
 
+use petir::mathf::RealMath;
+
 use uom::si::f64::*;
 use uom::si::ratio::ratio;
 use uom::si::time::second;
@@ -84,7 +86,7 @@ fn zoh_first_order_coefficients_match_analytic_closed_form() {
     let g = ContinuousTransferFn::first_order(k_p, tau).unwrap();
     let d = g.to_discrete(t_samp, C2dMethod::Zoh).unwrap();
 
-    let a = (-0.1_f64 / 0.8).exp();
+    let a = (-0.1_f64 / 0.8).r_exp();
     let expected_num = [0.0, 2.5 * (1.0 - a)];
     let expected_den = [1.0, -a];
 
@@ -414,7 +416,7 @@ fn matched_maps_poles_zeros_and_matches_dc_gain() {
         .collect();
 
     let expect_p = {
-        let mut v = vec![(-0.2_f64).exp(), (-0.3_f64).exp()];
+        let mut v = vec![(-0.2_f64).r_exp(), (-0.3_f64).r_exp()];
         v.sort_by(|a, b| a.partial_cmp(b).unwrap());
         v
     };
@@ -423,7 +425,7 @@ fn matched_maps_poles_zeros_and_matches_dc_gain() {
         .zip(expect_p.iter())
         .map(|(a, b)| (a - b).abs())
         .collect();
-    let zero_dev = (zeros[0] - (-0.1_f64).exp()).abs();
+    let zero_dev = (zeros[0] - (-0.1_f64).r_exp()).abs();
 
     // DC gain: H_d(1) vs H_c(0) = 1/6
     let h_d_dc = polynomial::eval(d1.numerator_z_inverse(), Cplx::real(1.0))

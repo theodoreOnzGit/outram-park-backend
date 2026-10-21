@@ -35,6 +35,7 @@
 //! here. Photon products are recorded only as *present*, because their
 //! presence decides whether a redundant reaction survives `export_to_hdf5`.
 
+use petir::mathf::RealMath;
 use std::collections::BTreeMap;
 use std::path::Path;
 
@@ -456,7 +457,7 @@ fn fission_products_ace(t: &RawAceTable) -> Result<(Vec<Product>, Vec<Product>),
                 let mut c = Vec::with_capacity(nc);
                 for i in 0..nc {
                     // `coefficients[i] *= EV_PER_MEV**(-i)`
-                    c.push(px(t, idx + 2 + i)? * EV_PER_MEV.powf(-(i as f64)));
+                    c.push(px(t, idx + 2 + i)? * EV_PER_MEV.r_powf(-(i as f64)));
                 }
                 Ok(Function1D::Polynomial(Polynomial { coef: c }))
             }

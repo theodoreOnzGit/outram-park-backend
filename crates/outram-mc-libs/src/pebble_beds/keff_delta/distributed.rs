@@ -97,6 +97,7 @@ pub fn transport_chunk<Q: MaterialQuery>(
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
     use crate::material::material::NuclideComponent;
     use crate::physics::compute::ThreadCount;
@@ -114,7 +115,7 @@ mod tests {
             temperature: 293.6,
         };
         let mats = vec![mat(1, 4.4994e-2, 2.4984e-3), mat(2, 1.0e-4, 4.7e-2)];
-        let grid: Vec<f64> = (0..400).map(|i| 1.0e-5 * (2.0e7_f64 / 1.0e-5).powf(i as f64 / 399.0)).collect();
+        let grid: Vec<f64> = (0..400).map(|i| 1.0e-5 * (2.0e7_f64 / 1.0e-5).r_powf(i as f64 / 399.0)).collect();
         let maj = Majorant::over_indices(&mats, &[0, 1], &nucs, &grid, 0.3);
         (DeltaDomain::Cube { half: 5.0 }, mats, nucs, maj)
     }

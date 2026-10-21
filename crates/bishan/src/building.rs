@@ -53,6 +53,8 @@
 //! - Separate cavities; aerosol physics; resuspension.
 //! - **Not dose.** BISHAN ends at what is released.
 
+use petir::mathf::RealMath;
+
 use uom::si::f64::{Frequency, Time};
 use uom::si::frequency::hertz;
 use uom::si::time::second;
@@ -148,7 +150,7 @@ pub fn step(
     let beta = lambda + k_ex + k_dep;
     let b0 = state.airborne;
     let (b1, integral) = if beta * dt > 1.0e-12 {
-        let e = (-beta * dt).exp();
+        let e = (-beta * dt).r_exp();
         let b_eq = inflow / beta;
         (
             b0 * e + b_eq * (1.0 - e),
@@ -243,7 +245,7 @@ mod tests {
     fn the_steady_building_passes_inflow_less_decay() {
         let p = BuildingParameters::htr10();
         let k_ex = 1.0 / 86_400.0;
-        for lam in [0.0, (2.0f64).ln() / (8.02 * 86_400.0)] {
+        for lam in [0.0, (2.0f64).r_ln() / (8.02 * 86_400.0)] {
             let (s, st) = step(
                 BuildingInventory::default(),
                 1.0e6,

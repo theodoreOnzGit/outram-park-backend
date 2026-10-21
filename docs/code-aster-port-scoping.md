@@ -16,7 +16,7 @@
 
 | Property | Value | Why it matters here |
 |---|---|---|
-| Licence | **GPL-3.0-or-later** — root `LICENSE` is the GPLv3 text; every source header reads *"either version 3 of the License, or (at your option) any later version"* | Identical to this workspace, with the "or later" upgrade path. No compatibility work. |
+| Licence | **GPL-3.0-or-later** — root `LICENSE` is the GPLv3 text; every source header reads *"either version 3 of the License, or (at your option) any later version"* | ~~Identical to this workspace, with the "or later" upgrade path.~~ **CORRECTED 2026-10-20 (gh:#973):** the workspace is now `AGPL-3.0-only`; ported files stay GPL-3.0 and the crate conveys as a combined work under GPLv3 §13. No further compatibility work. |
 | Copyright | `Copyright (C) 1991 - 2026 - EDF` | Live, actively maintained (HEAD one day old at survey time). |
 | Domain | Nonlinear structural and thermo-mechanical analysis, built by EDF to justify the integrity and remaining life of its own reactor fleet | The constitutive laws are *specifically* the nuclear ones — irradiation creep, Zircaloy anisotropy, vessel steels — not generic mechanical-engineering fare. |
 | Law catalogue | **231 declarative behaviour records** in `code_aster/Behaviours/*.py`, each carrying `num_lc`, state-variable names, supported modelisations, and integration algorithms | Machine-readable. The Rust registry can be **generated** from it rather than hand-transcribed. |
@@ -246,7 +246,7 @@ deriving a multiplier.
 
 ## 7. Constraints and obligations
 
-- **Licence provenance.** GPL-3.0-or-later, compatible with this workspace.
+- **Licence provenance.** GPL-3.0-or-later, compatible with this workspace (now `AGPL-3.0-only`, via GPLv3 §13, 2026-10-20, gh:#973).
   Every ported file keeps an attribution header naming the upstream project,
   source file, commit (`b504ea08`), copyright (`EDF 1991–2026`) and licence —
   the pattern `outram-park-fork-offbeat` already uses.

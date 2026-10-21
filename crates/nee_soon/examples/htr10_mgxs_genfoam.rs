@@ -54,6 +54,7 @@
 //! in IAEA-TECDOC-1382. Quoting a benchmark comparison from this would be
 //! exactly the kind of fitted-looking number the workspace rules forbid.
 
+use petir::mathf::RealMath;
 use std::sync::Arc;
 
 use nee_soon::genfoam_xs::to_nuclear_data_input;
@@ -232,7 +233,7 @@ fn main() {
     // Region-local majorant over the BED materials only: the reflector is
     // surface-tracked and must not raise the bed's delta-tracking cost.
     let grid: Vec<f64> = (0..4096)
-        .map(|i| (1.0e-4_f64.ln() + (2.0e7_f64.ln() - 1.0e-4_f64.ln()) * i as f64 / 4095.0).exp())
+        .map(|i| (1.0e-4_f64.r_ln() + (2.0e7_f64.r_ln() - 1.0e-4_f64.r_ln()) * i as f64 / 4095.0).r_exp())
         .collect();
     let bed_mats: Vec<usize> = (0..=mat::HELIUM).collect();
     let maj = Majorant::over_indices(&mats, &bed_mats, &nucs, &grid, 0.3);
@@ -265,9 +266,9 @@ fn main() {
     let edges: Vec<f64> = if n_groups == 2 {
         vec![1.0e-5, 2.38, 2.0e7]
     } else {
-        let (l0, l1) = (1.0e-5_f64.ln(), 2.0e7_f64.ln());
+        let (l0, l1) = (1.0e-5_f64.r_ln(), 2.0e7_f64.r_ln());
         (0..=n_groups)
-            .map(|i| (l0 + (l1 - l0) * i as f64 / n_groups as f64).exp())
+            .map(|i| (l0 + (l1 - l0) * i as f64 / n_groups as f64).r_exp())
             .collect()
     };
     let groups = GroupStructure::new(edges).expect("ascending edges");

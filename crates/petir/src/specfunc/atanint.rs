@@ -113,11 +113,11 @@ pub fn atanint(x: f64) -> f64 {
         x * crate::cheb_slice::eval_gsl(t, &ATANINT)
     } else if ax < 1.0 / SQRT_DBL_EPSILON {
         let t = 2.0 * (1.0 / (x * x) - 0.5);
-        sgn * (0.5 * core::f64::consts::PI * ax.ln()
+        sgn * (0.5 * core::f64::consts::PI * Real::ln(ax)
             + crate::cheb_slice::eval_gsl(t, &ATANINT) / ax)
     } else {
         // The series at 1/x^2 has collapsed to its leading term, 1.
-        sgn * (0.5 * core::f64::consts::PI * ax.ln() + 1.0 / ax)
+        sgn * (0.5 * core::f64::consts::PI * Real::ln(ax) + 1.0 / ax)
     }
 }
 

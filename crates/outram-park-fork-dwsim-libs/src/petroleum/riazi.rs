@@ -87,6 +87,7 @@
 //!   value is then `×1e5` (`:448`), so the tabulated critical pressure is
 //!   **1.3 % low** relative to a true bar → Pa conversion. Reproduced.
 
+use petir::mathf::RealMath;
 use uom::si::f64::{MolarMass, Pressure, Ratio, ThermodynamicTemperature};
 use uom::si::molar_mass::gram_per_mole;
 use uom::si::pressure::pascal;
@@ -254,7 +255,7 @@ pub fn distribute_riazi(
     if sg != 0.0 {
         let sg0 = 0.7;
         let avx = sg / sg0 - 1.0;
-        let a = (avx / 0.619).powi(3);
+        let a = (avx / 0.619).r_powi(3);
         let b = 3.0;
         let d = inverse_distribution_grid(a, b);
         let z = cut_fractions(&d, a, b, n, n + 1);
@@ -280,10 +281,10 @@ pub fn distribute_riazi(
 
     // ---- boiling-point distribution (`:153-207`) --------------------------
     if wk != 0.0 {
-        let tb0 = 1080.0 - (6.97996 - 0.01964 * 90.0_f64.powf(2.0 / 3.0)).exp();
-        let tb = (sg * wk).powi(3) * 0.55556;
+        let tb0 = 1080.0 - (6.97996 - 0.01964 * 90.0_f64.r_powf(2.0 / 3.0)).r_exp();
+        let tb = (sg * wk).r_powi(3) * 0.55556;
         let avx = tb / tb0 - 1.0;
-        let a = (avx / 0.689).powf(1.5);
+        let a = (avx / 0.689).r_powf(1.5);
         let b = 1.5;
         let d = inverse_distribution_grid(a, b);
         let z = cut_fractions(&d, a, b, n, n + 1);
@@ -308,10 +309,10 @@ pub fn distribute_riazi(
     }
 
     // ---- back-fill the properties the caller did not supply (`:209-281`) --
-    let tb_from_mw = |m: f64| 1080.0 - (6.97996 - 0.01964 * m.powf(2.0 / 3.0)).exp();
-    let sg_from_mw = |m: f64| 1.07 - (3.56073 - 2.93886 * m.powf(0.1)).exp();
-    let mw_from_sg = |s: f64| (((1.07 - s).ln() - 3.56073) / -2.93886).powi(10);
-    let mw_from_tb = |t: f64| (1.0 / 0.01964 * (6.97996 - (1080.0 - t).ln())).powf(1.5);
+    let tb_from_mw = |m: f64| 1080.0 - (6.97996 - 0.01964 * m.r_powf(2.0 / 3.0)).r_exp();
+    let sg_from_mw = |m: f64| 1.07 - (3.56073 - 2.93886 * m.r_powf(0.1)).r_exp();
+    let mw_from_sg = |s: f64| (((1.07 - s).r_ln() - 3.56073) / -2.93886).r_powi(10);
+    let mw_from_tb = |t: f64| (1.0 / 0.01964 * (6.97996 - (1080.0 - t).r_ln())).r_powf(1.5);
 
     if mw != 0.0 && sg == 0.0 && wk == 0.0 {
         for i in 0..n {
@@ -360,14 +361,14 @@ pub fn distribute_riazi(
         let t = tb_p[i];
         tc_p[i] =
             189.8 + 450.6 * s + (0.4244 + 0.1174 * s) * t + (0.1441 - 1.0069 * s) * 100_000.0 / t;
-        pc_p[i] = (5.689 - 0.0566 / s - (0.43639 + 4.1216 / s + 0.21343 / s.powi(2)) * 0.001 * t
-            + (0.47579 + 1.182 / s + 0.15302 / s.powi(2)) * 0.000_001 * t.powi(2)
-            - (2.4505 + 9.9099 / s.powi(2)) * 0.000_000_000_1 * t.powi(3))
-        .exp();
+        pc_p[i] = (5.689 - 0.0566 / s - (0.43639 + 4.1216 / s + 0.21343 / s.r_powi(2)) * 0.001 * t
+            + (0.47579 + 1.182 / s + 0.15302 / s.r_powi(2)) * 0.000_001 * t.r_powi(2)
+            - (2.4505 + 9.9099 / s.r_powi(2)) * 0.000_000_000_1 * t.r_powi(3))
+        .r_exp();
         let tbr = t / tc_p[i];
-        w_p[i] = (-(pc_p[i] / 1.01325).ln() - 5.92714 + 6.09648 / tbr + 1.28862 * tbr.ln()
-            - 0.169347 * tbr.powi(6))
-            / (15.2518 - 15.6875 / tbr - 13.4721 * tbr.ln() + 0.43577 * tbr.powi(6));
+        w_p[i] = (-(pc_p[i] / 1.01325).r_ln() - 5.92714 + 6.09648 / tbr + 1.28862 * tbr.r_ln()
+            - 0.169347 * tbr.r_powi(6))
+            / (15.2518 - 15.6875 / tbr - 13.4721 * tbr.r_ln() + 0.43577 * tbr.r_powi(6));
         // bar -> atm (`:292`); the reported value is later multiplied by 1e5.
         pc_p[i] *= 0.986923;
     }
@@ -394,9 +395,9 @@ pub fn distribute_riazi(
         let avx = vv1 / v0 - 1.0;
         let b = 0.7_f64;
         let a = (avx
-            / (0.992814 - 0.504242 * b.powi(-1) + 0.696215 * b.powi(-2) - 0.272936 * b.powi(-3)
-                + 0.088362 * b.powi(-4)))
-        .powf(b)
+            / (0.992814 - 0.504242 * b.r_powi(-1) + 0.696215 * b.r_powi(-2) - 0.272936 * b.r_powi(-3)
+                + 0.088362 * b.r_powi(-4)))
+        .r_powf(b)
             * b;
         let d = inverse_distribution_grid(a, b);
         let z = cut_fractions(&d, a, b, n, n + 1);
@@ -418,9 +419,9 @@ pub fn distribute_riazi(
         let avx = vv2 / v0 - 1.0;
         let b = 0.7_f64;
         let a = (avx
-            / (0.992814 - 0.504242 * b.powi(-1) + 0.696215 * b.powi(-2) - 0.272936 * b.powi(-3)
-                + 0.088362 * b.powi(-4)))
-        .powf(b)
+            / (0.992814 - 0.504242 * b.r_powi(-1) + 0.696215 * b.r_powi(-2) - 0.272936 * b.r_powi(-3)
+                + 0.088362 * b.r_powi(-4)))
+        .r_powf(b)
             * b;
         let d = inverse_distribution_grid(a, b);
         let z = cut_fractions(&d, a, b, n, n + 1);
@@ -461,7 +462,7 @@ pub fn distribute_riazi(
 /// siblings. `d(0) = 0` and the grid rises monotonically.
 fn inverse_distribution_grid(a: f64, b: f64) -> Vec<f64> {
     (0..GRID)
-        .map(|i| (a / b * (1.0 / (1.0 - i as f64 / 1000.0)).ln()).powf(1.0 / b))
+        .map(|i| (a / b * (1.0 / (1.0 - i as f64 / 1000.0)).r_ln()).r_powf(1.0 / b))
         .collect()
 }
 
@@ -476,7 +477,7 @@ fn cut_fractions(d: &[f64], a: f64, b: f64, n: usize, divisor: usize) -> Vec<f64
         .map(|i| {
             let lo = grid_index(d, (i as f64 - 1.0) * 999.0 / divisor as f64);
             let hi = grid_index(d, i as f64 * 999.0 / divisor as f64);
-            (-b / a * lo.powf(b)).exp() - (-b / a * hi.powf(b)).exp()
+            (-b / a * lo.r_powf(b)).r_exp() - (-b / a * hi.r_powf(b)).r_exp()
         })
         .collect()
 }
@@ -487,7 +488,7 @@ fn cut_q_values(d: &[f64], a: f64, b: f64, n: usize) -> Vec<f64> {
     (0..n)
         .map(|i| {
             let x = grid_index(d, (i as f64 + 1.0) * 1000.0 / (n as f64 + 1.0));
-            b / a * x.powf(b)
+            b / a * x.r_powf(b)
         })
         .collect()
 }
@@ -509,7 +510,7 @@ fn cut_means_surrogate(
     surrogate: (f64, f64, f64, f64),
 ) -> Vec<f64> {
     let (a, b, c, d) = surrogate;
-    let g = |x: f64| b - (b - a) * (-c * x.powf(d)).exp();
+    let g = |x: f64| b - (b - a) * (-c * x.r_powf(d)).r_exp();
     (1..=n)
         .map(|i| {
             let (g1, g2) = if i != n {
@@ -517,7 +518,7 @@ fn cut_means_surrogate(
             } else {
                 (g(q[i - 2]), g(q[i - 1]))
             };
-            1.0 / z[i - 1] * (a_param / b_param).powf(1.0 / b_param) * (g1 - g2)
+            1.0 / z[i - 1] * (a_param / b_param).r_powf(1.0 / b_param) * (g1 - g2)
         })
         .collect()
 }

@@ -37,6 +37,8 @@
 //! physics has none, and would flip which side looked hotter depending on
 //! which run happened to be drawn first.
 
+use petir::mathf::RealMath;
+
 use crate::components::{temperature_colour, PipePhaseShade};
 use egui::{Color32, Pos2, Response, Sense, Stroke, Ui, Vec2, Widget};
 use uom::si::angle::radian;
@@ -229,7 +231,7 @@ impl PipeBendVisual {
     pub fn turn_angle(&self) -> f32 {
         let a = self.in_direction.normalized();
         let b = self.out_direction.normalized();
-        (a.x * b.x + a.y * b.y).clamp(-1.0, 1.0).acos()
+        (a.x * b.x + a.y * b.y).clamp(-1.0, 1.0).r_acos()
     }
 
     /// The filled sector, as a polygon: the inner corner followed by the arc
@@ -238,7 +240,7 @@ impl PipeBendVisual {
         let (na, _nb) = self.outward_normals();
         let r = self.thickness.max(1.0);
 
-        let start = na.y.atan2(na.x);
+        let start = na.y.r_atan2(na.x);
         // Sweep magnitude is the turn angle itself: both normals are the run
         // directions rotated by the same right angle, so the angle between the
         // normals equals the angle between the runs. Its DIRECTION comes from
@@ -258,8 +260,8 @@ impl PipeBendVisual {
         for i in 0..=segments {
             let a = start + sweep * (i as f32 / segments as f32);
             pts.push(Pos2::new(
-                self.inner_corner.x + r * a.cos(),
-                self.inner_corner.y + r * a.sin(),
+                self.inner_corner.x + r * a.r_cos(),
+                self.inner_corner.y + r * a.r_sin(),
             ));
         }
         pts
@@ -345,7 +347,7 @@ mod tests {
         let pts = b.sector();
         assert_eq!(pts[0], centre, "first point must be the inner corner");
         for p in &pts[1..] {
-            let r = ((p.x - centre.x).powi(2) + (p.y - centre.y).powi(2)).sqrt();
+            let r = ((p.x - centre.x).r_powi(2) + (p.y - centre.y).r_powi(2)).sqrt();
             assert!((r - 40.0).abs() < 1e-3, "arc radius {r}, expected 40.0");
         }
     }
@@ -358,7 +360,7 @@ mod tests {
         let b = bend(Vec2::new(1.0, 0.0), Vec2::new(0.0, -1.0));
         let pts = b.sector();
         let c = b.inner_corner;
-        let ang = |p: &Pos2| (p.y - c.y).atan2(p.x - c.x);
+        let ang = |p: &Pos2| (p.y - c.y).r_atan2(p.x - c.x);
         let mut sweep = (ang(pts.last().unwrap()) - ang(&pts[1])).abs();
         if sweep > std::f32::consts::PI {
             sweep = std::f32::consts::TAU - sweep;
@@ -408,7 +410,7 @@ mod tests {
 
         let dirs = |deg: f32| {
             let a = deg.to_radians();
-            (Vec2::new(1.0, 0.0), Vec2::new(a.cos(), -a.sin()))
+            (Vec2::new(1.0, 0.0), Vec2::new(a.r_cos(), -a.r_sin()))
         };
         let (d_in, d_out) = dirs(270.0);
 

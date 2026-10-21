@@ -137,6 +137,7 @@
 //! - The wavy map produces non-orthogonality with only mild **skewness**. The
 //!   two are distinct mesh defects and this operator corrects the former only.
 
+use petir::mathf::RealMath;
 use std::sync::Arc;
 
 use outram_foam_basic_lib::fields::boundary::bc::PatchField;
@@ -222,8 +223,14 @@ fn wavy_mesh(nx: usize, ny: usize, amp: f64) -> Arc<FvMesh> {
         let x = i as f64 * dx;
         let y = j as f64 * dy;
         Vector3::new(
-            x + amp * h * (std::f64::consts::PI * x).sin() * (2.0 * std::f64::consts::PI * y).sin(),
-            y + amp * h * (2.0 * std::f64::consts::PI * x).sin() * (std::f64::consts::PI * y).sin(),
+            x + amp
+                * h
+                * (std::f64::consts::PI * x).r_sin()
+                * (2.0 * std::f64::consts::PI * y).r_sin(),
+            y + amp
+                * h
+                * (2.0 * std::f64::consts::PI * x).r_sin()
+                * (std::f64::consts::PI * y).r_sin(),
             0.0,
         )
     };

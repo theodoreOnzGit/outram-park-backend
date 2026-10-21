@@ -43,6 +43,7 @@
 //! its own evaluation. Cells at or upwind of the stack (`x <= 0`) are zero:
 //! the Gaussian plume has no upwind branch.
 
+use petir::mathf::RealMath;
 use buangkok::pydoseia::dispersion::{
     height_correction_factor, master_equation_single_plume, sigma_y, sigma_z, Receptor,
     StabilityClass,
@@ -118,7 +119,7 @@ pub fn chi_over_q_field(
     };
     // Unit vector the plume TRAVELS along, (east, north).
     let travel = (wind_from_deg + 180.0).to_radians();
-    let (tx, ty) = (travel.sin(), travel.cos());
+    let (tx, ty) = (travel.r_sin(), travel.r_cos());
     let mut out = Vec::with_capacity(cells * cells);
     for row in 0..cells {
         for column in 0..cells {

@@ -90,30 +90,59 @@ dissolved atoms, in precipitates, or in gas bubbles. The *chemical form* of
 each is what fixes its mobility. For example, that strontium diffuses
 $10^9$ times slower in the kernel than in PyC (item 2) is a coefficient the
 crate carries; **why**, in terms of which compound Sr forms in UO₂, is not in
-the repo. `[citation needed: maintainer to supply chemical forms of Cs and Sr
-in the UO₂ kernel and their effect on mobility.]`
+the repo. ~~`[citation needed]`~~ **Partly sourced 2026-10-21:**
+IAEA-TECDOC-1645 (*High Temperature Gas Cooled Reactor Fuels and Materials*,
+IAEA, Vienna, 2010, section 10.3.1, "Behavior of chemically active fission
+products in fuel") says Sr, with Zr and Nb, has significant solubility in UO₂
+and is easy to oxidise (SrO), whereas Cs "has low solubility and might be
+oxidized to Cs2O depending on the fuel temperature and oxygen potential", and
+that significant Cs release from the kernel was observed in the work it
+cites. That is consistent with Sr being held in the oxide kernel better than
+Cs, but it gives no diffusion coefficient, so the factor of $10^9$ is still
+the crate's own. Proprietary-folder source.
 
 **Noble gases (Kr, Xe).** They are chemically inert, so they do not bond to
 anything. In the crate they form their own release group (He, Ne, Ar, Kr, Xe,
 Rn) with an empirical release-to-birth correlation, and they "do not plate
 out" ([`ElementGroup`](../../code-review/#crates/boon-lay/src/triso_atops_fork/nuclide_model/mod.rs::from_atomic_number)).
 The idea that they move only through defects and bubbles is the textbook
-picture, but the repo does not state it. `[citation needed: maintainer to
-supply.]`
+picture, but the repo does not state it. ~~`[citation needed]`~~ **Partly
+sourced 2026-10-21:** IAEA-TECDOC-1645 (IAEA, Vienna, 2010, section 10.3.1)
+describes fission gas in a UO₂ kernel as atoms in the lattice and gas in
+intragranular and intergranular bubbles, with release to the buffer by
+percolation once the intergranular porosity interconnects (release of about
+20 % at 4 % FIMA to about 35 % at 10 % FIMA at 1450 K in the work it cites).
+That supports "defects and bubbles" for the kernel only; transport of the
+gases through the PyC and SiC layers is not covered by the passage read.
+Proprietary-folder source.
 
 **Silver (and palladium).** The crate groups Ag and Pd and releases them by a
 *breakthrough* model through the SiC, "the limiting barrier for Ag"
 ([`ElementGroup::Silver`](../../code-review/#crates/boon-lay/src/triso_atops_fork/nuclide_model/mod.rs::from_atomic_number)).
 That Ag moves through SiC grain boundaries, and that Pd attacks the SiC, are
 not stated in the repo as mechanisms. What the repo does state about SiC
-attack is in step 4 (`grain_boundary.rs`). `[citation needed: maintainer to
-supply for Ag along grain boundaries and for Pd attack.]`
+attack is in step 4 (`grain_boundary.rs`). ~~`[citation needed]`~~ **Sourced
+2026-10-21 (proprietary-folder sources), and the Ag half corrects the picture
+"Ag moves along grain boundaries":**
+
+- *Pd attack.* NUREG/CR-6844 (*TRISO-Coated Particle Fuel PIRTs*, U.S. NRC,
+  2004, pp. 2-19 and 2-47) says palladium migrates to the SiC and attacks it
+  at high temperature (above about 1300 °C), and is the noble metal of greatest
+  concern. IAEA-TECDOC-1645 (2010, sections 8.5 and 10.3.4) discusses Pd attack
+  of SiC and says the Pd–SiC reaction can be explained qualitatively from the
+  Si–C–Pd phase diagram.
+- *Ag in SiC.* IAEA-TECDOC-1645 (section 10.3.4) says silver is released from
+  undamaged particles above about 1100 °C, that "today, the Ag migration
+  mechanism remains not fully understood", and that McLean et al. showed
+  grain-boundary diffusion would give a coefficient inconsistent with the one
+  derived from Ag release measurements. So grain-boundary diffusion is one
+  proposed and contested explanation, not an established mechanism.
 
 **Oxygen and carbon monoxide.** This one is in the repo. When a UO₂ kernel
 fissions, oxygen is freed, and the oxygen forms CO with the carbon, which adds
 to the gas pressure alongside the fission gases (PANAMA-I Eqs (5a) to (5f),
 oxygen released per fission, capped at $0.625$). It is a *chemistry* effect
-on the pressure of step 8, not on diffusion
+on the pressure of step 6, not on diffusion
 ([`oxygen.rs`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/oxygen.rs)).
 
 **Air and steam.** Water or air entering hot graphite is a separate kind of
@@ -148,7 +177,7 @@ Why linear in $D$ and not $\sqrt{D}$ is explained on [rung 4](../../tutorials/tr
    material, temperature range, burnup, fluence). *Fails:* outside that range;
    Jiang's fits were read from plotted correlations and the crate's tests
    check only the transcription.
-2. **One equivalent sphere per chemical group** (Booth; step 6). The layers
+2. **One equivalent sphere per chemical group** (Booth; step 9). The layers
    are thrown away. *Judgement:* one layer controls the release.
 3. **An empirical release-to-birth ratio** for gases and halogens. *Judgement:*
    a correlation fitted to data applies to your case.

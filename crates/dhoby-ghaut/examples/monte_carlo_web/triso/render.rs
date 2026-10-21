@@ -9,6 +9,7 @@
 //! lists `OUTSIDE MODEL` only if some pixel finds no cell; inside the
 //! reflective cell, it must not.
 
+use petir::mathf::RealMath;
 use super::model;
 use outram_mc_libs::geometry::plot::{render_material_slice, PlotBasis, Rgb, SlicePlot};
 use outram_mc_libs::geometry::position::Position;
@@ -37,7 +38,7 @@ pub fn render_all(dir: &Path) -> Result<(), String> {
     // The particle nearest the centre: the single-particle and axial views cut it.
     let &(cx, cy) = centres
         .iter()
-        .min_by(|a, b| a.0.hypot(a.1).total_cmp(&b.0.hypot(b.1)))
+        .min_by(|a, b| a.0.r_hypot(a.1).total_cmp(&b.0.r_hypot(b.1)))
         .ok_or("no particles")?;
     let w = model::particle_r() * 1.25;
     let pal = palette();

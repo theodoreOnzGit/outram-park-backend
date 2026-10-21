@@ -893,6 +893,7 @@ pub fn not_available() -> Vec<NotAvailable> {
 
 #[cfg(test)]
 pub(crate) mod tests {
+    use petir::mathf::RealMath;
     use super::*;
 
     pub(crate) fn htr10_like() -> RzDomain {
@@ -937,7 +938,7 @@ pub(crate) mod tests {
     fn the_parts_tile_the_model() {
         let d = htr10_like();
         let total: f64 = d.part_volumes(0.5).iter().map(|x| x.1).sum();
-        let cyl = std::f64::consts::PI * 190.0f64.powi(2) * 610.0;
+        let cyl = std::f64::consts::PI * 190.0f64.r_powi(2) * 610.0;
         assert!((total - cyl).abs() < 1e-3 * cyl, "{total} vs {cyl}");
         assert_eq!(d.part_at(10.0, -50.0), Some(RzPart::Bed));
         assert_eq!(d.part_at(10.0, 50.0), Some(RzPart::Cavity));
@@ -960,7 +961,7 @@ pub(crate) mod tests {
         assert_eq!(m.mode, RegionMode::Advanced);
         let v = m.exact_volumes(&d, 0.5);
         let total: f64 = v.iter().sum();
-        let cyl = std::f64::consts::PI * 190.0f64.powi(2) * 610.0;
+        let cyl = std::f64::consts::PI * 190.0f64.r_powi(2) * 610.0;
         assert!((total - cyl).abs() < 1e-3 * cyl);
         assert!(
             m.assign_box(0, m.cavity).is_err(),

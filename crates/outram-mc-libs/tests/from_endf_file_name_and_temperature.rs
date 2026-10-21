@@ -19,6 +19,7 @@
 //! nuclides; the typed and bare-`f64` paths agree bit for bit at all 200
 //! energies. Tape absent: the tape cases skip.
 
+use petir::mathf::RealMath;
 use njoy_outram_park_fork::endf::tape::Tape;
 use njoy_outram_park_fork::reference_data::reference_endf_or_skip;
 use njoy_outram_park_fork::NjoyError;
@@ -68,7 +69,7 @@ fn a_mislabelled_tape_is_refused_and_a_typed_temperature_builds_the_same_nuclide
     let tape = Tape::read_file(&p).expect("tape");
     let bare = Nuclide::from_tape(&tape, 925, "F19", 293.6, 1.0e-3).expect("from_tape");
     for i in 0..200 {
-        let e = 1.0e-5 * (2.0e7_f64 / 1.0e-5).powf(i as f64 / 199.0);
+        let e = 1.0e-5 * (2.0e7_f64 / 1.0e-5).r_powf(i as f64 / 199.0);
         let (a, b, c) = (
             typed.xs_at_energy(e, 293.6),
             bare.xs_at_energy(e, 293.6),

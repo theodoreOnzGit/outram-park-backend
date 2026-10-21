@@ -25,6 +25,7 @@
 //!
 //! Driver glue (`main`): the model it runs is tested by `nee_soon::httr::tests`.
 
+use petir::mathf::RealMath;
 use std::time::Instant;
 
 use nee_soon::htr10_rmc::materials::GraphiteLaw;
@@ -171,7 +172,7 @@ fn main() {
             let m = |s: &[f64]| s.iter().sum::<f64>() / s.len() as f64;
             let (a, b) = (m(&act[..half]), m(&act[half..]));
             let sd = |s: &[f64], mu: f64| {
-                (s.iter().map(|x| (x - mu).powi(2)).sum::<f64>() / ((s.len() - 1) as f64 * s.len() as f64)).sqrt()
+                (s.iter().map(|x| (x - mu).r_powi(2)).sum::<f64>() / ((s.len() - 1) as f64 * s.len() as f64)).sqrt()
             };
             println!(
                 "    active halves: {a:.5} +/- {:.5} then {b:.5} +/- {:.5} (difference {:+.0} pcm)",
@@ -186,7 +187,7 @@ fn main() {
     let n = ks.len() as f64;
     let mean = ks.iter().map(|k| k.0).sum::<f64>() / n;
     let sem = if ks.len() > 1 {
-        let var = ks.iter().map(|k| (k.0 - mean).powi(2)).sum::<f64>() / (n - 1.0);
+        let var = ks.iter().map(|k| (k.0 - mean).r_powi(2)).sum::<f64>() / (n - 1.0);
         (var / n).sqrt()
     } else {
         ks[0].1

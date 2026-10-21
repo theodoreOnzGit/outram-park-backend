@@ -1,0 +1,28 @@
+   Compiling outram-park-fork-moltres v0.0.1 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/crates/outram-park-fork-moltres)
+    Finished `release` profile [optimized] target(s) in 0.94s
+     Running unittests src/lib.rs (target/release/deps/outram_park_fork_moltres-c313460fe75bddb9)
+
+running 20 tests
+test circulating::tests::zero_flow_matches_static_solver ... ok
+test diffusion::tests::beta_split_is_invisible_when_spectra_match ... ok
+test diffusion::tests::one_group_bare_slab_matches_analytic ... ok
+test diffusion::tests::two_group_bare_slab_matches_analytic ... ok
+test materials::tests::keepin_beta_total ... ok
+test materials::tests::materialize_broadcasts_zones ... ok
+test materials::tests::temperature_feedback_shifts_removal ... ok
+test materials::tests::validate_catches_bad_spectrum ... ok
+test materials::tests::validate_catches_scattering_diagonal ... ok
+test precursors::tests::flow_depletes_in_core_precursors ... ok
+test precursors::tests::steady_flow_conserves_production_vs_decay ... ok
+test precursors::tests::transient_relaxes_to_steady ... ok
+test precursors::tests::zero_flow_matches_algebraic_equilibrium ... ok
+test ring_mesh::tests::adjacent_cell_distances_are_uniform_including_wrap ... ok
+test ring_mesh::tests::rejects_degenerate_inputs ... ok
+test ring_mesh::tests::ring_topology_and_volume ... ok
+test ring_mesh::tests::uniform_flux_and_zone_map ... ok
+test thermal::tests::steady_loop_energy_balance ... ok
+test circulating::tests::flow_reduces_reactivity_monotonically ... ok
+test thermal::tests::temperature_feedback_reduces_k_with_power ... ok
+
+test result: ok. 20 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.72s
+

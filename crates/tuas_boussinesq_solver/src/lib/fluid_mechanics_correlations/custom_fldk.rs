@@ -7,8 +7,8 @@
 //! All inputs and outputs are bare `f64` dimensionless quantities (Reynolds
 //! number, relative roughness, `L/D`). Reynolds number is recovered from a
 //! Bejan number by bisection root-finding.
-extern crate peroxide;
-use peroxide::prelude::*;
+use petir::mathf::RealMath;
+use crate::numerical_methods::bisection_residual;
 
 use crate::tuas_lib_error::TuasLibError;
 
@@ -139,7 +139,7 @@ pub fn custom_kpipe_be_d(
         custom_k,
     )?;
 
-    let bejan_d = 0.5 * f_ldk * reynolds_number.powf(2.0);
+    let bejan_d = 0.5 * f_ldk * reynolds_number.r_powf(2.0);
 
     return Ok(bejan_d);
 }
@@ -165,7 +165,7 @@ pub fn custom_f_ldk_be_d(
         custom_k,
     )?;
 
-    let bejan_d = 0.5 * f_ldk * reynolds_number.powf(2.0);
+    let bejan_d = 0.5 * f_ldk * reynolds_number.r_powf(2.0);
 
     return Ok(bejan_d);
 }
@@ -220,10 +220,6 @@ pub fn get_reynolds(
     // the underlying equation is
     // Be = 0.5*fLDK*Re^2
 
-    let bisect = BisectionMethod {
-        max_iter: 100,
-        tol: 1e-8,
-    };
     let problem = ReynoldsFromBejanDCustom {
         max_reynolds,
         min_reynolds,
@@ -235,12 +231,21 @@ pub fn get_reynolds(
     };
 
     // the unwrap turns the result into f64
-    let reynolds_number = bisect.find(&problem).unwrap();
+    // peroxide `BisectionMethod { max_iter: 100, tol: 1e-8 }` on
+    // [min_reynolds, max_reynolds], now on PETIR with peroxide's residual
+    // test kept: bit-identical root (crate::numerical_methods::bisection_residual,
+    // gh:#989). A failure is returned, where `.unwrap()` used to panic.
+    let reynolds_number = bisection_residual(
+        |re| problem.pressure_drop_root(re),
+        problem.initial_guess(),
+        100,
+        1e-8,
+        "custom fLDK: Reynolds number from Bejan number",
+    )?;
 
-    return Ok(reynolds_number[0]);
+    return Ok(reynolds_number);
 }
 
-use anyhow::Result;
 
 struct ReynoldsFromBejanDCustom {
     pub max_reynolds: f64,
@@ -268,10 +273,8 @@ impl ReynoldsFromBejanDCustom {
     // but rather AD which stands for automatic
     // differentiation
     // https://docs.rs/peroxide/latest/peroxide/structure/ad/index.html
-    fn pressure_drop_root(&self, reynolds_number: Pt<1>) -> Result<Pt<1>> {
+    fn pressure_drop_root(&self, reynolds_double: f64) -> f64 {
         let lhs_value: f64 = self.bejan_number_d;
-
-        let reynolds_double: f64 = reynolds_number[0];
         let f_ldk_term = custom_f_ldk_be_d(
             self.custom_darcy,
             reynolds_double,
@@ -283,13 +286,11 @@ impl ReynoldsFromBejanDCustom {
 
         let rhs_value = f_ldk_term;
 
-        return Ok([lhs_value - rhs_value]);
+        lhs_value - rhs_value
     }
 }
-impl RootFindingProblem<1, 1, (f64, f64)> for ReynoldsFromBejanDCustom {
-    fn function(&self, reynolds_number: Pt<1>) -> Result<Pt<1>> {
-        self.pressure_drop_root(reynolds_number)
-    }
+impl ReynoldsFromBejanDCustom {
+    /// The bisection bracket: `[min_reynolds, max_reynolds]`.
     fn initial_guess(&self) -> (f64, f64) {
         let upper_bound = self.max_reynolds;
         let lower_bound = self.min_reynolds;

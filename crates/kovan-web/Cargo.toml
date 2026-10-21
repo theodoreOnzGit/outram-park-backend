@@ -1,6 +1,6 @@
 [package]
 name = "kovan-web"
-version = "0.0.2"
+version = "0.0.3"
 authors.workspace = true
 edition.workspace = true
 # AGPL-3.0-only, like the rest of the kovan front ends (`kovan`), NOT the
@@ -33,6 +33,9 @@ topic = "knowledge-management"
 maturity = 1
 
 [dependencies]
+# Every transcendental routes through PETIR for cross-platform bit identity
+# (gh:#985). petir is no_std, so this edge adds nothing Android- or wasm-hostile.
+petir = { workspace = true }
 # The code map, call graph and star-layout data and geometry (wasm-clean;
 # moved out of `kovan` for this crate on 2026-10-06).
 kovan-common = { workspace = true }

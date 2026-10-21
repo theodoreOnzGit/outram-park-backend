@@ -29,6 +29,7 @@
 //! offset `lr` is always 0; the sign is kept because the final pass counts
 //! it and a point's sign travels with it through later sections.
 
+use petir::mathf::RealMath;
 use crate::endf::interp::{terp1, IntLaw};
 use crate::mixr::mix::sigfig;
 use crate::NjoyError;
@@ -295,7 +296,7 @@ pub fn lunion(
                     let mut decade: Option<f64> = None;
                     if xs[i] <= elim {
                         'dec: for ipwr in -4..=5 {
-                            let mut xm = 10f64.powi(ipwr);
+                            let mut xm = 10f64.r_powi(ipwr);
                             let inside = |xm: f64| xs[i - 1] > UP * xm && xs[i] < DN * xm;
                             if inside(xm) {
                                 decade = Some(xm);

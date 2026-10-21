@@ -6,6 +6,7 @@
 //! suite, but they assert only the thing they are diagnosing, and print the
 //! breakdown a human needs to interpret a moved tolerance.
 
+use petir::mathf::RealMath;
 use uom::si::available_energy::kilojoule_per_kilogram;
 use uom::si::f64::*;
 use uom::si::mass_density::kilogram_per_cubic_meter;
@@ -88,8 +89,8 @@ fn diagnose_whether_pressure_error_is_solver_or_conditioning() {
         let p_pa = p_ref.get::<pascal>();
         let ln_v_hi = v_ph_eqm(Pressure::new::<pascal>(p_pa * (1.0 + step)), h)
             .get::<cubic_meter_per_kilogram>()
-            .ln();
-        let ln_v_at = v_ph_eqm(p_ref, h).get::<cubic_meter_per_kilogram>().ln();
+            .r_ln();
+        let ln_v_at = v_ph_eqm(p_ref, h).get::<cubic_meter_per_kilogram>().r_ln();
         let d_ln_v_d_ln_p = (ln_v_hi - ln_v_at) / step;
         let amplification = if d_ln_v_d_ln_p == 0.0 {
             f64::INFINITY
@@ -174,11 +175,11 @@ fn diagnose_the_full_pressure_sweep_at_the_40_bar_node() {
     let p_lo = 612.0_f64;
     let p_hi = 99.9e6_f64;
     for i in 0..=28 {
-        let ln_p = p_lo.ln() + (p_hi.ln() - p_lo.ln()) * (i as f64) / 28.0;
-        let p_pa = ln_p.exp();
+        let ln_p = p_lo.r_ln() + (p_hi.r_ln() - p_lo.r_ln()) * (i as f64) / 28.0;
+        let p_pa = ln_p.r_exp();
         let p = Pressure::new::<pascal>(p_pa);
         let v = v_ph_eqm(p, h).get::<cubic_meter_per_kilogram>();
-        let f = v.ln() - v_target.ln();
+        let f = v.r_ln() - v_target.r_ln();
         let region = ph_flash_region(p, h);
         println!("{p_pa:>14.4e} {v:>20.10e} {f:>14.4e} {region:>10?}");
     }

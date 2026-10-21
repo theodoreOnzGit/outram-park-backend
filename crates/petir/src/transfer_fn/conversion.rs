@@ -86,6 +86,9 @@ use alloc::vec::Vec;
 // these trait methods, leaving the import formally unused. See crate::real.
 #[allow(unused_imports)]
 use crate::real::Real;
+// Re-lifted 2026-10-20 (gh:#985): the source now calls RealMath's `r_` methods.
+#[allow(unused_imports)]
+use crate::mathf::RealMath;
 use uom::si::{angular_velocity::radian_per_second, f64::*, time::second};
 
 use super::continuous_tf::ContinuousTransferFn;
@@ -217,7 +220,7 @@ fn prewarp_beta(w0: AngularVelocity, t_s: f64) -> Result<f64, ZDomainError> {
     if !(w0 > 0.0) || half_angle >= core::f64::consts::FRAC_PI_2 {
         return Err(ZDomainError::InvalidPrewarpFrequency);
     }
-    Ok(w0 / half_angle.tan())
+    Ok(w0 / half_angle.r_tan())
 }
 
 // ---------------------------------------------------------------------------
@@ -355,7 +358,7 @@ fn c2d_zoh(
             return Err(ZDomainError::UnsupportedOrder { order });
         };
         let lambda = -a0;
-        let phi = (lambda * t_s).exp();
+        let phi = (lambda * t_s).r_exp();
         let gamma = phi1_real(lambda, t_s);
         let c = b0 - b1 * a0;
         let d = b1;
@@ -432,7 +435,7 @@ fn phi1_real(lambda: f64, t_s: f64) -> f64 {
     if x.abs() < 1e-8 {
         t_s * (1.0 + x / 2.0 + x * x / 6.0)
     } else {
-        ((x).exp() - 1.0) / lambda
+        ((x).r_exp() - 1.0) / lambda
     }
 }
 
@@ -454,7 +457,7 @@ fn psi_real(lambda: f64, t_s: f64) -> f64 {
     if x.abs() < 1e-8 {
         t_s * t_s * (0.5 + x / 3.0 + x * x / 8.0)
     } else {
-        (t_s * x.exp() - phi1_real(lambda, t_s)) / lambda
+        (t_s * x.r_exp() - phi1_real(lambda, t_s)) / lambda
     }
 }
 
@@ -517,7 +520,7 @@ fn zoh_repeated(a: [[f64; 2]; 2], lambda: Cplx, t_s: f64) -> ([[f64; 2]; 2], [f6
     let l = lambda.re;
     let [[a00, a01], [a10, a11]] = a;
     let n = [[a00 - l, a01], [a10, a11 - l]]; // A - lambda I
-    let e = (l * t_s).exp();
+    let e = (l * t_s).r_exp();
     let f = phi1_real(l, t_s);
     let p = psi_real(l, t_s);
     let mut phi = [[0.0; 2]; 2];
@@ -592,7 +595,7 @@ fn c2d_matched(
     // Gain matched at w_c = 0 (DC) unless a pole/zero sits within
     // tol = sqrt(eps) of j*w_c; then step w_c by 0.1/T until clear
     // (upstream loop, verbatim semantics).
-    let tol = f64::EPSILON.sqrt();
+    let tol = Real::sqrt(f64::EPSILON);
     let mut w_c = 0.0_f64;
     while p_c
         .iter()
@@ -669,7 +672,7 @@ fn d2c_matched(sys: &DiscreteTransferFn) -> Result<ContinuousTransferFn, ZDomain
 
     // upstream: z_d(abs (z_d+1) < sqrt (eps)) = [] — drop zeros at -1,
     // which are the images of continuous zeros at infinity
-    let tol = f64::EPSILON.sqrt();
+    let tol = Real::sqrt(f64::EPSILON);
     let z_d: Vec<Cplx> = z_d_orig
         .iter()
         .copied()
@@ -691,7 +694,7 @@ fn d2c_matched(sys: &DiscreteTransferFn) -> Result<ContinuousTransferFn, ZDomain
         .any(|r| (*r - w_d).abs() < tol)
     {
         w_c += 0.1 / t_s;
-        w_d = Cplx::real((w_c * t_s).exp());
+        w_d = Cplx::real((w_c * t_s).r_exp());
     }
     let w_c_pt = Cplx::real(w_c);
     let prod = |roots: &[Cplx], at: Cplx| -> Cplx {

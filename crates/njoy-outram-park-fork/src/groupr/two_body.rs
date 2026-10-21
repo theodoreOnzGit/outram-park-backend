@@ -32,6 +32,7 @@
 //! Coulomb term (`:9529-9548`), `MT = 251-253` (`mubar` etc.), the `law = 4`
 //! sign flip of ENDF-5 lab-frame data, and File-6 two-body data (`mft = 8`).
 
+use petir::mathf::RealMath;
 use crate::groupr::file4::{File4Angular, NLD};
 use crate::groupr::kinematics::legndr;
 use crate::NjoyError;
@@ -245,7 +246,7 @@ impl TwoBodyFeed {
         let aprime = 1.0;
         // `getsig:6751-6752`.
         let thresh = (awr + 1.0) * (-q) / awr;
-        let alpha = (awr - 1.0).powi(2) / (awr + 1.0).powi(2);
+        let alpha = (awr - 1.0).r_powi(2) / (awr + 1.0).r_powi(2);
         // `:9418-9421`.
         let yld = match lrflag {
             16 | 21 | 24 | 26 | 30 => 2.0,
@@ -342,7 +343,7 @@ impl TwoBodyFeed {
         let awr2 = awr * (awr + 1.0 - aprime) / aprime;
         let ld = nld - 1;
         // `npo = ld + nl + int(log(300/awr))` (`:9426`); Fortran `int` truncates.
-        let npo = (ld as i64 + nl as i64 + (300.0 / awr).ln().trunc() as i64).max(0) as usize;
+        let npo = (ld as i64 + nl as i64 + (300.0 / awr).r_ln().trunc() as i64).max(0) as usize;
         let mut nqp0 = 4;
         if npo > 8 {
             nqp0 = 8;
@@ -396,7 +397,7 @@ impl TwoBodyFeed {
             }
             ignow = ig;
             let ep = self.egn[iglo + ig - 1];
-            whi = ((ep / e) * (1.0 + awr).powi(2) / aprime - (1.0 + ast * ast)) / (2.0 * ast);
+            whi = ((ep / e) * (1.0 + awr).r_powi(2) / aprime - (1.0 + ast * ast)) / (2.0 * ast);
             if whi < SHADE * wmin {
                 whi = wmin;
             }
@@ -512,7 +513,7 @@ impl TwoBodyFeed {
                         self.thresh / (1.0 - af * af / awr2)
                     };
                 } else if aprime > 1.0 {
-                    self.ecl = eg * (awr + 1.0).powi(2) / (4.0 * awr);
+                    self.ecl = eg * (awr + 1.0).r_powi(2) / (4.0 * awr);
                 } else {
                     self.ecl = eg;
                 }

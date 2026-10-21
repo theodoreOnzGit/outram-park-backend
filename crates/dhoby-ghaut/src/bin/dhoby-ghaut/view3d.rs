@@ -27,6 +27,7 @@
 //! On the CPU fallback, while the camera moves a quarter-resolution preview
 //! is traced; the full picture follows 0.35 s after it stops.
 
+use petir::mathf::RealMath;
 use egui::{Color32, Pos2, Rect, RichText, TextureHandle, TextureOptions, Vec2};
 
 use outram_blender::csg::gpu::render::GpuPlot;
@@ -175,8 +176,8 @@ impl View3d {
     }
 
     fn eye(&self) -> [f64; 3] {
-        let (cp, sp) = (self.pitch.cos(), self.pitch.sin());
-        let (cy, sy) = (self.yaw.cos(), self.yaw.sin());
+        let (cp, sp) = (self.pitch.r_cos(), self.pitch.r_sin());
+        let (cy, sy) = (self.yaw.r_cos(), self.yaw.r_sin());
         [
             self.target[0] + self.distance * cp * cy,
             self.target[1] + self.distance * cp * sy,
@@ -186,8 +187,8 @@ impl View3d {
 
     /// Screen-right and screen-up unit vectors in world space.
     fn basis(&self) -> ([f64; 3], [f64; 3]) {
-        let (cp, sp) = (self.pitch.cos(), self.pitch.sin());
-        let (cy, sy) = (self.yaw.cos(), self.yaw.sin());
+        let (cp, sp) = (self.pitch.r_cos(), self.pitch.r_sin());
+        let (cy, sy) = (self.yaw.r_cos(), self.yaw.r_sin());
         let right = [-sy, cy, 0.0];
         let up = [-sp * cy, -sp * sy, cp];
         (right, up)
@@ -286,7 +287,7 @@ impl View3d {
             }
         }
         if resp.hovered() {
-            let f = f64::from(zoom) * (f64::from(scroll) * 0.002).exp();
+            let f = f64::from(zoom) * (f64::from(scroll) * 0.002).r_exp();
             if (f - 1.0).abs() > 1e-6 {
                 self.distance = (self.distance / f).clamp(0.5, 20.0 * self.extent);
             }

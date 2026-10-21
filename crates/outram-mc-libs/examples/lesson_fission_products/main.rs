@@ -50,6 +50,7 @@
 //! Driver glue (`main`, `write_*`, `arr`): formats what `data.rs` and
 //! `spectrum.rs` compute; its output is checked by `check-fission.js`.
 
+use petir::mathf::RealMath;
 #[path = "data.rs"]
 mod data;
 #[path = "spectrum.rs"]
@@ -311,8 +312,8 @@ fn write_spectrum(out_dir: &str) -> Result<(), String> {
         // incident energy to 20 MeV, plus every tabulated energy in range and
         // 0.0253 eV, lesson 2's thermal energy.
         let (lo, hi) = (chi.incident[0], 2.0e7f64.min(chi.incident[chi.incident.len() - 1]));
-        let nd = ((hi / lo).log10() * PER_DECADE as f64).ceil() as usize;
-        let mut grid: Vec<f64> = (0..=nd).map(|k| lo * 10f64.powf(k as f64 / PER_DECADE as f64)).filter(|&e| e <= hi * 1.000001).collect();
+        let nd = ((hi / lo).r_log10() * PER_DECADE as f64).ceil() as usize;
+        let mut grid: Vec<f64> = (0..=nd).map(|k| lo * 10f64.r_powf(k as f64 / PER_DECADE as f64)).filter(|&e| e <= hi * 1.000001).collect();
         grid.extend(chi.incident.iter().copied().filter(|&e| e >= lo && e <= hi));
         grid.push(0.0253);
         grid.sort_by(f64::total_cmp);

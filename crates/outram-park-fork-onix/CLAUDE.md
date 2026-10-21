@@ -37,22 +37,38 @@ holds order-16 and order-48 CRAM, ported from OpenMC `openmc/deplete/cram.py`
 (first in `outram-mc-libs/src/depletion/`, then moved to `petir`). It also
 holds OpenMC's depletion integrators, and `outram-mc-libs` depends on it.
 
-- This crate's CRAM16 is a separate translation, from ONIX. Two
-  implementations of the same algorithm can drift apart.
-- **Before changing either one, compare them.** A useful check is a test
+- ~~This crate's CRAM16 is a separate translation, from ONIX. Two
+  implementations of the same algorithm can drift apart.~~ **CORRECTED
+  2026-10-20 (gh:#999, maintainer: "The cram from Onix can go to petir and
+  attribute onix"):** this crate's CRAM16 arithmetic now lives in PETIR as
+  `petir::depletion::onix_cram::cram16_pfd`, with ONIX's MIT notice in the
+  file header and in PETIR's NOTICE. `src/cram.rs` keeps `cram16` (same
+  signature) as a thin wrapper, `CramError` (one variant added, `Petir`, so
+  the error mapping is total) and `clamp_nonnegative`. The move is pinned
+  bit for bit by `tests/cram16_move_fingerprints.rs` (seven cases, all
+  identical). `num-complex` was dropped.
+- It is still a **different algorithm** from PETIR's OpenMC CRAM16: ONIX's
+  parallel partial-fraction sum against OpenMC's sequential IPF, with
+  different residues and poles that differ by up to 3 ulps as `f64`. Both
+  stay, each faithful to its own upstream.
+- ~~**Before changing either one, compare them.** A useful check is a test
   asserting that this crate's `cram16` and `petir`'s order-16 path agree on
-  the `vv_bateman` cases. **Not done yet; no such test exists.**
+  the `vv_bateman` cases. **Not done yet; no such test exists.**~~
+  **DONE 2026-10-20:** `petir`'s
+  `onix_cram::tests::agrees_with_the_ipf_form_to_round_off` compares them on
+  an A→B→C chain, a stiff diagonal and a stiff 4-nuclide loop: worst
+  difference 6.87e-15, 0 of 9 entries bit-equal (round-off, as expected).
 - **New depletion capability (order-48, integrators) should reuse `petir`**
   rather than being ported a second time from ONIX.
 
 ## Provenance (keep it)
 
 - `src/cram.rs` (and the other ported modules) carry the provenance header:
-  ONIX, commit `7328dc6`, MIT, relicensed as GPL-3.0-only. Keep it.
+  ONIX, commit `7328dc6`, MIT, relicensed as GPL-3.0-only (the file headers; ~~GPL-3.0-only~~ the crate is **AGPL-3.0-only** since 2026-10-20, gh:#973). Keep it.
 - `LICENSE.onix` and `upstream_source/README.md` keep the MIT notice. The
   reference clone is gitignored; only the README is tracked.
-- #973 (workspace relicence to AGPL-3.0) will change the crate licence. The
-  MIT notice stays either way.
+- ~~#973 (workspace relicence to AGPL-3.0) will change the crate licence~~ **DONE 2026-10-20**: the crate is AGPL-3.0-only (gh:#973). The
+  MIT notice stays.
 
 ## Working rules for this crate
 

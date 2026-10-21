@@ -54,7 +54,7 @@
 
 use crate::math::Vec3;
 use crate::mesh::Mesh;
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 /// Chamfer every edge of `mesh` by `width`, returning the beveled mesh.
 ///
@@ -141,13 +141,14 @@ pub fn bevel_edges(mesh: &Mesh, width: f64) -> Mesh {
     }
 
     // (c) Vertex caps — walk the umbrella of faces around each vertex.
-    let mut vert_corners: HashMap<usize, Vec<(usize, usize)>> = HashMap::new();
+    // BTreeMap: caps in vertex order, reproducible face order (gh #1002).
+    let mut vert_corners: BTreeMap<usize, Vec<(usize, usize)>> = BTreeMap::new();
     for (f, poly) in polys.iter().enumerate() {
         for (i, &v) in poly.iter().enumerate() {
             vert_corners.entry(v).or_default().push((f, i));
         }
     }
-    for (_v, corners) in &vert_corners {
+    for corners in vert_corners.values() {
         if corners.len() < 3 {
             continue;
         }

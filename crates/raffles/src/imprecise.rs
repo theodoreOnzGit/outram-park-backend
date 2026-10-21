@@ -48,8 +48,13 @@
 //! the comonotone case, which is what the confidence-box literature reports as
 //! "generalised confidence bounds", and which this module states rather than
 //! leaves implicit. General unknown-dependence p-box convolution is *not*
-//! implemented; see [`SystemStructure::reliability_pbox`] for what that would
-//! take.
+//! implemented here; see [`SystemStructure::reliability_pbox`] for what that would
+//! take. ~~General unknown-dependence p-box convolution is not implemented~~
+//! **CORRECTED 2026-10-20 (gh:#987)** — it now exists, in
+//! [`crate::scram::pba`] (pba.r's Fréchet convolution on this module's
+//! [`Pbox`] ladder, plus `and`/`or`/`andI`/`orI`), and
+//! [`crate::scram::pbox_tree`] applies it to a whole fault tree. The
+//! matched-level combination below is unchanged.
 //!
 //! # References
 //!
@@ -802,6 +807,7 @@ pub fn cbox_binomial(k: usize, n: usize, levels: usize) -> Result<Pbox> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use petir::mathf::RealMath;
     use crate::distributions::Normal;
 
     /// **Methodology.** Interval arithmetic must enclose every value the
@@ -875,7 +881,7 @@ mod tests {
     fn zero_observed_failures_does_not_give_a_confident_zero() {
         let cbox = cbox_binomial(0, 10, 2001).unwrap();
         let interval = cbox.cut(0.05).unwrap();
-        let classical = 1.0 - 0.05_f64.powf(1.0 / 10.0);
+        let classical = 1.0 - 0.05_f64.r_powf(1.0 / 10.0);
         println!(
             "c-box(0, 10) 95 % cut: [{:.6}, {:.6}]; one-sided classical limit {:.6}",
             interval.lower(),

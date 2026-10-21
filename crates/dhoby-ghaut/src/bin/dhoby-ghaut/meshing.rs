@@ -15,6 +15,7 @@
 //! exact R-Z volume by a stair-step at the cell size. Each mesh's summary
 //! reports both (gh:#594 tracks body-fitted region boundaries).
 
+use petir::mathf::RealMath;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Instant;
@@ -398,7 +399,7 @@ pub fn build(
                     let rho = 0.5 * k as f64;
                     (0..16).find_map(|j| {
                         let a = std::f64::consts::TAU * j as f64 / 16.0;
-                        let (rr, zz) = (r + rho * a.cos(), z + rho * a.sin());
+                        let (rr, zz) = (r + rho * a.r_cos(), z + rho * a.r_sin());
                         if rr < 0.0 {
                             return None;
                         }

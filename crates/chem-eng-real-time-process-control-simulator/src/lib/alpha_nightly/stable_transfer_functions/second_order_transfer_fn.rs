@@ -68,6 +68,9 @@
 //! per input change onto a `Vec` and re-summed it on every call. See bead
 //! `op-fm5`.
 
+use petir::transfer_fn::ratio_ext::RatioExt;
+use petir::mathf::RealMath;
+
 use std::collections::VecDeque;
 
 use uom::{
@@ -187,9 +190,9 @@ impl SecondOrderDecayingModes {
             } => {
                 let zeta = damping_factor.get::<ratio>();
                 let time_ratio = (time_step / process_time).get::<ratio>();
-                let decay = (-zeta * time_ratio).exp();
+                let decay = (-zeta * time_ratio).r_exp();
                 let angle = (1.0 - zeta * zeta).sqrt() * time_ratio;
-                let (sin_angle, cos_angle) = angle.sin_cos();
+                let (sin_angle, cos_angle) = angle.r_sin_cos();
 
                 // rotation by `angle`, shrunk by `decay` -- angle addition on
                 // exp(-a s) {cos, sin}(omega s)
@@ -203,7 +206,7 @@ impl SecondOrderDecayingModes {
                 t_exponential_mode,
             } => {
                 let time_ratio = (time_step / process_time).get::<ratio>();
-                let decay = (-time_ratio).exp();
+                let decay = (-time_ratio).r_exp();
 
                 // (s + T) exp(-(s+T)/tau) = exp(-T/tau) [ s exp(-s/tau)
                 //                                       + T exp(-s/tau) ]
@@ -219,8 +222,8 @@ impl SecondOrderDecayingModes {
                 let root = (zeta * zeta - 1.0).sqrt();
                 let time_ratio = (time_step / process_time).get::<ratio>();
 
-                *slow_mode = *slow_mode * (-(zeta - root) * time_ratio).exp();
-                *fast_mode = *fast_mode * (-(zeta + root) * time_ratio).exp();
+                *slow_mode = *slow_mode * (-(zeta - root) * time_ratio).r_exp();
+                *fast_mode = *fast_mode * (-(zeta + root) * time_ratio).r_exp();
             }
         }
     }
@@ -245,9 +248,9 @@ impl SecondOrderDecayingModes {
                 sine_mode,
             } => {
                 let zeta = damping_factor.get::<ratio>();
-                let decay = (-zeta * time_ratio).exp();
+                let decay = (-zeta * time_ratio).r_exp();
                 let angle = (1.0 - zeta * zeta).sqrt() * time_ratio;
-                let (sin_angle, cos_angle) = angle.sin_cos();
+                let (sin_angle, cos_angle) = angle.r_sin_cos();
                 *cosine_mode += step_magnitude * (decay * cos_angle);
                 *sine_mode += step_magnitude * (decay * sin_angle);
             }
@@ -255,7 +258,7 @@ impl SecondOrderDecayingModes {
                 exponential_mode,
                 t_exponential_mode,
             } => {
-                let decay = (-time_ratio).exp();
+                let decay = (-time_ratio).r_exp();
                 *exponential_mode += step_magnitude * decay;
                 *t_exponential_mode += step_magnitude * (time_ratio * decay);
             }
@@ -269,8 +272,8 @@ impl SecondOrderDecayingModes {
                 // (r_2 - r_1) tau = 2 root
                 let slow_weight = (zeta + root) / (2.0 * root);
                 let fast_weight = (zeta - root) / (2.0 * root);
-                *slow_mode += step_magnitude * (slow_weight * (-(zeta - root) * time_ratio).exp());
-                *fast_mode += step_magnitude * (fast_weight * (-(zeta + root) * time_ratio).exp());
+                *slow_mode += step_magnitude * (slow_weight * (-(zeta - root) * time_ratio).r_exp());
+                *fast_mode += step_magnitude * (fast_weight * (-(zeta + root) * time_ratio).r_exp());
             }
         }
     }
@@ -693,13 +696,13 @@ impl SecondOrderStableStepResponse {
             let omega_t_term: Ratio =
                 sqrt_one_minus_zeta_sq * time_ratio.get::<uom::si::ratio::ratio>();
 
-            let cosine_term: Ratio = Ratio::new::<ratio>(omega_t_term.get::<ratio>().cos());
+            let cosine_term: Ratio = Ratio::new::<ratio>(omega_t_term.get::<ratio>().r_cos());
 
             // next, sine term,
             // zeta / (1 - zeta^2) * sin ( sqrt(1 - zeta^2)/ tau * t)
 
             let sine_term =
-                damping_factor / sqrt_one_minus_zeta_sq * omega_t_term.get::<ratio>().sin();
+                damping_factor / sqrt_one_minus_zeta_sq * omega_t_term.get::<ratio>().r_sin();
 
             // now we need 1 - exp(- zeta * t/tau) *
             // [ cos term + sine term ]
@@ -708,7 +711,9 @@ impl SecondOrderStableStepResponse {
 
             // exp(- zeta * t/tau) * [ cos term + sine term ]
             let exponential_term: Ratio =
-                (-damping_factor * time_ratio.get::<uom::si::ratio::ratio>()).exp()
+                Ratio::new::<uom::si::ratio::ratio>(
+                    (-damping_factor * time_ratio.get::<uom::si::ratio::ratio>()).value.r_exp(),
+                )
                     * cosine_and_sine_term;
 
             let scaled_response = Ratio::new::<ratio>(1.0) - exponential_term;
@@ -726,7 +731,7 @@ impl SecondOrderStableStepResponse {
             let one_plus_t_over_tau = 1.0 + time_ratio.get::<uom::si::ratio::ratio>();
 
             let exponential_term =
-                (-time_ratio.get::<uom::si::ratio::ratio>()).exp() * one_plus_t_over_tau;
+                (-time_ratio.get::<uom::si::ratio::ratio>()).r_exp() * one_plus_t_over_tau;
 
             let scaled_response = 1.0 - exponential_term;
 
@@ -743,13 +748,13 @@ impl SecondOrderStableStepResponse {
             let omega_t_term: Ratio =
                 sqrt_zeta_sq_minus_one * time_ratio.get::<uom::si::ratio::ratio>();
 
-            let cosh_term = Ratio::new::<ratio>(omega_t_term.get::<ratio>().cosh());
+            let cosh_term = Ratio::new::<ratio>(omega_t_term.get::<ratio>().r_cosh());
 
             // next, sinh term,
             // zeta / (1 - zeta^2) * sinh ( sqrt(zeta^2 - 1)/ tau * t)
 
             let sinh_term =
-                damping_factor / sqrt_zeta_sq_minus_one * omega_t_term.get::<ratio>().sinh();
+                damping_factor / sqrt_zeta_sq_minus_one * omega_t_term.get::<ratio>().r_sinh();
 
             // now we need 1 - exp(- zeta * t/tau) *
             // [ cosh term + sinh term ]
@@ -758,7 +763,9 @@ impl SecondOrderStableStepResponse {
 
             // exp(- zeta * t/tau) * [ cos term + sine term ]
             let exponential_term: Ratio =
-                (-damping_factor * time_ratio.get::<uom::si::ratio::ratio>()).exp()
+                Ratio::new::<uom::si::ratio::ratio>(
+                    (-damping_factor * time_ratio.get::<uom::si::ratio::ratio>()).value.r_exp(),
+                )
                     * cosh_term_plus_sinh_term;
 
             let scaled_response = Ratio::new::<ratio>(1.0) - exponential_term;

@@ -1,3 +1,4 @@
+use petir::mathf::RealMath;
 use uom::si::power::kilowatt;
 use uom::si::angular_velocity::radian_per_second;
 use uom::si::f64::*;
@@ -137,7 +138,7 @@ impl FreqResponseAndTransientSettings {
 
         let sinusoid_amplitude = self.total_amplitude_kw;
 
-        let sinusoid_signal = sinusoid_amplitude * (angular_phase_f64.sin());
+        let sinusoid_signal = sinusoid_amplitude * (angular_phase_f64.r_sin());
 
         // next I want to have some frequency response
 

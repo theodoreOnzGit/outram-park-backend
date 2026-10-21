@@ -391,6 +391,7 @@ fn segment_of(bounds: &[f64], t: f64) -> Option<usize> {
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
     use crate::puff::concentration::METHANE_PPM_PER_KG_PER_M3;
     use crate::puff::simulate::{constant_wind, simulate_sensor_mode, AdvectionPolicy, EmissionPolicy};
@@ -617,7 +618,7 @@ mod tests {
         let mut expected = 0.0;
         for a in 0..factors.n_bins() {
             let v = factors.bin(0, 0, a).seconds_per_cubic_meter();
-            expected += v * (-lambda * a as f64 * 10.0).exp();
+            expected += v * (-lambda * a as f64 * 10.0).r_exp();
         }
         let got = factors
             .dilution(0, 0, Frequency::new::<hertz>(lambda))

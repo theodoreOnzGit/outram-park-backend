@@ -1,6 +1,6 @@
 [package]
 name = "chem-eng-real-time-process-control-simulator"
-version = "0.2.3"
+version = "0.2.4"
 authors.workspace = true
 edition.workspace = true
 # NOTE: relicensed from Apache-2.0 to GPL-3.0-only on 2026-08-11 by maintainer
@@ -46,6 +46,9 @@ level = 4
 why = "transfer functions verified against Scilab in the maintainer's PhD dissertation (maintainer, 2026-10-06)"
 
 [dependencies]
+# Every transcendental routes through PETIR for cross-platform bit identity
+# (gh:#985). petir is no_std, so this edge adds nothing Android- or wasm-hostile.
+petir = { workspace = true }
 approx.workspace = true
 csv.workspace = true
 thiserror.workspace = true

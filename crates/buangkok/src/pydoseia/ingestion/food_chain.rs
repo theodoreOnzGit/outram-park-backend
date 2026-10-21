@@ -7,6 +7,7 @@
 //! uptake, pasture, stored feed, milk and meat, and IAEA-TECDOC-1616 (2009)
 //! for the H-3 and C-14 specific-activity models, as upstream cites them.
 
+use petir::mathf::RealMath;
 use super::{IngestionParameters, TransferFactors};
 
 /// Upstream's per-day deposition rate `d * v_d * chi/Q`, Bq m^-2 d^-1 (with
@@ -58,11 +59,11 @@ pub fn food_crop(
     rho_crop: f64,
     p: &IngestionParameters,
 ) -> CropConcentrations {
-    let c_vi1 = (dep_per_day * p.alpha_wet_crops * (1.0 - (-lambda_eiv * p.t_e_food_crops).exp()))
+    let c_vi1 = (dep_per_day * p.alpha_wet_crops * (1.0 - (-lambda_eiv * p.t_e_food_crops).r_exp()))
         / lambda_eiv;
-    let c_si = (dep_per_day * (1.0 - (-lambda_eis * p.t_b).exp())) / (lambda_eis * rho_crop);
+    let c_si = (dep_per_day * (1.0 - (-lambda_eis * p.t_b).r_exp())) / (lambda_eis * rho_crop);
     let c_vi2 = fv2 * c_si;
-    let cvi = (c_vi1 + c_vi2) * (-lambda_i_per_d * p.t_h_wet_crops).exp();
+    let cvi = (c_vi1 + c_vi2) * (-lambda_i_per_d * p.t_h_wet_crops).r_exp();
     CropConcentrations {
         c_vi1,
         c_si,
@@ -107,15 +108,15 @@ pub fn animal_products(
     p: &IngestionParameters,
 ) -> AnimalConcentrations {
     let c_vi1 =
-        (dep_per_day * p.alpha_dry_forage * (1.0 - (-lambda_eiv * p.t_e_forage_grass).exp()))
+        (dep_per_day * p.alpha_dry_forage * (1.0 - (-lambda_eiv * p.t_e_forage_grass).r_exp()))
             / lambda_eiv;
-    let c_si = (dep_per_day * (1.0 - (-lambda_eis * p.t_b).exp())) / (lambda_eis * rho_pasture);
+    let c_si = (dep_per_day * (1.0 - (-lambda_eis * p.t_b).r_exp())) / (lambda_eis * rho_pasture);
     let c_vi2 = fv1 * c_si;
-    let cvi_animal = (c_vi1 + c_vi2) * (-lambda_i_per_d * p.t_h_animal_pasture).exp();
-    let cpi = (c_vi1 + c_vi2) * (-lambda_i_per_d * p.t_h_animal_stored_feed).exp();
+    let cvi_animal = (c_vi1 + c_vi2) * (-lambda_i_per_d * p.t_h_animal_pasture).r_exp();
+    let cpi = (c_vi1 + c_vi2) * (-lambda_i_per_d * p.t_h_animal_stored_feed).r_exp();
     let c_ai = p.f_p * cvi_animal + (1.0 - p.f_p) * cpi;
-    let c_mi = fm * ((c_ai * p.q_m) + (p.c_wi * p.q_w)) * (-lambda_i_per_d * p.t_m).exp();
-    let c_fi = ff * ((c_ai * p.q_f) + (p.c_wi * p.q_w_meat)) * (-lambda_i_per_d * p.t_f).exp();
+    let c_mi = fm * ((c_ai * p.q_m) + (p.c_wi * p.q_w)) * (-lambda_i_per_d * p.t_m).r_exp();
+    let c_fi = ff * ((c_ai * p.q_f) + (p.c_wi * p.q_w_meat)) * (-lambda_i_per_d * p.t_f).r_exp();
     AnimalConcentrations {
         c_vi1,
         c_si,

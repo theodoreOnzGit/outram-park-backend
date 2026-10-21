@@ -27,6 +27,7 @@
 //! [`crate::physics::slowing_down`]; [`mix_slowing_down_grids`] forms the
 //! stochastic arm's grid from the per-table grids.
 
+use petir::mathf::RealMath;
 use crate::physics::slowing_down::SlowingDownGrid;
 
 /// The largest relative errors of `approx` against `exact` over grid points
@@ -97,7 +98,7 @@ pub fn lethargy_integral(grid: &[f64], y: &[f64], e_lo: f64, e_hi: f64) -> f64 {
             continue;
         }
         if let Some((e0, v0)) = prev {
-            sum += 0.5 * (v0 + v) * (e / e0).ln();
+            sum += 0.5 * (v0 + v) * (e / e0).r_ln();
         }
         prev = Some((e, v));
     }
@@ -215,7 +216,7 @@ where
     let mut scatter_frac = vec![vec![0.0; n]; n_mix];
     let mut absorb_frac = vec![vec![0.0; n]; n_mix];
     for (j, &u) in lethargy.iter().enumerate() {
-        let s = sigma(j, e_top * (-u).exp());
+        let s = sigma(j, e_top * (-u).r_exp());
         let tot: f64 = s.iter().map(|(a, b)| a + b).sum();
         for (i, (sc, ab)) in s.iter().enumerate().take(n_mix) {
             scatter_frac[i][j] = sc / tot;
@@ -276,9 +277,9 @@ mod tests {
 
     #[test]
     fn lethargy_integral_of_constant_is_log_ratio() {
-        let g: Vec<f64> = (0..=100).map(|k| 10f64.powf(k as f64 / 50.0)).collect();
+        let g: Vec<f64> = (0..=100).map(|k| 10f64.r_powf(k as f64 / 50.0)).collect();
         let y = vec![3.0; g.len()];
-        assert!((lethargy_integral(&g, &y, 1.0, 100.0) - 3.0 * 100f64.ln()).abs() < 1e-12);
+        assert!((lethargy_integral(&g, &y, 1.0, 100.0) - 3.0 * 100f64.r_ln()).abs() < 1e-12);
         // 1/v-like y = 1/sqrt(E): exact is 2 (1 - 1/10) over [1, 100].
         let y: Vec<f64> = g.iter().map(|e| 1.0 / e.sqrt()).collect();
         assert!((lethargy_integral(&g, &y, 1.0, 100.0) - 1.8).abs() < 1e-3);
@@ -290,11 +291,11 @@ mod tests {
         // Two "tables": a tall narrow line and a broad low one, same area.
         let a: Vec<f64> = g
             .iter()
-            .map(|e| 10.0 + 1000.0 * (-((e - 2.0) / 0.02f64).powi(2)).exp())
+            .map(|e| 10.0 + 1000.0 * (-((e - 2.0) / 0.02f64).r_powi(2)).r_exp())
             .collect();
         let b: Vec<f64> = g
             .iter()
-            .map(|e| 10.0 + 500.0 * (-((e - 2.0) / 0.04f64).powi(2)).exp())
+            .map(|e| 10.0 + 500.0 * (-((e - 2.0) / 0.04f64).r_powi(2)).r_exp())
             .collect();
         let s0 = 50.0;
         let (ia, ib) = (

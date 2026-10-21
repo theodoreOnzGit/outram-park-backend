@@ -162,15 +162,15 @@ pub fn elljac(u: f64, m: f64) -> Jacobi {
     // Upstream's two degenerate limits, at 2 DBL_EPSILON.
     if m.abs() < 2.0 * crate::specfunc::DBL_EPSILON {
         return Jacobi {
-            sn: u.sin(),
-            cn: u.cos(),
+            sn: Real::sin(u),
+            cn: Real::cos(u),
             dn: 1.0,
         };
     }
     if (m - 1.0).abs() < 2.0 * crate::specfunc::DBL_EPSILON {
-        let cn = 1.0 / u.cosh();
+        let cn = 1.0 / Real::cosh(u);
         return Jacobi {
-            sn: u.tanh(),
+            sn: Real::tanh(u),
             cn,
             dn: cn,
         };
@@ -185,7 +185,7 @@ pub fn elljac(u: f64, m: f64) -> Jacobi {
     let Some(n0) = nu.first_mut() else {
         return Jacobi::NAN;
     };
-    *n0 = (1.0 - m).sqrt();
+    *n0 = Real::sqrt(1.0 - m);
 
     // The AGM descent. Upstream indexes `mu[n]`/`nu[n]` directly; `get` is
     // used here for the reason in the file header, and the loop is otherwise
@@ -198,7 +198,7 @@ pub fn elljac(u: f64, m: f64) -> Jacobi {
         if (mn - nn).abs() <= 4.0 * crate::specfunc::DBL_EPSILON * (mn + nn).abs() {
             break;
         }
-        let (next_mu, next_nu) = (0.5 * (mn + nn), (mn * nn).sqrt());
+        let (next_mu, next_nu) = (0.5 * (mn + nn), Real::sqrt(mn * nn));
         let Some(slot) = mu.get_mut(n + 1) else {
             return Jacobi::NAN;
         };
@@ -219,8 +219,8 @@ pub fn elljac(u: f64, m: f64) -> Jacobi {
     let Some(&mu_n) = mu.get(n) else {
         return Jacobi::NAN;
     };
-    let sin_umu = (u * mu_n).sin();
-    let cos_umu = (u * mu_n).cos();
+    let sin_umu = Real::sin(u * mu_n);
+    let cos_umu = Real::cos(u * mu_n);
 
     // Upstream switches to sn(K-u), cn(K-u), dn(K-u) when |sin| < |cos|, so
     // that the tangent it forms never divides by a vanishing sine.
@@ -244,7 +244,7 @@ pub fn elljac(u: f64, m: f64) -> Jacobi {
         d = (r + nu_k) / (r + mu_k);
     }
 
-    let root = (1.0 - m).sqrt();
+    let root = Real::sqrt(1.0 - m);
     if reflected {
         let dn = root / d;
         let cn = dn * cos_umu.signum() / hypot(1.0, c);
@@ -275,7 +275,7 @@ fn hypot(x: f64, y: f64) -> f64 {
     }
     let (big, small) = if ax > ay { (ax, ay) } else { (ay, ax) };
     let r = small / big;
-    big * (1.0 + r * r).sqrt()
+    big * Real::sqrt(1.0 + r * r)
 }
 
 /// The high-water mark of AGM descent steps, so
@@ -477,8 +477,10 @@ mod tests {
                     break;
                 }
             }
-            let sin_umu = (u * mu[n]).sin();
-            let cos_umu = (u * mu[n]).cos();
+            // UFCS, as the shipped code: a test is std-linked, and the
+            // method form would call the platform libm (gh #1001).
+            let sin_umu = Real::sin(u * mu[n]);
+            let cos_umu = Real::cos(u * mu[n]);
             let reflected = sin_umu.abs() < cos_umu.abs();
             let t = if reflected {
                 sin_umu / cos_umu

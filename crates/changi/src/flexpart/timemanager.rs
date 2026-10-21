@@ -106,6 +106,8 @@
 //! stores them), masses kg, decay constants s⁻¹, deposition probability
 //! dimensionless.
 
+use petir::mathf::RealMath;
+
 use crate::flexpart::concentration::DepositionGrid;
 use crate::flexpart::decay::surviving_fraction;
 
@@ -618,7 +620,7 @@ pub fn post_advance(
             out.drydeposit_assigned[ks] = true;
             if set.decay[ks] > 0.0 {
                 // exp(real(abs(ldeltat))*decay(ks))
-                drydeposit[ks] *= (ldeltat.abs() as f64 * set.decay[ks]).exp();
+                drydeposit[ks] *= (ldeltat.abs() as f64 * set.decay[ks]).r_exp();
             }
         } else {
             p.xmass1[ks] *= decfact;

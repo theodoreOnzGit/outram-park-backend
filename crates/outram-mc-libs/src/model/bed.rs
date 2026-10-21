@@ -28,6 +28,7 @@
 //! A ball is named by the tile that owns it: skewed coordinates `(a, b)`, the
 //! tile's level, and which of the tile's balls it is.
 
+use petir::mathf::RealMath;
 use std::collections::HashMap;
 
 use super::hopper::{Hopper, Wall};
@@ -391,7 +392,7 @@ impl BedLayout {
                 eligible.push((
                     self.layer(id),
                     ((x * x + y * y) * 1.0e6).round() as i64,
-                    y.atan2(x),
+                    y.r_atan2(x),
                     id,
                 ));
             }
@@ -448,8 +449,8 @@ impl BedLayout {
         c.planes = planes;
         if c.bed_balls > 0 {
             c.bed_height_cm = hi - lo;
-            let ball_v = 4.0 / 3.0 * std::f64::consts::PI * r.powi(3);
-            let cylinder_v = std::f64::consts::PI * self.hopper.radius_cm().powi(2) * (hi - lo);
+            let ball_v = 4.0 / 3.0 * std::f64::consts::PI * r.r_powi(3);
+            let cylinder_v = std::f64::consts::PI * self.hopper.radius_cm().r_powi(2) * (hi - lo);
             c.filling_fraction = c.bed_balls as f64 * ball_v / cylinder_v;
         }
         self.census = c;

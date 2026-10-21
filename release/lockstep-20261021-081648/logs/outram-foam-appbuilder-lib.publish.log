@@ -1,0 +1,21 @@
+    Updating crates.io index
+   Packaging outram-foam-appbuilder-lib v0.1.6 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/crates/outram-foam-appbuilder-lib)
+warning: ignoring test `tutorial_pimple_foam_cavity` as `tutorials/pimple_foam_cavity.rs` is not included in the published package
+warning: ignoring test `tutorial_rho_central_foam_shock_tube` as `tutorials/rho_central_foam_shock_tube.rs` is not included in the published package
+warning: ignoring test `tutorial_rho_pimple_foam_aerofoil_naca0012` as `tutorials/rho_pimple_foam_aerofoil_naca0012.rs` is not included in the published package
+    Updating crates.io index
+    Blocking waiting for file lock on package cache
+    Packaged 293 files, 4.7MiB (1.3MiB compressed)
+   Verifying outram-foam-appbuilder-lib v0.1.6 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/crates/outram-foam-appbuilder-lib)
+ Downloading crates ...
+  Downloaded outram-foam-turbulence-lib v0.1.4
+  Downloaded outram-foam-multiphase v0.0.4
+   Compiling outram-foam-multiphase v0.0.4
+   Compiling outram-foam-turbulence-lib v0.1.4
+   Compiling outram-foam-appbuilder-lib v0.1.6 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/target/package/outram-foam-appbuilder-lib-0.1.6)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 4.16s
+   Uploading outram-foam-appbuilder-lib v0.1.6 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/crates/outram-foam-appbuilder-lib)
+    Uploaded outram-foam-appbuilder-lib v0.1.6 to registry `crates-io`
+note: waiting for outram-foam-appbuilder-lib v0.1.6 to be available at registry `crates-io`
+help: you may press ctrl-c to skip waiting; the crate should be available shortly
+   Published outram-foam-appbuilder-lib v0.1.6 at registry `crates-io`

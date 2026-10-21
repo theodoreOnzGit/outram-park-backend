@@ -133,7 +133,8 @@ fn main() {
 
     // ---- Sparse-solve geometry-processing operators (crate::{laplacian, ----
     //      arap, decimate, loop_subdivision, convex_hull, parameterize}).
-    // These are the `faer`-backed advanced operators. A UV sphere is a good
+    // These are the sparse-Cholesky-backed advanced operators (petir::sparse
+    // since 2026-10-20, gh #994; formerly faer). A UV sphere is a good
     // closed test surface; a grid is an open disk for parameterization + ARAP.
     let sphere = primitives::uv_sphere(16, 8, 1.0);
     report("uv_sphere(16,8)", &sphere);

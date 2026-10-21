@@ -55,6 +55,7 @@
 //!   cell count with a valid, watertight, inversion-free mesh
 //!   (`layer_addition_extrudes_valid_prisms`).
 
+use petir::mathf::RealMath;
 use outram_foam_basic_lib::primitives::Vector3;
 use outram_foam_mesh::snappy_hex_mesh::{
     background::{BackgroundMesh, Bounds},
@@ -73,9 +74,9 @@ fn sphere_soup(c: Vector3, r: f64, n_lat: usize, n_lon: usize) -> TriangleSoup {
         let theta = std::f64::consts::PI * ia; // 0..pi (lat)
         let phi = 2.0 * std::f64::consts::PI * io; // 0..2pi (lon)
         Vector3::new(
-            c.x + r * theta.sin() * phi.cos(),
-            c.y + r * theta.sin() * phi.sin(),
-            c.z + r * theta.cos(),
+            c.x + r * theta.r_sin() * phi.r_cos(),
+            c.y + r * theta.r_sin() * phi.r_sin(),
+            c.z + r * theta.r_cos(),
         )
     };
     for i in 0..n_lat {

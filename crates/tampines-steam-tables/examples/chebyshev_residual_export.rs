@@ -61,6 +61,7 @@
 //! and **no human has reviewed it**; the residuals are measurements, not a
 //! validation sign-off.
 
+use petir::mathf::RealMath;
 use std::fmt::Write as _;
 
 use uom::si::{
@@ -95,11 +96,11 @@ const REGION_4_N_X: usize = 20;
 /// from the temperature the state was generated at.
 fn region_5_residuals() -> String {
     let mut csv = String::from("p_mpa,t_k,h_kj_kg,s_kj_kg_k,t_ph_k,t_ps_k,dt_ph_k,dt_ps_k\n");
-    let (log_p_min, log_p_max) = (P_MIN_MPA.log10(), P_MAX_MPA.log10());
+    let (log_p_min, log_p_max) = (P_MIN_MPA.r_log10(), P_MAX_MPA.r_log10());
 
     for i in 0..REGION_5_N {
         let frac_p = i as f64 / (REGION_5_N - 1) as f64;
-        let p_mpa = 10.0_f64.powf(log_p_min + frac_p * (log_p_max - log_p_min));
+        let p_mpa = 10.0_f64.r_powf(log_p_min + frac_p * (log_p_max - log_p_min));
         let p = Pressure::new::<megapascal>(p_mpa);
 
         for j in 0..REGION_5_N {

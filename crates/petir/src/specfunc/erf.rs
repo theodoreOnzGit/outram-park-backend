@@ -205,10 +205,10 @@ pub fn erfcx(x: f64) -> f64 {
     if x < 0.0 {
         // erfcx(-x) = 2 exp(x^2) - erfcx(x). Overflows to +inf beyond
         // x = -26.64, which is the true behaviour of the function.
-        return 2.0 * (x * x).exp() - erfcx(-x);
+        return 2.0 * Real::exp(x * x) - erfcx(-x);
     }
     if x < ERFCX_CF_CROSSOVER {
-        return (x * x).exp() * libm::erfc(x);
+        return Real::exp(x * x) * libm::erfc(x);
     }
     // Laplace continued fraction, evaluated from the tail inward.
     //

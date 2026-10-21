@@ -140,9 +140,11 @@ pub fn ordered_ring(mesh: &Mesh, edges: &[crate::mesh::EdgeId]) -> Option<(Vec<V
     if set.is_empty() {
         return None;
     }
-    // vertex → incident set-edges
-    let mut adj: std::collections::HashMap<VertexId, Vec<VertexId>> =
-        std::collections::HashMap::new();
+    // vertex → incident set-edges. BTreeMap so the start vertex (lowest open
+    // end, or lowest vertex of a closed loop) does not depend on a randomly
+    // seeded hash order (gh #1002).
+    let mut adj: std::collections::BTreeMap<VertexId, Vec<VertexId>> =
+        std::collections::BTreeMap::new();
     for &e in &set {
         let ed = mesh.edge(e)?;
         adj.entry(ed.verts[0]).or_default().push(ed.verts[1]);
@@ -220,6 +222,7 @@ pub fn align_by_nearest(mesh: &Mesh, ring_a: &[VertexId], ring_b: &[VertexId]) -
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
     use crate::mesh::EdgeId;
     use crate::primitives;
@@ -255,7 +258,7 @@ mod tests {
             (0..8)
                 .map(|i| {
                     let a = std::f64::consts::TAU * i as f64 / 8.0;
-                    m.add_vertex(Vec3::new(a.cos(), a.sin(), z))
+                    m.add_vertex(Vec3::new(a.r_cos(), a.r_sin(), z))
                 })
                 .collect()
         };

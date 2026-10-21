@@ -91,6 +91,7 @@
 //! made, and none is claimed. AI-assisted draft pending human review per
 //! `RESPONSIBLE_USE.md`.
 
+use petir::mathf::RealMath;
 use super::{MassFlux, PressureGradient};
 use crate::gas_phase::properties::helium_state;
 use crate::TampinesError;
@@ -152,7 +153,7 @@ pub fn kta_friction_factor(reynolds: Ratio, porosity: Ratio) -> Result<Ratio, Ta
     }
     let re_modified = re / (1.0 - eps);
     Ok(Ratio::new::<ratio>(
-        320.0 / re_modified + 6.0 / re_modified.powf(0.1),
+        320.0 / re_modified + 6.0 / re_modified.r_powf(0.1),
     ))
 }
 
@@ -578,7 +579,7 @@ mod tests {
         let high = kta_friction_factor(Ratio::new::<ratio>(re_mod * (1.0 - 0.39)), eps)
             .unwrap()
             .get::<ratio>();
-        let inertial_only = 6.0 / re_mod.powf(0.1);
+        let inertial_only = 6.0 / re_mod.r_powf(0.1);
         assert!(
             (high - inertial_only).abs() / inertial_only < 2e-3,
             "high-Re psi = {high}, inertial-only = {inertial_only}"

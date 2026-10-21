@@ -37,6 +37,7 @@
 //! core: evidence that it transports without lost particles, not a V&V
 //! result.
 
+use petir::mathf::RealMath;
 use std::path::PathBuf;
 use std::time::Instant;
 
@@ -252,7 +253,7 @@ fn main() {
             (2.0 * rnd() - 1.0) * 90.0,
             z_lo + rnd() * (core.bed_half_height - z_lo),
         );
-        let rho = p.x.hypot(p.y);
+        let rho = p.x.r_hypot(p.y);
         let r_wall = if p.z >= -core.bed_half_height {
             90.0
         } else if p.z >= core.conus_floor {
@@ -418,8 +419,8 @@ fn main() {
         .enumerate()
         .filter(|(i, _)| eb.fuel[*i])
         .min_by(|(_, a), (_, b)| {
-            let da = a[0].hypot(a[1]) + (a[2] - target).abs();
-            let db = b[0].hypot(b[1]) + (b[2] - target).abs();
+            let da = a[0].r_hypot(a[1]) + (a[2] - target).abs();
+            let db = b[0].r_hypot(b[1]) + (b[2] - target).abs();
             da.total_cmp(&db)
         })
         .map(|(i, c)| (i, *c))
@@ -465,7 +466,7 @@ fn main() {
     // The most-overlapping pair: a CELL-coloured slice at the bed-tile level
     // through both centres, overlaps shown.
     let d2 = |a: [f64; 3], b: [f64; 3]| {
-        (a[0] - b[0]).powi(2) + (a[1] - b[1]).powi(2) + (a[2] - b[2]).powi(2)
+        (a[0] - b[0]).r_powi(2) + (a[1] - b[1]).r_powi(2) + (a[2] - b[2]).r_powi(2)
     };
     if let Some(&(i, j)) = eb
         .overlaps

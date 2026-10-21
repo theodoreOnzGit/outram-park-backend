@@ -16,6 +16,7 @@
 //! U-235's peak-to-valley ratios 635.8, 218.4 and 5.34 at 0.0253 eV,
 //! 500 keV and 14 MeV.
 
+use petir::mathf::RealMath;
 #[path = "../examples/lesson_fission_products/data.rs"]
 mod data;
 #[path = "../examples/lesson_fission_products/spectrum.rs"]
@@ -157,7 +158,7 @@ fn sampler_reproduces_the_exact_law_on_u235() {
         for (c, q) in counts.iter().zip(&p).chain(std::iter::once((&over, &pover))) {
             let m = q * n as f64;
             if m > 20.0 {
-                chi2 += (*c as f64 - m).powi(2) / m;
+                chi2 += (*c as f64 - m).r_powi(2) / m;
                 dof += 1;
             }
         }

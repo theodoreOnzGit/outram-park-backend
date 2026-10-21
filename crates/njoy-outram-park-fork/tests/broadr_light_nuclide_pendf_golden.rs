@@ -31,6 +31,7 @@
 //! Before the `broadn` port H-2 elastic was 5.2× NJOY at 0.01 eV
 //! (`op-tubm`); after it, 5.8e-4.
 
+use petir::mathf::RealMath;
 use njoy_outram_park_fork::broadr::{broaden_result, broadening_limit};
 use njoy_outram_park_fork::endf::interp::eval_tab1;
 use njoy_outram_park_fork::endf::records::SectionCursor;
@@ -149,7 +150,7 @@ fn check(case: &Case) {
         let mut asserted = (0.0f64, 0.0, 0.0, 0.0);
         let (a_lo, a_hi) = ((1.5 * e_first).max(ASSERT_FROM_EV), 0.999 * e_top);
         for i in 0..=N_SAMPLES {
-            let e = e_first * (e_top / e_first).powf(i as f64 / N_SAMPLES as f64);
+            let e = e_first * (e_top / e_first).r_powf(i as f64 / N_SAMPLES as f64);
             let want = eval_tab1(e, &tab.interp, &tab.pairs).unwrap();
             let got = eval_tab1(e, &our_interp, &sec.pairs).unwrap();
             let scale = got.abs().max(want.abs());

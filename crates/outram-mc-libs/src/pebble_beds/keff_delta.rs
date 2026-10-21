@@ -57,6 +57,7 @@
 //! (`collision` / `inelastic_scatter`). The reflective-cube flight is new pebble-bed
 //! assembly built on this crate's primitives.
 
+use petir::mathf::RealMath;
 pub mod distributed;
 
 use crate::geometry::position::{Direction, Position};
@@ -298,8 +299,8 @@ impl DeltaDomain {
                 let r = radius * prn(seed).sqrt();
                 let theta = 2.0 * core::f64::consts::PI * prn(seed);
                 Position::new(
-                    r * theta.cos(),
-                    r * theta.sin(),
+                    r * theta.r_cos(),
+                    r * theta.r_sin(),
                     -half_height + 2.0 * half_height * prn(seed),
                 )
             }
@@ -1479,7 +1480,7 @@ mod tests {
             }],
         };
         let materials = vec![fuel];
-        let grid: Vec<f64> = (0..60).map(|i| 1.0e-3 * 1.5_f64.powi(i)).collect();
+        let grid: Vec<f64> = (0..60).map(|i| 1.0e-3 * 1.5_f64.r_powi(i)).collect();
         let maj = Majorant::from_materials(&materials, &nuclides, &grid, 0.05);
         let settings = KeffSettings {
             n_particles: 500,
@@ -1508,7 +1509,7 @@ mod tests {
             Material { id: 1, name: "fuel".into(), temperature: 293.6, components: comp(4.0e-2, 8.0e-3) },
             Material { id: 2, name: "dilute".into(), temperature: 293.6, components: comp(2.0e-3, 2.0e-2) },
         ];
-        let grid: Vec<f64> = (0..60).map(|i| 1.0e-3 * 1.5_f64.powi(i)).collect();
+        let grid: Vec<f64> = (0..60).map(|i| 1.0e-3 * 1.5_f64.r_powi(i)).collect();
         let maj = Majorant::from_materials(&materials, &nuclides, &grid, 0.05);
         let settings = KeffSettings { n_particles: 300, n_inactive: 5, n_active: 10, ..KeffSettings::default() };
         let q = |p: Position| Some(if p.norm() < 0.8 { 0usize } else { 1usize });
@@ -1578,7 +1579,7 @@ mod tests {
             }],
         };
         let materials = vec![fuel];
-        let grid: Vec<f64> = (0..60).map(|i| 1.0e-3 * 1.5_f64.powi(i)).collect();
+        let grid: Vec<f64> = (0..60).map(|i| 1.0e-3 * 1.5_f64.r_powi(i)).collect();
         let maj = Majorant::from_materials(&materials, &nuclides, &grid, 0.05);
         let base = KeffSettings {
             n_particles: 600,
@@ -1631,7 +1632,7 @@ mod tests {
             par1.k_mean, par4.k_mean
         );
 
-        let sigma_comb = (seq.k_std.powi(2) + par1.k_std.powi(2)).sqrt().max(1e-9);
+        let sigma_comb = (seq.k_std.r_powi(2) + par1.k_std.r_powi(2)).sqrt().max(1e-9);
         let dist = (seq.k_mean - par1.k_mean).abs() / sigma_comb;
         eprintln!(
             "[delta backend agreement] seq = {:.5} ± {:.5}, par = {:.5} ± {:.5}  ({:.2}σ apart)",
@@ -1778,10 +1779,10 @@ mod tests {
         for _ in 0..n {
             let p = domain.sample_point(&mut seed);
             assert!(p.norm() <= radius + 1e-12);
-            sum_r3 += p.norm().powi(3);
+            sum_r3 += p.norm().r_powi(3);
         }
         let mean_r3 = sum_r3 / f64::from(n);
-        let expected = 0.5 * radius.powi(3);
+        let expected = 0.5 * radius.r_powi(3);
         assert!(
             (mean_r3 / expected - 1.0).abs() < 0.02,
             "<r³> = {mean_r3:.5}, expected {expected:.5} for a volume-uniform fill"
@@ -1828,7 +1829,7 @@ mod tests {
                 atom_density: 4.8e-2,
             }],
         }];
-        let grid: Vec<f64> = (0..60).map(|i| 1.0e-3 * 1.5_f64.powi(i)).collect();
+        let grid: Vec<f64> = (0..60).map(|i| 1.0e-3 * 1.5_f64.r_powi(i)).collect();
         let maj = Majorant::from_materials(&materials, &nuclides, &grid, 0.05);
         let settings = KeffSettings {
             n_particles: 800,
@@ -1856,7 +1857,7 @@ mod tests {
                 |_p| Some(0),
                 &settings,
             );
-            let sigma = (cube.k_std.powi(2) + sphere.k_std.powi(2)).sqrt().max(1e-9);
+            let sigma = (cube.k_std.r_powi(2) + sphere.k_std.r_powi(2)).sqrt().max(1e-9);
             let dist = (cube.k_mean - sphere.k_mean).abs() / sigma;
             eprintln!(
                 "[k∞ shape independence, size {size}] cube {:.5} ± {:.5} vs sphere \

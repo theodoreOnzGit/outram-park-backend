@@ -54,6 +54,8 @@
 //! correlation's range is an extrapolation and should not be reported as a
 //! safety margin.
 
+use petir::mathf::RealMath;
+
 use crate::fixinfnan::fixinfnan;
 use crate::iapws_if97::basic::{h1_pt, hl_p};
 use crate::types::{FuelGeometry, Params, Th, W3Form};
@@ -183,11 +185,11 @@ pub fn w3chf(params: &Params, fuel: &FuelGeometry, th: &Th) -> Chf {
         let gm = (c.alphag[i] * c.gdens[i] + (1.0 - c.alphag[i]) * c.ldens[i]) * c.vm[i];
 
         let kone = (2.022 - 0.06238 * press)
-            + (0.1722 - 0.01427 * press) * ((18.177 - 0.5987 * press) * quale).exp();
+            + (0.1722 - 0.01427 * press) * ((18.177 - 0.5987 * press) * quale).r_exp();
         let ktwo =
             (0.1484 - 1.596 * quale + 0.1729 * quale * quale.abs()) * 2.326 * gm * 10.0 + 3271.0;
         let kthree =
-            (1.157 - 0.869 * quale) * (0.2664 + 0.8357 * (-124.1 * fuel.hydia / 100.0).exp());
+            (1.157 - 0.869 * quale) * (0.2664 + 0.8357 * (-124.1 * fuel.hydia / 100.0).r_exp());
         let kfour = 0.8258 + 0.000_341_3 * (hlsat - enthshift[i]);
 
         chf[i] = kone * ktwo * kthree * kfour / 10.0;

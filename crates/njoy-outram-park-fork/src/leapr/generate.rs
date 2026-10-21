@@ -134,6 +134,7 @@
 //! temperature), not per run. A device that cannot afford even that should
 //! point [`SabSource::EndfTape`] at a tape instead.
 
+use petir::mathf::RealMath;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::{Arc, OnceLock, RwLock};
@@ -759,8 +760,8 @@ pub fn build_law_at_temperature(
             }
         }
 
-        let sb = deck.spr * ((1.0 + deck.awr) / deck.awr).powi(2);
-        let sbs = deck.sps * ((1.0 + deck.aws) / deck.aws).powi(2);
+        let sb = deck.spr * ((1.0 + deck.awr) / deck.awr).r_powi(2);
+        let sbs = deck.sps * ((1.0 + deck.aws) / deck.aws).r_powi(2);
         let srat = sbs / sb;
         for ib in 0..ssm.nbeta {
             for ia in 0..ssm.nalpha {
@@ -1324,7 +1325,7 @@ fn regenerate_cached(request: &SabRequest) -> Result<Arc<Mf7>, NjoyError> {
 /// not produced by these cards), not a defect here, so it is documented rather
 /// than encoded as a tolerance.
 pub(crate) fn bound_cross_section_times_npr(spr: f64, awr: f64, npr: i32) -> f64 {
-    spr * ((1.0 + awr) / awr).powi(2) * f64::from(npr)
+    spr * ((1.0 + awr) / awr).r_powi(2) * f64::from(npr)
 }
 
 #[cfg(test)]
@@ -1342,7 +1343,7 @@ mod tests {
     #[test]
     fn bound_cross_section_matches_leapr_3014() {
         let (spr, awr, npr) = (20.478_f64, 0.99917_f64, 2);
-        let factor = ((1.0 + awr) / awr).powi(2);
+        let factor = ((1.0 + awr) / awr).r_powi(2);
         // The factor itself, stated independently of the function.
         assert!(
             (factor - 4.003_323_4).abs() < 1.0e-6,

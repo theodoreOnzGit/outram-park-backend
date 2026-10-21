@@ -62,6 +62,7 @@
 //! neutrons (steady state only), and the constants are P0, `D = 1/(3 Σ_t)`
 //! (gh:#595) on stair-stepped regions (gh:#594).
 
+use petir::mathf::RealMath;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Instant;
@@ -428,7 +429,7 @@ impl Nearest {
                         let b = q[0] as usize
                             + self.dims[0] * (q[1] as usize + self.dims[1] * q[2] as usize);
                         for &i in &self.buckets[b] {
-                            let d: f64 = (0..3).map(|a| (self.pts[i][a] - p[a]).powi(2)).sum();
+                            let d: f64 = (0..3).map(|a| (self.pts[i][a] - p[a]).r_powi(2)).sum();
                             if d < best.0 {
                                 best = (d, i);
                             }
@@ -477,9 +478,9 @@ impl Transfer {
             .map(|c| {
                 let a = th_mesh.cell_centre(c);
                 let b = fv.cell_centres[c];
-                ((a[0] * s_cm - b.x).powi(2)
-                    + (a[1] * s_cm - b.y).powi(2)
-                    + (a[2] * s_cm - b.z).powi(2))
+                ((a[0] * s_cm - b.x).r_powi(2)
+                    + (a[1] * s_cm - b.y).r_powi(2)
+                    + (a[2] * s_cm - b.z).r_powi(2))
                 .sqrt()
             })
             .fold(0.0, f64::max);
@@ -511,7 +512,7 @@ impl Transfer {
         let r_frac: Vec<f64> = fields
             .ring_outer_m
             .iter()
-            .map(|r| (r / fields.ring_outer_m[n_r - 1]).powi(2))
+            .map(|r| (r / fields.ring_outer_m[n_r - 1]).r_powi(2))
             .collect();
         // Nearest bed-cell search.
         let bed_cells: Vec<usize> = (0..th.cells).filter(|&c| th_bed[c]).collect();
@@ -546,7 +547,7 @@ impl Transfer {
                         for iz in 0..NZ {
                             let depth = (j as f64 + (iz as f64 + 0.5) / NZ as f64) / n_z as f64;
                             let z = z_top - depth * h_bed;
-                            let (x, y) = (r * th_ang.cos(), r * th_ang.sin());
+                            let (x, y) = (r * th_ang.r_cos(), r * th_ang.r_sin());
                             // The bed cell containing the sample; where the
                             // sample is in a cavity cell or outside the
                             // faceted mesh, the nearest bed cell.
@@ -580,7 +581,7 @@ impl Transfer {
         for &c in &bed_cells {
             let p = fv.cell_centres[c];
             let rr = (p.x * p.x + p.y * p.y).sqrt();
-            let a = (rr / r_bed).powi(2);
+            let a = (rr / r_bed).r_powi(2);
             let i = r_frac.iter().position(|&q| a <= q).unwrap_or(n_r - 1);
             let depth = ((z_top - p.z) / h_bed).clamp(0.0, 1.0 - 1e-12);
             let j = ((depth * n_z as f64).floor() as usize).min(n_z - 1);
@@ -1125,10 +1126,10 @@ mod tests {
         let sol = n.solve(&vec![300.0; n.mesh().n_cells], 1.0).expect("solve");
         let t = m.total();
         let (d1, d2) = (1.0 / (3.0 * t[0]), 1.0 / (3.0 * t[1]));
-        let poly = 32.0 / 2.0 * (2.0 * std::f64::consts::PI / 32.0).sin() / std::f64::consts::PI;
+        let poly = 32.0 / 2.0 * (2.0 * std::f64::consts::PI / 32.0).r_sin() / std::f64::consts::PI;
         let r = d.r_outer * poly.sqrt();
         let h = d.z_top - d.z_bottom;
-        let b2 = (2.404_825_557_7 / r).powi(2) + (std::f64::consts::PI / h).powi(2);
+        let b2 = (2.404_825_557_7 / r).r_powi(2) + (std::f64::consts::PI / h).r_powi(2);
         let sr1 = m.sa[0] + m.s01;
         let k = (m.nf[0] * (m.sa[1] + d2 * b2) + m.nf[1] * m.s01)
             / ((sr1 + d1 * b2) * (m.sa[1] + d2 * b2));
@@ -1185,7 +1186,7 @@ mod tests {
         let inp = inputs("coupled", &[300.0, 1200.0], |id, t| {
             if id == "pebble_bed" {
                 let mut b = bed_cold;
-                b.nf[1] *= 1.0 - 0.12 * (t / 300.0).ln();
+                b.nf[1] *= 1.0 - 0.12 * (t / 300.0).r_ln();
                 b
             } else {
                 graphite

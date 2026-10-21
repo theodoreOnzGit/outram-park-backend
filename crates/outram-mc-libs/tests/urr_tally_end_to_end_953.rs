@@ -62,6 +62,7 @@
 //! Test 2: see the README. Full record:
 //! `verification_and_validation/urr_tally_scoring_953/README.md`.
 
+use petir::mathf::RealMath;
 use std::path::PathBuf;
 
 use njoy_outram_park_fork::endf::tape::Tape;
@@ -136,7 +137,7 @@ fn u238_sphere(r_cm: f64) -> Geometry {
 fn mean_se(x: &[f64]) -> (f64, f64) {
     let n = x.len() as f64;
     let m = x.iter().sum::<f64>() / n;
-    let v = x.iter().map(|v| (v - m).powi(2)).sum::<f64>() / (n - 1.0);
+    let v = x.iter().map(|v| (v - m).r_powi(2)).sum::<f64>() / (n - 1.0);
     (m, (v / n).sqrt())
 }
 
@@ -414,7 +415,7 @@ fn delta_collision_estimators_agree_with_track_length_in_the_urr() {
     }];
     let a = 20.0;
     let grid: Vec<f64> = (0..4096)
-        .map(|i| (1.0e-5_f64.ln() + (2.0e7_f64.ln() - 1.0e-5_f64.ln()) * i as f64 / 4095.0).exp())
+        .map(|i| (1.0e-5_f64.r_ln() + (2.0e7_f64.r_ln() - 1.0e-5_f64.r_ln()) * i as f64 / 4095.0).r_exp())
         .collect();
     let maj = Majorant::over_indices(&mats, &[0], &nucs, &grid, 0.3);
     let h = 0.5 * a;
@@ -482,7 +483,7 @@ fn delta_collision_estimators_agree_with_track_length_in_the_urr() {
         t0.elapsed().as_secs_f64()
     );
     let z = |x: (f64, f64), y: (f64, f64)| {
-        (x.0 - y.0).abs() / ((x.0 * x.1).powi(2) + (y.0 * y.1).powi(2)).sqrt()
+        (x.0 - y.0).abs() / ((x.0 * x.1).r_powi(2) + (y.0 * y.1).r_powi(2)).sqrt()
     };
     println!(
         "window <Sigma_a>_phi [1/cm]: track length {:.6e} +- {:.2e} | tentative {:.6e} +- {:.2e} ({:+.2} %, {:.2} sigma) | real-collision {:.6e} +- {:.2e} ({:+.2} %, {:.2} sigma)",

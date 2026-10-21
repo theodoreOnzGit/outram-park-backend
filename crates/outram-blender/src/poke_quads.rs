@@ -37,7 +37,8 @@
 //!   `Face ▸ Tris to Quads`). Attribute comparisons (material / UV / sharp /
 //!   seam) arrive with the attribute layers in `op-hzs.54.28`.
 
-use std::collections::{HashMap, HashSet};
+use petir::mathf::RealMath;
+use std::collections::{BTreeMap, HashSet};
 
 use crate::math::Vec3;
 use crate::mesh::{FaceId, Mesh};
@@ -244,7 +245,9 @@ pub fn tris_to_quads(mesh: &Mesh, max_angle: f64) -> Mesh {
         .collect();
 
     // edge → (tri idx, opposite vertex)
-    let mut edge_tri: HashMap<(usize, usize), Vec<(usize, usize)>> = HashMap::new();
+    // BTreeMap: the stable sort below keeps equal-score candidates in this
+    // order, and a hash map's is randomly seeded (gh #1002).
+    let mut edge_tri: BTreeMap<(usize, usize), Vec<(usize, usize)>> = BTreeMap::new();
     for (ti, t) in tri.iter().enumerate() {
         let Some(t) = t else { continue };
         for k in 0..3 {
@@ -307,7 +310,7 @@ fn min_angle4(pos: &[Vec3], a: usize, b: usize, c: usize, d: usize, diag_ac: boo
         let v = pos[q].sub(pos[o]);
         (u.dot(v) / (u.length() * v.length() + 1e-12))
             .clamp(-1.0, 1.0)
-            .acos()
+            .r_acos()
     };
     if diag_ac {
         [
@@ -355,7 +358,7 @@ fn quad_angle_deviation(pos: &[Vec3], q: &[usize; 4]) -> f64 {
         let v = pos[r].sub(pos[o]);
         (u.dot(v) / (u.length() * v.length() + 1e-12))
             .clamp(-1.0, 1.0)
-            .acos()
+            .r_acos()
     };
     let half_pi = std::f64::consts::FRAC_PI_2;
     (0..4)

@@ -13,6 +13,7 @@
 //! engineering unit, not a `uom` SI quantity, so it is wrapped in
 //! [`ValveFlowCoefficient`] rather than left as a bare `f64`.
 
+use petir::mathf::RealMath;
 use uom::si::f64::{MassDensity, MassRate, Pressure, Ratio};
 use uom::si::mass_density::kilogram_per_cubic_meter;
 use uom::si::mass_rate::kilogram_per_hour;
@@ -146,7 +147,7 @@ pub fn solve_p2_liquid(
     let w_kg_h = w.get::<kilogram_per_hour>();
     let rho = density.get::<kilogram_per_cubic_meter>();
     let dp_bar =
-        (w_kg_h / (kv.0 * f_p.get::<ratio>())).powi(2) / (rho * REFERENCE_WATER_DENSITY_KG_PER_M3);
+        (w_kg_h / (kv.0 * f_p.get::<ratio>())).r_powi(2) / (rho * REFERENCE_WATER_DENSITY_KG_PER_M3);
     p1 - Pressure::new::<bar>(dp_bar)
 }
 
@@ -321,7 +322,7 @@ impl OpeningCharacteristic {
         let factor = match self {
             Self::Linear => op,
             Self::QuickOpening => op.sqrt(),
-            Self::EqualPercentage { rangeability } => rangeability.powf(op - 1.0),
+            Self::EqualPercentage { rangeability } => rangeability.r_powf(op - 1.0),
         };
         ValveFlowCoefficient(kv_max.0 * factor)
     }

@@ -61,6 +61,8 @@
 //! Input boxes in degrees; output boxes in mother-grid units; `dx`, `dy` in
 //! degrees per grid cell.
 
+use petir::mathf::RealMath;
+
 /// The mother-grid description `coordtrafo` reads from `com_mod`.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct ReleaseGrid {
@@ -115,7 +117,7 @@ pub fn spacing_f32(x: f32) -> f64 {
     if p < -126 {
         f32::MIN_POSITIVE as f64
     } else {
-        (2.0_f64).powi(p)
+        (2.0_f64).r_powi(p)
     }
 }
 

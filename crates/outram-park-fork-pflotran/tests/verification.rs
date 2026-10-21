@@ -9,6 +9,7 @@
 //! All tests use only the crate's public API, so they double as executable,
 //! read-top-to-bottom usage examples (the human-interface rule).
 
+use petir::mathf::RealMath;
 use outram_park_fork_pflotran::flow::richards::{
     BoundaryCondition, BoundaryConditionKind, RichardsProblem,
 };
@@ -70,7 +71,7 @@ fn solve_mms_column(nx: usize, length: f64, amp: f64) -> (Vec<f64>, Vec<f64>) {
     let p_l = 2.0e5;
     let p_r = 1.0e5;
     let pi = std::f64::consts::PI;
-    let exact = |x: f64| p_l + (p_r - p_l) * (x / length) + amp * (pi * x / length).sin();
+    let exact = |x: f64| p_l + (p_r - p_l) * (x / length) + amp * (pi * x / length).r_sin();
 
     let boundary = vec![
         BoundaryCondition {
@@ -96,7 +97,7 @@ fn solve_mms_column(nx: usize, length: f64, amp: f64) -> (Vec<f64>, Vec<f64>) {
     let cell_volume = dx * 1.0 * 1.0;
     for i in 0..n {
         let x = (i as f64 + 0.5) * dx;
-        let p_second = -amp * (pi / length).powi(2) * (pi * x / length).sin();
+        let p_second = -amp * (pi / length).r_powi(2) * (pi * x / length).r_sin();
         let q_vol = -rho * lambda * p_second; // kg / m^3 / s
         source[i] = q_vol * cell_volume; // kg / s
     }
@@ -166,7 +167,7 @@ fn mms_saturated_operator_is_second_order() {
         );
     }
     // Observed order between the two finest grids must approach 2.
-    let order = (errors[errors.len() - 2] / errors[errors.len() - 1]).log2();
+    let order = (errors[errors.len() - 2] / errors[errors.len() - 1]).r_log2();
     println!("observed order (finest pair) = {order:.3}");
     assert!(
         order > 1.8,

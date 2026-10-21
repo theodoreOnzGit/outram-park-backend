@@ -218,6 +218,7 @@ impl ThermalScattering {
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
 
     /// A law with every channel kind crosses unchanged: every field, and
@@ -277,7 +278,7 @@ mod tests {
         );
         assert_eq!(back.name, law.name);
         for i in 0..300 {
-            let e = 1.0e-5 * 10f64.powf(5.6 * f64::from(i) / 300.0);
+            let e = 1.0e-5 * 10f64.r_powf(5.6 * f64::from(i) / 300.0);
             assert_eq!(law.total_xs(e).to_bits(), back.total_xs(e).to_bits(), "{e}");
             let (mut s1, mut s2) = (u64::from(i as u32) + 7, u64::from(i as u32) + 7);
             assert_eq!(

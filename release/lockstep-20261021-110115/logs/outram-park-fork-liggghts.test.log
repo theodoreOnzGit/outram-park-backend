@@ -1,0 +1,244 @@
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on build directory
+   Compiling naga v30.0.1
+   Compiling ordered-float v5.5.0
+   Compiling petir v0.0.3 (/home/teddy0/Documents/research/outram-park-backend/crates/petir)
+   Compiling raffles v0.0.3 (/home/teddy0/Documents/research/outram-park-backend/crates/raffles)
+   Compiling wgpu-naga-bridge v30.0.1
+   Compiling wgpu-hal v30.0.1
+   Compiling wgpu-core-deps-windows-linux-android v30.0.1
+   Compiling wgpu-core v30.0.1
+   Compiling wgpu v30.0.1
+   Compiling outram-park-fork-liggghts v0.0.2 (/home/teddy0/Documents/research/outram-park-backend/crates/outram-park-fork-liggghts)
+warning: constant `R_TUBE` is never used
+   --> crates/outram-park-fork-liggghts/tests/htr10_recirculation.rs:105:7
+    |
+105 | const R_TUBE: f64 = 0.25;
+    |       ^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `outram-park-fork-liggghts` (test "htr10_recirculation") generated 1 warning
+    Finished `release` profile [optimized] target(s) in 42.70s
+     Running unittests src/lib.rs (target/release/deps/outram_park_fork_liggghts-77fbe3ec06858b29)
+
+running 126 tests
+test bonded::tests::bond_breaks_when_tensile_stress_exceeds_strength ... ok
+test bonded::tests::bond_force_obeys_newtons_third_law ... ok
+test bonded::tests::bond_geometry_matches_closed_form ... ok
+test bonded::tests::bond_model_enum_dispatch ... ok
+test bonded::tests::constructor_rejects_invalid_parameters ... ok
+test bonded::tests::pure_normal_separation_accumulates_kn_a_delta ... ok
+test bonded::tests::pure_shear_accumulates_ks_a_delta ... ok
+test bonded::tests::unstressed_bond_carries_zero_load ... ok
+test boundary::tests::box_signed_distance_known_points ... ok
+test boundary::tests::constructors_reject_invalid_inputs ... ok
+test boundary::tests::cylinder_signed_distance_known_points ... ok
+test boundary::tests::particle_inside_box_near_face ... ok
+test boundary::tests::particle_inside_outside_cylinder_radius ... ok
+test boundary::tests::plane_signed_distance_known_points ... ok
+test boundary::tests::sphere_straddling_plane_overlap_and_normal ... ok
+test boundary::tests::wall_signed_distance_known_points ... ok
+test boundary::tests::wall_one_sided_overlap ... ok
+test compute::tests::a_one_thread_pool_is_not_a_parallel_step ... ok
+test compute::tests::default_backend_is_the_trusted_single_thread_reference ... ok
+test compute::tests::gpu_reports_a_scalar_cpu_step_because_the_timestep_has_no_gpu_kernel ... ok
+test contact::tests::constructors_reject_invalid_parameters ... ok
+test contact::tests::coulomb_cap_limits_tangential_force ... ok
+test compute::tests::fraction_is_a_fraction_of_auto ... ok
+test contact::tests::head_on_pair_obeys_newtons_third_law ... ok
+test compute::tests::thread_count_always_resolves_to_at_least_one ... ok
+test contact::tests::hertz_effective_moduli_match_hand_computed ... ok
+test contact::tests::hertz_normal_force_scales_as_delta_three_halves ... ok
+test contact::tests::hooke_normal_force_matches_kn_delta ... ok
+test contact::tests::no_force_when_separated ... ok
+test coupling::tests::coupling_scheme_variants_exist_and_differ ... ok
+test coupling::tests::data_records_are_constructible ... ok
+test coupling::tests::reserved_drag_model_errors_not_implemented ... ok
+test coupling::tests::reserved_fluid_source_errors_not_implemented ... ok
+test coupling::tests::seam_composes_and_errors_not_implemented ... ok
+test gnn_bridge::tests::a_touching_chain_gives_a_path_graph ... ok
+test gnn_bridge::tests::an_under_reaching_dem_surrogate_is_caught ... ok
+test gnn_bridge::tests::malformed_bridge_requests_are_refused ... ok
+test gnn_bridge::tests::polydisperse_contacts_need_per_particle_radii ... ok
+test gnn_bridge::tests::the_reach_bound_matches_a_hand_computed_cfl_number ... ok
+test granular::tests::cdt_rolling_torque_uses_the_elastic_normal_force_and_drops_torsion ... ok
+test granular::tests::contact_radii_are_reduced_by_half_the_overlap ... ok
+test granular::tests::degenerate_geometries_return_none ... ok
+test granular::tests::effective_properties_match_upstream_formulas ... ok
+test granular::tests::hertz_coefficients_match_hand_evaluation ... ok
+test granular::tests::hooke_coefficients_match_hand_evaluation ... ok
+test granular::tests::material_validation_matches_upstream_bounds ... ok
+test granular::tests::newtons_third_law_and_torque_assembly ... ok
+test granular::tests::only_the_history_model_carries_static_shear ... ok
+test granular::tests::history_spring_loads_linearly_then_saturates_at_the_coulomb_limit ... ok
+test granular::tests::rolling_is_zero_when_off_or_not_rolling ... ok
+test granular::tests::separated_contacts_lose_their_history ... ok
+test granular::tests::wall_contact_uses_particle_radius_and_mass ... ok
+test granular_system::tests::contact_pairs_are_resolved_contacts_not_search_candidates ... ok
+test granular_system::tests::cell_list_and_all_pairs_agree ... ok
+test granular_system::tests::elastic_collision_does_not_manufacture_energy ... ok
+test granular_system::tests::elastic_head_on_conserves_momentum_and_restitution ... ok
+test granular_system::tests::removing_a_particle_preserves_surviving_shear_history ... ok
+test granular_system::tests::half_stencil_enumerates_the_same_pairs_as_the_full_stencil ... ok
+test granular_system::tests::measured_restitution_matches_requested ... ok
+test granular_system::tests::tags_are_never_reused_after_a_removal ... ok
+test granular_system::tests::tangential_model_choice_changes_the_result ... ok
+test granular_system::tests::resting_sphere_matches_hertz_static_overlap ... ok
+test granular_system::tests::static_column_stays_static ... ok
+test granular_system::tests::a_moving_wall_drags_its_contacts ... ok
+test htr10_fill::tests::the_mesh_matches_the_stl_script_and_faces_inward ... ok
+test integrator::tests::constant_torque_spin_up_matches_analytical ... ok
+test integrator::tests::free_flight_matches_analytical_parabola ... ok
+test integrator::tests::jacobian_determinants_match_the_documented_algebra ... ok
+test integrator::tests::rejects_invalid_timestep ... ok
+test integrator::tests::velocity_verlet_conserves_oscillator_energy_where_single_shot_explodes ... ok
+test mesh_wall::tests::advance_translates_and_rotates_pose ... ok
+test mesh_wall::tests::ascii_stl_is_parsed_from_winding_not_the_normal_record ... ok
+test mesh_wall::tests::bounding_sphere_pruning_matches_brute_force_exactly ... ok
+test mesh_wall::tests::closest_point_on_triangle_face_edge_vertex ... ok
+test mesh_wall::tests::committed_lift_cylinder_stl_faces_inward ... ok
+test mesh_wall::tests::pruning_stays_exact_after_the_mesh_moves ... ok
+test mesh_wall::tests::rotating_wall_surface_velocity_equals_omega_cross_r ... ok
+test mesh_wall::tests::sphere_penetrating_single_triangle ... ok
+test mesh_wall::tests::translating_wall_surface_velocity_equals_velocity ... ok
+test mesh_wall::tests::triangle_normal_and_degeneracy ... ok
+test mesh_wall::tests::two_triangle_quad_matches_plane ... ok
+test particle::tests::constant_torque_spin_up_matches_analytical ... ok
+test particle::tests::constructor_rejects_nonpositive_mass_radius_temperature ... ok
+test particle::tests::free_flight_under_gravity_matches_analytical ... ok
+test particle::tests::vec3_algebra ... ok
+test particle::tests::volume_and_moment_of_inertia_exact ... ok
+test rolling::tests::cdt_agrees_with_the_cross_code_verified_granular_implementation ... ok
+test rolling::tests::cohesion_none_returns_zero ... ok
+test rolling::tests::constant_torque_direction_is_antiparallel_to_rolling ... ok
+test rolling::tests::constant_torque_opposes_rolling_with_hand_magnitude ... ok
+test rolling::tests::constructors_reject_invalid_parameters ... ok
+test rolling::tests::jkr_cohesion_zero_when_separated ... ok
+test rolling::tests::jkr_pull_off_matches_three_halves_pi_gamma_reff ... ok
+test rolling::tests::linear_cohesion_attractive_within_gap_zero_beyond ... ok
+test rolling::tests::rolling_none_returns_zero ... ok
+test rolling::tests::viscous_rolling_is_linear_in_omega ... ok
+test rolling::tests::zero_rolling_velocity_gives_zero_torque ... ok
+test simulation::tests::cell_list_matches_brute_force ... ok
+test simulation::tests::constructor_rejects_nonpositive_dt ... ok
+test simulation::tests::head_on_collision_conserves_linear_momentum ... ok
+test simulation::tests::particle_dropped_on_floor_falls_contacts_and_rebounds ... ok
+test simulation::tests::resting_particle_on_floor_stays_at_rest ... ok
+test thermal::tests::energy_conserved_two_body_exchange ... ok
+test thermal::tests::equal_temperatures_zero_heat ... ok
+test thermal::tests::explicit_euler_temperature_step_hand_computed ... ok
+test thermal::tests::flux_sign_and_magnitude_hand_computed ... ok
+test thermal::tests::harmonic_mean_conductivity_closed_form ... ok
+test thermal::tests::hertzian_contact_radius_and_conductance_hand_computed ... ok
+test thermal::tests::particle_wall_and_constant_model ... ok
+test thermal_radiation::tests::effective_emissivity_closed_form ... ok
+test thermal_radiation::tests::equal_temperatures_zero_heat_both_paths ... ok
+test thermal_radiation::tests::gas_gap_conductance_decreases_with_separation ... ok
+test thermal_radiation::tests::gas_gap_conductance_hand_computed ... ok
+test thermal_radiation::tests::gas_gap_energy_conserved_and_sign ... ok
+test thermal_radiation::tests::gas_gap_rejects_bad_inputs ... ok
+test thermal_radiation::tests::grey_body_radiative_law_hand_computed ... ok
+test thermal_radiation::tests::particle_wall_radiative_and_gas_paths ... ok
+test thermal_radiation::tests::radiative_energy_conserved_and_sign ... ok
+test timestep::tests::ensemble_estimate_takes_the_minimum ... ok
+test timestep::tests::estimates_obey_their_scaling_laws ... ok
+test timestep::tests::hertz_time_matches_hand_evaluation ... ok
+test timestep::tests::rayleigh_time_matches_hand_evaluation ... ok
+test timestep::tests::recommended_step_is_the_binding_criterion ... ok
+test htr10_fill::tests::seeding_is_deterministic_and_inside_the_wall ... ok
+test htr10_fill::tests::a_pour_is_not_settled_before_it_has_fallen ... ok
+test htr10_fill::tests::a_small_pour_runs_and_stays_in_the_vessel ... ok
+
+test result: ok. 126 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.37s
+
+     Running tests/angle_of_repose.rs (target/release/deps/angle_of_repose-a9b0bf13da5d60c5)
+
+running 1 test
+test lifting_cylinder_heap_matches_liggghts has been running for over 60 seconds
+test lifting_cylinder_heap_matches_liggghts ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 685.52s
+
+     Running tests/compute_backend_equivalence.rs (target/release/deps/compute_backend_equivalence-fee9c660435b7f47)
+
+running 4 tests
+test parallel_is_bit_identical_below_the_brute_force_threshold ... ok
+test the_same_backend_twice_gives_the_same_answer ... ok
+test parallel_is_bit_identical_to_serial_without_history ... ok
+test parallel_is_bit_identical_to_serial_with_history ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.15s
+
+     Running tests/htr10_conus_cross_code.rs (target/release/deps/htr10_conus_cross_code-f42996827e334227)
+
+running 1 test
+test conus_slump_matches_liggghts has been running for over 60 seconds
+test conus_slump_matches_liggghts ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 347.57s
+
+     Running tests/htr10_pebble_bed.rs (target/release/deps/htr10_pebble_bed-b464e47609efe8a3)
+
+running 2 tests
+test htr10_geometry_matches_the_published_design_point ... ok
+test htr10_full_core_settles_and_matches_liggghts has been running for over 60 seconds
+test htr10_full_core_settles_and_matches_liggghts ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 559.94s
+
+     Running tests/htr10_rdf.rs (target/release/deps/htr10_rdf-038c33d1a5be2d66)
+
+running 3 tests
+test cpu_backends_agree_exactly ... ok
+test radial_distribution_of_every_htr10_bed ... ok
+test gpu_backend_matches_cpu_within_f32_binning ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.76s
+
+     Running tests/htr10_recirculation.rs (target/release/deps/htr10_recirculation-3b05fac74682fa35)
+
+running 1 test
+test slow_recirculation_through_the_discharge_system has been running for over 60 seconds
+test slow_recirculation_through_the_discharge_system ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2138.86s
+
+     Running tests/legacy_path_cross_code.rs (target/release/deps/legacy_path_cross_code-ac5c1c87f11c9199)
+
+running 1 test
+test stateless_path_matches_liggghts_no_history ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/liggghts_cross_code.rs (target/release/deps/liggghts_cross_code-8d33b08cd734b58c)
+
+running 5 tests
+test rolling_cdt_matches_liggghts ... ok
+test headon_hertz_matches_liggghts ... ok
+test oblique_friction_matches_liggghts ... ok
+test headon_hooke_matches_liggghts ... ok
+test wall_bounce_matches_liggghts ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/pebble_bed_bulk.rs (target/release/deps/pebble_bed_bulk-29bae18d8e9797ed)
+
+running 1 test
+test bulk_packing_matches_liggghts ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 29.75s
+
+     Running tests/pebble_bed_porosity.rs (target/release/deps/pebble_bed_porosity-4f906a196e53726c)
+
+running 4 tests
+test radial_porosity_is_the_oscillatory_near_wall_profile ... ok
+test the_zbs_wall_placeholder_has_the_wrong_shape ... ok
+test axial_porosity_has_floor_layering_a_bulk_and_a_free_surface ... ok
+test porosity_map_matches_the_committed_profile ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.16s
+

@@ -46,6 +46,7 @@
 //! [`append`] returns without writing anything, rather than a partial block,
 //! when a production item needs one of these.
 
+use petir::mathf::RealMath;
 use crate::endf::interp::terpa;
 use crate::endf::records::{List, SectionCursor, Tab1};
 use crate::endf::tape::Tape;
@@ -76,12 +77,12 @@ struct Prod {
 
 /// `eavl` (`acecm.f90:558-583`).
 fn eavl(akal: f64, amass: f64, avcm: f64, avadd: f64, fmsd: f64, sign: f64) -> f64 {
-    let fi1 = |aa: f64| if aa == 0.0 { 2.0 } else { (aa.exp() - (-aa).exp()) / aa };
+    let fi1 = |aa: f64| if aa == 0.0 { 2.0 } else { (aa.r_exp() - (-aa).r_exp()) / aa };
     let fi2 = |aa: f64| {
         if aa == 0.0 {
             0.0
         } else {
-            ((aa.exp() + (-aa).exp()) / aa) - ((aa.exp() - (-aa).exp()) / (aa * aa))
+            ((aa.r_exp() + (-aa).r_exp()) / aa) - ((aa.r_exp() - (-aa).r_exp()) / (aa * aa))
         }
     };
     let r = avcm * avcm + avadd * avadd;
@@ -627,7 +628,7 @@ pub fn append(table: &mut AceTable, tape: &Tape, mat: i32, pendf: &ReconrResult)
                 x.n(last + 2, (next - dlwh + 1) as f64);
                 let aprime = stale_awp / awi;
                 x.r(next, sigfig((1.0 + amass) * (-q) / amass, 7, 0));
-                x.r(next + 1, sigfig(amass * (amass + 1.0 - aprime) / (1.0 + amass).powi(2), 7, 0));
+                x.r(next + 1, sigfig(amass * (amass + 1.0 - aprime) / (1.0 + amass).r_powi(2), 7, 0));
                 next += 2;
                 for ie in it..=nes {
                     let tt = x.get(esz + ie - 1) * x.get(hpd + 2 + ie - it) * awi / (awr + awi);
@@ -648,7 +649,7 @@ pub fn append(table: &mut AceTable, tape: &Tape, mat: i32, pendf: &ReconrResult)
                 x.n(last + 2, (next - dlwh + 1) as f64);
                 let aprime = awp / awi;
                 let d1 = sigfig((1.0 + amass) * (-q) / amass, 7, 0);
-                let d2 = sigfig(amass * (amass + 1.0 - aprime) / (1.0 + amass).powi(2), 7, 0);
+                let d2 = sigfig(amass * (amass + 1.0 - aprime) / (1.0 + amass).r_powi(2), 7, 0);
                 x.r(next, d1);
                 x.r(next + 1, d2);
                 // heating, LTT = 0 only: the others added theirs with the
@@ -674,7 +675,7 @@ pub fn append(table: &mut AceTable, tape: &Tape, mat: i32, pendf: &ReconrResult)
                         let _ = x;
                         (
                             sigfig((1.0 + amass) * (-q) / amass, 7, 0),
-                            sigfig(amass * (amass + 1.0 - aprime) / (1.0 + amass).powi(2), 7, 0),
+                            sigfig(amass * (amass + 1.0 - aprime) / (1.0 + amass).r_powi(2), 7, 0),
                         )
                     };
                     match law {
@@ -1030,7 +1031,7 @@ fn write_angular(
         let e = x.get(ie0 + iie);
         let th = (1.0 + amass) * q / amass;
         let r1 = amass * (amass + 1.0 - aprime) / aprime;
-        let r2 = aprime / (1.0 + amass).powi(2);
+        let r2 = aprime / (1.0 + amass).r_powi(2);
         let mut betasq = r1 * (1.0 + th / e);
         if betasq < 0.0 {
             betasq = 0.0;

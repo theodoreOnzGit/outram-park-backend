@@ -127,6 +127,7 @@
 //! are this workspace's own codes. `k_inf` agreement says the condensation and
 //! the solvers are consistent; it says nothing yet about the HTR-10.
 
+use petir::mathf::RealMath;
 use std::sync::Arc;
 
 use nee_soon::genfoam_xs::to_nuclear_data_input;
@@ -338,7 +339,7 @@ fn main() {
     // Region-local majorant over the BED materials only: the reflector is
     // surface-tracked and must not raise the bed's delta-tracking cost.
     let grid: Vec<f64> = (0..4096)
-        .map(|i| (1.0e-4_f64.ln() + (2.0e7_f64.ln() - 1.0e-4_f64.ln()) * i as f64 / 4095.0).exp())
+        .map(|i| (1.0e-4_f64.r_ln() + (2.0e7_f64.r_ln() - 1.0e-4_f64.r_ln()) * i as f64 / 4095.0).r_exp())
         .collect();
     let bed_mats: Vec<usize> = (0..=mat::HELIUM).collect();
     let maj = Majorant::over_indices(&mats, &bed_mats, &nucs, &grid, 0.3);
@@ -382,9 +383,9 @@ fn main() {
             // placed structure above only exists for 8.
             println!("  NOTE: {n} groups requested -- no placed structure for that count,");
             println!("        falling back to a log-uniform grid. Use 8 for the WIMS-style one.");
-            let (l0, l1) = (1.0e-5_f64.ln(), 2.0e7_f64.ln());
+            let (l0, l1) = (1.0e-5_f64.r_ln(), 2.0e7_f64.r_ln());
             (0..=n)
-                .map(|i| (l0 + (l1 - l0) * i as f64 / n as f64).exp())
+                .map(|i| (l0 + (l1 - l0) * i as f64 / n as f64).r_exp())
                 .collect()
         }
     };
@@ -999,7 +1000,7 @@ fn main() {
                 println!(
                     "  volume-matched slab: reflector:bed = {:.3} (target {:.3} from r-z)",
                     (NV - 18) as f64 / 18.0,
-                    (190.0_f64.powi(2) - 90.0_f64.powi(2)) / 90.0_f64.powi(2)
+                    (190.0_f64.r_powi(2) - 90.0_f64.r_powi(2)) / 90.0_f64.r_powi(2)
                 );
                 match DiffusionNeutronics::new(
                     mesh_v.clone(),
@@ -1217,7 +1218,7 @@ fn main() {
                         .reflector_savings(0, 1, thermal_g, HTR10_AXIAL_REFLECTOR_CM)
                         .unwrap_or(0.0);
                     let h_eff = 2.0 * core.bed_half_height + 2.0 * delta_z;
-                    let b2_z = (std::f64::consts::PI / h_eff).powi(2);
+                    let b2_z = (std::f64::consts::PI / h_eff).r_powi(2);
                     println!(
                         "  axial saving delta_z = {delta_z:.2} cm -> H_eff = {h_eff:.2} cm, B_z^2 = {b2_z:.6e} cm^-2"
                     );

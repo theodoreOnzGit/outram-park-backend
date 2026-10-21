@@ -1,0 +1,1933 @@
+    Blocking waiting for file lock on build directory
+   Compiling njoy-outram-park-fork v0.0.6 (/home/teddy0/Documents/research/outram-park-backend/crates/njoy-outram-park-fork)
+   Compiling outram-foam-basic-lib v0.1.7 (/home/teddy0/Documents/research/outram-park-backend/crates/outram-foam-basic-lib)
+   Compiling tampines-steam-tables v0.3.0 (/home/teddy0/Documents/research/outram-park-backend/crates/tampines-steam-tables)
+warning: ambiguous glob re-exports
+  --> crates/tampines-steam-tables/src/prelude.rs:24:9
+   |
+24 | pub use crate::interfaces::functional_programming::hs_flash_eqm::*;
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the name `validity_range` in the type namespace is first re-exported here
+25 | pub use crate::interfaces::functional_programming::ph_flash_eqm::*;
+26 | pub use crate::interfaces::functional_programming::ps_flash_eqm::*;
+   |         ---------------------------------------------------------- but the name `validity_range` in the type namespace is also re-exported here
+   |
+   = note: `#[warn(ambiguous_glob_reexports)]` on by default
+
+warning: constant `LIQUID_SNAP_PRESSURE_FRACTION` is never used
+    --> crates/tampines-steam-tables/src/interfaces/functional_programming/rho_h_flash_eqm/mod.rs:1132:7
+     |
+1132 | const LIQUID_SNAP_PRESSURE_FRACTION: f64 = 0.05;
+     |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `tampines-steam-tables` (lib) generated 2 warnings
+   Compiling outram-mc-libs v0.0.6 (/home/teddy0/Documents/research/outram-park-backend/crates/outram-mc-libs)
+warning: associated function `new_from_fission` is never used
+   --> crates/outram-mc-libs/src/physics/transport_csg.rs:182:19
+    |
+169 | impl Site {
+    | --------- associated function in this implementation
+...
+182 |     pub(crate) fn new_from_fission(
+    |                   ^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `outram-mc-libs` (lib) generated 1 warning
+warning: variable `NR` should have a snake case name
+   --> crates/outram-mc-libs/tests/tally_filters_vs_definitions.rs:101:14
+    |
+101 |         let (NR, NT) = (nr, nt);
+    |              ^^ help: convert the identifier to snake case: `nr`
+    |
+    = note: `#[warn(non_snake_case)]` (part of `#[warn(nonstandard_style)]`) on by default
+
+warning: variable `NT` should have a snake case name
+   --> crates/outram-mc-libs/tests/tally_filters_vs_definitions.rs:101:18
+    |
+101 |         let (NR, NT) = (nr, nt);
+    |                  ^^ help: convert the identifier to snake case: `nt`
+
+warning: variable `NMU` should have a snake case name
+   --> crates/outram-mc-libs/tests/tally_filters_vs_definitions.rs:211:14
+    |
+211 |         let (NMU, NPHI) = (nmu, nphi);
+    |              ^^^ help: convert the identifier to snake case: `nmu`
+
+warning: variable `NPHI` should have a snake case name
+   --> crates/outram-mc-libs/tests/tally_filters_vs_definitions.rs:211:19
+    |
+211 |         let (NMU, NPHI) = (nmu, nphi);
+    |                   ^^^^ help: convert the identifier to snake case: `nphi`
+
+warning: `outram-mc-libs` (test "tally_filters_vs_definitions") generated 4 warnings
+warning: function `mu_inelastic` is never used
+   --> crates/outram-mc-libs/tests/ablation_suite.rs:210:4
+    |
+210 | fn mu_inelastic(nuclides: &[Nuclide], draws: usize) -> f64 {
+    |    ^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `outram-mc-libs` (test "ablation_suite") generated 1 warning
+warning: `outram-mc-libs` (lib test) generated 1 warning (1 duplicate)
+    Finished `release` profile [optimized] target(s) in 1m 00s
+     Running unittests src/lib.rs (target/release/deps/outram_mc_libs-480aabf1e61c4e51)
+
+running 488 tests
+test depletion::chain::tests::build_matrix_with_reaction_rates ... ok
+test depletion::chain::tests::consume_fission_yields_data ... ok
+test depletion::chain::tests::decay_matrix_conserves_atoms ... ok
+test depletion::chain::tests::simple_chain_has_nine_nuclides_in_stable_order ... ok
+test depletion::cram::tests::wrappers_are_petir ... ok
+test depletion::cram::tests::length_mismatch_panics_as_before - should panic ... ok
+test depletion::integrators::tests::a_feed_cannot_be_folded_into_the_burnup_matrix ... ok
+test depletion::integrators::tests::a_negative_observed_order_is_a_result_not_an_error ... ok
+test depletion::integrators::tests::a_pebble_recirculation_rate_removes_the_expected_fraction ... ok
+test depletion::integrators::tests::a_removal_rate_lands_on_the_diagonal ... ok
+test depletion::integrators::tests::combine_is_a_weighted_sum ... ok
+test depletion::integrators::tests::reaction_rates_average_like_openmc_arrays ... ok
+test depletion::integrators::tests::the_one_group_operator_drives_all_eight ... ok
+test depletion::chain::tests::decay_constants_match_half_lives ... ok
+test depletion::chain::tests::simple_from_data_matches_simple ... ok
+test dh_universe::tests::coolant_radius_inside_the_pebble_is_rejected ... ok
+test dh_universe::tests::coolant_shell_requires_an_eighth_material ... ok
+test dh_universe::tests::dispersed_fuel_refuses_ring_rpt_rather_than_falling_back ... ok
+test dh_universe::tests::dispersed_fuel_supports_every_treatment ... ok
+test dh_universe::tests::all_three_treatments_build_from_identical_params ... ok
+test dh_universe::tests::approximate_treatments_extend_the_material_table ... ok
+test dh_universe::tests::exactly_one_treatment_is_exact ... ok
+test dh_universe::tests::geometry_and_material_errors_are_reported_not_panicked ... ok
+test dh_universe::tests::kernel_level_cls_conserves_the_fuel_zone_inventory ... ok
+test dh_universe::tests::kernel_level_variants_preserve_the_grain_number_density ... ok
+test dh_universe::tests::approximate_treatments_bound_fewer_materials_than_delta_tracking ... ok
+test dh_universe::tests::every_material_the_geometry_returns_is_declared_reachable ... ok
+test dh_universe::tests::only_delta_tracking_stores_particles ... ok
+test dh_universe::tests::every_treatment_models_the_same_packing_fraction ... ok
+test dh_universe::tests::material_at_answers_across_the_whole_pebble ... ok
+test dh_universe::tests::ring_rpt_is_radially_structured_and_naive_homogenisation_is_not ... ok
+test dh_universe::tests::ring_rpt_rejects_an_inner_radius_that_cannot_conserve_volume ... ok
+test dh_universe::tests::scls_retains_inclusions_across_history_boundaries ... ok
+test dh_universe::tests::scls_window_is_a_transport_mfp_not_a_chord_length ... ok
+test geometry::crossing::tests::crossing_a_shell_boundary_lands_in_the_adjacent_cell ... ok
+test geometry::crossing::tests::reflecting_off_the_outer_sphere_stays_in_the_outer_shell ... ok
+test geometry::crossing::tests::reflective_concentric_shells_do_not_leak ... ok
+test geometry::crossing::tests::reflective_plane_flips_direction ... ok
+test geometry::crossing::tests::vacuum_sphere_leaks ... ok
+test geometry::distribcell::tests::a_cyclic_universe_graph_is_refused ... ok
+test geometry::distribcell::tests::a_lattice_numbers_its_tiles_in_order ... ok
+test geometry::distribcell::tests::a_path_without_the_target_has_no_instance ... ok
+test geometry::distribcell::tests::nesting_multiplies_the_instance_count ... ok
+test geometry::distribcell::tests::out_of_range_indices_are_refused ... ok
+test geometry::distribcell::tests::preceding_siblings_shift_the_instance_numbering ... ok
+test geometry::virtual_lattice::tests::a_non_sphere_surface_is_reported_as_unregistered ... ok
+test geometry::virtual_lattice::tests::a_small_sphere_registers_only_in_its_own_voxel ... ok
+test geometry::virtual_lattice::tests::a_sphere_outside_the_grid_is_reported_as_unregistered ... ok
+test geometry::virtual_lattice::tests::a_sphere_straddling_a_face_registers_in_both_voxels ... ok
+test geometry::virtual_lattice::tests::a_zero_pitch_is_a_programming_error - should panic ... ok
+test geometry::virtual_lattice::tests::an_oversized_sphere_is_flagged_because_the_neighbourhood_scan_may_miss_voxels ... ok
+test geometry::virtual_lattice::tests::find_containing_agrees_with_a_brute_force_scan_over_a_packing ... ok
+test geometry::virtual_lattice::tests::find_containing_is_strict_on_the_surface ... ok
+test geometry::virtual_lattice::tests::find_containing_locates_the_sphere_around_a_point ... ok
+test geometry::virtual_lattice::tests::find_containing_returns_none_in_the_matrix_between_particles ... ok
+test geometry::virtual_lattice::tests::flat_index_is_x_fastest_matching_upstream ... ok
+test geometry::virtual_lattice::tests::indices_outside_the_grid_are_reported_then_clamped ... ok
+test geometry::virtual_lattice::tests::tangency_is_exclusive_matching_upstreams_strict_comparison ... ok
+test geometry::virtual_lattice::tests::traversal_agrees_with_brute_force_over_a_packing ... ok
+test geometry::virtual_lattice::tests::traversal_finds_a_sphere_straight_ahead ... ok
+test geometry::virtual_lattice::tests::traversal_normalises_a_non_unit_direction ... ok
+test geometry::virtual_lattice::tests::traversal_on_an_empty_grid_returns_infinity ... ok
+test geometry::virtual_lattice::tests::traversal_respects_the_coincident_flag_for_the_surface_it_sits_on ... ok
+test geometry::virtual_lattice::tests::traversal_returns_infinity_when_the_ray_misses_everything ... ok
+test gpu::batched_event::tests::cpu_mirror_event_is_deterministic ... ok
+test gpu::batched_event::tests::cpu_mirror_event_makes_progress ... ok
+test dh_universe::tests::pack_in_ball_records_the_attempts_it_ran ... ok
+test gpu::batched_flight::tests::cpu_lcg_advance_bit_exact ... ok
+test gpu::batched_flight::tests::cpu_mirror_headon_collision_and_zero_xs_leak ... ok
+test gpu::batched_flight::tests::cpu_mirror_outward_leak ... ok
+test gpu::batched_flight::tests::gpu_flight_matches_cpu_mirror ... ok
+test gpu::batched_event::tests::gpu_event_matches_cpu_mirror ... ok
+test gpu::capabilities::tests::a_device_that_cannot_bind_enough_buffers_sends_everything_to_the_cpu ... ok
+test gpu::capabilities::tests::a_software_adapter_gets_no_work_because_it_is_just_the_cpu_again ... ok
+test gpu::capabilities::tests::a_zero_stride_is_reported_as_undispatchable ... ok
+test gpu::capabilities::tests::an_integrated_gpu_splits_evenly_because_it_shares_cpu_bandwidth ... ok
+test gpu::capabilities::tests::an_out_of_range_fraction_is_clamped_not_rejected ... ok
+test gpu::capabilities::tests::both_devices_get_work_on_a_discrete_gpu ... ok
+test gpu::capabilities::tests::chunk_size_respects_whichever_hardware_limit_binds_first ... ok
+test gpu::capabilities::tests::cpu_thread_count_is_sane ... ok
+test gpu::capabilities::tests::measured_fraction_balances_finish_times ... ok
+test gpu::capabilities::tests::no_gpu_means_all_cpu ... ok
+test gpu::capabilities::tests::the_original_bug_is_now_a_capability_question_with_a_clear_answer ... ok
+test gpu::capabilities::tests::the_split_always_covers_the_whole_batch ... ok
+test gpu::batched_flight::tests::gpu_lcg_state_matches_cpu ... ok
+test gpu::collision_grid::tests::macro_total_is_sum_of_micro ... ok
+test gpu::surface_distance::tests::a_clustered_triple_root_cubic_cannot_report_four_roots ... ok
+test gpu::surface_distance::tests::an_origin_exactly_on_a_torus_does_not_yield_a_spurious_near_zero_root ... ok
+test gpu::surface_distance::tests::cpu_f32_mirror_coincident_matches_f64 ... ok
+test gpu::surface_distance::tests::cpu_f32_mirror_matches_f64_reference ... ok
+test gpu::surface_distance::tests::diagnose_probed_hardware_capabilities ... ignored, diagnostic: prints machine-specific adapter limits
+test gpu::collision_grid::tests::per_channel_columns_match_direct_eval ... ok
+test dh_universe::tests::reported_packing_fraction_matches_the_stored_particles ... ok
+test gpu::surface_distance::tests::hybrid_without_a_gpu_runs_everything_on_the_cpu ... ok
+test gpu::surface_distance::tests::wgsl_shader_is_valid ... ok
+test gpu::union_grid::tests::cpu_tabulation_exact_at_grid_points ... ok
+test gpu::surface_distance::tests::gpu_matches_cpu_reference ... ok
+test gpu::surface_distance::tests::hybrid_splits_work_across_both_devices ... ok
+test gpu::union_grid::tests::native_union_grid_is_superset_and_accurate ... ok
+test gpu::xs_interp::tests::cpu_degenerate_grids ... ok
+test gpu::xs_interp::tests::cpu_linear_uniform_grid_exact ... ok
+test gpu::xs_interp::tests::cpu_nonuniform_grid_handcomputed ... ok
+test gpu::union_grid::tests::gpu_matches_cpu_native_union ... ok
+test inventory::tests::a_burnup_run_converts_with_atoms_activity_time_and_provenance ... ok
+test inventory::tests::a_burnup_step_the_chain_cannot_explain_is_refused ... ok
+test inventory::tests::a_prescribed_inventory_keeps_what_it_was_given ... ok
+test inventory::tests::malformed_inventories_are_refused ... ok
+test gpu::union_grid::tests::gpu_matches_cpu_union_grid ... ok
+test material::nuclide::tests::absorption_fallback_counts_every_disappearance_mt ... ok
+test material::nuclide::tests::continuous_tabular_hardens_with_incident_energy ... ok
+test material::nuclide::tests::ct_table_uniform_reproduces_mean ... ok
+test material::nuclide::tests::evaporation_lf9_matches_theoretical_mean_and_respects_restriction ... ok
+test material::nuclide::tests::evaporation_lf9_restriction_actually_bites ... ok
+test gpu::xs_interp::tests::gpu_matches_cpu_reference ... ok
+test material::nuclide::tests::exponential_sampler_handles_backward_and_isotropic ... ok
+test material::nuclide::tests::langevin_inverse_round_trips ... ok
+test material::nuclide::tests::maxwell_lf7_matches_theoretical_mean_and_respects_restriction ... ok
+test material::nuclide::tests::exponential_sampler_reproduces_mean_cosine ... ok
+test material::nuclide::tests::native_energy_grid_is_sorted_and_bounded ... ok
+test material::nuclide::tests::watt_lf11_matches_theoretical_mean_and_respects_restriction ... ok
+test material::processed::tests::the_encoding_round_trips_and_refuses_what_it_is_not ... ok
+test material::speed::tests::fast_is_the_default_and_it_is_exact ... ok
+test material::speed::tests::only_very_fast_approximates ... ok
+test material::speed::tests::parses_what_it_prints ... ok
+test material::temperature_interpolation::tests::bracket_is_upstreams_linear_in_kt ... ok
+test material::temperature_interpolation::tests::chebyshev_arm_is_exact_for_a_polynomial_and_close_for_inverse_sqrt ... ok
+test material::temperature_interpolation::tests::outside_the_range_is_refused_not_snapped ... ok
+test material::temperature_interpolation::tests::tables_pick_and_expectation ... ok
+test material::temperature_interpolation::tests::tabulated_points_pick_their_own_table ... ok
+test material::temperature_interpolation::tests::variables_change_only_the_probability ... ok
+test material::thermal::f64s::tests::f64s_round_trip_exactly ... ok
+test material::thermal::tests::coherent_table_is_a_one_over_e_sawtooth ... ok
+test material::thermal::tests::coherent_table_samples_only_open_edges ... ok
+test material::thermal::tests::interp_linear_clamps_and_interpolates ... ok
+test material::thermal::tests::log_grid_spans_endpoints_ascending ... ok
+test material::thermal::tests::no_elastic_channel_contributes_nothing ... ok
+test mathf::tests::every_route_is_petir ... ok
+test mathf::tests::petirs_route_is_the_arm_port ... ok
+test mathf::tests::the_routed_functions_satisfy_their_identities ... ok
+test model::advanced::tests::advanced_builders ... ok
+test model::collect::tests::delta_method_matches_the_ratio_variance ... ok
+test model::data::tests::ace_files_refuse_what_they_cannot_supply ... ok
+test model::data::tests::in_memory_library_indexes_by_header_identity ... ok
+test model::data::tests::uploaded_libraries_use_their_main_library ... ok
+test model::data::tests::workspace_reference_picks_the_recorded_godiva_tapes ... ok
+test model::dh_region::tests::a_dh_region_becomes_a_shape_with_its_particles_and_tracking ... ok
+test model::diagnostics::tests::constructors_validate ... ok
+test model::diagnostics::tests::presets_hold_the_decided_diagnostics ... ok
+test model::hex::tests::a_hex_prism_is_a_regular_hexagon ... ok
+test model::hex::tests::a_hex_prism_relates_exactly_to_every_solid ... ok
+test model::hex::tests::polygon_distance_and_overlap_are_exact ... ok
+test model::hopper::tests::a_ball_is_whole_only_if_it_clears_every_wall ... ok
+test model::hopper::tests::a_hopper_is_a_cylinder_a_cone_and_a_tube ... ok
+test model::hopper::tests::a_hopper_relates_to_the_other_solids ... ok
+test model::isotope::tests::every_isotope_z_has_its_element ... ok
+test model::isotope::tests::isotopes_elements_and_natural_abundance ... ok
+test model::lattice::tests::malformed_lattices_are_refused_in_words ... ok
+test model::lattice::tests::rows_top_down_is_natural_order_with_rows_reversed ... ok
+test model::masses::tests::awr_converts_with_the_neutron_mass ... ok
+test model::material::tests::atom_density_round_trip_is_within_one_ulp ... ok
+test model::material::tests::moderators_attach_laws_by_nuclide_and_builders_keep_input ... ok
+test model::model::tests::a_cylinder_clips_a_lattice_of_assemblies_of_rods ... ok
+test material::nuclide::tests::mixture_dispatches_by_partition_weight ... ok
+test model::model::tests::godiva_lowers_to_the_hand_built_csg ... ok
+test model::model::tests::a_hex_lattice_shows_crossing_balls_in_the_neighbour_and_refuses_what_it_should ... ok
+test model::model::tests::refusals_and_several_outermost_shapes ... ok
+test model::model::tests::repeated_structure_refusals_and_a_lattice_smaller_than_its_box ... ok
+test model::region_temperature_tests::a_dh_region_at_its_own_temperature ... ok
+test model::region_temperature_tests::bad_region_temperatures_are_refused ... ok
+test model::region_temperature_tests::components_take_their_mean_from_a_thermal_profile ... ok
+test model::region_temperature_tests::every_shape_at_the_model_temperature_changes_nothing ... ok
+test model::region_temperature_tests::shapes_and_components_take_their_own_temperatures ... ok
+test model::report::plot::tests::plots_render_and_round_trip ... ok
+test model::report::tests::table_helpers ... ok
+test model::report::zip::tests::zip_round_trips ... ok
+test model::resolve::tests::contaminant_placements_and_references ... ok
+test model::resolve::tests::families_mixed_fuel_and_refusals ... ok
+test model::resolve::tests::fractions_preset_and_water ... ok
+test model::resolve::tests::godiva_both_ways_gives_identical_number_densities ... ok
+test model::resolve::tests::oxide_stoichiometry_and_natural_oxygen_fold ... ok
+test model::run::tests::normality_gate_refuses_gross_non_normality_and_passes_normal ... ok
+test model::run::tests::normality_note_states_the_deciding_window ... ok
+test model::run::tests::presets_expand_to_the_decided_numbers ... ok
+test model::run::tests::progress_lines_carry_openmc_columns_and_print_by_default ... ok
+test model::run::tests::sigma_and_window_criteria ... ok
+test model::shape::tests::cuboid_cube_and_solid_relations ... ok
+test model::shape::tests::cylinder_rods_and_finite_cylinders_relate_exactly ... ok
+test model::shape::tests::sphere_geometry_helpers ... ok
+test pebble_beds::crp_packing::tests::crp_domain_too_small_is_rejected ... ok
+test pebble_beds::crp_packing::tests::crp_is_bit_reproducible ... ok
+test pebble_beds::crp_packing::tests::crp_output_feeds_packed_spheres_membership ... ok
+test model::model::tests::nested_shells_lower_like_the_hand_built_hst009 ... ok
+test pebble_beds::crp_packing::tests::crp_too_dense_is_rejected ... ok
+test pebble_beds::dem_bed::tests::a_settled_cylinder_bed_converts_to_cm ... ok
+test pebble_beds::dem_bed::tests::refusals_and_a_known_overlap ... ok
+test dh_universe::tests::power_iteration_steps_keff_bit_for_bit ... ok
+test pebble_beds::fhr_pebble::tests::homogenise_conserves_nuclide_content ... ok
+test pebble_beds::fhr_pebble::tests::layer_volumes_sum_to_particle_volume ... ok
+test pebble_beds::fhr_pebble::tests::material_at_coating_layers_return_layer_indices ... ok
+test pebble_beds::fhr_pebble::tests::material_at_kernel_returns_fuel_index ... ok
+test pebble_beds::fhr_pebble::tests::material_at_matrix_returns_graphite ... ok
+test pebble_beds::fhr_pebble::tests::material_at_past_shell_returns_coolant ... ok
+test pebble_beds::fhr_pebble::tests::pebble_geometry_locates_every_region ... ok
+test pebble_beds::fhr_pebble::tests::reflective_pebble_transport_does_not_leak ... ok
+test pebble_beds::fhr_pebble::tests::reflective_root_does_not_leak ... ok
+test pebble_beds::fhr_pebble::tests::rpt_shell_volume_equals_particle_volume ... ok
+test pebble_beds::fhr_pebble::tests::triso_layer_classification ... ok
+test pebble_beds::htr10::tests::natural_carbon_is_split_c12_c13_and_conserved ... ok
+test pebble_beds::htr10::tests::the_atom_densities_match_values_computed_independently_from_table_2 ... ok
+test pebble_beds::htr10::tests::the_boron_readings_are_genuinely_different_compositions ... ok
+test pebble_beds::htr10::tests::the_enrichment_basis_is_weight_percent_and_the_difference_is_recorded ... ok
+test pebble_beds::htr10::tests::the_graphite_boron_matches_mits_atom_ppm_table ... ok
+test pebble_beds::htr10::tests::the_kernel_boron_is_quoted_relative_to_uranium_not_uo2 ... ok
+test pebble_beds::htr10::tests::the_material_table_is_seven_entries_in_pebble_order ... ok
+test pebble_beds::htr10::tests::the_stored_packing_fraction_is_what_the_geometry_implies ... ok
+test pebble_beds::htr10::tests::the_tabulated_heavy_metal_loading_closes_to_a_milligram ... ok
+test pebble_beds::keff_delta::distributed::tests::any_chunking_reproduces_run_keff_delta_par_in_bit_for_bit ... ok
+test pebble_beds::keff_delta::tests::delta_multithread_agrees_with_single_thread ... ok
+test pebble_beds::keff_delta::tests::geometry_independence_of_k_inf_for_a_uniform_medium ... ok
+test pebble_beds::keff_delta::tests::homogeneous_reflective_cube_converges ... ok
+test pebble_beds::keff_delta::tests::reflective_advance_stays_in_cube ... ok
+test pebble_beds::keff_delta::tests::reflective_advance_stays_in_sphere ... ok
+test pebble_beds::keff_delta::tests::sphere_sampling_is_uniform_by_volume ... ok
+test pebble_beds::keff_delta::tests::stepping_matches_run_keff_delta_seq_in_bit_for_bit ... ok
+test pebble_beds::keff_delta::tests::vacuum_advance_leaves_the_sphere_without_reflecting ... ok
+test pebble_beds::references::tests::bibliography_is_complete ... ok
+test pebble_beds::references::tests::bibtex_round_trips_key_fields ... ok
+test pebble_beds::references::tests::missing_doi_is_omitted ... ok
+test pebble_beds::sphere_packing::tests::config_rsa_forwards_to_pack_spheres ... ok
+test pebble_beds::sphere_packing::tests::dem_methods_not_implemented ... ok
+test pebble_beds::sphere_packing::tests::membership_matches_geometry ... ok
+test pebble_beds::sphere_packing::tests::observed_packing_is_pack_spheres_bit_for_bit ... ok
+test pebble_beds::sphere_packing::tests::rsa_packs_without_overlap_at_target_fraction ... ok
+test pebble_beds::sphere_packing::tests::too_dense_is_rejected ... ok
+test pebble_beds::triso_lattice::tests::a_particle_on_a_tile_face_is_in_both_tiles_and_whole ... ok
+test perf_report::tests::report_renders_and_finds_crossover ... ok
+test perf_report::tests::throughput_and_csv ... ok
+test physics::delta_tracking::flight::tests::classify_matches_ratio ... ok
+test physics::delta_tracking::flight::tests::delta_tracking_recovers_true_mean_free_path ... ok
+test physics::delta_tracking::majorant::tests::majorant_bounds_every_material ... ok
+test physics::delta_tracking::majorant::tests::majorant_bounds_sigma_t_below_its_grid_floor ... ok
+test physics::delta_tracking::temperature_cover::tests::a_higher_degree_is_never_costlier_in_mean_overhead ... ok
+test physics::delta_tracking::temperature_cover::tests::audit_and_overhead_on_no_materials ... ok
+test physics::delta_tracking::temperature_cover::tests::chebyshev_cover_is_never_below_its_table ... ok
+test physics::delta_tracking::temperature_cover::tests::more_bands_cover_tighter_and_scaling_scales ... ok
+test physics::delta_tracking::temperature_cover::tests::over_temperature_tables_is_the_pointwise_max ... ok
+test physics::fission::tests::comb_multiplicities_are_floor_or_ceil ... ok
+test physics::fission::tests::mean_count_matches_expected ... ok
+test physics::fission::tests::non_positive_keff_is_safe ... ok
+test physics::fixed_source::tests::subcritical_multiplication_is_tracked_and_bounded ... ok
+test physics::fixed_source::tests::void_streaming_mean_path_equals_radius ... ok
+test physics::ifp::tests::a_zero_denominator_is_refused_rather_than_returning_nan ... ok
+test physics::ifp::tests::beta_eff_is_the_delayed_share_of_the_converged_lineages ... ok
+test physics::ifp::tests::either_quantity_can_be_carried_alone ... ok
+test physics::ifp::tests::ifp_off_scores_nothing_and_counts_nothing ... ok
+test physics::ifp::tests::lambda_is_the_weighted_mean_ancestor_lifetime ... ok
+test physics::ifp::tests::nothing_scores_until_the_lineage_is_deep_enough ... ok
+test physics::ifp::tests::the_lineage_window_slides_and_keeps_the_oldest_first ... ok
+test physics::keff::tests::a_point_source_spreads_and_its_entropy_rises ... ok
+test physics::keff::tests::cpu_multi_is_reproducible ... ok
+test physics::keff::tests::godiva_converges_to_sane_keff ... ok
+test physics::keff::tests::gpu_batched_timing_sweep ... ignored
+test physics::keff::tests::gpu_collision_before_after ... ignored
+test physics::keff::tests::small_sphere_is_less_reactive_than_godiva ... ok
+test physics::keff::tests::stepping_the_power_iteration_is_the_single_thread_run_bit_for_bit ... ok
+test physics::keff::tests::three_compute_modes_agree_on_godiva ... ok
+test physics::kinetics::tests::a_prompt_eigenvalue_above_the_total_is_refused ... ok
+test physics::kinetics::tests::an_exactly_zero_beta_is_refused_as_missing_data ... ok
+test physics::kinetics::tests::the_beta_uncertainty_carries_both_eigenvalues ... ok
+test physics::kinetics::tests::the_generation_time_is_the_population_over_the_production ... ok
+test physics::kinetics::tests::the_k_ratio_beta_is_one_minus_the_ratio ... ok
+test physics::particle_restart::tests::replay_reproduces_the_stream_bit_exactly ... ok
+test physics::particle_restart::tests::streams_do_not_overlap_within_a_stride ... ok
+test physics::particle_restart::tests::the_locator_carries_the_whole_restart_point ... ok
+test physics::particle_restart::tests::the_seed_matches_the_transport_derivation ... ok
+test physics::particle_restart::tests::the_strides_match_the_transport_loop ... ok
+test physics::physics_mg::tests::fissile_set_with_zero_chi_still_panics - should panic ... ok
+test physics::physics_mg::tests::mg_infinite_medium_matches_analytic_kinf ... ok
+test physics::physics_mg::tests::multiplicity_below_one_is_refused ... ok
+test physics::physics_mg::tests::multiplicity_weights_by_the_row_and_matches_analytic_kinf ... ok
+test physics::physics_mg::tests::non_fissile_set_may_have_zero_chi ... ok
+test physics::physics_mg::tests::pure_absorber_is_dead ... ok
+test physics::physics_mg::tests::two_group_set_is_consistent ... ok
+test physics::reactor_physics::tests::bad_energy_grid_errors ... ok
+test physics::reactor_physics::tests::fine_grid_forces_boundary_edges ... ok
+test pebble_beds::fhr_pebble::tests::explicit_pebble_layer_shares_are_exact_and_the_ball_pf_is_not_the_cube_pf ... ok
+test physics::reactor_physics::tests::no_fuel_material_errors ... ok
+test physics::reactor_physics::tests::pure_algebra_telescopes ... ok
+test physics::reactor_physics::tests::thicker_moderator_softens_spectrum ... ignored, slow: thick free-gas-H moderator; a spectrum-direction diagnostic, not a gate
+test physics::scattdata::tests::a_p0_kernel_is_flat ... ok
+test physics::scattdata::tests::a_positive_kernel_samples_the_mean_it_declares ... ok
+test physics::scattdata::tests::an_unsamplable_kernel_is_refused_at_construction ... ok
+test physics::scattdata::tests::degenerate_histograms_are_refused ... ok
+test physics::scattdata::tests::higher_orders_match_the_closed_form_polynomials ... ok
+test physics::scattdata::tests::max_order_truncation_keeps_a1_but_p0_forces_isotropy ... ok
+test physics::scattdata::tests::rejection_and_inversion_sampling_agree_on_a_fine_grid ... ok
+test physics::scattdata::tests::sampled_cosines_are_physical ... ok
+test physics::scattdata::tests::sampling_reproduces_the_mean_cosine_that_is_actually_sampled ... ok
+test physics::scattdata::tests::the_bounding_box_carries_upstreams_ten_percent_margin ... ok
+test physics::scattdata::tests::the_half_plus_l_factor_is_in_the_evaluation ... ok
+test physics::scattdata::tests::the_histogram_representation_normalises_and_samples_itself ... ok
+test physics::scattdata::tests::the_tabular_conversion_reproduces_upstreams_grid_and_normalisation ... ok
+test physics::scattdata::tests::the_tabular_grid_costs_a_measurable_amount_of_mean_cosine ... ok
+test physics::scattdata::tests::the_truncated_mean_matches_its_closed_form ... ok
+test physics::scattdata::tests::truncation_can_cost_sampled_mean_cosine_while_a1_is_untouched ... ok
+test physics::scatter::tests::continuum_inelastic_softens_and_is_bounded ... ok
+test physics::reactor_physics::tests::machinery_invariants_fast_pincell ... ok
+test physics::scatter::tests::elastic_energy_stays_in_bounds ... ok
+test physics::scatter::tests::free_gas_equilibrium_density_is_maxwellian ... ok
+test physics::scatter::tests::free_gas_falls_back_when_no_temperature_is_given ... ok
+test physics::scatter::tests::free_gas_first_moment_is_asymptotically_target_at_rest ... ok
+test physics::scatter::tests::free_gas_is_target_at_rest_above_the_threshold ... ok
+test physics::scatter::tests::free_gas_permits_up_scatter_at_thermal_energies ... ok
+test physics::scatter::tests::dbrc_target_density_is_cxs_times_sigma_0k ... ok
+test physics::scatter::tests::inelastic_level_loses_at_least_the_excitation ... ok
+test physics::scatter::tests::rotate_preserves_unit_norm ... ok
+test physics::search::tests::bisect_finds_analytic_root ... ok
+test physics::search::tests::handles_decreasing_model ... ok
+test physics::search::tests::iteration_cap_returns_best_effort ... ok
+test physics::search::tests::rejects_degenerate_bracket ... ok
+test physics::search::tests::rejects_non_straddling_bracket ... ok
+test physics::search::tests::secant_finds_analytic_root ... ok
+test physics::state_point::tests::a_state_point_before_the_active_generations_has_no_eigenvalue ... ok
+test physics::state_point::tests::an_atom_density_in_the_wrong_units_is_flagged ... ok
+test physics::state_point::tests::an_empty_bank_is_not_restartable ... ok
+test physics::state_point::tests::the_eigenvalue_excludes_the_inactive_generations ... ok
+test physics::state_point::tests::the_size_estimate_tracks_the_contents ... ok
+test physics::track_output::tests::a_complete_track_reports_its_length_and_outcome ... ok
+test physics::track_output::tests::a_roulette_kill_is_not_an_absorption ... ok
+test physics::track_output::tests::a_truncated_track_refuses_to_report_a_length_or_an_outcome ... ok
+test physics::track_output::tests::an_empty_track_is_not_stored ... ok
+test physics::track_output::tests::the_track_budget_is_a_hard_cap_and_reports_what_it_dropped ... ok
+test physics::tracking_trace::tests::counts_classify_every_event_kind ... ok
+test physics::transport_csg::distributed::tests::any_chunking_reproduces_run_keff_csg_par_bit_for_bit ... ok
+test physics::transport_csg::distributed::tests::the_ends_balance_and_do_not_depend_on_the_chunking ... ok
+test physics::transport_csg::distributed::tests::the_reduction_refuses_incomplete_or_foreign_results ... ok
+test physics::transport_csg::leakage_tests::plain_run_keff_csg_unchanged ... ok
+test physics::transport_csg::leakage_tests::reflective_sphere_has_no_leakage ... ok
+test physics::transport_csg::leakage_tests::stepping_matches_run_keff_csg_seq_bit_for_bit ... ok
+test physics::transport_csg::leakage_tests::the_progress_callback_observes_without_changing_the_run ... ok
+test physics::transport_csg::leakage_tests::vacuum_sphere_leaks ... ok
+test physics::transport_csg::scored_step_tests::extra_scoring_changes_nothing_and_matches_a_lone_tally ... ok
+test physics::transport_csg::scored_step_tests::step_par_matches_run_keff_csg_par_on_any_pool ... ok
+test physics::ufs::tests::a_source_site_outside_the_mesh_is_refused ... ok
+test physics::ufs::tests::degenerate_banks_are_refused ... ok
+test physics::ufs::tests::peaking_measures_how_uneven_the_source_is ... ok
+test physics::ufs::tests::the_expected_produced_weight_is_unchanged ... ok
+test physics::ufs::tests::the_first_generation_applies_no_bias ... ok
+test physics::ufs::tests::the_weight_inverts_the_source_density ... ok
+test physics::variance_reduction::tests::a_particle_at_the_survival_weight_always_survives ... ok
+test physics::variance_reduction::tests::nonsense_configurations_are_refused ... ok
+test physics::variance_reduction::tests::roulette_has_exactly_two_outcomes ... ok
+test physics::variance_reduction::tests::roulette_preserves_expected_weight ... ok
+test physics::variance_reduction::tests::survival_biasing_removes_the_absorption_fraction ... ok
+test physics::variance_reduction::tests::the_analog_path_touches_neither_weight_nor_rng ... ok
+test physics::weight_windows::tests::a_particle_inside_the_window_is_left_alone ... ok
+test physics::weight_windows::tests::an_invalid_window_plays_no_game ... ok
+test physics::weight_windows::tests::look_up_respects_the_mesh_and_the_energy_range ... ok
+test physics::weight_windows::tests::magic_bounds_track_the_flux_shape ... ok
+test physics::weight_windows::tests::magic_refuses_degenerate_inputs ... ok
+test physics::weight_windows::tests::magic_refuses_to_invent_a_window_it_cannot_resolve ... ok
+test physics::weight_windows::tests::malformed_window_sets_are_refused ... ok
+test physics::weight_windows::tests::roulette_below_the_window_preserves_expected_weight ... ok
+test physics::weight_windows::tests::splitting_conserves_total_weight ... ok
+test physics::weight_windows::tests::splitting_conserves_weight_for_every_max_split ... ok
+test physics::weight_windows::tests::the_absolute_cutoff_kills_outright ... ok
+test physics::weight_windows::tests::the_birth_normalisation_rescales_the_window ... ok
+test physics::weight_windows::tests::the_split_cascade_terminates_because_daughters_inherit_their_parent ... ok
+test plotter::endf_tables::tests::zam_and_gnds_round_trip ... ok
+test plotter::function1d::tests::polynomial_is_horner_from_the_top ... ok
+test plotter::function1d::tests::zero_outside_and_snap_at_ends ... ok
+test plotter::numpy_ops::tests::interp_matches_numpy_edge_rules ... ok
+test plotter::numpy_ops::tests::python_round_is_bankers ... ok
+test plotter::numpy_ops::tests::union_sorts_and_dedups ... ok
+test plotter::script::tests::base64_matches_rfc4648_vectors ... ok
+test plotter::script::tests::python_literals ... ok
+test run_diagnostics::tests::a_failed_item_is_recorded_not_dropped ... ok
+test run_diagnostics::tests::data_and_transport_are_totalled_separately ... ok
+test run_diagnostics::tests::every_record_names_its_hardware ... ok
+test run_diagnostics::tests::the_output_path_honours_the_env_override ... ok
+test source::energy::tests::tabulated_energy_handles_degenerate_tables ... ok
+test source::energy::tests::tabulated_energy_inverts_a_linear_cdf ... ok
+test source::extra::tests::a_curvilinear_mesh_source_is_refused ... ok
+test source::extra::tests::a_file_source_replays_its_sites ... ok
+test source::extra::tests::a_surface_source_preserves_the_weight_it_recorded ... ok
+test source::extra::tests::a_truncated_surface_source_refuses_to_be_replayed ... ok
+test source::extra::tests::an_independent_spatial_reproduces_a_per_axis_shape ... ok
+test source::extra::tests::constraints_apply_on_every_axis ... ok
+test source::extra::tests::malformed_mesh_sources_are_refused ... ok
+test source::extra::tests::malformed_tabulated_axes_are_refused ... ok
+test source::extra::tests::mesh_sampling_reproduces_the_requested_strengths ... ok
+test stats::convergence::tests::drifting_entropy_is_flagged_and_settled_entropy_passes ... ok
+test stats::convergence::tests::missing_entropy_is_reported ... ok
+test stats::correlated_sigma::tests::naive_sigma_is_carried_unchanged ... ok
+test stats::correlated_sigma::tests::recorder_differences_running_sums ... ok
+test stats::ensemble::tests::pooled_numbers_are_the_shared_formula ... ok
+test stats::ensemble::tests::results_are_worker_count_independent_and_in_order ... ok
+test stats::learned_importance::tests::exact_attenuation_is_filled_exactly ... ok
+test stats::learned_importance::tests::fom_and_unbiasedness_bookkeeping ... ok
+test stats::learned_importance::tests::underdetermined_groups_are_left_alone ... ok
+test stats::sweep::tests::exact_quadratic_sweep ... ok
+test stats::sweep::tests::proposals_are_distinct_and_avoid_existing_runs ... ok
+test stats::uq::tests::bad_inputs_are_refused ... ok
+test stats::uq::tests::linear_model_slopes_and_perturbation_agree ... ok
+test stats::uq::tests::sobol_design_on_an_additive_model ... ok
+test stochastic::benchmark::tests::compare_is_reproducible ... ok
+test stochastic::benchmark::tests::compare_runs_and_returns_physical_probabilities ... ok
+test stochastic::cls::tests::begin_flight_resets_phase_state ... ok
+test stochastic::cls::tests::distance_sampling_selects_phase_statistics ... ok
+test stochastic::cls::tests::flight_reconstruction_is_reproducible ... ok
+test stochastic::cls::tests::inclusion_fraction_along_a_flight_converges_to_packing_fraction ... ok
+test stochastic::cls::tests::matrix_mean_chord_follows_volume_fraction_ratio ... ok
+test stochastic::cls::tests::sampled_chords_have_the_requested_mean ... ok
+test stochastic::cls::tests::sphere_chord_matches_a_ray_trace_of_a_real_sphere ... ok
+test stochastic::cls::tests::sphere_chord_matches_the_analytic_first_and_second_moments ... ok
+test stochastic::cls::tests::sphere_chords_never_exceed_the_diameter ... ok
+test stochastic::cls::tests::sphere_mean_chord_is_four_thirds_radius ... ok
+test stochastic::medium::tests::only_explicit_model_is_exact ... ok
+test stochastic::medium::tests::rsa_medium_point_membership_matches_packing ... ok
+test stochastic::scls::tests::adapt_radius_resizes_window_and_culls ... ok
+test stochastic::scls::tests::adaptive_radius_ema_converges_and_clamps ... ok
+test stochastic::scls::tests::advancing_culls_non_local_histories ... ok
+test stochastic::scls::tests::flight_segments_are_culled_with_the_window ... ok
+test stochastic::scls::tests::fresh_inclusion_center_puts_entry_on_the_surface ... ok
+test physics::scatter::tests::free_gas_random_walk_settles_on_the_maxwellian_collision_density ... ok
+test stochastic::scls::tests::inclusion_sphere_radius_is_tmfp_plus_largest_radius ... ok
+test stochastic::scls::tests::overlap_test_keeps_inclusions_straddling_the_boundary ... ok
+test stochastic::scls::tests::ray_sphere_intersection_distances_are_exact ... ok
+test stochastic::scls::tests::re_crossing_reuses_remembered_inclusions ... ok
+test stochastic::scls::tests::remembering_a_distant_inclusion_is_a_no_op ... ok
+test stochastic::scls::tests::retained_lookup_distinguishes_unknown_from_matrix ... ok
+test stochastic::scls::tests::scls_flight_is_reproducible ... ok
+test stochastic::spatial_index::tests::brute_force_finds_containing_inclusion ... ok
+test stochastic::spatial_index::tests::brute_force_neighbourhood_query_is_exclusive_of_the_radius ... ok
+test stochastic::spatial_index::tests::implemented_backends_answer_and_rtree_errors ... ok
+test stochastic::spatial_index::tests::insert_and_clear_maintain_the_set ... ok
+test stochastic::spatial_index::tests::kd_tree_matches_brute_force ... ok
+test tally::arithmetic::tests::add_sub_roundtrip ... ok
+test tally::arithmetic::tests::mul_div_propagation ... ok
+test tally::arithmetic::tests::scalar_vs_self_add ... ok
+test tally::arithmetic::tests::sum_reduction ... ok
+test tally::derivative::tests::a_density_derivative_accumulates_one_over_rho_only_in_its_own_material ... ok
+test tally::derivative::tests::a_density_derivative_of_a_void_is_an_error_not_a_zero ... ok
+test tally::derivative::tests::a_flux_score_carries_only_the_flux_derivative ... ok
+test tally::derivative::tests::a_nuclide_density_derivative_ignores_the_other_nuclide ... ok
+test tally::derivative::tests::a_zero_score_differentiates_to_zero ... ok
+test tally::derivative::tests::an_undefined_derivative_is_refused_rather_than_approximated ... ok
+test tally::derivative::tests::an_unperturbed_material_keeps_only_the_flux_term ... ok
+test tally::filter::tests::energy_out_filter_bin_count ... ok
+test tally::filter::tests::energy_out_filter_bins_outgoing_not_incoming ... ok
+test tally::filter::tests::energy_out_filter_dispatches_through_filter_kind ... ok
+test tally::filter::tests::energy_out_filter_edges_are_half_open ... ok
+test tally::filter::tests::energy_out_filter_rejects_events_with_no_secondary ... ok
+test tally::filter::tests::incoming_and_outgoing_filters_together_give_a_matrix_element ... ok
+test tally::filter::tests::legendre_filter_normalizes_axis ... ok
+test tally::filter::tests::legendre_recurrence_matches_closed_form ... ok
+test tally::mesh::tests::regular_mesh_binning ... ok
+test tally::mesh_unstructured::tests::locate_finds_each_hex_and_rejects_outside ... ok
+test tally::mesh_unstructured::tests::samples_stay_in_their_cell ... ok
+test tally::mesh_unstructured::tests::track_length_is_split_by_length_fraction ... ok
+test tally::scoring::tests::cell_flux_collision_estimator ... ok
+test tally::scoring::tests::scatter_matrix_scores_nu_scatter_per_neutron_and_scatter_per_collision ... ok
+test tally::scoring::tests::unstructured_mesh_filter_splits_track_length ... ok
+test tally::tally::bin_variance_tests::a_well_conditioned_bin_is_unchanged ... ok
+test tally::tally::bin_variance_tests::the_textbook_variance_cancels_where_welford_does_not ... ok
+test tally::trigger::tests::an_unmeasured_bin_is_not_converged ... ok
+test tally::trigger::tests::batch_prediction_scales_as_the_square_of_the_ratio ... ok
+test tally::trigger::tests::one_realization_is_never_converged ... ok
+test tally::trigger::tests::the_three_metrics_are_consistent_with_each_other ... ok
+test tally::trigger::tests::the_uncertainty_is_the_standard_error_of_the_mean ... ok
+test tally::trigger::tests::the_variance_metric_does_not_reproduce_upstreams_bug ... ok
+test thermal_profile::tests::bad_problems_are_refused ... ok
+test thermal_profile::tests::correlations_reproduce_their_sources ... ok
+test thermal_profile::tests::csg_sphere_matches_closed_form ... ok
+test thermal_profile::tests::finite_cylinder_fixed_surface_balances ... ok
+test thermal_profile::tests::nested_uo2_in_steel_air_cooled_runs_and_reports_out_of_range ... ok
+test vv::icsbep_model_tests::hst009_is_three_concentric_spheres ... ok
+test vv::icsbep_model_tests::jemima_is_the_specified_cylinder_in_its_reflector ... ok
+test vv::temperature_interpolation_947::tests::lethargy_integral_of_constant_is_log_ratio ... ok
+test vv::temperature_interpolation_947::tests::pointwise_finds_both_signs_in_band ... ok
+test vv::temperature_interpolation_947::tests::shielded_integrals_mix_linearly_and_differ_from_plug_in ... ok
+test vv::temperature_interpolation_947::tests::slowing_down_grids_mix_and_rebuild ... ok
+test vv::temperature_interpolation_947::tests::urr_band_weights_rebuilds_the_intervals ... ok
+test vv::ugraphite::tests::homogenised_cell_has_the_requested_ratio ... ok
+test vv::ugraphite::tests::pebble_inventory_matches_the_specification ... ok
+test pebble_beds::crp_packing::tests::crp_reaches_high_packing_fraction_without_overlap ... ok
+test stochastic::scls::tests::inclusion_fraction_along_scls_flight_converges_to_packing_fraction ... ok
+test material::nuclide::multipole::tests::no_urr_band_inside_a_multipole_range ... ok
+
+test result: ok. 484 passed; 0 failed; 4 ignored; 0 measured; 0 filtered out; finished in 33.84s
+
+     Running unittests src/bin/outram-mc-tui/main.rs (target/release/deps/outram_mc_tui-dec76596d1be662e)
+
+running 5 tests
+test smoke::geometry_picker_renders ... ok
+test smoke::tiny_godiva_run_and_render ... ok
+test smoke::spectrum_screen_renders_after_lwr_run ... ok
+test smoke::pebble_bed_has_no_spectrum_overlay ... ok
+test smoke::every_preset_builds_and_runs ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.19s
+
+     Running tests/ablation_hook_controls.rs (target/release/deps/ablation_hook_controls-2d0c3499fc504ae7)
+
+running 12 tests
+test the_inelastic_hook_ablates_exactly_the_inelastic_channel ... ok
+test the_continuum_angular_hook_ablates_exactly_the_angular_law ... ok
+test the_fission_source_hooks_do_not_interfere has been running for over 60 seconds
+test the_fission_spectrum_hook_freezes_exactly_the_incident_energy has been running for over 60 seconds
+test the_fission_spectrum_hook_freezes_exactly_the_incident_energy ... ok
+test the_fission_source_hooks_do_not_interfere ... ok
+test the_n2n_multiplicity_hook_ablates_exactly_the_second_neutron ... ok
+test the_n2n_multiplicity_hook_reaches_the_transport_kernel has been running for over 60 seconds
+test the_n3n_channel_is_branched_and_changes_nothing_below_its_threshold ... ok
+test the_nubar_hook_freezes_exactly_the_yield_curve has been running for over 60 seconds
+test the_n2n_multiplicity_hook_reaches_the_transport_kernel ... ok
+test the_nubar_hook_freezes_exactly_the_yield_curve ... ok
+test the_target_motion_hook_ablates_exactly_the_target_velocity ... ok
+test the_target_motion_hook_is_a_no_op_above_the_free_gas_threshold ... ok
+test the_two_hooks_do_not_interfere ... ok
+test the_yield_hook_covers_the_n3n_channel_too ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 197.98s
+
+     Running tests/ablation_suite.rs (target/release/deps/ablation_suite-953d579aa6a96928)
+
+running 4 tests
+test ablating_the_mf6_continuum_law_hardens_the_secondary_spectrum ... ok
+test ablating_elastic_anisotropy_removes_the_larger_share has been running for over 60 seconds
+test ablating_inelastic_anisotropy_moves_sigma_tr_by_the_diagnosed_amount has been running for over 60 seconds
+test aggregates_are_grid_converged has been running for over 60 seconds
+test ablating_inelastic_anisotropy_moves_sigma_tr_by_the_diagnosed_amount ... ok
+test ablating_elastic_anisotropy_removes_the_larger_share ... ok
+test aggregates_are_grid_converged ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 204.46s
+
+     Running tests/ace_absorption_levels_without_lump.rs (target/release/deps/ace_absorption_levels_without_lump-c58888e487aba94e)
+
+running 1 test
+test absorption_levels_count_without_their_lump ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.14s
+
+     Running tests/ace_discrete_lines_vs_openmc.rs (target/release/deps/ace_discrete_lines_vs_openmc-6e57bcad40995181)
+
+running 1 test
+test discrete_lines_sample_as_openmc ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.81s
+
+     Running tests/ace_interp_regions_vs_openmc.rs (target/release/deps/ace_interp_regions_vs_openmc-6e98d769976a3839)
+
+running 2 tests
+test endf_route_carries_f19_histogram_yield ... ok
+test nu_and_yield_regions_evaluate_as_openmc ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.82s
+
+     Running tests/ace_law4_continuum_cosine.rs (target/release/deps/ace_law4_continuum_cosine-f6cdc813d862b2e4)
+
+running 1 test
+test law4_continuum_keeps_its_and_cosine ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.21s
+
+     Running tests/ace_lnw_mixture_f19.rs (target/release/deps/ace_lnw_mixture_f19-6f86386ec3b3efa2)
+
+running 6 tests
+test endf_yield_selection_is_unchanged ... ok
+test lnw_selection_clamps_outside_the_applicability_range ... ok
+test lnw_selection_honours_a_histogram_region ... ok
+test lnw_selection_follows_linlin_applicability ... ok
+test f19_mt16_ace_route_matches_endf_route ... ok
+test f19_mt16_from_ace_matches_openmc_sampling ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.75s
+
+     Running tests/ace_mt5_yield_vs_openmc.rs (target/release/deps/ace_mt5_yield_vs_openmc-f90a4357899767ea)
+
+running 1 test
+test mt5_yield_from_ace_matches_openmc ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.41s
+
+     Running tests/ace_new_laws_reach_transport.rs (target/release/deps/ace_new_laws_reach_transport-32994709b8d95f87)
+
+running 3 tests
+test c12_mt91_evaporation_from_ace_samples_its_own_mean ... ok
+test na23_mt91_switches_law_at_12_mev_and_the_support_moves ... ok
+test h2_mt16_phase_space_from_ace_respects_its_kinematic_ceiling ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/ace_nu_polynomial_vs_openmc.rs (target/release/deps/ace_nu_polynomial_vs_openmc-be2ab26477daad9b)
+
+running 1 test
+test polynomial_nu_matches_openmc_at_every_energy ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.74s
+
+     Running tests/ace_transport_channels_vs_openmc.rs (target/release/deps/ace_transport_channels_vs_openmc-831bc461a7ea1961)
+
+running 4 tests
+test u235_levels_reach_transport_with_their_q ... ok
+test u234_fission_spectrum_is_the_partial_mixture ... ok
+test transport_channels_match_openmc_redundancy_rule ... ok
+test fission_cross_section_matches_openmc_including_partial_only_u234 ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 17.50s
+
+     Running tests/anisotropy_ablation_control.rs (target/release/deps/anisotropy_ablation_control-a545c3c911e33faf)
+
+running 1 test
+test ablation_removes_the_evaluated_cosine_and_nothing_else ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 9.58s
+
+     Running tests/band_averaged_xs_vs_openmc.rs (target/release/deps/band_averaged_xs_vs_openmc-4186549d6da34a68)
+
+running 1 test
+test band_averaged_cross_sections_match_openmc has been running for over 60 seconds
+test band_averaged_cross_sections_match_openmc ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 113.25s
+
+     Running tests/band_xs_from_hdf5_reader.rs (target/release/deps/band_xs_from_hdf5_reader-09afa50c18e43aaf)
+
+running 1 test
+test the_rust_reader_reproduces_the_band_averaged_oracle ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/bounded_delta_flight.rs (target/release/deps/bounded_delta_flight-cbca7dda5c1b7a94)
+
+running 4 tests
+test a_void_region_is_crossed_not_lost ... ok
+test an_exhausted_budget_is_reported_with_its_count ... ok
+test an_exiting_flight_lands_exactly_on_the_boundary ... ok
+test truncation_is_unbiased ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.14s
+
+     Running tests/cell_translation.rs (target/release/deps/cell_translation-d05f170f0d093c70)
+
+running 7 tests
+test the_carried_offset_is_exact_and_the_reconstructed_one_is_not ... ok
+test surface_crossing_agrees_under_translation ... ok
+test translation_is_not_a_no_op ... ok
+test translation_equals_moving_the_surface_for_distance ... ok
+test translation_of_a_lattice_fill_equals_shifting_lower_left ... ok
+test translation_equals_moving_the_surface_for_membership ... ok
+test keff_is_bit_identical_under_the_translation_identity ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+
+     Running tests/channel_branching_consistency.rs (target/release/deps/channel_branching_consistency-0db2b9cde7943ebd)
+
+running 1 test
+test the_collision_partition_closes_and_matches_what_is_sampled has been running for over 60 seconds
+test the_collision_partition_closes_and_matches_what_is_sampled ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 62.80s
+
+     Running tests/cm_to_lab_vs_kinematics.rs (target/release/deps/cm_to_lab_vs_kinematics-73dbc005a2ea0caa)
+
+running 2 tests
+test cm_to_lab_satisfies_its_closed_form_limits ... ok
+test cm_to_lab_reproduces_galilean_velocity_addition ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/continuum_angular_ablation_control.rs (target/release/deps/continuum_angular_ablation_control-b8a51a88fad3673d)
+
+running 3 tests
+test f19_continuum_is_isotropic_so_the_ablation_is_a_no_op ... ok
+test u238_continuum_angular_ablation_changes_angles_and_nothing_else ... ok
+test u238_continuum_angular_law_is_read_and_has_the_evaluated_energy_profile ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 52.52s
+
+     Running tests/correct_physics_is_default.rs (target/release/deps/correct_physics_is_default-c9544cee5eedffa7)
+
+running 6 tests
+test mg_scattering_anisotropy_is_applied_by_default_when_the_set_carries_it ... ok
+test from_ace_applies_urr_by_default ... ok
+test from_ace_applies_delayed_spectra_by_default ... ok
+test other_neutron_channels_are_applied_by_default ... ok
+test thermal_equiprobable_sampling_is_openmc_by_default ... ok
+test from_endf_file_applies_urr_and_dbrc_by_default ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 47.30s
+
+     Running tests/correlated_angle_vs_openmc.rs (target/release/deps/correlated_angle_vs_openmc-a023ed6f4b4e39ea)
+
+running 2 tests
+test correlated_cosine_distribution_matches_openmc ... ok
+test correlated_angles_and_histograms_sample_as_openmc ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 8.95s
+
+     Running tests/cubic_triso_array.rs (target/release/deps/cubic_triso_array-08fec0c66f736c17)
+
+running 3 tests
+test the_realised_packing_fraction_matches_the_spec_within_the_count_error ... ok
+test every_kept_particle_lies_wholly_inside ... ok
+test the_stated_particle_count_is_not_attainable_and_here_is_how_close ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.18s
+
+     Running tests/cylinder_delta_domain.rs (target/release/deps/cylinder_delta_domain-5b492ed33befd401)
+
+running 4 tests
+test containment_respects_the_wall_and_both_end_caps ... ok
+test advance_is_ballistic_and_may_land_outside ... ok
+test bounding_half_covers_both_extents ... ok
+test sampled_points_fill_the_cylinder_uniformly ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/dbrc_control.rs (target/release/deps/dbrc_control-bac3f2e5a4097825)
+
+running 3 tests
+test without_dbrc_the_kernel_is_bit_identical_and_consumes_the_same_draws ... ok
+test the_dbrc_table_carries_real_resonance_structure ... ok
+test dbrc_changes_the_kernel_near_a_resonance_and_not_far_from_one ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 51.37s
+
+     Running tests/dbrc_from_ace.rs (target/release/deps/dbrc_from_ace-e807025153a2dfa4)
+
+running 6 tests
+test a_broadened_table_reports_why_dbrc_is_off ... ok
+test a_broadened_companion_is_refused ... ok
+test the_companion_search_covers_the_three_documented_layouts ... ok
+test a_0k_table_gives_dbrc_by_default ... ok
+test pairing_a_broadened_table_with_its_0k_companion_attaches_dbrc ... ok
+test from_ace_file_finds_the_0k_companion_in_the_reference_library ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.95s
+
+     Running tests/dbrc_single_scatter_vs_openmc.rs (target/release/deps/dbrc_single_scatter_vs_openmc-a6ee8ccb5470a072)
+
+running 1 test
+test dbrc_single_scatter_matches_openmc has been running for over 60 seconds
+test dbrc_single_scatter_matches_openmc ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 587.88s
+
+     Running tests/delayed_from_ace.rs (target/release/deps/delayed_from_ace-d39c27781ecc72eb)
+
+running 3 tests
+test a_table_without_delayed_data_gives_none ... ok
+test u235_from_ace_has_delayed_neutrons ... ok
+test ace_and_endf_agree_on_the_decay_constants ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.62s
+
+     Running tests/delayed_group_sampling.rs (target/release/deps/delayed_group_sampling-9212b37ceda073e8)
+
+running 3 tests
+test a_nuclide_without_delayed_data_reports_every_neutron_prompt ... ok
+test the_delayed_fraction_reproduces_the_evaluations_beta has been running for over 60 seconds
+test the_group_shares_reproduce_the_normalised_tables has been running for over 60 seconds
+test the_delayed_fraction_reproduces_the_evaluations_beta ... ok
+test the_group_shares_reproduce_the_normalised_tables ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 103.58s
+
+     Running tests/delayed_spectra_vs_openmc.rs (target/release/deps/delayed_spectra_vs_openmc-8dd01c7b8277249f)
+
+running 1 test
+test delayed_spectra_match_openmc_on_both_routes has been running for over 60 seconds
+test delayed_spectra_match_openmc_on_both_routes ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 93.86s
+
+     Running tests/delta_collision_estimator.rs (target/release/deps/delta_collision_estimator-45c58f909fbf08c0)
+
+running 3 tests
+test score_collision_point_bins_at_the_point ... ok
+test tentative_collision_estimator_recovers_the_volume_weighted_sigma ... ok
+test delta_tally_matches_surface_track_length_on_a_bcc_cell has been running for over 60 seconds
+test delta_tally_matches_surface_track_length_on_a_bcc_cell ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 238.26s
+
+     Running tests/delta_tracking_audit.rs (target/release/deps/delta_tracking_audit-ad638842789b9b11)
+
+running 7 tests
+test a_cold_majorant_does_not_bound_hot_multipole_data ... ok
+test keff_delta_ignores_the_run_temperature ... ok
+test keff_delta_run_temperature_worth ... ignored
+test majorant_violations_are_counted_not_hidden ... ok
+test a_void_cell_inside_a_delta_region_is_crossed ... ok
+test hybrid_cost_against_surface_tracking ... ok
+test cell_filter_in_a_delta_region_matches_surface_track_length ... ok
+
+test result: ok. 6 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 32.43s
+
+     Running tests/delta_tracking_bit_identity.rs (target/release/deps/delta_tracking_bit_identity-1d8c121b1036f789)
+
+running 3 tests
+test delta_primitives_are_bit_identical ... ok
+test keff_delta_paths_are_bit_identical ... ok
+test hybrid_csg_paths_are_bit_identical ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.93s
+
+     Running tests/depletion_chain_xml_vs_transcription.rs (target/release/deps/depletion_chain_xml_vs_transcription-1b218c2074e68d1b)
+
+running 5 tests
+test the_committed_copy_still_matches_the_openmc_checkout ... ok
+test unmodelled_reaction_types_are_reported_not_dropped_silently ... ok
+test a_fission_energy_the_file_does_not_carry_is_refused ... ok
+test the_parsed_chain_equals_the_hand_transcription ... ok
+test both_chains_build_the_same_burnup_matrix ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/depletion_coupled_to_transport.rs (target/release/deps/depletion_coupled_to_transport-1c4f5419963e2f45)
+
+running 1 test
+test depletion_collapses_against_a_transport_solved_spectrum_each_step ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.87s
+
+     Running tests/depletion_move_fingerprints.rs (target/release/deps/depletion_move_fingerprints-6b441023feae2968)
+
+running 1 test
+test depletion_math_move_is_bit_identical ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/depletion_one_group_collapse.rs (target/release/deps/depletion_one_group_collapse-6905803e066b527e)
+
+running 2 tests
+test the_default_weighting_is_unchanged ... ok
+test the_spectrum_collapse_recovers_u238_resonance_absorption ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/depletion_step_convergence.rs (target/release/deps/depletion_step_convergence-b27085bbe18cb381)
+
+running 3 tests
+test the_predictor_converges_first_order_in_k_inf ... ok
+test xe135_needs_the_step_to_resolve_its_half_life ... ok
+test the_integrator_orders_are_what_was_measured ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.30s
+
+     Running tests/distribcell_end_to_end.rs (target/release/deps/distribcell_end_to_end-b83c48fd0512d6e1)
+
+running 2 tests
+test without_the_tables_a_distribcell_tally_scores_nothing ... ok
+test a_distribcell_tally_distinguishes_lattice_instances ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/elastic_anisotropy_vs_endf_mf4.rs (target/release/deps/elastic_anisotropy_vs_endf_mf4-10ac157cf914dcf7)
+
+running 2 tests
+test moderator_elastic_scattering_turns_forward_between_1_kev_and_14_mev ... ok
+test the_elastic_angular_sampler_reproduces_the_tabulated_mean_cosine ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.05s
+
+     Running tests/elastic_mubar_vs_openmc.rs (target/release/deps/elastic_mubar_vs_openmc-131b34e47c53c485)
+
+running 1 test
+test elastic_mean_cosine_matches_openmc has been running for over 60 seconds
+test elastic_mean_cosine_matches_openmc ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 62.00s
+
+     Running tests/elastic_xi_h1_o16.rs (target/release/deps/elastic_xi_h1_o16-fe809f30dc2cb722)
+
+running 1 test
+test measured_xi_matches_analytic_for_h1_and_o16 ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 26.96s
+
+     Running tests/every_filter_kind_is_reachable.rs (target/release/deps/every_filter_kind_is_reachable-640fb95838910db6)
+
+running 11 tests
+test a_distribcell_filter_refuses_an_event_with_no_instance ... ok
+test every_filter_kind_is_reachable_and_binnable ... ok
+test a_diagonal_track_scores_its_crossings_in_order ... ok
+test a_non_regular_mesh_is_refused_for_surface_currents ... ok
+test the_mesh_material_filter_needs_both_halves ... ok
+test mesh_face_currents_score_both_sides_of_an_internal_crossing ... ok
+test the_meshborn_filter_bins_the_birth_position ... ok
+test the_cell_instance_filter_matches_on_both_halves ... ok
+test the_legendre_filter_accumulates_bare_moments ... ok
+test the_parent_nuclide_filter_refuses_an_unknown_parent ... ok
+test the_particle_production_filter_can_match_one_event_many_times ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/filter_extra_vs_upstream.rs (target/release/deps/filter_extra_vs_upstream-f6dd327c3eb21d76)
+
+running 6 tests
+test a_reaction_filter_scores_every_overlapping_bin ... ok
+test mt_summation_rules_match_upstream ... ok
+test the_energy_function_filter_interpolates_and_does_not_extrapolate ... ok
+test the_from_and_born_filters_bin_their_own_field ... ok
+test edge_binned_filters_drop_what_is_outside ... ok
+test the_collision_filter_matches_exactly ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/fission_energy_below_data_max.rs (target/release/deps/fission_energy_below_data_max-e05969e6c770344f)
+
+running 1 test
+test fission_births_stay_below_the_data_maximum ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.11s
+
+     Running tests/fission_spectrum_shape_vs_openmc.rs (target/release/deps/fission_spectrum_shape_vs_openmc-ca7785d4db9a9195)
+
+running 1 test
+test fission_spectrum_shape_matches_openmc_band_by_band has been running for over 60 seconds
+test fission_spectrum_shape_matches_openmc_band_by_band ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 63.04s
+
+     Running tests/fission_spectrum_vs_openmc.rs (target/release/deps/fission_spectrum_vs_openmc-4d7fa9799f1578a2)
+
+running 1 test
+test fission_spectrum_mean_energy_matches_openmc ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 59.87s
+
+     Running tests/from_endf_file_name_and_temperature.rs (target/release/deps/from_endf_file_name_and_temperature-1c16a11dc20a5b62)
+
+running 2 tests
+test names_that_read_as_nuclides_must_match_the_za ... ok
+test a_mislabelled_tape_is_refused_and_a_typed_temperature_builds_the_same_nuclide ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.43s
+
+     Running tests/geometry_plot.rs (target/release/deps/geometry_plot-4392d060d72cdd99)
+
+running 4 tests
+test the_index_array_is_what_locate_returns ... ok
+test our_godiva_slice_matches_openmcs_own_rasteriser ... ok
+test the_slice_resolves_the_shells_in_radial_order ... ok
+test the_emitted_script_runs_on_a_bare_interpreter ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.81s
+
+     Running tests/geometry_plot_openmc_parity.rs (target/release/deps/geometry_plot_openmc_parity-3badcd40a5341181)
+
+running 7 tests
+test clip_plane_is_off_by_default_and_shows_the_cut_face ... ok
+test slice_godiva_matches_openmc ... ok
+test raytrace_sphere_matches_openmc ... ok
+test harness_detects_small_perturbations ... ok
+test slice_overlap_mask_material_matches_openmc ... ok
+test raytrace_lattice_matches_openmc ... ok
+test slice_pin_lattice_matches_openmc ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/gpu_geometry_helpers_directly.rs (target/release/deps/gpu_geometry_helpers_directly-b41497f39b40bd54)
+
+running 10 tests
+test gpu_bisect_root_converges_to_the_root_petir_finds ... ok
+test gpu_axis_cylinder_matches_the_closed_form ... ok
+test gpu_poly_abs_scale_is_the_sum_of_absolute_horner_terms ... ok
+test gpu_cubic_roots_come_back_ascending ... ok
+test gpu_poly_eval_is_horner_in_descending_order ... ok
+test gpu_push_unique_keeps_a_set ... ok
+test gpu_root_bound_is_cauchys_bound_and_actually_bounds_the_roots ... ok
+test gpu_smallest_positive_root_matches_the_closed_form ... ok
+test the_torus_reference_and_the_case_set_are_sound ... ok
+test gpu_torus_distance_matches_an_independent_root_scan ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.71s
+
+     Running tests/gpu_kinematics_invariants.rs (target/release/deps/gpu_kinematics_invariants-422972825cddc654)
+
+running 4 tests
+test the_reference_identities_are_self_consistent ... ok
+test gpu_elastic_kinematics_match_the_closed_form ... ok
+test gpu_scattered_energy_stays_within_the_elastic_band ... ok
+test gpu_rotate_direction_preserves_the_unit_norm_and_the_cosine ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.44s
+
+     Running tests/gpu_lcg_advance_directly.rs (target/release/deps/gpu_lcg_advance_directly-6e36419a2e1174f0)
+
+running 5 tests
+test gpu_lcg_advance_is_bit_exact_against_the_cpu_lcg ... ok
+test the_reference_is_sound_without_a_gpu ... ok
+test gpu_a_long_chain_stays_locked_to_the_cpu_stream ... ok
+test gpu_mul64_low_is_exact_against_a_u64_multiply ... ok
+test gpu_the_two_kernels_draw_the_same_stream ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.56s
+
+     Running tests/gpu_root_finders_vs_petir.rs (target/release/deps/gpu_root_finders_vs_petir-2d74cc48e4b7016b)
+
+running 3 tests
+test the_test_cases_are_solvable_at_all ... ok
+test every_root_the_gpu_returns_is_a_real_root ... ok
+test gpu_quartic_roots_agree_with_petirs_closed_form ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.41s
+
+     Running tests/gpu_sampling_helpers_directly.rs (target/release/deps/gpu_sampling_helpers_directly-a8b9c9644b17f5bd)
+
+running 9 tests
+test gpu_interp_channel_is_linear_and_exact_at_the_nodes ... ok
+test gpu_exponential_mu_has_the_mean_it_was_asked_for ... ok
+test gpu_continuum_inelastic_is_kinematically_consistent ... ok
+test gpu_continuum_inelastic_samples_the_weisskopf_spectrum ... ok
+test the_references_are_sound_without_a_gpu ... ok
+test the_rejection_fallback_is_unreachable_where_the_channel_is_open ... ok
+test gpu_langevin_inverse_actually_inverts_the_langevin_function ... FAILED
+test gpu_locate_brackets_and_reconstructs_the_energy ... ok
+test gpu_rng_next_is_bit_identical_to_a_u64_lcg ... ok
+
+failures:
+
+---- gpu_langevin_inverse_actually_inverts_the_langevin_function stdout ----
+
+thread 'gpu_langevin_inverse_actually_inverts_the_langevin_function' (870989) panicked at crates/outram-mc-libs/tests/gpu_sampling_helpers_directly.rs:767:5:
+assertion `left == right` failed: the worst residual is documented as sitting at the SMALLEST |mu_bar|, where coth(lambda) - 1/lambda cancels hardest; it is now at 0.02. Re-measure and rewrite the doc comment rather than loosening the bound.
+  left: 0.02
+ right: 0.01
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    gpu_langevin_inverse_actually_inverts_the_langevin_function
+
+test result: FAILED. 8 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.95s
+
+error: test failed, to rerun pass `-p outram-mc-libs --test gpu_sampling_helpers_directly`
+     Running tests/hex_lattice_axial_frame.rs (target/release/deps/hex_lattice_axial_frame-66f0dfa14033c1e2)
+
+running 2 tests
+test the_axial_distance_does_not_depend_on_the_layer_count ... ok
+test a_3d_hex_lattice_never_reports_a_boundary_behind_the_particle ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/htr10_graphite_thermal_scattering_pebble_bed.rs (target/release/deps/htr10_graphite_thermal_scattering_pebble_bed-99306bd7e5748d05)
+
+running 5 tests
+test diagnose_thermal_spectrum_reach ... ignored, diagnostic sweep, asserts nothing about pass/fail -- run explicitly with --ignored
+test regenerated_graphite_thermal_scattering_has_the_expected_shape ... ok
+test graphite_thermal_law_reaches_the_transport_kernel ... ok
+test majorant_still_bounds_total_xs_with_bound_graphite ... ok
+test bound_graphite_and_free_gas_agree_once_target_motion_is_sampled ... ok
+
+test result: ok. 4 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 20.73s
+
+     Running tests/hybrid_tracking_equivalence.rs (target/release/deps/hybrid_tracking_equivalence-06874b8b42d39955)
+
+running 2 tests
+test an_absorber_outside_the_region_does_not_raise_its_cost has been running for over 60 seconds
+test hybrid_and_surface_tracking_agree has been running for over 60 seconds
+test hybrid_and_surface_tracking_agree ... ok
+test an_absorber_outside_the_region_does_not_raise_its_cost ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 193.88s
+
+     Running tests/inelastic_anisotropy_ablation_control.rs (target/release/deps/inelastic_anisotropy_ablation_control-906468ff1d1c5bf6)
+
+running 2 tests
+test inelastic_levels_are_anisotropic_and_the_ablation_removes_exactly_that ... ok
+test the_two_ablations_are_independent ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 46.72s
+
+     Running tests/inelastic_channel_vs_endf.rs (target/release/deps/inelastic_channel_vs_endf-06485257d5042165)
+
+running 4 tests
+test f19_inelastic_reproduces_the_raw_endf_tape ... ok
+test a_threshold_reaction_has_no_cross_section_below_its_threshold has been running for over 60 seconds
+test continuum_inelastic_respects_two_body_energy_balance has been running for over 60 seconds
+test the_inelastic_partials_sum_to_the_tapes_own_mt4 has been running for over 60 seconds
+test continuum_inelastic_respects_two_body_energy_balance ... ok
+test a_threshold_reaction_has_no_cross_section_below_its_threshold ... ok
+test the_inelastic_partials_sum_to_the_tapes_own_mt4 ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 135.09s
+
+     Running tests/inelastic_mubar_vs_openmc.rs (target/release/deps/inelastic_mubar_vs_openmc-7b57dadde97ada0b)
+
+running 2 tests
+test inelastic_level_mean_cosines_match_openmc has been running for over 60 seconds
+test the_two_nuclides_differ_in_anisotropy_the_way_the_evaluation_says has been running for over 60 seconds
+test the_two_nuclides_differ_in_anisotropy_the_way_the_evaluation_says ... ok
+test inelastic_level_mean_cosines_match_openmc ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 111.00s
+
+     Running tests/lattice_tile_clipping.rs (target/release/deps/lattice_tile_clipping-4d6f250a48de871f)
+
+running 4 tests
+test a_tile_universe_can_be_clipped_by_a_global_surface ... ok
+test the_translator_handles_each_surface_kind_honestly ... ok
+test a_tile_frame_translated_surface_clips_at_the_world_boundary ... ok
+test the_clip_tracks_the_global_surface_not_the_tile_frame ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/law7_lab_angle_energy_transport.rs (target/release/deps/law7_lab_angle_energy_transport-b447a20435d4acba)
+
+running 1 test
+test be9_law7_reaches_the_sampler_and_is_forward_peaked ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+     Running tests/lesson_fission_products.rs (target/release/deps/lesson_fission_products-294fe400ce12f3d9)
+
+running 7 tests
+test nudat_tables_parse_ground_states ... ok
+test small_helpers_are_exact_on_hand_cases ... ok
+test spectrum_law_is_exact_on_a_hand_built_table ... ok
+test the_crate_tables_ship_beside_its_source ... ok
+test yields_are_complete_and_peaks_fall_with_energy ... ok
+test u235_tape_readers_give_the_evaluations_numbers ... ok
+test sampler_reproduces_the_exact_law_on_u235 ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.29s
+
+     Running tests/light_water_thermal_scattering.rs (target/release/deps/light_water_thermal_scattering-2f984ead6037233d)
+
+running 5 tests
+test builds_at_temperature_with_no_elastic_channel ... ok
+test cold_neutrons_upscatter_toward_the_maxwellian ... ok
+test approaches_the_free_atom_limit_at_the_cutoff ... ok
+test attaches_to_a_nuclide_and_overrides_below_the_cutoff ... ok
+test thermal_cross_section_matches_bound_light_water ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 40.99s
+
+     Running tests/lump_collision_probability.rs (target/release/deps/lump_collision_probability-a1561219e2a06119)
+
+running 6 tests
+test gauss_legendre_integrates_polynomials_exactly ... ok
+test surface_reciprocity_and_conservation_hold_on_a_multi_shell_cell ... ok
+test splitting_a_homogeneous_sphere_does_not_change_its_escape_probability ... ok
+test first_flight_reproduces_the_closed_form_sphere_escape_probability ... ok
+test a_homogeneous_shell_cell_reproduces_the_infinite_medium_solution ... ok
+test the_thick_lump_matches_a_deterministic_collision_probability_solution has been running for over 60 seconds
+test the_thick_lump_matches_a_deterministic_collision_probability_solution ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 63.63s
+
+     Running tests/majorant_bounds_endf.rs (target/release/deps/majorant_bounds_endf-c1e2ab17d34599b1)
+
+running 3 tests
+test union_grid_majorant_is_never_below_the_sampled_one ... ok
+test godiva_heu_is_bounded_on_endf has been running for over 60 seconds
+test htr10_kernel_and_matrix_are_bounded_on_endf has been running for over 60 seconds
+test godiva_heu_is_bounded_on_endf ... ok
+test htr10_kernel_and_matrix_are_bounded_on_endf ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 226.92s
+
+     Running tests/majorant_temperature_cover.rs (target/release/deps/majorant_temperature_cover-8da1c8b4db899dba)
+
+running 5 tests
+test advanced_cover_reaches_the_region_majorant_and_bounds_the_table ... ok
+test graphite_uo2_default_cover_bounds_between_its_tables has been running for over 60 seconds
+test graphite_uo2_majorant_covers_the_temperature_range has been running for over 60 seconds
+test u238_default_cover_bounds_between_its_tables has been running for over 60 seconds
+test u238_majorant_covers_the_temperature_range has been running for over 60 seconds
+test u238_default_cover_bounds_between_its_tables ... ok
+test graphite_uo2_default_cover_bounds_between_its_tables ... ok
+test u238_majorant_covers_the_temperature_range ... ok
+test graphite_uo2_majorant_covers_the_temperature_range ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1829.21s
+
+     Running tests/mesh_vs_openmc.rs (target/release/deps/mesh_vs_openmc-32c3ccfe16a41d6d)
+
+running 6 tests
+test outside_is_none_and_the_outer_surface_is_inclusive ... ok
+test flat_bin_indices_round_trip_through_centroids ... ok
+test the_mesh_filter_dispatches_over_every_mesh_type ... ok
+test bin_volumes_sum_to_the_closed_form_total ... ok
+test per_bin_volumes_match_openmc ... ok
+test centroids_bin_back_to_their_own_bin ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/mf45_uncorrelated_emission.rs (target/release/deps/mf45_uncorrelated_emission-6254c8d3b8a3c412)
+
+running 2 tests
+test c12_mt91_uses_the_analytic_lf9_law_and_is_evaluated_isotropic ... ok
+test jendl_u238_mt91_samples_its_mf45_law_not_the_stand_in ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/model_diagnostics.rs (target/release/deps/model_diagnostics-cc4e44dbaf72a04f)
+
+running 3 tests
+test a_foreign_component_is_refused ... ok
+test diagnostics_change_nothing_are_independent_and_consistent ... ok
+test an_ablated_run_says_so_and_the_ordinary_one_has_the_physics has been running for over 60 seconds
+test an_ablated_run_says_so_and_the_ordinary_one_has_the_physics ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 122.87s
+
+     Running tests/model_hst009_tutorial.rs (target/release/deps/model_hst009_tutorial-2def9b4984e4c902)
+
+running 1 test
+test tutorial_hst009_lowers_to_the_vv_model ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/model_lct008_tutorial.rs (target/release/deps/model_lct008_tutorial-90e2265cdd6347f4)
+
+running 1 test
+test tutorial_lct008_transports_like_the_hand_built_model ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.49s
+
+     Running tests/model_lowering_bit_for_bit.rs (target/release/deps/model_lowering_bit_for_bit-125ca2196e92ecd9)
+
+running 3 tests
+test godiva_through_the_model_matches_the_hand_built_csg_bit_for_bit ... ok
+test the_fast_preset_runs_the_watcher_and_says_it_is_a_smoke_test ... ok
+test godiva_through_the_model_carries_urr_and_dbrc_without_being_asked has been running for over 60 seconds
+test godiva_through_the_model_carries_urr_and_dbrc_without_being_asked ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 60.53s
+
+     Running tests/model_pebble.rs (target/release/deps/model_pebble-a9d7d3d28fcffd3f)
+
+running 6 tests
+test bad_packings_are_refused_with_reasons ... ok
+test a_dh_region_is_delta_tracked_and_refuses_diagnostics ... ok
+test the_random_pebble_is_dh_universes_pebble_point_for_point ... ok
+test lattice_in_a_sphere_lowers_to_the_htr10_core_lattice ... ok
+test a_lattice_packed_dh_region_is_the_lattice_delta_tracked ... ok
+test random_packing_lowers_to_pack_in_ball_and_create_triso_lattice ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 16.92s
+
+     Running tests/model_repeated_structures.rs (target/release/deps/model_repeated_structures-8f9fae316589dcf4)
+
+running 4 tests
+test rows_top_down_place_tiles_where_the_picture_shows_them ... ok
+test unit_cell_lowers_to_build_triso_particle_in_a_reflective_cube ... ok
+test triso_lattice_lowers_to_a_hand_built_rect_lattice ... ok
+test the_run_gives_the_same_k_and_diagnostics_on_any_number_of_threads ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 21.10s
+
+     Running tests/model_seker_bed.rs (target/release/deps/model_seker_bed-68d0fd2ed208bc11)
+
+running 5 tests
+test coaxial_cylinders_of_one_height_share_their_planes ... ok
+test a_bad_bed_is_refused_in_words ... ok
+test the_geometry_census_counts_the_balls_once_each ... ok
+test the_beginner_bed_lowers_to_the_hand_built_hexagonal_lattice ... ok
+test the_real_cavity_keeps_nee_soons_balls_and_rejects_nee_soons_rejects ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.34s
+
+     Running tests/model_seker_layer.rs (target/release/deps/model_seker_layer-133a37e23c3f83f6)
+
+running 4 tests
+test the_fuel_rule_gives_seven_of_thirteen_in_the_orders_it_names ... ok
+test the_triso_layer_counts_what_the_paper_counts_and_matches_the_site_table ... ok
+test the_beginner_layer_lowers_to_the_hand_built_hexagonal_lattice ... ok
+test a_delta_zone_cut_by_the_layer_faces_does_not_lose_histories ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.91s
+
+     Running tests/mt5_anything_channel.rs (target/release/deps/mt5_anything_channel-d1476275846d58a3)
+
+running 1 test
+test mt5_has_a_law_a_tabulated_multiplicity_and_no_reach_below_5_mev ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 58.55s
+
+     Running tests/mt91_transfer_vs_openmc.rs (target/release/deps/mt91_transfer_vs_openmc-d1315dd62bc7bafc)
+
+running 2 tests
+test mt91_offgrid_sampling_reproduces_openmcs_unit_base_construction ... ok
+test mt91_transfer_law_agrees_with_openmc_in_the_op_os8x_band has been running for over 60 seconds
+test mt91_transfer_law_agrees_with_openmc_in_the_op_os8x_band ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 104.69s
+
+     Running tests/nd_wasm_probe_native.rs (target/release/deps/nd_wasm_probe_native-0a7a9da75447961b)
+
+running 2 tests
+test zip_index_and_generation_give_the_pinned_fingerprints ... ok
+test godiva_from_the_zip_gives_the_pinned_k_trace has been running for over 60 seconds
+test godiva_from_the_zip_gives_the_pinned_k_trace ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 63.21s
+
+     Running tests/nested_lattice_depth3.rs (target/release/deps/nested_lattice_depth3-cf7aced7acb4ed0b)
+
+running 3 tests
+test locate_descends_three_lattice_levels ... ok
+test every_level_resolves_to_its_own_material ... ok
+test streaming_stops_at_the_inner_lattice_edge ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/nuclear_data_loading.rs (target/release/deps/nuclear_data_loading-d8a2183623410600)
+
+running 2 tests
+test godiva_from_ace_files_runs_and_records_its_data ... ok
+test godiva_from_folder_and_zip_matches_the_reference_bit_for_bit has been running for over 60 seconds
+test godiva_from_folder_and_zip_matches_the_reference_bit_for_bit ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 192.79s
+
+     Running tests/nuclide_from_ace_vs_endf.rs (target/release/deps/nuclide_from_ace_vs_endf-604aaf7d4d67c6e0)
+
+running 2 tests
+test a_nuclide_from_ace_has_the_right_physics ... ok
+test ace_and_endf_routes_agree_on_the_same_evaluation has been running for over 60 seconds
+test ace_and_endf_routes_agree_on_the_same_evaluation ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 100.31s
+
+     Running tests/openmc_notebooks.rs (target/release/deps/openmc_notebooks-fdbdb7081cf0d2b0)
+
+running 38 tests
+test cad_based_geometry::cad_dagmc_geometry ... ignored, WON'T PORT: DAGMC/CAD geometry backend is out of scope (project decision 2026-07-15, op-6tz.17)
+test depletion::depletion_burnup ... ok
+test candu::candu_cluster_per_pin_flux_tally ... ok
+test depletion::depletion_mc_transport_coupling ... ok
+test gamma_detector::gamma_detector_photon ... ignored, requires photon transport + decay-photon source (op-6tz.19)
+test hexagonal_lattice::hexagonal_lattice_geometry ... ok
+test capi::capi_in_memory_build_run_edit_rerun ... ok
+test hexagonal_lattice::hexagonal_lattice_keff_smoke ... ok
+test mg_mode_part_i::mg_mode_leakage_smoke ... ok
+test mg_mode_part_ii::mg_mode_generate_and_run ... ignored, MGXS-from-CE generation (mgxs.Library) is the njoy track (op-6tz.6.3); run_keff_mg + MeshFilter exist but the notebook's generate-then-run workflow does not (op-6tz.15)
+test mg_mode_part_iii::mg_mode_spatial ... ignored, spatially-varying MGXS-from-CE generation over a lattice (njoy op-6tz.6.3) + lattice MG driver not available; run_keff_mg + MeshFilter exist (op-6tz.15)
+test pandas_dataframes::pandas_dataframe_export ... ignored, ON HOLD (user 2026-07-15): do NOT reimplement pandas; a Rust-native data representation (serde/CSV or polars/arrow) is TBD, not this notebook (op-6tz.22)
+test flux_spectrum::flux_energy_spectrum ... ok
+test pincell::pincell_criticality_eigenvalue_via_godiva_bare_sphere ... ok
+test expansion_filters::expansion_moment_filters ... ok
+test pincell::pincell_leakage_reduces_reactivity ... ok
+test pincell::pincell_heterogeneous_csg_with_cell_flux_tally ... ok
+test pincell::csg_multithread_agrees_with_single_thread ... ok
+test mg_mode_part_i::mg_mode_run ... ok
+test pincell::pincell_reflective_cell_suppresses_leakage ... ok
+test search::search_for_critical_radius_godiva_bisection ... ok
+test post_processing::post_processing_statepoint ... ok
+test search::search_for_critical_radius_godiva_secant ... ok
+test tally_arithmetic::tally_arithmetic_derived ... ok
+test triso::corner_grazing_history_terminates_without_pingpong ... ok
+test triso::corner_reflection_composes_at_exact_corner ... ok
+test tally_power_normalization::tally_power_normalization ... ok
+test triso::triso_delta_flight_reaches_collision_in_packed_medium ... ok
+test triso::corner_reflective_cube_surface_tracking_unbiased ... ok
+test triso::triso_nested_lattice_geometry_navigation ... ok
+test triso::triso_delta_tracking_unbiased_vs_surface_tracking ... ok
+test triso::triso_random_packed_doubly_heterogeneous_keff ... ok
+test triso::triso_random_packing_is_valid ... ok
+test unstructured_mesh_part_i::unstructured_mesh_tally ... ignored, TODO: unstructured-mesh tallies via OpenFOAM polyMesh (novel; reuse outram-foam-basic-lib) — op-6tz.32
+test unstructured_mesh_part_ii::unstructured_mesh_dagmc ... ignored, TODO: unstructured-mesh tallies via OpenFOAM polyMesh (novel; reuse outram-foam-basic-lib) — op-6tz.32
+test triso::triso_nested_lattice_surface_vs_delta_keff ... ok
+test pincell::pincell_lwr_thermal_pin_benchmark ... ok
+test shielded_room_weight_window::shielded_room_weight_window has been running for over 60 seconds
+test shielded_room_weight_window::shielded_room_weight_window ... ok
+
+test result: ok. 31 passed; 0 failed; 7 ignored; 0 measured; 0 filtered out; finished in 433.79s
+
+     Running tests/other_neutron_channels_vs_openmc.rs (target/release/deps/other_neutron_channels_vs_openmc-8223448f9e869571)
+
+running 1 test
+test other_channels_match_openmc_on_both_routes ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.39s
+
+     Running tests/particle_clock.rs (target/release/deps/particle_clock-7e914036fdfb9bcc)
+
+running 4 tests
+test the_clock_never_runs_backwards ... ok
+test the_clock_matches_the_analytic_flight_time ... ok
+test the_clock_does_not_perturb_the_run ... ok
+test a_polar_filter_on_a_track_length_tally_sees_the_real_direction ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/processed_evaluation_round_trip.rs (target/release/deps/processed_evaluation_round_trip-e3c3af193dbcbc04)
+
+running 2 tests
+test a_shipped_thermal_law_is_the_built_law_bit_for_bit ... ok
+test shipped_nuclides_are_the_direct_nuclides_bit_for_bit ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 20.94s
+
+     Running tests/python_plot_parity.rs (target/release/deps/python_plot_parity-89bb9d6726fbd390)
+
+running 4 tests
+test scripts_reproduce_openmc_model_plot_pixel_for_pixel ... ok
+test harness_detects_small_perturbations ... ok
+test upstream_errors_are_raised ... ok
+test emission_is_deterministic ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+     Running tests/region_temperature.rs (target/release/deps/region_temperature-6f52eef487ac4b4b)
+
+running 4 tests
+test every_region_at_the_model_temperature_is_the_uniform_run_bit_for_bit ... ok
+test a_delta_tracked_region_at_1200_k_has_a_majorant_that_bounds_it has been running for over 60 seconds
+test leu_cell_two_regions_match_the_low_level_path_and_doppler_lowers_k has been running for over 60 seconds
+test the_test_geometries_draw has been running for over 60 seconds
+test the_test_geometries_draw ... ok
+test a_delta_tracked_region_at_1200_k_has_a_majorant_that_bounds_it ... ok
+test leu_cell_two_regions_match_the_low_level_path_and_doppler_lowers_k ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 253.18s
+
+     Running tests/ring_rpt_hunt_lessons.rs (target/release/deps/ring_rpt_hunt_lessons-589162ad39b516ea)
+
+running 11 tests
+test a_grid_coarser_than_the_scatter_window_is_rejected_not_silently_wrong - should panic ... ok
+test benchmark_mechanism_coverage_is_declared_not_assumed ... ok
+test absorption_is_mt27_so_li6_shows_the_n_t_channel ... ok
+test rpt_inner_radius_respects_the_geometric_ceiling ... ok
+test packing_fraction_is_not_domain_free ... ok
+test six_factor_group_conversion_preserves_the_product_and_moves_the_split ... ok
+test slowing_down_solver_matches_the_closed_form_hydrogen_solution ... ok
+test the_lct008_core_matches_the_original_mcnp_deck_pin_for_pin ... ok
+test self_shielded_absorption_is_not_the_dilute_limit ... ok
+test a_transparent_lump_gives_the_homogeneous_answer_only_under_a_white_boundary ... ok
+test monte_carlo_matches_the_deterministic_slowing_down_solution has been running for over 60 seconds
+test monte_carlo_matches_the_deterministic_slowing_down_solution ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 60.99s
+
+     Running tests/ring_rpt_model_matches_openmc_deck.rs (target/release/deps/ring_rpt_model_matches_openmc_deck-a8d4b80370f4f7fc)
+
+running 4 tests
+test the_annulus_volume_equals_the_triso_volume_it_stands_in_for ... ok
+test ring_rpt_fuel_annulus_matches_the_openmc_deck ... ok
+test the_flibe_density_correlation_matches_the_deck ... ok
+test the_reflective_domain_is_the_one_the_deck_used ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/route4_is_process.rs (target/release/deps/route4_is_process-877f8e9c75c4dfb6)
+
+running 1 test
+test route4_is_process_bit_for_bit ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 28.39s
+
+     Running tests/scatter_matrix_tally.rs (target/release/deps/scatter_matrix_tally-9e483b0a152bd6d8)
+
+running 1 test
+test scatter_matrix_conserves_events_and_admits_upscatter ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.35s
+
+     Running tests/shannon_entropy_in_keff.rs (target/release/deps/shannon_entropy_in_keff-bde156dc08465c81)
+
+running 1 test
+test entropy_is_reported_and_plateaus has been running for over 60 seconds
+test entropy_is_reported_and_plateaus ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 99.79s
+
+     Running tests/shannon_entropy_vs_openmc.rs (target/release/deps/shannon_entropy_vs_openmc-95c4ef019eb585b6)
+
+running 10 tests
+test a_uniform_source_reaches_the_log2_ceiling ... ok
+test a_fully_concentrated_source_has_zero_entropy ... ok
+test an_even_two_bin_split_is_exactly_one_bit ... ok
+test an_empty_or_fully_outside_bank_has_no_entropy ... ok
+test count_sites_accumulates_weight_not_hits ... ok
+test bin_ordering_is_x_fastest_then_y_then_z ... ok
+test empty_bins_do_not_poison_the_sum_with_nan ... ok
+test both_mesh_faces_are_inside_exactly_as_upstream ... ok
+test entropy_matches_the_openmc_bank_oracle_exactly ... ok
+test per_bin_weights_match_openmc_bin_for_bin ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/slowing_down_kinematics.rs (target/release/deps/slowing_down_kinematics-4c7a4c960868a84a)
+
+running 2 tests
+test isotropic_elastic_kinematics_match_the_closed_form ... ok
+test sampled_elastic_energy_is_consistent_with_the_sampled_cm_angle ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 59.97s
+
+     Running tests/source_polar_azimuthal.rs (target/release/deps/source_polar_azimuthal-8d55eda9f0b0c3bf)
+
+running 4 tests
+test a_degenerate_cone_returns_the_axis_exactly ... ok
+test degenerate_frames_are_refused ... ok
+test the_azimuth_is_unbiased_about_the_axis ... ok
+test a_cone_is_uniform_in_solid_angle_not_in_angle ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/speed_tier_fast_is_exact.rs (target/release/deps/speed_tier_fast_is_exact-18d25e76bb559e49)
+
+running 3 tests
+test ordinary_constructors_default_to_the_exact_fast_tier ... ok
+test fast_matches_standard_through_the_sab_cutoff ... ok
+test fast_matches_standard_on_u238_u234_and_f19_and_in_nuclide_selection ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 51.07s
+
+     Running tests/stats_move_fingerprints.rs (target/release/deps/stats_move_fingerprints-9be836f43e77d0e4)
+
+running 9 tests
+test csg_nested_lattice_navigation_is_bit_identical ... ok
+test godiva_csg_with_entropy_and_trigger_is_bit_identical ... ok
+test pure_statistics_are_bit_identical ... ok
+test shannon_entropy_is_bit_identical ... ok
+test tally_meshes_are_bit_identical ... ok
+test two_group_mg_sphere_is_bit_identical ... ok
+test godiva_run_keff_is_bit_identical ... ok
+test fhr_explicit_triso_delta_is_bit_identical ... ok
+test csg_nested_lattice_keff_is_bit_identical ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 30.00s
+
+     Running tests/surface_source_two_stage.rs (target/release/deps/surface_source_two_stage-18f3c18e3d8c3a86)
+
+running 3 tests
+test a_truncated_bank_is_refused_rather_than_replayed ... ok
+test a_replayed_crossing_carries_its_recorded_weight ... ok
+test a_two_stage_surface_source_run_reproduces_the_single_stage_answer ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/tally_filters_vs_definitions.rs (target/release/deps/tally_filters_vs_definitions-6936cfe9c0379cf7)
+
+running 5 tests
+test edge_binned_filters_handle_their_boundaries ... ok
+test filterkind_dispatch_matches_the_concrete_filters ... ok
+test rejecting_filters_actually_reject ... ok
+test spherical_harmonic_moments_are_orthonormal_on_the_sphere ... ok
+test zernike_moments_are_orthogonal_on_the_unit_disc ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.76s
+
+     Running tests/temperature_interpolation_947.rs (target/release/deps/temperature_interpolation_947-c418d256a7a1954a)
+
+running 4 tests
+test expected_xs_is_the_weighted_mix ... ok
+test the_selected_table_supplies_the_collision ... ok
+test stochastic_walk_uses_both_tables_in_proportion ... ok
+test existing_paths_are_unchanged ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/temperature_precedence.rs (target/release/deps/temperature_precedence-3da7621944c6e46c)
+
+running 2 tests
+test free_gas_kt_is_the_data_temperature_for_pointwise_nuclides ... ok
+test which_temperature_takes_precedence ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.50s
+
+     Running tests/thermal_cutoff_is_tape_emax.rs (target/release/deps/thermal_cutoff_is_tape_emax-473d788aa17d0359)
+
+running 1 test
+test hinh2o_cutoff_is_the_tapes_b4 ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 15.86s
+
+     Running tests/thermal_endf_route_xs_vs_njoy.rs (target/release/deps/thermal_endf_route_xs_vs_njoy-67741e686f1eb7f2)
+
+running 1 test
+test endf_route_inelastic_xs_matches_njoy_itix ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 15.91s
+
+     Running tests/thermal_equiprobable_vs_openmc.rs (target/release/deps/thermal_equiprobable_vs_openmc-d52bb129f998a815)
+
+running 1 test
+test equiprobable_sab_samples_as_openmc ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.91s
+
+     Running tests/thermal_from_ace.rs (target/release/deps/thermal_from_ace-627c28540223be6d)
+
+running 1 test
+test a_thermal_scatterer_builds_from_ace_and_matches_the_tape ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.61s
+
+     Running tests/thermal_graphite_elastic.rs (target/release/deps/thermal_graphite_elastic-9c22065d8b8950cb)
+
+running 8 tests
+test graphite_elastic_dominates_thermal_scattering ... ok
+test graphite_coherent_channel_is_detected_and_stored_exactly ... ok
+test bound_graphite_nuclide_keeps_its_dominant_channel ... ok
+test graphite_sampling_matches_the_cross_section_split_and_bragg_law ... ok
+test light_water_has_no_elastic_channel_and_is_unchanged ... ok
+test zrh_incoherent_elastic_channel_is_forward_peaked ... ok
+test graphite_htr10_temperature_points has been running for over 60 seconds
+test graphite_htr10_temperature_points ... ok
+test interpolated_sigma_inel_stays_inside_its_bracket has been running for over 60 seconds
+test interpolated_sigma_inel_stays_inside_its_bracket ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 114.17s
+
+     Running tests/thermal_h2o_leapr_vs_tsl.rs (target/release/deps/thermal_h2o_leapr_vs_tsl-42f2e8ae4d311ff8)
+
+running 1 test
+test h_in_h2o_from_leapr_matches_the_published_tape_to_thermr_tol ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 54.28s
+
+     Running tests/thermal_ifeng2_vs_openmc.rs (target/release/deps/thermal_ifeng2_vs_openmc-0f8a6608c0cf8c82)
+
+running 1 test
+test ifeng2_h_in_h2o_samples_as_openmc ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.75s
+
+     Running tests/thermal_incoherent_elastic_vs_openmc.rs (target/release/deps/thermal_incoherent_elastic_vs_openmc-14b9f3e2f939a457)
+
+running 1 test
+test incoherent_elastic_cosines_match_openmc ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.11s
+
+     Running tests/thermal_kernel_stationary_distribution.rs (target/release/deps/thermal_kernel_stationary_distribution-41b4ba4f136f05a7)
+
+running 3 tests
+test the_estimator_recovers_the_gas_temperature_it_is_calibrated_on ... ok
+test graphite_thermalises_onto_its_own_temperature ... ok
+test light_water_thermalises_onto_its_own_temperature ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 16.94s
+
+     Running tests/thermal_laws_vs_njoy_thermr.rs (target/release/deps/thermal_laws_vs_njoy_thermr-8948b3cf2fd40082)
+
+running 8 tests
+test graphite_sab_cross_sections_against_njoy_thermr ... ok
+test graphite_sab_kernel_against_njoy_thermr ... ok
+test graphite_sab_mean_cosine_against_njoy_thermr ... ok
+test graphite_sab_kernel_width_against_njoy_thermr ... ok
+test h2o_sab_cross_section_against_njoy_thermr ... ok
+test h2o_sab_kernel_width_against_njoy_thermr ... ok
+test h2o_sab_law_extends_to_njoys_10_ev ... ok
+test h2o_sab_kernel_against_njoy_thermr ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 26.27s
+
+     Running tests/thermal_mixed_elastic_vs_openmc.rs (target/release/deps/thermal_mixed_elastic_vs_openmc-2945033feac7bd92)
+
+running 1 test
+test mixed_elastic_matches_openmc ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.21s
+
+     Running tests/thermal_skewed_vs_openmc.rs (target/release/deps/thermal_skewed_vs_openmc-e35e0757798a2655)
+
+running 1 test
+test skewed_h_in_h2o_samples_as_openmc ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.14s
+
+     Running tests/thermal_standards.rs (target/release/deps/thermal_standards-88df5acfc7f16806)
+
+running 3 tests
+test h1_free_gas_elastic_matches_the_analytic_doppler_broadened_free_atom ... ok
+test b10_thermal_absorption_is_the_2200_ms_standard_and_exactly_one_over_v ... ok
+test h1_bound_water_scattering_exceeds_free_gas_and_converges_to_it ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 15.86s
+
+     Running tests/total_fast_path_matches_full.rs (target/release/deps/total_fast_path_matches_full-68e3d7d0d65aa8c3)
+
+running 3 tests
+test h1_with_thermal_scattering_matches_through_the_sab_cutoff ... ok
+test u238_fast_total_matches_the_full_evaluation ... ok
+test u235_fast_total_matches_the_full_evaluation ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 59.52s
+
+     Running tests/track_capture.rs (target/release/deps/track_capture-6411a3a42d87c60b)
+
+running 3 tests
+test tracks_in_a_void_sphere_are_a_straight_line_to_the_boundary ... ok
+test a_surface_source_records_every_crossing_with_its_weight ... ok
+test track_capture_does_not_perturb_the_run ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/tracking_method_regions.rs (target/release/deps/tracking_method_regions-f93f1ac2e6c57d2a)
+
+running 8 tests
+test a_deeper_region_overrides_an_inherited_delta_region ... ok
+test a_declared_delta_region_reports_delta ... ok
+test an_out_of_range_level_is_infinite_not_a_panic ... ok
+test locate_reports_the_level_that_declared_the_method ... ok
+test an_undeclared_region_is_surface_tracked ... ok
+test nested_regions_inherit_delta_without_restating_it ... ok
+test region_extent_is_not_the_nearest_surface ... ok
+test a_region_local_majorant_ignores_materials_outside_its_index_list ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
+
+     Running tests/tracking_trace.rs (target/release/deps/tracking_trace-c7820a1cdcfcd8f1)
+
+running 6 tests
+test a_surface_trace_ends_every_segment_at_the_nearer_distance ... ok
+test a_delta_trace_reports_the_sampling_it_did ... ok
+test a_majorant_too_low_shows_as_violations ... ok
+test traced_power_iterations_are_the_untraced_ones_bit_for_bit ... ok
+test the_csg_source_entropy_is_bounded_and_reading_it_changes_nothing ... ok
+test the_two_methods_agree_within_statistics ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 18.23s
+
+     Running tests/triso_shell_thermal_scattering.rs (target/release/deps/triso_shell_thermal_scattering-da9be2c8989c10cd)
+
+running 5 tests
+test diagnose_channels ... ignored, diagnostic sweep, asserts nothing -- run explicitly with --ignored
+test triso_carbon_coatings_bind_graphite_sab ... ok
+test sic_carbon_binds_a_coherent_elastic_channel_within_the_characterised_band ... ok
+test sic_silicon_binds_the_same_lattice_elastic_channel_as_the_carbon_side ... ok
+test sic_carbon_and_graphite_carbon_are_different_scatterers ... ok
+
+test result: ok. 4 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 26.20s
+
+     Running tests/u238_vs_njoy_pendf_golden.rs (target/release/deps/u238_vs_njoy_pendf_golden-b4eacf99deea5ede)
+
+running 2 tests
+test u238_point_cross_sections_match_njoy_pendf ... ok
+test u238_fission_matches_njoy_where_the_channel_is_open ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 56.10s
+
+     Running tests/uncorrelated_cm_emission.rs (target/release/deps/uncorrelated_cm_emission-58df2c72fb00092d)
+
+running 1 test
+test cm_uncorrelated_law_is_transformed_to_the_lab ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.42s
+
+     Running tests/urr_band_flight_consistency.rs (target/release/deps/urr_band_flight_consistency-0bce7d47f33b3a45)
+
+running 2 tests
+test nuclide_choice_follows_band_totals ... ok
+test band_total_bound_and_macroscopic_total ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.18s
+
+     Running tests/urr_ptable_control.rs (target/release/deps/urr_ptable_control-e9f647e48c6d0b95)
+
+running 3 tests
+test urr_tables_attach_and_carry_lssf1_self_shielding_factors ... ok
+test a_nuclide_without_urr_tables_is_bit_identical_through_both_paths ... ok
+test the_urr_ablation_removes_exactly_the_tables ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 47.60s
+
+     Running tests/urr_sampling_vs_openmc.rs (target/release/deps/urr_sampling_vs_openmc-3bf2ceda502e77d2)
+
+running 1 test
+test urr_cross_sections_match_openmc_calculate_urr_xs ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.80s
+
+     Running tests/urr_tally_end_to_end_953.rs (target/release/deps/urr_tally_end_to_end_953-ddfd647b1b551160)
+
+running 3 tests
+test band_to_dilute_ratio_across_the_window ... ok
+test fixed_source_track_length_equals_analog_capture_in_the_urr ... ok
+test delta_collision_estimators_agree_with_track_length_in_the_urr has been running for over 60 seconds
+test delta_collision_estimators_agree_with_track_length_in_the_urr ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 149.81s
+
+     Running tests/urr_tally_scoring_953.rs (target/release/deps/urr_tally_scoring_953-26ecde4052accc19)
+
+running 1 test
+test tally_macro_xs_follows_the_sampled_urr_band ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 43.17s
+
+     Running tests/variance_reduction_is_bit_identical_when_analog.rs (target/release/deps/variance_reduction_is_bit_identical_when_analog-fa3743d85263817b)
+
+running 2 tests
+test survival_biasing_is_actually_reachable_from_settings has been running for over 60 seconds
+test the_analog_path_is_bit_identical_to_the_pre_258_build has been running for over 60 seconds
+test the_analog_path_is_bit_identical_to_the_pre_258_build ... ok
+test survival_biasing_is_actually_reachable_from_settings ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 106.37s
+
+     Running tests/variance_reduction_parallel_and_weighted_fission.rs (target/release/deps/variance_reduction_parallel_and_weighted_fission-3bbf9073b9447cc9)
+
+running 3 tests
+test parallel_path_honours_the_keff_trigger ... ok
+test parallel_path_applies_survival_biasing ... ok
+test analog_fission_under_weight_windows_is_unbiased ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.19s
+
+     Running tests/volume_calc_vs_analytic.rs (target/release/deps/volume_calc_vs_analytic-be78b54ad1cc28f0)
+
+running 2 tests
+test closed_form_volumes_are_recovered ... ok
+test the_quoted_uncertainty_matches_the_observed_scatter ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.12s
+
+     Running tests/wasm_route4_runtime.rs (target/release/deps/wasm_route4_runtime-f6188a3cca58b2c8)
+
+running 1 test
+test route4_runs_in_wasm_and_gives_the_native_numbers ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 9.14s
+
+     Running tests/white_boundary_vs_openmc.rs (target/release/deps/white_boundary_vs_openmc-b524eaf48b1c54be)
+
+running 3 tests
+test periodic_is_refused_rather_than_silently_reflected ... ok
+test each_boundary_matches_openmc_absolutely ... ok
+test white_and_reflective_differ_as_openmc_says_they_do ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 16.01s
+
+     Running tests/wmp_local_temperature_948.rs (target/release/deps/wmp_local_temperature_948-cdf4dd030bc0db9f)
+
+running 3 tests
+test inside_the_range_the_lookup_is_wmp_at_the_lookup_temperature ... ok
+test the_evaluation_check_accepts_vii0_and_refuses_viii0_o16 ... ok
+test u238_urr_gate_and_majorant_at_each_temperature ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 18.53s
+
+     Running tests/xs_and_tracks_plot_parity.rs (target/release/deps/xs_and_tracks_plot_parity-da5f65fb1a473370)
+
+running 5 tests
+test recorded_tracks_convert_to_plot_tracks ... ok
+test emitted_scripts_render_pixel_identical_to_openmc ... ok
+test regenerate_c12_ace ... ignored
+test plotted_data_is_bit_identical_to_openmc ... ok
+test a_perturbed_value_is_detected ... ok
+
+test result: ok. 4 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.77s
+
+error: 1 target failed:
+    `-p outram-mc-libs --test gpu_sampling_helpers_directly`

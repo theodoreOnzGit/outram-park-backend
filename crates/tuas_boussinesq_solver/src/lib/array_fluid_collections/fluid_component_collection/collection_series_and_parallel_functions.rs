@@ -45,6 +45,9 @@
 ///
 /// Main author of the code: Theodore Kay Chen Ong, supervised by
 /// Professor Per F. Peterson
+// `roots` 0.0.8 replaced by PETIR adapters with the same SimpleConvergency
+// semantics (gh:#989); see crate::numerical_methods.
+use crate::numerical_methods::{brent_root, SimpleConvergency};
 use uom::num_traits::ToPrimitive;
 use uom::si::f64::{Pressure, MassRate};
 use uom::si::mass_rate::kilogram_per_second;
@@ -54,9 +57,6 @@ use uom::si::pressure::pascal;
 
 // another crate for root finders, in fact this package specialises in root
 // finding
-extern crate roots;
-use roots::find_root_brent;
-use roots::SimpleConvergency;
 
 use super::fluid_component::FluidComponent;
 use super::fluid_component_traits::FluidComponentTrait;
@@ -291,28 +291,28 @@ pub trait FluidComponentCollectionSeriesAssociatedFunctions {
         // reduced tolerance from 1e-15 to 1e-8 to ensure pipes with large flowrates
         // such as for flibe, do not get convergence issues
 
-        let mut convergency = SimpleConvergency {
+        let convergency = SimpleConvergency {
             eps: 1e-8f64,
             max_iter: 70,
         };
 
         let mut mass_flowrate_result = if forward_flow_true != true {
             // i will search between -10 and 0 for the bracketing
-            let mass_flowrate_result = find_root_brent(
+            let mass_flowrate_result = brent_root(
                 -10_f64,
                 -0_f64,
                 &mass_flow_from_pressure_chg_root,
-                &mut convergency,
+                &convergency,
             );
 
             // if loop returns this mass flowrate result
             mass_flowrate_result
         } else {
-            let mass_flowrate_result = find_root_brent(
+            let mass_flowrate_result = brent_root(
                 10_f64,
                 0_f64,
                 &mass_flow_from_pressure_chg_root,
-                &mut convergency,
+                &convergency,
             );
 
             // if loop returns this mass flowrate result
@@ -372,11 +372,11 @@ pub trait FluidComponentCollectionSeriesAssociatedFunctions {
         mass_flowrate_result = match mass_flowrate_result {
             Ok(_mass_flowrate) => return MassRate::new::<kilogram_per_second>(_mass_flowrate),
             Err(_error_msg) => {
-                mass_flowrate_result = find_root_brent(
+                mass_flowrate_result = brent_root(
                     10_000_f64,
                     -10_000_f64,
                     &mass_flow_from_pressure_chg_root,
-                    &mut convergency,
+                    &convergency,
                 );
 
                 mass_flowrate_result
@@ -386,11 +386,11 @@ pub trait FluidComponentCollectionSeriesAssociatedFunctions {
         mass_flowrate_result = match mass_flowrate_result {
             Ok(_mass_flowrate) => return MassRate::new::<kilogram_per_second>(_mass_flowrate),
             Err(_error_msg) => {
-                mass_flowrate_result = find_root_brent(
+                mass_flowrate_result = brent_root(
                     20_000_000_f64,
                     -20_000_000_f64,
                     &mass_flow_from_pressure_chg_root,
-                    &mut convergency,
+                    &convergency,
                 );
 
                 mass_flowrate_result
@@ -826,16 +826,16 @@ pub trait FluidComponentCollectionParallelAssociatedFunctions {
 
         // i can't use a convergency value too strict, perhaps 1e-9 will do!
         //
-        let mut convergency = SimpleConvergency {
+        let convergency = SimpleConvergency {
             eps: 1e-9_f64,
             max_iter: 30,
         };
 
-        let pressure_change_pascals_result_user_specified_flow = find_root_brent(
+        let pressure_change_pascals_result_user_specified_flow = brent_root(
             user_specified_pressure_upper_bound.value,
             user_specified_pressure_lower_bound.value,
             &pressure_change_from_mass_flowrate_root,
-            &mut convergency,
+            &convergency,
         );
 
         let pressure_change_pascals_user_specified_flow: f64 =

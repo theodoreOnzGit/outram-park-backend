@@ -21,6 +21,7 @@
 //!
 //! Driver glue (`main`): the LEAPR routines it calls are tested in the crate.
 
+use petir::mathf::RealMath;
 use njoy_outram_park_fork::leapr::continuous::{convol, phonon_expansion};
 use njoy_outram_park_fork::leapr::deck::LeaprDeck;
 use njoy_outram_park_fork::leapr::discrete::bfact;
@@ -39,9 +40,9 @@ fn main() -> Result<(), String> {
     // One oscillator, weight 1 (eq. 542 with w_i = 1).
     let mut osc = String::new();
     for bi in [2.0f64, 8.0] {
-        let lam = (bi / 2.0).cosh() / (bi / 2.0).sinh() / bi;
+        let lam = (bi / 2.0).r_cosh() / (bi / 2.0).r_sinh() / bi;
         for a in [0.1f64, 1.0, 5.0] {
-            let x = a / (bi * (bi / 2.0).sinh());
+            let x = a / (bi * (bi / 2.0).r_sinh());
             let (b0, bp, bm) = bfact(x, a * lam, bi);
             let _ = write!(osc, "{{\"bi\":{bi},\"a\":{a},\"b0\":{b0:.15e},\"up\":[{}],\"down\":[{}]}},", nums(&bp[..10]), nums(&bm[..10]));
             println!("oscillator beta_i {bi}, alpha {a}: zero-phonon {b0:.5e}, first down {:.5e}, first up {:.5e}", bm[0], bp[0]);

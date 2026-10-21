@@ -115,6 +115,18 @@
 //! confidence and checks the samplers a second way, against closed-form
 //! moments.
 //!
+//! ## Confidence-box basic events (gh:#987)
+//!
+//! [`pba`] and [`pbox_tree`] evaluate a [`FaultTree`] whose basic events are
+//! **confidence boxes** or p-boxes rather than numbers, gate by gate, with the
+//! dependence assumption chosen explicitly: [`pbox_tree::evaluate_pbox_tree`]
+//! (independent or Fréchet unknown dependence, per gate) and
+//! [`pbox_tree::evaluate_cbox_edges`] (the left-edge / right-edge construction
+//! of Lye et al. 2024 for repeated events). Ports of Adolphus Lye's
+//! "Computing with Confidence" case studies and Scott Ferson's pba.r;
+//! verified against the original R scripts run with R 4.6.1
+//! (`crates/raffles/docs/computing-with-confidence-verification.md`). AI-assisted draft.
+//!
 //! ## Where this sits relative to the rest of the crate
 //!
 //! [`crate::imprecise::SystemStructure`] also computes system reliability, and
@@ -145,6 +157,8 @@ pub mod fault_tree;
 pub mod importance;
 pub mod mef;
 pub mod mocus;
+pub mod pba;
+pub mod pbox_tree;
 pub mod probability;
 pub mod substitution;
 pub mod uncertainty;

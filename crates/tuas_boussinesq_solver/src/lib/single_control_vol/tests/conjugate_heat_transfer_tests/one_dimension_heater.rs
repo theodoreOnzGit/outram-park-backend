@@ -1,3 +1,4 @@
+use petir::mathf::RealMath;
 use std::ops::DerefMut;
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -1024,7 +1025,7 @@ fn mfbs_poresky_2017_power_signal(simulation_time: Time) -> Power {
 
         let phase_angle_radian_value: f64 = phase.get::<radian>();
 
-        let phase_angle_sine: f64 = phase_angle_radian_value.sin();
+        let phase_angle_sine: f64 = phase_angle_radian_value.r_sin();
 
         let power_component = steady_state_power + power_amplitude * phase_angle_sine;
 
@@ -1076,7 +1077,7 @@ fn analog_poresky_2017_power_signal(simulation_time: Time) -> Power {
 
         let phase_angle_radian_value: f64 = phase.get::<radian>();
 
-        let phase_angle_sine: f64 = phase_angle_radian_value.sin();
+        let phase_angle_sine: f64 = phase_angle_radian_value.r_sin();
 
         let power_component = steady_state_power + power_amplitude * phase_angle_sine;
 
@@ -1116,7 +1117,7 @@ fn mfbs_power_signal_logspace_custom(simulation_time: Time) -> Power {
 
         let phase_angle_radian_value: f64 = phase.get::<radian>();
 
-        let phase_angle_sine: f64 = phase_angle_radian_value.sin();
+        let phase_angle_sine: f64 = phase_angle_radian_value.r_sin();
 
         let power_component = steady_state_power + power_amplitude * phase_angle_sine;
 
@@ -1143,10 +1144,10 @@ fn mfbs_power_signal_logspace_custom(simulation_time: Time) -> Power {
 /// I still needed some mild correction
 fn logspace(start: f64, end: f64, n: usize) -> Vec<f64> {
     let base = 10.0_f64;
-    let start_log = start.log10();
-    let end_log = end.log10();
+    let start_log = start.r_log10();
+    let end_log = end.r_log10();
     let step = (end_log - start_log) / (n - 1) as f64;
     (0..n)
-        .map(|i| base.powf(start_log + i as f64 * step))
+        .map(|i| base.r_powf(start_log + i as f64 * step))
         .collect()
 }

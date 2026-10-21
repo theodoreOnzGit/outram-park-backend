@@ -3,6 +3,7 @@
 //! and a link to the engine (`web_demo::link`) that does every calculation
 //! off this thread. Each frame only drains the link, draws and sends.
 
+use petir::mathf::RealMath;
 use crate::engine::{Event, PlumeParams, PuffParams, Request, Series, ELEMENTS, PUFF_DT_S};
 use crate::rungs::Rung;
 use crate::step_view::{self, Tracers};
@@ -658,7 +659,7 @@ impl DispApp {
                 for row in 0..n {
                     for col in 0..n {
                         let val = f.values[(row * n + col) as usize];
-                        let t = ((val / f.max).log10() + 4.0) / 4.0;
+                        let t = ((val / f.max).r_log10() + 4.0) / 4.0;
                         if !(t > 0.0) {
                             continue;
                         }
@@ -710,7 +711,7 @@ impl DispApp {
         let s = v.to_screen(rect, 0.0, 0.0);
         painter.circle_filled(s, 4.0, Color32::from_rgb(255, 90, 90));
         let t = self.c.dir_deg.to_radians();
-        let tip = s + Vec2::new(t.sin() as f32, -(t.cos() as f32)) * 40.0;
+        let tip = s + Vec2::new(t.r_sin() as f32, -(t.r_cos() as f32)) * 40.0;
         painter.arrow(
             s,
             tip - s,
@@ -723,8 +724,8 @@ impl DispApp {
 /// Dark to yellow-white, for `t` in (0, 1].
 fn ramp(t: f64) -> Color32 {
     let t = t.clamp(0.0, 1.0) as f32;
-    let r = (40.0 + 215.0 * t.powf(0.8)) as u8;
-    let g = (20.0 + 220.0 * t.powf(1.6)) as u8;
+    let r = (40.0 + 215.0 * t.r_powf(0.8)) as u8;
+    let g = (20.0 + 220.0 * t.r_powf(1.6)) as u8;
     let b = (90.0 + 80.0 * (1.0 - t) - 40.0 * t) as u8;
     Color32::from_rgba_unmultiplied(r, g, b, (90.0 + 165.0 * t) as u8)
 }
@@ -779,10 +780,10 @@ fn draw_plot(painter: &egui::Painter, rect: Rect, series: &[Series], rung: Rung,
         .filter(|(x, y)| **x > 0.0 && **y > 0.0);
     let (mut x0, mut x1, mut y0, mut y1) = (f64::MAX, f64::MIN, f64::MAX, f64::MIN);
     for (x, y) in pts {
-        x0 = x0.min(x.log10());
-        x1 = x1.max(x.log10());
-        y0 = y0.min(y.log10());
-        y1 = y1.max(y.log10());
+        x0 = x0.min(x.r_log10());
+        x1 = x1.max(x.r_log10());
+        y0 = y0.min(y.r_log10());
+        y1 = y1.max(y.r_log10());
     }
     if x0 >= x1 || y0 > y1 {
         return;
@@ -794,8 +795,8 @@ fn draw_plot(painter: &egui::Painter, rect: Rect, series: &[Series], rung: Rung,
     }
     let to = |x: f64, y: f64| {
         Pos2::new(
-            plot.left() + ((x.log10() - x0) / (x1 - x0)) as f32 * plot.width(),
-            plot.bottom() - ((y.log10() - y0) / (y1 - y0)) as f32 * plot.height(),
+            plot.left() + ((x.r_log10() - x0) / (x1 - x0)) as f32 * plot.width(),
+            plot.bottom() - ((y.r_log10() - y0) / (y1 - y0)) as f32 * plot.height(),
         )
     };
     painter.rect_stroke(
@@ -805,7 +806,7 @@ fn draw_plot(painter: &egui::Painter, rect: Rect, series: &[Series], rung: Rung,
         egui::StrokeKind::Inside,
     );
     for d in (y0 as i32)..=(y1 as i32) {
-        let p = to(10f64.powf(x0), 10f64.powi(d));
+        let p = to(10f64.r_powf(x0), 10f64.r_powi(d));
         painter.line_segment(
             [Pos2::new(plot.left(), p.y), Pos2::new(plot.right(), p.y)],
             Stroke::new(0.5, Color32::from_gray(50)),
@@ -819,15 +820,15 @@ fn draw_plot(painter: &egui::Painter, rect: Rect, series: &[Series], rung: Rung,
         );
     }
     for d in (x0.ceil() as i32)..=(x1.floor() as i32) {
-        let p = to(10f64.powi(d), 10f64.powf(y0));
+        let p = to(10f64.r_powi(d), 10f64.r_powf(y0));
         painter.line_segment(
             [Pos2::new(p.x, plot.top()), Pos2::new(p.x, plot.bottom())],
             Stroke::new(0.5, Color32::from_gray(50)),
         );
         let label = if d >= 3 {
-            format!("{} km", 10f64.powi(d - 3))
+            format!("{} km", 10f64.r_powi(d - 3))
         } else {
-            format!("{} m", 10f64.powi(d))
+            format!("{} m", 10f64.r_powi(d))
         };
         painter.text(
             Pos2::new(p.x, plot.bottom() + 4.0),
@@ -866,7 +867,7 @@ fn draw_plot(painter: &egui::Painter, rect: Rect, series: &[Series], rung: Rung,
         let line: Vec<Pos2> =
             s.xs.iter()
                 .zip(&s.ys)
-                .filter(|(x, y)| **x > 0.0 && **y >= 10f64.powf(y0))
+                .filter(|(x, y)| **x > 0.0 && **y >= 10f64.r_powf(y0))
                 .map(|(x, y)| to(*x, *y))
                 .collect();
         let colour = PALETTE[(s.colour as usize) % PALETTE.len()];

@@ -119,6 +119,7 @@ impl RungBuilder for Builder {
 #[cfg(all(test, not(target_arch = "wasm32")))]
 mod tests {
     use super::*;
+    use petir::mathf::RealMath;
     use outram_mc_libs::geometry::cell::SurfaceToken;
     use outram_mc_libs::geometry::position::{Direction, Position};
     use outram_mc_libs::physics::track_output::TrackEvent;
@@ -130,7 +131,7 @@ mod tests {
     #[test]
     fn the_cell_is_a_uranium_lump_in_graphite_at_the_rung_three_ratio() {
         let (r, big_r) = (model::LUMP_R_CM, model::cell_r());
-        let v = (r / big_r).powi(3);
+        let v = (r / big_r).r_powi(3);
         let n_u: f64 = vv::uranium_metal().u.iter().sum();
         let ratio = (1.0 - v) * vv::graphite().c / (v * n_u);
         assert!((ratio - model::C_PER_U).abs() < 1e-9 * model::C_PER_U, "cell-average N_C/N_U {ratio}");

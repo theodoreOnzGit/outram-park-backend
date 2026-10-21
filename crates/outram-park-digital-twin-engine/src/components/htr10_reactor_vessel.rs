@@ -41,6 +41,8 @@
 //! proportioned by eye from the figure, not dimensioned from it, and nothing
 //! here is a validated model. See `RESPONSIBLE_USE.md`.
 
+use petir::mathf::RealMath;
+
 use crate::components::pebble_bed_texture::{bed_bounding_box, draw_bed, BedTint};
 use crate::components::pebble_packing::{
     PackedPebble, BARREL_HEIGHT, BED_BOUNDS, CHUTE_RADIUS, CONE_HEIGHT, PACKED_PEBBLES,
@@ -514,7 +516,7 @@ pub(crate) fn triso_dot_count(radius: f32) -> usize {
             // `N = -ln(1 - fill) * (r_zone / r_dot)^2`.
             let zone = FUELLED_ZONE_FRAC * radius;
             let dot = triso_dot_radius(radius);
-            let n = -(1.0 - TRISO_TARGET_FILL).ln() * (zone * zone) / (dot * dot);
+            let n = -(1.0 - TRISO_TARGET_FILL).r_ln() * (zone * zone) / (dot * dot);
             (n as usize).clamp(24, 260)
         }
     }
@@ -560,7 +562,7 @@ pub(crate) fn triso_dot_offset(index: i32, k: usize, radius: f32) -> Vec2 {
     let k = k as i32;
     let angle = pebble_hash(index, k, 11) * std::f32::consts::TAU;
     let rho = max_rho * pebble_hash(index, k, 12).sqrt();
-    Vec2::new(rho * angle.cos(), rho * angle.sin())
+    Vec2::new(rho * angle.r_cos(), rho * angle.r_sin())
 }
 
 /// Linear interpolation between two colours, keeping `a`'s alpha.

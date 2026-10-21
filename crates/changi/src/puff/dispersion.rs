@@ -28,6 +28,8 @@
 //! them at any positive distance; see [`pasquill_gifford_sigmas`] for what that
 //! produces beyond the fitted range, which is measured rather than assumed.
 
+use petir::mathf::RealMath;
+
 use uom::si::f64::Length;
 use uom::si::length::{kilometer, meter};
 
@@ -251,9 +253,9 @@ pub fn pasquill_gifford_sigmas(
         (None, None) => unreachable!("every class has either a table or unbinned coefficients"),
     };
 
-    let sigma_z = (a * x.powf(b)).min(SIGMA_Z_CAP_METERS);
-    let big_theta = DEG_TO_RAD * (p.c - p.d * x.ln());
-    let sigma_y = SIGMA_Y_PREFACTOR * x * big_theta.tan();
+    let sigma_z = (a * x.r_powf(b)).min(SIGMA_Z_CAP_METERS);
+    let big_theta = DEG_TO_RAD * (p.c - p.d * x.r_ln());
+    let sigma_y = SIGMA_Y_PREFACTOR * x * big_theta.r_tan();
 
     Some(DispersionSigmas {
         sigma_y: Length::new::<meter>(sigma_y),
@@ -304,7 +306,7 @@ mod tests {
             .unwrap()
             .sigma_z
             .get::<meter>();
-        let expected_lower = 34.459 * 0.3_f64.powf(0.86974);
+        let expected_lower = 34.459 * 0.3_f64.r_powf(0.86974);
         assert!((on_edge - expected_lower).abs() < 1e-9);
     }
 
@@ -318,7 +320,7 @@ mod tests {
                 .unwrap()
                 .sigma_z
                 .get::<meter>();
-            let want = (61.141 * x.powf(0.91465)).min(SIGMA_Z_CAP_METERS);
+            let want = (61.141 * x.r_powf(0.91465)).min(SIGMA_Z_CAP_METERS);
             assert!((got - want).abs() < 1e-9, "x = {x}");
         }
     }
@@ -332,7 +334,7 @@ mod tests {
             (StabilityClass::D, 8.333, 0.72382),
             (StabilityClass::F, 4.1667, 0.36191),
         ] {
-            let crossing_km: f64 = (c / d as f64).exp();
+            let crossing_km: f64 = (c / d as f64).r_exp();
             assert!(
                 crossing_km > 4.0e4,
                 "{} crosses zero at {crossing_km:e} km, inside Earth's circumference",

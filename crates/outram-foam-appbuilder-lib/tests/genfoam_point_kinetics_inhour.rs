@@ -83,6 +83,7 @@
 //! prompt- and delayed-term coupling and the backward-Euler assembly are
 //! implemented correctly for the reactivity-driven 0-D core.
 
+use petir::mathf::RealMath;
 use outram_foam_appbuilder_lib::genfoam::neutronics::point_kinetics::{
     PointKineticsParameters, PointKineticsState,
 };
@@ -196,7 +197,7 @@ fn asymptotic_period_matches_inhour_equation() {
 
     let t_a = sample_a as f64 * dt;
     let t_b = n_steps as f64 * dt;
-    let t_num = (t_b - t_a) / (power_at_b / power_at_a).ln();
+    let t_num = (t_b - t_a) / (power_at_b / power_at_a).r_ln();
 
     let rel_err = (t_num - t_ref).abs() / t_ref;
     println!(

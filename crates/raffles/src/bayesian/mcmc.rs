@@ -50,6 +50,7 @@
 //! These are independent implementations from the published algorithms. See
 //! the provenance note in [`super`] for why that matters here.
 
+use petir::mathf::RealMath;
 use petir::rng::lcg::prn;
 
 use super::{clamp_open_unit, standard_normal};
@@ -199,7 +200,7 @@ impl MetropolisHastings {
             // so any finite proposal is accepted from there.
             true
         } else {
-            u.ln() < ln_ratio
+            u.r_ln() < ln_ratio
         };
 
         if accept {
@@ -373,8 +374,8 @@ impl EnsembleMove {
                     true
                 } else {
                     let ln_q =
-                        (d as f64 - 1.0) * z.ln() + ln_target_proposal - population[k].ln_target;
-                    ln_q >= 0.0 || u.ln() < ln_q
+                        (d as f64 - 1.0) * z.r_ln() + ln_target_proposal - population[k].ln_target;
+                    ln_q >= 0.0 || u.r_ln() < ln_q
                 };
 
                 if accept {
@@ -394,7 +395,7 @@ impl EnsembleMove {
     /// standard closed form and needs no rejection step.
     fn draw_stretch(&self, seed: &mut u64) -> f64 {
         let u = clamp_open_unit(prn(seed));
-        ((self.a - 1.0) * u + 1.0).powi(2) / self.a
+        ((self.a - 1.0) * u + 1.0).r_powi(2) / self.a
     }
 }
 
@@ -424,7 +425,7 @@ mod tests {
     fn mean_and_sd(values: &[f64]) -> (f64, f64) {
         let n = values.len() as f64;
         let mean = values.iter().sum::<f64>() / n;
-        let var = values.iter().map(|v| (v - mean).powi(2)).sum::<f64>() / (n - 1.0);
+        let var = values.iter().map(|v| (v - mean).r_powi(2)).sum::<f64>() / (n - 1.0);
         (mean, var.sqrt())
     }
 

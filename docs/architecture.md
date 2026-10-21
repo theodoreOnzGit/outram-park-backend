@@ -52,7 +52,7 @@ sections. Responsibilities:
 - The consumer-facing **provider** surface (`src/nuclear_data`): `XsProvider`
   (enum: `Multipole` | `LeanAce`) → `MicroXs`. This is what transport crates call.
 
-Licensing: GPL-3.0-only derivative of NJOY (BSD/LANL) — keep `LICENSE.njoy` +
+Licensing: ~~GPL-3.0-only~~ **AGPL-3.0-only** (relicensed 2026-10-20, gh:#973) derivative of NJOY (BSD/LANL) — keep `LICENSE.njoy` +
 `NOTICE`. WMP is **separate MIT CRPG** provenance — add `LICENSE-WMP` before
 embedding WMP data; never mix the two attributions.
 

@@ -14,6 +14,7 @@
 
 #![allow(dead_code)]
 
+use petir::mathf::RealMath;
 use outram_mc_libs::material::material::{Material, NuclideComponent};
 use outram_mc_libs::material::nuclide::Nuclide;
 use outram_mc_libs::pebble_beds::delta_tracking::Majorant;
@@ -164,5 +165,5 @@ pub fn endf_layout() -> Layout {
 
 /// Kernel volume fraction of the fuelled zone: `n (r_k / R_fz)^3`.
 pub fn kernel_packing_fraction() -> f64 {
-    PARTICLES_PER_PEBBLE * (KERNEL_RADIUS_CM / FUEL_ZONE_RADIUS_CM).powi(3)
+    PARTICLES_PER_PEBBLE * (KERNEL_RADIUS_CM / FUEL_ZONE_RADIUS_CM).r_powi(3)
 }

@@ -59,6 +59,7 @@
 //!   experimental comparison — see that crate's `CLAUDE.md`). Converting it to
 //!   cm adds nothing to that claim.
 
+use petir::mathf::RealMath;
 use std::collections::BTreeMap;
 
 use outram_park_fork_liggghts::granular_system::GranularSystem;
@@ -265,7 +266,7 @@ fn measure_overlap(spheres: &[Sphere], radius: f64) -> (f64, usize) {
                             continue;
                         }
                         let o = spheres[j].center;
-                        let d = ((c.x - o.x).powi(2) + (c.y - o.y).powi(2) + (c.z - o.z).powi(2))
+                        let d = ((c.x - o.x).r_powi(2) + (c.y - o.y).r_powi(2) + (c.z - o.z).r_powi(2))
                             .sqrt();
                         if d < diameter {
                             pairs += 1;
@@ -301,7 +302,7 @@ mod tests {
     const STEPS: usize = 10_000; // 1.0 s of settling
 
     fn pebble(x: f64, y: f64, z: f64, radius: f64) -> Particle {
-        let mass = DENSITY * 4.0 / 3.0 * std::f64::consts::PI * radius.powi(3);
+        let mass = DENSITY * 4.0 / 3.0 * std::f64::consts::PI * radius.r_powi(3);
         Particle::new(
             Vec3::new(x, y, z),
             Vec3::zero(),
@@ -391,7 +392,7 @@ mod tests {
             assert_eq!(s.center.y, p.position.y * 100.0);
             assert_eq!(s.center.z, p.position.z * 100.0);
             assert_eq!(s.radius, p.radius * 100.0);
-            let rho = (s.center.x.powi(2) + s.center.y.powi(2)).sqrt();
+            let rho = (s.center.x.r_powi(2) + s.center.y.r_powi(2)).sqrt();
             assert!(
                 rho < R_CYL * 100.0,
                 "centre outside the cylinder: rho = {rho} cm"
@@ -422,7 +423,7 @@ mod tests {
         for i in 0..s.len() {
             for j in (i + 1)..s.len() {
                 let (a, b) = (s[i].center, s[j].center);
-                let d = ((a.x - b.x).powi(2) + (a.y - b.y).powi(2) + (a.z - b.z).powi(2)).sqrt();
+                let d = ((a.x - b.x).r_powi(2) + (a.y - b.y).r_powi(2) + (a.z - b.z).r_powi(2)).sqrt();
                 if d < 2.0 * r {
                     count += 1;
                     worst = worst.max(2.0 * r - d);

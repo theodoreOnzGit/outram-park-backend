@@ -41,6 +41,7 @@
 // Headless output is native-only.
 #![cfg_attr(target_arch = "wasm32", allow(dead_code))]
 
+use petir::mathf::RealMath;
 use crate::engine::Tier;
 use crate::history::History;
 use crate::keff::{console_line, sample_sites, Generation, KeffConfig, Reference, CONSOLE_HEADER};
@@ -469,7 +470,7 @@ pub fn uniform_in_cylinder(rng: &mut u64, r: f64, z_lo: f64, z_hi: f64) -> Posit
     let rho = r * (1.0 - 1.0e-9) * uniform(rng).sqrt();
     let t = std::f64::consts::TAU * uniform(rng);
     let z = z_lo + (z_hi - z_lo) * (0.001 + 0.998 * uniform(rng));
-    Position::new(rho * t.cos(), rho * t.sin(), z)
+    Position::new(rho * t.r_cos(), rho * t.r_sin(), z)
 }
 
 #[cfg(all(test, not(target_arch = "wasm32")))]

@@ -85,6 +85,7 @@
 //! 3. **Rebuild, not in-place split.** Upstream mutates a BMesh; this
 //!    returns a new [`Mesh`], like every other operator in this crate.
 
+use petir::mathf::RealMath;
 use crate::math::Vec3;
 use crate::mesh::Mesh;
 use crate::polyfill;
@@ -286,7 +287,7 @@ fn find_best_split(ring: &[Vec3], ring2d: &[[f64; 2]]) -> Option<((usize, usize)
 /// ```
 pub fn connect_nonplanar(mesh: &Mesh, angle_limit: f64) -> Mesh {
     let positions = mesh.positions();
-    let angle_limit_cos = angle_limit.cos();
+    let angle_limit_cos = angle_limit.r_cos();
 
     // Process each input face independently and append its pieces in
     // order, so the output face order tracks the input's.
@@ -502,7 +503,7 @@ mod tests {
             .map(|i| {
                 let t = std::f64::consts::TAU * (i as f64) / (n as f64);
                 // Alternating lift: a corrugated hexagon.
-                Vec3::new(t.cos(), t.sin(), if i % 2 == 0 { 0.4 } else { -0.4 })
+                Vec3::new(t.r_cos(), t.r_sin(), if i % 2 == 0 { 0.4 } else { -0.4 })
             })
             .collect();
         let m = Mesh::from_polygons(&pts, &[(0..n).collect::<Vec<usize>>()]);
@@ -553,7 +554,7 @@ mod tests {
         let bow: Vec<Vec3> = (0..6)
             .map(|i| {
                 let t = i as f64 / 5.0;
-                Vec3::new(i as f64, 0.0, amp * (std::f64::consts::PI * t).sin())
+                Vec3::new(i as f64, 0.0, amp * (std::f64::consts::PI * t).r_sin())
             })
             .collect();
         let e_zig = subset_planarity_error(&zig, 0, 5, n);

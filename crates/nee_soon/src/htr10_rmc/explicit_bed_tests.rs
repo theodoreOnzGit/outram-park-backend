@@ -7,6 +7,7 @@
 //! the ASSEMBLED geometry (`Geometry::locate`, `Cell::contains`), not the bed
 //! description it was built from.
 
+use petir::mathf::RealMath;
 use outram_mc_libs::geometry::cell::SurfaceToken;
 use outram_mc_libs::geometry::geometry::Geometry;
 use outram_mc_libs::geometry::position::{Direction, Position};
@@ -132,7 +133,7 @@ fn a_seker_bed_rebuilt_from_its_centres_is_the_same_bed() {
             (2.0 * rng.next() - 1.0) * 90.0,
             z_lo + rng.next() * (hh - z_lo),
         );
-        if p.x.hypot(p.y) > 90.0 {
+        if p.x.r_hypot(p.y) > 90.0 {
             continue;
         }
         n += 1;
@@ -177,7 +178,7 @@ fn an_overlapping_pair_is_split_by_its_bisector() {
         [5.95, 0.0, r],
         [
             5.95 * 0.5,
-            (5.90_f64.powi(2) - (5.95_f64 * 0.5).powi(2)).sqrt(),
+            (5.90_f64.r_powi(2) - (5.95_f64 * 0.5).r_powi(2)).sqrt(),
             r,
         ],
         // A separate ball, 14.6 cm from the cluster.
@@ -205,9 +206,9 @@ fn an_overlapping_pair_is_split_by_its_bisector() {
             // A point in the lens's bounding box round the midpoint.
             let p = [0, 1, 2].map(|k| 0.5 * (ci[k] + cj[k]) + (2.0 * rng.next() - 1.0) * 0.8);
             let di =
-                ((p[0] - ci[0]).powi(2) + (p[1] - ci[1]).powi(2) + (p[2] - ci[2]).powi(2)).sqrt();
+                ((p[0] - ci[0]).r_powi(2) + (p[1] - ci[1]).r_powi(2) + (p[2] - ci[2]).r_powi(2)).sqrt();
             let dj =
-                ((p[0] - cj[0]).powi(2) + (p[1] - cj[1]).powi(2) + (p[2] - cj[2]).powi(2)).sqrt();
+                ((p[0] - cj[0]).r_powi(2) + (p[1] - cj[1]).r_powi(2) + (p[2] - cj[2]).r_powi(2)).sqrt();
             if di >= r || dj >= r {
                 continue;
             }
@@ -247,7 +248,7 @@ fn an_overlapping_pair_is_split_by_its_bisector() {
             c[1] + (2.0 * rng.next() - 1.0) * 4.0,
             c[2] + (2.0 * rng.next() - 1.0) * 3.0,
         );
-        if p.z < eb.bed_bottom || p.z > eb.bed_top || p.x.hypot(p.y) > 90.0 {
+        if p.z < eb.bed_bottom || p.z > eb.bed_top || p.x.r_hypot(p.y) > 90.0 {
             continue;
         }
         let Some((_, u, local, _)) = tile_level(g, p) else {
@@ -258,7 +259,7 @@ fn an_overlapping_pair_is_split_by_its_bisector() {
         assert_eq!(hits.len(), 1, "point {p:?} is in {} cells", hits.len());
         around += 1;
     }
-    let v_ball = 4.0 / 3.0 * std::f64::consts::PI * r.powi(3);
+    let v_ball = 4.0 / 3.0 * std::f64::consts::PI * r.r_powi(3);
     let lens: f64 = [5.95, 5.90, 5.90].iter().map(|&d| lens_volume(r, d)).sum();
     let want = lens / (v_ball * eb.centres.len() as f64);
     println!(
@@ -281,7 +282,7 @@ fn an_overlapping_pair_is_split_by_its_bisector() {
 fn the_lens_volume_has_the_right_limits() {
     let r = 3.0;
     assert!(lens_volume(r, 2.0 * r).abs() < 1e-12);
-    let v = 4.0 / 3.0 * std::f64::consts::PI * r.powi(3);
+    let v = 4.0 / 3.0 * std::f64::consts::PI * r.r_powi(3);
     assert!((lens_volume(r, 0.0) - v).abs() < 1e-9 * v);
 }
 
@@ -385,7 +386,7 @@ fn a_liggghts_bed_builds_with_one_cell_per_point() {
             (2.0 * rng.next() - 1.0) * 90.0,
             eb.bed_bottom + rng.next() * (eb.bed_top - eb.bed_bottom),
         );
-        if p.x.hypot(p.y) >= 90.0 {
+        if p.x.r_hypot(p.y) >= 90.0 {
             continue;
         }
         n += 1;

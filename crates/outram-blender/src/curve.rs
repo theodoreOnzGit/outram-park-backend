@@ -34,6 +34,7 @@
 //! and an oriented frame (tangent + tilted normal), which the sweep operators
 //! ride.
 
+use petir::mathf::RealMath;
 use crate::math::Vec3;
 
 /// The interpolation family of a [`Spline`].
@@ -487,7 +488,7 @@ fn frames_from(raw: &[(Vec3, f64)], cyclic: bool, tilts: &[f64]) -> Vec<SplineSa
         // Rotate the carried normal from prev_t to t.
         let axis = prev_t.cross(t);
         if axis.length() > 1e-9 {
-            let angle = prev_t.dot(t).clamp(-1.0, 1.0).acos();
+            let angle = prev_t.dot(t).clamp(-1.0, 1.0).r_acos();
             normal = rodrigues(normal, axis.normalize(), angle);
         }
         prev_t = t;
@@ -515,7 +516,7 @@ fn interp_tilt(tilts: &[f64], i: usize, m: usize) -> f64 {
 }
 
 fn rodrigues(v: Vec3, k: Vec3, theta: f64) -> Vec3 {
-    let (s, c) = theta.sin_cos();
+    let (s, c) = theta.r_sin_cos();
     v.scale(c)
         .add(k.cross(v).scale(s))
         .add(k.scale(k.dot(v) * (1.0 - c)))

@@ -1,5 +1,5 @@
 <!--
-SPDX-License-Identifier: GPL-3.0-only
+SPDX-License-Identifier: AGPL-3.0-only
 Part of Outram Park (outram-park-backend).
 Independent Rust granular-DEM library. NOT a code port of GPL-2.0
 LIGGGHTS/LAMMPS — see NOTICE for the licensing flag.
@@ -13,7 +13,7 @@ LIGGGHTS/LAMMPS — see NOTICE for the licensing flag.
 > **Licensing (see [`NOTICE`](./NOTICE)).** LIGGGHTS-PUBLIC's source headers
 > declare **"GNU Public License, version 2 or later"**, which **is compatible
 > with GPL-3.0** (the "or later" option permits use under GPLv3) — so
-> LIGGGHTS-PUBLIC source may be ported into this GPL-3.0-only crate. *(Corrects
+> LIGGGHTS-PUBLIC source may be ported into this ~~GPL-3.0-only~~ **AGPL-3.0-only** crate (relicensed 2026-10-20, gh:#973). *(Corrects
 > an earlier note that wrongly said "GPL-2.0-only / blocked".)* When porting,
 > confirm the specific file's "or later" header and keep its attribution +
 > provenance. LAMMPS-proper headers are version-unspecified (murkier) — treat

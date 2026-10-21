@@ -1,4 +1,4 @@
-# Step 20 — The whole chain in one worked example: htgr_sim_v1, and a route for reviewing it
+# Step 21 — The whole chain in one worked example: htgr_sim_v1, and a route for reviewing it
 
 > **Research, education and V&V only.** Not for reactor operation, licensing, safety decisions or emergency response.
 > **Review status: first draft, 2026-10-18, AI-assisted (Claude Sonnet), not yet reviewed by a human.**
@@ -10,13 +10,13 @@ a real plant would do. The page links no running copy of it and quotes no new
 measurement: every number is one the repo already records, labelled
 "recorded", with its location.
 
-**Two questions.** First: Steps 1 to 19 each gave a ladder from the model with
+**Two questions.** First: Steps 1 to 20 each gave a ladder from the model with
 the fewest assumptions to a cheaper one. *Which rung does each link of one
 real chain actually stand on, and what did it assume to get there?* Second,
 the maintainer's purpose for this page: *in what order should a reviewer read
 the functions that implement the chain, and what should they check in each?*
 
-**The question from the previous step.** [Step 19](./19-levels-of-fidelity.md)
+**The question from the previous step.** [Step 20](./19-levels-of-fidelity.md)
 named the levels. This page shows one chain with a level chosen at every link.
 
 ## 0. How to read the review notes
@@ -102,15 +102,15 @@ term needs.
 ## 3. Link B: release from the particle
 
 **Fewest assumptions:** the Lagrangian random walk of
-[Step 5](./05-random-walk.md), or the Eulerian solution with Ray's equations
-of [Step 7](./07-ray-equations.md).
+[Step 8](./05-random-walk.md), or the Eulerian solution with Ray's equations
+of [Step 10](./07-ray-equations.md).
 
 **What htgr_sim_v1 does:** neither. It runs **TRISO-ATOPS's closed forms**
 (the Booth equivalent sphere for the kernel, a breakthrough model for silver
 through SiC, a graphite attenuation factor), with Arrhenius diffusion
 coefficients. A search of the example's source for the walk (`first_passage`,
 `WoSWalker`, `lagrangian_decay`) and for FLEXPART found no use. This is
-the Booth rung of [Step 6](./06-eulerian-fresco.md), not the walk.
+the Booth rung of [Step 9](./06-eulerian-fresco.md), not the walk.
 
 **Temperatures.** The coefficients are exponential in temperature, so the code
 refuses to substitute a wrong one. It uses the inventory-averaged kernel
@@ -137,12 +137,12 @@ documented departure from upstream, which passes the kernel temperature.
    (the whole per-nuclide chain). Review: none recorded.
 3. [`diffusion_coefficient`](../../code-review/#crates/boon-lay/src/triso_atops_fork/diffusion/mod.rs::diffusion_coefficient):
    $D = D_0 \exp(-Q/RT)$ ([Step 3](./03-layers-chemistry.md),
-   [Step 6](./06-eulerian-fresco.md)). Units: m$^2$/s. Review: none recorded.
+   [Step 9](./06-eulerian-fresco.md)). Units: m$^2$/s. Review: none recorded.
 4. [`rb_fail`](../../code-review/#crates/boon-lay/src/triso_atops_fork/release_models/mod.rs::rb_fail),
    which dispatches to
    [`booth_longlived`](../../code-review/#crates/boon-lay/src/triso_atops_fork/release_models/steady_state.rs::booth_longlived),
    [`breakthrough_model`](../../code-review/#crates/boon-lay/src/triso_atops_fork/release_models/steady_state.rs::breakthrough_model)
-   and `rb_fail_noble_gases`. Check against Step 6. The recorded Booth
+   and `rb_fail_noble_gases`. Check against Step 9. The recorded Booth
    truncation floor `1.216e-4` over-states some metal releases (gh:#385, per
    the crate's limitations page). Review: none recorded.
 5. [`attenuation_factor`](../../code-review/#crates/boon-lay/src/triso_atops_fork/release_models/steady_state.rs::attenuation_factor):
@@ -150,7 +150,7 @@ documented departure from upstream, which passes the kernel temperature.
 6. [`release_rate`](../../code-review/#crates/boon-lay/src/triso_atops_fork/activities/source_terms.rs::release_rate)
    and
    [`base_activities`](../../code-review/#crates/boon-lay/src/triso_atops_fork/activities/source_terms.rs::base_activities):
-   the group table of [Step 11](./11-into-the-coolant.md). Check: gases and
+   the group table of [Step 12](./11-into-the-coolant.md). Check: gases and
    halogens get $(f_{hm} + f_{inc})\langle R/B\rangle$ only. Review: none
    recorded.
 
@@ -163,8 +163,8 @@ right for HTR-10.
 ## 4. Link C: failure
 
 **Fewest assumptions:** finite-element thermo-mechanics per particle
-([Step 8](./08-pressure-stress.md)). **What it does:** the thin-shell
-PANAMA-I chain of [Step 9](./09-panama.md), through boon-lay fuel failure.
+([Step 6](./08-pressure-stress.md)). **What it does:** the thin-shell
+PANAMA-I chain of [Step 7](./09-panama.md), through boon-lay fuel failure.
 
 [`fractions_at`](../../code-review/#crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/fission_product_release.rs::Htr10TrisoAtopsInputs::fractions_at)
 builds the four TRISO-ATOPS failure fractions at the live kernel temperature:
@@ -184,19 +184,19 @@ reports the other bound.
 
 **Where the code and earlier pages disagree.**
 
-- **Step 11 quotes `3e-4`** as the HTR-10 design free uranium for `f_hm`,
+- **Step 12 quotes `3e-4`** as the HTR-10 design free uranium for `f_hm`,
   from `sembawang`'s KORA example. `htgr_sim_v1` uses the **measured
   $5.0 \times 10^{-5}$** and treats $3 \times 10^{-4}$ as the specification
-  limit. Both are in the repo. The plant model uses the measured one. Step 11
+  limit. Both are in the repo. The plant model uses the measured one. Step 12
   now says so (2026-10-18).
-- **Step 9** presents $\varphi_1$ as the accident pressure-vessel mechanism.
+- **Step 7** presents $\varphi_1$ as the accident pressure-vessel mechanism.
   Here it is evaluated at *end of irradiation* with $T_B = T_{kernel} - 75$ K
   and **added on top of** the $5 \times 10^{-4}$ design value. The code's own
   comment says $\varphi_1$ alone "would silently answer a different question"
   and keeps it only because it rises with live temperature. $\varphi_2$
   (decomposition) is not routed anywhere in this chain.
 - The $\varphi_1$ strength and fluence inputs are borrowed from the report's
-  HTR-Module case (as Step 9 says).
+  HTR-Module case (as Step 7 says).
 
 **Review route:**
 
@@ -209,7 +209,7 @@ reports the other bound.
    or table to check it against.
 3. [`internal_gas_pressure`](../../code-review/#crates/boon-lay/src/fuel_failure/pressure.rs::internal_gas_pressure):
    $p = (F_d F_f + \mathrm{OPF})F_b R T / [(V_f/V_k) V_m]$
-   ([Step 8](./08-pressure-stress.md)). Units: Pa. Review: none recorded for
+   ([Step 6](./08-pressure-stress.md)). Units: Pa. Review: none recorded for
    the function; the gas constant `GAS_CONSTANT_J_PER_MOL_K` has a review
    entry.
 4. [`induced_stress_with_thinning_factor`](../../code-review/#crates/boon-lay/src/fuel_failure/stress.rs::induced_stress_with_thinning_factor):
@@ -225,13 +225,13 @@ reports the other bound.
 
 Recorded values for `phi_1` at end of irradiation: $2.8 \times 10^{-15}$ at
 700 C, $1.2 \times 10^{-12}$ at 776 C, $1.6 \times 10^{-6}$ at 1000 C
-([Step 9](./09-panama.md), from the crate's HTR-10 test docs).
+([Step 7](./09-panama.md), from the crate's HTR-10 test docs).
 
 ## 5. Link D: coolant pools and removal
 
 **Fewest assumptions:** the CFD species model of
-[Step 13](./13-brute-force-cfd.md). **What it does:** the TRISO-ATOPS lumped
-pools of [Step 14](./14-triso-atops.md), extended by boon-lay with a leak sink.
+[Step 14](./13-brute-force-cfd.md). **What it does:** the TRISO-ATOPS lumped
+pools of [Step 15](./14-triso-atops.md), extended by boon-lay with a leak sink.
 
 [`TrisoAtopsReleaseChannel::update`](../../code-review/#crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/fission_product_release.rs::TrisoAtopsReleaseChannel::update)
 steps three pools and a cumulative leak per nuclide, exactly over each
@@ -246,7 +246,7 @@ The live pools carry HTR-10's published rates instead.
 1. [`htr10_pool_rates`](../../code-review/#crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/fission_product_release.rs::htr10_pool_rates).
    Check: $k_{clean} = \eta \times 0.05 \mathrm{h^{-1}}$;
    $k_{plate} = -\ln(1-d)\dot m / M$; $k_{leak} = 0.01/86400 \mathrm{s^{-1}}$
-   ([Step 12](./12-escape-and-removal.md)). Assumes: the efficiencies and
+   ([Step 13](./12-escape-and-removal.md)). Assumes: the efficiencies and
    per-cycle deposition are Liu & Cao's "conservatively set" values. Units:
    s$^{-1}$. It panics for an element they give no value for, by design.
    Review: none recorded.
@@ -294,7 +294,7 @@ pools.
 
 **Where the code and earlier pages disagree (important).**
 
-- [Step 12](./12-escape-and-removal.md) wrote the accident release as
+- [Step 13](./12-escape-and-removal.md) wrote the accident release as
   $f_{vent}(A_{kernel} + A_{graphite}) + A_{circ} + x_{liftoff} A_{plate}$
   with $x_{liftoff} = 0.05$ and called that the HTR-10 stage. That formula,
   [`accident_release_curies`](../../code-review/#crates/boon-lay/src/triso_atops_fork/accident/mod.rs::accident_release_curies),
@@ -302,10 +302,10 @@ pools.
   search of `htgr_sim_v1` found **no call** to it, and no `x_liftoff`
   outside that table. The live plant instead moves atoms between pools with
   the $2.4\times$, dust and purification rules above, then vents. These are
-  **two different lift-off assumptions** for one process. Step 12 now names
+  **two different lift-off assumptions** for one process. Step 13 now names
   which path each belongs to (2026-10-18).
 - The plant does not call TRISO-ATOPS's accident release at all: it vents the
-  live pools. Step 15 describes the TRISO-ATOPS accident path, which the
+  live pools. Step 16 describes the TRISO-ATOPS accident path, which the
   digital twin does not take.
 
 **Assumed, bounding.** Isolation of the purification system "assumed to
@@ -314,7 +314,7 @@ overestimated by a factor of 3"; the code does not apply that reduction.
 
 ## 7. Link F: beyond the vessel, and the building
 
-**Step 16's point:** a building can retain and filter, and a bounding case
+**Step 17's point:** a building can retain and filter, and a bounding case
 credits none of it. **What the code does:**
 [`set_uncredited_stack`](../../code-review/#crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/fission_product_release.rs::NuclideRelease::set_uncredited_stack)
 sets `stack_release_rate = leak_rate` and `building_activity = 0`. The
@@ -333,9 +333,9 @@ finding about the building.
 ## 8. Link G: dispersion
 
 **Fewest assumptions:** weather fields and Lagrangian particles
-([Step 17](./17-dispersion-reality.md)). **What it does:** the Gaussian
+([Step 18](./17-dispersion-reality.md)). **What it does:** the Gaussian
 **puff** model, through `changi`, not FLEXPART and not the steady plume
-([Step 18](./18-puff-and-plume.md)). The module says so in its first
+([Step 19](./18-puff-and-plume.md)). The module says so in its first
 paragraphs.
 
 **Inputs that are inputs, not data:** a 40 m release height (published), 1.5 m
@@ -388,10 +388,10 @@ heights.
 
 | Where | Earlier page says | Code says |
 |---|---|---|
-| Step 11 | HTR-10 `f_hm` is $3 \times 10^{-4}$ | the plant uses measured $5 \times 10^{-5}$; $3 \times 10^{-4}$ is the limit |
-| Step 12 | accident lift-off uses $x_{liftoff} = 0.05$ | the live plant uses $2.4\times$ desorption, dust and purification rules; $x_{liftoff}$ is in `sembawang` and the static table |
-| Step 9 | $\varphi_1$ is an accident mechanism | the plant adds it at end of irradiation on top of $5 \times 10^{-4}$ |
-| Steps 5 to 7 | walk and Ray's equations | not used in this chain; Booth closed form |
+| Step 12 | HTR-10 `f_hm` is $3 \times 10^{-4}$ | the plant uses measured $5 \times 10^{-5}$; $3 \times 10^{-4}$ is the limit |
+| Step 13 | accident lift-off uses $x_{liftoff} = 0.05$ | the live plant uses $2.4\times$ desorption, dust and purification rules; $x_{liftoff}$ is in `sembawang` and the static table |
+| Step 7 | $\varphi_1$ is an accident mechanism | the plant adds it at end of irradiation on top of $5 \times 10^{-4}$ |
+| Steps 8 to 10 | walk and Ray's equations | not used in this chain; Booth closed form |
 | Map overlay | (not an earlier page) | steady plume at 0 m against the puff at 40 m |
 
 The earlier pages carry these corrections (2026-10-18).
@@ -426,12 +426,12 @@ repo does not say.
 | Link | Model | Level |
 |---|---|---|
 | A inventory | table lookup | below Step 1 |
-| B release | Booth closed form | Step 6 |
-| C failure | thin-shell Weibull | Step 9 |
-| D pools | lumped first-order | Step 14 |
-| E accident | pool moves, then vent | Step 12 |
-| F building | none credited | Step 16 |
-| G dispersion | Gaussian puff | Step 18 |
+| B release | Booth closed form | Step 9 |
+| C failure | thin-shell Weibull | Step 7 |
+| D pools | lumped first-order | Step 15 |
+| E accident | pool moves, then vent | Step 13 |
+| F building | none credited | Step 17 |
+| G dispersion | Gaussian puff | Step 19 |
 
 | Link | Assumption | Bound? | Where |
 |---|---|---|---|
@@ -466,7 +466,7 @@ Most load-bearing first.
    "conservative" allowances.
 3. **`depressurisation_lift_off`.** In a depressurisation, the $2.4\times$
    desorption and dust terms can dominate the release from the circuit, and
-   it contradicts Step 12's description.
+   it contradicts Step 13's description.
 4. **`set_uncredited_stack`.** One line that turns a bounding decision into
    the number everything downstream uses.
 5. **`live_pools::step`.** Not a port, so it has no upstream to check
@@ -492,4 +492,4 @@ Most load-bearing first.
 
 Where is the next place to cut cost, or to add physics, without losing the
 ability to say which direction the answer errs? That is a maintainer's choice,
-and [Step 19](./19-levels-of-fidelity.md) gives the vocabulary for it.
+and [Step 20](./19-levels-of-fidelity.md) gives the vocabulary for it.

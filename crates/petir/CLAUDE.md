@@ -35,7 +35,7 @@ When you do port, the doc comment names the **upstream file and line**, and the
 NOTICE names the copyright holder for that module — GSL's holders differ per
 file, so re-read each header rather than copying one across.
 
-### Four non-GSL ports exist, and they were maintainer-directed (three more follow below)
+### Four non-GSL ports exist, and they were maintainer-directed (~~three~~ ~~four~~ ~~five~~ ~~seven~~ ~~eight~~ nine more follow below)
 
 Added 2026-09-15 at the maintainer's direction — "port select code from roots
 and peroxide to complement petir's capabilities, credit the author's
@@ -160,6 +160,12 @@ follows:
   with its measured effect on results and run time, and listed here and in
   the module docs; one that changes results beyond round-off is the
   maintainer's decision.
+- **Use CRAM, not `linalg::expm`, for decay chains** (measured 2026-10-20,
+  gh:#999, `tests/expm_vs_cram48_stiff_chain.rs`): on the uranium series
+  CRAM48 stays within 2e-15 of the inventory from 1 s to 1e9 a, while
+  `expm`'s error grows with its squaring count (1.6e-10 at 1 a, 5.6e-4 at
+  1e6 a) and at 1e9 a returns 6.6e5 times the inventory, exactly as stock
+  Octave `expm.m` does. That row is pinned as a measured failure.
 - **The deviations** (all flagged `**DEVIATION:**` where made, and listed in
   `src/depletion/mod.rs`): dense matrix and dense elimination instead of
   scipy sparse / SuperLU (measured ≤ 5.9e-15 relative against upstream's
@@ -168,6 +174,210 @@ follows:
   clip; `k`'s SI standard deviation by the independent-sum formula; and the
   scope cuts (no restart, transfer rates, external sources, MPI, results
   file or unit conversion).
+
+### An eighth non-GSL port: the `rand` pieces RustBCA uses (2026-10-20)
+
+`src/rng/{traits,chacha,uniform,normal,ziggurat_tables}.rs` port `rand`
+0.10.3, `rand_core` 0.10.1, `rand_distr` 0.6.0 and `chacha20` 0.10.2 (MIT OR
+Apache-2.0): `ChaCha8Rng` with `seed_from_u64` / `from_rng` / `set_stream`,
+`random::<f64>()`, `Uniform<f64>` and the ziggurat `Normal<f64>`. **Maintainer
+direction on gh:#995, 2026-10-20: the `rand` functionality RustBCA uses goes
+into PETIR, and `boon-lay`'s RustBCA copy calls PETIR's version.** It binds
+future work as follows:
+
+- **Not a single random number may differ from upstream.**
+  `tests/rng_vs_rand.rs` replays `reference-data/rand/` (made by the upstream
+  crates themselves): 14 864 values and 48 digests over 48 million draws, all
+  identical. Every seeded RustBCA result depends on it.
+- **`exp`/`ln` in the normal sampler are `Real` (`libm`)**, as `rand_distr`
+  declares itself. A build with `num-traits/std` (boon-lay's was) differs in
+  9 of 8 million standard-normal draws, by 1 ulp, all in the tail; recorded in
+  the test's docs.
+- **No entropy here.** Seeding from the OS stays with the caller (boon-lay
+  uses `getrandom` behind `rustbca-std`).
+- **Additive:** only the types RustBCA uses. Port further `rand` pieces from
+  the same registry sources, never from memory.
+
+### A ninth non-GSL port: CORE-MATH's correctly rounded `hypot` (2026-10-20)
+
+`src/hypot.rs` ports CORE-MATH's `cr_hypot` (`src/binary64/hypot/hypot.c`)
+and `cr_hypotf` (`src/binary32/hypot/hypotf.c`), commit `7ebab739`, MIT,
+Alexei Sibidanov. **Maintainer direction on gh:#997, 2026-10-20: "Port"**
+(a correctly rounded `hypot`, after gh:#993 found the `libm` crate's is off
+by one ulp on some inputs). That is the approval this section requires for a
+non-GSL source. It binds future work as follows:
+
+- **Every PETIR `hypot` route goes through it**: `real::hypot`/`hypotf`,
+  `Real::hypot` and `RealMath::r_hypot` on both float types. Do not route
+  one back to `libm::hypot`; `tests/hypot_correct_rounding.rs`'s
+  `every_route_is_the_core_math_port` pins it.
+- **Correct rounding is pinned against MPFR**, not asserted:
+  `reference-data/core-math/` (8 044 838 inputs, 0 misroundings). A change
+  that moves one bit fails the sweep hashes.
+- **`wrapping_*` is the C semantics, not a style choice.** The hard path
+  relies on 64-bit modular products; release overflow checks would panic on
+  a plain `*`.
+- **Deviations** (flagged in the file): round-to-nearest only (Rust cannot
+  read the rounding mode) and no FP exception flags or `errno`. FMA comes
+  from `libm::fma`, which is correctly rounded.
+- **It made the GSL comparisons exact against STOCK GSL**: `qr`, `svd`,
+  `eigen_symm` bit-identical on every value; `eigen_nonsymm` on 12 of 13
+  cases, the 13th differing because glibc 2.44's own `hypot` misrounds.
+- **GSL's own `gsl_hypot`** (`sys/hypot.c`, called by name in `francis.c`
+  and `elljac.c`) is a different routine and stays ported as GSL wrote it.
+
+### A tenth non-GSL port: LAPACK's `DGEBAL` / `DGEBAK` (2026-10-20)
+
+`src/linalg/gebal.rs` ports Reference-LAPACK 3.12.1's `DGEBAL` and `DGEBAK`
+and the reference-BLAS `DNRM2` (Blue's algorithm, `dnrm2.f90`) and `IDAMAX`
+they call (modified BSD), plus Octave's `scaling_vector` /
+`permuting_vector` (`aepbalance.h`) as `octave_balance`. **Maintainer
+direction on gh:#998, 2026-10-20: "Dgebal also port"**, so that
+`linalg::expm` balances exactly as `expm.m` does. That is the approval this
+section requires for a non-GSL source. It binds future work as follows:
+
+- **Do not merge it with GSL's `balance_matrix`.** The arithmetic differs
+  (LAPACK: 2-norms through `DNRM2` including the diagonal, `IDAMAX`, safe-range
+  guards, permutation first; GSL/EISPACK: off-diagonal 1-norms, no
+  permutation). Each is bit-identical to its own upstream.
+- **Bit-faithfulness is pinned against Reference-LAPACK run**:
+  `tests/lapack_gebal_code_to_code.rs`, 26 024/26 024 values over 68 cases
+  and every `JOB`, against the system `liblapack` (Arch `lapack 3.12.1`, the
+  one Octave links), itself checked byte-identical to the v3.12.1 sources
+  compiled with gfortran (`reference-data/lapack/build_and_run.sh`).
+- **Fortran DO bounds are evaluated once, at loop entry.** The column
+  search's inner `DO I = K, L` sees the CURRENT `K`; `loopbound6` in the
+  reference fails if it is given the outer loop's `K` (negative control run
+  2026-10-20). Do not "simplify" the loop.
+- **`expm` now matches stock Octave**: `scaled3` 1.11e-11 -> 0 normwise.
+
+### An eleventh non-GSL port: ONIX's partial-fraction CRAM16 (2026-10-20)
+
+`src/depletion/onix_cram.rs` (`cram16_pfd`) ports ONIX's `CRAM16`
+(`onix/salameche/cram.py:6-59`, commit `7328dc6`, MIT, Julien de Troullioud
+de Lanversin). It was ported in `outram-park-fork-onix` (2026-08-04) and
+**moved in** at the maintainer's direction on gh:#999, 2026-10-20: "The cram
+from Onix can go to petir and attribute onix". That is the approval this
+section requires for a non-GSL source. It binds future work as follows:
+
+- **It is not a duplicate of `depletion::cram16`, and must not be merged
+  into it.** Compared 2026-10-20: the same eight Pusa poles, but ONIX's
+  20-digit literals and OpenMC's 16-digit ones differ by 1 to 3 ulps in four
+  of sixteen components and in `alpha_0`; the residues belong to different
+  algorithms (parallel partial-fraction sum against OpenMC's sequential
+  IPF); pivoting is on `hypot` against `|z|^2`. The two agree to 6.87e-15 on
+  unit inventories, 0 of 9 entries bit-equal
+  (`onix_cram::tests::agrees_with_the_ipf_form_to_round_off`).
+- **Not one bit may move.** `outram-park-fork-onix/tests/cram16_move_fingerprints.rs`
+  holds seven fingerprints printed before the move; all seven were identical
+  after it. Do not reorder the sum, the elimination or `2*s + alpha0*n0`.
+- **Its pivot `|z|` is `real::hypot`** (CORE-MATH), where the pre-move code
+  used `num_complex`'s `norm`, i.e. the platform `hypot`. The pins show no
+  change on the cases measured; a different pivot on a near-tie is possible
+  in principle and would move results by round-off.
+- **ONIX's MIT notice is in the file header and in NOTICE** ("DERIVED WORK
+  — ONIX"). Keep both.
+- **`clamp_nonnegative` (ONIX `CRAM_density_check`) stayed in onix**: it is
+  a physicality filter on the output, not part of the approximation.
+
+### A twelfth non-GSL port: faer's sparse direct solvers (2026-10-20)
+
+`src/sparse/` ports faer 0.24.4's simplicial sparse LU (`sp_lu`, COLAMD column
+ordering) and simplicial sparse Cholesky (`sp_cholesky`, AMD ordering), with the
+elimination-tree helpers and single-column sparse triangular solves (MIT; AMD
+and COLAMD are faer's ports of SuiteSparse, BSD-3, notices kept in those files).
+**Maintainer direction on gh #994, 2026-10-20: "if faer functions are needed,
+export no_std versions of them through petir."** That is the approval this
+section requires for a non-GSL source. GSL has no sparse direct solver, and
+`outram-foam-basic-lib`'s Krylov solvers were checked first and fit neither
+consumer (`bedok` needs a direct solve like MATLAB's `decomposition`;
+`outram-blender`'s API reports a non-SPD system, which PCG cannot detect). It
+binds future work as follows:
+
+- **It is additive.** Nothing GSL-verified is replaced.
+- **Pinned bit for bit against faer's own compiled code**, kept as a
+  dev-dependency: `tests/sparse_vs_faer.rs` asserts identical COLAMD and AMD
+  permutations and bit-identical solutions against faer's simplicial path.
+  Do not reorder the triangular-solve accumulations, the reciprocal-multiply
+  (`x * (1 / d)`, not `x / d`) or the pivot test (`partial_cmp` keeps NaN);
+  any of these changes the rounding and fails that test.
+- ~~**One deviation, flagged where made:** faer picks a *supernodal* numeric
+  factorisation when flops per nonzero exceed 40, and its kernels use SIMD
+  GEMM. This port is simplicial only. It agrees with faer's supernodal path
+  to ≤ 4.9e-14 relative on the test matrices, and is **slower** on 3-D
+  operators with heavy fill. [...] A supernodal port would need faer's dense
+  kernels too; it is not done.~~ **CORRECTED 2026-10-20 (gh #994, "Port
+  lah"):** the supernodal LU and `LLᵀ` are ported (`supernodal.rs`,
+  `lu_supernodal.rs`, `cholesky_supernodal.rs`), and so are the dense kernels
+  they call (`dense/`): faer's `f64` matmul dispatch with the arithmetic of
+  `pulp`'s AVX2 matrix-vector/rank-1/dot kernels, `nano-gemm`'s microkernels
+  and `private-gemm-x86`'s (`kc = 512`), faer's triangular solves,
+  partial-pivoting LU and `LLᵀ`, all replayed lane by lane in scalar code,
+  FMA through `Real::mul_add`. Path choice is faer's rule
+  (`SymbolicKind::Auto`), with `SymbolicKind::{Simplicial, Supernodal}` to
+  force either.
+- **Pinned bit for bit against faer, both paths:** every solution of
+  `tests/sparse_vs_faer.rs` is bit-identical to faer's for forced
+  simplicial, forced supernodal and faer's AUTO choice, on all 13 matrices;
+  the dense kernels are bit-identical to faer's own on 1 377 products, 528
+  triangular solves, 8 LU and 11 `LLᵀ` factorisations
+  (`src/sparse/dense/vs_faer.rs`). Do not "simplify" a kernel's operation
+  order: lane accumulators, the dot product's `(l0+l2)+(l1+l3)` reduction,
+  which steps are fused, the 64- and 512-deep blocks and faer's stride-driven
+  kernel choice are all load-bearing. The pin assumes the CPU the replay
+  reproduces (x86-64, AVX2+FMA, no AVX-512); PETIR's numbers never depend on
+  the CPU.
+- **The supernodal path is SLOWER in PETIR, not faster** (measured
+  2026-10-20, i9-13900K, one thread): on `bedok`'s n = 10 404 operator,
+  simplicial 0.7 s, supernodal 7.5-8 s (2.1e9 FMAs at ~1.3 ns, each a
+  `libm::fma` call), faer's AVX2 supernodal 0.17 s. Without SIMD or an
+  inlinable hardware FMA (`unsafe` is forbidden, `core::f64::mul_add` is
+  unstable on 1.99) the zero-padded dense flops cost more than the
+  simplicial path saves. `Auto` therefore buys faer's *numbers*, not its
+  speed. Do not swap `libm::fma` for `a * b + c` to gain speed: that breaks
+  the pin by construction.
+- **Duplicate triplets** are summed in input order (faer's unstable sort
+  leaves that order unspecified). Neither consumer has duplicates.
+
+### A thirteenth non-GSL port: faer's dense SVD (2026-10-20)
+
+`src/faer_dense/` ports the path faer 0.24.4's `Mat::svd()` runs for a small
+square `f64` matrix (`svd_imp`, `bidiag_in_place` + `bidiag_fused_op_simd`,
+`qr_algorithm`, the block-size-1 Householder application), faer-traits
+0.24.0's scalar `hypot`, and a scalar model of the `pulp` 0.22.3 `V3` lanes
+faer's SIMD kernels run on (all MIT, sarah quiñones). **Maintainer direction on
+gh #996, 2026-10-20: "Whatever faer does, port into petir"**, replacing the
+earlier plan to move `outram-blender`'s `arap::closest_rotation` onto
+`linalg::svd` (GSL). That is the approval this section requires for a
+non-GSL source. It binds future work as follows:
+
+- **It is additive and must not be merged with `linalg::svd`.** GSL's
+  Golub–Reinsch and faer's bidiagonal QR are different algorithms with
+  different sign conventions; each is pinned to its own upstream.
+- **Pinned bit for bit against faer's compiled code** (dev-dependency):
+  `tests/faer_dense_svd_vs_faer.rs`, 0 differing bits over 6 134 blender
+  covariances (`reference-data/faer/`; **plus, since gh #1002 made
+  outram-blender's suite deterministic on 2026-10-20, its 3 586 re-captured
+  covariances, also 0**), 26 000 random matrices of orders
+  1..=16 and 17 structured cases. Two negative controls (lane-sum order,
+  unfused multiply-add) fail it by thousands of cases, so the gate can fail.
+- **The lane model is the point.** Do not "simplify" `simd.rs`: which lane an
+  element sits in, which accumulator a chunk feeds, the fused multiply-adds and
+  `(l0 + l2) + (l1 + l3)` are what make it bit-identical. No `core::arch`, no
+  CPU detection: the same bits on every target, equal to faer's on an
+  AVX2+FMA x86-64; faer itself on AVX-512, aarch64 or SSE-only x86 may differ
+  in the last bits.
+- **Scope:** square, `1 <= n <= 16` (faer's Householder block size is 1
+  there); larger `n` returns `Invalid` rather than running a different path.
+  Errors: non-finite bidiagonal -> `Domain`, iteration budget -> `MaxIterations`
+  (faer returns `NoConvergence` for both).
+- **Its `n = 3` path has an `f32` WGSL twin** (gh #1005, 2026-10-20):
+  `wgsl/shaders/svd3.wgsl` and `wgsl::mirror_svd3`, a transcription of
+  `faer_dense::svd3` plus the Kabsch sign fix, for `outram-blender`'s
+  opt-in GPU ARAP. Scalar reductions replace the lane model, so it is judged
+  by rotation angle against a derived budget (`mirror_svd3::angle_budget`),
+  not bit-identity. If `svd.rs` changes, change the shader and mirror with
+  it.
 
 **`peroxide` as a DEPENDENCY remains ruled out** (it pulls
 `blas`/`lapack`/`netcdf`/`arrow`, which the "Dependencies" section below
@@ -205,8 +415,30 @@ substitutions and compares substantive lines.
   what the fields mean is documented there. Documenting them properly means
   doing it upstream and re-lifting.
 - If a divergence is genuinely necessary, record it in the file's PROVENANCE
-  block **and** raise `allowed_deviations` in the test with a reason. There are
-  currently exactly two, both the `extern "C"` → `libm` FFI removal.
+  block **and** raise `allowed_deviations` in the test with a reason. ~~There are
+  currently exactly two, both the `extern "C"` → `libm` FFI removal.~~
+  **CORRECTED 2026-10-20:** every entry in `LIFTS` has `allowed_deviations: 0`
+  (checked in `tests/verbatim_provenance.rs`); the FFI removal sits in `use`
+  lines, which the comparison strips.
+- **Re-lifted 2026-10-20 (gh:#985).** The PETIR-everywhere sweep renamed the
+  sources' transcendentals to `petir::mathf::RealMath`'s `r_` methods, which
+  broke the diff for 12 lifts. The lifts now call the same `r_` methods
+  (`use crate::mathf::RealMath;`), so both copies run the same arithmetic.
+  That moved the lifts' own route for `exp`, `ln` and `powf` from `libm` (via
+  `Real`) to the ARM ports, and `sin_cos` from `libm::sincos` to
+  `(r_sin, r_cos)`. Every petir test passed unchanged after the re-lift.
+- **How the lifts meet gh #1001's UFCS rule (merge of 2026-10-21).** #1001
+  turned `x.exp()` into `Real::exp(x)` across PETIR so a `std` crate in the
+  build graph cannot shadow `Real`'s methods, and it collided with the
+  re-lift above. Transcendentals keep the source's exact text, `x.r_exp()`:
+  `r_` methods cannot be shadowed (`std` has none). `sqrt` and `mul_add` keep
+  #1001's `Real::sqrt(x)` / `Real::mul_add(..)` (one canonical NaN, the
+  maintainer's bit-identity direction), and a transcendental on the same line
+  is written `RealMath::r_exp(x)`, the source's arithmetic. Those 28 lines in
+  8 lifts are declared deviations (`UFCS_1001` in
+  `tests/verbatim_provenance.rs`). To remove them, change the SOURCE and
+  re-lift. The re-lift moved `std_shadowing_digest`'s `specfunc` and
+  `transfer_fn` digests (recorded in that test).
 
 ## GPU policy: CI is GPU-INDEPENDENT (HARD RULE)
 
@@ -251,8 +483,13 @@ CI require it, and do not write a test that needs it.
 
 ## `no_std` is the contract, not a configuration
 
-There is no `std` feature and there must not be one. Before calling anything
-done:
+~~There is no `std` feature and there must not be one.~~ **CORRECTED
+2026-10-20 (gh #994, maintainer: "You can give petir a std feature also"):**
+an opt-in `std` feature exists for ONE purpose: it turns on `faer/std` so the
+opt-in `faer` backend gets runtime CPU detection. It never changes PETIR's
+ported numerics (UFCS throughout, gh:#1001; check with
+`scripts/check-std-shadowing.sh` under `--features std`), and `no_std` +
+`alloc` stays the default. Before calling anything done:
 
 ```bash
 cargo test  -p petir --release
@@ -284,13 +521,34 @@ The `allow` is required, not sloppiness: under a `std`-linked build (`cargo
 test`) `f64`'s inherent methods shadow the trait ones and the import reads as
 unused. Do not "clean it up".
 
+**Call it as UFCS, `Real::exp(x)`, never `x.exp()` (gh #1001, 2026-10-20).**
+~~The shadowing happens only under `cargo test`.~~ **CORRECTED:** it happens in
+ANY build where some crate in petir's graph links `std`, which is nearly every
+real graph (`num-traits/std` arrives through `uom`; `faer`, a dev-dependency
+since #994, turns it on for every `cargo test -p petir`). An inherent method
+always beats a trait method, so `alpha.hypot(xnorm)` silently called glibc's
+`hypot`; the compiled rlib imported 95 C maths symbols. It also means every
+number a petir UNIT test (`cfg(test)`, std-linked) measured through a method
+call before 2026-10-20 went through the platform libm, not the shipped route;
+the four that failed after the fix were corrected (gh #1001), the prose of the
+others is not re-checked (follow-up issue). `crates/petir/clippy.toml` forbids
+the method form of every `Real` method that std also defines except `floor`,
+`ceil`, `round`, `trunc`, `fract` and `rem_euclid` (exact, NaN-transparent);
+the lint only fires with std in the graph, so run
+`scripts/check-std-shadowing.sh` (below) after touching numerics. `RealMath`'s
+`r_` names cannot be shadowed and are fine as methods.
+
 ## The `uom` carve-out — narrow, and keep it narrow
 
 The epic says raw `f64`. That holds for `linalg`, `poly`, `specfunc` and
 everything that follows them, and it is not being relaxed.
 
-`uom` appears **only** in `transfer_fn`, behind the default-on `transfer-fn`
-feature, because the blocks being ported genuinely type a sample time as `Time`
+~~`uom` appears **only** in `transfer_fn`, behind the default-on `transfer-fn`
+feature,~~ **CORRECTED 2026-10-20 (gh:#985):** `uom` appears in `transfer_fn`
+and in `uom_math`, both behind the `uom` feature (which the default-on
+`transfer-fn` implies). `uom_math` holds no numerics of its own: it restores
+the 27 quantity methods `no_std` uom drops, forwarding each `.value` to
+`real::Real` / `mathf::RealMath`. `transfer_fn` uses uom because the blocks being ported genuinely type a sample time as `Time`
 and a signal as `Ratio`, and stripping that would be a regression against the
 source. Do not widen it into the numerics layers. Polynomial coefficients stay
 bare `f64` even inside `transfer_fn` — the coefficient of `s^k` carries units of
@@ -305,22 +563,91 @@ build**. The error names `Quantity` and says nothing about features.
 Adding `num-traits` with `libm` does **not** help — `uom` keys the alias on its
 own `std` feature and never consults num-traits' features. This was tried.
 `transfer_fn::ratio_ext::RatioExt` restores `sqrt` and `exp` for dimensionless
-`Ratio`, which is where every affected call site actually was. Keep it to
+`Ratio`, which is where every affected call site actually was. ~~Keep it to
 `Ratio`: a dimensioned `sqrt` must halve type-level exponents, and that is
-`uom`'s macro's job, not something to hand-roll.
+`uom`'s macro's job, not something to hand-roll.~~
+
+**CORRECTED 2026-10-20 (gh:#985).** The whole workspace now builds `uom`
+without `std` (maintainer direction), so the dimensioned case is needed.
+`uom_math` provides it without hand-rolling: `QuantityMath::r_sqrt` copies
+uom 0.38's own `typenum` bounds (`PartialDiv<P2>` per base dimension) from
+`src/system.rs`, so `Area` → `Length` and `Length.r_sqrt()` does not compile.
+`RatioMath` and `AngleMath` cover the `Ratio` and `Angle` methods. Every name
+is `r_`-prefixed: if `uom/std` were ever unified back on, a bare `sqrt` would
+lose method resolution to uom's inherent one, silently. `RatioExt` keeps its
+bare names only because the lifted transfer-function files spell the calls
+that way.
 
 ## Dependencies
 
-`libm` is inherited from the workspace. **`uom` is not, and cannot be**: the root
+`libm` is inherited from the workspace. ~~**`uom` is not, and cannot be**: the root
 entry carries default features (which include `std`), and Cargo's workspace
 inheritance can only add features, never remove them, so a `no_std` `uom` is
 unobtainable through inheritance. It is declared crate-locally with a duplicated
 version string, and `tests/dependency_policy.rs` enforces that the two stay in
-step. **Bump both in the same change.**
+step. **Bump both in the same change.**~~ **CORRECTED 2026-10-20 (gh:#985):**
+`uom` is inherited too, because the root entry is now itself `no_std`
+(`default-features = false`). Inheritance still only adds features, so the
+root line must never list `std`; `tests/dependency_policy.rs` checks that, and
+that PETIR inherits rather than pins.
+
+### PETIR's bits must not depend on the build graph (gh #1001, 2026-10-20)
+
+Maintainer direction: bit-identical across builds, not "within tolerance".
+Two things in the graph used to change PETIR's output, and both are now
+guarded:
+
+- **`std` anywhere in the graph** (see "Float maths goes through
+  `crate::real::Real`" above): fixed by UFCS, 595 call sites in 61 files.
+- **`libm`'s `arch` feature**, which feature unification turns on (`faer`,
+  `naga` and most graphs enable libm's default features). On x86-64 it swaps
+  `sqrt`/`sqrtf`/`fma`/`fmaf` between the instruction and software. Finite
+  results are identical (0 differences in 10 million `sqrt` and `fma` inputs),
+  but the NaN generated by `sqrt(-1)` or an invalid `fma` is `0xfff8...` from
+  the instruction and `0x7ff8...` from software. `Real::sqrt` and
+  `Real::mul_add` (both widths) return one canonical NaN, x86's default
+  `0xfff8_0000_0000_0000` / `0xffc0_0000`, which is also what the committed
+  GSL references hold (40 `-nan` in the SVD reference).
+  gh #1001 first blamed `arch` for the `eigen_nonsymm` regression; that was
+  measured and ruled out (the test passes with `arch` on and `faer` absent):
+  the regression was the `std` shadowing.
+
+**The guard.** `tests/std_shadowing_digest.rs` pins bit-exact digests of
+seven groups of public routes (hypot, linalg, poly, specfunc, WGSL mirrors,
+transfer functions, deriv/integration/ode), NaNs included. `cargo test`
+always has `std` in the graph, so it cannot build the std-free graph;
+`scripts/check-std-shadowing.sh` does (shell, needs `nm`): the clippy lint
+with std forced in, the same digests from a throwaway crate in four graphs
+(num-traits `std` on/off x libm `arch` / `force-soft-floats`), and an `nm`
+check that the std-present rlib imports no inexact C maths routine. Run it
+after touching numerics; all four graphs must print the pinned digests.
 
 Nothing may be added that pulls system BLAS/LAPACK, a C or Fortran toolchain,
 `std`, threads, or an allocator beyond `alloc`. No `rayon` — callers parallelise
 above this crate.
+
+**One opt-in exception: the `faer` feature** (off by default). Maintainer
+direction on gh #994, 2026-10-20: "bring faer into petir under a feature,
+then wire it into bedok", then "keep petir no_std + alloc" and "You can give
+petir a std feature also". It makes the real `faer` 0.24.4 a normal
+dependency (`default-features = false`, `sparse-linalg` only: no `std`, no
+`rayon`, no `npy`, whose `psm` C build broke the Android check) behind
+`sparse::SparseBackend::Faer`. Verified 2026-10-20 with `--features faer`:
+`thumbv7em-none-eabihf` and `wasm32-unknown-unknown` build, the Android
+`--all-targets` check passes, and `cargo tree` shows `pulp`, `gemm`,
+`nano-gemm` and `dyn-stack` without their `std` features. Bind it as follows:
+
+- **Results are CPU-dependent.** faer picks its dense kernels by instruction
+  set, and without `std` it sees only the build's compile-time target
+  features (baseline SSE2 unless `-C target-cpu=...`). That is in tension with
+  #985's "deterministic maths always on"; the maintainer chose it explicitly,
+  for speed. `SparseBackend::Ported` stays the default and the only backend
+  without the feature, and nothing in PETIR's own numerics depends on it.
+- **The `std` feature** only forwards to `faer/std` (runtime detection, and
+  faer's `private-gemm-x86` kernels). PETIR stays `#![no_std]`.
+- **Measured** (bedok subset, one thread, i9-13900K, 2026-10-20 — `matlab_parity_iaea3ds` / `neacrpd1t` `the_transient_marches_without_diverging`: faer + `std` 7.2 s / 116 s; faer without `std` 16.7 s / 265 s; faer without `std` built with `-C target-cpu=native` 12.9 s / 205 s; `Ported` 137 s / 2103 s). On this AVX2+FMA CPU the faer backend
+  agrees with `Ported` bit for bit on every `tests/sparse_vs_faer.rs` matrix
+  and on bedok's three printed subsets.
 
 ## Maturity
 
@@ -337,13 +664,18 @@ obliges" below.
   | `cheb` pipeline (`init`/`eval`/`deriv`/`integ`) | 4707/6114 (77.0 %) | — |
   | `cheb::eval_mode`, default `order_sp` | 461/615 (75.0 %) | 1.06e-15 results, 1.05e-2 error estimates |
   | `cheb::eval_mode`, reduced `order_sp` | 357/369 (96.7 %) | — |
-  | `linalg::qr` factorisation and least squares | 81/85 (95.3 %) | 4.27e-16 factor, 4.94e-16 solution |
+  | `linalg::qr` factorisation and least squares | ~~81/85 (95.3 %)~~ **85/85 (100 %) since the CORE-MATH `hypot`** (gh:#997, 2026-10-20) | ~~4.27e-16 factor, 4.94e-16 solution~~ 0 |
+  | `linalg::lu_decomp` (**added 2026-10-20, after the declaration**, gh:#992) | 1637/1637 (100 %) | 0 |
   | `expint`, `gamma_inc` | see `gsl_expint.rs`, `gsl_gamma_inc.rs` | — |
   | `roots` (bracketing / polishing), `min`, `interp`, `ode` (RKF45) | 100 % — every iterate, value and error estimate | 0 |
   | `deriv` | 76/78 (97.4 %) | 3.27e-16 |
   | `integration` (6 Kronrod rules + QAG) | 27/28 (96.4 %) | 1.82e-16 |
   | `integration::qags` (**added 2026-09-28, after the declaration**, for `buangkok`'s plume shine) | 40/42 (95.2 %); statuses and iteration counts 21/21 | results 0; error estimates 1.43e-6 |
   | `fast_exp` / `fast_log` / `fast_pow` | 100 % vs ARM optimized-routines | 0 |
+  | `hypot` / `hypotf` (**added 2026-10-20**, gh:#997; CORE-MATH port) | 100 % correctly rounded vs MPFR 4.2.2, 8 044 838 inputs | 0 |
+  | `linalg::{cholesky, symmtd, eigen_symm, svd, eigen_nonsymm}` (**added 2026-10-20, after the declaration**, gh:#993) | 100 % vs GSL given PETIR's `hypot` (~~`reference-data/gsl/libm_shim.rs`~~ `petir_hypot_shim.rs` since gh:#997); Cholesky 100 % vs stock GSL for `n <= 24`; **since gh:#997, `symmtd`/`eigen_symm` and `svd` 100 % vs STOCK GSL, `eigen_nonsymm` 12 of 13 cases** | ~~stock GSL differs only through `hypot`~~ stock GSL differs only through glibc's own `hypot` misrounding (`eigen_nonsymm` `rand25`, 3.7e-15 of `max|lambda|`) and, for Cholesky above `n = 24`, GSL's Level-3 blocking |
+  | `linalg::expm` (**added 2026-10-20**, gh:#993; GNU Octave `expm.m`, ~~balancing omitted~~ balancing ported gh:#998) | ~~127/220 vs Octave 11.3.0 without balancing~~ **128/220 vs stock Octave 11.3.0** | 3.2e-16 normwise; ~~1.1e-11 vs stock `expm` on a badly scaled matrix (the balancing)~~ **0 on the badly scaled matrix since gh:#998** |
+  | `linalg::{dgebal, dgebak}` (**added 2026-10-20**, gh:#998; Reference-LAPACK 3.12.1) | 26 024/26 024 (100 %) vs Reference-LAPACK run | 0 |
 
   The declaration was made on the condition "if it agrees with GSL". It does.
 

@@ -73,7 +73,7 @@ pub fn simple_bca(x: f64, y: f64, z: f64, ux: f64, uy: f64, uz: f64, E1: f64, Z1
 
     let m = material::Material::<Mesh0D>::new(&material_parameters, &geometry_input);
 
-    let mut rng = ChaCha8Rng::from_rng(&mut rand::rng());
+    let mut rng = ChaCha8Rng::from_seed(entropy_seed_bytes());
     let output = bca::single_ion_bca(p, &m, &options, &mut rng);
 
     output.iter().filter(|particle| (particle.incident) | (particle.left)).map(|particle|
@@ -150,7 +150,7 @@ pub fn simple_compound_bca(x: f64, y: f64, z: f64, ux: f64, uy: f64, uz: f64, E1
 
     let m = material::Material::<Mesh0D>::new(&material_parameters, &geometry_input);
 
-    let mut rng = ChaCha8Rng::from_rng(&mut rand::rng());
+    let mut rng = ChaCha8Rng::from_seed(entropy_seed_bytes());
     let output = bca::single_ion_bca(p, &m, &options, &mut rng);
 
     output.iter().filter(|particle| (particle.incident) | (particle.left)).map(|particle|

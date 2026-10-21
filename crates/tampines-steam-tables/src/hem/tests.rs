@@ -2,6 +2,7 @@
 //! positivity, conservation, double rarefaction, Edwards) are integration
 //! tests: `tests/hem_pipe_verification.rs`, `tests/hem_pipe_edwards.rs`.
 
+use petir::mathf::RealMath;
 use super::pipe::test_access::muscl_1d;
 use super::*;
 use uom::si::area::square_meter;
@@ -417,7 +418,7 @@ fn uniform_flow_is_stationary_and_mirror_symmetry_is_kept() {
     let cells: Vec<PrimitiveState> = (0..n)
         .map(|i| {
             let x = (i as f64 + 0.5) / n as f64 - 0.5; // symmetric about 0
-            gas(1e5 * (1.0 + 0.5 * (-20.0 * x * x).exp()), 1.0, 0.0)
+            gas(1e5 * (1.0 + 0.5 * (-20.0 * x * x).r_exp()), 1.0, 0.0)
         })
         .collect();
     let mut s = gas_pipe(

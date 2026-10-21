@@ -67,6 +67,7 @@
 //! Without `U238_PENDF` the NJOY columns are skipped and the published
 //! comparison still runs.
 
+use petir::mathf::RealMath;
 use njoy_outram_park_fork::endf::tape::Tape;
 use njoy_outram_park_fork::groupr::panel::PointwiseXs;
 use njoy_outram_park_fork::groupr::pendf_feed::read_pendf_cross_section;
@@ -405,7 +406,7 @@ fn integrate_1_over_e<F: Fn(f64) -> f64>(grid: &[f64], sigma: F) -> f64 {
         if e1 > e0 && e0 > 0.0 {
             let b = (s1 - s0) / (e1 - e0);
             let a = s0 - b * e0;
-            acc += a * (e1 / e0).ln() + b * (e1 - e0);
+            acc += a * (e1 / e0).r_ln() + b * (e1 - e0);
         }
         s0 = s1;
     }

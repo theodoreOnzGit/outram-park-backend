@@ -90,6 +90,7 @@
 //!   parallel subsurface simulators: An illustrative example with PFLOTRAN,"
 //!   Water Resour. Res. 50 (2014) 208.
 
+use petir::mathf::RealMath;
 use crate::error::PflotranError;
 
 /// Equilibrium sorption isotherm: sorbed `s` (mol/kg solid) versus aqueous `c`
@@ -157,7 +158,7 @@ impl SorptionIsotherm {
                     // c^n -> 0 for n > 0; defined and finite.
                     0.0
                 } else {
-                    kf * c.powf(n)
+                    kf * c.r_powf(n)
                 }
             }
         }
@@ -189,7 +190,7 @@ impl SorptionIsotherm {
                         kf * n
                     }
                 } else {
-                    kf * n * c.powf(n - 1.0)
+                    kf * n * c.r_powf(n - 1.0)
                 }
             }
         }
@@ -357,7 +358,7 @@ impl IonExchange {
                     "cation {i} log10_selectivity must be finite, got {ls}"
                 )));
             }
-            selectivity.push(10.0_f64.powf(ls));
+            selectivity.push(10.0_f64.r_powf(ls));
         }
         Ok(IonExchange {
             cec,
@@ -425,7 +426,7 @@ impl IonExchange {
         let mut beta: Vec<f64> = coeff
             .iter()
             .zip(self.charges.iter())
-            .map(|(&a, &z)| a * mu.powf(z))
+            .map(|(&a, &z)| a * mu.r_powf(z))
             .collect();
         let sum: f64 = beta.iter().sum();
         if !(sum.is_finite() && sum > 0.0) {
@@ -467,7 +468,7 @@ impl IonExchange {
             coeff
                 .iter()
                 .zip(z.iter())
-                .map(|(&a, &zi)| a * mu.powf(zi))
+                .map(|(&a, &zi)| a * mu.r_powf(zi))
                 .sum::<f64>()
                 - 1.0
         };
@@ -475,7 +476,7 @@ impl IonExchange {
             coeff
                 .iter()
                 .zip(z.iter())
-                .map(|(&a, &zi)| a * zi * mu.powf(zi - 1.0))
+                .map(|(&a, &zi)| a * zi * mu.r_powf(zi - 1.0))
                 .sum::<f64>()
         };
 

@@ -181,6 +181,8 @@
 //! down, and marks over the pebbles obscure the one region a reader most wants
 //! to see.
 
+use petir::mathf::RealMath;
+
 use crate::animation::{htr10_illustrative_pebble_drives, PebbleHandling, PebbleTransits, TracerTrain};
 use crate::components::htr10_conus_packing::{CONUS_SLAB, PEBBLE_RADIUS_M, SLAB_DEPTH_M};
 use crate::components::htr10_reactor_vessel::{
@@ -429,8 +431,8 @@ fn push_quarter_bend(from_x: f32, to_x: f32, to_y: f32, radius: f32, out: &mut V
     for i in 0..=samples {
         let a = 0.5 * PI * i as f32 / samples as f32;
         out.push(Pos2::new(
-            centre.x - inward * r * a.cos(),
-            centre.y - r * a.sin(),
+            centre.x - inward * r * a.r_cos(),
+            centre.y - r * a.r_sin(),
         ));
     }
 }
@@ -448,8 +450,8 @@ fn push_bend(from_x: f32, to_x: f32, y: f32, bulge: f32, out: &mut Vec<Pos2>) {
     for i in 1..arc_samples {
         let a = PI * i as f32 / arc_samples as f32;
         out.push(Pos2::new(
-            mid_x + (from_x - mid_x) * a.cos(),
-            y + bulge * a.sin(),
+            mid_x + (from_x - mid_x) * a.r_cos(),
+            y + bulge * a.r_sin(),
         ));
     }
     out.push(Pos2::new(to_x, y));
@@ -601,7 +603,7 @@ fn refuelling_route(start: Pos2, top_y: f32, centre_x: f32, dip_deg: f32, end_y:
     let corner = Pos2::new(start.x, top_y);
     let over_axis = Pos2::new(
         centre_x,
-        top_y + (centre_x - start.x).abs() * dip_deg.to_radians().tan(),
+        top_y + (centre_x - start.x).abs() * dip_deg.to_radians().r_tan(),
     );
     let into_core = Pos2::new(centre_x, end_y.max(over_axis.y));
     vec![start, corner, over_axis, into_core]
@@ -1762,12 +1764,12 @@ impl Widget for Htr10ReactorSchematic {
         let tube_end_z = -(cone_h + DISCHARGE_TUBE_LENGTH_FRACTION * VESSEL_HEIGHT_CM);
         let dip = CHUTE_DIP_DEG.to_radians();
         let leg_run = CHUTE_LEG_RUN_FRACTION * DRAWN_VESSEL_RADIUS_CM;
-        let (leg_end_x, leg_end_z) = (-leg_run, tube_end_z - leg_run * dip.tan());
+        let (leg_end_x, leg_end_z) = (-leg_run, tube_end_z - leg_run * dip.r_tan());
         // Unit normal to the leg, in the DEM frame: the caps run along it.
-        let (nx, nz) = (dip.sin(), -dip.cos());
+        let (nx, nz) = (dip.r_sin(), -dip.r_cos());
         let r_tube = DISCHARGE_TUBE_RADIUS_CM;
         // The exit tube starts below the leg's lower wall at its end.
-        let exit_top_z = leg_end_z - r_tube / dip.cos();
+        let exit_top_z = leg_end_z - r_tube / dip.r_cos();
         // The opening: just outside the bottom head, below the leg's end.
         let exit_floor = Pos2::new(dem(leg_end_x, 0.0).x, rect.bottom() + 0.8 * chute_band);
         let wide = 2.0 * tube_half;
@@ -2365,7 +2367,7 @@ mod tests {
         );
         let leg = route[2] - route[1];
         assert!(leg.x > 0.0 && leg.y > 0.0, "the leg runs in and down");
-        let measured = (leg.y / leg.x).atan().to_degrees();
+        let measured = (leg.y / leg.x).r_atan().to_degrees();
         assert!((measured - dip).abs() < 1e-3, "dip {measured} deg");
         assert_eq!(route[2].x, centre_x, "the leg ends on the centreline");
         assert_eq!(
@@ -2503,7 +2505,7 @@ mod tests {
         let leg_run = CHUTE_LEG_RUN_FRACTION * DRAWN_VESSEL_RADIUS_CM;
         let leg_end = (
             -leg_run,
-            tube_end_z - leg_run * CHUTE_DIP_DEG.to_radians().tan(),
+            tube_end_z - leg_run * CHUTE_DIP_DEG.to_radians().r_tan(),
         );
         let opening_below_top = (1.0 - INTERNALS_TOP_FRACTION) * VESSEL_HEIGHT_CM
             + 0.8 * CHUTE_BAND_FRACTION * VESSEL_HEIGHT_CM;
@@ -2529,7 +2531,7 @@ mod tests {
             let (dx, dz) = (bx - ax, bz - az);
             let t = (((x - ax) * dx + (z - az) * dz) / (dx * dx + dz * dz)).clamp(0.0, 1.0);
             let (px, pz) = (ax + t * dx, az + t * dz);
-            ((x - px).powi(2) + (z - pz).powi(2)).sqrt() <= DISCHARGE_TUBE_RADIUS_CM + slack
+            ((x - px).r_powi(2) + (z - pz).r_powi(2)).sqrt() <= DISCHARGE_TUBE_RADIUS_CM + slack
         };
         let in_exit = |x: f32, z: f32| {
             (x - leg_end.0).abs() <= exit_radius + slack

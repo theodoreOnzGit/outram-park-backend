@@ -59,6 +59,7 @@
 //! change them. Full record:
 //! `verification_and_validation/hem_pipe_vs_exact_riemann_and_edwards.md`.
 
+use petir::mathf::RealMath;
 mod common;
 
 use common::edwards_case::*;
@@ -205,7 +206,7 @@ fn edwards_obrien_blowdown_on_hem_pipe() {
         .collect();
     let rmse = (used
         .iter()
-        .map(|(t, d)| (p_at(*t) - d).powi(2))
+        .map(|(t, d)| (p_at(*t) - d).r_powi(2))
         .sum::<f64>()
         / used.len() as f64)
         .sqrt();

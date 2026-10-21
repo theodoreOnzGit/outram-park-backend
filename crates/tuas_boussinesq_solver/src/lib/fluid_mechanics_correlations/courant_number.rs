@@ -8,6 +8,7 @@
 //! quantities and returns the dimensionless number as `f64`, returning
 //! `Err(value)` when the relevant stability limit is exceeded.
 
+use petir::mathf::RealMath;
 /// calculates the courant number for a fluid
 /// given a one dimensional model
 use uom::si::{f64::*, volume_rate::cubic_meter_per_second};
@@ -243,7 +244,7 @@ pub fn courant_number_3d_openfoam_algorithm_velocity(
 
         // we get the cosine
 
-        let angle_cosine = angle_value_radians.cos();
+        let angle_cosine = angle_value_radians.r_cos();
 
         cosine_angle_vector.push(angle_cosine);
     }

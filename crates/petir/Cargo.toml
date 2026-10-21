@@ -1,6 +1,6 @@
 [package]
 name = "petir"
-version = "0.0.2"
+version = "0.0.3"
 edition.workspace = true
 # GPL-3.0-only. PETIR is a no_std port of parts of the GNU Scientific Library,
 # which is GPL-3.0-OR-LATER -- verified 2026-09-14 by reading GSL's own per-file
@@ -49,7 +49,10 @@ backronym = "Polynomials, Equations, Transforms, Integration and Roots"
 # which is deliberate and must not be silently undone.
 libm.workspace = true
 
-# uom — OPTIONAL, and deliberately confined to the `transfer-fn` module.
+# uom — OPTIONAL, and deliberately confined to ~~the `transfer-fn` module~~
+# `transfer_fn` and `uom_math` (the latter added 2026-10-20, gh:#985: it holds
+# no numerics, only the 27 quantity methods no_std uom drops, forwarded to
+# `real` / `mathf`).
 #
 # The epic (bn:op-chyp) settled "Raw f64, not uom -- PETIR is dimensionless
 # numerics; uom belongs at the physics crates' API boundaries, not inside a
@@ -65,24 +68,20 @@ libm.workspace = true
 # the numerics (njoy-outram-park-fork and raffles are the motivating cases, both
 # explicitly dependency-lean) gets no uom in their graph at all.
 #
-# CRATE-LOCAL, NOT `workspace = true`, and that is forced rather than chosen:
+# ~~CRATE-LOCAL, NOT `workspace = true`, and that is forced rather than chosen:
 # the root entry is `uom = "0.38.0"` with default features, which include `std`.
 # Cargo's workspace inheritance can only ADD features, never remove them -- a
 # member writing `default-features = false` has it silently ignored (Cargo warns
 # and plans to make it an error). There is no way to get a no_std uom through
 # inheritance. The version string is kept BYTE-IDENTICAL to the root entry; if
-# you bump uom there, bump it here in the same change. `tests/dependency_policy.rs`
-# checks that mechanically so the drift cannot go unnoticed.
-uom = { version = "0.38.0", default-features = false, features = ["autoconvert", "f64", "si"], optional = true }
-
-[dev-dependencies]
-approx.workspace = true
-# `libm` is a dev-dependency as well as a dependency so the V&V tests can call
-# it DIRECTLY. `petir::real::{exp, ln, powf}` route to the ARM
-# optimized-routines ports, so comparing a fast port against `petir::real`
-# would compare it with itself; the cross-check has to reach the musl-derived
-# implementation by name to stay an independent second opinion.
-libm.workspace = true
+# you bump uom there, bump it here in the same change.~~
+# **CORRECTED 2026-10-20 (gh:#985)** -- the root entry is now itself no_std
+# (`default-features = false, features = ["autoconvert", "f64", "si"]`), so
+# PETIR inherits it like every other member and the duplicated version string
+# is gone. Inheritance still only ADDS features, so the constraint has moved:
+# the ROOT must never list `std`, or this crate's no_std build links std.
+# `tests/dependency_policy.rs` now checks exactly that, mechanically.
+uom = { workspace = true, optional = true }
 
 # wgpu — OPTIONAL, behind the `wgpu` feature, and target-gated off Android and
 # wasm.
@@ -103,6 +102,32 @@ libm.workspace = true
 # `lib.rs` now reads `#[cfg(any(test, feature = "wgpu"))] extern crate std;`.
 # The crate stays `#![no_std]` with default features, and all five mandated
 # no_std checks run with default features.
+# `faer` — OPTIONAL, behind the `faer` feature (off by default): the real
+# faer crate as a second backend of `sparse::SparseLu` / `SparseLlt`
+# (`SparseBackend::Faer`). Maintainer direction, gh #994, 2026-10-20: "bring
+# faer into petir under a feature, then wire it into bedok", corrected the
+# same day to keep PETIR no_std + alloc: faer's default features are off
+# (the root entry says `default-features = false`) and only `sparse-linalg`
+# is named here, so no `std`, no `rayon` and no `npy` (whose `psm` C build
+# broke the Android check). See CLAUDE.md "Dependencies".
+faer = { workspace = true, optional = true, features = ["sparse-linalg"] }
+
+[dev-dependencies]
+approx.workspace = true
+# `libm` is a dev-dependency as well as a dependency so the V&V tests can call
+# it DIRECTLY. `petir::real::{exp, ln, powf}` route to the ARM
+# optimized-routines ports, so comparing a fast port against `petir::real`
+# would compare it with itself; the cross-check has to reach the musl-derived
+# implementation by name to stay an independent second opinion.
+libm.workspace = true
+# `faer` — the upstream that `petir::sparse` was ported from (gh #994,
+# maintainer direction 2026-10-20). A DEV-dependency only, so
+# `tests/sparse_vs_faer.rs` compares the port against upstream's own compiled
+# code on every test run (orderings exactly, solutions bit for bit). Never a
+# normal dependency: faer needs `std`. No `rayon`: the comparison is serial.
+faer = { workspace = true, features = ["std", "sparse-linalg"] }
+
+
 [target.'cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))'.dependencies]
 wgpu = { workspace = true, optional = true }
 
@@ -116,7 +141,13 @@ default = ["transfer-fn"]
 # Continuous and discrete transfer functions (the `transfer_fn` module). Pulls
 # in no_std `uom` for sample times and signal ratios. Turn it off for a
 # units-free, uom-free numerics core.
-transfer-fn = ["dep:uom"]
+transfer-fn = ["uom"]
+# `uom_math` (gh:#985): the 27 Quantity / Ratio / Angle methods no_std `uom`
+# drops (sqrt, powi, cbrt, hypot, mul_add, atan2, exp/ln/log*, trig and
+# inverse trig), restored on PETIR maths under `r_` names. On by default
+# through `transfer-fn`; a consumer that wants only the quantity helpers can
+# take `default-features = false, features = ["uom"]`.
+uom = ["dep:uom"]
 # wgpu — the GPU path: `wgsl::gpu`, a headless compute runner for the WGSL
 # kernels in `wgsl`. OFF BY DEFAULT and enabled by nothing else.
 #
@@ -125,6 +156,19 @@ transfer-fn = ["dep:uom"]
 # source and the `f32` mirrors it guards nothing: those live in `wgsl` and
 # `wgsl::mirror`, are `no_std` and dependency-free, and are always compiled.
 wgpu = ["dep:wgpu"]
+# The real faer 0.24.4 as `sparse::SparseBackend::Faer`. Caveats: no_std +
+# alloc; without `std` (below) faer cannot detect the CPU at run time and runs
+# its baseline kernels unless built with target features (`-C
+# target-cpu=native` or `-C target-feature=+avx2,+fma`); its results depend on
+# the CPU and instruction set, so they are not bit-identical across machines
+# (`SparseBackend::Ported` is the deterministic choice). See README/CLAUDE.md.
+faer = ["dep:faer"]
+# `std` — OPTIONAL, off by default. Its ONLY effect is `faer/std` when `faer`
+# is on, which gives faer runtime CPU detection (AVX2/FMA, AVX-512) and its
+# fast kernels. PETIR itself stays `#![no_std]` and its ported numerics do not
+# change (UFCS throughout, gh:#1001). Maintainer direction, gh #994,
+# 2026-10-20: "You can give petir a std feature also."
+std = ["faer?/std"]
 # ~~std / platform-libm~~ REMOVED 2026-09-17 (bn:op-7kwt). The `platform-libm`
 # escape hatch could not compile in any configuration -- it declared `std` while
 # lib.rs was `#![no_std]` unconditionally with `extern crate std` gated on

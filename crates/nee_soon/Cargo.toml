@@ -40,6 +40,9 @@ default = ["long-tests"]
 long-tests = []
 
 [dependencies]
+# Every transcendental routes through PETIR for cross-platform bit identity
+# (gh:#985). petir is no_std, so this edge adds nothing Android- or wasm-hostile.
+petir = { workspace = true }
 # Integration targets — the crates NEE_SOON composes and re-exposes. Declared
 # here so the coupling surface is wired even though the scaffold does not yet
 # call into them.

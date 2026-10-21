@@ -14,7 +14,7 @@
 
 | Property | Value | Why it matters here |
 |---|---|---|
-| Licence | **GPL-3.0** (LICENSE file retrieved) | Identical to this workspace. No compatibility work |
+| Licence | **GPL-3.0** (LICENSE file retrieved) | ~~Identical to this workspace.~~ **CORRECTED 2026-10-20 (gh:#973):** the workspace is now `AGPL-3.0-only`; `outram-park-fork-offbeat` conveys as a combined work under GPLv3 §13. No further compatibility work |
 | Architecture | Cell-centred finite-volume on OpenFOAM | `outram-foam-basic-lib` already translates that layer |
 | Upstream project | `foam-for-nuclear` (EPFL LRS, PSI LRT, TAMU MEDAL) | **Same project as GeN-Foam**, already being ported into `outram-foam-appbuilder-lib` |
 | Activity | Last commit 2026-06-09 | Live, not abandoned |
@@ -148,7 +148,7 @@ workspace's AI-assisted throughput; the per-commit `API-Usage` trailers and
 - **Licence provenance.** OFFBEAT is GPL-3.0, bundled SCIANTIX is MIT. Both are
   GPLv3-compatible, but every ported file keeps its upstream attribution header
   (project, source file, version/commit, copyright, licence) — the same pattern
-  `boon-lay/src/triso_atops_fork/` already uses for MIT TRISO-ATOPS under GPL-3.0.
+  `boon-lay/src/triso_atops_fork/` already uses for MIT TRISO-ATOPS under ~~GPL-3.0~~ AGPL-3.0-only (combined work, gh:#973).
   Record the upstream commit hash at port time.
 - **Android/Termux.** The port must stay Android-clean. `outram-foam-basic-lib`
   already is (pure Rust, no system BLAS); do not introduce an Android-hostile

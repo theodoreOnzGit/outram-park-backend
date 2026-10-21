@@ -20,7 +20,11 @@ include = [
     "/src/rustbca/LICENSE",
     "/README.md",
     "/LICENSE",
+    # The AGPL-3.0 text is `/LICENSE`; the GPL-3.0 text ships beside it because
+    # `src/rustbca/` stays GPL-3.0-or-later (gh:#973).
+    "/LICENSE.GPL-3.0",
     "/LICENSE.triso-atops",
+    "/NOTICE",
     "/NOTICE.triso-atops",
     "/TRADEMARKS.md",
     "/TRISO_ATOPS_DERIVATION.md",
@@ -58,10 +62,14 @@ fission-yields-data               = { workspace = true }
 openmc-endf-8-depletion-lib-b     = { workspace = true }
 # ── RustBCA copy (src/rustbca/, gh:#876 item 7) ─────────────────────────────
 # The no_std + alloc core needs only these. petir supplies the libm-backed
-# `real::Real` float shim (the workspace's one no_std shim).
+# `real::Real` float shim (the workspace's one no_std shim) and, since
+# gh:#995, the random numbers: `petir::rng` ports the rand 0.10.3 /
+# rand_distr 0.6.0 pieces RustBCA used (ChaCha8Rng, Uniform, Normal), draw for
+# draw, so `rand` and `rand_distr` are no longer dependencies.
 petir           = { workspace = true }
-rand            = { workspace = true, features = ["chacha", "alloc"] }
-rand_distr      = { workspace = true, features = ["alloc"] }
+# OS entropy for `seed < 0` and `simple_bca`, std layer only (was rand's
+# thread_rng; gh:#995).
+getrandom       = { workspace = true, optional = true }
 # std-only parts of the copy, all behind the `rustbca-std` feature.
 toml            = { workspace = true, optional = true }
 geo             = { workspace = true, optional = true }
@@ -134,9 +142,10 @@ name = "layer_diffusion_table"
 # file output, the rayon/indicatif batch driver (native only), entropy
 # seeding, simple_bca, and the geo-backed Mesh2D / HomogeneousMesh2D. OFF by
 # default: boon-lay re-exports the no_std + alloc core (maintainer decision,
-# gh:#876 item 7). Not for wasm32-unknown-unknown: getrandom 0.4 (from
-# rand's thread_rng) needs its wasm_js feature there, which nothing enables.
-rustbca-std = ["dep:toml", "dep:geo", "dep:indicatif", "dep:itertools", "rand/thread_rng"]
+# gh:#876 item 7). Not for wasm32-unknown-unknown: ~~getrandom 0.4 (from
+# rand's thread_rng)~~ getrandom 0.3 (the entropy seed, gh:#995) needs its
+# wasm_js feature there, which nothing enables here.
+rustbca-std = ["dep:toml", "dep:geo", "dep:indicatif", "dep:itertools", "dep:getrandom"]
 
 # Headless cost probe for RustBCA cascades in a UO2 kernel and its TRISO
 # coatings (gh:#876 item 7). Pure Rust, no GUI; runs on every target.

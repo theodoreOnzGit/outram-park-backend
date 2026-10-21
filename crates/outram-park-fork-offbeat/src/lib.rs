@@ -74,7 +74,9 @@
 //!
 //! ## Provenance
 //!
-//! OFFBEAT is GPL-3.0, the same licence as this workspace. Each ported module
+//! OFFBEAT is GPL-3.0; this crate is ~~GPL-3.0-only, the same licence as this
+//! workspace~~ **AGPL-3.0-only**, conveyed as a combined work (relicensed
+//! 2026-10-20, gh:#973; ported files keep GPL-3.0, `LICENSE.GPL-3.0`). Each ported module
 //! keeps an attribution header naming the upstream file it derives from. The
 //! upstream tree is **not** vendored into this repository — porting is done from
 //! a read-only clone kept outside the working tree.

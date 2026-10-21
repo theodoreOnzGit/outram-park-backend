@@ -23,6 +23,7 @@
 //! comparison against a separately executed GeN-Foam run — no GeN-Foam
 //! executable is available in this environment).
 
+use petir::mathf::RealMath;
 use super::boiling::{
     multi_regime_boiling_htc, superposition_nucleate_boiling_htc, MultiRegimeBoilingInputs,
 };
@@ -114,7 +115,7 @@ fn nusselt_reproduces_dittus_boelter() {
     let dh = len(0.01);
     let h = model.heat_transfer_coefficient(re, pr_v, k, dh, None);
 
-    let nu_expected = 0.023 * 1.0e4_f64.powf(0.8) * 5.0_f64.powf(0.4);
+    let nu_expected = 0.023 * 1.0e4_f64.r_powf(0.8) * 5.0_f64.r_powf(0.4);
     let h_expected = nu_expected * 0.6 / 0.01;
     assert_relative_eq!(htc_val(h), h_expected, max_relative = 1e-12);
     // Plausibility: Nu is O(10-100) for this regime.
@@ -144,7 +145,7 @@ fn nusselt_peclet_fast_path_matches_general_form() {
     // computed independently: verify the internal helper's two branches
     // agree by comparing against a manual (Re*Pr)^C computation.
     let expected = k_of(0.5).get::<watt_per_meter_kelvin>() / len(0.02).get::<meter>()
-        * (1.0 + 0.02 * (2.0e3_f64 * 3.0_f64).powf(0.8));
+        * (1.0 + 0.02 * (2.0e3_f64 * 3.0_f64).r_powf(0.8));
     assert_relative_eq!(htc_val(via_peclet), expected, max_relative = 1e-12);
 }
 
@@ -170,7 +171,7 @@ fn nusselt_wall_fluid_temperature_ratio_term() {
     let t_fluid = temp(300.0);
     let h = model.heat_transfer_coefficient(re, pr_v, k, dh, Some((t_wall, t_fluid)));
 
-    let nu = 0.023 * 5.0e5_f64.powf(0.8) * 1.0_f64.powf(0.4) * (600.0_f64 / 300.0).powf(-0.3);
+    let nu = 0.023 * 5.0e5_f64.r_powf(0.8) * 1.0_f64.r_powf(0.4) * (600.0_f64 / 300.0).r_powf(-0.3);
     let expected = nu * 0.6 / 0.01;
     assert_relative_eq!(htc_val(h), expected, max_relative = 1e-12);
 }
@@ -212,7 +213,7 @@ fn nusselt_and_wall_series_combination_and_limit() {
     let dh = len(0.01);
     let h = model.heat_transfer_coefficient(re, pr_v, k, dh, None);
 
-    let h_fluid = 0.023 * 1.0e4_f64.powf(0.8) * 5.0_f64.powf(0.4) * 0.6 / 0.01;
+    let h_fluid = 0.023 * 1.0e4_f64.r_powf(0.8) * 5.0_f64.r_powf(0.4) * 0.6 / 0.01;
     let expected = h_fluid * 10_000.0 / (h_fluid + 10_000.0);
     assert_relative_eq!(htc_val(h), expected, max_relative = 1e-12);
     assert!(
@@ -248,14 +249,16 @@ fn shah_coefficient_blend_matches_literature_endpoints_and_is_continuous() {
         dt_of(10.0),
         press(p_crit * 4e-4), // pR = 4e-4 < 5e-4: pure low-pR branch, C=13.7, m=0.22
     );
-    let expected_low = (13.7 * (4e-4_f64).powf(0.22) * 10.0_f64.powf(0.7)).powf(1.0 / (1.0 - 0.7));
+    let expected_low =
+        (13.7 * (4e-4_f64).r_powf(0.22) * 10.0_f64.r_powf(0.7)).r_powf(1.0 / (1.0 - 0.7));
     assert_relative_eq!(htc_val(low), expected_low, max_relative = 1e-10);
 
     let high = PoolBoilingHtc::Shah.heat_transfer_coefficient_from_delta_t(
         dt_of(10.0),
         press(p_crit * 2e-3), // pR = 2e-3 > 1.5e-3: pure high-pR branch, C=6.9, m=0.12
     );
-    let expected_high = (6.9 * (2e-3_f64).powf(0.12) * 10.0_f64.powf(0.7)).powf(1.0 / (1.0 - 0.7));
+    let expected_high =
+        (6.9 * (2e-3_f64).r_powf(0.12) * 10.0_f64.r_powf(0.7)).r_powf(1.0 / (1.0 - 0.7));
     assert_relative_eq!(htc_val(high), expected_high, max_relative = 1e-10);
 
     // Continuity: evaluate just below and just above the band midpoint and
@@ -305,7 +308,7 @@ fn gorenflo_reproduces_reference_state() {
 
     // Explicit F(0.1) hand check.
     let p_r = 0.1_f64;
-    let f_expected = 1.73 * p_r.powf(0.27) + (6.1 + 0.68 / (1.0 - p_r)) * p_r * p_r;
+    let f_expected = 1.73 * p_r.r_powf(0.27) + (6.1 + 0.68 / (1.0 - p_r)) * p_r * p_r;
     assert_relative_eq!(f_expected, 1.0, max_relative = 0.003);
 }
 
@@ -350,7 +353,7 @@ fn ff_nusselt_reproduces_source_formula() {
     let k = k_of(0.6);
     let dh = len(0.005);
     let h = model.heat_transfer_coefficient(re, pr_v, k, dh);
-    let nu = 2.0 + 0.6 * 1.0e3_f64.powf(0.5) * 4.0_f64.powf(0.33);
+    let nu = 2.0 + 0.6 * 1.0e3_f64.r_powf(0.5) * 4.0_f64.r_powf(0.33);
     assert_relative_eq!(htc_val(h), nu * 0.6 / 0.005, max_relative = 1e-12);
 }
 
@@ -530,7 +533,7 @@ fn multi_regime_nucleate_boiling_with_suppression_factor() {
     let q_fc = 3000.0_f64 * (500.0 - 380.0);
     let q_pb = 20_000.0_f64 * (500.0 - 450.0);
     let n = 3.0_f64;
-    let q_nb = (q_fc.powf(n) + (0.4 * q_pb).powf(n)).powf(1.0 / n);
+    let q_nb = (q_fc.r_powf(n) + (0.4 * q_pb).r_powf(n)).r_powf(1.0 / n);
     let expected_h = q_nb / (500.0 - 380.0);
     assert_relative_eq!(htc_val(result.htc), expected_h, max_relative = 1e-9);
 }
@@ -546,7 +549,7 @@ fn multi_regime_nucleate_boiling_htc_superposition() {
     inputs.superposition_exponent = 2.0;
     let result = multi_regime_boiling_htc(inputs);
 
-    let expected = (3000.0_f64.powf(2.0) + 20_000.0_f64.powf(2.0)).powf(0.5);
+    let expected = (3000.0_f64.r_powf(2.0) + 20_000.0_f64.r_powf(2.0)).r_powf(0.5);
     assert_relative_eq!(htc_val(result.htc), expected, max_relative = 1e-10);
     assert!(result.nucleate_boiling_heat_flux.is_none());
     assert!(result.forced_convection_heat_flux.is_none());
@@ -635,7 +638,7 @@ fn basu_onb_nonzero_htc_reproduces_formula() {
     let sigma = 0.03_f64;
     let theta_deg = 40.0_f64;
     let theta = theta_deg.to_radians();
-    let a = 2.0 * sigma / (1.0 - (-theta.powi(3) - 0.5 * theta).exp()).powi(2);
+    let a = 2.0 * sigma / (1.0 - (-theta.r_powi(3) - 0.5 * theta).r_exp()).r_powi(2);
 
     let htc = 2500.0_f64;
     let t_sat = 600.0_f64;
@@ -646,7 +649,7 @@ fn basu_onb_nonzero_htc_reproduces_formula() {
 
     let delta_t_onb_sat = a * htc * t_sat / (rho_v * l * k);
     let inner = (delta_t_onb_sat + 4.0 * (t_sat - t_fluid)).max(0.0);
-    let expected = t_fluid + 0.25 * (delta_t_onb_sat.sqrt() + inner.sqrt()).powi(2);
+    let expected = t_fluid + 0.25 * (delta_t_onb_sat.sqrt() + inner.sqrt()).r_powi(2);
 
     let model = OnsetOfNucleateBoilingTemperature::Basu {
         surface_tension: SurfaceTension::new::<newton_per_meter>(sigma),
@@ -685,7 +688,7 @@ fn chen_flow_enhancement_factor() {
         mixture_reynolds_number: reynolds_number(1000.0),
         single_phase_reynolds_number: reynolds_number(500.0),
     });
-    let expected = 2.35 * (0.213 + 5.0_f64).powf(0.736);
+    let expected = 2.35 * (0.213 + 5.0_f64).r_powf(0.736);
     assert_relative_eq!(above.get::<ratio>(), expected, max_relative = 1e-10);
 
     let clamped = FlowEnhancementFactor::Chen {
@@ -715,7 +718,11 @@ fn rezkallah_sims_flow_enhancement_factor() {
         single_phase_reynolds_number: reynolds_number(1.0),
     };
     let f = model.value(inputs);
-    assert_relative_eq!(f.get::<ratio>(), 0.04_f64.powf(-0.5), max_relative = 1e-10);
+    assert_relative_eq!(
+        f.get::<ratio>(),
+        0.04_f64.r_powf(-0.5),
+        max_relative = 1e-10
+    );
 
     let floored = model.value(FlowEnhancementInputs {
         liquid_void_fraction: Ratio::new::<ratio>(1e-6),
@@ -723,7 +730,7 @@ fn rezkallah_sims_flow_enhancement_factor() {
     });
     assert_relative_eq!(
         floored.get::<ratio>(),
-        1e-3_f64.powf(-0.5),
+        1e-3_f64.r_powf(-0.5),
         max_relative = 1e-10
     );
 }
@@ -759,7 +766,7 @@ fn cobra_tf_flow_enhancement_and_mixture_reynolds_number() {
         mixture_reynolds_number: re_mix,
         single_phase_reynolds_number: reynolds_number(expected_re / 4.0),
     });
-    let expected_f = 4.0_f64.powf(0.8);
+    let expected_f = 4.0_f64.r_powf(0.8);
     assert_relative_eq!(f.get::<ratio>(), expected_f, max_relative = 1e-9);
 
     // Floor: Re_mix < Re_1p keeps F at 1.0, not below.
@@ -782,7 +789,7 @@ fn chen_suppression_factor() {
         t_wall: temp(400.0),
         t_sat: temp(350.0),
     });
-    let expected = 1.0 / (1.0 + 2.53e-6 * 1.0e4_f64.powf(1.17));
+    let expected = 1.0 / (1.0 + 2.53e-6 * 1.0e4_f64.r_powf(1.17));
     assert_relative_eq!(s.get::<ratio>(), expected, max_relative = 1e-10);
 }
 

@@ -66,6 +66,7 @@
 //! to one scalar unknown, `Δp`, solved with the safeguarded Newton from
 //! [`crate::rheology::aster::integration`].
 
+use petir::mathf::RealMath;
 use outram_foam_basic_lib::primitives::SymmTensor;
 
 use crate::error::{OffbeatError, Result};
@@ -307,9 +308,9 @@ impl ViscoplasticLaw {
             });
         }
         if compliance > 0.0 {
-            compliance = compliance.powf(p.flux_exponent / p.n);
+            compliance = compliance.r_powf(p.flux_exponent / p.n);
         }
-        let arrhenius = (-p.activation_temperature / (p.n * temperature)).exp();
+        let arrhenius = (-p.activation_temperature / (p.n * temperature)).r_exp();
         compliance *= arrhenius;
 
         // The flow function takes K, not 1/K.
@@ -339,7 +340,7 @@ impl ViscoplasticLaw {
             return 0.0;
         }
         match self {
-            Self::Norton(p) => (sigma_eq / p.k).powf(p.n),
+            Self::Norton(p) => (sigma_eq / p.k).r_powf(p.n),
             Self::LemaitreIrradiation(_) => {
                 // The compliance depends on flux and temperature, which this
                 // signature does not carry. Resolve with
@@ -355,7 +356,7 @@ impl ViscoplasticLaw {
                     // solver's bracket rather than by an infinite rate.
                     return 0.0;
                 }
-                (sigma_eq / p.k).powf(p.n) * accumulated_strain.powf(-p.n / p.m)
+                (sigma_eq / p.k).r_powf(p.n) * accumulated_strain.r_powf(-p.n / p.m)
             }
         }
     }

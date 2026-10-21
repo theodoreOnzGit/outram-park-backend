@@ -215,6 +215,7 @@ impl SourceConvergence {
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
 
     /// An entropy-like trace that rises from `h0` to `h_inf` with time
@@ -223,7 +224,7 @@ mod tests {
         let mut s = seed;
         (0..n)
             .map(|g| {
-                h_inf + (h0 - h_inf) * (-(g as f64) / tau).exp()
+                h_inf + (h0 - h_inf) * (-(g as f64) / tau).r_exp()
                     + 0.01 * raffles::distributions::seeded::sample_normal(&mut s)
             })
             .collect()

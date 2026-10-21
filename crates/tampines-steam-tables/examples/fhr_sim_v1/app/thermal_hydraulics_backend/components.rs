@@ -1,3 +1,4 @@
+use petir::mathf::RealMath;
 use tuas_boussinesq_solver::array_fluid_collections::fluid_array_lateral_coupling::fluid_component_calculation::DimensionlessDarcyLossCorrelations;
 use tuas_boussinesq_solver::boussinesq_thermophysical_properties::{LiquidMaterial, SolidMaterial};
 use tuas_boussinesq_solver::heat_transfer_correlations::nusselt_number_correlations::enums::NusseltCorrelation;
@@ -95,10 +96,10 @@ pub fn new_reactor_vessel_pipe_1(
         // the best I can get from this equation
         // let's just assume it is correct
         let cp_cal_g_kelvin = 0.538657 + 9.11129e-6 * t_kelvin
-            - 90.2725 * t_kelvin.powf(-1.0)
-            - 43449.3 * t_kelvin.powf(-2.0)
-            + 1.59309e7 * t_kelvin.powf(-3.0)
-            - 1.43688e9 * t_kelvin.powf(-4.0);
+            - 90.2725 * t_kelvin.r_powf(-1.0)
+            - 43449.3 * t_kelvin.r_powf(-2.0)
+            + 1.59309e7 * t_kelvin.r_powf(-3.0)
+            - 1.43688e9 * t_kelvin.r_powf(-4.0);
 
         return SpecificHeatCapacity::new::<calorie_per_gram_kelvin>(cp_cal_g_kelvin);
     }

@@ -16,6 +16,7 @@
 //! [`RANDOM_K`], each from its native record; one pour, so the scatter
 //! between pours is unmeasured.
 
+use petir::mathf::RealMath;
 use crate::htr10_beds::{self, draw, Bed, BedStats};
 use dhoby_ghaut::web_demo::view::View;
 use egui::{Color32, Pos2, Rect};
@@ -66,7 +67,7 @@ pub const RANDOM_K: RecordedK = RecordedK {
 pub fn random_minus_lattice_pcm() -> (f64, f64) {
     (
         1.0e5 * (RANDOM_K.k - LATTICE_K.k),
-        1.0e5 * RANDOM_K.sigma.hypot(LATTICE_K.sigma),
+        1.0e5 * RANDOM_K.sigma.r_hypot(LATTICE_K.sigma),
     )
 }
 

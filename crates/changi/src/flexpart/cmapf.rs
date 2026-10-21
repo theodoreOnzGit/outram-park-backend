@@ -124,6 +124,8 @@
 //! radians per km, wind components in any one consistent unit (upstream's
 //! comment says km/h; the rotation is unit-free).
 
+use petir::mathf::RealMath;
+
 /// Upstream's `pi` literal (`cmapf_mod.f90`), 3.2e-15 short of `PI`.
 #[allow(clippy::approx_constant, clippy::excessive_precision)]
 const PI_CMAPF: f64 = 3.14159265358979;
@@ -192,13 +194,13 @@ pub fn cspanf(value: f64, begin: f64, end: f64) -> f64 {
 /// map "true at `xlat1` and `xlat2`". Returns `NaN` for `(±90, ±90)` (see the
 /// module quirks).
 pub fn eqvlat(xlat1: f64, xlat2: f64) -> f64 {
-    let ssind = |x: f64| (RADPDG * x).sin();
+    let ssind = |x: f64| (RADPDG * x).r_sin();
     let sinl1 = ssind(xlat1);
     let sinl2 = ssind(xlat2);
     let (al1, al2);
     if (sinl1 - sinl2).abs() > 0.001 {
-        al1 = ((1.0 - sinl1) / (1.0 - sinl2)).ln();
-        al2 = ((1.0 + sinl1) / (1.0 + sinl2)).ln();
+        al1 = ((1.0 - sinl1) / (1.0 - sinl2)).r_ln();
+        al2 = ((1.0 + sinl1) / (1.0 + sinl2)).r_ln();
     } else {
         // Case lat1 near or equal to lat2
         let mut tau = -((sinl1 - sinl2) / (2.0 - sinl1 - sinl2));
@@ -210,7 +212,7 @@ pub fn eqvlat(xlat1: f64, xlat2: f64) -> f64 {
         al2 = -(2.0 / (2.0 + sinl1 + sinl2)
             * (1.0 + tau * (1.0 / 3.0 + tau * (1.0 / 5.0 + tau * (1.0 / 7.0)))));
     }
-    ((al1 + al2) / (al1 - al2)).asin() / RADPDG
+    ((al1 + al2) / (al1 - al2)).r_asin() / RADPDG
 }
 
 /// `stlmbr(strcmp, tnglat, xlong)`: a map of tangent latitude `tnglat` (deg;
@@ -220,7 +222,7 @@ pub fn eqvlat(xlat1: f64, xlat2: f64) -> f64 {
 /// [`stcm1p`].
 pub fn stlmbr(tnglat: f64, xlong: f64) -> Strcmp {
     let mut s = Strcmp::default();
-    s.0[0] = (RADPDG * tnglat).sin();
+    s.0[0] = (RADPDG * tnglat).r_sin();
     s.0[1] = cspanf(xlong, -180.0, 180.0);
     s.0[2] = 0.0;
     s.0[3] = 0.0;
@@ -252,8 +254,8 @@ pub fn stcm1p(
     s.0[2] = 0.0;
     s.0[3] = 0.0;
     let turn = RADPDG * (orient - s.0[0] * cspanf(xlongg - s.0[1], -180.0, 180.0));
-    s.0[4] = turn.cos();
-    s.0[5] = -turn.sin();
+    s.0[4] = turn.r_cos();
+    s.0[5] = -turn.r_sin();
     s.0[6] = 1.0;
     s.0[6] = gridsz * s.0[6] / cgszll(s, xlatg, s.0[1]);
     let (x1a, y1a) = cll2xy(s, xlat1, xlong1);
@@ -314,19 +316,19 @@ pub fn cnllxy(s: &Strcmp, xlat: f64, xlong: f64) -> (f64, f64) {
             * (1.0
                 - 1.0 / 12.0 * gdlong * (1.0 - 1.0 / 30.0 * gdlong * (1.0 - 1.0 / 56.0 * gdlong)));
     } else {
-        sndgam = gdlong.sin() / gamma;
-        csdgam = (1.0 - gdlong.cos()) / gamma / gamma;
+        sndgam = gdlong.r_sin() / gamma;
+        csdgam = (1.0 - gdlong.r_cos()) / gamma / gamma;
     }
-    let slat = (RADPDG * dlat).sin();
+    let slat = (RADPDG * dlat).r_sin();
     if slat >= ALMST1 || slat <= -ALMST1 {
         return (0.0, 1.0 / s.0[0]);
     }
-    let mercy = 0.5 * ((1.0 + slat) / (1.0 - slat)).ln();
+    let mercy = 0.5 * ((1.0 + slat) / (1.0 - slat)).r_ln();
     let gmercy = gamma * mercy;
     let rhog1 = if gmercy.abs() < 0.001 {
         mercy * (1.0 - 0.5 * gmercy * (1.0 - 1.0 / 3.0 * gmercy * (1.0 - 1.0 / 4.0 * gmercy)))
     } else {
-        (1.0 - (-gmercy).exp()) / gamma
+        (1.0 - (-gmercy).r_exp()) / gamma
     };
     let eta = rhog1 + (1.0 - gamma * rhog1) * gamma * csdgam;
     let xi = (1.0 - gamma * rhog1) * sndgam;
@@ -346,11 +348,11 @@ pub fn cnxyll(s: &Strcmp, xi: f64, eta: f64) -> (f64, f64) {
         let temp = t * t;
         arg2 / (2.0 - arg1) * (1.0 + temp * (1.0 / 3.0 + temp * (1.0 / 5.0 + temp * (1.0 / 7.0))))
     } else {
-        -(1.0 - arg1).ln() / 2.0 / gamma
+        -(1.0 - arg1).r_ln() / 2.0 / gamma
     };
     // Convert ymerc to latitude
-    let temp = (-ymerc.abs()).exp();
-    let mut xlat = fsign(((1.0 - temp) * (1.0 + temp)).atan2(2.0 * temp), ymerc);
+    let temp = (-ymerc.abs()).r_exp();
+    let mut xlat = fsign(((1.0 - temp) * (1.0 + temp)).r_atan2(2.0 * temp), ymerc);
     // Longitudes
     let gxi = gamma * xi;
     let cgeta = 1.0 - gamma * eta;
@@ -359,7 +361,7 @@ pub fn cnxyll(s: &Strcmp, xi: f64, eta: f64) -> (f64, f64) {
         let temp = t * t;
         xi / cgeta * (1.0 - temp * (1.0 / 3.0 - temp * (1.0 / 5.0 - temp * (1.0 / 7.0))))
     } else {
-        gxi.atan2(cgeta) / gamma
+        gxi.r_atan2(cgeta) / gamma
     };
     // Upstream: sngl(strcmp(2) + dgprad*along); the port keeps f64.
     let xlong = s.0[1] + DGPRAD * along;
@@ -400,26 +402,26 @@ pub fn cgszll(s: &Strcmp, xlat: f64, _xlong: f64) -> f64 {
         if s.0[0] > 0.9999 {
             return 2.0 * s.0[6];
         }
-        let efact = (RADPDG * xlat).cos();
+        let efact = (RADPDG * xlat).r_cos();
         if efact <= 0.0 {
             return 0.0;
         }
-        -(efact / (1.0 + (RADPDG * xlat).sin())).ln()
+        -(efact / (1.0 + (RADPDG * xlat).r_sin())).r_ln()
     } else if xlat < -89.985 {
         // Close to south pole
         if s.0[0] < -0.9999 {
             return 2.0 * s.0[6];
         }
-        let efact = (RADPDG * xlat).cos();
+        let efact = (RADPDG * xlat).r_cos();
         if efact <= 0.0 {
             return 0.0;
         }
-        (efact / (1.0 - (RADPDG * xlat).sin())).ln()
+        (efact / (1.0 - (RADPDG * xlat).r_sin())).r_ln()
     } else {
-        let slat = (RADPDG * xlat).sin();
-        ((1.0 + slat) / (1.0 - slat)).ln() / 2.0
+        let slat = (RADPDG * xlat).r_sin();
+        ((1.0 + slat) / (1.0 - slat)).r_ln() / 2.0
     };
-    s.0[6] * (RADPDG * xlat).cos() * (s.0[0] * ymerc).exp()
+    s.0[6] * (RADPDG * xlat).r_cos() * (s.0[0] * ymerc).r_exp()
 }
 
 /// `cgszxy`: grid size (km per grid unit) at grid `(x, y)`.
@@ -436,7 +438,7 @@ pub fn cgszxy(s: &Strcmp, x: f64, y: f64) -> f64 {
         radial / (2.0 - efact)
             * (1.0 + temp * (1.0 / 3.0 + temp * (1.0 / 5.0 + temp * (1.0 / 7.0))))
     } else {
-        -(1.0 - efact).ln() / 2.0 / s.0[0]
+        -(1.0 - efact).r_ln() / 2.0 / s.0[0]
     };
     if ymerc > 6.0 {
         if s.0[0] > ALMST1 {
@@ -451,15 +453,15 @@ pub fn cgszxy(s: &Strcmp, x: f64, y: f64) -> f64 {
             0.0
         }
     } else {
-        let efact = ymerc.exp();
-        2.0 * s.0[6] * (s.0[0] * ymerc).exp() / (efact + 1.0 / efact)
+        let efact = ymerc.r_exp();
+        2.0 * s.0[6] * (s.0[0] * ymerc).r_exp() / (efact + 1.0 / efact)
     }
 }
 
 /// The `(xpolg, ypolg)` rotation shared by `cc2gll`, `cg2cll`, `cpolll`.
 fn ll_rotation(s: &Strcmp, rot: f64) -> (f64, f64) {
-    let slong = (RADPDG * rot).sin();
-    let clong = (RADPDG * rot).cos();
+    let slong = (RADPDG * rot).r_sin();
+    let clong = (RADPDG * rot).r_cos();
     let xpolg = slong * s.0[4] + clong * s.0[5];
     let ypolg = clong * s.0[4] - slong * s.0[5];
     (xpolg, ypolg)
@@ -507,16 +509,16 @@ pub fn cg2cxy(s: &Strcmp, x: f64, y: f64, ug: f64, vg: f64) -> (f64, f64) {
         // North of 89 degrees: polar meteorological orientation.
         let (_xlat, xlong) = cnxyll(s, xi, eta);
         let rot = s.0[0] * (xlong - s.0[1]) - xlong - 180.0;
-        let slong = -(RADPDG * rot).sin();
-        let clong = (RADPDG * rot).cos();
+        let slong = -(RADPDG * rot).r_sin();
+        let clong = (RADPDG * rot).r_cos();
         xpolg = slong * s.0[4] + clong * s.0[5];
         ypolg = clong * s.0[4] - slong * s.0[5];
     } else if radial < s.0[8] {
         // South of -89 degrees.
         let (_xlat, xlong) = cnxyll(s, xi, eta);
         let rot = s.0[0] * (xlong - s.0[1]) + xlong;
-        let slong = -(RADPDG * rot).sin();
-        let clong = (RADPDG * rot).cos();
+        let slong = -(RADPDG * rot).r_sin();
+        let clong = (RADPDG * rot).r_cos();
         xpolg = slong * s.0[4] + clong * s.0[5];
         ypolg = clong * s.0[4] - slong * s.0[5];
     } else {
@@ -535,12 +537,12 @@ pub fn cg2cxy(s: &Strcmp, x: f64, y: f64, ug: f64, vg: f64) -> (f64, f64) {
 /// `ccrvll`: map-curvature vector `(gx, gy)` (rad/km) at `(xlat, xlong)`.
 pub fn ccrvll(s: &Strcmp, xlat: f64, xlong: f64) -> (f64, f64) {
     let along = cspanf(xlong - s.0[1], -180.0, 180.0);
-    let slong = (RADPDG * s.0[0] * along).sin();
-    let clong = (RADPDG * s.0[0] * along).cos();
+    let slong = (RADPDG * s.0[0] * along).r_sin();
+    let clong = (RADPDG * s.0[0] * along).r_cos();
     let xpolg = -slong * s.0[4] + clong * s.0[5];
     let ypolg = clong * s.0[4] + slong * s.0[5];
-    let temp = (RADPDG * xlat).sin();
-    let ctemp = (RADPDG * xlat).cos();
+    let temp = (RADPDG * xlat).r_sin();
+    let ctemp = (RADPDG * xlat).r_cos();
     let curv = (s.0[0] - temp) / ctemp / REARTH;
     (curv * xpolg, curv * ypolg)
 }
@@ -552,8 +554,8 @@ pub fn ccrvxy(s: &Strcmp, x: f64, y: f64) -> (f64, f64) {
     let ypolg = s.0[4] + temp * (s.0[3] - y);
     let temp = (xpolg * xpolg + ypolg * ypolg).sqrt();
     if temp > 0.0 {
-        let ymerc = -temp.ln() / s.0[0];
-        let efact = ymerc.exp();
+        let ymerc = -temp.r_ln() / s.0[0];
+        let efact = ymerc.r_exp();
         let curv = ((s.0[0] - 1.0) * efact + (s.0[0] + 1.0) / efact) * 0.5 / REARTH;
         (xpolg * curv / temp, ypolg * curv / temp)
     } else if s.0[0].abs() == 1.0 {
@@ -569,8 +571,8 @@ pub fn cpolll(s: &Strcmp, xlat: f64, xlong: f64) -> (f64, f64, f64) {
     let along = cspanf(xlong - s.0[1], -180.0, 180.0);
     let rot = -(s.0[0] * along);
     let (xpolg, ypolg) = ll_rotation(s, rot);
-    let clat = (RADPDG * xlat).cos();
-    (clat * xpolg, clat * ypolg, (RADPDG * xlat).sin())
+    let clat = (RADPDG * xlat).r_cos();
+    (clat * xpolg, clat * ypolg, (RADPDG * xlat).r_sin())
 }
 
 /// `cpolxy`: direction cosines `(enx, eny, enz)` of the Earth's rotation axis
@@ -588,9 +590,9 @@ pub fn cpolxy(s: &Strcmp, x: f64, y: f64) -> (f64, f64, f64) {
         radial / (2.0 - temp)
             * (1.0 + temp2 * (1.0 / 3.0 + temp2 * (1.0 / 5.0 + temp2 * (1.0 / 7.0))))
     } else {
-        -0.5 * (1.0 - temp).ln() / s.0[0]
+        -0.5 * (1.0 - temp).r_ln() / s.0[0]
     };
-    let arg = ymerc.exp();
+    let arg = ymerc.r_exp();
     let oarg = 1.0 / arg;
     let clat = 2.0 / (arg + oarg);
     let enz = (arg - oarg) * clat / 2.0;

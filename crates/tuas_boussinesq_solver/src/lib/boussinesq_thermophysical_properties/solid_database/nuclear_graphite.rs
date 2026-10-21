@@ -46,8 +46,9 @@
 //! literature values, verified only against hand evaluations of the same
 //! formulas (see the unit tests at the bottom of this file).
 
-use peroxide::fuga::{Calculus, CubicSpline, Spline};
-use roots::{find_root_brent, SimpleConvergency};
+use petir::mathf::RealMath;
+use crate::numerical_methods::{bracketed_root, NaturalCubicSpline};
+use petir::roots::BracketingMethod;
 use uom::si::available_energy::joule_per_kilogram;
 use uom::si::f64::*;
 use uom::si::length::micrometer;
@@ -165,12 +166,14 @@ pub fn nuclear_graphite_specific_heat_capacity_butland_maddison_spline(
         1886.42, 1915.49, 1940.26, 1961.58, 1980.06, 1996.20, 2010.39, 2022.93
     );
 
-    let s = CubicSpline::from_nodes(
+    let s = NaturalCubicSpline::new(
         &cp_temperature_values_kelvin,
         &cp_values_joule_per_kilogram_kelvin,
-    );
+        "nuclear_graphite: cp_temperature_values_kelvin -> cp_values_joule_per_kilogram_kelvin",
+        "K",
+    )?;
 
-    let graphite_cp_value = s.unwrap().eval(temperature_value_kelvin);
+    let graphite_cp_value = s.eval(temperature_value_kelvin)?;
 
     Ok(SpecificHeatCapacity::new::<joule_per_kilogram_kelvin>(
         graphite_cp_value,
@@ -243,9 +246,9 @@ pub fn nuclear_graphite_specific_heat_capacity_butland_maddison_polynomial(
         min_temp_butland_maddison_polynomial(),
     )?;
     let t = temperature.get::<kelvin>();
-    let cp_cal_per_gram_kelvin = 0.54212 - 2.42667e-6 * t - 90.2725 / t - 43449.3 / t.powi(2)
-        + 1.59309e7 / t.powi(3)
-        - 1.43688e9 / t.powi(4);
+    let cp_cal_per_gram_kelvin = 0.54212 - 2.42667e-6 * t - 90.2725 / t - 43449.3 / t.r_powi(2)
+        + 1.59309e7 / t.r_powi(3)
+        - 1.43688e9 / t.r_powi(4);
     const JOULE_PER_THERMOCHEMICAL_CALORIE: f64 = 4.184;
     // cal/(g K) -> J/(kg K): x 4.184 J/cal x 1000 g/kg.
     Ok(SpecificHeatCapacity::new::<joule_per_kilogram_kelvin>(
@@ -303,7 +306,7 @@ pub fn nuclear_graphite_fluence_damage_factor(fluence: Ratio) -> Result<Ratio, T
         });
     }
 
-    let damage_factor: f64 = 1.0 - 0.336 * (1.0 - f64::exp(-1.005 * gam)) - 3.50e-2 * gam;
+    let damage_factor: f64 = 1.0 - 0.336 * (1.0 - <f64 as petir::mathf::RealMath>::r_exp(-1.005 * gam)) - 3.50e-2 * gam;
 
     Ok(Ratio::new::<ratio>(damage_factor))
 }
@@ -458,33 +461,49 @@ pub fn nuclear_graphite_ig_110_thermal_conductivity_fluence_dependent(
     Ok(unirradiated_k * damage_factor)
 }
 
+/// Enthalpy datum of [`nuclear_graphite_specific_enthalpy`]: h = 0 J/kg at
+/// 300 K, the lowest knot of the Butland & Maddison cp table. Chosen
+/// 2026-10-20 (gh:#989, maintainer decision) because it is what the
+/// pre-PETIR code actually computed; see that function's docs.
+pub const GRAPHITE_ENTHALPY_REFERENCE_TEMPERATURE_KELVIN: f64 = 300.0;
+
 /// Returns the specific enthalpy, in J/kg, of nuclear graphite (both A3
 /// matrix and IG-110 grades, which share one cp table) at the given
-/// temperature, with h = 0 at 273.15 K.
+/// temperature, with ~~h = 0 at 273.15 K~~ **h = 0 at 300 K** (see the datum
+/// section below).
 ///
 /// Integrates the Butland & Maddison cp cubic spline (see
 /// [`nuclear_graphite_specific_heat_capacity_butland_maddison_spline`];
 /// VTB HTTF deck `HTTF-SS.i` lines 368-372, CC-BY-4.0, Open tier) from
-/// 273.15 K to the given temperature, per this database's house convention
-/// (compare `copper_specific_enthalpy` /
-/// `steel_304_l_spline_specific_enthalpy_ciet_zweibaum`).
+/// the 300 K datum to the given temperature.
 ///
-/// **Below-table extrapolation note:** the cp table starts at 300 K but the
-/// integration reference is 273.15 K, so the integral's first 26.85 K uses
-/// the cubic spline's natural extrapolation below its lowest node. This only
-/// shifts the (arbitrary) enthalpy datum by a constant; enthalpy
-/// *differences* between any two temperatures at or above 300 K are
-/// unaffected. User-facing dispatch keeps `min_temperature()` at 300 K, so
-/// in-range calls never rely on extrapolated cp except through this shared
-/// datum offset.
+/// # Enthalpy datum: 300 K (gh:#989, maintainer decision 2026-10-20)
 ///
-/// Like its siblings this function performs no range check of its own
-/// (range enforcement happens in the cp/conductivity accessors and via
-/// `min_temperature()`/`max_temperature()`).
+/// The datum is [`GRAPHITE_ENTHALPY_REFERENCE_TEMPERATURE_KELVIN`], 300 K,
+/// the cp table's lowest knot. It is a **documented datum, not a clamp**:
+/// a temperature below 300 K is still refused with
+/// `TuasLibError::CorrelationRangeError`, as is one above 2000 K.
+///
+/// History, so the choice can be checked. This function used to name
+/// 273.15 K, the house convention of `copper_specific_enthalpy` and
+/// `steel_304_l_spline_specific_enthalpy_ciet_zweibaum`. ~~**Below-table
+/// extrapolation note:** the cp table starts at 300 K but the integration
+/// reference is 273.15 K, so the integral's first 26.85 K uses the cubic
+/// spline's natural extrapolation below its lowest node.~~ **CORRECTED
+/// 2026-10-20:** that never happened. peroxide 0.41.2's
+/// `CubicSpline::integrate` clipped the interval to the table, so its
+/// integral over [273.15, 300] K was exactly 0 J/kg (measured) and the
+/// values it returned were already referenced to 300 K. On PETIR the
+/// 273.15 K lower limit was refused outright. Naming 300 K reproduces what
+/// peroxide computed, to quadrature round-off (the spline coefficients now
+/// come from GSL's tridiagonal solve, not peroxide's dense inverse; see
+/// `docs/peroxide-roots-to-petir-989.md` for the measured difference).
+/// Only the datum's name changes. Enthalpy differences, and so every energy
+/// balance, are unaffected.
 #[inline]
 pub fn nuclear_graphite_specific_enthalpy(
     temperature: ThermodynamicTemperature,
-) -> AvailableEnergy {
+) -> Result<AvailableEnergy, TuasLibError> {
     let temperature_value_kelvin: f64 = temperature.get::<kelvin>();
 
     let cp_temperature_values_kelvin = c!(
@@ -496,14 +515,17 @@ pub fn nuclear_graphite_specific_enthalpy(
         1886.42, 1915.49, 1940.26, 1961.58, 1980.06, 1996.20, 2010.39, 2022.93
     );
 
-    let s = CubicSpline::from_nodes(
+    let s = NaturalCubicSpline::new(
         &cp_temperature_values_kelvin,
         &cp_values_joule_per_kilogram_kelvin,
-    );
+        "nuclear_graphite: cp_temperature_values_kelvin -> cp_values_joule_per_kilogram_kelvin",
+        "K",
+    )?;
 
-    let graphite_specific_enthalpy_value = s.unwrap().integrate((273.15, temperature_value_kelvin));
+    let graphite_specific_enthalpy_value =
+        s.integral(GRAPHITE_ENTHALPY_REFERENCE_TEMPERATURE_KELVIN, temperature_value_kelvin)?;
 
-    AvailableEnergy::new::<joule_per_kilogram>(graphite_specific_enthalpy_value)
+    Ok(AvailableEnergy::new::<joule_per_kilogram>(graphite_specific_enthalpy_value))
 }
 
 /// Returns the temperature, in K, of nuclear graphite (both A3 matrix and
@@ -544,20 +566,23 @@ pub(crate) fn nuclear_graphite_spline_temp_from_specific_enthalpy(
         // both graphite variants share this enthalpy curve, so call the
         // free function directly rather than dispatching through the enum
         let graphite_enthalpy_value =
-            nuclear_graphite_specific_enthalpy(graphite_temp).get::<joule_per_kilogram>();
+            nuclear_graphite_specific_enthalpy(graphite_temp)?.get::<joule_per_kilogram>();
 
         enthalpy_vector[index_i] = graphite_enthalpy_value;
     }
 
     // inverted spline: enthalpy in, temperature out (initial guess)
     let enthalpy_to_temperature_spline =
-        CubicSpline::from_nodes(&enthalpy_vector, &temperature_values_kelvin);
+        NaturalCubicSpline::new(
+        &enthalpy_vector,
+        &temperature_values_kelvin,
+        "nuclear_graphite: enthalpy_vector -> temperature_values_kelvin",
+        "J/kg",
+    )?;
 
     let h_graphite_joules_per_kg = h_graphite.get::<joule_per_kilogram>();
 
-    let temperature_from_enthalpy_kelvin = enthalpy_to_temperature_spline
-        .unwrap()
-        .eval(h_graphite_joules_per_kg);
+    let temperature_from_enthalpy_kelvin = enthalpy_to_temperature_spline.eval(h_graphite_joules_per_kg)?;
 
     // refine with brent dekker
     let enthalpy_root = |temp_kelvin_value: f64| -> f64 {
@@ -565,28 +590,39 @@ pub(crate) fn nuclear_graphite_spline_temp_from_specific_enthalpy(
 
         let graphite_temp = ThermodynamicTemperature::new::<kelvin>(temp_kelvin_value);
 
-        let rhs_value =
-            nuclear_graphite_specific_enthalpy(graphite_temp).get::<joule_per_kilogram>();
-
-        lhs_value - rhs_value
+        // An out-of-table enthalpy becomes NaN, which PETIR's solver
+        // refuses (PetirError::Domain) and the match below reports.
+        match nuclear_graphite_specific_enthalpy(graphite_temp) {
+            Ok(rhs) => lhs_value - rhs.get::<joule_per_kilogram>(),
+            Err(_) => f64::NAN,
+        }
     };
 
     // the inverted-spline guess is accurate to well under a kelvin over
-    // the smooth cp curve; a 5 K bracket gives comfortable margin, and
-    // the bare enthalpy integral is defined slightly outside the node
-    // range so bracket overhang at the range ends is safe
+    // the smooth cp curve; a 5 K bracket gives comfortable margin.
+    // ~~the bare enthalpy integral is defined slightly outside the node
+    // range so bracket overhang at the range ends is safe~~ CORRECTED
+    // 2026-10-20 (gh:#989): under peroxide the integral was silently clipped
+    // to the table; on PETIR it is an error outside [300, 2000] K, so a
+    // bracket overhanging either end is reported, not absorbed.
     let brent_error_bound: f64 = 5.0;
 
     let upper_limit: f64 = temperature_from_enthalpy_kelvin + brent_error_bound;
 
     let lower_limit: f64 = temperature_from_enthalpy_kelvin - brent_error_bound;
 
-    let mut convergency = SimpleConvergency {
-        eps: 1e-8f64,
-        max_iter: 30,
-    };
-    let graphite_temperature_result =
-        find_root_brent(upper_limit, lower_limit, enthalpy_root, &mut convergency);
+    // roots::find_root_brent with SimpleConvergency { eps: 1e-8, max_iter: 30 }
+    // replaced by PETIR's GSL Brent with the same bracket and the same
+    // two-part test; see crate::numerical_methods::bracketed_root (gh:#989).
+    let graphite_temperature_result = bracketed_root(
+        BracketingMethod::Brent,
+        &enthalpy_root,
+        upper_limit,
+        lower_limit,
+        1e-8,
+        30,
+        "nuclear_graphite: temperature from specific enthalpy",
+    );
 
     let temperature_from_enthalpy_kelvin: f64 = match graphite_temperature_result {
         Ok(temperature_val) => temperature_val,
@@ -740,7 +776,7 @@ fn nuclear_graphite_matrix_a3_conductivity_formula(
 ) -> ThermalConductivity {
     let t: f64 = temperature.get::<kelvin>();
     let temperature_factor: f64 =
-        1.0 - 9.7556e-4 * (t - 373.15) * f64::exp(-6.036e-4 * (t - 273.15));
+        1.0 - 9.7556e-4 * (t - 373.15) * <f64 as petir::mathf::RealMath>::r_exp(-6.036e-4 * (t - 273.15));
     let density_maxwell_factor: f64 = 1740.0 / (2.2 * (1700.0 - 1740.0) + 1740.0);
     let k_value: f64 = 47.4 * temperature_factor * density_maxwell_factor * damage_factor;
     ThermalConductivity::new::<watt_per_meter_kelvin>(k_value)
@@ -755,7 +791,7 @@ fn nuclear_graphite_matrix_a3_conductivity_formula(
 #[inline]
 fn butland_maddison_polynomial_enthalpy_joule_per_kg(t_kelvin: f64) -> f64 {
     let antiderivative = |t: f64| {
-        0.54212 * t - 2.42667e-6 * t * t / 2.0 - 90.2725 * t.ln() + 43449.3 / t
+        0.54212 * t - 2.42667e-6 * t * t / 2.0 - 90.2725 * t.r_ln() + 43449.3 / t
             - 1.59309e7 / (2.0 * t * t)
             + 1.43688e9 / (3.0 * t * t * t)
     };
@@ -801,12 +837,18 @@ pub(crate) fn nuclear_graphite_matrix_a3_high_temp_temp_from_specific_enthalpy(
     let low = min_temp_butland_maddison_polynomial().get::<kelvin>();
     let high = max_temp_butland_maddison_polynomial().get::<kelvin>();
     let residual = |t: f64| butland_maddison_polynomial_enthalpy_joule_per_kg(t) - target;
-    let mut convergency = SimpleConvergency {
-        eps: 1e-9f64,
-        max_iter: 100,
-    };
-    find_root_brent(low, high, residual, &mut convergency)
-        .map(ThermodynamicTemperature::new::<kelvin>)
+    // roots::find_root_brent with SimpleConvergency { eps: 1e-9, max_iter: 100 }
+    // replaced by PETIR's GSL Brent, same bracket and test (gh:#989).
+    bracketed_root(
+        BracketingMethod::Brent,
+        residual,
+        low,
+        high,
+        1e-9,
+        100,
+        "high-temperature A3 graphite: temperature from specific enthalpy",
+    )
+    .map(ThermodynamicTemperature::new::<kelvin>)
         .map_err(|_| {
             TuasLibError::GenericStringError(format!(
                 "high-temperature A3 graphite: specific enthalpy {target} J/kg lies outside \
@@ -911,7 +953,7 @@ pub fn nuclear_graphite_matrix_a3_k_zero_fluence_matches_closed_form() {
     // at 600 K, full closed form
     let t: f64 = 600.0;
     let k_hand_600: f64 = 47.4
-        * (1.0 - 9.7556e-4 * (t - 373.15) * f64::exp(-6.036e-4 * (t - 273.15)))
+        * (1.0 - 9.7556e-4 * (t - 373.15) * <f64 as petir::mathf::RealMath>::r_exp(-6.036e-4 * (t - 273.15)))
         * (1740.0 / (2.2 * (1700.0 - 1740.0) + 1740.0));
 
     let k_measured_600 = nuclear_graphite_matrix_a3_thermal_conductivity_zero_fluence(
@@ -1080,6 +1122,13 @@ pub fn nuclear_graphite_ig_110_k_quadratic_hand_evaluation() {
 /// 8 (variant, temperature) combinations measured 2.61e-12 K (at 600 K,
 /// both variants) — the Brent-Dekker refinement recovers the forward
 /// temperature far inside the 0.005 K criterion at every point.
+///
+/// ~~**FAILS since 2026-10-20 (gh:#989)**: `nuclear_graphite_specific_enthalpy`
+/// integrates cp from 273.15 K, below the cp table's first knot (300 K);
+/// PETIR refuses (`CorrelationRangeError`, value 273.15, range 300-2000 K)
+/// where peroxide silently clipped. A finding, left failing on purpose.~~
+/// **RESOLVED 2026-10-20** by the maintainer's decision to make the datum
+/// 300 K explicit (`GRAPHITE_ENTHALPY_REFERENCE_TEMPERATURE_KELVIN`).
 #[test]
 pub fn nuclear_graphite_enthalpy_round_trip() {
     use uom::si::pressure::atmosphere;
@@ -1261,8 +1310,8 @@ fn butland_maddison_polynomial_covers_250_to_3000_k_and_refuses_outside() {
     };
     // Hand evaluation of the published formula (x 4184 J/kg per cal/g).
     let hand = |t: f64| {
-        (0.54212 - 2.42667e-6 * t - 90.2725 / t - 43449.3 / (t * t) + 1.59309e7 / t.powi(3)
-            - 1.43688e9 / t.powi(4))
+        (0.54212 - 2.42667e-6 * t - 90.2725 / t - 43449.3 / (t * t) + 1.59309e7 / t.r_powi(3)
+            - 1.43688e9 / t.r_powi(4))
             * 4184.0
     };
     for t in [250.0, 300.0, 1000.0, 2000.0, 2500.0, 3000.0] {

@@ -1,0 +1,551 @@
+    Finished `release` profile [optimized] target(s) in 0.13s
+     Running unittests src/lib.rs (target/release/deps/kovan_literature-05b3f54cdec75b3e)
+
+running 312 tests
+test bibtex::tests::empty_input_produces_no_entries ... ok
+test bibtex::tests::empty_slug_becomes_unknown_key ... ok
+test bibtex::tests::field_names_are_lowercased ... ok
+test bibtex::tests::golden_techreport_entry ... ok
+test bibtex::tests::journal_locators_are_emitted_when_present ... ok
+test bibtex::tests::missing_cite_key_is_an_error ... ok
+test bibtex::tests::multiple_authors_join_with_and ... ok
+test bibtex::tests::multiple_entries_and_surrounding_comments_all_parse ... ok
+test bibtex::tests::missing_optional_fields_are_omitted ... ok
+test bibtex::tests::nested_braces_inside_a_value_are_preserved ... ok
+test bibtex::tests::paper_maps_to_article ... ok
+test bibtex::tests::parses_a_single_brace_delimited_entry ... ok
+test bibtex::tests::quote_delimited_values_and_bare_numeric_year_parse ... ok
+test bibtex::tests::render_entries_joins_multiple_with_a_blank_line ... ok
+test bibtex::tests::render_entry_round_trips_through_parse_bib_entries ... ok
+test bibtex::tests::round_trips_through_to_bibtex_then_parse_bib_entries ... ok
+test bibtex::tests::special_characters_are_escaped ... ok
+test bibtex::tests::standard_maps_to_misc ... ok
+test bibtex::tests::string_preamble_and_comment_blocks_are_skipped_not_returned ... ok
+test bibtex::tests::unterminated_entry_is_an_error ... ok
+test citeproc::api_bibliography::tests::eval_spec_follows_the_nested_ifs_of_upstream ... ok
+test citeproc::api_cite::tests::citation_item_input_matches_citeproc_js ... ok
+test citeproc::api_cite::tests::loose_equality_follows_javascript ... ok
+test citeproc::api_cite::tests::the_engine_matches_citeproc_js_scenario_by_scenario ... ok
+test citeproc::api_cite::tests::the_splice_delimiter_follows_the_collapse_options ... ok
+test citeproc::api_control::tests::cite_lang_prefs_normalise_the_supplement_order ... ok
+test citeproc::api_control::tests::lang_tags_sort_longest_first ... ok
+test citeproc::attributes::tests::number_condition_tests_match_citeproc_js ... ok
+test citeproc::attributes::tests::token_lists_match_citeproc_js ... ok
+test citeproc::build::tests::get_field_follows_upstream ... ok
+test citeproc::build_retrieve_item::tests::all_fixture_section_digests_equal_the_reference ... ok
+test citeproc::build_retrieve_item::tests::every_fixture_item_matches_citeproc_js_under_every_option_set ... ok
+test citeproc::build_retrieve_item::tests::retrieve_item_normalisations_match_citeproc_js_under_every_option_set ... ok
+test citeproc::build_retrieve_item::tests::sample_fixtures_and_site_sections_equal_the_full_reference ... ok
+test citeproc::deviation_tests_d6_d12::registered_deviations_d6_to_d12_give_the_intended_output ... ok
+test citeproc::disambig_citations::tests::the_arena_shares_citations_between_the_indexes ... ok
+test citeproc::disambig_cites::tests::item_ids_compare_like_js ... ok
+test citeproc::disambig_cites::tests::modes_follow_the_style_options_and_their_order ... ok
+test citeproc::disambig_cites::tests::pad_base_gives_every_name_a_level ... ok
+test citeproc::disambig_cites::tests::set_index_grows_like_a_js_array ... ok
+test citeproc::disambig_names::tests::registering_a_name_records_its_keys ... ok
+test citeproc::disambig_names::tests::strip_periods_and_lowercase_suffix_follow_upstream ... ok
+test citeproc::formats::tests::decorators_match_citeproc_js ... ok
+test citeproc::formats::tests::escapes_and_boundaries_match_citeproc_js ... ok
+test citeproc::formats::tests::html_escape_basics ... ok
+test citeproc::formats::tests::mode_names_round_trip ... ok
+test citeproc::formats::tests::replace_patterns_follow_js ... ok
+test citeproc::formats::tests::safe_escape_matches_citeproc_js ... ok
+test citeproc::formatters::tests::default_skip_words_regex_compiles ... ok
+test citeproc::formatters::tests::name_doppel_matches_citeproc_js ... ok
+test citeproc::formatters::tests::text_case_matches_citeproc_js ... ok
+test citeproc::js::collation_tests::locale_compare_agrees_with_node_icu ... ok
+test citeproc::js::collation_tests::the_sort_sep_probe_orders_the_symbol_before_letters ... ok
+test citeproc::js::tests::parse_int_follows_javascript ... ok
+test citeproc::js::tests::split_keeps_captures_like_javascript ... ok
+test citeproc::js::tests::string_coercion_follows_javascript ... ok
+test citeproc::js::tests::truthiness_follows_javascript ... ok
+test citeproc::js::tests::utf16_indexing_follows_javascript ... ok
+test citeproc::load::diff_tests::locale_strings_and_resolution ... ok
+test citeproc::load::diff_tests::nested_braces ... ok
+test citeproc::load::diff_tests::noise_words ... ok
+test citeproc::load::diff_tests::note_field_hacks ... ok
+test citeproc::load::diff_tests::regexes_behave_like_citeproc_js ... ok
+test citeproc::load::diff_tests::setters_of_api_control_and_util_processor ... ok
+test citeproc::load::diff_tests::tables_equal_the_upstream_objects ... ok
+test citeproc::load::diff_tests::title_and_subtitle_extraction ... ok
+test citeproc::load::diff_tests::title_split_and_spacing_checks ... ok
+test citeproc::load::locale_case_tests::locale_case_agrees_with_node_icu ... ok
+test citeproc::load::tests::locale_strings_normalise ... ok
+test citeproc::load::tests::nested_braces_flip_in_notes_only ... ok
+test citeproc::load::tests::spacing_checks ... ok
+test citeproc::load::tests::tables_have_upstream_sizes ... ok
+test citeproc::load::tests::title_split_recombines_after_capitals ... ok
+test citeproc::node_datepart::date_e2e_test::date_only_fixtures_render_like_citeproc_js ... ok
+test citeproc::api_bibliography::authority_split_tests::authority_and_committee_strings_split_in_every_area_as_in_citeproc_js ... ok
+test citeproc::node_datepart::deviation_tests::short_years_missing_months_and_range_eras_deviate_as_registered ... ok
+test citeproc::obj_ambigconfig::tests::element_accessors_grow_like_js_arrays ... ok
+test citeproc::obj_ambigconfig::tests::the_constructor_defaults_match_upstream ... ok
+test citeproc::obj_blob::tests::blobs_copy_token_strings_and_chain_decorations ... ok
+test citeproc::obj_number::tests::suffixator_and_romanizer_follow_upstream ... ok
+test citeproc::obj_token::tests::a_new_token_has_empty_affixes_and_no_delimiter ... ok
+test citeproc::queue::tests::nested_brace_flips_in_notes ... ok
+test citeproc::queue::tests::punctuation_tables_are_the_inverse_of_each_other ... ok
+test citeproc::queue::tests::queue_sequences_match_citeproc_js ... ok
+test citeproc::registry::tests::compare_keys_orders_by_key_then_direction_then_seq ... ok
+test citeproc::registry::tests::init_removes_earlier_duplicates_and_resets_the_scratch_sets ... ok
+test citeproc::registry::tests::location_of_finds_the_insertion_point_like_the_binary_search_upstream ... ok
+test citeproc::registry::tests::registry_item_defaults_are_those_of_doinserts ... ok
+test citeproc::registry::tests::sort_with_is_stable_and_reports_the_first_error ... ok
+test citeproc::sort::tests::compare_ignores_case_accents_punctuation_and_orders_numbers ... ok
+test citeproc::stack::tests::stack_follows_csl_stack ... ok
+test citeproc::system::tests::xml_and_json_strings_both_work ... ok
+test citeproc::tests::a_style_without_a_bibliography_gives_an_error_not_a_panic ... ok
+test citeproc::tests::bibliography_joins_as_the_runner_does ... ok
+test citeproc::tests::citation_inputs_are_checked_not_unwrapped ... ok
+test citeproc::tests::engine_keeps_what_the_runner_sets_on_it ... ok
+test citeproc::tests::preload_abbreviations_sets_language_names_and_refuses_jurisdictions ... ok
+test citeproc::tests::sys_retrieves_items_by_string_or_numeric_id ... ok
+test citeproc::tests::the_processing_error_type_prints ... ok
+test citeproc::tests::update_items_registers_and_sorts_by_the_bibliography_keys ... ok
+test citeproc::util_citationlabel::tests::capitalise_follows_the_slice_rules ... ok
+test citeproc::util_citationlabel::tests::trigraph_params_parse_the_default_definition ... ok
+test citeproc::util_date::tests::date_parse_array_matches_citeproc_js ... ok
+test citeproc::util_date::tests::date_sort_keys_match_citeproc_js ... ok
+test citeproc::util_dateparser::tests::day_month_order_matches_citeproc_js ... ok
+test citeproc::util_dateparser::tests::parser_matches_citeproc_js_at_every_month_stage ... ok
+test citeproc::util_dateparser::tests::rex_split_handles_the_lookahead_cases ... ok
+test citeproc::util_dates::tests::imperial_years_match_citeproc_js ... ok
+test citeproc::util_dates::tests::month_names_match_citeproc_js_in_seven_locales ... ok
+test citeproc::util_dates::tests::year_month_day_formatters_match_citeproc_js ... ok
+test citeproc::util_disambig::tests::clone_copies_four_fields_and_resets_the_rest ... ok
+test citeproc::util_disambig::tests::diff_follows_upstream_including_the_array_loop_bound ... ok
+test citeproc::util_disambig::tests::pool_sharing_is_visible_through_every_holder ... ok
+test citeproc::util_flipflop::deviation_tests::italic_in_oblique_and_bold_in_light_flip_instead_of_crashing ... ok
+test citeproc::util_flipflop::tests::process_tags_matches_citeproc_js ... ok
+test citeproc::util_integration::tests::ids_are_kept_or_generated_and_registered ... ok
+test citeproc::util_label::tests::evaluate_label_matches_citeproc_js ... ok
+test citeproc::util_locale::tests::locale_resolve_follows_upstream ... ok
+test citeproc::util_locale::tests::regexp_value_escapes_slashes ... ok
+test citeproc::util_locale_sniff::tests::collects_preferred_and_default_locales ... ok
+test citeproc::util_locale_sniff::tests::locale_attributes_on_nodes_add_nothing_as_upstream ... ok
+test citeproc::util_modules::tests::jurisdiction_list_walks_up_and_ends_with_us ... ok
+test citeproc::util_name_particles::tests::parse_particles_matches_citeproc_js ... ok
+test citeproc::util_name_particles::tests::particle_list_is_upstreams ... ok
+test citeproc::util_names::tests::initialize_with_matches_citeproc_js ... ok
+test citeproc::util_names::tests::small_helpers_match_citeproc_js ... ok
+test citeproc::util_names_common::tests::compare_namesets_matches_citeproc_js ... ok
+test citeproc::util_names_divide::tests::an_object_valued_name_variable_renders_as_citeproc_js_does ... ok
+test citeproc::node_datepart::date_e2e_test::date_rendering_matches_citeproc_js ... ok
+test citeproc::util_names_output::driver_tests::names_fixtures_match_citeproc_js ... ok
+test citeproc::util_names_render::input_side_tests::name_input_matches_citeproc_js ... ok
+test citeproc::util_names_render::output_side_tests::fixup_institution_matches_citeproc_js ... ok
+test citeproc::util_names_render::output_side_tests::get_name_matches_citeproc_js ... ok
+test citeproc::util_names_tests::tests::is_person_matches_citeproc_js ... ok
+test citeproc::util_nodes::tests::dispatch_knows_exactly_the_csl_node_names ... ok
+test citeproc::util_nodes::tests::token_exec_runs_a_macro_and_puts_the_token_back ... ok
+test citeproc::util_number::tests::ordinalizers_match_citeproc_js ... ok
+test citeproc::util_number::tests::process_number_matches_citeproc_js ... ok
+test citeproc::util_number::tests::romanizer_suffixator_padding_match_citeproc_js ... ok
+test citeproc::util_names_output::driver_tests::names_e2e_matches_citeproc_js ... ok
+test citeproc::util_page::tests::expanded_and_minimal ... ok
+test citeproc::util_parallel::tests::check_repeats_reads_the_markers ... ok
+test citeproc::util_parallel::tests::no_repeat_info_marks_equal_neighbours_and_orphans ... ok
+test citeproc::util_parallel::tests::see_also_builds_a_master_with_siblings ... ok
+test citeproc::util_processor::tests::doppeler_splits_and_joins ... ok
+test citeproc::util_processor::tests::set_decorations_removes_what_it_takes ... ok
+test citeproc::util_publishers::tests::render_joins_the_pairs_instead_of_throwing_as_upstream_does_d9 ... ok
+test citeproc::util_sort::tests::strips_a_an_the_only_when_followed_by_space ... ok
+test citeproc::util_static_locator::tests::parse_locator_matches_citeproc_js ... ok
+test citeproc::util_static_locator::tests::remap_section_variable_matches_citeproc_js ... ok
+test citeproc::util_static_locator::tests::set_number_labels_matches_citeproc_js ... ok
+test citeproc::util_transform::fixture_tests::fixtures_render_like_citeproc_js ... ignored, superseded by tests/citeproc_test_suite.rs (the stand-in driver has no registry or date-range flow)
+test citeproc::util_page::diff_tests::range_mangling_matches_citeproc_js ... ok
+test citeproc::xmljson::tests::attribute_lookup_takes_the_last_occurrence ... ok
+test citeproc::xmljson::tests::delete_node_by_name_attribute_skips_like_upstream ... ok
+test citeproc::xmljson::tests::entity_decoding_runs_amp_first ... ok
+test citeproc::xmljson::tests::node_copy_drops_non_string_attributes ... ok
+test citeproc::xmljson::tests::parses_a_style_and_finds_nodes ... ok
+test citeproc::xmljson::tests::preprocessing_passes ... ok
+test concept_tree::tests::a_deep_concept_resolves_with_its_parent_and_sources ... ok
+test concept_tree::tests::a_missing_parent_is_an_error ... ok
+test concept_tree::tests::nodes_are_in_depth_first_order_with_parents_first ... ok
+test concept_tree::tests::proposed_concepts_are_left_out_and_deferred_ones_kept ... ok
+test concept_tree::tests::the_compiled_in_tree_has_nineteen_issues_in_iaea_order ... ok
+test csl::tests::a_numbered_style_keeps_its_division_entries ... ok
+test csl::tests::a_page_gets_its_citations_and_a_reference_list_and_is_idempotent ... ok
+test csl::tests::a_page_is_one_document_so_same_year_works_get_letters ... ok
+test csl::tests::an_html_page_gets_citations_and_a_list_and_is_idempotent ... ok
+test csl::tests::an_unknown_key_is_an_error_not_a_panic ... ok
+test csl::tests::apa_citations_in_all_three_forms ... ok
+test csl::tests::the_bib_goes_through_the_zotero_import_to_csl_json ... ok
+test csl::tests::the_five_site_styles_are_bundled_and_render ... ok
+test csl::tests::unknown_keys_fail_and_an_uncited_page_loses_its_list ... ok
+test lookup_review::tests::identifiers_from_document ... ok
+test lookup_review::tests::nothing_accepted_changes_nothing ... ok
+test lookup_review::tests::proposal_rows_and_user_edits ... ok
+test markdown::tests::markdown_outline_extracts_headings ... ok
+test markdown::tests::page_separator_joins_pages ... ok
+test markdown::tests::split_below_limit_is_single_chunk ... ok
+test markdown::tests::split_by_page_limit_chunks_pages ... ok
+test markdown::tests::text_to_markdown_does_not_invent_headings ... ok
+test markdown::tests::text_to_markdown_groups_paragraphs_and_dehyphenates ... ok
+test markdown::tests::text_to_markdown_promotes_numbered_and_keyword_headings ... ok
+test metadata::tests::author_block_handles_initials_and_given_name_first ... ok
+test metadata::tests::author_markers_are_stripped ... ok
+test metadata::tests::elsevier_opening_yields_title_and_authors ... ok
+test metadata::tests::escholarship_cover_parses_both_label_layouts ... ok
+test metadata::tests::find_doi_ignores_dois_in_the_bibliography ... ok
+test metadata::tests::find_doi_matches_and_trims ... ok
+test metadata::tests::id_is_deterministic ... ok
+test metadata::tests::journal_running_headers_are_rejected_as_titles ... ok
+test metadata::tests::jrc_cover_authors_come_from_above_the_editors_label ... ok
+test metadata::tests::jrc_cover_title_is_rejoined_across_blank_lines ... ok
+test metadata::tests::metadata_from_info_dictionary ... ok
+test metadata::tests::name_list_detection_separates_authors_from_prose ... ok
+test metadata::tests::non_escholarship_text_is_not_treated_as_a_cover_page ... ok
+test metadata::tests::page_count_comes_from_the_page_tree_not_the_text ... ok
+test metadata::tests::page_count_from_text_counts_form_feeds ... ok
+test metadata::tests::parse_author_comma_and_spaced_forms ... ok
+test metadata::tests::slug_skips_leading_stop_words ... ok
+test metadata::tests::title_join_stops_at_body_text_across_a_blank_line ... ok
+test metadata::tests::year_from_pdf_date_parses_prefix ... ok
+test pdf_import::tests::extract_assets_on_image_free_pdf_writes_nothing ... ok
+test pdf_import::tests::extract_text_on_missing_file_is_error ... ok
+test pdf_import::tests::pdf_to_markdown_extracts_body_text ... ok
+test tests::document_type_inferred_from_path ... ok
+test tests::generated_dirs_are_split_by_visibility ... ok
+test tests::proprietary_and_open_roots_differ ... ok
+test tests::theses_directory_infers_the_thesis_type ... ok
+test tests::visibility_is_closed_unless_a_path_says_open ... ok
+test zotero::framework::api_json::tests::base_fields_map_and_invalid_fields_drop ... ok
+test zotero::framework::api_json::tests::key_sequence ... ok
+test zotero::framework::context::tests::iso_from_epoch ... ok
+test zotero::framework::export_items::tests::legacy_format_maps_base_fields_and_creators ... ok
+test zotero::framework::html::tests::entities_tags_and_whitespace ... ok
+test zotero::framework::html_dom::tests::matches_jsdom ... ok
+test zotero::framework::identifiers::tests::isbn_and_issn ... ok
+test zotero::framework::identifiers::tests::to_isbn13_like_upstream ... ok
+test zotero::framework::io::tests::read_chars_and_rewind ... ok
+test zotero::framework::io::tests::read_line_handles_lf_crlf_and_the_cr_quirk ... ok
+test zotero::framework::item::tests::js_object_keeps_order_and_js_set_semantics ... ok
+test zotero::framework::item::tests::set_extra_replaces_or_appends ... ok
+test zotero::framework::item_done::tests::item_done_normalises_like_upstream ... ok
+test zotero::framework::js::tests::to_string_and_truthiness ... ok
+test zotero::framework::js::tests::trim_uses_ecmascript_whitespace ... ok
+test zotero::framework::openurl::tests::encode_uri_component_like_javascript ... ok
+test zotero::framework::openurl::tests::parse_context_object_pages_creators_and_plus ... ok
+test zotero::framework::options::tests::semver_compare_orders_numerically ... ok
+test zotero::framework::rdf::dom::tests::attribute_namespaces ... ok
+test zotero::framework::rdf::dom::tests::text_cdata_and_comments_are_separate_children ... ok
+test zotero::framework::rdf::parser::tests::typed_nodes_nested_resources_and_lists ... ok
+test zotero::framework::rdf::sandbox::tests::containers_number_their_members ... ok
+test zotero::framework::rdf::sandbox::tests::targets_and_resource_uris ... ok
+test zotero::framework::rdf::serializer::tests::int_strings ... ok
+test zotero::framework::rdf::store::tests::matching_picks_the_shortest_list ... ok
+test zotero::framework::rdf::store::tests::same_as_smushes_to_the_smaller_uri_and_keeps_the_statement ... ok
+test zotero::framework::rdf::term::tests::compare_orders_class_then_value ... ok
+test zotero::framework::rdf::term::tests::nt_forms ... ok
+test zotero::framework::rdf::uri::tests::join_cases ... ok
+test zotero::framework::title_case::tests::title_case ... ok
+test zotero::framework::utilities::tests::clean_author_matches_upstream_examples ... ok
+test zotero::framework::utilities::tests::clean_doi_cases ... ok
+test zotero::framework::utilities::tests::text2html_and_diacritics ... ok
+test zotero::framework::xml::tests::malformed_is_an_error ... ok
+test zotero::framework::xml::tests::query_selector_matches_local_names_case_sensitively ... ok
+test zotero::framework::xml::tests::text_content_attributes_and_namespaces ... ok
+test zotero::framework::xml_parse::tests::eol_attribute_and_entity_normalisation ... ok
+test zotero::framework::xml_parse::tests::errors_like_saxes ... ok
+test zotero::framework::xml_serialize::tests::matches_w3c_xmlserializer ... ok
+test zotero::framework::xpath::tests::js_numbers ... ok
+test zotero::framework::xpath::tests::matches_wgxpath_on_namespaces ... ok
+test zotero::framework::xpath::tests::predicates_unions_and_functions ... ok
+test zotero::local_library::format_tests::a_hot_journal_is_detected ... ok
+test zotero::local_library::format_tests::concurrent_snapshots_are_independent ... ok
+test zotero::local_library::format_tests::deep_btrees_and_freelist_match_sqlite ... ok
+test zotero::local_library::format_tests::every_serial_type_matches_sqlite ... ok
+test zotero::local_library::format_tests::overflow_pages_match_sqlite ... ok
+test zotero::local_library::format_tests::page_sizes_and_auto_vacuum_match_sqlite ... ok
+test zotero::local_library::format_tests::utf16_database_is_refused_not_misread ... ok
+test zotero::local_library::format_tests::utf8_text_matches_sqlite ... ok
+test zotero::local_library::format_tests::wal_replay_and_damaged_wals_match_sqlite ... ok
+test zotero::local_library::items::tests::attachment_filenames ... ok
+test zotero::local_library::items::tests::filename_path_detection ... ok
+test zotero::local_library::items::tests::html_special_chars_zotero_entities ... ok
+test zotero::local_library::items::tests::notes_are_unwrapped_and_plain_text_converted ... ok
+test zotero::search::context::tests::isbn_cleanup_like_upstream ... ok
+test zotero::search::context::tests::short_titles_like_upstream ... ok
+test zotero::search::context::tests::web_item_done_requires_title ... ok
+test zotero::search::extract::tests::pmid_counts_only_alone ... ok
+test zotero::search::extract::tests::upstream_tests ... ok
+test zotero::search::http::tests::default_headers_like_zotero ... ok
+test zotero::search::http::tests::encode_uri_component_like_js ... ok
+test zotero::search::http::tests::hrefs_like_whatwg ... ok
+test zotero::search::http::tests::status_and_charset ... ok
+test zotero::search::tests::order_is_priority_then_file_name ... ok
+test zotero::search::translators::ads_bibcode::tests::bibcodes_and_types_like_upstream ... ok
+test zotero::search::translators::camara_isbn::tests::detects_brazilian_isbns_only ... ok
+test zotero::search::translators::camara_isbn::tests::without_a_configured_key_it_fails_without_a_request ... ok
+test zotero::search::translators::crossref_rest::tests::markup_and_entities ... ok
+test zotero::search::translators::eidr::tests::checks_and_lengths_like_upstream ... ok
+test zotero::search::translators::eric::tests::source_id_like_upstream ... ok
+test zotero::search::translators::nlp_isbn::tests::detects_polish_isbns_like_upstream ... ok
+test zotero::search::translators::open_worldcat::tests::hyphenates_like_upstream ... ok
+test zotero::search::translators::open_worldcat::tests::split_modes ... ok
+test zotero::translators::biblatex::tests::markup_and_caps ... ok
+test zotero::translators::bibtex::common::tests::extra_round_trip_and_title_word ... ok
+test zotero::translators::bibtex::export::tests::braces_balanced_lose_vphantom ... ok
+test zotero::translators::bibtex::export::tests::caps_protection ... ok
+test zotero::translators::bibtex::text::tests::split_unprotected_respects_braces ... ok
+test zotero::translators::bibtex::text::tests::unescape_accents_and_braces ... ok
+test zotero::translators::bookmarks::tests::matchers ... ok
+test zotero::translators::citavi5_xml::tests::container_authors_become_book_authors_in_both_items ... ok
+test zotero::translators::crossref_unixref_xml::tests::capitalize_name_like_upstream ... ok
+test zotero::translators::crossref_unixref_xml::tests::markup_and_mojibake ... ok
+test zotero::translators::endnote_xml::import::tests::note_paragraphs_and_paths ... ok
+test zotero::translators::mab2::tests::cleaning_like_upstream ... ok
+test zotero::translators::marc::record::tests::add_and_read_fields ... ok
+test zotero::translators::marc::record::tests::js_string_helpers ... ok
+test zotero::translators::medline_nbib::tests::page_ranges_expand ... ok
+test zotero::translators::mets::tests::atob_forgiving_base64 ... ok
+test zotero::translators::note_markdown::tests::converts_a_minimal_note ... ok
+test zotero::translators::note_markdown::turndown::tests::escapes_and_joins_like_turndown ... ok
+test zotero::translators::primo_normalized_xml::tests::strip_author_and_num_pages ... ok
+test zotero::translators::pubmed_xml::tests::page_ranges_expand ... ok
+test zotero::translators::rdf_creator_types::tests::video_recordings_list_creator_first ... ok
+test zotero::translators::rdf_support::tests::encode_uri_keeps_reserved ... ok
+test zotero::translators::rdf_support::tests::key_order ... ok
+test zotero::translators::rdf_support::tests::unique_fields_order_follows_the_conversion ... ok
+test zotero::translators::refworks_tagged::import::tests::rw_dates ... ok
+test zotero::translators::refworks_tagged::tests::rt_line_like_upstream ... ok
+test zotero::translators::tei::tests::formatting_and_ids ... ok
+test citeproc::util_transform::render_case_tests::render_cases_match_citeproc_js ... ok
+
+test result: ok. 311 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 59.77s
+
+     Running tests/citeproc_intermediate.rs (target/release/deps/citeproc_intermediate-c55b0e41f1dd349d)
+
+running 2 tests
+test the_committed_references_cover_the_same_cases ... ok
+test the_intermediate_dump_matches_citeproc_js_except_the_recorded_differences ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 13.15s
+
+     Running tests/citeproc_test_suite.rs (target/release/deps/citeproc_test_suite-c4cb702d43178a8b)
+
+running 9 tests
+test js_coercions_match_javascript ... ok
+test report_per_area ... ok
+test abbreviation_keys_are_normalised_as_the_runner_does ... ok
+test the_driver_reaches_the_engine_and_reports_errors_instead_of_panicking ... ok
+test the_parser_follows_the_runner_on_synthetic_text ... ok
+test the_parser_reads_real_fixtures ... ok
+test the_committed_reference_matches_the_vendored_fixtures ... ok
+test update_doc_keeps_the_document_the_way_the_runner_does ... ok
+test the_ported_fixtures_match_citeproc_js_except_the_recorded_differences ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 22.60s
+
+     Running tests/concept_proposals.rs (target/release/deps/concept_proposals-5710c15900ec3827)
+
+running 5 tests
+test concepts_are_unique_and_hang_under_existing_nodes ... ok
+test implementations_name_existing_concepts_crates_and_modules ... ok
+test origins_and_sources_are_declared ... ok
+test review_document_is_current ... ok
+test the_standard_tree_is_the_skeleton_plus_approved_and_deferred_concepts ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/concept_sciences.rs (target/release/deps/concept_sciences-49a34664ff4c5fbe)
+
+running 8 tests
+test cross_links_resolve_within_sciences ... ok
+test approved_sciences_ids_never_disappear ... ok
+test method_leaves_sit_under_problems_and_name_theorems_and_aims ... ok
+test paths_are_permanent_shaped_unique_and_parented ... ok
+test review_document_is_current ... ok
+test sources_name_declared_documents_and_every_document_is_cited ... ok
+test the_tree_reader_accepts_a_sciences_field ... ok
+test references_and_sciences_fields_resolve ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/concept_skeleton.rs (target/release/deps/concept_skeleton-f451449a5cbc4542)
+
+running 4 tests
+test every_source_links_to_a_declared_document_and_every_document_is_used ... ok
+test paths_are_unique_parents_exist_and_level_two_is_unnumbered ... ok
+test standard_tier_files_exist_in_the_corpus_checkout ... ok
+test level_one_is_the_nineteen_iaea_issues_in_order ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/csl_vs_citeproc_js.rs (target/release/deps/csl_vs_citeproc_js-d04260b134886a7b)
+
+running 5 tests
+test normalisation_is_the_same_for_both_engines_markup ... ok
+test apa_matches_citeproc_js_except_the_recorded_differences ... ok
+test the_five_style_references_cover_every_item ... ok
+test the_reference_was_made_from_the_csl_json_this_crate_produces ... ok
+test other_styles_match_citeproc_js_except_the_recorded_differences ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 8.49s
+
+     Running tests/zotero_local_library.rs (target/release/deps/zotero_local_library-1cfc706a2a423d6e)
+
+running 11 tests
+test a_full_library_reads_back_exactly ... ok
+test a_corrupt_live_database_falls_back_to_the_backup ... ok
+test a_hot_journal_falls_back_to_the_backup ... ok
+test every_upstream_item_json_reads_back_exactly ... ok
+test ids_are_resolved_by_name_not_assumed ... ok
+test import_into_kovan_documents_reports_what_is_lost ... ok
+test many_items_and_a_long_note_only_in_the_wal ... ok
+test opt_in_real_data_folder_summary ... ok
+test reading_from_bytes_equals_reading_the_folder ... ok
+test unsupported_versions_are_refused ... ok
+test a_locked_live_database_is_read_through_a_private_copy ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.03s
+
+     Running tests/zotero_search.rs (target/release/deps/zotero_search-a2dc95494cbb1737)
+
+running 29 tests
+test arxiv_old ... ok
+test arxiv_new ... ok
+test bnf_isbn ... ok
+test crossref_rest_article ... ok
+test crossref_rest_book ... ok
+test crossref_rest_preprint ... ok
+test doi_crossref ... ok
+test doi_datacite ... ok
+test doi_other_ra ... ok
+test eidr ... ok
+test eric_journal ... ok
+test eric_report ... ok
+test every_reference_case_is_tested ... ok
+test extract_identifiers_matches_upstream ... ok
+test isbn_loc ... ok
+test k10plus_isbn ... ok
+test libris_isbn ... ok
+test nlp_isbn ... ok
+test openalex ... ok
+test pmid ... ok
+test synthetic_ads_bibcode ... ok
+test synthetic_camara_isbn ... ok
+test synthetic_libris_isbn ... ok
+test synthetic_lulu ... ok
+test synthetic_medra ... ok
+test synthetic_open_worldcat ... ok
+test synthetic_who_isbn ... ok
+test who_isbn ... ok
+test arxiv_with_doi ... ok
+
+test result: ok. 29 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/zotero_search_failures.rs (target/release/deps/zotero_search_failures-b043267fd03c9da5)
+
+running 14 tests
+test connect_failure ... ok
+test garbage_body_to_doi_is_not_found_as_upstream ... ok
+test garbage_body_to_json_request ... ok
+test missing_content_type ... ok
+test no_identifier ... ok
+test not_found_404 ... ok
+test offline ... ok
+test rate_limited_429 ... ok
+test server_error_500 ... ok
+test step_returns_the_request_instead_of_fetching ... ok
+test timeout ... ok
+test truncated_body ... ok
+test unsupported_target ... ok
+test arbitrary_responses_never_panic ... ok
+
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/zotero_translators.rs (target/release/deps/zotero_translators-d2bb62dba5a8041c)
+
+running 41 tests
+test bibtex_chain_stable_where_upstream_is ... ok
+test bibtex_export_matches_upstream ... ok
+test bibtex_import_matches_upstream ... ok
+test biblatex_export_matches_upstream ... ok
+test bookmarks_chain_stable_where_upstream_is ... ok
+test bookmarks_export_matches_upstream ... ok
+test bookmarks_import_matches_upstream ... ok
+test bookmarks_roundtrip_matches_upstream ... ok
+test cff_export_matches_upstream ... ok
+test bibtex_roundtrip_matches_upstream ... ok
+test cff_references_export_matches_upstream ... ok
+test csl_json_chain_stable_where_upstream_is ... ok
+test coins_export_matches_upstream ... ok
+test csl_json_import_matches_upstream ... ok
+test csl_json_export_matches_upstream ... ok
+test csl_json_roundtrip_matches_upstream ... ok
+test datacite_json_import_matches_upstream ... ok
+test csv_export_matches_upstream ... ok
+test evernote_export_matches_upstream ... ok
+test mab2_import_matches_upstream ... ok
+test medline_nbib_import_matches_upstream ... ok
+test openalex_json_import_matches_upstream ... ok
+test ovid_tagged_import_matches_upstream ... ok
+test refer_chain_stable_where_upstream_is ... ok
+test refer_export_matches_upstream ... ok
+test refer_import_matches_upstream ... ok
+test detection_749_matches_upstream ... ok
+test refworks_tagged_chain_stable_where_upstream_is ... ok
+test refer_roundtrip_matches_upstream ... ok
+test refworks_tagged_import_matches_upstream ... ok
+test refworks_tagged_export_matches_upstream ... ok
+test refworks_tagged_roundtrip_matches_upstream ... ok
+test ris_chain_stable_where_upstream_is ... ok
+test ris_import_matches_upstream ... ok
+test ris_export_matches_upstream ... ok
+test utilities_749_match_upstream ... ok
+test utilities_match_upstream ... ok
+test ris_roundtrip_matches_upstream ... ok
+test wikipedia_citation_templates_export_matches_upstream ... ok
+test wos_tagged_import_matches_upstream ... ok
+test wikidata_quickstatements_export_matches_upstream ... ok
+
+test result: ok. 41 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.39s
+
+     Running tests/zotero_translators_rdf.rs (target/release/deps/zotero_translators_rdf-0e8eb1d6cbadecd0)
+
+running 9 tests
+test bibliontology_import_matches_upstream ... ok
+test dc_rdf_export_matches_upstream ... ok
+test forced_imports_match_upstream ... ok
+test library_round_trip_matches_upstream ... ok
+test library_round_trip_port_chain_equals_upstream_chain ... ok
+test rdf_import_matches_upstream ... ok
+test bibliontology_export_matches_upstream ... ok
+test zotero_rdf_export_matches_upstream ... ok
+test rdf_roundtrips_match_upstream ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.51s
+
+     Running tests/zotero_xml_translators.rs (target/release/deps/zotero_xml_translators-8a5a85403d163c62)
+
+running 23 tests
+test citavi5_xml_import_matches_upstream ... ok
+test crossref_unixref_xml_import_matches_upstream ... ok
+test dspace_intermediate_metadata_import_matches_upstream ... ok
+test endnote_xml_chain_matches_upstream ... ok
+test endnote_xml_import_matches_upstream ... ok
+test endnote_xml_export_matches_upstream ... ok
+test marc_import_matches_upstream ... ok
+test marcxml_import_matches_upstream ... ok
+test mets_import_matches_upstream ... ok
+test endnote_xml_roundtrip_matches_upstream ... ok
+test mods_chain_matches_upstream ... ok
+test mods_import_matches_upstream ... ok
+test mods_export_matches_upstream ... ok
+test note_html_export_matches_upstream ... ok
+test note_html_probes_match_upstream ... ok
+test note_markdown_export_matches_upstream ... ok
+test note_markdown_probes_match_upstream ... ok
+test primo_normalized_xml_import_matches_upstream ... ok
+test pubmed_xml_import_matches_upstream ... ok
+test tei_export_matches_upstream ... ok
+test xml_contextobject_import_matches_upstream ... ok
+test mods_roundtrip_matches_upstream ... ok
+test xml_detection_matches_upstream ... ok
+
+test result: ok. 23 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.25s
+

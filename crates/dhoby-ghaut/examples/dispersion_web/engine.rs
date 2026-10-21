@@ -27,6 +27,7 @@
 //! because `changi`'s marching loop is crate-private. It is illustration:
 //! the verified numbers are the lessons'.
 
+use petir::mathf::RealMath;
 use buangkok::pydoseia::dispersion::{
     dilution_single_plume_no_met, height_correction_factor, sigma_y, sigma_z, MeanSpeedScaling,
     PlumeGeometry, Receptor, StabilityClass as PlumeClass,
@@ -212,7 +213,7 @@ pub fn plume_rise_m(class: u8, w0: f64, u_stack: f64, x: f64) -> f64 {
 /// bearing `dir_deg`.
 pub fn to_plume_frame(east: f64, north: f64, dir_deg: f64) -> (f64, f64) {
     let t = dir_deg.to_radians();
-    let (dx, dy) = (t.sin(), t.cos());
+    let (dx, dy) = (t.r_sin(), t.r_cos());
     (east * dx + north * dy, -east * dy + north * dx)
 }
 
@@ -267,9 +268,9 @@ pub struct Engine {
 }
 
 fn log_space(a: f64, b: f64, n: usize) -> Vec<f64> {
-    let (la, lb) = (a.ln(), b.ln());
+    let (la, lb) = (a.r_ln(), b.r_ln());
     (0..n)
-        .map(|i| (la + (lb - la) * i as f64 / (n - 1) as f64).exp())
+        .map(|i| (la + (lb - la) * i as f64 / (n - 1) as f64).r_exp())
         .collect()
 }
 
@@ -529,7 +530,7 @@ impl Engine {
             self.time_s = 0.0;
         }
         let t = q.dir_deg.to_radians();
-        let (u, v) = (q.wind * t.sin(), q.wind * t.cos());
+        let (u, v) = (q.wind * t.r_sin(), q.wind * t.r_cos());
         for _ in 0..q.steps.min(60) {
             // Advect what is aloft, on the wind that blows now (Lagrangian),
             // or recompute from age on the wind of birth (upstream's rule).
@@ -538,7 +539,7 @@ impl Engine {
                 if q.frozen {
                     p.x = p.u_emit * p.age;
                     p.y = p.v_emit * p.age;
-                    p.path = p.x.hypot(p.y);
+                    p.path = p.x.r_hypot(p.y);
                 } else {
                     p.x += u * PUFF_DT_S;
                     p.y += v * PUFF_DT_S;

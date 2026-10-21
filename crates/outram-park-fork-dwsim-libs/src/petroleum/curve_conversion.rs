@@ -65,6 +65,7 @@
 //! upstream code raises `IndexOutOfRangeException` for perfectly ordinary
 //! inputs (adjacent D1160 points less than 10 K apart).
 
+use petir::mathf::RealMath;
 use uom::si::f64::{Pressure, Ratio, ThermodynamicTemperature};
 use uom::si::pressure::pascal;
 use uom::si::ratio::ratio;
@@ -112,7 +113,7 @@ pub fn d86_to_tbp_riazi(
         });
     }
     Ok((0..7)
-        .map(|i| ThermodynamicTemperature::new::<kelvin>(A[i] * d86[i].get::<kelvin>().powf(B[i])))
+        .map(|i| ThermodynamicTemperature::new::<kelvin>(A[i] * d86[i].get::<kelvin>().r_powf(B[i])))
         .collect())
 }
 
@@ -162,7 +163,7 @@ pub fn d2887_to_tbp_daubert(
 
     let mut dt = [0.0_f64; 7];
     for i in 0..7 {
-        dt[i] = A[i] * (t[i + 1] - t[i]).powf(B[i]);
+        dt[i] = A[i] * (t[i + 1] - t[i]).r_powf(B[i]);
     }
 
     // Accumulate outward from T50 (`:97-104`).
@@ -232,7 +233,7 @@ pub fn subatmospheric_tbp_to_atmospheric_maxwell_bonnell(
     loop {
         let tb_previous = tb;
 
-        let x = (-5.994296 + 0.972546 * p.log10()) / (95.76 * p.log10() - 2663.129);
+        let x = (-5.994296 + 0.972546 * p.r_log10()) / (95.76 * p.r_log10() - 2663.129);
         tb = -748.1 * x / (0.0002867 - 0.2145 * x - 1.0 / t);
 
         let f = if (tb - 459.7) < 200.0 {
@@ -243,7 +244,7 @@ pub fn subatmospheric_tbp_to_atmospheric_maxwell_bonnell(
             (tb - 659.7) / 200.0
         };
 
-        tb -= 2.5 * f * (kw - 12.0) * (p / 760.0).log10();
+        tb -= 2.5 * f * (kw - 12.0) * (p / 760.0).r_log10();
 
         iterations += 1;
         if (tb - tb_previous).abs() < 0.001 || iterations > 1000 {
@@ -391,11 +392,11 @@ impl TbpCurveFit {
         let c = &self.coefficients;
         ThermodynamicTemperature::new::<kelvin>(
             c[0] + c[1] * x
-                + c[2] * x.powi(2)
-                + c[3] * x.powi(3)
-                + c[4] * x.powi(4)
-                + c[5] * x.powi(5)
-                + c[6] * x.powi(6),
+                + c[2] * x.r_powi(2)
+                + c[3] * x.r_powi(3)
+                + c[4] * x.r_powi(4)
+                + c[5] * x.r_powi(5)
+                + c[6] * x.r_powi(6),
         )
     }
 
@@ -422,17 +423,17 @@ impl TbpCurveFit {
             let f = -target
                 + (c[0]
                     + c[1] * fv
-                    + c[2] * fv.powi(2)
-                    + c[3] * fv.powi(3)
-                    + c[4] * fv.powi(4)
-                    + c[5] * fv.powi(5)
-                    + c[6] * fv.powi(6));
+                    + c[2] * fv.r_powi(2)
+                    + c[3] * fv.r_powi(3)
+                    + c[4] * fv.r_powi(4)
+                    + c[5] * fv.r_powi(5)
+                    + c[6] * fv.r_powi(6));
             let df = c[1]
                 + 2.0 * c[2] * fv
-                + 3.0 * c[3] * fv.powi(2)
-                + 4.0 * c[4] * fv.powi(3)
-                + 5.0 * c[5] * fv.powi(4)
-                + 6.0 * c[6] * fv.powi(5);
+                + 3.0 * c[3] * fv.r_powi(2)
+                + 4.0 * c[4] * fv.r_powi(3)
+                + 5.0 * c[5] * fv.r_powi(4)
+                + 6.0 * c[6] * fv.r_powi(5);
             fv += -f / df * 0.3;
             if fv < 0.0 {
                 fv = fv.abs();

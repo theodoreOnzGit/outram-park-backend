@@ -318,6 +318,7 @@
 //! **+3818 pcm** to CLS. The full account, with the regime sweep and the
 //! reproducibility check, is `docs/cls-scls-vv.md`.
 
+use petir::mathf::RealMath;
 use std::time::Instant;
 
 use outram_mc_libs::prelude::*;
@@ -621,7 +622,7 @@ fn main() {
             let n = draws.len() as f64;
             let mean = draws.iter().sum::<f64>() / n;
             let sd = if n > 1.0 {
-                (draws.iter().map(|k| (k - mean).powi(2)).sum::<f64>() / (n - 1.0)).sqrt()
+                (draws.iter().map(|k| (k - mean).r_powi(2)).sum::<f64>() / (n - 1.0)).sqrt()
             } else {
                 0.0
             };

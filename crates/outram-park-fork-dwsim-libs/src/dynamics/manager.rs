@@ -57,6 +57,7 @@
 //!   seeded generator makes a random ramp repeatable, which a verification test
 //!   needs.
 
+use petir::mathf::RealMath;
 use std::collections::BTreeMap;
 
 use uom::si::f64::Time;
@@ -732,9 +733,9 @@ pub fn log_linear_interpolate(x: [f64; 2], y: [f64; 2], xt: f64) -> f64 {
     if dx == 0.0 {
         return y[0];
     }
-    let ly0 = y[0].ln();
-    let ly1 = y[1].ln();
-    (ly0 + (ly1 - ly0) * (xt - x[0]) / dx).exp()
+    let ly0 = y[0].r_ln();
+    let ly1 = y[1].r_ln();
+    (ly0 + (ly1 - ly0) * (xt - x[0]) / dx).r_exp()
 }
 
 fn sorted_by_x(x: [f64; 2], y: [f64; 2]) -> ([f64; 2], [f64; 2]) {

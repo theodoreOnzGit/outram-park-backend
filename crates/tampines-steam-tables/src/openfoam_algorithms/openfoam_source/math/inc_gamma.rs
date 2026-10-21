@@ -77,7 +77,7 @@ fn calc_pe15(a: f64, x: f64, nmax: i32) -> f64 {
     let mut sum = 0.0_f64;
     for n in 1..=nmax {
         prod *= a + n as f64;
-        sum += x.powi(n) / prod;
+        sum += x.r_powi(n) / prod;
     }
     let r = (-x).r_exp() * x.r_powf(a) / c_gamma(a);
     r / a * (1.0 + sum)
@@ -89,7 +89,7 @@ fn calc_qe16(a: f64, x: f64, n_terms: i32) -> f64 {
     let mut sum = 0.0_f64;
     for n in 1..=(n_terms - 1) {
         an *= a - n as f64;
-        sum += an / x.powi(n);
+        sum += an / x.r_powi(n);
     }
     let r = (-x).r_exp() * x.r_powf(a) / c_gamma(a);
     r / x * (1.0 + sum)
@@ -168,7 +168,7 @@ pub fn inc_gamma_ratio_q(a: f64, x: f64) -> f64 {
 
             let mut sum = 0.0;
             for n in 1i32..=10 {
-                sum += (-x).powi(n) / ((a + n as f64) * factorial(n));
+                sum += (-x).r_powi(n) / ((a + n as f64) * factorial(n));
             }
             let j = -a * sum;
 
@@ -239,7 +239,7 @@ pub fn inc_gamma_ratio_q(a: f64, x: f64) -> f64 {
                     // a is a positive integer: (DM:Eq. 14) exponential sum
                     let mut sum = 0.0;
                     for n in 0..=(a as i64 - 1) {
-                        sum += x.powi(n as i32) / factorial(n as i32);
+                        sum += x.r_powi(n as i32) / factorial(n as i32);
                     }
                     return (-x).r_exp() * sum;
                 } else {
@@ -249,7 +249,7 @@ pub fn inc_gamma_ratio_q(a: f64, x: f64) -> f64 {
                     let mut sum = 0.0_f64;
                     for n in 1..=i {
                         prod *= n as f64 - 0.5;
-                        sum += x.powi(n) / prod;
+                        sum += x.r_powi(n) / prod;
                     }
                     return c_erfc(x.sqrt()) + (-x).r_exp() / (PI * x).sqrt() * sum;
                 }

@@ -86,9 +86,10 @@
 //!     Expression::float(1000.0),
 //! );
 //! let p = e.value().unwrap();
-//! assert!((p - (1.0 - (-1e-3f64).exp())).abs() < 1e-15);
+//! assert!((p - (1.0 - (-1e-3f64).r_exp())).abs() < 1e-15);
 //! ```
 
+use petir::mathf::RealMath;
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -317,7 +318,7 @@ pub enum Expression {
 
 /// `1 - exp(-lambda * t)` — upstream's `p_exp(lambda, time)`.
 fn p_exp(lambda: f64, time: f64) -> f64 {
-    1.0 - (-lambda * time).exp()
+    1.0 - (-lambda * time).r_exp()
 }
 
 /// Upstream's four-argument `p_exp`, the two-state (fail/repair) form.
@@ -460,7 +461,7 @@ impl Expression {
             } => {
                 let (gamma, lambda, mu, time) = (ev(gamma)?, ev(lambda)?, ev(mu)?, ev(time)?);
                 let r = lambda + mu;
-                (lambda - (lambda - gamma * r) * (-r * time).exp()) / r
+                (lambda - (lambda - gamma * r) * (-r * time).r_exp()) / r
             }
 
             // Upstream:
@@ -475,7 +476,7 @@ impl Expression {
                 if time <= t0 {
                     0.0
                 } else {
-                    1.0 - (-((time - t0) / alpha).powf(beta)).exp()
+                    1.0 - (-((time - t0) / alpha).r_powf(beta)).r_exp()
                 }
             }
 
@@ -528,10 +529,10 @@ impl Expression {
                 let v = all(xs)?;
                 v.iter().sum::<f64>() / v.len() as f64
             }
-            Expression::Exp(x) => ev(x)?.exp(),
-            Expression::Log(x) => ev(x)?.ln(),
-            Expression::Log10(x) => ev(x)?.log10(),
-            Expression::Pow(a, b) => ev(a)?.powf(ev(b)?),
+            Expression::Exp(x) => ev(x)?.r_exp(),
+            Expression::Log(x) => ev(x)?.r_ln(),
+            Expression::Log10(x) => ev(x)?.r_log10(),
+            Expression::Pow(a, b) => ev(a)?.r_powf(ev(b)?),
             Expression::Sqrt(x) => ev(x)?.sqrt(),
             Expression::Mod(a, b) => {
                 let (a, b) = (ev(a)?, ev(b)?);
@@ -577,7 +578,7 @@ impl Expression {
             // Upstream `Normal::mean()`: exp(location + scale^2 / 2).
             Expression::LognormalDeviateNormal { mu, sigma } => {
                 let (mu, sigma) = (ev(mu)?, ev(sigma)?);
-                (mu + sigma.powi(2) / 2.0).exp()
+                (mu + sigma.r_powi(2) / 2.0).r_exp()
             }
             Expression::GammaDeviate { k, theta } => ev(k)? * ev(theta)?,
             Expression::BetaDeviate { alpha, beta } => {
@@ -877,7 +878,7 @@ fn periodic_test_instant_test(lambda: f64, mu: f64, tau: f64, theta: f64, time: 
     let delta = time - theta;
     let num_periods = (delta / tau) as i64;
     let fraction = carry(p_exp(lambda, tau), p_exp(mu, tau), tau);
-    let compound = fraction.powi(num_periods as i32);
+    let compound = fraction.r_powi(num_periods as i32);
     prob = prob * compound + p_exp(lambda, tau) * (compound - 1.0) / (fraction - 1.0);
     let time_after_test = delta - num_periods as f64 * tau;
     let (p_lambda, p_mu) = (p_exp(lambda, time_after_test), p_exp(mu, time_after_test));
@@ -1009,8 +1010,8 @@ impl std::fmt::Display for Interval {
 /// MEF models use, which `scram_deviates` asserts rather than assumes.
 fn lognormal_logarithmic(mean: f64, ef: f64, level: f64) -> (f64, f64) {
     let z = crate::distributions::special::norm_ppf_std(level);
-    let scale = ef.ln() / z;
-    (scale, mean.ln() - scale.powi(2) / 2.0)
+    let scale = ef.r_ln() / z;
+    (scale, mean.r_ln() - scale.r_powi(2) / 2.0)
 }
 
 /// Upstream `Histogram::value()`: the weighted mean of the bin midpoints.
@@ -1287,15 +1288,15 @@ impl Expression {
             }
             Expression::Neg(x) => unary(x, |v| -v)?,
             Expression::Abs(x) => unary(x, f64::abs)?,
-            Expression::Exp(x) => unary(x, f64::exp)?,
-            Expression::Log(x) => unary(x, f64::ln)?,
-            Expression::Log10(x) => unary(x, f64::log10)?,
+            Expression::Exp(x) => unary(x, <f64 as petir::mathf::RealMath>::r_exp)?,
+            Expression::Log(x) => unary(x, <f64 as petir::mathf::RealMath>::r_ln)?,
+            Expression::Log10(x) => unary(x, <f64 as petir::mathf::RealMath>::r_log10)?,
             Expression::Sqrt(x) => unary(x, f64::sqrt)?,
             Expression::Trunc(x) => unary(x, f64::trunc)?,
             Expression::Round(x) => unary(x, f64::round)?,
             Expression::Floor(x) => unary(x, f64::floor)?,
             Expression::Ceil(x) => unary(x, f64::ceil)?,
-            Expression::Pow(a, b) => binary(a, b, f64::powf)?,
+            Expression::Pow(a, b) => binary(a, b, <f64 as petir::mathf::RealMath>::r_powf)?,
             // `std::modulus<int>` upstream. A zero divisor is undefined there
             // and would panic here, so the corner is reported as zero; the
             // value path rejects it outright.
@@ -1328,10 +1329,10 @@ impl Expression {
             // location)`, the 99.9th percentile estimate, over `(0, high]`.
             Expression::LognormalDeviate { mean, ef, level } => {
                 let (scale, location) = lognormal_logarithmic(ev(mean)?, ev(ef)?, ev(level)?);
-                Interval::left_open(0.0, (3.0 * scale + location).exp())
+                Interval::left_open(0.0, (3.0 * scale + location).r_exp())
             }
             Expression::LognormalDeviateNormal { mu, sigma } => {
-                Interval::left_open(0.0, (3.0 * ev(sigma)? + ev(mu)?).exp())
+                Interval::left_open(0.0, (3.0 * ev(sigma)? + ev(mu)?).r_exp())
             }
             // Upstream `GammaDeviate::interval`, ported as written:
             //
@@ -1347,14 +1348,14 @@ impl Expression {
             Expression::GammaDeviate { k, theta } => {
                 use crate::distributions::special::gamma_q;
                 let (k, theta) = (ev(k)?, ev(theta)?);
-                let high = theta * gamma_q(k, gamma_q(k, 0.0) - 0.99).powi(-1);
+                let high = theta * gamma_q(k, gamma_q(k, 0.0) - 0.99).r_powi(-1);
                 Interval::left_open(0.0, high)
             }
             // Upstream `BetaDeviate::interval`: `pow(ibeta(alpha, beta, 0.99),
             // -1)`. See the note on GammaDeviate above.
             Expression::BetaDeviate { alpha, beta } => {
                 use crate::distributions::special::beta_inc_reg;
-                let high = beta_inc_reg(ev(alpha)?, ev(beta)?, 0.99).powi(-1);
+                let high = beta_inc_reg(ev(alpha)?, ev(beta)?, 0.99).r_powi(-1);
                 Interval::closed(0.0, high)
             }
             // Upstream `Histogram::interval`: first boundary to last.

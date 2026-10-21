@@ -30,6 +30,7 @@
 //! | [`booth_transient`] | `booth_transient` |
 //! | [`rf_graph`] | `RF_Graph` |
 
+use petir::mathf::RealMath;
 use std::f64::consts::PI;
 
 use uom::si::area::square_meter;
@@ -92,7 +93,7 @@ pub fn breakthrough_model_transient(
     let mut sum = 0.0;
     for k in 1..BREAKTHROUGH_SERIES_TERMS {
         let n = k as f64;
-        sum += (-1.0_f64).powi(k as i32) / (n * PI).powi(2) * (-(n * PI).powi(2) * int_dp).exp();
+        sum += (-1.0_f64).r_powi(k as i32) / (n * PI).r_powi(2) * (-(n * PI).r_powi(2) * int_dp).r_exp();
     }
     let rf = 3.0 * int_dt / a / r - a / 2.0 / r - 6.0 * a / r * sum;
     Ratio::new::<ratio>(rf.clamp(0.0, 1.0))
@@ -130,7 +131,7 @@ pub fn booth_transient(integrated_d_prime: Ratio) -> ReleaseFraction {
     let mut sum = 0.0;
     for i in 1..BOOTH_SERIES_TERMS {
         let n = i as f64;
-        sum += (-(n * PI).powi(2) * int_dp).exp() / (n * PI).powi(2);
+        sum += (-(n * PI).r_powi(2) * int_dp).r_exp() / (n * PI).r_powi(2);
     }
     let rf = 1.0 - 6.0 * sum;
     let rf = if rf < BOOTH_TRANSIENT_ZERO_FLOOR {
@@ -170,7 +171,7 @@ pub fn rf_graph(integrated_d: Area, graphite_thickness: Length) -> ReleaseFracti
     let mut i = 1usize;
     while i < RF_GRAPH_SERIES_TERMS {
         let n = i as f64;
-        sum += 8.0 / (n * PI).powi(2) * (1.0 - (-(n * PI).powi(2) * val / 4.0 / (a * a)).exp());
+        sum += 8.0 / (n * PI).r_powi(2) * (1.0 - (-(n * PI).r_powi(2) * val / 4.0 / (a * a)).r_exp());
         i += 2;
     }
     Ratio::new::<ratio>(sum)

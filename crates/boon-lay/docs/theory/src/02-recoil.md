@@ -62,8 +62,15 @@ Run 2026-10-16 on HTR-10 layers unrolled flat, one thread
 - A light fragment born 2 µm inside the kernel surface came to rest *outside*
   the kernel in 38 % of the 16 histories (n is small).
 
-`[citation needed: maintainer to supply published fission-fragment ranges in
-UO2 to compare these against.]`
+~~`[citation needed: published fission-fragment ranges in UO2]`~~ **Partly
+sourced 2026-10-21:** NUREG/CR-6844 (*TRISO-Coated Particle Fuel PIRTs*, U.S.
+NRC, 2004, buffer-layer subsection, p. 2-13) says dense materials such as UO2
+limit the range of the recoils to "roughly 10 microns", and that the range is
+longer in low-density materials such as carbon. The 7 to 11 µm above sits
+inside that round figure. That is **not** a validation: the report gives one
+rounded number, not a range table by fragment and energy, and the RustBCA
+result stays labelled illustrative. A measured range table to compare against
+is still open. Proprietary-folder source.
 
 ## Why the buffer exists
 
@@ -73,13 +80,17 @@ those cross into the **buffer**, a carbon layer about half voids
 ([rung 1](../../tutorials/triso-atops/triso.html)). The buffer therefore does
 two jobs the page-1 table lists: it absorbs the fragments that leave the
 kernel, so they do not damage the IPyC or SiC, and its voids give the released
-gas somewhere to go (the free volume of step 8, taken in PANAMA-I as half the
+gas somewhere to go (the free volume of step 6, taken in PANAMA-I as half the
 buffer shell).
 
 A lower density means a longer range, so the porous buffer must be thick
-enough to hold what leaves the kernel. `[citation needed: maintainer to supply
-the range of a fission fragment in porous carbon and the buffer-thickness
-design argument.]`
+enough to hold what leaves the kernel. ~~`[citation needed]`~~ **Partly
+sourced 2026-10-21:** NUREG/CR-6844 (p. 2-13) lists recoil attenuation as the
+first of the buffer's three functions: it captures the recoils that start at
+the kernel surface and shields the IPyC from recoil damage, because the range
+in low-density carbon is longer and the recoils can cause significant local
+damage. It gives no range in porous carbon and no buffer-thickness
+calculation, so those two are still open.
 
 ## Simplification: a recoil fraction from geometry
 

@@ -33,6 +33,7 @@
 //! | Na-23 MT=91 at 15 MeV | `max E' > 3.9 MeV` | second link, `U_2 = 0.47` MeV | the switch fires |
 //! | H-2 MT=16 phase space at 14 MeV | `max E' <= E'_max` | `(APSX-1)/APSX (AWR/(AWR+1) E + Q)` | hard bound |
 
+use petir::mathf::RealMath;
 use njoy_outram_park_fork::nuclear_data::secondary::FissionSpectrum;
 use outram_mc_libs::geometry::position::Direction;
 use outram_mc_libs::material::nuclide::Nuclide;
@@ -61,8 +62,8 @@ fn nuclide(name: &str, label: &str) -> Option<Nuclide> {
 /// needs, in closed form so the oracle is not another numerical integral.
 fn gamma_lower(n: u32, y: f64) -> f64 {
     match n {
-        1 => 1.0 - (1.0 + y) * (-y).exp(),
-        2 => 2.0 - (y * y + 2.0 * y + 2.0) * (-y).exp(),
+        1 => 1.0 - (1.0 + y) * (-y).r_exp(),
+        2 => 2.0 - (y * y + 2.0 * y + 2.0) * (-y).r_exp(),
         _ => unreachable!(),
     }
 }
@@ -189,8 +190,8 @@ fn h2_mt16_phase_space_from_ace_respects_its_kinematic_ceiling() {
     // speed, `E_lab,max = (sqrt(E'_max,cm) + sqrt(E/(A+1)^2))^2`. That is a
     // sharper bound than the incident energy and it is the one that fails if
     // the CM->lab transform is applied to the wrong quantity.
-    let e_cm_motion = e_in / (awr + 1.0).powi(2);
-    let lab_ceiling = (e_max_cm.sqrt() + e_cm_motion.sqrt()).powi(2);
+    let e_cm_motion = e_in / (awr + 1.0).r_powi(2);
+    let lab_ceiling = (e_max_cm.sqrt() + e_cm_motion.sqrt()).r_powi(2);
     assert!(
         max <= lab_ceiling * (1.0 + 1.0e-9),
         "lab E' = {max:.4e} exceeds the kinematic ceiling {lab_ceiling:.4e}"

@@ -43,6 +43,7 @@
 //! **not** rounded — upstream stores `scr(...)` unmodified, and rounding them
 //! would be a gratuitous difference.
 
+use petir::mathf::RealMath;
 use crate::endf::records::SectionCursor;
 use crate::endf::tape::Tape;
 use crate::NjoyError;
@@ -102,7 +103,7 @@ impl NuRepr {
                     .data
                     .iter()
                     .enumerate()
-                    .map(|(k, &c)| c * EMEV.powi(k as i32))
+                    .map(|(k, &c)| c * EMEV.r_powi(k as i32))
                     .collect();
                 Ok(Some(NuRepr::Polynomial(coeffs)))
             }

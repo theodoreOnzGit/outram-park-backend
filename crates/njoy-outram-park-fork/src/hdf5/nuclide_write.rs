@@ -545,15 +545,16 @@ pub fn write_nuclide<P: AsRef<Path>>(path: P, n: &NuclideData) -> Result<(), Njo
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
     use crate::hdf5::nuclide_laws::{AngleEnergy, EnergyDist, Function1D};
 
     fn grid() -> Vec<f64> {
         (0..64)
             .map(|i| {
-                let lo = 1.0e-5_f64.ln();
-                let hi = 2.0e7_f64.ln();
-                (lo + (hi - lo) * i as f64 / 63.0).exp()
+                let lo = 1.0e-5_f64.r_ln();
+                let hi = 2.0e7_f64.r_ln();
+                (lo + (hi - lo) * i as f64 / 63.0).r_exp()
             })
             .collect()
     }
@@ -686,7 +687,7 @@ mod tests {
                     angle: Some(AngleDistribution::isotropic(vec![e[thr_idx], hi])),
                     energy: Some(EnergyDist::Level {
                         threshold: level_threshold,
-                        mass_ratio: (awr / (awr + 1.0)).powi(2),
+                        mass_ratio: (awr / (awr + 1.0)).r_powi(2),
                     }),
                 },
                 e[thr_idx],

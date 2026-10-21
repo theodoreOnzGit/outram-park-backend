@@ -31,6 +31,7 @@
 //! reflector through the withdrawn rods, and the hot-gas duct, so that the
 //! control-rod, absorber-ball (KLAK), irradiation and coolant borings all show.
 
+use petir::mathf::RealMath;
 use outram_mc_libs::geometry::cell::SurfaceToken;
 use outram_mc_libs::geometry::plot::{
     AxisUnits, ColorBy, DomainColour, ModelPlot, ModelPlotError, Pixels, PlotBasis, PlotColour, Rgb,
@@ -157,7 +158,7 @@ impl Htr10Plotter {
     /// never reach the geometry; they must not be counted.
     fn inside_column(&self, c: [f64; 3]) -> bool {
         let bed = self.core.bed.as_ref().expect("checked in new");
-        let (r, z) = (c[0].hypot(c[1]), c[2]);
+        let (r, z) = (c[0].r_hypot(c[1]), c[2]);
         if z > bed.bed_top() {
             return false;
         }
@@ -232,7 +233,7 @@ impl Htr10Plotter {
             .filter(|(c, f)| *f == fuel && (c[1] - y0).abs() < 1.0e-9)
             .map(|(c, _)| c)
             .min_by(|a, b| {
-                let d = |c: &[f64; 3]| c[0].hypot(c[2] - z);
+                let d = |c: &[f64; 3]| c[0].r_hypot(c[2] - z);
                 d(a).total_cmp(&d(b))
             })
     }

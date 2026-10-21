@@ -130,6 +130,16 @@ impl Fixtures {
     }
 }
 
+/// The maintainer's acceptance criterion for the FLEXPART gates whose real(8)
+/// bound cannot be derived as one group-wide number (2026-10-20, gh:#985):
+/// "I accept rounding errors in last ulp less the 1e-10", clarified as a
+/// relative difference strictly **less than** `1e-10`. NOT a derived bound.
+///
+/// [`agrees`] tests `abs / |want| <= tol`. The largest `f64` below `1e-10`
+/// therefore makes the test `< 1e-10` exactly, because the ratio is itself an
+/// `f64`.
+pub const LESS_THAN_1E_10: f64 = f64::from_bits(1e-10_f64.to_bits() - 1);
+
 /// `true` when `got` matches `want` within a relative `tol` OR an absolute
 /// `floor`. A NaN agrees only with a NaN.
 pub fn agrees(got: f64, want: f64, tol: f64, floor: f64) -> bool {

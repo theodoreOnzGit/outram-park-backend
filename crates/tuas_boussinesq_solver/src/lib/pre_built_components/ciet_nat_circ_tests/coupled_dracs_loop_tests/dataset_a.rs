@@ -21,6 +21,13 @@
 
 /// test series took about 600s on AMD Ryzeon 5 5600 (12) @ 3.050 GHz
 ///
+///
+/// Re-measured 2026-10-20 (gh:#989, `peroxide`/`roots` -> PETIR), still
+/// passing: DRACS flow 0.03414121757927805 -> 0.03414122259728258 kg/s
+/// (+1.5e-7 rel.), primary flow 0.02767611317031267 -> 0.02767611426455287
+/// kg/s (+4.0e-8), heater mean surface 115.5736303006309 -> 115.57363734823446
+/// degC (+7.0e-6 K). Root-finder tolerance level; see
+/// `docs/peroxide-roots-to-petir-989.md`.
 #[test]
 #[cfg_attr(
     not(feature = "long-tests"),

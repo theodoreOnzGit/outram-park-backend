@@ -118,6 +118,7 @@
 //! time-dependent failure fraction threaded through the release chain is the
 //! obvious next step and is **not done here**.
 
+use petir::mathf::RealMath;
 use boon_lay::fuel_failure::history::{AccidentHistory, AccidentStep};
 use boon_lay::fuel_failure::htr10 as panama_htr10;
 use boon_lay::triso_atops_fork::accident::AccidentFractions;
@@ -256,7 +257,7 @@ impl DlofcShape {
             t0 + (t1 - t0) * (t_s / peak_s)
         } else {
             let tau = self.cooldown_time_constant.get::<second>();
-            t_late + (t1 - t_late) * (-(t_s - peak_s) / tau).exp()
+            t_late + (t1 - t_late) * (-(t_s - peak_s) / tau).r_exp()
         };
         ThermodynamicTemperature::new::<degree_celsius>(c)
     }

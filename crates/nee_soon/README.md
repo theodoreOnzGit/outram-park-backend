@@ -200,7 +200,7 @@ cargo test  --release -p nee_soon
 
 ## License
 
-GPL-3.0. Member of the OUTRAM PARK workspace (`crates/nee_soon`).
+~~GPL-3.0~~ **AGPL-3.0-only** (relicensed 2026-10-20, gh:#973). Member of the OUTRAM PARK workspace (`crates/nee_soon`).
 
 ## Copyright
 

@@ -1,0 +1,17 @@
+    Updating crates.io index
+   Packaging sembawang v0.0.1 (/home/teddy0/Documents/research/outram-park-backend/crates/sembawang)
+    Updating crates.io index
+    Packaged 53 files, 996.5KiB (293.8KiB compressed)
+   Verifying sembawang v0.0.1 (/home/teddy0/Documents/research/outram-park-backend/crates/sembawang)
+ Downloading crates ...
+  Downloaded buangkok v0.0.1
+   Compiling changi v0.0.2
+   Compiling boon-lay v0.2.1
+   Compiling buangkok v0.0.1
+   Compiling sembawang v0.0.1 (/home/teddy0/Documents/research/outram-park-backend/target/package/sembawang-0.0.1)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 5.70s
+   Uploading sembawang v0.0.1 (/home/teddy0/Documents/research/outram-park-backend/crates/sembawang)
+    Uploaded sembawang v0.0.1 to registry `crates-io`
+note: waiting for sembawang v0.0.1 to be available at registry `crates-io`
+help: you may press ctrl-c to skip waiting; the crate should be available shortly
+   Published sembawang v0.0.1 at registry `crates-io`

@@ -20,6 +20,7 @@
 //! this is HEATR's routine on HEATR's grid, with the partial kermas, the
 //! capture damage and MT=443's capture term.
 
+use petir::mathf::RealMath;
 use super::conbar::tabbar;
 use super::flat::{nint, tab1_flat, tab2_flat, terp1, terpa, QP4, QW4};
 use super::nheat::line14;
@@ -296,7 +297,7 @@ impl Heatr {
                                                 dame -= damn * x;
                                             }
                                             hk -=
-                                                x * self.rtm * (q + e * awr * aw1fac).powi(2) / 2.0;
+                                                x * self.rtm * (q + e * awr * aw1fac).r_powi(2) / 2.0;
                                             let cfix = (e + q - e * aw1fac) * x;
                                             hh -= cfix;
                                             c[npkk - 2] = cfix - x * c[npkk];

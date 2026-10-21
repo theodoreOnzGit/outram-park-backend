@@ -70,6 +70,12 @@
 //! [`super::concentration::gaussian_puff_concentration`] path, which is the
 //! one carrying the analytical verification.
 
+// The f32 CPU mirror's transcendentals go through PETIR (gh:#985), so the
+// mirror is bit-identical across hosts. The GPU side still uses the WGSL
+// shader intrinsics, which are driver-defined; the mirror/GPU agreement
+// test tolerance covers that difference.
+use petir::mathf::RealMath;
+
 // Used by `pool()` (native/Android) and `gpu_context()` (native/Android,
 // `gpu` feature) -- both absent on `wasm32-unknown-unknown`, so the import
 // is gated the same way rather than left to warn as unused there.
@@ -175,10 +181,10 @@ pub fn contribution(state: &PuffState, easting: f32, northing: f32, height_m: f3
 
     let dx = easting - state.x;
     let dy = northing - state.y;
-    let horizontal = (-0.5 * (dx * dx + dy * dy) / sy2).exp();
+    let horizontal = (-0.5 * (dx * dx + dy * dy) / sy2).r_exp();
 
     let vertical =
-        (-0.5 * height_m * height_m / sz2).exp() + (-0.5 * height_m * height_m / sz2).exp();
+        (-0.5 * height_m * height_m / sz2).r_exp() + (-0.5 * height_m * height_m / sz2).r_exp();
 
     let amplitude = state.weight / (TWO_PI_THREE_HALVES * sy2 * state.sigma_z);
     amplitude * horizontal * vertical
@@ -473,7 +479,7 @@ mod tests {
         let states: Vec<PuffState> = (0..40)
             .map(|i| PuffState {
                 x: i as f32 * 12.0,
-                y: (i as f32 * 7.0).sin() * 80.0,
+                y: (i as f32 * 7.0).r_sin() * 80.0,
                 sigma_y: 30.0 + i as f32 * 2.0,
                 sigma_z: 20.0 + i as f32,
                 weight: 1.0,
@@ -594,7 +600,7 @@ mod tests {
         let states: Vec<PuffState> = (0..40)
             .map(|i| PuffState {
                 x: i as f32 * 12.0,
-                y: (i as f32 * 7.0).sin() * 80.0,
+                y: (i as f32 * 7.0).r_sin() * 80.0,
                 sigma_y: 30.0 + i as f32 * 2.0,
                 sigma_z: 20.0 + i as f32,
                 weight: 1.0,
@@ -631,7 +637,7 @@ mod tests {
         let states: Vec<PuffState> = (0..40)
             .map(|i| PuffState {
                 x: i as f32 * 12.0,
-                y: (i as f32 * 7.0).sin() * 80.0,
+                y: (i as f32 * 7.0).r_sin() * 80.0,
                 sigma_y: 30.0 + i as f32 * 2.0,
                 sigma_z: 20.0 + i as f32,
                 weight: 1.0,

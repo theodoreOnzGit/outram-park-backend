@@ -11,6 +11,8 @@
 //! Does not belong here: image handling ([`super::raster`]), curve extraction
 //! ([`super::trace`]), output formats ([`super::dataset`]).
 
+use petir::mathf::RealMath;
+
 use serde::{Deserialize, Serialize};
 
 use super::DigitiserError;
@@ -117,9 +119,9 @@ impl AxisCalibration {
         match self.scale {
             AxisScale::Linear => self.r1.value + t * (self.r2.value - self.r1.value),
             AxisScale::Logarithmic => {
-                let l1 = self.r1.value.log10();
-                let l2 = self.r2.value.log10();
-                10f64.powf(l1 + t * (l2 - l1))
+                let l1 = self.r1.value.r_log10();
+                let l2 = self.r2.value.r_log10();
+                10f64.r_powf(l1 + t * (l2 - l1))
             }
         }
     }
@@ -139,9 +141,9 @@ impl AxisCalibration {
                 if value <= 0.0 {
                     return None;
                 }
-                let l1 = self.r1.value.log10();
-                let l2 = self.r2.value.log10();
-                (value.log10() - l1) / (l2 - l1)
+                let l1 = self.r1.value.r_log10();
+                let l2 = self.r2.value.r_log10();
+                (value.r_log10() - l1) / (l2 - l1)
             }
         };
         Some(self.r1.pixel + t * (self.r2.pixel - self.r1.pixel))
@@ -390,9 +392,9 @@ fn interpolate(scale: AxisScale, v0: f64, v1: f64, t: f64) -> f64 {
     match scale {
         AxisScale::Linear => v0 + t * (v1 - v0),
         AxisScale::Logarithmic => {
-            let l0 = v0.log10();
-            let l1 = v1.log10();
-            10f64.powf(l0 + t * (l1 - l0))
+            let l0 = v0.r_log10();
+            let l1 = v1.r_log10();
+            10f64.r_powf(l0 + t * (l1 - l0))
         }
     }
 }
@@ -409,9 +411,9 @@ fn interpolate_inverse(scale: AxisScale, v0: f64, v1: f64, value: f64) -> Option
             if value <= 0.0 {
                 return None;
             }
-            let l0 = v0.log10();
-            let l1 = v1.log10();
-            Some((value.log10() - l0) / (l1 - l0))
+            let l0 = v0.r_log10();
+            let l1 = v1.r_log10();
+            Some((value.r_log10() - l0) / (l1 - l0))
         }
     }
 }

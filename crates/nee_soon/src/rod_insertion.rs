@@ -45,6 +45,7 @@
 //! and published densities with nothing tuned, and to be reported with its
 //! disagreement rather than corrected into agreement.
 
+use petir::mathf::RealMath;
 use crate::htr10_rmc::control_rod::smeared_composition;
 use crate::mgxs::MgxsLibrary;
 
@@ -73,8 +74,8 @@ pub fn one_over_v_group_average(sigma_2200: f64, e_lo: f64, e_hi: f64) -> f64 {
         let e = if e_lo > 0.0 { e_lo } else { E_2200 };
         return sigma_2200 * (E_2200 / e).sqrt();
     }
-    let num = 2.0 * (e_lo.powf(-0.5) - e_hi.powf(-0.5));
-    let den = (e_hi / e_lo).ln();
+    let num = 2.0 * (e_lo.r_powf(-0.5) - e_hi.r_powf(-0.5));
+    let den = (e_hi / e_lo).r_ln();
     sigma_2200 * E_2200.sqrt() * num / den
 }
 

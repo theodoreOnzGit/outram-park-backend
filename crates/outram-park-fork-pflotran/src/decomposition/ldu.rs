@@ -372,6 +372,7 @@ pub fn serial_ldu_bicgstab(
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
     // Used only by the convergence assertions below, so it is imported here
     // rather than at module scope (where it is genuinely unused by the lib).
@@ -408,7 +409,7 @@ mod tests {
         let k = conductivity(n);
         let grid = one_d_grid(n);
         let ldu = assemble_diffusion_ldu(&grid, &k, shift);
-        let x: Vec<f64> = (0..n).map(|i| (i as f64 * 0.4).sin() + 1.0).collect();
+        let x: Vec<f64> = (0..n).map(|i| (i as f64 * 0.4).r_sin() + 1.0).collect();
         let serial_y = ldu.multiply(&x);
 
         for p in [1, 2, 3, 4] {

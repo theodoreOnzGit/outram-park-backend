@@ -50,6 +50,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 // Android build: no windowing GUI. An empty main keeps `cargo check` clean.
+
 #[cfg(target_os = "android")]
 fn main() {}
 
@@ -307,6 +308,7 @@ pub mod headless {
 
 #[cfg(not(target_os = "android"))]
 mod app {
+    use petir::mathf::RealMath;
     use std::sync::{Arc, RwLock};
 
     use outram_blender::math::Vec3;
@@ -676,11 +678,11 @@ mod app {
         /// Rotate a model-space point by yaw (around Y) then pitch (around X) and
         /// return its orthographic (x, y) — the 2D wireframe projection.
         fn project(&self, p: Vec3) -> egui::Vec2 {
-            let (cy, sy) = (self.yaw.cos() as f64, self.yaw.sin() as f64);
+            let (cy, sy) = (self.yaw.r_cos() as f64, self.yaw.r_sin() as f64);
             let x1 = p.x * cy + p.z * sy;
             let z1 = -p.x * sy + p.z * cy;
             let y1 = p.y;
-            let (cp, sp) = (self.pitch.cos() as f64, self.pitch.sin() as f64);
+            let (cp, sp) = (self.pitch.r_cos() as f64, self.pitch.r_sin() as f64);
             let y2 = y1 * cp - z1 * sp;
             egui::vec2(x1 as f32, y2 as f32)
         }
@@ -801,7 +803,7 @@ mod tests {
         .expect("faceted");
 
         let diff = (analytic.k_mean - faceted.k_mean).abs();
-        let combined = (analytic.k_std.powi(2) + faceted.k_std.powi(2)).sqrt();
+        let combined = (analytic.k_std.r_powi(2) + faceted.k_std.r_powi(2)).sqrt();
         assert!(
             diff < 3.0 * combined,
             "analytic {} +/- {} vs faceted {} +/- {}: {} apart, more than 3 \

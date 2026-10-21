@@ -9,6 +9,7 @@
 //! the plume's spread. The `z` walk reflects at the ground (the image
 //! source). Illustration only: tracers carry no concentration.
 
+use petir::mathf::RealMath;
 use crate::steps::{Step, StepFrame, REACH_M, RISE_REACH_M};
 use egui::{Color32, Pos2, Rect, Stroke, Vec2};
 
@@ -51,7 +52,7 @@ impl Tracers {
             ((self.seed >> 11) as f64 + 0.5) / (1u64 << 53) as f64
         };
         let (a, b) = (next(), next());
-        (-2.0 * a.ln()).sqrt() * (std::f64::consts::TAU * b).cos()
+        (-2.0 * a.r_ln()).sqrt() * (std::f64::consts::TAU * b).r_cos()
     }
 
     /// Advance by `dt` simulated seconds on `f`'s tables (`tracers` or
@@ -64,7 +65,7 @@ impl Tracers {
         let (sy, sz) = (&f.curves[0], &f.curves[1]);
         let centre = f.curves.get(2);
         let c_at = |x: f64| centre.map_or(0.0, |c| lerp_table(&c.1, &c.2, x));
-        let var = |t: &(String, Vec<f64>, Vec<f64>), x: f64| lerp_table(&t.1, &t.2, x).powi(2);
+        let var = |t: &(String, Vec<f64>, Vec<f64>), x: f64| lerp_table(&t.1, &t.2, x).r_powi(2);
         let mut pts = std::mem::take(&mut self.pts);
         for p in &mut pts {
             let (x1, x2) = (p[0], p[0] + u * dt);
@@ -128,8 +129,8 @@ impl Axes {
 fn ramp(t: f64) -> Color32 {
     let t = t.clamp(0.0, 1.0) as f32;
     Color32::from_rgba_unmultiplied(
-        (40.0 + 215.0 * t.powf(0.8)) as u8,
-        (20.0 + 220.0 * t.powf(1.6)) as u8,
+        (40.0 + 215.0 * t.r_powf(0.8)) as u8,
+        (20.0 + 220.0 * t.r_powf(1.6)) as u8,
         (90.0 + 80.0 * (1.0 - t) - 40.0 * t) as u8,
         (90.0 + 165.0 * t) as u8,
     )
@@ -154,7 +155,7 @@ fn log_colour(v: f64, max: f64) -> Option<Color32> {
     if !(v > 0.0 && max > 0.0) {
         return None;
     }
-    let t = ((v / max).log10() + 4.0) / 4.0;
+    let t = ((v / max).r_log10() + 4.0) / 4.0;
     (t > 0.0).then(|| ramp(t.min(1.0)))
 }
 

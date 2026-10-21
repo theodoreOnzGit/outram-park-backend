@@ -89,6 +89,7 @@
 //! edge remain the dict author's responsibility, exactly as in OpenFOAM
 //! `blockMesh` (a mismatch leaves the shared boundary nodes un-merged).
 
+use petir::mathf::RealMath;
 use std::collections::HashMap;
 use std::path::Path;
 
@@ -520,9 +521,9 @@ fn graded_positions(n: usize, expansion: f64) -> Vec<f64> {
         return (0..=n).map(|i| i as f64 / n as f64).collect();
     }
     // Per-cell growth factor r with r^(n-1) = expansion.
-    let r = expansion.powf(1.0 / (n as f64 - 1.0));
+    let r = expansion.r_powf(1.0 / (n as f64 - 1.0));
     // First cell width from the geometric-series sum: w0 (r^n - 1)/(r - 1) = 1.
-    let w0 = (r - 1.0) / (r.powi(n as i32) - 1.0);
+    let w0 = (r - 1.0) / (r.r_powi(n as i32) - 1.0);
     let mut s = Vec::with_capacity(n + 1);
     s.push(0.0);
     let mut pos = 0.0;
@@ -619,14 +620,14 @@ fn graded_positions_multi(n: usize, segments: &[GradingSegment]) -> Vec<f64> {
             // Per-cell growth factor; OpenFOAM `calcGexp` returns 0 for a single
             // cell, which makes the single-node formula collapse to blockFrac.
             let exp_fact = if secn_div > 1 {
-                expansion.powf(1.0 / (secn_div as f64 - 1.0))
+                expansion.r_powf(1.0 / (secn_div as f64 - 1.0))
             } else {
                 0.0
             };
-            let denom = 1.0 - exp_fact.powi(secn_div as i32);
+            let denom = 1.0 - exp_fact.r_powi(secn_div as i32);
             for (offset, slot) in s[secn_start..secn_end].iter_mut().enumerate() {
                 let p = (offset + 1) as i32;
-                *slot = sec_start + block_frac * (1.0 - exp_fact.powi(p)) / denom;
+                *slot = sec_start + block_frac * (1.0 - exp_fact.r_powi(p)) / denom;
             }
         }
         sec_start = s[secn_end - 1];

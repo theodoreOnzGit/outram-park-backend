@@ -124,6 +124,7 @@ fn main() {
 
 #[cfg(not(target_os = "android"))]
 mod desktop {
+    use petir::mathf::RealMath;
     use njoy_outram_park_fork::reference_data::reference_endf;
     use outram_mc_libs::material::material::{Material, NuclideComponent};
     use outram_mc_libs::material::nuclide::Nuclide;
@@ -169,7 +170,7 @@ mod desktop {
     fn stats(x: &[f64]) -> (f64, f64, f64) {
         let n = x.len() as f64;
         let mean = x.iter().sum::<f64>() / n;
-        let var = x.iter().map(|v| (v - mean).powi(2)).sum::<f64>() / (n - 1.0).max(1.0);
+        let var = x.iter().map(|v| (v - mean).r_powi(2)).sum::<f64>() / (n - 1.0).max(1.0);
         let sd = var.sqrt();
         (mean, sd, sd / n.sqrt())
     }

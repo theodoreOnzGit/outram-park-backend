@@ -30,10 +30,12 @@ topic = "utility"
 maturity = 2
 
 [dependencies]
+# Every transcendental routes through PETIR for cross-platform bit identity
+# (gh:#985). petir is no_std, so this edge adds nothing Android- or wasm-hostile.
+petir = { workspace = true }
 thiserror = { workspace = true }
 ndarray = { workspace = true }
 uom = { workspace = true }
-roots = { workspace = true }
 # Read-only reader for DWSIM's zipped `.dwxmz` reference flowsheets
 # (`flowsheet::import`). Workspace-inherited with default features off and only
 # `deflate` enabled -- pure Rust (miniz_oxide), no C toolchain, so the library

@@ -27,6 +27,7 @@
 //! The volumes of the tile backgrounds are counted in one pool (the
 //! hopper's volume less every kept ball), as a packed sphere's matrix is.
 
+use petir::mathf::RealMath;
 use super::bed::{BedLayout, PieceGeom};
 use super::census::Arrangement;
 use super::lattice::Lattice;
@@ -235,7 +236,7 @@ impl Lowering {
 
         // The pool that counts the tile backgrounds' volume.
         let m = self.material_index(&tile.material, t, masses)?;
-        let ball_v = 4.0 / 3.0 * std::f64::consts::PI * r.powi(3);
+        let ball_v = 4.0 / 3.0 * std::f64::consts::PI * r.r_powi(3);
         let tile_v = prism.volume_cm3();
         let hopper_v = hopper.volume_cm3();
         let pool = self.pools.len();

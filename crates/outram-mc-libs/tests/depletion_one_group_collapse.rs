@@ -32,6 +32,7 @@
 //!
 //! Printed by the tests.
 
+use petir::mathf::RealMath;
 use outram_mc_libs::depletion::operator::{BurnupSettings, OneGroupWeighting};
 use outram_mc_libs::material::nuclide::Nuclide;
 
@@ -66,15 +67,15 @@ fn the_spectrum_collapse_recovers_u238_resonance_absorption() {
         fission_temp_ev: 1.4e6,
     });
     let (e_lo, e_hi, n) = (1.0e-5f64, 2.0e7f64, 2000usize);
-    let (ln_lo, ln_hi) = (e_lo.ln(), e_hi.ln());
+    let (ln_lo, ln_hi) = (e_lo.r_ln(), e_hi.r_ln());
     let (mut num, mut den) = (0.0f64, 0.0f64);
     let (mut pe, mut pw, mut px) = (0.0f64, 0.0f64, 0.0f64);
     for i in 0..n {
-        let e = (ln_lo + (ln_hi - ln_lo) * i as f64 / (n - 1) as f64).exp();
+        let e = (ln_lo + (ln_hi - ln_lo) * i as f64 / (n - 1) as f64).r_exp();
         let x = u238.xs_at_energy(e, t).absorption;
         let wt = w.evaluate(e, t) * e;
         if i > 0 {
-            let d = e.ln() - pe.ln();
+            let d = e.r_ln() - pe.r_ln();
             den += 0.5 * d * (wt + pw);
             num += 0.5 * d * (wt * x + pw * px);
         }

@@ -168,6 +168,7 @@
 //!   Process Industries* (CSIRO, 1999) — gas-lens conductance integral applied
 //!   to DEM fluidized-bed heat transfer.
 
+use petir::mathf::RealMath;
 use crate::particle::Particle;
 use crate::thermal::{effective_radius, sphere_wall_effective_radius};
 use crate::DemError;
@@ -261,7 +262,7 @@ impl RadiationModel {
 /// scale would give the wrong magnitude.
 #[must_use]
 pub fn radiative_heat_rate(eps_eff: f64, area: f64, t_into: f64, t_from: f64) -> f64 {
-    STEFAN_BOLTZMANN * eps_eff * area * (t_from.powi(4) - t_into.powi(4))
+    STEFAN_BOLTZMANN * eps_eff * area * (t_from.r_powi(4) - t_into.r_powi(4))
 }
 
 /// Net radiative heat rate `Q` `[W]` flowing **into particle `i`** from another
@@ -370,7 +371,7 @@ fn gas_lens_conductance(
         )));
     }
     let ratio = outer_radius * outer_radius / (2.0 * r_eff * gap);
-    Ok(2.0 * std::f64::consts::PI * k_g * r_eff * (1.0 + ratio).ln())
+    Ok(2.0 * std::f64::consts::PI * k_g * r_eff * (1.0 + ratio).r_ln())
 }
 
 /// Near-field gas-gap conductance `H_gas` `[W/K]` between two spheres of radii
@@ -602,7 +603,7 @@ mod tests {
         assert!(q > 0.0, "radiative heat must flow INTO the colder surface");
 
         // Matches the explicit sigma * eps_eff * A * (T2^4 - T1^4) product.
-        let expected = STEFAN_BOLTZMANN * eps_eff * area * (400.0_f64.powi(4) - 300.0_f64.powi(4));
+        let expected = STEFAN_BOLTZMANN * eps_eff * area * (400.0_f64.r_powi(4) - 300.0_f64.r_powi(4));
         assert_abs_diff_eq!(q, expected, epsilon = 1.0e-15);
         // And the hand-computed number.
         assert_abs_diff_eq!(q, 0.066_154_368_23, epsilon = 1.0e-9);
@@ -670,7 +671,7 @@ mod tests {
         let r_star = 0.005_f64;
         let ratio = r_out * r_out / (2.0 * r_star * gap);
         assert_abs_diff_eq!(ratio, 25.0, epsilon = 1.0e-12);
-        let expected = 2.0 * std::f64::consts::PI * k_g * r_star * (1.0 + ratio).ln();
+        let expected = 2.0 * std::f64::consts::PI * k_g * r_star * (1.0 + ratio).r_ln();
         assert_abs_diff_eq!(h_gas, expected, epsilon = 1.0e-15);
         // Hand value.
         assert_abs_diff_eq!(h_gas, 2.558_903_037e-3, epsilon = 1.0e-9);
@@ -805,7 +806,7 @@ mod tests {
             * std::f64::consts::PI
             * k_g
             * r_eff
-            * (1.0 + r_out * r_out / (2.0 * r_eff * gap)).ln();
+            * (1.0 + r_out * r_out / (2.0 * r_eff * gap)).r_ln();
         assert_abs_diff_eq!(h_wall, expected, epsilon = 1.0e-15);
     }
 

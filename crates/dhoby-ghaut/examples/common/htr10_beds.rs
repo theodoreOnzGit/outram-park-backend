@@ -447,6 +447,7 @@ pub mod bake {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use petir::mathf::RealMath;
 
     #[test]
     fn encoding_round_trips_within_the_quantisation_step() {
@@ -545,7 +546,7 @@ mod tests {
         // Every lattice ball inside the DEM vessel's wall (the two vessels
         // are the same published one).
         for c in &beds.lattice.centres {
-            let r = (f64::from(c[0]).powi(2) + f64::from(c[1]).powi(2)).sqrt();
+            let r = (f64::from(c[0]).r_powi(2) + f64::from(c[1]).r_powi(2)).sqrt();
             assert!(
                 r + RADIUS_M <= wall_radius_at(f64::from(c[2])) + 0.002,
                 "lattice ball outside the DEM wall at {c:?}"

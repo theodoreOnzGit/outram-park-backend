@@ -53,6 +53,7 @@
 //! with the separation from the old scheme. U-235 MT=91 at 5 MeV:
 //! OpenMC `<mu_cm>` 0.02017, old scheme 0.01561.
 
+use petir::mathf::RealMath;
 use outram_mc_libs::material::nuclide::Nuclide;
 use outram_mc_libs::physics::scatter::{sample_continuum_branch, ContinuumAngularMode};
 use std::path::PathBuf;
@@ -66,7 +67,7 @@ fn ws() -> PathBuf {
 fn mean_sem(v: &[f64]) -> (f64, f64) {
     let n = v.len() as f64;
     let m = v.iter().sum::<f64>() / n;
-    let var = v.iter().map(|x| (x - m).powi(2)).sum::<f64>() / (n - 1.0);
+    let var = v.iter().map(|x| (x - m).r_powi(2)).sum::<f64>() / (n - 1.0);
     (m, (var / n).sqrt())
 }
 
@@ -74,7 +75,8 @@ fn load(case: &str) -> Option<Nuclide> {
     let root = ws();
     let (path, name) = match case {
         "U235" => (
-            root.join("reference-data/ace/reference-njoy/endf-b-viii.0/293.6K/U235.ace.gz"),
+            njoy_outram_park_fork::reference_data::reference_data_dir("ace")
+                .join("reference-njoy/endf-b-viii.0/293.6K/U235.ace.gz"),
             "U235",
         ),
         "U235_hist" => (root.join("target/ace_extra/U235_hist.ace"), "U235"),
@@ -213,7 +215,6 @@ fn correlated_cosine_distribution_matches_openmc() {
         "crates/outram-mc-libs/verification_and_validation/ace_route_physics/data/correlated_mu_cdf_openmc.csv",
     );
     let text = std::fs::read_to_string(csv).expect("reference");
-    let root = ws();
     let mut cases: Vec<(String, i32, f64, Vec<(f64, f64)>)> = Vec::new();
     for line in text.lines().filter(|l| !l.starts_with('#') && !l.is_empty()) {
         let f: Vec<&str> = line.split(',').collect();
@@ -231,8 +232,8 @@ fn correlated_cosine_distribution_matches_openmc() {
     let mut n = 0;
     for (i, (name, mt, e, pts)) in cases.iter().enumerate() {
         if !loaded.iter().any(|(c, _)| c == name) {
-            let p = root.join(format!(
-                "reference-data/ace/reference-njoy/endf-b-viii.0/293.6K/{name}.ace.gz"
+            let p = njoy_outram_park_fork::reference_data::reference_data_dir("ace").join(format!(
+                "reference-njoy/endf-b-viii.0/293.6K/{name}.ace.gz"
             ));
             let nuc = p.is_file().then(|| Nuclide::from_ace_file(&p, name).expect("loads"));
             loaded.push((name.clone(), nuc));

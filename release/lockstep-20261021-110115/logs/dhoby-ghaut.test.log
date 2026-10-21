@@ -1,0 +1,285 @@
+   Compiling ndarray v0.17.2
+   Compiling kovan-common v0.0.4 (/home/teddy0/Documents/research/outram-park-backend/crates/kovan-common)
+   Compiling serde-xml-rs v0.8.2
+   Compiling fs2 v0.4.3
+   Compiling raffles v0.0.3 (/home/teddy0/Documents/research/outram-park-backend/crates/raffles)
+   Compiling openmc-endf-8-depletion-lib-a v1.0.1
+   Compiling openmc-endf-8-depletion-lib-b v1.0.0
+   Compiling outram-foam-basic-lib v0.1.7 (/home/teddy0/Documents/research/outram-park-backend/crates/outram-foam-basic-lib)
+   Compiling hdf5-pure v0.20.1
+   Compiling farrer-park v0.0.3 (/home/teddy0/Documents/research/outram-park-backend/crates/farrer-park)
+   Compiling outram-park-fork-cfmesh v0.0.3 (/home/teddy0/Documents/research/outram-park-backend/crates/outram-park-fork-cfmesh)
+   Compiling outram-blender v0.0.6 (/home/teddy0/Documents/research/outram-park-backend/crates/outram-blender)
+   Compiling njoy-outram-park-fork v0.0.6 (/home/teddy0/Documents/research/outram-park-backend/crates/njoy-outram-park-fork)
+   Compiling tampines-steam-tables v0.3.0 (/home/teddy0/Documents/research/outram-park-backend/crates/tampines-steam-tables)
+warning: ambiguous glob re-exports
+  --> crates/tampines-steam-tables/src/prelude.rs:24:9
+   |
+24 | pub use crate::interfaces::functional_programming::hs_flash_eqm::*;
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the name `validity_range` in the type namespace is first re-exported here
+25 | pub use crate::interfaces::functional_programming::ph_flash_eqm::*;
+26 | pub use crate::interfaces::functional_programming::ps_flash_eqm::*;
+   |         ---------------------------------------------------------- but the name `validity_range` in the type namespace is also re-exported here
+   |
+   = note: `#[warn(ambiguous_glob_reexports)]` on by default
+
+warning: constant `LIQUID_SNAP_PRESSURE_FRACTION` is never used
+    --> crates/tampines-steam-tables/src/interfaces/functional_programming/rho_h_flash_eqm/mod.rs:1132:7
+     |
+1132 | const LIQUID_SNAP_PRESSURE_FRACTION: f64 = 0.05;
+     |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `tampines-steam-tables` (lib) generated 2 warnings
+   Compiling outram-park-fork-liggghts v0.0.2 (/home/teddy0/Documents/research/outram-park-backend/crates/outram-park-fork-liggghts)
+   Compiling outram-mc-libs v0.0.6 (/home/teddy0/Documents/research/outram-park-backend/crates/outram-mc-libs)
+warning: associated function `new_from_fission` is never used
+   --> crates/outram-mc-libs/src/physics/transport_csg.rs:182:19
+    |
+169 | impl Site {
+    | --------- associated function in this implementation
+...
+182 |     pub(crate) fn new_from_fission(
+    |                   ^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+   Compiling kovan-discovery v0.0.4 (/home/teddy0/Documents/research/outram-park-backend/crates/kovan-discovery)
+   Compiling outram-foam-multiphase v0.0.4 (/home/teddy0/Documents/research/outram-park-backend/crates/outram-foam-multiphase)
+   Compiling chem-eng-real-time-process-control-simulator v0.2.4 (/home/teddy0/Documents/research/outram-park-backend/crates/chem-eng-real-time-process-control-simulator)
+   Compiling zopfli v0.8.4
+   Compiling env_filter v2.0.0
+   Compiling env_logger v0.11.11
+   Compiling zip v2.6.1
+   Compiling outram-foam-turbulence-lib v0.1.4 (/home/teddy0/Documents/research/outram-park-backend/crates/outram-foam-turbulence-lib)
+   Compiling outram-foam-appbuilder-lib v0.1.6 (/home/teddy0/Documents/research/outram-park-backend/crates/outram-foam-appbuilder-lib)
+   Compiling outram-park-fork-dwsim-libs v0.0.4 (/home/teddy0/Documents/research/outram-park-backend/crates/outram-park-fork-dwsim-libs)
+warning: `outram-mc-libs` (lib) generated 1 warning
+   Compiling kovan-literature v0.0.3 (/home/teddy0/Documents/research/outram-park-backend/crates/kovan-literature)
+   Compiling tuas_boussinesq_solver v0.1.8 (/home/teddy0/Documents/research/outram-park-backend/crates/tuas_boussinesq_solver)
+warning: unused import: `uom::si::f64::*`
+ --> crates/tuas_boussinesq_solver/src/lib/boussinesq_thermophysical_properties/solid_database/ss_304_l.rs:6:5
+  |
+6 | use uom::si::f64::*;
+  |     ^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `uom::si::f64::*`
+  --> crates/tuas_boussinesq_solver/src/lib/boussinesq_thermophysical_properties/solid_database/ss_304_l_high_temp.rs:79:5
+   |
+79 | use uom::si::f64::*;
+   |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `uom::si::f64::*`
+ --> crates/tuas_boussinesq_solver/src/lib/boussinesq_thermophysical_properties/solid_database/copper.rs:5:5
+  |
+5 | use uom::si::f64::*;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `uom::si::f64::*`
+ --> crates/tuas_boussinesq_solver/src/lib/boussinesq_thermophysical_properties/solid_database/fiberglass.rs:5:5
+  |
+5 | use uom::si::f64::*;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `uom::si::f64::*`
+  --> crates/tuas_boussinesq_solver/src/lib/boussinesq_thermophysical_properties/solid_database/nuclear_graphite.rs:53:5
+   |
+53 | use uom::si::f64::*;
+   |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `uom::si::f64::*`
+ --> crates/tuas_boussinesq_solver/src/lib/boussinesq_thermophysical_properties/solid_database/pyrogel_hps.rs:5:5
+  |
+5 | use uom::si::f64::*;
+  |     ^^^^^^^^^^^^^^^
+
+   Compiling teh-o-prke v0.1.7 (/home/teddy0/Documents/research/outram-park-backend/crates/teh-o-prke)
+warning: function `relative_bracketed_root` is never used
+   --> crates/tuas_boussinesq_solver/src/lib/numerical_methods.rs:285:15
+    |
+285 | pub(crate) fn relative_bracketed_root<F: Fn(f64) -> f64>(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+   Compiling kovan-semantics v0.0.3 (/home/teddy0/Documents/research/outram-park-backend/crates/kovan-semantics)
+   Compiling kovan-metrics v0.0.3 (/home/teddy0/Documents/research/outram-park-backend/crates/kovan-metrics)
+   Compiling boon-lay v0.2.1 (/home/teddy0/Documents/research/outram-park-backend/crates/boon-lay)
+warning: `tuas_boussinesq_solver` (lib) generated 7 warnings (run `cargo fix --lib -p tuas_boussinesq_solver` to apply 6 suggestions)
+   Compiling kovan-codegen v0.0.4 (/home/teddy0/Documents/research/outram-park-backend/crates/kovan-codegen)
+   Compiling outram-park-fork-coolprop v0.1.3 (/home/teddy0/Documents/research/outram-park-backend/crates/outram-park-fork-coolprop)
+   Compiling knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan v0.0.3 (/home/teddy0/Documents/research/outram-park-backend/crates/kovan)
+   Compiling tampines v0.0.3 (/home/teddy0/Documents/research/outram-park-backend/crates/tampines)
+   Compiling nee_soon v0.0.4 (/home/teddy0/Documents/research/outram-park-backend/crates/nee_soon)
+warning: unused import: `crate::index::PaperEntry`
+   --> crates/kovan/src/mindmap.rs:100:5
+    |
+100 | use crate::index::PaperEntry;
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+   Compiling egui_plot v0.37.0
+warning: constant `PICKER_RESULTS` is never used
+  --> crates/kovan/src/collection_picker.rs:28:18
+   |
+28 | pub(crate) const PICKER_RESULTS: usize = 8;
+   |                  ^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `rank` is never used
+  --> crates/kovan/src/collection_picker.rs:38:15
+   |
+38 | pub(crate) fn rank<'a>(
+   |               ^^^^
+
+warning: function `would_create` is never used
+  --> crates/kovan/src/collection_picker.rs:68:15
+   |
+68 | pub(crate) fn would_create(index: &KnowledgeIndex, kind: EntityKind, query: &str) -> bool {
+   |               ^^^^^^^^^^^^
+
+warning: constant `CENTRE_FONT_SCALE` is never used
+    --> crates/kovan/src/mindmap.rs:1003:7
+     |
+1003 | const CENTRE_FONT_SCALE: f64 = 1.35;
+     |       ^^^^^^^^^^^^^^^^^
+
+   Compiling changi v0.0.2 (/home/teddy0/Documents/research/outram-park-backend/crates/changi)
+   Compiling buangkok v0.0.1 (/home/teddy0/Documents/research/outram-park-backend/crates/buangkok)
+   Compiling dhoby-ghaut v0.0.1 (/home/teddy0/Documents/research/outram-park-backend/crates/dhoby-ghaut)
+warning: `knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan` (lib) generated 5 warnings (run `cargo fix --lib -p knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan` to apply 1 suggestion)
+warning: unused import: `ScoreType`
+  --> crates/dhoby-ghaut/src/bin/dhoby-ghaut/mgxs_run.rs:67:36
+   |
+67 | use outram_mc_libs::tally::tally::{ScoreType, Tally, TallyBin};
+   |                                    ^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: `dhoby-ghaut` (bin "dhoby-ghaut" test) generated 1 warning (1 duplicate)
+warning: `dhoby-ghaut` (bin "dhoby-ghaut") generated 1 warning (run `cargo fix --bin "dhoby-ghaut" -p dhoby-ghaut` to apply 1 suggestion)
+    Finished `release` profile [optimized] target(s) in 2m 04s
+     Running unittests src/lib.rs (target/release/deps/dhoby_ghaut-0c0acead0863b30a)
+
+running 36 tests
+test tests::the_expansion_is_spelled_out ... ok
+test web_demo::lesson::tests::the_rung_comes_from_the_query_or_is_the_first ... ok
+test web_demo::loading::tests::progress_is_weighted_and_capped_while_running ... ok
+test web_demo::data_cache::tests::a_record_opens_only_when_it_is_what_was_asked_for ... ok
+test web_demo::panel::tests::hide_and_reopen_are_thumb_sized_and_clear_the_zoom_buttons ... ok
+test web_demo::files::tests::a_slot_hands_over_its_file_once_and_errors_name_the_file ... ok
+test web_demo::view::tests::zoom_keeps_the_point_under_the_finger_and_reset_fits ... ok
+test workbench::catalogue::tests::every_reactor_key_round_trips_and_every_generation_has_a_type ... ok
+test workbench::catalogue::tests::only_the_htgr_pebble_bed_is_offered_as_buildable ... ok
+test web_demo::pool::tests::the_pool_is_sized_by_cores_memory_and_screen ... ok
+test workbench::meshes::tests::mapping_follows_upstream_semantics ... ok
+test workbench::exports::tests::the_report_is_read_back_by_kovan ... ok
+test workbench::exports::tests::write_all_writes_files_that_load_back ... ok
+test workbench::mgxs::tests::ln_t_interpolation_hits_the_mean_at_the_geometric_mean ... ok
+test workbench::multiphysics::tests::an_older_recipe_has_no_step_9 ... ok
+test workbench::multiphysics::tests::neutronics_inputs_say_what_is_missing ... ok
+test workbench::meshes::tests::splitting_the_bed_keeps_every_region_consistent ... ok
+test workbench::multiphysics::tests::step_9_round_trips_through_kovan_markdown ... ok
+test workbench::reactivity_map::tests::a_map_round_trips_through_plain_toml ... ok
+test workbench::reactivity_map::tests::a_two_axis_map_recovers_a_bilinear_law ... ok
+test workbench::reactivity_map::tests::an_exact_sqrt_t_law_is_recovered ... ok
+test workbench::reactivity_map::tests::the_map_refuses_to_extrapolate ... ok
+test workbench::reactivity_map::tests::the_planner_puts_lobatto_nodes_in_the_fitting_variable_and_skips_runs_made ... ok
+test workbench::reactivity_map::tests::too_few_runs_or_one_state_is_refused ... ok
+test workbench::reactivity_map::tests::the_held_out_error_separates_an_adequate_order_from_an_inadequate_one ... ok
+test workbench::meshes::tests::the_parts_tile_the_model ... ok
+test workbench::recipe::tests::a_recipe_round_trips_through_kovan_markdown ... ok
+test workbench::recipe::tests::a_missing_section_or_a_foreign_format_is_refused ... ok
+test workbench::recipe::tests::kovan_reads_every_section_as_a_note_artifact ... ok
+test workbench::recipe::tests::a_recipe_without_step_6_reads_as_multiphysics ... ok
+test workbench::recipe::tests::rfc3339_formats_known_instants ... ok
+test workbench::steps::tests::every_step_is_built ... ok
+test workbench::steps::tests::steps_are_numbered_zero_to_eleven_with_the_gate_between_four_and_five ... ok
+test workbench::steps::tests::unimplemented_steps_name_their_issue ... ok
+test workbench::recipe::tests::an_older_recipe_without_a_bed_source_reads_as_the_lattice ... ok
+test web_demo::link::tests::a_terminated_link_delivers_nothing_more ... ok
+
+test result: ok. 36 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running unittests src/bin/dhoby-ghaut/main.rs (target/release/deps/dhoby_ghaut-7dcad40dd7df17bf)
+
+running 23 tests
+test design::tests::the_preset_is_fully_represented_by_the_default_design ... ok
+test design::tests::edits_reach_the_design_or_are_listed_as_not_built ... ok
+test design::tests::a_refused_design_falls_back_to_the_record_and_says_so ... ok
+test engine::tests::log_edges_span_the_range_with_the_asked_density ... ok
+test literature::tests::citekeys_resolve_to_pdfs_in_the_open_corpus ... ok
+test headless_map::tests::the_headless_map_export_on_synthetic_runs ... ok
+test mp_headless::tests::a_saved_recipe_carries_step_9_and_still_loads ... ok
+test mp_headless::tests::exit_temperature_matches_an_independent_cp_balance ... ok
+test engine::tests::the_default_plan_needs_tapes_that_exist ... ok
+test porous_core::tests::bare_cylinder_peak_to_mean_is_the_textbook_value ... ok
+test porous_core::tests::bessel_series_matches_tables ... ok
+test preset::tests::the_htr10_preset_round_trips_and_states_its_gaps ... ok
+test results::tests::the_console_averages_only_active_generations ... ok
+test engine::tests::an_extracted_library_is_scanned_and_matched_by_identity ... ok
+test spatial::tests::bare_cylinder_k_on_the_neutronics_mesh_matches_the_analytic_value ... ok
+test spatial_draw::tests::colour_map_end_points ... ok
+test style::tests::the_saved_scale_is_read_back ... ok
+test style::tests::the_type_scale_rises_monotonically_from_tiny_to_title ... ok
+test tests::the_headless_geometry_matches_the_committed_fixture ... FAILED
+test spatial::tests::the_coupled_loop_conserves_power_across_the_maps_and_converges ... ok
+test mp_headless::tests::htr10_case_converges_with_equal_ring_pressure_drops ... ok
+test mp_headless::tests::the_headless_multiphysics_summary_matches_the_committed_fixture ... ok
+test tests::the_headless_meshes_hold_what_the_hand_off_promises ... ok
+
+failures:
+
+---- tests::the_headless_geometry_matches_the_committed_fixture stdout ----
+
+thread 'tests::the_headless_geometry_matches_the_committed_fixture' (857682) panicked at crates/dhoby-ghaut/src/bin/dhoby-ghaut/main.rs:718:9:
+assertion `left == right` failed: regenerate /home/teddy0/Documents/research/outram-park-backend/crates/dhoby-ghaut/tests/fixtures/dhoby_ghaut_geometry.csv only after reviewing the geometry
+  left: "rings,layers,tiles,cells,universes,balls,bed_radius_cm,bed_height_cm,z_bottom_cm,z_top_cm,fuel_pebble_cm,triso_cm\n14,12,22974,43452,1502,16681,90.0000,123.5755,-319.9698,290.0302,0.0000 0.0000 -0.0000,0.0254 0.0722 0.1385"
+ right: "rings,layers,tiles,cells,universes,balls,bed_radius_cm,bed_height_cm,z_bottom_cm,z_top_cm,fuel_pebble_cm,triso_cm\n14,12,22974,43445,1502,16681,90.0000,123.5755,-319.9698,290.0302,0.0000 0.0000 -0.0000,0.0254 0.0722 0.1385"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    tests::the_headless_geometry_matches_the_committed_fixture
+
+test result: FAILED. 22 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 14.47s
+
+error: test failed, to rerun pass `-p dhoby-ghaut --bin dhoby-ghaut`
+     Running tests/gpu_csg_parity.rs (target/release/deps/gpu_csg_parity-29ee6ee44cc7804d)
+
+running 2 tests
+test htr10_views_gpu_match_cpu ... ok
+test dem_bed_views_gpu_match_cpu ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 50.64s
+
+     Running tests/lesson_fission_cascades.rs (target/release/deps/lesson_fission_cascades-99a29be4435b0442)
+
+running 6 tests
+test diffusion_series_from_boon_lay ... ok
+test kinematics_hand_cases ... ok
+test rounding_and_q_intervals ... ok
+test endf_text_readers ... ok
+test nudat_masses_read ... ok
+test decay_chains_from_boon_lay ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.26s
+
+     Running tests/lesson_triso_kernel.rs (target/release/deps/lesson_triso_kernel-b9d73faf483577fe)
+
+running 5 tests
+test booth_limits ... ok
+test kernel_conduction ... ok
+test the_codes_lumping ... ok
+test monte_carlo_against_booth ... ok
+test half_lives ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.27s
+
+error: 1 target failed:
+    `-p dhoby-ghaut --bin dhoby-ghaut`

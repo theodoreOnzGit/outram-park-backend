@@ -43,6 +43,7 @@
 //! against published IAPWS backward-equation reference values is possible,
 //! because no such published backward equations exist for Region 5.
 
+use petir::mathf::RealMath;
 use uom::si::{
     available_energy::kilojoule_per_kilogram, f64::*, pressure::megapascal,
     specific_heat_capacity::kilojoule_per_kilogram_kelvin, thermodynamic_temperature::kelvin,
@@ -472,7 +473,7 @@ pub fn t_ph_5_explicit(p_mpa: f64, h_kj_kg: f64) -> f64 {
         p_mpa > 0.0,
         "Region 5 backward T(p,h) needs a strictly positive pressure, got {p_mpa} MPa"
     );
-    let x = scale(p_mpa.log10(), PH_XMIN, PH_XMAX);
+    let x = scale(p_mpa.r_log10(), PH_XMIN, PH_XMAX);
     let y = scale(h_kj_kg, PH_YMIN, PH_YMAX);
     cheb2_dense(x, y, &PH_COEFFS)
 }
@@ -493,7 +494,7 @@ pub fn t_ps_5_explicit(p_mpa: f64, s_kj_kg_k: f64) -> f64 {
         p_mpa > 0.0,
         "Region 5 backward T(p,s) needs a strictly positive pressure, got {p_mpa} MPa"
     );
-    let x = scale(p_mpa.log10(), PS_XMIN, PS_XMAX);
+    let x = scale(p_mpa.r_log10(), PS_XMIN, PS_XMAX);
     let y = scale(s_kj_kg_k, PS_YMIN, PS_YMAX);
     cheb2_dense(x, y, &PS_COEFFS)
 }
@@ -575,8 +576,8 @@ fn bracket_hs_pressure(h_kj: f64, s_kj: f64) -> Option<(f64, f64, f64, f64)> {
 
     let residual = |p_mpa: f64| t_ph_5_explicit(p_mpa, h_kj) - t_ps_5_explicit(p_mpa, s_kj);
 
-    let ln_lo = REGION_5_BACK_P_MIN_MPA.ln();
-    let ln_hi = REGION_5_BACK_P_MAX_MPA.ln();
+    let ln_lo = REGION_5_BACK_P_MIN_MPA.r_ln();
+    let ln_hi = REGION_5_BACK_P_MAX_MPA.r_ln();
     let d_ln = (ln_hi - ln_lo) / ((SCAN_POINTS - 1) as f64);
 
     let mut prev_p = REGION_5_BACK_P_MIN_MPA;
@@ -593,7 +594,7 @@ fn bracket_hs_pressure(h_kj: f64, s_kj: f64) -> Option<(f64, f64, f64, f64)> {
         let p = if i == SCAN_POINTS - 1 {
             REGION_5_BACK_P_MAX_MPA
         } else {
-            (ln_lo + d_ln * (i as f64)).exp()
+            (ln_lo + d_ln * (i as f64)).r_exp()
         };
         let g = residual(p);
         if !g.is_finite() {

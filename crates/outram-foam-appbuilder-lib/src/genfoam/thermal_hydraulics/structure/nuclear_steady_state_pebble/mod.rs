@@ -119,6 +119,7 @@
 //! - Density correlations and the min/max/average field reductions, which are
 //!   reporting rather than physics.
 
+use petir::mathf::RealMath;
 use std::f64::consts::PI;
 
 /// The radii of a pebble and of the TRISO particles dispersed in it, metres.
@@ -216,8 +217,8 @@ impl PebbleGeometry {
     /// dimensionless — upstream's `PF`.
     #[must_use]
     pub fn packing_fraction(&self) -> f64 {
-        self.triso_count * self.outer_pyc_radius.powi(3)
-            / (self.matrix_radius.powi(3) - self.core_radius.powi(3))
+        self.triso_count * self.outer_pyc_radius.r_powi(3)
+            / (self.matrix_radius.r_powi(3) - self.core_radius.r_powi(3))
     }
 
     /// Effective conductivity of the TRISO-bearing matrix, W/(m K), by the
@@ -302,11 +303,11 @@ impl PebbleGeometry {
         let r_f = self.fuel_radius;
 
         // Cell power -> per-pebble power, upstream's alpha bookkeeping.
-        let pebble_power = power_density * (4.0 / 3.0) * PI * r_s.powi(3) / solid_fraction;
-        let annulus_volume = (4.0 / 3.0) * PI * (r_m.powi(3) - r_c.powi(3));
+        let pebble_power = power_density * (4.0 / 3.0) * PI * r_s.r_powi(3) / solid_fraction;
+        let annulus_volume = (4.0 / 3.0) * PI * (r_m.r_powi(3) - r_c.r_powi(3));
         let q_matrix = pebble_power / annulus_volume;
         let particle_power = pebble_power / self.triso_count;
-        let q_fuel = particle_power / ((4.0 / 3.0) * PI * r_f.powi(3));
+        let q_fuel = particle_power / ((4.0 / 3.0) * PI * r_f.r_powi(3));
 
         let k_eff = self.effective_matrix_conductivity(k);
 
@@ -318,16 +319,16 @@ impl PebbleGeometry {
         // volume average. Transcribed term for term from upstream.
         let matrix_average = matrix_outer
             + (q_matrix / (6.0 * k_eff))
-                * (r_m.powi(2)
-                    - 3.0 * (r_m.powi(5) - r_c.powi(5)) / (5.0 * (r_m.powi(3) - r_c.powi(3))))
-            + (r_c.powi(3) * q_matrix) / (3.0 * k_eff)
+                * (r_m.r_powi(2)
+                    - 3.0 * (r_m.r_powi(5) - r_c.r_powi(5)) / (5.0 * (r_m.r_powi(3) - r_c.r_powi(3))))
+            + (r_c.r_powi(3) * q_matrix) / (3.0 * k_eff)
                 * (1.0 / r_m
-                    - 3.0 * (r_m.powi(2) - r_c.powi(2)) / (2.0 * (r_m.powi(3) - r_c.powi(3))));
+                    - 3.0 * (r_m.r_powi(2) - r_c.r_powi(2)) / (2.0 * (r_m.r_powi(3) - r_c.r_powi(3))));
 
         let particle_surface =
             matrix_average + particle_power / (4.0 * PI) * self.coating_resistance(k);
-        let fuel_average = particle_surface + q_fuel * r_f.powi(2) / (15.0 * k.fuel);
-        let fuel_max = particle_surface + q_fuel * r_f.powi(2) / (6.0 * k.fuel);
+        let fuel_average = particle_surface + q_fuel * r_f.r_powi(2) / (15.0 * k.fuel);
+        let fuel_max = particle_surface + q_fuel * r_f.r_powi(2) / (6.0 * k.fuel);
 
         PebbleTemperatures {
             surface: surface_temperature,

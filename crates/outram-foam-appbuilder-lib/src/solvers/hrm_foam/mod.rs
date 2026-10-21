@@ -31,6 +31,7 @@
 //! overrides ([`HrmModelConfig`]) are defined here; [`HrmFoam`] owns the time
 //! loop.
 
+use petir::mathf::RealMath;
 use crate::error::AppBuilderError;
 use crate::io::control_dict::{ControlDict, StartControl, StopControl};
 use crate::io::fv_schemes::FvSchemes;
@@ -330,8 +331,8 @@ impl HrmModelConfig {
         let psi_c = psi.max(1e-10);
         let x_c = (1.0 - x).max(1e-10);
         let tau = self.theta_0
-            * psi_c.powf(self.pressure_undershoot_exp)
-            * x_c.powf(self.liquid_fraction_exp);
+            * psi_c.r_powf(self.pressure_undershoot_exp)
+            * x_c.r_powf(self.liquid_fraction_exp);
         tau.max(self.theta_floor)
     }
 }
@@ -587,7 +588,7 @@ mod tests {
     fn default_relaxation_time_matches_downar_zapolski_constants() {
         let psi = 0.02_f64;
         let x = 0.1_f64;
-        let expected = THETA_0 * psi.powf(DZ_A) * (1.0 - x).powf(DZ_B);
+        let expected = THETA_0 * psi.r_powf(DZ_A) * (1.0 - x).r_powf(DZ_B);
 
         let actual = HrmFoam::relaxation_time(psi, x);
 
@@ -638,11 +639,11 @@ mod tests {
     const RATIO: f64 = 0.2;
 
     fn mode(i: usize) -> f64 {
-        (MODE as f64 * std::f64::consts::PI * (i as f64 + 0.5) / N as f64).cos()
+        (MODE as f64 * std::f64::consts::PI * (i as f64 + 0.5) / N as f64).r_cos()
     }
 
     fn mu_m() -> f64 {
-        2.0 - 2.0 * (MODE as f64 * std::f64::consts::PI / N as f64).cos()
+        2.0 - 2.0 * (MODE as f64 * std::f64::consts::PI / N as f64).r_cos()
     }
 
     fn amplitude(values: &[f64], base: f64) -> f64 {

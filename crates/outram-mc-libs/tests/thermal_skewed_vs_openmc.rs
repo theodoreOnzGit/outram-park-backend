@@ -28,6 +28,7 @@
 //!
 //! Printed by the test and recorded in the #365 thread.
 
+use petir::mathf::RealMath;
 use outram_mc_libs::material::thermal::ThermalScattering;
 use std::path::PathBuf;
 
@@ -59,7 +60,7 @@ fn skewed_h_in_h2o_samples_as_openmc() {
             .collect();
         let stat = |f: &dyn Fn(&(f64, f64)) -> f64| {
             let m = draws.iter().map(f).sum::<f64>() / N as f64;
-            let var = draws.iter().map(|d| (f(d) - m).powi(2)).sum::<f64>() / (N - 1) as f64;
+            let var = draws.iter().map(|d| (f(d) - m).r_powi(2)).sum::<f64>() / (N - 1) as f64;
             (m, (var / N as f64).sqrt())
         };
         let (me, se) = stat(&|d| d.0);

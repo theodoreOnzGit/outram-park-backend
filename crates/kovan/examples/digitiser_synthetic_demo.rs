@@ -17,6 +17,8 @@
 //! this crate itself drew) — see the `digitiser` module docs for the honest
 //! limits versus real scanned figures.
 
+use petir::mathf::RealMath;
+
 use kovan::digitiser::auto::{auto_digitise, AutoDigitiseConfig, AxisPixelRefs, AxisValueSpec};
 use kovan::digitiser::calibration::AxisScale;
 use kovan::digitiser::dataset::FigureSource;
@@ -26,7 +28,7 @@ use kovan::digitiser::trace::TraceConfig;
 
 /// The known curve: a decay-heat-like power law.
 fn power_law(x: f64) -> f64 {
-    8.0 * x.powf(-0.28)
+    8.0 * x.r_powf(-0.28)
 }
 
 fn main() {

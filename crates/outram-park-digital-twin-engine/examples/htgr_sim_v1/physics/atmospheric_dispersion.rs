@@ -107,6 +107,7 @@
 //!
 //! Per `RESPONSIBLE_USE.md`, AI-assisted draft pending human review.
 
+use petir::mathf::RealMath;
 use changi::activity::chi_over_q::{dilution_factors, DilutionFactors, StabilitySource};
 use changi::activity::deposition::DepositionGroup;
 use changi::activity::source::{NuclideRelease, ReleaseWindow, SourceTerm};
@@ -1280,7 +1281,7 @@ impl AtmosphericDispersionChannel {
         if delta == 0.0 {
             return;
         }
-        let (s, c) = delta.sin_cos();
+        let (s, c) = delta.r_sin_cos();
         for p in self.puffs.iter_mut() {
             let (dx, dy) = (p.dx_m, p.dy_m);
             p.dx_m = dx * c + dy * s;
@@ -1776,7 +1777,7 @@ impl AtmosphericDispersionChannel {
         let step_dy = v * dt;
         // The length of THIS leg, accumulated. Recomputing it from the endpoints
         // is what would turn the path back into a chord.
-        let leg = step_dx.hypot(step_dy);
+        let leg = step_dx.r_hypot(step_dy);
 
         while self.population_steps < target_steps {
             for p in self.puffs.iter_mut() {
@@ -2238,7 +2239,7 @@ pub fn absolute_release_rate_by_nuclide_bq_per_s(
 /// points rather than one.
 pub fn bearing_to_site_frame(bearing_deg: f64, distance_m: f64) -> (f64, f64) {
     let radians = bearing_deg.to_radians();
-    (distance_m * radians.sin(), distance_m * radians.cos())
+    (distance_m * radians.r_sin(), distance_m * radians.r_cos())
 }
 
 #[cfg(test)]
@@ -3018,7 +3019,7 @@ mod tests {
             oldest.dx_m,
             oldest.dy_m,
             oldest.path_m,
-            oldest.dx_m.hypot(oldest.dy_m),
+            oldest.dx_m.r_hypot(oldest.dy_m),
             oldest.age_s(steps_after_leg_2)
         );
 
@@ -3038,11 +3039,11 @@ mod tests {
             oldest.path_m
         );
         assert!(
-            oldest.path_m > oldest.dx_m.hypot(oldest.dy_m) + 1000.0,
+            oldest.path_m > oldest.dx_m.r_hypot(oldest.dy_m) + 1000.0,
             "on a right-angle dog-leg the path {} must exceed the net displacement {} \\
              by a wide margin",
             oldest.path_m,
-            oldest.dx_m.hypot(oldest.dy_m)
+            oldest.dx_m.r_hypot(oldest.dy_m)
         );
         // And it is nowhere near where the old code would have drawn it.
         assert!(
@@ -3316,7 +3317,7 @@ mod tests {
             channel.advance_population(&config, clock);
             let moved_clock = channel.population_clock_s - before_clock;
             let after_pos = oldest(&channel);
-            let displaced = (after_pos.0 - before_pos.0).hypot(after_pos.1 - before_pos.1);
+            let displaced = (after_pos.0 - before_pos.0).r_hypot(after_pos.1 - before_pos.1);
             println!(
                 "refresh {i:>2}: clock +{moved_clock:.4} s, oldest puff moved {displaced:.4} m"
             );
@@ -3734,7 +3735,7 @@ mod tests {
         let mut worst = (0.0_f64, "");
         for r in release.latest() {
             let lambda = r.decay_constant.get::<uom::si::frequency::hertz>();
-            let lost = 1.0 - (-lambda * lifetime).exp();
+            let lost = 1.0 - (-lambda * lifetime).r_exp();
             if lost > worst.0 {
                 worst = (lost, r.name);
             }
@@ -3867,11 +3868,11 @@ mod tests {
         let before: Vec<(f64, f64)> = ch
             .puffs
             .iter()
-            .map(|p| (p.dx_m.hypot(p.dy_m), p.path_m))
+            .map(|p| (p.dx_m.r_hypot(p.dy_m), p.path_m))
             .collect();
         ch.rotate_population_to(map_meteorology(1.0, 37.0).direction_from);
         for (p, (d, path)) in ch.puffs.iter().zip(before) {
-            assert!((p.dx_m.hypot(p.dy_m) - d).abs() < 1e-9 && p.path_m == path);
+            assert!((p.dx_m.r_hypot(p.dy_m) - d).abs() < 1e-9 && p.path_m == path);
         }
         println!("rotation: worst relative change of ring peak / dose / field peak = {worst:e}");
     }

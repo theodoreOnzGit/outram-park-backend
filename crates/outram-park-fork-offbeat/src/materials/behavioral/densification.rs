@@ -78,6 +78,7 @@
 //! [`OffbeatError::OutOfRange`]: crate::error::OffbeatError::OutOfRange
 //! [`OffbeatError::Unphysical`]: crate::error::OffbeatError::Unphysical
 
+use petir::mathf::RealMath;
 use crate::error::{OffbeatError, Result};
 use crate::materials::MaterialState;
 
@@ -304,7 +305,7 @@ impl DensificationModel {
                 }
                 // Upstream's time constant is quoted in MWd/tHM.
                 let burnup = state.burnup * 1000.0;
-                asymptote * (1.0 - (-burnup / saturation_burnup).exp())
+                asymptote * (1.0 - (-burnup / saturation_burnup).r_exp())
             }
 
             Self::Uo2Frapcon {
@@ -323,8 +324,8 @@ impl DensificationModel {
                 };
                 let shifted = state.burnup + offset;
                 let linear = linear_max
-                    + (-FRAPCON_SLOW_DECAY * shifted).exp()
-                    + FRAPCON_FAST_WEIGHT * (-FRAPCON_FAST_DECAY * shifted).exp();
+                    + (-FRAPCON_SLOW_DECAY * shifted).r_exp()
+                    + FRAPCON_FAST_WEIGHT * (-FRAPCON_FAST_DECAY * shifted).r_exp();
                 3.0 * linear
             }
         }
@@ -618,11 +619,11 @@ fn frapcon_offset(linear_max: f64) -> Option<f64> {
     }
     let mut offset = 1.0_f64;
     for _ in 0..10 {
-        let argument = -FRAPCON_FAST_WEIGHT * (-FRAPCON_FAST_DECAY * offset).exp() - linear_max;
+        let argument = -FRAPCON_FAST_WEIGHT * (-FRAPCON_FAST_DECAY * offset).r_exp() - linear_max;
         if argument <= 0.0 {
             return None;
         }
-        let next = -argument.ln() / FRAPCON_SLOW_DECAY;
+        let next = -argument.r_ln() / FRAPCON_SLOW_DECAY;
         if !next.is_finite() {
             return None;
         }
@@ -790,7 +791,7 @@ mod tests {
 
         // saturation_burnup = 1000 MWd/tHM = 1 MWd/kgHM
         let at_one_constant = model.value(&state(900.0, 1.0));
-        let expected = asymptote * (1.0 - (-1.0_f64).exp());
+        let expected = asymptote * (1.0 - (-1.0_f64).r_exp());
         assert!(
             (at_one_constant - expected).abs() < 1.0e-15,
             "{at_one_constant} != {expected}"
@@ -973,8 +974,8 @@ mod tests {
         for linear_max in [-1.0e-4, -1.0e-3, -5.0e-3, -2.0e-2, -1.0e-1] {
             let offset = frapcon_offset(linear_max).expect("a root exists here");
             let residual = linear_max
-                + (-FRAPCON_SLOW_DECAY * offset).exp()
-                + FRAPCON_FAST_WEIGHT * (-FRAPCON_FAST_DECAY * offset).exp();
+                + (-FRAPCON_SLOW_DECAY * offset).r_exp()
+                + FRAPCON_FAST_WEIGHT * (-FRAPCON_FAST_DECAY * offset).r_exp();
             assert!(
                 residual.abs() < 1.0e-9,
                 "offset {offset} leaves residual {residual:e} for asymptote {linear_max}"

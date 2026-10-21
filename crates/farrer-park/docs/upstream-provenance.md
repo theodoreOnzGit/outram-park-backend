@@ -49,7 +49,9 @@ This is *more* permissive than the other two, not less.
 **PRISMS-Fatigue — LGPL-2.1.** `vendor/prisms-fatigue/LICENSE` is the verbatim
 LGPL-2.1 text; the README refers to it without an "or later" grant.
 
-## Why GPL-3.0-only is clean, and one-way
+## Why GPL-3.0 for the ported files is clean, and one-way
+
+**CORRECTED 2026-10-20 (gh:#973):** the crate itself is now ~~GPL-3.0-only~~ **AGPL-3.0-only**, a combined work; the ported files keep GPL-3.0 (see `NOTICE`). The LGPL-2.1 §3 reasoning below is unchanged.
 
 LGPL-2.1 section 3 permits a licensee to opt into the ordinary GPL instead, and
 explicitly allows choosing a later GPL version. Quoting the clause the

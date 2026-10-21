@@ -19,6 +19,7 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+use petir::mathf::RealMath;
 use crate::openfoam_algorithms::openfoam_source::scalar::{SMALL, VSMALL};
 use super::roots::{RootType, Roots};
 use super::linear_eqn::LinearEqn;
@@ -114,10 +115,10 @@ impl CubicEqn {
         if three_real {
             let w_cb_re = -q / 2.0;
             let w_cb_im = (-discr).sqrt();
-            let w_abs = w_cb_re.hypot(w_cb_im).cbrt();
-            let w_arg = w_cb_im.atan2(w_cb_re) / 3.0;
-            let w_re = w_abs * w_arg.cos();
-            let w_im = w_abs * w_arg.sin();
+            let w_abs = w_cb_re.r_hypot(w_cb_im).r_cbrt();
+            let w_arg = w_cb_im.r_atan2(w_cb_re) / 3.0;
+            let w_re = w_abs * w_arg.r_cos();
+            let w_im = w_abs * w_arg.r_sin();
 
             x = if b > 0.0 {
                 -w_re - w_im.abs() * sqrt3 - b / 3.0
@@ -126,7 +127,7 @@ impl CubicEqn {
             };
         } else if one_real_two_complex {
             let w_cb = -q / 2.0 - sign(q) * discr.sqrt();
-            let w = w_cb.cbrt();
+            let w = w_cb.r_cbrt();
             let t = w - p / (3.0 * w);
 
             if p + t * b < 0.0 {
@@ -145,9 +146,9 @@ impl CubicEqn {
             }
         } else if two_real {
             if q * b > 0.0 {
-                x = -2.0 * (q / 2.0).cbrt() - b / 3.0;
+                x = -2.0 * (q / 2.0).r_cbrt() - b / 3.0;
             } else {
-                x = (q / 2.0).cbrt() - b / 3.0;
+                x = (q / 2.0).r_cbrt() - b / 3.0;
                 let r = LinearEqn::new(-a, x).roots();
                 return Roots::concat_2_1(
                     Roots::<2>::both(r),

@@ -78,6 +78,7 @@
 //!   10.9 s without (tutorial 1, same machine): 3.5×.
 //! - **`--fast`:** `k = 1.00369 ± 0.00183` (a smoke test, as it says).
 
+use petir::mathf::RealMath;
 use std::path::PathBuf;
 use std::time::Instant;
 
@@ -222,7 +223,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "EALF: {:.4e} ± {:.1e} eV (binning bound {:.2} %)",
         ealf.ealf_ev.mean,
         ealf.ealf_ev.std,
-        100.0 * (ealf.discretisation_bound_ln.exp() - 1.0)
+        100.0 * (ealf.discretisation_bound_ln.r_exp() - 1.0)
     );
     let kin = run.kinetics()?;
     println!(
@@ -269,7 +270,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // ── 7. The checks (V&V) ─────────────────────────────────────────────────
     let sigma = k.std.max(run.provenance.sigma_batch_means.unwrap_or(0.0));
     let pcm = (k.mean - godiva::BENCHMARK_K) * 1e5;
-    let combined = ((sigma * 1e5).powi(2) + RECORDED_SEM_PCM.powi(2)).sqrt();
+    let combined = ((sigma * 1e5).r_powi(2) + RECORDED_SEM_PCM.r_powi(2)).sqrt();
     let z = |a: f64, sa: f64, b: f64, sb: f64| (a - b) / (sa * sa + sb * sb).sqrt();
     let checks = [
         ("k vs record [sigma]", (pcm - RECORDED_PCM) / combined),

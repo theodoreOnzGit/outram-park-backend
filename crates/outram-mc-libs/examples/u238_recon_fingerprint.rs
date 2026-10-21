@@ -30,6 +30,7 @@
 //!     --example u238_recon_fingerprint
 //! ```
 
+use petir::mathf::RealMath;
 fn main() {
     use outram_mc_libs::material::nuclide::Nuclide;
     use std::path::Path;
@@ -75,7 +76,7 @@ fn main() {
         let (a, b) = (w[0], w[1]);
         let em = (a * b).sqrt();
         let x = u238.xs_at_energy(em, 600.0);
-        ri += (x.absorption - x.fission) * (b / a).ln();
+        ri += (x.absorption - x.fission) * (b / a).r_ln();
     }
     println!("\ncapture_RI_1eV_20keV_b   {ri:.6}");
 

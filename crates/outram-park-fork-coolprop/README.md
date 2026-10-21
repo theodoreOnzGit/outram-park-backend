@@ -1,9 +1,10 @@
 <!--
-SPDX-License-Identifier: GPL-3.0-only
+SPDX-License-Identifier: AGPL-3.0-only
 Part of Outram Park (outram-park-backend).
 A fork/translation of CoolProp (https://github.com/CoolProp/CoolProp, MIT).
-This crate is GPL-3.0-only: it ships GPL-3.0 OpenFOAM-derived code, which is
-infective, so the whole crate is GPL-3.0. CoolProp-derived parts keep their MIT
+This crate is ~~GPL-3.0-only~~ AGPL-3.0-only (relicensed 2026-10-20, gh:#973); it ships GPL-3.0
+OpenFOAM-derived code whose files keep their GPL-3.0 headers, so it is an AGPL combined work and ships
+`LICENSE.GPL-3.0` beside `LICENSE`. CoolProp-derived parts keep their MIT
 provenance in-tree (see NOTICE). CoolProp is not affiliated with or endorsing
 this fork. See NOTICE / TRADEMARKS.md.
 -->
@@ -399,7 +400,7 @@ First published release. The crate compiles clean and all automated tests pass
 (309 passed / 0 failed / 18 ignored at tag time), but **no human V&V has been
 performed yet — use at your own risk** (see the banner above).
 
-- **Licence corrected to GPL-3.0-only.** Earlier internal metadata marked this
+- **Licence corrected to GPL-3.0-only** (~~GPL-3.0-only~~ **AGPL-3.0-only** since 2026-10-20, gh:#973; this entry is the 0.1.0 history). Earlier internal metadata marked this
   crate MIT (provisional). It ships GPL-3.0-only OpenFOAM-derived code
   (`src/openfoam_algorithms/openfoam_source/*`), which is infective, so the
   crate as a whole is **GPL-3.0-only**. CoolProp-derived portions retain their

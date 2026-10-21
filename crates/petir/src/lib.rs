@@ -131,6 +131,7 @@
 //! | [`fast_exp`], [`fast_log`], [`fast_pow`] | ported | ARM optimized-routines `exp`, `log`, `pow` — bit-identical to upstream |
 //! | [`real`] | — | The `no_std` float-math shim |
 //! | [`rng`] | ported (OpenMC, not GSL) | OpenMC's 64-bit LCG with PCG output permutation and O(log n) jump-ahead; moved here from `outram-mc-libs` 2026-10-02 |
+//! | [`rng`] (`ChaCha8Rng`, `Uniform`, `Normal`) | ported (`rand` 0.10.3 / `rand_distr` 0.6.0 / `chacha20` 0.10.2, not GSL) | the `rand` pieces `boon-lay`'s RustBCA copy uses, bit-identical to those crates (gh:#995, 2026-10-20; `tests/rng_vs_rand.rs`) |
 //! | [`scalar`] | lifted | Guard constants and machine epsilons |
 //!
 //! The epic's original scope is now COVERED. What remains are deliberate
@@ -200,10 +201,15 @@ pub mod depletion;
 pub mod deriv;
 pub mod error;
 pub mod expint;
+/// faer's dense SVD (`Mat::svd()`), ported bit for bit from `faer` 0.24.4
+/// (MIT) at the maintainer's direction on gh #996.
+pub mod faer_dense;
 pub mod fast_exp;
 pub mod fast_log;
 pub mod fast_pow;
 pub mod gamma_inc;
+/// Correctly rounded `hypot` (`f64`, `f32`), ported from CORE-MATH (gh:#997).
+pub mod hypot;
 pub mod integration;
 pub mod interp;
 pub mod linalg;
@@ -222,10 +228,15 @@ pub mod real;
 pub mod rng;
 pub mod roots;
 pub mod scalar;
+/// Sparse direct solvers (LU with COLAMD, Cholesky with AMD), ported from
+/// `faer` 0.24.4 (MIT) at the maintainer's direction on gh #994.
+pub mod sparse;
 pub mod specfunc;
 pub mod ssprk;
 #[cfg(feature = "transfer-fn")]
 pub mod transfer_fn;
+#[cfg(feature = "uom")]
+pub mod uom_math;
 /// **WGSL kernels** — PETIR's pointwise numerics as GPU shader source, in
 /// `f32`, with an `f32` CPU mirror of each and (behind the off-by-default
 /// `wgpu` feature) a headless runner. The shader text and the mirrors are

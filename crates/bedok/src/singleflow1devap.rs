@@ -49,6 +49,8 @@
 //! `neacrpd1t` sets, so that a transient starts from a steady state computed by
 //! the *same* model it will be marched with.
 
+use petir::mathf::RealMath;
+
 use crate::iapws_if97::backward::t_ph;
 use crate::iapws_if97::basic::{cp1_pt, h1_pt, h2_pt, hl_p, hv_p, v1_pt, v2_pt, vv_p};
 use crate::iapws_if97::region4::tsat_p;
@@ -367,7 +369,7 @@ pub fn invert_mixture_enthalpy(
     // same number as mN/m; note its critical temperature is 647.15 K, the
     // correlation's own, not IF97's 647.096.
     let theta = (647.15 - tsat) / 647.15;
-    let sigma = 235.8 * theta.powf(1.256) * (1.0 - 0.625 * theta);
+    let sigma = 235.8 * theta.r_powf(1.256) * (1.0 - 0.625 * theta);
 
     let homogeneous = params.evap_homog;
     let c0 = if homogeneous {
@@ -382,7 +384,7 @@ pub fn invert_mixture_enthalpy(
                 0.0
             } else {
                 std::f64::consts::SQRT_2
-                    * ((rl[i] - rg[i]) * G_EARTH * sigma / (rl[i] * rl[i])).powf(0.25)
+                    * ((rl[i] - rg[i]) * G_EARTH * sigma / (rl[i] * rl[i])).r_powf(0.25)
             }
         })
         .collect();

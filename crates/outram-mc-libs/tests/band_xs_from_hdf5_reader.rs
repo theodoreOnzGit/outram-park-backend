@@ -43,6 +43,7 @@
 //!
 //! Printed by the test.
 
+use petir::mathf::RealMath;
 use njoy_outram_park_fork::hdf5::nuclide_read::{read_nuclide, ReadNuclide};
 
 /// Matching `band_averaged_xs_vs_openmc.rs`'s `BANDS` and `NSUB` exactly, so
@@ -85,12 +86,12 @@ fn xs_dir() -> Option<std::path::PathBuf> {
 /// Lethargy average of `f` over `[lo, hi]` — trapezoid in `ln E`, i.e. the
 /// `dE/E` weight. Identical to the sibling test's, on purpose.
 fn band_average(lo: f64, hi: f64, f: impl Fn(f64) -> f64) -> f64 {
-    let (l0, l1) = (lo.ln(), hi.ln());
+    let (l0, l1) = (lo.r_ln(), hi.r_ln());
     let mut acc = 0.0;
     let mut prev = f(lo);
     for i in 1..NSUB {
         let ln = l0 + (l1 - l0) * i as f64 / (NSUB - 1) as f64;
-        let v = f(ln.exp());
+        let v = f(ln.r_exp());
         acc += 0.5 * (v + prev) * (l1 - l0) / (NSUB - 1) as f64;
         prev = v;
     }

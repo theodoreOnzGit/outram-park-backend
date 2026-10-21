@@ -17,7 +17,7 @@
 //! `dqk21.f`, `dqelg.f`, `dqpsrt.f`). Both were read for this port
 //! (SciPy tag `v1.18.1`, netlib files fetched 2026-09-28). The port follows
 //! the **C** text, including its 0-based indexing, because that is what
-//! pyDOSEIA executes. BSD 3-clause is compatible with this crate's GPL-3.0;
+//! pyDOSEIA executes. BSD 3-clause is compatible with this crate's ~~GPL-3.0~~ **AGPL-3.0-only**;
 //! the notice is reproduced in `crates/buangkok/NOTICE`.
 //!
 //! # Role: the regression reference, not the default
@@ -38,6 +38,7 @@
 //! differs from SciPy's routine on singular integrands (the `quadpack`-group
 //! mutation test). Petir's `qags` does not have that gap.
 
+use petir::mathf::RealMath;
 /// Machine epsilon, `np.finfo(np.float64).eps` (SciPy's `epmach`).
 const EPMACH: f64 = f64::EPSILON;
 /// Smallest normal positive double (SciPy's `uflow`).
@@ -138,7 +139,7 @@ fn dqk21<F: FnMut(f64) -> f64>(f: &mut F, a: f64, b: f64) -> (f64, f64, f64, f64
     resasc = resasc * dhlgth;
     let mut abserr = ((resk - resg) * hlgth).abs();
     if resasc != 0.0 && abserr != 0.0 {
-        abserr = resasc * f64::min(1.0, (200.0 * abserr / resasc).powf(1.5));
+        abserr = resasc * f64::min(1.0, (200.0 * abserr / resasc).r_powf(1.5));
     }
     if resabs > UFLOW / (50.0 * EPMACH) {
         abserr = f64::max(EPMACH * 50.0 * resabs, abserr);

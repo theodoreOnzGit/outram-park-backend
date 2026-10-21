@@ -16,6 +16,7 @@
 //! `Cases/Verification` is separate work under bead `op-6sl.1` and is the
 //! maintainer's to sign off.
 
+use petir::mathf::RealMath;
 use std::sync::Arc;
 
 use approx::assert_relative_eq;
@@ -534,7 +535,7 @@ fn the_matpro_zircaloy_poisson_crossover_refuses_the_case_rather_than_clamping()
     let e = admissible.young;
     let mut previous = f64::NAN;
     for decade in 3..=6 {
-        let epsilon = 10.0_f64.powi(-decade);
+        let epsilon = 10.0_f64.r_powi(-decade);
         let nu = 0.5 - epsilon;
         let lambda = e * nu / ((1.0 + nu) * (1.0 - 2.0 * nu));
         println!("clamp at nu = 0.5 - 1e-{decade}  ->  lambda = {lambda:e} Pa");

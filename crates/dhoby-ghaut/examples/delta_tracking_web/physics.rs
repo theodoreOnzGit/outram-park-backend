@@ -44,6 +44,7 @@
 // The browser build does not call the headless measurement helpers.
 #![cfg_attr(target_arch = "wasm32", allow(dead_code))]
 
+use petir::mathf::RealMath;
 use crate::model::{self, NuclearData, N_U235};
 use outram_mc_libs::geometry::cell::SurfaceToken;
 use outram_mc_libs::geometry::geometry::Geometry;
@@ -158,7 +159,7 @@ pub fn birth(phys: &Physics, seed: u64) -> Birth {
     let (cx, cy) = c[i];
     let rr = model::KERNEL_R * (1.0 - 1.0e-9) * model::uniform(&mut s).sqrt();
     let t = std::f64::consts::TAU * model::uniform(&mut s);
-    let r = Position::new(cx + rr * t.cos(), cy + rr * t.sin(), 0.0);
+    let r = Position::new(cx + rr * t.r_cos(), cy + rr * t.r_sin(), 0.0);
     let mut dir_seed = model::splitmix(&mut s);
     let (u, v, w) = isotropic_direction(&mut dir_seed);
     let mut e_seed = model::splitmix(&mut s);

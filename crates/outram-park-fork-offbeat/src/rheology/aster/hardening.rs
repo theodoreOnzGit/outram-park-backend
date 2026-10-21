@@ -54,6 +54,7 @@
 //! exponent are dimensionless. `p` is non-negative by construction: it is an
 //! accumulated measure.
 
+use petir::mathf::RealMath;
 use crate::error::{OffbeatError, Result};
 
 /// Below this accumulated plastic strain the `AsterPower` curve is replaced by
@@ -209,7 +210,7 @@ impl IsotropicHardening {
                 yield_stress,
                 coefficient,
                 exponent,
-            } => yield_stress + coefficient * p.powf(exponent),
+            } => yield_stress + coefficient * p.r_powf(exponent),
             Self::AsterPower { .. } => self.aster_power_curve(p).0,
             Self::EcroNl {
                 r0,
@@ -223,9 +224,9 @@ impl IsotropicHardening {
                 gamma_m,
             } => {
                 r0 + rh * p
-                    + r1 * (1.0 - (-gamma_1 * p).exp())
-                    + r2 * (1.0 - (-gamma_2 * p).exp())
-                    + rk * (p + p0).powf(gamma_m)
+                    + r1 * (1.0 - (-gamma_1 * p).r_exp())
+                    + r2 * (1.0 - (-gamma_2 * p).r_exp())
+                    + rk * (p + p0).r_powf(gamma_m)
             }
         }
     }
@@ -259,7 +260,7 @@ impl IsotropicHardening {
                 } else {
                     p
                 };
-                coefficient * exponent * q.powf(exponent - 1.0)
+                coefficient * exponent * q.r_powf(exponent - 1.0)
             }
             Self::AsterPower { .. } => self.aster_power_curve(p).1,
             Self::EcroNl {
@@ -278,9 +279,9 @@ impl IsotropicHardening {
                 } else {
                     p + p0
                 };
-                rh + r1 * gamma_1 * (-gamma_1 * p).exp()
-                    + r2 * gamma_2 * (-gamma_2 * p).exp()
-                    + rk * gamma_m * base.powf(gamma_m - 1.0)
+                rh + r1 * gamma_1 * (-gamma_1 * p).r_exp()
+                    + r2 * gamma_2 * (-gamma_2 * p).r_exp()
+                    + rk * gamma_m * base.r_powf(gamma_m - 1.0)
             }
         }
     }
@@ -331,13 +332,13 @@ impl IsotropicHardening {
         let p0 = ASTER_POWER_LINEARISATION_STRAIN;
 
         if p <= p0 {
-            let radius_at_p0 = yield_stress * (coefficient * p0).powf(inverse_n) + yield_stress;
+            let radius_at_p0 = yield_stress * (coefficient * p0).r_powf(inverse_n) + yield_stress;
             let secant = (radius_at_p0 - yield_stress) / p0;
             (yield_stress + p * secant, secant)
         } else {
-            let radius = yield_stress * (coefficient * p).powf(inverse_n) + yield_stress;
+            let radius = yield_stress * (coefficient * p).r_powf(inverse_n) + yield_stress;
             let slope =
-                inverse_n * yield_stress * coefficient * (coefficient * p).powf(inverse_n - 1.0);
+                inverse_n * yield_stress * coefficient * (coefficient * p).r_powf(inverse_n - 1.0);
             (radius, slope)
         }
     }

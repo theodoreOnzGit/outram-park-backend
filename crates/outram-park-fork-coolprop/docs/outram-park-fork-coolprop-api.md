@@ -1,6 +1,6 @@
 # Crate Documentation
 
-**Version:** 0.1.2
+**Version:** 0.1.3
 
 **Format Version:** 61
 
@@ -17,10 +17,11 @@ of state — built to OUTRAM PARK's design rules:
 > authors. "CoolProp" is used only to identify the upstream work it is
 > derived from (see `TRADEMARKS.md`, `NOTICE`).
 >
-> **Licence: GPL-3.0-only.** CoolProp itself is MIT, but this crate ships
-> GPL-3.0-only OpenFOAM-derived code ([`openfoam_algorithms`]), so the crate
-> as a whole is GPL-3.0-only; the CoolProp-derived parts keep their MIT
-> provenance in-tree.
+> **Licence: ~~GPL-3.0-only~~ AGPL-3.0-only** (relicensed 2026-10-20,
+> gh:#973; see `docs/relicensing-agpl-2026-10-20.md`). CoolProp itself is
+> MIT, but this crate ships OpenFOAM-derived code
+> ([`openfoam_algorithms`]) whose files keep their GPL-3.0 headers; the
+> CoolProp-derived parts keep their MIT provenance in-tree.
 >
 > **⚠️ No human V&V has been performed yet — use at your own risk.** The
 > automated tests here are self-consistency and primary-standard checks; no
@@ -152,8 +153,8 @@ pub struct SatAncillary {
     pub t_r: f64,
     pub using_tau_r: bool,
     pub exponential: bool,
-    pub n: &'static [f64],
-    pub t: &'static [f64],
+    pub n: &''static [f64],
+    pub t: &''static [f64],
 }
 ```
 
@@ -165,8 +166,8 @@ pub struct SatAncillary {
 | `t_r` | `f64` | Reducing temperature `T_r` \[K\] (for `θ = 1 − T/T_r`). |
 | `using_tau_r` | `bool` | Whether the exponential prefactor uses `k = T_r/T` (`true`) or `k = 1`. |
 | `exponential` | `bool` | `true` → `v_r·exp(k·S)` (pressure / vapour density);<br>`false` → `v_r·(1 + S)` (liquid density, `rhoLnoexp`). |
-| `n` | `&'static [f64]` | Series coefficients `n_i`. |
-| `t` | `&'static [f64]` | Series exponents `t_i`. |
+| `n` | `&''static [f64]` | Series coefficients `n_i`. |
+| `t` | `&''static [f64]` | Series exponents `t_i`. |
 
 ##### Implementations
 
@@ -410,55 +411,55 @@ slices.
 ```rust
 pub enum ResidualTerm {
     Power {
-        n: &'static [f64],
-        t: &'static [f64],
-        d: &'static [f64],
-        l: &'static [f64],
+        n: &''static [f64],
+        t: &''static [f64],
+        d: &''static [f64],
+        l: &''static [f64],
     },
     Gaussian {
-        n: &'static [f64],
-        t: &'static [f64],
-        d: &'static [f64],
-        eta: &'static [f64],
-        epsilon: &'static [f64],
-        beta: &'static [f64],
-        gamma: &'static [f64],
+        n: &''static [f64],
+        t: &''static [f64],
+        d: &''static [f64],
+        eta: &''static [f64],
+        epsilon: &''static [f64],
+        beta: &''static [f64],
+        gamma: &''static [f64],
     },
     Exponential {
-        n: &'static [f64],
-        t: &'static [f64],
-        d: &'static [f64],
-        g: &'static [f64],
-        l: &'static [f64],
+        n: &''static [f64],
+        t: &''static [f64],
+        d: &''static [f64],
+        g: &''static [f64],
+        l: &''static [f64],
     },
     DoubleExponential {
-        n: &'static [f64],
-        t: &'static [f64],
-        d: &'static [f64],
-        gd: &'static [f64],
-        ld: &'static [f64],
-        gt: &'static [f64],
-        lt: &'static [f64],
+        n: &''static [f64],
+        t: &''static [f64],
+        d: &''static [f64],
+        gd: &''static [f64],
+        ld: &''static [f64],
+        gt: &''static [f64],
+        lt: &''static [f64],
     },
     GaoB {
-        n: &'static [f64],
-        t: &'static [f64],
-        d: &'static [f64],
-        eta: &'static [f64],
-        beta: &'static [f64],
-        gamma: &'static [f64],
-        epsilon: &'static [f64],
-        b: &'static [f64],
+        n: &''static [f64],
+        t: &''static [f64],
+        d: &''static [f64],
+        eta: &''static [f64],
+        beta: &''static [f64],
+        gamma: &''static [f64],
+        epsilon: &''static [f64],
+        b: &''static [f64],
     },
     NonAnalytic {
-        n: &'static [f64],
-        a: &'static [f64],
-        b: &'static [f64],
-        beta: &'static [f64],
-        big_a: &'static [f64],
-        big_b: &'static [f64],
-        big_c: &'static [f64],
-        big_d: &'static [f64],
+        n: &''static [f64],
+        a: &''static [f64],
+        b: &''static [f64],
+        beta: &''static [f64],
+        big_a: &''static [f64],
+        big_b: &''static [f64],
+        big_c: &''static [f64],
+        big_d: &''static [f64],
     },
 }
 ```
@@ -474,10 +475,10 @@ Fields:
 
 | Name | Type | Documentation |
 |------|------|---------------|
-| `n` | `&'static [f64]` |  |
-| `t` | `&'static [f64]` |  |
-| `d` | `&'static [f64]` |  |
-| `l` | `&'static [f64]` |  |
+| `n` | `&''static [f64]` |  |
+| `t` | `&''static [f64]` |  |
+| `d` | `&''static [f64]` |  |
+| `l` | `&''static [f64]` |  |
 
 ###### `Gaussian`
 
@@ -488,13 +489,13 @@ Fields:
 
 | Name | Type | Documentation |
 |------|------|---------------|
-| `n` | `&'static [f64]` |  |
-| `t` | `&'static [f64]` |  |
-| `d` | `&'static [f64]` |  |
-| `eta` | `&'static [f64]` |  |
-| `epsilon` | `&'static [f64]` |  |
-| `beta` | `&'static [f64]` |  |
-| `gamma` | `&'static [f64]` |  |
+| `n` | `&''static [f64]` |  |
+| `t` | `&''static [f64]` |  |
+| `d` | `&''static [f64]` |  |
+| `eta` | `&''static [f64]` |  |
+| `epsilon` | `&''static [f64]` |  |
+| `beta` | `&''static [f64]` |  |
+| `gamma` | `&''static [f64]` |  |
 
 ###### `Exponential`
 
@@ -507,11 +508,11 @@ Fields:
 
 | Name | Type | Documentation |
 |------|------|---------------|
-| `n` | `&'static [f64]` |  |
-| `t` | `&'static [f64]` |  |
-| `d` | `&'static [f64]` |  |
-| `g` | `&'static [f64]` |  |
-| `l` | `&'static [f64]` |  |
+| `n` | `&''static [f64]` |  |
+| `t` | `&''static [f64]` |  |
+| `d` | `&''static [f64]` |  |
+| `g` | `&''static [f64]` |  |
+| `l` | `&''static [f64]` |  |
 
 ###### `DoubleExponential`
 
@@ -524,13 +525,13 @@ Fields:
 
 | Name | Type | Documentation |
 |------|------|---------------|
-| `n` | `&'static [f64]` |  |
-| `t` | `&'static [f64]` |  |
-| `d` | `&'static [f64]` |  |
-| `gd` | `&'static [f64]` |  |
-| `ld` | `&'static [f64]` |  |
-| `gt` | `&'static [f64]` |  |
-| `lt` | `&'static [f64]` |  |
+| `n` | `&''static [f64]` |  |
+| `t` | `&''static [f64]` |  |
+| `d` | `&''static [f64]` |  |
+| `gd` | `&''static [f64]` |  |
+| `ld` | `&''static [f64]` |  |
+| `gt` | `&''static [f64]` |  |
+| `lt` | `&''static [f64]` |  |
 
 ###### `GaoB`
 
@@ -543,14 +544,14 @@ Fields:
 
 | Name | Type | Documentation |
 |------|------|---------------|
-| `n` | `&'static [f64]` |  |
-| `t` | `&'static [f64]` |  |
-| `d` | `&'static [f64]` |  |
-| `eta` | `&'static [f64]` |  |
-| `beta` | `&'static [f64]` |  |
-| `gamma` | `&'static [f64]` |  |
-| `epsilon` | `&'static [f64]` |  |
-| `b` | `&'static [f64]` |  |
+| `n` | `&''static [f64]` |  |
+| `t` | `&''static [f64]` |  |
+| `d` | `&''static [f64]` |  |
+| `eta` | `&''static [f64]` |  |
+| `beta` | `&''static [f64]` |  |
+| `gamma` | `&''static [f64]` |  |
+| `epsilon` | `&''static [f64]` |  |
+| `b` | `&''static [f64]` |  |
 
 ###### `NonAnalytic`
 
@@ -567,14 +568,14 @@ Fields:
 
 | Name | Type | Documentation |
 |------|------|---------------|
-| `n` | `&'static [f64]` |  |
-| `a` | `&'static [f64]` |  |
-| `b` | `&'static [f64]` |  |
-| `beta` | `&'static [f64]` |  |
-| `big_a` | `&'static [f64]` |  |
-| `big_b` | `&'static [f64]` |  |
-| `big_c` | `&'static [f64]` |  |
-| `big_d` | `&'static [f64]` |  |
+| `n` | `&''static [f64]` |  |
+| `a` | `&''static [f64]` |  |
+| `b` | `&''static [f64]` |  |
+| `beta` | `&''static [f64]` |  |
+| `big_a` | `&''static [f64]` |  |
+| `big_b` | `&''static [f64]` |  |
+| `big_c` | `&''static [f64]` |  |
+| `big_d` | `&''static [f64]` |  |
 
 ##### Implementations
 
@@ -671,30 +672,30 @@ pub enum IdealTerm {
         a: f64,
     },
     PlanckEinstein {
-        n: &'static [f64],
-        t: &'static [f64],
+        n: &''static [f64],
+        t: &''static [f64],
     },
     EnthalpyEntropyOffset {
         a1: f64,
         a2: f64,
     },
     Power {
-        n: &'static [f64],
-        t: &'static [f64],
+        n: &''static [f64],
+        t: &''static [f64],
     },
     PlanckEinsteinGeneralized {
-        n: &'static [f64],
-        theta: &'static [f64],
-        c: &'static [f64],
-        d: &'static [f64],
+        n: &''static [f64],
+        theta: &''static [f64],
+        c: &''static [f64],
+        d: &''static [f64],
     },
     CP0Constant {
         cp_over_r: f64,
         tau0: f64,
     },
     CP0PolyT {
-        c: &'static [f64],
-        t: &'static [f64],
+        c: &''static [f64],
+        t: &''static [f64],
         tc: f64,
         t0: f64,
     },
@@ -733,8 +734,8 @@ Fields:
 
 | Name | Type | Documentation |
 |------|------|---------------|
-| `n` | `&'static [f64]` |  |
-| `t` | `&'static [f64]` |  |
+| `n` | `&''static [f64]` |  |
+| `t` | `&''static [f64]` |  |
 
 ###### `EnthalpyEntropyOffset`
 
@@ -759,8 +760,8 @@ Fields:
 
 | Name | Type | Documentation |
 |------|------|---------------|
-| `n` | `&'static [f64]` |  |
-| `t` | `&'static [f64]` |  |
+| `n` | `&''static [f64]` |  |
+| `t` | `&''static [f64]` |  |
 
 ###### `PlanckEinsteinGeneralized`
 
@@ -773,10 +774,10 @@ Fields:
 
 | Name | Type | Documentation |
 |------|------|---------------|
-| `n` | `&'static [f64]` |  |
-| `theta` | `&'static [f64]` |  |
-| `c` | `&'static [f64]` |  |
-| `d` | `&'static [f64]` |  |
+| `n` | `&''static [f64]` |  |
+| `theta` | `&''static [f64]` |  |
+| `c` | `&''static [f64]` |  |
+| `d` | `&''static [f64]` |  |
 
 ###### `CP0Constant`
 
@@ -804,8 +805,8 @@ Fields:
 
 | Name | Type | Documentation |
 |------|------|---------------|
-| `c` | `&'static [f64]` |  |
-| `t` | `&'static [f64]` |  |
+| `c` | `&''static [f64]` |  |
+| `t` | `&''static [f64]` |  |
 | `tc` | `f64` |  |
 | `t0` | `f64` |  |
 
@@ -897,7 +898,7 @@ and ideal term lists. All-`&'static`, so fluid definitions are `const`.
 
 ```rust
 pub struct FluidEos {
-    pub name: &'static str,
+    pub name: &''static str,
     pub molar_mass: f64,
     pub gas_constant: f64,
     pub t_reducing: f64,
@@ -909,8 +910,8 @@ pub struct FluidEos {
     pub t_max: f64,
     pub p_max: f64,
     pub acentric: f64,
-    pub residual: &'static [ResidualTerm],
-    pub ideal: &'static [IdealTerm],
+    pub residual: &''static [ResidualTerm],
+    pub ideal: &''static [IdealTerm],
 }
 ```
 
@@ -918,7 +919,7 @@ pub struct FluidEos {
 
 | Name | Type | Documentation |
 |------|------|---------------|
-| `name` | `&'static str` | Fluid name (as in CoolProp). |
+| `name` | `&''static str` | Fluid name (as in CoolProp). |
 | `molar_mass` | `f64` | Molar mass \[kg/mol\]. |
 | `gas_constant` | `f64` | Gas constant used by this EOS \[J/(mol·K)\]. |
 | `t_reducing` | `f64` | Reducing temperature `T_r` \[K\] (for `τ = T_r/T`). |
@@ -930,8 +931,8 @@ pub struct FluidEos {
 | `t_max` | `f64` | Maximum valid temperature \[K\]. |
 | `p_max` | `f64` | Maximum valid pressure \[Pa\]. |
 | `acentric` | `f64` | Acentric factor \[-\]. |
-| `residual` | `&'static [ResidualTerm]` | Residual-Helmholtz term groups. |
-| `ideal` | `&'static [IdealTerm]` | Ideal-gas-Helmholtz term groups. |
+| `residual` | `&''static [ResidualTerm]` | Residual-Helmholtz term groups. |
+| `ideal` | `&''static [IdealTerm]` | Ideal-gas-Helmholtz term groups. |
 
 ##### Implementations
 
@@ -2163,22 +2164,22 @@ CoolProp `Xenon`.
 ###### Methods
 
 - ```rust
-  pub fn eos(self: Self) -> &'static FluidEos { /* ... */ }
+  pub fn eos(self: Self) -> &''static FluidEos { /* ... */ }
   ```
   The hardcoded Helmholtz EOS for this fluid.
 
 - ```rust
-  pub fn ancillaries(self: Self) -> Option<&'static FluidAncillaries> { /* ... */ }
+  pub fn ancillaries(self: Self) -> Option<&''static FluidAncillaries> { /* ... */ }
   ```
   Saturation ancillaries (for VLE / saturation lookups), if this fluid
 
 - ```rust
-  pub fn transport(self: Self) -> Option<&'static FluidTransport> { /* ... */ }
+  pub fn transport(self: Self) -> Option<&''static FluidTransport> { /* ... */ }
   ```
   Transport models (viscosity/conductivity), if this fluid has a
 
 - ```rust
-  pub fn name(self: Self) -> &'static str { /* ... */ }
+  pub fn name(self: Self) -> &''static str { /* ... */ }
   ```
   The fluid's name (as in CoolProp).
 
@@ -7413,28 +7414,28 @@ Dilute-gas viscosity model (the `T`-only, zero-density limit).
 pub enum ViscosityDilute {
     CollisionIntegral {
         c: f64,
-        a: &'static [f64],
-        t: &'static [f64],
+        a: &''static [f64],
+        t: &''static [f64],
         molar_mass: f64,
         epsilon_over_k: f64,
         sigma_eta: f64,
     },
     PowersOfT {
-        a: &'static [f64],
-        t: &'static [f64],
+        a: &''static [f64],
+        t: &''static [f64],
     },
     CO2LaeseckeJPCRD2017,
     Ethane,
     Cyclohexane,
     PowersOfTr {
-        a: &'static [f64],
-        t: &'static [f64],
+        a: &''static [f64],
+        t: &''static [f64],
         t_reducing: f64,
     },
     CollisionIntegralPowersOfTstar {
         c: f64,
-        a: &'static [f64],
-        t: &'static [f64],
+        a: &''static [f64],
+        t: &''static [f64],
         t_reducing: f64,
     },
     KineticTheory {
@@ -7457,8 +7458,8 @@ Fields:
 | Name | Type | Documentation |
 |------|------|---------------|
 | `c` | `f64` |  |
-| `a` | `&'static [f64]` |  |
-| `t` | `&'static [f64]` |  |
+| `a` | `&''static [f64]` |  |
+| `t` | `&''static [f64]` |  |
 | `molar_mass` | `f64` | Molar mass \[kg/mol\] (the transport block's own value). |
 | `epsilon_over_k` | `f64` | Lennard-Jones `ε/k` \[K\]. |
 | `sigma_eta` | `f64` | Lennard-Jones `σ` \[m\]. |
@@ -7471,8 +7472,8 @@ Fields:
 
 | Name | Type | Documentation |
 |------|------|---------------|
-| `a` | `&'static [f64]` |  |
-| `t` | `&'static [f64]` |  |
+| `a` | `&''static [f64]` |  |
+| `t` | `&''static [f64]` |  |
 
 ###### `CO2LaeseckeJPCRD2017`
 
@@ -7495,8 +7496,8 @@ Fields:
 
 | Name | Type | Documentation |
 |------|------|---------------|
-| `a` | `&'static [f64]` |  |
-| `t` | `&'static [f64]` |  |
+| `a` | `&''static [f64]` |  |
+| `t` | `&''static [f64]` |  |
 | `t_reducing` | `f64` |  |
 
 ###### `CollisionIntegralPowersOfTstar`
@@ -7509,8 +7510,8 @@ Fields:
 | Name | Type | Documentation |
 |------|------|---------------|
 | `c` | `f64` |  |
-| `a` | `&'static [f64]` |  |
-| `t` | `&'static [f64]` |  |
+| `a` | `&''static [f64]` |  |
+| `t` | `&''static [f64]` |  |
 | `t_reducing` | `f64` |  |
 
 ###### `KineticTheory`
@@ -7607,15 +7608,15 @@ Initial-density viscosity correction.
 ```rust
 pub enum ViscosityInitial {
     RainwaterFriend {
-        b: &'static [f64],
-        t: &'static [f64],
+        b: &''static [f64],
+        t: &''static [f64],
         epsilon_over_k: f64,
         sigma_eta: f64,
     },
     Empirical {
-        n: &'static [f64],
-        d: &'static [f64],
-        t: &'static [f64],
+        n: &''static [f64],
+        d: &''static [f64],
+        t: &''static [f64],
         t_reducing: f64,
         rhomolar_reducing: f64,
     },
@@ -7634,8 +7635,8 @@ Fields:
 
 | Name | Type | Documentation |
 |------|------|---------------|
-| `b` | `&'static [f64]` |  |
-| `t` | `&'static [f64]` |  |
+| `b` | `&''static [f64]` |  |
+| `t` | `&''static [f64]` |  |
 | `epsilon_over_k` | `f64` |  |
 | `sigma_eta` | `f64` |  |
 
@@ -7648,9 +7649,9 @@ Fields:
 
 | Name | Type | Documentation |
 |------|------|---------------|
-| `n` | `&'static [f64]` |  |
-| `d` | `&'static [f64]` |  |
-| `t` | `&'static [f64]` |  |
+| `n` | `&''static [f64]` |  |
+| `d` | `&''static [f64]` |  |
+| `t` | `&''static [f64]` |  |
 | `t_reducing` | `f64` |  |
 | `rhomolar_reducing` | `f64` |  |
 
@@ -7737,18 +7738,18 @@ pub enum ViscosityHigherOrder {
     ModifiedBatschinskiHildebrand {
         t_reduce: f64,
         rhomolar_reduce: f64,
-        a: &'static [f64],
-        d1: &'static [f64],
-        t1: &'static [f64],
-        gamma: &'static [f64],
-        l: &'static [f64],
-        f: &'static [f64],
-        d2: &'static [f64],
-        t2: &'static [f64],
-        g: &'static [f64],
-        h: &'static [f64],
-        p: &'static [f64],
-        q: &'static [f64],
+        a: &''static [f64],
+        d1: &''static [f64],
+        t1: &''static [f64],
+        gamma: &''static [f64],
+        l: &''static [f64],
+        f: &''static [f64],
+        d2: &''static [f64],
+        t2: &''static [f64],
+        g: &''static [f64],
+        h: &''static [f64],
+        p: &''static [f64],
+        q: &''static [f64],
     },
     CO2LaeseckeJPCRD2017 {
         ttriple: f64,
@@ -7775,15 +7776,15 @@ pub enum ViscosityHigherOrder {
         t_reduce: f64,
         c1: f64,
         c2: f64,
-        ai: &'static [f64],
-        aa: &'static [f64],
-        ar: &'static [f64],
-        aaa: &'static [f64],
-        arr: &'static [f64],
-        adrdr: &'static [f64],
-        aii: &'static [f64],
-        arrr: &'static [f64],
-        aaaa: &'static [f64],
+        ai: &''static [f64],
+        aa: &''static [f64],
+        ar: &''static [f64],
+        aaa: &''static [f64],
+        arr: &''static [f64],
+        adrdr: &''static [f64],
+        aii: &''static [f64],
+        arrr: &''static [f64],
+        aaaa: &''static [f64],
         na: f64,
         nr: f64,
         naa: f64,
@@ -7808,18 +7809,18 @@ Fields:
 |------|------|---------------|
 | `t_reduce` | `f64` |  |
 | `rhomolar_reduce` | `f64` |  |
-| `a` | `&'static [f64]` |  |
-| `d1` | `&'static [f64]` |  |
-| `t1` | `&'static [f64]` |  |
-| `gamma` | `&'static [f64]` |  |
-| `l` | `&'static [f64]` |  |
-| `f` | `&'static [f64]` |  |
-| `d2` | `&'static [f64]` |  |
-| `t2` | `&'static [f64]` |  |
-| `g` | `&'static [f64]` |  |
-| `h` | `&'static [f64]` |  |
-| `p` | `&'static [f64]` |  |
-| `q` | `&'static [f64]` |  |
+| `a` | `&''static [f64]` |  |
+| `d1` | `&''static [f64]` |  |
+| `t1` | `&''static [f64]` |  |
+| `gamma` | `&''static [f64]` |  |
+| `l` | `&''static [f64]` |  |
+| `f` | `&''static [f64]` |  |
+| `d2` | `&''static [f64]` |  |
+| `t2` | `&''static [f64]` |  |
+| `g` | `&''static [f64]` |  |
+| `h` | `&''static [f64]` |  |
+| `p` | `&''static [f64]` |  |
+| `q` | `&''static [f64]` |  |
 
 ###### `CO2LaeseckeJPCRD2017`
 
@@ -7896,15 +7897,15 @@ Fields:
 | `t_reduce` | `f64` |  |
 | `c1` | `f64` |  |
 | `c2` | `f64` |  |
-| `ai` | `&'static [f64]` |  |
-| `aa` | `&'static [f64]` |  |
-| `ar` | `&'static [f64]` |  |
-| `aaa` | `&'static [f64]` |  |
-| `arr` | `&'static [f64]` |  |
-| `adrdr` | `&'static [f64]` |  |
-| `aii` | `&'static [f64]` |  |
-| `arrr` | `&'static [f64]` |  |
-| `aaaa` | `&'static [f64]` |  |
+| `ai` | `&''static [f64]` |  |
+| `aa` | `&''static [f64]` |  |
+| `ar` | `&''static [f64]` |  |
+| `aaa` | `&''static [f64]` |  |
+| `arr` | `&''static [f64]` |  |
+| `adrdr` | `&''static [f64]` |  |
+| `aii` | `&''static [f64]` |  |
+| `arrr` | `&''static [f64]` |  |
+| `aaaa` | `&''static [f64]` |  |
 | `na` | `f64` |  |
 | `nr` | `f64` |  |
 | `naa` | `f64` |  |
@@ -8139,14 +8140,14 @@ Dilute-gas thermal-conductivity model.
 pub enum ConductivityDilute {
     RatioPolynomials {
         t_reducing: f64,
-        a: &'static [f64],
-        n: &'static [f64],
-        b: &'static [f64],
-        m: &'static [f64],
+        a: &''static [f64],
+        n: &''static [f64],
+        b: &''static [f64],
+        m: &''static [f64],
     },
     Eta0AndPoly {
-        a: &'static [f64],
-        t: &'static [f64],
+        a: &''static [f64],
+        t: &''static [f64],
     },
     CO2HuberJPCRD2016,
     EthaneHardcoded,
@@ -8165,10 +8166,10 @@ Fields:
 | Name | Type | Documentation |
 |------|------|---------------|
 | `t_reducing` | `f64` |  |
-| `a` | `&'static [f64]` |  |
-| `n` | `&'static [f64]` |  |
-| `b` | `&'static [f64]` |  |
-| `m` | `&'static [f64]` |  |
+| `a` | `&''static [f64]` |  |
+| `n` | `&''static [f64]` |  |
+| `b` | `&''static [f64]` |  |
+| `m` | `&''static [f64]` |  |
 
 ###### `Eta0AndPoly`
 
@@ -8179,8 +8180,8 @@ Fields:
 
 | Name | Type | Documentation |
 |------|------|---------------|
-| `a` | `&'static [f64]` |  |
-| `t` | `&'static [f64]` |  |
+| `a` | `&''static [f64]` |  |
+| `t` | `&''static [f64]` |  |
 
 ###### `CO2HuberJPCRD2016`
 
@@ -8276,16 +8277,16 @@ pub enum ConductivityResidual {
     Polynomial {
         t_reducing: f64,
         rhomass_reducing: f64,
-        b: &'static [f64],
-        t: &'static [f64],
-        d: &'static [f64],
+        b: &''static [f64],
+        t: &''static [f64],
+        d: &''static [f64],
     },
     PolynomialAndExponential {
-        a: &'static [f64],
-        t: &'static [f64],
-        d: &'static [f64],
-        gamma: &'static [f64],
-        l: &'static [f64],
+        a: &''static [f64],
+        t: &''static [f64],
+        d: &''static [f64],
+        gamma: &''static [f64],
+        l: &''static [f64],
     },
 }
 ```
@@ -8303,9 +8304,9 @@ Fields:
 |------|------|---------------|
 | `t_reducing` | `f64` |  |
 | `rhomass_reducing` | `f64` |  |
-| `b` | `&'static [f64]` |  |
-| `t` | `&'static [f64]` |  |
-| `d` | `&'static [f64]` |  |
+| `b` | `&''static [f64]` |  |
+| `t` | `&''static [f64]` |  |
+| `d` | `&''static [f64]` |  |
 
 ###### `PolynomialAndExponential`
 
@@ -8316,11 +8317,11 @@ Fields:
 
 | Name | Type | Documentation |
 |------|------|---------------|
-| `a` | `&'static [f64]` |  |
-| `t` | `&'static [f64]` |  |
-| `d` | `&'static [f64]` |  |
-| `gamma` | `&'static [f64]` |  |
-| `l` | `&'static [f64]` |  |
+| `a` | `&''static [f64]` |  |
+| `t` | `&''static [f64]` |  |
+| `d` | `&''static [f64]` |  |
+| `gamma` | `&''static [f64]` |  |
+| `l` | `&''static [f64]` |  |
 
 ##### Implementations
 
@@ -12801,7 +12802,7 @@ values.
 ```rust
 pub struct PropertyFit {
     pub form: PropertyForm,
-    pub coeffs: &'static [&'static [f64]],
+    pub coeffs: &''static [&''static [f64]],
 }
 ```
 
@@ -12810,7 +12811,7 @@ pub struct PropertyFit {
 | Name | Type | Documentation |
 |------|------|---------------|
 | `form` | `PropertyForm` | Fit form. |
-| `coeffs` | `&'static [&'static [f64]]` | Coefficient table — see the form-specific layout above. |
+| `coeffs` | `&''static [&''static [f64]]` | Coefficient table — see the form-specific layout above. |
 
 ##### Implementations
 
@@ -12895,7 +12896,7 @@ discipline as [`crate::fluids`].
 
 ```rust
 pub struct IncompressibleFluid {
-    pub name: &'static str,
+    pub name: &''static str,
     pub kind: IncompressibleKind,
     pub t_range: (f64, f64),
     pub x_range: (f64, f64),
@@ -12915,7 +12916,7 @@ pub struct IncompressibleFluid {
 
 | Name | Type | Documentation |
 |------|------|---------------|
-| `name` | `&'static str` | Fluid name (as in CoolProp). |
+| `name` | `&''static str` | Fluid name (as in CoolProp). |
 | `kind` | `IncompressibleKind` | Polynomial family / meaning of `x`. |
 | `t_range` | `(f64, f64)` | Valid temperature range \[K\] (`t_min`, `t_max`). |
 | `x_range` | `(f64, f64)` | Valid composition range \[-\] (`x_min`, `x_max`); `(0.0, 0.0)` when pure. |
@@ -13216,7 +13217,7 @@ pub struct BinaryPair {
     pub beta_gamma_t: (f64, f64),
     pub beta_gamma_v: (f64, f64),
     pub f_departure: f64,
-    pub departure_terms: &'static [crate::mixtures::departure::DepartureTerm],
+    pub departure_terms: &''static [crate::mixtures::departure::DepartureTerm],
 }
 ```
 
@@ -13229,7 +13230,7 @@ pub struct BinaryPair {
 | `beta_gamma_t` | `(f64, f64)` | Reducing-temperature parameters `(β^T, γ^T)`. |
 | `beta_gamma_v` | `(f64, f64)` | Reducing-volume parameters `(β^v, γ^v)`. |
 | `f_departure` | `f64` | Departure-function scaling `F_{ij}` (0 ⇒ no departure term, ideal mixing). |
-| `departure_terms` | `&'static [crate::mixtures::departure::DepartureTerm]` | Departure-function term list (empty when `f_departure == 0`). |
+| `departure_terms` | `&''static [crate::mixtures::departure::DepartureTerm]` | Departure-function term list (empty when `f_departure == 0`). |
 
 ##### Implementations
 
@@ -13316,7 +13317,7 @@ case, treated as ideal combining (`β=γ=1`, `F=0`) by the callers, per
 the module doc.
 
 ```rust
-pub fn lookup(a: crate::fluid::Fluid, b: crate::fluid::Fluid) -> Option<&'static BinaryPair> { /* ... */ }
+pub fn lookup(a: crate::fluid::Fluid, b: crate::fluid::Fluid) -> Option<&''static BinaryPair> { /* ... */ }
 ```
 
 #### Function `all`
@@ -13324,7 +13325,7 @@ pub fn lookup(a: crate::fluid::Fluid, b: crate::fluid::Fluid) -> Option<&'static
 Every ported binary pair, for enumeration (840 in total).
 
 ```rust
-pub fn all() -> impl Iterator<Item = &'static BinaryPair> { /* ... */ }
+pub fn all() -> impl Iterator<Item = &''static BinaryPair> { /* ... */ }
 ```
 
 ## Module `departure`

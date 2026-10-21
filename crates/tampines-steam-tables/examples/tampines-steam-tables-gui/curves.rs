@@ -50,6 +50,7 @@
 //! implementation cannot currently be trusted here". It is recorded as a
 //! finding in the bead for issue #26 rather than worked around.
 
+use petir::mathf::RealMath;
 use tampines_steam_tables::constants::{
     P_C_MPA, P_TRIPLE_PT_PASCAL, RHO_C_KG_PER_M3, T_C_KELVIN, T_TRIPLE_PT_KELVIN,
 };
@@ -279,7 +280,7 @@ pub fn saturation_sweep_temperatures(samples: usize) -> Vec<ThermodynamicTempera
         .map(|i| {
             let u = i as f64 / (n - 1) as f64;
             let t = T_SAT_CURVE_MAX_KELVIN
-                - (T_SAT_CURVE_MAX_KELVIN - T_SAT_CURVE_MIN_KELVIN) * (1.0 - u).powf(1.8);
+                - (T_SAT_CURVE_MAX_KELVIN - T_SAT_CURVE_MIN_KELVIN) * (1.0 - u).r_powf(1.8);
             ThermodynamicTemperature::new::<kelvin>(t)
         })
         .collect()
@@ -516,11 +517,11 @@ pub fn isotherm(t: ThermodynamicTemperature, samples: usize) -> Vec<Vec<ThermoPo
 /// module's convention).
 pub fn isenthalp(h: AvailableEnergy, samples: usize) -> Vec<Vec<ThermoPoint>> {
     let n = samples.max(2);
-    let (lo, hi) = (P_TRIPLE_PT_PASCAL.log10(), P_MAX_PASCAL.log10());
+    let (lo, hi) = (P_TRIPLE_PT_PASCAL.r_log10(), P_MAX_PASCAL.r_log10());
     let points: Vec<ThermoPoint> = (0..n)
         .filter_map(|i| {
             let frac = i as f64 / (n - 1) as f64;
-            let p = Pressure::new::<pascal>(10.0_f64.powf(lo + (hi - lo) * frac));
+            let p = Pressure::new::<pascal>(10.0_f64.r_powf(lo + (hi - lo) * frac));
             let t = try_t_ph_eqm(p, h).ok()?;
             let s = try_s_ph_eqm(p, h).ok()?;
             // Quality where meaningful (a Region-4 point on the sweep) —
@@ -545,11 +546,11 @@ pub fn isenthalp(h: AvailableEnergy, samples: usize) -> Vec<Vec<ThermoPoint>> {
 /// `(p,s)` flash (`try_t_ps_eqm`/`try_h_ps_eqm`) instead of `(p,h)`.
 pub fn isentrope(s: SpecificHeatCapacity, samples: usize) -> Vec<Vec<ThermoPoint>> {
     let n = samples.max(2);
-    let (lo, hi) = (P_TRIPLE_PT_PASCAL.log10(), P_MAX_PASCAL.log10());
+    let (lo, hi) = (P_TRIPLE_PT_PASCAL.r_log10(), P_MAX_PASCAL.r_log10());
     let points: Vec<ThermoPoint> = (0..n)
         .filter_map(|i| {
             let frac = i as f64 / (n - 1) as f64;
-            let p = Pressure::new::<pascal>(10.0_f64.powf(lo + (hi - lo) * frac));
+            let p = Pressure::new::<pascal>(10.0_f64.r_powf(lo + (hi - lo) * frac));
             let t = try_t_ps_eqm(p, s).ok()?;
             let h = try_h_ps_eqm(p, s).ok()?;
             let quality = try_x_ps_flash(p, s).ok();
@@ -935,11 +936,11 @@ fn single_phase_sweep_over_pressure(
         return Vec::new();
     }
     let n = samples.max(2);
-    let (lo, hi) = (p_lo_pascal.log10(), p_hi_pascal.log10());
+    let (lo, hi) = (p_lo_pascal.r_log10(), p_hi_pascal.r_log10());
     (0..n)
         .filter_map(|i| {
             let frac = i as f64 / (n - 1) as f64;
-            let p_pascal = 10.0_f64.powf(lo + (hi - lo) * frac);
+            let p_pascal = 10.0_f64.r_powf(lo + (hi - lo) * frac);
             single_phase_point(t, Pressure::new::<pascal>(p_pascal))
         })
         .collect()

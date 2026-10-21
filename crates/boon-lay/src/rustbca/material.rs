@@ -13,7 +13,7 @@
 //                    (full list: module docs in mod.rs)
 
 use super::*;
-use rand::RngExt;
+use petir::rng::RngExt; // boon-lay (gh:#995): was rand::RngExt
 
 ///This helper function is a workaround to issue #368 in serde
 fn default_surface_binding_model() -> SurfaceBindingModel {

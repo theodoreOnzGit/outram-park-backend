@@ -21,6 +21,7 @@
 //! `cargo test -p outram-park-fork-offbeat --lib --release
 //! rheology::aster::viscochab -- --nocapture`.
 
+use petir::mathf::RealMath;
 use super::*;
 use outram_foam_basic_lib::ode::{OdeIntegrator, OdeSolver, OdeSystem};
 
@@ -371,7 +372,7 @@ fn flow_rate_matches_the_closed_form_power_law() {
     let f = 60.0e6;
     let r = 25.0e6;
     let reduced = f / (params.drag_stress + params.drag_hardening_coupling * r);
-    let plain = reduced.powf(params.flow_exponent);
+    let plain = reduced.r_powf(params.flow_exponent);
     let got = law.flow_rate(f, r);
     println!("ALP = 0: p_dot = {got}, closed form = {plain}, reduced = {reduced}");
     assert!((got - plain).abs() <= 1.0e-14 * plain);
@@ -379,7 +380,7 @@ fn flow_rate_matches_the_closed_form_power_law() {
     let mut params_exp = params;
     params_exp.exponential_flow_coefficient = 0.5;
     let law_exp = ViscoplasticChabocheWithMemory::new(params_exp).unwrap();
-    let expected = plain * (0.5 * reduced.powf(params.flow_exponent + 1.0)).exp();
+    let expected = plain * (0.5 * reduced.r_powf(params.flow_exponent + 1.0)).r_exp();
     let got_exp = law_exp.flow_rate(f, r);
     println!("ALP = 0.5: p_dot = {got_exp}, closed form = {expected}");
     assert!((got_exp - expected).abs() <= 1.0e-14 * expected);
@@ -458,7 +459,7 @@ fn rkdcha_alpha2_reuses_d1_upstream_typo() {
     let p_dot = law.flow_rate(f, state.isotropic_hardening);
     let ccin = params.dynamic_recovery_floor
         + (1.0 - params.dynamic_recovery_floor)
-            * (-params.isotropic_rate * state.accumulated_strain).exp();
+            * (-params.isotropic_rate * state.accumulated_strain).r_exp();
     let gamma2 = params.dynamic_recovery_2 * ccin;
     let smx_c = smx.components();
     let a2 = state.back_strain_2.components();
@@ -604,6 +605,24 @@ fn first_back_stress_saturates_at_c_over_gamma() {
 /// of its initial value over the 1 s hold; `p`, `R` and `q` all grew from
 /// zero; and the viscoplastic strain stayed deviatoric to `5.4e-20` on a
 /// strain of order `2.6e-4`, i.e. a relative `2e-16`.
+///
+/// **Regression and fix (2026-10-21, gh:#985).** This test failed from
+/// `b3cc5b66fb` (op-ad6h, 2026-08-13) until 2026-10-21 with
+/// `ConstitutiveNotConverged { residual: NaN }`; it was not caused by the PETIR
+/// routing (it fails identically at the pre-#985 baseline `316b8fde66`, and
+/// passes at `b3cc5b66fb~1`). Cause: the first RKF45 trial step (`dx = 1e-3`)
+/// overshoots into a state where the `N = 5` power law overflows (stage stress
+/// `~6e20 Pa`, rates `inf`/`NaN`), while the accepted state is finite. Upstream
+/// `Foam::adaptiveSolver::solve` rejects such a trial with
+/// `scale = max(safeScale*pow(inf, -alphaDec), minScale) = minScale` and
+/// retries; op-ad6h's guard instead returned `NonFiniteState` immediately. The
+/// fix is in `outram_foam_basic_lib::ode::adaptive_step` (and Rosenbrock23's
+/// duplicate loop): a non-finite TRIAL error shrinks by `min_scale` as upstream
+/// does; a non-finite derivative at the ACCEPTED state, or an underflow while
+/// the error is still non-finite, is still `NonFiniteState`. Prediction before
+/// the run: the printed numbers return to the 2026-08-05 record within a few
+/// ulps. Measured: every printed number above is **bit-identical** to the
+/// 2026-08-05 record.
 #[test]
 fn strain_controlled_relaxation_runs_through_the_ode_wrapper() {
     let law = ViscoplasticChabocheWithMemory::new(exercise_parameters()).unwrap();

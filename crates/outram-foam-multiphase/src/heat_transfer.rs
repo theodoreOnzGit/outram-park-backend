@@ -80,6 +80,7 @@
 //! `W/(m³·K)` for the result — because a 1-D system-code march calls it once
 //! per cell per step.
 
+use petir::mathf::RealMath;
 use uom::si::f64::{Length, ThermalConductivity};
 use uom::si::length::meter;
 use uom::si::thermal_conductivity::watt_per_meter_kelvin;
@@ -208,7 +209,7 @@ impl InterfacialHeatTransfer {
 
         Ok(match self {
             Self::RanzMarshall => {
-                let nu = 2.0 + 0.6 * reynolds.sqrt() * prandtl.cbrt();
+                let nu = 2.0 + 0.6 * reynolds.sqrt() * prandtl.r_cbrt();
                 6.0 * ad * kappa_continuous * nu / d2
             }
             Self::Spherical => 60.0 * ad * kappa_dispersed / d2,
@@ -242,13 +243,13 @@ impl InterfacialHeatTransfer {
             )));
         }
         Ok(match self {
-            Self::RanzMarshall => 2.0 + 0.6 * reynolds.sqrt() * prandtl.cbrt(),
+            Self::RanzMarshall => 2.0 + 0.6 * reynolds.sqrt() * prandtl.r_cbrt(),
             Self::Spherical => 10.0,
             Self::Gunn => {
                 let a2 = alpha_continuous.max(residual_alpha);
                 let a2_sq = a2 * a2;
-                (7.0 - 10.0 * a2 + 5.0 * a2_sq) * (1.0 + 0.7 * reynolds.powf(0.2) * prandtl.cbrt())
-                    + (1.33 - 2.4 * a2 + 1.2 * a2_sq) * reynolds.powf(0.7) * prandtl.cbrt()
+                (7.0 - 10.0 * a2 + 5.0 * a2_sq) * (1.0 + 0.7 * reynolds.r_powf(0.2) * prandtl.r_cbrt())
+                    + (1.33 - 2.4 * a2 + 1.2 * a2_sq) * reynolds.r_powf(0.7) * prandtl.r_cbrt()
             }
         })
     }

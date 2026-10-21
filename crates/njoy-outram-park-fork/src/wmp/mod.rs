@@ -9,7 +9,7 @@
 //!
 //! - **Data library:** <https://github.com/mit-crpg/WMP_Library> — © MIT CRPG,
 //!   distributed under the **MIT License** (GPL-compatible, so it may coexist
-//!   with this crate's GPL-3.0 licensing).
+//!   with this crate's ~~GPL-3.0~~ **AGPL-3.0-only** licensing).
 //! - **Method:** the multipole representation of R-matrix cross sections
 //!   (R. N. Hwang, *Nucl. Sci. Eng.* 1987) with the windowing/curve-fit scheme
 //!   of **C. Josey, P. Romano, B. Forget, K. Smith** (*J. Comput. Phys.* 2016;

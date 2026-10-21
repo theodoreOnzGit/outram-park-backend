@@ -73,6 +73,7 @@
 //! the published 0.61: the sweep varies friction over a *literature* range and
 //! reports where each lands, which is an ablation, not a calibration.
 
+use petir::mathf::RealMath;
 use outram_park_fork_liggghts::boundary::Boundary;
 use outram_park_fork_liggghts::compute::{ComputeType, ThreadCount};
 use outram_park_fork_liggghts::granular::{GranularContactModel, GranularMaterial, RollingModel};
@@ -138,7 +139,7 @@ fn load_positions(name: &str) -> Option<Vec<Vec3>> {
 }
 
 fn pebble(x: Vec3) -> Particle {
-    let m = RHO * 4.0 / 3.0 * std::f64::consts::PI * R_P.powi(3);
+    let m = RHO * 4.0 / 3.0 * std::f64::consts::PI * R_P.r_powi(3);
     Particle::new(
         x,
         Vec3::zero(),
@@ -169,7 +170,7 @@ fn bulk_solid_fraction(centres: &[Vec3]) -> (f64, f64) {
         if hi <= lo {
             return 0.0;
         }
-        let f = |z: f64| std::f64::consts::PI * (R_P * R_P * (z - zc) - (z - zc).powi(3) / 3.0);
+        let f = |z: f64| std::f64::consts::PI * (R_P * R_P * (z - zc) - (z - zc).r_powi(3) / 3.0);
         f(hi) - f(lo)
     };
     let solid: f64 = centres.iter().map(|c| cap(c.z)).sum();
@@ -208,7 +209,7 @@ fn bed_surface_height(centres: &[Vec3]) -> f64 {
 fn whole_core_fraction(centres: &[Vec3]) -> f64 {
     let top = bed_surface_height(centres);
     let n_above = centres.iter().filter(|c| c.z > 0.0).count();
-    let v_pebble = 4.0 / 3.0 * std::f64::consts::PI * R_P.powi(3);
+    let v_pebble = 4.0 / 3.0 * std::f64::consts::PI * R_P.r_powi(3);
     n_above as f64 * v_pebble / (std::f64::consts::PI * R_CORE * R_CORE * top)
 }
 
@@ -258,7 +259,7 @@ fn insertion_site(s: usize) -> (f64, f64) {
     // sqrt maps a uniform fraction to uniform AREA density over the disc.
     let r = 0.85 * frac.sqrt();
     let theta = golden * s as f64;
-    (r * theta.cos(), r * theta.sin())
+    (r * theta.r_cos(), r * theta.r_sin())
 }
 
 /// Height at which a pebble dropped at `(x, y)` would come to rest on the
@@ -276,7 +277,7 @@ fn place_on_surface(existing: &[Vec3], x: f64, y: f64, fallback_z: f64) -> Vec3 
     let d2_contact = d_contact * d_contact;
     let mut z = fallback_z;
     for c in existing {
-        let dh2 = (c.x - x).powi(2) + (c.y - y).powi(2);
+        let dh2 = (c.x - x).r_powi(2) + (c.y - y).r_powi(2);
         if dh2 < d2_contact {
             let zc = c.z + (d2_contact - dh2).sqrt();
             if zc > z {
@@ -404,7 +405,7 @@ fn main() {
          core_ke_per_pebble_over_edrop,all_ke_per_pebble_over_edrop\n",
     );
     let mut total_steps = 0usize;
-    let m_pebble = RHO * 4.0 / 3.0 * std::f64::consts::PI * R_P.powi(3);
+    let m_pebble = RHO * 4.0 / 3.0 * std::f64::consts::PI * R_P.r_powi(3);
     // Gravitational energy of a one-radius drop, per pebble — the yardstick for
     // "is this quasi-static?".
     let e_drop = m_pebble * 9.81 * R_P;

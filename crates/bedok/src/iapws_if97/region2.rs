@@ -17,6 +17,8 @@
 //! for the full BSD-2-Clause terms this translation is made under, and
 //! [`super`] for the module-level provenance block.
 
+use petir::mathf::RealMath;
+
 /// Number of ideal-gas terms. `N0terms` in the reference.
 const N0TERMS: usize = 9;
 
@@ -126,12 +128,12 @@ pub fn dgammadtau2_pt(p: f64, t: f64) -> f64 {
 
     let mut ideal = 0.0;
     for k in 0..N0TERMS {
-        ideal += N0[k] * J0[k] * tau.powf(J0[k] - 1.0);
+        ideal += N0[k] * J0[k] * tau.r_powf(J0[k] - 1.0);
     }
 
     let mut residual = 0.0;
     for k in 0..NRTERMS {
-        residual += NR[k] * pi.powf(IR[k]) * JR[k] * (tau - 0.5).powf(JR[k] - 1.0);
+        residual += NR[k] * pi.r_powf(IR[k]) * JR[k] * (tau - 0.5).r_powf(JR[k] - 1.0);
     }
 
     ideal + residual
@@ -154,7 +156,7 @@ pub fn dgammadpi2_pt(p: f64, t: f64) -> f64 {
 
     let mut residual = 0.0;
     for k in 0..NRTERMS {
-        residual += NR[k] * IR[k] * pi.powf(IR[k] - 1.0) * (tau - 0.5).powf(JR[k]);
+        residual += NR[k] * IR[k] * pi.r_powf(IR[k] - 1.0) * (tau - 0.5).r_powf(JR[k]);
     }
 
     ideal + residual
@@ -173,12 +175,12 @@ pub fn dgammadtautau2_pt(p: f64, t: f64) -> f64 {
 
     let mut ideal = 0.0;
     for k in 0..N0TERMS {
-        ideal += N0[k] * J0[k] * (J0[k] - 1.0) * tau.powf(J0[k] - 2.0);
+        ideal += N0[k] * J0[k] * (J0[k] - 1.0) * tau.r_powf(J0[k] - 2.0);
     }
 
     let mut residual = 0.0;
     for k in 0..NRTERMS {
-        residual += NR[k] * pi.powf(IR[k]) * JR[k] * (JR[k] - 1.0) * (tau - 0.5).powf(JR[k] - 2.0);
+        residual += NR[k] * pi.r_powf(IR[k]) * JR[k] * (JR[k] - 1.0) * (tau - 0.5).r_powf(JR[k] - 2.0);
     }
 
     ideal + residual
@@ -197,11 +199,11 @@ pub fn dgammadtautau2_pt(p: f64, t: f64) -> f64 {
 pub fn dgammadpipi2_pt(p: f64, t: f64) -> f64 {
     let (pi, tau) = reduce(p, t);
 
-    let ideal = -1.0 / pi.powi(2);
+    let ideal = -1.0 / pi.r_powi(2);
 
     let mut residual = 0.0;
     for k in 0..NRTERMS {
-        residual += NR[k] * IR[k] * (IR[k] - 1.0) * pi.powf(IR[k] - 2.0) * (tau - 0.5).powf(JR[k]);
+        residual += NR[k] * IR[k] * (IR[k] - 1.0) * pi.r_powf(IR[k] - 2.0) * (tau - 0.5).r_powf(JR[k]);
     }
 
     ideal + residual
@@ -234,7 +236,7 @@ pub fn dgammadpitau2_pt(p: f64, t: f64) -> f64 {
 
     let mut residual = 0.0;
     for k in 0..NRTERMS {
-        residual += NR[k] * IR[k] * pi.powf(IR[k] - 1.0) * JR[k] * (tau - 0.5).powf(JR[k] - 1.0);
+        residual += NR[k] * IR[k] * pi.r_powf(IR[k] - 1.0) * JR[k] * (tau - 0.5).r_powf(JR[k] - 1.0);
     }
 
     ideal + residual
@@ -290,7 +292,7 @@ mod tests {
             let h = R * TSTAR * dgammadtau2_pt(p, t);
             let v = 1e-3 * R * t / PSTAR * dgammadpi2_pt(p, t);
             let tau = TSTAR / t;
-            let cp = -R * tau.powi(2) * dgammadtautau2_pt(p, t);
+            let cp = -R * tau.r_powi(2) * dgammadtautau2_pt(p, t);
 
             eprintln!(
                 "region2 ({p} MPa, {t} K): rel_err h = {:.3e}, v = {:.3e}, cp = {:.3e}",

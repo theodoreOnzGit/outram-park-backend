@@ -55,6 +55,7 @@
 //! (8×8×8) the same request instead returns `ExtrudedOutward`, which grows the
 //! domain and is not the mesh you asked for. Always read the reported outcome.
 
+use petir::mathf::RealMath;
 use outram_foam_basic_lib::primitives::Vector3;
 use outram_foam_mesh::snappy_hex_mesh::{Bounds, LayerControls, TriangleSoup};
 use outram_foam_mesh::{mesh_from_surface, LayerOutcome, MeshingControls, MeshingPhases};
@@ -109,7 +110,7 @@ fn main() {
     print!("{}", result.quality.summary());
 
     // Independent sanity check: the meshed volume is the box minus the sphere.
-    let analytic = 4.0 * 4.0 * 4.0 - 4.0 / 3.0 * std::f64::consts::PI * 1.0f64.powi(3);
+    let analytic = 4.0 * 4.0 * 4.0 - 4.0 / 3.0 * std::f64::consts::PI * 1.0f64.r_powi(3);
     let err_pct = 100.0 * (result.quality.total_volume - analytic) / analytic;
     println!(
         "\nVolume check: meshed {:.4} m^3 vs analytic box-sphere {:.4} m^3  ({err_pct:+.3} %)",

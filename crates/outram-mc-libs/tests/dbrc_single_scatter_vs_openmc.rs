@@ -45,6 +45,7 @@
 //! (|z| ≤ 2.4). A thicker first attempt showed a spurious z ≈ 20 with DBRC off,
 //! from multiple scattering.
 
+use petir::mathf::RealMath;
 use outram_mc_libs::geometry::position::Direction;
 use outram_mc_libs::material::nuclide::Nuclide;
 use outram_mc_libs::physics::scatter::free_gas_elastic_scatter_dbrc;
@@ -107,9 +108,9 @@ fn dbrc_single_scatter_matches_openmc() {
                 }
                 let p = h[k] / ours;
                 let q = sel[k][4] / omc;
-                let var = p / ours + (q * sel[k][5]).powi(2);
+                let var = p / ours + (q * sel[k][5]).r_powi(2);
                 if var > 0.0 {
-                    chi2 += (p - q).powi(2) / var;
+                    chi2 += (p - q).r_powi(2) / var;
                     nu += 1;
                 }
             }

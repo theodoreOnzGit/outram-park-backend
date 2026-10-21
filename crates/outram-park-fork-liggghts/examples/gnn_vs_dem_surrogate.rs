@@ -114,6 +114,7 @@ fn main() {
 
 #[cfg(feature = "gnn-burn")]
 mod run {
+    use petir::mathf::RealMath;
     use outram_park_fork_liggghts::boundary::Boundary;
     use outram_park_fork_liggghts::gnn_bridge;
     use outram_park_fork_liggghts::granular::{GranularContactModel, GranularMaterial, RollingModel};
@@ -134,7 +135,7 @@ mod run {
             .join("../../reference-data/liggghts")
             .join(name);
         let text = std::fs::read_to_string(path).ok()?;
-        let mass = density * 4.0 / 3.0 * std::f64::consts::PI * radius.powi(3);
+        let mass = density * 4.0 / 3.0 * std::f64::consts::PI * radius.r_powi(3);
         let mut rows: Vec<(usize, Particle)> = text
             .lines()
             .skip(1)

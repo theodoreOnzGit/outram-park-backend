@@ -731,6 +731,7 @@ impl DistributedPowerIteration {
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
     use crate::geometry::cell::{Cell, HalfSpaceSense, RegionToken};
     use crate::geometry::surface::{BoundaryType, Sphere, SurfaceKind};
@@ -803,7 +804,7 @@ mod tests {
             root_universe: 0,
         };
         let grid: Vec<f64> = (0..400)
-            .map(|i| 1.0e-5 * (2.0e7_f64 / 1.0e-5).powf(i as f64 / 399.0))
+            .map(|i| 1.0e-5 * (2.0e7_f64 / 1.0e-5).r_powf(i as f64 / 399.0))
             .collect();
         let maj = vec![Majorant::over_indices(&mats, &[0], &nucs, &grid, 0.3)];
         (geom, mats, nucs, maj)

@@ -19,6 +19,7 @@
 
 #![cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
 
+use petir::mathf::RealMath;
 use crate::rungs::{Rung, GRAPHITE, H_IN_H2O, U238};
 use njoy_outram_park_fork::endf::tape::Tape;
 use njoy_outram_park_fork::reconr::{ReconrResult, ReconrSection};
@@ -485,7 +486,7 @@ impl NdEngine {
         let inel = IncoherentInelasticScattering::from_tape(tape, mat, t).map_err(|e| e.to_string())?;
         let emax = inel.energy_max_ev();
         let n = 160;
-        let grid: Vec<f64> = (0..n).map(|i| 1.0e-5 * (emax / 1.0e-5).powf(i as f64 / (n - 1) as f64)).collect();
+        let grid: Vec<f64> = (0..n).map(|i| 1.0e-5 * (emax / 1.0e-5).r_powf(i as f64 / (n - 1) as f64)).collect();
         let ev = |e: f64| NeutronEnergy::new::<electronvolt>(e);
         let mut curves = vec![Curve { tag: 1, pts: grid.iter().map(|&e| [e, inel.inelastic_xs(ev(e)).get::<barn>()]).collect(), w: Vec::new() }];
         let free = inel.free_cross_section().get::<barn>();
@@ -530,7 +531,7 @@ impl NdEngine {
         let total = clip(&get(1), lo, hi);
         let capture = clip(&get(102), lo, hi);
         let ng = ngroups.max(1);
-        let bounds: Vec<f64> = (0..=ng).map(|g| lo * (hi / lo).powf(g as f64 / ng as f64)).collect();
+        let bounds: Vec<f64> = (0..=ng).map(|g| lo * (hi / lo).r_powf(g as f64 / ng as f64)).collect();
         let sigma = PointwiseXs::LinLin(Arc::new(capture.clone()));
         // 1/E times the Bondarenko narrow-resonance factor, tabulated on the
         // total cross section's grid (GROUPR's `genflx` shape). sigma_pot only
@@ -541,7 +542,7 @@ impl NdEngine {
         let dilute = group_average_vector(&sigma, &flux_at(1.0e10), &bounds);
         let shielded = group_average_vector(&sigma, &flux_at(sigma0), &bounds);
         let steps = |v: &[f64]| -> Vec<(f64, f64)> { v.iter().enumerate().flat_map(|(g, &s)| [(bounds[g], s), (bounds[g + 1], s)]).collect() };
-        let ri = |v: &[f64]| -> f64 { v.iter().enumerate().map(|(g, &s)| s * (bounds[g + 1] / bounds[g]).ln()).sum() };
+        let ri = |v: &[f64]| -> f64 { v.iter().enumerate().map(|(g, &s)| s * (bounds[g + 1] / bounds[g]).r_ln()).sum() };
         let note = format!(
             "{ng} groups, 1 eV-10 keV, weight (1/E)(sigma0)/(sigma_t + sigma0), base RECONR tolerance {BASE_TOL}, 0 K. Capture \
              resonance integral over the range: {:.2} b infinitely dilute, {:.2} b at sigma0 = {sigma0:.0} b.",

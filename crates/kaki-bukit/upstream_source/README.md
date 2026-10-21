@@ -49,7 +49,7 @@ data in `njoy-outram-park-fork`.
 ## Licensing note
 
 Both upstreams are **BSD-3-Clause**, which is GPLv3-compatible. This crate is
-distributed as **GPL-3.0-only** (the OUTRAM PARK workspace default). The
+distributed as ~~**GPL-3.0-only**~~ **AGPL-3.0-only** (relicensed 2026-10-20, gh:#973) (the OUTRAM PARK workspace default). The
 combination is permitted, and the flow is **ONE-WAY**: code written here
 cannot be contributed back upstream under BSD-3-Clause without the copyright
 holder's agreement.

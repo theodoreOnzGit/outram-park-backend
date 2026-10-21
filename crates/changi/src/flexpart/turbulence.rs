@@ -57,6 +57,8 @@
 //! Bare `f64` in FLEXPART's units, as throughout this module (see
 //! [`super::surface_layer`]): velocities m/s, lengths m, times s.
 
+use petir::mathf::RealMath;
+
 /// The `hanna_mod` turbulence state for one particle.
 ///
 /// Inputs the caller sets before a call: `ust`, `wst`, `ol`, `h`, `zeta`.
@@ -105,13 +107,13 @@ impl HannaState {
         let zeta = self.zeta;
         let ust2 = self.ust * self.ust;
         let wst2 = self.wst * self.wst;
-        self.sigw = (1.2 * wst2 * (1.0 - 0.9 * zeta) * zeta.powf(0.66666)
+        self.sigw = (1.2 * wst2 * (1.0 - 0.9 * zeta) * zeta.r_powf(0.66666)
             + (1.8 - 1.4 * zeta) * ust2)
             .sqrt()
             + 1.0e-2;
         self.dsigwdz = 0.5 / self.sigw / self.h
             * (-(1.4 * ust2)
-                + wst2 * (0.8 * zeta.max(1.0e-3).powf(-0.33333) - 1.8 * zeta.powf(0.66666)));
+                + wst2 * (0.8 * zeta.max(1.0e-3).r_powf(-0.33333) - 1.8 * zeta.r_powf(0.66666)));
     }
 
     /// Unstable-branch `T_Lw`, shared verbatim by all three routines.
@@ -121,7 +123,7 @@ impl HannaState {
         } else if self.zeta < 0.1 {
             0.59 * z / self.sigw
         } else {
-            0.15 * self.h / self.sigw * (1.0 - (-(5.0 * self.zeta)).exp())
+            0.15 * self.h / self.sigw * (1.0 - (-(5.0 * self.zeta)).r_exp())
         };
     }
 }
@@ -141,8 +143,8 @@ pub fn hanna(state: &mut HannaState, z: f64) {
     if s.is_neutral() {
         s.ust = s.ust.max(1.0e-4);
         let corr = z / s.ust;
-        s.sigu = 1.0e-2 + 2.0 * s.ust * (-3.0e-4 * corr).exp();
-        s.sigw = 1.3 * s.ust * (-2.0e-4 * corr).exp();
+        s.sigu = 1.0e-2 + 2.0 * s.ust * (-3.0e-4 * corr).r_exp();
+        s.sigw = 1.3 * s.ust * (-2.0e-4 * corr).r_exp();
         s.dsigwdz = -2.0e-4 * s.sigw;
         s.sigw += 1.0e-2;
         s.sigv = s.sigw;
@@ -150,7 +152,7 @@ pub fn hanna(state: &mut HannaState, z: f64) {
         s.tlv = s.tlu;
         s.tlw = s.tlu;
     } else if s.ol < 0.0 {
-        s.sigu = 1.0e-2 + s.ust * (12.0 - 0.5 * s.h / s.ol).powf(0.33333);
+        s.sigu = 1.0e-2 + s.ust * (12.0 - 0.5 * s.h / s.ol).r_powf(0.33333);
         s.sigv = s.sigu;
         s.unstable_sigw();
         s.tlu = 0.15 * s.h / s.sigu;
@@ -163,7 +165,7 @@ pub fn hanna(state: &mut HannaState, z: f64) {
         s.dsigwdz = -1.3 * s.ust / s.h;
         s.tlu = 0.15 * s.h / s.sigu * s.zeta.sqrt();
         s.tlv = 0.467 * s.tlu;
-        s.tlw = 0.1 * s.h / s.sigw * s.zeta.powf(0.8);
+        s.tlw = 0.1 * s.h / s.sigw * s.zeta.r_powf(0.8);
     }
     s.tlu = 10.0_f64.max(s.tlu);
     s.tlv = 10.0_f64.max(s.tlv);
@@ -189,37 +191,37 @@ pub fn hanna1(state: &mut HannaState, z: f64) {
     let s = state;
     if s.is_neutral() {
         s.ust = s.ust.max(1.0e-4);
-        s.sigu = 2.0 * s.ust * (-(3.0e-4 * z / s.ust)).exp();
+        s.sigu = 2.0 * s.ust * (-(3.0e-4 * z / s.ust)).r_exp();
         s.sigu = s.sigu.max(1.0e-5);
-        s.sigv = 1.3 * s.ust * (-(2.0e-4 * z / s.ust)).exp();
+        s.sigv = 1.3 * s.ust * (-(2.0e-4 * z / s.ust)).r_exp();
         s.sigv = s.sigv.max(1.0e-5);
         s.sigw = s.sigv;
-        s.dsigw2dz = -6.76e-4 * s.ust * (-(4.0e-4 * z / s.ust)).exp();
+        s.dsigw2dz = -6.76e-4 * s.ust * (-(4.0e-4 * z / s.ust)).r_exp();
         s.tlu = 0.5 * z / s.sigw / (1.0 + 1.5e-3 * z / s.ust);
         s.tlv = s.tlu;
         s.tlw = s.tlu;
     } else if s.ol < 0.0 {
-        s.sigu = s.ust * (12.0 - 0.5 * s.h / s.ol).powf(0.33333);
+        s.sigu = s.ust * (12.0 - 0.5 * s.h / s.ol).r_powf(0.33333);
         s.sigu = s.sigu.max(1.0e-6);
         s.sigv = s.sigu;
         let zeta = s.zeta;
         let (wst, h, ol) = (s.wst, s.h, s.ol);
         if zeta < 0.03 {
-            s.sigw = 0.96 * wst * (3.0 * zeta - ol / h).powf(0.33333);
-            s.dsigw2dz = 1.8432 * wst * wst / h * (3.0 * zeta - ol / h).powf(-0.33333);
+            s.sigw = 0.96 * wst * (3.0 * zeta - ol / h).r_powf(0.33333);
+            s.dsigw2dz = 1.8432 * wst * wst / h * (3.0 * zeta - ol / h).r_powf(-0.33333);
         } else if zeta < 0.4 {
-            let s1 = 0.96 * (3.0 * zeta - ol / h).powf(0.33333);
-            let s2 = 0.763 * zeta.powf(0.175);
+            let s1 = 0.96 * (3.0 * zeta - ol / h).r_powf(0.33333);
+            let s2 = 0.763 * zeta.r_powf(0.175);
             if s1 < s2 {
                 s.sigw = wst * s1;
-                s.dsigw2dz = 1.8432 * wst * wst / h * (3.0 * zeta - ol / h).powf(-0.33333);
+                s.dsigw2dz = 1.8432 * wst * wst / h * (3.0 * zeta - ol / h).r_powf(-0.33333);
             } else {
                 s.sigw = wst * s2;
-                s.dsigw2dz = 0.203_759 * wst * wst / h * zeta.powf(-0.65);
+                s.dsigw2dz = 0.203_759 * wst * wst / h * zeta.r_powf(-0.65);
             }
         } else if zeta < 0.96 {
-            s.sigw = 0.722 * wst * (1.0 - zeta).powf(0.207);
-            s.dsigw2dz = -0.215_812 * wst * wst / h * (1.0 - zeta).powf(-0.586);
+            s.sigw = 0.722 * wst * (1.0 - zeta).r_powf(0.207);
+            s.dsigw2dz = -0.215_812 * wst * wst / h * (1.0 - zeta).r_powf(-0.586);
         } else if zeta < 1.00 {
             s.sigw = 0.37 * wst;
             s.dsigw2dz = 0.0;
@@ -237,7 +239,7 @@ pub fn hanna1(state: &mut HannaState, z: f64) {
         s.dsigw2dz = 3.38 * s.ust * s.ust * (s.zeta - 1.0) / s.h;
         s.tlu = 0.15 * s.h / s.sigu * s.zeta.sqrt();
         s.tlv = 0.467 * s.tlu;
-        s.tlw = 0.1 * s.h / s.sigw * s.zeta.powf(0.8);
+        s.tlw = 0.1 * s.h / s.sigw * s.zeta.r_powf(0.8);
     }
     s.tlu = 10.0_f64.max(s.tlu);
     s.tlv = 10.0_f64.max(s.tlv);
@@ -258,7 +260,7 @@ pub fn hanna_short(state: &mut HannaState, z: f64) {
     let s = state;
     if s.is_neutral() {
         s.ust = s.ust.max(1.0e-4);
-        s.sigw = 1.3 * (-(2.0e-4 * z / s.ust)).exp();
+        s.sigw = 1.3 * (-(2.0e-4 * z / s.ust)).r_exp();
         s.dsigwdz = -2.0e-4 * s.sigw;
         s.sigw = s.sigw * s.ust + 1.0e-2;
         s.tlw = 0.5 * z / s.sigw / (1.0 + 1.5e-3 * z / s.ust);
@@ -268,7 +270,7 @@ pub fn hanna_short(state: &mut HannaState, z: f64) {
     } else {
         s.sigw = 1.0e-2 + 1.3 * s.ust * (1.0 - s.zeta);
         s.dsigwdz = -1.3 * s.ust / s.h;
-        s.tlw = 0.1 * s.h / s.sigw * s.zeta.powf(0.8);
+        s.tlw = 0.1 * s.h / s.sigw * s.zeta.r_powf(0.8);
     }
     s.tlu = 10.0_f64.max(s.tlu);
     s.tlv = 10.0_f64.max(s.tlv);

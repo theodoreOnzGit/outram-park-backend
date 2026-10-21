@@ -3,8 +3,9 @@ outram-park-fork-cyclus
 
 Copyright (C) 2026 Theodore Ong and the outram-park contributors.
 
-This crate is distributed under the **GNU General Public License, version 3
-only (GPL-3.0-only)**, the OUTRAM PARK workspace default.
+This crate is distributed under the ~~**GNU General Public License, version 3
+only (GPL-3.0-only)**~~ **GNU Affero General Public License, version 3 only
+(AGPL-3.0-only)** (relicensed 2026-10-20, gh:#973), the OUTRAM PARK workspace default.
 
 Derived works
 -------------
@@ -29,7 +30,7 @@ This crate is an independent Rust translation of:
    **BSD-2-Clause**.
 
 BSD-3-Clause and BSD-2-Clause are both GPLv3-compatible, so this translation
-may be distributed under GPL-3.0-only. **The compatibility is ONE-WAY**: code
+may be distributed under ~~GPL-3.0-only~~ **AGPL-3.0-only**. **The compatibility is ONE-WAY**: code
 written in this crate cannot be contributed back to Cyclus, Cycamore or PyNE
 under their original licences without the copyright holder's agreement.
 
@@ -42,7 +43,7 @@ Cyclus project, CNERG, or the University of Wisconsin.**
 Dependencies
 ------------
 
-The only dependency is **`petir`** (GPL-3.0-only), this workspace's `no_std`
+The only dependency is **`petir`** (~~GPL-3.0-only~~ **AGPL-3.0-only**), this workspace's `no_std`
 numerics library, itself derived from the GNU Scientific Library. It supplies
 every numerical kernel this crate uses: the matrix algebra behind decay, and
 the transcendental functions behind the enrichment value function and the
@@ -55,3 +56,21 @@ Every ported source file opens with a `PROVENANCE` comment block naming the
 upstream project, the specific upstream file, the commit, the upstream licence
 and the upstream copyright. Those blocks are required by the workspace
 provenance rule and **must not be removed or reworded during refactoring**.
+
+Relicense: GPL-3.0-only -> AGPL-3.0-only (2026-10-20)
+-----------------------------------------------------
+
+At the maintainer's direction (GitHub issue #973), this crate is licensed
+AGPL-3.0-only from this date, and `LICENSE` is the AGPL-3.0 text.
+
+Its vendored and ported upstreams are PERMISSIVE (named elsewhere in this
+file), so this translation may be conveyed under AGPL-3.0 with every upstream
+notice and attribution header kept unchanged. None was changed.
+
+Versions already published to crates.io keep the licence they were published
+under, forever; this affects future versions only. No version was bumped.
+
+The per-crate record -- which upstream each crate carries, which published
+versions are grandfathered, and why most files in this workspace keep their
+GPL-3.0 headers -- is `docs/relicensing-agpl-2026-10-20.md`. The audit it
+rests on is the first comment on GitHub issue #973.

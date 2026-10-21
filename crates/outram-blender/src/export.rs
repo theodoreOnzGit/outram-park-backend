@@ -109,6 +109,7 @@
 //! polyMesh patch, or a faceted-CSG surface each build on. It is fully
 //! implemented and tested.
 
+use petir::mathf::RealMath;
 use crate::math::Vec3;
 use crate::mesh::{FaceId, Mesh};
 
@@ -842,7 +843,7 @@ fn try_fit_cylinder(mesh: &Mesh) -> Option<CsgDescription> {
     let (x0, y0) = (sx / ps.len() as f64, sy / ps.len() as f64);
 
     // Radius = mean in-plane distance from the axis.
-    let radial = |p: &Vec3| ((p.x - x0).powi(2) + (p.y - y0).powi(2)).sqrt();
+    let radial = |p: &Vec3| ((p.x - x0).r_powi(2) + (p.y - y0).r_powi(2)).sqrt();
     let r = ps.iter().map(radial).sum::<f64>() / ps.len() as f64;
     if r <= 0.0 {
         return None;
@@ -1127,7 +1128,7 @@ impl FacetedSolid {
             }
             let numerator = ra.dot(rb.cross(rc));
             let denominator = la * lb * lc + ra.dot(rb) * lc + rb.dot(rc) * la + rc.dot(ra) * lb;
-            solid_angle += 2.0 * numerator.atan2(denominator);
+            solid_angle += 2.0 * numerator.r_atan2(denominator);
         }
         (solid_angle / (4.0 * std::f64::consts::PI)).abs() > 0.5
     }

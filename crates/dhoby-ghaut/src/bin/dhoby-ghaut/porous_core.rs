@@ -41,6 +41,7 @@
 //! prescribed-shape ablation k is a lumped isothermal-coefficient estimate,
 //! not an eigenvalue.
 
+use petir::mathf::RealMath;
 use dhoby_ghaut::workbench::multiphysics::{FeedbackWeighting, MultiphysicsSetup, PowerShape};
 use tampines::gas_phase::kta_bed::KtaBed;
 use tampines::gas_phase::properties::{helium_state, helium_state_ph};
@@ -345,7 +346,7 @@ impl PorousCore {
         let (_, j1) = bessel_j0_j1(a * r);
         let radial_mean = 2.0 * j1 / (a * r);
         let axial_mean =
-            2.0 * he / (std::f64::consts::PI * h) * (std::f64::consts::PI * h / (2.0 * he)).sin();
+            2.0 * he / (std::f64::consts::PI * h) * (std::f64::consts::PI * h / (2.0 * he)).r_sin();
         1.0 / (radial_mean * axial_mean)
     }
 
@@ -362,7 +363,7 @@ impl PorousCore {
             }
         };
         let axial =
-            |z: f64| he / std::f64::consts::PI * (std::f64::consts::PI * (z - 0.5 * h) / he).sin();
+            |z: f64| he / std::f64::consts::PI * (std::f64::consts::PI * (z - 0.5 * h) / he).r_sin();
         let dz = h / n_z as f64;
         let mut out = Vec::with_capacity(ring_outer.len() * n_z);
         let mut r_in = 0.0;

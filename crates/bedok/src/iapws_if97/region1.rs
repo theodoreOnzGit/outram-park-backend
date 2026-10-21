@@ -9,6 +9,8 @@
 //! for the full BSD-2-Clause terms this translation is made under, and
 //! [`super`] for the module-level provenance block.
 
+use petir::mathf::RealMath;
+
 /// Number of terms in the region-1 residual sum. `Nterms` in the reference.
 const NTERMS: usize = 34;
 
@@ -96,7 +98,7 @@ pub fn dgammadtau1_pt(p: f64, t: f64) -> f64 {
     // columns. Accumulation order is part of the result at this precision, so
     // it is not reordered.
     for k in 0..NTERMS {
-        total += N[k] * (7.1 - pi).powf(I[k]) * J[k] * (tau - 1.222).powf(J[k] - 1.0);
+        total += N[k] * (7.1 - pi).r_powf(I[k]) * J[k] * (tau - 1.222).r_powf(J[k] - 1.0);
     }
     total
 }
@@ -113,7 +115,7 @@ pub fn dgammadpi1_pt(p: f64, t: f64) -> f64 {
     let (pi, tau) = reduce(p, t);
     let mut total = 0.0;
     for k in 0..NTERMS {
-        total += -N[k] * I[k] * (7.1 - pi).powf(I[k] - 1.0) * (tau - 1.222).powf(J[k]);
+        total += -N[k] * I[k] * (7.1 - pi).r_powf(I[k] - 1.0) * (tau - 1.222).r_powf(J[k]);
     }
     total
 }
@@ -131,7 +133,7 @@ pub fn dgammadtautau1_pt(p: f64, t: f64) -> f64 {
     let mut total = 0.0;
     for k in 0..NTERMS {
         total +=
-            N[k] * (7.1 - pi).powf(I[k]) * J[k] * (J[k] - 1.0) * (tau - 1.222).powf(J[k] - 2.0);
+            N[k] * (7.1 - pi).r_powf(I[k]) * J[k] * (J[k] - 1.0) * (tau - 1.222).r_powf(J[k] - 2.0);
     }
     total
 }
@@ -149,7 +151,7 @@ pub fn dgammadpipi1_pt(p: f64, t: f64) -> f64 {
     let mut total = 0.0;
     for k in 0..NTERMS {
         total +=
-            N[k] * I[k] * (I[k] - 1.0) * (7.1 - pi).powf(I[k] - 2.0) * (tau - 1.222).powf(J[k]);
+            N[k] * I[k] * (I[k] - 1.0) * (7.1 - pi).r_powf(I[k] - 2.0) * (tau - 1.222).r_powf(J[k]);
     }
     total
 }
@@ -167,7 +169,7 @@ pub fn dgammadpitau1_pt(p: f64, t: f64) -> f64 {
     let (pi, tau) = reduce(p, t);
     let mut total = 0.0;
     for k in 0..NTERMS {
-        total += -N[k] * I[k] * (7.1 - pi).powf(I[k] - 1.0) * J[k] * (tau - 1.222).powf(J[k] - 1.0);
+        total += -N[k] * I[k] * (7.1 - pi).r_powf(I[k] - 1.0) * J[k] * (tau - 1.222).r_powf(J[k] - 1.0);
     }
     total
 }
@@ -262,7 +264,7 @@ mod tests {
 
         for (p, t, cp_ref) in cases {
             let tau = TSTAR / t;
-            let cp = -R * tau.powi(2) * dgammadtautau1_pt(p, t);
+            let cp = -R * tau.r_powi(2) * dgammadtautau1_pt(p, t);
             eprintln!(
                 "region1 ({p} MPa, {t} K): rel_err cp = {:.3e}",
                 (cp - cp_ref).abs() / cp_ref

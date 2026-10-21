@@ -135,7 +135,7 @@
 //! integrated steps each.
 //!
 //! This test writes its own settled state to
-//! `reference-data/liggghts/htr10_settled_ours.csv` so that comparison can be
+//! `crates/outram-park-fork-liggghts/examples/data/htr10_settled_ours.csv` so that comparison can be
 //! redone without a 45-minute re-run.
 //!
 //! ## Runtime
@@ -145,6 +145,7 @@
 //! an hour), so the `long-tests` gate below is the correct one. Runtime is
 //! machine-dependent — re-measure rather than trusting this number.
 
+use petir::mathf::RealMath;
 use outram_park_fork_liggghts::boundary::Boundary;
 use outram_park_fork_liggghts::granular::{
     ContactKinematics, GranularContactModel, GranularMaterial, RollingModel,
@@ -177,9 +178,14 @@ const DT: f64 = 3.5e-5;
 const SETTLE_STEPS: usize = 50_000;
 
 fn data_path(name: &str) -> std::path::PathBuf {
-    std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../reference-data/liggghts")
-        .join(name)
+    // This port's own settled bed lives beside the examples, not in
+    // reference-data/ and not on crates.io (gh:#1008, 2026-10-21).
+    let dir = if name == "htr10_settled_ours.csv" {
+        "examples/data"
+    } else {
+        "../../reference-data/liggghts"
+    };
+    std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(dir).join(name)
 }
 
 fn load_state(name: &str) -> Option<Vec<(Vec3, Vec3)>> {
@@ -216,7 +222,7 @@ fn bulk_solid_fraction(centres: &[Vec3]) -> (f64, f64) {
         if hi <= lo {
             return 0.0;
         }
-        let f = |z: f64| std::f64::consts::PI * (R_P * R_P * (z - zc) - (z - zc).powi(3) / 3.0);
+        let f = |z: f64| std::f64::consts::PI * (R_P * R_P * (z - zc) - (z - zc).r_powi(3) / 3.0);
         f(hi) - f(lo)
     };
     let solid: f64 = centres.iter().map(|c| cap(c.z)).sum();
@@ -237,7 +243,7 @@ fn max_overlap(ps: &[Particle], pairs: &[(usize, usize)]) -> f64 {
 }
 
 
-/// Write this port's own settled state to `reference-data/liggghts/` in the
+/// Write this port's own settled state to `examples/data/` (gh:#1008) in the
 /// same CSV layout as the LIGGGHTS dumps (`id,x,y,z,vx,vy,vz`, `%.17g`), so a
 /// reader can diff the two codes' beds without paying for a 40-minute run.
 ///
@@ -262,7 +268,7 @@ fn write_our_state(name: &str, ps: &[Particle]) {
         );
     }
     match std::fs::write(data_path(name), out) {
-        Ok(()) => eprintln!("wrote our settled state to reference-data/liggghts/{name}"),
+        Ok(()) => eprintln!("wrote our settled state to {}", data_path(name).display()),
         Err(e) => eprintln!("warning: could not write {name}: {e}"),
     }
 }
@@ -280,7 +286,7 @@ fn write_our_state(name: &str, ps: &[Particle]) {
 /// fails here rather than silently changing the DEM case.
 #[test]
 fn htr10_geometry_matches_the_published_design_point() {
-    let pebble_volume = 4.0 / 3.0 * std::f64::consts::PI * R_P.powi(3);
+    let pebble_volume = 4.0 / 3.0 * std::f64::consts::PI * R_P.r_powi(3);
     let total = pebble_volume * PUBLISHED_PEBBLE_COUNT as f64;
     let bed_volume = total / PUBLISHED_FILLING_FRACTION;
     let area = std::f64::consts::PI * R_CORE * R_CORE;
@@ -322,7 +328,7 @@ fn htr10_full_core_settles_and_matches_liggghts() {
     };
     eprintln!("N = {} (published {PUBLISHED_PEBBLE_COUNT})", init.len());
 
-    let mass = RHO * 4.0 / 3.0 * std::f64::consts::PI * R_P.powi(3);
+    let mass = RHO * 4.0 / 3.0 * std::f64::consts::PI * R_P.r_powi(3);
     let particles: Vec<Particle> = init
         .iter()
         .map(|(x, v)| {

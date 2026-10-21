@@ -12,6 +12,7 @@
 //! All quantities are `uom`-typed at the public boundary and plain `f64`
 //! (SI base units) internally.
 
+use petir::mathf::RealMath;
 use crate::error::PflotranError;
 use crate::units::{FluidDensity, FluidPressure, FluidViscosity};
 use uom::si::dynamic_viscosity::pascal_second;
@@ -164,7 +165,7 @@ impl LiquidWaterEos {
     /// Internal: density in SI (kg/m^3) from pressure in SI (Pa).
     #[inline]
     fn density_si(&self, p_pa: f64) -> f64 {
-        self.reference_density * (self.compressibility * (p_pa - self.reference_pressure)).exp()
+        self.reference_density * (self.compressibility * (p_pa - self.reference_pressure)).r_exp()
     }
 }
 

@@ -35,6 +35,8 @@
 //! as it would if typed in the digitiser; this changes *when* it is asked for,
 //! not how much it is trusted.
 
+use petir::mathf::RealMath;
+
 use eframe::egui;
 
 use crate::digitiser::raster::{PlotRaster, Quarter};
@@ -743,7 +745,7 @@ impl PlotSetup {
     fn decades(min: &str, max: &str) -> Option<f64> {
         let parse = |s: &str| s.trim().parse::<f64>().ok().filter(|v| *v > 0.0);
         match (parse(min), parse(max)) {
-            (Some(lo), Some(hi)) if hi > lo => Some((hi / lo).log10()),
+            (Some(lo), Some(hi)) if hi > lo => Some((hi / lo).r_log10()),
             _ => None,
         }
     }

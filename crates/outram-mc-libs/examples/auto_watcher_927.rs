@@ -19,6 +19,7 @@
 //! `reference-data/endf` are processed on every start (about 75 s).
 //! Cases: `godiva`, `pairA` (r_B = 8.2 cm), `pairB` (r_B = 8.6 cm), `hst009`.
 
+use petir::mathf::RealMath;
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 
@@ -464,7 +465,7 @@ fn sd(x: &[f64]) -> f64 {
         return f64::NAN;
     }
     let m = mean(x);
-    (x.iter().map(|v| (v - m).powi(2)).sum::<f64>() / (x.len() - 1) as f64).sqrt()
+    (x.iter().map(|v| (v - m).r_powi(2)).sum::<f64>() / (x.len() - 1) as f64).sqrt()
 }
 fn median(x: &[f64]) -> f64 {
     let mut v = x.to_vec();
@@ -518,7 +519,7 @@ fn reference(prods: &[Rec], d_ref: usize) -> Reference {
         // within-run per-cycle sd, pooled over seeds
         let var: f64 = prods
             .iter()
-            .map(|r| sd(&r.h[&m][d_ref..]).powi(2))
+            .map(|r| sd(&r.h[&m][d_ref..]).r_powi(2))
             .sum::<f64>()
             / s as f64;
         let tau = var.sqrt();
@@ -530,7 +531,7 @@ fn reference(prods: &[Rec], d_ref: usize) -> Reference {
             .zip(&hbar[d_ref..])
             .map(|(x, y)| (x - mx) * (y - my))
             .sum();
-        let sxx: f64 = xs.iter().map(|x| (x - mx).powi(2)).sum();
+        let sxx: f64 = xs.iter().map(|x| (x - mx).r_powi(2)).sum();
         let slope = sxy / sxx * 100.0 / tau;
         h.insert(m, (level, tau, c_true(&hbar, level, tau, d_ref), slope));
     }

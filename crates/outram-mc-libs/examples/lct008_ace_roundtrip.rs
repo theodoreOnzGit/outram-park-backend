@@ -78,6 +78,7 @@
 //! rather than to physics — both routes share the same `ReconrResult`, so the
 //! energy grid is identical by construction.
 
+use petir::mathf::RealMath;
 use std::time::{Duration, Instant};
 
 use njoy_outram_park_fork::acer::AceTable;
@@ -521,7 +522,7 @@ fn main() {
 
     // ── Parity ─────────────────────────────────────────────────────────────
     let d_pcm = 1.0e5 * (r_ace.k_mean - r_endf.k_mean);
-    let combined = 1.0e5 * (r_endf.k_std.powi(2) + r_ace.k_std.powi(2)).sqrt();
+    let combined = 1.0e5 * (r_endf.k_std.r_powi(2) + r_ace.k_std.r_powi(2)).sqrt();
     println!("\n  PARITY (the point of this example)");
     println!(
         "    ENDF route : k_eff = {:.5} +/- {:.5}",
@@ -609,7 +610,7 @@ fn main() {
             d_pcm,
             d_pcm.abs(),
             d_pcm.abs() / 3.0,
-            (3.0 * combined / d_pcm.abs().max(1e-12)).powi(2)
+            (3.0 * combined / d_pcm.abs().max(1e-12)).r_powi(2)
         );
     } else if d_gap < 0.0 {
         println!(

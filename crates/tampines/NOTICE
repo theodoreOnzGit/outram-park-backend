@@ -1,0 +1,18 @@
+Relicense: GPL-3.0-only -> AGPL-3.0-only, as a COMBINED WORK (2026-10-20)
+-------------------------------------------------------------------------
+
+At the maintainer direction 2026-10-20 ("All crates AGPLv3"; "they are colleagues";
+"i know them"), given in the coordinating session in place of the
+per-person recorded consent the HELD entry asked for, this crate is licensed AGPL-3.0-only from this
+date, and `LICENSE` is the AGPL-3.0 text. The maintainer vouches for the
+other people named on it: Ethan Yew Hoe Wong and Sicong Xiao (crate authors).
+
+Some files in this crate refer to or derive from OpenFOAM (GPL-3.0-or-
+later). Where a file is a translation of a copyleft upstream it CANNOT be
+relicensed: it stays GPL-3.0, its SPDX header is unchanged, and the crate
+conveys as a combined work under GPLv3 s13 / AGPLv3 s13. `LICENSE.GPL-3.0`
+carries the GPL-3.0 text for those files. No file header was changed.
+
+Versions already published to crates.io keep the licence they were
+published under, forever; this affects future versions only. No version
+was bumped. Record: `docs/relicensing-agpl-2026-10-20.md`; gh:#973.

@@ -5,6 +5,7 @@
 // dome stays inside it on depressurisation (the dome only widens as p
 // falls), so no region switching or flashing event needs handling here.
 
+use petir::uom_math::QuantityMath;
 use uom::ConstZero;
 use uom::si::f64::*;
 use uom::si::pressure::megapascal;
@@ -61,7 +62,7 @@ pub fn get_critical_pressure_and_mass_flux_ph_vle_dome(
             return MassFlux::ZERO; // over-expanded guard
         }
         let rho = v_ps_eqm(p, s0).recip();
-        rho * (2.0 * ke).sqrt() // = rho * u
+        rho * (2.0 * ke).r_sqrt() // = rho * u
     };
 
     // Maximise G over [p_min, p0] with the crate's shared golden-section search,

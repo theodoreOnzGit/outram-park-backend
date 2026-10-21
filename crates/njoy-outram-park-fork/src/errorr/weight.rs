@@ -30,6 +30,7 @@
 //! `nscr2 = 0`, `errorr.f90:8907-8910`), so no total-cross-section
 //! self-shielding factor is applied.
 
+use petir::mathf::RealMath;
 use crate::endf::interp::{terp1, IntLaw};
 use crate::groupr::weights::BOLTZMANN_EV_PER_K;
 use crate::mixr::mix::sigfig;
@@ -107,8 +108,8 @@ impl ErrorrWeight {
                     (1.0, 0.0)
                 } else {
                     (
-                        1.0 / ((-eb / tb).exp() * eb.powi(2)),
-                        1.0 / ((-ec / tc).exp() * ec.powf(1.5)),
+                        1.0 / ((-eb / tb).r_exp() * eb.r_powi(2)),
+                        1.0 / ((-ec / tc).r_exp() * ec.r_powf(1.5)),
                     )
                 };
                 Ok(ErrorrWeight::ThermalOneOverEFission {
@@ -330,7 +331,7 @@ impl WeightSampler {
                 idis = id;
                 if wtf != 0.0 {
                     if self.ip != self.ipl {
-                        self.step = S10001 * (enext / e).powf(TENTH);
+                        self.step = S10001 * (enext / e).r_powf(TENTH);
                         self.ipl = self.ip;
                     }
                     let mut enxt = self.step * e;
@@ -360,7 +361,7 @@ impl WeightSampler {
                 ac,
             } => {
                 if e <= *eb {
-                    wtf = ab * e * (-e / tb).exp();
+                    wtf = ab * e * (-e / tb).r_exp();
                     enext = S101 * e;
                     if e < *eb && enext > *eb {
                         enext = *eb;
@@ -372,7 +373,7 @@ impl WeightSampler {
                         enext = *ec;
                     }
                 } else {
-                    wtf = ac * e.sqrt() * (-e / tc).exp();
+                    wtf = ac * e.sqrt() * (-e / tc).r_exp();
                     enext = S101 * e;
                 }
             }
@@ -384,21 +385,21 @@ impl WeightSampler {
                 };
                 let bb = 2.0 * tt;
                 let cc = if *t_dependent {
-                    WT6B * (2.0f64).exp() / bb.powi(2)
+                    WT6B * (2.0f64).r_exp() / bb.r_powi(2)
                 } else {
                     1.0
                 };
                 if e <= bb {
-                    wtf = cc * e * (-e / tt).exp();
+                    wtf = cc * e * (-e / tt).r_exp();
                     enext = S101 * e;
                 } else if e <= WT6C {
                     wtf = WT6B / e;
                     enext = S101 * e;
                 } else {
-                    let mut w = WT6D * e.sqrt() * (-e / WT6E).exp();
-                    let pow = -((e / WT6F).sqrt() - (WT6G / WT6F).sqrt()).powi(2) / 2.0;
+                    let mut w = WT6D * e.sqrt() * (-e / WT6E).r_exp();
+                    let pow = -((e / WT6F).sqrt() - (WT6G / WT6F).sqrt()).r_powi(2) / 2.0;
                     if pow > EXMIN {
-                        w += WT6H * pow.exp();
+                        w += WT6H * pow.r_exp();
                     }
                     wtf = w;
                     enext = S101 * e;
@@ -414,7 +415,7 @@ impl WeightSampler {
                 let ea = BOLTZMANN_EV_PER_K * self.tempin;
                 let eb = WT10A * self.tempin / WT10B;
                 if e < eb {
-                    wtf = WT10C * (e / eb.powi(2)) * (-(e - eb) / ea).exp();
+                    wtf = WT10C * (e / eb.r_powi(2)) * (-(e - eb) / ea).r_exp();
                     enext = S101 * e;
                     if enext > eb {
                         enext = eb;
@@ -428,7 +429,7 @@ impl WeightSampler {
                         enext = EMAX;
                     } else {
                         if self.ip != self.ipl {
-                            self.step = S10001 * (enext / e).powf(TENTH);
+                            self.step = S10001 * (enext / e).r_powf(TENTH);
                             self.ipl = self.ip;
                         }
                         let mut enxt = self.step * e;
@@ -451,11 +452,11 @@ impl WeightSampler {
                         THERM
                     };
                     let cc = if *t_dependent {
-                        CON2 * (EN1 / tt).exp() / EN1.powi(2)
+                        CON2 * (EN1 / tt).r_exp() / EN1.r_powi(2)
                     } else {
                         CON1
                     };
-                    wtf = cc * e * (-e / tt).exp();
+                    wtf = cc * e * (-e / tt).r_exp();
                     if enext > EN1 {
                         enext = EN1;
                     }
@@ -465,7 +466,7 @@ impl WeightSampler {
                         enext = EN2;
                     }
                 } else if e < EN3 {
-                    wtf = CON3 * e.sqrt() * (-e / THETA).exp();
+                    wtf = CON3 * e.sqrt() * (-e / THETA).r_exp();
                     if enext > EN3 {
                         enext = EN3;
                     }
@@ -475,7 +476,7 @@ impl WeightSampler {
                         enext = EN4;
                     }
                 } else if e < EN5 {
-                    wtf = CON5 * (-5.0 * (e.sqrt() - EP.sqrt()).powi(2) / FUSION).exp();
+                    wtf = CON5 * (-5.0 * (e.sqrt() - EP.sqrt()).r_powi(2) / FUSION).r_exp();
                     if (e - EP).abs() <= VEB {
                         enext = S1002 * e;
                     }
@@ -653,14 +654,14 @@ mod tests {
     fn iwt6_matches_errorr_shape_and_stops() {
         let errorr_iwt6 = |e: f64| -> f64 {
             if e <= 0.108 {
-                e * (-e / 0.054).exp()
+                e * (-e / 0.054).r_exp()
             } else if e <= 2.1e6 {
                 1.57855e-3 / e
             } else {
-                let pow = -((e / 2.5e4).sqrt() - (1.407e7f64 / 2.5e4).sqrt()).powi(2) / 2.0;
-                2.32472e-12 * e.sqrt() * (-e / 1.4e6).exp()
+                let pow = -((e / 2.5e4).sqrt() - (1.407e7f64 / 2.5e4).sqrt()).r_powi(2) / 2.0;
+                2.32472e-12 * e.sqrt() * (-e / 1.4e6).r_exp()
                     + if pow > -89.0 {
-                        2.51697e-11 * pow.exp()
+                        2.51697e-11 * pow.r_exp()
                     } else {
                         0.0
                     }

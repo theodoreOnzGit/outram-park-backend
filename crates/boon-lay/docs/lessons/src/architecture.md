@@ -58,7 +58,7 @@ covered in [Into the source term](./source-term.md).
 - **`triso_atops_fork`** keeps the upstream MIT notice on every ported file
   ([header](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/mod.rs#L1-L13)),
   plus `LICENSE.triso-atops` and `NOTICE.triso-atops` at the crate root. MIT
-  code can be combined into a GPL-3.0 work; the reverse is not possible. The
+  code can be combined into a ~~GPL-3.0~~ **AGPL-3.0-only** work; the reverse is not possible. The
   Tkinter GUI (1432 lines) was deliberately not ported, because `boon-lay` is
   a headless library that must also build for Android. The full
   Python→Rust map is in

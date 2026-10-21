@@ -60,6 +60,7 @@
 //! reconciles five curves over a 1000 °C span. That is a typo, not a
 //! modelling choice.
 
+use petir::mathf::RealMath;
 use uom::si::f64::{Length, Ratio, ThermodynamicTemperature, Time, Velocity};
 use uom::si::ratio::ratio;
 use uom::si::thermodynamic_temperature::kelvin;
@@ -94,7 +95,7 @@ pub fn corrosion_rate_with(prefactor: f64, temperature: ThermodynamicTemperature
         return Velocity::new::<meter_per_second>(0.0);
     }
     let r = super::pressure::GAS_CONSTANT_J_PER_MOL_K;
-    Velocity::new::<meter_per_second>(prefactor * (-CORROSION_ACTIVATION_J_PER_MOL / (r * t)).exp())
+    Velocity::new::<meter_per_second>(prefactor * (-CORROSION_ACTIVATION_J_PER_MOL / (r * t)).r_exp())
 }
 
 /// `FKOR` after holding at a constant `temperature` for `elapsed`, starting

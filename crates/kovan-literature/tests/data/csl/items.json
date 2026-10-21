@@ -1885,6 +1885,50 @@
       }
     ],
     "genre": "Handbook",
+    "id": "doe1993hdbk1017v1",
+    "issued": {
+      "date-parts": [
+        [
+          1993,
+          1
+        ]
+      ]
+    },
+    "number": "DOE-HDBK-1017/1-93",
+    "publisher": "U.S. Department of Energy",
+    "publisher-place": "Washington, D.C.",
+    "title": "DOE Fundamentals Handbook: Material Science, Volume 1 of 2",
+    "type": "report"
+  },
+  {
+    "author": [
+      {
+        "literal": "U.S. Department of Energy"
+      }
+    ],
+    "genre": "Handbook",
+    "id": "doe1993hdbk1017v2",
+    "issued": {
+      "date-parts": [
+        [
+          1993,
+          1
+        ]
+      ]
+    },
+    "number": "DOE-HDBK-1017/2-93",
+    "publisher": "U.S. Department of Energy",
+    "publisher-place": "Washington, D.C.",
+    "title": "DOE Fundamentals Handbook: Material Science, Volume 2 of 2",
+    "type": "report"
+  },
+  {
+    "author": [
+      {
+        "literal": "U.S. Department of Energy"
+      }
+    ],
+    "genre": "Handbook",
     "id": "doe1993hdbk1019v1",
     "issued": {
       "date-parts": [
@@ -2392,6 +2436,40 @@
     "title": "NekRS, a GPU-accelerated spectral element Navier–Stokes solver",
     "type": "article-journal",
     "volume": "114"
+  },
+  {
+    "ISBN": "978-1-947172-61-6",
+    "URL": "https://openstax.org/details/books/chemistry-2e",
+    "author": [
+      {
+        "family": "Flowers",
+        "given": "Paul"
+      },
+      {
+        "family": "Theopold",
+        "given": "Klaus"
+      },
+      {
+        "family": "Langley",
+        "given": "Richard"
+      },
+      {
+        "family": "Robinson",
+        "given": "William R."
+      }
+    ],
+    "id": "flowers2019chemistry2e",
+    "issued": {
+      "date-parts": [
+        [
+          2019
+        ]
+      ]
+    },
+    "publisher": "OpenStax",
+    "publisher-place": "Houston, Texas",
+    "title": "Chemistry 2e",
+    "type": "book"
   },
   {
     "author": [
@@ -2995,6 +3073,24 @@
     },
     "title": "The Marviken Critical Flow Test—A Description and Early Results",
     "type": "paper-conference"
+  },
+  {
+    "author": [
+      {
+        "family": "Ham",
+        "given": "F. S."
+      }
+    ],
+    "id": "ham1958",
+    "issued": {
+      "date-parts": [
+        [
+          1958
+        ]
+      ]
+    },
+    "title": "Journal of Physics and Chemistry of Solids, 6, 335-351",
+    "type": "article-journal"
   },
   {
     "author": [
@@ -4027,6 +4123,36 @@
     "title": "Introduction to Moltres: an application for simulation of Molten Salt Reactors",
     "type": "article-journal",
     "volume": "114"
+  },
+  {
+    "ISBN": "978-1-947172-21-0",
+    "URL": "https://openstax.org/details/books/university-physics-volume-2",
+    "author": [
+      {
+        "family": "Ling",
+        "given": "Samuel J."
+      },
+      {
+        "family": "Sanny",
+        "given": "Jeff"
+      },
+      {
+        "family": "Moebs",
+        "given": "William"
+      }
+    ],
+    "id": "ling2016universityphysics2",
+    "issued": {
+      "date-parts": [
+        [
+          2016
+        ]
+      ]
+    },
+    "publisher": "OpenStax",
+    "publisher-place": "Houston, Texas",
+    "title": "University Physics, Volume 2",
+    "type": "book"
   },
   {
     "ISBN": "978-1-947172-22-7",
@@ -5704,6 +5830,33 @@
     "type": "document"
   },
   {
+    "URL": "https://github.com/sciantix/sciantix-official",
+    "author": [
+      {
+        "family": "Pizzocri",
+        "given": "Davide"
+      },
+      {
+        "family": "Barani",
+        "given": "Tommaso"
+      },
+      {
+        "family": "Luzzi",
+        "given": "Lelio"
+      }
+    ],
+    "id": "sciantix2344575",
+    "issued": {
+      "date-parts": [
+        [
+          2018
+        ]
+      ]
+    },
+    "title": "SCIANTIX",
+    "type": "software"
+  },
+  {
     "DOI": "10.1080/10448639208218770",
     "author": [
       {
@@ -5811,6 +5964,45 @@
     "title": "A survey of several finite difference methods for systems of nonlinear hyperbolic conservation laws",
     "type": "article-journal",
     "volume": "27"
+  },
+  {
+    "author": [
+      {
+        "family": "Soffer",
+        "given": "L."
+      },
+      {
+        "family": "Burson",
+        "given": "S. B."
+      },
+      {
+        "family": "Ferrell",
+        "given": "C. M."
+      },
+      {
+        "family": "Lee",
+        "given": "R. Y."
+      },
+      {
+        "family": "Ridgely",
+        "given": "J. N."
+      }
+    ],
+    "genre": "Report",
+    "id": "soffer1995nureg1465",
+    "issued": {
+      "date-parts": [
+        [
+          1995,
+          2
+        ]
+      ]
+    },
+    "number": "NUREG-1465",
+    "publisher": "U.S. Nuclear Regulatory Commission, Office of Nuclear Regulatory Research",
+    "publisher-place": "Washington, D.C.",
+    "title": "Accident Source Terms for Light-Water Nuclear Power Plants, Final Report",
+    "type": "report"
   },
   {
     "author": [
@@ -6268,6 +6460,24 @@
     "type": "document"
   },
   {
+    "URL": "https://github.com/tiangroup-uofa/mate664-kinetics-of-materials",
+    "author": [
+      {
+        "literal": "Tian group, University of Alberta"
+      }
+    ],
+    "id": "tian2026mate664",
+    "issued": {
+      "date-parts": [
+        [
+          2026
+        ]
+      ]
+    },
+    "title": "MATE 664: Kinetics of Materials, lecture notes",
+    "type": "document"
+  },
+  {
     "DOI": "10.1103/RevModPhys.93.025010",
     "author": [
       {
@@ -6374,6 +6584,45 @@
     "publisher": "Brookhaven National Laboratory",
     "title": "ENDF-6 Formats Manual: Data Formats and Procedures for the Evaluated Nuclear Data Files ENDF/B-VI, ENDF/B-VII and ENDF/B-VIII",
     "type": "report"
+  },
+  {
+    "author": [
+      {
+        "family": "Turnbull",
+        "given": "J. A."
+      }
+    ],
+    "id": "turnbull1971",
+    "issued": {
+      "date-parts": [
+        [
+          1971
+        ]
+      ]
+    },
+    "title": "Journal of Nuclear Materials, 38, 203",
+    "type": "article-journal"
+  },
+  {
+    "author": [
+      {
+        "family": "Turnbull",
+        "given": "J. A."
+      },
+      {
+        "literal": "others"
+      }
+    ],
+    "id": "turnbull1988iwgfpt32",
+    "issued": {
+      "date-parts": [
+        [
+          1988
+        ]
+      ]
+    },
+    "title": "IWGFPT-32, Preston, UK, September 18-22",
+    "type": "paper-conference"
   },
   {
     "author": [

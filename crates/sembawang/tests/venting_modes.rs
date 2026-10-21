@@ -26,6 +26,7 @@
 //! `the_isothermal_hold_vents_fully_as_upstream_does` (run with
 //! `--nocapture`).
 
+use petir::mathf::RealMath;
 use sembawang::accident::release::{
     accident_release, accident_release_with_venting, AccidentRelease, PlantParameters, Venting,
 };
@@ -204,7 +205,7 @@ fn gao_shi_ventilation_is_one_air_change_per_day_cut_off_at_72_h() {
         &Venting::gao_shi_htr10_cavity_ventilation(),
     )
     .unwrap();
-    let expected = [0.0, 1.0 - (-1.0f64).exp(), 1.0 - (-2.0f64).exp(), 1.0 - (-3.0f64).exp(), 1.0 - (-3.0f64).exp()];
+    let expected = [0.0, 1.0 - (-1.0f64).r_exp(), 1.0 - (-2.0f64).r_exp(), 1.0 - (-3.0f64).r_exp(), 1.0 - (-3.0f64).r_exp()];
     for (f, e) in out.venting.fractions().iter().zip(expected) {
         assert!((f - e).abs() < 1e-12, "{f} against {e}");
     }

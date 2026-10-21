@@ -1,4 +1,4 @@
-# Step 19 — Levels of fidelity
+# Step 20 — Levels of fidelity
 
 > **Research, education and V&V only.** Not for reactor operation, licensing, safety decisions or emergency response.
 > **Review status: first draft, 2026-10-18, AI-assisted (Claude Sonnet), not yet reviewed by a human.**
@@ -30,9 +30,9 @@ of the four can be argued, the page says **open**. Calling something negligible
 without an estimate is not allowed here.
 
 **The point of the book is this pattern. It is not any one model.**
-TRISO-ATOPS ([Step 14](./14-triso-atops.md)) is one example. boon-lay fuel
-failure ([Step 9](./09-panama.md)) is another. Dispersion
-([Step 18](./18-puff-and-plume.md)) is a third.
+TRISO-ATOPS ([Step 15](./14-triso-atops.md)) is one example. boon-lay fuel
+failure ([Step 7](./09-panama.md)) is another. Dispersion
+([Step 19](./18-puff-and-plume.md)) is a third.
 
 ## 2. The whole book on one ladder
 
@@ -44,13 +44,13 @@ costs. Steps are as written in this book.
 | Generation | Track the full nuclide network | One atom at a time; decay only, fixed flux | 1 |
 | Recoil | Slow down every fragment | A recoil fraction from geometry | 2 |
 | Diffusion in the layers | Diffusion with the real chemistry | One Arrhenius $D(T)$ per layer and element | 3 |
-| Transport through the particle | Follow every atom (fixed step) | Walk-on-Spheres, then aggregate closed forms | 5 to 7 |
-| Pressure and stress | Finite-element particle (not built) | Ideal gas, thin SiC shell | 8, 9 |
-| Strength and failure | Per-particle flaws | One Weibull law over the population | 9 |
-| Coolant transport and removal | CFD for every species (not built) | Lumped pools, first-order rates | 11 to 14 |
-| Accident release | Compressible blowdown with chemistry | Venting fraction and lift-off fraction | 15 |
-| Building | Flow and aerosol per cavity | One well-mixed volume, or no credit | 16 |
-| Atmosphere | Weather-driven CFD or particles | Gaussian puff, then Gaussian plume | 17, 18 |
+| Transport through the particle | Follow every atom (fixed step) | Walk-on-Spheres, then aggregate closed forms | 8 to 10 |
+| Pressure and stress | Finite-element particle (not built; Step 5) | Ideal gas, thin SiC shell | 5 to 7 |
+| Strength and failure | Per-particle flaws | One Weibull law over the population | 7 |
+| Coolant transport and removal | CFD for every species (not built) | Lumped pools, first-order rates | 12 to 15 |
+| Accident release | Compressible blowdown with chemistry | Venting fraction and lift-off fraction | 16 |
+| Building | Flow and aerosol per cavity | One well-mixed volume, or no credit | 17 |
+| Atmosphere | Weather-driven CFD or particles | Gaussian puff, then Gaussian plume | 18, 19 |
 
 On each row the cost falls by orders of magnitude, and the capability falls
 too. The cheap models give a number in seconds. They cannot say anything the
@@ -58,7 +58,7 @@ dropped physics would have said.
 
 ## 3. Three worked examples
 
-### boon-lay fuel failure (Step 9)
+### boon-lay fuel failure (Step 7)
 
 - **Top:** a finite-element model of the particle with creep and swelling.
   `farrer-park` does not have it yet.
@@ -70,7 +70,7 @@ dropped physics would have said.
 - **Fails:** thick layers, cracked PyC, and anywhere outside the fitted range
   of the report's correlations.
 
-### TRISO-ATOPS (Step 14)
+### TRISO-ATOPS (Step 15)
 
 - **Top:** CFD with one equation per species and wall sorption.
 - **Kept:** first-order pools per core node, closed-form release, venting.
@@ -79,7 +79,7 @@ dropped physics would have said.
 - **Fails:** an isothermal hold releases zero, because the only exit in the
   model is expansion on heating (gh:#446).
 
-### Dispersion (Steps 17 and 18)
+### Dispersion (Steps 18 and 19)
 
 - **Top:** weather-driven particle or CFD models. In the repo, a verified set
   of FLEXPART kernels, with no driver that runs them.
@@ -90,11 +90,11 @@ dropped physics would have said.
   of magnitude at the chosen receptor.
 - **Fails:** when the wind turns, the terrain is complex, or a puff has not
   yet reached steady state. The recorded check of puff against plume is in
-  Step 18.
+  Step 19.
 
 ## 4. Fidelity is not the same as bounding
 
-This is the point to take away from [Step 16](./16-building-and-bounds.md).
+This is the point to take away from [Step 17](./16-building-and-bounds.md).
 
 | | Fidelity ladder | Bounding assumption |
 |---|---|---|
@@ -112,7 +112,7 @@ direction (gh:#446).
 Dispersion shows both at once. The plume is a cheap model (a ladder step)
 *and* the repo uses it with bounding choices (the worst stability class,
 1 m/s, ground release, a receptor on the centreline, 96 h), which are
-bounding steps on top of it (Step 18).
+bounding steps on top of it (Step 19).
 
 ## 5. Choosing a level
 
@@ -125,7 +125,7 @@ Ask in order:
 3. **Can the cheap model be checked against the dearer one on a case where
    both run?** The repo records some such checks: the Walk-on-Spheres engine
    against the analytic CRP-6 release solution, the puff train against the
-   plume (21 of 21 gated points, Step 18), the port of TRISO-ATOPS against
+   plume (21 of 21 gated points, Step 19), the port of TRISO-ATOPS against
    upstream. It records no check of the lumped pools against a CFD model, because
    no CFD model of the circuit exists. A cheap model with no dearer partner
    has only its inputs to stand on.
@@ -151,4 +151,4 @@ Ask in order:
 
 All of this has been shown piece by piece. What does the whole chain look like
 in one worked program, and in which order should a reviewer read it?
-[Step 20](./20-htgr-sim-v1-chain.md).
+[Step 21](./20-htgr-sim-v1-chain.md).

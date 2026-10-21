@@ -53,6 +53,7 @@
 //! discharge tube to the valve at `z = −0.61946`. The real tube is ~6 m; the
 //! DEM holds only this stub of it.
 
+use petir::mathf::RealMath;
 use uom::si::f64::{Length, Mass, Pressure, ThermodynamicTemperature, Time};
 use uom::si::length::meter;
 use uom::si::mass::kilogram;
@@ -172,7 +173,7 @@ fn e_drop() -> f64 {
 }
 
 fn pebble_mass() -> f64 {
-    PEBBLE_DENSITY * 4.0 / 3.0 * std::f64::consts::PI * PEBBLE_RADIUS_M.powi(3)
+    PEBBLE_DENSITY * 4.0 / 3.0 * std::f64::consts::PI * PEBBLE_RADIUS_M.r_powi(3)
 }
 
 fn pebble(x: Vec3) -> Result<Particle, DemError> {
@@ -197,10 +198,10 @@ pub fn discharge_mesh(segments: usize) -> Result<MeshWall, DemError> {
                 std::f64::consts::TAU * i as f64 / n as f64,
                 std::f64::consts::TAU * (i + 1) as f64 / n as f64,
             );
-            let p0 = Vec3::new(r0 * a0.cos(), r0 * a0.sin(), z0);
-            let p1 = Vec3::new(r0 * a1.cos(), r0 * a1.sin(), z0);
-            let q0 = Vec3::new(r1 * a0.cos(), r1 * a0.sin(), z1);
-            let q1 = Vec3::new(r1 * a1.cos(), r1 * a1.sin(), z1);
+            let p0 = Vec3::new(r0 * a0.r_cos(), r0 * a0.r_sin(), z0);
+            let p1 = Vec3::new(r0 * a1.r_cos(), r0 * a1.r_sin(), z0);
+            let q0 = Vec3::new(r1 * a0.r_cos(), r1 * a0.r_sin(), z1);
+            let q1 = Vec3::new(r1 * a1.r_cos(), r1 * a1.r_sin(), z1);
             // Windings make (b - a) x (c - a) point toward the axis.
             tris.push(Triangle::new(p0, q1, q0)?);
             tris.push(Triangle::new(p0, p1, q1)?);
@@ -262,7 +263,7 @@ pub fn seed_loose(n: usize, seed: u64) -> Vec<Vec3> {
     // Spatial hash of placed centres on a d-sized grid, for O(1) overlap checks.
     let mut grid: std::collections::BTreeMap<(i64, i64, i64), Vec<usize>> = std::collections::BTreeMap::new();
     let cell = |p: Vec3| ((p.x / d).floor() as i64, (p.y / d).floor() as i64, (p.z / d).floor() as i64);
-    let v_pebble = 4.0 / 3.0 * std::f64::consts::PI * r.powi(3);
+    let v_pebble = 4.0 / 3.0 * std::f64::consts::PI * r.r_powi(3);
     // Fill slab by slab (one diameter thick) from the valve up, each slab to
     // the target solid fraction, so the seed is uniformly loose.
     let mut z0 = VALVE_Z_M;
@@ -274,7 +275,7 @@ pub fn seed_loose(n: usize, seed: u64) -> Vec<Vec3> {
             z0 = z1;
             continue;
         }
-        let slab_volume = std::f64::consts::PI * (reach + r).powi(2) * d;
+        let slab_volume = std::f64::consts::PI * (reach + r).r_powi(2) * d;
         let target = ((SEED_SOLID_FRACTION * slab_volume / v_pebble).round() as usize).max(1);
         let (mut placed, mut tries) = (0usize, 0usize);
         while placed < target && out.len() < n && tries < 200 * target {
@@ -282,7 +283,7 @@ pub fn seed_loose(n: usize, seed: u64) -> Vec<Vec3> {
             // Uniform in the disc of radius `reach`, uniform in z within the slab.
             let rr = reach * splitmix(&mut state).sqrt();
             let th = std::f64::consts::TAU * splitmix(&mut state);
-            let p = Vec3::new(rr * th.cos(), rr * th.sin(), z0 + (z1 - z0) * splitmix(&mut state));
+            let p = Vec3::new(rr * th.r_cos(), rr * th.r_sin(), z0 + (z1 - z0) * splitmix(&mut state));
             if p.z - r <= VALVE_Z_M {
                 continue;
             }
@@ -294,7 +295,7 @@ pub fn seed_loose(n: usize, seed: u64) -> Vec<Vec3> {
                         if let Some(ids) = grid.get(&(cx + dx, cy + dy, cz + dz)) {
                             for &k in ids {
                                 let q = out[k];
-                                if (p.x - q.x).powi(2) + (p.y - q.y).powi(2) + (p.z - q.z).powi(2) < d * d {
+                                if (p.x - q.x).r_powi(2) + (p.y - q.y).r_powi(2) + (p.z - q.z).r_powi(2) < d * d {
                                     clear = false;
                                     break 'scan;
                                 }
@@ -334,7 +335,7 @@ pub fn surface_height_m(centres: &[Vec3]) -> Option<f64> {
 pub fn whole_core_fraction(centres: &[Vec3]) -> f64 {
     let Some(top) = surface_height_m(centres) else { return f64::NAN };
     let n = centres.iter().filter(|c| c.z > 0.0).count();
-    let v = 4.0 / 3.0 * std::f64::consts::PI * PEBBLE_RADIUS_M.powi(3);
+    let v = 4.0 / 3.0 * std::f64::consts::PI * PEBBLE_RADIUS_M.r_powi(3);
     n as f64 * v / (std::f64::consts::PI * CORE_RADIUS_M * CORE_RADIUS_M * top)
 }
 
@@ -484,8 +485,8 @@ mod tests {
         // Loose: no two seeds touch.
         for (i, p) in a.iter().enumerate().take(400) {
             for q in &a[i + 1..] {
-                let d2 = (p.x - q.x).powi(2) + (p.y - q.y).powi(2) + (p.z - q.z).powi(2);
-                assert!(d2 >= (2.0 * PEBBLE_RADIUS_M).powi(2));
+                let d2 = (p.x - q.x).r_powi(2) + (p.y - q.y).r_powi(2) + (p.z - q.z).r_powi(2);
+                assert!(d2 >= (2.0 * PEBBLE_RADIUS_M).r_powi(2));
             }
         }
     }

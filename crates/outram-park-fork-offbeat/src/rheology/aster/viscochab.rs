@@ -154,6 +154,7 @@
 //! been compared against code_aster output or against a measured creep-fatigue
 //! curve, and no such agreement is claimed.
 
+use petir::mathf::RealMath;
 use outram_foam_basic_lib::ode::{OdeError, OdeIntegrator, OdeSolver, OdeSystem};
 
 use crate::error::{OffbeatError, Result};
@@ -642,9 +643,9 @@ impl ViscoplasticChabocheWithMemory {
         let p = &self.parameters;
         let reduced =
             overstress / (p.drag_stress + p.drag_hardening_coupling * isotropic_hardening);
-        let mut rate = reduced.powf(p.flow_exponent);
+        let mut rate = reduced.r_powf(p.flow_exponent);
         if p.exponential_flow_coefficient > 1.0e-30 {
-            rate *= (p.exponential_flow_coefficient * reduced.powf(p.flow_exponent + 1.0)).exp();
+            rate *= (p.exponential_flow_coefficient * reduced.r_powf(p.flow_exponent + 1.0)).r_exp();
         }
         rate
     }
@@ -691,7 +692,7 @@ impl ViscoplasticChabocheWithMemory {
         let p_dot = self.flow_rate(overstress, state.isotropic_hardening);
         let ccin = p.dynamic_recovery_floor
             + (1.0 - p.dynamic_recovery_floor)
-                * (-p.isotropic_rate * state.accumulated_strain).exp();
+                * (-p.isotropic_rate * state.accumulated_strain).r_exp();
         let gamma1 = p.dynamic_recovery_1 * ccin;
         let gamma2 = p.dynamic_recovery_2 * ccin;
 
@@ -734,14 +735,14 @@ impl ViscoplasticChabocheWithMemory {
         }
         let x1_eq = p.back_stress_modulus_1 * (norm_sq_1 / 1.5).sqrt();
         if x1_eq > 1.0e-30 {
-            let factor = x1_eq.powf(p.static_recovery_exponent_x1) / x1_eq;
+            let factor = x1_eq.r_powf(p.static_recovery_exponent_x1) / x1_eq;
             for i in 0..6 {
                 da1[i] -= p.static_recovery_rate_x1 * factor * a1[i];
             }
         }
         let x2_eq = p.back_stress_modulus_2 * (norm_sq_2 / 1.5).sqrt();
         if x2_eq > 1.0e-30 {
-            let factor = x2_eq.powf(p.static_recovery_exponent_x2) / x2_eq;
+            let factor = x2_eq.r_powf(p.static_recovery_exponent_x2) / x2_eq;
             for i in 0..6 {
                 da2[i] -= p.static_recovery_rate_x2 * factor * a2[i];
             }
@@ -750,7 +751,7 @@ impl ViscoplasticChabocheWithMemory {
         // Isotropic hardening — lines 150-158.
         let q_asym = p.hardening_saturation_min
             + (p.hardening_saturation_max - p.hardening_saturation_min)
-                * (1.0 - (-2.0 * p.memory_saturation_rate * state.memory_radius).exp());
+                * (1.0 - (-2.0 * p.memory_saturation_rate * state.memory_radius).r_exp());
         let ratio = (p.hardening_saturation_max - q_asym) / p.hardening_saturation_max;
         let q_recovery = q_asym - p.recovery_target_offset * (1.0 - ratio * ratio);
         let gap = q_recovery - state.isotropic_hardening;
@@ -758,7 +759,7 @@ impl ViscoplasticChabocheWithMemory {
         let r_dot = p.isotropic_rate * (q_asym - state.isotropic_hardening) * p_dot
             + p.static_recovery_rate_r
                 * gap.signum()
-                * gap.abs().powf(p.static_recovery_exponent_r);
+                * gap.abs().r_powf(p.static_recovery_exponent_r);
 
         // Strain-memory surface — lines 159-183.
         let mut memory_sq = 0.0_f64;

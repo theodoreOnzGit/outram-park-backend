@@ -25,6 +25,7 @@ pub mod delayed_mgxs;
 pub mod secondary;
 pub mod weighting;
 
+use petir::mathf::RealMath;
 use crate::wmp::WindowedMultipole;
 use crate::NjoyError;
 use secondary::{FissionSpectrum, NuBar};
@@ -183,7 +184,7 @@ impl Mgxs {
         let n = FAST_GROUP_COUNT;
         let ratio = e_hi / e_lo;
         (0..=n)
-            .map(|i| e_lo * ratio.powf(i as f64 / n as f64))
+            .map(|i| e_lo * ratio.r_powf(i as f64 / n as f64))
             .collect()
     }
 

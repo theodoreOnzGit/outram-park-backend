@@ -148,6 +148,7 @@ fn midpoint_energy(e1: f64, e2: f64, law: IntLaw) -> f64 {
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
 
     #[test]
@@ -194,7 +195,7 @@ mod tests {
         // (Until 2026-08-11 this test passed INT=3 — the terp1 laws 3/4 were
         // swapped; see `endf::interp::terp1`.)
         let interp = vec![(2u32, 4u32)]; // log-lin
-        let pairs = vec![(0.0_f64, 1.0_f64), (4.0, f64::exp(4.0))];
+        let pairs = vec![(0.0_f64, 1.0_f64), (4.0, <f64 as RealMath>::r_exp(4.0))];
         let out = linearize_tab1(&interp, &pairs, 0.001);
         assert!(
             out.len() > 2,
@@ -209,7 +210,7 @@ mod tests {
         // ln x). Strongly curved in linear E over a wide decade span, so
         // refinement must add points.
         let interp = vec![(2u32, 3u32)]; // lin-log
-        let pairs = vec![(1.0_f64, 0.0_f64), (100.0, f64::ln(100.0))];
+        let pairs = vec![(1.0_f64, 0.0_f64), (100.0, <f64 as RealMath>::r_ln(100.0))];
         let out = linearize_tab1(&interp, &pairs, 0.001);
         assert!(
             out.len() > 2,

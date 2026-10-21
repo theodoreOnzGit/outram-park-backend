@@ -138,6 +138,8 @@
 //! (hPa in `*_hpa`), temperature K, specific humidity kg/kg, heights m above
 //! ground, times s, mass fluxes kg m⁻² s⁻¹, `fmassfrac` kg/m².
 
+use petir::mathf::RealMath;
+
 use super::boundary_layer::f_qvsat;
 use super::constants::{GA, R_AIR};
 use super::convection::{convect, ConvectFlag, ConvectSounding};
@@ -448,9 +450,9 @@ pub fn redist<I: Iterator<Item = f64>>(
         let tv = tv1 + (tv2 - tv1) * (cm.pconv[1] - cm.phconv[2]) / (cm.pconv[1] - cm.pconv[2]);
         if (tv - tvold).abs() > 0.2 {
             cm.uvzlev[2] =
-                cm.uvzlev[1] + REDIST_CONST * (pold / pint).ln() * (tv - tvold) / (tv / tvold).ln();
+                cm.uvzlev[1] + REDIST_CONST * (pold / pint).r_ln() * (tv - tvold) / (tv / tvold).r_ln();
         } else {
-            cm.uvzlev[2] = cm.uvzlev[1] + REDIST_CONST * (pold / pint).ln() * tv;
+            cm.uvzlev[2] = cm.uvzlev[1] + REDIST_CONST * (pold / pint).r_ln() * tv;
         }
         tvold = tv;
         tv1 = tv2;
@@ -464,9 +466,9 @@ pub fn redist<I: Iterator<Item = f64>>(
                     / (cm.pconv[kz - 1] - cm.pconv[kz]);
             if (tv - tvold).abs() > 0.2 {
                 cm.uvzlev[kz] = cm.uvzlev[kz - 1]
-                    + REDIST_CONST * (pold / pint).ln() * (tv - tvold) / (tv / tvold).ln();
+                    + REDIST_CONST * (pold / pint).r_ln() * (tv - tvold) / (tv / tvold).r_ln();
             } else {
-                cm.uvzlev[kz] = cm.uvzlev[kz - 1] + REDIST_CONST * (pold / pint).ln() * tv;
+                cm.uvzlev[kz] = cm.uvzlev[kz - 1] + REDIST_CONST * (pold / pint).r_ln() * tv;
             }
             tvold = tv;
             tv1 = tv2;
@@ -521,8 +523,8 @@ pub fn redist<I: Iterator<Item = f64>>(
             if levnew == levold {
                 ztra1 = ztold;
             } else {
-                let lp0 = cm.phconv[levnew].ln();
-                let lp1 = cm.phconv[levnew + 1].ln();
+                let lp0 = cm.phconv[levnew].r_ln();
+                let lp1 = cm.phconv[levnew + 1].r_ln();
                 let dlogp = (1.0 - dlevfrac) * (lp1 - lp0);
                 let pint = lp0 + dlogp;
                 let dz1 = pint - lp0;

@@ -44,6 +44,8 @@
 //! cross-check across two independently transcribed drivers and four
 //! independently transcribed solvers.
 
+use petir::mathf::RealMath;
+
 use crate::fuelrodheattime_1dcylnd::fuelrodheattime_1dcylnd;
 use crate::matlab::{norm1, Array2, Array3};
 use crate::th_solverxyz::{RodReport, TMAX_FUEL_DEFAULT};
@@ -150,9 +152,9 @@ pub fn th_solvertimexyz(
 
     let real_pow = |x: f64, p: f64| -> f64 {
         if x >= 0.0 {
-            x.powf(p)
+            x.r_powf(p)
         } else {
-            (-x).powf(p) * (std::f64::consts::PI * p).cos()
+            (-x).r_powf(p) * (std::f64::consts::PI * p).r_cos()
         }
     };
 

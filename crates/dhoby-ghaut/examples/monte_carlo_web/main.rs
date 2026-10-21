@@ -357,6 +357,7 @@ fn main() {
 #[cfg(all(test, not(target_os = "android"), not(target_arch = "wasm32")))]
 mod tests {
     use super::*;
+    use petir::mathf::RealMath;
     use engine::Tier;
     use outram_mc_libs::geometry::cell::SurfaceToken;
     use outram_mc_libs::geometry::position::{Direction, Position};
@@ -408,7 +409,7 @@ mod tests {
                 temperature: model::TEMPERATURE_K,
             };
             for k in 0..=2000 {
-                let e = 1.0e-5 * 10f64.powf(12.3 * k as f64 / 2000.0); // 1e-5 eV .. 20 MeV
+                let e = 1.0e-5 * 10f64.r_powf(12.3 * k as f64 / 2000.0); // 1e-5 eV .. 20 MeV
                 let (a, b) = (one.macro_xs(e, std::slice::from_ref(&full)), one.macro_xs(e, std::slice::from_ref(&thin)));
                 for (what, x, y) in [
                     ("total", a.total, b.total), ("elastic", a.elastic, b.elastic),
@@ -434,7 +435,7 @@ mod tests {
         assert_eq!(model::particles_2d(), 152);
         assert!((model::particle_r() - 0.0455).abs() < 1e-12);
         let p = model::half_pitch();
-        let area_fraction = std::f64::consts::PI * model::PEBBLE_R.powi(2) / (2.0 * p).powi(2);
+        let area_fraction = std::f64::consts::PI * model::PEBBLE_R.r_powi(2) / (2.0 * p).r_powi(2);
         assert!((area_fraction - model::CORE_FILLING_FRACTION).abs() < 1e-12);
     }
 
@@ -449,7 +450,7 @@ mod tests {
         for (i, &(x, y)) in c.iter().enumerate() {
             assert!((x * x + y * y).sqrt() + rp < model::FUEL_ZONE_R, "particle {i} crosses the fuel-zone edge");
             for &(a, b) in &c[i + 1..] {
-                assert!(((x - a).powi(2) + (y - b).powi(2)).sqrt() > 2.0 * rp, "particles overlap");
+                assert!(((x - a).r_powi(2) + (y - b).r_powi(2)).sqrt() > 2.0 * rp, "particles overlap");
             }
             // Probe the middle of every layer along +x.
             let mids = [
@@ -822,7 +823,7 @@ mod tests {
             assert_eq!((g.report.index, g.report.active), (n, n >= 2));
             // 5 x 5 x 5 mesh on the whole assembly: at most log2(125) bits.
             let h = g.report.entropy.expect("a CSG generation reports its source entropy");
-            assert!(h > 0.0 && h <= 125f64.log2() && g.report.counts.tracked == 0, "entropy {h}");
+            assert!(h > 0.0 && h <= 125f64.r_log2() && g.report.counts.tracked == 0, "entropy {h}");
             assert!((g.report.production - g.report.k * 300.0).abs() < 1e-9);
             assert!(g.sites.iter().any(|p| p[0].abs() > 1.0), "the source has spread");
             n += 1;

@@ -46,6 +46,7 @@
 //! `Cd()` is shared with `mixtureKEpsilon` and lives at
 //! [`super::drag_coefficient_from_kd`].
 
+use petir::mathf::RealMath;
 use super::drag_coefficient_from_kd;
 use super::units::{
     dissipation_rate_of_change, DragCoefficient, EddyViscosity, HydraulicDiameter,
@@ -156,7 +157,7 @@ impl LaheyBubbleClosure {
         let ur = relative_velocity.get::<meter_per_second>();
         let dh = dh_gas.get::<meter>().max(1e-3);
 
-        let bubble_g = self.cp * (1.0 + cd.powf(4.0 / 3.0)) * ag * ur.powi(3) / dh;
+        let bubble_g = self.cp * (1.0 + cd.r_powf(4.0 / 3.0)) * ag * ur.r_powi(3) / dh;
 
         TurbulentDissipationRate::new::<watt_per_kilogram>(bubble_g)
     }

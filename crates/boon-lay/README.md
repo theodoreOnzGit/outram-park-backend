@@ -91,7 +91,8 @@ boon-lay (TRISO release)  ->  sembawang (source term)  ->  changi (dispersion, d
 ```
 
 It depends on `outram-mc-libs` for random numbers. The exception is the
-RustBCA copy, which keeps upstream's `rand` ChaCha8 generator. Decay data are
+RustBCA copy, which keeps upstream's ChaCha8 generator, ~~from `rand`~~ since
+2026-10-20 from `petir::rng`, a draw-for-draw port of it (gh:#995). Decay data are
 ENDF/B-VIII.0, via the `openmc-endf-8-depletion-lib-b` crate.
 
 ## Verification status
@@ -139,10 +140,10 @@ The egui examples fall under the workspace headless-mode rule; see
 
 ## Licence
 
-GPL-3.0. The TRISO-ATOPS fork is derived from MIT-licensed code by Battelle
+~~GPL-3.0~~ **AGPL-3.0-only, as a combined work** (relicensed 2026-10-20, gh:#973): the copied-in RustBCA (`src/rustbca/`) stays GPL-3.0-or-later and `LICENSE.GPL-3.0` ships beside `LICENSE` (see `docs/relicensing-agpl-2026-10-20.md`). The TRISO-ATOPS fork is derived from MIT-licensed code by Battelle
 Energy Alliance (INL). Its terms are in [`LICENSE.triso-atops`](LICENSE.triso-atops)
 and [`NOTICE.triso-atops`](NOTICE.triso-atops), and the derivation is recorded in
-[`TRISO_ATOPS_DERIVATION.md`](TRISO_ATOPS_DERIVATION.md). MIT into GPL-3.0 is one-way.
+[`TRISO_ATOPS_DERIVATION.md`](TRISO_ATOPS_DERIVATION.md). MIT into ~~GPL-3.0~~ **AGPL-3.0-only** is one-way.
 
 ## Bookkeeping status
 

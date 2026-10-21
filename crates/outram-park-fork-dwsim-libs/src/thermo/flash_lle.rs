@@ -113,6 +113,7 @@
 //! owned by value (`Vec<f64>`); inner arithmetic is documented raw `f64` (SI:
 //! K, mole fractions \[-\]). `#![forbid(unsafe_code)]` at the crate root.
 
+use petir::mathf::RealMath;
 use crate::thermo::activity::ActivityModel;
 use crate::thermo::flash::FlashError;
 
@@ -226,7 +227,7 @@ fn reduced_molar_gibbs(x: &[f64], gamma: &[f64]) -> f64 {
     let mut g = 0.0;
     for i in 0..x.len() {
         if x[i] > 0.0 {
-            g += x[i] * (x[i].ln() + gamma[i].ln());
+            g += x[i] * (x[i].r_ln() + gamma[i].r_ln());
         }
     }
     g

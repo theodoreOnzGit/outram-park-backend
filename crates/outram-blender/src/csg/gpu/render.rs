@@ -33,6 +33,7 @@
 //! Device limits used: 4 storage buffers and one uniform per stage, within
 //! `wgpu::Limits::downlevel_defaults()`.
 
+use petir::mathf::RealMath;
 use super::flat::FlatGeometry;
 use crate::csg::plot::{
     ClipPlane, ColourScheme, ImageData, PlotBasis, PlotColourBy, Projection, Rgb, SlicePlot,
@@ -458,7 +459,7 @@ impl CsgGpuRenderer {
             p[10] = fl(cam.position.z);
             match cam.projection {
                 Projection::Perspective { horizontal_fov_deg } => {
-                    let dx = 2.0 * 10.0 * (0.5 * horizontal_fov_deg.to_radians()).tan();
+                    let dx = 2.0 * 10.0 * (0.5 * horizontal_fov_deg.to_radians()).r_tan();
                     let dy = cam.pixels[1] as f64 / cam.pixels[0] as f64 * dx;
                     p[15] = fl(dx);
                     p[19] = fl(dy);

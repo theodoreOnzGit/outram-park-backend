@@ -1,0 +1,31 @@
+    Updating crates.io index
+   Packaging nee_soon v0.0.4 (/home/teddy0/Documents/research/outram-park-backend/crates/nee_soon)
+    Updating crates.io index
+    Packaged 110 files, 2.3MiB (693.6KiB compressed)
+   Verifying nee_soon v0.0.4 (/home/teddy0/Documents/research/outram-park-backend/crates/nee_soon)
+ Downloading crates ...
+  Downloaded teh-o-prke v0.1.7
+  Downloaded outram-mc-libs v0.0.6
+   Compiling serde_core v1.0.229
+   Compiling memchr v2.8.3
+   Compiling zmij v1.0.23
+   Compiling serde_json v1.0.154
+   Compiling outram-foam-turbulence-lib v0.1.4
+   Compiling csv-core v0.1.13
+   Compiling outram-foam-multiphase v0.0.4
+   Compiling serde v1.0.229
+   Compiling csv v1.4.0
+   Compiling serde-xml-rs v0.8.2
+   Compiling outram-foam-appbuilder-lib v0.1.6
+   Compiling chem-eng-real-time-process-control-simulator v0.2.4
+   Compiling openmc-endf-8-depletion-lib-a v1.0.1
+   Compiling openmc-endf-8-depletion-lib-b v1.0.0
+   Compiling outram-mc-libs v0.0.6
+   Compiling teh-o-prke v0.1.7
+   Compiling nee_soon v0.0.4 (/home/teddy0/Documents/research/outram-park-backend/target/package/nee_soon-0.0.4)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 11.46s
+   Uploading nee_soon v0.0.4 (/home/teddy0/Documents/research/outram-park-backend/crates/nee_soon)
+    Uploaded nee_soon v0.0.4 to registry `crates-io`
+note: waiting for nee_soon v0.0.4 to be available at registry `crates-io`
+help: you may press ctrl-c to skip waiting; the crate should be available shortly
+   Published nee_soon v0.0.4 at registry `crates-io`

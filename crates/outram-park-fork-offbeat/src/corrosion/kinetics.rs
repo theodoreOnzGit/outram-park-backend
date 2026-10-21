@@ -84,6 +84,7 @@
 // through and propagate it into a physical result. The idiom is intentional.
 #![allow(clippy::neg_cmp_op_on_partial_ord)]
 
+use petir::mathf::RealMath;
 use crate::error::{OffbeatError, Result};
 
 /// Seconds in a day — upstream's `3600.0*24.0`, used to convert this port's SI
@@ -626,9 +627,9 @@ fn epri_kwu_ce(s0: f64, temperature: f64, flux: f64, dt: f64) -> f64 {
     // Post-transition rate constant [m/day], flux-enhanced. Upstream's `phi` is
     // in n/(cm^2 s); this port takes SI and converts here.
     let flux_per_cm2 = flux * FLUX_SI_TO_PER_CM2;
-    let c2 = EPRI_C2_BASE + EPRI_C2_FLUX * (EPRI_FLUX_SCALE * flux_per_cm2).powf(0.25);
+    let c2 = EPRI_C2_BASE + EPRI_C2_FLUX * (EPRI_FLUX_SCALE * flux_per_cm2).r_powf(0.25);
 
-    let post_rate = c2 * (-EPRI_Q2_OVER_R / temperature).exp();
+    let post_rate = c2 * (-EPRI_Q2_OVER_R / temperature).r_exp();
 
     if s0 >= TRANSITION_THICKNESS {
         // Already cracked: linear growth.
@@ -636,8 +637,8 @@ fn epri_kwu_ce(s0: f64, temperature: f64, flux: f64, dt: f64) -> f64 {
     }
 
     // Sub-transition cubic law, evaluated over the whole step.
-    let cubic_gain = EPRI_C1 * (-EPRI_Q1_OVER_R / temperature).exp() * dt_days;
-    let s_pre = (cubic_gain + s0 * s0 * s0).cbrt();
+    let cubic_gain = EPRI_C1 * (-EPRI_Q1_OVER_R / temperature).r_exp() * dt_days;
+    let s_pre = (cubic_gain + s0 * s0 * s0).r_cbrt();
 
     if s_pre <= TRANSITION_THICKNESS {
         return s_pre;
@@ -661,7 +662,7 @@ fn epri_kwu_ce(s0: f64, temperature: f64, flux: f64, dt: f64) -> f64 {
 /// non-negative and finite, and `temperature > 0`.
 fn cathcart_pawel(s0: f64, temperature: f64, dt: f64) -> f64 {
     let (a, q_over_r) = cathcart_pawel_arrhenius(temperature);
-    let gain = a * (-q_over_r / temperature).exp() * dt;
+    let gain = a * (-q_over_r / temperature).r_exp() * dt;
     let squared = gain + s0 * s0;
     if squared <= 0.0 || !squared.is_finite() {
         return s0;
@@ -690,11 +691,11 @@ fn cathcart_pawel_arrhenius(temperature: f64) -> (f64, f64) {
         //       * log( 2.98e-3*exp(-28420/1900) / 7.82e-6 * exp(-20214/1800) );
         //   As  = 7.82e-6*exp(QsR/1900);
         // The `/ 7.82e-6 * exp(...)` is `(a/b)*c` in C++, not `a/(b*c)`.
-        let ratio = PRATER_COURTRIGHT_A * (-PRATER_COURTRIGHT_Q_OVER_R / SCHANZ_HIGH).exp()
+        let ratio = PRATER_COURTRIGHT_A * (-PRATER_COURTRIGHT_Q_OVER_R / SCHANZ_HIGH).r_exp()
             / LEISTIKOW_A
-            * (-LEISTIKOW_Q_OVER_R / SCHANZ_LOW).exp();
-        let q_over_r = SCHANZ_HIGH * SCHANZ_LOW / (SCHANZ_HIGH - SCHANZ_LOW) * ratio.ln();
-        let a = LEISTIKOW_A * (q_over_r / SCHANZ_HIGH).exp();
+            * (-LEISTIKOW_Q_OVER_R / SCHANZ_LOW).r_exp();
+        let q_over_r = SCHANZ_HIGH * SCHANZ_LOW / (SCHANZ_HIGH - SCHANZ_LOW) * ratio.r_ln();
+        let a = LEISTIKOW_A * (q_over_r / SCHANZ_HIGH).r_exp();
         (a, q_over_r)
     } else {
         (PRATER_COURTRIGHT_A, PRATER_COURTRIGHT_Q_OVER_R)
@@ -869,7 +870,7 @@ mod tests {
 
         // Sub-transition, from bare metal.
         let s = model.thickness(0.0, t, 0.0, DAY);
-        let expected = (EPRI_C1 * (-EPRI_Q1_OVER_R / t).exp()).cbrt();
+        let expected = (EPRI_C1 * (-EPRI_Q1_OVER_R / t).r_exp()).r_cbrt();
         assert!(s < TRANSITION_THICKNESS, "must stay sub-transition: {s}");
         assert!(
             (s / expected - 1.0).abs() < 1.0e-15,
@@ -883,7 +884,7 @@ mod tests {
         // Post-transition, zero flux.
         let s0 = 3.0e-6;
         let s = model.thickness(s0, t, 0.0, DAY);
-        let expected = s0 + EPRI_C2_BASE * (-EPRI_Q2_OVER_R / t).exp();
+        let expected = s0 + EPRI_C2_BASE * (-EPRI_Q2_OVER_R / t).r_exp();
         assert!(
             (s / expected - 1.0).abs() < 1.0e-15,
             "post-transition {s} != closed form {expected}"
@@ -891,8 +892,8 @@ mod tests {
 
         // Post-transition, PWR flux — pins the SI -> per-cm^2 conversion.
         let s = model.thickness(s0, t, PWR_FAST_FLUX, DAY);
-        let c2 = EPRI_C2_BASE + EPRI_C2_FLUX * (EPRI_FLUX_SCALE * 7.0e13).powf(0.25);
-        let expected = s0 + c2 * (-EPRI_Q2_OVER_R / t).exp();
+        let c2 = EPRI_C2_BASE + EPRI_C2_FLUX * (EPRI_FLUX_SCALE * 7.0e13).r_powf(0.25);
+        let expected = s0 + c2 * (-EPRI_Q2_OVER_R / t).r_exp();
         assert!(
             (s / expected - 1.0).abs() < 1.0e-15,
             "flux-enhanced {s} != closed form {expected}"
@@ -922,9 +923,9 @@ mod tests {
     fn post_transition_growth_is_faster_than_sub_transition() {
         for (temperature, expected_ratio) in [(550.0, 14.19), (600.0, 9.73), (650.0, 7.07)] {
             // Instantaneous sub-transition rate at S_trans: d/dt of the cubic law.
-            let sub = EPRI_C1 * (-EPRI_Q1_OVER_R / temperature).exp()
+            let sub = EPRI_C1 * (-EPRI_Q1_OVER_R / temperature).r_exp()
                 / (3.0 * TRANSITION_THICKNESS * TRANSITION_THICKNESS);
-            let post = EPRI_C2_BASE * (-EPRI_Q2_OVER_R / temperature).exp();
+            let post = EPRI_C2_BASE * (-EPRI_Q2_OVER_R / temperature).r_exp();
             let ratio = post / sub;
             assert!(
                 ratio > 1.0,
@@ -985,7 +986,7 @@ mod tests {
         // the step ends exactly at the transition, and to the pure
         // post-transition branch when it starts there.
         let at_transition = model.thickness(TRANSITION_THICKNESS, t, 0.0, DAY);
-        let pure_post = TRANSITION_THICKNESS + EPRI_C2_BASE * (-EPRI_Q2_OVER_R / t).exp();
+        let pure_post = TRANSITION_THICKNESS + EPRI_C2_BASE * (-EPRI_Q2_OVER_R / t).r_exp();
         assert!((at_transition / pure_post - 1.0).abs() < 1.0e-15);
     }
 
@@ -1116,17 +1117,17 @@ mod tests {
         );
 
         // What a correct Schanz interpolation of the SAME four constants gives.
-        let k_low = LEISTIKOW_A * (-LEISTIKOW_Q_OVER_R / SCHANZ_LOW).exp();
-        let k_high = PRATER_COURTRIGHT_A * (-PRATER_COURTRIGHT_Q_OVER_R / SCHANZ_HIGH).exp();
+        let k_low = LEISTIKOW_A * (-LEISTIKOW_Q_OVER_R / SCHANZ_LOW).r_exp();
+        let k_high = PRATER_COURTRIGHT_A * (-PRATER_COURTRIGHT_Q_OVER_R / SCHANZ_HIGH).r_exp();
         let correct_q =
-            SCHANZ_HIGH * SCHANZ_LOW / (SCHANZ_HIGH - SCHANZ_LOW) * (k_high / k_low).ln();
+            SCHANZ_HIGH * SCHANZ_LOW / (SCHANZ_HIGH - SCHANZ_LOW) * (k_high / k_low).r_ln();
         assert!(correct_q > 0.0);
         assert!((correct_q / 75_756.395_653_024_3 - 1.0).abs() < 1.0e-12);
 
         // Defect 2: even with the parentheses fixed, upstream's pre-exponential
         // uses the bare Leistikow prefactor instead of the rate constant.
-        let correct_a = k_low * (correct_q / SCHANZ_LOW).exp();
-        let upstream_style_a = LEISTIKOW_A * (correct_q / SCHANZ_HIGH).exp();
+        let correct_a = k_low * (correct_q / SCHANZ_LOW).r_exp();
+        let upstream_style_a = LEISTIKOW_A * (correct_q / SCHANZ_HIGH).r_exp();
         assert!(
             (upstream_style_a / correct_a - 8224.7).abs() < 1.0,
             "recorded pre-exponential error drifted: {}x",
@@ -1172,7 +1173,7 @@ mod tests {
         let model = OxidationKinetics::CathcartPawel;
         let t = 1473.0;
 
-        let k = LEISTIKOW_A * (-LEISTIKOW_Q_OVER_R / t).exp();
+        let k = LEISTIKOW_A * (-LEISTIKOW_Q_OVER_R / t).r_exp();
         assert!(
             (k / 8.577_829e-12 - 1.0).abs() < 1.0e-6,
             "recorded k drifted: {k}"
@@ -1220,7 +1221,7 @@ mod tests {
 
         // Quarter power: multiplying the flux by 16 doubles the flux term.
         let term =
-            |flux: f64| EPRI_C2_FLUX * (EPRI_FLUX_SCALE * flux * FLUX_SI_TO_PER_CM2).powf(0.25);
+            |flux: f64| EPRI_C2_FLUX * (EPRI_FLUX_SCALE * flux * FLUX_SI_TO_PER_CM2).r_powf(0.25);
         assert!((term(1.6e18) / term(1.0e17) - 2.0).abs() < 1.0e-12);
         assert_eq!(term(0.0), 0.0);
     }

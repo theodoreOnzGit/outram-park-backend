@@ -133,7 +133,7 @@ fn legendre_pmm(m: u32, x: f64) -> f64 {
         return 1.0;
     }
     let mut p_mm = 1.0_f64;
-    let root_factor = (1.0 - x).sqrt() * (1.0 + x).sqrt();
+    let root_factor = Real::sqrt(1.0 - x) * Real::sqrt(1.0 + x);
     let mut fact_coeff = 1.0_f64;
     for _ in 1..=m {
         p_mm *= -fact_coeff * root_factor;
@@ -169,7 +169,7 @@ pub fn legendre_plm(l: u32, m: u32, x: f64) -> f64 {
     let t_d = if dif == 0.0 {
         0.0
     } else {
-        0.5 * dif * (dif.ln() - 1.0)
+        0.5 * dif * (Real::ln(dif) - 1.0)
     };
     // NOTE `dif`, not `sum`. That is upstream's condition, verbatim
     // (legendre_poly.c:304), and it is what puts a hole in this guard at
@@ -178,9 +178,9 @@ pub fn legendre_plm(l: u32, m: u32, x: f64) -> f64 {
     let t_s = if dif == 0.0 {
         0.0
     } else {
-        0.5 * sum * (sum.ln() - 1.0)
+        0.5 * sum * (Real::ln(sum) - 1.0)
     };
-    let exp_check = 0.5 * (2.0 * l as f64 + 1.0).ln() + t_d - t_s;
+    let exp_check = 0.5 * Real::ln(2.0 * l as f64 + 1.0) + t_d - t_s;
     if exp_check < crate::specfunc::LOG_DBL_MIN + 10.0 {
         return f64::NAN;
     }

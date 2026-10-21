@@ -40,6 +40,7 @@
 //! cylindrical mesh than a Cartesian one, because a radial cell's width varies
 //! across it. Worth knowing before using a fine R-Z mesh.
 
+use petir::mathf::RealMath;
 use crate::geometry::position::Position;
 use crate::tally::mesh_unstructured::UnstructuredMeshExt;
 
@@ -375,11 +376,11 @@ impl CylindricalMeshExt for CylindricalMesh {
         let y = p.y - self.origin.y;
         let z = p.z - self.origin.z;
 
-        let r = x.hypot(y);
+        let r = x.r_hypot(y);
         let phi = if r < FP_PRECISION {
             0.0
         } else {
-            let a = y.atan2(x);
+            let a = y.r_atan2(x);
             if a < 0.0 {
                 a + std::f64::consts::TAU
             } else {
@@ -418,9 +419,9 @@ impl SphericalMeshExt for SphericalMesh {
         let (theta, phi) = if r < FP_PRECISION {
             (0.0, 0.0)
         } else {
-            let a = y.atan2(x);
+            let a = y.r_atan2(x);
             (
-                (z / r).clamp(-1.0, 1.0).acos(),
+                (z / r).clamp(-1.0, 1.0).r_acos(),
                 if a < 0.0 {
                     a + std::f64::consts::TAU
                 } else {

@@ -22,6 +22,7 @@
 //! 4. **Measurement** — `#[ignore]`d crossover benchmarks whose printed output
 //!    is the source of every number in the constants' documentation.
 
+use petir::mathf::RealMath;
 use super::*;
 use crate::matrix::SquareMatrix;
 use crate::ode::{OdeSolver, OdeSystem};
@@ -184,7 +185,7 @@ fn ensemble_matches_analytic_decay() {
         let states = ensemble.states().expect("all lanes complete");
         let mut worst = 0.0_f64;
         for (k, s) in ks.iter().zip(&states) {
-            worst = worst.max((s[0] - (-k).exp()).abs());
+            worst = worst.max((s[0] - (-k).r_exp()).abs());
         }
         println!(
             "decay ensemble: {name} worst |error| = {worst:.6e} over {n} lanes, \
@@ -228,8 +229,8 @@ fn ensemble_matches_harmonic_oscillator() {
     let mut worst = 0.0_f64;
     for (x, s) in ends.iter().zip(&states) {
         worst = worst
-            .max((s[0] - x.cos()).abs())
-            .max((s[1] - x.sin()).abs());
+            .max((s[0] - x.r_cos()).abs())
+            .max((s[1] - x.r_sin()).abs());
     }
     println!("harmonic ensemble: worst |error| = {worst:.6e} over {n} lanes");
     assert!(worst < 1e-8, "worst error {worst:.6e}");
@@ -280,7 +281,7 @@ fn lumped_body_accuracy_is_set_by_the_relative_tolerance() {
     let taus = [5.0_f64, 20.0];
     let exact: Vec<f64> = taus
         .iter()
-        .map(|t| 300.0 + 200.0 * (-10.0 / t).exp())
+        .map(|t| 300.0 + 200.0 * (-10.0 / t).r_exp())
         .collect();
     println!("closed form: {:.16} K, {:.16} K", exact[0], exact[1]);
 
@@ -375,7 +376,7 @@ fn stiff_pair_completes_stiff_and_fails_visibly_explicit() {
         .states()
         .expect("Rosenbrock23 spans the stiff interval");
     assert!(
-        (state[0][0] - (-1.0_f64).exp()).abs() < 1e-7,
+        (state[0][0] - (-1.0_f64).r_exp()).abs() < 1e-7,
         "y1 = {}",
         state[0][0]
     );
@@ -442,10 +443,10 @@ fn gauss_legendre_is_exact_to_its_degree() {
                     QuadratureRule::GaussLegendre { order, panels: 1 },
                     ComputeBackend::Serial,
                     0,
-                    |_, x| x.powi(d as i32),
+                    |_, x| x.r_powi(d as i32),
                 );
                 let got = batch.values().expect("evaluates")[0];
-                let exact = (b.powi(d as i32 + 1) - a.powi(d as i32 + 1)) / (d as f64 + 1.0);
+                let exact = (b.r_powi(d as i32 + 1) - a.r_powi(d as i32 + 1)) / (d as f64 + 1.0);
                 let rel = (got - exact).abs() / exact.abs().max(1.0);
                 worst = worst.max(rel);
                 assert!(
@@ -539,14 +540,14 @@ fn simpson_and_trapezoid_are_exact_to_their_degree() {
     let mut worst_simpson = 0.0_f64;
     let mut worst_trapezoid = 0.0_f64;
     for (a, b) in [(0.0_f64, 1.0_f64), (-2.0, 3.0)] {
-        let exact = |d: usize| (b.powi(d as i32 + 1) - a.powi(d as i32 + 1)) / (d as f64 + 1.0);
+        let exact = |d: usize| (b.r_powi(d as i32 + 1) - a.r_powi(d as i32 + 1)) / (d as f64 + 1.0);
         for d in 0..=3usize {
             let batch = quadrature_batch_min(
                 &[QuadratureInterval::new(a, b)],
                 QuadratureRule::Simpson { panels: 3 },
                 ComputeBackend::Serial,
                 0,
-                |_, x| x.powi(d as i32),
+                |_, x| x.r_powi(d as i32),
             );
             let got = batch.values().unwrap()[0];
             let rel = (got - exact(d)).abs() / exact(d).abs().max(1.0);
@@ -559,7 +560,7 @@ fn simpson_and_trapezoid_are_exact_to_their_degree() {
                 QuadratureRule::Trapezoid { panels: 5 },
                 ComputeBackend::Serial,
                 0,
-                |_, x| x.powi(d as i32),
+                |_, x| x.r_powi(d as i32),
             );
             let got = batch.values().unwrap()[0];
             let rel = (got - exact(d)).abs() / exact(d).abs().max(1.0);
@@ -589,9 +590,9 @@ fn simpson_and_trapezoid_are_exact_to_their_degree() {
 /// [`crate::ode::parallel::quadrature_batch`] from this test's printed output.
 #[test]
 fn fixed_rules_match_a_transcendental_reference() {
-    let exact = (1.0 + (-std::f64::consts::PI).exp()) / 2.0;
+    let exact = (1.0 + (-std::f64::consts::PI).r_exp()) / 2.0;
     let iv = [QuadratureInterval::new(0.0, std::f64::consts::PI)];
-    let f = |_: usize, x: f64| (-x).exp() * x.sin();
+    let f = |_: usize, x: f64| (-x).r_exp() * x.r_sin();
 
     let run = |rule: QuadratureRule| -> (f64, f64) {
         let batch = quadrature_batch_min(&iv, rule, ComputeBackend::Serial, 0, f);
@@ -649,9 +650,9 @@ fn adaptive_matches_closed_forms() {
         QuadratureInterval::new(0.0, 1.0),
     ];
     let exact = [
-        (1.0 + (-pi).exp()) / 2.0,
+        (1.0 + (-pi).r_exp()) / 2.0,
         2.0 / 3.0,
-        (10.0_f64).atan() / 10.0,
+        (10.0_f64).r_atan() / 10.0,
     ];
     let settings = AdaptiveSettings {
         abs_tol: 1e-11,
@@ -662,7 +663,7 @@ fn adaptive_matches_closed_forms() {
     let batch =
         adaptive_quadrature_batch_min(&intervals, settings, ComputeBackend::Serial, 0, |i, x| {
             match i {
-                0 => (-x).exp() * x.sin(),
+                0 => (-x).r_exp() * x.r_sin(),
                 1 => x.sqrt(),
                 _ => 1.0 / (1.0 + 400.0 * (x - 0.5) * (x - 0.5)),
             }
@@ -861,7 +862,7 @@ fn quadrature_bitwise_identical_across_backends_and_threads() {
         a.push(rng.next_in(0.1, 3.0));
         b.push(rng.next_in(1.0, 30.0));
     }
-    let f = |i: usize, x: f64| (-a[i] * x).exp() * (b[i] * x).sin();
+    let f = |i: usize, x: f64| (-a[i] * x).r_exp() * (b[i] * x).r_sin();
     let rule = QuadratureRule::GaussLegendre {
         order: GaussOrder::G5,
         panels: 16,
@@ -1128,7 +1129,7 @@ fn mixed_stepper_selection_reaches_each_lane() {
         ComputeBackend::Serial,
     );
     let s = ensemble.states().expect("all complete");
-    let exact = (-1.0_f64).exp();
+    let exact = (-1.0_f64).r_exp();
     let e_euler = (s[0][0] - exact).abs();
     let e_rkf = (s[1][0] - exact).abs();
     let e_rb = (s[2][0] - exact).abs();
@@ -1359,7 +1360,7 @@ fn public_entry_points_agree_across_requested_backends() {
         order: GaussOrder::G5,
         panels: 8,
     };
-    let f = |i: usize, x: f64| (-(i as f64 + 1.0) * x).exp();
+    let f = |i: usize, x: f64| (-(i as f64 + 1.0) * x).r_exp();
     let q_serial = quadrature_batch(&intervals, rule, ComputeBackend::Serial, f);
     for backend in [ComputeBackend::CpuMulti, ComputeBackend::Gpu] {
         let other = quadrature_batch(&intervals, rule, backend, f);
@@ -1473,7 +1474,7 @@ fn quadrature_crossover_benchmark() {
             a.push(rng.next_in(0.1, 3.0));
             b.push(rng.next_in(1.0, 30.0));
         }
-        let f = |i: usize, x: f64| (-a[i] * x).exp() * (b[i] * x).sin();
+        let f = |i: usize, x: f64| (-a[i] * x).r_exp() * (b[i] * x).r_sin();
 
         let time = |backend: ComputeBackend| -> f64 {
             std::hint::black_box(quadrature_batch_min(&intervals, rule, backend, 0, f));

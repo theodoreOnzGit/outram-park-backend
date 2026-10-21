@@ -186,8 +186,8 @@ pub fn ln_gamma(x: f64) -> f64 {
     // pi * x loses its low bits once x is large. PETIR has not ported those two
     // refinements, so accuracy here degrades for x below about -50. Filed as a
     // bead; the tests pin the range that is actually checked.
-    let sin_term = (PI * x).sin().abs();
-    LN_PI - sin_term.ln() - ln_gamma(1.0 - x)
+    let sin_term = Real::sin(PI * x).abs();
+    LN_PI - Real::ln(sin_term) - ln_gamma(1.0 - x)
 }
 
 /// The Lanczos branch, valid for `x >= 0.5`. GSL's `lngamma_lanczos`.
@@ -204,8 +204,8 @@ fn ln_gamma_lanczos(x: f64) -> f64 {
         ag += c / (z + k as f64);
     }
 
-    let term1 = (z + 0.5) * ((z + 7.5) / core::f64::consts::E).ln();
-    let term2 = LOG_ROOT_TWO_PI + ag.ln();
+    let term1 = (z + 0.5) * Real::ln((z + 7.5) / core::f64::consts::E);
+    let term2 = LOG_ROOT_TWO_PI + Real::ln(ag);
     term1 + (term2 - 7.0)
 }
 
@@ -294,7 +294,7 @@ pub fn ln_gamma_sgn(x: f64) -> (f64, f64) {
     }
     // On the negative axis the sign follows sin(pi x): Gamma(x) and
     // sin(pi x) share a sign, since pi / (x Gamma(-x) sin(pi x)) > 0 there.
-    let s = (PI * x).sin();
+    let s = Real::sin(PI * x);
     let sgn = if s < 0.0 { -1.0 } else { 1.0 };
     (ln_gamma(x), sgn)
 }
@@ -339,7 +339,7 @@ pub fn gamma(x: f64) -> f64 {
         return factorial((x as u32) - 1);
     }
     let (ln_abs, sgn) = ln_gamma_sgn(x);
-    sgn * ln_abs.exp()
+    sgn * Real::exp(ln_abs)
 }
 
 /// `n!` as an `f64`, exactly for `n <= 20`.
@@ -389,7 +389,7 @@ pub fn factorial(n: u32) -> f64 {
     if let Some(&exact) = EXACT.get(n as usize) {
         return exact;
     }
-    ln_factorial(n).exp()
+    Real::exp(ln_factorial(n))
 }
 
 /// `ln(n!)`, valid for every `n` without overflow.
@@ -450,7 +450,7 @@ pub fn ln_beta(a: f64, b: f64) -> f64 {
 /// assert!((beta(2.0, 3.0) - 1.0 / 12.0).abs() < 1e-15);
 /// ```
 pub fn beta(a: f64, b: f64) -> f64 {
-    ln_beta(a, b).exp()
+    Real::exp(ln_beta(a, b))
 }
 
 /// The binomial coefficient `n choose k`, computed in log space.
@@ -486,7 +486,7 @@ pub fn choose(n: u32, k: u32) -> f64 {
     // Symmetry keeps the smaller of the two tails in play.
     let k = if k > n - k { n - k } else { k };
     let ln_c = ln_factorial(n) - ln_factorial(k) - ln_factorial(n - k);
-    let c = ln_c.exp();
+    let c = Real::exp(ln_c);
     // Below 2^53 the true value is an exact integer; snap to it so callers
     // comparing against an integer count get what they expect.
     if c < 9.007_199_254_740_992e15 {

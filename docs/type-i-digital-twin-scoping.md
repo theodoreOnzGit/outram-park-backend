@@ -164,7 +164,7 @@ cold.
 
 > **Compliance note.** BISON and PARFUME are INL-controlled nuclear codes.
 > Controlled status carries export-control implications; their source must never
-> enter this public GPL-3.0 repository even if access is granted. Use the
+> enter this public ~~GPL-3.0~~ AGPL-3.0-only repository even if access is granted. Use the
 > published model-basis documents for model *forms* only, and record provenance
 > per the workspace GPLv3/attribution rule.
 

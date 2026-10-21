@@ -1,4 +1,5 @@
 //! How many TRISO particles does the assembled pebble actually contain?
+use petir::mathf::RealMath;
 use outram_mc_libs::pebble_beds::sphere_packing::cubic_pitch_for_count;
 
 fn main() {
@@ -20,8 +21,8 @@ fn main() {
             }
         }
     }
-    let v_part = (4.0 / 3.0) * std::f64::consts::PI * r_part.powi(3);
-    let v_zone = (4.0 / 3.0) * std::f64::consts::PI * r_zone.powi(3);
+    let v_part = (4.0 / 3.0) * std::f64::consts::PI * r_part.r_powi(3);
+    let v_zone = (4.0 / 3.0) * std::f64::consts::PI * r_zone.r_powi(3);
     println!("cubic_array_in_ball target      : 8335, achievable {want}");
     println!("lattice n per axis              : {n}  (half-width {half:.4} cm vs zone {r_zone})");
     println!("tiles assigned a PARTICLE       : {kept}");

@@ -83,6 +83,7 @@
 //! Independent implementations from the published definitions; see the
 //! provenance note in [`crate::bayesian`] for why that is stated explicitly.
 
+use petir::mathf::RealMath;
 use crate::{RafflesError, Result};
 
 /// Smallest and largest bin counts the automatic rule will choose.
@@ -292,7 +293,7 @@ impl DistanceMetric {
                 if bc <= 0.0 {
                     Ok(f64::INFINITY)
                 } else {
-                    Ok(-bc.min(1.0).ln())
+                    Ok(-bc.min(1.0).r_ln())
                 }
             }
             Self::Hellinger { .. } => {
@@ -385,7 +386,7 @@ fn summary(set: &[Vec<f64>], d: usize) -> (Vec<f64>, Vec<f64>) {
     if set.len() > 1 {
         for row in set {
             for j in 0..d {
-                sd[j] += (row[j] - mean[j]).powi(2);
+                sd[j] += (row[j] - mean[j]).r_powi(2);
             }
         }
         for s in sd.iter_mut() {
@@ -421,8 +422,8 @@ fn euclidean_summary_distance(
         } else {
             1.0
         };
-        acc += ((mean_a[j] - mean_b[j]) / scale).powi(2);
-        acc += ((sd_a[j] - sd_b[j]) / scale).powi(2);
+        acc += ((mean_a[j] - mean_b[j]) / scale).r_powi(2);
+        acc += ((sd_a[j] - sd_b[j]) / scale).r_powi(2);
     }
     Ok(acc.sqrt())
 }
@@ -515,10 +516,10 @@ fn jensen_shannon(p: &[f64], q: &[f64]) -> f64 {
     for (x, y) in p.iter().zip(q.iter()) {
         let m = 0.5 * (x + y);
         if *x > 0.0 {
-            divergence += 0.5 * x * (x / m).ln();
+            divergence += 0.5 * x * (x / m).r_ln();
         }
         if *y > 0.0 {
-            divergence += 0.5 * y * (y / m).ln();
+            divergence += 0.5 * y * (y / m).r_ln();
         }
     }
     // Clamp away the last-ulp excursions past the analytic bound so that a
@@ -582,14 +583,14 @@ mod tests {
     /// Closed-form Hellinger distance between two univariate normals.
     fn hellinger_normals(mu1: f64, s1: f64, mu2: f64, s2: f64) -> f64 {
         let bc = (2.0 * s1 * s2 / (s1 * s1 + s2 * s2)).sqrt()
-            * (-0.25 * (mu1 - mu2).powi(2) / (s1 * s1 + s2 * s2)).exp();
+            * (-0.25 * (mu1 - mu2).r_powi(2) / (s1 * s1 + s2 * s2)).r_exp();
         (1.0 - bc).sqrt()
     }
 
     /// Closed-form Bhattacharyya distance between two univariate normals.
     fn bhattacharyya_normals(mu1: f64, s1: f64, mu2: f64, s2: f64) -> f64 {
-        0.25 * (0.25 * (s1 * s1 / (s2 * s2) + s2 * s2 / (s1 * s1) + 2.0)).ln()
-            + 0.25 * (mu1 - mu2).powi(2) / (s1 * s1 + s2 * s2)
+        0.25 * (0.25 * (s1 * s1 / (s2 * s2) + s2 * s2 / (s1 * s1) + 2.0)).r_ln()
+            + 0.25 * (mu1 - mu2).r_powi(2) / (s1 * s1 + s2 * s2)
     }
 
     /// **Methodology.** Every distance must be zero between a sample and

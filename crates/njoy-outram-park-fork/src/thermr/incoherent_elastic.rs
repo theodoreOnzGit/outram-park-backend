@@ -24,6 +24,7 @@
 //! incoherent-elastic branch of `thermr.f90` (`iel`); the ACE writer consumes the
 //! cross section and the equally-probable cosines for the ITCE/ITCX/ITCA blocks.
 
+use petir::mathf::RealMath;
 use super::mf7::IncoherentElastic;
 use crate::endf::interp::terpa;
 use crate::NjoyError;
@@ -69,7 +70,7 @@ impl IncoherentElastic {
             return 0.0;
         }
         let c2 = 2.0 * e_ev * wp; // = 2·E·W'
-        let x1 = (-2.0 * c2).exp(); // = e^{−4·E·W'}
+        let x1 = (-2.0 * c2).r_exp(); // = e^{−4·E·W'}
         let c1 = self.sb / (2.0 * natom);
         c1 * (1.0 - x1) / c2
     }
@@ -93,18 +94,18 @@ impl IncoherentElastic {
                 .collect();
         }
         let rc2 = 1.0 / c2;
-        let x1 = (-2.0 * c2).exp(); // CDF normalisation: ∫ over [−1,1] ∝ (1 − x1)
+        let x1 = (-2.0 * c2).r_exp(); // CDF normalisation: ∫ over [−1,1] ∝ (1 − x1)
         let r1x1 = 1.0 / (1.0 - x1);
         let mut u = -1.0; // lower edge of the current equal-probability bin
         let mut out = Vec::with_capacity(nbin);
         for _ in 0..nbin {
-            let x2 = (-c2 * (1.0 - u)).exp();
+            let x2 = (-c2 * (1.0 - u)).r_exp();
             // Upper edge of this bin: CDF(unow) − CDF(u) = 1/nbin.
-            let unow = 1.0 + rc2 * ((1.0 - x1) / n + x2).ln();
+            let unow = 1.0 + rc2 * ((1.0 - x1) / n + x2).r_ln();
             // Representative cosine = nbin · ∫_u^unow μ p(μ) dμ (the bin mean).
             let mu = n
                 * rc2
-                * ((-c2 * (1.0 - unow)).exp() * (c2 * unow - 1.0) - x2 * (c2 * u - 1.0))
+                * ((-c2 * (1.0 - unow)).r_exp() * (c2 * unow - 1.0) - x2 * (c2 * u - 1.0))
                 * r1x1;
             out.push(mu.clamp(-1.0, 1.0));
             u = unow;
@@ -162,14 +163,14 @@ impl IncoherentElastic {
         let c2 = 2.0 * e * dwa;
         let mut u = -1.0_f64;
         let rc2 = 1.0 / c2;
-        let x1 = (-2.0 * c2).exp();
+        let x1 = (-2.0 * c2).r_exp();
         let r1x1 = 1.0 / (1.0 - x1);
         let xsec = c1 * rc2 * (1.0 - x1);
         let mut mu = Vec::with_capacity(nbin);
         for _ in 0..nbin {
-            let x2 = (-c2 * (1.0 - u)).exp();
-            let unow = 1.0 + rc2 * ((1.0 - x1) / n + x2).ln();
-            mu.push(n * rc2 * ((-c2 * (1.0 - unow)).exp() * (c2 * unow - 1.0) - x2 * (c2 * u - 1.0)) * r1x1);
+            let x2 = (-c2 * (1.0 - u)).r_exp();
+            let unow = 1.0 + rc2 * ((1.0 - x1) / n + x2).r_ln();
+            mu.push(n * rc2 * ((-c2 * (1.0 - unow)).r_exp() * (c2 * unow - 1.0) - x2 * (c2 * u - 1.0)) * r1x1);
             u = unow;
         }
         (xsec, mu)

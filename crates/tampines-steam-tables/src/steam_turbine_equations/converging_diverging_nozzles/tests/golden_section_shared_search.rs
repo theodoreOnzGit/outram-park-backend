@@ -138,6 +138,7 @@
 //!   cares. It is proof that the V&V gates in this crate do not, at their
 //!   current tolerances.
 
+use petir::uom_math::QuantityMath;
 use petir::mathf::RealMath;
 
 use std::cell::Cell;
@@ -519,7 +520,7 @@ fn probe_reuse_moves_the_choke_far_below_the_stopping_rule() {
                 return MassFlux::ZERO;
             }
             let rho = v_ps_eqm(p, s0).recip();
-            rho * (2.0 * ke).sqrt()
+            rho * (2.0 * ke).r_sqrt()
         };
 
         let (p_new, g_new) = golden_section_max_g(&g_of_p, lo_pa, hi_pa);

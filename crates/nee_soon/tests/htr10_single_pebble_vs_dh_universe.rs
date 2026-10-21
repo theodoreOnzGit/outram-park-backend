@@ -61,6 +61,7 @@
 //! +353 pcm on the core; here they would be more, all fuel being in one
 //! pebble) at about 3σ, not more.
 
+use petir::mathf::RealMath;
 use nee_soon::htr10_mgxs::cells::Htr10Cell;
 use nee_soon::htr10_rmc::core_model::mat;
 use nee_soon::htr10_rmc::data::{load_htr10_nuclides, Htr10DataConfig, Htr10NuclideLayout};
@@ -142,7 +143,7 @@ fn csg_single_pebble_matches_the_dh_universe_pebble() {
         mat::GRAPHITE,
         mat::HELIUM,
     ];
-    let r_eq = (3.0 * cell.volume_cm3 / (4.0 * std::f64::consts::PI)).cbrt();
+    let r_eq = (3.0 * cell.volume_cm3 / (4.0 * std::f64::consts::PI)).r_cbrt();
     let params = PebbleParams::htr10_li2014()
         .with_materials(order.iter().map(|&m| mats[m].clone()).collect())
         .with_coolant(r_eq);
@@ -152,7 +153,7 @@ fn csg_single_pebble_matches_the_dh_universe_pebble() {
     let t_dh = t.elapsed().as_secs_f64();
 
     let dk = csg.k_mean - dhk.k_mean;
-    let sig = (csg.k_std.powi(2) + dhk.k_std.powi(2)).sqrt();
+    let sig = (csg.k_std.r_powi(2) + dhk.k_std.r_powi(2)).sqrt();
     println!(
         "{} x [{} + {}], {threads} threads, {}",
         settings.n_particles,

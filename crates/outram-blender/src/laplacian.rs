@@ -35,8 +35,9 @@
 //! Blender analogue: the Smooth / "Smooth Vertices" and Laplacian-smooth mesh
 //! operators (`MOD_laplaciansmooth`, `bmo_smooth_laplacian`). This is the first
 //! module in the crate that assembles a **global sparse linear system over the
-//! mesh** and solves it — the intended home for the `faer` sparse solver the
-//! crate re-exports (see [`crate`] top-level docs). Future geometry-processing
+//! mesh** and solves it — ~~the intended home for the `faer` sparse solver the
+//! crate re-exports~~ **since 2026-10-20 (gh #994) with
+//! [`petir::sparse::SparseLlt`]**, through [`factor_spd_lower`]. Future geometry-processing
 //! operators that need the same machinery (ARAP deformation, mesh
 //! parameterization) build on the operators here.
 //!
@@ -98,9 +99,15 @@ pub enum LaplacianWeighting {
 /// one `(j, i)` per edge. Vertices with no incident edge (isolated) contribute
 /// no entries (an all-zero row).
 ///
-/// The triplet order is unspecified (it comes from a hash map); the assembled
-/// matrix is independent of that order. This is the input a sparse-matrix
-/// builder ([`crate::faer`]) consumes; it is also directly testable by
+/// ~~The triplet order is unspecified (it comes from a hash map); the assembled
+/// matrix is independent of that order.~~ **CORRECTED 2026-10-20 (gh #1002):**
+/// the order was a `HashMap`'s, and the matrix was *not* independent of it in
+/// the last bits: each diagonal `L_ii` is a floating-point sum taken in that
+/// order. The off-diagonal triplets now come in ascending `(min, max)` edge
+/// order (see [`edge_weights_from`]), then the diagonal in vertex order, so
+/// the output is identical from run to run. This is the input a sparse-matrix
+/// builder (~~[`crate::faer`]~~ `petir::sparse::CscMatrix` since 2026-10-20,
+/// gh #994; the `faer` re-export was removed with gh #996) consumes; it is also directly testable by
 /// materializing a small dense matrix (see this module's tests).
 pub fn laplacian_triplets(
     mesh: &Mesh,
@@ -111,7 +118,7 @@ pub fn laplacian_triplets(
 
     let mut diag = vec![0.0f64; n];
     let mut triplets: Vec<(usize, usize, f64)> = Vec::with_capacity(weights.len() * 2 + n);
-    for (&(i, j), &w) in &weights {
+    for &((i, j), w) in &weights {
         triplets.push((i, j, -w));
         triplets.push((j, i, -w));
         diag[i] += w;
@@ -125,38 +132,78 @@ pub fn laplacian_triplets(
     (n, triplets)
 }
 
-/// Per-edge symmetric weights `w_ij`, keyed by the ordered pair `(min, max)`.
+/// Per-edge symmetric weights `w_ij`, keyed by the ordered pair `(min, max)`,
+/// in ascending key order (see [`edge_weights_from`]).
 ///
 /// - [`LaplacianWeighting::Uniform`]: every edge maps to `1.0`.
 /// - [`LaplacianWeighting::Cotangent`]: accumulates `cot(θ) / 2` over each
 ///   incident triangle, where `θ` is the angle at the vertex opposite the edge.
-fn edge_weights(mesh: &Mesh, weighting: LaplacianWeighting) -> HashMap<(usize, usize), f64> {
+fn edge_weights(mesh: &Mesh, weighting: LaplacianWeighting) -> EdgeWeights {
     edge_weights_from(&mesh_triangles(mesh), &mesh.positions(), weighting)
 }
+
+/// Per-edge weights `((i, j), w_ij)` with `i < j`, one entry per edge, sorted
+/// by `(i, j)` ascending (gh #1002).
+pub(crate) type EdgeWeights = Vec<((usize, usize), f64)>;
 
 /// Edge weights from an explicit triangle list + vertex positions.
 ///
 /// Factored out of [`edge_weights`] so [`laplacian_smooth`] can recompute the
 /// (geometry-dependent) cotangent weights each iteration from the *current*
 /// positions while the topology (`tris`) stays fixed.
+///
+/// **Deterministic order (gh #1002, 2026-10-20).** This ~~returned a
+/// `std::collections::HashMap`~~, whose iteration order is randomly seeded per
+/// map; every caller sums the weights into per-vertex diagonals, one-ring
+/// covariances or right-hand sides in that order, so ARAP, smoothing and
+/// parameterization changed in the last bits from call to call. The weights
+/// are now returned sorted by edge key `(min, max)`, so every one-ring is
+/// visited in ascending neighbour index.
+///
+/// Each edge's own weight is bit-identical to the old map's: the per-triangle
+/// contributions are collected in triangle order and stable-sorted by key, so
+/// equal keys keep triangle order and are added to `0.0` exactly as
+/// `entry(key).or_insert(0.0) += c` added them. Only the order *between*
+/// edges changed. Sort-and-merge replaces the hash map, and is no slower
+/// (timings on gh #1002).
+///
+/// Upstream note: Blender's `MOD_laplaciandeform.cc` (`initLaplacianMatrix`)
+/// accumulates per triangle in triangle order and builds its vertex rings in
+/// edge-index order (`createVertRingMap`). This crate's ARAP is written from
+/// Sorkine & Alexa, not ported from that file, and walks edges rather than
+/// triangles, so the order fixed here is vertex-index order, not Blender's.
 pub(crate) fn edge_weights_from(
     tris: &[[usize; 3]],
     ps: &[Vec3],
     weighting: LaplacianWeighting,
-) -> HashMap<(usize, usize), f64> {
-    let mut weights: HashMap<(usize, usize), f64> = HashMap::new();
+) -> EdgeWeights {
+    let mut contrib: Vec<((usize, usize), f64)> = Vec::with_capacity(tris.len() * 3);
     for &[a, b, c] in tris {
         // Each directed pair (i, j, opposite k) of the triangle's three edges.
         for &(i, j, k) in &[(a, b, c), (b, c, a), (c, a, b)] {
             let key = if i < j { (i, j) } else { (j, i) };
-            match weighting {
-                LaplacianWeighting::Uniform => {
-                    weights.insert(key, 1.0);
-                }
-                LaplacianWeighting::Cotangent => {
-                    *weights.entry(key).or_insert(0.0) += 0.5 * cotangent(ps[k], ps[i], ps[j]);
+            let w = match weighting {
+                LaplacianWeighting::Uniform => 1.0,
+                LaplacianWeighting::Cotangent => 0.5 * cotangent(ps[k], ps[i], ps[j]),
+            };
+            contrib.push((key, w));
+        }
+    }
+    // Stable sort: equal keys keep triangle order, so the merge below adds each
+    // edge's contributions in the order the hash map's `+=` used to.
+    contrib.sort_by_key(|&(key, _)| key);
+
+    let mut weights: EdgeWeights = Vec::with_capacity(contrib.len() / 2 + 1);
+    for (key, w) in contrib {
+        match weights.last_mut() {
+            Some((last, acc)) if *last == key => {
+                if weighting == LaplacianWeighting::Cotangent {
+                    *acc += w;
                 }
             }
+            // `0.0 + w`, not `w`: the map started each entry at `0.0`, which
+            // turns a `-0.0` contribution into `+0.0`.
+            _ => weights.push((key, 0.0 + w)),
         }
     }
     weights
@@ -175,6 +222,58 @@ fn cotangent(apex: Vec3, p: Vec3, q: Vec3) -> f64 {
         return 0.0;
     }
     u.dot(v) / cross
+}
+
+/// Why [`factor_spd_lower`] failed. Each solver maps it onto its own error
+/// enum (`Assembly` / `NotPositiveDefinite`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum SpdFactorError {
+    /// A triplet index fell outside the `n x n` system.
+    Assembly,
+    /// The sparse Cholesky met a non-positive pivot.
+    NotPositiveDefinite,
+}
+
+/// Factorise the reduced SPD system given as LOWER-triangle triplets
+/// `(row >= col)` with [`petir::sparse::SparseLlt`] — since 2026-10-20 (gh
+/// #994) the backend of every Laplacian-type solve in this crate, replacing
+/// ~~`faer`'s `sp_cholesky(Side::Lower)`~~. It is a `no_std` port of exactly
+/// that faer routine (AMD ordering, simplicial `LLᵀ`), bit-identical to it on
+/// every system faer factors simplicially (`petir/tests/sparse_vs_faer.rs`).
+/// A direct factorisation is kept, rather than `outram-foam-basic-lib`'s
+/// PCG, because the operators' API reports a non-SPD system
+/// ([`SpdFactorError::NotPositiveDefinite`]), which an iterative solve cannot.
+pub(crate) fn factor_spd_lower(
+    n: usize,
+    trips: &[(usize, usize, f64)],
+) -> Result<petir::sparse::SparseLlt, SpdFactorError> {
+    let a = petir::sparse::CscMatrix::try_from_triplets(n, n, trips)
+        .map_err(|_| SpdFactorError::Assembly)?;
+    petir::sparse::SparseLlt::factorize_lower(&a).map_err(|e| match e {
+        // PETIR reports a non-positive pivot as GSL's EDOM.
+        petir::PetirError::Domain => SpdFactorError::NotPositiveDefinite,
+        _ => SpdFactorError::Assembly,
+    })
+}
+
+/// Solve `A X = B` for a `K`-column right-hand side, one column at a time
+/// (bit-identical to faer's multi-column solve, which does the same
+/// per-column arithmetic). A length mismatch, which the callers' assembly
+/// rules out, is [`SpdFactorError::Assembly`].
+pub(crate) fn solve_columns<const K: usize>(
+    llt: &petir::sparse::SparseLlt,
+    rhs: &[[f64; K]],
+) -> Result<Vec<[f64; K]>, SpdFactorError> {
+    let mut out = vec![[0.0f64; K]; rhs.len()];
+    for d in 0..K {
+        let mut col: Vec<f64> = rhs.iter().map(|r| r[d]).collect();
+        llt.solve_in_place(&mut col)
+            .map_err(|_| SpdFactorError::Assembly)?;
+        for (o, v) in out.iter_mut().zip(col) {
+            o[d] = v;
+        }
+    }
+    Ok(out)
 }
 
 /// Fan-triangulate every face of `mesh` into vertex-index triples
@@ -253,8 +352,9 @@ pub enum LaplacianError {
 /// **Boundary vertices are pinned** (held fixed; see [`boundary_vertices`]) so an
 /// open patch does not shrink at its border. The system is solved on the free
 /// (interior) vertices only, as a symmetric-positive-definite reduced system
-/// (pinned neighbours move to the right-hand side), factorized with `faer`'s
-/// sparse Cholesky. For a closed mesh every vertex is free.
+/// (pinned neighbours move to the right-hand side), factorized with a sparse
+/// Cholesky (~~`faer`'s~~ [`petir::sparse::SparseLlt`] since 2026-10-20, gh
+/// #994). For a closed mesh every vertex is free.
 ///
 /// The cotangent weights are **recomputed from the current positions each
 /// iteration**, so the flow tracks the evolving geometry.
@@ -279,10 +379,6 @@ pub fn laplacian_smooth(
     lambda: f64,
     iterations: u32,
 ) -> Result<Mesh, LaplacianError> {
-    use faer::sparse::{SparseColMat, Triplet};
-    use faer::linalg::solvers::Solve;
-    use faer::{Mat, Side};
-
     let faces: Vec<Vec<usize>> = mesh
         .polygons()
         .iter()
@@ -318,16 +414,16 @@ pub fn laplacian_smooth(
         // with L_ii = Σ_j w_ij and L_ij = −w_ij.
         let mut diag = vec![0.0f64; n];
         let mut rhs = vec![[0.0f64; 3]; nfree];
-        let mut trips: Vec<Triplet<usize, usize, f64>> = Vec::new();
+        let mut trips: Vec<(usize, usize, f64)> = Vec::new();
 
-        for (&(gi, gj), &w) in &weights {
+        for &((gi, gj), w) in &weights {
             diag[gi] += w;
             diag[gj] += w;
             match (free_of[gi], free_of[gj]) {
                 (Some(fi), Some(fj)) => {
                     // Off-diagonal λL_ij = −λw; store the lower triangle once.
                     let (lo, hi) = if fi < fj { (fi, fj) } else { (fj, fi) };
-                    trips.push(Triplet::new(hi, lo, -lambda * w));
+                    trips.push((hi, lo, -lambda * w));
                 }
                 (Some(fi), None) => {
                     // gj pinned → −λL_ij x_j = +λw·x_j moves to the RHS.
@@ -344,22 +440,21 @@ pub fn laplacian_smooth(
             }
         }
         for (fi, &gi) in free_verts.iter().enumerate() {
-            trips.push(Triplet::new(fi, fi, 1.0 + lambda * diag[gi]));
+            trips.push((fi, fi, 1.0 + lambda * diag[gi]));
             for d in 0..3 {
                 rhs[fi][d] += component(pos[gi], d); // the x_i term
             }
         }
 
-        let a = SparseColMat::<usize, f64>::try_new_from_triplets(nfree, nfree, &trips)
-            .map_err(|_| LaplacianError::Assembly)?;
-        let llt = a
-            .sp_cholesky(Side::Lower)
-            .map_err(|_| LaplacianError::NotPositiveDefinite)?;
-        let b = Mat::<f64>::from_fn(nfree, 3, |i, j| rhs[i][j]);
-        let x = llt.solve(&b);
+        let to_err = |e| match e {
+            SpdFactorError::Assembly => LaplacianError::Assembly,
+            SpdFactorError::NotPositiveDefinite => LaplacianError::NotPositiveDefinite,
+        };
+        let llt = factor_spd_lower(nfree, &trips).map_err(to_err)?;
+        let x = solve_columns(&llt, &rhs).map_err(to_err)?;
 
         for (fi, &gi) in free_verts.iter().enumerate() {
-            pos[gi] = Vec3::new(x[(fi, 0)], x[(fi, 1)], x[(fi, 2)]);
+            pos[gi] = Vec3::new(x[fi][0], x[fi][1], x[fi][2]);
         }
     }
 
@@ -451,7 +546,7 @@ fn normalized_laplacian_step(
 
     let mut num = vec![Vec3::ZERO; n]; // Σ_j w_ij (x_j − x_i)
     let mut den = vec![0.0f64; n]; //     Σ_j w_ij
-    for (&(i, j), &w) in &weights {
+    for &((i, j), w) in &weights {
         num[i] = num[i].add(pos[j].sub(pos[i]).scale(w));
         num[j] = num[j].add(pos[i].sub(pos[j]).scale(w));
         den[i] += w;
@@ -470,8 +565,36 @@ fn normalized_laplacian_step(
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
     use crate::primitives;
+
+    /// The sparse-Cholesky wrapper (gh #994) maps PETIR's errors onto the
+    /// operators' contract: an indefinite system is `NotPositiveDefinite`, a
+    /// bad index is `Assembly`, and a 2-column solve recovers a known answer.
+    #[test]
+    fn factor_spd_lower_maps_errors_and_solves_columns() {
+        // Lower triangle of [[2, 1], [1, 2]] (SPD); x = [1, 0] and [0, 1]
+        // give b = [2, 1] and [1, 2].
+        let llt = factor_spd_lower(2, &[(0, 0, 2.0), (1, 0, 1.0), (1, 1, 2.0)]).unwrap();
+        let x = solve_columns(&llt, &[[2.0, 1.0], [1.0, 2.0]]).unwrap();
+        for (got, want) in x.iter().flatten().zip([1.0, 0.0, 0.0, 1.0]) {
+            assert!((got - want).abs() < 1e-15, "{got} vs {want}");
+        }
+        // [[1, 2], [2, 1]] is indefinite.
+        assert_eq!(
+            factor_spd_lower(2, &[(0, 0, 1.0), (1, 0, 2.0), (1, 1, 1.0)]).unwrap_err(),
+            SpdFactorError::NotPositiveDefinite
+        );
+        assert_eq!(
+            factor_spd_lower(2, &[(2, 0, 1.0)]).unwrap_err(),
+            SpdFactorError::Assembly
+        );
+        assert_eq!(
+            solve_columns(&llt, &[[1.0]]).unwrap_err(),
+            SpdFactorError::Assembly
+        );
+    }
 
     /// Materialize the sparse triplets into a dense `n x n` matrix (summing
     /// duplicate entries), for small-mesh algebraic checks.
@@ -528,7 +651,9 @@ mod tests {
             Vec3::new(0.0, 1.0, 0.0), // c = 2
         ];
         let mesh = Mesh::from_polygons(&positions, &[vec![0, 1, 2]]);
-        let w = edge_weights(&mesh, LaplacianWeighting::Cotangent);
+        let w: HashMap<(usize, usize), f64> = edge_weights(&mesh, LaplacianWeighting::Cotangent)
+            .into_iter()
+            .collect();
         assert!((w[&(0, 1)] - 0.5).abs() < 1e-12, "w(a,b) = {}", w[&(0, 1)]);
         assert!((w[&(0, 2)] - 0.5).abs() < 1e-12, "w(c,a) = {}", w[&(0, 2)]);
         assert!(w[&(1, 2)].abs() < 1e-12, "w(b,c) = {}", w[&(1, 2)]);
@@ -682,7 +807,7 @@ mod tests {
         let radial_std = |m: &Mesh| {
             let rs: Vec<f64> = m.positions().iter().map(|p| p.length()).collect();
             let mean = rs.iter().sum::<f64>() / rs.len() as f64;
-            (rs.iter().map(|r| (r - mean).powi(2)).sum::<f64>() / rs.len() as f64).sqrt()
+            (rs.iter().map(|r| (r - mean).r_powi(2)).sum::<f64>() / rs.len() as f64).sqrt()
         };
 
         let before = radial_std(&noisy);
@@ -776,7 +901,7 @@ mod tests {
         let std = |m: &Mesh| {
             let rs: Vec<f64> = m.positions().iter().map(|p| p.length()).collect();
             let mean = rs.iter().sum::<f64>() / rs.len() as f64;
-            (rs.iter().map(|r| (r - mean).powi(2)).sum::<f64>() / rs.len() as f64).sqrt()
+            (rs.iter().map(|r| (r - mean).r_powi(2)).sum::<f64>() / rs.len() as f64).sqrt()
         };
         let smoothed = taubin_smooth(&noisy, LaplacianWeighting::Uniform, 0.5, -0.53, 10);
         assert!(
@@ -800,6 +925,64 @@ mod tests {
         let noop = laplacian_smooth(&grid, LaplacianWeighting::Cotangent, 0.0, 5).expect("noop");
         for (a, b) in grid.positions().iter().zip(noop.positions().iter()) {
             assert!(a.sub(*b).length() < 1e-12);
+        }
+    }
+
+    /// Methodology (gh #1002): [`edge_weights_from`] must return one entry per
+    /// edge in strictly ascending `(min, max)` order, and each edge's weight
+    /// must be **bit-identical** to the `HashMap` accumulation it replaced
+    /// (`entry(key).or_insert(0.0) += c`, contributions in triangle order), so
+    /// the fix changes only the order edges are summed in, never a weight.
+    /// Reference: that old accumulation, re-implemented here on a `HashMap`
+    /// and read back by key (lookup order is irrelevant). Mesh: a noisy
+    /// `uv_sphere(16, 10)` (fan-triangulated quads and pole triangles,
+    /// irregular cotangents), both weightings.
+    ///
+    /// Results (2026-10-20): 0 differing bits over all edges, for both
+    /// weightings; keys strictly ascending.
+    #[test]
+    fn edge_weights_are_sorted_and_match_hash_accumulation_bitwise() {
+        let s = primitives::uv_sphere(16, 10, 1.0);
+        let mut seed = 0x9E37_79B9_7F4A_7C15u64;
+        let pos: Vec<Vec3> = s
+            .positions()
+            .iter()
+            .map(|p| p.scale(1.0 + 0.05 * xorshift(&mut seed)))
+            .collect();
+        let tris = mesh_triangles(&s);
+        for weighting in [LaplacianWeighting::Uniform, LaplacianWeighting::Cotangent] {
+            let mut reference: HashMap<(usize, usize), f64> = HashMap::new();
+            for &[a, b, c] in &tris {
+                for &(i, j, k) in &[(a, b, c), (b, c, a), (c, a, b)] {
+                    let key = if i < j { (i, j) } else { (j, i) };
+                    match weighting {
+                        LaplacianWeighting::Uniform => {
+                            reference.insert(key, 1.0);
+                        }
+                        LaplacianWeighting::Cotangent => {
+                            *reference.entry(key).or_insert(0.0) +=
+                                0.5 * cotangent(pos[k], pos[i], pos[j]);
+                        }
+                    }
+                }
+            }
+            let got = edge_weights_from(&tris, &pos, weighting);
+            assert_eq!(
+                got.len(),
+                reference.len(),
+                "{weighting:?}: one entry per edge"
+            );
+            assert!(
+                got.windows(2).all(|w| w[0].0 < w[1].0),
+                "{weighting:?}: keys strictly ascending"
+            );
+            for &(key, w) in &got {
+                assert_eq!(
+                    w.to_bits(),
+                    reference[&key].to_bits(),
+                    "{weighting:?}: weight of {key:?} changed"
+                );
+            }
         }
     }
 }

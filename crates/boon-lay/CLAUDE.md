@@ -9,7 +9,7 @@ The standalone source lives at:
 `/home/teddy0/Documents/research/boon-lay/`
 
 **Version:** ~~0.2.1~~ **CORRECTED 2026-09-21** — `Cargo.toml` says 0.1.3  
-**License:** GPL-3.0 (same as workspace default)
+**License:** ~~GPL-3.0 (same as workspace default)~~ **AGPL-3.0-only, as a combined work** (relicensed 2026-10-20, gh:#973): `src/rustbca/` stays GPL-3.0-or-later, `LICENSE.GPL-3.0` ships beside `LICENSE`; see `docs/relicensing-agpl-2026-10-20.md`
 
 ---
 
@@ -123,8 +123,9 @@ Covers:
 | ~~`oorandom`~~ | ~~Simple fast RNG for decay-chain sampling~~ **CORRECTED 2026-10-04 (gh:#531):** not a dependency (`Cargo.toml` has none); `OoRng64` in `central_limit_theorem/oorandom_rng.rs` is a local wrapper, and decay chains use `outram_mc_libs::rng::lcg::Lcg64` |
 | `serde_json` | reading upstream / GUI-written TRISO-ATOPS run files (`run_file::upstream`) |
 | `rayon` (not on wasm), `wgpu` (not on Android or wasm) | parallel ensembles; the optional, unverified GPU kernel |
-| `outram-mc-libs` | RNG (LCG + Normal + Exp distributions) — replaces `oorandom`, `rand`, `rand_core`, `rand_distr` **for boon-lay's own code**. **CORRECTED 2026-10-16:** `rand` 0.10 and `rand_distr` 0.6 are dependencies again, but only for the RustBCA copy (`src/rustbca/`), which keeps upstream's ChaCha8 RNG |
-| `petir` | `real::Real`, the libm-backed float shim for the `no_std` RustBCA copy (added 2026-10-16) |
+| `outram-mc-libs` | RNG (LCG + Normal + Exp distributions) — replaces `oorandom`, `rand`, `rand_core`, `rand_distr` **for boon-lay's own code**. ~~**CORRECTED 2026-10-16:** `rand` 0.10 and `rand_distr` 0.6 are dependencies again, but only for the RustBCA copy (`src/rustbca/`), which keeps upstream's ChaCha8 RNG~~ **CORRECTED 2026-10-20 (gh:#995):** `rand` and `rand_distr` are gone again; the RustBCA copy draws from `petir::rng`, a draw-for-draw port of the same ChaCha8 RNG |
+| `petir` | `real::Real`, the libm-backed float shim for the `no_std` RustBCA copy (added 2026-10-16); since 2026-10-20 also `rng::{ChaCha8Rng, Uniform, Normal}` for that copy (gh:#995) |
+| `getrandom` | OS entropy for RustBCA's `seed < 0` and `simple_bca`, under `rustbca-std` only (added 2026-10-20, gh:#995; was `rand`'s `thread_rng`) |
 | `serde` / `serde-xml-rs` | Deserialise the ENDF-8 XML into `SerdeNuclideData` structs |
 | `anyhow` | Error propagation in XML parsing |
 
@@ -250,6 +251,14 @@ in `docs/panama-i-units-and-open-questions.md`, named for the report it audits.
   (seed 77, 30 s half-life) and checks the surviving fraction against
   `2^(-t/30)` at 0–100 s to 0.9 % relative; worst point 8.43e-3 at 60 s
   (1.5σ). Also walks Th-232 to Pb-208.
+- `lagrangian_decay_simulator/expected_inventory.rs` (added 2026-10-20,
+  gh:#999) — the **CRAM48 expected inventory** of a chain, built from the
+  same `DecayLibrary` the MC samples (PETIR `depletion::cram48`). The MC
+  stays the simulator; CRAM is its deterministic check: (a) the
+  `SingleNuclideSimulatorMC` mean over 20 000 Pb-212 atoms at 12 h against
+  CRAM48 within 4 binomial sigma per nuclide (fixed seed); (b) CRAM48 against
+  the exact Bateman answer on the Th-232 chain head, 1e-13 normwise. Measured
+  numbers are in the tests' doc comments.
 - `release_fraction_crp_6_case_1a_1b/monte_carlo_test.rs` — compares MC
   release fraction to the IAEA CRP-6 analytical solution.
 - `lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/
@@ -308,7 +317,9 @@ The neutron flux `φ` (scalar or spatially resolved) is an external input —
 coupling to `outram-mc-libs` flux maps is the natural integration point.
 
 This design scales linearly with the number of simulated atoms and requires no
-matrix exponential, no CRAM solver, and no stiffness handling.
+matrix exponential, no CRAM solver, and no stiffness handling. (The
+simulator still needs none. Since 2026-10-20, gh:#999, a CRAM48 *check* of
+its mean exists beside it: `lagrangian_decay_simulator::expected_inventory`.)
 
 ### Other planned items
 

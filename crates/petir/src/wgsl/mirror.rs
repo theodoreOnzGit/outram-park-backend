@@ -76,7 +76,7 @@ pub fn poly_eval_comp(c: &[f32], x: f32) -> f32 {
     let mut err = 0.0_f32;
     for &ci in c.iter().rev() {
         let p = acc * x;
-        let e = acc.mul_add(x, -p);
+        let e = Real::mul_add(acc, x, -p);
         let s = p + ci;
         let t = s - p;
         err = err * x + (e + ((p - (s - t)) + (ci - t)));

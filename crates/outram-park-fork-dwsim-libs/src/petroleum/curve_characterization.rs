@@ -70,6 +70,7 @@
 //!   Maxwell-Bonnell lift (`:417-424`), ignoring the assay's own Watson factor.
 //!   Reproduced.
 
+use petir::mathf::RealMath;
 use uom::si::f64::{KinematicViscosity, MolarMass, Ratio, ThermodynamicTemperature};
 use uom::si::kinematic_viscosity::square_meter_per_second;
 use uom::si::molar_mass::gram_per_mole;
@@ -278,9 +279,9 @@ pub fn characterize_curve(
                 // 1080 K` branch (`:571-573`) flips the sign inside the log so
                 // the expression stays real; reproduced.
                 let m = if tb_k < 1080.0 {
-                    (1.0 / 0.01964 * (6.97996 - (1080.0 - tb_k).ln())).powf(1.5)
+                    (1.0 / 0.01964 * (6.97996 - (1080.0 - tb_k).r_ln())).r_powf(1.5)
                 } else {
-                    (1.0 / 0.01964 * (6.97996 + (-1080.0 + tb_k).ln())).powf(1.5)
+                    (1.0 / 0.01964 * (6.97996 + (-1080.0 + tb_k).r_ln())).r_powf(1.5)
                 };
                 property_methods::d15_riazi(MolarMass::new::<gram_per_mole>(m)).get::<ratio>()
             }

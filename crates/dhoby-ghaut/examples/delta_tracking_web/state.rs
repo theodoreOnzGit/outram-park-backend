@@ -3,6 +3,7 @@
 //! bookkeeping (which generation to ask for next, the running results).
 //! Kept out of `app.rs` so it is tested headlessly.
 
+use petir::mathf::RealMath;
 use crate::physics::{GenResult, Method, RunConfig, Trace};
 use outram_mc_libs::geometry::position::{Direction, Position};
 use outram_mc_libs::pebble_beds::keff_delta::DeltaDomain;
@@ -114,9 +115,9 @@ impl PaneTrace {
                         from.y + d.v * distance,
                         from.z + d.w * distance,
                     );
-                    let points = if ((straight.x - to.x).powi(2)
-                        + (straight.y - to.y).powi(2)
-                        + (straight.z - to.z).powi(2))
+                    let points = if ((straight.x - to.x).r_powi(2)
+                        + (straight.y - to.y).r_powi(2)
+                        + (straight.z - to.z).r_powi(2))
                     .sqrt()
                         < 1e-9
                     {

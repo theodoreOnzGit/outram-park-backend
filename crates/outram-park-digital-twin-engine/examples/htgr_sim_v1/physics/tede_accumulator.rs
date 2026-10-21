@@ -270,6 +270,7 @@ impl TedeAccumulator {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use petir::mathf::RealMath;
 
     fn uniform(rate: [f64; 3]) -> [[f64; 3]; RECEPTOR_COUNT] {
         [rate; RECEPTOR_COUNT]
@@ -328,7 +329,7 @@ mod tests {
         let run = || {
             let mut acc = TedeAccumulator::new();
             for k in 0..5_000 {
-                let r = 1.0 + (k as f64 * 0.37).sin().abs();
+                let r = 1.0 + (k as f64 * 0.37).r_sin().abs();
                 acc.accumulate_rates(0.1, &uniform([r, 0.5 * r, 0.1 * r]));
             }
             (

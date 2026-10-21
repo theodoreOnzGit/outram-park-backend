@@ -30,6 +30,7 @@
 //! Units: energies in eV; cross sections in barns (1 b = 10⁻²⁴ cm²).
 //! [`WAVE_K`] is chosen so that `k` is in (10⁻¹² cm)⁻¹ and `π/k²` is in barns.
 
+use petir::mathf::RealMath;
 use crate::common::phys::{AMU_G, AMASSN_AMU, EV_ERG, PI};
 
 /// k = WAVE_K × (A/(A+1)) × √E \[eV\], giving k in (10⁻¹² cm)⁻¹.
@@ -82,7 +83,7 @@ pub fn channel_radius(awri: f64, naps: i32, ap: f64) -> f64 {
         // 7th-figure rounding. Measured on U-235 ENDF/B-VIII.0: no change --
         // it uses NAPS = 1, where `ra = AP` -- so this is recorded as a
         // fidelity fix, not as the cause of any residual seen there.
-        RC1 * aw.powf(THIRD) + RC2
+        RC1 * aw.r_powf(THIRD) + RC2
     }
 }
 
@@ -148,12 +149,12 @@ pub fn phase_shift(l: u32, rho_c: f64) -> f64 {
     let r2 = rho_c * rho_c;
     match l {
         0 => rho_c,
-        1 => rho_c - rho_c.atan(),
-        2 => rho_c - (3.0 * rho_c / (3.0 - r2)).atan(),
-        3 => rho_c - ((15.0 * rho_c - rho_c * r2) / (15.0 - 6.0 * r2)).atan(),
+        1 => rho_c - rho_c.r_atan(),
+        2 => rho_c - (3.0 * rho_c / (3.0 - r2)).r_atan(),
+        3 => rho_c - ((15.0 * rho_c - rho_c * r2) / (15.0 - 6.0 * r2)).r_atan(),
         _ => {
             let r4 = r2 * r2;
-            rho_c - ((105.0 * rho_c - 10.0 * r2 * rho_c) / (105.0 - 45.0 * r2 + r4)).atan()
+            rho_c - ((105.0 * rho_c - 10.0 * r2 * rho_c) / (105.0 - 45.0 * r2 + r4)).r_atan()
         }
     }
 }
@@ -191,7 +192,7 @@ pub fn potential_scattering(e: f64, awri: f64, ap: f64) -> f64 {
     let k = WAVE_K * arat * e.sqrt();
     let pifac = PI / (k * k);
     let rhoc = k * ap;
-    let sinsq = rhoc.sin().powi(2);
+    let sinsq = rhoc.r_sin().r_powi(2);
     4.0 * pifac * sinsq
 }
 
@@ -255,9 +256,9 @@ pub fn eval_slbw_lstate(
 
     let (se, pe) = shift_and_penetrability(l, rho);
     let phi = facphi(l, rhoc);
-    let cos2p = (2.0 * phi).cos();
-    let sin2p = (2.0 * phi).sin();
-    let sinsq = phi.sin().powi(2);
+    let cos2p = (2.0 * phi).r_cos();
+    let sin2p = (2.0 * phi).r_sin();
+    let sinsq = phi.r_sin().r_powi(2);
 
     let spot = 4.0 * (2 * l + 1) as f64 * pifac * sinsq;
     let spifac = 1.0 / (2.0 * spi + 1.0);
@@ -333,8 +334,8 @@ pub fn eval_mlbw_lstate(
     let rhoc = k * ap;
     let (se, pe) = shift_and_penetrability(l, rho);
     let phi = facphi(l, rhoc);
-    let cos2p = 1.0 - (2.0 * phi).cos();
-    let sin2p = (2.0 * phi).sin();
+    let cos2p = 1.0 - (2.0 * phi).r_cos();
+    let sin2p = (2.0 * phi).r_sin();
 
     // the J sequence of this l-state and its statistical weights
     let den = 4.0 * spi + 2.0;
@@ -375,7 +376,7 @@ pub fn eval_mlbw_lstate(
     }
     let mut sig_el = 0.0;
     for j in 0..nj {
-        sig_el += gj[j] * ((cos2p - sigj[0][j]).powi(2) + (sin2p + sigj[1][j]).powi(2));
+        sig_el += gj[j] * ((cos2p - sigj[0][j]).r_powi(2) + (sin2p + sigj[1][j]).r_powi(2));
     }
     sig_el += 2.0 * diff * cos2p;
 

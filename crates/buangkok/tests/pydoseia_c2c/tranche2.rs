@@ -5,6 +5,7 @@
 //! `docs/pydoseia-code-to-code.md` (generator:
 //! `verification_and_validation/pydoseia_code_to_code/tranche2.py`).
 
+use petir::mathf::RealMath;
 use std::collections::BTreeMap;
 
 use buangkok::pydoseia::assessment::{self, AssessmentTables, IngestionFailure, SummaryIngestion};
@@ -362,13 +363,13 @@ fn ingestion_row(row: &Row, inp: &Inputs2, variant: Variant) -> Vec<f64> {
 
 fn quad_f(name: &str) -> fn(f64) -> f64 {
     match name {
-        "exp_neg" => |x: f64| (-x).exp(),
+        "exp_neg" => |x: f64| (-x).r_exp(),
         "inv_sqrt" => |x: f64| 1.0 / x.sqrt(),
-        "log" => |x: f64| x.ln(),
-        "sin50" => |x: f64| (50.0 * x).sin(),
+        "log" => |x: f64| x.r_ln(),
+        "sin50" => |x: f64| (50.0 * x).r_sin(),
         "runge" => |x: f64| 1.0 / (1.0 + 25.0 * x * x),
         "inv_x" => |x: f64| 1.0 / x,
-        "spike" => |x: f64| (-1.0e4 * (x - 0.3).powf(core::hint::black_box(2.0))).exp(),
+        "spike" => |x: f64| (-1.0e4 * (x - 0.3).r_powf(core::hint::black_box(2.0))).r_exp(),
         _ => panic!("{name}"),
     }
 }
@@ -581,7 +582,7 @@ pub fn port(
             }]
         }
         "tplquad" => vec![tplquad(
-            |x, y, z| (-(x * x + 2.0 * y * y + 3.0 * z * z)).exp() * (1.0 + x * y),
+            |x, y, z| (-(x * x + 2.0 * y * y + 3.0 * z * z)).r_exp() * (1.0 + x * y),
             [0.0, 1.5, -1.0, 2.0, -0.5, 1.0],
             1.49e-4,
             1.49e-4,

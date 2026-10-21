@@ -1,6 +1,6 @@
 [package]
 name = "bishan"
-version = "0.0.1"
+version = "0.0.2"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -35,4 +35,7 @@ backronym = "Building Internal Source-term and Hazard Analysis Network"
 # its API carries physical quantities. RAFFLES (the roadmap's probabilistic
 # machinery) is still NOT declared: nothing calls into it yet.
 [dependencies]
+# Every transcendental routes through PETIR for cross-platform bit identity
+# (gh:#985). petir is no_std, so this edge adds nothing Android- or wasm-hostile.
+petir = { workspace = true }
 uom.workspace = true

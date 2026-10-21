@@ -26,6 +26,8 @@
 //! which this reproduces. `NaN` is therefore the answer for a subcritical
 //! query, not an error.
 
+use petir::mathf::RealMath;
+
 /// The ten coefficients of the saturation equation, shared by both directions.
 ///
 /// IAPWS-IF97 equations 30 and 31. Indices here are 0-based, so the
@@ -86,7 +88,7 @@ pub fn psat_t(t: f64) -> f64 {
     let b = (N[2] * upsilon + N[3]) * upsilon + N[4];
     let c = (N[5] * upsilon + N[6]) * upsilon + N[7];
     let beta = 2.0 * c / (-b + (b * b - 4.0 * a * c).sqrt());
-    beta.powi(4)
+    beta.r_powi(4)
 }
 
 /// `T = Tsat_p(p)` — saturation temperature, K, from pressure, MPa.
@@ -111,7 +113,7 @@ pub fn tsat_p(p: f64) -> f64 {
     if !(p_min..=P_CRIT).contains(&p) {
         return f64::NAN;
     }
-    let beta = p.powf(0.25);
+    let beta = p.r_powf(0.25);
     let e = (beta + N[2]) * beta + N[5];
     let f = (N[0] * beta + N[3]) * beta + N[6];
     let g = (N[1] * beta + N[4]) * beta + N[7];

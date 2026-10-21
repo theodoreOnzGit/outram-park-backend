@@ -12,6 +12,7 @@
 //! - 2026-10-02: `outram-mc-libs/verification_and_validation/ring_rpt/ring_rpt_vs_openmc.md`.
 //! - 2026-10-05: gh:#582 (delta and CLS only), and the lesson's step 5.
 
+use petir::mathf::RealMath;
 /// One arm of one record: index into [`super::model::TREATMENTS`], `k`, its
 /// σ, and the speed against the record's own delta arm (`None`: not recorded).
 #[derive(Clone, Copy, Debug)]
@@ -103,7 +104,7 @@ pub fn bias(r: &Record, t: usize) -> Option<(f64, f64)> {
     let x = r.arms.iter().find(|x| x.t == t && t != 0)?;
     Some((
         (x.k - d.k) * 1.0e5,
-        (x.sigma.powi(2) + d.sigma.powi(2)).sqrt() * 1.0e5,
+        (x.sigma.r_powi(2) + d.sigma.r_powi(2)).sqrt() * 1.0e5,
     ))
 }
 

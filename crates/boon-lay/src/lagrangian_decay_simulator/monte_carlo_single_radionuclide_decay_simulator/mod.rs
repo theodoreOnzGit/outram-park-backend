@@ -1,3 +1,4 @@
+use petir::mathf::RealMath;
 use std::time::SystemTime;
 
 use fission_yields_data::prelude::Nuclide;
@@ -70,7 +71,7 @@ impl SingleNuclideSimulatorMC {
     pub fn get_time_to_decay_stochastic(rng: &mut Rand64, half_life: Time) -> Time {
         let n_by_n0 = rng.rand_float();
 
-        let half_life_coeff: f64 = n_by_n0.ln().abs() / (2.0_f64.ln());
+        let half_life_coeff: f64 = n_by_n0.r_ln().abs() / (2.0_f64.r_ln());
 
         return half_life_coeff * half_life;
     }
@@ -366,7 +367,7 @@ impl SingleNuclideSimulatorMC {
         match self.current_half_life_info {
             HalfLifeAndDecayEnergyInfo::Stable => Radioactivity::new::<becquerel>(0.0),
             HalfLifeAndDecayEnergyInfo::Unstable(half_life, _decay_energy) => {
-                (2_f64.ln() / half_life).into()
+                (2_f64.r_ln() / half_life).into()
             }
         }
     }

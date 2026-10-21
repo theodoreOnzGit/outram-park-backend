@@ -1,6 +1,6 @@
 [package]
 name = "outram-foam-appbuilder-lib"
-version = "0.1.5"
+version = "0.1.6"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -39,6 +39,8 @@ fidelity = 3
 maturity = 2
 
 [dependencies]
+# Deterministic transcendentals (gh:#985): petir::mathf::RealMath, no_std.
+petir = { workspace = true }
 thiserror.workspace = true
 uom.workspace = true
 ndarray.workspace = true

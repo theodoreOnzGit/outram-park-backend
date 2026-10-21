@@ -35,6 +35,7 @@
 //! The grid is part of the description (built once, read-only, shared through
 //! the mesh's `Arc`) so that every consumer uses the same candidates.
 
+use petir::mathf::RealMath;
 /// Upper bound on buckets per axis, so a pathological aspect ratio cannot
 /// allocate an unbounded grid.
 const MAX_PER_AXIS: usize = 128;
@@ -64,7 +65,7 @@ impl CellLocator {
             1.0
         } else {
             let vol: f64 = live.iter().product();
-            (vol / n as f64).powf(1.0 / live.len() as f64)
+            (vol / n as f64).r_powf(1.0 / live.len() as f64)
         };
         let mut dims = [1usize; 3];
         let mut width = [1.0f64; 3];

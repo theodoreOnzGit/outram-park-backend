@@ -105,6 +105,7 @@
 //!
 //! [`MaterialState::fast_fluence`]: crate::materials::MaterialState::fast_fluence
 
+use petir::mathf::RealMath;
 use crate::error::{OffbeatError, Result};
 use crate::materials::MaterialState;
 
@@ -752,7 +753,7 @@ impl YoungModulusModel {
                 let x = -state.oxygen_deviation;
                 let b = if x < 0.0 { 1.75 } else { 1.35 };
                 let c_w_pu = state.pu_fraction / PU_ATOM_TO_MASS_FRACTION;
-                e_uo2 * (-b * x).exp() * (1.0 + 0.05 * c_w_pu)
+                e_uo2 * (-b * x).r_exp() * (1.0 + 0.05 * c_w_pu)
             }
 
             Self::SckCenMox => {
@@ -779,7 +780,7 @@ impl YoungModulusModel {
                 let f = |t: f64| F1 + F2 * t + F3 * t * t;
                 let porosity = state.porosity.clamp(0.0, MATPRO_MAX_POROSITY);
 
-                e_y * f(temperature) / f(REFERENCE_T) * 1.0e9 * (1.0 - porosity).powi(2)
+                e_y * f(temperature) / f(REFERENCE_T) * 1.0e9 * (1.0 - porosity).r_powi(2)
                     / (1.0 + 1.1 * porosity)
             }
 
@@ -809,8 +810,8 @@ impl YoungModulusModel {
                 const E0: f64 = 460.0e9;
                 const T0: f64 = 962.0;
                 const B: f64 = 0.04e9;
-                E0 * (-porosity_coefficient * state.porosity).exp()
-                    - B * temperature * (-T0 / temperature).exp()
+                E0 * (-porosity_coefficient * state.porosity).r_exp()
+                    - B * temperature * (-T0 / temperature).r_exp()
             }
 
             Self::ParfumeBuffer { density } => {
@@ -921,7 +922,7 @@ pub(crate) fn matpro_zircaloy_young(t: f64, state: &MaterialState) -> f64 {
     let alpha = |temp: f64| {
         let k1 = (PAR1 + PAR2 * temp) * state.oxygen_content;
         let k2 = -PAR3 * state.cold_work;
-        let k3 = PAR4 + PAR5 * (-state.fast_fluence / PAR6).exp();
+        let k3 = PAR4 + PAR5 * (-state.fast_fluence / PAR6).r_exp();
         (PAR7 - PAR8 * temp + k1 + k2) / k3
     };
     let beta = |temp: f64| PAR9 - PAR10 * temp;
@@ -1130,10 +1131,10 @@ mod tests {
         s.oxygen_deviation = -0.03; // O/M = 1.97
 
         let ratio = YoungModulusModel::MatproMox.value(&s) / YoungModulusModel::MatproUo2.value(&s);
-        let expected = (-1.35f64 * 0.03).exp() * (1.0 + 0.05 * 0.25 / 1.13);
+        let expected = (-1.35f64 * 0.03).r_exp() * (1.0 + 0.05 * 0.25 / 1.13);
         assert!(rel_diff(ratio, expected) < 1.0e-12, "got {ratio}");
         assert!(
-            (-1.35f64 * 0.03).exp() < 1.0,
+            (-1.35f64 * 0.03).r_exp() < 1.0,
             "hypostoichiometry must soften"
         );
     }

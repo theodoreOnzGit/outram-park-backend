@@ -18,6 +18,7 @@
 //! | Oracle | `reference-data/scram/oracle.txt`, the `EVENT` records for `HIPPS` |
 //! | Mission time | SCRAM's default, 8760 h — `HIPPS` sets none |
 
+use petir::mathf::RealMath;
 use raffles::scram::expression::{Expression, Parameters, DEFAULT_MISSION_TIME};
 use std::collections::HashMap;
 
@@ -134,7 +135,7 @@ fn each_formula_matches_its_closed_form() {
 
     // Exponential: 1 - exp(-lambda t), and 0 at t = 0.
     let e = Expression::exponential(f(1e-3), Expression::MissionTime);
-    assert!((at(&e, 1000.0) - (1.0 - (-1.0f64).exp())).abs() < 1e-15);
+    assert!((at(&e, 1000.0) - (1.0 - (-1.0f64).r_exp())).abs() < 1e-15);
     assert_eq!(at(&e, 0.0), 0.0);
 
     // GLM with gamma = 0 and mu = 0 degenerates to the exponential: with no
@@ -151,7 +152,7 @@ fn each_formula_matches_its_closed_form() {
     // exponential with rate 1/alpha.
     let w = Expression::weibull(f(1000.0), f(1.0), f(100.0), Expression::MissionTime);
     assert_eq!(at(&w, 100.0), 0.0);
-    assert!((at(&w, 1100.0) - (1.0 - (-1.0f64).exp())).abs() < 1e-15);
+    assert!((at(&w, 1100.0) - (1.0 - (-1.0f64).r_exp())).abs() < 1e-15);
 
     // Periodic test with instant repair: a SAWTOOTH. Just before a test the
     // probability has built up over a full interval; just after, it is near
@@ -173,7 +174,7 @@ fn each_formula_matches_its_closed_form() {
     );
     assert!(just_after < just_before / 100.0, "the test must reset it");
     assert!(
-        (exactly_on - (1.0 - (-0.1f64).exp())).abs() < 1e-12,
+        (exactly_on - (1.0 - (-0.1f64).r_exp())).abs() < 1e-12,
         "landing on a test means a full interval elapsed"
     );
     // Before the first test it is a plain exponential.

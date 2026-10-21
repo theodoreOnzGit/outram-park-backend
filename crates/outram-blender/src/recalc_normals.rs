@@ -417,6 +417,7 @@ fn face_signed_volume6(positions: &[Vec3], poly: &[usize], flip: bool) -> f64 {
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
     use crate::primitives;
     use std::collections::HashSet;
@@ -550,9 +551,9 @@ mod tests {
             for i in 0..lon {
                 let phi = std::f64::consts::TAU * (i as f64) / (lon as f64);
                 pts.push(Vec3::new(
-                    centre.x + radius * theta.sin() * phi.cos(),
-                    centre.y + radius * theta.sin() * phi.sin(),
-                    centre.z + radius * theta.cos(),
+                    centre.x + radius * theta.r_sin() * phi.r_cos(),
+                    centre.y + radius * theta.r_sin() * phi.r_sin(),
+                    centre.z + radius * theta.r_cos(),
                 ));
             }
         }

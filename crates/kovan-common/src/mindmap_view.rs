@@ -30,6 +30,8 @@
 //! World units are points at zoom 1. A card is [`CARD_SIZE`] world units; at
 //! zoom `z` it is drawn `z` times that size, text included.
 
+use petir::mathf::RealMath;
+
 use crate::geometry::{Bounds, Point};
 use std::f64::consts::PI;
 
@@ -62,13 +64,13 @@ pub const HORIZONTAL_PAN_VIEWPORT_FRACTION: f64 = 0.5;
 /// The diagonal of a card: the least centre-to-centre distance at which two
 /// cards cannot overlap, whatever direction one lies from the other.
 fn card_diagonal() -> f64 {
-    CARD_SIZE.0.hypot(CARD_SIZE.1)
+    CARD_SIZE.0.r_hypot(CARD_SIZE.1)
 }
 
 /// The least distance from the centre to a ring card's centre at which the
 /// two cannot touch at any angle: half of each diagonal plus [`CARD_GAP`].
 fn centre_clearance() -> f64 {
-    0.5 * (card_diagonal() + CENTRE_CARD_SIZE.0.hypot(CENTRE_CARD_SIZE.1)) + CARD_GAP
+    0.5 * (card_diagonal() + CENTRE_CARD_SIZE.0.r_hypot(CENTRE_CARD_SIZE.1)) + CARD_GAP
 }
 
 /// Where the `n` cards around the centre of the star go, in world units, with
@@ -100,14 +102,14 @@ fn star_positions_offset(n: usize, offset: f64) -> Vec<Point> {
     let for_neighbours = if n == 1 {
         0.0
     } else {
-        spacing / (2.0 * (PI / n as f64).sin())
+        spacing / (2.0 * (PI / n as f64).r_sin())
     };
     let r = for_neighbours.max(spacing).max(centre_clearance());
     (0..n)
         .map(|i| {
             // Angle from straight up, clockwise (screen y grows downward).
             let a = offset + 2.0 * PI * i as f64 / n as f64;
-            Point::new(r * a.sin(), -r * a.cos())
+            Point::new(r * a.r_sin(), -r * a.r_cos())
         })
         .collect()
 }
@@ -144,23 +146,23 @@ fn fan_positions(parent: Point, n: usize) -> Vec<Point> {
     }
     let spacing = card_diagonal() + CARD_GAP;
     // Outward direction: away from the star's centre (the origin).
-    let len = parent.x.hypot(parent.y);
+    let len = parent.x.r_hypot(parent.y);
     let (ux, uy) = if len > 0.0 {
         (parent.x / len, parent.y / len)
     } else {
         (0.0, -1.0)
     };
-    let out = uy.atan2(ux);
+    let out = uy.r_atan2(ux);
     if n == 1 {
         return vec![Point::new(parent.x + spacing * ux, parent.y + spacing * uy)];
     }
     let span = PI; // a half-circle facing outward
     let step = span / (n - 1) as f64;
-    let r = (spacing / (2.0 * (0.5 * step).sin())).max(spacing);
+    let r = (spacing / (2.0 * (0.5 * step).r_sin())).max(spacing);
     (0..n)
         .map(|k| {
             let a = out - 0.5 * span + step * k as f64;
-            Point::new(parent.x + r * a.cos(), parent.y + r * a.sin())
+            Point::new(parent.x + r * a.r_cos(), parent.y + r * a.r_sin())
         })
         .collect()
 }
@@ -306,7 +308,7 @@ pub fn rows_layout(fan_sizes: &[usize], rows: &[usize]) -> StarLayout {
 /// (centre, ring or fan) collide. Shared by [`star_layout`] and
 /// [`rows_layout`].
 fn grow_until_clear(base: &[Point], fan_sizes: &[usize]) -> StarLayout {
-    let base_r = base.iter().map(|p| p.x.hypot(p.y)).fold(0.0_f64, f64::max);
+    let base_r = base.iter().map(|p| p.x.r_hypot(p.y)).fold(0.0_f64, f64::max);
     let mut scale = 1.0;
     let mut layout = StarLayout {
         ring: Vec::new(),

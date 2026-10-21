@@ -67,6 +67,7 @@
 //! for it, so it bins no event. OpenMC fixes `n_dimension_ = 3` for every
 //! unstructured mesh (`mesh.cpp:893`).
 
+use petir::mathf::RealMath;
 use outram_blender::unstructured::geometry::tet_signed_volume;
 pub use outram_blender::unstructured::UnstructuredMesh;
 
@@ -113,7 +114,7 @@ fn solid_angle(q: [f64; 3], a: [f64; 3], b: [f64; 3], c: [f64; 3]) -> f64 {
     let (la, lb, lc) = (mag(ra), mag(rb), mag(rc));
     let num = dot(ra, cross(rb, rc));
     let den = la * lb * lc + dot(ra, rb) * lc + dot(ra, rc) * lb + dot(rb, rc) * la;
-    2.0 * num.atan2(den)
+    2.0 * num.r_atan2(den)
 }
 
 /// Whether `q` (mesh units) lies in cell `c`: the generalized winding number

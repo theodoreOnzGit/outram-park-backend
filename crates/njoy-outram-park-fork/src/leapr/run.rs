@@ -34,6 +34,7 @@
 //!
 //! Validated against three NJOY2016 runs (`tests/leapr_run_driver_njoy_oracle.rs`).
 
+use petir::mathf::RealMath;
 use std::fmt::Write as _;
 
 use crate::endf::parse::format_endf_float;
@@ -299,7 +300,7 @@ pub fn run_deck(deck: &LeaprDeck) -> Result<LeaprRun, NjoyError> {
             constants,
         ))
     } else if iel < 0 {
-        let sb = deck.spr * ((1.0 + deck.awr) / deck.awr).powi(2);
+        let sb = deck.spr * ((1.0 + deck.awr) / deck.awr).r_powi(2);
         ElasticOutput::Incoherent {
             sb_npr: sb * deck.npr as f64,
         }

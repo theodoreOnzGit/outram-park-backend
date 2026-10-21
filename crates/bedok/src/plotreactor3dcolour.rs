@@ -130,6 +130,7 @@ pub fn scaled_power(params: &Params, geometry: &Geometry, pwrdens: &[f64]) -> Sc
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
 
     fn setup(g_count: usize) -> (Params, Geometry, Vec<f64>) {
@@ -147,7 +148,7 @@ mod tests {
         };
         // Group g contributes 10^g per node, so a dropped group is obvious.
         let pwrdens: Vec<f64> = (0..g_count)
-            .flat_map(|g| (0..es).map(move |_| 10f64.powi(g as i32 + 1)))
+            .flat_map(|g| (0..es).map(move |_| 10f64.r_powi(g as i32 + 1)))
             .collect();
         (params, geometry, pwrdens)
     }

@@ -1,3 +1,4 @@
+use petir::uom_math::QuantityMath;
 use petir::mathf::RealMath;
 use crate::constants::specific_gas_constant_of_water;
 
@@ -66,7 +67,7 @@ pub fn w_rho_t_3(rho: MassDensity, t: ThermodynamicTemperature) -> Velocity {
             / (tau_3(t).r_powi(2) * phi_tau_tau_3(rho, t))))
         * specific_gas_constant_of_water()
         * t)
-        .sqrt()
+        .r_sqrt()
 }
 
 // to make the inverse pressure type

@@ -58,6 +58,7 @@
 //! - Liu & Cao's "might be overestimated by a factor of 3" on desorption is
 //!   not applied (conservative, as they are).
 
+use petir::mathf::RealMath;
 use boon_lay::chemistry::graphite_air::{self, CO2_REACTION_ENTHALPY_J_PER_MOL};
 use uom::si::f64::{Pressure, ThermodynamicTemperature};
 use uom::si::pressure::pascal;
@@ -200,7 +201,7 @@ impl Depressurisation {
     /// `tau = M / m0` (the labelled exponential shape).
     pub fn discharged_by(t: f64) -> f64 {
         let tau = TOTAL_DISCHARGE_KG / INITIAL_DISCHARGE_KG_PER_S;
-        TOTAL_DISCHARGE_KG * (1.0 - (-t.max(0.0) / tau).exp())
+        TOTAL_DISCHARGE_KG * (1.0 - (-t.max(0.0) / tau).r_exp())
     }
 
     /// The air-ingress O2 supply over the next `dt` \[mol/s\], averaged over
@@ -243,7 +244,7 @@ impl Depressurisation {
         self.discharged_kg += out;
         self.vented_fraction = 1.0 - (1.0 - self.vented_fraction) * (1.0 - vented);
         let (rate, cut_off) = gao_shi_ventilation();
-        let exchanged = -(-rate * ventilated_seconds(self.elapsed_s, dt, cut_off)).exp_m1();
+        let exchanged = -(-rate * ventilated_seconds(self.elapsed_s, dt, cut_off)).r_exp_m1();
         self.exchanged_fraction = 1.0 - (1.0 - self.exchanged_fraction) * (1.0 - exchanged);
         self.oxygen_supplied_mol += oxygen_supply_mol_per_s * dt;
         self.elapsed_s = t1;
@@ -341,7 +342,7 @@ mod tests {
         for _ in 0..(80 * 36) {
             e.step(100.0, bed, 5000.0, 0.0);
         }
-        assert!((e.exchanged_fraction - (1.0 - (-3.0f64).exp())).abs() < 1e-12);
+        assert!((e.exchanged_fraction - (1.0 - (-3.0f64).r_exp())).abs() < 1e-12);
         println!(
             "O2 supply {q:.4e} mol/s at 1200 K; exchanged by 80 h {:.4}",
             e.exchanged_fraction

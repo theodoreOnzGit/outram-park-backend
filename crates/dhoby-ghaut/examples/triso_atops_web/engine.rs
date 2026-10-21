@@ -43,6 +43,7 @@
 //! the SiC takes days. A frame of 400 walkers did not finish in 300 s
 //! (gh:#551).
 
+use petir::mathf::RealMath;
 use boon_lay::chemistry::{graphite_air, graphite_steam, kernel_hydrolysis};
 use boon_lay::fuel_failure::history::{AccidentHistory, AccidentStep};
 use boon_lay::fuel_failure::htr10;
@@ -733,7 +734,7 @@ impl Engine {
                 // volume V_f = half the buffer shell, m^3 (fuel failure's
                 // definition, rung 5).
                 let v_f = 0.5 * 4.0 / 3.0 * std::f64::consts::PI
-                    * ((radii[1] * 1e-6).powi(3) - (radii[0] * 1e-6).powi(3));
+                    * ((radii[1] * 1e-6).r_powi(3) - (radii[0] * 1e-6).r_powi(3));
                 Ok(Frame {
                     id,
                     regions,
@@ -770,7 +771,7 @@ impl Engine {
                         d.atoms.iter().filter(|a| a.times[0] > tt).count() as f64 / n
                     })
                     .collect();
-                let exact: Vec<f64> = xs.iter().map(|x| 0.5f64.powf(*x)).collect();
+                let exact: Vec<f64> = xs.iter().map(|x| 0.5f64.r_powf(*x)).collect();
                 let surviving = d.atoms.iter().filter(|a| a.times[0] > t).count() as f64 / n;
                 Ok(Frame {
                     id,
@@ -800,8 +801,8 @@ impl Engine {
                     scalars: vec![
                         d.half_life_s,
                         surviving,
-                        (0.5f64.powf(t_over_half) * (1.0 - 0.5f64.powf(t_over_half)) / n).sqrt(),
-                        0.5f64.powf(t_over_half),
+                        (0.5f64.r_powf(t_over_half) * (1.0 - 0.5f64.r_powf(t_over_half)) / n).sqrt(),
+                        0.5f64.r_powf(t_over_half),
                     ],
                     names: d.species.clone(),
                     ..Default::default()

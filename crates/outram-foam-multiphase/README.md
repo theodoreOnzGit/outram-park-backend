@@ -1,15 +1,11 @@
 <!--
-SPDX-License-Identifier: GPL-3.0-only
+SPDX-License-Identifier: AGPL-3.0-only
 Part of Outram Park (outram-park-backend).
 A Rust translation of selected OpenFOAM multiphase solvers. Independent fork,
 not the official OpenFOAM software; see the workspace TRADEMARKS.md.
 -->
 
 # outram-foam-multiphase
-
-**A multiphysics crate.** "Multiphase" is its old name; the crate is still
-published and imported as `outram-foam-multiphase` / `outram_foam_multiphase`,
-so existing code keeps working.
 
 <!-- vv-unverified-banner -->
 > ⚠️ **Unverified until validated.** All code in this workspace is **unverified and untrusted** unless a specific verification & validation (V&V) case demonstrates otherwise. Not for nuclear facility operation, reactor control, safety-critical, or licensing decisions.

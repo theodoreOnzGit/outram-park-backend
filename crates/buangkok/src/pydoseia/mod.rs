@@ -13,7 +13,7 @@
 //! | Commit ported | `dca4cdc3bb0bef7f7e692c8991cf536c91e7a4ce` (branch `head`, 2025-08-26), checked 2026-09-28 |
 //! | Source files | `metfunc.py`, `dosefunc.py`, `raddcffunc.py`, `outputfunc.py`, `main.py`, the input generator's defaults (function-level mapping in each submodule) |
 //! | Copyright | Copyright (c) 2024 Dr. Biswajit Sadhu |
-//! | Licence | MIT. The full notice is in `crates/buangkok/NOTICE` and must stay with every ported file. MIT is compatible with this crate's GPL-3.0 |
+//! | Licence | MIT. The full notice is in `crates/buangkok/NOTICE` and must stay with every ported file. MIT is compatible with this crate's ~~GPL-3.0~~ **AGPL-3.0-only** |
 //! | Paper | B. Sadhu, T. Sarkar, S. Anand, K. D. Singh, D. K. Aswal, "pyDOSEIA: A Python Package for Radiological Impact Assessment during Long-term or Accidental Atmospheric Releases", *Health Physics* **130**(1) (2026) 94-110, doi:[10.1097/HP.0000000000002014](https://doi.org/10.1097/HP.0000000000002014), PMID [40622262](https://pubmed.ncbi.nlm.nih.gov/40622262/). The article is (c) 2025 Health Physics Society: cited, not reproduced |
 //!
 //! ## What is ported, and how it is verified

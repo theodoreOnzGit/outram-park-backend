@@ -129,12 +129,19 @@ pub fn solidify(mesh: &Mesh, thickness: f64) -> Mesh {
             directed.insert((poly[i].0, poly[(i + 1) % k].0));
         }
     }
-    for &(a, b) in &directed {
-        if !directed.contains(&(b, a)) {
-            // Boundary edge a->b owned by an outer face traversing a->b, so the
-            // rim must traverse b->a on that shared edge: quad [b, a, a+n, b+n].
-            new_faces.push(vec![b, a, a + n, b + n]);
-        }
+    // Sorted, so the rim quads come out in edge order rather than the set's
+    // randomly seeded hash order (gh #1002); the set stays a hash set for the
+    // lookups.
+    let mut boundary: Vec<(usize, usize)> = directed
+        .iter()
+        .copied()
+        .filter(|&(a, b)| !directed.contains(&(b, a)))
+        .collect();
+    boundary.sort_unstable();
+    for (a, b) in boundary {
+        // Boundary edge a->b owned by an outer face traversing a->b, so the
+        // rim must traverse b->a on that shared edge: quad [b, a, a+n, b+n].
+        new_faces.push(vec![b, a, a + n, b + n]);
     }
 
     Mesh::from_polygons(&new_positions, &new_faces)

@@ -50,6 +50,7 @@
 //! any facility, licensing or safety purpose. The DEM itself is documented
 //! with its methodology and results in this crate's V&V write-up.
 
+use petir::mathf::RealMath;
 use outram_park_fork_liggghts::boundary::Boundary;
 use outram_park_fork_liggghts::compute::{ComputeType, ThreadCount};
 use outram_park_fork_liggghts::granular::{GranularContactModel, GranularMaterial, RollingModel};
@@ -135,7 +136,7 @@ fn main() {
     let before_exit = kept.len();
     // Below the leg's lower wall only; single file, so kept whatever its depth
     // (a one-diameter slab through a 7 cm tube would saw half of them away).
-    let leg_low = leg_end.z - LEG_RADIUS / LEG_DIP_DEG.to_radians().cos();
+    let leg_low = leg_end.z - LEG_RADIUS / LEG_DIP_DEG.to_radians().r_cos();
     for c in &exit {
         if c.z + PEBBLE_RADIUS_M <= leg_low {
             kept.push([c.x, c.z, c.y.min(0.0)]);
@@ -365,7 +366,7 @@ fn splitmix(state: &mut u64) -> f64 {
 }
 
 fn pebble(x: Vec3) -> Particle {
-    let m = RHO * 4.0 / 3.0 * std::f64::consts::PI * PEBBLE_RADIUS_M.powi(3);
+    let m = RHO * 4.0 / 3.0 * std::f64::consts::PI * PEBBLE_RADIUS_M.r_powi(3);
     Particle::new(
         x,
         Vec3::zero(),
@@ -409,7 +410,7 @@ fn seed_column(n_target: usize) -> Vec<Particle> {
 /// Settle the column and return every pebble centre, printing progress to
 /// stderr.
 fn settle_column(steps: usize, threads: usize) -> (Vec<Vec3>, f64) {
-    let v_pebble = 4.0 / 3.0 * std::f64::consts::PI * PEBBLE_RADIUS_M.powi(3);
+    let v_pebble = 4.0 / 3.0 * std::f64::consts::PI * PEBBLE_RADIUS_M.r_powi(3);
     let height = (CONUS_RUN_VALVE_Z - COLUMN_FLOOR_Z) + COLUMN_OVERFILL;
     let n = (std::f64::consts::PI * TUBE_RADIUS * TUBE_RADIUS * height * SEED_SOLID_FRACTION
         / v_pebble)
@@ -553,9 +554,9 @@ fn settle(
 /// The dog-leg: a capped pipe along the drawn leg, filled and settled in place.
 fn settle_leg(steps: usize, threads: usize) -> (Vec<Vec3>, f64, Vec3, Vec3) {
     let dip = LEG_DIP_DEG.to_radians();
-    let dir = Vec3::new(-dip.cos(), 0.0, -dip.sin());
+    let dir = Vec3::new(-dip.r_cos(), 0.0, -dip.r_sin());
     let start = Vec3::new(0.0, 0.0, COLUMN_FLOOR_Z);
-    let length = LEG_RUN / dip.cos();
+    let length = LEG_RUN / dip.r_cos();
     let end = start.add(dir.scale(length));
     let reach = LEG_RADIUS - PEBBLE_RADIUS_M - 1.0e-3;
     let inside = |p: Vec3| {

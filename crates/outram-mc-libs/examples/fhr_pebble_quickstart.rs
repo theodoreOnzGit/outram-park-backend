@@ -45,6 +45,7 @@
 //! case is **`examples/fhr_ring_rpt_endf.rs`** — read that one for an actual
 //! V&V result (`op-mzvp`, GitHub #156).
 
+use petir::mathf::RealMath;
 use outram_mc_libs::geometry::position::Position;
 use outram_mc_libs::geometry::surface::BoundaryType;
 use outram_mc_libs::material::material::{Material, NuclideComponent};
@@ -233,8 +234,8 @@ fn main() {
     // material, sampled from a log-spaced energy grid spanning thermal to
     // fast.
     let (e_min, e_max, n_grid): (f64, f64, usize) = (1.0e-4, 2.0e7, 150);
-    let ratio = (e_max / e_min).powf(1.0 / (n_grid as f64 - 1.0));
-    let grid: Vec<f64> = (0..n_grid as i32).map(|i| e_min * ratio.powi(i)).collect();
+    let ratio = (e_max / e_min).r_powf(1.0 / (n_grid as f64 - 1.0));
+    let grid: Vec<f64> = (0..n_grid as i32).map(|i| e_min * ratio.r_powi(i)).collect();
     let majorant = Majorant::from_materials(&materials, &nuclides, &grid, 0.05);
     // `OUTRAM_MAJORANT_AUDIT=1`: audit this majorant and stop (GitHub #589).
     if std::env::var_os("OUTRAM_MAJORANT_AUDIT").is_some() {

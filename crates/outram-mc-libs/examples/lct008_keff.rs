@@ -495,6 +495,7 @@
 //! Seed count follows the workspace standard of **32** (maintainer decision
 //! 2026-09-18; see `examples/godiva_keff_ensemble.rs`).
 
+use petir::mathf::RealMath;
 use njoy_outram_park_fork::reference_data::reference_endf;
 use outram_mc_libs::geometry::geometry::Geometry;
 use outram_mc_libs::geometry::position::Position;
@@ -735,7 +736,7 @@ fn main() {
             r2.k_mean,
             r2.k_std,
             (r2.k_mean - result.k_mean) * 1.0e5,
-            (r2.k_std.powi(2) + result.k_std.powi(2)).sqrt() * 1.0e5
+            (r2.k_std.r_powi(2) + result.k_std.r_powi(2)).sqrt() * 1.0e5
         );
         println!(
             "  (every omitted clad nuclide replaced by an equal atom density of Mn-55,\n   \

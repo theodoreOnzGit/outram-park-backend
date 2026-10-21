@@ -82,8 +82,8 @@ fn generate_sample_points(n_p: usize, n_t: usize) -> Vec<SamplePoint> {
     const T_MIN_K: f64 = 280.0;
     const T_MAX_K: f64 = 2200.0;
 
-    let log_p_min = P_MIN_MPA.log10();
-    let log_p_max = P_MAX_MPA.log10();
+    let log_p_min = P_MIN_MPA.r_log10();
+    let log_p_max = P_MAX_MPA.r_log10();
 
     let mut out = Vec::new();
 

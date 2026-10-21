@@ -1,0 +1,15 @@
+    Updating crates.io index
+   Packaging teh-o-prke v0.1.7 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/crates/teh-o-prke)
+    Updating crates.io index
+    Packaged 100 files, 1.0MiB (250.0KiB compressed)
+   Verifying teh-o-prke v0.1.7 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/crates/teh-o-prke)
+ Downloading crates ...
+  Downloaded chem-eng-real-time-process-control-simulator v0.2.4
+   Compiling chem-eng-real-time-process-control-simulator v0.2.4
+   Compiling teh-o-prke v0.1.7 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/target/package/teh-o-prke-0.1.7)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 3.59s
+   Uploading teh-o-prke v0.1.7 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/crates/teh-o-prke)
+    Uploaded teh-o-prke v0.1.7 to registry `crates-io`
+note: waiting for teh-o-prke v0.1.7 to be available at registry `crates-io`
+help: you may press ctrl-c to skip waiting; the crate should be available shortly
+   Published teh-o-prke v0.1.7 at registry `crates-io`

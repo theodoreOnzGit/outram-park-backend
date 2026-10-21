@@ -6,6 +6,8 @@
 
 //! The Gaussian puff concentration kernel.
 
+use petir::mathf::RealMath;
+
 use uom::si::f64::{Length, Mass, MassDensity};
 use uom::si::length::meter;
 use uom::si::mass::kilogram;
@@ -103,11 +105,11 @@ pub fn gaussian_puff_concentration(
     let dx = xr - puff_x.get::<meter>();
     let dy = yr - puff_y.get::<meter>();
 
-    let two_pi_three_halves = (2.0 * core::f64::consts::PI).powf(1.5);
+    let two_pi_three_halves = (2.0 * core::f64::consts::PI).r_powf(1.5);
     let amplitude = q / (two_pi_three_halves * sy * sy * sz);
-    let horizontal = (-0.5 * (dx * dx + dy * dy) / (sy * sy)).exp();
-    let vertical = (-0.5 * (zr - h) * (zr - h) / (sz * sz)).exp()
-        + (-0.5 * (zr + h) * (zr + h) / (sz * sz)).exp();
+    let horizontal = (-0.5 * (dx * dx + dy * dy) / (sy * sy)).r_exp();
+    let vertical = (-0.5 * (zr - h) * (zr - h) / (sz * sz)).r_exp()
+        + (-0.5 * (zr + h) * (zr + h) / (sz * sz)).r_exp();
 
     let c = amplitude * horizontal * vertical;
     // Upstream's `ifelse(is.na(C), 0, C)` also swallows a NaN arising any other
@@ -234,9 +236,9 @@ mod tests {
         let sigmas = pasquill_gifford_sigmas(StabilityClass::D, len(500.0)).unwrap();
         let sz = sigmas.sigma_z.get::<m>();
         let sy = sigmas.sigma_y.get::<m>();
-        let unreflected = 1.0 / ((2.0 * core::f64::consts::PI).powf(1.5) * sy * sy * sz)
-            * (-0.5 * 2500.0 / (sy * sy)).exp()
-            * (-0.5 * 100.0 / (sz * sz)).exp();
+        let unreflected = 1.0 / ((2.0 * core::f64::consts::PI).r_powf(1.5) * sy * sy * sz)
+            * (-0.5 * 2500.0 / (sy * sy)).r_exp()
+            * (-0.5 * 100.0 / (sz * sz)).r_exp();
         assert!((common(0.0) - 2.0 * unreflected).abs() / (2.0 * unreflected) < 1e-12);
     }
 
@@ -475,8 +477,8 @@ mod tests {
         let sig = pasquill_gifford_sigmas(class, dist).expect("sigmas");
         let (sy, sz) = (sig.sigma_y.get::<meter>(), sig.sigma_z.get::<meter>());
 
-        let expected = q / ((2.0 * core::f64::consts::PI).powf(1.5) * sy * sy * sz)
-            * (1.0 + (-2.0 * h * h / (sz * sz)).exp());
+        let expected = q / ((2.0 * core::f64::consts::PI).r_powf(1.5) * sy * sy * sz)
+            * (1.0 + (-2.0 * h * h / (sz * sz)).r_exp());
 
         let got = gaussian_puff_concentration(
             Mass::new::<kilogram>(q),

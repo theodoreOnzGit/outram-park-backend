@@ -52,6 +52,7 @@
 //! Measured 2026-09-17 on a 12-core host, all four runs `45913cc9e4c58660`:
 //! 18.34 ms/step scalar, 12.85 ms/step on 12 threads (55.95 ms/step before the
 //! defect fixes of V&V § 3.3).
+use petir::mathf::RealMath;
 use outram_park_fork_liggghts::boundary::Boundary;
 use outram_park_fork_liggghts::compute::{ComputeType, ThreadCount};
 use outram_park_fork_liggghts::granular::{GranularContactModel, GranularMaterial, RollingModel};
@@ -62,7 +63,7 @@ use uom::si::{length::meter, mass::kilogram, thermodynamic_temperature::kelvin};
 
 fn main() {
     let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../reference-data/liggghts/htr10_settled_ours.csv");
+        .join("examples/data/htr10_settled_ours.csv");
     let text = std::fs::read_to_string(&path).expect("settled bed");
     let mut rows: Vec<(usize, Vec3)> = text
         .lines()
@@ -76,7 +77,7 @@ fn main() {
     rows.sort_by_key(|r| r.0);
     let rho: f64 = 1730.0;
     let r_p: f64 = 0.03;
-    let m = rho * 4.0 / 3.0 * std::f64::consts::PI * r_p.powi(3);
+    let m = rho * 4.0 / 3.0 * std::f64::consts::PI * r_p.r_powi(3);
     let particles: Vec<Particle> = rows
         .iter()
         .map(|(_, x)| {

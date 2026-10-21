@@ -1,0 +1,44 @@
+warning: ambiguous glob re-exports
+  --> crates/tampines-steam-tables/src/prelude.rs:24:9
+   |
+24 | pub use crate::interfaces::functional_programming::hs_flash_eqm::*;
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the name `validity_range` in the type namespace is first re-exported here
+25 | pub use crate::interfaces::functional_programming::ph_flash_eqm::*;
+26 | pub use crate::interfaces::functional_programming::ps_flash_eqm::*;
+   |         ---------------------------------------------------------- but the name `validity_range` in the type namespace is also re-exported here
+   |
+   = note: `#[warn(ambiguous_glob_reexports)]` on by default
+
+warning: constant `LIQUID_SNAP_PRESSURE_FRACTION` is never used
+    --> crates/tampines-steam-tables/src/interfaces/functional_programming/rho_h_flash_eqm/mod.rs:1132:7
+     |
+1132 | const LIQUID_SNAP_PRESSURE_FRACTION: f64 = 0.05;
+     |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `tampines-steam-tables` (lib) generated 2 warnings
+warning: associated function `new_from_fission` is never used
+   --> crates/outram-mc-libs/src/physics/transport_csg.rs:182:19
+    |
+169 | impl Site {
+    | --------- associated function in this implementation
+...
+182 |     pub(crate) fn new_from_fission(
+    |                   ^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `outram-mc-libs` (lib) generated 1 warning
+   Compiling bishan v0.0.2 (/home/teddy0/Documents/research/outram-park-backend/crates/bishan)
+   Compiling redhill v0.0.2 (/home/teddy0/Documents/research/outram-park-backend/crates/redhill)
+   Compiling sembawang v0.0.1 (/home/teddy0/Documents/research/outram-park-backend/crates/sembawang)
+   Compiling pasir-ris v0.0.1 (/home/teddy0/Documents/research/outram-park-backend/crates/pasir-ris)
+    Finished `release` profile [optimized] target(s) in 0.99s
+     Running unittests src/lib.rs (target/release/deps/pasir_ris-1ce9feef068f3cdb)
+
+running 1 test
+test tests::the_scope_is_recorded ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

@@ -8,6 +8,8 @@
 //! Does not belong here: axis geometry ([`super::detect`]), curve pixels
 //! ([`super::trace`]), or any pixel *interpretation* beyond luminance.
 
+use petir::mathf::RealMath;
+
 use std::path::Path;
 
 use sha2::{Digest, Sha256};
@@ -246,7 +248,7 @@ impl PlotRaster {
         let (cx, cy) = (w / 2.0, h / 2.0);
         // Rotate the SAMPLE point by -angle: we walk destination pixels and
         // ask where each came from.
-        let (sin, cos) = (-angle.to_radians()).sin_cos();
+        let (sin, cos) = (-angle.to_radians()).r_sin_cos();
         let mut pixels = Vec::with_capacity(self.pixels.len());
         for y in 0..self.height {
             for x in 0..self.width {

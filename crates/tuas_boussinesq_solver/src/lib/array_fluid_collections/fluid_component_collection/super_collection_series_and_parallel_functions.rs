@@ -46,11 +46,9 @@
 /// Main author of the code: Theodore Kay Chen Ong, supervised by
 /// Professor Per F. Peterson
 // root finders
-extern crate roots;
-use peroxide::fuga::Algorithm;
-use roots::find_root_brent;
-use roots::find_root_regula_falsi;
-use roots::SimpleConvergency;
+// `roots` 0.0.8 replaced by PETIR adapters with the same SimpleConvergency
+// semantics (gh:#989); see crate::numerical_methods.
+use crate::numerical_methods::{brent_root, false_position_root, SimpleConvergency};
 use uom::num_traits::ToPrimitive;
 use uom::si::f64::{Pressure, MassRate};
 use uom::si::mass_rate::kilogram_per_second;
@@ -493,7 +491,7 @@ pub trait FluidComponentSuperCollectionSeriesAssociatedFunctions {
         // But having done so, I want to use the newton raphson method to
         // try and converge this result, hopefully within 30 iterations
 
-        let mut convergency = SimpleConvergency {
+        let convergency = SimpleConvergency {
             eps: 1e-9f64,
             max_iter: 30,
         };
@@ -504,11 +502,11 @@ pub trait FluidComponentSuperCollectionSeriesAssociatedFunctions {
             //
             // I'll increase to 100,000 kg/s
             // or 1e5
-            let mass_flowrate_result = find_root_brent(
+            let mass_flowrate_result = brent_root(
                 -1e5_f64,
                 -0_f64,
                 &mass_flow_from_pressure_chg_root,
-                &mut convergency,
+                &convergency,
             );
 
             // if loop returns this mass flowrate result
@@ -516,11 +514,11 @@ pub trait FluidComponentSuperCollectionSeriesAssociatedFunctions {
         } else {
             // i will search between 10 and 0 for the bracketing
             // in kg/s
-            let mass_flowrate_result = find_root_brent(
+            let mass_flowrate_result = brent_root(
                 1e5_f64,
                 0_f64,
                 &mass_flow_from_pressure_chg_root,
-                &mut convergency,
+                &convergency,
             );
 
             // if loop returns this mass flowrate result
@@ -572,11 +570,11 @@ pub trait FluidComponentSuperCollectionSeriesAssociatedFunctions {
         mass_flowrate_result = match mass_flowrate_result {
             Ok(_mass_flowrate) => return MassRate::new::<kilogram_per_second>(_mass_flowrate),
             Err(_error_msg) => {
-                mass_flowrate_result = find_root_brent(
+                mass_flowrate_result = brent_root(
                     10_000_f64,
                     -10_000_f64,
                     &mass_flow_from_pressure_chg_root,
-                    &mut convergency,
+                    &convergency,
                 );
 
                 mass_flowrate_result
@@ -586,11 +584,11 @@ pub trait FluidComponentSuperCollectionSeriesAssociatedFunctions {
         mass_flowrate_result = match mass_flowrate_result {
             Ok(_mass_flowrate) => return MassRate::new::<kilogram_per_second>(_mass_flowrate),
             Err(_error_msg) => {
-                mass_flowrate_result = find_root_brent(
+                mass_flowrate_result = brent_root(
                     20_000_000_f64,
                     -20_000_000_f64,
                     &mass_flow_from_pressure_chg_root,
-                    &mut convergency,
+                    &convergency,
                 );
 
                 mass_flowrate_result
@@ -1011,9 +1009,9 @@ pub trait FluidComponentSuperCollectionParallelAssociatedFunctions {
             })
             .collect();
 
-        let max_pressure_change_pascals: f64 = pressure_changes_for_all_branches_pascals.max();
+        let max_pressure_change_pascals: f64 = fold_max(&pressure_changes_for_all_branches_pascals);
 
-        let min_pressure_change_pascals: f64 = pressure_changes_for_all_branches_pascals.min();
+        let min_pressure_change_pascals: f64 = fold_min(&pressure_changes_for_all_branches_pascals);
 
         let max_pressure_difference_pascals: f64 =
             max_pressure_change_pascals - min_pressure_change_pascals;
@@ -1043,7 +1041,7 @@ pub trait FluidComponentSuperCollectionParallelAssociatedFunctions {
             .collect();
 
         let max_mass_flowrate_magnitude_kilogram_per_s: f64 =
-            abs_mass_flowrate_for_all_branches_kg_per_s.max();
+            fold_max(&abs_mass_flowrate_for_all_branches_kg_per_s);
 
         // return mass flowrate as a dimensioned quantity
 
@@ -1160,16 +1158,16 @@ pub trait FluidComponentSuperCollectionParallelAssociatedFunctions {
 
         // i can't use a convergency value too strict, perhaps 1e-9 will do!
         //
-        let mut convergency = SimpleConvergency {
+        let convergency = SimpleConvergency {
             eps: 1e-9_f64,
             max_iter: 70,
         };
 
-        let mut pressure_change_pascals_result_user_specified_flow = find_root_brent(
+        let mut pressure_change_pascals_result_user_specified_flow = brent_root(
             user_specified_pressure_upper_bound.value,
             user_specified_pressure_lower_bound.value,
             &pressure_change_from_mass_flowrate_root,
-            &mut convergency,
+            &convergency,
         );
 
         match pressure_change_pascals_result_user_specified_flow {
@@ -1183,11 +1181,11 @@ pub trait FluidComponentSuperCollectionParallelAssociatedFunctions {
 
         // try the regula falsi
 
-        pressure_change_pascals_result_user_specified_flow = find_root_regula_falsi(
+        pressure_change_pascals_result_user_specified_flow = false_position_root(
             user_specified_pressure_upper_bound.value,
             user_specified_pressure_lower_bound.value,
             &pressure_change_from_mass_flowrate_root,
-            &mut convergency,
+            &convergency,
         );
 
         match pressure_change_pascals_result_user_specified_flow {
@@ -1359,4 +1357,22 @@ pub trait FluidComponentSuperCollectionParallelAssociatedFunctions {
 
         return Pressure::new::<pascal>(average_pressure_value_pascals);
     }
+}
+
+/// The largest element, exactly as `peroxide` 0.41.2's `Algorithm::max` for
+/// `Vec<f64>` computed it (`structure/vector.rs` lines 755-770, non-`O3`
+/// branch): a fold from `f64::MIN` keeping `val` when `acc < val`. Inlined
+/// when `peroxide` was removed (gh:#989).
+fn fold_max(values: &[f64]) -> f64 {
+    values
+        .iter()
+        .fold(f64::MIN, |acc, &val| if acc < val { val } else { acc })
+}
+
+/// The smallest element, as `peroxide` 0.41.2's `Algorithm::min`
+/// (`structure/vector.rs` lines 772-775). See [`fold_max`].
+fn fold_min(values: &[f64]) -> f64 {
+    values
+        .iter()
+        .fold(f64::MAX, |acc, &val| if acc > val { val } else { acc })
 }

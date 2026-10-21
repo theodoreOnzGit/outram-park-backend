@@ -60,6 +60,8 @@
 //! Precipitation mm/h, temperatures K, `dquer` µm, masses as the caller's
 //! (kg), times s, grid coordinates in grid units.
 
+use petir::mathf::RealMath;
+
 use super::constants::R_AIR;
 use super::met_fields::{Field2, Field3};
 
@@ -435,11 +437,11 @@ pub fn get_wetscav(
     if clouds_v >= 4 {
         if sp.dquer <= 0.0 && (sp.weta_gas > 0.0 || sp.wetb_gas > 0.0) {
             out.counted = Some(ScavengingRegime::BelowCloud);
-            out.wetscav = sp.weta_gas * prec.powf(sp.wetb_gas);
+            out.wetscav = sp.weta_gas * prec.r_powf(sp.wetb_gas);
         } else if sp.dquer > 0.0 && (sp.crain_aero > 0.0 || sp.csnow_aero > 0.0) {
             out.counted = Some(ScavengingRegime::BelowCloud);
             let dquer_m = 10.0_f64.min(sp.dquer) / 1_000_000.0;
-            let l = dquer_m.log10();
+            let l = dquer_m.r_log10();
             // gfortran expands x**(-n) for a constant n as 1/x^n, x^n by
             // repeated squaring (powi)
             let l2 = l * l;
@@ -448,12 +450,12 @@ pub fn get_wetscav(
             let m2 = 1.0 / l2;
             let m1 = 1.0 / l;
             let poly = |b: &[f64; 6]| {
-                b[0] + b[1] * m4 + b[2] * m3 + b[3] * m2 + b[4] * m1 + b[5] * prec.powf(0.5)
+                b[0] + b[1] * m4 + b[2] * m3 + b[3] * m2 + b[4] * m1 + b[5] * prec.r_powf(0.5)
             };
             if act_temp >= 273.0 && sp.crain_aero > 0.0 {
-                out.wetscav = sp.crain_aero * 10.0_f64.powf(poly(&BCLR));
+                out.wetscav = sp.crain_aero * 10.0_f64.r_powf(poly(&BCLR));
             } else if act_temp < 273.0 && sp.csnow_aero > 0.0 {
-                out.wetscav = sp.csnow_aero * 10.0_f64.powf(poly(&BCLS));
+                out.wetscav = sp.csnow_aero * 10.0_f64.r_powf(poly(&BCLS));
             }
         }
     }
@@ -473,7 +475,7 @@ pub fn get_wetscav(
         let cl = if grid.readclouds {
             fields.ctwc.at(ix, jy) * (grfraction / cc)
         } else {
-            1.0e6 * 2.0e-7 * prec.powf(0.36)
+            1.0e6 * 2.0e-7 * prec.r_powf(0.36)
         };
         let (liq_frac, ice_frac) = if act_temp <= 253.0 {
             (0.0, 1.0)
@@ -832,7 +834,7 @@ pub fn wetdepo(
             }
             let mut dep = if ws.wetscav > 0.0 {
                 let g = ws.grfraction.expect("assigned whenever wetscav > 0");
-                p.xmass1[ks] * (1.0 - (-ws.wetscav * ltsample.abs() as f64).exp()) * g
+                p.xmass1[ks] * (1.0 - (-ws.wetscav * ltsample.abs() as f64).r_exp()) * g
             } else {
                 0.0
             };
@@ -843,7 +845,7 @@ pub fn wetdepo(
                 0.0
             };
             if settings.decay[ks] > 0.0 {
-                dep *= (ldeltat.abs() as f64 * settings.decay[ks]).exp();
+                dep *= (ldeltat.abs() as f64 * settings.decay[ks]).r_exp();
             }
             wetdeposit[ks] = Some(dep);
         }

@@ -1,0 +1,12 @@
+    Updating crates.io index
+   Packaging outram-foam-mesh v0.1.2 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/crates/outram-foam-mesh)
+    Updating crates.io index
+    Packaged 40 files, 1.0MiB (289.1KiB compressed)
+   Verifying outram-foam-mesh v0.1.2 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/crates/outram-foam-mesh)
+   Compiling outram-foam-mesh v0.1.2 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/target/package/outram-foam-mesh-0.1.2)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.87s
+   Uploading outram-foam-mesh v0.1.2 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/crates/outram-foam-mesh)
+    Uploaded outram-foam-mesh v0.1.2 to registry `crates-io`
+note: waiting for outram-foam-mesh v0.1.2 to be available at registry `crates-io`
+help: you may press ctrl-c to skip waiting; the crate should be available shortly
+   Published outram-foam-mesh v0.1.2 at registry `crates-io`

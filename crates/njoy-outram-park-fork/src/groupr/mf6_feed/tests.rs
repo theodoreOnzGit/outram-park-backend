@@ -6,6 +6,7 @@
 //! Unit tests for [`super::Mf6Feed`]. Split out of `mf6_feed.rs` to respect
 //! this crate's 1000-line file cap (see its `CLAUDE.md`).
 
+use petir::mathf::RealMath;
 use super::*;
 use crate::endf::tape::{Section, Tape};
 use crate::endf::EndfKey;
@@ -165,7 +166,7 @@ fn cm_frame_law1_respects_the_kinematic_lab_energy_ceiling() {
     assert_eq!(feed.lct(), 2);
     let eg = [1.0e-5, 5.0e5, 1.0e6, 1.5e6, 2.0e6];
     let at = feed.feed(2.0e6, &eg, 1).unwrap();
-    let elmax = 2.0e6 * ((1.0e6f64 / 2.0e6).sqrt() + (1.0f64 / 121.0).sqrt()).powi(2);
+    let elmax = 2.0e6 * ((1.0e6f64 / 2.0e6).sqrt() + (1.0f64 / 121.0).sqrt()).r_powi(2);
     assert!(elmax < 1.5e6, "elmax {elmax}");
     assert_eq!(at.ans[0][3], 0.0, "{at:?}");
     let sum: f64 = at.ans[0].iter().sum();

@@ -34,6 +34,8 @@
 //! [`super::step_fn::StepFunction`] — and re-summed both on every call, so it
 //! cost twice what the plain lag did. See bead `op-fm5`.
 
+use petir::mathf::RealMath;
+
 use std::collections::VecDeque;
 
 use uom::si::f64::*;
@@ -217,7 +219,7 @@ impl FirstOrderStableTransferFnForZeroes {
             return;
         }
 
-        let decay_factor = (-(time_step / self.process_time).get::<ratio>()).exp();
+        let decay_factor = (-(time_step / self.process_time).get::<ratio>()).r_exp();
         self.decaying_mode = self.decaying_mode * decay_factor;
     }
 
@@ -225,7 +227,7 @@ impl FirstOrderStableTransferFnForZeroes {
     /// `time_since_start` seconds.
     fn activate(&mut self, input_increment: Ratio, time_since_start: Time) {
         let step_magnitude = self.process_gain * input_increment;
-        let decay_factor = (-(time_since_start / self.process_time).get::<ratio>()).exp();
+        let decay_factor = (-(time_since_start / self.process_time).get::<ratio>()).r_exp();
         self.decaying_mode += step_magnitude * decay_factor;
     }
 

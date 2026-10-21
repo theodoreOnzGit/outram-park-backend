@@ -104,6 +104,7 @@
 //! answers. The study would have "passed" against a solution that never moved.
 //! A sanity check on the burned fraction now runs *before* the scan.
 
+use petir::mathf::RealMath;
 use outram_mc_libs::depletion::chain::DepletionChain;
 use outram_mc_libs::depletion::operator::{deplete_predictor, BurnupSettings, OneGroupWeighting};
 
@@ -162,7 +163,7 @@ fn observed_order(y_h: f64, y_h2: f64, y_h4: f64) -> f64 {
     if d2 == 0.0 || d1 / d2 <= 0.0 {
         return f64::NAN;
     }
-    (d1 / d2).log2()
+    (d1 / d2).r_log2()
 }
 
 #[test]

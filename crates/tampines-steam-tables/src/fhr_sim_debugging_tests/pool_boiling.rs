@@ -62,7 +62,7 @@ pub(crate) fn pool_boiling_improvised_correlation_as_fraction_of_maximum_lib(
 ) -> f64 {
     let degree_of_superheat_kelvin: f64 = delta_t.get::<uom::si::temperature_interval::kelvin>();
 
-    let x_mod: f64 = degree_of_superheat_kelvin.log10() - 2.0;
+    let x_mod: f64 = degree_of_superheat_kelvin.r_log10() - 2.0;
 
     let a = 2.4_f64;
     let b = 6.0_f64;

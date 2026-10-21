@@ -2,6 +2,7 @@
 //! and drawing it. Shared by every animated rung (moved out of the TRISO
 //! demo's `app.rs`, 2026-10-04, gh:#521).
 
+use petir::mathf::RealMath;
 use crate::history::History;
 use egui::{Color32, Pos2, Rect, Stroke, Vec2};
 use outram_mc_libs::physics::track_output::TrackEvent;
@@ -114,7 +115,7 @@ impl Anim {
         for (i, s) in st.iter().enumerate() {
             if i > 0 {
                 let q = st[i - 1].r;
-                d += ((s.r.x - q.x).powi(2) + (s.r.y - q.y).powi(2) + (s.r.z - q.z).powi(2)).sqrt();
+                d += ((s.r.x - q.x).r_powi(2) + (s.r.y - q.y).r_powi(2) + (s.r.z - q.z).r_powi(2)).sqrt();
             }
             cum.push(d);
         }
@@ -206,7 +207,7 @@ pub fn energy_colour(e_ev: f64, alpha: u8) -> Color32 {
         (0.82, [250, 140, 40]),
         (1.00, [235, 50, 45]),
     ];
-    let t = ((e_ev.max(1e-12).log10() - E_LO_LOG) / (E_HI_LOG - E_LO_LOG)).clamp(0.0, 1.0);
+    let t = ((e_ev.max(1e-12).r_log10() - E_LO_LOG) / (E_HI_LOG - E_LO_LOG)).clamp(0.0, 1.0);
     let k = STOPS.iter().position(|s| s.0 >= t).unwrap_or(STOPS.len() - 1).max(1);
     let (a, b) = (STOPS[k - 1], STOPS[k]);
     let f = ((t - a.0) / (b.0 - a.0)).clamp(0.0, 1.0);
@@ -335,7 +336,7 @@ pub fn energy_bar(ui: &mut egui::Ui) {
     let n = 80;
     for i in 0..n {
         let t = i as f64 / n as f64;
-        let e = 10f64.powf(E_LO_LOG + t * (E_HI_LOG - E_LO_LOG));
+        let e = 10f64.r_powf(E_LO_LOG + t * (E_HI_LOG - E_LO_LOG));
         let x0 = rect.left() + rect.width() * i as f32 / n as f32;
         let x1 = rect.left() + rect.width() * (i + 1) as f32 / n as f32;
         ui.painter().rect_filled(Rect::from_x_y_ranges(x0..=x1, rect.y_range()), 0.0, energy_colour(e, 255));

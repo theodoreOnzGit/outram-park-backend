@@ -270,6 +270,7 @@
 //! (100), `THREADS` (3), `SEED`, `P_HIST` (energy-only histories, 400000),
 //! `RATIOS` (comma list for the sweep), `CU` (override the main case's ratio).
 
+use petir::mathf::RealMath;
 #[path = "common/energy_only_slowing_down.rs"]
 mod energy_only_slowing_down;
 #[path = "common/ugraphite_common.rs"]
@@ -363,7 +364,7 @@ fn main_case(nuclides: &[Nuclide], seed: u64) {
         p_tr.mean,
         p_tr.std,
         p_tr.mean - p_eo,
-        (p_tr.mean - p_eo) / (p_tr.std.powi(2) + sig * sig).sqrt()
+        (p_tr.mean - p_eo) / (p_tr.std.r_powi(2) + sig * sig).sqrt()
     );
     let names = ["U234", "U235", "U238", "C12", "C13"];
     let per: Vec<String> = c

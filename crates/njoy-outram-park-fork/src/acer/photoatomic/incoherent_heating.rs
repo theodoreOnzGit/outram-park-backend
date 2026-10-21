@@ -25,6 +25,7 @@
 //! shared is the physics constants and the `terpa` conventions, which are
 //! taken from their existing homes rather than redeclared.
 
+use petir::mathf::RealMath;
 use crate::endf::interp::terpa;
 use crate::endf::records::Tab1;
 
@@ -142,7 +143,7 @@ fn iheat_full(e: f64, sf: &Tab1, stable_rm2: bool, split: f64) -> IncoherentHeat
     let mut pnow = enow;
     let mut xnow;
     let xzz = C5 * (enow / 500.0).sqrt();
-    let q2m = (2.0 * enow * (1.0 + enow) / (1.0 + 2.0 * enow)).powi(2);
+    let q2m = (2.0 * enow * (1.0 + enow) / (1.0 + 2.0 * enow)).r_powi(2);
     let use_table = xzz <= zz;
     let (mut snow, mut xnext) = if use_table {
         let (s, xn, _) = terpa(&sf.interp, &sf.pairs, 0.0);
@@ -160,7 +161,7 @@ fn iheat_full(e: f64, sf: &Tab1, stable_rm2: bool, split: f64) -> IncoherentHeat
         // Panel upper bound in cosine, from the S(x) grid (`:440-459`).
         let mut unext;
         loop {
-            let q2 = (C4 * xnext).powi(2);
+            let q2 = (C4 * xnext).r_powi(2);
             unext = -1.0f64;
             if q2 > q2m {
                 break;

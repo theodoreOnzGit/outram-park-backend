@@ -45,6 +45,7 @@
 //! A real Monte Carlo `k` on the evolved actinide inventory is available via
 //! [`mc_keff_of_actinide_sphere`] to demonstrate the transport path is wired.
 
+use petir::mathf::RealMath;
 use super::chain::DepletionChain;
 use super::integrators::Integrator;
 use super::cram::cram16;
@@ -338,12 +339,12 @@ fn collapse_one_group(nuc: &Nuclide, settings: &BurnupSettings) -> OneGroupXs {
                 fission_temp_ev: 1.4e6,
             });
             let n = n_points.max(2);
-            let ln_lo = e_min_ev.max(1.0e-11).ln();
-            let ln_hi = e_max_ev.ln();
+            let ln_lo = e_min_ev.max(1.0e-11).r_ln();
+            let ln_hi = e_max_ev.r_ln();
             let (mut num, mut den) = ([0.0f64; 4], 0.0f64);
             let (mut prev_e, mut prev_w, mut prev_x) = (0.0f64, 0.0f64, [0.0f64; 4]);
             for i in 0..n {
-                let e = (ln_lo + (ln_hi - ln_lo) * i as f64 / (n - 1) as f64).exp();
+                let e = (ln_lo + (ln_hi - ln_lo) * i as f64 / (n - 1) as f64).r_exp();
                 let xs = nuc.xs_at_energy(e, t);
                 let x = [
                     xs.fission,
@@ -354,7 +355,7 @@ fn collapse_one_group(nuc: &Nuclide, settings: &BurnupSettings) -> OneGroupXs {
                 // phi(E) dE = phi(E) * E * d(ln E): the Jacobian of the log grid.
                 let w = weight.evaluate(e, t) * e;
                 if i > 0 {
-                    let dlog = e.ln() - prev_e.ln();
+                    let dlog = e.r_ln() - prev_e.r_ln();
                     den += 0.5 * dlog * (w + prev_w);
                     for k in 0..4 {
                         num[k] += 0.5 * dlog * (w * x[k] + prev_w * prev_x[k]);
@@ -399,11 +400,11 @@ fn collapse_one_group(nuc: &Nuclide, settings: &BurnupSettings) -> OneGroupXs {
                 // Average sigma across the group on a log grid -- the same
                 // reasoning as the analytic path: the 1/E region is flat in
                 // lethargy, so log sub-sampling resolves a group evenly.
-                let (ln_lo, ln_hi) = (lo.ln(), hi.ln());
+                let (ln_lo, ln_hi) = (lo.r_ln(), hi.r_ln());
                 let mut acc = [0.0f64; 4];
                 for i in 0..sub {
                     let f = (i as f64 + 0.5) / sub as f64;
-                    let e = (ln_lo + (ln_hi - ln_lo) * f).exp();
+                    let e = (ln_lo + (ln_hi - ln_lo) * f).r_exp();
                     let xs = nuc.xs_at_energy(e, t);
                     acc[0] += xs.fission;
                     acc[1] += (xs.absorption - xs.fission).max(0.0);

@@ -78,6 +78,7 @@
 //! the overall reaction order, exactly as in DWSIM (which leaves `A` and the
 //! rate's `VelUnit` to the user).
 
+use petir::mathf::RealMath;
 /// Universal gas constant `R` [J/(mol·K)].
 ///
 /// The literal `8.314` matches DWSIM's hard-coded value in the reactor rate
@@ -266,11 +267,11 @@ impl EquilibriumConstant {
             EquilibriumConstant::Constant(k0) => k0,
             EquilibriumConstant::GibbsVantHoff { delta_h, delta_s } => {
                 let delta_g = delta_h - temperature_k * delta_s;
-                (-delta_g / (R_GAS * temperature_k)).exp()
+                (-delta_g / (R_GAS * temperature_k)).r_exp()
             }
             EquilibriumConstant::LnPolynomial { a, b, c, d } => {
-                let ln_k = a + b / temperature_k + c * temperature_k.ln() + d * temperature_k;
-                ln_k.exp()
+                let ln_k = a + b / temperature_k + c * temperature_k.r_ln() + d * temperature_k;
+                ln_k.r_exp()
             }
         }
     }
@@ -333,7 +334,7 @@ impl AdsorptionTerm {
     /// `8.314`), consistent with the reaction's rate constants.
     #[must_use]
     pub fn adsorption_constant(&self, temperature_k: f64) -> f64 {
-        self.a_ads * (-self.e_ads / (R_GAS * temperature_k)).exp()
+        self.a_ads * (-self.e_ads / (R_GAS * temperature_k)).r_exp()
     }
 
     /// This term's contribution `K_j(T) · C_j^{order}` \[-\] to the LH
@@ -346,7 +347,7 @@ impl AdsorptionTerm {
         let cpow = if self.order == 0.0 {
             1.0
         } else {
-            c.powf(self.order)
+            c.r_powf(self.order)
         };
         self.adsorption_constant(temperature_k) * cpow
     }
@@ -413,7 +414,7 @@ impl LangmuirHinshelwood {
         if self.exponent == 1.0 {
             sum
         } else {
-            sum.powf(self.exponent)
+            sum.r_powf(self.exponent)
         }
     }
 }
@@ -586,7 +587,7 @@ impl Reaction {
         if temperature_k < self.t_min || temperature_k > self.t_max {
             return 0.0;
         }
-        self.a_forward * (-self.e_forward / (R_GAS * temperature_k)).exp()
+        self.a_forward * (-self.e_forward / (R_GAS * temperature_k)).r_exp()
     }
 
     /// Reverse rate constant `k_r = A_r · exp(−E_a,r / (R T))` at temperature
@@ -596,7 +597,7 @@ impl Reaction {
         if temperature_k < self.t_min || temperature_k > self.t_max {
             return 0.0;
         }
-        self.a_reverse * (-self.e_reverse / (R_GAS * temperature_k)).exp()
+        self.a_reverse * (-self.e_reverse / (R_GAS * temperature_k)).r_exp()
     }
 
     /// Net volumetric reaction rate `[mol/(m³·s)]` at temperature `temperature_k`
@@ -628,10 +629,10 @@ impl Reaction {
         for c in &self.components {
             let conc = concentrations[c.component_index].max(0.0);
             if c.direct_order != 0.0 {
-                fwd *= conc.powf(c.direct_order);
+                fwd *= conc.r_powf(c.direct_order);
             }
             if c.reverse_order != 0.0 {
-                rev *= conc.powf(c.reverse_order);
+                rev *= conc.r_powf(c.reverse_order);
             }
         }
         kf * fwd - kr * rev
@@ -697,7 +698,7 @@ mod tests {
         .with_forward(1.0e6, 50_000.0);
 
         let k = rxn.forward_rate_constant(500.0);
-        let expected = 1.0e6 * (-50_000.0 / (R_GAS * 500.0)).exp();
+        let expected = 1.0e6 * (-50_000.0 / (R_GAS * 500.0)).r_exp();
         assert!((k - expected).abs() / expected < 1e-9);
 
         // E -> 0 limit: k = A.
@@ -762,7 +763,7 @@ mod tests {
         };
         assert!(kv.evaluate(1000.0) > kv.evaluate(500.0));
         let ln_expected = -40_000.0 / (R_GAS * 1000.0) + 30.0 / R_GAS;
-        assert!((kv.evaluate(1000.0).ln() - ln_expected).abs() < 1e-12);
+        assert!((kv.evaluate(1000.0).r_ln() - ln_expected).abs() < 1e-12);
 
         let kp = EquilibriumConstant::LnPolynomial {
             a: 1.0,
@@ -770,7 +771,7 @@ mod tests {
             c: 0.0,
             d: 0.0,
         };
-        assert!((kp.evaluate(500.0) - (1.0f64 - 2.0).exp()).abs() < 1e-12);
+        assert!((kp.evaluate(500.0) - (1.0f64 - 2.0).r_exp()).abs() < 1e-12);
     }
 
     /// **Methodology (LH reduces to power-law in the weak-adsorption limit).**
@@ -894,12 +895,12 @@ mod tests {
         );
         let c = [2.0, 2.0];
 
-        let k400 = (-e / (R_GAS * 400.0)).exp();
-        let d400 = (1.0 + 2.0 * k400 + 2.0 * k400).powi(2);
+        let k400 = (-e / (R_GAS * 400.0)).r_exp();
+        let d400 = (1.0 + 2.0 * k400 + 2.0 * k400).r_powi(2);
         assert!((lh.denominator_value(&c, 400.0) - d400).abs() < 1e-9);
 
-        let k800 = (-e / (R_GAS * 800.0)).exp();
-        let d800 = (1.0 + 2.0 * k800 + 2.0 * k800).powi(2);
+        let k800 = (-e / (R_GAS * 800.0)).r_exp();
+        let d800 = (1.0 + 2.0 * k800 + 2.0 * k800).r_powi(2);
         assert!((lh.denominator_value(&c, 800.0) - d800).abs() < 1e-9);
 
         // E>0 ⇒ K rises with T ⇒ more inhibition (bigger D) at 800 K.

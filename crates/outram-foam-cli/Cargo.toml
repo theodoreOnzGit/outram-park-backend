@@ -36,6 +36,9 @@ outram-foam-mesh.workspace = true
 outram-foam-appbuilder-lib.workspace = true
 
 [dev-dependencies]
+# Every transcendental routes through PETIR for cross-platform bit identity
+# (gh:#985). petir is no_std, so this edge adds nothing Android- or wasm-hostile.
+petir = { workspace = true }
 # Code-to-code verification only (tests/mechanics_code_to_code.rs, bead
 # op-cdte): the OFFBEAT small-strain mechanics solver is run alongside the
 # GeN-Foam one on a mesh this crate's own `blockMesh` tool writes. The CLI

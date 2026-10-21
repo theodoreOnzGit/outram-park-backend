@@ -234,6 +234,7 @@
 //! [`FrequencyModel::start`]: njoy_outram_park_fork::leapr::frequency::FrequencyModel::start
 //! [`LeaprDeck::input_at_temperature`]: njoy_outram_park_fork::leapr::deck::LeaprDeck::input_at_temperature
 
+use petir::mathf::RealMath;
 use njoy_outram_park_fork::endf::tape::Tape;
 use njoy_outram_park_fork::leapr::coher::{coher, BraggEdges, CoherentLattice};
 use njoy_outram_park_fork::leapr::deck::LeaprDeck;
@@ -664,10 +665,10 @@ fn bragg_edge_residual_is_the_econ_constant_vintage() {
     // so carries no information about the constants.
     let n = ours.bragg_energies_ev.len() - 1;
     let ratios: Vec<f64> = (0..n)
-        .map(|i| (theirs.bragg_energies_ev[i] / ours.bragg_energies_ev[i]).ln())
+        .map(|i| (theirs.bragg_energies_ev[i] / ours.bragg_energies_ev[i]).r_ln())
         .collect();
     let fitted = ratios.iter().sum::<f64>() / n as f64;
-    let scatter = (ratios.iter().map(|r| (r - fitted).powi(2)).sum::<f64>() / n as f64).sqrt();
+    let scatter = (ratios.iter().map(|r| (r - fitted).r_powi(2)).sum::<f64>() / n as f64).sqrt();
     let predicted = sep17_econ_ratio();
     let agreement = (fitted - predicted).abs() / predicted.abs();
     eprintln!(

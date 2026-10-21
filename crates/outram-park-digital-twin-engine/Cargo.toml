@@ -31,6 +31,9 @@ fidelity = [0, 1]
 maturity = 1
 
 [dependencies]
+# Every transcendental routes through PETIR for cross-platform bit identity
+# (gh:#985). petir is no_std, so this edge adds nothing Android- or wasm-hostile.
+petir = { workspace = true }
 # Physics backends this framework visualizes. Real (non-dev) dependencies --
 # unlike tampines, this crate's whole purpose is presentation, so it makes no
 # Android-portability claim and GUI deps are not confined to examples/.
@@ -85,8 +88,9 @@ csv.workspace = true
 # crate -- tampines does not re-export it. The widget must be able to name the
 # type to map it onto `HeatExchangerKind`; without it the physics-backed path
 # could only guess an arrangement, which is exactly the kind of fabrication
-# this library forbids. Pure Rust (thiserror/ndarray/uom/roots/zip with only
-# `deflate`), so promoting it does not endanger the Android build. The
+# this library forbids. Pure Rust (thiserror/ndarray/uom/zip with only
+# `deflate`, and petir, which replaced `roots` there on 2026-10-20, gh:#991),
+# so promoting it does not endanger the Android build. The
 # examples (htgr_sim_v1's schematic, widget_studio's heat-exchanger tab) reach
 # it through this entry, so it is no longer declared as a dev-dependency.
 outram-park-fork-dwsim-libs.workspace = true
@@ -145,7 +149,6 @@ teh-o-prke.workspace = true
 # stays usable from examples/tests either way.
 # tuas_boussinesq_solver is now a REAL dependency above (the CIET v2 binary needs
 # it and bins cannot see dev-deps); it stays usable from examples/tests either way.
-roots.workspace = true
 ndarray.workspace = true
 outram-foam-basic-lib.workspace = true
 serde.workspace = true

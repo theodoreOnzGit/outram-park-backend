@@ -87,6 +87,7 @@
 //! > facility operation, reactor control, safety-critical, or licensing
 //! > decisions. Independent OUTRAM PARK fork, not the official DWSIM.
 
+use petir::mathf::RealMath;
 use crate::thermo::flash::{rachford_rice_g, wilson_k_values, FlashError, FlashResult};
 use crate::thermo::Component;
 
@@ -357,7 +358,7 @@ where
     if k.iter().any(|v| !v.is_finite() || *v <= 0.0) {
         return Err(FlashError::NonFinite);
     }
-    let mut u: Vec<f64> = k.iter().map(|&ki| ki.ln()).collect();
+    let mut u: Vec<f64> = k.iter().map(|&ki| ki.r_ln()).collect();
 
     let mut split = inner_stripping_solve(z, &k, opts.max_inner_iter, opts.inner_tol)?;
 
@@ -375,7 +376,7 @@ where
         }
 
         // Outer residual: squared change in the log-K variables (DWSIM AbsSqrSumY).
-        let u_new: Vec<f64> = k_new.iter().map(|&ki| ki.ln()).collect();
+        let u_new: Vec<f64> = k_new.iter().map(|&ki| ki.r_ln()).collect();
         let residual: f64 = u
             .iter()
             .zip(u_new.iter())
@@ -403,7 +404,7 @@ where
     let residual: f64 = k_final
         .iter()
         .zip(k.iter())
-        .map(|(&kn, &ko)| (kn.ln() - ko.ln()).powi(2))
+        .map(|(&kn, &ko)| (kn.r_ln() - ko.r_ln()).r_powi(2))
         .sum();
     Err(FlashError::NotConverged {
         iterations: opts.max_outer_iter,

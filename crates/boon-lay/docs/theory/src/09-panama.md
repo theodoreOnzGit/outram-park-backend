@@ -1,4 +1,4 @@
-# Step 9 — PANAMA's simplification, and ours
+# Step 7 — PANAMA fuel failure: the pressure-vessel simplification, and ours
 
 > **Research, education and V&V only.** Not for reactor operation, licensing, safety decisions or emergency response.
 > **Review status: first draft, 2026-10-18, AI-assisted (Claude Sonnet), not yet reviewed by a human.**
@@ -7,7 +7,7 @@
 is too heavy. *Which parts of it can be dropped, what makes each drop
 acceptable, and when does each one stop being acceptable?*
 
-**The question from the previous step.** [Step 8](./08-pressure-stress.md)
+**The question from the previous step.** [Step 6](./08-pressure-stress.md)
 built the reference: gas pressure in the buffer, load on a layered shell,
 creep and swelling in every layer. It also showed that `farrer-park` does not
 yet have a TRISO model. The cheap alternative is much older.
@@ -60,7 +60,7 @@ does not burst but disappears.
 
 ## Simplification 1: the whole particle becomes one thin SiC shell
 
-**Dropped relative to Step 8.** The finite-element mesh, the PyC creep and
+**Dropped relative to Step 6.** The finite-element mesh, the PyC creep and
 swelling, the kernel swelling, the contact between layers, and any bending or
 non-spherical shape. The only structural member left is the SiC.
 
@@ -83,7 +83,7 @@ $\dot v  t / d_o$ the corrosion thinning of Simplification 4
 
 - **Thick or thin-spot layers.** The report contains no thick-wall (Lame)
   formulation, and the code offers none. The thin-shell form drifts from the
-  elastic solution as $d/r$ grows. At the illustration geometry of Step 8,
+  elastic solution as $d/r$ grows. At the illustration geometry of Step 6,
   $d/r$ is $35 / 268.6 \approx 0.13$.
 - **A PyC layer that cracks or debonds.** Then the load path changes and the
   SiC sees something other than the gas pressure.
@@ -140,10 +140,10 @@ modulus, and the fast fluence. That is a borrowing, not a measurement.
 
 ## Simplification 4: the gas is ideal and the release is a closed form
 
-**Dropped.** The diffusion calculation of Steps 5 to 7 inside the kernel, and
+**Dropped.** The diffusion calculation of Steps 8 to 10 inside the kernel, and
 any real-gas equation of state.
 
-**The judgement.** Pressure is the ideal-gas law (Step 8, Eq 3) with the
+**The judgement.** Pressure is the ideal-gas law (Step 6, Eq 3) with the
 released fraction $F_d$ from a Booth-type closed form of the kernel diffusion
 ([`booth.rs`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/booth.rs)),
 and CO from oxygen-per-fission correlations. Corrosion of the SiC by fission
@@ -236,7 +236,7 @@ Do not read the tiny normal-operation values of $\varphi_1$ as an in-service
 failure fraction. In-service failure is a defect population, which the
 equations take as an input. That would answer a different question.
 
-**CORRECTED 2026-10-18** (Step 20 review of `htgr_sim_v1`): the digital twin evaluates $\varphi_1$ at end of irradiation with $T_B = T_{kernel} - 75$ K, adds it on top of the $5 \times 10^{-4}$ design $f_{inc}$, and does not route $\varphi_2$; see [Step 20](./20-htgr-sim-v1-chain.md) section 4.
+**CORRECTED 2026-10-18** (Step 21 review of `htgr_sim_v1`): the digital twin evaluates $\varphi_1$ at end of irradiation with $T_B = T_{kernel} - 75$ K, adds it on top of the $5 \times 10^{-4}$ design $f_{inc}$, and does not route $\varphi_2$; see [Step 21](./20-htgr-sim-v1-chain.md) section 4.
 
 ## Why each simplification is allowed
 
@@ -268,6 +268,10 @@ judgement text on the page above is the argument. This table names its kind.
 ## Next question
 
 The report's chain gives a failure fraction for a given temperature history.
-It leaves open who combined it with fission-product release in one tool, and
-what this crate is trying to do. [Step 10](./10-stacy-boon-lay.md) credits
-the follow-up and says what `boon-lay` aims for and what is still missing.
+It took the fraction of gas released from the kernel, $F_d$, from a closed
+form, and said nothing about the fission products that leave through
+*intact* coatings. That is normal diffusion, the next rung down.
+[Step 8](./05-random-walk.md) starts it one atom at a time, and
+[Step 9](./06-eulerian-fresco.md) takes the aggregate, FRESCO-style view.
+Who later combined failure and release in one tool, and what this crate is
+trying to do, is [Step 11](./10-stacy-boon-lay.md).

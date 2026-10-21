@@ -54,6 +54,8 @@
 //! in their `com_mod` units (PV in pvu, `qv` kg/kg, `tt` K, winds m/s,
 //! density kg/m³, heights m).
 
+use petir::mathf::RealMath;
+
 use crate::flexpart::constants::{CPA, PI180};
 
 /// The meteorological arrays of one grid at the two time levels in memory,
@@ -384,9 +386,9 @@ pub fn partpos_average(
 
     let xlon = xlon * PI180;
     let ylat = ylat * PI180;
-    let x = ylat.cos() * xlon.sin();
-    let y = -ylat.cos() * xlon.cos();
-    let z = ylat.sin();
+    let x = ylat.r_cos() * xlon.r_sin();
+    let y = -ylat.r_cos() * xlon.r_cos();
+    let z = ylat.r_sin();
 
     acc.cartx += x;
     acc.carty += y;

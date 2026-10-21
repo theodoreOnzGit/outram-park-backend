@@ -49,6 +49,7 @@
 //! - **Agreement** excludes them properly this time, band by band rather than
 //!   on a mean.
 
+use petir::mathf::RealMath;
 use njoy_outram_park_fork::reference_data::reference_file_or_skip;
 use outram_mc_libs::material::nuclide::Nuclide;
 
@@ -90,12 +91,12 @@ const EXCESS_BAND: usize = 4; // 1.9-3.0 MeV
 /// Lethargy average of `f` over `[lo, hi]` — trapezoid in `ln E`, which is
 /// exactly the `dE/E` weight.
 fn band_average(lo: f64, hi: f64, f: impl Fn(f64) -> f64) -> f64 {
-    let (l0, l1) = (lo.ln(), hi.ln());
+    let (l0, l1) = (lo.r_ln(), hi.r_ln());
     let mut acc = 0.0;
     let mut prev = f(lo);
     for i in 1..NSUB {
         let ln = l0 + (l1 - l0) * i as f64 / (NSUB - 1) as f64;
-        let v = f(ln.exp());
+        let v = f(ln.r_exp());
         acc += 0.5 * (v + prev) * (l1 - l0) / (NSUB - 1) as f64;
         prev = v;
     }

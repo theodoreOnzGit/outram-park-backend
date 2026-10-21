@@ -117,6 +117,7 @@
 //! The write-up is
 //! `verification_and_validation/gaspr_light_nuclides_vs_njoy2016.md`.
 
+use petir::mathf::RealMath;
 use njoy_outram_park_fork::endf::interp::eval_tab1;
 use njoy_outram_park_fork::endf::records::SectionCursor;
 use njoy_outram_park_fork::endf::tape::Tape;
@@ -279,7 +280,7 @@ fn check(case: &Case) {
             continue;
         }
         for i in 0..=N_SAMPLES {
-            let e = e_from * (e_hi / e_from).powf(i as f64 / N_SAMPLES as f64);
+            let e = e_from * (e_hi / e_from).r_powf(i as f64 / N_SAMPLES as f64);
             let want = eval_tab1(e, &tab.interp, &tab.pairs).unwrap();
             let got = gas.eval(species, e);
             let scale = got.abs().max(want.abs());

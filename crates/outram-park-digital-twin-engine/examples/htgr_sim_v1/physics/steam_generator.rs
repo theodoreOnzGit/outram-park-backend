@@ -1390,6 +1390,7 @@ fn array_mass(rho: &[f64], volumes: &[f64]) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use petir::mathf::RealMath;
     use uom::si::mass_density::kilogram_per_cubic_meter;
 
     /// The HTR-10 exchanger roughly as the primary loop builds it, for tests
@@ -2084,7 +2085,7 @@ mod tests {
              first step tracked {:.4}% of the {total:.3} K total response \
              (first-order lag of tau = {tau:.2} s would give {:.4}%)",
             100.0 * fraction,
-            100.0 * (1.0 - (-dt_s / tau).exp()),
+            100.0 * (1.0 - (-dt_s / tau).r_exp()),
         );
 
         assert!(

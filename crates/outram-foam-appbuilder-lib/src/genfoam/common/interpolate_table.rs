@@ -86,6 +86,7 @@
 //! assert_eq!(table.interpolate(9.0).unwrap(), 30.0);  // clamped to last value
 //! ```
 
+use petir::mathf::RealMath;
 /// How a [`ScalarInterpolateTable`] interpolates between tabulated knots.
 ///
 /// Maps to GeN-Foam's `InterpolateTableBaseGF::interpolationMethod`.
@@ -290,7 +291,7 @@ impl ScalarInterpolateTable {
     pub fn integral(&self, k: f64) -> f64 {
         let mut res = 0.0;
         for i in 1..self.xs.len() {
-            let dx = self.xs[i].powf(k) - self.xs[i - 1].powf(k);
+            let dx = self.xs[i].r_powf(k) - self.xs[i - 1].r_powf(k);
             match self.method {
                 InterpolationMethod::Step => res += self.ys[i - 1] * dx,
                 InterpolationMethod::Linear => res += 0.5 * (self.ys[i - 1] + self.ys[i]) * dx,

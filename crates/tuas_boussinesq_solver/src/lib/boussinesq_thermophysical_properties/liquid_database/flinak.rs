@@ -1,3 +1,4 @@
+use petir::mathf::RealMath;
 #[warn(missing_docs)]
 // This library was developed for use in my PhD thesis under supervision
 // of Professor Per F. Peterson. It is part of a thermal hydraulics
@@ -62,8 +63,7 @@ use uom::si::specific_heat_capacity::joule_per_kilogram_kelvin;
 use uom::si::available_energy::joule_per_kilogram;
 
 // this is for the root finding algorithms
-extern crate peroxide;
-use peroxide::prelude::*;
+use crate::numerical_methods::bisection_residual;
 
 use crate::boussinesq_thermophysical_properties::{range_check, LiquidMaterial, Material};
 use crate::tuas_lib_error::TuasLibError;
@@ -118,7 +118,7 @@ pub fn get_flinak_dynamic_viscosity(
 
     let a = 0.04;
     let b = 4170_f64;
-    let viscosity_value_centipoise = a * (b / fluid_temp_kelvin).exp();
+    let viscosity_value_centipoise = a * (b / fluid_temp_kelvin).r_exp();
 
     Ok(DynamicViscosity::new::<centipoise>(
         viscosity_value_centipoise,
@@ -267,11 +267,19 @@ pub fn get_temperature_from_enthalpy(
     // now solve using bisection
     // the range is from 940.0 K - 1073.0 K
 
-    use anyhow::Result;
     let fluid_temperature_degrees_kelvin_result =
-        bisection!(enthalpy_root, (940.0, 1073.0), 100, 1e-8);
+        // peroxide `bisection!(enthalpy_root, (940.0, 1073.0), 100, 1e-8)`, now
+    // on PETIR with peroxide's residual test kept: bit-identical root
+    // (see crate::numerical_methods::bisection_residual, gh:#989).
+    bisection_residual(
+        enthalpy_root,
+        (940.0, 1073.0),
+        100,
+        1e-8,
+        "FLiNaK: temperature from specific enthalpy",
+    );
 
-    let fluid_temperature_degrees_kelvin = fluid_temperature_degrees_kelvin_result.unwrap();
+    let fluid_temperature_degrees_kelvin = fluid_temperature_degrees_kelvin_result?;
 
     return Ok(ThermodynamicTemperature::new::<kelvin>(
         fluid_temperature_degrees_kelvin,

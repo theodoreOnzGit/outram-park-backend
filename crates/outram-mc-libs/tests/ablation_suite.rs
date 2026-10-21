@@ -95,6 +95,7 @@
 //! numbers still come from the paired ensembles in `examples/`. These tests
 //! guard the *input* to that argument.
 
+use petir::mathf::RealMath;
 use njoy_outram_park_fork::reference_data::reference_file_or_skip;
 use outram_mc_libs::material::material::{Material, NuclideComponent};
 use outram_mc_libs::material::nuclide::{Inelastic, Nuclide};
@@ -141,9 +142,9 @@ const OPENMC_MU_DISCRETE: f64 = 0.0357;
 /// `aggregates_are_grid_converged` below asserts the convergence rather than
 /// trusting this comment.
 fn grid_n(n: usize) -> Vec<f64> {
-    let (l0, l1) = (1.0e4f64.ln(), 1.9e7f64.ln());
+    let (l0, l1) = (1.0e4f64.r_ln(), 1.9e7f64.r_ln());
     (0..n)
-        .map(|i| (l0 + (l1 - l0) * i as f64 / (n - 1) as f64).exp())
+        .map(|i| (l0 + (l1 - l0) * i as f64 / (n - 1) as f64).r_exp())
         .collect()
 }
 
@@ -157,7 +158,7 @@ fn grid() -> Vec<f64> {
 /// Watt fission-spectrum weight at `e` \[eV\] — the same form the reference
 /// script uses, so the two weightings are identical.
 fn watt(e: f64) -> f64 {
-    (-e / 0.988e6).exp() * (2.249e-6 * e).sqrt().sinh()
+    (-e / 0.988e6).r_exp() * (2.249e-6 * e).sqrt().r_sinh()
 }
 
 /// Build the three nuclides once, or `None` if the tapes are not present.

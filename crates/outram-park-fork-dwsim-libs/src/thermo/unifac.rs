@@ -82,6 +82,7 @@
 //! follows the crate `CLAUDE.md` rule of raw documented `f64` in inner
 //! thermodynamic loops.
 
+use petir::mathf::RealMath;
 use std::collections::HashMap;
 
 /// Coordination number `z` of the UNIFAC/UNIQUAC lattice (dimensionless).
@@ -184,7 +185,7 @@ impl UnifacParameters {
     /// `main_m`, `main_n` main-group ids and `temperature` in K.
     /// Ported from `TAU` (`UNIFAC.vb:357-376`).
     pub fn psi(&self, main_m: usize, main_n: usize, temperature: f64) -> f64 {
-        (-self.interaction(main_m, main_n) / temperature).exp()
+        (-self.interaction(main_m, main_n) / temperature).r_exp()
     }
 
     /// Public-literature subset of the **original (VLE) UNIFAC** table.
@@ -321,7 +322,7 @@ pub fn ln_gamma_combinatorial(
             let (r_i, q_i) = rq[i];
             let phi_over_x = r_i / r_sum; // φ_i / x_i
             let theta_over_phi = (q_i / q_sum) / (r_i / r_sum); // θ_i / φ_i
-            phi_over_x.ln() + z2 * q_i * theta_over_phi.ln() + l[i] - phi_over_x * sum_x_l
+            phi_over_x.r_ln() + z2 * q_i * theta_over_phi.r_ln() + l[i] - phi_over_x * sum_x_l
         })
         .collect()
 }
@@ -396,7 +397,7 @@ pub fn group_ln_gamma(
             })
             .sum();
 
-        out.insert(k, q_k * (1.0 - s1.ln() - s2));
+        out.insert(k, q_k * (1.0 - s1.r_ln() - s2));
     }
     out
 }
@@ -470,7 +471,7 @@ pub fn activity_coefficients(
     let ln_r = ln_gamma_residual(params, components, x, temperature);
     ln_c.iter()
         .zip(ln_r.iter())
-        .map(|(c, r)| (c + r).exp())
+        .map(|(c, r)| (c + r).r_exp())
         .collect()
 }
 

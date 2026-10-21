@@ -41,6 +41,7 @@
 //!     --features "block-mesh foam-mesh fem-export"
 //! ```
 
+use petir::mathf::RealMath;
 use std::path::PathBuf;
 
 use outram_blender::csg::plot::slice::PlotBasis;
@@ -95,7 +96,7 @@ fn main() {
             .expect("cfMesh cylinder");
     println!("cfMesh report: valid = {}, total volume = {:.6} m^3", report.valid, report.total_volume);
     let fv = cfmesh::from_volume_mesh(&vm).expect("neutral from cfMesh");
-    let fv = two_zones(fv, "inner r<0.3 m", "outer", |c| c[0].hypot(c[1]) < 0.3);
+    let fv = two_zones(fv, "inner r<0.3 m", "outer", |c| c[0].r_hypot(c[1]) < 0.3);
     save(&fv, PlotBasis::Xy, Some(52.0), "FV CFMESH TET-DUAL CYLINDER, Z = 52 CM", &out, "fv_cfmesh_cylinder_xy.png");
     save(&fv, PlotBasis::Xz, Some(1.3), "FV CFMESH TET-DUAL CYLINDER, Y = 1.3 CM", &out, "fv_cfmesh_cylinder_xz.png");
 
@@ -116,7 +117,7 @@ boundary ( inlet { type patch; faces ( (0 4 7 3) ); } outlet { type patch; faces
     // ── FE: farrer-park generators (they stay in farrer-park) ───────────────
     let (qa, _) = fem::generate(fem::FemGenerator::QuarterAnnulusQuad4 { r_inner: 0.1, r_outer: 0.2, n_r: 6, n_theta: 12 })
         .expect("quarter annulus");
-    let qa = two_zones(qa, "inner half r<0.15 m", "outer half", |c| c[0].hypot(c[1]) < 0.15);
+    let qa = two_zones(qa, "inner half r<0.15 m", "outer half", |c| c[0].r_hypot(c[1]) < 0.15);
     save(&qa, PlotBasis::Xy, None, "FE FARRER-PARK QUARTER ANNULUS QUAD4 (2-D)", &out, "fe_farrer_quarter_annulus.png");
 
     let (bt, _) = fem::generate(fem::FemGenerator::BoxTet4 { size: [0.3, 0.2, 0.2], divisions: [3, 2, 2] }).expect("box tet4");

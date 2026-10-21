@@ -98,6 +98,7 @@ fn main() -> Result<(), String> {
 
 #[cfg(not(any(target_arch = "wasm32", target_os = "android")))]
 mod native {
+    use petir::mathf::RealMath;
     use super::boonlay::*;
     use super::physics::*;
     use boon_lay::prelude::decay_library::DecayLibrary;
@@ -205,7 +206,7 @@ mod native {
             let q = q_from_excesses(&[(1.0, delta(&masses, s.z, s.a)?), (-1.0, delta(&masses, s.daughter_z, s.daughter_a)?)]);
             let dp = pc_kev(q.2, ME_KEV);
             let (ang, de) = in_flight_kick(e / 1e3, m, dp);
-            let p_ps = 1.0 - (-(2f64.ln()) * 1e-12 / s.half_life_s).exp();
+            let p_ps = 1.0 - (-(2f64.r_ln()) * 1e-12 / s.half_life_s).r_exp();
             println!("  in flight, {}: kick <= {:.0} keV/c, turn <= {:.3e} rad, dE <= {:.1} keV of {:.1} MeV; P(decay in 1 ps) {:.3e}", pretty_name(&s.parent), dp, ang, de, e / 1e6, p_ps);
             writeln!(js, "    {{ name: \"{}\", t12: {:.6e}, kickPcKeV: {dp:.6e}, angleRad: {ang:.6e}, dEKeV: {de:.6e}, pPerPs: {p_ps:.6e} }},", pretty_name(&s.parent), s.half_life_s).unwrap();
         }

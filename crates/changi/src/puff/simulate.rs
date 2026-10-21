@@ -19,6 +19,8 @@
 //! where it had got to. Upstream's analytic `source + u_emit * age` is retained
 //! as the bug-compatible variant the code-to-code fixture asks for by name.
 
+use petir::mathf::RealMath;
+
 use uom::si::f64::{Length, Mass, MassRate, Time, Velocity};
 use uom::si::length::meter;
 use uom::si::mass::kilogram;
@@ -255,7 +257,7 @@ fn puff_offset(p: &Puff, policy: AdvectionPolicy, elapsed_s: f64) -> (f64, f64, 
             let age = elapsed_s - p.time_emitted_s;
             let dx = p.wind_u * age;
             let dy = p.wind_v * age;
-            (dx, dy, dx.hypot(dy))
+            (dx, dy, dx.r_hypot(dy))
         }
     }
 }
@@ -281,7 +283,7 @@ pub(crate) fn advect(live: &mut [Puff], wind: WindComponents, dt: Time, policy: 
     let step_dx = u * dt_s;
     let step_dy = v * dt_s;
     // The length of THIS leg, accumulated — not recomputed from the endpoints.
-    let leg = step_dx.hypot(step_dy);
+    let leg = step_dx.r_hypot(step_dy);
     for p in live.iter_mut() {
         p.dx_m += step_dx;
         p.dy_m += step_dy;
@@ -859,7 +861,7 @@ mod tests {
              Lagrangian : dx = {dx_l:.1} m, dy = {dy_l:.1} m, path = {dist_l:.1} m, \
              net displacement = {:.1} m\n  \
              frozen wind: dx = {dx_u:.1} m, dy = {dy_u:.1} m, hypot = {dist_u:.1} m",
-            dx_l.hypot(dy_l),
+            dx_l.r_hypot(dy_l),
         );
 
         // The Lagrangian puff is at the corner of the dog-leg.
@@ -871,9 +873,9 @@ mod tests {
             "path = {dist_l}, wanted 1000 m"
         );
         assert!(
-            dist_l > dx_l.hypot(dy_l),
+            dist_l > dx_l.r_hypot(dy_l),
             "on a bent trajectory the path {dist_l} must exceed the net displacement {}",
-            dx_l.hypot(dy_l)
+            dx_l.r_hypot(dy_l)
         );
 
         // The frozen-wind puff never turned: still due east, second leg lost.
@@ -884,10 +886,10 @@ mod tests {
         );
         // And it is half a kilometre from where the parcel actually is.
         assert!(
-            (dx_u - dx_l).hypot(dy_u - dy_l) > 490.0,
+            (dx_u - dx_l).r_hypot(dy_u - dy_l) > 490.0,
             "the two policies must disagree on a veering wind; they are only \
              {:.1} m apart",
-            (dx_u - dx_l).hypot(dy_u - dy_l)
+            (dx_u - dx_l).r_hypot(dy_u - dy_l)
         );
     }
 

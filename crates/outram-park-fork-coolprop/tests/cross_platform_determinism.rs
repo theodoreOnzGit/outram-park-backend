@@ -91,6 +91,7 @@
 //! `node --no-warnings scripts/wasi-run.mjs <wasm> --nocapture` from the crate
 //! directory.
 
+use petir::mathf::RealMath;
 use outram_park_fork_coolprop::{conductivity, state_ph, state_pt, viscosity, Fluid, OPCPFluidArray};
 
 use uom::si::area::square_meter;
@@ -221,11 +222,11 @@ fn fluid_sweep(fluid: Fluid, tag: &str) -> Vec<(String, usize, u64)> {
     let names = ["rho", "h", "s", "cp", "cv", "w", "ph_T", "ph_rho", "mu", "lambda"];
     let mut hs: Vec<Fnv> = names.iter().map(|n| Fnv::new(&format!("{tag}_{n}"))).collect();
     let (t_lo, t_hi, p_lo, p_hi) = ranges(fluid);
-    let (lp0, lp1) = (p_lo.ln(), p_hi.ln());
+    let (lp0, lp1) = (p_lo.r_ln(), p_hi.r_ln());
     for i in 0..NT {
         let t = t_lo + (t_hi - t_lo) * i as f64 / (NT - 1) as f64;
         for j in 0..NPR {
-            let p = (lp0 + (lp1 - lp0) * j as f64 / (NPR - 1) as f64).exp();
+            let p = (lp0 + (lp1 - lp0) * j as f64 / (NPR - 1) as f64).r_exp();
             match state_pt(fluid, t, p) {
                 Ok(s) => {
                     for (k, v) in [s.density, s.enthalpy, s.entropy, s.cp, s.cv, s.speed_of_sound]

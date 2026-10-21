@@ -713,6 +713,7 @@ pub mod web {
 #[cfg(all(test, not(target_arch = "wasm32")))]
 mod tests {
     use super::*;
+    use petir::mathf::RealMath;
     use njoy_outram_park_fork::reference_data::reference_endf;
     use outram_mc_libs::material::nuclide::MicroXS;
 
@@ -748,7 +749,7 @@ mod tests {
     fn fingerprint(n: &Nuclide, temp_k: f64) -> Vec<u64> {
         let mut v = Vec::new();
         let mut es: Vec<f64> = (0..=1200)
-            .map(|i| 1.0e-5 * (2.0e7_f64 / 1.0e-5).powf(f64::from(i) / 1200.0))
+            .map(|i| 1.0e-5 * (2.0e7_f64 / 1.0e-5).r_powf(f64::from(i) / 1200.0))
             .collect();
         if let Some((lo, hi)) = n.urr_range_ev() {
             es.extend((0..=100).map(|i| lo + (hi - lo) * f64::from(i) / 100.0));

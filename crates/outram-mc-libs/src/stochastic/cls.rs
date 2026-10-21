@@ -550,7 +550,7 @@ mod tests {
             let cz = 2.0 * prn(&mut seed) - 1.0;
             let sz = (1.0 - cz * cz).max(0.0).sqrt();
             let phi = 2.0 * std::f64::consts::PI * prn(&mut seed);
-            let p = [r * sz * phi.cos(), r * sz * phi.sin(), r * cz];
+            let p = [r * sz * phi.r_cos(), r * sz * phi.r_sin(), r * cz];
 
             // Inward normal, and an orthonormal basis around it.
             let nrm = [-p[0] / r, -p[1] / r, -p[2] / r];
@@ -578,9 +578,9 @@ mod tests {
             let sin_t = (1.0 - cos_t * cos_t).max(0.0).sqrt();
             let psi = 2.0 * std::f64::consts::PI * prn(&mut seed);
             let d = [
-                sin_t * psi.cos() * t1[0] + sin_t * psi.sin() * t2[0] + cos_t * nrm[0],
-                sin_t * psi.cos() * t1[1] + sin_t * psi.sin() * t2[1] + cos_t * nrm[1],
-                sin_t * psi.cos() * t1[2] + sin_t * psi.sin() * t2[2] + cos_t * nrm[2],
+                sin_t * psi.r_cos() * t1[0] + sin_t * psi.r_sin() * t2[0] + cos_t * nrm[0],
+                sin_t * psi.r_cos() * t1[1] + sin_t * psi.r_sin() * t2[1] + cos_t * nrm[1],
+                sin_t * psi.r_cos() * t1[2] + sin_t * psi.r_sin() * t2[2] + cos_t * nrm[2],
             ];
 
             // 3. Solve |P + t d|^2 = R^2 for the far root.

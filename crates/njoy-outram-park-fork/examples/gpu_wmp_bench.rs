@@ -50,6 +50,9 @@
 //! only. The report header names the detected hardware (GPU adapter + backend,
 //! CPU cores, OS).
 
+#[cfg(not(target_os = "android"))]
+use petir::mathf::RealMath;
+
 // On Android there is no desktop GPU path — emit a stub main so the example
 // still compiles (an empty file would have no `main`).
 #[cfg(target_os = "android")]
@@ -327,8 +330,8 @@ fn log_spaced(e_min: f64, e_max: f64, n: usize) -> Vec<f64> {
     if n == 1 {
         return vec![e_min];
     }
-    let log_lo = e_min.ln();
-    let log_hi = e_max.ln();
+    let log_lo = e_min.r_ln();
+    let log_hi = e_max.r_ln();
     let step = (log_hi - log_lo) / ((n - 1) as f64);
-    (0..n).map(|i| (log_lo + step * i as f64).exp()).collect()
+    (0..n).map(|i| (log_lo + step * i as f64).r_exp()).collect()
 }

@@ -2,6 +2,8 @@
 //! approximation) and `coulfg` (the CPC "COULFG" algorithm), ported from
 //! `samm.f90:4297-4338` and `samm.f90:4003-4295`.
 
+use petir::mathf::RealMath;
+
 /// JWKB (semiclassical) approximation to the irregular Coulomb function
 /// `G_l(eta,x)` and its reciprocal-product partner `F_l`, used by
 /// [`coulfg`] deep in the classically-forbidden region — ported from
@@ -35,18 +37,18 @@ pub fn jwkb(xx: f64, eta1: f64, xl: f64) -> Option<Jwkb> {
     let sl = eta / hl + hl / x;
     let rl2 = 1.0 + eta * eta / hll;
     let gh = (gh2 + hll).sqrt() / x;
-    let mut phi = x * gh - 0.5 * (hl * ((gh + sl).powi(2) / rl2).ln() - gh.ln());
+    let mut phi = x * gh - 0.5 * (hl * ((gh + sl).r_powi(2) / rl2).r_ln() - gh.r_ln());
     if eta != 0.0 {
-        phi -= eta * (x * gh).atan2(x - eta);
+        phi -= eta * (x * gh).r_atan2(x - eta);
     }
 
     let phi10 = -phi * ALOGE;
     let mut iexp = phi10 as i32; // Fortran `int()` truncates toward zero, matching `as i32`.
     let gjwkb;
     if iexp > 70 {
-        gjwkb = 10f64.powf(phi10 - iexp as f64);
+        gjwkb = 10f64.r_powf(phi10 - iexp as f64);
     } else {
-        gjwkb = (-phi).exp();
+        gjwkb = (-phi).r_exp();
         iexp = 0;
     }
     let fjwkb = 0.5 / (gh * gjwkb);
@@ -157,7 +159,7 @@ pub fn coulfg(
         f = (ek + pk * xi) * fcl + (fcl - 1.0) * xi;
         pk1 = pk + 1.0;
         if (eta * x + pk * pk1).abs() <= acc {
-            fcl = (1.0 + ek * ek) / (1.0 + (eta / pk1).powi(2));
+            fcl = (1.0 + ek * ek) / (1.0 + (eta / pk1).r_powi(2));
             pk = 2.0 + pk;
             continue;
         }
@@ -396,12 +398,12 @@ pub fn coulfg(
     let l_idx = lll as usize; // Fortran `l=lll+1` -> myL = lll directly.
     if iexp > 1 {
         if iexp < 150 {
-            let asq = gc[l_idx].powi(2);
-            let aaa = 10f64.powi(-iexp * 2);
+            let asq = gc[l_idx].r_powi(2);
+            let aaa = 10f64.r_powi(-iexp * 2);
             pcoul = xx / asq * aaa;
             if jdopha {
                 sinphi = fc[l_idx] / gc[l_idx] * aaa;
-                cosphi = 1.0 - sinphi.powi(2);
+                cosphi = 1.0 - sinphi.r_powi(2);
                 if jdoder {
                     dphi = gcp[l_idx] / gc[l_idx] * sinphi - fcp[l_idx] / gc[l_idx] * aaa;
                 }
@@ -411,7 +413,7 @@ pub fn coulfg(
             scoul = xx * gcp[l_idx] / gc[l_idx];
         }
     } else {
-        let asq = fc[l_idx].powi(2) + gc[l_idx].powi(2);
+        let asq = fc[l_idx].r_powi(2) + gc[l_idx].r_powi(2);
         pcoul = xx / asq;
         let sss = xx * (fc[l_idx] * fcp[l_idx] + gc[l_idx] * gcp[l_idx]) / asq;
         if ishift > 0 {

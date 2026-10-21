@@ -130,6 +130,7 @@
 //! under the workspace `RESPONSIBLE_USE.md` rules until the maintainer and the
 //! crate owner review it.
 
+use petir::mathf::RealMath;
 pub mod case_studies;
 pub mod mcmc;
 pub mod transitional;
@@ -236,7 +237,7 @@ impl IndependentPrior {
             if !(density > 0.0) {
                 return f64::NEG_INFINITY;
             }
-            acc += density.ln();
+            acc += density.r_ln();
         }
         if acc.is_nan() {
             f64::NEG_INFINITY
@@ -366,8 +367,8 @@ mod tests {
     fn joint_log_density_is_the_sum_of_marginals() {
         let prior = two_parameter_prior();
         let theta = [0.25, 0.5];
-        let expected = Uniform::new(0.0, 1.0).unwrap().pdf(0.25).ln()
-            + Normal::new(0.0, 1.0).unwrap().pdf(0.5).ln();
+        let expected = Uniform::new(0.0, 1.0).unwrap().pdf(0.25).r_ln()
+            + Normal::new(0.0, 1.0).unwrap().pdf(0.5).r_ln();
         assert!((prior.ln_pdf(&theta) - expected).abs() < 1e-15);
     }
 
@@ -411,7 +412,7 @@ mod tests {
             let sample_mean = values.iter().sum::<f64>() / n as f64;
             let sample_var = values
                 .iter()
-                .map(|v| (v - sample_mean).powi(2))
+                .map(|v| (v - sample_mean).r_powi(2))
                 .sum::<f64>()
                 / (n as f64 - 1.0);
             let tolerance = 4.0 * sd / (n as f64).sqrt();
@@ -456,7 +457,7 @@ mod tests {
         let n = 20_000;
         let values: Vec<f64> = (0..n).map(|_| standard_normal(&mut seed)).collect();
         let mean = values.iter().sum::<f64>() / n as f64;
-        let var = values.iter().map(|v| (v - mean).powi(2)).sum::<f64>() / (n as f64 - 1.0);
+        let var = values.iter().map(|v| (v - mean).r_powi(2)).sum::<f64>() / (n as f64 - 1.0);
         println!("standard normal draws: mean {mean:.5} variance {var:.5}");
 
         assert!(mean.abs() < 4.0 / (n as f64).sqrt(), "mean {mean}");

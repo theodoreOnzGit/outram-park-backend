@@ -48,8 +48,17 @@
 //!
 //! ## Bounds, and why
 //!
-//! **Real(8): relative 1e-13, no floor, no exclusion, every group.** It
-//! measures the translation; every output of every group is bit-exact.
+//! **Real(8): relative 1e-13, no floor, no exclusion, every group except
+//! `cxy2ll` and `cg2cxy`.** ~~It measures the translation; every output of
+//! every group is bit-exact.~~ **CORRECTED 2026-10-20** (gh:#985): that held
+//! while the port called the same glibc `atan2`/`sin`/`cos`/`ln`/`exp` as
+//! gfortran, so the bound measured libm agreement as much as the
+//! translation. The port's transcendentals now go through PETIR, which is
+//! the same on every host but is not glibc, and real(8) is no longer
+//! bit-exact: see "PETIR route" under Results. `cxy2ll` and `cg2cxy` take
+//! bounds derived from their conditioning, below ([`CXY2LL_TOL8`],
+//! [`CG2CXY_TOL8`]). The maintainer accepted this change ("Flexpart is ok",
+//! 2026-10-20).
 //!
 //! **Real(4): relative 1e-5**, with these documented allowances. Each was
 //! diagnosed row by row before it was written down; none was tuned to pass.
@@ -120,6 +129,29 @@
 //! | `cpolxy` | 749 | bit-exact | 369 | under floor / 2.0e-7 |
 //! | `coordtrafo` (+ count, stop) | 17 + 5 + 1 | bit-exact | 14 + 4 + 1 | 4.2e-8 |
 //!
+//! ### PETIR route (2026-10-20, gh:#985)
+//!
+//! The "vs real8" column above is the 2026-10-02 record, taken with the
+//! port on glibc. Re-run 2026-10-20 at the same fixtures on x86_64 Linux
+//! (rustc 1.95, release), real(8), before = step-0 commit `74ed282e1` (glibc
+//! route), after = PETIR route. Groups not listed are still bit-exact.
+//!
+//! | Group | before: bit-exact / max rel | after: bit-exact / max rel | bound |
+//! |---|---|---|---:|
+//! | `cnllxy` | 1656/1656 / 0 | 1655/1656 / 2.9e-16 | 1e-13 |
+//! | `cll2xy` | 1656/1656 / 0 | 1655/1656 / 6.6e-16 | 1e-13 |
+//! | `cc2gll` | 1656/1656 / 0 | 1634/1656 / 3.0e-16 | 1e-13 |
+//! | `cg2cll` | 1656/1656 / 0 | 1631/1656 / 1.7e-15 | 1e-13 |
+//! | `ccrvll` | 1656/1656 / 0 | 1649/1656 / 2.1e-16 | 1e-13 |
+//! | `cpolll` | 2484/2484 / 0 | 2476/2484 / 1.8e-16 | 1e-13 |
+//! | `cnxyll` | 1498/1498 / 0 | 1438/1498 / 2.8e-15 | 1e-13 |
+//! | `cxy2ll` | 1498/1498 / 0 | 1474/1498 / 1.36e-13 | ~~1e-13~~ 2.5e-13 |
+//! | `cg2cxy` | 1498/1498 / 0 | 1461/1498 / 1.29e-13 | ~~1e-13~~ 1.4e-13 |
+//!
+//! Interpretation: the translation is unchanged; what moved is the libm.
+//! The worst rows sit where the projection amplifies a last-bit libm
+//! difference (the derivations are on [`CXY2LL_TOL8`] and [`CG2CXY_TOL8`]).
+//!
 //! "bit-exact" means every output, including the `NaN` and `inf` rows (the
 //! Mercator poles, `eqvlat(±90, ±90)`, the unguarded `cnxyll` pole).
 //! Interpretation: the translation is exact. Against FLEXPART as shipped, the
@@ -143,6 +175,8 @@
 //!
 //! Verification, not validation. Nothing here supports emergency response or
 //! dose assessment for real populations.
+
+use petir::mathf::RealMath;
 
 mod common;
 
@@ -225,6 +259,51 @@ const fn floored(scale: f64, rule: Real4Rule) -> Bounds {
 /// Earth radius as upstream writes it, km.
 const REARTH: f64 = 6371.2;
 
+/// Real(8) bound for `cxy2ll`, derived from its conditioning at its worst
+/// row rather than fitted to the miss (gh:#985, 2026-10-20).
+///
+/// ~~`1e-13`~~ **CORRECTED 2026-10-20**: 1e-13 was set when the port and
+/// gfortran both called glibc, so it measured libm agreement. Under PETIR the
+/// worst row, map 4 at `(x, y) = (239.60748079701088, -304.39242608948615)`,
+/// moved its longitude from -0.8363305929030957 (bit-exact with FLEXPART) to
+/// -0.8363305929029821: relative 1.36e-13. The maintainer accepted the change.
+///
+/// Derivation, at that row, with the port's arithmetic replayed in f64 on the
+/// host libm (it reproduces FLEXPART's value bit for bit):
+/// - the longitude is `cspanf(150 + DGPRAD * atan2(gxi, cgeta) / gamma)`,
+///   `gamma = -0.5736`. `d xlong / d atan2 = DGPRAD / |gamma| = 99.9 deg/rad`,
+///   and the wrap forms `|value - first| = 539.16` before subtracting 180,
+///   so the output is quantised in steps of `ulp(539.16) = 1.137e-13` deg
+///   (the observed miss is exactly one step);
+/// - each libm result is perturbed by 64 ulp and the output change divided by
+///   64 (linearised condition times ulp). Two libms each within 1 ulp of
+///   the exact value disagree by at most 2 ulp per call. That gives 8.9e-14
+///   deg, plus one quantum, 1.14e-13, for 2.0e-13 deg absolute;
+/// - divided by `|xlong| = 0.836` deg: **2.42e-13 relative**, written here
+///   rounded up to two figures.
+///
+/// The "within 1 ulp" premise is an assumption, NOT measured here: both
+/// glibc's and PETIR's double `atan2`, `sin`, `cos`, `ln` and `exp` are
+/// taken to be within 1 ulp of the exact value. If either is worse, this
+/// bound is too tight, not too loose.
+const CXY2LL_TOL8: f64 = 2.5e-13;
+
+/// Real(8) bound for `cg2cxy`, derived from its conditioning at its worst
+/// row rather than fitted to the miss (gh:#985, 2026-10-20).
+///
+/// ~~`1e-13`~~ **CORRECTED 2026-10-20** for the reason given on
+/// [`CXY2LL_TOL8`]. Worst row: map 4, `(x, y, ug, vg) = (-26914.36591440975,
+/// 12687.527002843066, 5.1, -2.4)`, `vn` moved from -3.780436940878218e-2
+/// (bit-exact) to -3.7804369408787064e-2: relative 1.29e-13. The point is in
+/// the polar branch, so the wind is rotated by `sin`/`cos` of
+/// `RADPDG * (gamma (xlong - 150) - xlong - 180)`, with `xlong` from
+/// `cnxyll`'s `atan2`. Replayed as for `cxy2ll`, 64-ulp perturbation per
+/// libm call, 2 ulp disagreement per call: the `cnxyll` longitude `atan2`
+/// carries almost all of it. **1.37e-13 relative** at that row, written here
+/// rounded up to two figures. The bound covers the observed 1.29e-13 with
+/// little margin. Widening it further would be fitting, not derivation.
+const CG2CXY_TOL8: f64 = 1.4e-13;
+
 fn all(_: &Row, _: Precision) -> bool {
     true
 }
@@ -289,7 +368,7 @@ const EPS32: f64 = f32::EPSILON as f64 / 2.0;
 /// `f32`: `eps32 * |a| * |tan a|`, `a` in radians.
 fn kappa_cos(lat: f64) -> f64 {
     let a = lat.to_radians();
-    EPS32 * a.abs() * a.tan().abs()
+    EPS32 * a.abs() * a.r_tan().abs()
 }
 
 /// Real(4) scope of the routines taking a latitude: rows where upstream's
@@ -413,13 +492,14 @@ fn cnxyll() {
 /// Against the real(4) build (whose `xlong` is rounded to `f32` before the
 /// wrap) the port's longitude is therefore compared as an angle: shifted by
 /// 360 when it lies on the other side of the cut from FLEXPART's. The real(8)
-/// comparison takes no such allowance and is bit-exact.
+/// comparison takes no such allowance. ~~and is bit-exact~~ **CORRECTED
+/// 2026-10-20**: bound [`CXY2LL_TOL8`] since the PETIR route (gh:#985).
 #[test]
 fn cxy2ll() {
     check_group(
         fx(),
         "cxy2ll",
-        floored(1.0, Real4Rule::PrecisionSpread),
+        Bounds { tol8: CXY2LL_TOL8, ..floored(1.0, Real4Rule::PrecisionSpread) },
         xy_scope,
         |r, p| {
             let s = map(p, r.args[0]);
@@ -443,7 +523,7 @@ fn cgszxy() {
 fn cg2cxy() {
     map_group(
         "cg2cxy",
-        floored(1.0, Real4Rule::PrecisionSpread),
+        Bounds { tol8: CG2CXY_TOL8, ..floored(1.0, Real4Rule::PrecisionSpread) },
         xy_scope,
         |s, a| {
             let (u, v) = cmapf::cg2cxy(s, a[0], a[1], a[2], a[3]);

@@ -106,9 +106,10 @@
 //! fast Godiva cases barely visit. All three `k` values agree with each other
 //! within their sigmas.
 //!
-//! So `csg_nested_lattice_keff` now accepts each named host's pin
+//! ~~So `csg_nested_lattice_keff` now accepts each named host's pin
 //! (`check_hosts`); a third host adds its own line rather than replacing
-//! one.
+//! one.~~ **SUPERSEDED 2026-10-20 (gh:#985):** see the re-pin below;
+//! `check_hosts` is gone and every case has one pin.
 //!
 //! **`fhr_explicit_triso_delta` re-pinned 2026-10-05 on top of `b208cecc7`
 //! (#589), for two causes.** (1) The host dependence above. (2) #589 made
@@ -127,6 +128,33 @@
 //! `0x1fb06c36a096d760`, `k = 1.52292 +/- 0.01056`, the same bits at
 //! `8df5cde5f` and with #784's tracking observers.**
 
+//!
+//! # Re-pinned once, 2026-10-20: every transcendental on PETIR (gh:#985)
+//!
+//! gh:#985 routed every `exp`/`ln`/`powf`/trig call in the workspace through
+//! `petir::mathf::RealMath` (ARM optimized-routines ports for exp/ln/powf,
+//! `libm` for the rest), including `njoy-outram-park-fork`'s WMP evaluation
+//! and `raffles`' `sample_normal`. That is a ROUTING change, not a physics
+//! change: the platform libm is no longer called, so the bits are meant to
+//! be the same on every host and the host lists of #578 are retired.
+//! Measured on host A (i9-13900K, Arch, glibc 2.44), release, on the gh:#985 branch
+//! merged with develop `8ad7795d6`:
+//!
+//! | case | old pin(s) | new pin | k |
+//! |---|---|---|---|
+//! | `fhr_explicit_triso_delta` | host B `0x235271e5059e6adf`, host A `0x1fb06c36a096d760` | `0x1d7c42860b929df3` | 1.52292 +/- 0.01056 (host A) -> **1.52541 +/- 0.00847** |
+//! | `csg_nested_lattice_keff` | host A `0x509ddd7ff08feef7`, host B `0xa9f3504144099ed2` | `0x9a0a134b77cc8def` | 1.72302 +/- 0.01326 (host A) -> **1.73360 +/- 0.01313** |
+//! | `csg_nested_lattice_navigation` | `0xa10fb6daad87f539` | `0x713ceb92878a0977` | 3104 of 4000 located, 17220 events (unchanged counts) |
+//! | `pure_statistics` | `0xf67085fed4325815` | `0x758b0a252eb4c876` | — (`sample_normal`'s cos) |
+//! | `godiva_run_keff`, `godiva_csg_entropy_trigger`, `mg_sphere`, `shannon_entropy`, `tally_meshes` | unchanged | unchanged | unchanged |
+//!
+//! Both `k` moves are inside one combined sigma (+249 pcm, 0.18 sigma;
+//! +1058 pcm, 0.57 sigma), as a reshuffled random stream should give.
+//! **Not yet measured:** whether a second host reproduces these bits. That is
+//! the point of the change; if one does not, the cause is a remaining
+//! platform call, to be found and routed, not a host line to add.
+
+use petir::mathf::RealMath;
 use outram_mc_libs::geometry::cell::{Cell, HalfSpaceSense, RegionToken};
 use outram_mc_libs::geometry::geometry::Geometry;
 use outram_mc_libs::geometry::position::Position;
@@ -175,20 +203,6 @@ fn check(name: &str, got: u64, pinned: u64, detail: &str) {
         return;
     }
     assert_eq!(got, pinned, "{name} moved: {detail}");
-}
-
-/// Like [`check`], but passes when `got` equals any named host's pin. Use
-/// only for a case shown to be libm-dependent (GitHub #578): on any one host
-/// it is still a bit-identity gate, because each host's runs give one value.
-fn check_hosts(name: &str, got: u64, pins: &[(&str, u64)], detail: &str) {
-    if std::env::var("STATS_FP_PRINT").is_ok() {
-        eprintln!("FINGERPRINT {name} = {got:#018x}   ({detail})");
-        return;
-    }
-    assert!(
-        pins.iter().any(|&(_, p)| p == got),
-        "{name} moved: {detail}; got {got:#018x}, known host pins {pins:x?}"
-    );
 }
 
 fn godiva() -> (Material, Vec<Nuclide>) {
@@ -440,8 +454,8 @@ fn fhr_explicit_triso_delta_is_bit_identical() {
         R_PEBBLE,
     );
     let (e_min, e_max, n_grid): (f64, f64, usize) = (1.0e-4, 2.0e7, 150);
-    let ratio = (e_max / e_min).powf(1.0 / (n_grid as f64 - 1.0));
-    let grid: Vec<f64> = (0..n_grid as i32).map(|i| e_min * ratio.powi(i)).collect();
+    let ratio = (e_max / e_min).r_powf(1.0 / (n_grid as f64 - 1.0));
+    let grid: Vec<f64> = (0..n_grid as i32).map(|i| e_min * ratio.r_powi(i)).collect();
     let majorant = Majorant::from_materials(&materials, &nuclides, &grid, 0.05);
     let settings = KeffSettings {
         n_particles: 500,
@@ -460,20 +474,13 @@ fn fhr_explicit_triso_delta_is_bit_identical() {
     );
     let mut fp = Fp::new();
     fp.keff(&r);
-    check_hosts(
+    check(
         "fhr_explicit_triso_delta",
         fp.0,
-        &[
-            // Host B: Intel Xeon @ 2.10 GHz, Ubuntu glibc 2.39. Re-pinned
-            // 2026-10-05 (#578) on top of b208cecc7 (#589, majorant adds
-            // nuclide breakpoints); was 0x86e84b60e8278ec3 (host A, before
-            // #589). ~~Host A's post-#589 value is not yet measured.~~
-            ("host B", 0x235271e5059e6adf),
-            // Host A: i9-13900K desktop (Arch, glibc). Measured 2026-10-07
-            // (#784) at 8df5cde5f, before and after #784's observer hooks
-            // (the same bits both times): k = 1.52292 +/- 0.01056.
-            ("host A", 0x1fb06c36a096d760),
-        ],
+        // Re-pinned 2026-10-20 (gh:#985): every transcendental on PETIR, one
+        // pin for every host. Was host B 0x235271e5059e6adf, host A
+        // 0x1fb06c36a096d760 (#578).
+        0x1d7c42860b929df3,
         &format!(
             "k = {:#018x} +/- {:#018x}",
             r.k_mean.to_bits(),
@@ -529,7 +536,9 @@ fn pure_statistics_are_bit_identical() {
     check(
         "pure_statistics",
         fp.0,
-        0xf67085fed4325815,
+        // Re-pinned 2026-10-20 (gh:#985): sample_normal's cos is PETIR's.
+        // Was 0xf67085fed4325815.
+        0x758b0a252eb4c876,
         "pooled, trigger stats, DerivedTally, samplers",
     );
 }
@@ -600,7 +609,7 @@ impl Probe {
         let mu = self.range(-1.0, 1.0);
         let phi = self.range(0.0, std::f64::consts::TAU);
         let s = (1.0 - mu * mu).sqrt();
-        outram_mc_libs::geometry::position::Direction::new(s * phi.cos(), s * phi.sin(), mu)
+        outram_mc_libs::geometry::position::Direction::new(s * phi.r_cos(), s * phi.r_sin(), mu)
     }
 }
 
@@ -847,7 +856,9 @@ fn csg_nested_lattice_navigation_is_bit_identical() {
     check(
         "csg_nested_lattice_navigation",
         fp.0,
-        0xa10fb6daad87f539,
+        // Re-pinned 2026-10-20 (gh:#985): direction sampling on PETIR trig.
+        // Was 0xa10fb6daad87f539.
+        0x713ceb92878a0977,
         &format!("{n_located} of 4000 points located, {n_events} flight events"),
     );
 }
@@ -902,17 +913,13 @@ fn csg_nested_lattice_keff_is_bit_identical() {
     );
     let mut fp = Fp::new();
     fp.keff(&r);
-    check_hosts(
+    check(
         "csg_nested_lattice_keff",
         fp.0,
-        &[
-            // Host A: maintainer's desktop, pinned on 40b6ba9fca (#486).
-            ("host A", 0x509ddd7ff08feef7),
-            // Host B: Intel Xeon @ 2.10 GHz, Ubuntu glibc 2.39 (FMA libm
-            // variants). Added 2026-10-05 (#578): the same code gives this on
-            // host B at every commit from c2b5000db on; libm, not a code move.
-            ("host B", 0xa9f3504144099ed2),
-        ],
+        // Re-pinned 2026-10-20 (gh:#985): every transcendental on PETIR, one
+        // pin for every host. Was host A 0x509ddd7ff08feef7, host B
+        // 0xa9f3504144099ed2 (#578).
+        0x9a0a134b77cc8def,
         &format!(
             "k = {:#018x} +/- {:#018x}",
             r.k_mean.to_bits(),

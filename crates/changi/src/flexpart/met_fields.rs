@@ -81,6 +81,8 @@
 //! (`1e-6 K m² kg⁻¹ s⁻¹`), sign as upstream (positive in the northern
 //! hemisphere for a stable atmosphere).
 
+use petir::mathf::RealMath;
+
 use super::boundary_layer::richardson;
 use super::constants::{GA, HMIXMAX, HMIXMIN, KAPPA, NUMCLASS, PI, R_AIR, R_EARTH};
 use super::dry_deposition::{getvdep, DepositionSpecies, SurfaceMet, SurfaceResistances, NSEASON};
@@ -531,9 +533,9 @@ pub fn calcpar(
                 let pint = input.akz[kz - 1] + input.bkz[kz - 1] * ps;
                 let tv = tth(kz) * (1.0 + 0.608 * qvh(kz));
                 zlev[kz] = if (tv - tvold).abs() > 0.2 {
-                    zold + konst * (pold / pint).ln() * (tv - tvold) / (tv / tvold).ln()
+                    zold + konst * (pold / pint).r_ln() * (tv - tvold) / (tv / tvold).r_ln()
                 } else {
-                    zold + konst * (pold / pint).ln() * tv
+                    zold + konst * (pold / pint).r_ln() * tv
                 };
                 tvold = tv;
                 pold = pint;
@@ -705,7 +707,7 @@ pub fn calcpv(
             for ix in 0..nx {
                 let p = akz[kl] + bkz[kl] * ps.at(ix, jy);
                 ppml.set(ix, jy, kl, p);
-                ppmk.set(ix, jy, kl, (100_000.0 / p).powf(KAPPA));
+                ppmk.set(ix, jy, kl, (100_000.0 / p).r_powf(KAPPA));
             }
         }
     }
@@ -721,9 +723,9 @@ pub fn calcpv(
         }
         let ju = jy as usize;
         let phi = (geom.ylat0 + jy as f64 * geom.dy) * PI / 180.0;
-        let f = 0.00014585 * phi.sin();
-        let tanphi = phi.tan();
-        let cosphi = phi.cos();
+        let f = 0.00014585 * phi.r_sin();
+        let tanphi = phi.r_tan();
+        let cosphi = phi.r_cos();
         // virtual jy+1 and jy-1 at the domain edge
         let mut jyvp = jy + 1;
         let mut jyvm = jy - 1;

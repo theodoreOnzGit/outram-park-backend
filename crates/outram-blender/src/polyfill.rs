@@ -506,6 +506,7 @@ pub fn newell_normal(points: &[Vec3]) -> Vec3 {
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
 
     /// Twice the signed area of a 2-D triangle.
@@ -540,7 +541,7 @@ mod tests {
             let coords: Vec<[f64; 2]> = (0..n)
                 .map(|i| {
                     let t = std::f64::consts::TAU * (i as f64) / (n as f64);
-                    [t.cos(), t.sin()]
+                    [t.r_cos(), t.r_sin()]
                 })
                 .collect();
             assert_eq!(polyfill_2d(&coords).len(), n - 2, "n = {n}");
@@ -718,7 +719,7 @@ mod tests {
             .map(|i| {
                 let t = std::f64::consts::TAU * (i as f64) / (n as f64);
                 let r = if i % 3 == 0 { 0.4 } else { 1.0 };
-                [r * t.cos(), r * t.sin()]
+                [r * t.r_cos(), r * t.r_sin()]
             })
             .collect();
         for t in polyfill_2d(&coords) {

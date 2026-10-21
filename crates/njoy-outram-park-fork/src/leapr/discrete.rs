@@ -20,6 +20,7 @@
 //! ## Units
 //! `alpha`, `beta`, `S` dimensionless; oscillator energies in eV; temperatures K.
 
+use petir::mathf::RealMath;
 use crate::leapr::input::LeaprInput;
 use crate::leapr::SabMatrix;
 
@@ -52,7 +53,7 @@ pub fn bessel_i0(x: f64) -> f64 {
                         + v * (0.00916281
                             + v * (-0.02057706
                                 + v * (0.02635537 + v * (-0.01647633 + v * 0.00392377)))))));
-        poly / x.sqrt() * x.exp()
+        poly / x.sqrt() * x.r_exp()
     }
 }
 
@@ -73,7 +74,7 @@ pub fn bessel_i1(x: f64) -> f64 {
         let mut b = 0.02282967 + v * (-0.02895312 + v * (0.01787654 - v * 0.00420059));
         b = 0.39894228
             + v * (-0.03988024 + v * (-0.00362018 + v * (0.00163801 + v * (-0.01031555 + v * b))));
-        b / x.sqrt() * x.exp()
+        b / x.sqrt() * x.r_exp()
     }
 }
 
@@ -98,7 +99,7 @@ pub fn bfact(x: f64, dwc: f64, betai: f64) -> (f64, [f64; 50], [f64; 50]) {
         (bessel_i0(x), bessel_i1(x))
     } else {
         // e^{-x} I0(x), e^{-x} I1(x)
-        (bessel_i0(x) * (-x).exp(), bessel_i1(x) * (-x).exp())
+        (bessel_i0(x) * (-x).r_exp(), bessel_i1(x) * (-x).r_exp())
     };
 
     // higher orders by reverse recursion; bn[k] holds order k (1..=50)
@@ -128,22 +129,22 @@ pub fn bfact(x: f64, dwc: f64, betai: f64) -> (f64, [f64; 50], [f64; 50]) {
     let mut bminus = [0.0_f64; 50];
     let bzero;
     if y <= 1.0 {
-        bzero = bessi0 * (-dwc).exp();
+        bzero = bessi0 * (-dwc).r_exp();
         for k in 1..=imax {
             if bn[k] != 0.0 {
-                let p = (-dwc - (k as f64) * betai / 2.0).exp() * bn[k];
+                let p = (-dwc - (k as f64) * betai / 2.0).r_exp() * bn[k];
                 bplus[k - 1] = if p < TINY_B { 0.0 } else { p };
-                let m = (-dwc + (k as f64) * betai / 2.0).exp() * bn[k];
+                let m = (-dwc + (k as f64) * betai / 2.0).r_exp() * bn[k];
                 bminus[k - 1] = if m < TINY_B { 0.0 } else { m };
             }
         }
     } else {
-        bzero = bessi0 * (-dwc + x).exp();
+        bzero = bessi0 * (-dwc + x).r_exp();
         for k in 1..=imax {
             if bn[k] != 0.0 {
-                let p = (-dwc - (k as f64) * betai / 2.0 + x).exp() * bn[k];
+                let p = (-dwc - (k as f64) * betai / 2.0 + x).r_exp() * bn[k];
                 bplus[k - 1] = if p < TINY_B { 0.0 } else { p };
-                let m = (-dwc + (k as f64) * betai / 2.0 + x).exp() * bn[k];
+                let m = (-dwc + (k as f64) * betai / 2.0 + x).r_exp() * bn[k];
                 bminus[k - 1] = if m < TINY_B { 0.0 } else { m };
             }
         }
@@ -245,7 +246,7 @@ pub(crate) fn sint(
         if x > 0.0 {
             ex -= x;
         }
-        return ex.exp() / (4.0 * pi * wt * alph * tbart);
+        return ex.r_exp() / (4.0 * pi * wt * alph * tbart);
     }
     // bisection search for x in bex
     let mut k1 = 1usize;
@@ -271,16 +272,16 @@ pub(crate) fn sint(
     let ss1 = if sex[k1 - 1] <= 0.0 {
         SLIM
     } else {
-        sex[k1 - 1].ln()
+        sex[k1 - 1].r_ln()
     };
     let ss3 = if sex[k3 - 1] <= 0.0 {
         SLIM
     } else {
-        sex[k3 - 1].ln()
+        sex[k3 - 1].r_ln()
     };
     let ex = ((bex[k3 - 1] - x) * ss1 + (x - bex[k1 - 1]) * ss3) * rdbex[k1 - 1];
     if ex > SLIM {
-        ex.exp()
+        ex.r_exp()
     } else {
         0.0
     }
@@ -333,7 +334,7 @@ pub fn add_discrete_oscillators(
         let bdel = input.oscillators[i].energy_ev;
         let adel = input.oscillators[i].weight;
         bdeln[i] = bdel / tev;
-        let eb = (bdeln[i] / 2.0).exp();
+        let eb = (bdeln[i] / 2.0).r_exp();
         let sn = (eb - 1.0 / eb) / 2.0;
         let cn = (eb + 1.0 / eb) / 2.0;
         ar[i] = adel / (sn * bdeln[i]);
@@ -350,7 +351,7 @@ pub fn add_discrete_oscillators(
     let mut betan = vec![0.0_f64; nbeta];
     for i in 0..nbeta {
         let be = input.beta[i] * sc;
-        exb[i] = (-be / 2.0).exp();
+        exb[i] = (-be / 2.0).r_exp();
         betan[i] = be;
     }
     let (bex, rdbex, nbx) = bfill(&betan);
@@ -360,7 +361,7 @@ pub fn add_discrete_oscillators(
 
     for nal in 0..nalpha {
         let al = input.alpha[nal] * sc / arat;
-        let dwf = (-al * dw0).exp();
+        let dwf = (-al * dw0).r_exp();
 
         let col: Vec<f64> = (0..nbeta).map(|j| sab.get(j, nal)).collect();
         let sex = exts(&col, &exb, &betan, nbx);
@@ -619,7 +620,7 @@ mod tests {
         let mut sab = SabMatrix::zeros(nbeta, alpha.len());
         for j in 0..alpha.len() {
             for k in 0..nbeta {
-                sab.set(k, j, (-(beta[k]) / 2.0).exp() * 0.02);
+                sab.set(k, j, (-(beta[k]) / 2.0).r_exp() * 0.02);
             }
         }
         let mut dwpix = 5.0_f64;

@@ -1,0 +1,78 @@
+    Updating crates.io index
+   Packaging outram-blender v0.0.6 (/home/teddy0/Documents/research/outram-park-backend/crates/outram-blender)
+    Updating crates.io index
+    Packaged 172 files, 5.4MiB (1.3MiB compressed)
+   Verifying outram-blender v0.0.6 (/home/teddy0/Documents/research/outram-park-backend/crates/outram-blender)
+   Compiling unicode-ident v1.0.27
+   Compiling cfg-if v1.0.5
+   Compiling cfg_aliases v0.2.2
+   Compiling libm v0.2.16
+   Compiling num-traits v0.2.19
+   Compiling foldhash v0.2.0
+   Compiling proc-macro2 v1.0.107
+   Compiling equivalent v1.0.3
+   Compiling hashbrown v0.17.1
+   Compiling libloading v0.8.9
+   Compiling log v0.4.34
+   Compiling quote v1.0.47
+   Compiling zerocopy v0.8.63
+   Compiling syn v3.0.9
+   Compiling syn v2.0.119
+   Compiling libc v0.2.191
+   Compiling indexmap v2.14.2
+   Compiling bitflags v2.13.2
+   Compiling rustc-hash v1.1.0
+   Compiling naga v30.0.1
+   Compiling unicode-width v0.2.0
+   Compiling ash v0.38.0+1.3.281
+   Compiling pkg-config v0.3.34
+   Compiling thiserror-impl v2.0.21
+   Compiling bytemuck_derive v1.12.1
+   Compiling once_cell v1.21.4
+   Compiling parking_lot_core v0.9.12
+   Compiling bit-vec v0.9.1
+   Compiling bit-set v0.10.0
+   Compiling wayland-sys v0.31.11
+   Compiling thiserror v2.0.21
+   Compiling codespan-reporting v0.13.1
+   Compiling naga-types v30.0.1
+   Compiling bytemuck v1.25.2
+   Compiling spirv v0.4.0+sdk-1.4.341.0
+   Compiling zerocopy-derive v0.8.63
+   Compiling allocator-api2 v0.2.21
+   Compiling arrayvec v0.7.8
+   Compiling raw-window-handle v0.6.2
+   Compiling scopeguard v1.2.0
+   Compiling smallvec v1.16.3
+   Compiling static_assertions v1.1.0
+   Compiling khronos-egl v6.0.0
+   Compiling wgpu-types v30.0.1
+   Compiling lock_api v0.4.14
+   Compiling hashbrown v0.16.1
+   Compiling dlib v0.5.3
+   Compiling wgpu-hal v30.0.1
+   Compiling presser v0.3.1
+   Compiling parking_lot v0.12.5
+   Compiling ordered-float v5.5.0
+   Compiling renderdoc-sys v1.1.0
+   Compiling glow v0.17.0
+   Compiling profiling v1.0.18
+   Compiling wgpu-core v30.0.1
+   Compiling litrs v1.0.1
+   Compiling document-features v0.2.12
+   Compiling wgpu v30.0.1
+   Compiling uom v0.38.0
+   Compiling half v2.7.1
+   Compiling adler2 v2.0.1
+   Compiling miniz_oxide v0.8.9
+   Compiling gpu-allocator v0.28.0
+   Compiling wgpu-naga-bridge v30.0.1
+   Compiling wgpu-core-deps-windows-linux-android v30.0.1
+   Compiling petir v0.0.3
+   Compiling outram-blender v0.0.6 (/home/teddy0/Documents/research/outram-park-backend/target/package/outram-blender-0.0.6)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 23.17s
+   Uploading outram-blender v0.0.6 (/home/teddy0/Documents/research/outram-park-backend/crates/outram-blender)
+    Uploaded outram-blender v0.0.6 to registry `crates-io`
+note: waiting for outram-blender v0.0.6 to be available at registry `crates-io`
+help: you may press ctrl-c to skip waiting; the crate should be available shortly
+   Published outram-blender v0.0.6 at registry `crates-io`

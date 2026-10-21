@@ -635,6 +635,7 @@ impl AccidentHistory {
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
     use uom::si::length::micrometer;
     use uom::si::pressure::{megapascal, pascal};
@@ -933,7 +934,7 @@ mod tests {
             .iter()
             .zip(props.iter())
             .filter(|(phi, _)| **phi >= 1.0e-6)
-            .map(|(phi, (s_o, m))| s_o * (-(1.0 - phi).ln() / std::f64::consts::LN_2).powf(1.0 / m))
+            .map(|(phi, (s_o, m))| s_o * (-(1.0 - phi).r_ln() / std::f64::consts::LN_2).r_powf(1.0 / m))
             .collect();
         assert_eq!(
             recovered.len(),
@@ -941,7 +942,7 @@ mod tests {
             "one curve is below the plotted 1e-6 floor"
         );
         let mean = recovered.iter().sum::<f64>() / recovered.len() as f64;
-        let rel_sd = (recovered.iter().map(|x| (x - mean).powi(2)).sum::<f64>()
+        let rel_sd = (recovered.iter().map(|x| (x - mean).r_powi(2)).sum::<f64>()
             / recovered.len() as f64)
             .sqrt()
             / mean;
@@ -972,7 +973,7 @@ mod tests {
                 predicted[i]
             );
         }
-        let spread = (at_210h[0] / at_210h[7]).log10();
+        let spread = (at_210h[0] / at_210h[7]).r_log10();
         assert!(
             spread > 4.5,
             "Fig. 6 spans {spread:.2} decades -- this is a wide family, not a narrow one"
@@ -985,7 +986,7 @@ mod tests {
         let resid: Vec<f64> = predicted
             .iter()
             .zip(at_210h.iter())
-            .map(|(p, f)| (p / f).log10())
+            .map(|(p, f)| (p / f).r_log10())
             .collect();
         assert!(
             resid[0] < -0.3 && resid[7] > 0.3,
@@ -994,17 +995,17 @@ mod tests {
 
         // Deflate the log ordinate by 6/7 -- seven decades entered where six
         // are plotted -- and the eight varieties collapse onto one sigma_t.
-        let deflate = |phi: f64| 10f64.powf(-6.0 + (6.0 / 7.0) * (phi.log10() + 6.0));
+        let deflate = |phi: f64| 10f64.r_powf(-6.0 + (6.0 / 7.0) * (phi.r_log10() + 6.0));
         let corrected: Vec<f64> = at_210h
             .iter()
             .zip(props.iter())
             .map(|(phi, (s_o, m))| {
-                s_o * (-(1.0 - deflate(*phi)).ln() / std::f64::consts::LN_2).powf(1.0 / m)
+                s_o * (-(1.0 - deflate(*phi)).r_ln() / std::f64::consts::LN_2).r_powf(1.0 / m)
             })
             .collect();
         let cmean = corrected.iter().sum::<f64>() / 8.0;
         let crel =
-            (corrected.iter().map(|x| (x - cmean).powi(2)).sum::<f64>() / 8.0).sqrt() / cmean;
+            (corrected.iter().map(|x| (x - cmean).r_powi(2)).sum::<f64>() / 8.0).sqrt() / cmean;
         assert!(
             crel < 0.03,
             "under the 6/7 reading the eight varieties must agree to ~1.4 %; \
@@ -1072,7 +1073,7 @@ mod tests {
         let mut ratios = Vec::new();
         for (t_h, phi) in panama {
             let chain = frj2_k11_stress_at(t_h).get::<megapascal>();
-            let from_figure = sigma_o * (-(1.0 - phi).ln() / std::f64::consts::LN_2).powf(1.0 / m);
+            let from_figure = sigma_o * (-(1.0 - phi).r_ln() / std::f64::consts::LN_2).r_powf(1.0 / m);
             ratios.push((t_h, from_figure / chain, from_figure, chain));
         }
 
@@ -1083,7 +1084,7 @@ mod tests {
             .map(|(_, r, ..)| *r)
             .collect();
         let mean = early.iter().sum::<f64>() / early.len() as f64;
-        let rel_sd = (early.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / early.len() as f64)
+        let rel_sd = (early.iter().map(|x| (x - mean).r_powi(2)).sum::<f64>() / early.len() as f64)
             .sqrt()
             / mean;
         assert!(
@@ -1171,8 +1172,8 @@ mod tests {
         let mut without = Vec::new();
         let mut with = Vec::new();
         for (_, meas, no_gb, gb) in rows {
-            without.push((meas / no_gb).log10());
-            with.push((meas / gb).log10());
+            without.push((meas / no_gb).r_log10());
+            with.push((meas / gb).r_log10());
         }
         let mean = |v: &Vec<f64>| v.iter().sum::<f64>() / v.len() as f64;
         assert!(
@@ -1260,7 +1261,7 @@ mod tests {
             .map(|(_, r, ..)| *r)
             .collect();
         let mean = early.iter().sum::<f64>() / early.len() as f64;
-        let rel_sd = (early.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / early.len() as f64)
+        let rel_sd = (early.iter().map(|x| (x - mean).r_powi(2)).sum::<f64>() / early.len() as f64)
             .sqrt()
             / mean;
         assert!(
@@ -1275,7 +1276,7 @@ mod tests {
              (figure {fig_last:.0} MPa, chain {chain_last:.0} MPa)"
         );
         // The prediction: the old 282 MPa scaled by 10^(-1/m).
-        let predicted = 282.4 * 10f64.powf(-1.0 / m);
+        let predicted = 282.4 * 10f64.r_powf(-1.0 / m);
         assert!(
             (fig_last / predicted - 1.0).abs() < 0.05,
             "a x10 offset predicts sigma_t = {predicted:.1} MPa at 977 h, got {fig_last:.1}"
@@ -1318,8 +1319,8 @@ mod tests {
             (319.1, 1.563e-4, 2.562e-5, 4.028e-3),
             (337.5, 3.821e-4, 2.788e-5, 4.887e-3),
         ];
-        let without: Vec<f64> = rows.iter().map(|(_, m, a, _)| (m / a).log10()).collect();
-        let with: Vec<f64> = rows.iter().map(|(_, m, _, b)| (m / b).log10()).collect();
+        let without: Vec<f64> = rows.iter().map(|(_, m, a, _)| (m / a).r_log10()).collect();
+        let with: Vec<f64> = rows.iter().map(|(_, m, _, b)| (m / b).r_log10()).collect();
         let mean = |v: &Vec<f64>| v.iter().sum::<f64>() / v.len() as f64;
         assert!(
             (0.40..0.65).contains(&mean(&without)),
@@ -1415,7 +1416,7 @@ mod tests {
             advance_grain_boundary_exposure(x, c(1600.0), Time::new::<hour>((t_h - 200.0).max(0.0)))
         };
         let ratio_at = |pairs: &[(f64, f64, f64); 7], k: f64, offset: f64| -> f64 {
-            let adjust = |phi: f64| 10f64.powf(-6.0 + k * (phi.log10() + 6.0) + offset);
+            let adjust = |phi: f64| 10f64.r_powf(-6.0 + k * (phi.r_log10() + 6.0) + offset);
             let mut acc = 0.0;
             for (t_h, no_gb, gb) in pairs {
                 let m_gb = corroded_weibull_modulus(p.weibull_modulus, exposure(*t_h));
@@ -1506,7 +1507,7 @@ mod tests {
 
     /// Invert Eq (1): the `σ_t` a digitised failure fraction implies.
     fn stress_implied_by(phi: f64, sigma_o: Pressure, m: f64) -> f64 {
-        sigma_o.get::<megapascal>() * (-(1.0 - phi).ln() / std::f64::consts::LN_2).powf(1.0 / m)
+        sigma_o.get::<megapascal>() * (-(1.0 - phi).r_ln() / std::f64::consts::LN_2).r_powf(1.0 / m)
     }
 
     /// **Fig. 8 (page -501-): the Fig. 7 drift REAPPEARS under a purely
@@ -1598,7 +1599,7 @@ mod tests {
             .map(|(_, r)| *r)
             .collect();
         let mean = early.iter().sum::<f64>() / early.len() as f64;
-        let rel_sd = (early.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / early.len() as f64)
+        let rel_sd = (early.iter().map(|x| (x - mean).r_powi(2)).sum::<f64>() / early.len() as f64)
             .sqrt()
             / mean;
         assert!(
@@ -1701,7 +1702,7 @@ mod tests {
         let hot = ThermodynamicTemperature::new::<degree_celsius>(1600.0);
 
         let ratio_at = |k: f64| -> f64 {
-            let deflate = |phi: f64| 10f64.powf(-6.0 + k * (phi.log10() + 6.0));
+            let deflate = |phi: f64| 10f64.r_powf(-6.0 + k * (phi.r_log10() + 6.0));
             let mut acc = 0.0;
             for (t_h, no_gb, gb) in pairs {
                 let exposure: Ratio = grain_boundary_corrosion_rate(hot) * Time::new::<hour>(t_h);
@@ -1806,7 +1807,7 @@ mod tests {
             ceiling(uo2)
         );
         // Even on the k = 6/7 calibration reading, which shrinks the demand.
-        assert!(ceiling(uo2) < required.powf(6.0 / 7.0));
+        assert!(ceiling(uo2) < required.r_powf(6.0 / 7.0));
 
         let thoria = p.oxygen.oxygen_per_fission(hot);
         assert!(
@@ -1871,7 +1872,7 @@ mod tests {
 
         let caption_without: Vec<f64> = caption_case
             .iter()
-            .map(|(_, m, no_gb, _)| (m / no_gb).log10())
+            .map(|(_, m, no_gb, _)| (m / no_gb).r_log10())
             .collect();
         assert!(
             (0.15..0.35).contains(&mean(&caption_without)),
@@ -1888,12 +1889,12 @@ mod tests {
         let all: Vec<f64> = caption_case
             .iter()
             .chain(other_burnups.iter())
-            .map(|(_, m, no_gb, _)| (m / no_gb).log10())
+            .map(|(_, m, no_gb, _)| (m / no_gb).r_log10())
             .collect();
         let all_with: Vec<f64> = caption_case
             .iter()
             .chain(other_burnups.iter())
-            .map(|(_, m, _, gb)| (m / gb).log10())
+            .map(|(_, m, _, gb)| (m / gb).r_log10())
             .collect();
         assert!(
             (0.35..0.55).contains(&mean(&all)),
@@ -2074,7 +2075,7 @@ mod tests {
             .map(|(_, r)| *r)
             .collect();
         let mean = early.iter().sum::<f64>() / early.len() as f64;
-        let rel_sd = (early.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / early.len() as f64)
+        let rel_sd = (early.iter().map(|x| (x - mean).r_powi(2)).sum::<f64>() / early.len() as f64)
             .sqrt()
             / mean;
         assert!(
@@ -2091,7 +2092,7 @@ mod tests {
                 .map(|(t, phi)| ratio_at(*t, *phi))
                 .collect();
             let m = v.iter().sum::<f64>() / v.len() as f64;
-            let sd = (v.iter().map(|x| (x - m).powi(2)).sum::<f64>() / v.len() as f64).sqrt() / m;
+            let sd = (v.iter().map(|x| (x - m).r_powi(2)).sum::<f64>() / v.len() as f64).sqrt() / m;
             let max = v.iter().cloned().fold(f64::MIN, f64::max);
             let min = v.iter().cloned().fold(f64::MAX, f64::min);
             (v.len(), sd, max / min, v[0], v[v.len() - 1])
@@ -2174,7 +2175,7 @@ mod tests {
         let p = avr_go2_particle();
         let hot = ThermodynamicTemperature::new::<degree_celsius>(1600.0);
         let ratio_at = |pairs: &[(f64, f64, f64); 8], k: f64, offset: f64| -> f64 {
-            let adjust = |phi: f64| 10f64.powf(-6.0 + k * (phi.log10() + 6.0) + offset);
+            let adjust = |phi: f64| 10f64.r_powf(-6.0 + k * (phi.r_log10() + 6.0) + offset);
             let mut acc = 0.0;
             for (t_h, no_gb, gb) in pairs {
                 let exposure: Ratio = grain_boundary_corrosion_rate(hot) * Time::new::<hour>(*t_h);
@@ -2332,7 +2333,7 @@ mod tests {
         let mean = |v: &[f64]| v.iter().sum::<f64>() / v.len() as f64;
         let res = |rows: &[(f64, f64, f64, f64)], with: bool| -> Vec<f64> {
             rows.iter()
-                .map(|(_, m, a, b)| (m / if with { b } else { a }).log10())
+                .map(|(_, m, a, b)| (m / if with { b } else { a }).r_log10())
                 .collect()
         };
         let caption_without = res(&caption_case, false);

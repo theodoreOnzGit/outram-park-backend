@@ -214,6 +214,7 @@
 //!   boronated brick and the RPV and is not modelled; the gap is radiation
 //!   only.
 
+use petir::mathf::RealMath;
 use tuas_boussinesq_solver::heat_transfer_correlations::heat_transfer_interactions::conductance::simple_radiation_conductance;
 use tuas_boussinesq_solver::boussinesq_thermophysical_properties::solid_database::nuclear_graphite::nuclear_graphite_ig_110_thermal_conductivity_unirradiated;
 use uom::si::area::square_meter;
@@ -443,7 +444,7 @@ fn solid_enthalpy(material: SolidMaterial, t: ThermodynamicTemperature) -> f64 {
 /// 28.1 m^3, about 49.7 t.
 pub fn reflector_graphite_mass() -> Mass {
     let volume =
-        std::f64::consts::PI * (R_GRAPHITE_OUTER_M.powi(2) - R_BED_OUTER_M.powi(2)) * H_GRAPHITE_M
+        std::f64::consts::PI * (R_GRAPHITE_OUTER_M.r_powi(2) - R_BED_OUTER_M.r_powi(2)) * H_GRAPHITE_M
             - GRAPHITE_ANNULUS_CHANNEL_VOID_M3;
     Mass::new::<kilogram>(solid_density(REFLECTOR_GRAPHITE) * volume)
 }
@@ -455,7 +456,7 @@ pub fn reflector_graphite_mass() -> Mass {
 /// exists here.
 pub fn boronated_brick_mass() -> Mass {
     let volume = std::f64::consts::PI
-        * (R_BORONATED_OUTER_M.powi(2) - R_GRAPHITE_OUTER_M.powi(2))
+        * (R_BORONATED_OUTER_M.r_powi(2) - R_GRAPHITE_OUTER_M.r_powi(2))
         * H_BORONATED_M;
     Mass::new::<kilogram>(BORONATED_BRICK_DENSITY_KG_PER_M3 * volume)
 }
@@ -468,7 +469,7 @@ pub fn rpv_mass() -> Mass {
     let design = super::pebble_bed::design();
     let r = 0.5 * design.rpv_inner_diameter.get::<uom::si::length::meter>();
     let h = design.rpv_height.get::<uom::si::length::meter>();
-    let volume = std::f64::consts::PI * ((r + RPV_WALL_THICKNESS_M).powi(2) - r * r) * h;
+    let volume = std::f64::consts::PI * ((r + RPV_WALL_THICKNESS_M).r_powi(2) - r * r) * h;
     Mass::new::<kilogram>(solid_density(RPV_STEEL) * volume)
 }
 
@@ -506,7 +507,7 @@ fn ua_rpv_rccs_w_per_k(rpv: ThermodynamicTemperature) -> f64 {
 /// Conductance of a cylindrical annulus in pure radial conduction \[W/K\],
 /// `2 pi k H / ln(r_o / r_i)`.
 fn annulus_conductance_w_per_k(k_w_per_m_k: f64, height_m: f64, r_i_m: f64, r_o_m: f64) -> f64 {
-    2.0 * std::f64::consts::PI * k_w_per_m_k * height_m / (r_o_m / r_i_m).ln()
+    2.0 * std::f64::consts::PI * k_w_per_m_k * height_m / (r_o_m / r_i_m).r_ln()
 }
 
 /// **Leg 1 -- pebble bed to its own outer surface \[W/K\].** Conduction AND
@@ -624,7 +625,7 @@ fn ua_gap_to_rpv_w_per_k(
 fn radial_turbulent_peclet() -> f64 {
     let d = super::pebble_bed::pebble_diameter().get::<uom::si::length::meter>();
     let big_d = super::pebble_bed::core_diameter().get::<uom::si::length::meter>();
-    8.0 * (2.0 - (1.0 - 2.0 * d / big_d).powi(2))
+    8.0 * (2.0 - (1.0 - 2.0 * d / big_d).r_powi(2))
 }
 
 /// Reynolds number `u d / nu` of the bed on the superficial velocity, the
@@ -667,7 +668,7 @@ fn ua_wall_film_w_per_k(helium: ThermodynamicTemperature, mass_flow: MassRate) -
     }
     let d = super::pebble_bed::pebble_diameter().get::<uom::si::length::meter>();
     let big_d = super::pebble_bed::core_diameter().get::<uom::si::length::meter>();
-    let nu_w = (1.0 - d / big_d) * re.powf(0.61) * prandtl.powf(1.0 / 3.0);
+    let nu_w = (1.0 - d / big_d) * re.r_powf(0.61) * prandtl.r_powf(1.0 / 3.0);
     let alpha_w = nu_w * k_g / d;
     Some(alpha_w * std::f64::consts::PI * big_d * H_BED_M)
 }
@@ -713,7 +714,7 @@ const RISER_CHANNEL_DIAMETER_M: f64 = 0.08;
 /// published count and bore, `V / (20 pi d^2 / 4)` = 5.05 m.
 fn riser_channel_length_m() -> f64 {
     crate::physics::primary_loop::RISER_BOREHOLE_VOLUME_M3
-        / (RISER_CHANNEL_COUNT * std::f64::consts::PI * RISER_CHANNEL_DIAMETER_M.powi(2) / 4.0)
+        / (RISER_CHANNEL_COUNT * std::f64::consts::PI * RISER_CHANNEL_DIAMETER_M.r_powi(2) / 4.0)
 }
 
 /// Riser helium flow \[kg/s\] from the loop flow.
@@ -763,7 +764,7 @@ fn ua_reflector_to_risers_w_per_k(
     let cp =
         super::pebble_bed::helium_specific_heat(cold_helium).get::<joule_per_kilogram_kelvin>();
     let capacity_rate = m_r * cp;
-    capacity_rate * (1.0 - (-h * area / capacity_rate).exp())
+    capacity_rate * (1.0 - (-h * area / capacity_rate).r_exp())
 }
 
 /// The conductances and secant capacities of the passive path at one iterate
@@ -1183,7 +1184,7 @@ mod tests {
         }
         let t_v = path.rpv_temperature().get::<kelvin>();
         let expected =
-            5.670374419e-8 * RPV_RADIATING_AREA_COEFF_M2 * (t_v.powi(4) - 323.15_f64.powi(4));
+            5.670374419e-8 * RPV_RADIATING_AREA_COEFF_M2 * (t_v.r_powi(4) - 323.15_f64.r_powi(4));
         let got = path.heat_to_rccs().get::<watt>();
         assert!(
             (got - expected).abs() / expected < 1e-6,
@@ -1501,10 +1502,10 @@ mod tests {
     #[test]
     fn the_reflector_and_rpv_capacities_are_derived() {
         let pi = std::f64::consts::PI;
-        let graphite = 1770.0 * (pi * (1.67793f64.powi(2) - 0.81) * 4.70 - 1.513575);
-        let brick = 1590.0 * pi * (3.61 - 1.67793f64.powi(2)) * 6.10;
+        let graphite = 1770.0 * (pi * (1.67793f64.r_powi(2) - 0.81) * 4.70 - 1.513575);
+        let brick = 1590.0 * pi * (3.61 - 1.67793f64.r_powi(2)) * 6.10;
         let steel_rho = solid_density(RPV_STEEL);
-        let rpv = steel_rho * pi * (2.2f64.powi(2) - 2.1f64.powi(2)) * 11.1;
+        let rpv = steel_rho * pi * (2.2f64.r_powi(2) - 2.1f64.r_powi(2)) * 11.1;
         let rel = |a: f64, b: f64| (a - b).abs() / b;
         assert!(rel(reflector_graphite_mass().get::<kilogram>(), graphite) < 1e-12);
         assert!(rel(boronated_brick_mass().get::<kilogram>(), brick) < 1e-12);
@@ -1571,7 +1572,7 @@ mod tests {
     #[test]
     fn the_bed_to_reflector_legs_follow_achenbach() {
         let (d, big_d, h) = (0.06f64, 1.8f64, 1.97f64);
-        let k_r = 8.0 * (2.0 - (1.0 - 2.0 * d / big_d).powi(2));
+        let k_r = 8.0 * (2.0 - (1.0 - 2.0 * d / big_d).r_powi(2));
         assert!((radial_turbulent_peclet() - k_r).abs() < 1e-12);
 
         let he = k(750.0);
@@ -1581,7 +1582,7 @@ mod tests {
         let g_f = ua_helium_to_near_wall_w_per_k(he, flow(4.3));
         let expected_gf = 8.0 * std::f64::consts::PI * h * kg * re * pr / k_r;
         let film = ua_wall_film_w_per_k(he, flow(4.3)).expect("rated flow is above Re = 100");
-        let expected_film = (1.0 - d / big_d) * re.powf(0.61) * pr.powf(1.0 / 3.0) * kg / d
+        let expected_film = (1.0 - d / big_d) * re.r_powf(0.61) * pr.r_powf(1.0 / 3.0) * kg / d
             * std::f64::consts::PI
             * big_d
             * h;
@@ -1638,7 +1639,7 @@ mod tests {
     /// about 5x the bed -> reflector leg it now competes with.
     #[test]
     fn the_riser_leg_uses_gnielinski_and_vanishes_without_flow() {
-        let expected_l = 0.507681 / (20.0 * std::f64::consts::PI * 0.08f64.powi(2) / 4.0);
+        let expected_l = 0.507681 / (20.0 * std::f64::consts::PI * 0.08f64.r_powi(2) / 4.0);
         assert!((riser_channel_length_m() - expected_l).abs() < 1e-12);
 
         let (nu, re, pr, k_g) = riser_nusselt_and_reynolds(cold(), flow(4.3));

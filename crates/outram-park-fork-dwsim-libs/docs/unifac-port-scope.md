@@ -125,8 +125,8 @@ tree.
   Frenkel 2015, DOI above) — open literature.
 - **As shipped here:** DWSIM's `Assets/NIST-MODFAC_IP.txt` and
   `NIST-MODFAC_RiQi.txt`, both **GPL-3.0** (DWSIM is GPL-3.0; headers on
-  `NISTMFAC.vb` confirm). GPL-3.0-compatible with this workspace's default
-  license.
+  `NISTMFAC.vb` confirm). GPL-3.0-compatible with this workspace's ~~default
+  license~~ AGPL-3.0-only (relicensed 2026-10-20, gh:#973; ported files stay GPL-3.0).
 - **Verdict under `DATA_POLICY.md`:** permitted. Same footing as the
   already-ported Dortmund (`unifac_dortmund.rs`) and LLE (`unifac_lle.rs`)
   tables — open, published, properly-cited literature data carried as GPL

@@ -1,0 +1,22 @@
+NOTICE -- nee_soon
+==================
+
+Relicense: GPL-3.0-only -> AGPL-3.0-only (2026-10-20)
+-----------------------------------------------------
+
+At the maintainer's direction (GitHub issue #973), this crate is licensed
+AGPL-3.0-only from this date, and `LICENSE` is the AGPL-3.0 text.
+
+Its vendored and ported upstream is PERMISSIVE: none found -- this crate is
+an integration layer over the solver crates and vendors no upstream of its
+own. A permissive licence allows this translation to be conveyed under
+AGPL-3.0, so long as every upstream notice and attribution header is kept
+unchanged. None was changed by this pass.
+
+Versions already published to crates.io keep the licence they were published
+under, forever; this affects future versions only. No version was bumped.
+
+The per-crate record -- which upstream each crate carries, which published
+versions are grandfathered, and why most files in this workspace keep their
+GPL-3.0 headers -- is `docs/relicensing-agpl-2026-10-20.md`. The audit it
+rests on is the first comment on GitHub issue #973.

@@ -1,0 +1,1244 @@
+   Compiling dirs-sys v0.5.0
+   Compiling outram-foam-basic-lib v0.1.6 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/crates/outram-foam-basic-lib)
+   Compiling directories v6.0.0
+   Compiling sysinfo v0.39.6
+   Compiling egui-file-dialog v0.15.0
+   Compiling teh-o-prke v0.1.7 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/crates/teh-o-prke)
+warning: unused import: `uom::si::f64::*`
+ --> crates/tuas_boussinesq_solver/src/lib/boussinesq_thermophysical_properties/solid_database/ss_304_l.rs:6:5
+  |
+6 | use uom::si::f64::*;
+  |     ^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `uom::si::f64::*`
+  --> crates/tuas_boussinesq_solver/src/lib/boussinesq_thermophysical_properties/solid_database/ss_304_l_high_temp.rs:79:5
+   |
+79 | use uom::si::f64::*;
+   |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `uom::si::f64::*`
+ --> crates/tuas_boussinesq_solver/src/lib/boussinesq_thermophysical_properties/solid_database/copper.rs:5:5
+  |
+5 | use uom::si::f64::*;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `uom::si::f64::*`
+ --> crates/tuas_boussinesq_solver/src/lib/boussinesq_thermophysical_properties/solid_database/fiberglass.rs:5:5
+  |
+5 | use uom::si::f64::*;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `uom::si::f64::*`
+  --> crates/tuas_boussinesq_solver/src/lib/boussinesq_thermophysical_properties/solid_database/nuclear_graphite.rs:53:5
+   |
+53 | use uom::si::f64::*;
+   |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `uom::si::f64::*`
+ --> crates/tuas_boussinesq_solver/src/lib/boussinesq_thermophysical_properties/solid_database/pyrogel_hps.rs:5:5
+  |
+5 | use uom::si::f64::*;
+  |     ^^^^^^^^^^^^^^^
+
+warning: function `relative_bracketed_root` is never used
+   --> crates/tuas_boussinesq_solver/src/lib/numerical_methods.rs:285:15
+    |
+285 | pub(crate) fn relative_bracketed_root<F: Fn(f64) -> f64>(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `tuas_boussinesq_solver` (lib) generated 7 warnings (run `cargo fix --lib -p tuas_boussinesq_solver` to apply 6 suggestions)
+   Compiling tampines-steam-tables v0.3.0 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/crates/tampines-steam-tables)
+warning: ambiguous glob re-exports
+  --> crates/tampines-steam-tables/src/prelude.rs:24:9
+   |
+24 | pub use crate::interfaces::functional_programming::hs_flash_eqm::*;
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the name `validity_range` in the type namespace is first re-exported here
+25 | pub use crate::interfaces::functional_programming::ph_flash_eqm::*;
+26 | pub use crate::interfaces::functional_programming::ps_flash_eqm::*;
+   |         ---------------------------------------------------------- but the name `validity_range` in the type namespace is also re-exported here
+   |
+   = note: `#[warn(ambiguous_glob_reexports)]` on by default
+
+warning: constant `LIQUID_SNAP_PRESSURE_FRACTION` is never used
+    --> crates/tampines-steam-tables/src/interfaces/functional_programming/rho_h_flash_eqm/mod.rs:1132:7
+     |
+1132 | const LIQUID_SNAP_PRESSURE_FRACTION: f64 = 0.05;
+     |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `uom::si::f64::*`
+ --> crates/tampines-steam-tables/src/thermal_conductivity/tests.rs:3:5
+  |
+3 | use uom::si::f64::*;
+  |     ^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: `tampines-steam-tables` (lib) generated 2 warnings
+warning: `tampines-steam-tables` (lib test) generated 3 warnings (2 duplicates) (run `cargo fix --lib -p tampines-steam-tables --tests` to apply 1 suggestion)
+    Finished `release` profile [optimized] target(s) in 24.64s
+     Running unittests src/lib.rs (target/release/deps/tampines_steam_tables-1e542191283e8c5e)
+
+running 1037 tests
+test backward_eqn_chebyshev_experimental::tests::p_rho_h::diagnose_p_rho_h_region_1_percentage_error ... ok
+test backward_eqn_chebyshev_experimental::tests::p_rho_h::diagnose_p_rho_h_error ... ok
+test backward_eqn_chebyshev_experimental::tests::p_rho_h::diagnose_p_rho_h_region_4_over_the_dome ... ok
+test backward_eqn_chebyshev_experimental::tests::p_rho_h::p_rho_h_region_1_is_ill_conditioned_as_documented ... ok
+test backward_eqn_chebyshev_experimental::tests::p_rho_h::p_rho_h_round_trips_over_the_two_phase_dome ... ok
+test backward_eqn_chebyshev_experimental::tests::p_rho_h::p_rho_h_round_trips_forward_equations_given_region ... ok
+test backward_eqn_chebyshev_experimental::tests::p_rho_h::rho_h_region_classifier_rejects_non_positive_density - should panic ... ok
+test backward_eqn_chebyshev_experimental::tests::p_rho_h::rho_h_region_scores_agree_with_the_classifier_decision ... ok
+test backward_eqn_chebyshev_experimental::tests::p_rho_h::rho_h_region_classifier_agrees_with_forward_dispatcher ... ok
+test backward_eqn_chebyshev_experimental::tests::region_4_near_critical_hs::region_4_near_critical_float_and_uom_entry_points_agree ... ok
+test backward_eqn_chebyshev_experimental::tests::region_4_near_critical_hs::diagnose_region_4_near_critical_pressure_error ... ok
+test backward_eqn_chebyshev_experimental::tests::region_4_near_critical_hs::region_4_near_critical_saturation_enthalpies_are_physical ... ok
+test backward_eqn_chebyshev_experimental::tests::region_5_t_ph_ps::diagnose_region_5_round_trip_error ... ok
+test backward_eqn_chebyshev_experimental::tests::region_4_near_critical_hs::region_4_near_critical_pressure_matches_iapws ... ok
+test backward_eqn_chebyshev_experimental::tests::region_5_t_ph_ps::region_5_backward_spot_check_1500_kelvin_1_mpa ... ok
+test backward_eqn_chebyshev_experimental::tests::region_5_t_ph_ps::region_5_float_and_uom_entry_points_agree ... ok
+test backward_eqn_chebyshev_experimental::tests::region_5_t_ph_ps::region_5_t_ph_round_trips_forward_equations ... ok
+test backward_eqn_chebyshev_experimental::tests::region_5_t_ph_ps::region_5_t_ps_round_trips_forward_equations ... ok
+test backward_eqn_hs_region_1_to_4::tests::region_1_and_3::hs_boundary_b13_prime_eq_1 ... ok
+test backward_eqn_hs_region_1_to_4::tests::region_1_and_3::hs_boundary_b13_prime_eq_2 ... ok
+test backward_eqn_hs_region_1_to_4::tests::region_1_and_3::hs_boundary_b13_prime_eq_3 ... ok
+test backward_eqn_hs_region_1_to_4::tests::region_2_and_3::hs_boundary_b23_prime_eq_1 ... ok
+test backward_eqn_hs_region_1_to_4::tests::region_2_and_3::hs_boundary_b23_prime_eq_2 ... ok
+test backward_eqn_hs_region_1_to_4::tests::region_2_and_3::hs_boundary_b23_prime_eq_3 ... ok
+test backward_eqn_hs_region_1_to_4::tests::saturated_liquid_line::hs_boundary_1prime_eq_1 ... ok
+test backward_eqn_hs_region_1_to_4::tests::saturated_liquid_line::hs_boundary_1prime_eq_2 ... ok
+test backward_eqn_hs_region_1_to_4::tests::saturated_liquid_line::hs_boundary_1prime_eq_3 ... ok
+test backward_eqn_hs_region_1_to_4::tests::saturated_liquid_line::hs_boundary_3a_prime_eq_1 ... ok
+test backward_eqn_hs_region_1_to_4::tests::saturated_liquid_line::hs_boundary_3a_prime_eq_2 ... ok
+test backward_eqn_hs_region_1_to_4::tests::saturated_liquid_line::hs_boundary_3a_prime_eq_3 ... ok
+test backward_eqn_hs_region_1_to_4::tests::saturated_vapour_line::hs_boundary_2a2b_prime_eq_1 ... ok
+test backward_eqn_hs_region_1_to_4::tests::saturated_vapour_line::hs_boundary_2a2b_prime_eq_2 ... ok
+test backward_eqn_hs_region_1_to_4::tests::saturated_vapour_line::hs_boundary_2a2b_prime_eq_3 ... ok
+test backward_eqn_hs_region_1_to_4::tests::saturated_vapour_line::hs_boundary_2c3b_prime_eq_1 ... ok
+test backward_eqn_hs_region_1_to_4::tests::saturated_vapour_line::hs_boundary_2c3b_prime_eq_2 ... ok
+test backward_eqn_hs_region_1_to_4::tests::saturated_vapour_line::hs_boundary_2c3b_prime_eq_3 ... ok
+test backward_eqn_ph_region_1_to_4::tests::boundary_eqn::boundary_eqn_ps3_test_1 ... ok
+test backward_eqn_ph_region_1_to_4::tests::boundary_eqn::boundary_eqn_ps3_test_2 ... ok
+test backward_eqn_ph_region_1_to_4::tests::boundary_eqn::boundary_eqn_ps3_test_3 ... ok
+test backward_eqn_ps_region_1_to_4::tests::boundary_eqn_ps3_test_1 ... ok
+test backward_eqn_ps_region_1_to_4::tests::boundary_eqn_ps3_test_2 ... ok
+test backward_eqn_ps_region_1_to_4::tests::boundary_eqn_ps3_test_3 ... ok
+test dielectric_constant::tests::dielectric_constant_test_1 ... ok
+test dielectric_constant::tests::dielectric_constant_test_2 ... ok
+test dielectric_constant::tests::dielectric_constant_test_3 ... ok
+test dynamic_viscosity::tests::psi_0_viscosity_test ... ok
+test dynamic_viscosity::tests::psi_1_viscosity_p_t_test ... ok
+test dynamic_viscosity::tests::psi_1_viscosity_p_t_x_test ... ok
+test dynamic_viscosity::tests::psi_1_viscosity_rho_t_test ... ok
+test dynamic_viscosity::tests::psi_1_viscosity_test ... ok
+test fhr_sim_debugging_tests::pool_boiling::pool_boiling_assert_test_1 ... ok
+test fhr_sim_debugging_tests::pool_boiling::pool_boiling_assert_test_2 ... ok
+test fhr_sim_debugging_tests::pool_boiling::pool_boiling_assert_test_3 ... ok
+test fhr_sim_debugging_tests::pool_boiling::pool_boiling_assert_test_4 ... ok
+test fhr_sim_debugging_tests::pool_boiling::pool_boiling_assert_test_5 ... ok
+test fhr_sim_debugging_tests::pool_boiling::pool_boiling_assert_test_6 ... ok
+test fhr_sim_debugging_tests::pool_boiling::pool_boiling_assert_test_7 ... ok
+test fhr_sim_debugging_tests::pool_boiling::pool_boiling_assert_test_8 ... ok
+test hem::tests::errors_display_their_values ... ok
+test hem::tests::choked_break_needs_a_break_model_and_failed_steps_roll_back ... ok
+test hem::tests::iapws97_errors_outside_its_envelope ... ok
+test hem::tests::iapws97_rho_e_inversion_round_trips_in_every_phase ... ok
+test hem::tests::ideal_gas_closure_round_trips ... ok
+test hem::tests::ideal_gas_rejects_bad_input_and_has_no_break_model ... ok
+test hem::tests::invalid_inputs_are_rejected ... ok
+test hem::tests::reconstruction_matches_basic_lib_reconstruct_pos_neg ... ok
+test hem::tests::iapws97_break_flow_branches ... ok
+test hem::tests::uniform_flow_is_stationary_and_mirror_symmetry_is_kept ... ok
+test interfaces::checked::tests::alpha_v_and_kappa_t_are_gated ... ok
+test interfaces::checked::tests::checked_control_volume_constructors ... ok
+test interfaces::checked::tests::in_range_ph_agrees_exactly_with_unchecked ... ok
+test interfaces::checked::tests::in_range_ps_agrees_exactly_with_unchecked ... ok
+test interfaces::checked::tests::in_range_tp_agrees_exactly_with_unchecked ... ok
+test interfaces::checked::tests::in_range_tpx_agrees_exactly_with_unchecked ... ok
+test interfaces::checked::tests::out_of_range_ph_returns_err_not_panic ... ok
+test interfaces::checked::tests::out_of_range_ps_returns_err_not_panic ... ok
+test interfaces::checked::tests::out_of_range_tp_returns_err_not_panic ... ok
+test interfaces::checked::tests::out_of_range_tpx_returns_err_not_panic ... ok
+test interfaces::checked::tests::ps_flash_accepts_exact_triple_point_isobar ... ok
+test interfaces::functional_programming::ph_flash_eqm::hem_sound_speed_tests::hem_c_subcooled_liquid_is_a_liquid_speed ... ok
+test interfaces::functional_programming::ph_flash_eqm::hem_sound_speed_tests::hem_c_two_phase_is_finite_and_lower ... ok
+test interfaces::functional_programming::pt_flash_eqm::envelope_corner_tests::envelope_corner_states_return_finite_physical_properties ... ok
+test interfaces::functional_programming::pt_flash_eqm::envelope_corner_tests::ph_flash_at_exactly_100_mpa_matches_iapws_verification_points ... ok
+test interfaces::functional_programming::pt_flash_eqm::envelope_corner_tests::region_1_and_region_3_agree_at_the_623_15_k_100_mpa_corner ... ok
+test interfaces::functional_programming::pt_flash_eqm::envelope_corner_tests::region_router_accepts_the_exact_100_mpa_pressure_ceiling ... ok
+test interfaces::functional_programming::rho_h_flash_eqm::tests::an_unreachable_state_panics_rather_than_returning_nonsense - should panic ... ok
+test hem::tests::reservoir_and_fixed_pressure_ends_conserve_with_bookkeeping ... ok
+test interfaces::functional_programming::rho_h_flash_eqm::tests::non_finite_enthalpy_panics - should panic ... ok
+test interfaces::functional_programming::rho_h_flash_eqm::tests::non_positive_density_panics - should panic ... ok
+test interfaces::functional_programming::rho_h_flash_eqm::tests::conditioning_flags_the_subcooled_liquid_and_clears_the_vapour ... ok
+test interfaces::functional_programming::rho_h_flash_eqm::tests::si_and_dimensioned_entry_points_agree ... ok
+test interfaces::functional_programming::rho_h_flash_eqm::tests::region_1_round_trips_through_the_snap_and_the_fit ... ok
+test interfaces::functional_programming::rho_h_flash_eqm::tests::single_phase_quality_convention_holds ... ok
+test interfaces::functional_programming::rho_h_flash_eqm::tests::superheated_vapour_round_trips ... ok
+test interfaces::functional_programming::rho_h_flash_eqm::tests::supercritical_quality_splits_on_the_critical_temperature ... ok
+test interfaces::functional_programming::rho_h_flash_eqm::tests::the_explicit_route_defers_to_iteration_at_the_bubble_point ... ok
+test interfaces::functional_programming::rho_h_flash_eqm::tests::validity_predicate_accepts_reachable_states_and_rejects_nonsense ... ok
+test interfaces::functional_programming::rho_h_flash_eqm::tests::two_phase_state_reports_region_4_and_an_interior_quality ... ok
+test interfaces::object_oriented_programming::mass_and_energy_balance::tests::add_mass_at_same_enthalpy_conserves_h_and_recovers_density ... ok
+test interfaces::object_oriented_programming::getter_methods::tests::equilibrium_speed_of_sound_is_kieffer_in_the_dome ... ok
+test interfaces::object_oriented_programming::mass_and_energy_balance::tests::ledger_totals_and_clear ... ok
+test interfaces::object_oriented_programming::mass_and_energy_balance::tests::mixing_lands_mass_weighted_enthalpy ... ok
+test interfaces::object_oriented_programming::mass_and_energy_balance::tests::remove_mass_at_same_enthalpy_drops_pressure ... ok
+test interfaces::tests_and_examples::hs_flash_regions::region1_test_1 ... ok
+test interfaces::tests_and_examples::hs_flash_regions::region1_test_2 ... ok
+test interfaces::tests_and_examples::hs_flash_regions::region2a_test_1 ... ok
+test interfaces::tests_and_examples::hs_flash_regions::region2a_test_2 ... ok
+test interfaces::tests_and_examples::hs_flash_regions::region2b_test_1 ... ok
+test interfaces::tests_and_examples::hs_flash_regions::region2b_test_2 ... ok
+test interfaces::tests_and_examples::hs_flash_regions::region2b_test_3 ... ok
+test interfaces::tests_and_examples::hs_flash_regions::region2c_test_1 ... ok
+test interfaces::tests_and_examples::hs_flash_regions::region2c_test_2 ... ok
+test interfaces::tests_and_examples::hs_flash_regions::region2c_test_3 ... ok
+test interfaces::tests_and_examples::hs_flash_regions::region2c_test_4 ... ok
+test interfaces::tests_and_examples::hs_flash_regions::region2c_test_5 ... ok
+test interfaces::tests_and_examples::hs_flash_regions::region3a_test_1 ... ok
+test interfaces::tests_and_examples::hs_flash_regions::region3a_test_2 ... ok
+test interfaces::tests_and_examples::hs_flash_regions::region3b_test_1 ... ok
+test interfaces::tests_and_examples::hs_flash_regions::region3b_test_2 ... ok
+test interfaces::tests_and_examples::hs_flash_regions::region3b_test_3 ... ok
+test interfaces::tests_and_examples::hs_flash_regions::region3b_test_4 ... ok
+test interfaces::tests_and_examples::hs_flash_regions::region3b_test_5 ... ok
+test interfaces::tests_and_examples::hs_flash_regions::region4_test_1 ... ok
+test interfaces::tests_and_examples::hs_flash_regions::region4_test_2 ... ok
+test interfaces::tests_and_examples::hs_flash_regions::region4_test_3 ... ok
+test interfaces::tests_and_examples::hs_flash_regions::region4_test_4 ... ok
+test interfaces::tests_and_examples::hs_flash_regions::region4_test_5 ... ok
+test interfaces::tests_and_examples::hs_flash_regions::region4_test_6 ... ok
+test interfaces::tests_and_examples::hs_flash_regions::region4_test_7 ... ok
+test interfaces::tests_and_examples::hs_flash_steam_table::saturation_table_170_to_258_degc::saturation_table_170_to_258_degc ... ok
+test interfaces::tests_and_examples::hs_flash_steam_table::saturation_table_260_degc_to_crit_temp_373_946_degc::saturation_table_260_degc_to_350_degc ... ok
+test interfaces::tests_and_examples::hs_flash_steam_table::saturation_table_0_to_44_degc::saturation_table_0_to_44_degc ... ok
+test interfaces::tests_and_examples::hs_flash_steam_table::saturation_table_260_degc_to_crit_temp_373_946_degc::saturation_table_355_degc_to_crit_373_degc ... ok
+test interfaces::tests_and_examples::hs_flash_steam_table::saturation_table_45_to_89_degc::saturation_table_45_to_89_degc ... ok
+test interfaces::tests_and_examples::hs_flash_steam_table::single_phase_table_0_006112127_bar::single_phase_table_0_to_240_degc_except_triple_pt ... ignored, hs flash cannot do triple point pressure yet
+test interfaces::tests_and_examples::hs_flash_steam_table::single_phase_table_0_006112127_bar::single_phase_table_250_to_800_degc ... ignored, hs flash cannot do triple point pressure yet
+test interfaces::tests_and_examples::hs_flash_steam_table::saturation_table_90_to_168_degc::saturation_table_90_to_168_degc ... ok
+test interfaces::tests_and_examples::hs_flash_steam_table::single_phase_table_0_1_bar::single_phase_table_0_to_240_degc_except_triple_pt ... ok
+test interfaces::tests_and_examples::hs_flash_steam_table::single_phase_table_1000_bar::single_phase_table_2_to_750_degc ... ignored, At 1000 bar, ph flashing goes out of bounds for some reason, yet to debug
+test interfaces::tests_and_examples::hs_flash_steam_table::single_phase_table_0_1_bar::single_phase_table_250_to_800_degc ... ok
+test interfaces::tests_and_examples::hs_flash_steam_table::single_phase_table_100_bar::single_phase_table_2_to_750_degc ... ok
+test interfaces::tests_and_examples::hs_flash_steam_table::single_phase_table_10_bar::single_phase_table_2_to_750_degc ... ok
+test interfaces::tests_and_examples::hs_flash_steam_table::single_phase_table_120_bar::single_phase_table_2_to_750_degc ... ok
+test interfaces::tests_and_examples::hs_flash_steam_table::single_phase_table_140_bar::single_phase_table_2_to_750_degc ... ok
+test interfaces::tests_and_examples::hs_flash_steam_table::single_phase_table_160_bar::single_phase_table_2_to_750_degc ... ok
+test interfaces::tests_and_examples::hs_flash_steam_table::single_phase_table_180_bar::single_phase_table_2_to_750_degc ... ok
+test interfaces::tests_and_examples::hs_flash_steam_table::single_phase_table_1_bar::single_phase_table_2_to_750_degc ... ok
+test interfaces::tests_and_examples::hs_flash_steam_table::single_phase_table_200_bar::single_phase_table_2_to_750_degc ... ok
+test interfaces::tests_and_examples::hs_flash_steam_table::single_phase_table_20_bar::single_phase_table_2_to_750_degc ... ok
+test interfaces::tests_and_examples::hs_flash_steam_table::single_phase_table_220_bar::single_phase_table_2_to_750_degc ... ok
+test interfaces::tests_and_examples::hs_flash_steam_table::single_phase_table_240_bar::single_phase_table_2_to_750_degc ... ok
+test interfaces::tests_and_examples::hs_flash_steam_table::single_phase_table_260_bar::single_phase_table_2_to_750_degc ... ok
+test interfaces::tests_and_examples::hs_flash_steam_table::single_phase_table_280_bar::single_phase_table_2_to_750_degc ... ok
+test interfaces::tests_and_examples::hs_flash_steam_table::single_phase_table_2_bar::single_phase_table_2_to_750_degc ... ok
+test interfaces::tests_and_examples::hs_flash_steam_table::single_phase_table_300_bar::single_phase_table_2_to_750_degc ... ok
+test interfaces::tests_and_examples::hs_flash_steam_table::single_phase_table_400_bar::single_phase_table_2_to_750_degc ... ok
+test interfaces::tests_and_examples::hs_flash_steam_table::single_phase_table_40_bar::single_phase_table_2_to_750_degc ... ok
+test interfaces::tests_and_examples::hs_flash_steam_table::single_phase_table_4_bar::single_phase_table_2_to_750_degc ... ok
+test interfaces::tests_and_examples::hs_flash_steam_table::single_phase_table_500_bar::single_phase_table_2_to_750_degc ... ok
+test interfaces::tests_and_examples::hs_flash_steam_table::single_phase_table_600_bar::single_phase_table_2_to_750_degc ... ok
+test interfaces::tests_and_examples::hs_flash_steam_table::single_phase_table_60_bar::single_phase_table_2_to_750_degc ... ok
+test interfaces::tests_and_examples::hs_flash_steam_table::single_phase_table_6_bar::single_phase_table_2_to_750_degc ... ok
+test interfaces::tests_and_examples::hs_flash_steam_table::single_phase_table_700_bar::single_phase_table_2_to_750_degc ... ok
+test interfaces::tests_and_examples::hs_flash_steam_table::single_phase_table_800_bar::single_phase_table_2_to_750_degc ... ok
+test interfaces::tests_and_examples::hs_flash_steam_table::single_phase_table_80_bar::single_phase_table_2_to_750_degc ... ok
+test interfaces::tests_and_examples::ph_flash_region4_edge_and_region5::ph_flash_at_exact_psat_273_15_does_not_panic ... ok
+test interfaces::tests_and_examples::ph_flash_region4_edge_and_region5::ph_flash_neighbourhood_of_psat_273_15_does_not_panic ... ok
+test interfaces::tests_and_examples::ph_flash_region4_edge_and_region5::region_4_tp_forward_flash_is_explicitly_under_determined - should panic ... ok
+test interfaces::tests_and_examples::ph_flash_region4_edge_and_region5::region_5_above_its_pressure_limit_is_still_refused - should panic ... ok
+test interfaces::tests_and_examples::ph_flash_region4_edge_and_region5::region_5_ph_flash_round_trips_through_the_in_house_correlation ... ok
+test interfaces::tests_and_examples::ph_flash_regions::above_100_mpa_should_panic - should panic ... ok
+test interfaces::tests_and_examples::ph_flash_regions::above_enthalpy_below_273_15k_should_panic - should panic ... ok
+test interfaces::tests_and_examples::ph_flash_regions::above_pressure_below_tripe_pt_pressure_should_panic - should panic ... ok
+test interfaces::tests_and_examples::ph_flash_regions::region_1_test_1 ... ok
+test interfaces::tests_and_examples::ph_flash_regions::region_1_test_2 ... ok
+test interfaces::tests_and_examples::ph_flash_regions::region_1_test_3_sat_liq_line ... ok
+test interfaces::tests_and_examples::ph_flash_regions::region_1_test_4_t_623_15k_isotherm ... ok
+test interfaces::tests_and_examples::ph_flash_regions::region_1_test_5_t_623_15k_isotherm_and_sat_liq_line ... ok
+test interfaces::tests_and_examples::ph_flash_regions::region_2_test_1 ... ok
+test interfaces::tests_and_examples::ph_flash_regions::region_2_test_2 ... ok
+test interfaces::tests_and_examples::ph_flash_regions::region_2_test_3 ... ok
+test interfaces::tests_and_examples::ph_flash_regions::region_2_test_4_tb23_line ... ok
+test interfaces::tests_and_examples::ph_flash_regions::region_2_test_5_sat_vap_line ... ok
+test interfaces::tests_and_examples::ph_flash_regions::region_2_test_6_sat_vap_t_b23 ... ok
+test interfaces::tests_and_examples::ph_flash_regions::region_3_test_1 ... ok
+test interfaces::tests_and_examples::ph_flash_regions::region_3_test_2 ... ok
+test interfaces::tests_and_examples::ph_flash_regions::region_3_test_3 ... ok
+test interfaces::tests_and_examples::ph_flash_regions::region_3_test_4 ... ok
+test interfaces::tests_and_examples::ph_flash_regions::region_3_test_5 ... ok
+test interfaces::tests_and_examples::ph_flash_regions::region_4_test_1 ... ok
+test interfaces::tests_and_examples::ph_flash_regions::region_4_test_2 ... ok
+test interfaces::tests_and_examples::ph_flash_regions::region_4_test_3 ... ok
+test interfaces::tests_and_examples::ph_flash_regions::region_4_test_4 ... ok
+test interfaces::tests_and_examples::ph_flash_regions::region_5_is_now_dispatched ... ok
+test interfaces::tests_and_examples::ph_flash_steam_table::saturation_table_0_to_44_degc::saturation_table_0_to_44_degc ... ok
+test interfaces::tests_and_examples::hs_flash_steam_table::single_phase_table_8_bar::single_phase_table_2_to_750_degc ... ok
+test interfaces::tests_and_examples::ph_flash_steam_table::saturation_table_170_to_258_degc::saturation_table_170_to_258_degc ... ok
+test interfaces::tests_and_examples::ph_flash_steam_table::saturation_table_260_degc_to_crit_temp_373_946_degc::saturation_table_355_degc_to_crit_373_degc ... ok
+test interfaces::tests_and_examples::ph_flash_steam_table::saturation_table_260_degc_to_crit_temp_373_946_degc::saturation_table_260_degc_to_350_degc ... ok
+test interfaces::tests_and_examples::ph_flash_steam_table::saturation_table_45_to_89_degc::saturation_table_45_to_89_degc ... ok
+test interfaces::tests_and_examples::ph_flash_steam_table::saturation_table_90_to_168_degc::saturation_table_90_to_168_degc ... ok
+test interfaces::tests_and_examples::ph_flash_steam_table::single_phase_table_0_006112127_bar::single_phase_table_0_to_240_degc_except_triple_pt ... ok
+test interfaces::tests_and_examples::ph_flash_steam_table::single_phase_table_0_006112127_bar::single_phase_table_250_to_800_degc ... ok
+test interfaces::tests_and_examples::ph_flash_steam_table::single_phase_table_0_1_bar::single_phase_table_0_to_240_degc_except_triple_pt ... ok
+test interfaces::tests_and_examples::ph_flash_steam_table::single_phase_table_1000_bar::single_phase_table_2_to_750_degc ... ignored, At 1000 bar, ph flashing goes out of bounds for some reason, yet to debug
+test interfaces::tests_and_examples::ph_flash_steam_table::single_phase_table_0_1_bar::single_phase_table_250_to_800_degc ... ok
+test interfaces::tests_and_examples::ph_flash_steam_table::single_phase_table_100_bar::single_phase_table_2_to_750_degc ... ok
+test interfaces::tests_and_examples::ph_flash_steam_table::single_phase_table_10_bar::single_phase_table_2_to_750_degc ... ok
+test interfaces::tests_and_examples::ph_flash_steam_table::single_phase_table_120_bar::single_phase_table_2_to_750_degc ... ok
+test interfaces::tests_and_examples::ph_flash_steam_table::single_phase_table_140_bar::single_phase_table_2_to_750_degc ... ok
+test interfaces::tests_and_examples::ph_flash_steam_table::single_phase_table_160_bar::single_phase_table_2_to_750_degc ... ok
+test interfaces::tests_and_examples::ph_flash_steam_table::single_phase_table_180_bar::single_phase_table_2_to_750_degc ... ok
+test interfaces::tests_and_examples::ph_flash_steam_table::single_phase_table_200_bar::single_phase_table_2_to_750_degc ... ok
+test interfaces::tests_and_examples::ph_flash_steam_table::single_phase_table_1_bar::single_phase_table_2_to_800_degc_except_triple_pt ... ok
+test interfaces::tests_and_examples::ph_flash_steam_table::single_phase_table_20_bar::single_phase_table_2_to_750_degc ... ok
+test interfaces::tests_and_examples::ph_flash_steam_table::single_phase_table_220_bar::single_phase_table_2_to_750_degc ... ok
+test interfaces::tests_and_examples::ph_flash_steam_table::single_phase_table_240_bar::single_phase_table_0_to_750_degc ... ok
+test interfaces::tests_and_examples::ph_flash_steam_table::single_phase_table_260_bar::single_phase_table_2_to_750_degc ... ok
+test interfaces::tests_and_examples::ph_flash_steam_table::single_phase_table_280_bar::single_phase_table_2_to_750_degc ... ok
+test interfaces::tests_and_examples::ph_flash_steam_table::single_phase_table_2_bar::single_phase_table_2_to_800_degc_except_triple_pt ... ok
+test interfaces::tests_and_examples::ph_flash_steam_table::single_phase_table_300_bar::single_phase_table_2_to_750_degc ... ok
+test interfaces::tests_and_examples::ph_flash_steam_table::single_phase_table_400_bar::single_phase_table_2_to_750_degc ... ok
+test interfaces::tests_and_examples::ph_flash_steam_table::single_phase_table_40_bar::single_phase_table_2_to_750_degc ... ok
+test interfaces::tests_and_examples::ph_flash_steam_table::single_phase_table_4_bar::single_phase_table_2_to_800_degc ... ok
+test interfaces::tests_and_examples::ph_flash_steam_table::single_phase_table_500_bar::single_phase_table_2_to_750_degc ... ok
+test interfaces::tests_and_examples::ph_flash_steam_table::single_phase_table_600_bar::single_phase_table_2_to_750_degc ... ok
+test interfaces::tests_and_examples::ph_flash_steam_table::single_phase_table_60_bar::single_phase_table_2_to_750_degc ... ok
+test interfaces::tests_and_examples::ph_flash_steam_table::single_phase_table_6_bar::single_phase_table_2_to_800_degc ... ok
+test interfaces::tests_and_examples::ph_flash_steam_table::single_phase_table_700_bar::single_phase_table_2_to_750_degc ... ok
+test interfaces::tests_and_examples::ph_flash_steam_table::single_phase_table_80_bar::single_phase_table_2_to_750_degc ... ok
+test interfaces::tests_and_examples::ph_flash_steam_table::single_phase_table_800_bar::single_phase_table_2_to_750_degc ... ok
+test interfaces::tests_and_examples::ps_flash_steam_table::saturation_table_0_to_44_degc::saturation_table_0_to_44_degc ... ok
+test interfaces::tests_and_examples::ps_flash_steam_table::saturation_table_170_to_258_degc::saturation_table_170_to_258_degc ... ok
+test interfaces::tests_and_examples::ps_flash_steam_table::saturation_table_260_degc_to_crit_temp_373_946_degc::saturation_table_260_degc_to_crit_temp_373_946_degc ... ok
+test interfaces::tests_and_examples::ph_flash_steam_table::single_phase_table_8_bar::single_phase_table_2_to_800_degc ... ok
+test interfaces::tests_and_examples::ps_flash_steam_table::saturation_table_45_to_89_degc::saturation_table_45_to_89_degc ... ok
+test interfaces::tests_and_examples::ps_flash_steam_table::saturation_table_90_to_168_degc::saturation_table_90_to_168_degc ... ok
+test interfaces::tests_and_examples::ps_flash_steam_table::single_phase_table_0_00611_bar_to_10_bar::single_phase_table_0_to_240_degc_except_triple_pt_0_00611_bar ... ok
+test interfaces::tests_and_examples::ps_flash_steam_table::single_phase_table_0_00611_bar_to_10_bar::single_phase_table_0_to_240_degc_except_triple_pt_0_1_bar ... ok
+test interfaces::tests_and_examples::ps_flash_steam_table::single_phase_table_0_00611_bar_to_10_bar::single_phase_table_250_to_750_degc_0_00611_bar ... ok
+test interfaces::tests_and_examples::ps_flash_steam_table::single_phase_table_0_00611_bar_to_10_bar::single_phase_table_250_to_750_degc_0_1_bar ... ok
+test interfaces::tests_and_examples::ps_flash_steam_table::single_phase_table_0_00611_bar_to_10_bar::single_phase_table_2_to_750_degc_10_bar ... ok
+test interfaces::tests_and_examples::ps_flash_steam_table::single_phase_table_0_00611_bar_to_10_bar::single_phase_table_2_to_750_degc ... ok
+test interfaces::tests_and_examples::ps_flash_steam_table::single_phase_table_0_00611_bar_to_10_bar::single_phase_table_2_to_750_degc_4_bar ... ok
+test interfaces::tests_and_examples::ps_flash_steam_table::single_phase_table_0_00611_bar_to_10_bar::single_phase_table_2_to_750_degc_6_bar ... ok
+test interfaces::tests_and_examples::ps_flash_steam_table::single_phase_table_0_00611_bar_to_10_bar::single_phase_table_2_to_750_degc_except_triple_pt_2_bar ... ok
+test interfaces::tests_and_examples::ps_flash_steam_table::single_phase_table_0_00611_bar_to_10_bar::single_phase_table_2_to_750_degc_except_triple_pt_1_bar ... ok
+test interfaces::tests_and_examples::ps_flash_steam_table::single_phase_table_20_bar_to_220_bar::single_phase_table_2_to_750_degc_100_bar ... ok
+test interfaces::tests_and_examples::ps_flash_steam_table::single_phase_table_20_bar_to_220_bar::single_phase_table_2_to_750_degc_120_bar ... ok
+test interfaces::tests_and_examples::ps_flash_steam_table::single_phase_table_20_bar_to_220_bar::single_phase_table_2_to_750_degc_140_bar ... ok
+test interfaces::tests_and_examples::ps_flash_steam_table::single_phase_table_20_bar_to_220_bar::single_phase_table_2_to_750_degc_160_bar ... ok
+test interfaces::tests_and_examples::ps_flash_steam_table::single_phase_table_20_bar_to_220_bar::single_phase_table_2_to_750_degc_180_bar ... ok
+test interfaces::tests_and_examples::ps_flash_steam_table::single_phase_table_20_bar_to_220_bar::single_phase_table_2_to_750_degc_200_bar ... ok
+test interfaces::tests_and_examples::ps_flash_steam_table::single_phase_table_20_bar_to_220_bar::single_phase_table_2_to_750_degc_220_bar ... ok
+test interfaces::tests_and_examples::ps_flash_steam_table::single_phase_table_20_bar_to_220_bar::single_phase_table_2_to_750_degc_20_bar ... ok
+test interfaces::tests_and_examples::ps_flash_steam_table::single_phase_table_20_bar_to_220_bar::single_phase_table_2_to_750_degc_60_bar ... ok
+test interfaces::tests_and_examples::ps_flash_steam_table::single_phase_table_20_bar_to_220_bar::single_phase_table_2_to_750_degc_40_bar ... ok
+test interfaces::tests_and_examples::ps_flash_steam_table::single_phase_table_240_bar_to_1000_bar::single_phase_table_2_to_750_degc_1000_bar ... ignored, to implement in next major version
+test interfaces::tests_and_examples::ps_flash_steam_table::single_phase_table_240_bar_to_1000_bar::single_phase_table_2_to_750_degc_240_bar ... ok
+test interfaces::tests_and_examples::ps_flash_steam_table::single_phase_table_20_bar_to_220_bar::single_phase_table_2_to_750_degc_80_bar ... ok
+test interfaces::tests_and_examples::ps_flash_steam_table::single_phase_table_240_bar_to_1000_bar::single_phase_table_2_to_750_degc_260_bar ... ok
+test interfaces::tests_and_examples::ps_flash_steam_table::single_phase_table_240_bar_to_1000_bar::single_phase_table_2_to_750_degc_280_bar ... ok
+test interfaces::tests_and_examples::ps_flash_steam_table::single_phase_table_240_bar_to_1000_bar::single_phase_table_2_to_750_degc_300_bar ... ok
+test interfaces::tests_and_examples::ps_flash_steam_table::single_phase_table_240_bar_to_1000_bar::single_phase_table_2_to_750_degc_400_bar ... ok
+test interfaces::tests_and_examples::ps_flash_steam_table::single_phase_table_240_bar_to_1000_bar::single_phase_table_2_to_750_degc_500_bar ... ok
+test interfaces::tests_and_examples::ps_flash_steam_table::single_phase_table_240_bar_to_1000_bar::single_phase_table_2_to_750_degc_600_bar ... ok
+test interfaces::tests_and_examples::ps_flash_steam_table::single_phase_table_240_bar_to_1000_bar::single_phase_table_2_to_750_degc_700_bar ... ok
+test interfaces::tests_and_examples::pt_flash_steam_table::region_5_high_temp_100_bar_and_below::single_phase_table_0_00611_bar ... ok
+test interfaces::tests_and_examples::pt_flash_steam_table::region_5_high_temp_100_bar_and_below::single_phase_table_0_01_bar ... ok
+test interfaces::tests_and_examples::pt_flash_steam_table::region_5_high_temp_100_bar_and_below::single_phase_table_0_1_bar ... ok
+test interfaces::tests_and_examples::pt_flash_steam_table::region_5_high_temp_100_bar_and_below::single_phase_table_100_bar ... ok
+test interfaces::tests_and_examples::pt_flash_steam_table::region_5_high_temp_100_bar_and_below::single_phase_table_10_bar ... ok
+test interfaces::tests_and_examples::pt_flash_steam_table::region_5_high_temp_100_bar_and_below::single_phase_table_1_bar ... ok
+test interfaces::tests_and_examples::pt_flash_steam_table::region_5_high_temp_100_bar_and_below::single_phase_table_20_bar ... ok
+test interfaces::tests_and_examples::pt_flash_steam_table::region_5_high_temp_100_bar_and_below::single_phase_table_2_bar ... ok
+test interfaces::tests_and_examples::pt_flash_steam_table::region_5_high_temp_100_bar_and_below::single_phase_table_40_bar ... ok
+test interfaces::tests_and_examples::pt_flash_steam_table::region_5_high_temp_100_bar_and_below::single_phase_table_4_bar ... ok
+test interfaces::tests_and_examples::pt_flash_steam_table::region_5_high_temp_100_bar_and_below::single_phase_table_60_bar ... ok
+test interfaces::tests_and_examples::pt_flash_steam_table::region_5_high_temp_100_bar_and_below::single_phase_table_6_bar ... ok
+test interfaces::tests_and_examples::pt_flash_steam_table::region_5_high_temp_100_bar_and_below::single_phase_table_80_bar ... ok
+test interfaces::tests_and_examples::pt_flash_steam_table::region_5_high_temp_100_bar_and_below::single_phase_table_8_bar ... ok
+test interfaces::tests_and_examples::pt_flash_steam_table::region_5_high_temp_120_bar_to_500_bar::single_phase_table_120_bar ... ok
+test interfaces::tests_and_examples::pt_flash_steam_table::region_5_high_temp_120_bar_to_500_bar::single_phase_table_140_bar ... ok
+test interfaces::tests_and_examples::pt_flash_steam_table::region_5_high_temp_120_bar_to_500_bar::single_phase_table_160_bar ... ok
+test interfaces::tests_and_examples::pt_flash_steam_table::region_5_high_temp_120_bar_to_500_bar::single_phase_table_180_bar ... ok
+test interfaces::tests_and_examples::pt_flash_steam_table::region_5_high_temp_120_bar_to_500_bar::single_phase_table_200_bar ... ok
+test interfaces::tests_and_examples::pt_flash_steam_table::region_5_high_temp_120_bar_to_500_bar::single_phase_table_220_bar ... ok
+test interfaces::tests_and_examples::pt_flash_steam_table::region_5_high_temp_120_bar_to_500_bar::single_phase_table_240_bar ... ok
+test interfaces::tests_and_examples::pt_flash_steam_table::region_5_high_temp_120_bar_to_500_bar::single_phase_table_260_bar ... ok
+test interfaces::tests_and_examples::pt_flash_steam_table::region_5_high_temp_120_bar_to_500_bar::single_phase_table_280_bar ... ok
+test interfaces::tests_and_examples::pt_flash_steam_table::region_5_high_temp_120_bar_to_500_bar::single_phase_table_300_bar ... ok
+test interfaces::tests_and_examples::pt_flash_steam_table::region_5_high_temp_120_bar_to_500_bar::single_phase_table_400_bar ... ok
+test interfaces::tests_and_examples::pt_flash_steam_table::region_5_high_temp_120_bar_to_500_bar::single_phase_table_500_bar ... ok
+test interfaces::tests_and_examples::pt_flash_steam_table::region_determination_with_steam_quality::region_1_2_3_5_test::region1_test ... ok
+test interfaces::tests_and_examples::pt_flash_steam_table::region_determination_with_steam_quality::region_1_2_3_5_test::region2_test ... ok
+test interfaces::tests_and_examples::pt_flash_steam_table::region_determination_with_steam_quality::region_1_2_3_5_test::region3_test ... ok
+test interfaces::tests_and_examples::pt_flash_steam_table::region_determination_with_steam_quality::region_1_2_3_5_test::region5_test ... ok
+test interfaces::tests_and_examples::pt_flash_steam_table::region_determination_with_steam_quality::region_determination_saturated_steam ... ok
+test interfaces::tests_and_examples::pt_flash_steam_table::saturation_table_0_to_44_degc::saturation_table_0_to_44_degc ... ok
+test interfaces::tests_and_examples::ps_flash_steam_table::single_phase_table_240_bar_to_1000_bar::single_phase_table_2_to_750_degc_800_bar ... ok
+test interfaces::tests_and_examples::pt_flash_steam_table::saturation_table_170_to_258_degc::saturation_table_170_to_258_degc ... ok
+test interfaces::tests_and_examples::pt_flash_steam_table::saturation_table_260_degc_to_crit_temp_373_946_degc::saturation_table_260_degc_to_crit_temp_373_946_degc ... ok
+test interfaces::tests_and_examples::pt_flash_steam_table::saturation_table_45_to_89_degc::saturation_table_45_to_89_degc ... ok
+test interfaces::tests_and_examples::pt_flash_steam_table::saturation_table_90_to_168_degc::saturation_table_90_to_168_degc ... ok
+test interfaces::tests_and_examples::pt_flash_steam_table::single_phase_table_0_00611_bar_to_10_bar::single_phase_table_0_to_240_degc_except_triple_pt_0_00611_bar ... ok
+test interfaces::tests_and_examples::pt_flash_steam_table::single_phase_table_0_00611_bar_to_10_bar::single_phase_table_0_to_240_degc_except_triple_pt_0_1_bar ... ok
+test interfaces::tests_and_examples::pt_flash_steam_table::single_phase_table_0_00611_bar_to_10_bar::single_phase_table_250_to_800_degc_0_00611_bar ... ok
+test interfaces::tests_and_examples::pt_flash_steam_table::single_phase_table_0_00611_bar_to_10_bar::single_phase_table_250_to_800_degc_0_1_bar ... ok
+test interfaces::tests_and_examples::pt_flash_steam_table::single_phase_table_0_00611_bar_to_10_bar::single_phase_table_2_to_750_degc_10_bar ... ok
+test interfaces::tests_and_examples::pt_flash_steam_table::single_phase_table_0_00611_bar_to_10_bar::single_phase_table_2_to_800_degc ... ok
+test interfaces::tests_and_examples::pt_flash_steam_table::single_phase_table_0_00611_bar_to_10_bar::single_phase_table_2_to_800_degc_4_bar ... ok
+test interfaces::tests_and_examples::pt_flash_steam_table::single_phase_table_0_00611_bar_to_10_bar::single_phase_table_2_to_800_degc_6_bar ... ok
+test interfaces::tests_and_examples::pt_flash_steam_table::single_phase_table_0_00611_bar_to_10_bar::single_phase_table_2_to_800_degc_except_triple_pt_1_bar ... ok
+test interfaces::tests_and_examples::pt_flash_steam_table::single_phase_table_0_00611_bar_to_10_bar::single_phase_table_2_to_800_degc_except_triple_pt_2_bar ... ok
+test interfaces::tests_and_examples::pt_flash_steam_table::single_phase_table_20_bar_to_220_bar::single_phase_table_2_to_750_degc_100_bar ... ok
+test interfaces::tests_and_examples::pt_flash_steam_table::single_phase_table_20_bar_to_220_bar::single_phase_table_2_to_750_degc_120_bar ... ok
+test interfaces::tests_and_examples::pt_flash_steam_table::single_phase_table_20_bar_to_220_bar::single_phase_table_2_to_750_degc_160_bar ... ok
+test interfaces::tests_and_examples::pt_flash_steam_table::single_phase_table_20_bar_to_220_bar::single_phase_table_2_to_750_degc_140_bar ... ok
+test interfaces::tests_and_examples::pt_flash_steam_table::single_phase_table_20_bar_to_220_bar::single_phase_table_2_to_750_degc_180_bar ... ok
+test interfaces::tests_and_examples::pt_flash_steam_table::single_phase_table_20_bar_to_220_bar::single_phase_table_2_to_750_degc_200_bar ... ok
+test interfaces::tests_and_examples::pt_flash_steam_table::single_phase_table_20_bar_to_220_bar::single_phase_table_2_to_750_degc_20_bar ... ok
+test interfaces::tests_and_examples::pt_flash_steam_table::single_phase_table_20_bar_to_220_bar::single_phase_table_2_to_750_degc_220_bar ... ok
+test interfaces::tests_and_examples::pt_flash_steam_table::single_phase_table_20_bar_to_220_bar::single_phase_table_2_to_750_degc_40_bar ... ok
+test interfaces::tests_and_examples::pt_flash_steam_table::single_phase_table_20_bar_to_220_bar::single_phase_table_2_to_750_degc_60_bar ... ok
+test interfaces::tests_and_examples::pt_flash_steam_table::single_phase_table_20_bar_to_220_bar::single_phase_table_2_to_750_degc_80_bar ... ok
+test interfaces::tests_and_examples::pt_flash_steam_table::single_phase_table_240_bar_to_1000_bar::single_phase_table_2_to_750_degc_1000_bar ... ignored, to implement in next major version
+test interfaces::tests_and_examples::pt_flash_steam_table::single_phase_table_240_bar_to_1000_bar::single_phase_table_0_to_750_degc_240_bar ... ok
+test interfaces::tests_and_examples::pt_flash_steam_table::single_phase_table_240_bar_to_1000_bar::single_phase_table_2_to_750_degc_260_bar ... ok
+test interfaces::tests_and_examples::pt_flash_steam_table::single_phase_table_240_bar_to_1000_bar::single_phase_table_2_to_750_degc_280_bar ... ok
+test interfaces::tests_and_examples::pt_flash_steam_table::single_phase_table_240_bar_to_1000_bar::single_phase_table_2_to_750_degc_300_bar ... ok
+test interfaces::tests_and_examples::pt_flash_steam_table::single_phase_table_240_bar_to_1000_bar::single_phase_table_2_to_750_degc_400_bar ... ok
+test interfaces::tests_and_examples::pt_flash_steam_table::single_phase_table_240_bar_to_1000_bar::single_phase_table_2_to_750_degc_500_bar ... ok
+test interfaces::tests_and_examples::pt_flash_steam_table::single_phase_table_240_bar_to_1000_bar::single_phase_table_2_to_750_degc_600_bar ... ok
+test interfaces::tests_and_examples::pt_flash_steam_table::single_phase_table_240_bar_to_1000_bar::single_phase_table_2_to_750_degc_700_bar ... ok
+test interfaces::tests_and_examples::region_5_flash_steam_table::diagnose_the_hs_bracket_at_low_pressure ... ok
+test interfaces::tests_and_examples::pt_flash_steam_table::single_phase_table_240_bar_to_1000_bar::single_phase_table_2_to_750_degc_800_bar ... ok
+test interfaces::tests_and_examples::region_5_flash_steam_table::ph_flash_round_trips_across_region_5 ... ok
+test interfaces::tests_and_examples::region_5_flash_steam_table::ps_flash_round_trips_across_region_5 ... ok
+test interfaces::tests_and_examples::region_5_flash_steam_table::region_5_grid_spans_the_documented_domain ... ok
+test interfaces::tests_and_examples::region_5_flash_steam_table::hs_flash_round_trips_across_region_5 ... ok
+test interfaces::tests_and_examples::rho_h_flash_steam_table::diagnostics::diagnose_the_40_bar_node_solution ... ok
+test interfaces::tests_and_examples::rho_h_flash_steam_table::diagnostics::diagnose_saturation_fallback_against_the_root_find ... ok
+test interfaces::tests_and_examples::rho_h_flash_steam_table::diagnostics::diagnose_the_conditioning_measure_across_regimes ... ok
+test interfaces::tests_and_examples::rho_h_flash_steam_table::diagnostics::diagnose_the_full_pressure_sweep_at_the_40_bar_node ... ok
+test interfaces::tests_and_examples::rho_h_flash_steam_table::diagnostics::diagnose_the_region_1_to_4_seam_at_the_worst_node ... ok
+test interfaces::tests_and_examples::rho_h_flash_steam_table::diagnostics::diagnose_whether_pressure_error_is_solver_or_conditioning ... ok
+test interfaces::tests_and_examples::rho_h_flash_steam_table::p_rho_h_inverts_v_ph_across_the_steam_table ... ok
+test interfaces::tests_and_examples::rho_h_flash_steam_table::p_rho_h_reproduces_the_published_single_phase_tables ... ok
+test interfaces::tests_and_examples::rho_h_flash_steam_table::px_rho_h_dispatcher_across_the_whole_steam_table ... ok
+test interfaces::tests_and_examples::rho_h_flash_steam_table::supercritical_quality_follows_the_left_right_of_critical_convention ... ok
+test interfaces::tests_and_examples::rho_h_flash_steam_table::tpx_rho_h_recovers_quality_inside_the_dome ... ok
+test interfaces::tests_and_examples::rho_h_flash_steam_table::tpx_rho_h_reproduces_the_saturation_tables ... ok
+test interfaces::tests_and_examples::rho_h_flash_steam_table::diagnostics::diagnose_the_cost_of_the_inversion_relative_to_a_ph_flash ... ok
+test openfoam_algorithms::openfoam_source::fields::field::tests::add_f64_fields ... ok
+test openfoam_algorithms::openfoam_source::fields::field::tests::div_scalar ... ok
+test openfoam_algorithms::openfoam_source::fields::field::tests::mul_scalar ... ok
+test openfoam_algorithms::openfoam_source::fields::field::tests::neg_field ... ok
+test openfoam_algorithms::openfoam_source::fields::field::tests::pointwise_mul_fields ... ok
+test openfoam_algorithms::openfoam_source::fields::field::tests::sum_mean ... ok
+test openfoam_algorithms::openfoam_source::fields::field::tests::uniform_and_len ... ok
+test openfoam_algorithms::openfoam_source::fields::field::tests::vector3_add_fields ... ok
+test openfoam_algorithms::openfoam_source::fields::field::tests::vector3_scale_by_scalar_field ... ok
+test openfoam_algorithms::openfoam_source::fields::surface_field::tests::add_surface_fields ... ok
+test openfoam_algorithms::openfoam_source::fields::surface_field::tests::face_value_internal ... ok
+test openfoam_algorithms::openfoam_source::fields::surface_field::tests::mul_surface_field_by_scalar ... ok
+test openfoam_algorithms::openfoam_source::fields::surface_field::tests::zeros_surface_scalar_field ... ok
+test openfoam_algorithms::openfoam_source::fields::vol_field::tests::add_vol_scalar_fields ... ok
+test openfoam_algorithms::openfoam_source::fields::vol_field::tests::mul_scalar_field_by_f64 ... ok
+test openfoam_algorithms::openfoam_source::fields::vol_field::tests::neg_vol_vector_field ... ok
+test openfoam_algorithms::openfoam_source::fields::vol_field::tests::uniform_vol_scalar_field ... ok
+test openfoam_algorithms::openfoam_source::fluid_thermo::psi_thermo::tests::correct_recovers_temperature_from_he ... ok
+test openfoam_algorithms::openfoam_source::fluid_thermo::psi_thermo::tests::correct_rho_clamps ... ok
+test openfoam_algorithms::openfoam_source::fluid_thermo::psi_thermo::tests::initial_state_consistent ... ok
+test openfoam_algorithms::openfoam_source::fluid_thermo::psi_thermo::tests::mu_and_kappa_fields_populated ... ok
+test openfoam_algorithms::openfoam_source::fluid_thermo::rho_thermo::tests::correct_updates_temperature ... ok
+test openfoam_algorithms::openfoam_source::fluid_thermo::rho_thermo::tests::initial_state_consistent ... ok
+test openfoam_algorithms::openfoam_source::fluid_thermo::rho_thermo::tests::psi_vs_rho_thermo_match ... ok
+test openfoam_algorithms::openfoam_source::fluid_thermo::solid_thermo::tests::conduction_solve ... ok
+test openfoam_algorithms::openfoam_source::fluid_thermo::solid_thermo::tests::kappa_field_uniform ... ok
+test openfoam_algorithms::openfoam_source::fluid_thermo::solid_thermo::tests::rho_cp_field_uniform ... ok
+test openfoam_algorithms::openfoam_source::fluid_thermo::solid_thermo::tests::t_mutable ... ok
+test openfoam_algorithms::openfoam_source::fv_operators::adjust_phi::tests::balances_net_outflow ... ok
+test openfoam_algorithms::openfoam_source::fv_operators::adjust_phi::tests::no_adjustment_when_balanced ... ok
+test openfoam_algorithms::openfoam_source::fv_operators::fvc::ddt_corr::tests::coeff_limits_large_correction_to_zero ... ok
+test openfoam_algorithms::openfoam_source::fv_operators::fvc::ddt_corr::tests::consistent_phi_gives_zero_correction ... ok
+test openfoam_algorithms::openfoam_source::fv_operators::fvc::ddt_corr::tests::nonzero_correction_for_inconsistent_phi ... ok
+test openfoam_algorithms::openfoam_source::fv_operators::fvc::div::tests::div_flux_nonzero ... ok
+test openfoam_algorithms::openfoam_source::fv_operators::fvc::div::tests::div_flux_of_uniform_inoutflow_is_zero ... ok
+test openfoam_algorithms::openfoam_source::fv_operators::fvc::flux::tests::buoyancy_flux_downward_gravity ... ok
+test openfoam_algorithms::openfoam_source::fv_operators::fvc::flux::tests::uniform_x_velocity_flux_equals_area ... ok
+test openfoam_algorithms::openfoam_source::fv_operators::fvc::grad::tests::linear_field_constant_x_grad ... ok
+test openfoam_algorithms::openfoam_source::fv_operators::fvc::grad::tests::uniform_field_zero_grad ... ok
+test openfoam_algorithms::openfoam_source::fv_operators::fvc::interpolate::tests::linear_field_midpoint_weight ... ok
+test openfoam_algorithms::openfoam_source::fv_operators::fvc::interpolate::tests::uniform_field_interpolates_exactly ... ok
+test openfoam_algorithms::openfoam_source::fv_operators::fvc::muscl::tests::linear_field_reconstructs_to_central_value ... ok
+test openfoam_algorithms::openfoam_source::fv_operators::fvc::muscl::tests::upwind_limiter_returns_cell_values ... ok
+test openfoam_algorithms::openfoam_source::fv_operators::fvc::muscl::tests::vanleer_clamps_at_discontinuity ... ok
+test openfoam_algorithms::openfoam_source::fv_operators::fvc::reconstruct::tests::flux_then_reconstruct_roundtrip ... ok
+test openfoam_algorithms::openfoam_source::fv_operators::fvc::reconstruct::tests::reconstruct_consistent_phi ... ok
+test openfoam_algorithms::openfoam_source::fv_operators::fvc::sn_grad::tests::linear_field_constant_gradient ... ok
+test openfoam_algorithms::openfoam_source::fv_operators::fvc::sn_grad::tests::uniform_field_zero_gradient ... ok
+test openfoam_algorithms::openfoam_source::fv_operators::fvm::ddt::tests::ddt_coeff_diagonal_is_coeff_times_volume_over_dt ... ok
+test openfoam_algorithms::openfoam_source::fv_operators::fvm::ddt::tests::ddt_coeff_solves_to_old_when_no_spatial_terms ... ok
+test openfoam_algorithms::openfoam_source::fv_operators::fvm::ddt::tests::ddt_diagonal_is_volume_over_dt ... ok
+test openfoam_algorithms::openfoam_source::fv_operators::fvm::ddt::tests::ddt_solves_to_old_when_no_spatial_terms ... ok
+test openfoam_algorithms::openfoam_source::fv_operators::fvm::ddt_vec::tests::ddt_coeff_vec_diagonal_is_coeff_times_volume_over_dt ... ok
+test openfoam_algorithms::openfoam_source::fv_operators::fvm::ddt_vec::tests::ddt_coeff_vec_solves_to_old_when_no_spatial_terms ... ok
+test openfoam_algorithms::openfoam_source::fv_operators::fvm::ddt_vec::tests::ddt_vec_recovers_constant_field ... ok
+test openfoam_algorithms::openfoam_source::fv_operators::fvm::div::tests::upwind_negative_flux_on_upper ... ok
+test openfoam_algorithms::openfoam_source::fv_operators::fvm::div::tests::upwind_positive_flux_on_diagonal ... ok
+test openfoam_algorithms::openfoam_source::fv_operators::fvm::div_vec::tests::zero_flux_gives_zero_matrix ... ok
+test openfoam_algorithms::openfoam_source::fv_operators::fvm::laplacian::tests::laplacian_solves_linear_dirichlet ... ok
+test openfoam_algorithms::openfoam_source::fv_operators::fvm::laplacian::tests::laplacian_symmetric_matrix ... ok
+test openfoam_algorithms::openfoam_source::fv_operators::fvm::laplacian_vec::tests::laplacian_vec_1d_linear_profile ... ok
+test openfoam_algorithms::openfoam_source::interpolation::interpolate_spline_xy::tests::clamp_left ... ok
+test openfoam_algorithms::openfoam_source::interpolation::interpolate_spline_xy::tests::clamp_right ... ok
+test openfoam_algorithms::openfoam_source::interpolation::interpolate_spline_xy::tests::exact_at_knots ... ok
+test openfoam_algorithms::openfoam_source::interpolation::interpolate_spline_xy::tests::linear_data_matches_linear ... ok
+test openfoam_algorithms::openfoam_source::interpolation::interpolate_spline_xy::tests::single_and_two_point_edge_cases ... ok
+test openfoam_algorithms::openfoam_source::interpolation::interpolate_xy::tests::clamp_left ... ok
+test openfoam_algorithms::openfoam_source::interpolation::interpolate_xy::tests::clamp_right ... ok
+test openfoam_algorithms::openfoam_source::interpolation::interpolate_xy::tests::exact_at_knots ... ok
+test openfoam_algorithms::openfoam_source::interpolation::interpolate_xy::tests::midpoints ... ok
+test openfoam_algorithms::openfoam_source::interpolation::interpolate_xy::tests::single_point ... ok
+test openfoam_algorithms::openfoam_source::interpolation::interpolate_xy::tests::two_points ... ok
+test openfoam_algorithms::openfoam_source::ldu_matrix::fv_matrix::tests::add_face_coeff_symmetrises_diag ... ok
+test openfoam_algorithms::openfoam_source::ldu_matrix::fv_matrix::tests::solve_diagonal_system ... ok
+test openfoam_algorithms::openfoam_source::ldu_matrix::fv_vector_matrix::tests::a_field_returns_diagonal ... ok
+test openfoam_algorithms::openfoam_source::ldu_matrix::fv_vector_matrix::tests::diagonal_system_solves_vector ... ok
+test openfoam_algorithms::openfoam_source::ldu_matrix::ldu_matrix::tests::identity_multiply ... ok
+test openfoam_algorithms::openfoam_source::ldu_matrix::ldu_matrix::tests::residual_exact_solution ... ok
+test openfoam_algorithms::openfoam_source::ldu_matrix::ldu_matrix::tests::tridiag_multiply ... ok
+test openfoam_algorithms::openfoam_source::ldu_matrix::solvers::conjugate_gradient::tests::cg_faster_than_gs_on_symmetric ... ok
+test openfoam_algorithms::openfoam_source::ldu_matrix::solvers::conjugate_gradient::tests::cg_identity ... ok
+test openfoam_algorithms::openfoam_source::ldu_matrix::solvers::conjugate_gradient::tests::cg_solves_1d_poisson ... ok
+test openfoam_algorithms::openfoam_source::ldu_matrix::solvers::gamg::tests::gamg_cycle_count_is_mesh_independent ... ok
+test openfoam_algorithms::openfoam_source::ldu_matrix::solvers::gamg::tests::gamg_handles_tiny_matrix ... ok
+test openfoam_algorithms::openfoam_source::ldu_matrix::solvers::gamg::tests::gamg_solves_1d_poisson ... ok
+test openfoam_algorithms::openfoam_source::ldu_matrix::solvers::gamg::tests::gamg_warm_start_returns_immediately ... ok
+test openfoam_algorithms::openfoam_source::ldu_matrix::solvers::gauss_seidel::tests::diagonal_system_one_iter ... ok
+test openfoam_algorithms::openfoam_source::ldu_matrix::solvers::gauss_seidel::tests::solves_diagonally_dominant_system ... ok
+test openfoam_algorithms::openfoam_source::math::erf_inv::tests::known_values ... ok
+test openfoam_algorithms::openfoam_source::math::erf_inv::tests::monotone_and_positive ... ok
+test openfoam_algorithms::openfoam_source::math::inc_gamma::tests::p_1_1 ... ok
+test openfoam_algorithms::openfoam_source::math::inc_gamma::tests::pq_sum_to_one ... ok
+test openfoam_algorithms::openfoam_source::math::inc_gamma::tests::q_at_zero ... ok
+test openfoam_algorithms::openfoam_source::math::inc_gamma::tests::unnormalised_consistency ... ok
+test openfoam_algorithms::openfoam_source::math::inv_inc_gamma::tests::a_eq_1_explicit ... ok
+test openfoam_algorithms::openfoam_source::math::inv_inc_gamma::tests::round_trips_large_a ... ok
+test openfoam_algorithms::openfoam_source::math::inv_inc_gamma::tests::round_trips_moderate_a ... ok
+test openfoam_algorithms::openfoam_source::math::inv_inc_gamma::tests::round_trips_small_a ... ok
+test openfoam_algorithms::openfoam_source::matrix::square_matrix::tests::fully_zero_matrix_returns_err ... ok
+test openfoam_algorithms::openfoam_source::matrix::square_matrix::tests::hilbert_5x5_residual_acceptable ... ok
+test openfoam_algorithms::openfoam_source::matrix::square_matrix::tests::lu_identity ... ok
+test openfoam_algorithms::openfoam_source::matrix::square_matrix::tests::lu_multiple_rhs ... ok
+test openfoam_algorithms::openfoam_source::matrix::square_matrix::tests::lu_solve_2x2 ... ok
+test openfoam_algorithms::openfoam_source::matrix::square_matrix::tests::lu_solve_3x3 ... ok
+test openfoam_algorithms::openfoam_source::matrix::square_matrix::tests::lu_solve_needs_pivoting ... ok
+test openfoam_algorithms::openfoam_source::matrix::square_matrix::tests::scaled_pivoting_large_row_contrast ... ok
+test openfoam_algorithms::openfoam_source::matrix::square_matrix::tests::singular_matrix_returns_err ... ok
+test openfoam_algorithms::openfoam_source::mesh::region_interface::tests::exchange_temperature_matching ... ok
+test openfoam_algorithms::openfoam_source::mesh::region_interface::tests::non_matching_interface_nearest_centre ... ok
+test openfoam_algorithms::openfoam_source::ode::euler::tests::euler_exponential_decay ... ok
+test openfoam_algorithms::openfoam_source::ode::euler::tests::euler_rotation ... ok
+test openfoam_algorithms::openfoam_source::ode::non_finite_state_regression::euler_reports_nan_instead_of_returning_ok ... ok
+test openfoam_algorithms::openfoam_source::ode::non_finite_state_regression::normalize_error_is_infinite_for_a_nan_component ... ok
+test openfoam_algorithms::openfoam_source::ode::non_finite_state_regression::normalize_error_is_infinite_for_an_infinite_component ... ok
+test openfoam_algorithms::openfoam_source::ode::non_finite_state_regression::normalize_error_is_unchanged_for_finite_input ... ok
+test openfoam_algorithms::openfoam_source::ode::non_finite_state_regression::rkf45_reports_nan_instead_of_returning_ok ... ok
+test openfoam_algorithms::openfoam_source::ode::non_finite_state_regression::rosenbrock23_reports_a_nan_jacobian ... ok
+test openfoam_algorithms::openfoam_source::ode::non_finite_state_regression::rosenbrock23_reports_nan_derivatives_instead_of_returning_ok ... ok
+test openfoam_algorithms::openfoam_source::ode::non_finite_state_regression::well_behaved_systems_still_integrate_after_the_fix ... ok
+test openfoam_algorithms::openfoam_source::ode::rkf45::tests::rkf45_convergence_order_is_fifth ... ok
+test openfoam_algorithms::openfoam_source::ode::rkf45::tests::rkf45_decay_to_5 ... ok
+test openfoam_algorithms::openfoam_source::ode::rkf45::tests::rkf45_exceeds_steps_on_stiff_vdp ... ok
+test openfoam_algorithms::openfoam_source::ode::rkf45::tests::rkf45_exponential_decay ... ok
+test openfoam_algorithms::openfoam_source::ode::rkf45::tests::rkf45_nonstiff_vdp ... ok
+test openfoam_algorithms::openfoam_source::ode::rosenbrock23::tests::rosenbrock23_nonstiff_decay ... ok
+test openfoam_algorithms::openfoam_source::ode::rosenbrock23::tests::rosenbrock23_rotation ... ok
+test openfoam_algorithms::openfoam_source::ode::rosenbrock23::tests::rosenbrock23_stiff_decay ... ok
+test openfoam_algorithms::openfoam_source::ode::rosenbrock23::tests::rosenbrock23_stiff_vdp_mu1000 ... ok
+test openfoam_algorithms::openfoam_source::polynomial::cubic_eqn::tests::degenerate_nan_tag ... ok
+test openfoam_algorithms::openfoam_source::polynomial::cubic_eqn::tests::degenerate_to_quadratic ... ok
+test openfoam_algorithms::openfoam_source::polynomial::cubic_eqn::tests::one_real_two_complex ... ok
+test openfoam_algorithms::openfoam_source::polynomial::cubic_eqn::tests::one_real_two_complex_root_type_tags ... ok
+test openfoam_algorithms::openfoam_source::polynomial::cubic_eqn::tests::three_real_integer ... ok
+test openfoam_algorithms::openfoam_source::polynomial::cubic_eqn::tests::triple_root ... ok
+test openfoam_algorithms::openfoam_source::polynomial::cubic_eqn::tests::value_at_real_roots ... ok
+test openfoam_algorithms::openfoam_source::polynomial::linear_eqn::tests::degenerate_zero_leading ... ok
+test openfoam_algorithms::openfoam_source::polynomial::linear_eqn::tests::overflow_root ... ok
+test openfoam_algorithms::openfoam_source::polynomial::linear_eqn::tests::simple_root ... ok
+test openfoam_algorithms::openfoam_source::polynomial::linear_eqn::tests::value_and_error ... ok
+test openfoam_algorithms::openfoam_source::polynomial::polynomial::tests::constant_poly ... ok
+test openfoam_algorithms::openfoam_source::polynomial::polynomial::tests::integral_additivity ... ok
+test openfoam_algorithms::openfoam_source::polynomial::polynomial::tests::integral_minus1_log_term ... ok
+test openfoam_algorithms::openfoam_source::polynomial::polynomial::tests::linear_poly ... ok
+test openfoam_algorithms::openfoam_source::polynomial::polynomial::tests::quadratic_poly ... ok
+test openfoam_algorithms::openfoam_source::polynomial::quadratic_eqn::tests::degenerate_falls_back_to_linear ... ok
+test openfoam_algorithms::openfoam_source::polynomial::quadratic_eqn::tests::repeated_real_root ... ok
+test openfoam_algorithms::openfoam_source::polynomial::quadratic_eqn::tests::two_complex_roots ... ok
+test openfoam_algorithms::openfoam_source::polynomial::quadratic_eqn::tests::two_distinct_real ... ok
+test openfoam_algorithms::openfoam_source::polynomial::quadratic_eqn::tests::value_at_root ... ok
+test openfoam_algorithms::openfoam_source::polynomial::roots::tests::concat_2 ... ok
+test openfoam_algorithms::openfoam_source::polynomial::roots::tests::concat_3 ... ok
+test openfoam_algorithms::openfoam_source::polynomial::roots::tests::encoding_round_trip ... ok
+test openfoam_algorithms::openfoam_source::polynomial::roots::tests::uniform_3 ... ok
+test openfoam_algorithms::openfoam_source::thermophysics::eos::ico_polynomial::tests::constant_poly_density ... ok
+test openfoam_algorithms::openfoam_source::thermophysics::eos::ico_polynomial::tests::density_decreases_with_temperature ... ok
+test openfoam_algorithms::openfoam_source::thermophysics::eos::ico_polynomial::tests::h_eos_equals_p_over_rho ... ok
+test openfoam_algorithms::openfoam_source::thermophysics::eos::ico_polynomial::tests::psi_is_zero ... ok
+test openfoam_algorithms::openfoam_source::thermophysics::eos::peng_robinson::tests::co2_ideal_gas_limit ... ok
+test openfoam_algorithms::openfoam_source::thermophysics::eos::peng_robinson::tests::co2_nist_density_400k_10mpa ... ignored, TODO: PR EOS gives 17% error at Pr>1 — may indicate root selection or formula bug; see CLAUDE.md
+test openfoam_algorithms::openfoam_source::thermophysics::eos::peng_robinson::tests::co2_nist_density_400k_5mpa ... ok
+test openfoam_algorithms::openfoam_source::thermophysics::eos::peng_robinson::tests::co2_z_above_one_at_moderate_pressure ... ok
+test openfoam_algorithms::openfoam_source::thermophysics::eos::peng_robinson::tests::cp_m_cv_approaches_r_at_low_pressure ... ok
+test openfoam_algorithms::openfoam_source::thermophysics::eos::peng_robinson::tests::h_eos_zero_at_low_pressure ... ok
+test openfoam_algorithms::openfoam_source::thermophysics::eos::peng_robinson::tests::methane_density_at_moderate_conditions ... ok
+test openfoam_algorithms::openfoam_source::thermophysics::eos::peng_robinson::tests::n2_nist_density_200k_5mpa ... ignored, TODO: PR EOS gives 26% error vs NIST at 200K/5MPa — may indicate root selection or formula bug; see CLAUDE.md
+test openfoam_algorithms::openfoam_source::thermophysics::eos::peng_robinson::tests::n2_nist_density_300k_10mpa ... ignored, TODO: PR EOS gives 7% error vs NIST at Pr=2.94 — may indicate root selection or formula bug; see CLAUDE.md
+test openfoam_algorithms::openfoam_source::thermophysics::eos::peng_robinson::tests::psi_times_p_approx_rho ... ok
+test openfoam_algorithms::openfoam_source::thermophysics::eos::perfect_gas::tests::air_density_at_stp ... ok
+test openfoam_algorithms::openfoam_source::thermophysics::eos::perfect_gas::tests::air_r ... ok
+test openfoam_algorithms::openfoam_source::thermophysics::eos::perfect_gas::tests::air_z_is_one ... ok
+test openfoam_algorithms::openfoam_source::thermophysics::eos::perfect_gas::tests::psi_times_p_equals_rho ... ok
+test openfoam_algorithms::openfoam_source::thermophysics::eos::rho_const::tests::constant_density ... ok
+test openfoam_algorithms::openfoam_source::thermophysics::eos::rho_const::tests::zero_compressibility ... ok
+test openfoam_algorithms::openfoam_source::thermophysics::thermo::h_const::tests::cp_is_constant ... ok
+test openfoam_algorithms::openfoam_source::thermophysics::thermo::h_const::tests::ha_roundtrip ... ok
+test openfoam_algorithms::openfoam_source::thermophysics::thermo::h_const::tests::hs_plus_hc_equals_ha ... ok
+test openfoam_algorithms::openfoam_source::thermophysics::thermo::h_polynomial::tests::const_poly_cp ... ok
+test openfoam_algorithms::openfoam_source::thermophysics::thermo::h_polynomial::tests::entropy_increases_with_temperature ... ok
+test openfoam_algorithms::openfoam_source::thermophysics::thermo::h_polynomial::tests::ha_roundtrip ... ok
+test openfoam_algorithms::openfoam_source::thermophysics::thermo::h_polynomial::tests::hs_plus_hc_equals_ha ... ok
+test openfoam_algorithms::openfoam_source::thermophysics::thermo::h_polynomial::tests::linear_poly_cp ... ok
+test openfoam_algorithms::openfoam_source::thermophysics::thermo::h_tabulated::tests::cp_from_table ... ok
+test openfoam_algorithms::openfoam_source::thermophysics::thermo::h_tabulated::tests::entropy_increases_with_temperature ... ok
+test openfoam_algorithms::openfoam_source::thermophysics::thermo::h_tabulated::tests::ha_from_table_at_knot ... ok
+test openfoam_algorithms::openfoam_source::thermophysics::thermo::h_tabulated::tests::ha_roundtrip ... ok
+test openfoam_algorithms::openfoam_source::thermophysics::thermo::h_tabulated::tests::hs_plus_hc_equals_ha ... ok
+test openfoam_algorithms::openfoam_source::thermophysics::thermo::janaf::tests::cp_at_300k_is_reasonable ... ok
+test openfoam_algorithms::openfoam_source::thermophysics::thermo::janaf::tests::cp_both_ranges_are_reasonable ... ok
+test openfoam_algorithms::openfoam_source::thermophysics::thermo::janaf::tests::ha_roundtrip ... ok
+test openfoam_algorithms::openfoam_source::thermophysics::thermo::janaf::tests::hs_plus_hc_equals_ha ... ok
+test openfoam_algorithms::openfoam_source::thermophysics::thermo::janaf::tests::newton_converges_from_bad_initial_guess ... ignored, TODO: Newton stalls at ~1152 K from t0=100 K targeting 3000 K — JANAF discontinuity at Tcommon may be a deeper issue; see CLAUDE.md
+test openfoam_algorithms::openfoam_source::thermophysics::thermo::janaf::tests::newton_crosses_tcommon_discontinuity ... ok
+test openfoam_algorithms::openfoam_source::thermophysics::thermo::janaf::tests::newton_t_max_clamp_returns_err ... ok
+test openfoam_algorithms::openfoam_source::thermophysics::thermo::janaf::tests::newton_t_min_clamp_returns_err ... ok
+test openfoam_algorithms::openfoam_source::thermophysics::transport::const_transport::tests::alpha_h_equals_kappa_over_cp ... ok
+test openfoam_algorithms::openfoam_source::thermophysics::transport::const_transport::tests::kappa_from_pr ... ok
+test openfoam_algorithms::openfoam_source::thermophysics::transport::const_transport::tests::mu_is_constant ... ok
+test openfoam_algorithms::openfoam_source::thermophysics::transport::polynomial::tests::alpha_h_is_kappa_over_cp ... ok
+test openfoam_algorithms::openfoam_source::thermophysics::transport::polynomial::tests::kappa_at_300k ... ok
+test openfoam_algorithms::openfoam_source::thermophysics::transport::polynomial::tests::mu_at_300k ... ok
+test openfoam_algorithms::openfoam_source::thermophysics::transport::polynomial::tests::mu_increases_with_temperature ... ok
+test openfoam_algorithms::openfoam_source::thermophysics::transport::sutherland::tests::mu_at_293k ... ok
+test openfoam_algorithms::openfoam_source::thermophysics::transport::sutherland::tests::mu_increases_with_temperature ... ok
+test openfoam_algorithms::openfoam_source::thermophysics::transport::sutherland::tests::two_point_reconstruction ... ok
+test openfoam_algorithms::openfoam_source::thermophysics::transport::tabulated::tests::alpha_h_is_kappa_over_cp ... ok
+test openfoam_algorithms::openfoam_source::thermophysics::transport::tabulated::tests::kappa_at_knot ... ok
+test openfoam_algorithms::openfoam_source::thermophysics::transport::tabulated::tests::mu_at_knot ... ok
+test openfoam_algorithms::openfoam_source::thermophysics::transport::tabulated::tests::mu_increases_with_temperature ... ok
+test openfoam_algorithms::openfoam_source::thermophysics::transport::tabulated::tests::mu_interpolated ... ok
+test interfaces::tests_and_examples::rho_h_flash_steam_table::vv_report_gen::write_rho_h_flash_vv_report ... ok
+test openfoam_algorithms::rhoPimpleFoam::lateral_coupling::tests::axial_conduction_matches_analytical_fourier_decay ... ok
+test openfoam_algorithms::rhoPimpleFoam::lateral_coupling::tests::clear_vectors_empties_after_step ... ok
+test openfoam_algorithms::rhoPimpleFoam::lateral_coupling::tests::axial_peclet_spans_forced_flow_to_stagnation ... ok
+test openfoam_algorithms::rhoPimpleFoam::lateral_coupling::tests::geometry_and_flow_bookkeeping_round_trip ... ok
+test openfoam_algorithms::rhoPimpleFoam::lateral_coupling::tests::get_hydraulic_diameter_matches_4a_over_p ... ok
+test openfoam_algorithms::rhoPimpleFoam::lateral_coupling::tests::global_energy_balance_closes_across_the_boundaries ... ok
+test openfoam_algorithms::rhoPimpleFoam::lateral_coupling::tests::inlet_enthalpy_bc_actually_drives_the_field ... ok
+test openfoam_algorithms::rhoPimpleFoam::lateral_coupling::tests::inlet_outlet_bcs_drive_flow_and_outlet_pressure_settles_near_imposed_value ... ok
+test openfoam_algorithms::rhoPimpleFoam::lateral_coupling::tests::lateral_link_rejects_wrong_length_q_fraction_vec ... ok
+test openfoam_algorithms::rhoPimpleFoam::lateral_coupling::tests::lateral_link_rejects_wrong_length_temperature_vec ... ok
+test openfoam_algorithms::rhoPimpleFoam::lateral_coupling::tests::prescribed_inlet_mass_flowrate_is_imposed_exactly ... ok
+test openfoam_algorithms::rhoPimpleFoam::lateral_coupling::tests::pressure_bounding_clamps_transient_within_set_bounds ... ok
+test openfoam_algorithms::rhoPimpleFoam::lateral_coupling::tests::set_temperature_vector_matches_independent_reference_flash ... ok
+test openfoam_algorithms::rhoPimpleFoam::lateral_coupling::tests::set_temperature_vector_updates_he_and_rho_from_real_flash ... ok
+test openfoam_algorithms::rhoPimpleFoam::lateral_coupling::tests::flow_reversal_keeps_enthalpy_bounded_between_terminals ... ok
+test openfoam_algorithms::rhoPimpleFoam::tests::adaptive_advance_timestep_sub_cycles_to_the_callers_clock ... ok
+test openfoam_algorithms::rhoPimpleFoam::tests::adaptive_delta_t_follows_upstream_set_delta_t ... ok
+test openfoam_algorithms::rhoPimpleFoam::tests::correct_thermo_matches_independent_reference_flash ... ok
+test openfoam_algorithms::rhoPimpleFoam::tests::correct_thermo_reports_a_state_outside_the_envelope ... ok
+test openfoam_algorithms::rhoPimpleFoam::tests::correct_thermo_survives_two_phase_boiling_cell ... ok
+test openfoam_algorithms::rhoPimpleFoam::tests::courant_number_is_u_dt_over_dx_in_uniform_flow ... ok
+test openfoam_algorithms::rhoPimpleFoam::tests::fixed_step_returns_courant_violation_and_rolls_back ... ok
+test openfoam_algorithms::rhoPimpleFoam::tests::fvm_div_matches_explicit_upwind_divergence ... ok
+test openfoam_algorithms::rhoPimpleFoam::tests::kinetic_energy_terms_take_the_boundary_velocity_and_vanish_at_rest ... ok
+test openfoam_algorithms::rhoPimpleFoam::tests::new_initializes_liquid_water_reference_state_consistently ... ok
+test openfoam_algorithms::rhoPimpleFoam::tests::one_d_array_constructs_and_steps ... ok
+test openfoam_algorithms::rhoPimpleFoam::tests::stabilisation_defaults_are_the_upstream_behaviour ... ok
+test openfoam_algorithms::rhoPimpleFoam::tests::zero_cells_is_rejected ... ok
+test region_1_subcooled_liquid::tests::region_1_t_hs_flash::p_hs_flash_test_1 ... ok
+test region_1_subcooled_liquid::tests::region_1_t_hs_flash::p_hs_flash_test_2 ... ok
+test region_1_subcooled_liquid::tests::region_1_t_hs_flash::p_hs_flash_test_3 ... ok
+test region_1_subcooled_liquid::tests::region_1_t_ph_flash::t_ph_flash_3_mpa_500_kj_per_kg_enthalpy ... ok
+test region_1_subcooled_liquid::tests::region_1_t_ph_flash::t_ph_flash_80_mpa_1500_kj_per_kg_enthalpy ... ok
+test region_1_subcooled_liquid::tests::region_1_t_ph_flash::t_ph_flash_80_mpa_500_kj_per_kg_enthalpy ... ok
+test region_1_subcooled_liquid::tests::region_1_t_ps_flash::t_ph_flash_3_mpa_0_5_kj_per_kg_k_entropy ... ok
+test region_1_subcooled_liquid::tests::region_1_t_ps_flash::t_ph_flash_80_mpa_0_5_kj_per_kg_k_entropy ... ok
+test region_1_subcooled_liquid::tests::region_1_t_ps_flash::t_ph_flash_80_mpa_3_kj_per_kg_k_entropy ... ok
+test region_1_subcooled_liquid::tests::set_a_region_1_300_kelvin_3_mpa::cp_regression_set_a ... ok
+test region_1_subcooled_liquid::tests::set_a_region_1_300_kelvin_3_mpa::cv_regression_set_a ... ok
+test region_1_subcooled_liquid::tests::set_a_region_1_300_kelvin_3_mpa::isentropic_exponent_regression_set_a ... ok
+test region_1_subcooled_liquid::tests::set_a_region_1_300_kelvin_3_mpa::isobaric_cubic_expansion_coeff_regression_set_a ... ok
+test region_1_subcooled_liquid::tests::set_a_region_1_300_kelvin_3_mpa::isothermal_compressibility_coeff_regression_set_a ... ok
+test region_1_subcooled_liquid::tests::set_a_region_1_300_kelvin_3_mpa::specific_enthalpy_regression_set_a ... ok
+test region_1_subcooled_liquid::tests::set_a_region_1_300_kelvin_3_mpa::specific_entropy_regression_set_a ... ok
+test region_1_subcooled_liquid::tests::set_a_region_1_300_kelvin_3_mpa::specific_internal_energy_regression_set_a ... ok
+test region_1_subcooled_liquid::tests::set_a_region_1_300_kelvin_3_mpa::specific_vol_regression_set_a ... ok
+test region_1_subcooled_liquid::tests::set_a_region_1_300_kelvin_3_mpa::speed_of_sound_regression_set_a ... ok
+test region_1_subcooled_liquid::tests::set_b_region_1_300_kelvin_80_mpa::cp_regression_set_b ... ok
+test region_1_subcooled_liquid::tests::set_b_region_1_300_kelvin_80_mpa::cv_regression_set_b ... ok
+test region_1_subcooled_liquid::tests::set_b_region_1_300_kelvin_80_mpa::isentropic_exponent_regression_set_b ... ok
+test region_1_subcooled_liquid::tests::set_b_region_1_300_kelvin_80_mpa::isobaric_cubic_expansion_coeff_regression_set_b ... ok
+test region_1_subcooled_liquid::tests::set_b_region_1_300_kelvin_80_mpa::isothermal_compressibility_coeff_regression_set_b ... ok
+test region_1_subcooled_liquid::tests::set_b_region_1_300_kelvin_80_mpa::specific_enthalpy_regression_set_b ... ok
+test region_1_subcooled_liquid::tests::set_b_region_1_300_kelvin_80_mpa::specific_entropy_regression_set_b ... ok
+test region_1_subcooled_liquid::tests::set_b_region_1_300_kelvin_80_mpa::specific_internal_energy_regression_set_b ... ok
+test region_1_subcooled_liquid::tests::set_b_region_1_300_kelvin_80_mpa::specific_vol_regression_set_b ... ok
+test region_1_subcooled_liquid::tests::set_b_region_1_300_kelvin_80_mpa::speed_of_sound_regression_set_b ... ok
+test region_1_subcooled_liquid::tests::set_c_region_1_500_kelvin_3_mpa::cp_regression_set_c ... ok
+test region_1_subcooled_liquid::tests::set_c_region_1_500_kelvin_3_mpa::cv_regression_set_c ... ok
+test region_1_subcooled_liquid::tests::set_c_region_1_500_kelvin_3_mpa::isentropic_exponent_regression_set_c ... ok
+test region_1_subcooled_liquid::tests::set_c_region_1_500_kelvin_3_mpa::isobaric_cubic_expansion_coeff_regression_set_c ... ok
+test region_1_subcooled_liquid::tests::set_c_region_1_500_kelvin_3_mpa::isothermal_compressibility_coeff_regression_set_c ... ok
+test region_1_subcooled_liquid::tests::set_c_region_1_500_kelvin_3_mpa::specific_enthalpy_regression_set_c ... ok
+test region_1_subcooled_liquid::tests::set_c_region_1_500_kelvin_3_mpa::specific_entropy_regression_set_c ... ok
+test region_1_subcooled_liquid::tests::set_c_region_1_500_kelvin_3_mpa::specific_internal_energy_regression_set_c ... ok
+test region_1_subcooled_liquid::tests::set_c_region_1_500_kelvin_3_mpa::specific_vol_regression_set_c ... ok
+test region_1_subcooled_liquid::tests::set_c_region_1_500_kelvin_3_mpa::speed_of_sound_regression_set_c ... ok
+test region_2_vapour::backward_eqn_hs_2::boundary_eqns::h2a2b_test ... ok
+test region_2_vapour::tests::region_2_p_hs_flash::region_2_p_hs_test_1 ... ok
+test region_2_vapour::tests::region_2_p_hs_flash::region_2_p_hs_test_2 ... ok
+test region_2_vapour::tests::region_2_p_hs_flash::region_2_p_hs_test_3 ... ok
+test region_2_vapour::tests::region_2_p_hs_flash::region_2_p_hs_test_4 ... ok
+test region_2_vapour::tests::region_2_p_hs_flash::region_2_p_hs_test_5 ... ok
+test region_2_vapour::tests::region_2_p_hs_flash::region_2_p_hs_test_6 ... ok
+test region_2_vapour::tests::region_2_p_hs_flash::region_2_p_hs_test_7 ... ok
+test region_2_vapour::tests::region_2_p_hs_flash::region_2_p_hs_test_8 ... ok
+test region_2_vapour::tests::region_2_p_hs_flash::region_2_p_hs_test_9 ... ok
+test region_2_vapour::tests::region_2_p_hs_flash::subregion_2a_p_hs_test_1 ... ok
+test region_2_vapour::tests::region_2_p_hs_flash::subregion_2a_p_hs_test_2 ... ok
+test region_2_vapour::tests::region_2_p_hs_flash::subregion_2a_p_hs_test_3 ... ok
+test region_2_vapour::tests::region_2_p_hs_flash::subregion_2b_p_hs_test_1 ... ok
+test region_2_vapour::tests::region_2_p_hs_flash::subregion_2b_p_hs_test_2 ... ok
+test region_2_vapour::tests::region_2_p_hs_flash::subregion_2b_p_hs_test_3 ... ok
+test region_2_vapour::tests::region_2_p_hs_flash::subregion_2c_p_hs_test_1 ... ok
+test region_2_vapour::tests::region_2_p_hs_flash::subregion_2c_p_hs_test_2 ... ok
+test region_2_vapour::tests::region_2_p_hs_flash::subregion_2c_p_hs_test_3 ... ok
+test region_2_vapour::tests::region_2_t_ph_flash::boundary_tests_2b2c::boundary_2b2c_enthalpy ... ok
+test region_2_vapour::tests::region_2_t_ph_flash::boundary_tests_2b2c::boundary_2b2c_pressure ... ok
+test region_2_vapour::tests::region_2_t_ph_flash::subregion_2a_t_ph_test_1 ... ok
+test region_2_vapour::tests::region_2_t_ph_flash::subregion_2a_t_ph_test_2 ... ok
+test region_2_vapour::tests::region_2_t_ph_flash::subregion_2a_t_ph_test_3 ... ok
+test region_2_vapour::tests::region_2_t_ph_flash::subregion_2b_t_ph_test_1 ... ok
+test region_2_vapour::tests::region_2_t_ph_flash::subregion_2b_t_ph_test_2 ... ok
+test region_2_vapour::tests::region_2_t_ph_flash::subregion_2b_t_ph_test_3 ... ok
+test region_2_vapour::tests::region_2_t_ph_flash::subregion_2c_t_ph_test_1 ... ok
+test region_2_vapour::tests::region_2_t_ph_flash::subregion_2c_t_ph_test_2 ... ok
+test region_2_vapour::tests::region_2_t_ph_flash::subregion_2c_t_ph_test_3 ... ok
+test region_2_vapour::tests::region_2_t_ps_flash::region_2_subregion_2a_t_ps_test_1 ... ok
+test region_2_vapour::tests::region_2_t_ps_flash::region_2_subregion_2a_t_ps_test_2 ... ok
+test region_2_vapour::tests::region_2_t_ps_flash::region_2_subregion_2a_t_ps_test_3 ... ok
+test region_2_vapour::tests::region_2_t_ps_flash::region_2_subregion_2b_t_ps_test_1 ... ok
+test region_2_vapour::tests::region_2_t_ps_flash::region_2_subregion_2b_t_ps_test_2 ... ok
+test region_2_vapour::tests::region_2_t_ps_flash::region_2_subregion_2b_t_ps_test_3 ... ok
+test region_2_vapour::tests::region_2_t_ps_flash::region_2_subregion_2c_t_ps_test_1 ... ok
+test region_2_vapour::tests::region_2_t_ps_flash::region_2_subregion_2c_t_ps_test_2 ... ok
+test region_2_vapour::tests::region_2_t_ps_flash::region_2_subregion_2c_t_ps_test_3 ... ok
+test region_2_vapour::tests::region_2_t_ps_flash::subregion_2a_t_ps_test_1 ... ok
+test region_2_vapour::tests::region_2_t_ps_flash::subregion_2a_t_ps_test_2 ... ok
+test region_2_vapour::tests::region_2_t_ps_flash::subregion_2a_t_ps_test_3 ... ok
+test region_2_vapour::tests::region_2_t_ps_flash::subregion_2b_t_ps_test_1 ... ok
+test region_2_vapour::tests::region_2_t_ps_flash::subregion_2b_t_ps_test_2 ... ok
+test region_2_vapour::tests::region_2_t_ps_flash::subregion_2b_t_ps_test_3 ... ok
+test region_2_vapour::tests::region_2_t_ps_flash::subregion_2c_t_ps_test_1 ... ok
+test region_2_vapour::tests::region_2_t_ps_flash::subregion_2c_t_ps_test_2 ... ok
+test region_2_vapour::tests::region_2_t_ps_flash::subregion_2c_t_ps_test_3 ... ok
+test region_2_vapour::tests::set_a_metastable_region_2_450_kelvin_1_mpa::cp_regression_set_a ... ok
+test region_2_vapour::tests::set_a_metastable_region_2_450_kelvin_1_mpa::cv_regression_set_a ... ok
+test region_2_vapour::tests::set_a_metastable_region_2_450_kelvin_1_mpa::isentropic_exponent_regression_set_a ... ok
+test region_2_vapour::tests::set_a_metastable_region_2_450_kelvin_1_mpa::isobaric_cubic_expansion_coeff_regression_set_a ... ok
+test region_2_vapour::tests::set_a_metastable_region_2_450_kelvin_1_mpa::isothermal_compressibility_coeff_regression_set_a ... ok
+test region_2_vapour::tests::set_a_metastable_region_2_450_kelvin_1_mpa::specific_enthalpy_regression_set_a ... ok
+test region_2_vapour::tests::set_a_metastable_region_2_450_kelvin_1_mpa::specific_entropy_regression_set_a ... ok
+test region_2_vapour::tests::set_a_metastable_region_2_450_kelvin_1_mpa::specific_internal_energy_regression_set_a ... ok
+test region_2_vapour::tests::set_a_metastable_region_2_450_kelvin_1_mpa::specific_vol_regression_set_a ... ok
+test region_2_vapour::tests::set_a_metastable_region_2_450_kelvin_1_mpa::speed_of_sound_regression_set_a ... ok
+test region_2_vapour::tests::set_a_region_2_300_kelvin_0_0035_mpa::cp_regression_set_a ... ok
+test region_2_vapour::tests::set_a_region_2_300_kelvin_0_0035_mpa::cv_regression_set_a ... ok
+test region_2_vapour::tests::set_a_region_2_300_kelvin_0_0035_mpa::isentropic_exponent_regression_set_a ... ok
+test region_2_vapour::tests::set_a_region_2_300_kelvin_0_0035_mpa::isobaric_cubic_expansion_coeff_regression_set_a ... ok
+test region_2_vapour::tests::set_a_region_2_300_kelvin_0_0035_mpa::isothermal_compressibility_coeff_regression_set_a ... ok
+test region_2_vapour::tests::set_a_region_2_300_kelvin_0_0035_mpa::specific_enthalpy_regression_set_a ... ok
+test region_2_vapour::tests::set_a_region_2_300_kelvin_0_0035_mpa::specific_entropy_regression_set_a ... ok
+test region_2_vapour::tests::set_a_region_2_300_kelvin_0_0035_mpa::specific_internal_energy_regression_set_a ... ok
+test region_2_vapour::tests::set_a_region_2_300_kelvin_0_0035_mpa::specific_vol_regression_set_a ... ok
+test region_2_vapour::tests::set_a_region_2_300_kelvin_0_0035_mpa::speed_of_sound_regression_set_a ... ok
+test region_2_vapour::tests::set_b_metastable_region_2_440_kelvin_1_mpa::cp_regression_set_b ... ok
+test region_2_vapour::tests::set_b_metastable_region_2_440_kelvin_1_mpa::cv_regression_set_b ... ok
+test region_2_vapour::tests::set_b_metastable_region_2_440_kelvin_1_mpa::isentropic_exponent_regression_set_b ... ok
+test region_2_vapour::tests::set_b_metastable_region_2_440_kelvin_1_mpa::isobaric_cubic_expansion_coeff_regression_set_b ... ok
+test region_2_vapour::tests::set_b_metastable_region_2_440_kelvin_1_mpa::isothermal_compressibility_coeff_regression_set_b ... ok
+test region_2_vapour::tests::set_b_metastable_region_2_440_kelvin_1_mpa::specific_enthalpy_regression_set_b ... ok
+test region_2_vapour::tests::set_b_metastable_region_2_440_kelvin_1_mpa::specific_entropy_regression_set_b ... ok
+test region_2_vapour::tests::set_b_metastable_region_2_440_kelvin_1_mpa::specific_internal_energy_regression_set_b ... ok
+test region_2_vapour::tests::set_b_metastable_region_2_440_kelvin_1_mpa::specific_vol_regression_set_b ... ok
+test region_2_vapour::tests::set_b_metastable_region_2_440_kelvin_1_mpa::speed_of_sound_regression_set_b ... ok
+test region_2_vapour::tests::set_b_region_2_700_kelvin_0_0035_mpa::cp_regression_set_b ... ok
+test region_2_vapour::tests::set_b_region_2_700_kelvin_0_0035_mpa::cv_regression_set_b ... ok
+test region_2_vapour::tests::set_b_region_2_700_kelvin_0_0035_mpa::isentropic_exponent_regression_set_b ... ok
+test region_2_vapour::tests::set_b_region_2_700_kelvin_0_0035_mpa::isobaric_cubic_expansion_coeff_regression_set_b ... ok
+test region_2_vapour::tests::set_b_region_2_700_kelvin_0_0035_mpa::isothermal_compressibility_coeff_regression_set_b ... ok
+test region_2_vapour::tests::set_b_region_2_700_kelvin_0_0035_mpa::specific_enthalpy_regression_set_b ... ok
+test region_2_vapour::tests::set_b_region_2_700_kelvin_0_0035_mpa::specific_entropy_regression_set_b ... ok
+test region_2_vapour::tests::set_b_region_2_700_kelvin_0_0035_mpa::specific_internal_energy_regression_set_b ... ok
+test region_2_vapour::tests::set_b_region_2_700_kelvin_0_0035_mpa::specific_vol_regression_set_b ... ok
+test region_2_vapour::tests::set_b_region_2_700_kelvin_0_0035_mpa::speed_of_sound_regression_set_b ... ok
+test region_2_vapour::tests::set_c_metastable_region_2_450_kelvin_1_5_mpa::cp_regression_set_c ... ok
+test region_2_vapour::tests::set_c_metastable_region_2_450_kelvin_1_5_mpa::cv_regression_set_c ... ok
+test region_2_vapour::tests::set_c_metastable_region_2_450_kelvin_1_5_mpa::isentropic_exponent_regression_set_c ... ok
+test region_2_vapour::tests::set_c_metastable_region_2_450_kelvin_1_5_mpa::isobaric_cubic_expansion_coeff_regression_set_c ... ok
+test region_2_vapour::tests::set_c_metastable_region_2_450_kelvin_1_5_mpa::isothermal_compressibility_coeff_regression_set_c ... ok
+test region_2_vapour::tests::set_c_metastable_region_2_450_kelvin_1_5_mpa::specific_enthalpy_regression_set_c ... ok
+test region_2_vapour::tests::set_c_metastable_region_2_450_kelvin_1_5_mpa::specific_entropy_regression_set_c ... ok
+test region_2_vapour::tests::set_c_metastable_region_2_450_kelvin_1_5_mpa::specific_internal_energy_regression_set_c ... ok
+test region_2_vapour::tests::set_c_metastable_region_2_450_kelvin_1_5_mpa::specific_vol_regression_set_c ... ok
+test region_2_vapour::tests::set_c_metastable_region_2_450_kelvin_1_5_mpa::speed_of_sound_regression_set_c ... ok
+test region_2_vapour::tests::set_c_region_2_700_kelvin_30_mpa::cp_regression_set_c ... ok
+test region_2_vapour::tests::set_c_region_2_700_kelvin_30_mpa::cv_regression_set_c ... ok
+test region_2_vapour::tests::set_c_region_2_700_kelvin_30_mpa::isentropic_exponent_regression_set_c ... ok
+test region_2_vapour::tests::set_c_region_2_700_kelvin_30_mpa::isobaric_cubic_expansion_coeff_regression_set_c ... ok
+test region_2_vapour::tests::set_c_region_2_700_kelvin_30_mpa::isothermal_compressibility_coeff_regression_set_c ... ok
+test region_2_vapour::tests::set_c_region_2_700_kelvin_30_mpa::specific_enthalpy_regression_set_c ... ok
+test region_2_vapour::tests::set_c_region_2_700_kelvin_30_mpa::specific_entropy_regression_set_c ... ok
+test region_2_vapour::tests::set_c_region_2_700_kelvin_30_mpa::specific_internal_energy_regression_set_c ... ok
+test region_2_vapour::tests::set_c_region_2_700_kelvin_30_mpa::specific_vol_regression_set_c ... ok
+test region_2_vapour::tests::set_c_region_2_700_kelvin_30_mpa::speed_of_sound_regression_set_c ... ok
+test region_3_single_phase_plus_supercritical_steam::tests::region_3_backward_p_hs::p_hs_test_1 ... ok
+test region_3_single_phase_plus_supercritical_steam::tests::region_3_backward_p_hs::p_hs_test_2 ... ok
+test region_3_single_phase_plus_supercritical_steam::tests::region_3_backward_p_hs::p_hs_test_3 ... ok
+test region_3_single_phase_plus_supercritical_steam::tests::region_3_backward_p_hs::p_hs_test_4 ... ok
+test region_3_single_phase_plus_supercritical_steam::tests::region_3_backward_p_hs::p_hs_test_5 ... ok
+test region_3_single_phase_plus_supercritical_steam::tests::region_3_backward_p_hs::p_hs_test_6 ... ok
+test region_3_single_phase_plus_supercritical_steam::tests::region_3_backward_t_ph::t3a_ph_test1 ... ok
+test region_3_single_phase_plus_supercritical_steam::tests::region_3_backward_t_ph::t3a_ph_test2 ... ok
+test region_3_single_phase_plus_supercritical_steam::tests::region_3_backward_t_ph::t3a_ph_test3 ... ok
+test region_3_single_phase_plus_supercritical_steam::tests::region_3_backward_t_ph::t3b_ph_test1 ... ok
+test region_3_single_phase_plus_supercritical_steam::tests::region_3_backward_t_ph::t3b_ph_test2 ... ok
+test region_3_single_phase_plus_supercritical_steam::tests::region_3_backward_t_ph::t3b_ph_test3 ... ok
+test region_3_single_phase_plus_supercritical_steam::tests::region_3_backward_t_ps::t3a_ps_test1 ... ok
+test region_3_single_phase_plus_supercritical_steam::tests::region_3_backward_t_ps::t3a_ps_test2 ... ok
+test region_3_single_phase_plus_supercritical_steam::tests::region_3_backward_t_ps::t3a_ps_test3 ... ok
+test region_3_single_phase_plus_supercritical_steam::tests::region_3_backward_t_ps::t3b_ps_test1 ... ok
+test region_3_single_phase_plus_supercritical_steam::tests::region_3_backward_t_ps::t3b_ps_test2 ... ok
+test region_3_single_phase_plus_supercritical_steam::tests::region_3_backward_t_ps::t3b_ps_test3 ... ok
+test region_3_single_phase_plus_supercritical_steam::tests::region_3_backward_t_ps::t_region3a_ps_test1 ... ok
+test region_3_single_phase_plus_supercritical_steam::tests::region_3_backward_t_ps::t_region3a_ps_test2 ... ok
+test region_3_single_phase_plus_supercritical_steam::tests::region_3_backward_t_ps::t_region3a_ps_test3 ... ok
+test region_3_single_phase_plus_supercritical_steam::tests::region_3_backward_t_ps::t_region3b_ps_test1 ... ok
+test region_3_single_phase_plus_supercritical_steam::tests::region_3_backward_t_ps::t_region3b_ps_test2 ... ok
+test region_3_single_phase_plus_supercritical_steam::tests::region_3_backward_t_ps::t_region3b_ps_test3 ... ok
+test region_3_single_phase_plus_supercritical_steam::tests::region_3_backward_v_ph::v3a_ph_test1 ... ok
+test region_3_single_phase_plus_supercritical_steam::tests::region_3_backward_v_ph::v3a_ph_test2 ... ok
+test region_3_single_phase_plus_supercritical_steam::tests::region_3_backward_v_ph::v3a_ph_test3 ... ok
+test region_3_single_phase_plus_supercritical_steam::tests::region_3_backward_v_ph::v3b_ph_test1 ... ok
+test region_3_single_phase_plus_supercritical_steam::tests::region_3_backward_v_ph::v3b_ph_test2 ... ok
+test region_3_single_phase_plus_supercritical_steam::tests::region_3_backward_v_ph::v3b_ph_test3 ... ok
+test region_3_single_phase_plus_supercritical_steam::tests::region_3_backward_v_ps::v3_region_a_ps_test1 ... ok
+test region_3_single_phase_plus_supercritical_steam::tests::region_3_backward_v_ps::v3_region_a_ps_test2 ... ok
+test region_3_single_phase_plus_supercritical_steam::tests::region_3_backward_v_ps::v3_region_a_ps_test3 ... ok
+test region_3_single_phase_plus_supercritical_steam::tests::region_3_backward_v_ps::v3_reigon_b_ps_test1 ... ok
+test region_3_single_phase_plus_supercritical_steam::tests::region_3_backward_v_ps::v3_reigon_b_ps_test2 ... ok
+test region_3_single_phase_plus_supercritical_steam::tests::region_3_backward_v_ps::v3_reigon_b_ps_test3 ... ok
+test region_3_single_phase_plus_supercritical_steam::tests::region_3_backward_v_ps::v3a_ps_test1 ... ok
+test region_3_single_phase_plus_supercritical_steam::tests::region_3_backward_v_ps::v3a_ps_test2 ... ok
+test region_3_single_phase_plus_supercritical_steam::tests::region_3_backward_v_ps::v3a_ps_test3 ... ok
+test region_3_single_phase_plus_supercritical_steam::tests::region_3_backward_v_ps::v3b_ps_test1 ... ok
+test region_3_single_phase_plus_supercritical_steam::tests::region_3_backward_v_ps::v3b_ps_test2 ... ok
+test region_3_single_phase_plus_supercritical_steam::tests::region_3_backward_v_ps::v3b_ps_test3 ... ok
+test region_3_single_phase_plus_supercritical_steam::tests::region_3a3b_ph_boundary::ph_3a_3b_boundary ... ok
+test region_3_single_phase_plus_supercritical_steam::tests::saturation_temp_and_pressure_aux_eqn::sat_pressure_to_temp_t_b23 ... ok
+test region_3_single_phase_plus_supercritical_steam::tests::saturation_temp_and_pressure_aux_eqn::sat_temp_to_pressure_p_b23 ... ok
+test region_3_single_phase_plus_supercritical_steam::tests::set_a_region_3_650_kelvin_500_kg_per_m3::cp_regression_set_a ... ok
+test region_3_single_phase_plus_supercritical_steam::tests::set_a_region_3_650_kelvin_500_kg_per_m3::cv_regression_set_a ... ok
+test region_3_single_phase_plus_supercritical_steam::tests::set_a_region_3_650_kelvin_500_kg_per_m3::isentropic_exponent_regression_set_a ... ok
+test region_3_single_phase_plus_supercritical_steam::tests::set_a_region_3_650_kelvin_500_kg_per_m3::isobaric_cubic_expansion_coeff_regression_set_a ... ok
+test region_3_single_phase_plus_supercritical_steam::tests::set_a_region_3_650_kelvin_500_kg_per_m3::isothermal_compressibility_coeff_regression_set_a ... ok
+test region_3_single_phase_plus_supercritical_steam::tests::set_a_region_3_650_kelvin_500_kg_per_m3::isothermal_stress_coeff_regression_set_a ... ok
+test region_3_single_phase_plus_supercritical_steam::tests::set_a_region_3_650_kelvin_500_kg_per_m3::pressure_regression_set_a ... ok
+test region_3_single_phase_plus_supercritical_steam::tests::set_a_region_3_650_kelvin_500_kg_per_m3::relative_pressure_coeff_regression_set_a ... ok
+test region_3_single_phase_plus_supercritical_steam::tests::set_a_region_3_650_kelvin_500_kg_per_m3::specific_enthalpy_regression_set_a ... ok
+test region_3_single_phase_plus_supercritical_steam::tests::set_a_region_3_650_kelvin_500_kg_per_m3::specific_entropy_regression_set_a ... ok
+test region_3_single_phase_plus_supercritical_steam::tests::set_a_region_3_650_kelvin_500_kg_per_m3::specific_internal_energy_regression_set_a ... ok
+test region_3_single_phase_plus_supercritical_steam::tests::set_a_region_3_650_kelvin_500_kg_per_m3::speed_of_sound_regression_set_a ... ok
+test region_3_single_phase_plus_supercritical_steam::tests::set_b_region_3_650_kelvin_200_kg_per_m3::cp_regression_set_b ... ok
+test region_3_single_phase_plus_supercritical_steam::tests::set_b_region_3_650_kelvin_200_kg_per_m3::cv_regression_set_b ... ok
+test region_3_single_phase_plus_supercritical_steam::tests::set_b_region_3_650_kelvin_200_kg_per_m3::isentropic_exponent_regression_set_b ... ok
+test region_3_single_phase_plus_supercritical_steam::tests::set_b_region_3_650_kelvin_200_kg_per_m3::isobaric_cubic_expansion_coeff_regression_set_b ... ok
+test region_3_single_phase_plus_supercritical_steam::tests::set_b_region_3_650_kelvin_200_kg_per_m3::isothermal_compressibility_coeff_regression_set_b ... ok
+test region_3_single_phase_plus_supercritical_steam::tests::set_b_region_3_650_kelvin_200_kg_per_m3::isothermal_stress_coeff_regression_set_b ... ok
+test region_3_single_phase_plus_supercritical_steam::tests::set_b_region_3_650_kelvin_200_kg_per_m3::pressure_regression_set_b ... ok
+test region_3_single_phase_plus_supercritical_steam::tests::set_b_region_3_650_kelvin_200_kg_per_m3::relative_pressure_coeff_regression_set_b ... ok
+test region_3_single_phase_plus_supercritical_steam::tests::set_b_region_3_650_kelvin_200_kg_per_m3::specific_enthalpy_regression_set_b ... ok
+test region_3_single_phase_plus_supercritical_steam::tests::set_b_region_3_650_kelvin_200_kg_per_m3::specific_entropy_regression_set_b ... ok
+test region_3_single_phase_plus_supercritical_steam::tests::set_b_region_3_650_kelvin_200_kg_per_m3::specific_internal_energy_regression_set_b ... ok
+test region_3_single_phase_plus_supercritical_steam::tests::set_b_region_3_650_kelvin_200_kg_per_m3::speed_of_sound_regression_set_b ... ok
+test region_3_single_phase_plus_supercritical_steam::tests::set_c_region_3_750_kelvin_500_kg_per_m3::cp_regression_set_c ... ok
+test region_3_single_phase_plus_supercritical_steam::tests::set_c_region_3_750_kelvin_500_kg_per_m3::cv_regression_set_c ... ok
+test region_3_single_phase_plus_supercritical_steam::tests::set_c_region_3_750_kelvin_500_kg_per_m3::isentropic_exponent_regression_set_c ... ok
+test region_3_single_phase_plus_supercritical_steam::tests::set_c_region_3_750_kelvin_500_kg_per_m3::isobaric_cubic_expansion_coeff_regression_set_c ... ok
+test region_3_single_phase_plus_supercritical_steam::tests::set_c_region_3_750_kelvin_500_kg_per_m3::isothermal_compressibility_coeff_regression_set_c ... ok
+test region_3_single_phase_plus_supercritical_steam::tests::set_c_region_3_750_kelvin_500_kg_per_m3::isothermal_stress_coeff_regression_set_c ... ok
+test region_3_single_phase_plus_supercritical_steam::tests::set_c_region_3_750_kelvin_500_kg_per_m3::pressure_regression_set_c ... ok
+test region_3_single_phase_plus_supercritical_steam::tests::set_c_region_3_750_kelvin_500_kg_per_m3::relative_pressure_coeff_regression_set_c ... ok
+test region_3_single_phase_plus_supercritical_steam::tests::set_c_region_3_750_kelvin_500_kg_per_m3::specific_enthalpy_regression_set_c ... ok
+test region_3_single_phase_plus_supercritical_steam::tests::set_c_region_3_750_kelvin_500_kg_per_m3::specific_entropy_regression_set_c ... ok
+test region_3_single_phase_plus_supercritical_steam::tests::set_c_region_3_750_kelvin_500_kg_per_m3::specific_internal_energy_regression_set_c ... ok
+test region_3_single_phase_plus_supercritical_steam::tests::set_c_region_3_750_kelvin_500_kg_per_m3::speed_of_sound_regression_set_c ... ok
+test region_4_vap_liq_equilibrium::tests::hs_backward_sat_temp_test_1 ... ok
+test region_4_vap_liq_equilibrium::tests::hs_backward_sat_temp_test_2 ... ok
+test region_4_vap_liq_equilibrium::tests::hs_backward_sat_temp_test_3 ... ok
+test region_4_vap_liq_equilibrium::tests::sat_pressure_test_1 ... ok
+test region_4_vap_liq_equilibrium::tests::sat_pressure_test_2 ... ok
+test region_4_vap_liq_equilibrium::tests::sat_pressure_test_3 ... ok
+test region_4_vap_liq_equilibrium::tests::sat_temp_test_1 ... ok
+test region_4_vap_liq_equilibrium::tests::sat_temp_test_2 ... ok
+test region_4_vap_liq_equilibrium::tests::sat_temp_test_3 ... ok
+test region_4_vap_liq_equilibrium::tests::w_px_eqm_100_bar ... ok
+test region_4_vap_liq_equilibrium::tests::w_px_eqm_10_bar ... ok
+test region_4_vap_liq_equilibrium::tests::w_px_eqm_1_bar ... ok
+test region_4_vap_liq_equilibrium::tests::w_px_eqm_1_bar_finite_diff_vol ... ok
+test region_4_vap_liq_equilibrium::tests::w_px_eqm_200_bar ... ok
+test region_4_vap_liq_equilibrium::tests::w_px_eqm_50_bar ... ok
+test region_4_vap_liq_equilibrium::tests::w_px_eqm_5_bar ... ok
+test region_5_steam_at_800_plus_degc::tests::set_a_1500_kelvin_0_5_mpa::cp_regression_set_a ... ok
+test region_5_steam_at_800_plus_degc::tests::set_a_1500_kelvin_0_5_mpa::cv_regression_set_a ... ok
+test region_5_steam_at_800_plus_degc::tests::set_a_1500_kelvin_0_5_mpa::isentropic_exponent_regression_set_a ... ok
+test region_5_steam_at_800_plus_degc::tests::set_a_1500_kelvin_0_5_mpa::isobaric_cubic_expansion_coeff_regression_set_a ... ok
+test region_5_steam_at_800_plus_degc::tests::set_a_1500_kelvin_0_5_mpa::isothermal_compressibility_coeff_regression_set_a ... ok
+test region_5_steam_at_800_plus_degc::tests::set_a_1500_kelvin_0_5_mpa::specific_enthalpy_regression_set_a ... ok
+test region_5_steam_at_800_plus_degc::tests::set_a_1500_kelvin_0_5_mpa::specific_entropy_regression_set_a ... ok
+test region_5_steam_at_800_plus_degc::tests::set_a_1500_kelvin_0_5_mpa::specific_internal_energy_regression_set_a ... ok
+test region_5_steam_at_800_plus_degc::tests::set_a_1500_kelvin_0_5_mpa::specific_vol_regression_set_a ... ok
+test region_5_steam_at_800_plus_degc::tests::set_a_1500_kelvin_0_5_mpa::speed_of_sound_regression_set_a ... ok
+test region_5_steam_at_800_plus_degc::tests::set_b_1500_kelvin_30_mpa::cp_regression_set_b ... ok
+test region_5_steam_at_800_plus_degc::tests::set_b_1500_kelvin_30_mpa::cv_regression_set_b ... ok
+test region_5_steam_at_800_plus_degc::tests::set_b_1500_kelvin_30_mpa::isentropic_exponent_regression_set_b ... ok
+test region_5_steam_at_800_plus_degc::tests::set_b_1500_kelvin_30_mpa::isobaric_cubic_expansion_coeff_regression_set_b ... ok
+test region_5_steam_at_800_plus_degc::tests::set_b_1500_kelvin_30_mpa::isothermal_compressibility_coeff_regression_set_b ... ok
+test region_5_steam_at_800_plus_degc::tests::set_b_1500_kelvin_30_mpa::specific_enthalpy_regression_set_b ... ok
+test region_5_steam_at_800_plus_degc::tests::set_b_1500_kelvin_30_mpa::specific_entropy_regression_set_b ... ok
+test region_5_steam_at_800_plus_degc::tests::set_b_1500_kelvin_30_mpa::specific_internal_energy_regression_set_b ... ok
+test region_5_steam_at_800_plus_degc::tests::set_b_1500_kelvin_30_mpa::specific_vol_regression_set_b ... ok
+test region_5_steam_at_800_plus_degc::tests::set_b_1500_kelvin_30_mpa::speed_of_sound_regression_set_b ... ok
+test region_5_steam_at_800_plus_degc::tests::set_c_2000_kelvin_30_mpa::cp_regression_set_c ... ok
+test region_5_steam_at_800_plus_degc::tests::set_c_2000_kelvin_30_mpa::cv_regression_set_c ... ok
+test region_5_steam_at_800_plus_degc::tests::set_c_2000_kelvin_30_mpa::isentropic_exponent_regression_set_c ... ok
+test region_5_steam_at_800_plus_degc::tests::set_c_2000_kelvin_30_mpa::isobaric_cubic_expansion_coeff_regression_set_c ... ok
+test region_5_steam_at_800_plus_degc::tests::set_c_2000_kelvin_30_mpa::isothermal_compressibility_coeff_regression_set_c ... ok
+test region_5_steam_at_800_plus_degc::tests::set_c_2000_kelvin_30_mpa::specific_enthalpy_regression_set_c ... ok
+test region_5_steam_at_800_plus_degc::tests::set_c_2000_kelvin_30_mpa::specific_entropy_regression_set_c ... ok
+test region_5_steam_at_800_plus_degc::tests::set_c_2000_kelvin_30_mpa::specific_internal_energy_regression_set_c ... ok
+test region_5_steam_at_800_plus_degc::tests::set_c_2000_kelvin_30_mpa::specific_vol_regression_set_c ... ok
+test region_5_steam_at_800_plus_degc::tests::set_c_2000_kelvin_30_mpa::speed_of_sound_regression_set_c ... ok
+test steam_turbine_equations::converging_diverging_nozzles::choked_flow::single_phase_basic_choked_flow::choked_flow_examples::steam_flow_cd_nozzle ... ok
+test steam_turbine_equations::converging_diverging_nozzles::choked_flow::single_phase_basic_choked_flow::choked_flow_examples::steam_flow_cd_nozzle_2 ... ok
+test steam_turbine_equations::converging_diverging_nozzles::joule_thomson::joule_thomson_test::superheated_steam ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::bubble_point_saturation_validation::bubble_point_matches_saturation_table ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::bubble_point_saturation_validation::dew_point_matches_saturation_table ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::cd_nozzle_choked_flow_overexpanded::dry_steam_test_overexpanded ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::cd_nozzle_choked_flow_overexpanded::validate_against_cengel_choked_flow_nozzle ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::cd_nozzle_choked_flow_overexpanded::validate_against_cengel_isentropic_steam_nozzle ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::cd_nozzle_choked_flow_overexpanded::wet_steam_test ... ignored, temporary skip test
+test steam_turbine_equations::converging_diverging_nozzles::tests::cd_nozzle_subsonic_flow::dry_steam_test ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::cd_nozzle_subsonic_flow::wet_steam_test ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::diverging_nozzle_perfectly_expanded_supersonic::diverging_nozzle_perfectly_expanded_subsonic_dry_steam ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::diverging_nozzle_perfectly_expanded_supersonic::diverging_nozzle_perfectly_expanded_supersonic_dry_steam ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::diverging_nozzle_perfectly_expanded_supersonic::diverging_nozzle_perfectly_expanded_supersonic_wet_steam ... ignored, test not ready
+test steam_turbine_equations::converging_diverging_nozzles::tests::golden_section_shared_search::choke_pressures_of_the_four_solver_paths ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::golden_section_shared_search::golden_section_costs_one_evaluation_per_iteration ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::golden_section_shared_search::golden_section_locates_a_known_maximum ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::golden_section_shared_search::probe_reuse_moves_the_choke_far_below_the_stopping_rule ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::marviken_tests::characterise_hem_maximum_flux_criterion ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::marviken_tests::digitised_points_agree_with_nureg_table_8_3 ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::marviken_tests::marviken_measured_scatter ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::marviken_tests::marviken_nozzle_geometry ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::marviken_tests::validate_against_marviken_test_23 ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::marviken_tests::validate_against_marviken_test_24 ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::moody_critical_mass_flux_homogeneous_eqm::isobar_pref_0_25 ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::moody_critical_mass_flux_homogeneous_eqm::isobar_pref_0_50 ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::moody_critical_mass_flux_homogeneous_eqm::isobar_pref_10_00 ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::moody_critical_mass_flux_homogeneous_eqm::isobar_pref_12_00 ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::moody_critical_mass_flux_homogeneous_eqm::isobar_pref_14_00 ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::moody_critical_mass_flux_homogeneous_eqm::isobar_pref_16_00 ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::moody_critical_mass_flux_homogeneous_eqm::isobar_pref_1_00 ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::moody_critical_mass_flux_homogeneous_eqm::isobar_pref_20_00 ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::moody_critical_mass_flux_homogeneous_eqm::isobar_pref_2_00 ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::moody_critical_mass_flux_homogeneous_eqm::isobar_pref_30_00 ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::moody_critical_mass_flux_homogeneous_eqm::isobar_pref_4_00 ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::moody_critical_mass_flux_homogeneous_eqm::isobar_pref_6_00 ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::moody_critical_mass_flux_homogeneous_eqm::isobar_pref_8_00 ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::zaloudek_mass_flux_hom_eqm::backward_throat_to_stagnation::quality_0_05 ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::zaloudek_mass_flux_hom_eqm::backward_throat_to_stagnation::quality_0_10 ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::zaloudek_mass_flux_hom_eqm::backward_throat_to_stagnation::quality_0_15 ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::zaloudek_mass_flux_hom_eqm::backward_throat_to_stagnation::quality_0_20 ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::zaloudek_mass_flux_hom_eqm::backward_throat_to_stagnation::quality_0_25 ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::zaloudek_mass_flux_hom_eqm::backward_throat_to_stagnation::quality_0_30 ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::zaloudek_mass_flux_hom_eqm::backward_throat_to_stagnation::quality_0_35 ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::zaloudek_mass_flux_hom_eqm::backward_throat_to_stagnation::quality_0_40 ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::zaloudek_mass_flux_hom_eqm::backward_throat_to_stagnation::quality_0_45 ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::zaloudek_mass_flux_hom_eqm::backward_throat_to_stagnation::quality_0_50 ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::zaloudek_mass_flux_hom_eqm::backward_throat_to_stagnation::quality_0_55 ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::zaloudek_mass_flux_hom_eqm::backward_throat_to_stagnation::quality_0_60 ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::zaloudek_mass_flux_hom_eqm::backward_throat_to_stagnation::quality_0_65 ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::zaloudek_mass_flux_hom_eqm::backward_throat_to_stagnation::quality_0_70 ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::zaloudek_mass_flux_hom_eqm::backward_throat_to_stagnation::quality_0_75 ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::zaloudek_mass_flux_hom_eqm::backward_throat_to_stagnation::quality_0_80 ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::zaloudek_mass_flux_hom_eqm::backward_throat_to_stagnation::quality_0_85 ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::zaloudek_mass_flux_hom_eqm::backward_throat_to_stagnation::quality_0_90 ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::zaloudek_mass_flux_hom_eqm::backward_throat_to_stagnation::quality_0_95 ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::zaloudek_mass_flux_hom_eqm::backward_throat_to_stagnation::quality_1_00 ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::zaloudek_mass_flux_hom_eqm::backward_throat_to_stagnation::quality_bubble_point ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::zaloudek_mass_flux_hom_eqm::generic_multiphase_stagnation::quality_0_05_stagnation ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::zaloudek_mass_flux_hom_eqm::generic_multiphase_stagnation::quality_0_10_stagnation ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::zaloudek_mass_flux_hom_eqm::generic_multiphase_stagnation::quality_0_15_stagnation ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::zaloudek_mass_flux_hom_eqm::generic_multiphase_stagnation::quality_0_20_stagnation ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::zaloudek_mass_flux_hom_eqm::generic_multiphase_stagnation::quality_0_25_stagnation ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::zaloudek_mass_flux_hom_eqm::generic_multiphase_stagnation::quality_0_30_stagnation ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::zaloudek_mass_flux_hom_eqm::generic_multiphase_stagnation::quality_0_35_stagnation ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::zaloudek_mass_flux_hom_eqm::generic_multiphase_stagnation::quality_0_40_stagnation ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::zaloudek_mass_flux_hom_eqm::generic_multiphase_stagnation::quality_0_45_stagnation ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::zaloudek_mass_flux_hom_eqm::generic_multiphase_stagnation::quality_0_50_stagnation ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::zaloudek_mass_flux_hom_eqm::generic_multiphase_stagnation::quality_0_55_stagnation ... ok
+test openfoam_algorithms::rhoPimpleFoam::lateral_coupling::tests::steam_generator_tube_boils_feedwater ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::zaloudek_mass_flux_hom_eqm::generic_multiphase_stagnation::quality_0_60_stagnation ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::zaloudek_mass_flux_hom_eqm::generic_multiphase_stagnation::quality_0_65_stagnation ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::zaloudek_mass_flux_hom_eqm::generic_multiphase_stagnation::quality_0_70_stagnation ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::zaloudek_mass_flux_hom_eqm::generic_multiphase_stagnation::quality_0_75_stagnation ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::zaloudek_mass_flux_hom_eqm::generic_multiphase_stagnation::quality_0_80_stagnation ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::zaloudek_mass_flux_hom_eqm::generic_multiphase_stagnation::quality_0_85_stagnation ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::zaloudek_mass_flux_hom_eqm::generic_multiphase_stagnation::quality_0_90_stagnation ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::zaloudek_mass_flux_hom_eqm::generic_multiphase_stagnation::quality_0_95_stagnation ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::zaloudek_mass_flux_hom_eqm::generic_multiphase_stagnation::quality_1_00_stagnation ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::zaloudek_mass_flux_hom_eqm::in_dome_stagnation::quality_0_05_in_dome ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::zaloudek_mass_flux_hom_eqm::generic_multiphase_stagnation::quality_bubble_point_stagnation ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::zaloudek_mass_flux_hom_eqm::in_dome_stagnation::quality_0_10_in_dome ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::zaloudek_mass_flux_hom_eqm::in_dome_stagnation::quality_0_15_in_dome ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::zaloudek_mass_flux_hom_eqm::in_dome_stagnation::quality_0_20_in_dome ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::zaloudek_mass_flux_hom_eqm::in_dome_stagnation::quality_0_25_in_dome ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::zaloudek_mass_flux_hom_eqm::in_dome_stagnation::quality_0_30_in_dome ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::zaloudek_mass_flux_hom_eqm::in_dome_stagnation::quality_0_35_in_dome ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::zaloudek_mass_flux_hom_eqm::in_dome_stagnation::quality_0_40_in_dome ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::zaloudek_mass_flux_hom_eqm::in_dome_stagnation::quality_0_45_in_dome ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::zaloudek_mass_flux_hom_eqm::in_dome_stagnation::quality_0_50_in_dome ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::zaloudek_mass_flux_hom_eqm::in_dome_stagnation::quality_0_55_in_dome ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::zaloudek_mass_flux_hom_eqm::in_dome_stagnation::quality_0_60_in_dome ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::zaloudek_mass_flux_hom_eqm::in_dome_stagnation::quality_0_65_in_dome ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::zaloudek_mass_flux_hom_eqm::in_dome_stagnation::quality_0_70_in_dome ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::zaloudek_mass_flux_hom_eqm::in_dome_stagnation::quality_0_80_in_dome ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::zaloudek_mass_flux_hom_eqm::in_dome_stagnation::quality_0_75_in_dome ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::zaloudek_mass_flux_hom_eqm::in_dome_stagnation::quality_0_90_in_dome ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::zaloudek_mass_flux_hom_eqm::in_dome_stagnation::quality_0_85_in_dome ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::zaloudek_mass_flux_hom_eqm::in_dome_stagnation::quality_1_00_in_dome ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::zaloudek_mass_flux_hom_eqm::in_dome_stagnation::quality_bubble_point_in_dome ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::zaloudek_mass_flux_hom_eqm::outside_dome_stagnation_subcooled::diagnose_bubble_point_artifact ... ignored, diagnostic sweep, not an assertion — prints a per-point table
+test steam_turbine_equations::converging_diverging_nozzles::tests::zaloudek_mass_flux_hom_eqm::in_dome_stagnation::quality_0_95_in_dome ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::zaloudek_mass_flux_hom_eqm::outside_dome_stagnation_subcooled::quality_0_05_subcooled ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::zaloudek_mass_flux_hom_eqm::outside_dome_stagnation_subcooled::quality_0_10_subcooled ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::zaloudek_mass_flux_hom_eqm::outside_dome_stagnation_subcooled::quality_0_15_subcooled ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::zaloudek_mass_flux_hom_eqm::outside_dome_stagnation_subcooled::quality_0_20_subcooled ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::zaloudek_mass_flux_hom_eqm::outside_dome_stagnation_subcooled::quality_0_25_subcooled ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::zaloudek_mass_flux_hom_eqm::outside_dome_stagnation_subcooled::quality_0_30_subcooled ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::zaloudek_mass_flux_hom_eqm::outside_dome_stagnation_subcooled::quality_0_35_subcooled ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::zaloudek_mass_flux_hom_eqm::outside_dome_stagnation_subcooled::quality_0_40_subcooled ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::zaloudek_mass_flux_hom_eqm::outside_dome_stagnation_subcooled::quality_0_45_subcooled ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::zaloudek_mass_flux_hom_eqm::outside_dome_stagnation_subcooled::quality_0_55_subcooled ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::zaloudek_mass_flux_hom_eqm::outside_dome_stagnation_subcooled::quality_0_50_subcooled ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::zaloudek_mass_flux_hom_eqm::outside_dome_stagnation_subcooled::quality_0_65_subcooled ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::zaloudek_mass_flux_hom_eqm::outside_dome_stagnation_subcooled::quality_0_60_subcooled ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::zaloudek_mass_flux_hom_eqm::outside_dome_stagnation_subcooled::quality_0_70_subcooled ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::zaloudek_mass_flux_hom_eqm::outside_dome_stagnation_subcooled::quality_0_75_subcooled ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::zaloudek_mass_flux_hom_eqm::outside_dome_stagnation_subcooled::quality_0_80_subcooled ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::zaloudek_mass_flux_hom_eqm::outside_dome_stagnation_subcooled::quality_0_85_subcooled ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::zaloudek_mass_flux_hom_eqm::outside_dome_stagnation_subcooled::quality_0_90_subcooled ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::zaloudek_mass_flux_hom_eqm::outside_dome_stagnation_subcooled::quality_0_95_subcooled ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::zaloudek_mass_flux_hom_eqm::outside_dome_stagnation_subcooled::quality_1_00_subcooled ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::zaloudek_mass_flux_hom_eqm::outside_dome_stagnation_superheated::quality_0_80_superheated ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::zaloudek_mass_flux_hom_eqm::outside_dome_stagnation_subcooled::quality_bubble_point_subcooled ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::zaloudek_mass_flux_hom_eqm::outside_dome_stagnation_superheated::quality_0_90_superheated ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::zaloudek_mass_flux_hom_eqm::outside_dome_stagnation_superheated::quality_0_95_superheated ... ok
+test steam_turbine_equations::mean_flow_stages::tests::cascade_drag_follows_the_sign_of_the_mean_relative_angle ... ok
+test steam_turbine_equations::mean_flow_stages::tests::diagnose_multistage_expansion ... ignored, diagnostic — prints a per-stage table, asserts nothing
+test steam_turbine_equations::mean_flow_stages::tests::every_stage_of_the_machine_mixes_both_mechanisms ... ok
+test steam_turbine_equations::mean_flow_stages::tests::impulse_only_stage_reports_zero_reaction_fraction ... ok
+test steam_turbine_equations::mean_flow_stages::tests::impulse_optimum_blade_speed_ratio_is_half_sin_nozzle_angle ... ok
+test steam_turbine_equations::mean_flow_stages::tests::multistage_exhaust_is_wet_and_moisture_appears_part_way_down ... ok
+test steam_turbine_equations::mean_flow_stages::tests::multistage_expansion_conserves_energy ... ok
+test steam_turbine_equations::mean_flow_stages::tests::multistage_pressure_descends_monotonically ... ok
+test steam_turbine_equations::mean_flow_stages::tests::per_stage_isentropic_drops_exceed_the_single_step_drop ... ok
+test steam_turbine_equations::mean_flow_stages::tests::reaction_part_grows_with_rotor_enthalpy_drop ... ok
+test steam_turbine_equations::mean_flow_stages::tests::reaction_part_vanishes_without_a_rotor_pressure_drop ... ok
+test steam_turbine_equations::mean_flow_stages::tests::rising_pressure_stage_degrades_to_zero_work ... ok
+test steam_turbine_equations::mean_flow_stages::tests::single_mixed_stage_conserves_energy_and_uses_both_mechanisms ... ok
+test steam_turbine_equations::mean_flow_stages::tests::symmetric_impulse_matches_closed_form_euler_work ... ok
+test steam_turbine_equations::mean_flow_stages::tests::symmetric_impulse_reports_near_zero_degree_of_reaction ... ok
+test steam_turbine_equations::mean_flow_stages::transient_tests::a_turning_shaft_delivers_electrical_power ... ok
+test steam_turbine_equations::mean_flow_stages::transient_tests::constructor_meshes_one_cell_per_stage ... ok
+test steam_turbine_equations::converging_diverging_nozzles::tests::zaloudek_mass_flux_hom_eqm::outside_dome_stagnation_superheated::quality_1_00_superheated ... ok
+test steam_turbine_equations::mean_flow_stages::transient_tests::initialise_uniform_puts_superheated_steam_in_every_cell ... ok
+test steam_turbine_equations::mean_flow_stages::transient_tests::machine_spins_up_from_rest ... ok
+test steam_turbine_equations::mean_flow_stages::transient_tests::moving_steam_extracts_work_from_both_mechanisms ... ok
+test steam_turbine_equations::mean_flow_stages::transient_tests::power_sources_are_consumed_by_the_step ... ok
+test steam_turbine_equations::mean_flow_stages::transient_tests::shaft_speed_is_solved_rather_than_held ... ok
+test steam_turbine_equations::mean_flow_stages::transient_tests::short_run_stays_bounded ... ok
+test steam_turbine_equations::mean_flow_stages::transient_tests::standstill_develops_starting_torque_but_no_power ... ok
+test steam_turbine_equations::mean_flow_stages::transient_tests::still_steam_extracts_no_work ... ok
+test steam_turbine_equations::mean_flow_stages::transient_tests::total_shaft_power_is_the_sum_of_the_stages ... ok
+test steam_turbine_equations::mean_flow_stages::transient_tests::zero_rotor_drop_fraction_gives_a_pure_impulse_stage ... ok
+test surface_tension::tests::surf_tension_unit_test_1 ... ok
+test surface_tension::tests::surf_tension_unit_test_2 ... ok
+test surface_tension::tests::surf_tension_unit_test_3 ... ok
+test tabulated_data::tests::cross_section_dispatches_by_variant ... ok
+test tabulated_data::tests::isobar_finds_the_published_rows_it_should_and_nothing_it_should_not ... ok
+test tabulated_data::tests::isotherm_finds_rows_across_multiple_tabulated_isobars ... ok
+test tabulated_data::tests::saturation_curve_is_complete_and_finite ... ok
+test tabulated_data::tests::wagner_row_counts_match_the_source_fixtures ... ok
+test thermal_conductivity::tests::c_test ... ok
+test thermal_conductivity::tests::capital_a_test ... ok
+test thermal_conductivity::tests::captial_b_test ... ok
+test thermal_conductivity::tests::lambda_0_test ... ok
+test thermal_conductivity::tests::lambda_1_test ... ok
+test thermal_conductivity::tests::lambda_2_test ... ok
+test thermal_conductivity::tests::lambda_ph_two_phase_is_finite_and_bracketed ... ok
+test thermal_conductivity::tests::lambda_test_tp_flash ... ok
+test thermal_conductivity::tests::small_a_test ... ok
+test steam_turbine_equations::mean_flow_stages::transient_tests::heavier_electrical_load_slows_the_shaft ... ok
+
+test result: ok. 1023 passed; 0 failed; 14 ignored; 0 measured; 0 filtered out; finished in 28.55s
+
+     Running tests/boundary_273_15_repro.rs (target/release/deps/boundary_273_15_repro-e5c9e5de64cb197e)
+
+running 4 tests
+test does_the_ps_flash_reach_region_5_and_does_the_checked_facade ... ok
+test does_lambda_ph_eqm_work_in_region_5 ... ok
+test the_checked_ph_facade_still_refuses_region_5_and_the_2273_k_ceiling_panics ... ok
+test ph_to_t_inverse_undershoots_the_273_15_floor ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/cross_platform_determinism.rs (target/release/deps/cross_platform_determinism-c7167caa74feaaf4)
+
+running 3 tests
+test one_ulp_input_perturbation_moves_the_hash ... ok
+test part_a_if97_property_sweep ... ok
+test part_b_edwards_200_steps_pimple ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.14s
+
+     Running tests/edwards_blowdown.rs (target/release/deps/edwards_blowdown-a3a189f023198fda)
+
+running 1 test
+test edwards_obrien_pipe_blowdown_600ms has been running for over 60 seconds
+test edwards_obrien_pipe_blowdown_600ms ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 156.57s
+
+     Running tests/heated_tube_never_undercuts_its_feedwater.rs (target/release/deps/heated_tube_never_undercuts_its_feedwater-2c768ae69acedc6d)
+
+running 2 tests
+test the_linear_ablation_reproduces_the_walk_toward_the_floor ... ok
+test the_default_scheme_never_undercuts_the_feedwater ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.19s
+
+     Running tests/hem_pipe_edwards.rs (target/release/deps/hem_pipe_edwards-b2d67bc4f8cfc4c8)
+
+running 1 test
+test edwards_obrien_blowdown_on_hem_pipe ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 10.49s
+
+     Running tests/hem_pipe_verification.rs (target/release/deps/hem_pipe_verification-8718ba89ec71c0cb)
+
+running 7 tests
+test a_fixed_step_that_is_too_large_is_refused ... ok
+test hem_water_double_rarefaction_semi_analytical_prediction ... ok
+test ideal_gas_sod_matches_the_exact_riemann_solution ... ok
+test the_defaults_are_pinned_and_if97_uses_the_equilibrium_sound_speed ... ok
+test toro_test_2_double_rarefaction_stays_positive ... ok
+test two_walls_conserve_mass_and_total_energy_to_round_off_on_if97 ... ok
+test hem_water_double_rarefaction_matches_the_semi_analytical_plateaus ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 15.63s
+
+     Running tests/no_platform_libm_on_hot_path.rs (target/release/deps/no_platform_libm_on_hot_path-bde2b7f2e42ef92f)
+
+running 2 tests
+test the_gate_flags_raw_calls_and_only_raw_calls ... ok
+test no_platform_libm_on_hot_path ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/wasm_smoke.rs (target/release/deps/wasm_smoke-5b6dc819dacaf350)
+
+running 2 tests
+test steam_property_flash_works_under_wasm ... ok
+test edwards_blowdown_advances_under_wasm ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running unittests examples/tampines-steam-tables-gui/main.rs (target/release/examples/tampines_steam_tables_gui-8ffc65e054c6906f)
+
+running 40 tests
+test citations::reference_layer_citations_are_nonempty_and_deduplicated ... ok
+test curves::critical_point_matches_the_published_constant ... ok
+test curves::default_isobars_and_isotherms_produce_finite_ordered_segments ... ok
+test app::default_app_state_yields_finite_plottable_data_on_every_tab ... ok
+test curves::isochore_reproduces_the_requested_volume_including_inside_the_dome ... ok
+test curves::quality_lines_follow_the_lever_rule_and_nest_inside_the_dome ... ok
+test curves::saturation_curve_matches_the_wagner_steam_table ... ok
+test curves::triple_point_matches_the_wagner_saturation_table ... ok
+test custom_lines::every_custom_line_type_builds_a_tagged_layer_at_its_default_value ... ok
+test diagram::each_diagram_projects_the_axes_it_advertises ... ok
+test diagram::hover_formatters_name_the_right_symbol_and_invert_the_log_axis ... ok
+test evaluation::representative_single_phase_points_resolve_on_every_diagram ... ok
+test evaluation::ts_click_inside_the_dome_resolves_the_two_phase_lever_rule ... ok
+test curves::isenthalp_and_isentrope_sweep_cleanly_through_every_region ... ok
+test export::scenes_assemble_with_finite_ranges_and_the_required_caveats ... ok
+test export::write_single_file_writes_the_exact_path_and_rejects_csv ... ok
+test figure::autoscale_brackets_the_data_and_reports_an_empty_scene ... ok
+test figure::axis_scales_round_trip_and_reject_unrepresentable_values ... ok
+test export::export_style_palette_reaches_the_rendered_png ... ok
+test figure::font::every_glyph_stays_inside_its_box ... ok
+test figure::font::printable_ascii_is_fully_covered ... ok
+test figure::csv_export::csv_export_is_byte_reproducible ... ok
+test figure::layout::liang_barsky_clips_at_the_frame ... ok
+test figure::layout::a_nan_breaks_the_curve_instead_of_joining_it ... ok
+test figure::layout::tick_generation_stays_in_range_and_labels_only_majors ... ok
+test figure::png::dashing_splits_a_line_into_on_pieces ... ok
+test figure::pdf::pdf_xref_offsets_are_correct_and_output_is_reproducible ... ok
+test figure::svg::svg_output_is_byte_reproducible ... ok
+test figure::png::raster_output_decodes_and_contains_ink ... ok
+test layers::availability_table_disables_only_degenerate_or_unmeasured_cases ... ok
+test layers::every_reference_layer_yields_points ... ok
+test layers::isobar_and_isotherm_layers_pair_their_line_with_published_wagner_crosses ... ok
+test layers::layer_selection_restricts_which_isobars_and_isotherms_are_drawn ... ok
+test layers::legend_groups_collapse_the_families_issue_26_names ... ok
+test layers::tabulated_single_phase_axis_toggle_works_on_every_diagram ... ok
+test layers::tabulated_single_phase_pairs_a_smooth_curve_where_not_degenerate ... ok
+test layers::wagner_single_phase_points_respect_the_isobar_isotherm_selection ... ok
+test reference_data::no_dataset_carries_a_non_finite_number ... ok
+test reference_data::row_counts_match_fixtures ... ok
+test headless_export_writes_valid_files_for_all_four_diagrams ... ok
+
+test result: ok. 40 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.88s
+

@@ -43,6 +43,7 @@
 //!
 //! Printed by the test and recorded on #407.
 
+use petir::mathf::RealMath;
 use outram_mc_libs::material::thermal::ThermalScattering;
 use std::path::PathBuf;
 
@@ -69,7 +70,7 @@ fn load(name: &str) -> Option<ThermalScattering> {
 fn mean_sem(v: &[f64]) -> (f64, f64) {
     let n = v.len() as f64;
     let m = v.iter().sum::<f64>() / n;
-    let var = v.iter().map(|x| (x - m).powi(2)).sum::<f64>() / (n - 1.0);
+    let var = v.iter().map(|x| (x - m).r_powi(2)).sum::<f64>() / (n - 1.0);
     (m, (var / n).sqrt())
 }
 

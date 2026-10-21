@@ -578,6 +578,7 @@ impl OdeIntegrator<NoTypedSystem> {
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
     use crate::matrix::SquareMatrix;
 
@@ -619,7 +620,7 @@ mod tests {
     /// silently routing to one.
     #[test]
     fn typed_variant_reaches_every_stepper() {
-        let exact = (-1.0_f64).exp();
+        let exact = (-1.0_f64).r_exp();
         for (solver, tol) in [
             (OdeSolver::euler(1, 1e-3, 1e-2), 1e-2),
             (OdeSolver::rkf45(1, 1e-10, 1e-8), 1e-6),
@@ -700,7 +701,7 @@ mod tests {
         );
         assert_eq!(holder.integrator.n_eqns(), 1);
         assert!(
-            (holder.state[0] - (-1.0_f64).exp()).abs() < 1e-6,
+            (holder.state[0] - (-1.0_f64).r_exp()).abs() < 1e-6,
             "y = {:.16}",
             holder.state[0]
         );

@@ -122,6 +122,7 @@
 //! `1/(15τ) ≈ 6.7·10⁶` against itself to produce a number of order 10⁻⁴.
 //! [`tests::the_thousand_term_cap_is_the_binding_one`] records both facts.
 
+use petir::mathf::RealMath;
 use uom::si::f64::{Frequency, Ratio, Time};
 use uom::si::ratio::ratio;
 
@@ -159,7 +160,7 @@ pub fn booth_release_function(tau: Ratio) -> Ratio {
     for n in 1..=MAX_SUMMANDS {
         let n = n as f64;
         let n2 = n * n;
-        let summand = (1.0 - (-n2 * pi2 * t).exp()) / (n2 * n2 * pi4);
+        let summand = (1.0 - (-n2 * pi2 * t).r_exp()) / (n2 * n2 * pi4);
         sum += summand;
         if let Some(p) = previous {
             if (summand - p).abs() <= SUMMAND_CONVERGENCE {
@@ -239,7 +240,7 @@ mod tests {
         for n in 1..=MAX_SUMMANDS {
             let n = n as f64;
             let n2 = n * n;
-            sum += 1.0 - (-n2 * pi2 * tau).exp() / (n2 * n2 * pi4);
+            sum += 1.0 - (-n2 * pi2 * tau).r_exp() / (n2 * n2 * pi4);
         }
         1.0 - 6.0 / tau * sum
     }
@@ -315,7 +316,7 @@ mod tests {
             (1..=n_max)
                 .map(|n| {
                     let n2 = (n * n) as f64;
-                    1.0 - (-n2 * pi2 * 0.5).exp() / (n2 * n2 * pi4)
+                    1.0 - (-n2 * pi2 * 0.5).r_exp() / (n2 * n2 * pi4)
                 })
                 .sum::<f64>()
         };
@@ -361,7 +362,7 @@ mod tests {
         // the cap: check the gap is still far above tolerance at n = 1000.
         let pi2 = std::f64::consts::PI * std::f64::consts::PI;
         let pi4 = pi2 * pi2;
-        let term = |n: f64| (1.0 - (-n * n * pi2).exp()) / (n * n * n * n * pi4);
+        let term = |n: f64| (1.0 - (-n * n * pi2).r_exp()) / (n * n * n * n * pi4);
         let gap = (term(1000.0) - term(999.0)).abs();
         assert!(
             gap > SUMMAND_CONVERGENCE,
@@ -373,7 +374,7 @@ mod tests {
             let tail: f64 = (1..80)
                 .map(|n| {
                     let n2 = (n * n) as f64;
-                    (-n2 * pi2 * tau).exp() / (n2 * n2 * pi4)
+                    (-n2 * pi2 * tau).r_exp() / (n2 * n2 * pi4)
                 })
                 .sum();
             1.0 - 1.0 / (15.0 * tau) + 6.0 / tau * tail

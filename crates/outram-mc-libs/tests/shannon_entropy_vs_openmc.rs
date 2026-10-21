@@ -55,6 +55,7 @@
 //! distribution, so that number is reported for context and is deliberately
 //! not asserted on.
 
+use petir::mathf::RealMath;
 use outram_mc_libs::geometry::position::{Direction, Position};
 use outram_mc_libs::particle::bank::BankSite;
 use outram_mc_libs::tally::mesh::RegularMesh;
@@ -242,7 +243,7 @@ fn a_uniform_source_reaches_the_log2_ceiling() {
     let h = mesh
         .shannon_entropy(&bank)
         .expect("uniform bank has an entropy");
-    let ceiling = (mesh.n_bins() as f64).log2();
+    let ceiling = (mesh.n_bins() as f64).r_log2();
     println!("uniform H = {h:.15}, log2(64) = {ceiling:.15}");
     assert!(
         (h - ceiling).abs() < 1.0e-14,
@@ -435,7 +436,7 @@ fn count_sites_accumulates_weight_not_hits() {
 
     // H for a 3:1 split = -(0.75 log2 0.75 + 0.25 log2 0.25) = 0.811278...
     let h = mesh.shannon_entropy(&bank).expect("entropy exists");
-    let expect = -(0.75f64 * 0.75f64.log2() + 0.25f64 * 0.25f64.log2());
+    let expect = -(0.75f64 * 0.75f64.r_log2() + 0.25f64 * 0.25f64.r_log2());
     assert!(
         (h - expect).abs() < 1.0e-15,
         "weighted entropy must be {expect}, got {h}; a hit-counting implementation \

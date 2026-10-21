@@ -146,6 +146,9 @@
 //! Vulkan backend, warm OS disk cache). CPU is `f64`, single-threaded lookup; GPU
 //! is `f32`. Re-running regenerates the two CSVs named below.
 
+#[cfg(feature = "net-fetch")]
+use petir::mathf::RealMath;
+
 #[cfg(not(feature = "net-fetch"))]
 fn main() {
     eprintln!(
@@ -274,7 +277,7 @@ fn main() {
     println!(
         "Packed {} HEU kernels into a {:.2} cm³ reflective cube — realized pf {:.4}.",
         packed.len(),
-        (2.0 * half).powi(3),
+        (2.0 * half).r_powi(3),
         packed.packing_fraction()
     );
 
@@ -484,6 +487,6 @@ fn mean_and_stderr(k: &[f64]) -> (f64, f64) {
     if n < 2 {
         return (mean, 0.0);
     }
-    let var = k.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / (n as f64 - 1.0);
+    let var = k.iter().map(|x| (x - mean).r_powi(2)).sum::<f64>() / (n as f64 - 1.0);
     (mean, (var / n as f64).sqrt())
 }

@@ -18,6 +18,8 @@
 //!    confirmation that names how many points will be recomputed.
 //! 3. A restore that fails does not throw the saved points away.
 
+use petir::mathf::RealMath;
+
 use super::tests::{app_with_a_saved_two_series_graph, graph_bodies};
 use super::*;
 
@@ -166,7 +168,7 @@ fn a_changed_range_recomputes_only_after_explicit_confirmation() {
     assert!(app.message.contains("re-read"), "{}", app.message);
     // Same pixel, new calibration: log y compressed by 5/6 about 1e-3.
     let (y0, y1) = (before[0][0].1, after[0][0].1);
-    let expect = 10f64.powf((y0.log10() + 3.0) * 5.0 / 6.0 - 3.0);
+    let expect = 10f64.r_powf((y0.r_log10() + 3.0) * 5.0 / 6.0 - 3.0);
     assert!((y1 - expect).abs() < 1e-9 * expect, "{y1} vs {expect}");
 }
 

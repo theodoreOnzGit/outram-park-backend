@@ -38,7 +38,8 @@
 //! - Simple hole capping is [`crate::fill_holes`]; the F-fill of an *edge net*
 //!   into multiple faces is tracked as follow-up.
 
-use std::collections::HashMap;
+use petir::mathf::RealMath;
+use std::collections::BTreeMap;
 
 use crate::math::Vec3;
 use crate::mesh::{Mesh, VertexId};
@@ -165,7 +166,9 @@ pub fn beauty_fill(mesh: &Mesh) -> Mesh {
     }
 
     // Map each undirected edge → the (tri index, opposite vertex).
-    let mut edge_tri: HashMap<(usize, usize), Vec<(usize, usize)>> = HashMap::new();
+    // BTreeMap: the greedy flips below depend on the order edges are visited;
+    // a hash map's is randomly seeded (gh #1002).
+    let mut edge_tri: BTreeMap<(usize, usize), Vec<(usize, usize)>> = BTreeMap::new();
     for (ti, t) in tris.iter().enumerate() {
         for k in 0..3 {
             let (a, b, c) = (t[k], t[(k + 1) % 3], t[(k + 2) % 3]);
@@ -208,7 +211,7 @@ fn min_angle(pos: &[Vec3], a: usize, b: usize, c: usize) -> f64 {
         let u = pos[p].sub(pos[o]);
         let v = pos[q].sub(pos[o]);
         let d = u.dot(v) / (u.length() * v.length() + 1e-12);
-        d.clamp(-1.0, 1.0).acos()
+        d.clamp(-1.0, 1.0).r_acos()
     };
     ang(a, b, c).min(ang(b, a, c)).min(ang(c, a, b))
 }

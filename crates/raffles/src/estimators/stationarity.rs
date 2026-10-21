@@ -62,6 +62,7 @@
 //! - R. E. Kass and A. E. Raftery (1995). Bayes factors. *JASA, 90*(430),
 //!   773–795.
 
+use petir::mathf::RealMath;
 use crate::model_selection::{ln_bayes_factor, EvidenceStrength, ModelEvidence};
 
 /// MSER batch size, fixed at the published MSER-5.
@@ -109,7 +110,7 @@ pub fn mser_truncation(x: &[f64], batch_size: usize) -> Option<MserTruncation> {
         let tail = &z[d..];
         let m = tail.len() as f64;
         let mean = tail.iter().sum::<f64>() / m;
-        let ss: f64 = tail.iter().map(|v| (v - mean).powi(2)).sum();
+        let ss: f64 = tail.iter().map(|v| (v - mean).r_powi(2)).sum();
         statistic.push(ss / (m * m));
     }
     let mut best = 0;
@@ -231,7 +232,7 @@ pub fn change_point(x: &[f64], batch_size: usize) -> Option<ChangePoint> {
     let n = k as f64;
     let ss = |s: &[f64]| -> (f64, f64) {
         let m = s.iter().sum::<f64>() / s.len() as f64;
-        (m, s.iter().map(|v| (v - m).powi(2)).sum())
+        (m, s.iter().map(|v| (v - m).r_powi(2)).sum())
     };
     let (_, s0) = ss(&z);
     if !(s0 > 0.0) {
@@ -246,10 +247,10 @@ pub fn change_point(x: &[f64], batch_size: usize) -> Option<ChangePoint> {
         let s = (s1 + s2).max(f64::MIN_POSITIVE);
         s_min = s_min.min(s);
         let (n1, n2) = (tau as f64, (k - tau) as f64);
-        logp.push(-0.5 * (n1 * n2).ln() - 0.5 * (n - 2.0) * s.ln());
+        logp.push(-0.5 * (n1 * n2).r_ln() - 0.5 * (n - 2.0) * s.r_ln());
     }
     let lmax = logp.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
-    let w: Vec<f64> = logp.iter().map(|l| (l - lmax).exp()).collect();
+    let w: Vec<f64> = logp.iter().map(|l| (l - lmax).r_exp()).collect();
     let tot: f64 = w.iter().sum();
     let posterior: Vec<f64> = w.iter().map(|v| v / tot).collect();
     let mut imax = 0;
@@ -264,9 +265,9 @@ pub fn change_point(x: &[f64], batch_size: usize) -> Option<ChangePoint> {
 
     // BIC: Gaussian max log-likelihood -n/2 (ln(2π S/n) + 1); p = 2 (μ, σ)
     // without a change, p = 4 (μ₁, μ₂, σ, τ) with one.
-    let ln_l = |s: f64| -0.5 * n * ((2.0 * std::f64::consts::PI * s / n).ln() + 1.0);
-    let ln_z0 = ln_l(s0) - 1.0 * n.ln();
-    let ln_z1 = ln_l(s_min) - 2.0 * n.ln();
+    let ln_l = |s: f64| -0.5 * n * ((2.0 * std::f64::consts::PI * s / n).r_ln() + 1.0);
+    let ln_z0 = ln_l(s0) - 1.0 * n.r_ln();
+    let ln_z1 = ln_l(s_min) - 2.0 * n.r_ln();
     let (e0, e1) = match (
         ModelEvidence::new("one mean", ln_z0),
         ModelEvidence::new("change in mean", ln_z1),
@@ -297,7 +298,7 @@ mod tests {
         let mut s = seed;
         (0..n)
             .map(|t| {
-                amp * (-(t as f64) / scale).exp()
+                amp * (-(t as f64) / scale).r_exp()
                     + 0.1 * crate::distributions::seeded::sample_normal(&mut s)
             })
             .collect()
@@ -328,8 +329,25 @@ mod tests {
     /// flagged **14.5 %** of the time, against **4.5 %** with the transient
     /// removed: the "fails 5 % of the time" premise does not hold, because
     /// MSER trades bias for variance (as its doc says) and Geweke sees the
-    /// bias it leaves. The assertion is left unchanged and failing for the
-    /// maintainer to decide (gh:#778).
+    /// bias it leaves. ~~The assertion is left unchanged and failing for the
+    /// maintainer to decide (gh:#778).~~
+    ///
+    /// **REVISED 2026-10-20 (maintainer decision on gh:#778, option (a)).**
+    /// The last check no longer asserts that the MSER tail is drift-free,
+    /// because the measurement above shows that premise is false: MSER leaves
+    /// a residual by design. It now tests what is true and can still fail:
+    /// (i) Geweke on the tail with the KNOWN transient subtracted must not
+    /// flag drift — that trace is noise only, so the `|z| ≤ 1.96` premise
+    /// genuinely holds there (4.5 % flagged over seeds 1..=400, nominal 5 %);
+    /// (ii) subtracting the transient must reduce `|z|`, i.e. the drift Geweke
+    /// sees on the tail is the residual transient, not something else. The
+    /// 1.96 threshold and the seed are unchanged.
+    ///
+    /// **Prediction, written before the run:** `z` on the tail 2.332, on the
+    /// tail minus transient 0.92, both checks pass. **Result (2026-10-20,
+    /// release, rustc 1.99.1):** MSER cut 85; Geweke `z` on the tail
+    /// 2.331656, on the tail minus transient 0.922035. Both checks pass, as
+    /// predicted; the drift on the tail is the residual transient.
     #[test]
     fn transient_is_found_and_tail_passes() {
         let x = trace(1000, 5.0, 20.0, 496);
@@ -343,7 +361,24 @@ mod tests {
         assert!(geweke(&x).unwrap().drift);
         let tail = &x[m.truncation..];
         let g = geweke(tail).unwrap();
-        assert!(!g.drift, "z {}", g.z);
+        // The same tail with the known transient subtracted: noise only.
+        let clean: Vec<f64> = tail
+            .iter()
+            .enumerate()
+            .map(|(i, v)| v - 5.0 * (-((m.truncation + i) as f64) / 20.0).r_exp())
+            .collect();
+        let g_clean = geweke(&clean).unwrap();
+        println!(
+            "MSER cut {}; Geweke z on tail {:.6}, on tail minus transient {:.6}",
+            m.truncation, g.z, g_clean.z
+        );
+        assert!(!g_clean.drift, "noise-only tail flagged, z {}", g_clean.z);
+        assert!(
+            g_clean.z.abs() < g.z.abs(),
+            "removing the residual transient did not reduce |z|: {} -> {}",
+            g.z,
+            g_clean.z
+        );
     }
 
     /// **Methodology.** A step of 10 noise-σ at sample 300 of 600: the change

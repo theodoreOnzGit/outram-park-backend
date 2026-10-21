@@ -71,6 +71,7 @@
 //! See the page `docs/tutorial/src/tutorial8-seker-bed.md`; the numbers of
 //! the last run are recorded there and on gh #943.
 
+use petir::mathf::RealMath;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
@@ -302,12 +303,12 @@ fn render(a: &AssembledModel, view: &View) -> ImageData {
         let steps = ((ring.r / view.width_cm * px * 6.5) as usize).max(24);
         for k in 0..steps {
             let t = 2.0 * std::f64::consts::PI * k as f64 / steps as f64;
-            let (x, y) = to_px(ring.h + ring.r * t.cos(), ring.v + ring.r * t.sin());
+            let (x, y) = to_px(ring.h + ring.r * t.r_cos(), ring.v + ring.r * t.r_sin());
             dot(&mut raw, x, y, RING);
         }
     }
     for (p, q) in &view.lines {
-        let len = ((q[0] - p[0]).hypot(q[1] - p[1]) / view.width_cm * px * 2.0) as usize + 2;
+        let len = ((q[0] - p[0]).r_hypot(q[1] - p[1]) / view.width_cm * px * 2.0) as usize + 2;
         for k in 0..=len {
             let f = k as f64 / len as f64;
             let (x, y) = to_px(p[0] + f * (q[0] - p[0]), p[1] + f * (q[1] - p[1]));
@@ -459,11 +460,11 @@ fn meridional(h: &Hopper, c: &BedCensus, bed_top: f64) -> ImageData {
         } else {
             Rgb::new(190, 190, 190)
         };
-        disc(&mut img, x.hypot(y), zz, 1.6, col);
+        disc(&mut img, x.r_hypot(y), zz, 1.6, col);
     }
     for r in &c.rejected {
         let [x, y, zz] = r.centre_cm;
-        disc(&mut img, x.hypot(y), zz, 3.2, wall_colour(r.wall));
+        disc(&mut img, x.r_hypot(y), zz, 3.2, wall_colour(r.wall));
     }
     let (r, ro) = (h.radius_cm(), h.outlet_radius_cm());
     let prof = [
@@ -924,7 +925,7 @@ fn draw_all(
     let zc = floor + r + 0.5 * h;
     let in_tile = |k: &KeptBall| {
         let [x, y, z] = k.centre_cm;
-        (z - zc).abs() < 1e-6 && x.hypot(y) < seker::pitch_cm() * 0.55
+        (z - zc).abs() < 1e-6 && x.r_hypot(y) < seker::pitch_cm() * 0.55
     };
     let nf = c.kept.iter().filter(|k| in_tile(k) && k.fuel).count();
     let nm = c.kept.iter().filter(|k| in_tile(k) && !k.fuel).count();
@@ -939,7 +940,7 @@ fn draw_all(
     );
     // The tile is not a surface of the geometry: its outline is drawn for the reader.
     let apo = 0.5 * seker::pitch_cm();
-    let circ = apo / (std::f64::consts::PI / 6.0).cos();
+    let circ = apo / (std::f64::consts::PI / 6.0).r_cos();
     let corners: Vec<[f64; 2]> = vec![
         [circ, 0.0],
         [0.5 * circ, apo],
@@ -959,7 +960,7 @@ fn draw_all(
         .iter()
         .filter(|k| in_tile(k) && k.fuel)
         .min_by(|p, q| {
-            let d = |k: &&KeptBall| k.centre_cm[0].hypot(k.centre_cm[1]);
+            let d = |k: &&KeptBall| k.centre_cm[0].r_hypot(k.centre_cm[1]);
             d(p).total_cmp(&d(q))
         })
     {

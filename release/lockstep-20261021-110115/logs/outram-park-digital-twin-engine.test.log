@@ -1,0 +1,719 @@
+   Compiling bytemuck v1.25.2
+   Compiling parking_lot_core v0.9.12
+   Compiling naga-types v30.0.1
+   Compiling getrandom v0.4.3
+   Compiling naga v30.0.1
+   Compiling uuid v1.28.0
+   Compiling parking_lot v0.12.5
+   Compiling wgpu-types v30.0.1
+   Compiling const-oid v0.9.6
+   Compiling wayland-backend v0.3.17
+   Compiling getrandom v0.2.17
+   Compiling ndarray v0.17.2
+   Compiling digest v0.10.7
+   Compiling zerofrom v0.1.8
+   Compiling yoke v0.8.3
+   Compiling wayland-client v0.31.15
+   Compiling futures-sink v0.3.34
+   Compiling zerovec v0.11.8
+   Compiling zvariant_utils v4.2.0
+   Compiling regex-automata v0.4.18
+   Compiling zvariant v5.15.1
+   Compiling wgpu-naga-bridge v30.0.1
+   Compiling wgpu-hal v30.0.1
+   Compiling regex v1.13.1
+   Compiling wayland-protocols v0.32.13
+   Compiling wgpu-core-deps-windows-linux-android v30.0.1
+   Compiling wgpu-core v30.0.1
+   Compiling wgpu v30.0.1
+   Compiling petir v0.0.3 (/home/teddy0/Documents/research/outram-park-backend/crates/petir)
+   Compiling sha2 v0.10.9
+   Compiling pem-rfc7468 v0.7.0
+   Compiling outram-foam-basic-lib v0.1.7 (/home/teddy0/Documents/research/outram-park-backend/crates/outram-foam-basic-lib)
+   Compiling zbus_names v4.3.5
+   Compiling tinystr v0.8.4
+   Compiling rand_core v0.6.4
+   Compiling flagset v0.4.7
+   Compiling writeable v0.6.4
+   Compiling litemap v0.8.3
+   Compiling icu_locale_core v2.3.0
+   Compiling der v0.7.10
+   Compiling accesskit v0.24.1
+   Compiling kurbo v0.13.1
+   Compiling zerotrie v0.2.5
+   Compiling potential_utf v0.1.6
+   Compiling futures-channel v0.3.34
+   Compiling font-types v0.12.7
+   Compiling color v0.3.3
+   Compiling icu_collections v2.3.0
+   Compiling futures-util v0.3.34
+   Compiling peniko v0.6.1
+   Compiling read-fonts v0.41.0
+   Compiling icu_provider v2.3.1
+   Compiling ahash v0.8.12
+   Compiling spki v0.7.3
+   Compiling zbus_xml v5.2.1
+   Compiling wayland-csd-frame v0.3.0
+   Compiling wayland-cursor v0.31.14
+   Compiling chrono v0.4.45
+   Compiling zbus-lockstep v0.5.2
+   Compiling zbus v5.19.0
+   Compiling vello_common v0.1.0
+   Compiling rand_chacha v0.3.1
+   Compiling wayland-protocols-wlr v0.3.12
+   Compiling emath v0.36.2
+   Compiling socket2 v0.6.5
+   Compiling percent-encoding-rfc3986 v0.1.3
+   Compiling async-opcua-types v0.19.0
+   Compiling ecolor v0.36.2
+   Compiling atspi-common v0.13.0
+   Compiling skrifa v0.44.0
+   Compiling harfrust v0.12.0
+   Compiling icu_normalizer v2.3.0
+   Compiling icu_properties v2.3.0
+   Compiling crossterm v0.28.1
+   Compiling cipher v0.4.4
+   Compiling vello_cpu v0.1.0
+   Compiling rand v0.8.8
+   Compiling pkcs8 v0.10.2
+   Compiling signature v2.2.0
+   Compiling lazy_static v1.5.1
+   Compiling sha1 v0.10.7
+   Compiling num-iter v0.1.46
+   Compiling ratatui v0.29.0
+   Compiling epaint v0.36.2
+   Compiling num-bigint-dig v0.8.6
+   Compiling pkcs1 v0.7.5
+   Compiling calloop-wayland-source v0.3.0
+   Compiling idna_adapter v1.2.2
+   Compiling hdf5-pure v0.20.1
+   Compiling ring v0.17.14
+   Compiling njoy-outram-park-fork v0.0.6 (/home/teddy0/Documents/research/outram-park-backend/crates/njoy-outram-park-fork)
+   Compiling raffles v0.0.3 (/home/teddy0/Documents/research/outram-park-backend/crates/raffles)
+   Compiling tokio v1.54.0
+   Compiling egui v0.36.2
+   Compiling idna v1.1.0
+   Compiling smithay-client-toolkit v0.19.2
+   Compiling rsa v0.9.10
+   Compiling heapless v0.7.17
+   Compiling x509-cert v0.2.5
+   Compiling aes v0.8.4
+   Compiling cbc v0.1.2
+   Compiling atspi-proxies v0.13.0
+   Compiling tampines-steam-tables v0.3.0 (/home/teddy0/Documents/research/outram-park-backend/crates/tampines-steam-tables)
+warning: ambiguous glob re-exports
+  --> crates/tampines-steam-tables/src/prelude.rs:24:9
+   |
+24 | pub use crate::interfaces::functional_programming::hs_flash_eqm::*;
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the name `validity_range` in the type namespace is first re-exported here
+25 | pub use crate::interfaces::functional_programming::ph_flash_eqm::*;
+26 | pub use crate::interfaces::functional_programming::ps_flash_eqm::*;
+   |         ---------------------------------------------------------- but the name `validity_range` in the type namespace is also re-exported here
+   |
+   = note: `#[warn(ambiguous_glob_reexports)]` on by default
+
+   Compiling outram-park-fork-liggghts v0.0.2 (/home/teddy0/Documents/research/outram-park-backend/crates/outram-park-fork-liggghts)
+warning: constant `LIQUID_SNAP_PRESSURE_FRACTION` is never used
+    --> crates/tampines-steam-tables/src/interfaces/functional_programming/rho_h_flash_eqm/mod.rs:1132:7
+     |
+1132 | const LIQUID_SNAP_PRESSURE_FRACTION: f64 = 0.05;
+     |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+   Compiling outram-blender v0.0.6 (/home/teddy0/Documents/research/outram-park-backend/crates/outram-blender)
+warning: `tampines-steam-tables` (lib) generated 2 warnings
+   Compiling accesskit_consumer v0.36.0
+   Compiling wayland-protocols-plasma v0.3.12
+   Compiling hmac v0.12.1
+   Compiling gethostname v0.5.0
+   Compiling unsafe-libyaml v0.2.11
+   Compiling winit v0.30.13
+   Compiling tiny-skia-path v0.11.4
+   Compiling serde_yaml v0.9.34+deprecated
+   Compiling async-opcua-crypto v0.19.0
+   Compiling calloop-wayland-source v0.4.1
+   Compiling url v2.5.8
+   Compiling accesskit_atspi_common v0.18.1
+   Compiling outram-mc-libs v0.0.6 (/home/teddy0/Documents/research/outram-park-backend/crates/outram-mc-libs)
+   Compiling image v0.25.10
+   Compiling atspi v0.29.0
+   Compiling tokio-util v0.7.20
+   Compiling rustls-webpki v0.103.15
+warning: associated function `new_from_fission` is never used
+   --> crates/outram-mc-libs/src/physics/transport_csg.rs:182:19
+    |
+169 | impl Site {
+    | --------- associated function in this implementation
+...
+182 |     pub(crate) fn new_from_fission(
+    |                   ^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+   Compiling async-opcua-nodes v0.19.0
+   Compiling futures-executor v0.3.34
+   Compiling wayland-protocols-misc v0.3.12
+   Compiling wayland-protocols-experimental v20250721.0.1
+   Compiling kurbo v0.11.3
+   Compiling pin-project v1.1.13
+   Compiling svgtypes v0.15.3
+   Compiling smithay-client-toolkit v0.20.0
+   Compiling futures v0.3.34
+   Compiling rustls v0.23.46
+   Compiling async-opcua-core v0.19.0
+   Compiling accesskit_unix v0.21.1
+   Compiling chem-eng-real-time-process-control-simulator v0.2.4 (/home/teddy0/Documents/research/outram-park-backend/crates/chem-eng-real-time-process-control-simulator)
+   Compiling outram-foam-multiphase v0.0.4 (/home/teddy0/Documents/research/outram-park-backend/crates/outram-foam-multiphase)
+   Compiling env_filter v2.0.0
+   Compiling cobs v0.3.0
+   Compiling usvg v0.45.1
+   Compiling ureq v3.4.2
+   Compiling postcard v1.1.3
+   Compiling env_logger v0.11.11
+   Compiling boon-lay v0.2.1 (/home/teddy0/Documents/research/outram-park-backend/crates/boon-lay)
+   Compiling accesskit_winit v0.32.2
+   Compiling smithay-clipboard v0.7.3
+   Compiling tracing-futures v0.2.5
+   Compiling tiny-skia v0.11.4
+   Compiling async-opcua-core-namespace v0.19.0
+   Compiling arboard v3.7.0
+   Compiling outram-foam-turbulence-lib v0.1.4 (/home/teddy0/Documents/research/outram-park-backend/crates/outram-foam-turbulence-lib)
+warning: `outram-mc-libs` (lib) generated 1 warning
+   Compiling rgb v0.8.53
+   Compiling neli v0.7.4
+   Compiling resvg v0.45.1
+   Compiling outram-foam-appbuilder-lib v0.1.6 (/home/teddy0/Documents/research/outram-park-backend/crates/outram-foam-appbuilder-lib)
+   Compiling egui-winit v0.36.2
+   Compiling async-opcua-server v0.19.0
+   Compiling outram-park-fork-dwsim-libs v0.0.4 (/home/teddy0/Documents/research/outram-park-backend/crates/outram-park-fork-dwsim-libs)
+   Compiling tuas_boussinesq_solver v0.1.8 (/home/teddy0/Documents/research/outram-park-backend/crates/tuas_boussinesq_solver)
+warning: unused import: `uom::si::f64::*`
+ --> crates/tuas_boussinesq_solver/src/lib/boussinesq_thermophysical_properties/solid_database/ss_304_l.rs:6:5
+  |
+6 | use uom::si::f64::*;
+  |     ^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `uom::si::f64::*`
+  --> crates/tuas_boussinesq_solver/src/lib/boussinesq_thermophysical_properties/solid_database/ss_304_l_high_temp.rs:79:5
+   |
+79 | use uom::si::f64::*;
+   |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `uom::si::f64::*`
+ --> crates/tuas_boussinesq_solver/src/lib/boussinesq_thermophysical_properties/solid_database/copper.rs:5:5
+  |
+5 | use uom::si::f64::*;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `uom::si::f64::*`
+ --> crates/tuas_boussinesq_solver/src/lib/boussinesq_thermophysical_properties/solid_database/fiberglass.rs:5:5
+  |
+5 | use uom::si::f64::*;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `uom::si::f64::*`
+  --> crates/tuas_boussinesq_solver/src/lib/boussinesq_thermophysical_properties/solid_database/nuclear_graphite.rs:53:5
+   |
+53 | use uom::si::f64::*;
+   |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `uom::si::f64::*`
+ --> crates/tuas_boussinesq_solver/src/lib/boussinesq_thermophysical_properties/solid_database/pyrogel_hps.rs:5:5
+  |
+5 | use uom::si::f64::*;
+  |     ^^^^^^^^^^^^^^^
+
+warning: function `relative_bracketed_root` is never used
+   --> crates/tuas_boussinesq_solver/src/lib/numerical_methods.rs:285:15
+    |
+285 | pub(crate) fn relative_bracketed_root<F: Fn(f64) -> f64>(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+   Compiling ehttp v0.7.1
+   Compiling egui-wgpu v0.36.2
+warning: `tuas_boussinesq_solver` (lib) generated 7 warnings (run `cargo fix --lib -p tuas_boussinesq_solver` to apply 6 suggestions)
+   Compiling async-opcua-client v0.19.0
+   Compiling teh-o-prke v0.1.7 (/home/teddy0/Documents/research/outram-park-backend/crates/teh-o-prke)
+   Compiling socket-pktinfo v0.4.1
+   Compiling outram-park-fork-coolprop v0.1.3 (/home/teddy0/Documents/research/outram-park-backend/crates/outram-park-fork-coolprop)
+   Compiling flume v0.12.0
+   Compiling if-addrs v0.15.0
+   Compiling eframe v0.36.2
+   Compiling mdns-sd v0.20.3
+   Compiling async-opcua v0.19.0
+   Compiling tampines v0.0.3 (/home/teddy0/Documents/research/outram-park-backend/crates/tampines)
+   Compiling nee_soon v0.0.4 (/home/teddy0/Documents/research/outram-park-backend/crates/nee_soon)
+   Compiling egui_extras v0.36.2
+   Compiling local-ip-address v0.6.13
+   Compiling egui_plot v0.37.0
+   Compiling changi v0.0.2 (/home/teddy0/Documents/research/outram-park-backend/crates/changi)
+   Compiling buangkok v0.0.1 (/home/teddy0/Documents/research/outram-park-backend/crates/buangkok)
+   Compiling outram-park-digital-twin-engine v0.0.3 (/home/teddy0/Documents/research/outram-park-backend/crates/outram-park-digital-twin-engine)
+   Compiling sembawang v0.0.1 (/home/teddy0/Documents/research/outram-park-backend/crates/sembawang)
+   Compiling outram-park-fork-offbeat v0.0.1 (/home/teddy0/Documents/research/outram-park-backend/crates/outram-park-fork-offbeat)
+   Compiling bishan v0.0.2 (/home/teddy0/Documents/research/outram-park-backend/crates/bishan)
+    Finished `release` profile [optimized] target(s) in 3m 02s
+     Running unittests src/lib.rs (target/release/deps/outram_park_digital_twin_engine-df61021297bc217a)
+
+running 376 tests
+test animation::control_rod_drive::tests::degenerate_inputs_freeze_the_rod_instead_of_corrupting_it ... ok
+test animation::control_rod_drive::tests::a_full_stroke_takes_the_published_travel_time ... ok
+test animation::control_rod_drive::tests::the_illustrative_rate_matches_its_stated_arithmetic ... ok
+test animation::control_rod_drive::tests::a_commanded_change_slews_rather_than_teleporting ... ok
+test animation::tests::a_stopped_drive_parks_the_pebble_instead_of_moving_it ... ok
+test animation::tests::doubling_flow_doubles_tracer_speed ... ok
+test animation::tests::kinematic_and_inventory_residence_times_agree ... ok
+test animation::tests::a_launched_pebble_crosses_in_one_transit_time_then_leaves ... ok
+test animation::tests::mark_crosses_path_in_exactly_one_residence_time ... ok
+test animation::tests::marks_stay_evenly_spaced_and_in_range ... ok
+test animation::tests::count_is_clamped_to_at_least_one ... ok
+test animation::tests::pebble_handling_counts_a_transit_only_when_it_completes ... ok
+test animation::tests::pebble_speed_ignores_flow_magnitude ... ok
+test animation::tests::pulse_crosses_in_one_residence_time_then_waits ... ok
+test animation::tests::residence_time_is_infinite_at_zero_flow_or_negative_inventory ... ok
+test animation::tests::residence_time_matches_analytical_identity ... ok
+test animation::tests::reverse_flow_runs_backwards_and_wraps ... ok
+test animation::tests::reversed_pulse_runs_from_outlet_to_inlet ... ok
+test animation::tests::reversed_velocity_has_the_same_residence_time ... ok
+test animation::tests::stagnant_cases_freeze_the_train ... ok
+test animation::tests::stagnant_pulse_shows_no_mark ... ok
+test animation::tests::traits_compose_over_a_tracer_train ... ok
+test animation::tests::zero_flow_parks_and_reversed_flow_returns_pebbles ... ok
+test animation::tests::zero_velocity_gives_infinite_residence_time ... ok
+test app_scaffold::crash::tests::a_crash_report_names_the_source_location_not_just_the_thread ... ok
+test app_scaffold::crash::tests::fresh_thread_health_is_not_crashed ... ok
+test app_scaffold::crash::tests::healthy_monitored_thread_records_nothing ... ok
+test app_scaffold::crash::tests::only_a_healthy_outcome_lets_the_caller_render ... ok
+test app_scaffold::crash::tests::only_the_first_crash_is_kept ... ok
+test app_scaffold::crash::tests::retiring_a_crashed_run_keeps_its_crash_report ... ok
+test app_scaffold::crash::tests::retiring_stops_the_run_without_reporting_a_crash ... ok
+test app_scaffold::crash::tests::spawn_monitored_captures_str_panic_message ... ok
+test app_scaffold::crash::tests::spawn_monitored_captures_unwrap_panic_message ... ok
+test app_scaffold::crash::tests::spawn_physics_thread_monitored_captures_looping_panic ... ok
+test app_scaffold::crash::tests::a_sibling_loop_stops_when_another_thread_of_the_run_panics ... ok
+test app_scaffold::crash::tests::a_crashed_run_shows_the_modal_but_does_not_restart_itself ... ok
+test app_scaffold::crash::tests::the_restart_modal_stays_out_of_the_way_while_the_run_is_healthy ... ok
+test app_scaffold::csv_display::tests::cap_row_count_is_a_no_op_under_the_cap ... ok
+test app_scaffold::crash::tests::thread_health_read_survives_a_poisoned_recorder ... ok
+test app_scaffold::crash::tests::the_original_bool_crash_modal_is_unchanged ... ok
+test app_scaffold::csv_display::tests::cap_row_count_keeps_the_most_recent_rows ... ok
+test app_scaffold::csv_display::tests::filter_rows_by_time_interval_at_zero_or_negative_keeps_everything ... ok
+test app_scaffold::csv_display::tests::filter_rows_by_time_interval_keeps_rows_advanced_by_at_least_the_interval ... ok
+test app_scaffold::csv_display::tests::header_with_no_rows_produces_just_the_header_line ... ok
+test app_scaffold::csv_display::tests::refresh_applies_the_interval_filter ... ok
+test app_scaffold::csv_display::tests::rows_to_csv_string_round_trips_through_an_independent_reader ... ok
+test app_scaffold::csv_logging::tests::a_value_containing_a_comma_is_escaped_not_corrupted ... ok
+test app_scaffold::csv_logging::tests::create_writes_the_header_immediately ... ok
+test app_scaffold::csv_logging::tests::first_row_is_always_written_regardless_of_interval ... ok
+test app_scaffold::csv_logging::tests::path_and_interval_accessors_report_what_was_configured ... ok
+test app_scaffold::csv_logging::tests::row_after_interval_elapses_is_written ... ok
+test app_scaffold::csv_logging::tests::row_within_interval_is_throttled ... ok
+test app_scaffold::csv_logging::tests::zero_interval_accepts_every_row ... ok
+test app_scaffold::gui_frame_metrics::tests::frames_per_second_handles_the_first_frame_and_sixty_hertz ... ok
+test app_scaffold::gui_frame_metrics::tests::moving_average_takes_first_sample_whole_then_converges ... ok
+test app_scaffold::gui_frame_metrics::tests::peak_captures_spike_then_decays ... ok
+test app_scaffold::plot_history::tests::clear_empties_the_history_for_a_clean_restart ... ok
+test app_scaffold::plot_history::tests::default_matches_new ... ok
+test app_scaffold::plot_history::tests::iter_matches_to_vec_order ... ok
+test app_scaffold::plot_history::tests::new_history_is_empty ... ok
+test app_scaffold::plot_history::tests::push_below_capacity_retains_everything_in_order ... ok
+test app_scaffold::plot_history::tests::push_beyond_capacity_drops_the_oldest_sample_only ... ok
+test app_scaffold::csv_display::tests::csv_snapshot_panel_always_carries_the_header ... ok
+test app_scaffold::plot_history::tests::works_with_a_non_xy_sample_type ... ok
+test app_scaffold::real_time_pacing::tests::a_bad_timestep_degrades_instead_of_panicking ... ok
+test app_scaffold::plot_history::tests::zero_capacity_panics - should panic ... ok
+test app_scaffold::real_time_pacing::tests::a_stall_is_worked_off_rather_than_lost ... ok
+test app_scaffold::real_time_pacing::tests::an_overrun_sleeps_nothing_and_is_reported_as_an_overrun ... ok
+test app_scaffold::real_time_pacing::tests::batched_ticks_match_the_same_number_of_fixed_ticks ... ok
+test app_scaffold::real_time_pacing::tests::keeping_up_sleeps_out_the_budget_and_falling_behind_does_not ... ok
+test app_scaffold::real_time_pacing::tests::the_budget_boundary_does_not_wrap ... ok
+test app_scaffold::tests::clone_shares_the_same_underlying_state ... ok
+test app_scaffold::tests::read_with_does_not_clone ... ok
+test app_scaffold::tests::snapshot_and_update_round_trip ... ok
+test app_scaffold::tests::snapshot_recovers_from_a_poisoned_lock_instead_of_panicking ... ok
+test app_scaffold::tests::panel_selector_ui_renders_without_panicking ... ok
+test ascii::tests::arrow_head_encodes_direction_with_y_growing_down ... ok
+test ascii::tests::degenerate_extent_does_not_divide_by_zero ... ok
+test ascii::tests::out_of_bounds_is_dropped_not_panicking ... ok
+test ascii::tests::rect_is_labelled_and_closed ... ok
+test ciet_opcua::node_map::tests::browse_names_are_single_segments ... ok
+test ciet_opcua::node_map::tests::every_control_clamps_out_of_range_writes ... ok
+test ciet_opcua::node_map::tests::every_switch_round_trips ... ok
+test ciet_opcua::node_map::tests::nan_writes_are_ignored ... ok
+test ciet_opcua::node_map::tests::node_identifiers_are_unique ... ok
+test app_scaffold::csv_display::tests::draw_csv_panel_does_not_panic_across_a_headless_egui_pass ... ok
+test ciet_opcua::pki_paths::tests::pki_path_ends_in_the_platform_components ... ok
+test ciet_opcua::server::tests::default_config_binds_all_interfaces_on_the_standard_port ... ok
+test ciet_opcua::simulator::tests::ciet_nodes_reproduce_the_node_map ... ok
+test ciet_opcua::simulator::tests::the_ciet_profile_is_internally_consistent ... ok
+test ciet_opcua::simulator::tests::writes_are_recorded_as_requests_and_clamped_on_apply ... ok
+test ciet_opcua::state::tests::control_setters_clamp_to_documented_envelopes ... ok
+test ciet_opcua::state::tests::frequency_response_signal_matches_closed_form ... ok
+test ciet_opcua::user_controls::tests::a_stale_full_struct_overwrite_cannot_lose_a_request ... ok
+test ciet_opcua::user_controls::tests::applying_enforces_the_envelope ... ok
+test ciet_opcua::user_controls::tests::every_request_reaches_plant_state ... ok
+test ciet_opcua::user_controls::tests::later_request_supersedes_earlier_within_a_timestep ... ok
+test ciet_opcua::user_controls::tests::requests_are_consumed_exactly_once ... ok
+test ciet_opcua::user_controls::tests::slot_counts_match_the_node_map ... ok
+test color_maps::crameri::tests::batlow_is_monotonic_in_lightness ... ok
+test color_maps::crameri::tests::cyclic_map_wraps_without_a_seam ... ok
+test color_maps::crameri::tests::endpoints_are_exact ... ok
+test color_maps::crameri::tests::non_cyclic_maps_clamp ... ok
+test color_maps::crameri::tests::tables_are_complete ... ok
+test color_maps::crameri::tests::vik_midpoint_is_near_neutral ... ok
+test color_maps::tests::hot_to_cold_mark_1_clamps_out_of_range ... ok
+test color_maps::tests::hot_to_cold_mark_1_endpoints ... ok
+test color_maps::tests::hot_to_cold_mark_2_endpoints ... ok
+test color_maps::tests::steam_quality_mark_1_clamps_out_of_range ... ok
+test color_maps::tests::steam_quality_mark_1_endpoints ... ok
+test components::bend::tests::arc_points_are_one_thickness_from_the_inner_corner ... ok
+test components::bend::tests::fill_uses_the_mean_of_both_sides ... ok
+test components::bend::tests::full_circle_closes ... ok
+test components::bend::tests::ninety_degree_bend_sweeps_a_quarter_circle ... ok
+test components::bend::tests::sector_follows_the_turn_direction ... ok
+test components::bend::tests::straight_joint_degenerates_safely ... ok
+test components::bend::tests::sweep_past_half_a_circle_must_be_stated ... ok
+test components::condenser::port_tests::condenser_ports_are_top_and_bottom_centre ... ok
+test components::condenser::tests::a_missing_hotwell_level_stays_missing ... ok
+test components::condenser::tests::corner_radii_saturate_instead_of_wrapping ... ok
+test components::condenser::tests::degenerate_boxes_are_returned_as_is ... ok
+test components::condenser::tests::every_kind_describes_itself ... ok
+test components::condenser::tests::the_condenser_letterboxes_to_its_native_proportions ... ok
+test components::condenser::tests::the_cooling_water_path_covers_the_bundle_once_per_pass ... ok
+test components::condenser::tests::the_hotwell_level_clamps_or_stays_unknown ... ok
+test components::condenser::tests::the_hotwell_splits_into_a_pool_and_the_space_above_it ... ok
+test components::condenser::tests::the_physics_path_paints_nothing_it_cannot_see ... ok
+test components::condenser::tests::the_scalar_path_colours_both_circuits_from_supplied_state ... ok
+test components::condenser::tests::the_scalar_path_passes_state_through_unchanged ... ok
+test components::condenser::tests::the_scatter_is_deterministic_and_in_range ... ok
+test components::condenser::tests::the_tube_gradient_interpolates_between_its_endpoints ... ok
+test components::control_rod_drive::tests::separate_ids_keep_separate_drives ... ok
+test components::control_rod_drive::tests::the_drive_persists_across_repaints_and_does_not_teleport ... ok
+test components::cooling_tower::tests::a_stopped_tower_is_drawn_stopped ... ok
+test components::cooling_tower::tests::corner_radii_saturate_instead_of_wrapping ... ok
+test components::cooling_tower::tests::degenerate_boxes_are_returned_as_is ... ok
+test components::cooling_tower::tests::each_kind_letterboxes_to_its_own_proportions ... ok
+test components::cooling_tower::tests::every_kind_describes_itself ... ok
+test components::cooling_tower::tests::the_air_states_come_from_the_coolprop_psychrometrics ... ok
+test components::cooling_tower::tests::the_approach_and_range_are_real_temperature_differences ... ok
+test components::cooling_tower::tests::the_falling_water_gradient_interpolates_between_its_endpoints ... ok
+test components::cooling_tower::tests::the_fan_angle_is_omega_times_time ... ok
+test components::cooling_tower::tests::the_physics_path_draws_no_plume_and_no_approach ... ok
+test components::cooling_tower::tests::the_plume_tracks_exit_saturation_only ... ok
+test components::cooling_tower::tests::the_scalar_path_colours_from_the_supplied_psychrometric_states ... ok
+test ciet_opcua::pki_paths::tests::description_names_the_directory_and_the_missing_security ... ok
+test components::cooling_tower::tests::the_scatter_is_deterministic_and_in_range ... ok
+test components::cooling_tower::tests::the_shell_is_a_hyperboloid_with_its_waist_at_the_throat ... ok
+test app_scaffold::tests::spawn_physics_thread_actually_runs_step_repeatedly ... ok
+test components::distillation_column::tests::out_of_range_side_draws_are_ignored ... ok
+test components::excursion::tests::a_healthy_reactor_is_not_annotated ... ok
+test components::excursion::tests::alphas_saturate_instead_of_wrapping ... ok
+test components::excursion::tests::no_release_is_drawn_where_retention_is_demonstrated ... ok
+test components::excursion::tests::no_stage_describes_an_explosion ... ok
+test components::excursion::tests::the_banner_pulse_is_bounded_and_deterministic ... ok
+test components::excursion::tests::the_htr10_trigger_uses_the_htr10_limit_not_the_generic_figure ... ok
+test components::excursion::tests::the_intensity_is_zero_within_the_limit_and_escalates_on_nonsense ... ok
+test components::excursion::tests::the_overlay_reports_the_numbers_behind_it ... ok
+test components::excursion::tests::the_phase_comes_from_the_application_clock_and_does_not_reverse ... ok
+test components::excursion::tests::the_release_marks_drift_outward_and_settle ... ok
+test components::excursion::tests::the_release_scatter_is_deterministic ... ok
+test components::excursion::tests::the_species_are_named_in_the_order_the_heating_tests_report ... ok
+test components::excursion::tests::the_stage_escalates_only_at_the_documented_threshold ... ok
+test components::fhr_reactor_vessel::aspect_tests::a_natively_proportioned_box_is_returned_unchanged ... ok
+test components::cooling_tower::tests::the_scalar_path_passes_state_through_unchanged ... ok
+test components::fhr_reactor_vessel::aspect_tests::degenerate_boxes_are_returned_as_is ... ok
+test components::fhr_reactor_vessel::packing_tests::a_degenerate_bed_draws_nothing ... ok
+test components::fhr_reactor_vessel::packing_tests::the_buoyant_bed_is_inverted_so_the_dense_end_is_at_the_top ... ok
+test components::fhr_reactor_vessel::packing_tests::the_cropped_column_fills_the_bed_without_spilling ... ok
+test components::fhr_reactor_vessel::aspect_tests::fit_preserves_the_native_ratio_in_any_box ... ok
+test components::fhr_reactor_vessel::packing_tests::the_free_surface_is_drawn_at_the_bottom_of_the_bed ... ok
+test components::fhr_reactor_vessel::tests::control_rods_default_to_fully_inserted ... ok
+test components::fhr_reactor_vessel::tests::hotness_is_linear_across_the_display_range ... ok
+test components::fhr_reactor_vessel::tests::hotness_is_not_clamped_outside_the_display_range ... ok
+test components::fhr_reactor_vessel::tests::control_rod_setters_are_independent ... ok
+test components::heat_exchanger::tests::a_missing_duty_stays_missing ... ok
+test components::heat_exchanger::tests::corner_radii_saturate_instead_of_wrapping ... ok
+test components::heat_exchanger::tests::degenerate_boxes_are_returned_as_is ... ok
+test components::heat_exchanger::tests::each_construction_letterboxes_to_its_native_proportions ... ok
+test components::heat_exchanger::tests::every_variant_describes_itself ... ok
+test components::heat_exchanger::tests::only_counter_flow_can_cross_the_outlet_temperatures ... ok
+test components::heat_exchanger::tests::the_arrangement_round_trips_through_the_physics_enum ... ok
+test components::heat_exchanger::tests::the_end_brackets_are_the_two_ends_of_the_log_mean ... ok
+test components::heat_exchanger::tests::the_physics_path_draws_its_arrangement_but_paints_no_temperature ... ok
+test components::heat_exchanger::tests::the_profile_strip_is_scaled_to_the_terminal_temperatures ... ok
+test components::heat_exchanger::tests::the_scalar_path_colours_both_streams_from_supplied_state ... ok
+test components::heat_exchanger::tests::the_scalar_path_passes_state_through_unchanged ... ok
+test components::heat_exchanger::tests::the_stream_gradient_interpolates_between_its_endpoints ... ok
+test components::heat_exchanger::tests::the_two_streams_run_the_way_the_arrangement_says ... ok
+test components::heat_exchanger::tests::the_widget_accessors_agree_with_the_free_functions ... ok
+test components::htr10_reactor_schematic::tests::both_loadings_fit_the_core_cavity ... ok
+test components::htr10_reactor_schematic::tests::a_two_line_label_box_holds_both_lines ... ok
+test components::htr10_reactor_schematic::tests::control_rods_are_inboard_of_the_coolant_boreholes ... ok
+test components::htr10_reactor_schematic::tests::control_rods_default_to_inserted ... ok
+test components::htr10_reactor_schematic::tests::labels_scale_in_proportion_with_the_drawing ... ok
+test components::htr10_reactor_schematic::tests::point_along_spans_the_whole_run ... ok
+test components::htr10_reactor_schematic::tests::the_axial_spans_match_table_two ... ok
+test components::htr10_reactor_schematic::tests::the_bed_height_is_clamped_to_the_cavity ... ok
+test components::htr10_reactor_schematic::tests::the_cm_to_drawing_mapping_is_consistent ... ok
+test components::htr10_reactor_schematic::tests::the_dem_table_fills_the_drawn_vessel_and_chute ... ok
+test components::htr10_reactor_schematic::tests::the_drawn_borehole_count_is_not_the_real_one ... ok
+test components::htr10_reactor_schematic::tests::the_duct_port_follows_the_extension_exactly ... ok
+test components::htr10_reactor_schematic::tests::the_foot_bend_overshoots_its_turn ... ok
+test components::htr10_reactor_schematic::tests::the_illustrative_drives_actually_move_a_pebble ... ok
+test components::htr10_reactor_schematic::tests::the_native_box_has_room_for_the_chute_below_the_vessel ... ok
+test components::htr10_reactor_schematic::tests::the_parked_pebble_handling_advances_once_per_frame ... ok
+test components::htr10_reactor_schematic::tests::the_radial_partition_is_ordered_and_fits ... ok
+test components::htr10_reactor_schematic::tests::the_refuelling_route_rises_left_dips_to_the_axis_then_drops_in ... ok
+test components::htr10_reactor_schematic::tests::the_rod_above_the_head_is_exactly_the_length_withdrawn ... ok
+test components::htr10_reactor_schematic::tests::the_run_turns_into_the_plenum_without_arching_over_it ... ok
+test components::htr10_reactor_schematic::tests::the_vessel_letterboxes_and_leaves_room_for_drives ... ok
+test components::htr10_reactor_schematic::tests::circle_count_per_repaint_is_measured ... ok
+test components::htr10_reactor_schematic::tests::widening_for_the_refuelling_chute_keeps_the_real_vessel_data ... ok
+test components::htr10_reactor_vessel::packing_tests::adjacent_sites_do_not_correlate ... ok
+test components::htr10_reactor_vessel::packing_tests::small_pebbles_fall_back_to_a_single_kernel ... ok
+test components::htr10_reactor_vessel::packing_tests::the_bed_outline_is_the_packings_own_vessel_at_one_scale ... ok
+test components::htr10_reactor_vessel::packing_tests::the_bed_outline_tapers_through_the_cone ... ok
+test components::htr10_reactor_vessel::packing_tests::the_cone_is_at_the_bottom ... ok
+test components::htr10_reactor_vessel::packing_tests::the_salted_draws_are_independent ... ok
+test components::htr10_reactor_vessel::packing_tests::the_settled_packing_lands_inside_the_drawn_bed_outline ... ok
+test components::htr10_reactor_vessel::packing_tests::the_speckle_hash_is_deterministic_and_in_range ... ok
+test components::htr10_reactor_schematic::tests::tube_dem_pebbles_are_painted_over_the_tube_fill ... ok
+test components::htr10_reactor_vessel::packing_tests::triso_dots_stay_inside_the_fuelled_zone ... ok
+test components::htr10_reactor_vessel::packing_tests::the_triso_speckle_is_deterministic_per_pebble ... ok
+test components::htr10_reactor_vessel::tests::control_rods_default_to_fully_inserted ... ok
+test components::htr10_reactor_vessel::tests::degenerate_boxes_are_returned_as_is ... ok
+test components::htr10_reactor_vessel::tests::insertion_is_stored_unclamped ... ok
+test components::htr10_reactor_vessel::tests::the_flow_anchors_track_the_drawn_artwork ... ok
+test components::htr10_reactor_vessel::tests::the_silhouette_uses_the_published_vessel_proportions ... ok
+test components::htr10_steam_generator::tests::an_elbow_runs_level_then_rises_at_the_turn ... ok
+test components::htr10_steam_generator::tests::coil_angle_defaults_to_seven_degrees ... ok
+test components::htr10_steam_generator::tests::coil_turns_never_touch_at_any_size ... ok
+test components::htr10_steam_generator::tests::riser_defaults_to_forty_percent_of_the_diameter ... ok
+test components::htr10_steam_generator::tests::riser_fraction_is_clamped_to_a_readable_range ... ok
+test components::htr10_steam_generator::tests::the_gas_port_is_on_the_left_wall_below_the_bundles ... ok
+test components::htr10_steam_generator::tests::the_vessel_letterboxes_to_its_own_proportions ... ok
+test components::htr10_steam_generator::tests::water_ports_are_right_of_the_vessel_steam_above_feedwater ... ok
+test components::htr10_steam_generator::tests::water_side_is_coldest_at_the_bottom ... ok
+test components::legend::tests::celsius_labels_convert ... ok
+test components::legend::tests::ends_are_the_display_range ... ok
+test components::legend::tests::legend_colours_match_the_widgets_exactly ... ok
+test components::legend::tests::tick_count_is_clamped ... ok
+test components::pebble_bed_texture::tests::an_axial_tint_grades_up_the_bed_and_respects_buoyancy ... ok
+test components::htr10_reactor_vessel::tests::control_rods_are_drawn_in_the_side_reflector ... ok
+test components::pebble_bed_texture::tests::composite_matches_the_direct_blend_on_interiors ... ok
+test app_scaffold::crash::tests::a_monitored_loop_returns_once_its_run_is_retired ... ok
+test components::pebble_bed_texture::tests::the_baked_box_matches_the_packings_published_bounds ... ok
+test components::pebble_bed_texture::tests::the_bake_cost_is_paid_only_on_resize ... ok
+test components::pebble_bed_texture::tests::the_cache_key_ignores_position_and_tracks_pixel_size ... ok
+test components::pebble_bed_texture::tests::the_cache_holds_one_bake_per_vessel_and_re_bakes_on_resize ... ok
+test components::pebble_bed_texture::tests::the_strategy_switches_on_speckle_and_texture_limits ... ok
+test components::pebble_packing::tests::bed_bounds_match_the_table ... ok
+test components::pebble_packing::tests::depth_bounds_match_the_table ... ok
+test components::pebble_packing::tests::depth_fraction_is_a_normalised_monotone_cue ... ok
+test components::pebble_packing::tests::every_pebble_is_finite_and_inside_the_depth_window ... ok
+test components::pebble_packing::tests::every_pebble_is_inside_the_vessel_outline ... ok
+test components::pebble_packing::tests::table_is_sorted_back_to_front ... ok
+test components::pebble_packing::tests::table_size_is_sane_and_within_the_frame_budget ... ok
+test components::pebble_packing::tests::vessel_outline_is_the_documented_taper ... ok
+test components::pipe::tests::cell_temperature_drives_hotness ... ok
+test components::pipe::tests::divider_uses_the_mean_of_its_two_solid_cells ... ok
+test components::pipe::tests::from_scalars_builds_a_scalar_backed_run ... ok
+test components::pipe::tests::gas_is_lighter_than_liquid ... ok
+test components::pipe::tests::length_is_proportional_to_run_length ... ok
+test components::pipe::tests::no_wall_array_reports_none ... ok
+test components::pipe::tests::scalar_state_reports_its_single_temperature ... ok
+test components::pipe::tests::thickness_is_proportional_to_cross_sectional_area ... ok
+test components::pipe::tests::wall_mapping_is_proportional_not_index_for_index ... ok
+test components::pipe::tests::with_tracer_attaches_an_application_owned_train ... ok
+test components::pipe_component::tests::non_positive_timestep_is_rejected ... ok
+test components::pipe_component::tests::residence_time_is_length_over_velocity ... ok
+test components::pipe_component::tests::stagnant_run_places_no_mark ... ok
+test components::pipe_component::tests::stepping_advances_the_backend ... ok
+test components::pipe_component::tests::tracer_phase_persists_across_steps ... ok
+test components::pump::port_tests::centrifugal_ports_are_top_left_discharge_and_right_suction ... ok
+test components::pump::tests::builders_compose ... ok
+test components::pump::tests::default_kind_is_centrifugal ... ok
+test components::pump::tests::each_kind_stipples_differently ... ok
+test components::pump::tests::every_kind_is_documented_for_a_gallery ... ok
+test components::pump::tests::fit_is_identity_on_native_and_degenerate_boxes ... ok
+test components::pump::tests::fit_preserves_each_kinds_aspect_ratio ... ok
+test components::pump::tests::fluid_colour_uses_the_shared_temperature_map ... ok
+test components::pump::tests::negative_shaft_speed_reverses_the_rotor ... ok
+test components::pump::tests::rotor_angle_is_kind_independent ... ok
+test components::pump::tests::rotor_angle_is_omega_times_time ... ok
+test components::pump::tests::stipple_is_deterministic_and_decorrelated ... ok
+test components::pump::tests::stipple_neighbours_do_not_march ... ok
+test components::pump::tests::stopped_pump_keeps_a_full_stationary_impeller ... ok
+test components::pump::tests::the_discharge_leaves_tangentially_and_upwards ... ok
+test components::pump::tests::the_three_kinds_have_distinct_silhouettes ... ok
+test components::pump::tests::vanes_are_backswept_against_the_rotation ... ok
+test components::pump::tests::volute_opens_out_from_cutwater_to_throat ... ok
+test components::pump::tests::wrapping_a_tampines_pump_invents_no_state ... ok
+test components::pump::tests::zero_shaft_speed_gives_zero_rotor_angle ... ok
+test components::reactor_archetype::kinetics_tests::delayed_fractions_are_near_the_u235_value ... ok
+test components::reactor_archetype::kinetics_tests::every_archetype_builds_a_valid_kinetics_model ... ok
+test components::reactor_archetype::kinetics_tests::graphite_moderated_cases_are_slower_than_light_water_cases ... ok
+test components::reactor_archetype::kinetics_tests::heat_capacity_scales_with_thermal_power ... ok
+test components::reactor_archetype::kinetics_tests::the_fast_reactor_has_a_far_shorter_generation_time ... ok
+test components::reactor_archetype::tests::all_covers_every_variant ... ok
+test components::reactor_archetype::tests::every_archetype_has_complete_metadata ... ok
+test components::reactor_archetype::tests::labels_are_unique ... ok
+test components::reactor_vessel::tests::fuel_temperature_drives_the_fill_hotness ... ok
+test components::steam_generator::tests::corner_radii_saturate_instead_of_wrapping ... ok
+test components::steam_generator::tests::degenerate_boxes_are_returned_as_is ... ok
+test components::steam_generator::tests::each_kind_letterboxes_to_its_own_published_proportions ... ok
+test components::steam_generator::tests::every_kind_describes_itself ... ok
+test components::steam_generator::tests::only_the_vver_generator_is_wider_than_it_is_tall ... ok
+test components::steam_generator::tests::the_level_is_stored_unclamped ... ok
+test components::steam_generator::tests::the_physics_constructor_starts_isothermal_until_told_otherwise ... ok
+test components::steam_generator::tests::the_physics_path_reads_the_live_secondary_temperature ... ok
+test components::steam_generator::tests::the_scalar_path_passes_state_through_unchanged ... ok
+test components::steam_generator::tests::the_scatter_is_deterministic_and_in_range ... ok
+test components::steam_generator::tests::the_tube_gradient_interpolates_between_its_endpoints ... ok
+test components::steam_generator::tests::the_u_tubes_nest_inside_the_bundle ... ok
+test components::steam_generator::tests::the_water_level_clamps_to_the_unit_interval ... ok
+test components::temperature_button::tests::degc_conveniences_agree_with_the_typed_path ... ok
+test components::temperature_button::tests::hotness_is_linear_across_the_display_range ... ok
+test components::temperature_button::tests::hotness_is_not_clamped_outside_the_display_range ... ok
+test components::tests::hotness_clamps_and_normalizes ... ok
+test components::tests::temperature_grades_blue_through_white_to_red ... ok
+test components::turbine::double_flow_lean_tests::double_flow_blade_lean_mirrors_about_the_admission_plane ... ok
+test components::turbine::double_flow_lean_tests::double_flow_halves_are_balanced ... ok
+test components::turbine::double_flow_lean_tests::single_flow_blade_lean_is_uniform ... ok
+test components::turbine::port_tests::scalar_turbine_turns_at_its_speed_and_takes_its_colour ... ok
+test components::turbine::port_tests::single_flow_ports_are_left_inlet_and_right_exhaust ... ok
+test components::turbine::stage_lean_tests::stator_and_rotor_lean_oppositely ... ok
+test components::turbine::stage_lean_tests::stator_and_rotor_stay_opposed_in_both_halves ... ok
+test components::turbine::tests::default_flow_path_is_double_flow ... ok
+test components::turbine::tests::double_flow_geometry_is_symmetric_about_the_admission_plane ... ok
+test components::turbine::tests::flow_path_can_be_overridden_to_single_flow ... ok
+test components::turbine::tests::fresh_preset_starts_at_rest ... ok
+test components::turbine::tests::generator_variant_reports_no_casing_temperature ... ok
+test components::turbine::tests::placeholder_angles_clamp_outside_the_machine ... ok
+test components::turbine::tests::placeholder_angles_trend_from_impulse_to_reaction ... ok
+test components::turbine::tests::rotor_angle_is_omega_times_time ... ok
+test components::turbine::tests::single_flow_geometry_is_not_symmetric ... ok
+test components::turbine::tests::zero_angular_velocity_gives_zero_rotor_angle ... ok
+test headless::tests::csv_has_a_header_and_one_row_per_sample ... ok
+test headless::tests::determinism_helper_passes_for_a_deterministic_model ... ok
+test headless::tests::samples_at_the_requested_interval_and_always_the_last_step ... ok
+test headless::tests::tick_advances_exactly_once_per_call ... ok
+test htr10::design::tests::core_volume_closes_against_cited_diameter_and_height ... ok
+test htr10::design::tests::fuel_temperature_limits_are_distinct_and_margin_is_positive ... ok
+test htr10::design::tests::operating_point_energy_balance_closes_against_coolprop_helium_cp ... ok
+test htr10::design::tests::pebble_count_and_filling_fraction_reproduce_core_volume ... ok
+test htr10::design::tests::porosity_is_one_minus_filling_fraction ... ok
+test htr10::design::tests::secondary_steam_energy_balance_closes_against_if97 ... ok
+test htr10::kta::tests::kta_friction_factor_reproduces_vtb_worked_example ... ok
+test htr10::kta::tests::kta_pressure_gradient_reproduces_vtb_worked_example ... ok
+test htr10::kta::tests::reynolds_from_tutorial_mass_flow_documents_source_inconsistency ... ok
+test htr10::neutronics::tests::deviated_benchmark_differs_from_original_in_exactly_three_stated_ways ... ok
+test htr10::neutronics::tests::every_published_value_carries_a_correctly_tiered_source ... ok
+test htr10::neutronics::tests::full_core_b2_loading_is_consistent_across_sources_and_geometry ... ok
+test htr10::neutronics::tests::heavy_metal_loading_closes_from_kernel_geometry ... ok
+test htr10::neutronics::tests::homogenisation_biases_are_ordered_and_bounded ... ok
+test htr10::neutronics::tests::interpolation_reproduces_the_four_published_b1_critical_heights ... ok
+test htr10::neutronics::tests::measured_ball_count_follows_from_loading_height ... ok
+test htr10::neutronics::tests::measured_loading_matches_the_57_to_43_design_ratio ... ok
+test htr10::neutronics::tests::original_to_deviated_shift_agrees_between_two_independent_sources ... ok
+test htr10::neutronics::tests::published_predictions_are_within_one_percent_of_the_measurement ... ok
+test htr10::neutronics::tests::triso_layer_stack_and_packing_fraction_are_consistent ... ok
+test htr10::zbs::tests::interpolant_clamps_outside_tabulated_range ... ok
+test htr10::zbs::tests::interpolant_is_monotonic_between_endpoints ... ok
+test htr10::zbs::tests::interpolant_returns_all_tabulated_nodes_exactly ... ok
+test opcua_core::discovery::tests::instance_name_is_stripped_from_the_dns_sd_fullname ... ok
+test opcua_core::discovery::tests::instance_names_are_sanitised_to_dns_safe_labels ... ok
+test opcua_core::discovery::tests::mdns_service_type_is_a_valid_dns_sd_type ... ok
+test opcua_core::pki::tests::instance_tags_cannot_escape_the_pki_directory ... ok
+test opcua_core::pki::tests::the_per_user_root_is_the_documented_directory ... ok
+test components::pebble_bed_texture::tests::the_rasteriser_covers_the_whole_packing_without_clipping ... ok
+test opcua_core::server::tests::for_simulator_binds_all_interfaces_on_the_profile_port ... ok
+test opcua_core::server::tests::primary_url_prefers_a_reachable_address ... ok
+test opcua_core::server::tests::is_loopback_only_recognises_every_loopback_form ... ok
+test components::pebble_bed_texture::tests::baking_the_bed_cuts_the_frame_cost ... ok
+test components::distillation_column::tests::a_crude_plant_snapshot_drives_the_widget ... ok
+
+test result: ok. 376 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.12s
+
+     Running unittests src/bin/ciet_educational_simulator_v2/main.rs (target/release/deps/ciet_educational_simulator_v2-d82ea2033dfca80b)
+
+running 5 tests
+test cli::tests::bad_command_lines_are_rejected ... ok
+test cli::tests::empty_command_line_gives_documented_defaults ... ok
+test cli::tests::every_flag_is_honoured ... ok
+test ciet_simulator_v2::app::panels_and_pages::full_simulation::stepper::tests::flows_solved_from_snapshots_are_the_flows_solved_in_the_step ... ok
+test ciet_simulator_v2::app::panels_and_pages::full_simulation::stepper::tests::the_stepper_is_deterministic_and_inline_equals_threaded ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.66s
+
+     Running unittests src/bin/ciet_v2_opcua_client/main.rs (target/release/deps/ciet_v2_opcua_client-b3c2085b683dd796)
+
+running 37 tests
+test browse::tests::discovery_status_distinguishes_early_listening_from_nothing_found ... ok
+test drafts::tests::an_overridden_set_point_is_flagged_rather_than_accepted ... ok
+test drafts::tests::server_side_clamping_is_displayed_as_clamping ... ok
+test drafts::tests::the_readback_tolerance_absorbs_an_f32_round_trip_only ... ok
+test browse::tests::the_empty_list_grace_period_allows_several_browse_reads ... ok
+test drafts::tests::slider_values_fall_back_within_the_documented_range ... ok
+test endpoint::tests::a_non_ciet_server_is_reported_with_its_actual_namespaces ... ok
+test endpoint::tests::abbreviated_addresses_normalise_to_the_canonical_url ... ok
+test endpoint::tests::an_explicit_path_is_not_replaced_by_the_default ... ok
+test endpoint::tests::malformed_addresses_are_rejected_with_a_specific_reason ... ok
+test endpoint::tests::namespace_index_follows_the_servers_array_not_a_hard_coded_two ... ok
+test endpoint::tests::normalisation_is_idempotent ... ok
+test endpoint::tests::the_hotspot_advice_is_attached_to_the_timeout_case_only ... ok
+test endpoint::tests::the_three_failure_modes_a_user_must_distinguish_are_classified_apart ... ok
+test nodes::tests::lookups_are_namespace_scoped_and_string_only ... ok
+test nodes::tests::every_published_variable_round_trips_through_the_index ... ok
+test shared_state::tests::commands_are_delivered_exactly_once ... ok
+test shared_state::tests::failed_writes_are_retained_and_flagged ... ok
+test shared_state::tests::the_four_connection_states_are_reported_distinctly ... ok
+test shared_state::tests::trend_abscissa_is_simulated_time_and_requires_it_to_be_known ... ok
+test shared_state::tests::unread_nodes_are_absent_rather_than_zero ... ok
+test ui::controls_panel::tests::an_unread_switch_is_not_displayed_as_off ... ok
+test ui::controls_panel::tests::every_writable_node_has_a_usable_slider_range ... ok
+test shared_state::tests::trends_are_bounded_and_reject_non_finite_points ... ok
+test ui::discovery_panel::tests::a_discovered_endpoint_url_is_already_canonical ... ok
+test ui::discovery_panel::tests::the_panel_action_distinguishes_connect_from_disconnect ... ok
+test ui::outputs_panel::tests::every_signal_is_grouped_exactly_once ... ok
+test ui::outputs_panel::tests::group_headings_are_present_and_distinct ... ok
+test ui::outputs_panel::tests::group_units_are_uniform_and_precision_suits_the_magnitudes ... ok
+test ui::tests::reading_colour_distinguishes_unread_good_and_bad ... ok
+test ui::tests::real_readings_format_with_value_unit_and_sign ... ok
+test ui::tests::unread_values_format_as_a_bare_placeholder ... ok
+test ui::trends_panel::tests::the_two_plots_partition_the_trended_signals ... ok
+test values::tests::numeric_extraction_accepts_number_variants_only ... ok
+test values::tests::wrongly_typed_values_are_dropped_not_coerced ... ok
+test worker::tests::connection_transitions_clear_stale_readings ... ok
+test worker::tests::writes_without_a_session_are_logged_as_failures ... ok
+
+test result: ok. 37 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/ci_smoke/main.rs (target/release/deps/ci_smoke-1b1c71534815b87f)
+
+running 2 tests
+test edwards::edwards_drift_flux_gs1_pressure_history ... ok
+test godiva::godiva_keff_high_tier_local_endf has been running for over 60 seconds
+test godiva::godiva_keff_high_tier_local_endf ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 120.71s
+
+     Running tests/ciet_v2_headless_remote_control.rs (target/release/deps/ciet_v2_headless_remote_control-6923cdd0a32023f0)
+
+running 1 test
+test a_remote_client_can_drive_the_ciet_loop ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 11.54s
+
+     Running tests/ciet_v2_opcua_roundtrip.rs (target/release/deps/ciet_v2_opcua_roundtrip-b7ff5c89d71e9b7e)
+
+running 1 test
+test opcua_interface_round_trips_controls_and_outputs ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.15s
+

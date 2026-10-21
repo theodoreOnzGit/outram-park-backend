@@ -94,6 +94,7 @@
 //! equations and against the total decay energy per fission; they do **not**
 //! validate the model against a measured decay-heat transient.
 
+use petir::mathf::RealMath;
 use uom::si::energy::megaelectronvolt;
 use uom::si::f64::*;
 use uom::si::power::watt;
@@ -373,7 +374,7 @@ impl DecayHeat {
         let fission_rate_per_second = self.fission_rate_per_second(fission_power);
 
         for (index, (alpha, lambda)) in self.nuclide.parameters().iter().enumerate() {
-            let decay_factor = (-lambda * dt).exp();
+            let decay_factor = (-lambda * dt).r_exp();
             let source_mev_per_second = alpha * fission_rate_per_second / lambda;
             let source = Power::new::<watt>(source_mev_per_second * JOULE_PER_MEV);
 
@@ -549,7 +550,7 @@ mod tests {
             .parameters()
             .iter()
             .map(|(alpha, lambda)| {
-                alpha * fission_rate / lambda * (1.0 - (-lambda * irradiation_seconds).exp())
+                alpha * fission_rate / lambda * (1.0 - (-lambda * irradiation_seconds).r_exp())
             })
             .sum::<f64>()
             * JOULE_PER_MEV;
@@ -666,12 +667,12 @@ mod tests {
                 nuclide
                     .parameters()
                     .iter()
-                    .map(|(alpha, lambda)| alpha * (-lambda * t).exp())
+                    .map(|(alpha, lambda)| alpha * (-lambda * t).r_exp())
                     .sum()
             };
             let mut previous = burst(1.0e-3);
             for decade in -2..=6 {
-                let value = burst(10f64.powi(decade));
+                let value = burst(10f64.r_powi(decade));
                 assert!(
                     value < previous,
                     "{nuclide:?} burst function not decreasing at 1e{decade} s"

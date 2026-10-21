@@ -2,7 +2,7 @@ use std::ops::{DerefMut, Deref};
 use std::sync::{Arc, Mutex};
 use std::thread;
 
-use peroxide::prelude::erfc;
+use petir::specfunc::erfc;
 use crate::array_fluid_collections::solid_array_lateral_coupling::SolidColumn;
 use crate::boundary_conditions::BCType;
 use crate::boussinesq_thermophysical_properties::thermal_diffusivity::try_get_alpha_thermal_diffusivity;

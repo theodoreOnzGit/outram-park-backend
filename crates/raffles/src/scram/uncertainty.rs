@@ -69,6 +69,7 @@
 //! samples and takes the exact order statistic. Both are defensible; they are
 //! not the same number.
 
+use petir::mathf::RealMath;
 use super::expression::{Expression, Parameters};
 use super::fault_tree::FaultTreeModel;
 use crate::{RafflesError, Result};
@@ -270,9 +271,9 @@ pub fn statistics(samples: Vec<f64>, settings: UncertaintySettings) -> Uncertain
     // Upstream: `sqrt(num_trials * variance(acc) / (num_trials - 1))`, where
     // boost's `variance` is the POPULATION variance. The correction turns it
     // into the sample standard deviation.
-    let population_variance = samples.iter().map(|s| (s - mean).powi(2)).sum::<f64>() / n as f64;
+    let population_variance = samples.iter().map(|s| (s - mean).r_powi(2)).sum::<f64>() / n as f64;
     let sigma = (n as f64 * population_variance / (n as f64 - 1.0)).sqrt();
-    let error_factor = (1.96 * sigma).exp();
+    let error_factor = (1.96 * sigma).r_exp();
     let half_width = sigma * 1.96 / (n as f64).sqrt();
 
     let mut sorted = samples.clone();

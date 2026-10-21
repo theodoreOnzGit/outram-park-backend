@@ -60,6 +60,7 @@
 //! Index-based throughout (newtype-free `usize` indices into `Vec`s), no
 //! lifetimes, no trait objects — per the workspace rules.
 
+use petir::mathf::RealMath;
 use crate::math::Vec3;
 
 /// A named boundary patch: a contiguous run of boundary faces.
@@ -182,7 +183,7 @@ impl VolumeMesh {
                 cell_area[n] = cell_area[n].sub(a);
             }
         }
-        let scale = self.total_volume().abs().cbrt().max(1.0);
+        let scale = self.total_volume().abs().r_cbrt().max(1.0);
         for (c, a) in cell_area.iter().enumerate() {
             if a.length() > 1e-9 * scale * scale {
                 return Err(format!(

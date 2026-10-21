@@ -1194,7 +1194,7 @@ impl PlantEnergyLedger {
 /// *Start-up caveat.* From the opening state the first 0.4 s is a prompt
 /// excursion (precursors start empty, +7 $ bank): the peak kernel reaches
 /// **2334 K at t = 0.4 s** (measured 2026-10-19). The running maximum
-/// therefore reads that on a fresh start until **Reset peak** is pressed.
+/// therefore reads that on a fresh start until **Reset max** (Diagnostics tab) is pressed.
 ///
 /// `NaN` in either field means "nothing recorded yet" (no step has resolved a
 /// kernel); it is never replaced by a substitute temperature.
@@ -1229,7 +1229,7 @@ impl PeakFuelRecord {
         }
     }
 
-    /// Reset the maximum to the CURRENT value (the **Reset peak** button). If
+    /// Reset the maximum to the CURRENT value (the **Reset max** (Diagnostics tab) button). If
     /// the current value is not finite the record becomes empty rather than
     /// holding a stale maximum.
     pub fn reset_to(&mut self, current_k: f64, time_s: f64) {
@@ -1420,7 +1420,7 @@ impl HtgrPlant {
         self.peak_fuel
     }
 
-    /// **Reset peak**: restart the running maximum from the current value.
+    /// **Reset max** (Diagnostics tab): restart the running maximum from the current value.
     pub fn reset_peak_fuel_to_current(&mut self) {
         let (t, now) = (self.peak_kernel_k(), self.sim_time.get::<second>());
         self.peak_fuel.reset_to(t, now);
@@ -6196,7 +6196,7 @@ mod tests {
     }
 
     /// On a live plant the record follows every step, is monotone between
-    /// resets, is never below the current kernel temperature, and Reset peak
+    /// resets, is never below the current kernel temperature, and Reset max
     /// restarts it from the current value (gh:#964).
     #[test]
     fn the_plant_tracks_the_peak_fuel_maximum_and_resets_it() {

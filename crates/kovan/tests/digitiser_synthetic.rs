@@ -57,6 +57,8 @@
 //! golden oracle (bead `op-amfh`); `oracle_comparison_shape` below shows the
 //! intended comparison path so wiring it up is mechanical when it lands.
 
+use petir::mathf::RealMath;
+
 use kovan::digitiser::auto::{auto_digitise, AutoDigitiseConfig, AxisPixelRefs, AxisValueSpec};
 use kovan::digitiser::calibration::AxisScale;
 use kovan::digitiser::dataset::{DigitisedDataset, FigureSource, ReviewStatus};
@@ -148,11 +150,11 @@ fn quadratic(x: f64) -> f64 {
 }
 
 fn log_line(x: f64) -> f64 {
-    3.0 * x.log10() + 2.0
+    3.0 * x.r_log10() + 2.0
 }
 
 fn power_law(x: f64) -> f64 {
-    8.0 * x.powf(-0.28)
+    8.0 * x.r_powf(-0.28)
 }
 
 #[test]
@@ -228,13 +230,13 @@ fn log_log_power_law_recovered_within_pixel_scale_decades() {
     let d = digitise(&s);
     let mut max_dec = 0.0f64;
     for p in &d.points {
-        let dec = (p.y.log10() - power_law(p.x).log10()).abs();
+        let dec = (p.y.r_log10() - power_law(p.x).r_log10()).abs();
         max_dec = max_dec.max(dec);
     }
     eprintln!(
         "log-log: {} points, max log-error = {max_dec:.6} decades ({:.3} % relative)",
         d.points.len(),
-        100.0 * (10f64.powf(max_dec) - 1.0)
+        100.0 * (10f64.r_powf(max_dec) - 1.0)
     );
     assert!(
         max_dec < 0.011,
@@ -378,7 +380,7 @@ fn oracle_comparison_shape() {
     // Stand-in "oracle": analytic samples at round decades.
     let oracle: Vec<(f64, f64)> = (0..=6)
         .map(|k| {
-            let x = 10f64.powi(k);
+            let x = 10f64.r_powi(k);
             (x, power_law(x))
         })
         .collect();
@@ -394,7 +396,7 @@ fn oracle_comparison_shape() {
             continue;
         };
         compared += 1;
-        let dec = (y.log10() - oy.log10()).abs();
+        let dec = (y.r_log10() - oy.r_log10()).abs();
         assert!(
             dec < tol_decades,
             "at x={ox}: digitised y={y} vs oracle {oy} ({dec} decades off)"
@@ -408,12 +410,12 @@ fn oracle_comparison_shape() {
 /// `op-amfh` comparison will reuse.
 fn interp_loglog(d: &DigitisedDataset, x: f64) -> Option<f64> {
     let pts = &d.points;
-    let lx = x.log10();
+    let lx = x.r_log10();
     let i = pts.iter().position(|p| p.x >= x)?;
     if i == 0 {
         return (pts[0].x == x).then_some(pts[0].y);
     }
     let (a, b) = (&pts[i - 1], &pts[i]);
-    let t = (lx - a.x.log10()) / (b.x.log10() - a.x.log10());
-    Some(10f64.powf(a.y.log10() + t * (b.y.log10() - a.y.log10())))
+    let t = (lx - a.x.r_log10()) / (b.x.r_log10() - a.x.r_log10());
+    Some(10f64.r_powf(a.y.r_log10() + t * (b.y.r_log10() - a.y.r_log10())))
 }

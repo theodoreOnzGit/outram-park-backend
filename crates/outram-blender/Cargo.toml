@@ -12,7 +12,7 @@ license.workspace = true
 # Foundation. No Blender source tree is bundled; exactly one file,
 # src/boolean_predicates.rs, is a literal attributed port (GPL-2.0-or-later,
 # GPL-3.0-compatible). See README.md "Naming & trademark" and NOTICE.
-description = "Geometry description and meshing for OUTRAM PARK: the CSG geometry description and navigation kernel, plotter and tally-mesh description ported from OpenMC, plus a GPL-licensed fork of Blender's mesh-authoring architecture with opt-in OpenFOAM volume-meshing (foam-mesh) bridges. Not affiliated with the Blender Foundation or OpenMC."
+description = "Geometry description and meshing for OUTRAM PARK: the CSG geometry description and navigation kernel, plotter and tally-mesh description ported from OpenMC, plus a fork of Blender's (GPL-2.0-or-later) mesh-authoring architecture with opt-in OpenFOAM volume-meshing (foam-mesh) bridges. Not affiliated with the Blender Foundation or OpenMC."
 homepage.workspace = true
 repository.workspace = true
 readme = "README.md"
@@ -142,26 +142,17 @@ outram-park-fork-cfmesh = { workspace = true, optional = true, features = ["foam
 outram-foam-mesh = { workspace = true, optional = true }
 farrer-park = { workspace = true, optional = true }
 
-# Pure-Rust dense+sparse linear algebra backend (Android-safe, no system BLAS).
-# For the large mesh solves the advanced operators need (Laplacian editing /
-# ARAP deformation / parameterization — see beads op-hzs). Per-element math
-# stays in fixed-size `crate::math` types; faer handles the big systems.
-#
-# Target-split (GitHub #486, maintainer decision 2026-10-02): mesh authoring
-# and faer are ALWAYS compiled (no `mesh` feature), so faer itself must build
-# for wasm32. Off wasm, faer's full default feature set (`rayon` included), as
-# before. On wasm32, without `rayon` (spindle -> atomic-wait has no wasm
-# backend) and `rand` (getrandom needs a wasm backend feature), which nothing
-# here uses. The root workspace entry is `default-features = false`, so the
-# features are named here.
+# ~~Pure-Rust dense+sparse linear algebra backend (faer).~~ REMOVED 2026-10-20
+# (gh #996): the sparse solves moved to `petir::sparse` (gh #994) and the last
+# use, the 3x3 dense SVD in `arap::closest_rotation`, to `petir::faer_dense`,
+# a no_std port of faer 0.24.4's dense SVD, bit-identical to it (petir's
+# `tests/faer_dense_svd_vs_faer.rs`). faer is no longer a dependency here; it
+# remains only as petir's dev-dependency for those comparisons.
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-faer = { workspace = true, features = ["std", "rayon", "sparse-linalg", "rand", "npy"] }
 # The plotter rasterises pixel rows in parallel; `rayon-core` has no wasm
 # backend, so on wasm32 `src/wasm_par.rs` stands in, serially (exact: pixels
 # are independent and collected in order).
 rayon = { workspace = true }
-[target.'cfg(target_arch = "wasm32")'.dependencies]
-faer = { workspace = true, features = ["std", "sparse-linalg"] }
 
 # GPU compute (headless, no window) — see src/gpu.rs. wgpu is **target-gated OFF
 # Android** (no system Vulkan/Metal loader there, and the workspace Android rule
@@ -171,7 +162,7 @@ faer = { workspace = true, features = ["std", "sparse-linalg"] }
 # 2026-10-02**: it is now OPTIONAL, enabled by the default-on `gpu` feature
 # (see [features]); both gates apply, so wgpu is built only on a non-Android
 # target AND with `gpu` on. The runtime CPU fallback is unchanged (probe → None,
-# or a recoverable GPU error → CPU). GPU is acceleration only; CPU (faer + math)
+# or a recoverable GPU error → CPU). GPU is acceleration only; CPU (~~faer~~ petir + math)
 # stays the trusted/deterministic path. Version inherited from the root
 # `[workspace.dependencies]` (matched to the eframe/egui 0.34 wgpu, so no
 # duplicate wgpu in the tree).
