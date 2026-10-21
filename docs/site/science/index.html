@@ -218,7 +218,7 @@
          2026-10-20). Chapters 1-2 are the TRISO-ATOPS ladder
          (tutorials/triso-atops/, crates/boon-lay/docs/tutorial), 3-5 the
          theory book (tutorials/fp-transport-theory/, crates/boon-lay/docs/theory);
-         lessons 1-28 number them in that order. Both books are tutorial books,
+         lessons 1-29 number them in that order (site lesson = book step + 8). Both books are tutorial books,
          so scripts/build-search-index.sh already indexes every chapter as
          "science": their links carry no data-kind, which would list each
          twice. The deep dives (deep-dives/triso-atops/, crates/boon-lay/docs/lessons)
@@ -246,39 +246,47 @@
       </div>
     </details>
     <details class="chapter" id="ch-fp-inside">
-      <summary>Chapter 3 · Theory: inside the particle, and how we compute diffusion <span class="range">(lessons 9&ndash;15)</span></summary>
+      <summary>Chapter 3 · Theory: inside the particle <span class="range">(lessons 9&ndash;12)</span></summary>
       <div class="chips">
         <a class="demo" href="../tutorials/fp-transport-theory/">How this book works</a>
         <a class="demo" href="../tutorials/fp-transport-theory/01-generation.html">9 · Where fission products come from: burnup and transmutation</a>
         <a class="demo" href="../tutorials/fp-transport-theory/02-recoil.html">10 · The first micrometres: recoil and stopping</a>
         <a class="demo" href="../tutorials/fp-transport-theory/03-layers-chemistry.html">11 · Through the layers: diffusion, and why some layers trap</a>
         <a class="demo" href="../tutorials/fp-transport-theory/04-sic.html">12 · Silicon carbide: the barrier that matters most</a>
-        <a class="demo" href="../tutorials/fp-transport-theory/05-random-walk.html">13 · One atom at a time: the random walk</a>
-        <a class="demo" href="../tutorials/fp-transport-theory/06-eulerian-fresco.html">14 · The aggregate view: Eulerian diffusion, Booth and FRESCO</a>
-        <a class="demo" href="../tutorials/fp-transport-theory/07-ray-equations.html">15 · Ray&rsquo;s equations: how this crate does it</a>
       </div>
     </details>
-    <details class="chapter" id="ch-fp-pressure">
-      <summary>Chapter 4 · Theory: when the particle is pressurised <span class="range">(lessons 16&ndash;18)</span></summary>
+    <details class="chapter" id="ch-fp-fidelity">
+      <!-- Reordered 2026-10-21 (maintainer direction, gh:#1011): one fidelity
+           ladder, high to low, then boon-lay. The old chapter ids
+           ch-fp-pressure and ch-triso-fuel-performance (the 2027 placeholder,
+           now the high-fidelity rung) are kept as anchors. -->
+      <summary>Chapter 4 · Theory: how we simulate the particle, from high fidelity down <span class="range">(lessons 13&ndash;19)</span></summary>
+      <span id="ch-fp-pressure" class="anchor"></span>
+      <span id="ch-triso-fuel-performance" class="anchor"></span>
       <div class="chips">
-        <a class="demo" href="../tutorials/fp-transport-theory/08-pressure-stress.html">16 · Gas, pressure and stress from first principles</a>
-        <a class="demo" href="../tutorials/fp-transport-theory/09-panama.html">17 · PANAMA&rsquo;s simplification, and ours</a>
-        <a class="demo" href="../tutorials/fp-transport-theory/10-stacy-boon-lay.html">18 · After FRESCO and PANAMA: STACY in HCP, and what boon-lay aims for</a>
+        <a class="demo" href="../tutorials/fp-transport-theory/05a-high-fidelity-fem.html">13 · The high-fidelity way: fuel performance by FEM, as BISON does (not built here)</a>
+        <a class="demo" href="../tutorials/fp-transport-theory/08-pressure-stress.html">14 · Simplify the particle to a pressure vessel: gas, pressure and stress</a>
+        <a class="demo" href="../tutorials/fp-transport-theory/09-panama.html">15 · PANAMA fuel failure: the pressure-vessel simplification, and ours</a>
+        <a class="demo" href="../tutorials/fp-transport-theory/05-random-walk.html">16 · Normal diffusion, one atom at a time: the random walk</a>
+        <a class="demo" href="../tutorials/fp-transport-theory/06-eulerian-fresco.html">17 · Normal diffusion, FRESCO-style: the aggregate view, Booth and FRESCO</a>
+        <a class="demo" href="../tutorials/fp-transport-theory/07-ray-equations.html">18 · boon-lay&rsquo;s novelty: Ray&rsquo;s equations, between the walk and the mesh</a>
+        <a class="demo" href="../tutorials/fp-transport-theory/10-stacy-boon-lay.html">19 · boon-lay&rsquo;s aim: after PANAMA and FRESCO, STACY in HCP, and one tool for both</a>
       </div>
+      <p class="status planned">A clean fuel-performance reimplementation for TRISO, in the spirit of INL&rsquo;s BISON, is planned for 2027; until then lesson 13 describes it and lessons 14&ndash;19 teach the cheaper models we have. Tracking issue <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/1011">#1011</a>.</p>
     </details>
     <details class="chapter" id="ch-fp-outside">
-      <summary>Chapter 5 · Theory: out of the particle, to the site and beyond <span class="range">(lessons 19&ndash;28)</span></summary>
+      <summary>Chapter 5 · Theory: out of the particle, to the site and beyond <span class="range">(lessons 20&ndash;29)</span></summary>
       <div class="chips">
-        <a class="demo" href="../tutorials/fp-transport-theory/11-into-the-coolant.html">19 · Into the coolant: fission products, tramp uranium and dust</a>
-        <a class="demo" href="../tutorials/fp-transport-theory/12-escape-and-removal.html">20 · Escape and removal: purification, leak, plate-out and lift-off</a>
-        <a class="demo" href="../tutorials/fp-transport-theory/13-brute-force-cfd.html">21 · The brute-force model: CFD for every species</a>
-        <a class="demo" href="../tutorials/fp-transport-theory/14-triso-atops.html">22 · TRISO-ATOPS: the cheap model</a>
-        <a class="demo" href="../tutorials/fp-transport-theory/15-dlofc.html">23 · A loss-of-cooling accident, and what TRISO-ATOPS leaves out</a>
-        <a class="demo" href="../tutorials/fp-transport-theory/16-building-and-bounds.html">24 · Outside the vessel: the building, and bounding assumptions</a>
-        <a class="demo" href="../tutorials/fp-transport-theory/17-dispersion-reality.html">25 · Beyond the site: how a release travels, and what it costs to compute</a>
-        <a class="demo" href="../tutorials/fp-transport-theory/18-puff-and-plume.html">26 · The Gaussian puff, then the Gaussian plume</a>
-        <a class="demo" href="../tutorials/fp-transport-theory/19-levels-of-fidelity.html">27 · Levels of fidelity</a>
-        <a class="demo" href="../tutorials/fp-transport-theory/20-htgr-sim-v1-chain.html">28 · The whole chain in one worked example: htgr_sim_v1</a>
+        <a class="demo" href="../tutorials/fp-transport-theory/11-into-the-coolant.html">20 · Into the coolant: fission products, tramp uranium and dust</a>
+        <a class="demo" href="../tutorials/fp-transport-theory/12-escape-and-removal.html">21 · Escape and removal: purification, leak, plate-out and lift-off</a>
+        <a class="demo" href="../tutorials/fp-transport-theory/13-brute-force-cfd.html">22 · The serious route: CFD plus coefficients for every species (not built here)</a>
+        <a class="demo" href="../tutorials/fp-transport-theory/14-triso-atops.html">23 · TRISO-ATOPS: lumped transport, the next best thing and what we use</a>
+        <a class="demo" href="../tutorials/fp-transport-theory/15-dlofc.html">24 · A loss-of-cooling accident, and what TRISO-ATOPS leaves out</a>
+        <a class="demo" href="../tutorials/fp-transport-theory/16-building-and-bounds.html">25 · Outside the vessel: the building, and bounding assumptions</a>
+        <a class="demo" href="../tutorials/fp-transport-theory/17-dispersion-reality.html">26 · Beyond the site: how a release travels, and what it costs to compute</a>
+        <a class="demo" href="../tutorials/fp-transport-theory/18-puff-and-plume.html">27 · The Gaussian puff, then the Gaussian plume</a>
+        <a class="demo" href="../tutorials/fp-transport-theory/19-levels-of-fidelity.html">28 · Levels of fidelity</a>
+        <a class="demo" href="../tutorials/fp-transport-theory/20-htgr-sim-v1-chain.html">29 · The whole chain in one worked example: htgr_sim_v1</a>
       </div>
     </details>
     <details class="chapter" id="ch-triso-deep-dives">
@@ -305,10 +313,6 @@
         <a class="demo" href="../deep-dives/triso-atops/coverage.html" data-kind="science" data-terms="coverage module lesson check boon-lay">Coverage: every module, its lesson, its check</a>
         <a class="demo" href="../deep-dives/triso-atops/call-trees.html" data-kind="science" data-terms="call tree appendix boon-lay functions">Call-tree appendices</a>
       </div>
-    </details>
-    <details class="chapter" id="ch-triso-fuel-performance">
-      <summary>Chapter 8 · Fuel performance: what happens to the particle itself <span class="range">(planned, 2027)</span></summary>
-      <p class="status planned">Placeholder, no lessons yet. A clean fuel-performance reimplementation for TRISO, in the spirit of INL&rsquo;s BISON (layer stresses, irradiation creep and swelling, kernel swelling, gas pressure, failure probability), is planned for 2027. <b>For now there are cheaper models:</b> STACY-style PANAMA pressure-vessel failure and FRESCO-like release, taught in <a href="../tutorials/fp-transport-theory/06-eulerian-fresco.html">lesson 14</a>, <a href="../tutorials/fp-transport-theory/09-panama.html">17</a> and <a href="../tutorials/fp-transport-theory/10-stacy-boon-lay.html">18</a>, with failure and release in chapter 2. Tracking issue <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/1011">#1011</a>.</p>
     </details>
   </section>
 

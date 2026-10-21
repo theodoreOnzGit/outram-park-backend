@@ -73,7 +73,7 @@ those cross into the **buffer**, a carbon layer about half voids
 ([rung 1](../../tutorials/triso-atops/triso.html)). The buffer therefore does
 two jobs the page-1 table lists: it absorbs the fragments that leave the
 kernel, so they do not damage the IPyC or SiC, and its voids give the released
-gas somewhere to go (the free volume of step 8, taken in PANAMA-I as half the
+gas somewhere to go (the free volume of step 6, taken in PANAMA-I as half the
 buffer shell).
 
 A lower density means a longer range, so the porous buffer must be thick

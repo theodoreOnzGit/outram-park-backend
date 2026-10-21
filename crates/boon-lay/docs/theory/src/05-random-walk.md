@@ -1,12 +1,15 @@
-# Step 5 — One atom at a time: the random walk
+# Step 8 — One atom at a time: the random walk
 
 > **Research, education and V&V only.** Not for reactor operation, licensing, safety decisions or emergency response.
 >
 > **Review status: first draft, 2026-10-18, AI-assisted (Claude Sonnet), not yet reviewed by a human.**
 
-**Back:** [Step 4, silicon carbide](./04-sic.md).
-**The question that led here:** steps 2 to 4 said that atoms
-diffuse, and that each layer has its own diffusion coefficient $D$.
+**Back:** [Step 7, PANAMA fuel failure](./09-panama.md), and before it
+[Step 4, silicon carbide](./04-sic.md).
+**The question that led here:** steps 6 and 7 reduced the particle to a
+pressure vessel that either holds or fails. An intact particle still lets
+some fission products out by normal diffusion, and steps 2 to 4 said that
+atoms diffuse, and that each layer has its own diffusion coefficient $D$.
 *How do we actually compute where the atoms end up?*
 
 **This page answers:** what is the model with the fewest assumptions,
@@ -41,7 +44,7 @@ $\partial C/\partial t = D\nabla^2 C$ says. So the equation is not an
 extra assumption. It is what the random walk becomes for a large crowd.
 
 This is why the random walk is the "fewest assumptions" model, and why
-the Eulerian models of [step 6](./06-eulerian-fresco.md) can be read as
+the Eulerian models of [step 9](./06-eulerian-fresco.md) can be read as
 its large-crowd limit.
 
 ### The cost, honestly
@@ -225,7 +228,7 @@ is then comparable to $p$ itself.
 
 **The trade.** The Eulerian view gives a smooth answer with no noise but
 needs a mesh and, to be cheap, strong assumptions. The random walk
-gives a noisy answer with almost no assumptions. Step 6 takes the other
+gives a noisy answer with almost no assumptions. Step 9 takes the other
 road.
 
 ---
@@ -243,6 +246,6 @@ road.
 
 **Next question:** the random walk is noisy and costs $1/\sqrt N$. If we
 only want the *average* behaviour, can we solve for the concentration
-directly? [Step 6, the aggregate view](./06-eulerian-fresco.md).
-Then [step 7](./07-ray-equations.md) says how this crate sits between the
+directly? [Step 9, the aggregate view](./06-eulerian-fresco.md).
+Then [step 10](./07-ray-equations.md) says how this crate sits between the
 two.

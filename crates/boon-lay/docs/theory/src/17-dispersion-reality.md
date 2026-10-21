@@ -1,14 +1,14 @@
-# Step 17 — Beyond the site: how a release travels, and what it costs to compute
+# Step 18 — Beyond the site: how a release travels, and what it costs to compute
 
 > **Research, education and V&V only.** Not for reactor operation, licensing, safety decisions or emergency response.
 > **Review status: first draft, 2026-10-18, AI-assisted (Claude Sonnet), not yet reviewed by a human.**
 
 **The question this page answers.** Activity that has left the building
-(Step 16) enters the environment: air first, then land, groundwater and sea.
+(Step 17) enters the environment: air first, then land, groundwater and sea.
 *How does it travel, which equations describe that with the fewest
 assumptions, and why can we not simply solve them?*
 
-**The question from the previous step.** [Step 16](./16-building-and-bounds.md)
+**The question from the previous step.** [Step 17](./16-building-and-bounds.md)
 ended with a release rate at the stack or building exit. This page asks where
 it goes next. Details and the interactive part are in `changi`'s own
 dispersion lessons; this page is the theory ladder that links to them and does
@@ -54,7 +54,7 @@ $$\frac{\partial C}{\partial t} + \nabla \cdot (\mathbf{u} C) = \nabla \cdot (K 
 
 with wind or current $\mathbf{u}$, eddy diffusivity $K$, source $S$, decay
 $\lambda$ and a scavenging rate $\Lambda$ (deposition, washout). This is the
-same equation as Step 11's coolant equation, with air in place of helium.
+same equation as Step 12's coolant equation, with air in place of helium.
 The assumption is that turbulence acts like a diffusivity $K$. `changi`'s
 steady-plume page starts here and derives the Gaussian from it
 ([rung 1, steps 1 and 2](../../deep-dives/dispersion/rungs/01-plume.html)).
@@ -74,7 +74,7 @@ gridded weather plus a random turbulent velocity (a Langevin process), and
 remove mass by decay, dry and wet deposition. The spread of the cloud
 *emerges* from the turbulence statistics instead of being fitted
 ([side path, the random walk](../../deep-dives/dispersion/rungs/side-random-walk.html)).
-This is the same random-walk idea as Step 5, with wind and turbulence in place
+This is the same random-walk idea as Step 8, with wind and turbulence in place
 of diffusion in a particle.
 
 ### Level 3: subsurface flow and reactive transport (PFLOTRAN)
@@ -131,7 +131,7 @@ A particle method lowers the first two costs, since particles need no
 fine mesh for the transport. It still needs the weather and many particles per
 species. So both families are used where the question needs a time-varying
 wind, and neither is used for a quick answer. Hence the cheap models of
-[Step 18](./18-puff-and-plume.md).
+[Step 19](./18-puff-and-plume.md).
 
 ## What we assumed
 
@@ -144,4 +144,4 @@ wind, and neither is used for a quick answer. Hence the cheap models of
 ## Next question
 
 What is the cheapest model that still shows the cloud moving?
-[Step 18](./18-puff-and-plume.md): the Gaussian puff, then the plume.
+[Step 19](./18-puff-and-plume.md): the Gaussian puff, then the plume.

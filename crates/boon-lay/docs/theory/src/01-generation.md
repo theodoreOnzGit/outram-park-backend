@@ -87,7 +87,7 @@ move the atom to its product. The histogram of identities over many atoms
 - *The judgement:* is the statistical noise acceptable? A rare nuclide needs
   many atoms to be seen at all.
 - *The reward:* no stiffness, no matrix exponential, cost linear in the number
-  of atoms, and the same walker can also diffuse (step 5).
+  of atoms, and the same walker can also diffuse (step 8).
 
 In the code: `WoSWalker::advance_until`, whose hop is cut short if an event
 fires first. See the
