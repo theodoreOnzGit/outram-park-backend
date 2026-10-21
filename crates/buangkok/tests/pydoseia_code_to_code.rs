@@ -603,6 +603,97 @@ fn rel_dev(actual: f64, expected: f64) -> Option<f64> {
     Some(((actual - expected) / expected).abs())
 }
 
+/// A fixture row accepted as differing from upstream by more than its group
+/// tolerance, with the reason and the deviation measured when it was accepted.
+struct KnownDifference {
+    group: &'static str,
+    /// The row's `inputs` cell, exactly as in the fixture.
+    inputs: &'static str,
+    output: &'static str,
+    /// Relative deviation measured on 2026-10-21 (`rel_dev(port, fixture)`).
+    measured_rel: f64,
+}
+
+impl KnownDifference {
+    /// Margin on the pin: 1 % of the measured deviation. Derivation: both
+    /// sides are deterministic and platform-independent (the fixture is a
+    /// committed file; the port's `sin` is PETIR's, the same bits on every
+    /// host), so the deviation reproduces to the bit and the margin only keeps
+    /// the check from being an equality on a float constant. It is far below
+    /// any real change: one ulp more or less in the `value` row moves its
+    /// deviation by about 50 % (2.9e-16 is 2 ulp at 6.0e-3), and the `abserr`
+    /// row moves in steps of the same order whenever QUADPACK's subdivision or
+    /// rounding-error estimate changes.
+    const MARGIN: f64 = 0.01;
+
+    fn bound(&self) -> f64 {
+        self.measured_rel * (1.0 + Self::MARGIN)
+    }
+}
+
+/// **Known differences, accepted by the maintainer on 2026-10-21 (gh:#985).**
+///
+/// Both are the `sin50` integrand on `[0, 3]`. The upstream reference was
+/// produced with glibc's `sin` (through numpy); the port's integrand calls
+/// PETIR's `sin`, which is the `libm` crate, a pure-Rust port of musl,
+/// compiled into PETIR and the same on every platform. The two `sin`s differ
+/// in the last bit at some of the 651 nodes, and that propagates into
+/// QUADPACK's sums and, much more strongly, into its rounding-error estimate
+/// `abserr`. Ablation: putting only this one call back on `std` makes all 56
+/// `quadpack` values bit-exact, so the QUADPACK port is unchanged.
+///
+/// | row | fixture | port | rel |
+/// |---|---|---|---|
+/// | `eps=1.49e-08`, `abserr` | `4.017649756234245e-13` | `4.017340959785412e-13` | `7.685997226468832e-5` |
+/// | `eps=0.00149`, `value` | `6.014983870435742e-3` | `6.014983870435744e-3` | `2.884003537404563e-16` |
+///
+/// The fixture and the group tolerance (0, bit-exact) are unchanged. Any
+/// other row out of tolerance, or either of these beyond `bound()`, still
+/// fails the test.
+const KNOWN_DIFFERENCES: &[KnownDifference] = &[
+    KnownDifference {
+        group: "quadpack",
+        inputs: "func=sin50;a=0.0;b=3.0;eps=1.49e-08",
+        output: "abserr",
+        measured_rel: 7.685997226468832e-5,
+    },
+    KnownDifference {
+        group: "quadpack",
+        inputs: "func=sin50;a=0.0;b=3.0;eps=0.00149",
+        output: "value",
+        measured_rel: 2.884003537404563e-16,
+    },
+];
+
+fn known_difference(row: &Row) -> Option<&'static KnownDifference> {
+    KNOWN_DIFFERENCES.iter().find(|k| {
+        k.group == row.group
+            && k.output == row.output
+            && k.inputs.split(';').all(|kv| {
+                let (key, val) = kv.split_once('=').unwrap();
+                row.inputs.get(key).map(String::as_str) == Some(val)
+            })
+            && k.inputs.split(';').count() == row.inputs.len()
+    })
+}
+
+/// Every known difference names a real fixture row, so a stale entry (a
+/// regenerated fixture, a renamed input) cannot silently widen nothing.
+#[test]
+fn every_known_difference_names_one_fixture_row() {
+    for k in KNOWN_DIFFERENCES {
+        let n = fixture()
+            .iter()
+            .filter(|r| known_difference(r).is_some_and(|m| std::ptr::eq(m, k)))
+            .count();
+        assert_eq!(
+            n, 1,
+            "{} {} {}: matched {n} rows",
+            k.group, k.inputs, k.output
+        );
+    }
+}
+
 /// Per group: (cases, values, max relative deviation, failures).
 fn compare(variant: Variant) -> BTreeMap<String, (usize, usize, f64, usize)> {
     let inp = inputs();
@@ -637,8 +728,15 @@ fn compare(variant: Variant) -> BTreeMap<String, (usize, usize, f64, usize)> {
             match rel_dev(*a, *x) {
                 Some(d) => {
                     e.2 = e.2.max(d);
-                    if d > t {
+                    let bound = known_difference(&row).map_or(t, |k| k.bound());
+                    if d > bound {
                         e.3 += 1;
+                        if variant == Variant::Faithful {
+                            eprintln!(
+                                "{} {:?} {}: port {a:e} vs fixture {x:e} (rel {d:e})",
+                                row.group, row.inputs, row.output
+                            );
+                        }
                     }
                 }
                 None => {

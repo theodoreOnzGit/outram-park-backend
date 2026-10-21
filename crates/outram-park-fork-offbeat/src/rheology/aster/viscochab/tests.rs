@@ -605,6 +605,24 @@ fn first_back_stress_saturates_at_c_over_gamma() {
 /// of its initial value over the 1 s hold; `p`, `R` and `q` all grew from
 /// zero; and the viscoplastic strain stayed deviatoric to `5.4e-20` on a
 /// strain of order `2.6e-4`, i.e. a relative `2e-16`.
+///
+/// **Regression and fix (2026-10-21, gh:#985).** This test failed from
+/// `b3cc5b66fb` (op-ad6h, 2026-08-13) until 2026-10-21 with
+/// `ConstitutiveNotConverged { residual: NaN }`; it was not caused by the PETIR
+/// routing (it fails identically at the pre-#985 baseline `316b8fde66`, and
+/// passes at `b3cc5b66fb~1`). Cause: the first RKF45 trial step (`dx = 1e-3`)
+/// overshoots into a state where the `N = 5` power law overflows (stage stress
+/// `~6e20 Pa`, rates `inf`/`NaN`), while the accepted state is finite. Upstream
+/// `Foam::adaptiveSolver::solve` rejects such a trial with
+/// `scale = max(safeScale*pow(inf, -alphaDec), minScale) = minScale` and
+/// retries; op-ad6h's guard instead returned `NonFiniteState` immediately. The
+/// fix is in `outram_foam_basic_lib::ode::adaptive_step` (and Rosenbrock23's
+/// duplicate loop): a non-finite TRIAL error shrinks by `min_scale` as upstream
+/// does; a non-finite derivative at the ACCEPTED state, or an underflow while
+/// the error is still non-finite, is still `NonFiniteState`. Prediction before
+/// the run: the printed numbers return to the 2026-08-05 record within a few
+/// ulps. Measured: every printed number above is **bit-identical** to the
+/// 2026-08-05 record.
 #[test]
 fn strain_controlled_relaxation_runs_through_the_ode_wrapper() {
     let law = ViscoplasticChabocheWithMemory::new(exercise_parameters()).unwrap();

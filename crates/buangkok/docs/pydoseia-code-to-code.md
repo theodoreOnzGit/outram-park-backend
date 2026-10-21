@@ -263,6 +263,32 @@ Second tranche:
 | `boundary_totals_text` | 18 | 90 | 3.68e-4 | 6e-4 |
 | `driver_raises` | 1 | 1 | 0 (exact) | 0 |
 
+**`quadpack` no longer exact since the PETIR routing (gh:#985), measured
+2026-10-21.** 2 of 56 values are outside the bit-exact tolerance: `sin50` on
+`[0, 3]` at `eps = 1.49e-8`, `abserr` `4.017649756234245e-13` (fixture) ->
+`4.017340959785412e-13` (port), relative `7.69e-5`; and `sin50` at
+`eps = 1.49e-3`, `value` `6.014983870435742e-3` -> `6.014983870435744e-3`,
+relative `2.9e-16` (2 ulp). Cause, by ablation: the test's integrand
+`(50 x).r_sin()` now runs PETIR's `sin`, which is the `libm` crate, a
+pure-Rust port of musl, compiled into PETIR and the same on every platform;
+the upstream reference used glibc's `sin` (through numpy). The last-bit
+differences propagate into QUADPACK's sums and its rounding-error estimate.
+Putting only that one call back on `std` makes all 56 values bit-exact again,
+so the QUADPACK port itself is unchanged.
+
+**Maintainer decision, 2026-10-21: accepted as a KNOWN DIFFERENCE.** The two
+rows are listed by name in `KNOWN_DIFFERENCES` in
+`tests/pydoseia_code_to_code.rs`, with the reason and the measured values.
+The fixture and the group tolerance (0) are unchanged. Each listed row is
+pinned at its measured deviation plus a 1 % margin: both sides are
+deterministic and platform-independent, so the deviation reproduces to the
+bit and the margin only avoids an equality on a float constant, while a
+one-ulp change in the `value` row would move its deviation by about 50 %. The
+test still fails if any other row leaves its tolerance or either listed row
+grows past its pin, and `every_known_difference_names_one_fixture_row` fails
+if an entry stops matching exactly one fixture row. Every other group is
+unchanged.
+
 Tolerances of the second tranche: 0 everywhere the port performs upstream's
 operations in upstream's order. `plume_shine_met` allows 1e-14 because numpy's
 `einsum` sums 54 products per sector in an order it chooses; it measured

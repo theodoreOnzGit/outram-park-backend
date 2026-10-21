@@ -56,10 +56,16 @@
 //! | 200 | 0.1 | 0.118810 | 2.4x **too tight** — over-confident |
 //! | 12 | 0.2 | 0.366628 | 1.27x wider than exact — the honest direction |
 //!
-//! With the sample sizes matched, tightening the tolerance walks the posterior
+//! ~~With the sample sizes matched, tightening the tolerance walks the posterior
 //! sd down towards the exact value and stops there rather than sailing past it:
 //! 0.5677 at `epsilon = 0.5`, 0.3464 at 0.2, 0.3110 at 0.05, against the exact
-//! 0.288195. That saturation is what a correctly-posed ABC problem looks like.
+//! 0.288195. That saturation is what a correctly-posed ABC problem looks like.~~
+//! **CORRECTED 2026-10-21 (gh:#985)** — that was a single seed. Over seeds
+//! 1..=30 the mean posterior sd is 0.5910 +/- 0.0028 (SE) at `epsilon = 0.5`,
+//! 0.3589 +/- 0.0026 at 0.2 and 0.2621 +/- 0.0096 at 0.05: tightening the
+//! tolerance does shrink the posterior, but at 0.05 it goes on **past** the
+//! exact 0.288195 (2.7 SE below it), so it does not saturate there and small
+//! tolerances are over-confident on average even with matched sample sizes.
 //!
 //! Both rows of that table are pinned by tests in this module, so the failure
 //! mode cannot quietly come back.
@@ -720,10 +726,13 @@ mod tests {
         );
     }
 
-    /// **Methodology — the tolerance does what it claims.** Shrinking
+    /// ~~**Methodology — the tolerance does what it claims.** Shrinking
     /// `epsilon` must tighten the ABC posterior towards the exact one. Three
     /// runs at `epsilon` = 0.5, 0.2 and 0.05, everything else fixed. The
-    /// posterior standard deviation must decrease monotonically.
+    /// posterior standard deviation must decrease monotonically.~~
+    /// **SUPERSEDED 2026-10-21 (gh:#985, maintainer accepted the finding):**
+    /// the single-seed premise is not one Monte Carlo can support; the
+    /// reformulated premise and its methodology are below.
     ///
     /// ~~**Result** (2026-09-16, `--release`, seed 7): posterior sd 0.567720 at
     /// epsilon 0.5, 0.346416 at 0.2, 0.311012 at 0.05. Monotone, and
@@ -744,33 +753,82 @@ mod tests {
     /// failure is noise, not a broken tolerance; and the 2026-09-16 reading
     /// "saturating just above the exact 0.288195" was a single-seed artefact:
     /// at 0.05, 19 of 30 seeds fall BELOW the exact sd (mean 0.262, i.e. over-
-    /// confident). Seed, epsilons and assertion are unchanged pending the
-    /// maintainer's decision (gh:#985).
+    /// confident). ~~Seed, epsilons and assertion are unchanged pending the
+    /// maintainer's decision (gh:#985).~~ Decided 2026-10-21: reformulated as
+    /// below.
+    ///
+    /// **Methodology (reformulated 2026-10-21, gh:#985).** The claim a single
+    /// seed cannot carry is moved to the quantity the scan supports: the
+    /// **mean** posterior sd over a fixed seed set decreases monotonically as
+    /// `epsilon` falls. Same problem as before (12 observations of
+    /// `N(2.5, 1)`, prior `N(0, 5^2)`, Wasserstein-1, Gaussian kernel, TEMCMC
+    /// with 1 000 samples, 12-sample simulator), at `epsilon` = 0.5, 0.2 and
+    /// 0.05, for **every seed in 1..=30** (the whole scan's set, chosen before
+    /// looking at any result and including seed 7, the one non-monotone
+    /// seed; no seed is dropped). For each `epsilon` the mean sd over the 30
+    /// seeds and its standard error (seed-to-seed sd / sqrt(30)) are printed.
+    /// Pass criterion: each mean is below the previous one by more than twice
+    /// the combined SE of the pair, so the decrease is a measured effect and
+    /// not noise. Runtime: 90 TEMCMC runs, 2.4 s in `--release` (one thread).
+    ///
+    /// **Prediction, written before the run** (from the 2026-10-20 scan
+    /// above): means about 0.591, 0.359, 0.262 with SEs about 0.003, 0.0026
+    /// and 0.0095; both drops exceed ten combined SEs.
+    ///
+    /// **Result** (2026-10-21, `--release`, seeds 1..=30): mean sd
+    /// **0.591045 +/- 0.002823** (SE) at 0.5, range 0.563 to 0.618;
+    /// **0.358897 +/- 0.002598** at 0.2, range 0.333 to 0.387;
+    /// **0.262090 +/- 0.009573** at 0.05, range 0.164 to 0.362. Drops: 0.2321
+    /// (60 combined SEs) and 0.0968 (**9.8** combined SEs). The means match the
+    /// prediction; the second drop is 9.8 SEs, not the "more than ten"
+    /// predicted, a small miss. The mean at 0.05 lies **below** the exact sd
+    /// 0.288195 by 2.7 SE, so ABC at this tolerance is over-confident on
+    /// average, the reverse of the struck 2026-09-16 reading.
     #[test]
     fn a_smaller_tolerance_tightens_the_posterior() {
-        let mut previous = f64::INFINITY;
+        const SEEDS: core::ops::RangeInclusive<i64> = 1..=30;
+        let mut previous: Option<(f64, f64, f64)> = None;
         let mut row = Vec::new();
         for epsilon in [0.5, 0.2, 0.05] {
-            let config = AbcLikelihood::new(
-                observed(),
-                DistanceMetric::Wasserstein1,
-                AbcKernel::Gaussian { epsilon },
-                1,
-                7,
-            )
-            .unwrap();
-            let ln_l = abc_ln_likelihood(config, simulator);
-            let sampler_config = TransitionalConfig::temcmc_defaults(1_000, 7).unwrap();
-            let result = temcmc(&prior(), ln_l, &sampler_config).unwrap();
-            let (_, sd) = mean_and_sd(&result.samples);
-            row.push((epsilon, sd));
-            assert!(
-                sd <= previous + 1e-9,
-                "sd grew from {previous} to {sd} when epsilon fell to {epsilon}"
+            let sds: Vec<f64> = SEEDS
+                .map(|seed| {
+                    let config = AbcLikelihood::new(
+                        observed(),
+                        DistanceMetric::Wasserstein1,
+                        AbcKernel::Gaussian { epsilon },
+                        1,
+                        seed,
+                    )
+                    .unwrap();
+                    let ln_l = abc_ln_likelihood(config, simulator);
+                    let sampler_config =
+                        TransitionalConfig::temcmc_defaults(1_000, seed).unwrap();
+                    let result = temcmc(&prior(), ln_l, &sampler_config).unwrap();
+                    mean_and_sd(&result.samples).1
+                })
+                .collect();
+            let n = sds.len() as f64;
+            let mean = sds.iter().sum::<f64>() / n;
+            let var = sds.iter().map(|s| (s - mean) * (s - mean)).sum::<f64>() / (n - 1.0);
+            let se = (var / n).sqrt();
+            let min = sds.iter().copied().fold(f64::INFINITY, f64::min);
+            let max = sds.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+            println!(
+                "epsilon {epsilon}: mean sd {mean:.6} +/- {se:.6} (SE, {} seeds), range {min:.6} to {max:.6}",
+                sds.len()
             );
-            previous = sd;
+            row.push((epsilon, mean, se));
+            if let Some((prev_eps, prev_mean, prev_se)) = previous {
+                let combined = (prev_se * prev_se + se * se).sqrt();
+                assert!(
+                    prev_mean - mean > 2.0 * combined,
+                    "mean sd did not fall significantly from epsilon {prev_eps} ({prev_mean} +/- {prev_se}) \
+                     to {epsilon} ({mean} +/- {se})"
+                );
+            }
+            previous = Some((epsilon, mean, se));
         }
-        println!("ABC posterior sd against tolerance: {row:?}");
+        println!("ABC mean posterior sd against tolerance (epsilon, mean, SE): {row:?}");
     }
 
     /// **Methodology — MCMC-free cross-check.** Rejection ABC produces an exact
