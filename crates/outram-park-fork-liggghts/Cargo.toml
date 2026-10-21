@@ -14,7 +14,7 @@ homepage.workspace = true
 repository.workspace = true
 readme = "README.md"
 categories.workspace = true
-exclude = ["docs"]
+exclude = ["docs", "examples/data"]
 
 # Where this crate sits in kovan's code map (GitHub #729, #733; maintainer
 # decisions 2026-10-06). row: degree of integration, 0-1 utilities and

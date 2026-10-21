@@ -110,7 +110,7 @@ whole settling history, and the two codes' heaps differ by ~~2.65~~ **1.34** deg
 ### Per-particle agreement — stronger than the bulk numbers suggest
 
 Both codes' settled HTR-10 beds are committed
-(`htr10_settled.csv` from LIGGGHTS, `htr10_settled_ours.csv` from this port),
+(`htr10_settled.csv` from LIGGGHTS, `htr10_settled_ours.csv` from this port, kept in ~~`reference-data/liggghts/`~~ **MOVED 2026-10-21 (gh:#1008)** `crates/outram-park-fork-liggghts/examples/data/`, excluded from the crates.io package),
 so they can be compared pebble by pebble rather than only in aggregate. Each of
 the 27 554 pebbles was integrated **50 000 steps independently** by the two
 codes from the same initial state. Displacement between the two final
