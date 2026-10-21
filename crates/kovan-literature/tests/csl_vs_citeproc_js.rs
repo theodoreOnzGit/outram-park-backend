@@ -247,7 +247,7 @@ fn the_reference_was_made_from_the_csl_json_this_crate_produces() {
 #[test]
 fn apa_matches_citeproc_js_except_the_recorded_differences() {
     let compared = check_styles(&[("apa", REFERENCE)]);
-    assert_eq!(compared, 726); // 242 entries x 3 parts (bib of 2026-10-20 with the Fission products entries; was 714 at 238, 657 at 219)
+    assert_eq!(compared, 756); // 252 entries x 3 parts (bib of 2026-10-21; was 726 at 242, 714 at 238, 657 at 219)
 }
 
 #[test]
@@ -328,5 +328,5 @@ fn other_styles_match_citeproc_js_except_the_recorded_differences() {
             include_str!("data/csl/reference_vancouver.json"),
         ),
     ]);
-    assert_eq!(compared, 4 * 726);
+    assert_eq!(compared, 4 * 756);
 }
