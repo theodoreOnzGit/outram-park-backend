@@ -113,7 +113,7 @@ supply for Ag along grain boundaries and for Pd attack.]`
 fissions, oxygen is freed, and the oxygen forms CO with the carbon, which adds
 to the gas pressure alongside the fission gases (PANAMA-I Eqs (5a) to (5f),
 oxygen released per fission, capped at $0.625$). It is a *chemistry* effect
-on the pressure of step 8, not on diffusion
+on the pressure of step 6, not on diffusion
 ([`oxygen.rs`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/oxygen.rs)).
 
 **Air and steam.** Water or air entering hot graphite is a separate kind of
@@ -148,7 +148,7 @@ Why linear in $D$ and not $\sqrt{D}$ is explained on [rung 4](../../tutorials/tr
    material, temperature range, burnup, fluence). *Fails:* outside that range;
    Jiang's fits were read from plotted correlations and the crate's tests
    check only the transcription.
-2. **One equivalent sphere per chemical group** (Booth; step 6). The layers
+2. **One equivalent sphere per chemical group** (Booth; step 9). The layers
    are thrown away. *Judgement:* one layer controls the release.
 3. **An empirical release-to-birth ratio** for gases and halogens. *Judgement:*
    a correlation fitted to data applies to your case.

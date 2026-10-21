@@ -18,8 +18,8 @@ do that the others do not, and what can take that away?**
    than through the pyrolytic carbon on either side.
 2. **Pressure vessel.** SiC is the strong layer. Fission gas and CO build up
    inside, and the SiC holds them. The porous buffer cannot, and the PyC
-   layers are not the load-bearing shell in this model. Step 8 gives the
-   stress; step 9 shows how PANAMA-I reduces it to a membrane formula in the
+   layers are not the load-bearing shell in this model. Step 6 gives the
+   stress; step 7 shows how PANAMA-I reduces it to a membrane formula in the
    SiC alone.
 
 If the SiC fails, both jobs fail at once. The layers are described this way in
@@ -53,7 +53,7 @@ comparison with a measured barrier.)
 $p = K D_2/(D_1 + K D_2)$, about $D_{\text{SiC}}/D_{\text{PyC}}$ when that
 ratio is small. For Cs at 1200 °C the contrast is 415 and $p = 2.4\times10^{-3}$:
 the atom must arrive about 400 times before it gets through. That is why a
-random walk across the SiC is slow, and why the Booth sphere (step 6) is
+random walk across the SiC is slow, and why the Booth sphere (step 9) is
 tempting.
 
 Note the temperature trend: for Ag and Kr the contrast **shrinks** as the
@@ -73,7 +73,7 @@ silver release through SiC that the Ag trend should be compared with.]`
    species the SiC does not hold back (Kr at 1600 °C, contrast 13), or when
    the SiC is breached.
 3. **Failure fraction.** Treat the layer as intact or failed with a probability
-   (step 9). An intact SiC gives almost no release of metals; a failed one
+   (step 7). An intact SiC gives almost no release of metals; a failed one
    gives the release of the unprotected inner layers.
 
 ## How SiC fails
@@ -81,7 +81,7 @@ silver release through SiC that the Ag trend should be compared with.]`
 ### Pressure failure
 
 The gas builds, the stress in the shell grows, and some SiC shells have a
-weak flaw. That is step 8 and step 9, and the boon-lay model is
+weak flaw. That is step 6 and step 7, and the boon-lay model is
 [`fuel_failure`](../../deep-dives/triso-atops/fuel-failure.html).
 
 ### Thermal decomposition at high temperature
@@ -132,6 +132,10 @@ attacker of SiC.]`
 
 ## Next question
 
-We know the layers, and SiC dominates. How do we compute atoms moving through
-them? [Step 5](./05-random-walk.md): one atom at a time. (Pressure and stress
-come later, in [Step 8](./08-pressure-stress.md).)
+We know the layers, and SiC dominates as both barrier and pressure vessel.
+How do we simulate the whole particle? The next part of the book walks down
+a fidelity ladder: the high-fidelity finite-element way first
+([Step 5](./05a-high-fidelity-fem.md)), then the particle as a pressure
+vessel and PANAMA's failure model (Steps 6 and 7), then normal diffusion,
+one atom at a time and then FRESCO-style (Steps 8 and 9), and finally what
+boon-lay adds (Steps 10 and 11).

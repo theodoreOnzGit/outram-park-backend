@@ -1,16 +1,18 @@
-# Step 14 — TRISO-ATOPS: the cheap model
+# Step 15 — TRISO-ATOPS: lumped fission-product transport, the next best thing and what we use
 
 > **Research, education and V&V only.** Not for reactor operation, licensing, safety decisions or emergency response.
 > **Review status: first draft, 2026-10-18, AI-assisted (Claude Sonnet), not yet reviewed by a human.**
 
-**The question this page answers.** [Step 13](./13-brute-force-cfd.md) showed
-that computing the circuit directly is too heavy. *What does the cheap model
+**The question this page answers.** [Step 14](./13-brute-force-cfd.md) showed
+that the serious route, CFD plus coefficients for every species, is too heavy
+and is not built in this workspace. The next best thing is lumped modelling,
+and it is what we have. *What does the cheap model
 look like, what does it assume, and how far can it be trusted for a reactor it
 was not built for?*
 
 **A note on the point of this page.** TRISO-ATOPS matters here as an
 *example* of how a calculation is made bearable by choosing what to keep. It
-is not the point in itself. [Step 19](./19-levels-of-fidelity.md) puts it
+is not the point in itself. [Step 20](./19-levels-of-fidelity.md) puts it
 beside boon-lay fuel failure and the dispersion models.
 
 ## 1. What TRISO-ATOPS is
@@ -38,7 +40,7 @@ acceptable.
 
 | Rung | Model | Dropped | Why acceptable |
 |---|---|---|---|
-| 0 | CFD, one equation per species (Step 13) | nothing | reference |
+| 0 | CFD, one equation per species (Step 14) | nothing | reference |
 | 1 | One lumped volume per core node, first-order rates (this page) | position in the loop, wall chemistry, dust | the rates carry the net effect |
 | 2 | Steady-state closed forms | time dependence | normal operation is slow compared with the transient |
 
@@ -55,7 +57,7 @@ TRISO-ATOPS lives at rungs 1 and 2. Rung 1 is the one the digital twin uses.
    metals, a breakthrough model for silver, an empirical correlation for noble
    gases and halogens, a fixed value for "other"
    ([`rb_fail`](../../code-review/#crates/boon-lay/src/triso_atops_fork/release_models/mod.rs::rb_fail)).
-   This is the Booth closed form of [Step 6](./06-eulerian-fresco.md) put to
+   This is the Booth closed form of [Step 9](./06-eulerian-fresco.md) put to
    work.
 3. A release rate by failure class. Noble gases and halogens use
    $(f_{hm} + f_{inc}) \langle R/B\rangle B$, silver uses $\langle R/B\rangle B$,
@@ -70,7 +72,7 @@ $$\frac{dC}{dt} = S - (\lambda + k_{plate} + k_{clean})C$$
 
 $$\frac{dP}{dt} = k_{plate}C - \lambda P, \qquad \frac{dH}{dt} = k_{clean}C - \lambda H$$
 
-These are the same balances as [Step 12](./12-escape-and-removal.md), with
+These are the same balances as [Step 13](./12-escape-and-removal.md), with
 $S$ the source into the coolant. The closed forms are in
 [`coolant_activity.rs`](../../code-review/#crates/boon-lay/src/triso_atops_fork/activities/coolant_activity.rs::circulating),
 and the whole chain for one node and nuclide is
@@ -80,7 +82,7 @@ starting state with a leak sink added, so a transient can carry the pools
 forward.
 
 **Part 3: the accident.** Release is computed from the temperature history and
-vented by gas expansion. [Step 15](./15-dlofc.md) goes through it.
+vented by gas expansion. [Step 16](./15-dlofc.md) goes through it.
 
 ## 4. How INL uses it for an MHTGR
 
@@ -140,7 +142,7 @@ Reasons it must be limited:
 - **A different reactor.** The failure fractions differ: $f_{hm}$ is
   $2 \times 10^{-5}$ in MHTGR Case A, against the measured
   $5.0 \times 10^{-5}$ (2.5 times) or the design specification
-  $3 \times 10^{-4}$ (15 times) recorded for HTR-10 (Step 11). Noble-gas and
+  $3 \times 10^{-4}$ (15 times) recorded for HTR-10 (Step 12). Noble-gas and
   halogen release is linear in it.
 - **A different size.** Case A and B are 350 and 600 MWth. HTR-10's power is
   not stated on the pages I read here [citation needed: maintainer to supply].
@@ -159,7 +161,7 @@ shape" and "NOT VALIDATED"
 
 | Simplification | Kind | Justification |
 |---|---|---|
-| Lumped pools per node | (b) | Direct CFD per species is too costly (Step 13) |
+| Lumped pools per node | (b) | Direct CFD per species is too costly (Step 14) |
 | First-order rates | (d) | No sorption data; rates are constants from the paper or from Liu & Cao |
 | MHTGR constants for HTR-10 | (d) | HTR-10 values are missing. Not shown small: the $f_{hm}$ ratio alone is 2.5 to 15 |
 | Uniform 776 C fuel temperature in the HTR-10 stage | (d) | Stand-in; effect **open** |
@@ -167,7 +169,7 @@ shape" and "NOT VALIDATED"
 ## What we assumed
 
 - One well-mixed volume per node, with constant first-order rates.
-- Groups stand in for chemistry (Step 12).
+- Groups stand in for chemistry (Step 13).
 - Release is the Booth, breakthrough or empirical closed form, not a walk.
 - MHTGR constants can stand in for HTR-10's where HTR-10's are missing.
 
@@ -175,4 +177,4 @@ shape" and "NOT VALIDATED"
 
 The most important use of the model is an accident. What physically happens in
 a loss-of-cooling accident, and which parts does TRISO-ATOPS keep?
-[Step 15](./15-dlofc.md).
+[Step 16](./15-dlofc.md).

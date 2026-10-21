@@ -1,10 +1,10 @@
-# Step 16 — Outside the vessel: the building, and bounding assumptions
+# Step 17 — Outside the vessel: the building, and bounding assumptions
 
 > **Research, education and V&V only.** Not for reactor operation, licensing, safety decisions or emergency response.
 > **Review status: first draft, 2026-10-18, AI-assisted (Claude Sonnet), not yet reviewed by a human.**
 
 **The question this page answers.** Activity that has left the primary circuit
-([Step 15](./15-dlofc.md)) is not yet in the environment. *What is between the
+([Step 16](./15-dlofc.md)) is not yet in the environment. *What is between the
 vessel and the open air, what would it do in reality, and why may a safety
 argument choose to give it no credit at all?*
 
@@ -45,7 +45,7 @@ In such a building, five things can happen to activity that arrives:
 with the connecting flows, sprayed or settled aerosol, wall deposition,
 filter efficiency as a function of particle size, and the pressure history
 that decides whether the disks open. That is the CFD-sized problem of
-[Step 13](./13-brute-force-cfd.md) again.
+[Step 14](./13-brute-force-cfd.md) again.
 
 **The cheap model the repo has:** one well-mixed volume. For the airborne
 inventory $B$ of a nuclide:
@@ -135,7 +135,7 @@ being an omission:
   pressure-vessel failure alone, which is non-conservative above about
   2000 C" ([`mod.rs`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/mod.rs)).
 - Swapping the Weibull median convention for the characteristic one shifts the
-  strength scale by about 4 % in the flattering direction (Step 9).
+  strength scale by about 4 % in the flattering direction (Step 7).
 
 ## 5. Where the book already makes bounding choices
 
@@ -143,16 +143,16 @@ All recorded in the repo, each with the direction it errs:
 
 | Where | Choice | Direction |
 |---|---|---|
-| Step 12 | Leak 1 % of the volume per day, "specified to be below" it (Liu & Cao 2002 s2.4.2) | an allowance, high |
-| Step 12 | Purification efficiencies "conservatively set" (99 %, 90 %) | per the source; efficiency high, so *low* removal needs a check [citation needed: maintainer to supply] |
-| Step 12 | Plate-out per cycle "conservatively taken" against AVR's 50 to 90 % (Liu & Cao) | per the source |
-| Step 12 | Desorption at 2.4 times coolant activity "might be overestimated by a factor of 3", not applied | high release |
-| Step 9 | PANAMA-I is "a conservative design model, and over-predicting failure is the direction a safety code is built to err in" (repo's `qualification.rs`) | high failure |
-| Step 9 | The with-corrosion variant "covers the measured values in a conservative approximation" (the report, as quoted in `history.rs`) | high failure |
-| Step 15 | Circulating activity leaves all at once | high release |
-| Step 16 | Building and filter not credited (gh:#409; Liu & Cao) | high release |
+| Step 13 | Leak 1 % of the volume per day, "specified to be below" it (Liu & Cao 2002 s2.4.2) | an allowance, high |
+| Step 13 | Purification efficiencies "conservatively set" (99 %, 90 %) | per the source; efficiency high, so *low* removal needs a check [citation needed: maintainer to supply] |
+| Step 13 | Plate-out per cycle "conservatively taken" against AVR's 50 to 90 % (Liu & Cao) | per the source |
+| Step 13 | Desorption at 2.4 times coolant activity "might be overestimated by a factor of 3", not applied | high release |
+| Step 7 | PANAMA-I is "a conservative design model, and over-predicting failure is the direction a safety code is built to err in" (repo's `qualification.rs`) | high failure |
+| Step 7 | The with-corrosion variant "covers the measured values in a conservative approximation" (the report, as quoted in `history.rs`) | high failure |
+| Step 16 | Circulating activity leaves all at once | high release |
+| Step 17 | Building and filter not credited (gh:#409; Liu & Cao) | high release |
 | Air-ingress case | Every particle exposed to air at 1400 C for 140 h | assumed worst |
-| Dispersion | Worst stability class, 1 m/s, ground release, 96 h (Step 18) | high concentration |
+| Dispersion | Worst stability class, 1 m/s, ground release, 96 h (Step 19) | high concentration |
 
 Two notes. The purification row: higher purification efficiency *lowers*
 circuit inventory, so "conservative" in the source's sense is a statement about
@@ -181,4 +181,4 @@ limit, which is a bound only if the plant's real leakage is below it.
 
 Activity that leaves the building enters the air. How does it travel, and what
 is the cheapest model that still says something useful?
-[Step 17](./17-dispersion-reality.md).
+[Step 18](./17-dispersion-reality.md).

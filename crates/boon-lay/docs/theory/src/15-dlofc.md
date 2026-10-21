@@ -1,9 +1,9 @@
-# Step 15 — A loss-of-cooling accident, and what TRISO-ATOPS leaves out
+# Step 16 — A loss-of-cooling accident, and what TRISO-ATOPS leaves out
 
 > **Research, education and V&V only.** Not for reactor operation, licensing, safety decisions or emergency response.
 > **Review status: first draft, 2026-10-18, AI-assisted (Claude Sonnet), not yet reviewed by a human.**
 
-**The question this page answers.** [Step 14](./14-triso-atops.md) gave a
+**The question this page answers.** [Step 15](./14-triso-atops.md) gave a
 cheap model of normal operation. *What physically happens in a
 depressurised loss-of-forced-cooling (DLOFC) accident, which parts of that
 does TRISO-ATOPS keep, and which does it leave out?*
@@ -21,7 +21,7 @@ standard physics the repo does not source, it is marked.
    The shape of the discharge in time is assumed, labelled as such there.
 2. **The helium leaves, and takes circulating activity with it.** Pressure
    drops, gas accelerates through the break, and surfaces see high shear.
-   This is where lift-off acts (Step 12).
+   This is where lift-off acts (Step 13).
 3. **The circulator stops.** Forced cooling is lost.
 4. **The core heats.** Decay heat continues after shutdown (textbook physics,
    not sourced in the repo), and with no forced flow the core temperature rises
@@ -29,14 +29,14 @@ standard physics the repo does not source, it is marked.
    tutorial describes it as "the core heats for days, and diffusion speeds up"
    and the repo's DLOFC example heats for 30 h
    ([`coolant.md`](../triso-atops/coolant.html), step 3 and step 4).
-5. **Diffusion speeds up.** The diffusion coefficient $D(T)$ of Steps 5 to 7
+5. **Diffusion speeds up.** The diffusion coefficient $D(T)$ of Steps 8 to 10
    is Arrhenius in temperature, so hot fuel releases far more than cold fuel.
-6. **Some particles fail.** Pressure and SiC decomposition (Step 9) raise the
+6. **Some particles fail.** Pressure and SiC decomposition (Step 7) raise the
    failed fraction as the temperature climbs.
 7. **The gas expands as it heats.** If any helium or air remains, heating
    pushes some of it out of the break.
 8. **Air or water may enter** through the break once the pressure is low
-   (Step 15, section 4).
+   (Step 16, section 4).
 9. **Later, the core cools slowly.** Release by venting stops.
 
 ## 2. What TRISO-ATOPS does with it
@@ -82,7 +82,7 @@ constant in time.
 - **Temperatures come from outside**: the accident history is an input.
   TRISO-ATOPS does not compute the heat-up.
 
-**CORRECTED 2026-10-18** (Step 20 review of `htgr_sim_v1`): the digital twin does not take this accident path. It vents the live pools instead, as [Step 20](./20-htgr-sim-v1-chain.md) section 6 shows.
+**CORRECTED 2026-10-18** (Step 21 review of `htgr_sim_v1`): the digital twin does not take this accident path. It vents the live pools instead, as [Step 21](./20-htgr-sim-v1-chain.md) section 6 shows.
 
 ## 3. The pools picture
 
@@ -122,7 +122,7 @@ Checked against the fork's code and docs. "Not modelled" gives the evidence.
 | **Chemistry-dependent sorption** | Not modelled | One $k_{plate}$ per group, or per element in `triso_atops_extensions`; no temperature, surface or species-chemistry dependence |
 | **Spatial variation around the circuit** | Partly | Core nodes have their own temperatures. The coolant pools have no position |
 | **Purification in the accident** | Not modelled in the fork | "no ... helium-purification-system term". The digital twin adds an assumed purification release |
-| **Building** | Not modelled | No term. See Step 16 |
+| **Building** | Not modelled | No term. See Step 17 |
 | **Time-varying leak** | Partly | Not upstream; a constant $k_{leak}$ in `live_pools.rs` |
 | **Heat-up** | Not modelled | The temperature history is an input |
 
@@ -160,4 +160,4 @@ a mechanistic attack model.
 
 Activity leaving the vessel is not yet activity leaving the plant. What is
 outside the vessel, and which parts of it may we **not** credit?
-[Step 16](./16-building-and-bounds.md).
+[Step 17](./16-building-and-bounds.md).

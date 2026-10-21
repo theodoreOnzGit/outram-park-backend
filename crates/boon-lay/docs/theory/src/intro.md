@@ -71,7 +71,12 @@ The CRP-6 benchmark particle is a little smaller (212.5 to 427.5 µm); see
 [rung 1](../../tutorials/triso-atops/triso.html) for both. The buffer is
 "about 50 % voids" in that page's words; the exact porosity is not needed here.
 
-## The map of the twenty steps
+## The map of the twenty-one steps
+
+~~Twenty steps, with diffusion before pressure.~~ **REORDERED 2026-10-21**
+(maintainer direction): the middle of the book is now one fidelity ladder,
+from high fidelity down, then boon-lay's novelty. The page files keep their
+old names so links still work; only the step numbers moved.
 
 ```text
  INSIDE THE PARTICLE
@@ -79,25 +84,25 @@ The CRP-6 benchmark particle is a little smaller (212.5 to 427.5 µm); see
    2  Recoil          fragments stop in kernel or buffer
    3  Layers          diffusion, and why chemistry makes layers differ
    4  Silicon carbide the barrier that matters most
- HOW WE COMPUTE DIFFUSION
-   5  Random walk     one atom at a time (Lagrangian)
-   6  Eulerian view   the aggregate; Booth; FRESCO
-   7  Ray's equations how this crate does it
- WHEN THE PARTICLE IS PRESSURISED
-   8  Pressure, stress   first principles (farrer-park)
-   9  PANAMA          its simplification, and ours
-  10  STACY in HCP    what comes after, and what boon-lay aims for
+ HOW WE SIMULATE THE PARTICLE: FROM HIGH FIDELITY DOWN
+   5  High fidelity   fuel performance by FEM, as BISON does (not built here)
+   6  Pressure vessel gas, pressure and stress
+   7  PANAMA          fuel failure: its simplification, and ours
+   8  Random walk     normal diffusion, one atom at a time (Lagrangian)
+   9  Eulerian view   normal diffusion, FRESCO-style; Booth
+  10  Ray's equations  boon-lay's novelty: between the walk and the mesh
+  11  boon-lay's aim  after PANAMA and FRESCO: STACY in HCP, and one tool
  OUT OF THE PARTICLE
-  11  Coolant         fission products, tramp uranium and dust
-  12  Removal         purification, leak, plate-out and lift-off
-  13  Brute force     CFD for every species
-  14  TRISO-ATOPS     the cheap model
-  15  DLOFC           a loss-of-cooling accident, and what is left out
-  16  Building        outside the vessel, and bounding assumptions
-  17  Dispersion      how a release travels, and what it costs to compute
-  18  Puff and plume  the Gaussian puff, then the Gaussian plume
-  19  Fidelity        levels of fidelity
-  20  htgr_sim_v1     the whole chain in one worked example, and a review route
+  12  Coolant         fission products, tramp uranium and dust
+  13  Removal         purification, leak, plate-out and lift-off
+  14  CFD + coeffs    the serious route (not built here)
+  15  TRISO-ATOPS     lumped transport: the next best, and what we use
+  16  DLOFC           a loss-of-cooling accident, and what is left out
+  17  Building        outside the vessel, and bounding assumptions
+  18  Dispersion      how a release travels, and what it costs to compute
+  19  Puff and plume  the Gaussian puff, then the Gaussian plume
+  20  Fidelity        levels of fidelity
+  21  htgr_sim_v1     the whole chain in one worked example, and a review route
 ```
 
 | Step | The question it answers | Fewest-assumptions model | Cheaper model |
@@ -106,29 +111,30 @@ The CRP-6 benchmark particle is a little smaller (212.5 to 427.5 µm); see
 | 2 | Where does a new atom start? | track each fragment's slowing down | recoil fraction from geometry |
 | 3 | How does it move through each layer? | transport with the real chemistry | one Arrhenius law per layer |
 | 4 | Why is SiC the barrier? | same, with SiC's physics | a diffusivity contrast |
-| 5 | How do we compute the motion? | random walk of each atom | (next two steps) |
-| 6 | Can we skip the atoms? | field equation on a mesh | Booth equivalent sphere |
-| 7 | What does this crate do? | Ray's equations | |
-| 8 | What does the gas do to the shell? | finite elements | thin-shell membrane stress |
-| 9 | How did PANAMA simplify? | | PANAMA-I formulas |
-| 10 | What comes next? | | |
-| 11 | What is in the coolant, and where from? | transport equation per species | groups, tramp-uranium fraction |
-| 12 | How does it leave the coolant? | wall sorption and flow physics | first-order rates per group |
-| 13 | What would solving it directly take? | CFD for every species | (the cost argument) |
-| 14 | What is the cheap model? | | TRISO-ATOPS lumped pools |
-| 15 | What happens in a loss-of-cooling accident? | compressible blowdown with chemistry | venting fraction and lift-off fraction |
-| 16 | What is outside the vessel? | flow and aerosol per cavity | one well-mixed volume, or no credit |
-| 17 | How does a release travel? | weather-driven CFD or particles | (the cost argument) |
-| 18 | What is the cheapest cloud model? | | Gaussian puff, then plume |
-| 19 | What is the pattern? | | levels of fidelity, and bounds |
-| 20 | Which rung does one real chain stand on? | | the htgr_sim_v1 chain, with a review route |
+| 5 | How is a particle simulated at high fidelity? | FEM fuel performance (BISON-style) | (the next steps) |
+| 6 | What does the gas do to the shell? | finite elements | thin-shell membrane stress |
+| 7 | How did PANAMA simplify failure? | | PANAMA-I formulas |
+| 8 | How do we compute diffusion? | random walk of each atom | (next step) |
+| 9 | Can we skip the atoms? | field equation on a mesh (FRESCO) | Booth equivalent sphere |
+| 10 | What does this crate add? | Ray's equations | |
+| 11 | What comes next? | | |
+| 12 | What is in the coolant, and where from? | transport equation per species | groups, tramp-uranium fraction |
+| 13 | How does it leave the coolant? | wall sorption and flow physics | first-order rates per group |
+| 14 | What would a serious analysis solve? | CFD plus coefficients for every species (not built) | (the cost argument) |
+| 15 | What is the next best thing, and what do we use? | | TRISO-ATOPS lumped pools |
+| 16 | What happens in a loss-of-cooling accident? | compressible blowdown with chemistry | venting fraction and lift-off fraction |
+| 17 | What is outside the vessel? | flow and aerosol per cavity | one well-mixed volume, or no credit |
+| 18 | How does a release travel? | weather-driven CFD or particles | (the cost argument) |
+| 19 | What is the cheapest cloud model? | | Gaussian puff, then plume |
+| 20 | What is the pattern? | | levels of fidelity, and bounds |
+| 21 | Which rung does one real chain stand on? | | the htgr_sim_v1 chain, with a review route |
 
 ## One thing to keep in mind throughout
 
 **Transmutation is not modelled while fission products move through the
 layers.** Step 1 describes transmutation as the physics demands. The crate's
 walker can transmute one target by one explicit `(n,γ)` channel, and the
-diffusion engine and the depletion engine are separate. Step 10 returns to
+diffusion engine and the depletion engine are separate. Step 11 returns to
 this as a stated simplification.
 
 ## What we assumed (for this page)
